@@ -51,24 +51,11 @@ struct PlanningSink {
   }
 };
 
-bool to_small(const std::vector<External> &input,
-              parity_certificate::SmallClause &output) {
-  if (input.size() > output.lits.size()) return false;
-  output.size = static_cast<uint8_t>(input.size());
-  std::copy(input.begin(), input.end(), output.lits.begin());
-  return true;
-}
-
 } // namespace
 
 std::vector<std::vector<External>> clausal_form(
     const std::vector<External> &variables, bool rhs) {
-  if (variables.size() > 8 ||
-      !std::is_sorted(variables.begin(), variables.end()) ||
-      std::adjacent_find(variables.begin(), variables.end()) != variables.end())
-    return {};
-  for (External variable : variables)
-    if (variable <= 0) return {};
+  if (variables.size() > 8 || !positive_scope(variables)) return {};
   std::vector<std::vector<External>> clauses;
   const uint32_t assignments = uint32_t{1} << variables.size();
   clauses.reserve(assignments >> (variables.empty() ? 0 : 1));
@@ -85,13 +72,8 @@ std::vector<std::vector<External>> clausal_form(
 }
 
 bool authenticates_clausal_form(const Equation &equation) {
-  if (equation.variables.empty() || equation.variables.size() > 8)
-    return false;
-  if (!std::is_sorted(equation.variables.begin(), equation.variables.end()) ||
-      std::adjacent_find(equation.variables.begin(), equation.variables.end()) !=
-          equation.variables.end() ||
-      std::any_of(equation.variables.begin(), equation.variables.end(),
-                  [](External variable) { return variable <= 0; }))
+  if (equation.variables.empty() || equation.variables.size() > 8 ||
+      !positive_scope(equation.variables))
     return false;
   const uint64_t expected_clauses =
       uint64_t{1} << (equation.variables.size() - 1);
@@ -283,7 +265,7 @@ bool build_proof_plan(const Image &image, size_t consequence_index,
       return false;
     for (const auto &clause : equation.premise_clauses) {
       parity_certificate::SmallClause small;
-      if (!to_small(clause, small)) return false;
+      if (!to_small_clause(clause, small)) return false;
       premises.push_back(small);
       for (External literal : clause)
         variables.insert(
@@ -298,7 +280,7 @@ bool build_proof_plan(const Image &image, size_t consequence_index,
   parity_certificate::Deriver<PlanningSink> deriver(sink);
   for (const auto &target : result.targets) {
     parity_certificate::SmallClause small, kept;
-    if (!to_small(target, small) ||
+    if (!to_small_clause(target, small) ||
         !deriver.derive(small, premises, consequence.variables, kept))
       return false;
   }

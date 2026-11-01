@@ -218,6 +218,36 @@ bool online_setting_override(int mode, strategy::SettingOverride &out) {
   return online_enum(mode, mapping, out);
 }
 
+bool setting_mode(int mode) {
+  return mode >= TACTIX_ONLINE_SETTING_INHERIT &&
+         mode <= TACTIX_ONLINE_SETTING_ENABLE;
+}
+
+// An explicit DISABLE/ENABLE replaces the converted default; INHERIT keeps it.
+void apply_setting(int mode, bool &target) {
+  if (mode != TACTIX_ONLINE_SETTING_INHERIT)
+    target = mode == TACTIX_ONLINE_SETTING_ENABLE;
+}
+
+// A converted family is installed only when its typed limits are valid.
+template <class Parameters>
+bool accept_valid(strategy::InprocessParameters &target,
+                  Parameters parameters) {
+  if (!parameters.valid())
+    return false;
+  target = std::move(parameters);
+  return true;
+}
+
+// A family whose C mirror shares its field list converts field by field.
+template <class Parameters, class Source>
+bool accept_copied(strategy::InprocessParameters &target,
+                   const Source &source) {
+  Parameters parameters;
+  strategy::copy_parameter_fields<Parameters>(parameters, source);
+  return accept_valid(target, std::move(parameters));
+}
+
 bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
                                       GraphSymmetryParameters &graph) {
   if (p.symmetry_fixing_mode < TACTIX_ONLINE_SYMMETRY_STABILIZER_ONLY ||
@@ -251,33 +281,20 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
       p.symmetry_cut_point < TACTIX_ONLINE_SYMMETRY_CUT_POINT_INHERIT ||
       p.symmetry_cut_point >
           TACTIX_ONLINE_SYMMETRY_CUT_POINT_LARGEST_ORBIT_LAST ||
-      p.symmetry_negation_fixing_first_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_negation_fixing_first_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_first_literal_fix_anchor_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_first_literal_fix_anchor_mode > TACTIX_ONLINE_SETTING_ENABLE ||
+      !setting_mode(p.symmetry_negation_fixing_first_mode) ||
+      !setting_mode(p.symmetry_first_literal_fix_anchor_mode) ||
       p.symmetry_base_selection < TACTIX_ONLINE_SYMMETRY_BASE_INHERIT ||
       p.symmetry_base_selection >
           TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER ||
-      p.symmetry_direct_generator_involutions_mode <
-          TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_direct_generator_involutions_mode >
-          TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_decompose_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_decompose_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_prefer_depth_first_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_prefer_depth_first_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_strong_certification_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_strong_certification_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_pointwise_root_stabilizer_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_pointwise_root_stabilizer_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_factor_support_components_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_factor_support_components_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_preserve_detector_order_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_preserve_detector_order_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_use_structured_generators_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_use_structured_generators_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.symmetry_stabilize_structured_variables_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.symmetry_stabilize_structured_variables_mode > TACTIX_ONLINE_SETTING_ENABLE ||
+      !setting_mode(p.symmetry_direct_generator_involutions_mode) ||
+      !setting_mode(p.symmetry_decompose_mode) ||
+      !setting_mode(p.symmetry_prefer_depth_first_mode) ||
+      !setting_mode(p.symmetry_strong_certification_mode) ||
+      !setting_mode(p.symmetry_pointwise_root_stabilizer_mode) ||
+      !setting_mode(p.symmetry_factor_support_components_mode) ||
+      !setting_mode(p.symmetry_preserve_detector_order_mode) ||
+      !setting_mode(p.symmetry_use_structured_generators_mode) ||
+      !setting_mode(p.symmetry_stabilize_structured_variables_mode) ||
       p.symmetry_structured_scope < TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_INHERIT ||
       p.symmetry_structured_scope > TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_AXIS_ANCHORS)
     return false;
@@ -335,43 +352,28 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
   if (p.symmetry_base_selection != TACTIX_ONLINE_SYMMETRY_BASE_INHERIT)
     graph.base_selection =
         static_cast<SymmetryBaseSelection>(p.symmetry_base_selection - 1);
-  if (p.symmetry_direct_generator_involutions_mode !=
-      TACTIX_ONLINE_SETTING_INHERIT)
-    graph.direct_generator_involutions_only =
-        p.symmetry_direct_generator_involutions_mode ==
-        TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_decompose_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.decompose =
-        p.symmetry_decompose_mode == TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_prefer_depth_first_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.prefer_depth_first =
-        p.symmetry_prefer_depth_first_mode == TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_strong_certification_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.strong_certification =
-        p.symmetry_strong_certification_mode == TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_factor_support_components_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.factor_support_components =
-        p.symmetry_factor_support_components_mode == TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_use_structured_generators_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.use_structured_generators =
-        p.symmetry_use_structured_generators_mode == TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_stabilize_structured_variables_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.stabilize_structured_variables =
-        p.symmetry_stabilize_structured_variables_mode == TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_preserve_detector_order_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.preserve_detector_order =
-        p.symmetry_preserve_detector_order_mode == TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_pointwise_root_stabilizer_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.pointwise_root_stabilizer =
-        p.symmetry_pointwise_root_stabilizer_mode == TACTIX_ONLINE_SETTING_ENABLE;
+  apply_setting(p.symmetry_direct_generator_involutions_mode,
+                graph.direct_generator_involutions_only);
+  apply_setting(p.symmetry_decompose_mode, graph.decompose);
+  apply_setting(p.symmetry_prefer_depth_first_mode, graph.prefer_depth_first);
+  apply_setting(p.symmetry_strong_certification_mode,
+                graph.strong_certification);
+  apply_setting(p.symmetry_factor_support_components_mode,
+                graph.factor_support_components);
+  apply_setting(p.symmetry_use_structured_generators_mode,
+                graph.use_structured_generators);
+  apply_setting(p.symmetry_stabilize_structured_variables_mode,
+                graph.stabilize_structured_variables);
+  apply_setting(p.symmetry_preserve_detector_order_mode,
+                graph.preserve_detector_order);
+  apply_setting(p.symmetry_pointwise_root_stabilizer_mode,
+                graph.pointwise_root_stabilizer);
   if (p.symmetry_cut_point != TACTIX_ONLINE_SYMMETRY_CUT_POINT_INHERIT)
     graph.cut_point = static_cast<SymmetryCutPoint>(p.symmetry_cut_point - 1);
-  if (p.symmetry_negation_fixing_first_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.negation_fixing_first =
-        p.symmetry_negation_fixing_first_mode == TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.symmetry_first_literal_fix_anchor_mode != TACTIX_ONLINE_SETTING_INHERIT)
-    graph.first_literal_fix_anchor =
-        p.symmetry_first_literal_fix_anchor_mode == TACTIX_ONLINE_SETTING_ENABLE;
+  apply_setting(p.symmetry_negation_fixing_first_mode,
+                graph.negation_fixing_first);
+  apply_setting(p.symmetry_first_literal_fix_anchor_mode,
+                graph.first_literal_fix_anchor);
   return true;
 }
 
@@ -396,21 +398,11 @@ bool online_orbitopal_parameters(const tactix_online_sr_parameters &p,
           TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_DETECTED_GENERATORS ||
       p.orbitopal_row_orbit_source >
           TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_REFINEMENT_CELLS ||
-      p.orbitopal_unique_literal_amo_mode <
-          TACTIX_ONLINE_SETTING_INHERIT ||
-      p.orbitopal_unique_literal_amo_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.orbitopal_generator_fallback_mode <
-          TACTIX_ONLINE_SETTING_INHERIT ||
-      p.orbitopal_generator_fallback_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.orbitopal_refinement_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-      p.orbitopal_refinement_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-      p.orbitopal_progress_feedback_mode <
-          TACTIX_ONLINE_SETTING_INHERIT ||
-      p.orbitopal_progress_feedback_mode >
-          TACTIX_ONLINE_SETTING_ENABLE ||
-      p.orbitopal_base_probe_filter_mode <
-          TACTIX_ONLINE_SETTING_INHERIT ||
-      p.orbitopal_base_probe_filter_mode > TACTIX_ONLINE_SETTING_ENABLE)
+      !setting_mode(p.orbitopal_unique_literal_amo_mode) ||
+      !setting_mode(p.orbitopal_generator_fallback_mode) ||
+      !setting_mode(p.orbitopal_refinement_mode) ||
+      !setting_mode(p.orbitopal_progress_feedback_mode) ||
+      !setting_mode(p.orbitopal_base_probe_filter_mode))
     return false;
   sr.orbitopal_orientation =
       static_cast<OrbitopalOrientation>(p.orbitopal_orientation);
@@ -435,31 +427,19 @@ bool online_orbitopal_parameters(const tactix_online_sr_parameters &p,
   sr.maximum_orbitopal_clique_ticks = p.maximum_orbitopal_clique_ticks;
   sr.maximum_orbitopal_product_states =
       p.maximum_orbitopal_product_states;
-  if (p.orbitopal_unique_literal_amo_mode !=
-      TACTIX_ONLINE_SETTING_INHERIT)
-    sr.complete_unique_literal_amos =
-        p.orbitopal_unique_literal_amo_mode ==
-        TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.orbitopal_generator_fallback_mode !=
-      TACTIX_ONLINE_SETTING_INHERIT)
-    sr.orbitopal_generator_fallback =
-        p.orbitopal_generator_fallback_mode ==
-        TACTIX_ONLINE_SETTING_ENABLE;
+  apply_setting(p.orbitopal_unique_literal_amo_mode,
+                sr.complete_unique_literal_amos);
+  apply_setting(p.orbitopal_generator_fallback_mode,
+                sr.orbitopal_generator_fallback);
   if (p.orbitopal_refinement_mode == TACTIX_ONLINE_SETTING_DISABLE)
     sr.maximum_orbitopal_refinement_orbits = 0;
   else if (p.orbitopal_refinement_mode == TACTIX_ONLINE_SETTING_ENABLE)
     sr.maximum_orbitopal_refinement_orbits =
         p.maximum_orbitopal_refinement_orbits;
-  if (p.orbitopal_progress_feedback_mode !=
-      TACTIX_ONLINE_SETTING_INHERIT)
-    sr.orbitopal_progress_feedback =
-        p.orbitopal_progress_feedback_mode ==
-        TACTIX_ONLINE_SETTING_ENABLE;
-  if (p.orbitopal_base_probe_filter_mode !=
-      TACTIX_ONLINE_SETTING_INHERIT)
-    sr.orbitopal_base_probe_filter =
-        p.orbitopal_base_probe_filter_mode ==
-        TACTIX_ONLINE_SETTING_ENABLE;
+  apply_setting(p.orbitopal_progress_feedback_mode,
+                sr.orbitopal_progress_feedback);
+  apply_setting(p.orbitopal_base_probe_filter_mode,
+                sr.orbitopal_base_probe_filter);
   sr.orbitopal_base_probe_factor =
       p.orbitopal_base_probe_factor
           ? p.orbitopal_base_probe_factor
@@ -520,14 +500,13 @@ bool online_parameters(const tactix_online_parameters &source,
         p.intermediate_width, p.source_count, p.output_width,
         p.descending != 0, p.maximum_proof_additions,
         p.maximum_tree_variables, p.consequence};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
+    return accept_valid(target, converted);
   }
   case TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE: {
     const auto &p = source.value.affine_consequence;
     strategy::AffineConsequenceParameters converted;
-    strategy::copy_affine_parameter_fields(converted, p);
+    strategy::copy_parameter_fields<strategy::AffineImageFields>(converted, p);
+    strategy::copy_parameter_fields<strategy::AffineBasisFields>(converted, p);
     converted.consequence = p.consequence;
     if (!p.semantics ||
         p.semantics == TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1)
@@ -539,204 +518,45 @@ bool online_parameters(const tactix_online_parameters &source,
           strategy::AffineConsequenceSemantics::CertifiedBasisV2;
     else
       return false;
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
+    return accept_valid(target, converted);
   }
-  case TACTIX_ONLINE_PARAMETERS_EXACT_COVER_EXTENSION: {
-    const auto &p = source.value.exact_cover_extension;
-    strategy::ExactCoverExtensionParameters converted{
-        p.arity,
-        p.maximum_items,
-        p.maximum_source_clauses,
-        p.maximum_source_literals,
-        p.maximum_recognition_work,
-        p.maximum_premise_references,
-        p.maximum_definitions,
-        p.maximum_additions,
-        p.maximum_literal_occurrences,
-        p.maximum_extent_growth,
-        p.maximum_external_extent,
-        p.maximum_journal_bytes};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_COVER: {
-    const auto &p = source.value.independent_set_cover;
-    strategy::IndependentSetCoverParameters converted{
-        p.maximum_clauses,
-        p.maximum_literals,
-        p.maximum_recognition_work,
-        p.maximum_proof_work,
-        p.maximum_proof_additions,
-        p.maximum_proof_deletions,
-        p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes,
-        p.maximum_vertices,
-        p.maximum_target};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_SEMANTIC_VARIABLE_ADVICE: {
-    const auto &p = source.value.semantic_variable_advice;
-    strategy::SemanticVariableAdviceParameters converted{
-        p.maximum_variables, p.maximum_priority_sum,
-        p.existing_theory_priority, p.introduced_theory_priority};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE: {
-    const auto &p = source.value.gf3_affine_consequence;
-    strategy::Gf3AffineConsequenceParameters converted{
-        p.maximum_source_clauses,
-        p.maximum_source_literals,
-        p.maximum_domains,
-        p.maximum_equations,
-        p.maximum_equation_arity,
-        p.maximum_tuples_per_equation,
-        p.maximum_result_arity,
-        p.maximum_result_tuples,
-        p.maximum_additions,
-        p.maximum_addition_literals,
-        p.maximum_recognition_work,
-        p.maximum_planning_work,
-        p.maximum_duplicate_scan_work,
-        p.maximum_revalidation_work,
-        p.maximum_proof_work,
-        p.maximum_proof_additions,
-        p.maximum_proof_literal_occurrences,
-        p.maximum_arena_words,
-        p.maximum_journal_bytes,
-        p.maximum_external_extent,
-        p.maximum_session_keys,
-        p.maximum_session_work};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
+  case TACTIX_ONLINE_PARAMETERS_EXACT_COVER_EXTENSION:
+    return accept_copied<strategy::ExactCoverExtensionParameters>(
+        target, source.value.exact_cover_extension);
+  case TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_COVER:
+    return accept_copied<strategy::IndependentSetCoverParameters>(
+        target, source.value.independent_set_cover);
+  case TACTIX_ONLINE_PARAMETERS_SEMANTIC_VARIABLE_ADVICE:
+    return accept_copied<strategy::SemanticVariableAdviceParameters>(
+        target, source.value.semantic_variable_advice);
+  case TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE:
+    return accept_copied<strategy::Gf3AffineConsequenceParameters>(
+        target, source.value.gf3_affine_consequence);
   case TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT: {
     const auto &p = source.value.direct_csp_support;
     if (p.allow_extension != 0 && p.allow_extension != 1) return false;
-    strategy::DirectCspSupportParameters converted{{
-        p.maximum_source_clauses,
-        p.maximum_source_literals,
-        p.maximum_recognition_work,
-        p.maximum_domain_values,
-        p.maximum_direct_clause_literals,
-        p.maximum_definition_clause_literals,
-        p.maximum_proof_work,
-        p.maximum_proof_additions,
-        p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes,
-        p.maximum_extent_growth,
-        p.maximum_external_extent,
-        p.maximum_session_keys,
-        p.maximum_session_work,
-        p.allow_extension != 0}};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
+    return accept_copied<strategy::DirectCspSupportParameters>(target, p);
   }
   case TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX:
     return false; // Retired tag 42; never reinterpret old payloads.
-  case TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY: {
-    const auto &p = source.value.nary_csp_equality;
-    strategy::NaryCspEqualityParameters converted{{
-        p.maximum_source_clauses,
-        p.maximum_source_literals,
-        p.maximum_recognition_work,
-        p.maximum_domain_values,
-        p.maximum_forbidden_tuples,
-        p.maximum_proof_work,
-        p.maximum_proof_additions,
-        p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes,
-        p.maximum_extent_growth,
-        p.maximum_external_extent,
-        p.maximum_session_keys}};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY_AMO: {
-    const auto &p = source.value.nary_csp_equality_amo;
-    strategy::NaryCspEqualityAmoParameters converted{{
-        p.maximum_source_clauses,
-        p.maximum_source_literals,
-        p.maximum_recognition_work,
-        p.maximum_domain_values,
-        p.maximum_forbidden_tuples,
-        p.maximum_proof_work,
-        p.maximum_proof_additions,
-        p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes,
-        p.maximum_external_extent,
-        p.maximum_session_keys}};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION: {
-    const auto &p = source.value.direct_php_refutation;
-    strategy::DirectPhpRefutationParameters converted{
-        p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
-        p.maximum_snapshot_work, p.maximum_recognition_clauses,
-        p.maximum_recognition_literals, p.maximum_recognition_work,
-        p.maximum_row_candidates, p.maximum_row_combinations,
-        p.maximum_mapping_trials, p.maximum_holes,
-        p.maximum_proof_additions, p.maximum_proof_deletions,
-        p.maximum_proof_literals, p.maximum_fresh_variables,
-        p.maximum_proof_events, p.maximum_replay_work};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE: {
-    const auto &p = source.value.gf3_gaussian_consequence;
-    strategy::Gf3GaussianConsequenceParameters converted;
-    strategy::copy_gf3_gaussian_parameter_fields(converted, p);
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE: {
-    const auto &source_row = source.value.gf3_general_row_consequence;
-    const auto &p = source_row.gaussian;
-    strategy::Gf3GaussianConsequenceParameters gaussian;
-    strategy::copy_gf3_gaussian_parameter_fields(gaussian, p);
-    strategy::Gf3GeneralRowConsequenceParameters converted{
-        gaussian, source_row.maximum_row_tuples,
-        source_row.maximum_row_width,
-        source_row.maximum_duplicate_scan_work,
-        source_row.maximum_arena_words};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_TSEITIN_CYCLE_BREAKING: {
-    const auto &p = source.value.tseitin_cycle_breaking;
-    strategy::TseitinCycleBreakingParameters converted{
-        p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
-        p.maximum_snapshot_work, p.maximum_snapshot_variables,
-        p.maximum_discovery_work, p.maximum_discovery_clauses,
-        p.maximum_discovery_groups, p.maximum_discovery_retained_bytes,
-        p.maximum_admission_work, p.maximum_planning_work,
-        p.maximum_witness_length, p.maximum_planning_additions,
-        p.maximum_transaction_work, p.maximum_transaction_additions,
-        p.maximum_transaction_deletions, p.maximum_transaction_helpers,
-        p.maximum_transaction_witness_literals, p.maximum_validation_ticks,
-        p.maximum_components, p.maximum_identity_bytes,
-        p.maximum_total_identity_bytes, p.maximum_identity_work,
-        p.maximum_journal_bytes,
-        p.maximum_session_keys, p.maximum_session_work,
-        p.maximum_session_identity_bytes};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
+  case TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY:
+    return accept_copied<strategy::NaryCspEqualityParameters>(
+        target, source.value.nary_csp_equality);
+  case TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY_AMO:
+    return accept_copied<strategy::NaryCspEqualityAmoParameters>(
+        target, source.value.nary_csp_equality_amo);
+  case TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION:
+    return accept_copied<strategy::DirectPhpRefutationParameters>(
+        target, source.value.direct_php_refutation);
+  case TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE:
+    return accept_copied<strategy::Gf3GaussianConsequenceParameters>(
+        target, source.value.gf3_gaussian_consequence);
+  case TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE:
+    return accept_copied<strategy::Gf3GeneralRowConsequenceParameters>(
+        target, source.value.gf3_general_row_consequence);
+  case TACTIX_ONLINE_PARAMETERS_TSEITIN_CYCLE_BREAKING:
+    return accept_copied<strategy::TseitinCycleBreakingParameters>(
+        target, source.value.tseitin_cycle_breaking);
   case TACTIX_ONLINE_PARAMETERS_CONGRUENCE: {
     const tactix_online_congruence_parameters &p = source.value.congruence;
     if (p.gate_count_limit > std::numeric_limits<size_t>::max() ||
@@ -825,12 +645,9 @@ bool online_parameters(const tactix_online_parameters &source,
   case TACTIX_ONLINE_PARAMETERS_REDUCE: {
     const tactix_online_reduce_parameters &source_reduce =
         source.value.reduce;
-    if (source_reduce.tier_protection_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-        source_reduce.tier_protection_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-        source_reduce.compact_collection_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-        source_reduce.compact_collection_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-        source_reduce.reduction_bookkeeping_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-        source_reduce.reduction_bookkeeping_mode > TACTIX_ONLINE_SETTING_ENABLE)
+    if (!setting_mode(source_reduce.tier_protection_mode) ||
+        !setting_mode(source_reduce.compact_collection_mode) ||
+        !setting_mode(source_reduce.reduction_bookkeeping_mode))
       return false;
     strategy::ReduceParameters reduce;
     reduce.tier1 = source_reduce.tier1;
@@ -839,16 +656,11 @@ bool online_parameters(const tactix_online_parameters &source,
       reduce.victim_numerator = source_reduce.victim_numerator;
       reduce.victim_denominator = source_reduce.victim_denominator;
     }
-    if (source_reduce.tier_protection_mode != TACTIX_ONLINE_SETTING_INHERIT)
-      reduce.protect_tiers =
-          source_reduce.tier_protection_mode == TACTIX_ONLINE_SETTING_ENABLE;
-    if (source_reduce.compact_collection_mode !=
-        TACTIX_ONLINE_SETTING_INHERIT)
-      reduce.compact_collection = source_reduce.compact_collection_mode ==
-                                  TACTIX_ONLINE_SETTING_ENABLE;
-    if (source_reduce.reduction_bookkeeping_mode != TACTIX_ONLINE_SETTING_INHERIT)
-      reduce.reduction_bookkeeping = source_reduce.reduction_bookkeeping_mode ==
-                                     TACTIX_ONLINE_SETTING_ENABLE;
+    apply_setting(source_reduce.tier_protection_mode, reduce.protect_tiers);
+    apply_setting(source_reduce.compact_collection_mode,
+                  reduce.compact_collection);
+    apply_setting(source_reduce.reduction_bookkeeping_mode,
+                  reduce.reduction_bookkeeping);
     target = reduce;
     return true;
   }
@@ -966,98 +778,36 @@ bool online_parameters(const tactix_online_parameters &source,
     target = converted;
     return true;
   }
-  case TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL: {
-    const tactix_online_balanced_signature_model_parameters &p =
-        source.value.balanced_signature_model;
-    strategy::BalancedSignatureModelParameters balanced{
-        p.maximum_balls, p.maximum_width, p.restarts, p.steps_per_restart,
-        p.samples_per_step, p.seed, p.completion_rounds};
-    if (!balanced.valid())
-      return false;
-    target = balanced;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL: {
-    const tactix_online_fermat_model_parameters &p =
-        source.value.fermat_model;
-    strategy::FermatModelParameters fermat{
-        p.maximum_bits, p.comparator_tail_clauses, p.rho_constants,
-        p.rho_iterations};
-    if (!fermat.valid())
-      return false;
-    target = fermat;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL: {
-    const tactix_online_lookup_circuit_model_parameters &p =
-        source.value.lookup_circuit_model;
-    strategy::LookupCircuitModelParameters lookup{
-        p.maximum_fanin, p.maximum_fanout, p.maximum_primary_inputs,
-        p.maximum_support, p.maximum_vector_gate_evaluations};
-    if (!lookup.valid())
-      return false;
-    target = lookup;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_SIMON_MODEL: {
-    const tactix_online_simon_model_parameters &p = source.value.simon_model;
-    strategy::SimonModelParameters simon{p.maximum_rounds,
-                                         p.maximum_candidates};
-    if (!simon.valid())
-      return false;
-    target = simon;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_STCONN_PROOF: {
-    const tactix_online_stconn_proof_parameters &p =
-        source.value.stconn_proof;
-    strategy::StconnProofParameters stconn{
-        p.maximum_width, p.maximum_columns, p.maximum_rup_clauses};
-    if (!stconn.valid())
-      return false;
-    target = stconn;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF: {
-    const tactix_online_signed_cardinality_proof_parameters &p =
-        source.value.signed_cardinality_proof;
-    strategy::SignedCardinalityProofParameters signed_cardinality{
-        p.maximum_variables, p.maximum_groups, p.maximum_constraints,
-        p.maximum_group_arity, p.maximum_bdd_nodes,
-        p.maximum_proof_additions};
-    if (!signed_cardinality.valid())
-      return false;
-    target = signed_cardinality;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_EXACT_COVER_MODEL: {
-    const tactix_online_exact_cover_model_parameters &p =
-        source.value.exact_cover_model;
-    strategy::ExactCoverModelParameters exact_cover{
-        p.block_arity, p.maximum_nodes, p.restarts, p.restart_nodes, p.seed};
-    if (!exact_cover.valid())
-      return false;
-    target = exact_cover;
-    return true;
-  }
-  case TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_MODEL: {
-    const tactix_online_independent_set_model_parameters &p =
-        source.value.independent_set_model;
-    strategy::IndependentSetModelParameters independent_set{
-        p.maximum_vertices, p.maximum_steps, p.completion_rounds, p.seed};
-    if (!independent_set.valid())
-      return false;
-    target = independent_set;
-    return true;
-  }
+  case TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL:
+    return accept_copied<strategy::BalancedSignatureModelParameters>(
+        target, source.value.balanced_signature_model);
+  case TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL:
+    return accept_copied<strategy::FermatModelParameters>(
+        target, source.value.fermat_model);
+  case TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL:
+    return accept_copied<strategy::LookupCircuitModelParameters>(
+        target, source.value.lookup_circuit_model);
+  case TACTIX_ONLINE_PARAMETERS_SIMON_MODEL:
+    return accept_copied<strategy::SimonModelParameters>(
+        target, source.value.simon_model);
+  case TACTIX_ONLINE_PARAMETERS_STCONN_PROOF:
+    return accept_copied<strategy::StconnProofParameters>(
+        target, source.value.stconn_proof);
+  case TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF:
+    return accept_copied<strategy::SignedCardinalityProofParameters>(
+        target, source.value.signed_cardinality_proof);
+  case TACTIX_ONLINE_PARAMETERS_EXACT_COVER_MODEL:
+    return accept_copied<strategy::ExactCoverModelParameters>(
+        target, source.value.exact_cover_model);
+  case TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_MODEL:
+    return accept_copied<strategy::IndependentSetModelParameters>(
+        target, source.value.independent_set_model);
   case TACTIX_ONLINE_PARAMETERS_RAMSEY_STARTUP: {
     const auto &p = source.value.ramsey_startup;
     strategy::RamseyStartupParameters ramsey{p.recognition_clauses,
         p.recognition_variables, p.recognition_pair_cells, p.recognition_work,
         p.certificate_work, p.maximum_nodes, p.maximum_additions, p.maximum_external_extent};
-    if (!ramsey.valid()) return false;
-    target = ramsey;
-    return true;
+    return accept_valid(target, ramsey);
   }
   case TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING: {
     const auto &p = source.value.graph_labeling;
@@ -1074,9 +824,7 @@ bool online_parameters(const tactix_online_parameters &source,
     graph.anneal_iterations = p.anneal_iterations;
     graph.stall_anneal_iterations = p.stall_anneal_iterations;
     graph.seed = p.seed;
-    if (!graph.valid()) return false;
-    target = graph;
-    return true;
+    return accept_valid(target, graph);
   }
   case TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL: {
     const auto &p = source.value.affine_model;
@@ -1105,9 +853,7 @@ bool online_parameters(const tactix_online_parameters &source,
       const auto &scope=p.scopes[i];
       a.scopes.push_back({scope.left_size,scope.left_weight,scope.right_weight,scope.total_weight});
     }
-    if(!a.valid())return false;
-    target=std::move(a);
-    return true;
+    return accept_valid(target, std::move(a));
   }
   case TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY: {
     const tactix_online_sr_parameters &p =
@@ -1128,8 +874,7 @@ bool online_parameters(const tactix_online_parameters &source,
         return false;
       sr.producer = legacy;
     }
-    if (p.complete_profile_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-        p.complete_profile_mode > TACTIX_ONLINE_SETTING_ENABLE)
+    if (!setting_mode(p.complete_profile_mode))
       return false;
     const bool complete = p.complete_profile_mode == TACTIX_ONLINE_SETTING_ENABLE;
     if (complete) {
@@ -1163,6 +908,31 @@ bool online_parameters(const tactix_online_parameters &source,
   default:
     return false;
   }
+}
+
+// A persistent affine profile: in-range tags, a converted basis, valid limits.
+bool online_affine_matrix(
+    const tactix_online_affine_matrix_initialize_parameters &p,
+    strategy::AffineMatrixInitializeParameters &profile) {
+  if (p.admission < 1 || p.admission > 2 || p.operation < 1 ||
+      p.operation > 10)
+    return false;
+  tactix_online_parameters encoded{};
+  encoded.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
+  encoded.value.affine_consequence = p.basis;
+  strategy::InprocessParameters basis;
+  if (!online_parameters(encoded, basis) ||
+      !std::holds_alternative<strategy::AffineConsequenceParameters>(basis))
+    return false;
+  profile.basis = std::get<strategy::AffineConsequenceParameters>(basis);
+  profile.admission =
+      static_cast<strategy::AffineMatrixInitializeParameters::Admission>(p.admission);
+  profile.operation =
+      static_cast<strategy::AffineMatrixInitializeParameters::Operation>(p.operation);
+  profile.maximum_retained_bytes = p.maximum_retained_bytes;
+  profile.maximum_deferred_deletions = p.maximum_deferred_deletions;
+  profile.maximum_deferred_literal_work = p.maximum_deferred_literal_work;
+  return profile.valid();
 }
 
 bool online_program(const tactix_online_program &source, const Kernel &kernel,
@@ -1847,8 +1617,8 @@ bool online_program_v14(const tactix_online_program_v14 &source,
     auto &step = target.sequence[i];
     if (input.direct_csp_profile == TACTIX_DIRECT_CSP_PROFILE_LEGACY) {
       if (input.guarded_cover_instance_count || input.guarded_cover_instances) return false;
-      const auto &p = input.guarded_cover_parameters;
-      if (p.maximum_source_clauses || p.maximum_source_literals || p.maximum_recognition_work || p.maximum_domains || p.maximum_domain_values || p.maximum_cover_literals || p.maximum_or_definitions || p.maximum_or_inputs || p.maximum_output_literals || p.maximum_proof_work || p.maximum_proof_additions || p.maximum_proof_literal_occurrences || p.maximum_journal_bytes || p.maximum_external_extent || p.maximum_session_keys || p.maximum_session_work) return false;
+      if (strategy::any_parameter_field<strategy::DirectCspGuardedCoverParameters>(
+              input.guarded_cover_parameters)) return false;
       continue;
     }
     if (input.direct_csp_profile != TACTIX_DIRECT_CSP_PROFILE_GUARDED_COVER_V2 ||
@@ -1856,22 +1626,8 @@ bool online_program_v14(const tactix_online_program_v14 &source,
         !std::holds_alternative<std::monostate>(step.parameters) ||
         !step.direct_csp_support_instances.empty()) return false;
     strategy::DirectCspGuardedCoverParameters p;
-    p.maximum_source_clauses = input.guarded_cover_parameters.maximum_source_clauses;
-    p.maximum_source_literals = input.guarded_cover_parameters.maximum_source_literals;
-    p.maximum_recognition_work = input.guarded_cover_parameters.maximum_recognition_work;
-    p.maximum_domains = input.guarded_cover_parameters.maximum_domains;
-    p.maximum_domain_values = input.guarded_cover_parameters.maximum_domain_values;
-    p.maximum_cover_literals = input.guarded_cover_parameters.maximum_cover_literals;
-    p.maximum_or_definitions = input.guarded_cover_parameters.maximum_or_definitions;
-    p.maximum_or_inputs = input.guarded_cover_parameters.maximum_or_inputs;
-    p.maximum_output_literals = input.guarded_cover_parameters.maximum_output_literals;
-    p.maximum_proof_work = input.guarded_cover_parameters.maximum_proof_work;
-    p.maximum_proof_additions = input.guarded_cover_parameters.maximum_proof_additions;
-    p.maximum_proof_literal_occurrences = input.guarded_cover_parameters.maximum_proof_literal_occurrences;
-    p.maximum_journal_bytes = input.guarded_cover_parameters.maximum_journal_bytes;
-    p.maximum_external_extent = input.guarded_cover_parameters.maximum_external_extent;
-    p.maximum_session_keys = input.guarded_cover_parameters.maximum_session_keys;
-    p.maximum_session_work = input.guarded_cover_parameters.maximum_session_work;
+    strategy::copy_parameter_fields<strategy::DirectCspGuardedCoverParameters>(
+        p, input.guarded_cover_parameters);
     if (!p.valid() || input.guarded_cover_instance_count <= 0 ||
         !input.guarded_cover_instances ||
         static_cast<uint64_t>(input.guarded_cover_instance_count) > p.maximum_session_keys)
@@ -1930,28 +1686,13 @@ bool online_program_v15(const tactix_online_program_v15 &source,
     const auto &srcp=input.equality_transitivity_parameters;
     if(input.equality_transitivity_profile==TACTIX_EQUALITY_TRANSITIVITY_PROFILE_LEGACY) {
       if(input.equality_transitivity_instances || input.equality_transitivity_instance_count ||
-         srcp.maximum_source_clauses || srcp.maximum_source_literals || srcp.maximum_recognition_work || srcp.maximum_planning_work || srcp.maximum_domain_values || srcp.maximum_forbidden_tuples || srcp.maximum_proof_work || srcp.maximum_proof_additions || srcp.maximum_proof_literal_occurrences || srcp.maximum_journal_bytes || srcp.maximum_external_extent || srcp.maximum_session_keys || srcp.maximum_session_bytes || srcp.maximum_arena_words || srcp.maximum_watch_words || srcp.maximum_preparation_bytes) return false;
+         strategy::any_parameter_field<strategy::NaryCspEqualityTransitivityParameters>(srcp)) return false;
       continue;
     }
     if(input.equality_transitivity_profile!=TACTIX_EQUALITY_TRANSITIVITY_PROFILE_EXACT ||
        step.rule!="NaryCspEqualityTransitivity" || !std::holds_alternative<std::monostate>(step.parameters)) return false;
     strategy::NaryCspEqualityTransitivityParameters p;
-    p.maximum_source_clauses=srcp.maximum_source_clauses;
-    p.maximum_source_literals=srcp.maximum_source_literals;
-    p.maximum_recognition_work=srcp.maximum_recognition_work;
-    p.maximum_planning_work=srcp.maximum_planning_work;
-    p.maximum_domain_values=srcp.maximum_domain_values;
-    p.maximum_forbidden_tuples=srcp.maximum_forbidden_tuples;
-    p.maximum_proof_work=srcp.maximum_proof_work;
-    p.maximum_proof_additions=srcp.maximum_proof_additions;
-    p.maximum_proof_literal_occurrences=srcp.maximum_proof_literal_occurrences;
-    p.maximum_journal_bytes=srcp.maximum_journal_bytes;
-    p.maximum_external_extent=srcp.maximum_external_extent;
-    p.maximum_session_keys=srcp.maximum_session_keys;
-    p.maximum_session_bytes=srcp.maximum_session_bytes;
-    p.maximum_arena_words=srcp.maximum_arena_words;
-    p.maximum_watch_words=srcp.maximum_watch_words;
-    p.maximum_preparation_bytes=srcp.maximum_preparation_bytes;
+    strategy::copy_parameter_fields<strategy::NaryCspEqualityTransitivityParameters>(p, srcp);
 
     if(!p.valid() || input.equality_transitivity_instance_count<=0 || !input.equality_transitivity_instances ||
        uint64_t(input.equality_transitivity_instance_count)>p.maximum_session_keys) return false;
@@ -1997,38 +1738,21 @@ bool online_program_v16(const tactix_online_program_v16 &source,
   for (int i=0;i<source.step_count;++i) {
     const auto &input=source.steps[i]; const auto &p=input.affine_matrix;
     auto &step=target.sequence[i];
-    tactix_online_parameters encoded{};
-    encoded.kind=TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
-    encoded.value.affine_consequence=p.basis;
     if (input.affine_matrix_profile==TACTIX_AFFINE_MATRIX_PROFILE_LEGACY) {
       // Require a truly empty extension. Validate fields, not struct padding.
       if (p.admission || p.operation || p.maximum_retained_bytes ||
           p.maximum_deferred_deletions || p.maximum_deferred_literal_work) return false;
       const auto &b=p.basis;
-      if (b.maximum_clauses || b.maximum_snapshot_literals || b.maximum_snapshot_work ||
-          b.maximum_groups || b.maximum_patterns || b.maximum_elimination_work || b.maximum_arity ||
-          b.maximum_intermediate_width || b.maximum_sources || b.maximum_output_width ||
-          b.maximum_proof_additions || b.maximum_proof_deletions || b.maximum_journal_bytes ||
-          b.consequence || b.semantics || b.basis_maximum_work || b.basis_maximum_intermediate_width ||
-          b.basis_maximum_sources || b.basis_maximum_premises || b.basis_maximum_nodes ||
-          b.basis_maximum_direct_width || b.maximum_external_extent || b.maximum_session_keys || b.maximum_session_work)
+      if (strategy::any_parameter_field<strategy::AffineImageFields>(b) ||
+          b.consequence || b.semantics ||
+          strategy::any_parameter_field<strategy::AffineBasisFields>(b))
         return false;
       continue;
     }
     if (input.affine_matrix_profile!=TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1 ||
         step.rule!="AffineMatrixInitialize" || !std::holds_alternative<std::monostate>(step.parameters)) return false;
-    strategy::InprocessParameters converted;
-    if (!online_parameters(encoded,converted)) return false;
-    const auto *basis=std::get_if<strategy::AffineConsequenceParameters>(&converted);
-    if (!basis || p.admission<1 || p.admission>2 || p.operation<1 || p.operation>10) return false;
     strategy::AffineMatrixInitializeParameters out;
-    out.basis=*basis;
-    out.admission=static_cast<strategy::AffineMatrixInitializeParameters::Admission>(p.admission);
-    out.operation=static_cast<strategy::AffineMatrixInitializeParameters::Operation>(p.operation);
-    out.maximum_retained_bytes=p.maximum_retained_bytes;
-    out.maximum_deferred_deletions=p.maximum_deferred_deletions;
-    out.maximum_deferred_literal_work=p.maximum_deferred_literal_work;
-    if (!out.valid()) return false;
+    if (!online_affine_matrix(p, out)) return false;
     step.parameters=out;
   }
   return !validate || strategy::validate_online_strategy_program(target);
@@ -2156,6 +1880,43 @@ int configure_online_program(tactix_solver *solver, const Source *source,
   // finish_input retires unused variables but does not remap those literals.
   input_complete(solver);
   return 0;
+}
+
+// The rule a public entry point names: registered, unretired and admitted by
+// its guard. `rejected` is the caller's own argument check, made before the
+// guard runs.
+const RuleVTable *guarded_rule(tactix_solver *s, int rule_id,
+                               bool rejected = false) {
+  input_complete(s);
+  const auto &rules = tactix_rules();
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
+      rules[rule_id].retired || rejected)
+    return nullptr;
+  const RuleVTable &r = rules[rule_id];
+  return rule_guard(r, s->kernel) ? &r : nullptr;
+}
+
+int public_rule_instances(Kernel &k,
+                          uint32_t (*enumerate)(Kernel &, uint64_t *, uint32_t),
+                          uint64_t *out, int cap) {
+  if (!enumerate) { // no uint64 choice; X5 has a separate structured tuple
+    if (cap >= 1)
+      out[0] = INSTANCE_CANONICAL;
+    return cap >= 1 ? 1 : 0;
+  }
+  return static_cast<int>(enumerate(k, out, static_cast<uint32_t>(cap)));
+}
+
+// tactix_retier_schedule mirrors RetierSchedule field for field.
+struct RetierScheduleFields {};
+template <class Schedule, class Visitor>
+auto visit_parameter_fields(strategy::FieldsOf<RetierScheduleFields>,
+                            Schedule &s, Visitor visit) {
+  return visit(s.enabled, s.next_conflicts, s.interval, s.max_interval,
+               s.growth, s.tier1_default, s.tier2_default,
+               s.tier1_relative_permille, s.tier2_relative_permille,
+               s.tier1_by_mode[0], s.tier1_by_mode[1], s.tier2_by_mode[0],
+               s.tier2_by_mode[1]);
 }
 
 } // namespace
@@ -2500,58 +2261,35 @@ static int result_code(tactix_solver *solver, ApplyResult res) {
 }
 
 int tactix_apply(tactix_solver *s, int rule_id) {
-  input_complete(s);
-  const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
-      rules[rule_id].retired)
-    return -1;
-  const RuleVTable &r = rules[rule_id];
-  if (!rule_guard(r, s->kernel))
+  const RuleVTable *r = guarded_rule(s, rule_id);
+  if (!r)
     return -1;
   const ApplyResult res =
-      apply_published(s, [&] { return apply_rule(r, s->kernel); });
+      apply_published(s, [&] { return apply_rule(*r, s->kernel); });
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(s, res);
 }
 
 int tactix_rule_instances(tactix_solver *s, int rule_id, uint64_t *out,
                           int cap) {
-  input_complete(s);
-  const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
-      rules[rule_id].retired || cap < 0)
-    return -1;
-  const RuleVTable &r = rules[rule_id];
-  if (!rule_guard(r, s->kernel))
-    return -1;
-  if (!r.instances) { // no uint64 choice; X5 has a separate structured tuple
-    if (cap >= 1)
-      out[0] = INSTANCE_CANONICAL;
-    return cap >= 1 ? 1 : 0;
-  }
-  return static_cast<int>(
-      r.instances(s->kernel, out, static_cast<uint32_t>(cap)));
+  const RuleVTable *r = guarded_rule(s, rule_id, cap < 0);
+  return r ? public_rule_instances(s->kernel, r->instances, out, cap) : -1;
 }
 
 int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
-  input_complete(s);
-  const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
-      rules[rule_id].retired)
-    return -1;
-  const RuleVTable &r = rules[rule_id];
-  if (!rule_guard(r, s->kernel))
+  const RuleVTable *r = guarded_rule(s, rule_id);
+  if (!r)
     return -1;
   // A rule with no uint64 instance surface rejects a non-canonical payload.
   // Running the canonical round instead would be payload aliasing: the caller
   // asked for one instance and silently got another action, with no way to notice
   // (tests/test_api_instances.c).
-  if (!r.apply_instance && instance != INSTANCE_CANONICAL)
+  if (!r->apply_instance && instance != INSTANCE_CANONICAL)
     return -1;
   const ApplyResult res = apply_published(s, [&] {
-    if (instance == INSTANCE_CANONICAL || !r.apply_instance)
-      return apply_rule(r, s->kernel); // canonical (the only instance if no slot)
-    return apply_rule_instance(r, s->kernel, instance);
+    if (instance == INSTANCE_CANONICAL || !r->apply_instance)
+      return apply_rule(*r, s->kernel); // canonical (the only instance if no slot)
+    return apply_rule_instance(*r, s->kernel, instance);
   });
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(s, res);
@@ -2616,45 +2354,29 @@ int tactix_apply_condition(tactix_solver *s, const int *clause,
 
 int tactix_rule_semantic_instances(tactix_solver *s, int rule_id,
                                    uint64_t *out, int cap) {
-  input_complete(s);
-  const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
-      rules[rule_id].retired || cap < 0)
+  const RuleVTable *r = guarded_rule(s, rule_id, cap < 0);
+  if (!r)
     return -1;
-  const RuleVTable &r = rules[rule_id];
-  if (!rule_guard(r, s->kernel))
-    return -1;
-  const auto enumerate = r.semantic_instances ? r.semantic_instances
-                                              : r.instances;
-  if (!enumerate) {
-    if (cap >= 1)
-      out[0] = INSTANCE_CANONICAL;
-    return cap >= 1 ? 1 : 0;
-  }
-  return static_cast<int>(
-      enumerate(s->kernel, out, static_cast<uint32_t>(cap)));
+  return public_rule_instances(
+      s->kernel, r->semantic_instances ? r->semantic_instances : r->instances,
+      out, cap);
 }
 
 int tactix_apply_semantic_instance(tactix_solver *s, int rule_id,
                                    uint64_t instance) {
-  input_complete(s);
-  const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
-      rules[rule_id].retired)
+  const RuleVTable *r = guarded_rule(s, rule_id);
+  if (!r)
     return -1;
-  const RuleVTable &r = rules[rule_id];
-  if (!rule_guard(r, s->kernel))
-    return -1;
-  const auto apply = r.apply_semantic_instance ? r.apply_semantic_instance
-                                               : r.apply_instance;
+  const auto apply = r->apply_semantic_instance ? r->apply_semantic_instance
+                                                : r->apply_instance;
   if (!apply && instance != INSTANCE_CANONICAL)
     return -1;
   const ApplyResult result = apply_published(s, [&] {
     if (instance == INSTANCE_CANONICAL || !apply)
-      return apply_rule(r, s->kernel);
-    if (r.apply_semantic_instance)
-      return apply_rule_semantic_instance(r, s->kernel, instance);
-    return apply_rule_instance(r, s->kernel, instance);
+      return apply_rule(*r, s->kernel);
+    if (r->apply_semantic_instance)
+      return apply_rule_semantic_instance(*r, s->kernel, instance);
+    return apply_rule_instance(*r, s->kernel, instance);
   });
   kernel_check_invariants(s->kernel);
   return result_code(s, result);
@@ -2668,41 +2390,17 @@ int tactix_install_retier_schedule(tactix_solver *s,
       schedule->tier1_relative_permille > 1000 ||
       schedule->tier2_relative_permille > 1000)
     return -1;
-  RetierSchedule &installed = s->kernel.retier_schedule;
-  installed.enabled = schedule->enabled != 0;
-  installed.next_conflicts = schedule->next_conflicts;
-  installed.interval = schedule->interval;
-  installed.max_interval = schedule->max_interval;
-  installed.growth = schedule->growth;
-  installed.tier1_default = schedule->tier1_default;
-  installed.tier2_default = schedule->tier2_default;
-  installed.tier1_relative_permille = schedule->tier1_relative_permille;
-  installed.tier2_relative_permille = schedule->tier2_relative_permille;
-  for (int mode = 0; mode != 2; ++mode) {
-    installed.tier1_by_mode[mode] = schedule->tier1_by_mode[mode];
-    installed.tier2_by_mode[mode] = schedule->tier2_by_mode[mode];
-  }
+  strategy::copy_parameter_fields<RetierScheduleFields>(
+      s->kernel.retier_schedule, *schedule);
   return 0;
 }
 
 int tactix_read_retier_schedule(tactix_solver *s, tactix_retier_schedule *out) {
   if (!s || !out)
     return -1;
-  const RetierSchedule &installed = s->kernel.retier_schedule;
   *out = {};
-  out->enabled = installed.enabled;
-  out->next_conflicts = installed.next_conflicts;
-  out->interval = installed.interval;
-  out->max_interval = installed.max_interval;
-  out->growth = installed.growth;
-  out->tier1_default = installed.tier1_default;
-  out->tier2_default = installed.tier2_default;
-  out->tier1_relative_permille = installed.tier1_relative_permille;
-  out->tier2_relative_permille = installed.tier2_relative_permille;
-  for (int mode = 0; mode != 2; ++mode) {
-    out->tier1_by_mode[mode] = installed.tier1_by_mode[mode];
-    out->tier2_by_mode[mode] = installed.tier2_by_mode[mode];
-  }
+  strategy::copy_parameter_fields<RetierScheduleFields>(
+      *out, s->kernel.retier_schedule);
   return 0;
 }
 
@@ -3010,28 +2708,11 @@ int tactix_install_parameters(tactix_solver *s, int rule_id,
 
 int tactix_install_affine_matrix_profile(
     tactix_solver *s, const tactix_online_affine_matrix_initialize_parameters *p) {
-  if (!s || !p || p->admission < 1 || p->admission > 2 || p->operation < 1 ||
-      p->operation > 10)
-    return -1;
-  tactix_online_parameters encoded{};
-  encoded.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
-  encoded.value.affine_consequence = p->basis;
-  strategy::InprocessParameters basis;
-  if (!online_parameters(encoded, basis) ||
-      !std::holds_alternative<strategy::AffineConsequenceParameters>(basis))
-    return -1;
   strategy::AffineMatrixInitializeParameters profile;
-  profile.basis = std::get<strategy::AffineConsequenceParameters>(basis);
-  profile.admission =
-      static_cast<strategy::AffineMatrixInitializeParameters::Admission>(p->admission);
-  profile.operation =
-      static_cast<strategy::AffineMatrixInitializeParameters::Operation>(p->operation);
-  profile.maximum_retained_bytes = p->maximum_retained_bytes;
-  profile.maximum_deferred_deletions = p->maximum_deferred_deletions;
-  profile.maximum_deferred_literal_work = p->maximum_deferred_literal_work;
+  if (!s || !p || !online_affine_matrix(*p, profile))
+    return -1;
   const strategy::InprocessParameters converted = profile;
-  if (!profile.valid() ||
-      !strategy::validate_parameter_installation("AffineMatrixInitialize", converted))
+  if (!strategy::validate_parameter_installation("AffineMatrixInitialize", converted))
     return -1;
   return strategy::install_permanent_parameters(s->kernel, converted) ? 0 : -1;
 }

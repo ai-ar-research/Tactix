@@ -4,6 +4,7 @@
 #include "rules/semantic_extension/nary_csp_relation.hpp"
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace tactix {
@@ -45,6 +46,22 @@ struct NaryCspRelationCaptureRequest {
 
   bool valid() const;
 };
+
+// A ternary owner capture under an action's source and recognition limits.
+template <class Limits>
+NaryCspRelationCaptureRequest nary_csp_ternary_capture_request(
+    std::vector<std::vector<int32_t>> domains, const Limits &limits) {
+  NaryCspRelationCaptureRequest request;
+  request.domains = std::move(domains);
+  request.maximum_source_clauses = limits.maximum_source_clauses;
+  request.maximum_source_literals = limits.maximum_source_literals;
+  request.maximum_recognition_work = limits.maximum_recognition_work;
+  request.maximum_domains = 3;
+  request.maximum_domain_values = limits.maximum_domain_values;
+  request.maximum_forbidden_tuples = limits.maximum_forbidden_tuples;
+  request.maximum_external_extent = limits.maximum_external_extent;
+  return request;
+}
 
 struct NaryCspRelationCaptureResult {
   NaryCspRelationCaptureStatus status =

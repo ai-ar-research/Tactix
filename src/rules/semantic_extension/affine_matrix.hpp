@@ -62,6 +62,8 @@ struct MatrixEvent {
   // this path: canceled variables may be assigned only after the implication.
   std::vector<uint64_t> deferred_exact_support;
   uint32_t reason_width = 0;
+
+  friend bool operator==(const MatrixEvent &, const MatrixEvent &) = default;
 };
 
 struct MatrixSliceLimits {
@@ -296,6 +298,9 @@ private:
   bool prepare_simplex(uint64_t, SimplexState &) const;
   void simplex_evaluate_row(size_t, size_t &, size_t &, bool &,
                             size_t * = nullptr, size_t * = nullptr) const;
+  bool simplex_row_contains(size_t row, size_t coordinate) const;
+  size_t simplex_first_singleton(size_t coordinate, bool value) const;
+  size_t simplex_opposite_singleton(size_t coordinate) const;
   void simplex_make_core_reason(size_t, size_t, MatrixEvent &) const;
   void simplex_make_deferred_core_support(size_t, size_t,
                                           MatrixEvent &) const;
@@ -310,6 +315,11 @@ private:
                             bool defer_exact_reason = false) const;
   void materialize_simplex_rows() const;
   void reset_sparse_after_simplex();
+  void clear_row_index();
+  void record_synchronization(MatrixSynchronizationKind, bool incremental,
+                              bool restored_predecessor, size_t prefix,
+                              size_t conditioned, bool dirty_update,
+                              size_t dirty_rows);
   SimplexState simplex_;
   mutable std::vector<MatrixRow> simplex_rows_cache_;
   mutable bool simplex_rows_cache_valid_ = false;

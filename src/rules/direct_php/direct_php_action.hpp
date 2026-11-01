@@ -21,7 +21,7 @@ struct DirectPhpActionLimits {
 
   bool valid() const;
   friend bool operator==(const DirectPhpActionLimits &,
-                         const DirectPhpActionLimits &);
+                         const DirectPhpActionLimits &) = default;
 };
 
 struct DirectPhpActionRequest {

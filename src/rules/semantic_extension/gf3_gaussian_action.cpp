@@ -4,6 +4,7 @@
 #include "strategy/action_status_statistics.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -20,11 +21,7 @@ struct Gf3GaussianActionSessionAccess {
 
 namespace {
 
-bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
+using gf3_live_common::add_work;
 
 gf3_gaussian_live::Request request(const Kernel &kernel,
                                    const Gf3GaussianActionLimits &limits,
@@ -69,38 +66,11 @@ Gf3GaussianActionStatus status(gf3_gaussian_live::Status value) {
   }
 }
 
-bool valid_identity(const std::string &identity) {
-  if (identity.size() <= 5 || identity.rfind("g3b1:", 0) ||
-      (identity.size() - 5) % 2)
-    return false;
-  return std::all_of(identity.begin() + 5, identity.end(), [](char ch) {
-    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
-  });
-}
-
 } // namespace
 
 bool Gf3GaussianActionLimits::valid() const {
-  const auto &r = recognition;
-  const auto &c = certificate;
-  const auto &b = c.bridge;
-  const auto &g = b.gaussian;
-  return r.maximum_source_clauses && r.maximum_source_literals &&
-         r.maximum_domains && r.maximum_equations &&
-         r.maximum_equation_arity >= 2 && r.maximum_tuples_per_equation &&
-         b.maximum_work && b.maximum_source_clauses &&
-         b.maximum_source_literals && b.maximum_domains &&
-         b.maximum_equations && b.maximum_terms &&
-         b.maximum_authentication_references &&
-         b.maximum_references_per_equation && g.maximum_work &&
-         g.maximum_fill_entries && g.maximum_intermediate_width &&
-         g.maximum_provenance_terms && g.maximum_derivations &&
-         g.maximum_retained_plan_bytes && c.maximum_work &&
-         c.maximum_events && c.maximum_event_literals &&
-         c.maximum_active_clauses &&
-         c.maximum_retained_source_references && c.maximum_event_width &&
-         c.maximum_branch_domains && c.maximum_consequences &&
-         maximum_capture_work && maximum_revalidation_work &&
+  return recognition.valid() && certificate.bridge.valid() &&
+         certificate.valid() && maximum_capture_work && maximum_revalidation_work &&
          maximum_proof_additions && maximum_proof_literal_occurrences &&
          maximum_journal_bytes && maximum_identity_bytes &&
          maximum_external_extent && maximum_session_keys &&
@@ -176,7 +146,9 @@ Gf3GaussianActionResult gf3_gaussian_action_apply(
     output.status = Gf3GaussianActionStatus::Inapplicable;
     return output;
   }
-  if (!limits.valid() || !valid_identity(identity)) return output;
+  if (!limits.valid() ||
+      !gf3_live_common::valid_hex_identity(identity, "g3b1:"))
+    return output;
   if (identity.size() > limits.maximum_session_identity_bytes) {
     output.status = Gf3GaussianActionStatus::ResourceExhausted;
     return output;

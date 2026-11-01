@@ -50,17 +50,11 @@ Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
       return decline(Status::InvalidRequest);
 
   csp_exact_theory::Snapshot<Premise> snapshot;
-  switch (snapshot.build(source, bounds.maximum_source_literals, spend,
-                         result.consumed_source_clauses,
-                         result.consumed_source_literals)) {
-  case csp_exact_theory::BuildStatus::Valid: break;
-  case csp_exact_theory::BuildStatus::IncompleteTheory:
-    return decline(Status::IncompleteTheory);
-  case csp_exact_theory::BuildStatus::BoundExceeded:
-    return decline(Status::BoundExceeded);
-  case csp_exact_theory::BuildStatus::EffortExhausted:
-    return decline(Status::EffortExhausted);
-  }
+  if (const Status built = snapshot.build(
+          source, bounds.maximum_source_literals, spend,
+          result.consumed_source_clauses, result.consumed_source_literals);
+      built != Status::Planned)
+    return decline(built);
   auto complement = [](int32_t literal) { return -literal; };
 
   if (!snapshot.validate_domain(relation.left, spend) ||
@@ -105,11 +99,6 @@ Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
   if (result.forbidden_premises.empty())
     return decline(Status::NoConsequence);
 
-  auto source_reference = [&](uint64_t occurrence) {
-    const Premise *premise = snapshot.by_occurrence.at(occurrence);
-    return Reference{ReferenceKind::SourceOccurrence, occurrence,
-                     premise->native_proof_id};
-  };
   auto bounded_push = [&](Addition addition, uint64_t &addition_literals) {
     if (result.additions.size() >= bounds.maximum_additions ||
         addition.clause.size() >
@@ -131,8 +120,9 @@ Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
                           result.compatible_right_values.end());
     support.proof = ProofStep::Rup;
     for (uint64_t occurrence : result.forbidden_premises)
-      support.antecedents.push_back(source_reference(occurrence));
-    support.antecedents.push_back(source_reference(relation.right.at_least_one));
+      support.antecedents.push_back(snapshot.reference(occurrence));
+    support.antecedents.push_back(
+        snapshot.reference(relation.right.at_least_one));
     if (!bounded_push(std::move(support), addition_literals))
       return decline(Status::BoundExceeded);
   } else {
@@ -170,11 +160,12 @@ Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
     support.clause = {-relation.left.values[selected_left_value], extension};
     support.proof = ProofStep::Rup;
     for (uint64_t occurrence : result.forbidden_premises)
-      support.antecedents.push_back(source_reference(occurrence));
+      support.antecedents.push_back(snapshot.reference(occurrence));
     for (uint64_t index : divider_indices)
       support.antecedents.push_back(
           {ReferenceKind::PlannedAddition, index, 0});
-    support.antecedents.push_back(source_reference(relation.right.at_least_one));
+    support.antecedents.push_back(
+        snapshot.reference(relation.right.at_least_one));
     if (!bounded_push(std::move(support), addition_literals))
       return decline(Status::BoundExceeded);
     result.projection = {extension, result.compatible_right_values, true, true,

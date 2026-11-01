@@ -19,6 +19,8 @@ struct SourceRow {
   uint64_t source_id = 0;
   std::vector<Term> terms;
   uint8_t rhs = 0;
+
+  friend bool operator==(const SourceRow &, const SourceRow &) = default;
 };
 
 struct ProvenanceTerm {
@@ -75,6 +77,12 @@ struct Limits {
   uint32_t maximum_provenance_terms = 0;
   uint32_t maximum_derivations = 0;
   uint64_t maximum_retained_plan_bytes = 0;
+  bool valid() const {
+    return maximum_work && maximum_fill_entries &&
+           maximum_intermediate_width && maximum_provenance_terms &&
+           maximum_derivations && maximum_retained_plan_bytes;
+  }
+  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 enum class LimitKind : uint8_t {
@@ -99,6 +107,8 @@ struct Statistics {
   uint64_t work = 0;
   uint64_t fill_entries = 0;
   uint64_t retained_plan_bytes = 0;
+
+  friend bool operator==(const Statistics &, const Statistics &) = default;
 };
 
 struct Plan {
@@ -117,6 +127,11 @@ struct Result {
 };
 
 using Charge = std::function<bool(uint64_t)>;
+
+// Retained-plan bytes of one outcome, and of one derivation node (false on
+// overflow).
+inline constexpr uint64_t retained_outcome_bytes = 16;
+bool retained_derivation_bytes(const Derivation &node, uint64_t &bytes);
 
 // Build a deterministic reduced row-echelon basis.  Input order has no effect:
 // rows are processed by their normalized equation and then source identity.

@@ -562,6 +562,18 @@ static void queue_dequeue(Kernel &k, Var v) {
 // heuristics.hpp (report 3.50 cross-TU call overhead). Uses below call the
 // renamed inline heuristics_queue_contains.
 
+// Link a dequeued variable at the front (least preferred end) of the queue.
+static void queue_prepend(Kernel &k, Var v) {
+  Link &l = k.h->links[v];
+  l.prev = UINT32_MAX;
+  l.next = k.h->queue_first;
+  if (k.h->queue_first != UINT32_MAX)
+    k.h->links[k.h->queue_first].prev = v;
+  else
+    k.h->queue_last = v;
+  k.h->queue_first = v;
+}
+
 static void queue_restamp(Kernel &k) {
   // stamp overflow: renumber the whole queue in order (rare)
   uint32_t stamp = 0;
@@ -601,16 +613,8 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
   // factor.cpp:799-802, `bury` = prepend, queue.hpp:61). Descending mirrors
   // them and leaves the demotion nearly inert once every original variable is
   // assigned, which is common.
-  for (Var v = first; v < end; v++) {
-    Link &l = k.h->links[v];
-    l.prev = UINT32_MAX;
-    l.next = k.h->queue_first;
-    if (k.h->queue_first != UINT32_MAX)
-      k.h->links[k.h->queue_first].prev = v;
-    else
-      k.h->queue_last = v;
-    k.h->queue_first = v;
-  }
+  for (Var v = first; v < end; v++)
+    queue_prepend(k, v);
   // Reachability, counted at the site (see Kernel::Stats::factor_demotions).
   if (first < end)
     k.stats.factor_demotions++;
@@ -670,17 +674,8 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
     }
   if (active.empty())
     return;
-  for (auto it = active.rbegin(); it != active.rend(); ++it) {
-    const Var v = *it;
-    Link &l = k.h->links[v];
-    l.prev = UINT32_MAX;
-    l.next = k.h->queue_first;
-    if (k.h->queue_first != UINT32_MAX)
-      k.h->links[k.h->queue_first].prev = v;
-    else
-      k.h->queue_last = v;
-    k.h->queue_first = v;
-  }
+  for (auto it = active.rbegin(); it != active.rend(); ++it)
+    queue_prepend(k, *it);
   queue_restamp(k); // renumber in queue order + reset the search cache
   // Stable mode ranks by score, so floor those too (a substituted variable
   // occurs in no clause; any score it still carries is stale).

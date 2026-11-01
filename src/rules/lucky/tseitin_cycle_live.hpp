@@ -43,26 +43,7 @@ struct Snapshot {
   uint32_t nvars = 0;
   uint64_t literals = 0;
   uint64_t work = 0;
-  bool operator==(const Snapshot &other) const {
-    if (sources != other.sources ||
-        internal_to_external != other.internal_to_external ||
-        external_to_internal != other.external_to_internal ||
-        root_values != other.root_values ||
-        arena_generation != other.arena_generation ||
-        touch_epoch != other.touch_epoch ||
-        root_assignments != other.root_assignments ||
-        next_clause_id != other.next_clause_id || nvars != other.nvars ||
-        literals != other.literals || work != other.work ||
-        clauses.size() != other.clauses.size())
-      return false;
-    for (size_t index = 0; index < clauses.size(); ++index) {
-      const auto &left = clauses[index], &right = other.clauses[index];
-      if (left.occurrence != right.occurrence || left.proof != right.proof ||
-          left.literals != right.literals)
-        return false;
-    }
-    return true;
-  }
+  bool operator==(const Snapshot &) const = default;
 };
 
 struct SnapshotLimits {
@@ -81,6 +62,31 @@ struct Request {
   tseitin_cycle::TransactionLimits transaction;
   uint64_t maximum_validation_ticks = 0;
 };
+
+// Interrupt state that reports kernel termination before a nested poll.
+struct KernelPoll {
+  Kernel *kernel = nullptr;
+  tseitin_cycle::InterruptPoll nested = nullptr;
+  void *nested_state = nullptr;
+};
+
+inline bool kernel_poll(void *opaque) {
+  auto &context = *static_cast<KernelPoll *>(opaque);
+  return (context.kernel && kernel_terminating(*context.kernel)) ||
+         (context.nested && context.nested(context.nested_state));
+}
+
+// A copy of a stage's limits whose callback also observes kernel termination.
+// `poll` must outlive every use of the returned limits.
+template <class Limits>
+Limits with_kernel_poll(Kernel &kernel, const Limits &source,
+                        KernelPoll &poll) {
+  poll = {&kernel, source.interrupted, source.interrupt_state};
+  auto result = source;
+  result.interrupted = kernel_poll;
+  result.interrupt_state = &poll;
+  return result;
+}
 
 enum class Status : uint8_t {
   Invalid,

@@ -128,15 +128,13 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
     if (!kernel_binary_live(k, sorted[0], sorted[1]))
       return false;
   } else {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *current = clause_at(k.arena, ref);
+    for (const auto [ref, current] : arena_records(k.arena)) {
       if (live_clause_is(current, sorted)) {
         target = ref;
         break;
       }
       if (k.stop && *k.stop)
         return false;
-      ref += clause_actual_words(current);
     }
     if (target == INVALID_REF)
       return false;
@@ -154,8 +152,7 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
     for (const Lit lit : sorted)
       forced[var_of(lit)] = -lit_value(lit);
     std::vector<Var> temporary;
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *current = clause_at(k.arena, ref);
+    for (const auto [ref, current] : arena_records(k.arena)) {
       // Learned clauses are entailed by the irredundant formula (F |= R).
       // Overwriting a model that satisfies every irredundant clause, including
       // the restored candidate, therefore satisfies R too. Checking each R
@@ -166,7 +163,6 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
         return false;
       if (k.stop && *k.stop)
         return false;
-      ref += clause_actual_words(current);
     }
     for (Lit a = 0; a < 2 * k.nvars; ++a) {
       for (const WatchEntry entry : k.watches.entries(a)) {

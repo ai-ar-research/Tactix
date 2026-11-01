@@ -1,6 +1,7 @@
 #include "rules/lucky/exact_cover_model.hpp"
 
 #include "kernel/splitmix64.hpp"
+#include "rules/lucky/disjoint_sets.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
 #include "strategy/rule_parameters.hpp"
@@ -8,7 +9,6 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
-#include <numeric>
 #include <vector>
 
 namespace tactix {
@@ -26,21 +26,6 @@ struct ExactCover {
   std::vector<std::vector<uint32_t>> rows_by_column;
 };
 
-struct DisjointSets {
-  std::vector<uint32_t> parent;
-  explicit DisjointSets(size_t n) : parent(n) {
-    std::iota(parent.begin(), parent.end(), 0u);
-  }
-  uint32_t find(uint32_t x) {
-    while (parent[x] != x) {
-      parent[x] = parent[parent[x]];
-      x = parent[x];
-    }
-    return x;
-  }
-  void unite(uint32_t a, uint32_t b) { parent[find(a)] = find(b); }
-};
-
 // build_signed_sgen_exact_cover: a binary (a v b) is the at-most-one edge
 // between the signed items ~a and ~b; every other clause is a covering
 // clause of the block arity. The item literal orientation is the owner's.
@@ -48,19 +33,17 @@ bool recognize(Kernel &k, const strategy::ExactCoverModelParameters &p,
                ExactCover &cover) {
   const uint32_t arity = p.block_arity;
   const uint32_t literal_count = 2 * k.nvars;
-  DisjointSets sets(literal_count);
-  std::vector<uint8_t> touched(literal_count, 0);
-  uint64_t binaries = 0;
-  for (Lit literal = 0; literal < literal_count; ++literal)
-    for (const WatchEntry watch : k.watches.entries(literal)) {
-      if (!watch.binary() || literal > watch.other())
-        continue;
-      const Lit a = negate(literal), b = negate(watch.other());
-      sets.unite(a, b);
-      touched[a] = touched[b] = 1;
-      ++binaries;
-    }
-  if (!binaries)
+  // Without a binary there is no block. Decide that first, then let the
+  // covering scan reject the formula (almost always at its first clause)
+  // before the union-find over every literal is built.
+  bool binary = false;
+  for (Lit literal = 0; literal < literal_count && !binary; ++literal)
+    for (const WatchEntry watch : k.watches.entries(literal))
+      if (watch.binary() && literal <= watch.other()) {
+        binary = true;
+        break;
+      }
+  if (!binary)
     return false;
   std::vector<std::vector<Lit>> covering;
   uint64_t visited = 0;
@@ -82,6 +65,16 @@ bool recognize(Kernel &k, const strategy::ExactCoverModelParameters &p,
   }
   if (covering.empty())
     return false;
+  DisjointSets sets(literal_count);
+  std::vector<uint8_t> touched(literal_count, 0);
+  for (Lit literal = 0; literal < literal_count; ++literal)
+    for (const WatchEntry watch : k.watches.entries(literal)) {
+      if (!watch.binary() || literal > watch.other())
+        continue;
+      const Lit a = negate(literal), b = negate(watch.other());
+      sets.unite(a, b);
+      touched[a] = touched[b] = 1;
+    }
 
   // Blocks: the connected components of the at-most-one edges, in order of
   // their first item, each of exactly the block arity.
@@ -307,11 +300,9 @@ ApplyResult exact_cover_model_apply(Kernel &k) {
     const Lit item = cover.row_item[row];
     assignment[var_of(item)] = chosen[row] != negated(item);
   }
-  if (!lucky_model_valid(k, assignment))
-    return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.exact_cover_model_sat;
-  return ApplyResult::Sat;
+  return lucky_publish_if_model(k, assignment, k.stats.exact_cover_model_sat)
+             ? ApplyResult::Sat
+             : ApplyResult::NoOp;
 }
 
 } // namespace tactix

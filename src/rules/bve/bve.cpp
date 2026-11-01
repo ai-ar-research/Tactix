@@ -26,11 +26,7 @@ namespace tactix {
 // eliminate.c set_next_elimination_bound).
 static uint32_t bve_bound(const Kernel &k) { return k.bve_bound; }
 
-RuleEligibility bve_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
-}
+RuleEligibility bve_guard(const Kernel &k) { return root_level_guard(k); }
 
 void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
   const uint32_t nlits = 2 * k.nvars;
@@ -49,13 +45,11 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
       });
     }
   } else {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage() && !c->redundant())
         for (const Lit l : *c)
           if (k.values[l] == 0) // active-variable literals only
             occ.counts[l]++;
-      ref += clause_actual_words(c);
     }
   }
   // binaries: one watch-list scan per active literal. They have an
@@ -136,12 +130,10 @@ uint32_t bve_schedule_occurrence_count(const Kernel &k, Lit lit) {
   if (k.dense) {
     count = k.dense->large_size(lit);
   } else {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage() && !c->redundant())
         for (const Lit other : *c)
           count += other == lit;
-      ref += clause_actual_words(c);
     }
   }
   for (const WatchEntry w : k.watches.entries(lit))
@@ -530,27 +522,34 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
       k.bve_definition_budget, s.solver.kitten_generator(),
       static_cast<uint32_t>(s.vars.size()), static_cast<uint32_t>(pos.size()),
       static_cast<uint32_t>(neg.size()), nullptr, 0);
-  SubResult res = s.solver.solve_interruptible(
-      {}, k.bve_definition_budget, SubTickMode::Kitten, k.stop);
-  s.ticks = s.solver.kitten_ticks();
-  s.exhausted = res == SubResult::Budget;
-  if (res != SubResult::Unsat || !s.solver.derivation(s.deriv) ||
-      s.deriv.core.empty()) {
+  // Account one definition solve under `budget` and trace its outcome; true
+  // iff it refuted the sides with a non-empty core.
+  const auto settle = [&](SubResult res, uint32_t core, uint64_t budget) {
+    s.ticks = s.solver.kitten_ticks();
+    s.exhausted = res == SubResult::Budget;
+    if (res != SubResult::Unsat || !s.solver.derivation(s.deriv) ||
+        s.deriv.core.empty()) {
+      event_trace_bve_definition(
+          k, pv, attempt, core,
+          res == SubResult::Budget ? "budget" :
+          res == SubResult::Sat ? "sat" : "no-derivation",
+          s.ticks, budget, s.solver.kitten_generator(),
+          static_cast<uint32_t>(s.vars.size()),
+          static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
+          nullptr, 0);
+      return false;
+    }
     event_trace_bve_definition(
-        k, pv, attempt, 1,
-        res == SubResult::Budget ? "budget" :
-        res == SubResult::Sat ? "sat" : "no-derivation",
-        s.ticks, k.bve_definition_budget, s.solver.kitten_generator(),
-        static_cast<uint32_t>(s.vars.size()),
+        k, pv, attempt, core, "unsat", s.ticks, budget,
+        s.solver.kitten_generator(), static_cast<uint32_t>(s.vars.size()),
         static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
-        nullptr, 0);
+        s.deriv.core.data(), static_cast<uint32_t>(s.deriv.core.size()));
+    return true;
+  };
+  if (!settle(s.solver.solve_interruptible({}, k.bve_definition_budget,
+                                           SubTickMode::Kitten, k.stop),
+              1, k.bve_definition_budget))
     return 0;
-  }
-  event_trace_bve_definition(
-      k, pv, attempt, 1, "unsat", s.ticks, k.bve_definition_budget,
-      s.solver.kitten_generator(), static_cast<uint32_t>(s.vars.size()),
-      static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
-      s.deriv.core.data(), static_cast<uint32_t>(s.deriv.core.size()));
   const auto refinement_budget = [&] {
     if (!k.bve_definition_budget)
       return uint64_t{0};
@@ -568,29 +567,11 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
       const uint64_t current = s.solver.kitten_ticks();
       ceiling = UINT64_MAX - delta <= current ? UINT64_MAX : current + delta;
     }
-    res = s.solver.solve_interruptible({}, ceiling, SubTickMode::Kitten,
-                                       k.stop);
-    s.ticks = s.solver.kitten_ticks();
-    s.exhausted = res == SubResult::Budget;
+    const SubResult res = s.solver.solve_interruptible(
+        {}, ceiling, SubTickMode::Kitten, k.stop);
     assert(res != SubResult::Sat && "an UNSAT core subset became SAT");
-    if (res != SubResult::Unsat || !s.solver.derivation(s.deriv) ||
-        s.deriv.core.empty()) {
-      event_trace_bve_definition(
-          k, pv, attempt, core,
-          res == SubResult::Budget ? "budget" :
-          res == SubResult::Sat ? "sat" : "no-derivation",
-          s.ticks, refinement_budget(),
-          s.solver.kitten_generator(),
-          static_cast<uint32_t>(s.vars.size()),
-          static_cast<uint32_t>(pos.size()),
-          static_cast<uint32_t>(neg.size()), nullptr, 0);
+    if (!settle(res, core, refinement_budget()))
       return 0;
-    }
-    event_trace_bve_definition(
-        k, pv, attempt, core, "unsat", s.ticks, refinement_budget(),
-        s.solver.kitten_generator(), static_cast<uint32_t>(s.vars.size()),
-        static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
-        s.deriv.core.data(), static_cast<uint32_t>(s.deriv.core.size()));
   }
   const uint32_t np = static_cast<uint32_t>(pos.size());
   uint32_t cp = 0, cn = 0;
@@ -669,11 +650,7 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
         chain.push_back(id_of[antecedent]);
       }
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, lifted.data(),
-                       static_cast<uint32_t>(lifted.size()),
-                       lrat ? chain.data() : nullptr,
-                       lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    emit_rup_lemma(k, id, lifted, chain);
     id_of[step.id] = id;
     last_id = id;
     if (k.proof && si + 1 != s.deriv.steps.size())
@@ -1144,18 +1121,11 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
           }
       }
       const uint64_t id = ++k.next_clause_id;
-      if (k.proof) {
-        if (lrat) {
-          chain.push_back(cid);      // the subsumer propagates `negated` false
-          chain.push_back(d->id());  // then the victim conflicts
-          k.proof->add_rup(id, dlits.data(),
-                           static_cast<uint32_t>(dlits.size()), chain.data(),
-                           static_cast<uint32_t>(chain.size()));
-        } else {
-          k.proof->add_rup(0, dlits.data(),
-                           static_cast<uint32_t>(dlits.size()), nullptr, 0);
-        }
+      if (lrat) {
+        chain.push_back(cid);      // the subsumer propagates `negated` false
+        chain.push_back(d->id());  // then the victim conflicts
       }
+      emit_rup_lemma(k, id, dlits, chain);
       k.stats.bve_bwd_strengthened++;
       Ref nref = INVALID_REF;
       switch (kernel_replace_clause(k, d, id, dlits.data(),
@@ -1266,16 +1236,11 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
         }
         const uint64_t id = ++k.next_clause_id;
         Lit unit = best;
-        if (k.proof) {
-          if (lrat) {
-            chain.push_back(cid); // the subsumer propagates `o` false
-            chain.push_back(vid); // then the victim pair conflicts
-            k.proof->add_rup(id, &unit, 1, chain.data(),
-                             static_cast<uint32_t>(chain.size()));
-          } else {
-            k.proof->add_rup(0, &unit, 1, nullptr, 0);
-          }
+        if (lrat) {
+          chain.push_back(cid); // the subsumer propagates `o` false
+          chain.push_back(vid); // then the victim pair conflicts
         }
+        emit_rup_lemma(k, id, &unit, 1, chain);
         // Add-before-delete: the unit's add precedes the victim's del.
         const bool ok = kernel_delete_binary(k, best, o);
         assert(ok);
@@ -1590,6 +1555,18 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
       (has_px ? pos : neg).push_back(std::move(m));
     }
   };
+  // Classify one indexed large occurrence of `pivot`, skipping a stale entry;
+  // a tautology belongs to the positive side.
+  const auto gather_large_occurrence = [&](Ref ref, Lit pivot, Lit opposite,
+                                           bool positive) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (c->garbage() || !has_lit(c, pivot))
+      return;
+    const bool has_opposite = has_lit(c, opposite);
+    if (!positive && has_opposite)
+      return; // positive side already handled the tautology
+    classify(ref, c, positive, !positive || has_opposite);
+  };
   if (k.dense && k.dense->track_order) {
     // Consume the exact connected stream. Entries can be stale after deletion
     // or an in-place membership rewrite; filter them against current kernel
@@ -1610,17 +1587,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           gather_bin(pivot, entry.payload, live);
           continue;
         }
-        const Ref ref = entry.payload;
-        const Clause *c = clause_at(k.arena, ref);
-        if (c->garbage() || !has_lit(c, pivot))
-          continue;
-        const bool has_opposite = has_lit(c, opposite);
-        if (!positive && has_opposite)
-          continue; // positive side already handled the tautology
-        if (positive)
-          classify(ref, c, true, has_opposite);
-        else
-          classify(ref, c, false, true);
+        gather_large_occurrence(entry.payload, pivot, opposite, positive);
       }
     };
     gather(px, nx, pos, true);
@@ -1636,15 +1603,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
     const auto gather_large = [&](Lit pivot, Lit opposite,
                                   bool positive) {
       k.dense->with_large(pivot, [&](auto refs) {
-        for (const Ref ref : refs) {
-          const Clause *c = clause_at(k.arena, ref);
-          if (c->garbage() || !has_lit(c, pivot))
-            continue;
-          const bool has_opposite = has_lit(c, opposite);
-          if (!positive && has_opposite)
-            continue;
-          classify(ref, c, positive, !positive || has_opposite);
-        }
+        for (const Ref ref : refs)
+          gather_large_occurrence(ref, pivot, opposite, positive);
       });
     };
     gather_large(px, nx, true);
@@ -1657,9 +1617,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         gather_bin(nx, w.other(), neg);
   } else {
     // N1 fallback: one arena scan in the public no-index state.
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(c);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage()) {
         bool has_px = false, has_nx = false;
         for (const Lit l : *c) {
@@ -1669,7 +1627,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         if (has_px || has_nx)
           classify(ref, c, has_px, has_nx);
       }
-      ref += words;
     }
     // The public non-dense path has no reference connected-list pose; retain
     // its historical arena-first order and append binary watches afterward.
@@ -1915,9 +1872,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                               uint32_t chain_size) {
     assert(k.value(unit) == 0);
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, &unit, 1,
-                       lrat ? chain : nullptr, lrat ? chain_size : 0);
+    emit_rup_lemma(k, id, &unit, 1, chain, chain_size);
     if (lrat)
       k.unit_ids[var_of(unit)] = id;
     kernel_assign_unit(k, unit);
@@ -2047,6 +2002,11 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           continue;
         k.stats.bve_resolutions++; // one attempt (kissat resolve.c:157)
         const uint32_t ordinal = pair_ordinal++;
+        const auto trace_pair = [&](const char *outcome) {
+          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
+                               c.ref, c.id, d.active.data(), d.active.size(),
+                               d.ref, d.id, outcome);
+        };
         const size_t lits_begin = def->resolvent_lits.size();
         bool satisfied_or_tautological = false;
         bool mixed_shared_literal = false;
@@ -2080,9 +2040,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         const size_t second_size = def->resolvent_lits.size() - lits_begin;
         if (satisfied_or_tautological) {
           def->resolvent_lits.resize(lits_begin);
-          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                               c.ref, c.id, d.active.data(), d.active.size(),
-                               d.ref, d.id, "satisfied-or-tautology");
+          trace_pair("satisfied-or-tautology");
           continue;
         }
         // Ordinary eliminate counts every surviving pair before materializing
@@ -2093,9 +2051,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         // below (fastel.c::can_fast_resolve_large_large).
         if (!deferred_resolvent_count && ++resolved > gen_limit) {
           def->resolvent_lits.resize(lits_begin);
-          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                               c.ref, c.id, d.active.data(), d.active.size(),
-                               d.ref, d.id, "bound");
+          trace_pair("bound");
           over_gen = true;
           break;
         }
@@ -2134,15 +2090,9 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                                               bool d_subsumed) {
           const uint64_t id = ++k.next_clause_id;
           const Lit *const lits = def->resolvent_lits.data() + lits_begin;
-          if (k.proof) {
-            if (lrat)
-              k.proof->add_rup(id, lits, static_cast<uint32_t>(lits_size),
-                               def->resolvent_chains.data() + chain_begin,
-                               chain_size);
-            else
-              k.proof->add_rup(0, lits, static_cast<uint32_t>(lits_size),
-                               nullptr, 0);
-          }
+          emit_rup_lemma(k, id, lits, static_cast<uint32_t>(lits_size),
+                         def->resolvent_chains.data() + chain_begin,
+                         chain_size);
           prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
                                    d_subsumed ? d.ref : INVALID_REF);
           assert(lits_size >= 2);
@@ -2178,9 +2128,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           k.stats.strengthened++;
         };
         if (!lits_size) {
-          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                               c.ref, c.id, d.active.data(), d.active.size(),
-                               d.ref, d.id, "empty-immediate");
+          trace_pair("empty-immediate");
           learn_empty(def->resolvent_chains.data() + chain_begin, chain_size);
           finish_collapsed_strengthening();
           immediate_unsat = true;
@@ -2188,9 +2136,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         }
         if (lits_size == 1) {
           const Lit unit = def->resolvent_lits[lits_begin];
-          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                               c.ref, c.id, d.active.data(), d.active.size(),
-                               d.ref, d.id, "unit-immediate");
+          trace_pair("unit-immediate");
           learn_unit(unit, def->resolvent_chains.data() + chain_begin,
                      chain_size);
           finish_collapsed_strengthening();
@@ -2232,9 +2178,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
             seen[def->resolvent_lits[i]] &= 1;
           if (c_subsumed || d_subsumed) {
-            event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                                 c.ref, c.id, d.active.data(), d.active.size(),
-                                 d.ref, d.id, "otf-strengthened");
+            trace_pair("otf-strengthened");
 
             // CaDiCaL materializes the first strengthened antecedent in that
             // clause's own literal order.  In the double case it strengthens
@@ -2289,9 +2233,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
             seen[def->resolvent_lits[i]] &= 1;
           if (c_subsumed || d_subsumed) {
-            event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                                 c.ref, c.id, d.active.data(), d.active.size(),
-                                 d.ref, d.id, "fastel-strengthened");
+            trace_pair("fastel-strengthened");
             // A mixed pair's self-subsuming resolvent is the large antecedent
             // without its pivot, copied in that clause's own order
             // (fastel.c::can_fast_resolve_binary_large); the binary-first
@@ -2338,18 +2280,14 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         if (deferred_resolvent_count && ++resolved > gen_limit) {
           def->resolvent_lits.resize(lits_begin);
           def->resolvent_chains.resize(chain_begin);
-          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                               c.ref, c.id, d.active.data(), d.active.size(),
-                               d.ref, d.id, "bound");
+          trace_pair("bound");
           over_gen = true;
           break;
         }
         if (lits_size > k.bve_resolvent_size_limit) {
           def->resolvent_lits.resize(lits_begin);
           def->resolvent_chains.resize(chain_begin);
-          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                               c.ref, c.id, d.active.data(), d.active.size(),
-                               d.ref, d.id, "oversized");
+          trace_pair("oversized");
           oversized = true;
           break;
         }
@@ -2359,9 +2297,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         r.first_parent = c.ref;
         r.second_parent = d.ref;
         resolvents.push_back(r);
-        event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
-                             c.ref, c.id, d.active.data(), d.active.size(),
-                             d.ref, d.id, "kept");
+        trace_pair("kept");
       }
       for (const Lit l : c.active)
         if (l != first_pivot)
@@ -2460,17 +2396,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
       continue;
     }
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof) {
-      if (lrat)
-        k.proof->add_rup(id, connected_lits.data(),
-                         static_cast<uint32_t>(connected_lits.size()),
-                         connected_chain.data(),
-                         static_cast<uint32_t>(connected_chain.size()));
-      else
-        k.proof->add_rup(0, connected_lits.data(),
-                         static_cast<uint32_t>(connected_lits.size()), nullptr,
-                         0);
-    }
+    emit_rup_lemma(k, id, connected_lits, connected_chain);
     if (connected_lits.size() == 2) {
       kernel_add_binary_clause(k, connected_lits[0], connected_lits[1], id);
       kernel_defrag_vectors(k);

@@ -14,6 +14,7 @@ struct LiveClause {
   uint64_t occurrence = 0;
   uint64_t proof = 0;
   std::vector<parity_premises::External> literals;
+  bool operator==(const LiveClause &) const = default;
 };
 
 struct CertifiedGroup {

@@ -1,5 +1,8 @@
 #include "rules/lucky/tseitin_cycle_plan.hpp"
 
+#include "rules/lucky/callback_work_meter.hpp"
+#include "rules/lucky/disjoint_sets.hpp"
+
 #include <algorithm>
 #include <map>
 #include <limits>
@@ -18,60 +21,10 @@ struct CheckedInput {
   std::set<Edge> unavailable;
 };
 
-class Work {
-  uint64_t limit_;
-  bool (*interrupted_)(void *) = nullptr;
-  void *interrupt_state_ = nullptr;
-  uint64_t used_ = 0;
-  bool exhausted_ = false;
-  bool was_interrupted_ = false;
-
-public:
-  explicit Work(uint64_t limit, bool (*interrupted)(void *) = nullptr,
-                void *interrupt_state = nullptr)
-      : limit_(limit), interrupted_(interrupted),
-        interrupt_state_(interrupt_state) {}
-  bool spend(uint64_t amount = 1) {
-    if (interrupted_ && interrupted_(interrupt_state_)) {
-      was_interrupted_ = true;
-      return false;
-    }
-    if (amount > limit_ - used_) {
-      exhausted_ = true;
-      return false;
-    }
-    used_ += amount;
-    return true;
-  }
-  uint64_t used() const { return used_; }
-  bool exhausted() const { return exhausted_; }
-  bool interrupted() const { return was_interrupted_; }
-};
-
-struct DisjointSet {
-  std::vector<size_t> parent;
-  explicit DisjointSet(size_t size) : parent(size) {
-    for (size_t i = 0; i < size; ++i)
-      parent[i] = i;
-  }
-  size_t find(size_t value) {
-    while (parent[value] != value) {
-      parent[value] = parent[parent[value]];
-      value = parent[value];
-    }
-    return value;
-  }
-  bool join(size_t left, size_t right) {
-    left = find(left);
-    right = find(right);
-    if (left == right)
-      return false;
-    if (left > right)
-      std::swap(left, right);
-    parent[right] = left;
-    return true;
-  }
-};
+// Every failed spend ends its scan, so one stop status describes the meter.
+using Work = CallbackWorkMeter<Limits, DeclineReason, DeclineReason::None,
+                               DeclineReason::Interrupted,
+                               DeclineReason::WorkLimit>;
 
 DeclineReason check_input(const Input &input, CheckedInput &checked,
                           Work &work) {
@@ -182,15 +135,17 @@ Result plan_one(const Input &input, Limits limits) {
     result.decline = DeclineReason::NoAdditionAllowance;
     return result;
   }
-  Work work(limits.work, limits.interrupted, limits.interrupt_state);
-  CheckedInput checked;
-  result.decline = check_input(input, checked, work);
-  if (result.decline != DeclineReason::None) {
-    if (result.decline == DeclineReason::WorkLimit && work.interrupted())
-      result.decline = DeclineReason::Interrupted;
+  Work work(limits);
+  const auto decline = [&](DeclineReason reason) {
+    result.decline = reason;
     result.work = work.used();
     return result;
-  }
+  };
+  CheckedInput checked;
+  result.decline = check_input(input, checked, work);
+  if (result.decline != DeclineReason::None)
+    return decline(result.decline == DeclineReason::WorkLimit ? work.stopped()
+                                                              : result.decline);
 
   std::vector<Vertex> vertices;
   vertices.reserve(checked.equations.size());
@@ -204,19 +159,15 @@ Result plan_one(const Input &input, Limits limits) {
   // first candidate chord independently of input order.
   using TreeArc = std::pair<Vertex, Edge>;
   std::map<Vertex, std::vector<TreeArc>> tree;
-  DisjointSet sets(vertices.size());
+  DisjointSets sets(vertices.size());
   Edge chord = 0;
   Endpoints chord_endpoints;
   for (const auto &[edge, endpoints] : checked.endpoints) {
-    if (!work.spend()) {
-      result.decline = work.interrupted() ? DeclineReason::Interrupted
-                                          : DeclineReason::WorkLimit;
-      result.work = work.used();
-      return result;
-    }
+    if (!work.spend())
+      return decline(work.stopped());
     if (checked.unavailable.count(edge))
       continue;
-    if (sets.join(index[endpoints[0]], index[endpoints[1]])) {
+    if (sets.unite(index[endpoints[0]], index[endpoints[1]])) {
       tree[endpoints[0]].push_back({endpoints[1], edge});
       tree[endpoints[1]].push_back({endpoints[0], edge});
     } else if (!chord) {
@@ -224,11 +175,8 @@ Result plan_one(const Input &input, Limits limits) {
       chord_endpoints = endpoints;
     }
   }
-  if (!chord) {
-    result.decline = DeclineReason::Acyclic;
-    result.work = work.used();
-    return result;
-  }
+  if (!chord)
+    return decline(DeclineReason::Acyclic);
 
   for (auto &[vertex, arcs] : tree) {
     (void)vertex;
@@ -244,12 +192,8 @@ Result plan_one(const Input &input, Limits limits) {
   parent[start] = {0, 0};
   pending.push(start);
   while (!pending.empty() && !parent.count(goal)) {
-    if (!work.spend()) {
-      result.decline = work.interrupted() ? DeclineReason::Interrupted
-                                          : DeclineReason::WorkLimit;
-      result.work = work.used();
-      return result;
-    }
+    if (!work.spend())
+      return decline(work.stopped());
     const Vertex vertex = pending.front();
     pending.pop();
     for (const TreeArc &arc : tree[vertex])
@@ -258,12 +202,9 @@ Result plan_one(const Input &input, Limits limits) {
         pending.push(arc.first);
       }
   }
-  if (!parent.count(goal)) {
-    // The chord endpoints were connected when Kruskal rejected the edge.
-    result.decline = DeclineReason::InvalidCandidate;
-    result.work = work.used();
-    return result;
-  }
+  // The chord endpoints were connected when Kruskal rejected the edge.
+  if (!parent.count(goal))
+    return decline(DeclineReason::InvalidCandidate);
 
   std::vector<Edge> reverse_path;
   for (Vertex at = goal; at != start; at = parent[at].first)
@@ -276,9 +217,7 @@ Result plan_one(const Input &input, Limits limits) {
                                       reverse_path.begin(), reverse_path.end());
   if (result.candidate.cycle_edges.size() > limits.witness_length) {
     result.candidate = {};
-    result.decline = DeclineReason::WitnessLengthLimit;
-    result.work = work.used();
-    return result;
+    return decline(DeclineReason::WitnessLengthLimit);
   }
   result.candidate.substitution.push_back(
       {chord, ImageKind::Constant, false});
@@ -339,16 +278,10 @@ bool validate_candidate_bounded(const Input &input, const Candidate &candidate,
 }
 
 bool validate_candidate(const Input &input, const Candidate &candidate) {
-  Work unlimited(std::numeric_limits<uint64_t>::max());
+  Limits limits;
+  limits.work = std::numeric_limits<uint64_t>::max();
+  Work unlimited(limits);
   return validate_candidate_bounded(input, candidate, unlimited);
-}
-
-bool validate_candidate(const Input &input, const Candidate &candidate,
-                        uint64_t maximum_work, uint64_t &used,
-                        bool &exhausted) {
-  bool was_interrupted = false;
-  return validate_candidate(input, candidate, maximum_work, nullptr, nullptr,
-                            used, exhausted, was_interrupted);
 }
 
 bool validate_candidate(const Input &input, const Candidate &candidate,
@@ -356,11 +289,15 @@ bool validate_candidate(const Input &input, const Candidate &candidate,
                         bool (*interrupted)(void *), void *interrupt_state,
                         uint64_t &used, bool &exhausted,
                         bool &was_interrupted) {
-  Work work(maximum_work, interrupted, interrupt_state);
+  Limits limits;
+  limits.work = maximum_work;
+  limits.interrupted = interrupted;
+  limits.interrupt_state = interrupt_state;
+  Work work(limits);
   const bool valid = validate_candidate_bounded(input, candidate, work);
   used = work.used();
-  exhausted = work.exhausted();
-  was_interrupted = work.interrupted();
+  exhausted = work.stopped() == DeclineReason::WorkLimit;
+  was_interrupted = work.stopped() == DeclineReason::Interrupted;
   return valid;
 }
 

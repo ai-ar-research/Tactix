@@ -210,17 +210,6 @@ bool construct_word(const Automaton &automaton, std::vector<uint32_t> &word) {
   return false;
 }
 
-bool set_external(const Kernel &k, std::vector<uint8_t> &assignment,
-                  uint64_t dimacs, bool value) {
-  if (!dimacs || dimacs > k.external_to_internal.size())
-    return false;
-  const Var internal = k.external_to_internal[dimacs - 1];
-  if (internal == INVALID_VAR || internal >= assignment.size())
-    return false;
-  assignment[internal] = value;
-  return true;
-}
-
 bool build_assignment(Kernel &k, const Automaton &automaton,
                       const std::vector<uint32_t> &word,
                       std::vector<uint8_t> &assignment) {
@@ -231,15 +220,15 @@ bool build_assignment(Kernel &k, const Automaton &automaton,
     const uint32_t letter = word[time];
     const uint64_t selector =
         automaton.state_variables + uint64_t{2} * time + 1;
-    if (!set_external(k, assignment, selector, letter == 0) ||
-        !set_external(k, assignment, selector + 1, letter == 1))
+    if (!lucky_set_external(k, assignment, selector, letter == 0) ||
+        !lucky_set_external(k, assignment, selector + 1, letter == 1))
       return false;
     step_subset(automaton, letter, current, next);
     current.swap(next);
     for (uint32_t state = 0; state < automaton.states; ++state)
-      if (!set_external(k, assignment,
-                        uint64_t{time} * automaton.states + state + 1,
-                        current[state]))
+      if (!lucky_set_external(k, assignment,
+                              uint64_t{time} * automaton.states + state + 1,
+                              current[state] != 0))
         return false;
     if (!(time & ((uint32_t{1} << 12) - 1)) &&
         kernel_rule_interrupt(k, k.stats.cerny_model_interrupted))
@@ -269,10 +258,8 @@ ApplyResult cerny_model_apply(Kernel &k) {
     return ApplyResult::NoOp;
   std::vector<uint8_t> assignment;
   if (!build_assignment(k, automaton, word, assignment) ||
-      !lucky_model_valid(k, assignment))
+      !lucky_publish_if_model(k, assignment, k.stats.cerny_model_sat))
     return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.cerny_model_sat;
   return ApplyResult::Sat;
 }
 

@@ -4,6 +4,7 @@
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 #include "strategy/semantic_variable.hpp"
 
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -16,12 +17,7 @@ struct Gf3AffineActionKey {
   uint32_t first_equation = 0;
   uint32_t second_equation = 0;
 
-  bool operator==(const Gf3AffineActionKey &) const = default;
-  bool operator<(const Gf3AffineActionKey &other) const {
-    return first_equation < other.first_equation ||
-           (first_equation == other.first_equation &&
-            second_equation < other.second_equation);
-  }
+  auto operator<=>(const Gf3AffineActionKey &) const = default;
 };
 
 // The controller owns one session for the lifetime of one Kernel.  The first

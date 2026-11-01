@@ -88,6 +88,71 @@ struct PreparationMeter {
   }
 };
 
+// Counting-sort the collected clauses into the CSR occurrence index, then build
+// the ProbSAT score table for the caller's average clause size.  The full-CNF
+// profile charges every visit to its preparation meter; the legacy table's
+// charge is free.
+template <class Charge>
+bool finish_walk_table(Walker &w, const Kernel &k, double average,
+                       Charge &&charge) {
+  const uint32_t nlits = 2 * k.nvars;
+  // Charge arrays before allocation; subsequent visits have their own charge.
+  if (!charge(uint64_t{1} + nlits)) return false;
+  w.occ_beg.assign(size_t(nlits) + 1, 0);
+  for (const Lit l : w.cl_lits) {
+    if (!charge(1)) return false;
+    w.occ_beg[l + 1]++;
+  }
+  for (uint32_t l = 0; l < nlits; l++) {
+    if (!charge(1)) return false;
+    w.occ_beg[l + 1] += w.occ_beg[l];
+  }
+  if (!charge(w.cl_lits.size() + nlits)) return false;
+  w.occ.resize(w.cl_lits.size());
+  {
+    std::vector<uint32_t> fill(w.occ_beg.begin(), w.occ_beg.end() - 1);
+    for (uint32_t c = 0; c < w.nclauses; c++) {
+      if (!charge(1)) return false;
+      for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; i++) {
+        if (!charge(1)) return false;
+        w.occ[fill[w.cl_lits[i]]++] = c;
+      }
+    }
+  }
+  // Snapshot copying, validation and interpolation each visit the curve.
+  if (!charge(uint64_t{3} * k.walk_score_curve.size())) return false;
+  const strategy::WalkParameters parameters =
+      strategy::WalkParameters::from_kernel(k);
+  const double cb = walk_break_base(parameters, average, k.stats.walks);
+  const double base = 1 / cb;
+  w.score_base = base;
+  w.increasing_scores = base >= 1;
+  if (w.increasing_scores)
+    return true;
+  // break_value sums at most one per entry in the opposite literal's
+  // occurrence list. Scores above the largest such list cannot be queried.
+  // Bound the stored prefix by that structural maximum, not by a numerical
+  // underflow horizon: a legal fitted cb can be only one ULP above 1.
+  uint32_t maximum_breaks = 0;
+  for (uint32_t l = 0; l < nlits; ++l) {
+    if (!charge(1)) return false;
+    maximum_breaks = std::max(maximum_breaks, w.occ_beg[l + 1] - w.occ_beg[l]);
+  }
+  double next = 1;
+  for (w.epsilon = 1; next && w.table.size() <= maximum_breaks;) {
+    if (!charge(1)) return false;
+    w.table.push_back(w.epsilon = next);
+    const double candidate = w.epsilon * base;
+    // For bases in (0.5, 1), the smallest subnormal can round back to itself
+    // instead of underflowing to zero. Its constant tail is already represented
+    // by epsilon, so stop at that floating-point fixed point.
+    if (candidate == w.epsilon)
+      break;
+    next = candidate;
+  }
+  return true;
+}
+
 // One mirror per physical binary occurrence and every live arena clause form
 // the same current-CNF objective for both assignments and the entire walk.
 // Duplicate physical clauses have their current multiplicity in both scores.
@@ -133,49 +198,8 @@ bool build_full_table(Walker &w, Kernel &k, PreparationMeter &meter) {
   }
   w.nclauses = w.cl_beg.size() - 1;
   if (!w.nclauses) return false;
-  // Charge arrays before allocation; subsequent visits have their own charge.
-  if (!meter.charge(uint64_t{1} + nlits)) return false;
-  w.occ_beg.assign(size_t(nlits) + 1, 0);
-  for (Lit literal : w.cl_lits) {
-    if (!meter.charge()) return false;
-    ++w.occ_beg[literal + 1];
-  }
-  for (uint32_t literal = 0; literal < nlits; ++literal) {
-    if (!meter.charge()) return false;
-    w.occ_beg[literal + 1] += w.occ_beg[literal];
-  }
-  if (!meter.charge(w.cl_lits.size() + nlits)) return false;
-  w.occ.resize(w.cl_lits.size());
-  std::vector<uint32_t> fill(w.occ_beg.begin(), w.occ_beg.end() - 1);
-  for (uint32_t clause = 0; clause < w.nclauses; ++clause) {
-    if (!meter.charge()) return false;
-    for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
-      if (!meter.charge()) return false;
-      w.occ[fill[w.cl_lits[i]]++] = clause;
-    }
-  }
-  // Snapshot copying, validation and interpolation each visit the curve.
-  if (!meter.charge(uint64_t{3} * k.walk_score_curve.size())) return false;
-  const auto parameters = strategy::WalkParameters::from_kernel(k);
-  const double average = double(w.cl_lits.size()) / w.nclauses;
-  w.score_base = 1 / walk_break_base(parameters, average, k.stats.walks);
-  w.increasing_scores = w.score_base >= 1;
-  if (w.increasing_scores) return true;
-  uint32_t maximum_breaks = 0;
-  for (uint32_t literal = 0; literal < nlits; ++literal) {
-    if (!meter.charge()) return false;
-    maximum_breaks = std::max(maximum_breaks,
-        w.occ_beg[literal + 1] - w.occ_beg[literal]);
-  }
-  double next = 1;
-  for (w.epsilon = 1; next && w.table.size() <= maximum_breaks;) {
-    if (!meter.charge()) return false;
-    w.table.push_back(w.epsilon = next);
-    const double candidate = next * w.score_base;
-    if (candidate == next) break;
-    next = candidate;
-  }
-  return true;
+  return finish_walk_table(w, k, double(w.cl_lits.size()) / w.nclauses,
+                           [&](uint64_t amount) { return meter.charge(amount); });
 }
 
 // --- table construction ----------------------------------------------------
@@ -184,7 +208,6 @@ bool build_full_table(Walker &w, Kernel &k, PreparationMeter &meter) {
 // enumerated from there with an `other > lit` dedup; large irredundant clauses
 // come from one arena scan.
 bool build_table(Walker &w, Kernel &k) {
-  const uint32_t nlits = 2 * k.nvars;
   double total_size = 0;
 
   w.cl_beg.push_back(0);
@@ -289,20 +312,6 @@ bool build_table(Walker &w, Kernel &k) {
   if (!w.nclauses)
     return false;
 
-  // Counting sort into the CSR occurrence index.
-  w.occ_beg.assign(nlits + 1, 0);
-  for (const Lit l : w.cl_lits)
-    w.occ_beg[l + 1]++;
-  for (uint32_t l = 0; l < nlits; l++)
-    w.occ_beg[l + 1] += w.occ_beg[l];
-  w.occ.resize(w.cl_lits.size());
-  {
-    std::vector<uint32_t> fill(w.occ_beg.begin(), w.occ_beg.end() - 1);
-    for (uint32_t c = 0; c < w.nclauses; c++)
-      for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; i++)
-        w.occ[fill[w.cl_lits[i]]++] = c;
-  }
-
   // The ProbSAT score table, base 1/cb (kissat init_score_table): cb alternates
   // between the fixed 2.0 and the size fit across walks.  The average divides
   // by kissat's BINIRR_CLAUSES as read at init_walker: dense entry
@@ -310,34 +319,8 @@ bool build_table(Walker &w, Kernel &k) {
   // duplicate binaries, while root-satisfied large clauses are only retired
   // afterwards in connect_large_counters and so still count.
   const uint32_t denominator = w.binary_clauses + w.full_irredundant_clauses;
-  const double avg = total_size / denominator;
-  const strategy::WalkParameters parameters =
-      strategy::WalkParameters::from_kernel(k);
-  const double cb = walk_break_base(parameters, avg, k.stats.walks);
-  const double base = 1 / cb;
-  w.score_base = base;
-  w.increasing_scores = base >= 1;
-  if (w.increasing_scores)
-    return true;
-  // break_value sums at most one per entry in the opposite literal's
-  // occurrence list. Scores above the largest such list cannot be queried.
-  // Bound the stored prefix by that structural maximum, not by a numerical
-  // underflow horizon: a legal fitted cb can be only one ULP above 1.
-  uint32_t maximum_breaks = 0;
-  for (uint32_t l = 0; l < nlits; ++l)
-    maximum_breaks = std::max(maximum_breaks, w.occ_beg[l + 1] - w.occ_beg[l]);
-  double next = 1;
-  for (w.epsilon = 1; next && w.table.size() <= maximum_breaks;) {
-    w.table.push_back(w.epsilon = next);
-    const double candidate = w.epsilon * base;
-    // For bases in (0.5, 1), the smallest subnormal can round back to itself
-    // instead of underflowing to zero. Its constant tail is already represented
-    // by epsilon, so stop at that floating-point fixed point.
-    if (candidate == w.epsilon)
-      break;
-    next = candidate;
-  }
-  return true;
+  return finish_walk_table(w, k, total_size / denominator,
+                           [](uint64_t) { return true; });
 }
 
 // Seed the walker assignment: trail values where assigned, otherwise the
@@ -1045,15 +1028,9 @@ ConfigurationCheckingModelResult configuration_checking_model(
 }
 
 uint32_t walk_complementary_ternary_fraction_permille(const Kernel &k) {
-  struct Signature {
-    std::array<Var, 3> variables{};
-    uint8_t signs = 0;
-  };
-  const auto less = [](const Signature &a, const Signature &b) {
-    return a.variables < b.variables ||
-           (a.variables == b.variables && a.signs < b.signs);
-  };
-  std::vector<Signature> signatures;
+  // A signature is its sorted variable triple followed by its sign pattern:
+  // {v0 << 32 | v1, v2 << 3 | signs}, so pair order is the triple order.
+  std::vector<std::pair<uint64_t, uint64_t>> signatures;
   signatures.reserve(k.live_irredundant_large);
   uint64_t clauses = k.watches.binary_clauses();
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -1068,36 +1045,35 @@ uint32_t walk_complementary_ternary_fraction_permille(const Kernel &k) {
         std::sort(literals.begin(), literals.end());
         if (literals[0].first != literals[1].first &&
             literals[1].first != literals[2].first) {
-          Signature signature;
-          for (uint32_t i = 0; i < 3; ++i) {
-            signature.variables[i] = literals[i].first;
-            signature.signs |= uint8_t(literals[i].second) << i;
-          }
-          signatures.push_back(signature);
+          uint64_t signs = 0;
+          for (uint32_t i = 0; i < 3; ++i)
+            signs |= uint64_t(literals[i].second) << i;
+          signatures.emplace_back(
+              uint64_t(literals[0].first) << 32 | literals[1].first,
+              uint64_t(literals[2].first) << 3 | signs);
         }
       }
     }
     ref += words;
   }
   if (!clauses || signatures.empty()) return 0;
-  std::sort(signatures.begin(), signatures.end(), less);
+  std::sort(signatures.begin(), signatures.end());
   uint64_t paired = 0;
-  for (auto begin = signatures.begin(); begin != signatures.end();) {
-    const auto end = std::upper_bound(begin, signatures.end(), *begin, less);
-    Signature complement = *begin;
-    complement.signs ^= 7;
+  for (size_t begin = 0; begin < signatures.size();) {
+    // A complement keeps the variable triple, so both sides of every pair lie
+    // in this sorted run of one triple.
+    uint64_t count[8] = {};
+    size_t end = begin;
+    for (; end < signatures.size() &&
+           signatures[end].first == signatures[begin].first &&
+           (signatures[end].second >> 3) == (signatures[begin].second >> 3);
+         ++end)
+      ++count[signatures[end].second & 7];
     // Count each complementary multiset pair once, and only as many copies as
     // exist on both sides. Existence-only counting would misclassify a formula
     // containing many duplicate clauses and one opposite-polarity copy.
-    if (less(*begin, complement)) {
-      const auto opposite_begin =
-          std::lower_bound(signatures.begin(), signatures.end(), complement,
-                           less);
-      const auto opposite_end =
-          std::upper_bound(opposite_begin, signatures.end(), complement, less);
-      paired += 2 * std::min<uint64_t>(end - begin,
-                                      opposite_end - opposite_begin);
-    }
+    for (uint32_t signs = 0; signs < 4; ++signs)
+      paired += 2 * std::min(count[signs], count[7 - signs]);
     begin = end;
   }
   return static_cast<uint32_t>(std::min<uint64_t>(1000, 1000 * paired / clauses));

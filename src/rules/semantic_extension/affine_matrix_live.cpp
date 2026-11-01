@@ -77,34 +77,6 @@ bool same_event(const MatrixEvent &first, const MatrixEvent &second) {
          first.reason == second.reason;
 }
 
-bool same_request(const MatrixLiveRequest &first,
-                  const MatrixLiveRequest &second) {
-  return first.owner == second.owner && first.matrix == second.matrix &&
-         first.exact_sources == second.exact_sources &&
-         first.event == second.event &&
-         first.owner_identity == second.owner_identity &&
-         first.transaction == second.transaction &&
-         first.maximum_revalidation_work == second.maximum_revalidation_work &&
-         first.maximum_journal_bytes == second.maximum_journal_bytes &&
-         first.maximum_external_extent == second.maximum_external_extent &&
-         first.action_id == second.action_id &&
-         first.semantic_id == second.semantic_id &&
-         first.records == second.records &&
-         first.compact_provenance == second.compact_provenance &&
-         first.retained_source_provenance ==
-             second.retained_source_provenance &&
-         first.historical_event == second.historical_event &&
-         first.core_reason_authentication ==
-             second.core_reason_authentication &&
-         first.retained_publication == second.retained_publication &&
-         first.honor_termination == second.honor_termination &&
-         first.detached_reason == second.detached_reason &&
-         first.proof_cache == second.proof_cache &&
-         first.pbp_parity_cache == second.pbp_parity_cache &&
-         first.premise_leases == second.premise_leases &&
-         first.maximum_persistent_bytes == second.maximum_persistent_bytes;
-}
-
 bool snapshot_trail(const Kernel &kernel,
                     std::vector<MatrixAssignment> &assignments,
                     std::vector<uint32_t> *levels) {
@@ -194,6 +166,33 @@ bool validate_selected_sources(
   }
   if (!work.charge(occurrences.size())) return false;
   return leases || affine_live_sources_valid(kernel, owner, occurrences);
+}
+
+// A prepared transaction's selected sources, then, for a resumed cache entry,
+// the resumed sources it removed, in one revalidation work currency.
+bool validate_transaction_sources(
+    const Kernel &kernel, const AffineLiveSnapshot &owner,
+    const std::vector<Equation> &current_sources,
+    const std::vector<Equation> &resume_sources,
+    const AffineMatrixTransaction &transaction, Work &work,
+    const std::vector<uint64_t> *leases, std::vector<uint64_t> &occurrences,
+    std::vector<uint64_t> &clause_ids,
+    std::vector<uint64_t> &resume_occurrences,
+    std::vector<uint64_t> &resume_clause_ids,
+    bool *resume_failed = nullptr) {
+  if (!validate_selected_sources(
+          kernel, owner, current_sources, transaction.source_equations(),
+          transaction.source_identity(), work, leases, occurrences,
+          clause_ids))
+    return false;
+  if (!transaction.proof_cache_resume() ||
+      validate_selected_sources(
+          kernel, owner, resume_sources, transaction.resume_source_equations(),
+          transaction.resume_source_identity(), work, leases,
+          resume_occurrences, resume_clause_ids))
+    return true;
+  if (resume_failed) *resume_failed = true;
+  return false;
 }
 
 bool reason_order(const Kernel &kernel, const MatrixEvent &event,
@@ -691,29 +690,15 @@ MatrixLiveResult prepare_affine_matrix_live(
   }
   Work validation{kernel, request.maximum_revalidation_work, 0,
                   request.honor_termination};
-  if (!validate_selected_sources(
+  if (!validate_transaction_sources(
           kernel, (candidate.immediate_ || request.retained_publication)
                       ? *request.owner : candidate.owner_,
-          transaction_sources,
-          candidate.transaction_.source_equations(),
-          candidate.transaction_.source_identity(), validation,
-          request.premise_leases, candidate.source_occurrences_,
-          candidate.source_clause_ids_) ||
-      (candidate.transaction_.proof_cache_resume() &&
-       !validate_selected_sources(
-           kernel, (candidate.immediate_ || request.retained_publication)
-                       ? *request.owner : candidate.owner_,
-           *request.exact_sources,
-           candidate.transaction_.resume_source_equations(),
-           candidate.transaction_.resume_source_identity(), validation,
-           request.premise_leases, candidate.resume_source_occurrences_,
-           candidate.resume_source_clause_ids_))) {
+          transaction_sources, *request.exact_sources, candidate.transaction_,
+          validation, request.premise_leases, candidate.source_occurrences_,
+          candidate.source_clause_ids_, candidate.resume_source_occurrences_,
+          candidate.resume_source_clause_ids_)) {
     result.revalidation_work = validation.used;
-    result.status = validation.interrupted
-                        ? MatrixLiveStatus::Interrupted
-                    : validation.exhausted
-                        ? MatrixLiveStatus::ResourceExhausted
-                        : MatrixLiveStatus::Stale;
+    result.status = stopped_status(validation, MatrixLiveStatus::Stale);
     return result;
   }
   result.revalidation_work = validation.used;
@@ -769,8 +754,7 @@ MatrixLiveResult publish_affine_matrix_live(
   MatrixLiveResult result = prepared.prepared_;
   result.result = ApplyResult::NoOp;
   result.journal_bytes = 0;
-  if (!prepared.ready_ || !valid(request) ||
-      !same_request(request, prepared.request_)) {
+  if (!prepared.ready_ || !valid(request) || request != prepared.request_) {
     result.audit_stage = MatrixLiveResult::AuditStage::PreparedContract;
     result.status = MatrixLiveStatus::Invalid;
     return result;
@@ -856,36 +840,23 @@ MatrixLiveResult publish_affine_matrix_live(
     const auto fail_validation = [&](MatrixLiveResult::AuditStage stage) {
       result.audit_stage = stage;
       result.revalidation_work = validation.used;
-      result.status = validation.interrupted
-                          ? MatrixLiveStatus::Interrupted
-                      : validation.exhausted
-                          ? MatrixLiveStatus::ResourceExhausted
-                          : MatrixLiveStatus::Stale;
+      result.status = stopped_status(validation, MatrixLiveStatus::Stale);
     };
     if (!authenticated) {
       fail_validation(MatrixLiveResult::AuditStage::MatrixAuthentication);
       return result;
     }
-    if (!validate_selected_sources(
+    bool resume_failed = false;
+    if (!validate_transaction_sources(
             kernel, request.retained_publication ? *request.owner
                                                  : prepared.owner_,
-            *request.exact_sources,
-            prepared.transaction_.source_equations(),
-            prepared.transaction_.source_identity(), validation,
-            request.premise_leases, occurrences, clause_ids)) {
-      fail_validation(MatrixLiveResult::AuditStage::SelectedSources);
-      return result;
-    }
-    if (prepared.transaction_.proof_cache_resume() &&
-        !validate_selected_sources(
-             kernel, request.retained_publication ? *request.owner
-                                                  : prepared.owner_,
-             *request.exact_sources,
-             prepared.transaction_.resume_source_equations(),
-             prepared.transaction_.resume_source_identity(), validation,
-             request.premise_leases, resume_occurrences,
-             resume_clause_ids)) {
-      fail_validation(MatrixLiveResult::AuditStage::ResumeSources);
+            *request.exact_sources, *request.exact_sources,
+            prepared.transaction_, validation, request.premise_leases,
+            occurrences, clause_ids, resume_occurrences, resume_clause_ids,
+            &resume_failed)) {
+      fail_validation(resume_failed
+                          ? MatrixLiveResult::AuditStage::ResumeSources
+                          : MatrixLiveResult::AuditStage::SelectedSources);
       return result;
     }
     result.revalidation_work = validation.used;
@@ -940,13 +911,9 @@ MatrixLiveResult publish_affine_matrix_live(
           request.owner_identity, *request.exact_sources, *request.event,
           [&](uint64_t amount) { return replay.charge(amount); });
       result.revalidation_work = replay.used;
-      result.status = replay.interrupted
-                          ? MatrixLiveStatus::Interrupted
-                      : replay.exhausted
-                          ? MatrixLiveStatus::ResourceExhausted
-                      : authenticated
-                          ? MatrixLiveStatus::Invalid
-                          : MatrixLiveStatus::Stale;
+      result.status = stopped_status(
+          replay, authenticated ? MatrixLiveStatus::Invalid
+                                : MatrixLiveStatus::Stale);
       return result;
     }
     const uint64_t selected_work = result.revalidation_work;
@@ -957,28 +924,15 @@ MatrixLiveResult publish_affine_matrix_live(
       std::vector<uint64_t> clause_ids;
       std::vector<uint64_t> resume_occurrences;
       std::vector<uint64_t> resume_clause_ids;
-      const bool valid_sources = validate_selected_sources(
+      const bool valid_sources = validate_transaction_sources(
           kernel, prepared.immediate_ ? *request.owner : prepared.owner_,
-          *request.exact_sources,
-          prepared.transaction_.source_equations(),
-          prepared.transaction_.source_identity(), replay,
-          request.premise_leases, occurrences, clause_ids) &&
-          (!prepared.transaction_.proof_cache_resume() ||
-           validate_selected_sources(
-               kernel, prepared.immediate_ ? *request.owner : prepared.owner_,
-               *request.exact_sources,
-               prepared.transaction_.resume_source_equations(),
-               prepared.transaction_.resume_source_identity(), replay,
-               request.premise_leases, resume_occurrences,
-               resume_clause_ids));
+          *request.exact_sources, *request.exact_sources,
+          prepared.transaction_, replay, request.premise_leases, occurrences,
+          clause_ids, resume_occurrences, resume_clause_ids);
       result.revalidation_work = replay.used;
-      result.status = replay.interrupted
-                          ? MatrixLiveStatus::Interrupted
-                      : replay.exhausted
-                          ? MatrixLiveStatus::ResourceExhausted
-                      : valid_sources
-                          ? MatrixLiveStatus::Invalid
-                          : MatrixLiveStatus::Stale;
+      result.status = stopped_status(
+          replay, valid_sources ? MatrixLiveStatus::Invalid
+                                : MatrixLiveStatus::Stale);
       return result;
     }
     result.revalidation_work = validation.used;
@@ -1021,27 +975,12 @@ MatrixLiveResult publish_affine_matrix_live(
       std::abort();
   }
   for (const MatrixProofEvent &event : prepared.transaction_.proof_events()) {
-    if (event.kind == MatrixProofEvent::Kind::Delete) {
-      if (event.id != kernel.next_clause_id) std::abort();
-      if (kernel.proof &&
-          !kernel.proof->del_external(
-              event.id, event.deleted_id,
-              event.clause.empty() ? nullptr : event.clause.data(),
-              event.clause.size()))
-        std::abort();
-      continue;
-    }
-    if (++kernel.next_clause_id != event.id) std::abort();
-    if (kernel.proof) {
-      const bool emitted = event.kind == MatrixProofEvent::Kind::Rat
-          ? kernel.proof->add_external_rat(
-                event.id, event.clause.empty() ? nullptr : event.clause.data(),
-                event.clause.size())
-          : kernel.proof->add_external_rup(
-                event.id, event.clause.empty() ? nullptr : event.clause.data(),
-                event.clause.size());
-      if (!emitted) std::abort();
-    }
+    const bool deletion = event.kind == MatrixProofEvent::Kind::Delete;
+    if (deletion && event.id != kernel.next_clause_id) std::abort();
+    affine_live_emit_planned_event(
+        kernel, event.kind == MatrixProofEvent::Kind::Rat, deletion, event.id,
+        event.deleted_id, event.clause);
+    if (deletion) continue;
     if (retained_support.count(event.id)) {
       if (event.install || event.kind == MatrixProofEvent::Kind::Delete)
         std::abort();

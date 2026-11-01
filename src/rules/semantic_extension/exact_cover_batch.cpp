@@ -2,6 +2,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/csp_exact_theory.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -17,6 +18,7 @@ using tactix::INVALID_LIT;
 using tactix::Kernel;
 using tactix::Lit;
 using tactix::Ref;
+using tactix::csp_exact_theory::add_count;
 using tactix::exact_cover_semantic::Premise;
 
 std::vector<int32_t> normalized_external(const Kernel &k, const Lit *begin,
@@ -68,12 +70,6 @@ bool retained_source_is_live(const Kernel &k,
     if (found == live.end() || (proof_id && found->second != proof_id))
       return false;
   }
-  return true;
-}
-
-bool checked_add(uint64_t &total, uint64_t amount) {
-  if (amount > UINT64_MAX - total) return false;
-  total += amount;
   return true;
 }
 
@@ -195,9 +191,9 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
       result.status = BatchPublicationStatus::Invalid;
       return result;
     }
-    if (!checked_add(additions, definition.proof_additions) ||
-        !checked_add(literal_occurrences, definition.literal_occurrences) ||
-        !checked_add(arena_words, reverse.size() + CLAUSE_HEADER_WORDS)) {
+    if (!add_count(definition.proof_additions, additions) ||
+        !add_count(definition.literal_occurrences, literal_occurrences) ||
+        !add_count(reverse.size() + CLAUSE_HEADER_WORDS, arena_words)) {
       result.status = BatchPublicationStatus::ResourceExhausted;
       return result;
     }
@@ -228,17 +224,11 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     result.status = BatchPublicationStatus::ResourceExhausted;
     return result;
   }
-  for (const Premise &premise : plan.source_) {
-    if (!journal.append(
-            "{\"kind\":\"exact-cover-batch-source\",\"action\":" +
-            std::to_string(request.action_id) + ",\"occurrence\":" +
-            std::to_string(premise.occurrence) +
-            ",\"native_proof_id\":" +
-            std::to_string(premise.native_proof_id) + ",\"clause\":[") ||
-        !journal.integers(premise.literals) || !journal.append("]}\n")) {
-      result.status = BatchPublicationStatus::ResourceExhausted;
-      return result;
-    }
+  if (!semantic_extension::append_source_premises(
+          journal, "exact-cover-batch-source", request.action_id,
+          plan.source_)) {
+    result.status = BatchPublicationStatus::ResourceExhausted;
+    return result;
   }
   uint64_t journal_id = k.next_clause_id;
   for (const PlannedDefinition &definition : plan.definitions_) {

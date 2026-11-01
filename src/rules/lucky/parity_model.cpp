@@ -229,11 +229,8 @@ ApplyResult parity_model_apply(Kernel &k) {
       assignment[p] = static_cast<uint8_t>(value);
     }
     ++k.stats.parity_model_candidates;
-    if (lucky_model_valid(k, assignment)) {
-      lucky_publish_model(k, assignment);
-      ++k.stats.parity_model_sat;
+    if (lucky_publish_if_model(k, assignment, k.stats.parity_model_sat))
       return ApplyResult::Sat;
-    }
     if (guidance.empty()) {
       guidance.assign(k.nvars, 0);
       for (Var var = 0; var < k.nvars; ++var) {

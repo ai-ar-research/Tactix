@@ -14,14 +14,6 @@ using Meter = gf3_certificate_common::Meter<Limits, Charge, Statistics,
                                               LimitKind>;
 using Outcome = gf3_certificate_common::Outcome<Result>;
 
-bool valid_limits(const Limits &limits) {
-  return limits.maximum_work && limits.maximum_events &&
-         limits.maximum_event_literals && limits.maximum_active_clauses &&
-         limits.maximum_retained_source_references &&
-         limits.maximum_event_width && limits.maximum_branch_domains &&
-         limits.maximum_consequences;
-}
-
 struct LocalProof
     : gf3_certificate_common::LocalProof<
           LocalProof, gf3_affine::Theory, Limits, Meter,
@@ -118,7 +110,7 @@ bool build_consequence(const gf3_affine::Theory &theory,
 Result build(const gf3_affine::Theory &theory,
              const gf3_gaussian_bridge::Plan &bridge,
              const Limits &limits, Charge charge) {
-  if (!charge || !valid_limits(limits)) return {};
+  if (!charge || !limits.valid()) return {};
   gf3_gaussian_bridge::Result checked = gf3_gaussian_bridge::validate(
       theory, bridge, limits.bridge, charge);
   if (checked.status != gf3_gaussian_bridge::Status::Complete)

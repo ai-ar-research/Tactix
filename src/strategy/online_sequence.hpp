@@ -87,6 +87,39 @@ class OnlineStrategySequence {
     incomplete_ = false;
   }
 
+  // A result with no dispatch, state transition or application.
+  InvocationResult undispatched(const Kernel &k, InvocationStatus status) const {
+    InvocationResult out;
+    out.configuration_revision = revision_;
+    out.before = out.after = state_version(k);
+    out.status = status;
+    return out;
+  }
+
+  // Admission flags a step transition clears, in addition to step progress.
+  enum class Admissions : uint8_t { Kept, Followup, All };
+
+  // Leave the current step; the next starts without step progress.
+  void next_step(Admissions cleared = Admissions::All) {
+    ++current_;
+    step_progress_ = false;
+    if (cleared != Admissions::Kept) followup_admitted_ = false;
+    if (cleared == Admissions::All) before_progress_admitted_ = false;
+  }
+
+  // Pass over the current step: trivially complete, or the retained
+  // exhaustion of a producer stopped in this generation.
+  InvocationResult skip(const Kernel &k, InvocationStatus status,
+                        Admissions cleared) {
+    InvocationResult skipped = undispatched(k, status);
+    skipped.step_id = program_.sequence[current_].id;
+    skipped.selection_complete = status == InvocationStatus::NoChange;
+    if (status == InvocationStatus::BudgetExhausted)
+      skipped.budget_status = BudgetStatus::Exhausted;
+    next_step(cleared);
+    return skipped;
+  }
+
 public:
   bool configure(const OnlineStrategyProgram &program, uint64_t revision = 1,
                  ReconfigureMode mode = ReconfigureMode::ResetRuntime,
@@ -201,10 +234,7 @@ public:
       return out;
     }
     const StateVersion current = state_version(k);
-    if (owner_ && (owner_ != &k ||
-        expected_.arena_generation != current.arena_generation ||
-        expected_.touch_epoch != current.touch_epoch ||
-        expected_.strategy_epoch != current.strategy_epoch)) {
+    if (owner_ && (owner_ != &k || expected_ != current)) {
       // An external transition may make stopped discovery useful again. The
       // underlying executor still rejects stale pending selections; clearing
       // retry suppression does not authorize consuming an old payload.
@@ -214,61 +244,27 @@ public:
     expected_ = current;
     for (;;) {
       // Poll before resetting any selection or crossing any producer boundary.
-      if ((stop && *stop) || (k.stop && *k.stop)) {
-        InvocationResult out;
-        out.configuration_revision = revision_;
-        out.before = out.after = state_version(k);
-        out.status = InvocationStatus::Interrupted;
-        return out;
-      }
+      if ((stop && *stop) || (k.stop && *k.stop))
+        return undispatched(k, InvocationStatus::Interrupted);
       if (complete_)
         return terminal_;
       if (current_ < executors_.size()) {
         auto &executor = executors_[current_];
         if (before_progress_[current_] && !before_progress_admitted_) {
-          if (effective_generation_) {
-            InvocationResult skipped;
-            skipped.configuration_revision = revision_;
-            skipped.before = skipped.after = state_version(k);
-            skipped.step_id = program_.sequence[current_].id;
-            skipped.status = InvocationStatus::NoChange;
-            skipped.selection_complete = true;
-            ++current_;
-            step_progress_ = false;
-            followup_admitted_ = false;
-            return skipped;
-          }
+          if (effective_generation_)
+            return skip(k, InvocationStatus::NoChange, Admissions::Followup);
           before_progress_admitted_ = true;
         }
         const bool followup = progress_followups_[current_];
         if (followup && !followup_admitted_) {
-          if (!followup_credit_) {
-            InvocationResult skipped;
-            skipped.configuration_revision = revision_;
-            skipped.before = skipped.after = state_version(k);
-            skipped.step_id = program_.sequence[current_].id;
-            skipped.status = InvocationStatus::NoChange;
-            skipped.selection_complete = true;
-            ++current_;
-            step_progress_ = false;
-            return skipped;
-          }
+          if (!followup_credit_)
+            return skip(k, InvocationStatus::NoChange, Admissions::Kept);
           followup_admitted_ = true;
         }
         if (exhaustion_ == BudgetExhaustionPolicy::Continue &&
             stopped_generation_[current_] == effective_generation_) {
-          InvocationResult skipped;
-          skipped.configuration_revision = revision_;
-          skipped.before = skipped.after = state_version(k);
-          skipped.step_id = program_.sequence[current_].id;
-          skipped.status = InvocationStatus::BudgetExhausted;
-          skipped.budget_status = BudgetStatus::Exhausted;
           incomplete_ = any_incomplete_ = true;
-          ++current_;
-          step_progress_ = false;
-          followup_admitted_ = false;
-          before_progress_admitted_ = false;
-          return skipped;
+          return skip(k, InvocationStatus::BudgetExhausted, Admissions::All);
         }
         ++dispatches_[current_];
         InvocationResult out = dispatch(program_.sequence[current_], [&] {
@@ -299,17 +295,11 @@ public:
           // Without effective mutation, do not retry an identical exhausted job.
           stopped_generation_[current_] = step_progress_
               ? std::nullopt : std::optional<uint64_t>(effective_generation_);
-          ++current_;
-          step_progress_ = false;
-          followup_admitted_ = false;
-          before_progress_admitted_ = false;
+          next_step();
         } else if (executor.complete()) {
           if (followup)
             followup_credit_ = false;
-          ++current_;
-          step_progress_ = false;
-          followup_admitted_ = false;
-          before_progress_admitted_ = false;
+          next_step();
         }
         // Resource failures and terminal/conflict statuses are returned to the
         // caller unchanged. In particular an interrupt never skips a producer.
@@ -338,21 +328,15 @@ public:
         continue;
       }
       complete_ = true;
-      terminal_ = {};
-      terminal_.configuration_revision = revision_;
-      terminal_.before = terminal_.after = state_version(k);
       const bool fixpoint = fixpoint_repeat(program_.repeat.mode);
       const bool incomplete = fixpoint ? incomplete_ : any_incomplete_;
+      const bool exhausted = incomplete || (fixpoint && progress_);
+      terminal_ = undispatched(k, exhausted ? InvocationStatus::BudgetExhausted
+                                  : fixpoint ? InvocationStatus::ScopedFixpoint
+                                             : InvocationStatus::Completed);
       terminal_.selection_complete = !incomplete;
-      if (incomplete ||
-          (fixpoint && progress_)) {
-        terminal_.status = InvocationStatus::BudgetExhausted;
+      if (exhausted)
         terminal_.budget_status = BudgetStatus::Exhausted;
-      } else {
-        terminal_.status = fixpoint
-                               ? InvocationStatus::ScopedFixpoint
-                               : InvocationStatus::Completed;
-      }
       return terminal_;
     }
   }

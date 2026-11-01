@@ -300,6 +300,14 @@ private:
 
   void remember_terminal_initialization_failure(
       const Kernel &, const strategy::AffineConsequenceParameters &);
+  // One live publication request against this session's exact owner, matrix,
+  // source image and proof caches.
+  affine_semantic_extension::MatrixLiveRequest matrix_live_request(
+      const Kernel &, const affine_semantic_extension::MatrixEvent &,
+      bool core_reason_authentication);
+  // Retain one newly published event identity at its sorted position.
+  void publish_identity(std::vector<std::string>::iterator,
+                        const std::string &);
 
   const Kernel *owner_ = nullptr;
   uint64_t owner_version_ = 0;

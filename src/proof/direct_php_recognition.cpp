@@ -79,27 +79,21 @@ Identity identity(const Premise &premise) {
 bool rows_compatible(const Row &first, const Row &second,
                      const std::map<Edge, const Premise *> &edges,
                      Meter &meter) {
-  for (int32_t a : first.variables) {
-    bool found = false;
-    for (int32_t b : second.variables) {
-      if (!meter.take(1))
+  // Every variable of `from` has an exclusion edge to some variable of `to`.
+  const auto covered = [&](const Row &from, const Row &to) {
+    for (int32_t a : from.variables) {
+      bool found = false;
+      for (int32_t b : to.variables) {
+        if (!meter.take(1))
+          return false;
+        found |= edges.count(edge(variable(a), variable(b)));
+      }
+      if (!found)
         return false;
-      found |= edges.count(edge(variable(a), variable(b)));
     }
-    if (!found)
-      return false;
-  }
-  for (int32_t b : second.variables) {
-    bool found = false;
-    for (int32_t a : first.variables) {
-      if (!meter.take(1))
-        return false;
-      found |= edges.count(edge(variable(a), variable(b)));
-    }
-    if (!found)
-      return false;
-  }
-  return true;
+    return true;
+  };
+  return covered(first, second) && covered(second, first);
 }
 
 bool same_image(const Image &first, const Image &second) {
@@ -107,19 +101,15 @@ bool same_image(const Image &first, const Image &second) {
       first.alos.size() != second.alos.size() ||
       first.amos.size() != second.amos.size())
     return false;
-  for (size_t i = 0; i < first.alos.size(); ++i)
-    if (first.alos[i].identity.occurrence !=
-            second.alos[i].identity.occurrence ||
-        first.alos[i].identity.native_proof_id !=
-            second.alos[i].identity.native_proof_id)
-      return false;
-  for (size_t i = 0; i < first.amos.size(); ++i)
-    if (first.amos[i].identity.occurrence !=
-            second.amos[i].identity.occurrence ||
-        first.amos[i].identity.native_proof_id !=
-            second.amos[i].identity.native_proof_id)
-      return false;
-  return true;
+  const auto same_identities = [](const auto &left, const auto &right) {
+    for (size_t i = 0; i < left.size(); ++i)
+      if (left[i].identity.occurrence != right[i].identity.occurrence ||
+          left[i].identity.native_proof_id != right[i].identity.native_proof_id)
+        return false;
+    return true;
+  };
+  return same_identities(first.alos, second.alos) &&
+         same_identities(first.amos, second.amos);
 }
 
 bool complete_image(const std::vector<const Row *> &rows,

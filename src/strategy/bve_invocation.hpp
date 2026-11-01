@@ -136,29 +136,23 @@ inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
 
   // Large occurrence lists of the counted population, built once.
   std::vector<uint64_t> offsets(literals + 1, 0);
-  const auto counted = [&](const Clause *clause) {
-    return !clause->garbage() && !clause->redundant();
+  const auto counted_occurrences = [&](auto &&visit) {
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *clause = clause_at(k.arena, ref);
+      if (!clause->garbage() && !clause->redundant())
+        for (const Lit literal : *clause)
+          if (!k.values[literal])
+            visit(literal, ref);
+      ref += clause_actual_words(clause);
+    }
   };
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (counted(clause))
-      for (const Lit literal : *clause)
-        if (!k.values[literal])
-          ++offsets[literal + 1];
-    ref += clause_actual_words(clause);
-  }
+  counted_occurrences([&](Lit literal, Ref) { ++offsets[literal + 1]; });
   for (uint32_t literal = 0; literal < literals; ++literal)
     offsets[literal + 1] += offsets[literal];
   std::vector<Ref> lists(offsets[literals]);
   std::vector<uint64_t> cursor(offsets.begin(), offsets.end() - 1);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (counted(clause))
-      for (const Lit literal : *clause)
-        if (!k.values[literal])
-          lists[cursor[literal]++] = ref;
-    ref += clause_actual_words(clause);
-  }
+  counted_occurrences(
+      [&](Lit literal, Ref ref) { lists[cursor[literal]++] = ref; });
 
   std::vector<uint8_t> removed_clause(k.arena.size(), 0);
   std::vector<uint8_t> removed_literal(literals, 0), seen(k.nvars, 0);
@@ -296,6 +290,15 @@ inline InvocationStatus terminal_status(ApplyResult result) {
   }
 }
 
+// The registered BVE proof rule, valid parameters and BVE-tick currency.
+inline bool bve_admissible(const RuleVTable &rule,
+                           const BveParameters &parameters,
+                           const InvocationBudget &budget) {
+  return !std::strcmp(rule.name, "BVE") && rule.apply_instance &&
+         rule.kind == ActionKind::ProofRule && parameters.valid() &&
+         budget.unit() == WorkUnit::BveTicks;
+}
+
 } // namespace detail
 
 // A policy may keep one session alive while it chooses BVE candidates.  Rule
@@ -312,10 +315,8 @@ public:
                        InvocationBudget &budget,
                        uint64_t configuration_revision = 0)
       : rule_(rule), k_(k), budget_(budget),
-        configuration_revision_(configuration_revision) {
-    valid_ = !std::strcmp(rule_.name, "BVE") && rule_.apply_instance &&
-             rule_.kind == ActionKind::ProofRule && parameters.valid() &&
-             budget_.unit() == WorkUnit::BveTicks;
+        configuration_revision_(configuration_revision),
+        valid_(detail::bve_admissible(rule, parameters, budget)) {
     if (valid_)
       posed_.emplace(k_, parameters);
   }
@@ -324,11 +325,8 @@ public:
   struct CallerPosed {};
   BveInvocationSession(CallerPosed, const RuleVTable &rule, Kernel &k,
                        const BveParameters &parameters, InvocationBudget &budget)
-      : rule_(rule), k_(k), budget_(budget), configuration_revision_(0) {
-    valid_ = !std::strcmp(rule_.name, "BVE") && rule_.apply_instance &&
-             rule_.kind == ActionKind::ProofRule && parameters.valid() &&
-             budget_.unit() == WorkUnit::BveTicks;
-  }
+      : rule_(rule), k_(k), budget_(budget), configuration_revision_(0),
+        valid_(detail::bve_admissible(rule, parameters, budget)) {}
   BveInvocationSession(const BveInvocationSession &) = delete;
   BveInvocationSession &operator=(const BveInvocationSession &) = delete;
   ~BveInvocationSession() { finish_ordering(); }
@@ -472,12 +470,12 @@ inline InvocationResult invoke_bve(const RuleVTable &rule, Kernel &k,
   out.configuration_revision = request.configuration_revision;
   out.budget_status = budget.status();
 
-  if (std::strcmp(rule.name, "BVE") || !rule.apply_instance ||
-      rule.kind != ActionKind::ProofRule || !request.parameters.valid() ||
-      budget.unit() != WorkUnit::BveTicks) {
+  const auto invalid = [&out] {
     out.status = InvocationStatus::InvalidRequest;
     return out;
-  }
+  };
+  if (!detail::bve_admissible(rule, request.parameters, budget))
+    return invalid();
   if (out.budget_status != BudgetStatus::Ready) {
     out.status = detail::accounting_status(out.budget_status);
     return out;
@@ -487,40 +485,31 @@ inline InvocationResult invoke_bve(const RuleVTable &rule, Kernel &k,
   std::span<const uint64_t> selected = request.instances;
   switch (request.granularity) {
   case InvocationGranularity::OneInstance:
-    if (selected.size() != 1 || selected.front() == INSTANCE_CANONICAL) {
-      out.status = InvocationStatus::InvalidRequest;
-      return out;
-    }
+    if (selected.size() != 1 || selected.front() == INSTANCE_CANONICAL)
+      return invalid();
     break;
   case InvocationGranularity::SelectedBatch:
     if (selected.empty() ||
         std::find(selected.begin(), selected.end(), INSTANCE_CANONICAL) !=
-            selected.end()) {
-      out.status = InvocationStatus::InvalidRequest;
-      return out;
-    }
+            selected.end())
+      return invalid();
     break;
   case InvocationGranularity::CompleteCurrentPass:
-    if (!selected.empty() || !rule.instances) {
-      out.status = InvocationStatus::InvalidRequest;
-      return out;
-    }
+    if (!selected.empty() || !rule.instances)
+      return invalid();
     bve_complete_instances(k, rule, request.parameters, complete);
     selected = complete;
     break;
   case InvocationGranularity::CanonicalApplication:
-    if (!selected.empty()) {
-      out.status = InvocationStatus::InvalidRequest;
-      return out;
-    }
+    if (!selected.empty())
+      return invalid();
     {
       BveInvocationSession session(rule, k, request.parameters, budget,
                                    request.configuration_revision);
       return session.apply_canonical();
     }
   case InvocationGranularity::NativeProducerOffer:
-    out.status = InvocationStatus::InvalidRequest;
-    return out;
+    return invalid();
   }
 
   // Validate external identities transactionally before posing parameters or
@@ -528,10 +517,8 @@ inline InvocationResult invoke_bve(const RuleVTable &rule, Kernel &k,
   // because an earlier member changed the formula; that is reported below.
   for (const uint64_t instance : selected) {
     Lit lit;
-    if (!lit_of_instance(k, instance, &lit)) {
-      out.status = InvocationStatus::InvalidRequest;
-      return out;
-    }
+    if (!lit_of_instance(k, instance, &lit))
+      return invalid();
   }
 
   BveInvocationSession session(rule, k, request.parameters, budget,

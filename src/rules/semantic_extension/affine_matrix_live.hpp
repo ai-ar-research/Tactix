@@ -67,6 +67,8 @@ struct MatrixLiveRequest {
   // the legacy live native-source authentication boundary.
   const std::vector<uint64_t> *premise_leases = nullptr;
   uint64_t maximum_persistent_bytes = 0;
+
+  bool operator==(const MatrixLiveRequest &) const = default;
 };
 
 struct MatrixLiveResult {

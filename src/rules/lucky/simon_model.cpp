@@ -29,16 +29,9 @@ uint32_t simon_function(uint32_t value) {
          rotate_left(value, 2);
 }
 
-bool map_external(const Kernel &k, uint64_t external, Var &internal) {
-  if (!external || external > k.external_to_internal.size())
-    return false;
-  internal = k.external_to_internal[external - 1];
-  return internal != INVALID_VAR && internal < k.nvars;
-}
-
 bool external_value(const Kernel &k, uint64_t external, uint8_t &value) {
   Var internal = INVALID_VAR;
-  if (!map_external(k, external, internal))
+  if (!lucky_internal_variable(k, external, internal))
     return false;
   const int current = k.value(make_lit(internal, false));
   if (!current)
@@ -203,19 +196,10 @@ SearchResult find_key(Kernel &k, const Simon &simon, uint64_t maximum,
   return SearchResult::Exhausted;
 }
 
-bool set_external(const Kernel &k, std::vector<uint8_t> &assignment,
-                  uint64_t external, bool value) {
-  Var internal = INVALID_VAR;
-  if (!map_external(k, external, internal))
-    return false;
-  assignment[internal] = value;
-  return true;
-}
-
 bool set_word(const Kernel &k, std::vector<uint8_t> &assignment,
               uint64_t first, uint32_t word) {
   for (uint32_t bit = 0; bit < 32; ++bit)
-    if (!set_external(k, assignment, first + bit, (word >> bit) & 1))
+    if (!lucky_set_external(k, assignment, first + bit, (word >> bit) & 1))
       return false;
   return true;
 }
@@ -288,10 +272,8 @@ ApplyResult simon_model_apply(Kernel &k) {
     return ApplyResult::NoOp;
   std::vector<uint8_t> assignment;
   if (!build_assignment(k, simon, key, assignment) ||
-      !lucky_model_valid(k, assignment))
+      !lucky_publish_if_model(k, assignment, k.stats.simon_model_sat))
     return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.simon_model_sat;
   return ApplyResult::Sat;
 }
 

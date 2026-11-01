@@ -1,4 +1,5 @@
 #include "rules/lucky/count_preservation.hpp"
+#include "rules/lucky/startup_pb_writer.hpp"
 
 #include "kernel/types.hpp"
 
@@ -75,8 +76,12 @@ struct SignedSets {
   }
 };
 
-template<class Function>
-bool clauses(const Kernel &k, Work &work, Function visit) {
+// Visits every non-tautological startup clause sorted and duplicate-free.
+// `keep` first sees the raw literals; it may reject only clauses whose visit
+// could have no effect, which then skip normalization. Every clause, kept or
+// not, still advances the count that drives the work ticks.
+template<class Keep, class Function>
+bool clauses(const Kernel &k, Work &work, Keep keep, Function visit) {
   std::vector<int32_t> clause;
   uint64_t count = 0;
   for (const int32_t literal : k.startup_input) {
@@ -84,21 +89,40 @@ bool clauses(const Kernel &k, Work &work, Function visit) {
       clause.push_back(literal);
       continue;
     }
-    std::sort(clause.begin(), clause.end());
-    clause.erase(std::unique(clause.begin(), clause.end()), clause.end());
-    bool tautology = false;
-    for (const int32_t lit : clause)
-      if (std::binary_search(clause.begin(), clause.end(), -lit)) {
-        tautology = true;
-        break;
-      }
-    if (!tautology && !visit(clause))
-      return false;
+    if (keep(clause)) {
+      std::sort(clause.begin(), clause.end());
+      clause.erase(std::unique(clause.begin(), clause.end()), clause.end());
+      bool tautology = false;
+      for (const int32_t lit : clause)
+        if (std::binary_search(clause.begin(), clause.end(), -lit)) {
+          tautology = true;
+          break;
+        }
+      if (!tautology && !visit(clause))
+        return false;
+    }
     clause.clear();
     if (!(++count & 4095) && !work.tick(4096))
       return false;
   }
   return clause.empty() && work.tick(count & 4095);
+}
+
+// Normalization keeps every distinct literal, so a raw clause with four of
+// them can never become one of the short clauses the first pass records.
+bool at_most_three_distinct(const std::vector<int32_t> &clause) {
+  if (clause.size() <= 3)
+    return true;
+  int32_t seen[3] = {};
+  unsigned distinct = 0;
+  for (const int32_t literal : clause) {
+    if (std::find(seen, seen + distinct, literal) != seen + distinct)
+      continue;
+    if (distinct == 3)
+      return false;
+    seen[distinct++] = literal;
+  }
+  return true;
 }
 
 bool discover(Kernel &k, Work &work, Plan &plan) {
@@ -107,8 +131,10 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
     return false;
   std::vector<Pair> binaries;
   std::vector<Triple> ternaries;
+  binaries.reserve(k.input_binary_clause_count);
+  ternaries.reserve(k.input_ternary_clause_count);
   plan.units.assign(variables, 0);
-  if (!clauses(k, work, [&](const auto &clause) {
+  if (!clauses(k, work, at_most_three_distinct, [&](const auto &clause) {
         if (clause.size() == 1) {
           const auto v = variable(clause[0]);
           const int8_t value = clause[0] > 0 ? 1 : -1;
@@ -123,8 +149,6 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
         return true;
       }))
     return false;
-  std::sort(binaries.begin(), binaries.end());
-  binaries.erase(std::unique(binaries.begin(), binaries.end()), binaries.end());
   std::sort(ternaries.begin(), ternaries.end());
   ternaries.erase(std::unique(ternaries.begin(), ternaries.end()), ternaries.end());
   std::vector<uint8_t> selector_literal(2 * variables, 0);
@@ -151,7 +175,29 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
   }
   if (candidates.empty())
     return false;
-  if (!clauses(k, work, [&](const auto &clause) {
+  const auto is_selector = [&](int32_t lit) {
+    return selector_literal[internalize(lit)] != 0;
+  };
+  // Only the selector-row pass below reads the binaries; sorting them after
+  // the candidate check spares formulas without a candidate the whole sort.
+  // That pass looks up only pairs of negated selector literals, so no other
+  // binary needs sorting.
+  binaries.erase(std::remove_if(binaries.begin(), binaries.end(),
+                                [&](const Pair &pair) {
+                                  return !is_selector(-pair[0]) ||
+                                         !is_selector(-pair[1]);
+                                }),
+                 binaries.end());
+  std::sort(binaries.begin(), binaries.end());
+  binaries.erase(std::unique(binaries.begin(), binaries.end()), binaries.end());
+  // Normalization keeps every distinct literal, so a raw clause shorter than
+  // two or holding a non-selector literal returns from its visit before any
+  // tick.
+  const auto selector_row = [&](const std::vector<int32_t> &clause) {
+    return clause.size() >= 2 &&
+           std::all_of(clause.begin(), clause.end(), is_selector);
+  };
+  if (!clauses(k, work, selector_row, [&](const auto &clause) {
         if (clause.size() < 2)
           return true;
         for (const int32_t lit : clause)
@@ -299,39 +345,14 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
   return false;
 }
 
-class Certificate {
+class Certificate : public StartupPbWriter {
   Kernel &k_;
   const Plan &p_;
-  FILE *out_;
-  uint64_t id_, initial_;
-  void emit(const char *format, ...) {
-    if (!out_)
-      return;
-    va_list args;
-    va_start(args, format);
-    std::vfprintf(out_, format, args);
-    va_end(args);
-  }
-  void term(int32_t lit) {
-    emit("1 %sx%u ", lit < 0 ? "~" : "", variable(lit) + 1);
-  }
   uint64_t clause(const std::vector<int32_t> &lits) {
-    emit("rup ");
+    text("rup ");
     for (int32_t lit : lits)
       term(lit);
-    emit(">= 1 ;\n");
-    return ++id_;
-  }
-  uint64_t sum(const std::vector<uint64_t> &ids, uint64_t scale = 1,
-               uint64_t divide = 1) {
-    emit("pol %llu", (unsigned long long)ids[0]);
-    if (scale != 1)
-      emit(" %llu *", (unsigned long long)scale);
-    for (size_t at = 1; at < ids.size(); ++at)
-      emit(" %llu +", (unsigned long long)ids[at]);
-    if (divide != 1)
-      emit(" %llu d", (unsigned long long)divide);
-    emit(" ;\n");
+    text(">= 1 ;\n");
     return ++id_;
   }
   int32_t leaf(const Star &star) const {
@@ -341,34 +362,32 @@ class Certificate {
   // Definition z <=> (s & x). The explicit repair subproofs concern only
   // the two earlier clauses containing fresh z, never the original variables.
   uint64_t conjunction(int32_t z, int32_t s, int32_t x) {
-    emit("red "); term(-z); term(s);
-    emit(">= 1 : x%d -> 0 ;\n", z);
+    text("red "); term(-z); term(s);
+    text(">= 1 : x%d -> 0 ;\n", z);
     const uint64_t first = ++id_;
-    emit("red "); term(-z); term(x);
-    emit(">= 1 : x%d -> 0 ;\n", z);
+    text("red "); term(-z); term(x);
+    text(">= 1 : x%d -> 0 ;\n", z);
     const uint64_t second = ++id_;
-    emit("red "); term(z); term(-s); term(-x);
-    emit(">= 1 : x%d -> 1 : subproof\n", z);
+    text("red "); term(z); term(-s); term(-x);
+    text(">= 1 : x%d -> 1 : subproof\n", z);
     const uint64_t negated = ++id_;
-    emit("proofgoal #1\nqed ;\n");
+    text("proofgoal #1\nqed ;\n");
     ++id_;
     for (uint64_t goal : {first, second}) {
-      emit("proofgoal %llu\n", (unsigned long long)goal);
+      text("proofgoal %llu\n", (unsigned long long)goal);
       const uint64_t negative_goal = ++id_;
       const uint64_t contradiction = sum({negated, negative_goal});
-      emit("qed : %llu ;\n", (unsigned long long)contradiction);
+      text("qed : %llu ;\n", (unsigned long long)contradiction);
     }
-    emit("qed ;\n");
+    text("qed ;\n");
     ++id_;
     return first;
   }
 public:
   Certificate(Kernel &k, const Plan &p, FILE *out)
-      : k_(k), p_(p), out_(out),
-        id_(k.input_unit_clause_count + k.input_nonunit_clause_count), initial_(id_) {}
-  uint64_t additions() const { return id_ - initial_; }
+      : StartupPbWriter(k, out), k_(k), p_(p) {}
   bool run(Work *work) {
-    emit("pseudo-Boolean proof version 3.0\n");
+    header();
     std::vector<uint64_t> row_amo(p_.rows.size(), 0), z_to_selector(p_.edges.size(), 0);
     std::vector<int32_t> carries(p_.edges.size(), 0);
     uint32_t fresh = static_cast<uint32_t>(k_.external_to_internal.size());
@@ -435,12 +454,12 @@ public:
         else {
           // Adding the complementary Boolean axiom cancels a true literal
           // without increasing the RHS (pol literal denotes literal >= 0).
-          emit("pol %sx%u ;\n", in_bound > 0 ? "~" : "", v + 1);
+          text("pol %sx%u ;\n", in_bound > 0 ? "~" : "", v + 1);
           bounds.push_back(++id_);
         }
       }
     sum(bounds);
-    emit("output NONE ;\nconclusion UNSAT : -1 ;\nend pseudo-Boolean proof ;\n");
+    footer();
     return !out_ || !std::ferror(out_);
   }
 };

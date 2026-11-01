@@ -55,8 +55,4 @@ NaryCspEqualityActionResult nary_csp_equality_action_apply(
     const NaryCspEqualityLimits &,
     const NaryCspEqualityActionSelection &);
 
-// Enumerate only canonical equality coordinate choices from exact owners that
-// the neutral relation session has authenticated. The offerer is read-only
-// and caller-bounded.
-
 } // namespace tactix

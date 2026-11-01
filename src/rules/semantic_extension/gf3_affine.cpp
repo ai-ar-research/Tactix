@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_affine.hpp"
 
 #include "kernel/types.hpp"
+#include "rules/semantic_extension/gf3_certificate_common.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -13,33 +14,18 @@
 namespace tactix::gf3_affine {
 namespace {
 
+using gf3_certificate_common::canonical;
+using gf3_certificate_common::multiply_checked;
+using gf3_certificate_common::power3;
+using gf3_certificate_common::valid_clause;
+
 uint32_t variable(int32_t literal) {
   return external_variable_of(literal);
-}
-
-std::vector<int32_t> normalized(std::vector<int32_t> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
 }
 
 bool add_count(uint64_t amount, uint64_t &total) {
   if (amount > UINT64_MAX - total) return false;
   total += amount;
-  return true;
-}
-
-bool multiply_count(uint64_t first, uint64_t second, uint64_t &result) {
-  if (first && second > UINT64_MAX / first) return false;
-  result = first * second;
-  return true;
-}
-
-bool power3(uint32_t exponent, uint64_t &result) {
-  result = 1;
-  while (exponent--) {
-    if (result > UINT64_MAX / 3) return false;
-    result *= 3;
-  }
   return true;
 }
 
@@ -52,16 +38,6 @@ uint8_t tuple_sum(uint64_t tuple, const std::vector<uint8_t> &coefficients) {
     tuple /= 3;
   }
   return sum;
-}
-
-bool valid_clause(const std::vector<int32_t> &clause) {
-  if (clause.empty()) return false;
-  std::set<uint32_t> variables;
-  for (int32_t literal : clause)
-    if (!literal || literal == INT32_MIN ||
-        !variables.insert(variable(literal)).second)
-      return false;
-  return true;
 }
 
 struct VectorLess {
@@ -115,36 +91,6 @@ bool structurally_valid_equation(const Theory &theory,
 
 } // namespace
 
-bool same_theory(const Theory &first, const Theory &second) {
-  if (first.maximum_variable != second.maximum_variable ||
-      first.source.size() != second.source.size() ||
-      first.domains.size() != second.domains.size() ||
-      first.equations.size() != second.equations.size())
-    return false;
-  for (size_t index = 0; index < first.source.size(); ++index) {
-    const Premise &a = first.source[index];
-    const Premise &b = second.source[index];
-    if (a.occurrence != b.occurrence ||
-        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
-      return false;
-  }
-  for (size_t index = 0; index < first.domains.size(); ++index) {
-    const Domain &a = first.domains[index];
-    const Domain &b = second.domains[index];
-    if (a.values != b.values || a.at_least_one != b.at_least_one ||
-        a.at_most_one != b.at_most_one)
-      return false;
-  }
-  for (size_t index = 0; index < first.equations.size(); ++index) {
-    const Equation &a = first.equations[index];
-    const Equation &b = second.equations[index];
-    if (a.domains != b.domains || a.coefficients != b.coefficients ||
-        a.rhs != b.rhs || a.forbidden_by_tuple != b.forbidden_by_tuple)
-      return false;
-  }
-  return true;
-}
-
 RecognitionResult recognize(const std::vector<Premise> &source,
                             const RecognitionBounds &bounds, Charge charge) {
   RecognitionResult result;
@@ -158,10 +104,7 @@ RecognitionResult recognize(const std::vector<Premise> &source,
     return add_count(amount, result.consumed_work);
   };
 
-  if (!bounds.maximum_source_clauses || !bounds.maximum_source_literals ||
-      !bounds.maximum_domains || !bounds.maximum_equations ||
-      bounds.maximum_equation_arity < 2 ||
-      !bounds.maximum_tuples_per_equation || source.empty() || !charge)
+  if (!bounds.valid() || source.empty() || !charge)
     return decline(RecognitionStatus::InvalidRequest);
   if (source.size() > bounds.maximum_source_clauses)
     return decline(RecognitionStatus::BoundExceeded);
@@ -174,7 +117,7 @@ RecognitionResult recognize(const std::vector<Premise> &source,
     if (!premise.occurrence || !valid_clause(premise.literals) ||
         !by_occurrence.emplace(premise.occurrence, premise).second)
       return decline(RecognitionStatus::IncompleteTheory);
-    const std::vector<int32_t> clause = normalized(premise.literals);
+    const std::vector<int32_t> clause = canonical(premise.literals);
     if (!by_clause.emplace(clause, premise.occurrence).second)
       return decline(RecognitionStatus::IncompleteTheory);
     ++result.consumed_source_clauses;
@@ -200,7 +143,7 @@ RecognitionResult recognize(const std::vector<Premise> &source,
     for (size_t first = 0; first < 3 && exact_one; ++first)
       for (size_t second = first + 1; second < 3; ++second) {
         const std::vector<int32_t> amo =
-            normalized({-values[first], -values[second]});
+            canonical({-values[first], -values[second]});
         const auto found = by_clause.find(amo);
         if (found == by_clause.end()) {
           exact_one = false;
@@ -368,14 +311,14 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
   uint64_t first_validation = 0, second_validation = 0,
            validation_work = 2;
   uint64_t first_tuple_work = 0, second_tuple_work = 0;
-  if (!multiply_count(2, first.domains.size(), first_tuple_work) ||
+  if (!multiply_checked(2, first.domains.size(), first_tuple_work) ||
       !add_count(2, first_tuple_work) ||
-      !multiply_count(2, second.domains.size(), second_tuple_work) ||
+      !multiply_checked(2, second.domains.size(), second_tuple_work) ||
       !add_count(2, second_tuple_work) ||
-      !multiply_count(first.forbidden_by_tuple.size(), first_tuple_work,
-                      first_validation) ||
-      !multiply_count(second.forbidden_by_tuple.size(), second_tuple_work,
-                      second_validation) ||
+      !multiply_checked(first.forbidden_by_tuple.size(), first_tuple_work,
+                        first_validation) ||
+      !multiply_checked(second.forbidden_by_tuple.size(), second_tuple_work,
+                        second_validation) ||
       !add_count(first_validation, validation_work) ||
       !add_count(second_validation, validation_work) ||
       !add_count(first.domains.size() + second.domains.size(),
@@ -401,7 +344,7 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
           !variables.insert(variable(literal)).second)
         return decline(PlanStatus::IncompleteTheory);
     const Premise *alo = find_occurrence(theory, domain.at_least_one);
-    if (!alo || normalized(alo->literals) != normalized(domain.values))
+    if (!alo || canonical(alo->literals) != canonical(domain.values))
       return decline(PlanStatus::IncompleteTheory);
     for (size_t left = 0; left < 3; ++left) {
       if (domain.at_most_one[left * 3 + left])
@@ -411,8 +354,8 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
         const uint64_t reverse = domain.at_most_one[right * 3 + left];
         const Premise *amo = find_occurrence(theory, forward);
         if (!forward || forward != reverse || !amo ||
-            normalized(amo->literals) !=
-                normalized({-domain.values[left], -domain.values[right]}))
+            canonical(amo->literals) !=
+                canonical({-domain.values[left], -domain.values[right]}))
           return decline(PlanStatus::IncompleteTheory);
       }
     }
@@ -431,7 +374,7 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
         rest /= 3;
         expected.push_back(-theory.domains[domain].values[value]);
       }
-      if (normalized(premise->literals) != normalized(std::move(expected)))
+      if (canonical(premise->literals) != canonical(std::move(expected)))
         return false;
     }
     return true;
@@ -526,10 +469,21 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
     }
     return tuple;
   };
-  auto reference = [&](uint64_t occurrence, SourceReference &out) {
-    const Premise *premise = find_occurrence(theory, occurrence);
-    if (!premise) return false;
-    out = {occurrence, premise->native_proof_id};
+  // Appends the forbidden-tuple premise of `equation` for each pivot value
+  // other than `required`; false at the first missing premise.
+  auto parents = [&](const Equation &equation, size_t pivot_index,
+                     uint8_t required,
+                     const std::map<uint32_t, uint8_t> &values,
+                     Addition &addition) {
+    for (uint8_t value = 0; value < 3; ++value) {
+      if (value == required) continue;
+      const uint64_t parent = equation.forbidden_by_tuple[parent_tuple(
+          equation, pivot_index, value, values)];
+      const Premise *premise =
+          parent ? find_occurrence(theory, parent) : nullptr;
+      if (!premise) return false;
+      addition.antecedents.push_back({parent, premise->native_proof_id});
+    }
     return true;
   };
 
@@ -567,24 +521,11 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
         required_pivot(second, second_pivot_index, values);
     if (required_first == required_second)
       return decline(PlanStatus::IncompleteTheory);
-    for (uint8_t value = 0; value < 3; ++value)
-      if (value != required_first) {
-        SourceReference source_reference;
-        const uint64_t parent = first.forbidden_by_tuple[parent_tuple(
-            first, first_pivot_index, value, values)];
-        if (!parent || !reference(parent, source_reference))
-          return decline(PlanStatus::IncompleteTheory);
-        addition.antecedents.push_back(source_reference);
-      }
-    for (uint8_t value = 0; value < 3; ++value)
-      if (value != required_second) {
-        SourceReference source_reference;
-        const uint64_t parent = second.forbidden_by_tuple[parent_tuple(
-            second, second_pivot_index, value, values)];
-        if (!parent || !reference(parent, source_reference))
-          return decline(PlanStatus::IncompleteTheory);
-        addition.antecedents.push_back(source_reference);
-      }
+    if (!parents(first, first_pivot_index, required_first, values,
+                 addition) ||
+        !parents(second, second_pivot_index, required_second, values,
+                 addition))
+      return decline(PlanStatus::IncompleteTheory);
     addition.antecedents.push_back(
         {pivot_alo->occurrence, pivot_alo->native_proof_id});
     addition_literals += addition.clause.size();

@@ -188,6 +188,11 @@ struct SweepRound {
   std::vector<Lit> backbone;
   std::vector<std::vector<Lit>> partition;
   std::vector<SubLit> sub_scratch, assumptions;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  // The seed being swept and its next embedded-query ordinal.
+  Var trace_seed = INVALID_VAR;
+  uint32_t trace_query_ordinal = 0;
+#endif
 };
 
 // Guard: quiescent root, consistent. A pure precondition — the environment

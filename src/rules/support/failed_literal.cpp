@@ -1,7 +1,9 @@
 #include "rules/support/failed_literal.hpp"
 
+#include "diagnostics/event_trace.hpp"
 #include "proof/proof.hpp"
 #include "proof/rup_helpers.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
@@ -37,6 +39,31 @@ static void trace_backbone_candidates(const Kernel &k, const char *event,
                      static_cast<int32_t>(hash >> 32));
 }
 
+// The Backbone effort journals are dormant unless TACTIX_BACKBONE_TICKS_TRACE
+// names a path and SAT_BACKBONE_CONFLICT, when set, names the current conflict
+// count. `out` is opened once, at that path plus `suffix`, with two headers.
+static std::FILE *backbone_journal(const Kernel &k, std::FILE *&out,
+                                   const char *suffix, const char *title,
+                                   const char *columns) {
+  const char *bt_path = std::getenv("TACTIX_BACKBONE_TICKS_TRACE");
+  if (!bt_path)
+    return nullptr;
+  const char *bt_conflict = std::getenv("SAT_BACKBONE_CONFLICT");
+  if (!*bt_path ||
+      (bt_conflict && *bt_conflict &&
+       std::strtoull(bt_conflict, nullptr, 10) != k.stats.conflicts))
+    return nullptr;
+  if (!out) {
+    out = std::fopen((std::string(bt_path) + suffix).c_str(), "w");
+    if (out) {
+      std::setvbuf(out, nullptr, _IOLBF, 0);
+      std::fputs(title, out);
+      std::fputs(columns, out);
+    }
+  }
+  return out;
+}
+
 #endif
 
 RuleEligibility failed_literal_guard(const Kernel &k) {
@@ -46,6 +73,15 @@ RuleEligibility failed_literal_guard(const Kernel &k) {
       .fact("root-level", k.level == 0);
 }
 
+// Probe's schedule: a literal is worth assuming only if its negation carries a
+// binary watch, i.e. it heads the binary implication graph.
+static inline bool binary_implication_head(const Kernel &k, Lit p) {
+  for (const WatchEntry w : k.watches.entries(negate(p)))
+    if (w.binary())
+      return true;
+  return false;
+}
+
 void failed_literal_candidates(const Kernel &k, std::vector<Lit> &out) {
   out.clear();
   for (Var v = 0; v < k.nvars; v++) {
@@ -53,28 +89,10 @@ void failed_literal_candidates(const Kernel &k, std::vector<Lit> &out) {
       continue;
     for (int neg = 0; neg <= 1; neg++) {
       const Lit p = make_lit(v, neg != 0);
-      for (const WatchEntry w : k.watches.entries(negate(p)))
-        if (w.binary()) {
-          out.push_back(p);
-          break;
-        }
+      if (binary_implication_head(k, p))
+        out.push_back(p);
     }
   }
-}
-
-static void assume(Kernel &k, Lit lit) {
-  k.level++;
-  k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
-  kernel_assign(k, lit, k.level, DECISION_REASON, false);
-}
-
-static void unwind(Kernel &k, FailedLiteralPropagation propagation) {
-  k.conflict_valid = false;
-  k.conflict_ref = INVALID_REF;
-  if (k.level > 0)
-    kernel_backtrack(k, 0, /*update_phases=*/false);
-  if (propagation == FailedLiteralPropagation::Full)
-    kernel_probing_end(k);
 }
 
 static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
@@ -84,12 +102,12 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
   k.stats.*stats.probed += 1;
   if (propagation == FailedLiteralPropagation::Full)
     kernel_probing_begin(k);
-  assume(k, p);
+  kernel_assign_decision(k, p);
   const bool conflict = propagation == FailedLiteralPropagation::Full
                             ? kernel_propagate_probing(k)
                             : kernel_propagate_binary(k);
   if (!conflict) {
-    unwind(k, propagation);
+    probe_unwind(k, propagation == FailedLiteralPropagation::Full);
     return false;
   }
   k.stats.*stats.failed += 1;
@@ -100,7 +118,7 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
     std::vector<uint8_t> seen(k.nvars, 0);
     last = kernel_conflict_reason_walk(k, seen, entries);
   }
-  unwind(k, propagation);
+  probe_unwind(k, propagation == FailedLiteralPropagation::Full);
   const uint64_t id = ++k.next_clause_id;
   rup_helpers::emit(k, id, id, &unit, 1, entries, last);
   k.unit_ids[var_of(unit)] = id;
@@ -227,31 +245,15 @@ ApplyResult failed_literal_apply_chained_binary(
   trace_backbone_candidates(k, "backbone_scheduled", candidates);
   // Scheduled-list rows share the dormant per-probe effort journal so one
   // campaign can compare candidate order and priority bits across solvers.
-  if (const char *bt_path = std::getenv("TACTIX_BACKBONE_TICKS_TRACE")) {
-    const char *bt_conflict = std::getenv("SAT_BACKBONE_CONFLICT");
-    if (*bt_path &&
-        (!bt_conflict || !*bt_conflict ||
-         std::strtoull(bt_conflict, nullptr, 10) == k.stats.conflicts)) {
-      static std::FILE *sched_out = nullptr;
-      if (!sched_out) {
-        const std::string sched_path = std::string(bt_path) + ".sched";
-        sched_out = std::fopen(sched_path.c_str(), "w");
-        if (sched_out) {
-          std::setvbuf(sched_out, nullptr, _IOLBF, 0);
-          std::fputs("# backbone-scheduled\t1\n", sched_out);
-          std::fputs("# solver\tordinal\texternal\tprioritized\n", sched_out);
-        }
-      }
-      if (sched_out)
-        for (size_t i = 0; i < candidates.size(); i++) {
-          const Lit lit = candidates[i];
-          std::fprintf(sched_out, "tactix\t%zu\t%d\t%u\n", i,
-                       kernel_externalize(k, lit),
-                       !!(k.backbone_priority[var_of(lit)] &
-                          (1u << negated(lit))));
-        }
+  static std::FILE *sched_out = nullptr;
+  if (std::FILE *out = backbone_journal(
+          k, sched_out, ".sched", "# backbone-scheduled\t1\n",
+          "# solver\tordinal\texternal\tprioritized\n"))
+    for (size_t i = 0; i < candidates.size(); i++) {
+      const Lit lit = candidates[i];
+      std::fprintf(out, "tactix\t%zu\t%d\t%u\n", i, kernel_externalize(k, lit),
+                   !!(k.backbone_priority[var_of(lit)] & (1u << negated(lit))));
     }
-  }
 #endif
 
   for (uint32_t round = 0; round < round_limit; round++) {
@@ -313,33 +315,17 @@ ApplyResult failed_literal_apply_chained_binary(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       // Standalone per-probe effort journal for budget-parity diagnosis;
       // dormant unless TACTIX_BACKBONE_TICKS_TRACE names a path.
-      if (const char *bt_path = std::getenv("TACTIX_BACKBONE_TICKS_TRACE")) {
-        const char *bt_conflict = std::getenv("SAT_BACKBONE_CONFLICT");
-        if (*bt_path &&
-            (!bt_conflict || !*bt_conflict ||
-             std::strtoull(bt_conflict, nullptr, 10) == k.stats.conflicts)) {
-          static std::FILE *bt_out = nullptr;
-          static uint64_t bt_ordinal = 0;
-          if (!bt_out) {
-            bt_out = std::fopen(bt_path, "w");
-            if (bt_out) {
-              std::setvbuf(bt_out, nullptr, _IOLBF, 0);
-              std::fputs("# backbone-probe-ticks\t1\n", bt_out);
-              std::fputs("# solver\tordinal\texternal\tticks_delta\tbudget\n",
-                         bt_out);
-            }
-          }
-          if (bt_out)
-            std::fprintf(bt_out, "tactix\t%llu\t%d\t%llu\t%llu\n",
-                         (unsigned long long)bt_ordinal++,
-                         kernel_externalize(k, p),
-                         (unsigned long long)(k.stats.backbone_ticks -
-                                              meter_begin),
-                         (unsigned long long)k.work_budget);
-        }
-      }
+      static std::FILE *bt_out = nullptr;
+      static uint64_t bt_ordinal = 0;
+      if (std::FILE *out = backbone_journal(
+              k, bt_out, "", "# backbone-probe-ticks\t1\n",
+              "# solver\tordinal\texternal\tticks_delta\tbudget\n"))
+        std::fprintf(out, "tactix\t%llu\t%d\t%llu\t%llu\n",
+                     (unsigned long long)bt_ordinal++, kernel_externalize(k, p),
+                     (unsigned long long)(k.stats.backbone_ticks - meter_begin),
+                     (unsigned long long)k.work_budget);
 #endif
-      assume(k, p);
+      kernel_assign_decision(k, p);
       const bool saved_jump_reasons = k.jump_reasons;
       k.jump_reasons = false;
       const bool conflict = kernel_propagate_binary(
@@ -361,13 +347,7 @@ ApplyResult failed_literal_apply_chained_binary(
 
       k.stats.*stats.failed += 1;
       const uint64_t id = ++k.next_clause_id;
-      if (k.proof) {
-        if (k.proof->lrat())
-          k.proof->add_rup(id, &unit, 1, lrat_chain.data(),
-                           static_cast<uint32_t>(lrat_chain.size()));
-        else
-          k.proof->add_rup(0, &unit, 1, nullptr, 0);
-      }
+      emit_rup_lemma(k, id, &unit, 1, lrat_chain);
       units.emplace_back(unit, id);
 
       // The derived unit is sound, but remains part of the speculative
@@ -505,13 +485,7 @@ ApplyResult failed_literal_apply(Kernel &k,
       if (inprocess_reach_root(k))
         return ApplyResult::Unsat;
       const Lit p = make_lit(v, neg != 0);
-      bool candidate = false;
-      for (const WatchEntry w : k.watches.entries(negate(p)))
-        if (w.binary()) {
-          candidate = true;
-          break;
-        }
-      if (!candidate || k.value(p) != 0)
+      if (!binary_implication_head(k, p) || k.value(p) != 0)
         continue;
       Lit unit;
       if (probe_one(k, p, &unit, propagation, stats)) {
@@ -549,11 +523,8 @@ uint32_t failed_literal_instances(Kernel &k, uint64_t *out, uint32_t cap) {
       continue;
     for (int neg = 0; neg <= 1 && n < cap; neg++) {
       const Lit p = make_lit(v, neg != 0);
-      for (const WatchEntry w : k.watches.entries(negate(p)))
-        if (w.binary()) {
-          out[n++] = lit_instance(k, p);
-          break;
-        }
+      if (binary_implication_head(k, p))
+        out[n++] = lit_instance(k, p);
     }
   }
   return n;

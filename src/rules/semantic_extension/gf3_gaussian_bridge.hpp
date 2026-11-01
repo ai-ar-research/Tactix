@@ -16,33 +16,16 @@ struct DomainAuthentication {
   // Pair order is (0,1), (0,2), (1,2).
   std::array<gf3_affine::SourceReference, 3> at_most_one{};
 
-  friend bool operator==(const DomainAuthentication &first,
-                         const DomainAuthentication &second) {
-    const auto same = [](const gf3_affine::SourceReference &a,
-                         const gf3_affine::SourceReference &b) {
-      return a.occurrence == b.occurrence &&
-             a.native_proof_id == b.native_proof_id;
-    };
-    if (first.domain != second.domain ||
-        !same(first.at_least_one, second.at_least_one))
-      return false;
-    for (size_t i = 0; i < first.at_most_one.size(); ++i)
-      if (!same(first.at_most_one[i], second.at_most_one[i])) return false;
-    return true;
-  }
+  friend bool operator==(const DomainAuthentication &,
+                         const DomainAuthentication &) = default;
 };
 
 struct TupleAuthentication {
   uint64_t tuple = 0;
   gf3_affine::SourceReference premise;
 
-  friend bool operator==(const TupleAuthentication &first,
-                         const TupleAuthentication &second) {
-    return first.tuple == second.tuple &&
-           first.premise.occurrence == second.premise.occurrence &&
-           first.premise.native_proof_id ==
-               second.premise.native_proof_id;
-  }
+  friend bool operator==(const TupleAuthentication &,
+                         const TupleAuthentication &) = default;
 };
 
 // This is the complete source handoff for one algebraic row.  A later clausal
@@ -68,6 +51,13 @@ struct Limits {
   uint64_t maximum_authentication_references = 0;
   uint64_t maximum_references_per_equation = 0;
   gf3_gaussian::Limits gaussian;
+  bool valid() const {
+    return maximum_work && maximum_source_clauses &&
+           maximum_source_literals && maximum_domains && maximum_equations &&
+           maximum_terms && maximum_authentication_references &&
+           maximum_references_per_equation && gaussian.valid();
+  }
+  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 enum class LimitKind : uint8_t {

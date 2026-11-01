@@ -70,10 +70,7 @@ void execute_action(Kernel &k,
                     uint64_t instance = INSTANCE_CANONICAL) {
   (void)complete_action(completion, FeedbackKind::Support,
       "InstallRuleParameters", instance, [&] {
-        NativeFeedbackSpec spec;
-        spec.description.description = "install-permanent-profile";
-        spec.description.effort_currency = "ticks";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+        NativeFeedbackSpec spec = ticks_feedback("install-permanent-profile");
         auto &inv = spec.description.invocation.emplace();
         inv.rule = rule;
         inv.parameters = request.parameters;
@@ -108,10 +105,8 @@ inline void execute_action(Kernel &k,
                            PolicyCompletion *completion) {
   (void)complete_action(completion, FeedbackKind::Support,
       "InstallWalkGuidance", INSTANCE_CANONICAL, [&] {
-        NativeFeedbackSpec spec;
-        spec.description.description = "install-guidance-only;inherit-seed-and-budget";
-        spec.description.effort_currency = "ticks";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+        NativeFeedbackSpec spec =
+            ticks_feedback("install-guidance-only;inherit-seed-and-budget");
         auto &inv = spec.description.invocation.emplace();
         inv.rule = "Walk";
         strategy::WalkParameters selected;
@@ -162,27 +157,6 @@ template<> struct ParameterScopeFor<strategy::AffineMatrixInitializeParameters> 
   using type=AffineProfileScope<strategy::AffineMatrixInitializeParameters>;
 };
 
-template <> struct ParameterScopeFor<strategy::AnalyzeParameters> {
-  using type = strategy::ScopedAnalyzeParameters;
-};
-template <> struct ParameterScopeFor<strategy::SubsumeForwardParameters> {
-  using type = strategy::ScopedSubsumeForwardParameters;
-};
-template <> struct ParameterScopeFor<strategy::StrengthenParameters> {
-  using type = strategy::ScopedStrengthenParameters;
-};
-template <> struct ParameterScopeFor<strategy::CongruenceParameters> {
-  using type = strategy::ScopedCongruenceParameters;
-};
-template <> struct ParameterScopeFor<strategy::InstantiateParameters> {
-  using type = strategy::ScopedInstantiateParameters;
-};
-template <> struct ParameterScopeFor<strategy::BackboneParameters> {
-  using type = strategy::ScopedBackboneParameters;
-};
-template <> struct ParameterScopeFor<strategy::VivifyParameters> {
-  using type = strategy::ScopedVivifyParameters;
-};
 template <> struct ParameterScopeFor<strategy::WalkParameters> {
   using type = strategy::ScopedWalkParameters;
 };

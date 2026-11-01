@@ -89,16 +89,6 @@ enum class ActionType : uint8_t { Rule, ResumeSearch };
 // alters solver statistics.  Raw feedback and deterministic controller traces
 // retain it so learning code can price discovery separately from execution.
 struct ActionProducerEffort {
-  ActionProducerEffort() = default;
-  ActionProducerEffort(std::string family_, uint8_t status_, bool complete_,
-                       uint64_t preparation_work_,
-                       uint64_t enumeration_work_, uint64_t total_work_,
-                       uint64_t candidates_, uint64_t offers_)
-      : family(std::move(family_)), status(status_), complete(complete_),
-        preparation_work(preparation_work_),
-        enumeration_work(enumeration_work_), total_work(total_work_),
-        candidates(candidates_), offers(offers_) {}
-
   std::string family;
   uint8_t status = 0;
   bool complete = false;

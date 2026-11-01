@@ -164,11 +164,6 @@ bool validate_parameter_installation(const std::string &rule,
 bool install_permanent_parameters(Kernel &, const InprocessParameters &);
 std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
 
-inline bool validate_online_inprocess_program(const OnlineInprocessProgram &p,
-                                              std::string *error = nullptr) {
-  return validate_online_strategy_program(p, error);
-}
-
 InvocationStatus enumerate_complete_instances(Kernel &, const RuleVTable &,
                                               std::vector<uint64_t> &,
                                               volatile sig_atomic_t *stop = nullptr);
@@ -221,6 +216,20 @@ private:
     SubstitutionRedundancyGeneralCursor sr_general_cursor;
     bool sr_general_mode = false;
     BveOccurrenceCache bve_occurrences;
+
+    // Drop the bound payloads, their cursor and discovery state. Only a
+    // general SR pass keeps its producer cursor across enumerations.
+    void clear_selection(bool general_sr = false) {
+      selection.clear();
+      structured_selection.clear();
+      sr_selection.clear();
+      cursor = 0;
+      selection_truncated = false;
+      selection_discovery_exhausted = false;
+      sr_general_mode = general_sr;
+      if (!general_sr)
+        sr_general_cursor = {};
+    }
   };
 
   bool prepare_selection(Kernel &, const OnlineInvocation &, Runtime &,

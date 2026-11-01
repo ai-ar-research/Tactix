@@ -22,12 +22,6 @@ using External = int32_t;
 using ExternalClause = std::vector<External>;
 using ExternalClauses = std::vector<ExternalClause>;
 
-uint64_t pair_key(Var a, Var b) {
-  if (b < a)
-    std::swap(a, b);
-  return (uint64_t{a} << 32) | b;
-}
-
 struct ExactOneGroup {
   std::vector<Var> variables;
 };
@@ -118,7 +112,7 @@ bool recognize(Kernel &k, const strategy::OnehotModelParameters &parameters,
       groups.push_back(std::move(group));
     } else if (negated(first) && negated(second)) {
       const Var a = var_of(first), b = var_of(second);
-      if (a == b || !negative_pairs.insert(pair_key(a, b)).second)
+      if (a == b || !negative_pairs.insert(kernel_binary_key(a, b)).second)
         return false;
     } else {
       return false;
@@ -134,7 +128,8 @@ bool recognize(Kernel &k, const strategy::OnehotModelParameters &parameters,
       incidence[variable].push_back(group);
     for (size_t i = 0; i < variables.size(); ++i)
       for (size_t j = i + 1; j < variables.size(); ++j)
-        if (!negative_pairs.count(pair_key(variables[i], variables[j])))
+        if (!negative_pairs.count(
+                kernel_binary_key(variables[i], variables[j])))
           return false;
   }
   for (const auto &occurrences : incidence)
@@ -302,31 +297,24 @@ class Certificate {
     }
     if (!sink_.new_variable(output.low) || !sink_.new_variable(output.high))
       return false;
-    ExternalClauses low = bit_definition(left, right, output.low, false);
-    ExternalClauses high = bit_definition(left, right, output.high, true);
-    for (ExternalClause clause : low) {
-      const auto pivot =
-          std::find_if(clause.begin(), clause.end(), [&](External literal) {
-            return std::abs(literal) == output.low;
-          });
-      assert(pivot != clause.end());
-      std::iter_swap(clause.begin(), pivot);
-      if (!sink_.add(clause, true))
-        return false;
-      definitions.push_back(std::move(clause));
-    }
-    for (ExternalClause clause : high) {
-      const auto pivot =
-          std::find_if(clause.begin(), clause.end(), [&](External literal) {
-            return std::abs(literal) == output.high;
-          });
-      assert(pivot != clause.end());
-      std::iter_swap(clause.begin(), pivot);
-      if (!sink_.add(clause, true))
-        return false;
-      definitions.push_back(std::move(clause));
-    }
-    return true;
+    const ExternalClauses low = bit_definition(left, right, output.low, false);
+    const ExternalClauses high = bit_definition(left, right, output.high, true);
+    // Add each definition clause as RAT on its fresh output literal.
+    const auto define = [&](const ExternalClauses &clauses, External fresh) {
+      for (ExternalClause clause : clauses) {
+        const auto pivot =
+            std::find_if(clause.begin(), clause.end(), [&](External literal) {
+              return std::abs(literal) == fresh;
+            });
+        assert(pivot != clause.end());
+        std::iter_swap(clause.begin(), pivot);
+        if (!sink_.add(clause, true))
+          return false;
+        definitions.push_back(std::move(clause));
+      }
+      return true;
+    };
+    return define(low, output.low) && define(high, output.high);
   }
 
   bool add_equation(const ExternalClause &variables, uint8_t coefficient) {
@@ -434,21 +422,6 @@ public:
   }
 };
 
-bool generate(Kernel &k, const ExactOneSystem &system,
-              const strategy::OnehotModelParameters &parameters, bool writing,
-              uint64_t &additions, uint64_t &deletions, uint32_t &fresh) {
-  Sink sink(k, writing, static_cast<uint32_t>(k.external_to_internal.size()),
-            parameters.refutation_maximum_proof_additions,
-            k.stats.exact_one_refutation_interrupted);
-  Certificate certificate(
-      sink, static_cast<uint32_t>(k.external_to_internal.size()));
-  const bool ok = certificate.run(system) && !sink.stopped;
-  additions = sink.additions;
-  deletions = sink.deletions;
-  fresh = sink.fresh;
-  return ok;
-}
-
 } // namespace
 
 ApplyResult exact_one_refutation_apply(
@@ -462,21 +435,16 @@ ApplyResult exact_one_refutation_apply(
   ++k.stats.exact_one_refutation_recognized;
   k.stats.exact_one_refutation_equations += system.equations.size();
 
-  if (k.proof) {
-    uint64_t preflight_additions = 0, preflight_deletions = 0;
-    uint32_t preflight_fresh = 0;
-    if (!generate(k, system, parameters, false, preflight_additions,
-                  preflight_deletions, preflight_fresh))
-      return ApplyResult::NoOp;
-    uint64_t additions = 0, deletions = 0;
-    uint32_t fresh = 0;
-    if (!generate(k, system, parameters, true, additions, deletions, fresh) ||
-        additions != preflight_additions || deletions != preflight_deletions ||
-        fresh != preflight_fresh)
-      std::abort();
-    k.stats.exact_one_refutation_proof_additions += additions;
-    k.stats.exact_one_refutation_proof_deletions += deletions;
-  }
+  if (!refute_with_preflight<ExternalClause>(
+          k, parameters.refutation_maximum_proof_additions,
+          k.stats.exact_one_refutation_interrupted,
+          k.stats.exact_one_refutation_proof_additions,
+          k.stats.exact_one_refutation_proof_deletions,
+          [&](Sink &sink, uint32_t variables) {
+            Certificate certificate(sink, variables);
+            return certificate.run(system);
+          }))
+    return ApplyResult::NoOp;
   k.inconsistent = true;
   ++k.stats.exact_one_refutation_unsat;
   return ApplyResult::Unsat;

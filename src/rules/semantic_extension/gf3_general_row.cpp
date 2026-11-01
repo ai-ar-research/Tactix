@@ -4,29 +4,13 @@
 
 #include <algorithm>
 #include <climits>
-#include <limits>
 #include <set>
 #include <utility>
 
 namespace tactix::gf3_general_row {
 namespace {
 
-bool power3(uint32_t exponent, uint64_t &result) {
-  result = 1;
-  while (exponent--) {
-    if (result > std::numeric_limits<uint64_t>::max() / 3) return false;
-    result *= 3;
-  }
-  return true;
-}
-
-bool valid_limits(const Limits &limits) {
-  return limits.maximum_work && limits.maximum_events &&
-         limits.maximum_event_literals && limits.maximum_active_clauses &&
-         limits.maximum_retained_source_references &&
-         limits.maximum_row_tuples && limits.maximum_event_width &&
-         limits.maximum_branch_domains && limits.maximum_row_width;
-}
+using gf3_certificate_common::power3;
 
 struct Selection {
   const gf3_gaussian::RowOutcome *outcome = nullptr;
@@ -41,7 +25,7 @@ Result select(const gf3_affine::Theory &theory,
               const Request &request, const Limits &limits,
               Selection *selection) {
   Result result;
-  if (!valid_limits(limits) || request.outcome >= bridge.gaussian.outcomes.size())
+  if (!limits.valid() || request.outcome >= bridge.gaussian.outcomes.size())
     return result;
   const gf3_gaussian::RowOutcome &outcome =
       bridge.gaussian.outcomes[request.outcome];

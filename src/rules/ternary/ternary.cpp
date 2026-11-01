@@ -66,12 +66,9 @@ void collect(const Kernel &k, Lit l, std::vector<Tern> &out) {
     });
     return;
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (ternary_candidate(k, c) && has_lit(c, l))
       take(ref, c);
-    ref += words;
   }
 }
 
@@ -91,12 +88,9 @@ bool ternary_exists(const Kernel &k, Lit a, Lit b, Lit c) {
       return false;
     });
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *x = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(x);
+  for (const auto [ref, x] : arena_records(k.arena)) {
     if (!x->garbage() && x->size == 3 && same(x))
       return true;
-    ref += words;
   }
   return false;
 }
@@ -136,13 +130,10 @@ bool add_resolvent(Kernel &k, const Tern &positive, const Tern &negative,
   // RUP from its two parents, in checker-propagation order: negating the
   // resolvent falsifies every literal of `positive` but the pivot, so it forces
   // the pivot and `negative` is then falsified (the E1 resolvent argument).
-  const bool lrat = k.proof && k.proof->lrat();
   const uint64_t id = ++k.next_clause_id;
   const uint64_t chain[2] = {positive.id, negative.id};
-  if (k.proof)
-    k.proof->add_rup(lrat ? id : 0, res.data(),
-                     static_cast<uint32_t>(res.size()),
-                     lrat ? chain : nullptr, lrat ? 2 : 0);
+  emit_rup_lemma(k, id, res.data(), static_cast<uint32_t>(res.size()), chain,
+                 2);
   if (res.size() == 2) {
     kernel_add_binary_clause(k, res[0], res[1], id);
     ++k.stats.ternary_binaries;
@@ -200,11 +191,7 @@ uint64_t ternary_percent_limit(uint64_t base, uint32_t percent) {
   return high > maximum - low ? maximum : high + low;
 }
 
-RuleEligibility ternary_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
-}
+RuleEligibility ternary_guard(const Kernel &k) { return root_level_guard(k); }
 
 void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
                     uint64_t *total_clauses, bool complete) {
@@ -215,15 +202,12 @@ void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
   // one pass to count ternary occurrences per literal; a pivot needs at least
   // one on each side for a pair to exist. The same pass totals live clauses,
   // the base for the max-add governor below (as cadical's htrs_limit is)
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage())
       clauses++;
     if (ternary_candidate(k, c))
       for (const Lit l : *c)
         tern[l]++;
-    ref += words;
   }
   clauses += k.binary_ids.size();
   if (total_clauses)
@@ -353,10 +337,6 @@ static uint32_t ternary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   return copy_literal_instance_prefix(k, pivots, out, cap);
 }
 
-static ApplyResult ternary_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_literal_instance<ternary_apply, ternary_try>(k, inst);
-}
-
 static uint64_t ternary_choice_instance(const TernaryChoice &choice) {
   assert(choice.positive.ref != INVALID_REF &&
          choice.negative.ref != INVALID_REF);
@@ -368,11 +348,7 @@ static uint32_t ternary_semantic_instances(Kernel &k, uint64_t *out,
                                            uint32_t cap) {
   std::vector<TernaryChoice> choices;
   semantic_choices(k, choices);
-  const uint32_t count = std::min<uint32_t>(
-      cap, static_cast<uint32_t>(choices.size()));
-  for (uint32_t i = 0; i < count; ++i)
-    out[i] = ternary_choice_instance(choices[i]);
-  return count;
+  return copy_instance_prefix(choices, out, cap, ternary_choice_instance);
 }
 
 static ApplyResult ternary_apply_semantic_instance(Kernel &k, uint64_t inst) {
@@ -394,7 +370,8 @@ static ApplyResult ternary_apply_semantic_instance(Kernel &k, uint64_t inst) {
 }
 
 TACTIX_REGISTER_RULE(HyperTernaryRes, RuleTier::Inprocess, ternary_guard,
-                     ternary_apply, ternary_instances, ternary_apply_instance,
+                     ternary_apply, ternary_instances,
+                     (apply_root_literal_instance<ternary_apply, ternary_try>),
                      ternary_semantic_instances,
                      ternary_apply_semantic_instance);
 

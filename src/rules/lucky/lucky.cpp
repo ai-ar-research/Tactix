@@ -295,12 +295,19 @@ static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   return n;
 }
 
+// One Lucky opportunity behind its own guard: NoOp unless `guard` admits it.
+template <LuckyOpportunity Opportunity>
+static ApplyResult run_guarded(Kernel &k,
+                               RuleEligibility (*guard)(const Kernel &)) {
+  return guard(k) ? execution::execute_action(
+                        k, execution::LuckyRequest<Opportunity>{})
+                  : ApplyResult::NoOp;
+}
+
 static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == LUCKY_STARTUP_PARITY)
-    return startup_parity_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::StartupParity>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::StartupParity>(k,
+                                                         startup_parity_guard);
   if (inst == LUCKY_STARTUP_RAMSEY)
     return execution::execute_action(
         k, execution::LuckyRequest<LuckyOpportunity::StartupRamsey>{});
@@ -317,57 +324,31 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
   // by that shared service would incorrectly give these stable SAT-only IDs
   // refutation semantics.
   if (inst == 6)
-    return parity_model_guard(k)
-               ? execution::execute_action(k, execution::LuckyRequest<LuckyOpportunity::Parity>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::Parity>(k, parity_model_guard);
   if (inst == 7)
-    return onehot_model_guard(k)
-               ? execution::execute_action(k, execution::LuckyRequest<LuckyOpportunity::Onehot>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::Onehot>(k, onehot_model_guard);
   if (inst == 8)
-    return affine_model_guard(k)
-               ? execution::execute_action(k, execution::LuckyRequest<LuckyOpportunity::Affine>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::Affine>(k, affine_model_guard);
   if (inst == 9)
-    return onehot_model_guard(k)
-               ? execution::execute_action(k, execution::LuckyRequest<LuckyOpportunity::DirectCsp>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::DirectCsp>(k, onehot_model_guard);
   if (inst == 10)
-    return balanced_signature_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<
-                            LuckyOpportunity::BalancedSignature>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::BalancedSignature>(
+        k, balanced_signature_model_guard);
   if (inst == 11)
-    return fermat_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::Fermat>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::Fermat>(k, fermat_model_guard);
   if (inst == 12)
-    return cerny_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::Cerny>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::Cerny>(k, cerny_model_guard);
   if (inst == 13)
-    return lookup_circuit_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::LookupCircuit>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::LookupCircuit>(
+        k, lookup_circuit_model_guard);
   if (inst == 14)
-    return simon_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::Simon>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::Simon>(k, simon_model_guard);
   if (inst == 17)
-    return exact_cover_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::ExactCover>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::ExactCover>(k,
+                                                      exact_cover_model_guard);
   if (inst == 18)
-    return independent_set_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::IndependentSet>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::IndependentSet>(
+        k, independent_set_model_guard);
   if (inst == LUCKY_GRAPH_AUTHENTICATE || inst == LUCKY_GRAPH_CONTINUE) {
     const auto out = execution::execute_action(k, execution::GraphLabelingActionRequest{
         inst == LUCKY_GRAPH_AUTHENTICATE
@@ -378,34 +359,22 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
     return out.result;
   }
   if (inst == LUCKY_GRAPH_LABELING)
-    return graph_labeling_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::GraphLabeling>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::GraphLabeling>(
+        k, graph_labeling_model_guard);
   // Proof-capable and probe actions enter at a propagated root.  A conflict
   // found while closing that root is a legitimate proof result for them.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == 15)
-    return stconn_proof_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::Stconn>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::Stconn>(k, stconn_proof_guard);
   if (inst == 16)
-    return signed_cardinality_proof_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::SignedCardinality>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::SignedCardinality>(
+        k, signed_cardinality_proof_guard);
   if (inst == LUCKY_PARITY_PROOF)
-    return parity_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::ParityProof>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::ParityProof>(k, parity_model_guard);
   if (inst == LUCKY_EXACT_ONE_PROOF)
-    return onehot_model_guard(k)
-               ? execution::execute_action(
-                     k, execution::LuckyRequest<LuckyOpportunity::ExactOneProof>{})
-               : ApplyResult::NoOp;
+    return run_guarded<LuckyOpportunity::ExactOneProof>(k,
+                                                         onehot_model_guard);
   return execution::execute_action(k, execution::LuckyProbeRequest{inst});
 }
 

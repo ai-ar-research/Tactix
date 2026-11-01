@@ -130,20 +130,12 @@ bool Gf3GaussianConsequenceParameters::valid() const {
 Gf3GeneralRowActionLimits action_limits(
     const Gf3GeneralRowConsequenceParameters &p) {
   const auto &g = p.gaussian;
+  // The Gaussian profile's recognition and bridge bounds, unchanged.
+  const Gf3GaussianActionLimits gaussian = action_limits(g);
   Gf3GeneralRowActionLimits result;
-  result.live.recognition = {
-      g.maximum_source_clauses, g.maximum_source_literals, g.maximum_domains,
-      g.maximum_equations, g.maximum_equation_arity,
-      g.maximum_tuples_per_equation};
+  result.live.recognition = gaussian.recognition;
   result.live.planner = {
-      {g.maximum_bridge_work, g.maximum_bridge_source_clauses,
-       g.maximum_bridge_source_literals, g.maximum_bridge_domains,
-       g.maximum_bridge_equations, g.maximum_bridge_terms,
-       g.maximum_authentication_references,
-       g.maximum_references_per_equation,
-       {g.maximum_gaussian_work, g.maximum_fill_entries,
-        g.maximum_intermediate_width, g.maximum_provenance_terms,
-        g.maximum_derivations, g.maximum_retained_plan_bytes}},
+      gaussian.certificate.bridge,
       g.maximum_certificate_work, g.maximum_events,
       g.maximum_event_literals, g.maximum_active_clauses,
       g.maximum_retained_source_references, p.maximum_row_tuples,

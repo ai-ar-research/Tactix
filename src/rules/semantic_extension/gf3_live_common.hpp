@@ -3,6 +3,7 @@
 #include "kernel/watch.hpp"
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -11,6 +12,48 @@
 #include <vector>
 
 namespace tactix::gf3_live_common {
+
+inline bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work) {
+  if (work > maximum || amount > maximum - work) return false;
+  work += amount;
+  return true;
+}
+
+inline bool owner_guard(const Kernel &kernel) {
+  return !kernel.inconsistent && !kernel.conflict_valid &&
+         !kernel.pending.valid && !kernel.dense &&
+         !kernel.probing.recording && kernel.large_watches_connected &&
+         kernel_propagation_fixpoint(kernel) &&
+         !kernel.external_to_internal.empty() &&
+         kernel.external_to_internal.size() <= INT32_MAX;
+}
+
+inline bool root_guard(const Kernel &kernel) {
+  return !kernel.level && kernel.trail.empty() && owner_guard(kernel);
+}
+
+// The affine owner capture/revalidation request carried by GF3 limits.
+template <class Limits>
+Gf3AffineLiveRequest owner_request(const Limits &limits) {
+  Gf3AffineLiveRequest request;
+  request.recognition = limits.recognition;
+  request.maximum_recognition_work = limits.maximum_capture_work;
+  request.maximum_revalidation_work = limits.maximum_revalidation_work;
+  return request;
+}
+
+// `prefix` followed by a nonempty even-length lowercase hexadecimal payload.
+inline bool valid_hex_identity(const std::string &identity,
+                               std::string_view prefix) {
+  if (identity.size() <= prefix.size() || identity.rfind(prefix, 0) ||
+      (identity.size() - prefix.size()) % 2)
+    return false;
+  return std::all_of(identity.begin() + prefix.size(), identity.end(),
+                     [](char ch) {
+                       return (ch >= '0' && ch <= '9') ||
+                              (ch >= 'a' && ch <= 'f');
+                     });
+}
 
 inline void append_u8(std::string &bytes, uint8_t value) {
   bytes.push_back(static_cast<char>(value));

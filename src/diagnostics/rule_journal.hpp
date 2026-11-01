@@ -9,6 +9,7 @@
 namespace tactix {
 
 struct Kernel;
+enum class ApplyResult;
 
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 
@@ -45,6 +46,8 @@ uint64_t rule_journal_effort(const Kernel &);
 int rule_journal_selected_literal();
 uint64_t rule_journal_selected_clause_id();
 void rule_journal_emit(const Kernel &, const RuleJournalRecord &);
+// Journal spelling of a rule application result.
+const char *rule_journal_outcome(ApplyResult);
 // The registry brackets the real proof-rule call with this mutation ledger.
 // Kernel primitives append facts at the point where the mutation actually
 // occurs; the journal therefore does not reconstruct or duplicate rule logic.

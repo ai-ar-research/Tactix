@@ -10,12 +10,7 @@ struct NaryCspEqualityTransitivitySelection {
   // Exact requested AB, AD, BD owner identities, with expected coordinates.
   std::array<NaryCspEqualityKey,3> equalities;
   std::array<uint32_t,3> equality_variables{};
-  bool operator==(const NaryCspEqualityTransitivitySelection &) const = default;
-  bool operator<(const NaryCspEqualityTransitivitySelection &o) const {
-    if(domains!=o.domains)return domains<o.domains;
-    if(equalities!=o.equalities)return equalities<o.equalities;
-    return equality_variables<o.equality_variables;
-  }
+  auto operator<=>(const NaryCspEqualityTransitivitySelection &) const = default;
 };
 using NaryCspEqualityTransitivityKey=NaryCspEqualityTransitivitySelection;
 class NaryCspEqualityTransitivitySession {

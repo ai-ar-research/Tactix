@@ -170,8 +170,6 @@ public:
   int8_t forced_phase(const Kernel &) const;
   static constexpr uint64_t RANDEC_INIT =
       DefaultStrategyConfig::RANDOM_INITIAL_INTERVAL_DEFAULT;
-  static constexpr uint64_t RANDEC_LENGTH =
-      DefaultStrategyConfig::RANDOM_SEQUENCE_LENGTH_DEFAULT;
   static constexpr uint64_t RANDEC_SEED =
       DefaultStrategyConfig::RANDOM_SEED_DEFAULT;
   // Kissat random.h's fixed 64-bit LCG.  These define the generator rather
@@ -193,8 +191,7 @@ public:
     focused_phase_epoch_ = UINT64_MAX;
   }
   void reset(uint64_t conflicts) {
-    const DefaultStrategyConfig::Branching defaults;
-    const auto &cfg = config_ ? *config_ : defaults;
+    const auto &cfg = configured_or_default(config_);
     randec_remaining = 0;
     randec_next = conflicts + cfg.random_initial_interval;
     randec_sequences = 0;
@@ -232,14 +229,8 @@ class DefaultPolicy final : public Policy,
                             public DefaultDatabaseControl,
                             public DefaultPhaseControl {
 public:
-  static constexpr double RESTART_MARGIN =
-      DefaultStrategyConfig::RESTART_MARGIN_DEFAULT;
   static constexpr uint64_t RESTART_INTERVAL =
       DefaultStrategyConfig::RESTART_INTERVAL_DEFAULT;
-  static constexpr double EMA_FAST_WINDOW =
-      DefaultStrategyConfig::FAST_EMA_WINDOW_DEFAULT;
-  static constexpr double EMA_SLOW_WINDOW =
-      DefaultStrategyConfig::SLOW_EMA_WINDOW_DEFAULT;
   static constexpr uint64_t REDUCE_INTERVAL_INIT =
       DefaultStrategyConfig::REDUCE_INTERVAL_DEFAULT;
   static constexpr uint64_t REDUCE_INTERVAL_ARITH =
@@ -252,24 +243,14 @@ public:
       DefaultStrategyConfig::MODE_INTERVAL_DEFAULT;
   static constexpr uint64_t RELUCTANT_PERIOD =
       DefaultStrategyConfig::RELUCTANT_PERIOD_DEFAULT;
-  static constexpr uint64_t RELUCTANT_LIMIT =
-      DefaultStrategyConfig::RELUCTANT_LIMIT_DEFAULT;
   static constexpr uint64_t REPHASE_INTERVAL_INIT =
-      DefaultStrategyConfig::REPHASE_INTERVAL_DEFAULT;
-  static constexpr uint64_t REPHASE_INTERVAL =
       DefaultStrategyConfig::REPHASE_INTERVAL_DEFAULT;
   static constexpr uint64_t REORDER_INTERVAL_INIT =
       DefaultStrategyConfig::REORDER_INITIAL_INTERVAL_DEFAULT;
-  static constexpr uint64_t REORDER_INTERVAL =
-      DefaultStrategyConfig::REORDER_INITIAL_INTERVAL_DEFAULT;
-  static constexpr uint32_t BUMP_REASONS_LIMIT =
-      DefaultStrategyConfig::BUMP_REASON_LIMIT_DEFAULT;
   static constexpr double BUMP_REASONS_RATE =
       DefaultStrategyConfig::BUMP_REASON_RATE_DEFAULT;
   static constexpr uint32_t CHRONO_LEVELS =
       DefaultStrategyConfig::CHRONOLOGICAL_LEVELS_DEFAULT;
-  static constexpr uint64_t WALK_PERMILLE =
-      DefaultStrategyConfig::WALK_PERMILLE_DEFAULT;
 
   DefaultPolicy();
   explicit DefaultPolicy(const DefaultStrategyConfig &);

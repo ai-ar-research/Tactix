@@ -3,6 +3,7 @@
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -16,21 +17,14 @@ namespace {
 using affine_semantic_extension::External;
 using affine_semantic_extension::ProofEvent;
 using affine_semantic_extension::ProofPlan;
-
-std::vector<External> key(std::vector<External> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
-}
+using affine_semantic_extension::sorted_clause;
+using semantic_extension::join_integers;
 
 using Journal = semantic_extension::BoundedJournal<true, true>;
 
 bool append_clause(Journal &journal, const std::string &prefix,
                    const std::vector<External> &literals) {
-  std::string line = prefix;
-  for (size_t i = 0; i < literals.size(); ++i)
-    line += (i ? "," : "") + std::to_string(literals[i]);
-  line += "]}\n";
-  return journal.append(line);
+  return journal.append(prefix + join_integers(literals) + "]}\n");
 }
 
 struct Replay {
@@ -50,7 +44,7 @@ bool plan_replay(uint64_t first_id, const ProofPlan &plan, Replay &replay) {
     const ProofEvent &event = plan.events[i];
     std::vector<External> clause(event.clause.lits.begin(),
                                  event.clause.lits.begin() + event.clause.size);
-    auto &population = active[key(std::move(clause))];
+    auto &population = active[sorted_clause(std::move(clause))];
     if (event.addition) {
       if (result.last_id == UINT64_MAX) return false;
       const uint64_t id = ++result.last_id;
@@ -63,7 +57,7 @@ bool plan_replay(uint64_t first_id, const ProofPlan &plan, Replay &replay) {
     }
   }
   for (const auto &target : plan.targets) {
-    const auto found = active.find(key(target));
+    const auto found = active.find(sorted_clause(target));
     if (found == active.end() || found->second.empty()) return false;
     result.target_ids.push_back(found->second.back());
   }
@@ -89,12 +83,6 @@ bool request_has_work(const AffineLiveRequest &request) {
          request.maximum_journal_bytes;
 }
 
-bool state_applicable(const Kernel &k) {
-  return !k.inconsistent && !k.level && !k.conflict_valid && !k.pending.valid &&
-         !k.dense && !k.probing.recording && k.large_watches_connected &&
-         kernel_propagation_fixpoint(k);
-}
-
 const Clause *large_source_at(const Kernel &k, Ref wanted) {
   if (wanted == INVALID_REF || wanted >= k.arena.size()) return nullptr;
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -108,50 +96,40 @@ const Clause *large_source_at(const Kernel &k, Ref wanted) {
   return nullptr;
 }
 
-enum class PayloadStatus { Complete, Invalid, ResourceExhausted };
+} // namespace
 
-PayloadStatus snapshot_payload_counters(const AffineLiveSnapshot &snapshot,
-                                        const AffineLiveRequest &request,
-                                        uint64_t &literals, uint64_t &work) {
+AffineSnapshotPayload affine_live_snapshot_payload(
+    const AffineLiveSnapshot &snapshot, uint64_t maximum_clauses,
+    uint64_t maximum_literals, uint64_t maximum_work, bool require_clause_ids,
+    uint64_t &literals, uint64_t &work) {
   literals = work = 0;
   if (snapshot.premises.size() != snapshot.sources.size() ||
-      snapshot.premises.size() > request.image.maximum_clauses)
-    return snapshot.premises.size() > request.image.maximum_clauses
-               ? PayloadStatus::ResourceExhausted
-               : PayloadStatus::Invalid;
+      snapshot.premises.size() > maximum_clauses)
+    return snapshot.premises.size() > maximum_clauses
+               ? AffineSnapshotPayload::ResourceExhausted
+               : AffineSnapshotPayload::Invalid;
   for (size_t i = 0; i < snapshot.premises.size(); ++i) {
     const auto &premise = snapshot.premises[i];
     const auto &source = snapshot.sources[i];
     if (premise.occurrence != i + 1 || source.occurrence != i + 1 ||
         premise.literals.size() != source.clause.size() ||
-        premise.literals != source.clause)
-      return PayloadStatus::Invalid;
-    if (premise.literals.size() >
-        request.maximum_snapshot_literals - literals)
-      return PayloadStatus::ResourceExhausted;
+        premise.literals != source.clause ||
+        (require_clause_ids && !source.clause_id))
+      return AffineSnapshotPayload::Invalid;
+    if (premise.literals.size() > maximum_literals - literals)
+      return AffineSnapshotPayload::ResourceExhausted;
     const uint64_t charge = uint64_t(premise.literals.size()) + 1;
-    if (charge > request.maximum_snapshot_work - work)
-      return PayloadStatus::ResourceExhausted;
+    if (charge > maximum_work - work)
+      return AffineSnapshotPayload::ResourceExhausted;
     literals += premise.literals.size();
     work += charge;
   }
-  return PayloadStatus::Complete;
+  return AffineSnapshotPayload::Complete;
 }
 
-bool same_clause(const Kernel &k, const Lit *literals, uint32_t size,
-                 const std::vector<External> &external) {
-  if (size != external.size()) return false;
-  std::vector<External> current;
-  current.reserve(size);
-  for (uint32_t i = 0; i < size; ++i) {
-    if (kernel_var_retired(k, var_of(literals[i]))) return false;
-    current.push_back(kernel_externalize(k, literals[i]));
-  }
-  return key(std::move(current)) == key(external);
-}
-
-bool clause_covered(const Kernel &k, const std::vector<External> &clause) {
-  for (External external : clause) {
+bool affine_live_clause_covered(const Kernel &k,
+                                const std::vector<int32_t> &clause) {
+  for (int32_t external : clause) {
     const Lit literal = kernel_internalize(k, external);
     if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
       return false;
@@ -163,19 +141,21 @@ bool clause_covered(const Kernel &k, const std::vector<External> &clause) {
   if (clause.size() == 2)
     return kernel_binary_live(k, kernel_internalize(k, clause[0]),
                               kernel_internalize(k, clause[1]));
-  const auto wanted = key(clause);
+  const auto wanted = sorted_clause(clause);
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *candidate = clause_at(k.arena, ref);
     ref += clause_actual_words(candidate);
     if (candidate->garbage() || candidate->size != clause.size()) continue;
-    std::vector<External> current;
+    std::vector<int32_t> current;
     current.reserve(candidate->size);
     for (Lit literal : *candidate)
       current.push_back(kernel_externalize(k, literal));
-    if (key(std::move(current)) == wanted) return true;
+    if (sorted_clause(std::move(current)) == wanted) return true;
   }
   return false;
 }
+
+namespace {
 
 bool proof_plan_supported(
     const affine_semantic_extension::Image &image,
@@ -236,28 +216,20 @@ bool append_journal(const AffineLiveRequest &request,
   for (size_t source_index : choice.sources) {
     if (source_index >= image.equations.size()) return false;
     const auto &equation = image.equations[source_index];
-    std::string line = "{" + ids +
+    if (!journal.append("{" + ids +
         ",\"kind\":\"affine-equation\",\"index\":" +
         std::to_string(source_index) + ",\"rhs\":" +
-        (equation.rhs ? "true" : "false") + ",\"variables\":[";
-    for (size_t i = 0; i < equation.variables.size(); ++i)
-      line += (i ? "," : "") + std::to_string(equation.variables[i]);
-    line += "],\"premises\":[";
-    for (size_t i = 0; i < equation.premises.size(); ++i)
-      line += (i ? "," : "") + std::to_string(equation.premises[i]);
-    line += "]}\n";
-    if (!journal.append(line)) return false;
+        (equation.rhs ? "true" : "false") + ",\"variables\":[" +
+        join_integers(equation.variables) + "],\"premises\":[" +
+        join_integers(equation.premises) + "]}\n"))
+      return false;
   }
-  std::string consequence = "{" + ids +
+  if (!journal.append("{" + ids +
       ",\"kind\":\"affine-consequence\",\"rhs\":" +
-      (choice.rhs ? "true" : "false") + ",\"variables\":[";
-  for (size_t i = 0; i < choice.variables.size(); ++i)
-    consequence += (i ? "," : "") + std::to_string(choice.variables[i]);
-  consequence += "],\"sources\":[";
-  for (size_t i = 0; i < choice.sources.size(); ++i)
-    consequence += (i ? "," : "") + std::to_string(choice.sources[i]);
-  consequence += "]}\n";
-  if (!journal.append(consequence)) return false;
+      (choice.rhs ? "true" : "false") + ",\"variables\":[" +
+      join_integers(choice.variables) + "],\"sources\":[" +
+      join_integers(choice.sources) + "]}\n"))
+    return false;
   for (size_t i = 0; i < plan.events.size(); ++i) {
     const auto &event = plan.events[i];
     std::vector<External> clause(event.clause.lits.begin(),
@@ -491,7 +463,7 @@ bool affine_live_sources_valid(const Kernel &k,
       const Clause *clause = large_source_at(k, source.ref);
       if (!clause) return false;
       if (clause->garbage() || clause->id() != source.clause_id ||
-          !same_clause(k, clause->lits, clause->size, source.clause))
+          !live_clause_matches(k, clause->lits, clause->size, source.clause))
         return false;
     } else if (source.kind == AffineSourceKind::Binary) {
       if (source.first == INVALID_LIT || source.second == INVALID_LIT ||
@@ -502,12 +474,12 @@ bool affine_live_sources_valid(const Kernel &k,
           kernel_binary_id(k, source.first, source.second) != source.clause_id)
         return false;
       const Lit pair[] = {source.first, source.second};
-      if (!same_clause(k, pair, 2, source.clause)) return false;
+      if (!live_clause_matches(k, pair, 2, source.clause)) return false;
     } else if (source.kind == AffineSourceKind::RootUnit) {
       const Lit literal = source.first;
       if (literal == INVALID_LIT || var_of(literal) >= k.nvars ||
           k.values[literal] <= 0 || k.assigned[var_of(literal)].level ||
-          !same_clause(k, &literal, 1, source.clause)) return false;
+          !live_clause_matches(k, &literal, 1, source.clause)) return false;
       if (source.proof_id_exact) {
         if (!source.clause_id || k.unit_ids[var_of(literal)] != source.clause_id) return false;
       } else if (!kernel_root_unit_table_stream(k) ||
@@ -527,16 +499,8 @@ AffineLiveResult derive_affine_live(Kernel &k,
     result.status = AffineLiveStatus::ResourceExhausted;
     return result;
   }
-  if (k.proof && (k.proof->lrat() || k.proof->terminal_pbp())) {
-    result.status = AffineLiveStatus::UnsupportedProof;
-    return result;
-  }
-  if (!state_applicable(k)) {
-    result.status = AffineLiveStatus::Inapplicable;
-    return result;
-  }
-  if (kernel_terminating(k)) {
-    result.status = AffineLiveStatus::Interrupted;
+  if (const auto declined = affine_live_decline<AffineLiveStatus>(k)) {
+    result.status = *declined;
     return result;
   }
   AffineLiveSnapshot owned;
@@ -561,13 +525,15 @@ AffineLiveResult derive_affine_live(Kernel &k,
     return result;
   }
   uint64_t payload_literals = 0, payload_work = 0;
-  const PayloadStatus payload = snapshot_payload_counters(
-      *snapshot, request, payload_literals, payload_work);
+  const AffineSnapshotPayload payload = affine_live_snapshot_payload(
+      *snapshot, request.image.maximum_clauses,
+      request.maximum_snapshot_literals, request.maximum_snapshot_work, false,
+      payload_literals, payload_work);
   result.snapshot_clauses = snapshot->premises.size();
   result.snapshot_literals = payload_literals;
-  if (payload != PayloadStatus::Complete) {
+  if (payload != AffineSnapshotPayload::Complete) {
     result.snapshot_work = request.snapshot ? payload_work : snapshot->work;
-    result.status = payload == PayloadStatus::ResourceExhausted
+    result.status = payload == AffineSnapshotPayload::ResourceExhausted
                         ? AffineLiveStatus::ResourceExhausted
                         : AffineLiveStatus::Invalid;
     return result;
@@ -652,7 +618,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
   std::vector<bool> missing;
   uint64_t arena_words = 0;
   for (const auto &target : plan.targets) {
-    const bool needed = !clause_covered(k, target);
+    const bool needed = !affine_live_clause_covered(k, target);
     missing.push_back(needed);
     if (needed && target.size() > 2) {
       if (target.size() + CLAUSE_HEADER_WORDS > INVALID_REF - arena_words) {
@@ -778,15 +744,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
   }
   for (size_t i = 0; i < plan.targets.size(); ++i) {
     if (!installed[i]) continue;
-    const auto &target = plan.targets[i];
-    std::vector<Lit> literals;
-    literals.reserve(target.size());
-    for (External external : target) {
-      const Lit literal = kernel_internalize(k, external);
-      if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
-        std::abort();
-      literals.push_back(literal);
-    }
+    const auto literals = internal_clause_or_abort(k, plan.targets[i]);
     const uint64_t id = replay.target_ids[i];
     if (literals.size() == 1) {
       if (!k.value(literals[0])) {

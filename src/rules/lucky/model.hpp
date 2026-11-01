@@ -1,6 +1,7 @@
 #pragma once
 #include "kernel/kernel.hpp"
 #include <iterator>
+#include <type_traits>
 #include <vector>
 namespace tactix {
 // Candidate validation is independent of recognition and of every model-search
@@ -146,5 +147,39 @@ inline void lucky_publish_model(Kernel &k,
   // that debt as well as the ordinary propagation cursor.
   k.propagate_head = static_cast<uint32_t>(k.trail.size());
   k.binary_only_head = UINT32_MAX;
+}
+// Validate, publish and count one candidate; false leaves the kernel untouched.
+inline bool lucky_publish_if_model(Kernel &k,
+                                   const std::vector<uint8_t> &assignment,
+                                   uint64_t &sat_counter) {
+  if (!lucky_model_valid(k, assignment)) return false;
+  lucky_publish_model(k, assignment);
+  ++sat_counter;
+  return true;
+}
+// The internal variable of a one-based DIMACS variable, if it is still mapped.
+inline bool lucky_internal_variable(const Kernel &k, uint64_t dimacs,
+                                    Var &internal) {
+  if (!dimacs || dimacs > k.external_to_internal.size()) return false;
+  internal = k.external_to_internal[dimacs - 1];
+  return internal != INVALID_VAR && internal < k.nvars;
+}
+// Sets a mapped one-based DIMACS variable in `assignment`, sized k.nvars.
+template <class Value>
+bool lucky_set_external(const Kernel &k, std::vector<Value> &assignment,
+                        uint64_t dimacs, std::type_identity_t<Value> value) {
+  Var internal = INVALID_VAR;
+  if (!lucky_internal_variable(k, dimacs, internal)) return false;
+  assignment[internal] = value;
+  return true;
+}
+// 3^exponent, or false when it exceeds 64 bits.
+inline bool lucky_power_of_three(uint32_t exponent, uint64_t &result) {
+  result = 1;
+  for (uint32_t i = 0; i < exponent; ++i) {
+    if (result > UINT64_MAX / 3) return false;
+    result *= 3;
+  }
+  return true;
 }
 }

@@ -81,21 +81,6 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &external) {
   return false;
 }
 
-NaryCspRelationCaptureRequest capture_request(
-    const NaryCspEqualityAmoSelection &selection,
-    const NaryCspEqualityAmoLimits &limits) {
-  NaryCspRelationCaptureRequest request;
-  request.domains = selection.domains;
-  request.maximum_source_clauses = limits.maximum_source_clauses;
-  request.maximum_source_literals = limits.maximum_source_literals;
-  request.maximum_recognition_work = limits.maximum_recognition_work;
-  request.maximum_domains = 3;
-  request.maximum_domain_values = limits.maximum_domain_values;
-  request.maximum_forbidden_tuples = limits.maximum_forbidden_tuples;
-  request.maximum_external_extent = limits.maximum_external_extent;
-  return request;
-}
-
 std::string domains_json(
     const std::vector<std::vector<int32_t>> &domains) {
   std::string result = "[";
@@ -217,7 +202,8 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
   }
   NaryCspRelationOwnerSnapshot current;
   const auto captured = nary_csp_relation_capture_owner(
-      kernel, capture_request(selection, limits), current);
+      kernel, nary_csp_ternary_capture_request(selection.domains, limits),
+      current);
   result.recognition_work = captured.recognition_work;
   if (captured.status != NaryCspRelationCaptureStatus::Applied) {
     result.status = captured.status == NaryCspRelationCaptureStatus::Interrupted

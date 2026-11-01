@@ -43,12 +43,9 @@ struct BceIndex {
 
 void build_index(const Kernel &k, BceIndex &idx) {
   std::vector<Ref> relevant;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (root_clause_relevant(k, c))
       relevant.push_back(ref);
-    ref += words;
   }
   idx.occ.build(k, relevant);
 }
@@ -90,12 +87,10 @@ void collect_occs(const Kernel &k, const BceIndex &idx, Lit l, Side side,
 // once in lexicographic endpoint order and contribute both blocking choices.
 void semantic_choices(const Kernel &k, std::vector<BceChoice> &out) {
   out.clear();
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (root_irredundant_clause_open(k, c))
       for (const Lit blocking : *c)
         out.push_back({blocking, {ref, 0}});
-    ref += clause_actual_words(c);
   }
 
   std::vector<std::pair<Lit, Lit>> binaries;
@@ -118,6 +113,47 @@ void semantic_choices(const Kernel &k, std::vector<BceChoice> &out) {
     out.push_back({first, {INVALID_REF, second}});
     out.push_back({second, {INVALID_REF, first}});
   }
+}
+
+// Is the candidate `lits` blocked on `blocking`, i.e. is its resolvent with
+// every opposite occurrence tautological? `marked[lit]` = "¬lit occurs in the
+// candidate" — the tautology test reduces to "does D contain a literal whose
+// negation is in C\{blocking}". `marked` is all-zero again on return. With
+// `Charge`, every opposite occurrence visited costs one bce tick.
+template <bool Charge>
+inline bool bce_blocked(Kernel &k, Lit blocking, const std::vector<Lit> &lits,
+                        const std::vector<Occ> &opposite,
+                        std::vector<uint8_t> &marked) {
+  for (const Lit lit : lits)
+    if (lit != blocking)
+      marked[lit] = 1;
+  bool blocked = true;
+  for (const Occ &other : opposite) {
+    if constexpr (Charge)
+      k.stats.bce_ticks++;
+    bool tautological = false;
+    if (other.ref == INVALID_REF) {
+      // D = (¬blocking ∨ partner): the resolvent is tautological iff
+      // ¬partner is one of C's other literals
+      tautological = marked[negate(other.partner)] != 0;
+    } else {
+      const Clause *clause = clause_at(k.arena, other.ref);
+      if (clause->garbage())
+        continue;
+      for (const Lit lit : *clause)
+        if (lit != negate(blocking) && marked[negate(lit)]) {
+          tautological = true;
+          break;
+        }
+    }
+    if (!tautological) {
+      blocked = false;
+      break;
+    }
+  }
+  for (const Lit lit : lits)
+    marked[lit] = 0;
+  return blocked;
 }
 
 ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
@@ -145,32 +181,7 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
   std::vector<Occ> opposite;
   collect_occs(k, idx, negate(blocking), Side::Opposite, opposite);
   k.stats.bce_ticks += 1 + opposite.size();
-  for (const Lit lit : lits)
-    if (lit != blocking)
-      marked[lit] = 1;
-  bool blocked = true;
-  for (const Occ &other : opposite) {
-    bool tautological = false;
-    if (other.ref == INVALID_REF) {
-      tautological = marked[negate(other.partner)] != 0;
-    } else {
-      const Clause *clause = clause_at(k.arena, other.ref);
-      if (clause->garbage())
-        continue;
-      for (const Lit lit : *clause)
-        if (lit != negate(blocking) && marked[negate(lit)]) {
-          tautological = true;
-          break;
-        }
-    }
-    if (!tautological) {
-      blocked = false;
-      break;
-    }
-  }
-  for (const Lit lit : lits)
-    marked[lit] = 0;
-  if (!blocked)
+  if (!bce_blocked<false>(k, blocking, lits, opposite, marked))
     return ApplyResult::NoOp;
 
   std::vector<Lit> rest;
@@ -195,11 +206,7 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
 
 } // namespace
 
-RuleEligibility bce_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
-}
+RuleEligibility bce_guard(const Kernel &k) { return root_level_guard(k); }
 
 void bce_literals(const Kernel &k, std::vector<Lit> &out) {
   out.clear();
@@ -236,8 +243,6 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   if (cands.empty())
     return ApplyResult::NoOp;
 
-  // `marked[lit]` = "¬lit occurs in the candidate" — the tautology test reduces
-  // to "does D contain a literal whose negation is in C\{blocking}".
   std::vector<Lit> lits, rest;
   std::vector<Occ> blocked;
 
@@ -259,36 +264,7 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
       for (const Lit l : *c)
         lits.push_back(l);
     }
-    for (const Lit l : lits)
-      if (l != blocking)
-        marked[l] = 1;
-
-    bool is_blocked = true;
-    for (const Occ &d : opposite) {
-      k.stats.bce_ticks++;
-      bool taut = false;
-      if (d.ref == INVALID_REF) {
-        // D = (¬blocking ∨ partner): the resolvent is tautological iff
-        // ¬partner is one of C's other literals
-        taut = marked[negate(d.partner)] != 0;
-      } else {
-        const Clause *dc = clause_at(k.arena, d.ref);
-        if (dc->garbage())
-          continue;
-        for (const Lit l : *dc)
-          if (l != negate(blocking) && marked[negate(l)]) {
-            taut = true;
-            break;
-          }
-      }
-      if (!taut) {
-        is_blocked = false;
-        break;
-      }
-    }
-    for (const Lit l : lits)
-      marked[l] = 0;
-    if (is_blocked)
+    if (bce_blocked<true>(k, blocking, lits, opposite, marked))
       blocked.push_back(co);
   }
   if (blocked.empty())
@@ -401,16 +377,6 @@ ApplyResult bce_apply(Kernel &k) {
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-static uint32_t bce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Lit> lits;
-  bce_literals(k, lits);
-  return copy_literal_instance_prefix(k, lits, out, cap);
-}
-
-static ApplyResult bce_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_literal_instance<bce_apply, bce_try>(k, inst);
-}
-
 // Semantic payloads are opaque ordinals in a state snapshot. This avoids
 // aliasing a 32-bit arena reference with a 32-bit binary partner while still
 // naming every individual (clause, blocking-literal) choice.
@@ -446,7 +412,8 @@ static ApplyResult bce_apply_semantic_instance(Kernel &k, uint64_t inst) {
 }
 
 TACTIX_REGISTER_RULE(BCE, RuleTier::Inprocess, bce_guard, bce_apply,
-                     bce_instances, bce_apply_instance,
+                     literal_list_instances<bce_literals>,
+                     (apply_root_literal_instance<bce_apply, bce_try>),
                      bce_semantic_instances,
                      bce_apply_semantic_instance);
 

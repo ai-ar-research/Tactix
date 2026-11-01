@@ -47,4 +47,29 @@ struct InterruptibleWork {
   }
 };
 
+// The status a stopped meter reports: Interrupted takes precedence over
+// ResourceExhausted; a meter that did neither reports `otherwise`.
+template <class Status>
+Status stopped_status(const InterruptibleWork &meter, Status otherwise) {
+  if (meter.interrupted) return Status::Interrupted;
+  if (meter.exhausted) return Status::ResourceExhausted;
+  return otherwise;
+}
+
+// The status of a stop observed without a meter: Interrupted under
+// termination, otherwise `otherwise`. Polls termination exactly once.
+template <class Status>
+Status terminating_status(const Kernel &kernel, Status otherwise) {
+  return kernel_terminating(kernel) ? Status::Interrupted : otherwise;
+}
+
+// A `ready` kernel admits the caller; otherwise the stop is Inapplicable, or
+// Interrupted under termination.
+template <class Status, class Ready>
+bool root_admitted(const Kernel &kernel, Ready &&ready, Status &status) {
+  if (ready(kernel)) return true;
+  status = terminating_status(kernel, Status::Inapplicable);
+  return false;
+}
+
 } // namespace tactix

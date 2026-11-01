@@ -13,6 +13,8 @@ struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
   uint64_t native_proof_id = 0;
+
+  friend bool operator==(const Premise &, const Premise &) = default;
 };
 
 struct Identity {
@@ -50,6 +52,8 @@ struct Limits {
   uint64_t maximum_row_combinations = 0;
   uint64_t maximum_mapping_trials = 0;
   uint32_t maximum_holes = 0;
+
+  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 using Charge = bool (*)(void *context, uint64_t amount);

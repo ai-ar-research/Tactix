@@ -38,15 +38,12 @@ struct CceIndex {
 void build_index(const Kernel &k, CceIndex &idx) {
   std::vector<Ref> relevant_clauses;
   idx.cands.clear();
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (root_clause_relevant(k, c)) {
       relevant_clauses.push_back(ref);
       if (root_irredundant_clause_open(k, c))
         idx.cands.push_back({ref, INVALID_LIT, INVALID_LIT});
     }
-    ref += words;
   }
   idx.occ.build(k, relevant_clauses);
   std::unordered_set<uint64_t> seen;
@@ -71,6 +68,13 @@ bool same_binary(const CceCandidate &candidate, Lit a, Lit b) {
   return candidate.binary() &&
          candidate.first == std::min(a, b) &&
          candidate.second == std::max(a, b);
+}
+
+// The semantic payload naming one candidate.
+uint64_t candidate_instance(const CceCandidate &candidate) {
+  return candidate.binary()
+             ? cce_binary_instance(candidate.first, candidate.second)
+             : cce_large_instance(candidate.ref);
 }
 
 // The extension state for one candidate. Every array is round-owned and
@@ -458,11 +462,7 @@ bool cover_range(Kernel &k, const CceIndex &idx, Coveror &cv,
 
 } // namespace
 
-RuleEligibility cce_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
-}
+RuleEligibility cce_guard(const Kernel &k) { return root_level_guard(k); }
 
 void cce_literals(const Kernel &k, std::vector<Lit> &out) {
   out.clear();
@@ -552,29 +552,11 @@ ApplyResult cce_apply(Kernel &k) {
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-static uint32_t cce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Lit> lits;
-  cce_literals(k, lits);
-  return copy_literal_instance_prefix(k, lits, out, cap);
-}
-
-static ApplyResult cce_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_literal_instance<cce_apply, cce_try>(k, inst);
-}
-
 static uint32_t cce_semantic_instances(Kernel &k, uint64_t *out,
                                        uint32_t cap) {
   CceIndex index;
   build_index(k, index);
-  const uint32_t count = std::min<uint32_t>(
-      cap, static_cast<uint32_t>(index.cands.size()));
-  for (uint32_t i = 0; i < count; ++i) {
-    const CceCandidate &candidate = index.cands[i];
-    out[i] = candidate.binary()
-                 ? cce_binary_instance(candidate.first, candidate.second)
-                 : cce_large_instance(candidate.ref);
-  }
-  return count;
+  return copy_instance_prefix(index.cands, out, cap, candidate_instance);
 }
 
 static ApplyResult cce_apply_semantic_instance(Kernel &k, uint64_t inst) {
@@ -585,11 +567,7 @@ static ApplyResult cce_apply_semantic_instance(Kernel &k, uint64_t inst) {
   CceIndex index;
   build_index(k, index);
   for (const CceCandidate &candidate : index.cands) {
-    const uint64_t candidate_instance =
-        candidate.binary()
-            ? cce_binary_instance(candidate.first, candidate.second)
-            : cce_large_instance(candidate.ref);
-    if (candidate_instance != inst)
+    if (candidate_instance(candidate) != inst)
       continue;
     Coveror coveror;
     coveror.resize(k.nvars);
@@ -600,7 +578,8 @@ static ApplyResult cce_apply_semantic_instance(Kernel &k, uint64_t inst) {
 }
 
 TACTIX_REGISTER_RULE(CCE, RuleTier::Inprocess, cce_guard, cce_apply,
-                     cce_instances, cce_apply_instance,
+                     literal_list_instances<cce_literals>,
+                     (apply_root_literal_instance<cce_apply, cce_try>),
                      cce_semantic_instances,
                      cce_apply_semantic_instance);
 

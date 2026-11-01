@@ -443,6 +443,22 @@ ValidationResult validate_semantics(
   return {ValidationStatus::Valid, formula.ticks()};
 }
 
+// Record `status` in an application outcome and return that outcome.
+SubstitutionRedundancyApplicationResult
+finish(SubstitutionRedundancyApplicationResult &outcome,
+       SubstitutionRedundancyApplicationStatus status) {
+  outcome.status = status;
+  return outcome;
+}
+
+// Record `status` in a general-discovery result and return that result.
+SubstitutionRedundancyGeneralResult
+finish(SubstitutionRedundancyGeneralResult &result,
+       SubstitutionRedundancyGeneralStatus status) {
+  result.status = status;
+  return result;
+}
+
 bool increment_digits(std::vector<uint32_t> &digits, uint32_t base) {
   for (size_t i = 0; i < digits.size(); ++i) {
     if (++digits[i] < base)
@@ -531,14 +547,10 @@ SubstitutionRedundancyGeneralResult substitution_redundancy_next_general(
       cursor.touch_epoch != k.touch_epoch)
     reset_general_cursor(k, cursor);
   while (!cursor.complete) {
-    if ((stop && *stop) || (k.stop && *k.stop)) {
-      result.status = SubstitutionRedundancyGeneralStatus::Interrupted;
-      return result;
-    }
-    if (result.candidates == parameters.maximum_general_candidates_per_advance) {
-      result.status = SubstitutionRedundancyGeneralStatus::LimitReached;
-      return result;
-    }
+    if ((stop && *stop) || (k.stop && *k.stop))
+      return finish(result, SubstitutionRedundancyGeneralStatus::Interrupted);
+    if (result.candidates == parameters.maximum_general_candidates_per_advance)
+      return finish(result, SubstitutionRedundancyGeneralStatus::LimitReached);
     ++result.candidates;
     materialize_general_instance(cursor, instance);
     std::vector<Lit> candidate;
@@ -549,18 +561,14 @@ SubstitutionRedundancyGeneralResult substitution_redundancy_next_general(
         !clause_already_true(k, candidate)) {
       const ValidationResult checked = validate_semantics(
           k, candidate, witness, parameters, stop ? stop : k.stop);
-      if (checked.status == ValidationStatus::Interrupted) {
-        result.status = SubstitutionRedundancyGeneralStatus::Interrupted;
-        return result;
-      }
-      if (checked.status == ValidationStatus::ResourceExhausted) {
-        result.status = SubstitutionRedundancyGeneralStatus::ResourceExhausted;
-        return result;
-      }
+      if (checked.status == ValidationStatus::Interrupted)
+        return finish(result, SubstitutionRedundancyGeneralStatus::Interrupted);
+      if (checked.status == ValidationStatus::ResourceExhausted)
+        return finish(result,
+                      SubstitutionRedundancyGeneralStatus::ResourceExhausted);
       if (checked.status == ValidationStatus::Valid) {
         advance_general_cursor(cursor);
-        result.status = SubstitutionRedundancyGeneralStatus::Found;
-        return result;
+        return finish(result, SubstitutionRedundancyGeneralStatus::Found);
       }
     }
     advance_general_cursor(cursor);
@@ -605,35 +613,30 @@ substitution_redundancy_apply_detailed_impl(
     if (candidate.size() != 2 || !instance.witness.empty() ||
         !instance.substitution.empty())
       return outcome;
-    if (!authenticate_unique_literal_amo(k, candidate)) {
-      outcome.status = SubstitutionRedundancyApplicationStatus::Inapplicable;
-      return outcome;
-    }
+    if (!authenticate_unique_literal_amo(k, candidate))
+      return finish(outcome,
+                    SubstitutionRedundancyApplicationStatus::Inapplicable);
   } else if (!parse_witness(k, candidate.front(), instance, witness, active))
     return outcome;
 
   // A retired variable makes this well-formed request inapplicable now; it
   // does not make its serialized payload malformed. Check after full syntax
   // validation so retirement never masks an invalid witness or literal.
-  if (!active) {
-    outcome.status = SubstitutionRedundancyApplicationStatus::Inapplicable;
-    return outcome;
-  }
+  if (!active)
+    return finish(outcome,
+                  SubstitutionRedundancyApplicationStatus::Inapplicable);
 
   ++k.stats.sr_applications;
-  if ((stop && *stop) || (k.stop && *k.stop)) {
-    outcome.status = SubstitutionRedundancyApplicationStatus::Interrupted;
-    return outcome;
-  }
+  if ((stop && *stop) || (k.stop && *k.stop))
+    return finish(outcome,
+                  SubstitutionRedundancyApplicationStatus::Interrupted);
   if (inprocess_reach_root(k)) {
     outcome.status = SubstitutionRedundancyApplicationStatus::Unsat;
     outcome.rule_result = ApplyResult::Unsat;
     return outcome;
   }
-  if (clause_already_true(k, candidate) || kernel_contains_clause(k, candidate)) {
-    outcome.status = SubstitutionRedundancyApplicationStatus::NoChange;
-    return outcome;
-  }
+  if (clause_already_true(k, candidate) || kernel_contains_clause(k, candidate))
+    return finish(outcome, SubstitutionRedundancyApplicationStatus::NoChange);
   // The general serializer needs one temporary external literal. This is a
   // representation limit, independent of whether proof output is enabled.
   if (plan_dsr_witness(candidate.data(), candidate.size(),
@@ -641,10 +644,9 @@ substitution_redundancy_apply_detailed_impl(
                        witness.emitted_mappings.data(),
                        witness.emitted_mappings.size())
           .form == DsrWitnessForm::Extension &&
-      k.external_to_internal.size() >= static_cast<uint32_t>(INT32_MAX)) {
-    outcome.status = SubstitutionRedundancyApplicationStatus::ResourceExhausted;
-    return outcome;
-  }
+      k.external_to_internal.size() >= static_cast<uint32_t>(INT32_MAX))
+    return finish(outcome,
+                  SubstitutionRedundancyApplicationStatus::ResourceExhausted);
 
   const bool certified_unique_literal_amo = unique_literal_amo;
   const bool certified =
@@ -684,31 +686,23 @@ substitution_redundancy_apply_detailed_impl(
   for (const Lit lit : candidate)
     if (k.value(lit) >= 0)
       kept.push_back(lit);
-  if (kept != candidate && kernel_contains_clause(k, kept)) {
-    outcome.status = SubstitutionRedundancyApplicationStatus::NoChange;
-    return outcome;
-  }
+  if (kept != candidate && kernel_contains_clause(k, kept))
+    return finish(outcome, SubstitutionRedundancyApplicationStatus::NoChange);
   // A fully validated tuple can be a no-op after root simplification. That
   // requires no SR line in any proof format, so classify it before refusing a
   // format that cannot serialize a formula-changing direct SR step.
   if (k.proof && !certified_unique_literal_amo &&
-      !k.proof->supports_sr()) {
-    outcome.status =
-        SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
-    return outcome;
-  }
+      !k.proof->supports_sr())
+    return finish(outcome,
+                  SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat);
   if (k.proof && certified_unique_literal_amo &&
-      (k.proof->lrat() || k.proof->terminal_pbp())) {
-    outcome.status =
-        SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
-    return outcome;
-  }
+      (k.proof->lrat() || k.proof->terminal_pbp()))
+    return finish(outcome,
+                  SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat);
   const uint64_t required_ids = kept.size() == candidate.size() ? 1 : 2;
-  if (k.next_clause_id > UINT64_MAX - required_ids) {
-    outcome.status =
-        SubstitutionRedundancyApplicationStatus::ResourceExhausted;
-    return outcome;
-  }
+  if (k.next_clause_id > UINT64_MAX - required_ids)
+    return finish(outcome,
+                  SubstitutionRedundancyApplicationStatus::ResourceExhausted);
 
   const uint64_t sr_id = ++k.next_clause_id;
   if (k.proof) {
@@ -722,9 +716,8 @@ substitution_redundancy_apply_detailed_impl(
                    static_cast<uint32_t>(k.external_to_internal.size()),
                    /*propagates=*/kept.size() == 1)) {
       --k.next_clause_id;
-      outcome.status =
-          SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
-      return outcome;
+      return finish(outcome,
+                    SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat);
     }
   }
   outcome.witness_literals =

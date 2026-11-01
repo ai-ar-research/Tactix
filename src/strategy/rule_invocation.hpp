@@ -43,6 +43,7 @@ struct StateVersion {
   // an explicit selection from surviving an ABA return to the same trail or
   // formula shape between advance calls.
   uint64_t strategy_epoch = 0;
+  bool operator==(const StateVersion &) const = default;
 };
 
 inline StateVersion state_version(const Kernel &k) {

@@ -4,8 +4,10 @@
 
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/gf3_certificate_common.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -19,33 +21,14 @@ using ClauseKey = std::vector<int32_t>;
 
 using Meter = InterruptibleWork;
 
+using gf3_certificate_common::canonical;
+using gf3_live_common::add_work;
 using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
+using gf3_live_common::owner_request;
 using semantic_extension::append_bounded;
-
-ClauseKey canonical(ClauseKey clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
-}
-
-bool applicable(const Kernel &kernel, bool retained_owner) {
-  return !kernel.inconsistent &&
-         ((!kernel.level && kernel.trail.empty()) || retained_owner) &&
-         !kernel.conflict_valid && !kernel.pending.valid && !kernel.dense &&
-         !kernel.probing.recording && kernel.large_watches_connected &&
-         kernel_propagation_fixpoint(kernel) &&
-         !kernel.external_to_internal.empty() &&
-         kernel.external_to_internal.size() <= INT32_MAX;
-}
-
-Gf3AffineLiveRequest owner_request(const Gf3GeneralRowLiveLimits &limits) {
-  Gf3AffineLiveRequest request;
-  request.recognition = limits.recognition;
-  request.maximum_recognition_work = limits.maximum_capture_work;
-  request.maximum_revalidation_work = limits.maximum_revalidation_work;
-  return request;
-}
+using semantic_extension::join_integers;
 
 Gf3GeneralRowLiveStatus owner_status(Gf3AffineLiveStatus status) {
   if (const auto failure =
@@ -88,12 +71,6 @@ bool append_reference(std::string &bytes,
   return gf3_live_common::append_reference(bytes, reference, owner);
 }
 
-bool count_bytes(uint64_t amount, uint64_t maximum, uint64_t &total) {
-  if (total > maximum || amount > maximum - total) return false;
-  total += amount;
-  return true;
-}
-
 bool count_reference(uint64_t maximum, uint64_t &total,
                      const gf3_affine::SourceReference &reference,
                      const Gf3AffineOwnerSnapshot &owner) {
@@ -101,7 +78,7 @@ bool count_reference(uint64_t maximum, uint64_t &total,
     return false;
   const auto &clause = owner.sources[reference.occurrence - 1].clause;
   return clause.size() <= (UINT64_MAX - 24) / 4 &&
-         count_bytes(24 + 4 * clause.size(), maximum, total);
+         add_work(24 + 4 * clause.size(), maximum, total);
 }
 
 bool subsumed(const std::vector<ClauseKey> &live, const ClauseKey &candidate) {
@@ -110,13 +87,6 @@ bool subsumed(const std::vector<ClauseKey> &live, const ClauseKey &candidate) {
                       clause.end()))
       return true;
   return false;
-}
-
-std::string literals(const std::vector<int32_t> &clause) {
-  std::string result;
-  for (size_t i = 0; i < clause.size(); ++i)
-    result += (i ? "," : "") + std::to_string(clause[i]);
-  return result;
 }
 
 bool make_journal(const Gf3GeneralRowLiveRequest &request,
@@ -133,7 +103,7 @@ bool make_journal(const Gf3GeneralRowLiveRequest &request,
                                "\"outcome\":" +
                           std::to_string(plan.request.outcome) +
                           ",\"tuple\":" + std::to_string(plan.request.tuple) +
-                          ",\"clause\":[" + literals(plan.consequence) +
+                          ",\"clause\":[" + join_integers(plan.consequence) +
                           "]}\n"))
     return false;
   for (size_t i = 0; i < plan.events.size(); ++i) {
@@ -147,7 +117,7 @@ bool make_journal(const Gf3GeneralRowLiveRequest &request,
                             std::to_string(i) + ",\"clause_id\":" +
                             std::to_string(ids[i]) + ",\"role\":\"" + role +
                             "\",\"clause\":[" +
-                            literals(plan.events[i].clause) + "]}\n"))
+                            join_integers(plan.events[i].clause) + "]}\n"))
       return false;
   }
   return append_bounded(journal, request.limits.maximum_journal_bytes,
@@ -167,16 +137,11 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
   if (!request.limits.valid() || !request.action_id || !request.semantic_id ||
       !request.records)
     return output;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Gf3GeneralRowLiveStatus::UnsupportedProof;
+  if (!live_admitted(kernel,
+                     request.retained_owner ? gf3_live_common::owner_guard
+                                            : gf3_live_common::root_guard,
+                     result.status))
     return output;
-  }
-  if (!applicable(kernel, request.retained_owner != nullptr)) {
-    result.status = kernel_terminating(kernel)
-                        ? Gf3GeneralRowLiveStatus::Interrupted
-                        : Gf3GeneralRowLiveStatus::Inapplicable;
-    return output;
-  }
   if (kernel.external_to_internal.size() >
       request.limits.maximum_external_extent) {
     result.status = Gf3GeneralRowLiveStatus::ResourceExhausted;
@@ -206,26 +171,15 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
     return output;
   }
 
-  uint64_t planning_work = 0;
-  bool interrupted = false;
-  auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (planning_work > request.limits.planner.maximum_work ||
-        amount > request.limits.planner.maximum_work - planning_work)
-      return false;
-    planning_work += amount;
-    return true;
-  };
+  Meter planning{kernel, request.limits.planner.maximum_work};
   auto planned = gf3_general_row::build(
       result.owner.affine.theory, result.owner.bridge, request.selection,
-      request.limits.planner, charge);
-  result.effort.planning_work = planning_work;
+      request.limits.planner,
+      [&](uint64_t amount) { return planning.charge(amount); });
+  result.effort.planning_work = planning.used;
   if (planned.status != gf3_general_row::Status::Planned) {
-    result.status = interrupted ? Gf3GeneralRowLiveStatus::Interrupted
-                                : planner_status(planned.status);
+    result.status = planning.interrupted ? Gf3GeneralRowLiveStatus::Interrupted
+                                         : planner_status(planned.status);
     return output;
   }
   result.plan = std::move(planned.plan);
@@ -305,26 +259,7 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
 } // namespace
 
 bool Gf3GeneralRowLiveLimits::valid() const {
-  const auto &bridge = planner.bridge;
-  const auto &gaussian = bridge.gaussian;
-  return recognition.maximum_source_clauses &&
-         recognition.maximum_source_literals && recognition.maximum_domains &&
-         recognition.maximum_equations &&
-         recognition.maximum_equation_arity >= 2 &&
-         recognition.maximum_tuples_per_equation &&
-         bridge.maximum_work && bridge.maximum_source_clauses &&
-         bridge.maximum_source_literals && bridge.maximum_domains &&
-         bridge.maximum_equations && bridge.maximum_terms &&
-         bridge.maximum_authentication_references &&
-         bridge.maximum_references_per_equation && gaussian.maximum_work &&
-         gaussian.maximum_fill_entries && gaussian.maximum_intermediate_width &&
-         gaussian.maximum_provenance_terms && gaussian.maximum_derivations &&
-         gaussian.maximum_retained_plan_bytes && planner.maximum_work &&
-         planner.maximum_events && planner.maximum_event_literals &&
-         planner.maximum_active_clauses &&
-         planner.maximum_retained_source_references &&
-         planner.maximum_row_tuples && planner.maximum_event_width &&
-         planner.maximum_branch_domains && planner.maximum_row_width &&
+  return recognition.valid() && planner.bridge.valid() && planner.valid() &&
          maximum_capture_work && maximum_duplicate_scan_work &&
          maximum_revalidation_work && maximum_proof_additions &&
          maximum_proof_literal_occurrences && maximum_arena_words &&
@@ -343,24 +278,13 @@ Gf3GeneralRowLiveStatus gf3_general_row_live_capture(
   effort.capture_work = captured.recognition_work;
   if (captured.status != Gf3AffineLiveStatus::Applied)
     return owner_status(captured.status);
-  uint64_t work = 0;
-  bool interrupted = false;
-  auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (work > limits.planner.bridge.maximum_work ||
-        amount > limits.planner.bridge.maximum_work - work)
-      return false;
-    work += amount;
-    return true;
-  };
+  Meter work{kernel, limits.planner.bridge.maximum_work};
   auto bridged = gf3_gaussian_bridge::build(
-      owner.affine.theory, limits.planner.bridge, charge);
-  effort.bridge_work = work;
+      owner.affine.theory, limits.planner.bridge,
+      [&](uint64_t amount) { return work.charge(amount); });
+  effort.bridge_work = work.used;
   if (bridged.status != gf3_gaussian_bridge::Status::Complete)
-    return interrupted ? Gf3GeneralRowLiveStatus::Interrupted
+    return work.interrupted ? Gf3GeneralRowLiveStatus::Interrupted
            : bridged.status == gf3_gaussian_bridge::Status::LimitExceeded
                ? Gf3GeneralRowLiveStatus::ResourceExhausted
                : Gf3GeneralRowLiveStatus::Invalid;
@@ -380,24 +304,13 @@ Gf3GeneralRowLiveStatus gf3_general_row_live_validate_owner(
                         validated.revalidation_work;
   if (validated.status != Gf3AffineLiveStatus::Applied)
     return owner_status(validated.status);
-  uint64_t work = 0;
-  bool interrupted = false;
-  auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (work > limits.planner.bridge.maximum_work ||
-        amount > limits.planner.bridge.maximum_work - work)
-      return false;
-    work += amount;
-    return true;
-  };
+  Meter work{kernel, limits.planner.bridge.maximum_work};
   const auto checked = gf3_gaussian_bridge::validate(
-      owner.affine.theory, owner.bridge, limits.planner.bridge, charge);
-  effort.bridge_work = work;
+      owner.affine.theory, owner.bridge, limits.planner.bridge,
+      [&](uint64_t amount) { return work.charge(amount); });
+  effort.bridge_work = work.used;
   if (checked.status != gf3_gaussian_bridge::Status::Complete)
-    return interrupted ? Gf3GeneralRowLiveStatus::Interrupted
+    return work.interrupted ? Gf3GeneralRowLiveStatus::Interrupted
            : checked.status == gf3_gaussian_bridge::Status::LimitExceeded
                ? Gf3GeneralRowLiveStatus::ResourceExhausted
                : Gf3GeneralRowLiveStatus::Stale;
@@ -418,19 +331,19 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &owner,
   if (maximum_bytes < 5) return false;
   const uint64_t maximum_raw = (maximum_bytes - 5) / 2;
   uint64_t required = 0;
-  if (!count_bytes(4 + 8 + 4 + 1 + 8, maximum_raw, required) ||
+  if (!add_work(4 + 8 + 4 + 1 + 8, maximum_raw, required) ||
       row.row.size() > (UINT64_MAX - required) / 5 ||
-      !count_bytes(5 * row.row.size(), maximum_raw, required) ||
-      !count_bytes(8, maximum_raw, required))
+      !add_work(5 * row.row.size(), maximum_raw, required) ||
+      !add_work(8, maximum_raw, required))
     return false;
   for (const auto &source : row.provenance) {
     if (!source.source_id ||
         source.source_id > owner.bridge.authentication.size() ||
-        !count_bytes(8 + 1 + 4 + 8, maximum_raw, required))
+        !add_work(8 + 1 + 4 + 8, maximum_raw, required))
       return false;
     const auto &auth = owner.bridge.authentication[source.source_id - 1];
     for (const auto &domain : auth.domains) {
-      if (!count_bytes(4, maximum_raw, required) ||
+      if (!add_work(4, maximum_raw, required) ||
           !count_reference(maximum_raw, required, domain.at_least_one,
                            owner.affine))
         return false;
@@ -438,9 +351,9 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &owner,
         if (!count_reference(maximum_raw, required, amo, owner.affine))
           return false;
     }
-    if (!count_bytes(8, maximum_raw, required)) return false;
+    if (!add_work(8, maximum_raw, required)) return false;
     for (const auto &tuple : auth.forbidden_tuples)
-      if (!count_bytes(8, maximum_raw, required) ||
+      if (!add_work(8, maximum_raw, required) ||
           !count_reference(maximum_raw, required, tuple.premise,
                            owner.affine))
         return false;
@@ -501,14 +414,7 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
   result.proof_clause_ids.reserve(result.plan.events.size());
   for (size_t index = 0; index < result.plan.events.size(); ++index) {
     const auto &event = result.plan.events[index];
-    std::vector<Lit> internal;
-    internal.reserve(event.clause.size());
-    for (int32_t external : event.clause) {
-      const Lit literal = kernel_internalize(kernel, external);
-      if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
-        std::abort();
-      internal.push_back(literal);
-    }
+    const auto internal = internal_clause_or_abort(kernel, event.clause);
     const uint64_t id = ++kernel.next_clause_id;
     if (id != prepared.ids[index]) std::abort();
     if (kernel.proof)

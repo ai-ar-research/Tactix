@@ -2,7 +2,10 @@
 #include "proof/proof.hpp"
 
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_work.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -19,31 +22,7 @@ namespace tactix {
 
     using Status=DirectCspSupportLiveStatus;
 
-    struct Meter {
-
-      const Kernel&kernel;
-      uint64_t limit=0,used=0;
-      bool interrupted=false,exhausted=false;
-
-      bool charge(uint64_t n){
-        if(kernel_terminating(kernel)){
-          interrupted=true;
-          return false;
-        }
-
-        if(n>limit-used){
-          exhausted=true;
-          return false;
-        }
-        used+=n;
-        return true;
-      }
-
-      Status stopped(Status fallback)const{
-        return interrupted?Status::Interrupted:exhausted?Status::ResourceExhausted:fallback;
-      }
-
-    };
+    using Meter=InterruptibleWork;
 
     Status mapped(gc::Status s){
       switch(s){
@@ -62,10 +41,6 @@ namespace tactix {
 
       }
       std::abort();
-    }
-
-    bool root(const Kernel&k){
-      return !k.inconsistent&&!k.level&&!k.conflict_valid&&!k.pending.valid&& k.trail.empty()&&!k.dense&&!k.probing.recording&&k.large_watches_connected&& kernel_propagation_fixpoint(k)&&!k.external_to_internal.empty()&&k.external_to_internal.size()<=INT32_MAX;
     }
 
     bool sort(std::vector<int32_t>&c,Meter&m){
@@ -91,13 +66,13 @@ namespace tactix {
 
       auto expected=gc::expected_clauses(r.selection,r.bounds,[&](uint64_t n){return m.charge(n);});
 
-      if(expected.status!=gc::Status::Planned)return m.stopped(mapped(expected.status));
+      if(expected.status!=gc::Status::Planned)return stopped_status(m,mapped(expected.status));
 
       uint64_t image_literals = 0;
 
       for (const auto &clause : expected.clauses) image_literals = gc::detail::add(image_literals, clause.size());
 
-      if (!m.charge(gc::detail::multiply(gc::detail::add(1, expected.clauses.size()), gc::detail::add(1, image_literals)))) return m.stopped(Status::Invalid);
+      if (!m.charge(gc::detail::multiply(gc::detail::add(1, expected.clauses.size()), gc::detail::add(1, image_literals)))) return stopped_status(m,Status::Invalid);
 
       std::set<std::vector<int32_t>> wanted(expected.clauses.begin(),expected.clauses.end());
 
@@ -107,7 +82,7 @@ namespace tactix {
 
       for(const auto&c:expected.clauses)for(int32_t external:c){
 
-        if(!m.charge(1))return m.stopped(Status::Invalid);
+        if(!m.charge(1))return stopped_status(m,Status::Invalid);
 
         Lit l=kernel_internalize(k,external);
 
@@ -119,7 +94,7 @@ namespace tactix {
       auto observe=[&](const Lit*ls,uint32_t n,uint64_t id){
 
         if(!m.charge(1+uint64_t(n))){
-          failure=m.stopped(Status::Invalid);
+          failure=stopped_status(m,Status::Invalid);
           return false;
         }
 
@@ -129,13 +104,13 @@ namespace tactix {
         for(uint32_t i=0;i<n;++i)c.push_back(kernel_externalize(k,ls[i]));
 
         if(!sort(c,m)){
-          failure=m.stopped(Status::Invalid);
+          failure=stopped_status(m,Status::Invalid);
           return false;
         }
 
         if (!m.charge(gc::detail::multiply(gc::detail::add(1, wanted.size()), gc::detail::add(1, c.size())))) {
 
-          failure = m.stopped(Status::Invalid);
+          failure = stopped_status(m,Status::Invalid);
 
           return false;
 
@@ -159,39 +134,20 @@ namespace tactix {
 
       };
 
-      for(Ref ref=0;ref<k.arena.size();){
-        const Clause*c=clause_at(k.arena,ref);
-        ref+=clause_actual_words(c);
+      const csp_physical_scan::Status scan=csp_physical_scan::run(k,m,observe);
 
-        if(!m.charge(1))return m.stopped(Status::Invalid);
-
-        if(!c->garbage()&&!observe(c->lits,c->size,c->id()))return failure;
-      }
-
-      for(Lit first=0;first<2*k.nvars;++first)for(const WatchEntry w:k.watches.entries(first)){
-
-        if(!m.charge(1))return m.stopped(Status::Invalid);
-
-        if(!w.binary()||first>=w.other())continue;
-
-        const Lit pair[]={
-          first,w.other()
-        };
-        const uint64_t id=k.binary_ids.tracks_values()?kernel_binary_id(k,first,w.other()):0;
-
-        if(!observe(pair,2,id))return failure;
-      }
+      if(scan!=csp_physical_scan::Status::Complete)return scan==csp_physical_scan::Status::Stopped?stopped_status(m,Status::Invalid):failure;
 
       if(found.size()!=wanted.size())return Status::NoStructure;
 
-      if (!m.charge(gc::detail::add(1, gc::detail::add(image_literals, gc::detail::multiply(r.selection.blockers.size(), 4))))) return m.stopped(Status::Invalid);
+      if (!m.charge(gc::detail::add(1, gc::detail::add(image_literals, gc::detail::multiply(r.selection.blockers.size(), 4))))) return stopped_status(m,Status::Invalid);
 
       DirectCspGuardedCoverOwnerSnapshot result;
       result.selection=r.selection;
       result.source_literals=total;
 
       for(const auto&[c,id]:found){
-        if(!m.charge(1+c.size()))return m.stopped(Status::Invalid);
+        if(!m.charge(1+c.size()))return stopped_status(m,Status::Invalid);
 
         result.source.push_back({result.source.size()+1,c,id});
       }
@@ -202,27 +158,7 @@ namespace tactix {
     }
 
     bool same(const DirectCspGuardedCoverOwnerSnapshot&a,const DirectCspGuardedCoverOwnerSnapshot&b,Meter&m){
-
-      uint64_t shape_work = gc::detail::add(1, gc::detail::add(a.selection.cover.size(), gc::detail::multiply(a.selection.blockers.size(), 4)));
-
-      for (const auto &domain : a.selection.domains) shape_work = gc::detail::add(shape_work, gc::detail::add(1, domain.size()));
-
-      for (const auto &definition : a.selection.exact_or) shape_work = gc::detail::add(shape_work, gc::detail::add(1, definition.inputs.size()));
-
-      if (!m.charge(shape_work)) return false;
-
-      if(!direct_csp_guarded_cover_owner_shape_equal(a.selection,b.selection)||a.source_literals!=b.source_literals||a.source.size()!=b.source.size())return false;
-
-      for(size_t i=0;i<a.source.size();++i){
-        if(!m.charge(1+a.source[i].literals.size()))return false;
-
-        const auto&x=a.source[i];
-        const auto&y=b.source[i];
-        if(x.occurrence!=y.occurrence||x.literals!=y.literals||x.native_proof_id!=y.native_proof_id)return false;
-      }
-
-      return true;
-
+      return direct_csp_guarded_cover_same_source(a,b,[&](uint64_t n){return m.charge(n);},false);
     }
 
     bool valid(const DirectCspGuardedCoverLiveRequest&r){
@@ -250,22 +186,14 @@ namespace tactix {
       auto&out=p.result;
       if(!valid(r))return;
 
-      if(k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())){
-        out.status=Status::UnsupportedProof;
-        return;
-      }
-
-      if(!root(k)){
-        out.status=kernel_terminating(k)?Status::Interrupted:Status::Inapplicable;
-        return;
-      }
+      if(!live_admitted(k,csp_physical_scan::root_ready,out.status))return;
 
       Meter m{
         k,r.maximum_recognition_work
       };
 
       auto finish=[&](Status s){
-        out.status=m.stopped(s);
+        out.status=stopped_status(m,s);
         out.recognition_work=m.used;
         out.recognition_limit_exhausted=m.exhausted;
       };
@@ -505,15 +433,38 @@ namespace tactix {
 
   }
 
+  uint64_t direct_csp_guarded_cover_shape_work(const gc::Selection&s){
+
+    uint64_t shape_work = gc::detail::add(1, gc::detail::add(s.cover.size(), gc::detail::multiply(s.blockers.size(), 4)));
+
+    for (const auto &domain : s.domains) shape_work = gc::detail::add(shape_work, gc::detail::add(1, domain.size()));
+
+    for (const auto &definition : s.exact_or) shape_work = gc::detail::add(shape_work, gc::detail::add(1, definition.inputs.size()));
+
+    return shape_work;
+
+  }
+
+  bool direct_csp_guarded_cover_same_source(const DirectCspGuardedCoverOwnerSnapshot&a,const DirectCspGuardedCoverOwnerSnapshot&b,const gc::Charge&charge,bool refresh_large_ids){
+
+    if(!charge(direct_csp_guarded_cover_shape_work(a.selection))||!direct_csp_guarded_cover_owner_shape_equal(a.selection,b.selection)||a.source_literals!=b.source_literals||a.source.size()!=b.source.size())return false;
+
+    for(size_t i=0;i<a.source.size();++i){
+      const auto&x=a.source[i];
+      const auto&y=b.source[i];
+      if(!charge(1+x.literals.size())||x.occurrence!=y.occurrence||x.literals!=y.literals||((!refresh_large_ids||x.literals.size()<3)&&x.native_proof_id!=y.native_proof_id))return false;
+    }
+
+    return true;
+
+  }
+
   DirectCspSupportOwnerCaptureResult direct_csp_guarded_cover_live_capture_owner( Kernel&k,const DirectCspGuardedCoverLiveRequest&r,DirectCspGuardedCoverOwnerSnapshot&owner){
 
     DirectCspSupportOwnerCaptureResult out;
     if(!r.bounds.valid()||!r.maximum_recognition_work)return out;
 
-    if(!root(k)){
-      out.status=kernel_terminating(k)?Status::Interrupted:Status::Inapplicable;
-      return out;
-    }
+    if(!root_admitted(k,csp_physical_scan::root_ready,out.status))return out;
 
     Meter m{
       k,r.maximum_recognition_work

@@ -378,73 +378,17 @@ public:
 };
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-void event_trace_detail(const Kernel &, const char *, int64_t);
 void event_trace_binary_assignment(const Kernel &, Lit assigned,
                                    Lit immediate_reason, Lit stored_reason,
                                    bool jumped);
 void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_root_assign(const Kernel &, Lit);
-void event_trace_sweep_schedule(const Kernel &, Var, uint64_t, uint64_t,
-                                uint64_t, uint64_t);
-void event_trace_sweep_seed(const Kernel &, Var);
-void event_trace_sweep_environment(const Kernel &, Var, uint32_t, uint32_t,
-                                   uint64_t);
-void event_trace_sweep_environment_clause(const Kernel &, Var, uint32_t,
-                                          const Lit *, uint32_t);
-void event_trace_sweep_query(const Kernel &, Var, uint32_t, const char *, Lit,
-                             Lit, int, uint64_t, uint64_t);
-void event_trace_sweep_model(const Kernel &, Var, uint32_t, const Var *,
-                             const int8_t *, uint32_t);
 void event_trace_sweep_flip(const Kernel &, Var, const char *, Lit, bool,
                             uint64_t);
-void event_trace_sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t,
-                              uint64_t);
-void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
-                                       uint32_t);
-void event_trace_sweep_binary_attempt(const Kernel &, Var, uint32_t, Lit, Lit,
-                                      int32_t, int32_t, const char *);
-void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
-void event_trace_sweep_equivalence(const Kernel &, Lit, Lit);
-void event_trace_sweep_commit(const Kernel &, Lit, Lit, int8_t, int8_t,
-                              const char *);
-void event_trace_sweep_rewrite_binary(const Kernel &, Lit, Lit, uint32_t,
-                                      Lit);
-void event_trace_sweep_unit(const Kernel &, Lit);
-void event_trace_substitute_map(const Kernel &, Lit, Lit);
-void event_trace_factor_seed(const Kernel &, Lit, uint32_t, uint32_t);
-void event_trace_factor_remainder(const Kernel &, Lit, uint32_t, bool,
-                                  const Lit *, uint32_t);
-void event_trace_factor_candidate(const Kernel &, Lit, uint32_t, uint32_t,
-                                  Lit, uint32_t, uint32_t);
-void event_trace_factor_score_entry(const Kernel &, Lit, uint32_t, Lit,
-                                    uint32_t, bool, Lit, uint64_t,
-                                    const Clause *);
-void event_trace_factor_literal_state(const Kernel &, Lit, bool, bool, int,
-                                      uint32_t);
-void event_trace_factor_literal_entry(const Kernel &, Lit, uint32_t, bool, Lit,
-                                      uint64_t, const Clause *);
-void event_trace_factor_candidate_source(const Kernel &, Lit, uint32_t,
-                                         uint32_t, Lit, Lit, const Clause *,
-                                         const Clause *);
-void event_trace_factor_candidate_binary_source(const Kernel &, Lit, uint32_t,
-                                                uint32_t, Lit, Lit);
-void event_trace_factor_pair(const Kernel &, Lit, const char *);
-void event_trace_factor_heap(const Kernel &, Lit, const char *, Lit, uint32_t,
-                             uint32_t, Lit, uint32_t, uint32_t, uint32_t);
-void event_trace_factor_heap_digest(const Kernel &, Lit, uint32_t, uint64_t,
-                                    Lit, uint32_t);
-void event_trace_factor_schedule(const Kernel &, uint32_t, Lit, uint32_t);
 void event_trace_factor_mark_transition(const Kernel &, Lit, bool,
                                         const char *);
 void event_trace_bve_retry_mark(const Kernel &, Var, const char *, bool, bool,
                                 const Clause *);
-void event_trace_factor_update(const Kernel &, Lit, uint32_t, Lit, uint32_t);
-void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int);
-void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit);
-void event_trace_factor_fresh(const Kernel &, Lit, Var, const Lit *, uint32_t,
-                              uint32_t, int, uint64_t ticks, uint64_t pops,
-                              uint64_t first_ticks, uint64_t next_ticks,
-                              uint64_t match_ticks);
 #endif
 
 struct FactorSelection;
@@ -2316,10 +2260,6 @@ inline uint32_t kernel_num_output_vars(const Kernel &k) {
   return k.original_external_vars == UINT32_MAX
              ? static_cast<uint32_t>(k.external_to_internal.size())
              : k.original_external_vars;
-}
-
-inline uint32_t kernel_num_original_internal_vars(const Kernel &k) {
-  return k.first_extension_var == UINT32_MAX ? k.nvars : k.first_extension_var;
 }
 
 // Solver-created variables have permanent external identities at or beyond

@@ -3,6 +3,7 @@
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -26,17 +27,10 @@ struct PreparedAccess {
   static std::vector<uint8_t> &install(Prepared &prepared) {
     return prepared.install_;
   }
-  static std::string &batch_identity(Prepared &prepared) {
-    return prepared.batch_identity_;
-  }
   static std::string &journal(Prepared &prepared) {
     return prepared.journal_;
   }
   static Result &result(Prepared &prepared) { return prepared.prepared_; }
-  static Request &request(Prepared &prepared) { return prepared.request_; }
-  static const Request &request(const Prepared &prepared) {
-    return prepared.request_;
-  }
 };
 
 namespace {
@@ -44,7 +38,10 @@ namespace {
 using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
+using gf3_live_common::owner_request;
 using semantic_extension::append_bounded;
+using semantic_extension::join_integers;
+using semantic_extension::join_rendered;
 
 bool add(uint64_t &value, uint64_t amount) {
   if (amount > std::numeric_limits<uint64_t>::max() - value) return false;
@@ -101,19 +98,15 @@ std::string outcome_identity(
   return gf3_live_common::hex("g3g1:", bytes, false);
 }
 
-bool sized_add(uint64_t &value, uint64_t amount) {
-  return amount <= UINT64_MAX - value && (value += amount, true);
-}
-
 bool reference_bytes(uint64_t &bytes,
                      const gf3_affine::SourceReference &reference,
                      const Gf3AffineOwnerSnapshot &owner) {
-  if (!sized_add(bytes, 24)) return false;
+  if (!add(bytes, 24)) return false;
   if (!reference.occurrence || reference.occurrence > owner.sources.size())
     return true;
   const uint64_t literals = owner.sources[reference.occurrence - 1].clause.size();
   return literals <= (UINT64_MAX - bytes) / 4 &&
-         sized_add(bytes, 4 * literals);
+         add(bytes, 4 * literals);
 }
 
 bool outcome_identity_bytes(
@@ -122,28 +115,28 @@ bool outcome_identity_bytes(
     const Gf3AffineOwnerSnapshot &owner, uint64_t &encoded) {
   uint64_t bytes = 1 + 4 + 1 + 8;
   if (consequence.row.size() > (UINT64_MAX - bytes) / 5 ||
-      !sized_add(bytes, 5 * consequence.row.size()) ||
-      !sized_add(bytes, 8))
+      !add(bytes, 5 * consequence.row.size()) ||
+      !add(bytes, 8))
     return false;
   for (const auto &source : consequence.sources) {
-    if (!sized_add(bytes, 8 + 1 + 4)) return false;
+    if (!add(bytes, 8 + 1 + 4)) return false;
     if (source.authentication_index >= bridge.authentication.size()) {
-      if (!sized_add(bytes, 8)) return false;
+      if (!add(bytes, 8)) return false;
       continue;
     }
     const auto &authentication =
         bridge.authentication[source.authentication_index];
-    if (!sized_add(bytes, 8 + 4 + 8)) return false;
+    if (!add(bytes, 8 + 4 + 8)) return false;
     for (const auto &domain : authentication.domains) {
-      if (!sized_add(bytes, 4) ||
+      if (!add(bytes, 4) ||
           !reference_bytes(bytes, domain.at_least_one, owner))
         return false;
       for (const auto &reference : domain.at_most_one)
         if (!reference_bytes(bytes, reference, owner)) return false;
     }
-    if (!sized_add(bytes, 8)) return false;
+    if (!add(bytes, 8)) return false;
     for (const auto &tuple : authentication.forbidden_tuples)
-      if (!sized_add(bytes, 8) ||
+      if (!add(bytes, 8) ||
           !reference_bytes(bytes, tuple.premise, owner))
         return false;
   }
@@ -152,13 +145,17 @@ bool outcome_identity_bytes(
   return true;
 }
 
-bool applicable(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && kernel.trail.empty() && !kernel.dense &&
-         !kernel.probing.recording && kernel.large_watches_connected &&
-         kernel_propagation_fixpoint(kernel) &&
-         !kernel.external_to_internal.empty() &&
-         kernel.external_to_internal.size() <= INT32_MAX;
+// Proof-mode and root admission shared by prepare and publish.
+bool admitted(const Kernel &kernel, bool atomic, Status &status) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp()))
+    status = Status::UnsupportedProof;
+  else if (kernel.proof && !atomic)
+    status = Status::UnsupportedProofSplit;
+  else if (!gf3_live_common::root_guard(kernel))
+    status = terminating_status(kernel, Status::Inapplicable);
+  else
+    return true;
+  return false;
 }
 
 bool valid(const Request &request) {
@@ -172,40 +169,8 @@ bool valid(const Request &request) {
          (request.selected_identity.empty() ||
           request.selected_identity.size() <= request.maximum_identity_bytes) &&
          request.action_id && request.semantic_id && request.records &&
-         recognition.maximum_source_clauses &&
-         recognition.maximum_source_literals && recognition.maximum_domains &&
-         recognition.maximum_equations &&
-         recognition.maximum_equation_arity >= 2 &&
-         recognition.maximum_tuples_per_equation &&
-         certificate.bridge.maximum_work &&
-         certificate.bridge.maximum_source_clauses &&
-         certificate.bridge.maximum_source_literals &&
-         certificate.bridge.maximum_domains &&
-         certificate.bridge.maximum_equations &&
-         certificate.bridge.maximum_terms &&
-         certificate.bridge.maximum_authentication_references &&
-         certificate.bridge.maximum_references_per_equation &&
-         certificate.bridge.gaussian.maximum_work &&
-         certificate.bridge.gaussian.maximum_fill_entries &&
-         certificate.bridge.gaussian.maximum_intermediate_width &&
-         certificate.bridge.gaussian.maximum_provenance_terms &&
-         certificate.bridge.gaussian.maximum_derivations &&
-         certificate.bridge.gaussian.maximum_retained_plan_bytes &&
-         certificate.maximum_work && certificate.maximum_events &&
-         certificate.maximum_event_literals &&
-         certificate.maximum_active_clauses &&
-         certificate.maximum_retained_source_references &&
-         certificate.maximum_event_width &&
-         certificate.maximum_branch_domains &&
-         certificate.maximum_consequences;
-}
-
-Gf3AffineLiveRequest owner_request(const Request &request) {
-  Gf3AffineLiveRequest result;
-  result.recognition = request.recognition;
-  result.maximum_recognition_work = request.maximum_capture_work;
-  result.maximum_revalidation_work = request.maximum_revalidation_work;
-  return result;
+         recognition.valid() && certificate.bridge.valid() &&
+         certificate.valid();
 }
 
 Status owner_status(Gf3AffineLiveStatus status) {
@@ -257,66 +222,44 @@ Status certificate_status(gf3_gaussian_certificate::Status status) {
   std::abort();
 }
 
-std::string integers(const std::vector<int32_t> &values) {
-  std::string result;
-  for (size_t index = 0; index < values.size(); ++index)
-    result += (index ? "," : "") + std::to_string(values[index]);
-  return result;
-}
-
 std::string row_terms(const std::vector<gf3_gaussian::Term> &row) {
-  std::string result;
-  for (size_t index = 0; index < row.size(); ++index)
-    result += (index ? "," : "") +
-              std::string("{\"variable\":") +
-              std::to_string(row[index].variable) +
-              ",\"coefficient\":" +
-              std::to_string(row[index].coefficient) + "}";
-  return result;
+  return join_rendered(row, [](const gf3_gaussian::Term &term) {
+    return "{\"variable\":" + std::to_string(term.variable) +
+           ",\"coefficient\":" + std::to_string(term.coefficient) + "}";
+  });
 }
 
 std::string source_terms(
     const std::vector<gf3_gaussian_certificate::AuthenticatedSource> &sources) {
-  std::string result;
-  for (size_t index = 0; index < sources.size(); ++index) {
-    const auto &source = sources[index];
-    result += (index ? "," : "") +
-              std::string("{\"source_id\":") +
-              std::to_string(source.combination.source_id) +
-              ",\"coefficient\":" +
-              std::to_string(source.combination.coefficient) +
-              ",\"authentication_index\":" +
-              std::to_string(source.authentication_index) + "}";
-  }
-  return result;
+  return join_rendered(sources, [](const auto &source) {
+    return "{\"source_id\":" + std::to_string(source.combination.source_id) +
+           ",\"coefficient\":" +
+           std::to_string(source.combination.coefficient) +
+           ",\"authentication_index\":" +
+           std::to_string(source.authentication_index) + "}";
+  });
 }
 
 std::string domain_authentications(
     const std::vector<gf3_gaussian_bridge::DomainAuthentication> &domains) {
-  std::string result;
-  for (size_t index = 0; index < domains.size(); ++index) {
-    const auto &domain = domains[index];
-    result += (index ? "," : "") + std::string("{\"domain\":") +
-              std::to_string(domain.domain) + ",\"at_least_one\":" +
-              std::to_string(domain.at_least_one.occurrence) +
-              ",\"at_most_one\":[";
-    for (size_t pair = 0; pair < domain.at_most_one.size(); ++pair)
-      result += (pair ? "," : "") +
-                std::to_string(domain.at_most_one[pair].occurrence);
-    result += "]}";
-  }
-  return result;
+  return join_rendered(domains, [](const auto &domain) {
+    return "{\"domain\":" + std::to_string(domain.domain) +
+           ",\"at_least_one\":" +
+           std::to_string(domain.at_least_one.occurrence) +
+           ",\"at_most_one\":[" +
+           join_rendered(domain.at_most_one, [](const auto &reference) {
+             return std::to_string(reference.occurrence);
+           }) +
+           "]}";
+  });
 }
 
 std::string tuple_authentications(
     const std::vector<gf3_gaussian_bridge::TupleAuthentication> &tuples) {
-  std::string result;
-  for (size_t index = 0; index < tuples.size(); ++index)
-    result += (index ? "," : "") + std::string("{\"tuple\":") +
-              std::to_string(tuples[index].tuple) +
-              ",\"occurrence\":" +
-              std::to_string(tuples[index].premise.occurrence) + "}";
-  return result;
+  return join_rendered(tuples, [](const auto &tuple) {
+    return "{\"tuple\":" + std::to_string(tuple.tuple) + ",\"occurrence\":" +
+           std::to_string(tuple.premise.occurrence) + "}";
+  });
 }
 
 bool make_journal(const Request &request, Prepared &prepared) {
@@ -337,7 +280,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
                     std::to_string(source.occurrence) +
                     ",\"native_proof_id\":" +
                     std::to_string(source.native_proof_id) +
-                    ",\"clause\":[" + integers(source.clause) + "]}\n"))
+                    ",\"clause\":[" + join_integers(source.clause) + "]}\n"))
       return false;
   for (const auto &authentication : prepared.bridge().authentication)
     if (!append_bounded(
@@ -393,7 +336,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
                     std::to_string(event.consequence) +
                     ",\"role\":\"" + role + "\",\"install\":" +
                     (install[index] ? "true" : "false") +
-                    ",\"clause\":[" + integers(event.clause) + "]}\n"))
+                    ",\"clause\":[" + join_integers(event.clause) + "]}\n"))
       return false;
   }
   if (!append_bounded(journal, request.maximum_journal_bytes,
@@ -460,86 +403,13 @@ bool plan_events(Kernel &kernel, const Request &request, Prepared &prepared,
   return true;
 }
 
-bool same_request(const Request &request, const Prepared &prepared) {
-  const Request &retained = PreparedAccess::request(prepared);
-  const auto same_recognition = [](const auto &a, const auto &b) {
-    return a.maximum_source_clauses == b.maximum_source_clauses &&
-           a.maximum_source_literals == b.maximum_source_literals &&
-           a.maximum_domains == b.maximum_domains &&
-           a.maximum_equations == b.maximum_equations &&
-           a.maximum_equation_arity == b.maximum_equation_arity &&
-           a.maximum_tuples_per_equation == b.maximum_tuples_per_equation;
-  };
-  const auto same_gaussian = [](const auto &a, const auto &b) {
-    return a.maximum_work == b.maximum_work &&
-           a.maximum_fill_entries == b.maximum_fill_entries &&
-           a.maximum_intermediate_width == b.maximum_intermediate_width &&
-           a.maximum_provenance_terms == b.maximum_provenance_terms &&
-           a.maximum_derivations == b.maximum_derivations &&
-           a.maximum_retained_plan_bytes == b.maximum_retained_plan_bytes;
-  };
-  const auto same_bridge = [&](const auto &a, const auto &b) {
-    return a.maximum_work == b.maximum_work &&
-           a.maximum_source_clauses == b.maximum_source_clauses &&
-           a.maximum_source_literals == b.maximum_source_literals &&
-           a.maximum_domains == b.maximum_domains &&
-           a.maximum_equations == b.maximum_equations &&
-           a.maximum_terms == b.maximum_terms &&
-           a.maximum_authentication_references ==
-               b.maximum_authentication_references &&
-           a.maximum_references_per_equation ==
-               b.maximum_references_per_equation &&
-           same_gaussian(a.gaussian, b.gaussian);
-  };
-  const auto same_certificate = [&](const auto &a, const auto &b) {
-    return same_bridge(a.bridge, b.bridge) &&
-           a.maximum_work == b.maximum_work &&
-           a.maximum_events == b.maximum_events &&
-           a.maximum_event_literals == b.maximum_event_literals &&
-           a.maximum_active_clauses == b.maximum_active_clauses &&
-           a.maximum_retained_source_references ==
-               b.maximum_retained_source_references &&
-           a.maximum_event_width == b.maximum_event_width &&
-           a.maximum_branch_domains == b.maximum_branch_domains &&
-           a.maximum_consequences == b.maximum_consequences;
-  };
-  return same_recognition(request.recognition, retained.recognition) &&
-         same_certificate(request.certificate, retained.certificate) &&
-         request.maximum_capture_work == retained.maximum_capture_work &&
-         request.maximum_revalidation_work ==
-             retained.maximum_revalidation_work &&
-         request.maximum_proof_additions ==
-             retained.maximum_proof_additions &&
-         request.maximum_proof_literal_occurrences ==
-             retained.maximum_proof_literal_occurrences &&
-         request.maximum_journal_bytes == retained.maximum_journal_bytes &&
-         request.maximum_identity_bytes == retained.maximum_identity_bytes &&
-         request.maximum_external_extent == retained.maximum_external_extent &&
-         request.action_id == retained.action_id &&
-         request.semantic_id == retained.semantic_id &&
-         request.records == retained.records &&
-         request.selected_identity == retained.selected_identity;
-}
-
 } // namespace
 
 Result prepare_internal(Kernel &kernel, const Request &request,
                         Prepared &output, bool atomic) {
   Result result;
   if (!valid(request)) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Status::UnsupportedProof;
-    return result;
-  }
-  if (kernel.proof && !atomic) {
-    result.status = Status::UnsupportedProofSplit;
-    return result;
-  }
-  if (!applicable(kernel)) {
-    result.status = kernel_terminating(kernel) ? Status::Interrupted
-                                                : Status::Inapplicable;
-    return result;
-  }
+  if (!admitted(kernel, atomic, result.status)) return result;
   if (kernel.external_to_internal.size() > request.maximum_external_extent) {
     result.status = Status::ResourceExhausted;
     return result;
@@ -563,22 +433,16 @@ Result prepare_internal(Kernel &kernel, const Request &request,
     return result;
   }
 
-  uint64_t bridge_work = 0;
-  bool bridge_interrupted = false;
-  const auto bridge_charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      bridge_interrupted = true;
-      return false;
-    }
-    bridge_work += amount;
-    return true;
-  };
+  // Every bridge charge first passes the bridge's own maximum_work, so this
+  // meter only observes termination and never reaches its ceiling.
+  InterruptibleWork bridge_work{kernel, UINT64_MAX};
   auto bridged = gf3_gaussian_bridge::build(
-      prepared.owner_.theory, request.certificate.bridge, bridge_charge);
-  result.effort.bridge_work = bridge_work;
+      prepared.owner_.theory, request.certificate.bridge,
+      [&](uint64_t amount) { return bridge_work.charge(amount); });
+  result.effort.bridge_work = bridge_work.used;
   if (bridged.status != gf3_gaussian_bridge::Status::Complete) {
-    result.status = bridge_interrupted ? Status::Interrupted
-                                       : bridge_status(bridged.status);
+    result.status = bridge_work.interrupted ? Status::Interrupted
+                                            : bridge_status(bridged.status);
     return result;
   }
   prepared.bridge_ = std::move(bridged.plan);
@@ -628,8 +492,8 @@ Result prepare_internal(Kernel &kernel, const Request &request,
   }
   uint64_t batch_binary_bytes = 8;
   for (const std::string &identity : identities)
-    if (!sized_add(batch_binary_bytes, 8) ||
-        !sized_add(batch_binary_bytes, identity.size())) {
+    if (!add(batch_binary_bytes, 8) ||
+        !add(batch_binary_bytes, identity.size())) {
       result.status = Status::ResourceExhausted;
       return result;
     }
@@ -650,8 +514,7 @@ Result prepare_internal(Kernel &kernel, const Request &request,
     append_u64(batch_bytes, identity.size());
     batch_bytes.append(identity);
   }
-  PreparedAccess::batch_identity(prepared) =
-      gf3_live_common::hex("g3g1:", batch_bytes, false);
+  prepared.batch_identity_ = gf3_live_common::hex("g3g1:", batch_bytes, false);
   prepared.batch_identity_.replace(0, 5, "g3b1:");
   if (prepared.batch_identity_.size() != batch_encoded_bytes ||
       !add(result.effort.identity_bytes, prepared.batch_identity_.size()) ||
@@ -689,7 +552,7 @@ Result publish_internal(Kernel &kernel, const Request &request,
                         Prepared &prepared, bool atomic) {
   Result result = prepared.prepared_;
   result.result = ApplyResult::NoOp;
-  if (!prepared.ready_ || !valid(request) || !same_request(request, prepared)) {
+  if (!prepared.ready_ || !valid(request) || request != prepared.request_) {
     result.status = Status::Invalid;
     return result;
   }
@@ -697,19 +560,7 @@ Result publish_internal(Kernel &kernel, const Request &request,
     result.status = Status::AlreadyApplied;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Status::UnsupportedProof;
-    return result;
-  }
-  if (kernel.proof && !atomic) {
-    result.status = Status::UnsupportedProofSplit;
-    return result;
-  }
-  if (!applicable(kernel)) {
-    result.status = kernel_terminating(kernel) ? Status::Interrupted
-                                                : Status::Inapplicable;
-    return result;
-  }
+  if (!admitted(kernel, atomic, result.status)) return result;
   if (kernel.next_clause_id != prepared.starting_clause_id_ ||
       kernel.arena_generation != prepared.arena_generation_ ||
       kernel.nvars != prepared.starting_nvars_ ||

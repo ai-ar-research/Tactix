@@ -281,31 +281,12 @@ public:
     if (mapping.size() < literal_clauses_.size())
       return false;
     assert(clauses_.size() == source_multiplicity_.size());
-    assert(([&] {
-      std::vector<bool> seen(mapping.size(), false);
-      for (const Lit target : mapping) {
-        if (target >= mapping.size() || seen[target])
-          return false;
-        seen[target] = true;
-      }
-      return true;
-    }()));
+    assert(is_bijection(mapping));
     std::vector<Lit> mapped;
-    bool valid = true;
-    for (size_t i = 0; i < clauses_.size(); ++i) {
-      const auto &clause = clauses_[i];
-      if (!charge(clause.size()))
-        return false;
-      bool fixed = false;
-      valid &= preserves_clause(i, mapping, mapped, fixed);
-      if (stats) {
-        stats->fixed_clauses += fixed;
-        stats->mapped_clauses += !fixed;
-      }
-      // Continue charging after mismatches to preserve this reference path.
-
-    }
-    return valid;
+    // Continue charging after mismatches to preserve this reference path.
+    std::vector<size_t> all(clauses_.size());
+    std::iota(all.begin(), all.end(), size_t{0});
+    return check_clauses<true>(all, mapping, mapped, charge, stats);
   }
   // Clauses outside the moved literal support are pointwise fixed. The
   // incidence index includes each physical copy, including repeated literals;
@@ -365,28 +346,7 @@ public:
       workspace.literal_image.resize(mapping.size());
       std::iota(workspace.literal_image.begin(), workspace.literal_image.end(), Lit{0});
     }
-    struct RestoreImage {
-      std::vector<Lit> &image;
-      std::span<const std::pair<Lit, Lit>> moved;
-      ~RestoreImage() {
-        for (const auto &[source, target] : moved) {
-          (void)target;
-          image[source] = source;
-        }
-      }
-    } restore{workspace.literal_image, moved};
-    for (const auto &[source, target] : moved) workspace.literal_image[source] = target;
-    bool valid = true;
-    for (const size_t clause : workspace.touched) {
-      if (!charge(clauses_[clause].size())) return false;
-      bool fixed = false;
-      valid &= preserves_clause<false>(clause, workspace.literal_image, workspace.mapped, fixed);
-      if (stats) {
-        stats->fixed_clauses += fixed;
-        stats->mapped_clauses += !fixed;
-      }
-    }
-    return valid;
+    return preserves_touched(moved, workspace, charge, stats);
   }
 
   // PRECONDITION: mapping is a validated bijection, identity outside exactly
@@ -430,6 +390,27 @@ public:
       std::iota(workspace.literal_image.begin(), workspace.literal_image.end(), Lit{0});
     }
     if (moved.size() > UINT64_MAX / 2 || !charge(2 * moved.size())) return false;
+    return preserves_touched(moved, workspace, charge, stats);
+  }
+
+private:
+  static bool is_bijection(const std::vector<Lit> &mapping) {
+    std::vector<bool> seen(mapping.size(), false);
+    for (const Lit target : mapping) {
+      if (target >= mapping.size() || seen[target])
+        return false;
+      seen[target] = true;
+    }
+    return true;
+  }
+
+  // Map the moved support into the batch identity image, check every touched
+  // clause, and restore the image on every exit.
+  template <class Charge>
+  bool preserves_touched(std::span<const std::pair<Lit, Lit>> moved,
+                         SymmetryClauseVisitWorkspace &workspace,
+                         Charge &charge,
+                         SymmetryClauseCheckStats *stats) const {
     struct RestoreImage {
       std::vector<Lit> &image;
       std::span<const std::pair<Lit, Lit>> moved;
@@ -442,11 +423,23 @@ public:
     } restore{workspace.literal_image, moved};
     for (const auto &[source, target] : moved)
       workspace.literal_image[source] = target;
+    return check_clauses<false>(workspace.touched, workspace.literal_image,
+                                workspace.mapped, charge, stats);
+  }
+
+  // Charge and check each listed clause in order, counting fixed and mapped
+  // clauses.
+  template <bool MatchMultiplicity, class Clauses, class Mapping, class Charge>
+  bool check_clauses(const Clauses &clauses, const Mapping &mapping,
+                     std::vector<Lit> &mapped, Charge &charge,
+                     SymmetryClauseCheckStats *stats) const {
     bool valid = true;
-    for (const size_t clause : workspace.touched) {
-      if (!charge(clauses_[clause].size())) return false;
+    for (const size_t clause : clauses) {
+      if (!charge(clauses_[clause].size()))
+        return false;
       bool fixed = false;
-      valid &= preserves_clause<false>(clause, workspace.literal_image, workspace.mapped, fixed);
+      valid &= preserves_clause<MatchMultiplicity>(clause, mapping, mapped,
+                                                   fixed);
       if (stats) {
         stats->fixed_clauses += fixed;
         stats->mapped_clauses += !fixed;
@@ -455,7 +448,6 @@ public:
     return valid;
   }
 
-private:
   template <bool MatchMultiplicity, class Charge>
   bool preserves_support_impl(const std::vector<Lit> &mapping, Charge &&charge,
                               SymmetryClauseCheckStats *stats) const {
@@ -463,15 +455,7 @@ private:
       *stats = {};
     if (mapping.size() < literal_clauses_.size())
       return false;
-    assert(([&] {
-      std::vector<bool> seen(mapping.size(), false);
-      for (const Lit target : mapping) {
-        if (target >= mapping.size() || seen[target])
-          return false;
-        seen[target] = true;
-      }
-      return true;
-    }()));
+    assert(is_bijection(mapping));
     if (!charge(clauses_.size()))
       return false;
     std::vector<uint8_t> marked(clauses_.size(), 0);
@@ -493,18 +477,8 @@ private:
     if (stats)
       stats->fixed_clauses = clauses_.size() - touched.size();
     std::vector<Lit> mapped;
-    bool valid = true;
-    for (const size_t i : touched) {
-      if (!charge(clauses_[i].size()))
-        return false;
-      bool fixed = false;
-      valid &= preserves_clause<MatchMultiplicity>(i, mapping, mapped, fixed);
-      if (stats) {
-        stats->fixed_clauses += fixed;
-        stats->mapped_clauses += !fixed;
-      }
-    }
-    return valid;
+    return check_clauses<MatchMultiplicity>(touched, mapping, mapped, charge,
+                                            stats);
   }
 
   template <bool MatchMultiplicity = true, class Mapping>

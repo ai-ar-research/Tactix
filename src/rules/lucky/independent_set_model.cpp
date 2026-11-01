@@ -22,12 +22,6 @@ struct Shape {
   uint64_t edges = 0;
 };
 
-uint64_t edge_key(Var first, Var second) {
-  if (first > second)
-    std::swap(first, second);
-  return (uint64_t{first} << 32) | second;
-}
-
 struct VariableVectorHash {
   size_t operator()(const std::vector<Var> &variables) const noexcept {
     uint64_t hash = UINT64_C(0xcbf29ce484222325);
@@ -56,15 +50,20 @@ StableCoreResult reduce_stable_extension_core(
       k.nvars > parameters.maximum_vertices)
     return StableCoreResult::NoStructure;
 
+  // Decline any binary that is not a conflict edge before reserving the edge
+  // table for every binary.
+  for (Lit literal = 0; literal < 2 * k.nvars; ++literal)
+    for (const WatchEntry watch : k.watches.entries(literal))
+      if (watch.binary() && literal <= watch.other() &&
+          (!negated(literal) || !negated(watch.other())))
+        return StableCoreResult::NoStructure;
   std::unordered_set<uint64_t> edges;
   edges.reserve(2 * k.watches.binary_clauses() + 1);
   for (Lit literal = 0; literal < 2 * k.nvars; ++literal) {
     for (const WatchEntry watch : k.watches.entries(literal)) {
       if (!watch.binary() || literal > watch.other())
         continue;
-      if (!negated(literal) || !negated(watch.other()))
-        return StableCoreResult::NoStructure;
-      edges.insert(edge_key(var_of(literal), var_of(watch.other())));
+      edges.insert(kernel_binary_key(var_of(literal), var_of(watch.other())));
     }
   }
   if (!edges.size())
@@ -106,7 +105,8 @@ StableCoreResult reduce_stable_extension_core(
       bool adjacent_to_all = true;
       for (const Lit other_literal : *clause) {
         const Var other = var_of(other_literal);
-        if (other != candidate && !edges.count(edge_key(candidate, other))) {
+        if (other != candidate &&
+            !edges.count(kernel_binary_key(candidate, other))) {
           adjacent_to_all = false;
           break;
         }
@@ -149,7 +149,7 @@ StableCoreResult reduce_stable_extension_core(
       return StableCoreResult::NoStructure;
     const auto found = tails.find(positive);
     if (found == tails.end() ||
-        !edges.count(edge_key(found->second, negative)))
+        !edges.count(kernel_binary_key(found->second, negative)))
       return StableCoreResult::NoStructure;
   }
 
@@ -198,10 +198,10 @@ StableCoreResult reduce_stable_extension_core(
     ++k.stats.independent_set_model_interrupted;
     return StableCoreResult::Interrupted;
   }
-  if (!candidate.sat || !lucky_model_valid(k, candidate.assignment))
+  if (!candidate.sat ||
+      !lucky_publish_if_model(k, candidate.assignment,
+                              k.stats.independent_set_model_sat))
     return StableCoreResult::NoModel;
-  lucky_publish_model(k, candidate.assignment);
-  ++k.stats.independent_set_model_sat;
   return StableCoreResult::Sat;
 }
 
@@ -411,10 +411,8 @@ ApplyResult independent_set_model_apply(Kernel &k) {
     return ApplyResult::NoOp;
   std::vector<uint8_t> assignment;
   if (!build_assignment(k, p, shape, selected, assignment) ||
-      !lucky_model_valid(k, assignment))
+      !lucky_publish_if_model(k, assignment, k.stats.independent_set_model_sat))
     return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.independent_set_model_sat;
   return ApplyResult::Sat;
 }
 

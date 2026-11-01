@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 
+#include "rules/semantic_extension/csp_exact_theory.hpp"
 #include "rules/semantic_extension/csp_physical_scan.hpp"
 
 #include <algorithm>
@@ -7,6 +8,8 @@
 
 namespace tactix {
 namespace {
+
+using csp_exact_theory::add_count;
 
 bool owner_less(const NaryCspRelationOwnerSnapshot &first,
                 const NaryCspRelationOwnerSnapshot &second) {
@@ -20,25 +23,19 @@ bool owner_less(const NaryCspRelationOwnerSnapshot &first,
   return left.size() < right.size();
 }
 
-bool checked_add(uint64_t &total, uint64_t amount) {
-  if (amount > UINT64_MAX - total) return false;
-  total += amount;
-  return true;
-}
-
 bool owner_work(const NaryCspRelationOwnerSnapshot &owner, uint64_t &work) {
   uint64_t result = 1;
   for (const auto &premise : owner.source)
-    if (!checked_add(result, uint64_t{1} + premise.literals.size()))
+    if (!add_count(uint64_t{1} + premise.literals.size(), result))
       return false;
   for (const auto &domain : owner.relation.domains) {
-    if (!checked_add(result, 2) ||
-        !checked_add(result, domain.values.size()) ||
-        !checked_add(result, domain.at_most_one.size()))
+    if (!add_count(2, result) ||
+        !add_count(domain.values.size(), result) ||
+        !add_count(domain.at_most_one.size(), result))
       return false;
   }
   for (const auto &tuple : owner.relation.forbidden)
-    if (!checked_add(result, uint64_t{1} + tuple.value_indices.size()))
+    if (!add_count(uint64_t{1} + tuple.value_indices.size(), result))
       return false;
   work = result;
   return true;
@@ -50,7 +47,7 @@ bool session_work(
   uint64_t result = 1;
   for (const auto &snapshot : snapshots) {
     uint64_t owner = 0;
-    if (!owner_work(snapshot, owner) || !checked_add(result, owner))
+    if (!owner_work(snapshot, owner) || !add_count(owner, result))
       return false;
   }
   work = result;
@@ -97,40 +94,32 @@ NaryCspRelationCaptureResult nary_csp_relation_prepare_owner(
       csp_physical_scan::formula_mark(kernel);
   NaryCspRelationOwnerSnapshot captured;
   result = nary_csp_relation_capture_owner(kernel, request, captured);
-  if (result.status != NaryCspRelationCaptureStatus::Applied) {
-    if (previous &&
-        (result.status == NaryCspRelationCaptureStatus::NoStructure ||
-         result.status == NaryCspRelationCaptureStatus::Stale))
-      result.status = NaryCspRelationCaptureStatus::Stale;
+  // Declines report the unchanged session's owner count and work.
+  const auto decline = [&](NaryCspRelationCaptureStatus status) {
+    result.status = status;
     result.retained_owners = session.retained_owners();
     result.session_work = session.session_work();
     return result;
-  }
-  if (previous && !same_authenticated_image(*previous, captured)) {
-    result.status = NaryCspRelationCaptureStatus::Stale;
-    result.retained_owners = session.retained_owners();
-    result.session_work = session.session_work();
-    return result;
-  }
-  if (previous) {
-    result.status = NaryCspRelationCaptureStatus::Duplicate;
-    result.retained_owners = session.retained_owners();
-    result.session_work = session.session_work();
-    return result;
-  }
+  };
+  if (result.status != NaryCspRelationCaptureStatus::Applied)
+    return decline(
+        previous &&
+                (result.status == NaryCspRelationCaptureStatus::NoStructure ||
+                 result.status == NaryCspRelationCaptureStatus::Stale)
+            ? NaryCspRelationCaptureStatus::Stale
+            : result.status);
+  if (previous && !same_authenticated_image(*previous, captured))
+    return decline(NaryCspRelationCaptureStatus::Stale);
+  if (previous) return decline(NaryCspRelationCaptureStatus::Duplicate);
   if (session.version_ == UINT64_MAX ||
-      session.snapshots_.size() >= limits.maximum_owners) {
-    result.status = NaryCspRelationCaptureStatus::ResourceExhausted;
-    result.retained_owners = session.retained_owners();
-    result.session_work = session.session_work();
-    return result;
-  }
+      session.snapshots_.size() >= limits.maximum_owners)
+    return decline(NaryCspRelationCaptureStatus::ResourceExhausted);
 
   uint64_t retained_work = 0;
   uint64_t added_work = 0;
   if (!session_work(session.snapshots_, retained_work) ||
       !owner_work(captured, added_work) ||
-      !checked_add(retained_work, added_work)) {
+      !add_count(added_work, retained_work)) {
     result.status = NaryCspRelationCaptureStatus::ResourceExhausted;
     return result;
   }
@@ -149,18 +138,10 @@ NaryCspRelationCaptureResult nary_csp_relation_prepare_owner(
   staged.snapshots_.push_back(std::move(captured));
   std::sort(staged.snapshots_.begin(), staged.snapshots_.end(), owner_less);
 
-  if (kernel_terminating(kernel)) {
-    result.status = NaryCspRelationCaptureStatus::Interrupted;
-    result.retained_owners = session.retained_owners();
-    result.session_work = session.session_work();
-    return result;
-  }
-  if (csp_physical_scan::formula_mark(kernel) != before) {
-    result.status = NaryCspRelationCaptureStatus::Stale;
-    result.retained_owners = session.retained_owners();
-    result.session_work = session.session_work();
-    return result;
-  }
+  if (kernel_terminating(kernel))
+    return decline(NaryCspRelationCaptureStatus::Interrupted);
+  if (csp_physical_scan::formula_mark(kernel) != before)
+    return decline(NaryCspRelationCaptureStatus::Stale);
 
   result.status = NaryCspRelationCaptureStatus::Applied;
   result.retained_owners = staged.retained_owners();

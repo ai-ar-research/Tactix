@@ -12,6 +12,7 @@ struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
   uint64_t native_proof_id = 0;
+  friend bool operator==(const Premise &, const Premise &) = default;
 };
 
 // values[v] is the signed Boolean selection literal for field value v.
@@ -21,6 +22,7 @@ struct Domain {
   std::vector<int32_t> values;
   uint64_t at_least_one = 0;
   std::vector<uint64_t> at_most_one;
+  friend bool operator==(const Domain &, const Domain &) = default;
 };
 
 // The explicit theory meaning is
@@ -36,6 +38,7 @@ struct Equation {
   std::vector<uint8_t> coefficients;
   uint8_t rhs = 0;
   std::vector<uint64_t> forbidden_by_tuple;
+  friend bool operator==(const Equation &, const Equation &) = default;
 };
 
 struct Theory {
@@ -43,10 +46,10 @@ struct Theory {
   std::vector<Domain> domains;
   std::vector<Equation> equations;
   uint32_t maximum_variable = 0;
+  // Exact semantic identity used when revalidating retained live/action
+  // owners.
+  friend bool operator==(const Theory &, const Theory &) = default;
 };
-
-// Exact semantic identity used when revalidating retained live/action owners.
-bool same_theory(const Theory &first, const Theory &second);
 
 struct RecognitionBounds {
   uint64_t maximum_source_clauses = 0;
@@ -55,6 +58,13 @@ struct RecognitionBounds {
   uint32_t maximum_equations = 0;
   uint32_t maximum_equation_arity = 0;
   uint64_t maximum_tuples_per_equation = 0;
+  bool valid() const {
+    return maximum_source_clauses && maximum_source_literals &&
+           maximum_domains && maximum_equations &&
+           maximum_equation_arity >= 2 && maximum_tuples_per_equation;
+  }
+  friend bool operator==(const RecognitionBounds &,
+                         const RecognitionBounds &) = default;
 };
 
 enum class RecognitionStatus : uint8_t {
@@ -101,6 +111,8 @@ enum class PlanStatus : uint8_t {
 struct SourceReference {
   uint64_t occurrence = 0;
   uint64_t native_proof_id = 0;
+  friend bool operator==(const SourceReference &,
+                         const SourceReference &) = default;
 };
 
 struct Addition {

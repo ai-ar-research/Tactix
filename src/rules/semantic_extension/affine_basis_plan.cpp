@@ -21,12 +21,7 @@ struct AtomPair {
 };
 
 bool valid_equation(const Equation &equation) {
-  if (!std::is_sorted(equation.variables.begin(), equation.variables.end()) ||
-      std::adjacent_find(equation.variables.begin(), equation.variables.end()) !=
-          equation.variables.end())
-    return false;
-  for (External variable : equation.variables)
-    if (variable <= 0 || variable == INT32_MIN) return false;
+  if (!positive_scope(equation.variables)) return false;
   std::set<uint64_t> premises;
   for (uint64_t occurrence : equation.premises)
     if (!occurrence || !premises.insert(occurrence).second) return false;

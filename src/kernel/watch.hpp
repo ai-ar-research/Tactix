@@ -8,6 +8,7 @@
 #pragma once
 
 #include "kernel/types.hpp"
+#include "kernel/vector_stack.hpp"
 
 #include <algorithm>
 #include <vector>
@@ -124,21 +125,10 @@ struct WatchLists {
     return words / 2;
   }
 
-  // collect.h defaults: inspect only after creating a clause, only above
-  // 2^18 words, and only when strictly more than 75% of the allocated vector
-  // stack is unusable.  In particular propagation itself never defragments.
+  // The collect.h checkpoint (vector_stack.hpp).
   void defrag_if_needed() {
-    constexpr size_t SIZE_LIMIT = size_t{1} << 18;
-    // Kissat reserves stack offset zero as the empty-vector sentinel.  Tactix
-    // has an explicit empty head and omits that stored word, so add it back
-    // only for the pinned SIZE_STACK predicate.
-    const size_t stack_size = arena.empty() ? 0 : arena.size() + 1;
-    if (stack_size <= SIZE_LIMIT)
-      return;
-    const uint64_t usable_limit = (uint64_t{stack_size} * 75) / 100;
-    if (holes <= usable_limit)
-      return;
-    defrag();
+    if (vector_stack_needs_defrag(arena, holes))
+      vector_stack_defrag(arena, heads, holes);
   }
 
   uint32_t *begin(Lit l) { return arena.data() + heads[l].offset; }
@@ -158,34 +148,7 @@ struct WatchLists {
   // dropped large entry loses BOTH its words. Same write-cursor the removal sites
   // open-coded, in one place — no growth, so no other list moves.
   template <class Keep> void compact(Lit l, Keep keep) {
-    uint32_t *const b = begin(l);
-    uint32_t *q = b;
-    const uint32_t *p = b;
-    const uint32_t *const e = end(l);
-    uint32_t binaries = 0;
-    bool has_large = false, binaries_first = true;
-    while (p != e) {
-      const bool bin = Watch{*p}.binary();
-      if (keep(WatchEntry{p})) {
-        if (bin) {
-          binaries++;
-          binaries_first = binaries_first && !has_large;
-        } else {
-          has_large = true;
-        }
-        *q++ = *p++;
-        if (!bin)
-          *q++ = *p++;
-      } else {
-        p += bin ? 1 : 2;
-      }
-    }
-    WatchHead &head = heads[l];
-    const uint32_t old_size = head.size;
-    head.size = static_cast<uint32_t>(q - b);
-    holes += old_size - head.size;
-    head.set_layout(binaries, binaries_first);
-    assert(head.has_large() == has_large);
+    compact_map_large(l, keep, [](uint32_t ref) { return ref; });
   }
 
   // Collection already visits every entry to decide whether it survives.
@@ -223,23 +186,6 @@ struct WatchLists {
     holes += old_size - head.size;
     head.set_layout(binaries, binaries_first);
     assert(head.has_large() == has_large);
-  }
-
-  // Rewrite the clause reference of every retained large entry in place.
-  // Collection uses this after entry-aware compaction: prefix watch order and
-  // blockers stay byte-identical while arena references are forwarded around
-  // garbage records that preceded the sparse-collection watermark.
-  template <class Map> void map_large_refs(Lit l, Map map) {
-    uint32_t *p = begin(l);
-    uint32_t *const e = end(l);
-    while (p != e) {
-      if (Watch{*p}.binary()) {
-        p++;
-      } else {
-        p[1] = map(p[1]);
-        p += 2;
-      }
-    }
   }
 
   // Shrink after dropping only large entries (capacity is retained and
@@ -356,81 +302,7 @@ struct WatchLists {
   }
 
 private:
-  void grow(Lit l) {
-    WatchHead &h = heads[l];
-    assert(h.size == h.capacity);
-    if (arena.capacity() == 0)
-      // Kissat's first unsigned-stack allocation has four words, one of which
-      // is the offset-zero empty-vector sentinel omitted by this representation.
-      arena.reserve(3);
-    // inlinevector.h: a vector ending at the global stack end consumes one
-    // more stack word directly whenever the stack allocation has room.
-    if (static_cast<size_t>(h.offset) + h.size == arena.size() &&
-        arena.size() < arena.capacity()) {
-      arena.resize(arena.size() + 1);
-      h.capacity++;
-      holes++;
-      return;
-    }
-    const uint32_t ncap = h.size ? 2 * h.size : 1;
-    assert(static_cast<uint64_t>(arena.size()) + ncap <= UINT32_MAX);
-    const size_t needed = arena.size() + ncap;
-    if (needed > arena.capacity()) {
-      // ENLARGE_STACK doubles its power-of-two allocation.  The physical
-      // Tactix vector omits the sentinel, so each mapped capacity is 2^k-1.
-      size_t stack_capacity = 4;
-      while (stack_capacity - 1 < needed)
-        stack_capacity *= 2;
-      arena.reserve(stack_capacity - 1);
-    }
-    const uint32_t noff = static_cast<uint32_t>(arena.size());
-    arena.resize(arena.size() + ncap);
-    // h may dangle after resize; re-index
-    WatchHead &hh = heads[l];
-    std::copy(arena.begin() + hh.offset, arena.begin() + hh.offset + hh.size,
-              arena.begin() + noff);
-    // The old live image and the unused half of the new image are both usable,
-    // exactly the accounting in vector.c:kissat_enlarge_vector.
-    holes += ncap;
-    hh.offset = noff;
-    hh.capacity = ncap;
-  }
-
-  void defrag() {
-    std::vector<Lit> order;
-    order.reserve(heads.size());
-    for (Lit lit = 0; lit < heads.size(); lit++)
-      if (heads[lit].size)
-        order.push_back(lit);
-    std::sort(order.begin(), order.end(), [&](Lit a, Lit b) {
-      return heads[a].offset < heads[b].offset;
-    });
-    size_t live = 0;
-    for (const Lit lit : order)
-      live += heads[lit].size;
-    // SHRINK_STACK keeps the smallest power-of-two stack containing the
-    // offset-zero sentinel and all live words (unlike first allocation, this
-    // may be one or two words).
-    size_t stack_capacity = 1;
-    while (stack_capacity < live + 1)
-      stack_capacity *= 2;
-    std::vector<uint32_t> fresh;
-    if (live)
-      fresh.reserve(stack_capacity - 1);
-    for (const Lit lit : order) {
-      WatchHead &h = heads[lit];
-      const uint32_t noff = static_cast<uint32_t>(fresh.size());
-      fresh.insert(fresh.end(), arena.begin() + h.offset,
-                   arena.begin() + h.offset + h.size);
-      h.offset = noff;
-      h.capacity = h.size;
-    }
-    for (WatchHead &h : heads)
-      if (!h.size)
-        h = WatchHead{};
-    arena.swap(fresh);
-    holes = 0;
-  }
+  void grow(Lit l) { vector_stack_grow(arena, heads, l, holes); }
 };
 
 } // namespace tactix

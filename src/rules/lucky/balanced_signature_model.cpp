@@ -31,20 +31,10 @@ int external_value(const Kernel &k, uint64_t dimacs) {
       k, make_lit(static_cast<Var>(dimacs - 1), false));
 }
 
-bool power_of_three(uint32_t exponent, uint64_t &result) {
-  result = 1;
-  for (uint32_t i = 0; i < exponent; ++i) {
-    if (result > UINT64_MAX / 3)
-      return false;
-    result *= 3;
-  }
-  return true;
-}
-
 bool validate_shape(const Kernel &k, uint32_t balls, uint32_t width,
                     Shape &out) {
   uint64_t cube = 0;
-  if (balls < 3 || !power_of_three(width, cube))
+  if (balls < 3 || !lucky_power_of_three(width, cube))
     return false;
   const uint64_t signatures = (cube - 1) / 2;
   if (balls > UINT64_MAX / balls / width)
@@ -440,23 +430,12 @@ bool search_balanced_signatures(
   return false;
 }
 
-bool set_external(const Kernel &k, std::vector<int8_t> &assignment,
-                  uint64_t dimacs, int8_t value) {
-  if (!dimacs || dimacs > k.external_to_internal.size())
-    return false;
-  const Var internal = k.external_to_internal[dimacs - 1];
-  if (internal == INVALID_VAR || internal >= assignment.size())
-    return false;
-  assignment[internal] = value;
-  return true;
-}
-
 bool build_primary_assignment(const Kernel &k, const Shape &shape,
                               const SearchResult &solution,
                               std::vector<int8_t> &assignment) {
   assignment.assign(k.nvars, 0);
   for (uint64_t dimacs = 1; dimacs <= shape.boundary; ++dimacs)
-    if (!set_external(k, assignment, dimacs, -1))
+    if (!lucky_set_external(k, assignment, dimacs, -1))
       return false;
 
   std::vector<std::vector<int>> codes(
@@ -479,7 +458,7 @@ bool build_primary_assignment(const Kernel &k, const Shape &shape,
     for (size_t i = 0; i < left.size(); ++i) {
       const uint64_t dimacs = 1 + uint64_t{w} * shape.balls * shape.balls +
                               uint64_t{left[i]} * shape.balls + right[i];
-      if (!set_external(k, assignment, dimacs, 1))
+      if (!lucky_set_external(k, assignment, dimacs, 1))
         return false;
     }
   }
@@ -490,7 +469,7 @@ bool build_primary_assignment(const Kernel &k, const Shape &shape,
         uint64_t{solution.rows[ball]} * (2 * shape.balls) + 2 * ball +
         error + 1;
     if (dimacs <= shape.pair_variables || dimacs > shape.boundary ||
-        !set_external(k, assignment, dimacs, 1))
+        !lucky_set_external(k, assignment, dimacs, 1))
       return false;
   }
   return true;
@@ -547,13 +526,10 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
           k.stats.balanced_signature_interrupted,
           k.stats.balanced_signature_completion_rounds, signed_assignment))
     return ApplyResult::NoOp;
-  std::vector<uint8_t> assignment =
-      lucky_boolean_assignment(signed_assignment);
-  if (!lucky_model_valid(k, assignment))
-    return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.balanced_signature_sat;
-  return ApplyResult::Sat;
+  return lucky_publish_if_model(k, lucky_boolean_assignment(signed_assignment),
+                                k.stats.balanced_signature_sat)
+             ? ApplyResult::Sat
+             : ApplyResult::NoOp;
 }
 
 } // namespace tactix

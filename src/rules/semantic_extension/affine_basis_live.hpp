@@ -205,6 +205,10 @@ private:
 bool affine_basis_consumed_key(
     const affine_semantic_extension::Image &, const AffineLiveSnapshot &,
     const affine_semantic_extension::BasisRow &, AffineBasisConsumedKey &);
+// Charges the session work of reading one retained key, in key order; false
+// when `maximum` is exhausted.
+bool affine_basis_key_work(const AffineBasisConsumedKey &, uint64_t maximum,
+                           uint64_t &work);
 bool affine_basis_row_selection(
     uint64_t owner_version, const affine_semantic_extension::Image &,
     const AffineLiveSnapshot &, const affine_semantic_extension::BasisRow &,

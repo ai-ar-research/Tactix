@@ -150,14 +150,8 @@ public:
   // themselves have one home in DefaultStrategyConfig.
   static constexpr uint64_t SUBSUME_INTERVAL =
       DefaultStrategyConfig::INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
-  static constexpr uint64_t PROBE_INTERVAL =
-      DefaultStrategyConfig::INPROCESS_PROBE_INTERVAL_DEFAULT;
   static constexpr uint64_t MIN_EFFORT_TICKS =
       DefaultStrategyConfig::INPROCESS_MINIMUM_EFFORT_DEFAULT;
-  static constexpr uint64_t PREPROCESS_INIT_TICKS =
-      DefaultStrategyConfig::INPROCESS_PREPROCESS_EFFORT_DEFAULT;
-  static constexpr int PHASE_ROUNDS =
-      DefaultStrategyConfig::INPROCESS_PHASE_ROUNDS_DEFAULT;
   static constexpr uint64_t FACTOR_INIT_TICKS =
       DefaultStrategyConfig::FACTOR_INITIAL_EFFORT_DEFAULT;
 
@@ -181,8 +175,7 @@ public:
     retier_schedule_ = schedule;
   }
   const RetierSchedule &retier_schedule() const {
-    static const RetierSchedule defaults;
-    return retier_schedule_ ? *retier_schedule_ : defaults;
+    return configured_or_default(retier_schedule_);
   }
 
   struct SlotEntry {
@@ -274,8 +267,7 @@ public:
 
   void reset(const Kernel &);
   void configure();
-  void build(Kernel &);
-  void build(Kernel &, execution::PolicyCompletion *);
+  void build(Kernel &, execution::PolicyCompletion * = nullptr);
   void initialize_search_limits(const Kernel &);
   void note_reduce(const Kernel &k) { last_reduce_conflicts_ = k.stats.conflicts; }
   bool want_phase(const Kernel &, SlotGroup);
@@ -341,7 +333,6 @@ private:
   SlotStep run_batch_entry(Kernel &, SlotEntry &, const RuleVTable &,
                            SlotPhaseCtx &);
   bool factor_entry_declines(const Kernel &, SlotEntry &);
-  void factor_dose_config(Kernel &, SlotEntry &, execution::PolicyCompletion *);
   static void set_factor_composite(Kernel &, bool, execution::PolicyCompletion *);
   ApplyResult run_budgeted_batch(Kernel &, SlotEntry &, const RuleVTable &,
                                  uint64_t, bool, execution::PolicyCompletion *);

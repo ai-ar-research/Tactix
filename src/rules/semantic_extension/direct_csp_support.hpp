@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rules/semantic_extension/csp_exact_theory.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -59,22 +61,9 @@ struct Bounds {
   int32_t extension_variable = 0;
 };
 
-enum class Status : uint8_t {
-  Planned,
-  NoConsequence,
-  InvalidRequest,
-  IncompleteTheory,
-  BoundExceeded,
-  EffortExhausted,
-};
-
-enum class ReferenceKind : uint8_t { SourceOccurrence, PlannedAddition };
-
-struct Reference {
-  ReferenceKind kind = ReferenceKind::SourceOccurrence;
-  uint64_t id = 0;
-  uint64_t native_proof_id = 0;
-};
+using Status = csp_exact_theory::PlanStatus;
+using ReferenceKind = csp_exact_theory::ReferenceKind;
+using Reference = csp_exact_theory::Reference;
 
 enum class ProofStep : uint8_t {
   // RAT on the positive fresh variable before any negative occurrence exists.

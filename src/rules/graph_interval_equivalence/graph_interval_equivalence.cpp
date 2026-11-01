@@ -1,5 +1,6 @@
 #include "rules/graph_interval_equivalence/graph_interval_equivalence.hpp"
 
+#include "rules/instance_helpers.hpp"
 #include "rules/structural_action_guard.hpp"
 
 #include "proof/proof.hpp"
@@ -133,9 +134,7 @@ bool discover(Kernel &kernel, uint64_t maximum_work, Discovery &result) {
 
   std::map<ClauseKey, Source> clauses;
   std::vector<std::pair<ClauseKey, Source>> ternaries;
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (!charge(1)) return false;
     if (clause->garbage()) continue;
     if (!charge(clause->size)) return false;
@@ -405,14 +404,10 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
     std::fputs("}\n", out);
   }
 
-  const bool lrat = kernel.proof && kernel.proof->lrat();
   for (const PlannedClause &plan : planned) {
     const uint64_t id = ++kernel.next_clause_id;
     const Lit literals[2] = {plan.first, plan.second};
-    if (kernel.proof)
-      kernel.proof->add_rup(lrat ? id : 0, literals, 2,
-                            lrat ? plan.chain.data() : nullptr,
-                            lrat ? static_cast<uint32_t>(plan.chain.size()) : 0);
+    emit_rup_lemma(kernel, id, literals, 2, plan.chain);
     kernel_add_binary_clause(kernel, plan.first, plan.second, id);
     std::fprintf(out,
         "{\"action\":%llu,\"kind\":\"publish-interval-equivalence\","

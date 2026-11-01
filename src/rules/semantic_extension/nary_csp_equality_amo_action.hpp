@@ -11,10 +11,7 @@ namespace tactix {
 
 struct NaryCspEqualityAmoKey {
   std::vector<std::vector<int32_t>> domains;
-  bool operator==(const NaryCspEqualityAmoKey &) const = default;
-  bool operator<(const NaryCspEqualityAmoKey &other) const {
-    return domains < other.domains;
-  }
+  auto operator<=>(const NaryCspEqualityAmoKey &) const = default;
 };
 
 struct NaryCspEqualityAmoSelection {

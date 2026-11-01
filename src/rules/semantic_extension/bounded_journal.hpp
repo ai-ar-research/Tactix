@@ -23,6 +23,23 @@ inline bool append_bounded(std::string &bytes, uint64_t maximum,
   return true;
 }
 
+// Comma-separated `render(item)` spellings of `items`, as journal records
+// write them.
+template <class Items, class Render>
+std::string join_rendered(const Items &items, Render &&render) {
+  std::string result;
+  for (size_t i = 0; i < items.size(); ++i)
+    result += (i ? "," : "") + render(items[i]);
+  return result;
+}
+
+// Comma-separated decimal spelling of `values`, as journal records write it.
+template <class Integer>
+std::string join_integers(const std::vector<Integer> &values) {
+  return join_rendered(values,
+                       [](Integer value) { return std::to_string(value); });
+}
+
 // Bounded stable-text construction shared by semantic publishers. Work is
 // charged before capacity admission because failed rendering attempts are
 // observable in publishers that report journal work.
@@ -54,5 +71,22 @@ struct BoundedJournal {
     return true;
   }
 };
+
+// One record per retained source premise, in source order:
+// {"kind":"<kind>","action":A,"occurrence":O,"native_proof_id":N,"clause":[..]}
+template <class Journal, class Premises>
+bool append_source_premises(Journal &journal, const std::string &kind,
+                            uint64_t action, const Premises &source) {
+  for (const auto &premise : source)
+    if (!journal.append("{\"kind\":\"" + kind + "\",\"action\":" +
+                        std::to_string(action) + ",\"occurrence\":" +
+                        std::to_string(premise.occurrence) +
+                        ",\"native_proof_id\":" +
+                        std::to_string(premise.native_proof_id) +
+                        ",\"clause\":[") ||
+        !journal.integers(premise.literals) || !journal.append("]}\n"))
+      return false;
+  return true;
+}
 
 } // namespace tactix::semantic_extension

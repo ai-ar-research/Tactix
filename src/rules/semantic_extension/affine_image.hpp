@@ -22,6 +22,34 @@ void xor_sorted(const std::vector<T> &first, const std::vector<T> &second,
                                 second.end(), std::back_inserter(output));
 }
 
+// Sorted without repeated elements.
+template <class T> bool strictly_increasing(const std::vector<T> &values) {
+  return std::is_sorted(values.begin(), values.end()) &&
+         std::adjacent_find(values.begin(), values.end()) == values.end();
+}
+
+// A canonical parity scope: strictly increasing positive variables.
+inline bool positive_scope(const std::vector<External> &variables) {
+  return strictly_increasing(variables) &&
+         std::none_of(variables.begin(), variables.end(),
+                      [](External variable) { return variable <= 0; });
+}
+
+// Order-independent identity of a clause's literal multiset.
+inline std::vector<External> sorted_clause(std::vector<External> clause) {
+  std::sort(clause.begin(), clause.end());
+  return clause;
+}
+
+// Copy a clause into the parity certificate's fixed-capacity representation.
+inline bool to_small_clause(const std::vector<External> &clause,
+                            parity_certificate::SmallClause &small) {
+  if (clause.size() > small.lits.size()) return false;
+  small.size = static_cast<uint8_t>(clause.size());
+  std::copy(clause.begin(), clause.end(), small.lits.begin());
+  return true;
+}
+
 struct Premise {
   uint64_t occurrence = 0;
   std::vector<External> literals;
@@ -47,6 +75,29 @@ struct Equation {
 
   friend bool operator==(const Equation &, const Equation &) = default;
 };
+
+// One-based coordinate of `variable` in a sorted dense frame, or zero when the
+// frame does not contain it.
+inline External dense_coordinate(const std::vector<External> &frame,
+                                 External variable) {
+  const auto found = std::lower_bound(frame.begin(), frame.end(), variable);
+  if (found == frame.end() || *found != variable) return 0;
+  return static_cast<External>(found - frame.begin() + 1);
+}
+
+// Rename one equation into a sorted dense frame. The caller bounds its width
+// by the certificate equation capacity; false names a missing coordinate.
+inline bool dense_equation(const Equation &input,
+                           const std::vector<External> &frame,
+                           parity_certificate::Equation &dense) {
+  dense.size = static_cast<uint8_t>(input.variables.size());
+  dense.rhs = input.rhs;
+  for (size_t i = 0; i < input.variables.size(); ++i) {
+    dense.variables[i] = dense_coordinate(frame, input.variables[i]);
+    if (!dense.variables[i]) return false;
+  }
+  return true;
+}
 
 struct ReducedEquation {
   std::vector<External> variables;

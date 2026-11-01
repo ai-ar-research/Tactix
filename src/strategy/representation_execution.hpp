@@ -59,12 +59,8 @@ inline void execute_action(Kernel &k, MaterializeColdStateRequest request,
   if (!completion) { execute_action(k, request); return; }
   (void)complete_action(completion, FeedbackKind::Support,
       "MaterializeColdState", INSTANCE_CANONICAL, [&] {
-        NativeFeedbackSpec spec;
-        spec.description.description = std::string("deferred=") +
-            (k.cold_state_deferred ? "1" : "0");
-        spec.description.effort_currency = "ticks";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-        return spec;
+        return ticks_feedback(std::string("deferred=") +
+                              (k.cold_state_deferred ? "1" : "0"));
       }, [&] {
         const bool deferred = k.cold_state_deferred;
         execute_action(k, request);
@@ -77,11 +73,7 @@ inline RootCollectOutcome execute_action(Kernel &k,
                                          PolicyCompletion *completion) {
   return complete_action(completion, FeedbackKind::Support,
       "SparseCollect", INSTANCE_CANONICAL, [&] {
-        NativeFeedbackSpec spec;
-        spec.description.description = "start=" + std::to_string(request.start);
-        spec.description.effort_currency = "ticks";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-        return spec;
+        return ticks_feedback("start=" + std::to_string(request.start));
       }, [&] { return execute_action(k, request); }, [](RootCollectOutcome result) {
         using strategy::controller::feedback_outcome;
         auto outcome = feedback_outcome(result == RootCollectOutcome::Refuted

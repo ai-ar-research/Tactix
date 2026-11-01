@@ -1,6 +1,8 @@
 #include "rules/semantic_extension/exact_cover_live.hpp"
 
+#include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/exact_cover_batch.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -30,23 +32,35 @@ struct SourceClause {
   std::vector<int32_t> literals;
 };
 
-bool capture_source(Kernel &k, const ExactCoverLiveRequest &request,
-                    uint64_t &work, std::vector<Premise> &source,
-                    uint64_t &clause_count, uint64_t &literal_count,
-                    ExactCoverLiveStatus &failure) {
-  std::vector<SourceClause> captured;
-  const auto charge = [&](uint64_t amount) {
+// The one recognition allowance shared by capture, planning and
+// revalidation. A stop records its classification in `failure` at once.
+struct Meter {
+  const Kernel &k;
+  uint64_t maximum = 0;
+  uint64_t &work;
+  ExactCoverLiveStatus &failure;
+
+  bool charge(uint64_t amount) {
     if (kernel_terminating(k)) {
       failure = ExactCoverLiveStatus::Interrupted;
       return false;
     }
-    if (amount > request.maximum_recognition_work - work) {
+    if (amount > maximum - work) {
       failure = ExactCoverLiveStatus::ResourceExhausted;
       return false;
     }
     work += amount;
     return true;
-  };
+  }
+  bool operator()(uint64_t amount) { return charge(amount); }
+};
+
+bool capture_source(Kernel &k, const ExactCoverLiveRequest &request,
+                    uint64_t &work, std::vector<Premise> &source,
+                    uint64_t &clause_count, uint64_t &literal_count,
+                    ExactCoverLiveStatus &failure) {
+  std::vector<SourceClause> captured;
+  Meter charge{k, request.maximum_recognition_work, work, failure};
   const auto take = [&](const Lit *literals, uint32_t size, uint64_t id) {
     if (captured.size() == request.maximum_source_clauses ||
         size > request.maximum_source_literals - literal_count) {
@@ -57,14 +71,9 @@ bool capture_source(Kernel &k, const ExactCoverLiveRequest &request,
       return false;
     SourceClause clause;
     clause.native_proof_id = id;
-    clause.literals.reserve(size);
-    for (uint32_t i = 0; i < size; ++i) {
-      const Var variable = var_of(literals[i]);
-      if (kernel_var_retired(k, variable) || k.value(literals[i])) {
-        failure = ExactCoverLiveStatus::NoStructure;
-        return false;
-      }
-      clause.literals.push_back(kernel_externalize(k, literals[i]));
+    if (!unassigned_external_clause(k, literals, size, clause.literals)) {
+      failure = ExactCoverLiveStatus::NoStructure;
+      return false;
     }
     std::sort(clause.literals.begin(), clause.literals.end());
     literal_count += size;
@@ -73,29 +82,10 @@ bool capture_source(Kernel &k, const ExactCoverLiveRequest &request,
     return true;
   };
 
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    ref += clause_actual_words(clause);
-    if (!charge(1)) return false;
-    if (!clause->garbage() && !take(clause->lits, clause->size, clause->id()))
-      return false;
-  }
-  for (Lit first = 0; first < 2 * k.nvars; ++first)
-    for (const WatchEntry watch : k.watches.entries(first)) {
-      if (!charge(1)) return false;
-      if (!watch.binary() || first >= watch.other()) continue;
-      const Lit pair[] = {first, watch.other()};
-      const uint64_t proof_id = k.binary_ids.tracks_values()
-                                    ? kernel_binary_id(k, first, watch.other())
-                                    : 0;
-      if (!take(pair, 2, proof_id))
-        return false;
-    }
-  std::sort(captured.begin(), captured.end(),
-            [](const SourceClause &a, const SourceClause &b) {
-              if (a.literals != b.literals) return a.literals < b.literals;
-              return a.native_proof_id < b.native_proof_id;
-            });
+  if (csp_physical_scan::run(k, charge, take) !=
+      csp_physical_scan::Status::Complete)
+    return false;
+  csp_physical_scan::sort_premises(captured, &SourceClause::native_proof_id);
   std::vector<Premise> planned;
   planned.reserve(captured.size());
   for (size_t i = 0; i < captured.size(); ++i)
@@ -166,73 +156,48 @@ ExactCoverLiveResult exact_cover_live_apply(
   BatchPlan plan;
   exact_cover_semantic::BatchPlanningStatus planning_status =
       exact_cover_semantic::BatchPlanningStatus::Invalid;
-  const auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(k)) {
-      failure = ExactCoverLiveStatus::Interrupted;
-      return false;
-    }
-    if (amount > request.maximum_recognition_work - work) {
-      failure = ExactCoverLiveStatus::ResourceExhausted;
-      return false;
-    }
-    work += amount;
-    return true;
+  Meter charge{k, request.maximum_recognition_work, work, failure};
+  const auto decline = [&](ExactCoverLiveStatus status) {
+    result.status = status;
+    result.recognition_work = work;
+    return result;
   };
   if (!exact_cover_semantic::plan_batch(source, planning, charge, plan,
                                         &planning_status)) {
     if (failure == ExactCoverLiveStatus::Interrupted ||
-        failure == ExactCoverLiveStatus::ResourceExhausted) {
-      result.status = failure;
-    } else {
-      using enum exact_cover_semantic::BatchPlanningStatus;
-      result.status = planning_status == ResourceExhausted
-                          ? ExactCoverLiveStatus::ResourceExhausted
-                      : planning_status == Invalid
-                          ? ExactCoverLiveStatus::Invalid
-                          : ExactCoverLiveStatus::NoStructure;
-    }
-    result.recognition_work = work;
-    return result;
+        failure == ExactCoverLiveStatus::ResourceExhausted)
+      return decline(failure);
+    using enum exact_cover_semantic::BatchPlanningStatus;
+    return decline(planning_status == ResourceExhausted
+                       ? ExactCoverLiveStatus::ResourceExhausted
+                   : planning_status == Invalid
+                       ? ExactCoverLiveStatus::Invalid
+                       : ExactCoverLiveStatus::NoStructure);
   }
 
   std::vector<std::vector<int32_t>> replacement =
       ExactCoverLiveSessionAccess::keys(*request.session);
   if (!std::is_sorted(replacement.begin(), replacement.end()) ||
       std::adjacent_find(replacement.begin(), replacement.end()) !=
-          replacement.end()) {
-    result.status = ExactCoverLiveStatus::Invalid;
-    result.recognition_work = work;
-    return result;
-  }
+          replacement.end())
+    return decline(ExactCoverLiveStatus::Invalid);
   std::vector<std::vector<int32_t>> additions;
   additions.reserve(plan.definitions().size());
   for (const auto &definition : plan.definitions()) {
     const auto &key = definition.duplicate_key.disjunction;
     if (key.empty() || !std::is_sorted(key.begin(), key.end()) ||
-        std::adjacent_find(key.begin(), key.end()) != key.end()) {
-      result.status = ExactCoverLiveStatus::Invalid;
-      result.recognition_work = work;
-      return result;
-    }
-    if (std::binary_search(replacement.begin(), replacement.end(), key)) {
-      result.status = ExactCoverLiveStatus::AlreadyPublished;
-      result.recognition_work = work;
-      return result;
-    }
+        std::adjacent_find(key.begin(), key.end()) != key.end())
+      return decline(ExactCoverLiveStatus::Invalid);
+    if (std::binary_search(replacement.begin(), replacement.end(), key))
+      return decline(ExactCoverLiveStatus::AlreadyPublished);
     additions.push_back(key);
   }
   std::sort(additions.begin(), additions.end());
   if (std::adjacent_find(additions.begin(), additions.end()) !=
-      additions.end()) {
-    result.status = ExactCoverLiveStatus::Invalid;
-    result.recognition_work = work;
-    return result;
-  }
-  if (additions.size() > replacement.max_size() - replacement.size()) {
-    result.status = ExactCoverLiveStatus::ResourceExhausted;
-    result.recognition_work = work;
-    return result;
-  }
+      additions.end())
+    return decline(ExactCoverLiveStatus::Invalid);
+  if (additions.size() > replacement.max_size() - replacement.size())
+    return decline(ExactCoverLiveStatus::ResourceExhausted);
   replacement.insert(replacement.end(), additions.begin(), additions.end());
   std::sort(replacement.begin(), replacement.end());
   std::vector<uint32_t> introduced_theory_variables;

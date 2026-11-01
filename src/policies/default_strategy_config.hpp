@@ -25,6 +25,12 @@ enum class DefaultReorderTarget : uint8_t {
   Heap,
 };
 
+// A Lucky opportunity's production switch and its typed recognizer bounds.
+template <class Parameters> struct DefaultEnabledModel {
+  bool enabled = true;
+  Parameters parameters;
+};
+
 // Canonical configuration of the shipped strategy.  A value belongs here when
 // changing it can alter which DefaultPolicy action runs, when it runs, how much
 // work it receives, or which candidates it keeps.  Constants intrinsic to data
@@ -224,59 +230,24 @@ struct DefaultStrategyConfig {
     strategy::ReorderParameters parameters;
   } reorder;
 
-  struct ParityModel {
-    bool enabled = true;
-    strategy::ParityModelParameters parameters;
-  } parity_model;
-
-  struct OnehotModel {
-    bool enabled = true;
-    strategy::OnehotModelParameters parameters;
-  } onehot_model;
-
-  struct AffineModel {
-    bool enabled = true;
-    strategy::AffineModelParameters parameters;
-  } affine_model;
-
-  struct BalancedSignatureModel {
-    bool enabled = true;
-    strategy::BalancedSignatureModelParameters parameters;
-  } balanced_signature_model;
-
-  struct FermatModel {
-    bool enabled = true;
-    strategy::FermatModelParameters parameters;
-  } fermat_model;
+  DefaultEnabledModel<strategy::ParityModelParameters> parity_model;
+  DefaultEnabledModel<strategy::OnehotModelParameters> onehot_model;
+  DefaultEnabledModel<strategy::AffineModelParameters> affine_model;
+  DefaultEnabledModel<strategy::BalancedSignatureModelParameters>
+      balanced_signature_model;
+  DefaultEnabledModel<strategy::FermatModelParameters> fermat_model;
 
   struct CernyModel {
     bool enabled = true;
   } cerny_model;
 
-  struct LookupCircuitModel {
-    bool enabled = true;
-    strategy::LookupCircuitModelParameters parameters;
-  } lookup_circuit_model;
-
-  struct SimonModel {
-    bool enabled = true;
-    strategy::SimonModelParameters parameters;
-  } simon_model;
-
-  struct StconnProof {
-    bool enabled = true;
-    strategy::StconnProofParameters parameters;
-  } stconn_proof;
-
-  struct SignedCardinalityProof {
-    bool enabled = true;
-    strategy::SignedCardinalityProofParameters parameters;
-  } signed_cardinality_proof;
-
-  struct ExactCoverModel {
-    bool enabled = true;
-    strategy::ExactCoverModelParameters parameters;
-  } exact_cover_model;
+  DefaultEnabledModel<strategy::LookupCircuitModelParameters>
+      lookup_circuit_model;
+  DefaultEnabledModel<strategy::SimonModelParameters> simon_model;
+  DefaultEnabledModel<strategy::StconnProofParameters> stconn_proof;
+  DefaultEnabledModel<strategy::SignedCardinalityProofParameters>
+      signed_cardinality_proof;
+  DefaultEnabledModel<strategy::ExactCoverModelParameters> exact_cover_model;
 
   struct IndependentSetModel {
     bool enabled = true;
@@ -593,5 +564,15 @@ struct DefaultStrategyConfig {
   // Stable, line-oriented snapshot used by trace and benchmark metadata.
   std::string serialize() const;
 };
+
+// A policy component's borrowed configuration, or the shipped defaults when
+// it is used standalone.
+template <class Config>
+const Config &configured_or_default(const Config *configured) {
+  if (configured)
+    return *configured;
+  static const Config defaults;
+  return defaults;
+}
 
 } // namespace tactix

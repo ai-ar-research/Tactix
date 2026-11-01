@@ -3,6 +3,7 @@
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 
 #include "kernel/kernel.hpp"
+#include "rules/registry.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -192,6 +193,29 @@ static void verify_line(const std::string &actual) {
   std::abort();
 }
 
+// Maps a kernel literal to its external DIMACS literal.
+struct ExternalLiteral {
+  const Kernel &k;
+  int operator()(uint32_t lit) const { return kernel_externalize(k, lit); }
+};
+
+// Comma-joined external literals of `lits` under `externalize`; `selected`,
+// when given, also records whether one names the journal's selected variable.
+template <class Externalize>
+std::string external_list(const uint32_t *lits, uint32_t size,
+                          Externalize externalize, bool *selected = nullptr) {
+  std::string result;
+  for (uint32_t i = 0; i < size; i++) {
+    const int lit = externalize(lits[i]);
+    if (selected)
+      *selected |= std::abs(lit) == std::abs(state.literal);
+    if (i)
+      result.push_back(',');
+    result += std::to_string(lit);
+  }
+  return result;
+}
+
 } // namespace
 
 uint64_t rule_journal_digest(const Kernel &k) {
@@ -293,6 +317,22 @@ int rule_journal_selected_literal() {
 uint64_t rule_journal_selected_clause_id() {
   open_journal();
   return state.clause_id;
+}
+
+const char *rule_journal_outcome(ApplyResult result) {
+  switch (result) {
+  case ApplyResult::Ok:
+    return "applied";
+  case ApplyResult::NoOp:
+    return "no-op";
+  case ApplyResult::Conflict:
+    return "conflict";
+  case ApplyResult::Sat:
+    return "sat";
+  case ApplyResult::Unsat:
+    return "refuted";
+  }
+  return "unknown";
 }
 
 void rule_journal_emit(const Kernel &k, const RuleJournalRecord &record) {
@@ -401,14 +441,8 @@ void rule_journal_note_large_add(const Kernel &k, const uint32_t *lits,
     return;
   bool selected = (!state.literal && !state.clause_id) ||
                   id == state.clause_id;
-  std::string external;
-  for (uint32_t i = 0; i < size; i++) {
-    const int lit = kernel_externalize(k, lits[i]);
-    selected |= std::abs(lit) == std::abs(state.literal);
-    if (i)
-      external.push_back(',');
-    external += std::to_string(lit);
-  }
+  const std::string external =
+      external_list(lits, size, ExternalLiteral{k}, &selected);
   if (!selected)
     return;
   const std::string delta =
@@ -447,12 +481,7 @@ void rule_journal_note_clause_transition(const Kernel &k, const char *event,
     return;
   if (state.clause_id && id != state.clause_id)
     return;
-  std::string external;
-  for (uint32_t i = 0; i < size; i++) {
-    if (i)
-      external.push_back(',');
-    external += std::to_string(kernel_externalize(k, lits[i]));
-  }
+  const std::string external = external_list(lits, size, ExternalLiteral{k});
   transaction.deltas.push_back(std::string(event) + "(id=" +
                                std::to_string(id) + ";lits=" + external +
                                ')');
@@ -489,14 +518,8 @@ void rule_journal_note_reconstruction(const Kernel &k, uint32_t witness,
   const int external_witness = kernel_externalize(k, witness);
   bool selected = !state.literal ||
                   std::abs(external_witness) == std::abs(state.literal);
-  std::string external_rest;
-  for (uint32_t i = 0; i < nrest; i++) {
-    const int lit = kernel_externalize(k, rest[i]);
-    selected |= std::abs(lit) == std::abs(state.literal);
-    if (i)
-      external_rest.push_back(',');
-    external_rest += std::to_string(lit);
-  }
+  const std::string external_rest =
+      external_list(rest, nrest, ExternalLiteral{k}, &selected);
   if (!selected)
     return;
   transaction.witnesses.push_back(
@@ -512,98 +535,69 @@ void rule_journal_note_cube_reconstruction(const Kernel &k,
   if (!transaction.active)
     return;
   bool selected = !state.literal;
-  const auto external_literals = [&](const uint32_t *lits, uint32_t size) {
-    std::string result;
-    for (uint32_t i = 0; i < size; i++) {
-      const int lit = kernel_externalize(k, lits[i]);
-      selected |= std::abs(lit) == std::abs(state.literal);
-      if (i)
-        result.push_back(',');
-      result += std::to_string(lit);
-    }
-    return result;
-  };
-  const std::string external_clause = external_literals(clause, nclause);
-  std::string external_witness;
-  for (uint32_t i = 0; i < nwitness; i++) {
-    const int lit = externalize(witness[i]);
-    selected |= std::abs(lit) == std::abs(state.literal);
-    if (i)
-      external_witness.push_back(',');
-    external_witness += std::to_string(lit);
-  }
+  const std::string external_clause =
+      external_list(clause, nclause, ExternalLiteral{k}, &selected);
+  const std::string external_witness =
+      external_list(witness, nwitness, externalize, &selected);
   if (selected)
     transaction.witnesses.push_back("reconstruct-cube(clause=" +
                                     external_clause + ";witness=" +
                                     external_witness + ')');
 }
 
-void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
-                           uint32_t nchain) {
+// Records `kind(id=<id>;<field>=<values>)` as an antecedent of the active
+// transaction; an empty list is spelled "implicit".
+template <class Value>
+static void note_antecedent(const char *kind, const char *field, uint64_t id,
+                            const Value *values, uint32_t size) {
   if (!transaction.active)
     return;
-  std::string item = "rup(id=" + std::to_string(id) + ";chain=";
-  if (!nchain)
+  std::string item =
+      std::string(kind) + "(id=" + std::to_string(id) + ";" + field + "=";
+  if (!size)
     item += "implicit";
-  for (uint32_t i = 0; i < nchain; i++) {
+  for (uint32_t i = 0; i < size; i++) {
     if (i)
       item.push_back(',');
-    item += std::to_string(chain[i]);
+    item += std::to_string(values[i]);
   }
   item.push_back(')');
   transaction.antecedents.push_back(std::move(item));
+}
+
+void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
+                           uint32_t nchain) {
+  note_antecedent("rup", "chain", id, chain, nchain);
 }
 
 void rule_journal_note_rat(uint64_t id, const int64_t *hints,
                            uint32_t nhints) {
-  if (!transaction.active)
-    return;
-  std::string item = "rat(id=" + std::to_string(id) + ";hints=";
-  if (!nhints)
-    item += "implicit";
-  for (uint32_t i = 0; i < nhints; i++) {
-    if (i)
-      item.push_back(',');
-    item += std::to_string(hints[i]);
+  note_antecedent("rat", "hints", id, hints, nhints);
+}
+
+// The `|`-joined items of the active transaction, or "none".
+static std::string transaction_items(const std::vector<std::string> &items) {
+  if (!transaction.active || items.empty())
+    return "none";
+  std::string result;
+  for (const std::string &item : items) {
+    if (!result.empty())
+      result.push_back('|');
+    result += item;
   }
-  item.push_back(')');
-  transaction.antecedents.push_back(std::move(item));
+  return result;
 }
 
 std::string rule_journal_transaction_deltas() {
-  if (!transaction.active || transaction.deltas.empty())
-    return "none";
-  std::string result;
-  for (const std::string &delta : transaction.deltas) {
-    if (!result.empty())
-      result.push_back('|');
-    result += delta;
-  }
-  return result;
+  return transaction_items(transaction.deltas);
 }
 
 std::string rule_journal_transaction_antecedents() {
-  if (!transaction.active || transaction.antecedents.empty())
-    return "none";
-  std::string result;
-  for (const std::string &antecedent : transaction.antecedents) {
-    if (!result.empty())
-      result.push_back('|');
-    result += antecedent;
-  }
-  return result;
+  return transaction_items(transaction.antecedents);
 }
 
 std::string rule_journal_transaction_witnesses() {
-  if (!transaction.active || transaction.witnesses.empty())
-    return "none";
-  std::string result;
-  for (const std::string &witness : transaction.witnesses) {
-    if (!result.empty())
-      result.push_back('|');
-    result += witness;
-  }
-  return result;
+  return transaction_items(transaction.witnesses);
 }
 
 void rule_journal_transaction_end() { transaction = TransactionState{}; }

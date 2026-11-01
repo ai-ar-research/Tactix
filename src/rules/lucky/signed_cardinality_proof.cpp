@@ -3,6 +3,7 @@
 #include "kernel/types.hpp"
 #include "proof/cardinality_certificate.hpp"
 #include "proof/proof.hpp"
+#include "rules/lucky/disjoint_sets.hpp"
 #include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
@@ -45,35 +46,6 @@ Triple triple_key(External a, External b, External c) {
   return result;
 }
 
-class Dsu {
-  std::vector<uint32_t> parent_;
-  std::vector<uint32_t> size_;
-
-public:
-  explicit Dsu(uint32_t size) : parent_(size), size_(size, 1) {
-    std::iota(parent_.begin(), parent_.end(), 0);
-  }
-
-  uint32_t find(uint32_t value) {
-    while (parent_[value] != value) {
-      parent_[value] = parent_[parent_[value]];
-      value = parent_[value];
-    }
-    return value;
-  }
-
-  void unite(uint32_t a, uint32_t b) {
-    a = find(a);
-    b = find(b);
-    if (a == b)
-      return;
-    if (size_[a] < size_[b])
-      std::swap(a, b);
-    parent_[b] = a;
-    size_[a] += size_[b];
-  }
-};
-
 uint32_t signed_index(External literal, uint32_t variables) {
   const uint32_t variable = external_variable_of(literal);
   return literal > 0 ? variable - 1 : variables + variable - 1;
@@ -96,7 +68,7 @@ bool recognize(Kernel &k,
   const uint32_t variables = k.nvars;
   if (variables > static_cast<uint32_t>(INT32_MAX))
     return false;
-  Dsu dsu(2 * variables);
+  DisjointSets dsu(2 * variables);
   std::vector<uint8_t> touched(2 * variables, 0);
   std::unordered_set<Triple, TripleHash> triples;
   triples.reserve(static_cast<size_t>(k.input_nonunit_clause_count * 2 + 1));

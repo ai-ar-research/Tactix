@@ -101,13 +101,6 @@ bool external_variable(const Kernel &k, Lit literal, uint32_t &result) {
   return result <= k.external_to_internal.size();
 }
 
-bool map_external(const Kernel &k, uint32_t external, Var &internal) {
-  if (!external || external > k.external_to_internal.size())
-    return false;
-  internal = k.external_to_internal[external - 1];
-  return internal != INVALID_VAR && internal < k.nvars;
-}
-
 bool reconstruct(Kernel &k, Circuit &circuit) {
   const uint32_t input_rows = uint32_t{1} << circuit.fanin;
   const uint32_t output_rows = uint32_t{1} << circuit.fanout;
@@ -119,8 +112,8 @@ bool reconstruct(Kernel &k, Circuit &circuit) {
   std::vector<uint64_t> forbidden(static_cast<size_t>(total_rows) * words, 0);
   circuit.primary_variables.resize(circuit.primary_inputs);
   for (uint32_t external = 1; external <= circuit.primary_inputs; ++external)
-    if (!map_external(k, external,
-                      circuit.primary_variables[external - 1]))
+    if (!lucky_internal_variable(k, external,
+                                 circuit.primary_variables[external - 1]))
       return false;
 
   uint64_t nonunit = 0, visited = 0;
@@ -143,7 +136,7 @@ bool reconstruct(Kernel &k, Circuit &circuit) {
         for (uint32_t i = 0; i < circuit.fanin; ++i) {
           uint32_t external = 0;
           if (!external_variable(k, clause->lits[i], external) ||
-              !map_external(k, external, gate.inputs[i]))
+              !lucky_internal_variable(k, external, gate.inputs[i]))
             return false;
           gate.input_external[i] = external;
         }
@@ -152,7 +145,7 @@ bool reconstruct(Kernel &k, Circuit &circuit) {
           if (!external_variable(k, clause->lits[circuit.fanin + i], external) ||
               external != circuit.primary_inputs +
                               gate_index * circuit.fanout + i + 1 ||
-              !map_external(k, external, gate.outputs[i]))
+              !lucky_internal_variable(k, external, gate.outputs[i]))
             return false;
           gate.output_external[i] = external;
         }
@@ -620,6 +613,16 @@ private:
       trail_.pop_back();
     }
   }
+  // Assigns the input bits of one table row of `gate`, then its outputs.
+  bool assign_row(const Gate &gate, uint32_t input) {
+    bool compatible = true;
+    for (uint32_t i = 0; compatible && i < circuit_.fanin; ++i)
+      compatible = assign(gate.inputs[i], (input >> i) & 1);
+    const uint32_t output = gate.table[input];
+    for (uint32_t i = 0; compatible && i < circuit_.fanout; ++i)
+      compatible = assign(gate.outputs[i], (output >> i) & 1);
+    return compatible;
+  }
   bool candidates(const Gate &gate, std::vector<uint32_t> *masks,
                   uint32_t *input_and, uint32_t *input_or,
                   uint32_t *output_and, uint32_t *output_or,
@@ -743,14 +746,7 @@ private:
         std::vector<std::pair<int64_t, uint32_t>> scored;
         for (const uint32_t input : best_masks) {
           const size_t lookahead = trail_.size();
-          bool compatible = true;
-          for (uint32_t i = 0; compatible && i < circuit_.fanin; ++i)
-            compatible = assign(gate.inputs[i], (input >> i) & 1);
-          const uint32_t output = gate.table[input];
-          for (uint32_t i = 0; compatible && i < circuit_.fanout; ++i)
-            compatible = assign(gate.outputs[i], (output >> i) & 1);
-          if (compatible)
-            compatible = propagate();
+          const bool compatible = assign_row(gate, input) && propagate();
           scored.emplace_back(compatible
                                   ? static_cast<int64_t>(trail_.size() - lookahead)
                                   : -1,
@@ -774,13 +770,7 @@ private:
       }
       for (const uint32_t input : best_masks) {
         const size_t branch = trail_.size();
-        bool compatible = true;
-        for (uint32_t i = 0; compatible && i < circuit_.fanin; ++i)
-          compatible = assign(gate.inputs[i], (input >> i) & 1);
-        const uint32_t output = gate.table[input];
-        for (uint32_t i = 0; compatible && i < circuit_.fanout; ++i)
-          compatible = assign(gate.outputs[i], (output >> i) & 1);
-        if (compatible && dfs())
+        if (assign_row(gate, input) && dfs())
           return true;
         undo(branch);
         if (interrupted_)
@@ -837,11 +827,8 @@ ApplyResult lookup_circuit_model_apply(Kernel &k) {
   if (enumeration == EnumerationResult::Interrupted)
     return ApplyResult::NoOp;
   if (enumeration == EnumerationResult::Found &&
-      lucky_model_valid(k, assignment)) {
-    lucky_publish_model(k, assignment);
-    ++k.stats.lookup_circuit_model_sat;
+      lucky_publish_if_model(k, assignment, k.stats.lookup_circuit_model_sat))
     return ApplyResult::Sat;
-  }
 
   CspSearch search(k, circuit);
   if (!search.solve() || search.interrupted())
@@ -850,11 +837,9 @@ ApplyResult lookup_circuit_model_apply(Kernel &k) {
   for (uint8_t &value : assignment)
     if (value > 1)
       value = 0;
-  if (!lucky_model_valid(k, assignment))
-    return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.lookup_circuit_model_sat;
-  return ApplyResult::Sat;
+  return lucky_publish_if_model(k, assignment, k.stats.lookup_circuit_model_sat)
+             ? ApplyResult::Sat
+             : ApplyResult::NoOp;
 }
 
 } // namespace tactix

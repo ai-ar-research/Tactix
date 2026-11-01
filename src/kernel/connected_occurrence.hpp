@@ -3,6 +3,7 @@
 #include "kernel/occ.hpp"
 
 #include <iterator>
+#include <utility>
 
 namespace tactix {
 
@@ -160,16 +161,8 @@ public:
   void defrag_if_needed() { streams_.defrag_if_needed(); }
   uint64_t relocations() const { return streams_.relocations; }
   uint64_t defrags() const { return streams_.defrags; }
-  uint64_t take_relocations() {
-    const uint64_t count = streams_.relocations;
-    streams_.relocations = 0;
-    return count;
-  }
-  uint64_t take_defrags() {
-    const uint64_t count = streams_.defrags;
-    streams_.defrags = 0;
-    return count;
-  }
+  uint64_t take_relocations() { return std::exchange(streams_.relocations, 0); }
+  uint64_t take_defrags() { return std::exchange(streams_.defrags, 0); }
   const void *arena_data() const { return streams_.arena_data(); }
   const void *heads_data() const { return streams_.heads_data(); }
   const void *counts_data() const { return large_sizes_.data(); }

@@ -59,6 +59,26 @@ void outcome(std::ostream &out, const FeedbackOutcome &value) {
       << ",\"resumed_search\":" << value.resumed_search << '}';
 }
 
+std::ostringstream stream() {
+  std::ostringstream out;
+  out.imbue(std::locale::classic());
+  out << std::boolalpha << std::setprecision(17);
+  return out;
+}
+
+// A JSON array of `values`, each written by `object`.
+template <class Values, class Object>
+std::string serialized_array(const Values &values, Object &&object) {
+  auto out = stream();
+  out << '[';
+  for (size_t index = 0; index < values.size(); ++index) {
+    if (index) out << ',';
+    object(out, values[index]);
+  }
+  out << ']';
+  return out.str();
+}
+
 void request(std::ostream &out, const ActionRequest &value) {
   out << "{\"version\":" << value.version << ",\"sequence\":" << value.sequence
       << ",\"type\":" << unsigned(value.type) << ",\"expected\":";
@@ -70,23 +90,19 @@ void request(std::ostream &out, const ActionRequest &value) {
   OnlineStrategyProgram program;
   if (value.type == ActionType::Rule) program.sequence.push_back(value.invocation);
   out << quote(serialize_online_strategy_program(program));
-  if (!value.producer_effort.empty()) {
-    out << ",\"producer_effort\":[";
-    for (size_t index = 0; index < value.producer_effort.size(); ++index) {
-      if (index) out << ',';
-      const auto &effort = value.producer_effort[index];
-      out << "{\"family\":" << quote(effort.family)
-          << ",\"status\":" << unsigned(effort.status)
-          << ",\"complete\":" << effort.complete
-          << ",\"preparation_work\":" << effort.preparation_work
-          << ",\"enumeration_work\":" << effort.enumeration_work
-          << ",\"total_work\":" << effort.total_work
-          << ",\"candidates\":" << effort.candidates
-          << ",\"offers\":" << effort.offers;
-      out << '}';
-    }
-    out << ']';
-  }
+  if (!value.producer_effort.empty())
+    out << ",\"producer_effort\":"
+        << serialized_array(value.producer_effort, [](std::ostream &entry,
+                                                      const auto &effort) {
+             entry << "{\"family\":" << quote(effort.family)
+                   << ",\"status\":" << unsigned(effort.status)
+                   << ",\"complete\":" << effort.complete
+                   << ",\"preparation_work\":" << effort.preparation_work
+                   << ",\"enumeration_work\":" << effort.enumeration_work
+                   << ",\"total_work\":" << effort.total_work
+                   << ",\"candidates\":" << effort.candidates
+                   << ",\"offers\":" << effort.offers << '}';
+           });
   out << '}';
 }
 
@@ -128,13 +144,6 @@ void native_request(std::ostream &out, const NativeActionDescription &value) {
         << ",\"journal_bytes\":" << value.affine_matrix_journal_bytes
         << ",\"bcp_pending\":" << value.affine_matrix_bcp_pending << '}';
   out << '}';
-}
-
-std::ostringstream stream() {
-  std::ostringstream out;
-  out.imbue(std::locale::classic());
-  out << std::boolalpha << std::setprecision(17);
-  return out;
 }
 
 template <class T> bool native_equal(const T &left, const T &right) {
@@ -183,12 +192,7 @@ std::string serialized_last_action(const std::optional<ActionResult> &value) {
 
 std::string serialized_local_candidates(
     const std::vector<LocalSearchCandidateInfo> &values) {
-  auto out = stream();
-  out << '[';
-  bool first = true;
-  for (const auto &candidate : values) {
-    if (!first) out << ',';
-    first = false;
+  return serialized_array(values, [](std::ostream &out, const auto &candidate) {
     out << "{\"id\":" << candidate.id
         << ",\"formula_touch_epoch\":" << candidate.formula_touch_epoch
         << ",\"formula_root_assignments\":" << candidate.formula_root_assignments
@@ -198,19 +202,12 @@ std::string serialized_local_candidates(
         << ",\"objective_exact\":" << candidate.objective_exact
         << ",\"effort\":" << candidate.effort.amount
         << ",\"effort_unit\":" << unsigned(candidate.effort.unit) << '}';
-  }
-  out << ']';
-  return out.str();
+  });
 }
 
 std::string serialized_semantic_candidates(
     const std::vector<SemanticVariableCandidateInfo> &values) {
-  auto out = stream();
-  out << '[';
-  bool first = true;
-  for (const auto &candidate : values) {
-    if (!first) out << ',';
-    first = false;
+  return serialized_array(values, [](std::ostream &out, const auto &candidate) {
     out << "{\"id\":" << candidate.id
         << ",\"action_id\":" << candidate.action_id
         << ",\"arena_generation\":" << candidate.arena_generation
@@ -220,9 +217,7 @@ std::string serialized_semantic_candidates(
         << ",\"existing_variables\":" << candidate.existing_variables
         << ",\"introduced_variables\":" << candidate.introduced_variables
         << '}';
-  }
-  out << ']';
-  return out.str();
+  });
 }
 
 std::string serialize_observation_delta(const Observation &base,
@@ -242,9 +237,7 @@ std::string serialize_observation_delta(const Observation &base,
     if (before != after) field(name, after ? "true" : "false");
   };
   if (base.version != value.version) field("version", value.version);
-  if (base.state.arena_generation != value.state.arena_generation ||
-      base.state.touch_epoch != value.state.touch_epoch ||
-      base.state.strategy_epoch != value.state.strategy_epoch) {
+  if (base.state != value.state) {
     auto encoded = stream(); state(encoded, value.state); field("state", encoded.str());
   }
   number("sequence", base.sequence, value.sequence);
@@ -328,22 +321,14 @@ std::string serialize_observation_delta(const Observation &base,
 #undef TACTIX_FEEDBACK_SCALAR
 #undef TACTIX_FEEDBACK_ARRAY
   if (!array_object_first) out << '}';
-  if ((!base.native_policy_state.empty() && value.native_policy_state.empty()) ||
-      (!base.semantic_variable_candidates.empty() &&
-       value.semantic_variable_candidates.empty())) {
-    out << ",\"clear\":[";
-    bool clear_first = true;
-    if (!base.native_policy_state.empty() && value.native_policy_state.empty()) {
-      out << "\"native_policy_state\"";
-      clear_first = false;
-    }
-    if (!base.semantic_variable_candidates.empty() &&
-        value.semantic_variable_candidates.empty()) {
-      if (!clear_first) out << ',';
-      out << "\"semantic_variable_candidates\"";
-    }
-    out << ']';
-  }
+  const bool clear_policy =
+      !base.native_policy_state.empty() && value.native_policy_state.empty();
+  const bool clear_semantic = !base.semantic_variable_candidates.empty() &&
+                              value.semantic_variable_candidates.empty();
+  if (clear_policy || clear_semantic)
+    out << ",\"clear\":[" << (clear_policy ? "\"native_policy_state\"" : "")
+        << (clear_policy && clear_semantic ? "," : "")
+        << (clear_semantic ? "\"semantic_variable_candidates\"" : "") << ']';
   out << '}';
   return out.str();
 }
@@ -374,18 +359,8 @@ std::string serialize_observation(const Observation &value) {
       << ",\"next_restart_conflicts\":" << value.next_restart_conflicts
       << ",\"reluctant\":[" << value.reluctant_u << ',' << value.reluctant_v
       << ',' << value.reluctant_wait << "],\"fast_glue\":" << value.fast_glue
-      << ",\"slow_glue\":" << value.slow_glue << ",\"last_action\":";
-  if (value.last_action) {
-    out << "{\"sequence\":" << value.last_action->sequence << ",\"type\":"
-        << unsigned(value.last_action->type) << ",\"before\":";
-    state(out, value.last_action->before);
-    out << ",\"after\":"; state(out, value.last_action->after);
-    out << ",\"propagation_ticks\":" << value.last_action->propagation_ticks
-        << ",\"root_assignments\":" << value.last_action->root_assignments
-        << ",\"outcome\":";
-    outcome(out, feedback_outcome(*value.last_action));
-    out << '}';
-  } else out << "null";
+      << ",\"slow_glue\":" << value.slow_glue << ",\"last_action\":"
+      << serialized_last_action(value.last_action);
   out << ",\"native\":{";
   bool first = true;
 #define TACTIX_FEEDBACK_SCALAR(field) \
@@ -400,49 +375,34 @@ std::string serialize_observation(const Observation &value) {
   out << '}';
   if (!value.native_policy_state.empty())
     out << ",\"native_policy_state\":" << quote(value.native_policy_state);
-  out << ",\"local_search_candidates\":[";
-  bool first_candidate = true;
-  for (const auto &candidate : value.local_search_candidates) {
-    if (!first_candidate) out << ',';
-    first_candidate = false;
-    out << "{\"id\":" << candidate.id
-        << ",\"formula_touch_epoch\":" << candidate.formula_touch_epoch
-        << ",\"formula_root_assignments\":" << candidate.formula_root_assignments
-        << ",\"external_variables\":" << candidate.external_variables
-        << ",\"known_phases\":" << candidate.known_phases
-        << ",\"objective\":" << candidate.objective
-        << ",\"objective_exact\":" << candidate.objective_exact
-        << ",\"effort\":" << candidate.effort.amount
-        << ",\"effort_unit\":" << unsigned(candidate.effort.unit) << '}';
-  }
-  out << ']';
+  out << ",\"local_search_candidates\":"
+      << serialized_local_candidates(value.local_search_candidates);
   out << ",\"local_search_last_target_decision_candidate\":"
       << value.local_search_last_target_decision_candidate
       << ",\"local_search_last_target_decision_matched\":"
       << value.local_search_last_target_decision_matched;
-  if (!value.semantic_variable_candidates.empty()) {
-    out << ",\"semantic_variable_candidates\":[";
-    bool first_semantic_candidate = true;
-    for (const auto &candidate : value.semantic_variable_candidates) {
-      if (!first_semantic_candidate) out << ',';
-      first_semantic_candidate = false;
-      out << "{\"id\":" << candidate.id
-          << ",\"action_id\":" << candidate.action_id
-          << ",\"arena_generation\":" << candidate.arena_generation
-          << ",\"touch_epoch\":" << candidate.touch_epoch
-          << ",\"strategy_epoch\":" << candidate.strategy_epoch
-          << ",\"producer\":" << unsigned(candidate.producer)
-          << ",\"existing_variables\":" << candidate.existing_variables
-          << ",\"introduced_variables\":" << candidate.introduced_variables
-          << '}';
-    }
-    out << ']';
-  }
+  if (!value.semantic_variable_candidates.empty())
+    out << ",\"semantic_variable_candidates\":"
+        << serialized_semantic_candidates(value.semantic_variable_candidates);
   out << '}';
   return out.str();
 }
 
-std::string serialize_feedback(const ActionFeedback &value) {
+namespace {
+
+// Complete observations, or each observation's delta from its predecessor.
+void write_observations(std::ostream &out, const Observation &before,
+                        const Observation &after, const Observation *base) {
+  if (base)
+    out << ",\"before_delta\":" << serialize_observation_delta(*base, before)
+        << ",\"after_delta\":" << serialize_observation_delta(before, after);
+  else
+    out << ",\"before\":" << serialize_observation(before)
+        << ",\"after\":" << serialize_observation(after);
+}
+
+std::string serialize_record(const ActionFeedback &value,
+                             const Observation *base) {
   auto out = stream();
   out << "{\"type\":\"action\",\"version\":" << value.version
       << ",\"sequence\":" << value.sequence << ",\"kind\":" << unsigned(value.kind)
@@ -455,56 +415,42 @@ std::string serialize_feedback(const ActionFeedback &value) {
     out << ",\"native_request\":";
     native_request(out, *value.native_request);
   }
-  out << ",\"before\":" << serialize_observation(value.before)
-      << ",\"after\":" << serialize_observation(value.after) << ",\"outcome\":";
+  write_observations(out, value.before, value.after, base);
+  out << ",\"outcome\":";
   outcome(out, value.outcome);
   out << ",\"stop\":" << unsigned(value.stop) << '}';
   return out.str();
 }
 
-std::string serialize_feedback(const SearchIntervalFeedback &value) {
+std::string serialize_record(const SearchIntervalFeedback &value,
+                             const Observation *base) {
   auto out = stream();
   out << "{\"type\":\"interval\",\"version\":" << value.version
       << ",\"sequence\":" << value.sequence << ",\"preceding\":" << value.preceding_interval
-      << ",\"start\":" << unsigned(value.start) << ",\"stop\":" << unsigned(value.stop)
-      << ",\"before\":" << serialize_observation(value.before)
-      << ",\"after\":" << serialize_observation(value.after) << '}';
+      << ",\"start\":" << unsigned(value.start) << ",\"stop\":" << unsigned(value.stop);
+  write_observations(out, value.before, value.after, base);
+  out << '}';
   return out.str();
 }
 
-std::string serialize_feedback_delta(const ActionFeedback &value,
-                                     const Observation &base) {
-  auto out = stream();
-  out << "{\"type\":\"action\",\"version\":" << value.version
-      << ",\"sequence\":" << value.sequence << ",\"kind\":" << unsigned(value.kind)
-      << ",\"identity\":" << quote(value.identity) << ",\"instance\":" << value.instance
-      << ",\"request\":";
-  if (value.request) request(out, *value.request); else out << "null";
-  out << ",\"allowance\":";
-  if (value.allowance) allowance(out, *value.allowance); else out << "null";
-  if (value.native_request) {
-    out << ",\"native_request\":";
-    native_request(out, *value.native_request);
-  }
-  out << ",\"before_delta\":" << serialize_observation_delta(base, value.before)
-      << ",\"after_delta\":" << serialize_observation_delta(value.before, value.after)
-      << ",\"outcome\":";
-  outcome(out, value.outcome);
-  out << ",\"stop\":" << unsigned(value.stop) << '}';
-  return out.str();
+// Wire version 1 has only complete records, each stamped version 1.
+template <class Feedback>
+std::string wire_record(const Feedback &value, uint32_t wire_version,
+                        const Observation &base) {
+  if (wire_version != 1) return serialize_record(value, &base);
+  Feedback legacy = value;
+  legacy.version = 1;
+  return serialize_record(legacy, nullptr);
 }
 
-std::string serialize_feedback_delta(const SearchIntervalFeedback &value,
-                                     const Observation &base) {
-  auto out = stream();
-  out << "{\"type\":\"interval\",\"version\":" << value.version
-      << ",\"sequence\":" << value.sequence << ",\"preceding\":"
-      << value.preceding_interval << ",\"start\":" << unsigned(value.start)
-      << ",\"stop\":" << unsigned(value.stop)
-      << ",\"before_delta\":" << serialize_observation_delta(base, value.before)
-      << ",\"after_delta\":" << serialize_observation_delta(value.before, value.after)
-      << '}';
-  return out.str();
+} // namespace
+
+std::string serialize_feedback(const ActionFeedback &value) {
+  return serialize_record(value, nullptr);
+}
+
+std::string serialize_feedback(const SearchIntervalFeedback &value) {
+  return serialize_record(value, nullptr);
 }
 
 bool FeedbackTrace::fail(const std::string &message) {
@@ -644,13 +590,7 @@ void FeedbackTrace::after_action(const ActionFeedback &value) {
     fail("invalid feedback action lifecycle"); return;
   }
   if (!previous_observation_) { fail("feedback action without observation base"); return; }
-  if (wire_version_ == 1) {
-    ActionFeedback legacy = value;
-    legacy.version = 1;
-    event(serialize_feedback(legacy));
-  } else {
-    event(serialize_feedback_delta(value, *previous_observation_));
-  }
+  event(wire_record(value, wire_version_, *previous_observation_));
   previous_observation_ = value.after;
   timing(value.duration_nanos);
 }
@@ -663,27 +603,19 @@ void FeedbackTrace::search_interval(const SearchIntervalFeedback &value) {
     fail("invalid feedback interval lifecycle"); return;
   }
   if (!previous_observation_) { fail("feedback interval without observation base"); return; }
-  if (wire_version_ == 1) {
-    SearchIntervalFeedback legacy = value;
-    legacy.version = 1;
-    event(serialize_feedback(legacy));
-  } else {
-    event(serialize_feedback_delta(value, *previous_observation_));
-  }
+  event(wire_record(value, wire_version_, *previous_observation_));
   previous_observation_ = value.after;
   timing(value.duration_nanos);
 }
 void FeedbackTrace::session_end(const Observation &value, int verdict, StopReason reason) {
   if (!begun_) { fail("feedback end without session begin"); return; }
-  if (wire_version_ == 1)
-    event("{\"type\":\"session_end\",\"verdict\":" + std::to_string(verdict) +
-          ",\"stop\":" + std::to_string(unsigned(reason)) +
-          ",\"observation\":" + serialize_observation(value) + '}');
-  else
-    event("{\"type\":\"session_end\",\"verdict\":" + std::to_string(verdict) +
-          ",\"stop\":" + std::to_string(unsigned(reason)) +
-          ",\"observation_delta\":" +
-          serialize_observation_delta(*previous_observation_, value) + '}');
+  event("{\"type\":\"session_end\",\"verdict\":" + std::to_string(verdict) +
+        ",\"stop\":" + std::to_string(unsigned(reason)) +
+        (wire_version_ == 1
+             ? ",\"observation\":" + serialize_observation(value)
+             : ",\"observation_delta\":" +
+                   serialize_observation_delta(*previous_observation_, value)) +
+        '}');
   if (!error_.empty()) return;
   terminal_ = true;
   if (replay_) {

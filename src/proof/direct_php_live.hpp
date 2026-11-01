@@ -49,26 +49,16 @@ struct Snapshot {
   uint64_t literals = 0;
   uint64_t work = 0;
 
-  friend bool operator==(const Snapshot &a, const Snapshot &b) {
-    if (a.sources != b.sources || a.arena_generation != b.arena_generation ||
-        a.next_clause_id != b.next_clause_id || a.nvars != b.nvars ||
-        a.external_extent != b.external_extent || a.literals != b.literals ||
-        a.work != b.work || a.premises.size() != b.premises.size())
-      return false;
-    for (size_t i = 0; i < a.premises.size(); ++i) {
-      const auto &x = a.premises[i], &y = b.premises[i];
-      if (x.occurrence != y.occurrence || x.native_proof_id != y.native_proof_id ||
-          x.literals != y.literals)
-        return false;
-    }
-    return true;
-  }
+  friend bool operator==(const Snapshot &, const Snapshot &) = default;
 };
 
 struct SnapshotLimits {
   uint64_t maximum_clauses = 0;
   uint64_t maximum_literals = 0;
   uint64_t maximum_work = 0;
+
+  friend bool operator==(const SnapshotLimits &,
+                         const SnapshotLimits &) = default;
 };
 
 struct Request {
@@ -378,78 +368,86 @@ inline bool exact_source(const Snapshot &snapshot,
   return true;
 }
 
+// The live-kernel preconditions every phase re-establishes, in this order:
+// a supported proof route, an applicable root state and, when `poll_stop`,
+// no pending interrupt.
+inline bool gate(const Kernel &k, bool poll_stop, Result &result) {
+  if (k.proof && (k.proof->lrat() || k.proof->terminal_pbp()))
+    result.status = Status::UnsupportedProof;
+  else if (!applicable(k))
+    result.status = Status::Inapplicable;
+  else if (poll_stop && kernel_terminating(k))
+    result.status = Status::Interrupted;
+  else
+    return true;
+  return false;
+}
+
+// Recapture the live formula and require the earlier snapshot unchanged.
+inline bool unchanged(Kernel &k, const SnapshotLimits &limits,
+                      const Snapshot &expected, Result &result) {
+  Snapshot current;
+  const CaptureStatus captured = capture(k, limits, current);
+  if (captured == CaptureStatus::Interrupted)
+    result.status = Status::Interrupted;
+  else if (captured != CaptureStatus::Complete || !(current == expected))
+    result.status = Status::Stale;
+  else
+    return true;
+  return false;
+}
+
+// `result` with the terminal status of the phase that stopped.
+inline Result stopped(Result result, Status status) {
+  result.status = status;
+  return result;
+}
+
 } // namespace detail
 
 inline Result admit(Kernel &kernel, const Request &request, Admission &output) {
   Result result;
-  if (!detail::valid(request))
+  if (!detail::valid(request) ||
+      !detail::gate(kernel, /*poll_stop=*/false, result))
     return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Status::UnsupportedProof;
-    return result;
-  }
-  if (!detail::applicable(kernel)) {
-    result.status = Status::Inapplicable;
-    return result;
-  }
   Snapshot snapshot;
   const detail::CaptureStatus captured =
       detail::capture(kernel, request.snapshot, snapshot, &result);
-  if (captured != detail::CaptureStatus::Complete) {
-    result.status = captured == detail::CaptureStatus::Interrupted
-                        ? Status::Interrupted
-                    : captured == detail::CaptureStatus::Exhausted
-                        ? Status::ResourceExhausted
-                        : Status::Invalid;
-    return result;
-  }
+  if (captured != detail::CaptureStatus::Complete)
+    return detail::stopped(result,
+                           captured == detail::CaptureStatus::Interrupted
+                               ? Status::Interrupted
+                           : captured == detail::CaptureStatus::Exhausted
+                               ? Status::ResourceExhausted
+                               : Status::Invalid);
   recognition::Image image;
   detail::RecognitionPoll context{&kernel};
   const recognition::Status recognized = recognition::recognize(
       snapshot.premises, request.recognition, detail::poll, &context, image);
   result.recognition_work = image.inspected_work;
-  if (recognized != recognition::Status::Recognized) {
-    result.status = detail::recognition_status(recognized);
-    return result;
-  }
-  if (snapshot.external_extent >= uint32_t(INT32_MAX)) {
-    result.status = Status::ResourceExhausted;
-    return result;
-  }
+  if (recognized != recognition::Status::Recognized)
+    return detail::stopped(result, detail::recognition_status(recognized));
+  if (snapshot.external_extent >= uint32_t(INT32_MAX))
+    return detail::stopped(result, Status::ResourceExhausted);
   const int32_t first_fresh = static_cast<int32_t>(snapshot.external_extent + 1);
   certificate::Plan plan;
   const certificate::Status planned = certificate::plan(
       image.variables, first_fresh, request.certificate, plan);
-  if (planned != certificate::Status::Ok) {
-    result.status = planned == certificate::Status::LimitExceeded ||
-                            planned == certificate::Status::ArithmeticOverflow ||
-                            planned == certificate::Status::FreshNamespaceCollision
-                        ? Status::ResourceExhausted
-                        : Status::Invalid;
-    return result;
-  }
+  if (planned != certificate::Status::Ok)
+    return detail::stopped(
+        result, planned == certificate::Status::LimitExceeded ||
+                        planned == certificate::Status::ArithmeticOverflow ||
+                        planned == certificate::Status::FreshNamespaceCollision
+                    ? Status::ResourceExhausted
+                    : Status::Invalid);
   if (plan.accounting.fresh_variables > UINT32_MAX ||
       uint64_t(snapshot.external_extent) + plan.accounting.fresh_variables >
-          uint64_t(INT32_MAX)) {
-    result.status = Status::ResourceExhausted;
+          uint64_t(INT32_MAX))
+    return detail::stopped(result, Status::ResourceExhausted);
+  if (kernel_terminating(kernel))
+    return detail::stopped(result, Status::Interrupted);
+  if (!detail::unchanged(kernel, request.snapshot, snapshot, result))
     return result;
-  }
-  if (kernel_terminating(kernel)) {
-    result.status = Status::Interrupted;
-    return result;
-  }
-  Snapshot revalidated;
-  const detail::CaptureStatus recaptured =
-      detail::capture(kernel, request.snapshot, revalidated);
-  if (recaptured == detail::CaptureStatus::Interrupted) {
-    result.status = Status::Interrupted;
-    return result;
-  }
-  if (recaptured != detail::CaptureStatus::Complete ||
-      !(revalidated == snapshot)) {
-    result.status = Status::Stale;
-    return result;
-  }
   Admission local;
   local.ready_ = true;
   local.request_ = request;
@@ -468,34 +466,12 @@ inline Result admit(Kernel &kernel, const Request &request, Admission &output) {
 inline Result prepare(Kernel &kernel, const Admission &admission,
                       Transaction &output) {
   Result result = admission.result();
-  if (!admission.ready()) {
-    result.status = Status::Invalid;
+  if (!admission.ready())
+    return detail::stopped(result, Status::Invalid);
+  if (!detail::gate(kernel, /*poll_stop=*/true, result) ||
+      !detail::unchanged(kernel, admission.request().snapshot,
+                         admission.snapshot(), result))
     return result;
-  }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Status::UnsupportedProof;
-    return result;
-  }
-  if (!detail::applicable(kernel)) {
-    result.status = Status::Inapplicable;
-    return result;
-  }
-  if (kernel_terminating(kernel)) {
-    result.status = Status::Interrupted;
-    return result;
-  }
-  Snapshot current;
-  const detail::CaptureStatus captured =
-      detail::capture(kernel, admission.request().snapshot, current);
-  if (captured == detail::CaptureStatus::Interrupted) {
-    result.status = Status::Interrupted;
-    return result;
-  }
-  if (captured != detail::CaptureStatus::Complete ||
-      !(current == admission.snapshot())) {
-    result.status = Status::Stale;
-    return result;
-  }
 
   Transaction local;
   local.request_ = admission.request();
@@ -511,10 +487,8 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
   local.events_.reserve(admission.plan().events.size());
   if (local.starting_clause_id_ > uint64_t(INT64_MAX) ||
       local.accounting_.additions >
-          uint64_t(INT64_MAX) - local.starting_clause_id_) {
-    result.status = Status::ResourceExhausted;
-    return result;
-  }
+          uint64_t(INT64_MAX) - local.starting_clause_id_)
+    return detail::stopped(result, Status::ResourceExhausted);
 
   struct OriginalIdentity {
     uint64_t token = 0;
@@ -527,10 +501,8 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
         {-amo.first_variable, -amo.second_variable};
     const Source *source = nullptr;
     if (!detail::exact_source(admission.snapshot(), amo.identity, clause, source) ||
-        originals.count(detail::key(clause))) {
-      result.status = Status::Invalid;
-      return result;
-    }
+        originals.count(detail::key(clause)))
+      return detail::stopped(result, Status::Invalid);
     originals.emplace(detail::key(clause),
                       OriginalIdentity{
                           source->native_proof_id, source->occurrence,
@@ -542,10 +514,8 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
   for (const certificate::Event &planned : admission.plan().events) {
     if (!detail::valid_clause(planned.clause) ||
         (planned.kind == certificate::EventKind::AddRat &&
-         planned.clause.empty())) {
-      result.status = Status::Invalid;
-      return result;
-    }
+         planned.clause.empty()))
+      return detail::stopped(result, Status::Invalid);
     ReplayEvent event;
     event.kind = planned.kind;
     event.role = planned.role;
@@ -557,20 +527,16 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
       generated[clause_key].push_back(event.id);
     } else if (event.role == certificate::EventRole::RetireOriginalAmo) {
       const auto found = originals.find(clause_key);
-      if (found == originals.end()) {
-        result.status = Status::Invalid;
-        return result;
-      }
+      if (found == originals.end())
+        return detail::stopped(result, Status::Invalid);
       event.deleted_id = found->second.token;
       event.source_occurrence = found->second.occurrence;
       event.deleted_id_is_capture_local = found->second.capture_local;
       originals.erase(found);
     } else {
       auto found = generated.find(clause_key);
-      if (found == generated.end() || found->second.empty()) {
-        result.status = Status::Invalid;
-        return result;
-      }
+      if (found == generated.end() || found->second.empty())
+        return detail::stopped(result, Status::Invalid);
       event.deleted_id = found->second.back();
       found->second.pop_back();
     }
@@ -581,10 +547,8 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
       local.events_.back().role != certificate::EventRole::Conclusion ||
       !local.events_.back().clause.empty() ||
       local.events_.size() != local.accounting_.events ||
-      next_id - local.starting_clause_id_ != local.accounting_.additions) {
-    result.status = Status::Invalid;
-    return result;
-  }
+      next_id - local.starting_clause_id_ != local.accounting_.additions)
+    return detail::stopped(result, Status::Invalid);
   local.ready_ = true;
   result.status = Status::Prepared;
   local.result_ = result;
@@ -594,43 +558,20 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
 
 inline Result publish(Kernel &kernel, const Transaction &transaction) {
   Result result = transaction.result_;
-  if (!transaction.ready_) {
-    result.status = Status::Invalid;
+  if (!transaction.ready_)
+    return detail::stopped(result, Status::Invalid);
+  if (!detail::gate(kernel, /*poll_stop=*/true, result))
     return result;
-  }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Status::UnsupportedProof;
-    return result;
-  }
-  if (!detail::applicable(kernel)) {
-    result.status = Status::Inapplicable;
-    return result;
-  }
-  if (kernel_terminating(kernel)) {
-    result.status = Status::Interrupted;
-    return result;
-  }
   if (kernel.next_clause_id != transaction.starting_clause_id_ ||
       kernel.arena_generation != transaction.arena_generation_ ||
       kernel.nvars != transaction.starting_nvars_ ||
       kernel.external_to_internal.size() != transaction.starting_extent_ ||
       kernel.reconstruction.size() != transaction.starting_reconstruction_ ||
-      kernel.proof != transaction.starting_proof_) {
-    result.status = Status::Stale;
+      kernel.proof != transaction.starting_proof_)
+    return detail::stopped(result, Status::Stale);
+  if (!detail::unchanged(kernel, transaction.request_.snapshot,
+                         transaction.snapshot_, result))
     return result;
-  }
-  Snapshot current;
-  const detail::CaptureStatus captured = detail::capture(
-      kernel, transaction.request_.snapshot, current);
-  if (captured == detail::CaptureStatus::Interrupted) {
-    result.status = Status::Interrupted;
-    return result;
-  }
-  if (captured != detail::CaptureStatus::Complete ||
-      !(current == transaction.snapshot_)) {
-    result.status = Status::Stale;
-    return result;
-  }
 
   // No interruption point exists below this boundary: proof bytes and their
   // monotonically reserved namespace cannot be rolled back.
@@ -642,6 +583,9 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
       uint64_t(reserved) + 1 != uint64_t(transaction.first_fresh_))
     std::abort();
   for (const ReplayEvent &event : transaction.events_) {
+    const int32_t *literals =
+        event.clause.empty() ? nullptr : event.clause.data();
+    const auto width = static_cast<uint32_t>(event.clause.size());
     if (event.kind == certificate::EventKind::Delete) {
       if (kernel.proof) {
         if (event.source_occurrence) {
@@ -662,10 +606,9 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
                                 ? 0 : event.deleted_id,
                             internal.data(),
                             static_cast<uint32_t>(internal.size()));
-        } else if (!kernel.proof->del_external(
-                       kernel.next_clause_id, event.deleted_id,
-                       event.clause.empty() ? nullptr : event.clause.data(),
-                       static_cast<uint32_t>(event.clause.size()))) {
+        } else if (!kernel.proof->del_external(kernel.next_clause_id,
+                                               event.deleted_id, literals,
+                                               width)) {
           std::abort();
         }
       }
@@ -674,13 +617,10 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
     if (++kernel.next_clause_id != event.id)
       std::abort();
     if (kernel.proof) {
-      const bool emitted = event.kind == certificate::EventKind::AddRat
-          ? kernel.proof->add_external_rat(
-                event.id, event.clause.empty() ? nullptr : event.clause.data(),
-                static_cast<uint32_t>(event.clause.size()))
-          : kernel.proof->add_external_rup(
-                event.id, event.clause.empty() ? nullptr : event.clause.data(),
-                static_cast<uint32_t>(event.clause.size()));
+      const bool emitted =
+          event.kind == certificate::EventKind::AddRat
+              ? kernel.proof->add_external_rat(event.id, literals, width)
+              : kernel.proof->add_external_rup(event.id, literals, width);
       if (!emitted)
         std::abort();
     }

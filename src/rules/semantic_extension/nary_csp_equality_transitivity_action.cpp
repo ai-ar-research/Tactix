@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 #include "rules/structural_action_guard.hpp"
 #include <algorithm>
 #include <climits>
@@ -18,14 +19,7 @@ using Selection=NaryCspEqualityTransitivitySelection;
 using Status=NaryCspEqualityTransitivityStatus;
 using ExternalClause=equality_transitivity::Clause;
 constexpr std::array<std::pair<size_t,size_t>,3> pairs{{{0,1},{0,2},{1,2}}};
-struct Meter {
- const Kernel &kernel;uint64_t bound,work=0;bool exhausted=false,interrupted=false;
- bool charge(uint64_t n=1){
-   if(kernel_terminating(kernel)){interrupted=true;return false;}
-   if(n>bound-work){exhausted=true;return false;}work+=n;return true;
- }
- Status failure()const{return interrupted?Status::Interrupted:Status::ResourceExhausted;}
-};
+using Meter=InterruptibleWork;
 uint64_t key_bytes(const Selection &s) {
  uint64_t n=sizeof(s);
  for(const auto &d:s.domains)n+=d.size()*sizeof(int32_t);
@@ -45,7 +39,7 @@ const NaryCspRelationOwnerSnapshot *owner(const NaryCspRelationOwnerSession &ses
  const NaryCspEqualityKey &key,Meter &meter){
  for(const auto &snapshot:session.snapshots()){
    bool equal=snapshot.relation.domains.size()==key.domains.size();
-   if(!meter.charge())return nullptr;
+   if(!meter.charge(1))return nullptr;
    if(!equal)continue;
    for(size_t i=0;i<key.domains.size();++i){
      if(!meter.charge(snapshot.relation.domains[i].values.size()+key.domains[i].size()))return nullptr;
@@ -70,7 +64,7 @@ uint64_t live_id(const Kernel &k,const ExternalClause &clause,Meter &m,bool &exa
    Lit a=wanted[0],b=wanted[1];if(!m.charge(2))return 0;
    if(k.watches.binary_size(b)<k.watches.binary_size(a))std::swap(a,b);
    for(const auto &w:k.watches.entries(a)){
-     if(!m.charge())return 0;
+     if(!m.charge(1))return 0;
      if(!w.binary()){if(k.watches.heads[a].binaries_first())break;continue;}
      if(w.other()==b){const auto id=k.binary_ids.get(kernel_binary_key(a,b));exact=id!=0&&k.binary_ids.tracks_values();return id?id:1;}
    }return 0;
@@ -87,11 +81,8 @@ uint64_t live_id(const Kernel &k,const ExternalClause &clause,Meter &m,bool &exa
 }
 NaryCspRelationCaptureRequest capture_request(const NaryCspEqualityKey &key,
  const NaryCspEqualityTransitivityLimits &l,uint64_t work,uint64_t clauses,uint64_t literals){
- NaryCspRelationCaptureRequest r;r.domains=key.domains;
- r.maximum_source_clauses=clauses;r.maximum_source_literals=literals;
- r.maximum_recognition_work=work;r.maximum_domains=3;r.maximum_domain_values=l.maximum_domain_values;
- r.maximum_forbidden_tuples=l.maximum_forbidden_tuples;
- r.maximum_external_extent=l.maximum_external_extent;return r;
+ auto r=nary_csp_ternary_capture_request(key.domains,l);
+ r.maximum_source_clauses=clauses;r.maximum_source_literals=literals;r.maximum_recognition_work=work;return r;
 }
 std::string clause_json(const ExternalClause &c){std::string s="[";for(auto l:c){if(s.size()>1)s+=',';s+=std::to_string(l);}return s+"]";}
 }
@@ -127,22 +118,22 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  if(!nary_csp_equality_transitivity_guard(k)){out.status=Status::Inapplicable;return out;}
  if(!limits.valid()||!records||selected.domains[0].size()>limits.maximum_domain_values)return out;
  Meter meter{k,limits.maximum_recognition_work};
- auto finish=[&](){out.recognition_work=meter.work;return out;};
+ auto finish=[&](){out.recognition_work=meter.used;return out;};
  // Before unbounded validation, price all caller-owned selection storage.
  const auto selection_bytes=key_bytes(selected);
  const uint64_t values=selected.domains[0].size();
  if(values && values>(UINT64_MAX-selection_bytes)/(18*values)){out.status=Status::ResourceExhausted;return finish();}
- if(selection_bytes>limits.maximum_preparation_bytes||!meter.charge(selection_bytes+18*values*values)){out.status=meter.failure();return finish();}
+ if(selection_bytes>limits.maximum_preparation_bytes||!meter.charge(selection_bytes+18*values*values)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
  if(!nary_csp_equality_transitivity_selection_valid(selected))return finish();
  if(!relations.belongs_to(k)||!equalities.belongs_to(k)||(session.retained()&&!session.belongs_to(k))){out.status=Status::Inapplicable;return finish();}
  if(k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())){out.status=Status::UnsupportedProof;return finish();}
  for(const auto &key:session.keys()){
-   if(!meter.charge(key_bytes(key)+selection_bytes)){out.status=meter.failure();return finish();}
+   if(!meter.charge(key_bytes(key)+selection_bytes)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
    if(key==selected){out.status=Status::Duplicate;return finish();}
  }
  uint64_t session_bytes=selection_bytes;
  for(const auto &key:session.keys()){
-   if(!meter.charge()||key_bytes(key)>limits.maximum_session_bytes-std::min(limits.maximum_session_bytes,session_bytes)){out.status=meter.failure();return finish();}
+   if(!meter.charge(1)||key_bytes(key)>limits.maximum_session_bytes-std::min(limits.maximum_session_bytes,session_bytes)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
    session_bytes+=key_bytes(key);
  }
  if(session.keys().size()>=limits.maximum_session_keys||session_bytes>limits.maximum_session_bytes){out.status=Status::ResourceExhausted;return finish();}
@@ -163,10 +154,10 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  };
  for(size_t i=0;i<3;++i){
    const auto *r=record(equalities,selected.equalities[i],meter);
-   if(meter.exhausted||meter.interrupted){out.status=meter.failure();return finish();}
+   if(meter.exhausted||meter.interrupted){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
    if(!r||r->extension_variable!=selected.equality_variables[i]){out.status=Status::MissingEquality;return finish();}
    const auto *saved=owner(relations,r->key,meter);
-   if(meter.exhausted||meter.interrupted){out.status=meter.failure();return finish();}
+   if(meter.exhausted||meter.interrupted){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
    if(!saved){out.status=Status::Stale;return finish();}
    if(saved->source.size()>limits.maximum_source_clauses-out.source_clauses||saved->source_literals>limits.maximum_source_literals-out.source_literals){out.status=Status::ResourceExhausted;return finish();}
    // Bound the simultaneous retained-source copy plus captured relation tables.
@@ -176,14 +167,14 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
    if(snapshot_bytes>limits.maximum_preparation_bytes/3||3*snapshot_bytes>limits.maximum_preparation_bytes-std::min(preparation,limits.maximum_preparation_bytes)){out.status=Status::ResourceExhausted;return finish();}
    preparation+=3*snapshot_bytes;
    NaryCspRelationOwnerSnapshot fresh;
-   const auto captured=nary_csp_relation_capture_owner(k,capture_request(r->key,limits,meter.bound-meter.work,
+   const auto captured=nary_csp_relation_capture_owner(k,capture_request(r->key,limits,meter.remaining(),
      limits.maximum_source_clauses-out.source_clauses,limits.maximum_source_literals-out.source_literals),fresh);
-   if(!meter.charge(captured.recognition_work)){out.status=meter.failure();return finish();}
+   if(!meter.charge(captured.recognition_work)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
    if(captured.status!=NaryCspRelationCaptureStatus::Applied){out.status=captured.status==NaryCspRelationCaptureStatus::Interrupted?Status::Interrupted:
-     captured.status==NaryCspRelationCaptureStatus::ResourceExhausted?Status::ResourceExhausted:Status::Stale;out.recognition_work=meter.work;return finish();}
+     captured.status==NaryCspRelationCaptureStatus::ResourceExhausted?Status::ResourceExhausted:Status::Stale;out.recognition_work=meter.used;return finish();}
    fresh.capture_work=saved->capture_work;fresh.external_extent=saved->external_extent;
    if(fresh!=*saved){out.status=Status::Stale;return finish();}
-   for(const auto &p:fresh.source)if(!source(p.literals,p.native_proof_id,true)){out.status=meter.exhausted||meter.interrupted?meter.failure():
+   for(const auto &p:fresh.source)if(!source(p.literals,p.native_proof_id,true)){out.status=meter.exhausted||meter.interrupted?stopped_status(meter,Status::ResourceExhausted):
       source_resource?Status::ResourceExhausted:Status::Stale;return finish();}
    const auto n=selected.domains[0].size();
    if(r->definition_clauses.size()!=3*n){out.status=Status::Stale;return finish();}
@@ -195,11 +186,11 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
    std::vector<bool> used(expected.size());
    for(const auto &c:r->definition_clauses){bool found=false;
      for(size_t j=0;j<expected.size();++j)if(!used[j]&&same_clause(c,expected[j],meter)){used[j]=true;found=true;break;}
-     if(!found||!source(c,0,false)){out.status=meter.exhausted||meter.interrupted?meter.failure():source_resource?Status::ResourceExhausted:Status::Stale;return finish();}
+     if(!found||!source(c,0,false)){out.status=meter.exhausted||meter.interrupted?stopped_status(meter,Status::ResourceExhausted):source_resource?Status::ResourceExhausted:Status::Stale;return finish();}
    }
    preparation-=3*snapshot_bytes;
  }
- out.recognition_work=meter.work;
+ out.recognition_work=meter.used;
  equality_transitivity::Plan plan;
  if(!equality_transitivity::plan(selected.domains,selected.equality_variables,limits.maximum_planning_work,plan)){out.status=Status::ResourceExhausted;return finish();}
  out.planning_work=plan.planning_work;
@@ -208,10 +199,10 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  std::array<std::array<Lit,3>,3> internal{};
  for(size_t i=0;i<3;++i){bool exact=false;
    if(live_id(k,plan.triangles[i],meter,exact)){out.status=Status::Duplicate;return finish();}
-   if(meter.exhausted||meter.interrupted){out.status=meter.failure();return finish();}
+   if(meter.exhausted||meter.interrupted){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
    for(size_t j=0;j<3;++j){const auto l=kernel_internalize(k,plan.triangles[i][j]);if(l==INVALID_LIT||kernel_var_retired(k,var_of(l))){out.status=Status::Stale;return finish();}internal[i][j]=l;}
  }
- out.recognition_work=meter.work;
+ out.recognition_work=meter.used;
  const uint64_t arena_words=3*clause_words(3),watch_words=12;
  if(k.arena.size()>UINT32_MAX-arena_words||arena_words>limits.maximum_arena_words||watch_words>limits.maximum_watch_words){out.status=Status::ResourceExhausted;return finish();}
  const uint64_t copy_words=k.watches.arena.size()+k.watches.heads.size()*uint64_t(sizeof(WatchHead)/sizeof(uint32_t));
@@ -219,7 +210,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  const uint64_t extra_bytes=(2*copy_words+watch_words+arena_words+arena_copy_words)*sizeof(uint32_t)+plan.literal_occurrences*sizeof(int32_t)+plan.additions*sizeof(ExternalClause)+3*sizeof(ExternalClause)+9*sizeof(int32_t);
  if(extra_bytes>limits.maximum_preparation_bytes-std::min(preparation,limits.maximum_preparation_bytes)){out.status=Status::ResourceExhausted;return finish();}
  // Prepare detached watch storage. Nothing authoritative changes on decline.
- if(!meter.charge(copy_words+watch_words+arena_copy_words)){out.status=meter.failure();return finish();}
+ if(!meter.charge(copy_words+watch_words+arena_copy_words)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
  auto watches=k.watches;watches.begin_batch_reserve();
  uint64_t total=0;for(const auto &h:watches.heads)total+=h.size;
  if(total>UINT32_MAX-watch_words){out.status=Status::ResourceExhausted;return finish();}
@@ -230,7 +221,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  const uint64_t journal_envelope=512+selection_bytes*12+out.source_clauses*128+out.source_literals*12;
  if(journal_envelope>limits.maximum_journal_bytes||journal_envelope>limits.maximum_preparation_bytes/3||3*journal_envelope>limits.maximum_preparation_bytes-std::min(preparation+extra_bytes,limits.maximum_preparation_bytes)){
    out.status=Status::ResourceExhausted;return finish();}
- if(!meter.charge(journal_envelope)){out.status=meter.failure();return finish();}
+ if(!meter.charge(journal_envelope)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
  std::string journal="{\"kind\":\"nary-csp-equality-transitivity\",\"action\":"+std::to_string(k.structural_action_sequence+1)+",\"projection\":\"identity\",\"new_variables\":0,\"domains\":[";
  for(size_t i=0;i<3;++i){if(i)journal+=',';journal+=clause_json(selected.domains[i]);}
  journal+="],\"owners\":[";
@@ -267,7 +258,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  out.published_consequences=std::move(consequences);
  out.committed_action_id=out.proposed_action_id;out.status=Status::Applied;out.result=ApplyResult::Ok;
  out.proof_work=plan.publication_work;out.proof_additions=plan.additions;out.proof_deletions=plan.deletions;
- out.proof_literal_occurrences=plan.literal_occurrences;out.journal_bytes=journal.size();out.recognition_work=meter.work;
+ out.proof_literal_occurrences=plan.literal_occurrences;out.journal_bytes=journal.size();out.recognition_work=meter.used;
  out.propagation_pending=!kernel_propagation_fixpoint(k);return finish();
 }
 } // namespace tactix

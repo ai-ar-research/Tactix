@@ -1,20 +1,15 @@
 #include "rules/parity_consequence/parity_consequence.hpp"
 #include "rules/lucky/parity_live.hpp"
+#include "rules/structural_action_guard.hpp"
 #include "proof/proof.hpp"
 #include <cstdlib>
 #include <limits>
 namespace tactix {
 RuleEligibility parity_consequence_guard(const Kernel &k) {
-  return RuleEligibility{}
-      .fact("consistent", !k.inconsistent)
-      .fact("root", !k.level)
-      .fact("no-conflict", !k.conflict_valid && !k.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(k))
-      .fact("sparse", !k.dense && k.large_watches_connected)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("provenance-bound", k.structural_provenance != nullptr)
-      .fact("action-id-available", k.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-certificate", !k.proof || (!k.proof->lrat() && !k.proof->terminal_pbp()));
+  return root_action_guard(k, /*assignment_free=*/false)
+      .identity()
+      .clausal_certificate()
+      .finish();
 }
 ApplyResult parity_consequence_apply(Kernel &k) {
   const auto &p = k.parity_consequence_parameters;

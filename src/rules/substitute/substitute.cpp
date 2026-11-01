@@ -9,6 +9,7 @@
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/process_memory.hpp"
 #include "diagnostics/rule_journal.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "kernel/watch.hpp"
@@ -53,6 +54,12 @@ void substitute_stage_trace(const Kernel &k, const char *stage,
                k.watches.arena.size(), k.watches.arena.capacity(), first,
                second, third);
 }
+
+// The live binary {a, b} under `tag`, with its proof id and live copy count.
+void trace_live_binary(const Kernel &k, const char *tag, Lit a, Lit b) {
+  event_trace_binary_lifecycle(k, tag, a, b, kernel_binary_id(k, a, b),
+                               kernel_binary_copies(k, a, b));
+}
 #else
 inline void substitute_stage_trace(const Kernel &, const char *, size_t = 0,
                                    size_t = 0, size_t = 0) {}
@@ -63,9 +70,7 @@ inline void substitute_stage_trace(const Kernel &, const char *, size_t = 0,
 RuleEligibility substitute_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
   // regardless of a recorded conflict (D-SPLIT-3, `docs/dev/calculus.md` §7).
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
 SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
@@ -393,10 +398,7 @@ ApplyResult apply_failed_root_units(Kernel &k, const SccResult &r) {
           chain.push_back(id);
     }
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, &unit, 1,
-                       lrat ? chain.data() : nullptr,
-                       lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    emit_rup_lemma(k, id, &unit, 1, chain);
     if (pending.record(k, unit, id) == PendingUnits::Outcome::Refuted)
       return ApplyResult::Unsat;
   }
@@ -433,6 +435,30 @@ inline bool substitution_member_live(const Kernel &k,
                                      Lit l) {
   return l < members.size() && members[l] && k.values[l] == 0 &&
          !kernel_var_retired(k, var_of(l));
+}
+
+// A persistent affine owner certifies the aliases `collect` names before their
+// endpoint bodies disappear. False when it declines (or the run is stopping),
+// which leaves the rewrite unopened. `scanned` is the caller's frontier work.
+template <class Collect>
+bool preserve_affine_aliases(Kernel &k, uint64_t scanned,
+                             const Collect &collect) {
+  AffineMatrixSearchSession *const affine = k.affine_matrix_search_session;
+  if (!affine || !affine->persistent() || !affine->attached_to(k))
+    return true;
+  if (kernel_terminating(k)) return false;
+  std::vector<std::pair<Lit, Lit>> aliases;
+  collect(aliases);
+  k.stats.substitute_ticks += std::min<uint64_t>(scanned + aliases.size(),
+      UINT64_MAX - k.stats.substitute_ticks);
+  const auto preserved = affine_matrix_search_preserve_aliases(
+      k, *affine, aliases);
+  // Expose preservation work to the existing Substitute action meter.
+  k.stats.substitute_ticks += std::min(preserved.work,
+      UINT64_MAX - k.stats.substitute_ticks);
+  return preserved.status == AffineMatrixServiceStatus::Applied ||
+         preserved.status == AffineMatrixServiceStatus::NoEvent ||
+         preserved.status == AffineMatrixServiceStatus::Disabled;
 }
 
 } // namespace
@@ -1000,10 +1026,7 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
         // whole-formula scan after every productive Sweep seed.
         dirty_binary_owners.push_back(owner);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-        event_trace_binary_lifecycle(
-            k, "sweep-ledger-drop", owner, other,
-            kernel_binary_id(k, owner, other),
-            kernel_binary_copies(k, owner, other));
+        trace_live_binary(k, "sweep-ledger-drop", owner, other);
 #endif
         continue;
       }
@@ -1011,10 +1034,7 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
         if (target_other != other) {
           dirty_binary_owners.push_back(owner);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-          event_trace_binary_lifecycle(
-              k, "sweep-ledger-rewrite", owner, other,
-              kernel_binary_id(k, owner, other),
-              kernel_binary_copies(k, owner, other));
+          trace_live_binary(k, "sweep-ledger-rewrite", owner, other);
           event_trace_binary_lifecycle(k, "sweep-ledger-target", owner,
                                        target_other, 0, 0);
 #endif
@@ -1030,10 +1050,7 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
         dirty_binary_owners.push_back(owner);
         dirty_binary_owners.push_back(target_owner);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-        event_trace_binary_lifecycle(
-            k, "sweep-ledger-move", owner, other,
-            kernel_binary_id(k, owner, other),
-            kernel_binary_copies(k, owner, other));
+        trace_live_binary(k, "sweep-ledger-move", owner, other);
         event_trace_binary_lifecycle(k, "sweep-ledger-target", target_owner,
                                      target_other, 0, 0);
 #endif
@@ -1153,9 +1170,7 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
   dirty_binary_owners.push_back(a);
   dirty_binary_owners.push_back(b);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_binary_lifecycle(k, "sweep-ledger-collapse-target", a, b,
-                               kernel_binary_id(k, a, b),
-                               kernel_binary_copies(k, a, b));
+  trace_live_binary(k, "sweep-ledger-collapse-target", a, b);
   event_trace_binary_collapse(k, source, a, b);
 #endif
   if (indexed)
@@ -1342,26 +1357,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // A persistent affine owner needs certified aliases before the original
   // endpoint bodies disappear. Sweep prepares its aliases before its earlier
   // ledger rewrite; the ordinary SCC path still has the intact binary graph.
-  if (!session && k.affine_matrix_search_session &&
-      k.affine_matrix_search_session->persistent() &&
-      k.affine_matrix_search_session->attached_to(k)) {
-    if (kernel_terminating(k)) return ApplyResult::NoOp;
-    std::vector<std::pair<Lit, Lit>> aliases;
-    for_each_substitutable([&](Lit l) {
-      if (!negated(l)) aliases.emplace_back(l, representative(l));
-    });
-    k.stats.substitute_ticks += std::min<uint64_t>(uint64_t(nlits) + aliases.size(),
-        UINT64_MAX - k.stats.substitute_ticks);
-    const auto preserved = affine_matrix_search_preserve_aliases(
-        k, *k.affine_matrix_search_session, aliases);
-    // Expose preservation work to the existing Substitute action meter.
-    k.stats.substitute_ticks += std::min(preserved.work,
-        UINT64_MAX - k.stats.substitute_ticks);
-    if (preserved.status != AffineMatrixServiceStatus::Applied &&
-        preserved.status != AffineMatrixServiceStatus::NoEvent &&
-        preserved.status != AffineMatrixServiceStatus::Disabled)
-      return ApplyResult::NoOp;
-  }
+  if (!session &&
+      !preserve_affine_aliases(k, uint64_t(nlits), [&](auto &aliases) {
+        for_each_substitutable([&](Lit l) {
+          if (!negated(l)) aliases.emplace_back(l, representative(l));
+        });
+      }))
+    return ApplyResult::NoOp;
 
   // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal,
   // derived before any binary mutation so big_path_chain reads the intact
@@ -1387,14 +1389,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const uint64_t id = ++k.next_clause_id;
     if (lrat)
       lemma[lemma_index(l)] = id;
-    if (k.proof) {
-      const Lit lits2[2] = {negate(l), s};
-      if (lrat)
-        k.proof->add_rup(id, lits2, 2, chain.data(),
-                         static_cast<uint32_t>(chain.size()));
-      else
-        k.proof->add_rup(0, lits2, 2, nullptr, 0);
-    }
+    const Lit lits2[2] = {negate(l), s};
+    emit_rup_lemma(k, id, lits2, 2, chain);
   });
   substitute_stage_trace(k, "rewrite-lemmas", lemma.size(), lemma.capacity());
 
@@ -1627,16 +1623,9 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       return ApplyResult::Ok;
     }
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof) {
-      if (lrat) {
-        chain.push_back(cid); // original clause closes the RUP chain
-        k.proof->add_rup(id, out.data(), static_cast<uint32_t>(out.size()),
-                         chain.data(), static_cast<uint32_t>(chain.size()));
-      } else {
-        k.proof->add_rup(0, out.data(), static_cast<uint32_t>(out.size()),
-                         nullptr, 0);
-      }
-    }
+    if (lrat)
+      chain.push_back(cid); // original clause closes the RUP chain
+    emit_rup_lemma(k, id, out, chain);
     changed = true;
     // Both Kissat substitution paths overwrite surviving large images in the
     // source allocation (`substitute.c:substitute_clauses` and
@@ -1923,6 +1912,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     Lit source_a, source_b;
     Lit target_a, target_b;
     bool tautological;
+    // The image differs from its source pair: tautological, a unit, or moved.
+    bool changed() const {
+      return tautological || target_a == target_b ||
+             kernel_binary_key(source_a, source_b) !=
+                 kernel_binary_key(target_a, target_b);
+    }
   };
   const auto make_image = [&](Lit lit, Lit other) {
     BinaryImage image{lit, other, INVALID_LIT, INVALID_LIT};
@@ -2261,10 +2256,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     // produce duplicate target clauses, preserving the internal multiset.
     for (const BinaryImage &stored : images) {
       const ExpandedBinaryImage image = expand_image(stored);
-      const bool changed_image =
-          image.tautological || image.target_a == image.target_b ||
-          kernel_binary_key(image.source_a, image.source_b) !=
-              kernel_binary_key(image.target_a, image.target_b);
+      const bool changed_image = image.changed();
       changed = changed || changed_image;
       if (image.tautological)
         continue;
@@ -2291,11 +2283,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     if (k.proof)
       for (const BinaryImage &stored : images) {
         const ExpandedBinaryImage image = expand_image(stored);
-        const bool changed_image =
-            image.tautological || image.target_a == image.target_b ||
-            kernel_binary_key(image.source_a, image.source_b) !=
-                kernel_binary_key(image.target_a, image.target_b);
-        if (!changed_image)
+        if (!image.changed())
           continue;
         const Lit lits2[2] = {image.source_a, image.source_b};
         k.proof->del(k.next_clause_id, 0, lits2, 2);
@@ -2338,10 +2326,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
 
     for (const BinaryImage &stored : images) {
       const ExpandedBinaryImage image = expand_image(stored);
-      const bool changed_image =
-          image.tautological || image.target_a == image.target_b ||
-          kernel_binary_key(image.source_a, image.source_b) !=
-              kernel_binary_key(image.target_a, image.target_b);
+      const bool changed_image = image.changed();
       changed = changed || changed_image;
       if (image.tautological)
         continue;
@@ -2440,11 +2425,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   if (k.population_observer && k.population_observe_solver)
     for (const BinaryImage &stored : images) {
       const ExpandedBinaryImage image = expand_image(stored);
-      const bool changed_image =
-          image.tautological || image.target_a == image.target_b ||
-          kernel_binary_key(image.source_a, image.source_b) !=
-              kernel_binary_key(image.target_a, image.target_b);
-      if (!changed_image)
+      if (!image.changed())
         continue;
       const Lit source[2] = {image.source_a, image.source_b};
       stage_binary_population(
@@ -2548,19 +2529,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (const BinaryImage &stored : images) {
     const ExpandedBinaryImage image = expand_image(stored);
-    const bool changed_image =
-        image.tautological || image.target_a == image.target_b ||
-        kernel_binary_key(image.source_a, image.source_b) !=
-            kernel_binary_key(image.target_a, image.target_b);
-    if (changed_image)
-      event_trace_binary_lifecycle(
-          k, image.tautological ? "sweep-physical-tautology"
-                               : image.target_a == image.target_b
-                                     ? "sweep-physical-unit"
-                                     : "sweep-physical-rewrite",
-          image.source_a, image.source_b,
-          kernel_binary_id(k, image.source_a, image.source_b),
-          kernel_binary_copies(k, image.source_a, image.source_b));
+    if (image.changed())
+      trace_live_binary(k,
+                        image.tautological ? "sweep-physical-tautology"
+                        : image.target_a == image.target_b
+                            ? "sweep-physical-unit"
+                            : "sweep-physical-rewrite",
+                        image.source_a, image.source_b);
   }
 #endif
 
@@ -2604,18 +2579,23 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         }
         v.resize(kept);
       };
-  const auto bridge_keep_find =
-      [](std::vector<std::pair<uint64_t, uint32_t>> &v,
-         uint64_t key) -> uint32_t * {
+  const auto directed_entry_key = [](Lit from, Lit to) {
+    return (static_cast<uint64_t>(from) << 32) | to;
+  };
+  // Consume one protected copy of the directed entry `from -> to`; false
+  // when none is left.
+  const auto bridge_keep_take =
+      [&](std::vector<std::pair<uint64_t, uint32_t>> &v, Lit from, Lit to) {
+    const uint64_t key = directed_entry_key(from, to);
     const auto it = std::lower_bound(
         v.begin(), v.end(), key,
         [](const std::pair<uint64_t, uint32_t> &a, uint64_t b) {
           return a.first < b;
         });
-    return it != v.end() && it->first == key ? &it->second : nullptr;
-  };
-  const auto directed_entry_key = [](Lit from, Lit to) {
-    return (static_cast<uint64_t>(from) << 32) | to;
+    if (it == v.end() || it->first != key || !it->second)
+      return false;
+    --it->second;
+    return true;
   };
   if (session) {
     affected_binary_owners.reserve(2 * images.size());
@@ -2662,14 +2642,9 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     for (const WatchEntry watch : k.watches.entries(lit)) {
       if (!watch.binary())
         continue;
-      if (session) {
-        uint32_t *const keep = bridge_keep_find(
-            bridge_keep_snapshot, directed_entry_key(lit, watch.other()));
-        if (keep && *keep) {
-          --*keep;
-          continue;
-        }
-      }
+      if (session &&
+          bridge_keep_take(bridge_keep_snapshot, lit, watch.other()))
+        continue;
       images.push_back(make_image(lit, watch.other()));
     }
   };
@@ -2717,17 +2692,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         k.watches.compact(lit, [&](WatchEntry watch) {
           if (!watch.binary())
             return true;
-          if (session) {
-            // Same first-N consumption order as the snapshot above: the lists
-            // are untouched between the two passes, so identical counters
-            // protect identical entries.
-            uint32_t *const keep = bridge_keep_find(
-                bridge_keep_compact, directed_entry_key(lit, watch.other()));
-            if (keep && *keep) {
-              --*keep;
-              return true;
-            }
-          }
+          // Same first-N consumption order as the snapshot above: the lists
+          // are untouched between the two passes, so identical counters
+          // protect identical entries.
+          if (session &&
+              bridge_keep_take(bridge_keep_compact, lit, watch.other()))
+            return true;
           return !mapped(lit) && !mapped(watch.other());
         });
     };
@@ -3274,25 +3244,11 @@ ApplyResult substitute_apply_sweep_equivalences(
   // The Sweep ledger predicts/retires binary source occurrences below, so
   // preserve affine aliases while the physical graph still certifies both
   // directions. A bounded decline leaves that ledger transaction unopened.
-  if (k.affine_matrix_search_session &&
-      k.affine_matrix_search_session->persistent() &&
-      k.affine_matrix_search_session->attached_to(k)) {
-    if (kernel_terminating(k)) return ApplyResult::NoOp;
-    std::vector<std::pair<Lit, Lit>> aliases;
-    for (const auto &[source, target] : sparse_map)
-      if (!negated(source)) aliases.emplace_back(source, target);
-    k.stats.substitute_ticks += std::min<uint64_t>(sparse_map.size() + aliases.size(),
-        UINT64_MAX - k.stats.substitute_ticks);
-    const auto preserved = affine_matrix_search_preserve_aliases(
-        k, *k.affine_matrix_search_session, aliases);
-    // Expose preservation work to the existing Substitute action meter.
-    k.stats.substitute_ticks += std::min(preserved.work,
-        UINT64_MAX - k.stats.substitute_ticks);
-    if (preserved.status != AffineMatrixServiceStatus::Applied &&
-        preserved.status != AffineMatrixServiceStatus::NoEvent &&
-        preserved.status != AffineMatrixServiceStatus::Disabled)
-      return ApplyResult::NoOp;
-  }
+  if (!preserve_affine_aliases(k, sparse_map.size(), [&](auto &aliases) {
+        for (const auto &[source, target] : sparse_map)
+          if (!negated(source)) aliases.emplace_back(source, target);
+      }))
+    return ApplyResult::NoOp;
   session.rewrite_binary_occurrences(k, sparse_map, sources, bridges);
   const ApplyResult result = do_substitution(k, r, {}, &session);
   // flush_moves closes the transaction and clears its sparse mapping. A
@@ -3316,23 +3272,13 @@ ApplyResult substitute_apply_sweep_equivalences(
 static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   // Public enumeration observes the current frontier. It must not spend the
   // solver's work currency before the caller chooses an instance.
-  SccResult r = substitute_find_sccs(k, true, false);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(r.nontrivial_reps.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, r.nontrivial_reps[i]);
-  return n;
+  const SccResult r = substitute_find_sccs(k, true, false);
+  return copy_literal_instance_prefix(k, r.nontrivial_reps, out, cap);
 }
 
-static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return substitute_apply(k);
-  Lit rep;
-  if (!lit_of_instance(k, inst, &rep))
-    return ApplyResult::NoOp;
+// One class, behind the shared root-literal instance prelude (D-LEVEL: the
+// root closure is drained first; a conflict refutes).
+static ApplyResult substitute_apply_class(Kernel &k, Lit rep) {
   if (var_of(rep) >= k.nvars || k.values[rep] != 0)
     return ApplyResult::NoOp;
   // re-derive from the live graph, which may have changed since instances()
@@ -3362,6 +3308,7 @@ static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
 
 TACTIX_REGISTER_RULE(Substitute, RuleTier::Inprocess, substitute_guard,
                      substitute_apply, substitute_instances,
-                     substitute_apply_instance);
+                     (apply_root_literal_instance<substitute_apply,
+                                                  substitute_apply_class>));
 
 } // namespace tactix

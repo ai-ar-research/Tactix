@@ -16,6 +16,7 @@
 #include "kernel/types.hpp"
 #include "kernel/realloc_words.hpp"
 
+#include <utility>
 #include <vector>
 
 namespace tactix {
@@ -144,6 +145,43 @@ inline Clause *clause_at(uint32_t *arena_data, Ref ref) {
 }
 inline const Clause *clause_at(const Arena &arena, Ref ref) {
   return reinterpret_cast<const Clause *>(arena.data() + ref);
+}
+
+// Every record of an arena in address order, garbage included:
+// `for (const auto [ref, c] : arena_records(k.arena))`. Range-shaped like
+// WatchRange, so `break`/`continue`/`return` keep their meaning. Advancing
+// re-reads the record and steps over its allocation (`clause_actual_words`),
+// which retirement and in-place shrinking preserve; the live arena size bounds
+// every step. Always inlined, so each walk keeps its hand-written code shape:
+// kernel.cpp sits at GCC's inline-unit-growth limit inside propagation.
+template <class A> struct ArenaRecords {
+  struct Record {
+    Ref ref;
+    decltype(clause_at(std::declval<A &>(), Ref{})) clause;
+  };
+  struct End {};
+  struct Iterator {
+    A *arena;
+    Ref ref;
+    [[gnu::always_inline]] Record operator*() const {
+      return {ref, clause_at(*arena, ref)};
+    }
+    [[gnu::always_inline]] Iterator &operator++() {
+      ref += clause_actual_words(clause_at(*arena, ref));
+      return *this;
+    }
+    [[gnu::always_inline]] bool operator!=(End) const {
+      return ref < arena->size();
+    }
+  };
+  A &arena;
+  [[gnu::always_inline]] Iterator begin() const { return {&arena, 0}; }
+  [[gnu::always_inline]] End end() const { return {}; }
+};
+
+template <class A>
+[[gnu::always_inline]] inline ArenaRecords<A> arena_records(A &arena) {
+  return {arena};
 }
 
 } // namespace tactix

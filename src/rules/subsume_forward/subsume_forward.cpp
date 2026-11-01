@@ -13,9 +13,7 @@ namespace tactix {
 RuleEligibility subsume_forward_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
   // regardless of a recorded conflict (D-SPLIT-3, `docs/dev/calculus.md` §7).
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
 // is `d` (irredundant, live) a subsumer of the marked candidate? true iff every
@@ -42,12 +40,7 @@ static bool subsumes_marked(const Kernel &k, const std::vector<uint8_t> &marks,
 // redundant clause is licensed unconditionally (S2 Forget). The load-bearing
 // redundancy check sits on the subsumer instead (subsume_forward.hpp).
 static bool is_victim(const Kernel &k, const Clause *c) {
-  if (c->garbage())
-    return false;
-  for (const Lit l : *c)
-    if (k.value(l) > 0)
-      return false; // root-satisfied
-  return true;
+  return root_clause_relevant(k, c);
 }
 
 // ...and the narrower set the canonical round works on. The redundant tier band
@@ -70,11 +63,9 @@ void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out,
     uint32_t size;
   };
   std::vector<Cand> cands;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (complete ? is_victim(k, c) : is_round_candidate(k, c))
       cands.push_back({ref, c->size});
-    ref += clause_actual_words(c);
   }
   std::sort(cands.begin(), cands.end(), [](const Cand &a, const Cand &b) {
     if (a.size != b.size)
@@ -123,17 +114,6 @@ static bool watch_population_within(const Kernel &k, Lit lit, bool binary,
       return false;
   return true;
 }
-
-// Match Kissat forward_literal's local `steps` accumulator: partner visits are
-// a hot-loop scalar and become observable only when the rule returns.  The
-// destructor also publishes exact partial work on every early exit.
-struct ForwardVisitCounter {
-  uint64_t &published;
-  uint64_t value;
-  explicit ForwardVisitCounter(uint64_t &counter)
-      : published(counter), value(counter) {}
-  ~ForwardVisitCounter() { published = value; }
-};
 
 // Binary subsumers of the marked candidate live in the watch lists of its free
 // literals: binary (l, o) with both marked subsumes. Skips oversized lists
@@ -207,12 +187,10 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   std::vector<uint32_t> fallback_population;
   if (!k.dense) {
     fallback_population.assign(2 * k.nvars, 0);
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage() && !c->redundant())
         for (const Lit l : *c)
           fallback_population[l]++;
-      ref += clause_actual_words(c);
     }
   }
   const auto watch_population = [&](Lit l) -> size_t {
@@ -225,7 +203,8 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // polling in candidates would let one candidate with a saturated occurrence
   // list run unboundedly. Stopping early is sound — survivors remain candidates
   // next round. 0 = unbounded. Dosing: ledger row D-STRENGTHEN-BUDGET.
-  ForwardVisitCounter visits(k.stats.forward_visits);
+  // Kissat forward_literal's local `steps` accumulator over partner visits.
+  PublishedCounter visits(k.stats.forward_visits);
   const uint64_t check_start = visits.value;
   const bool visit_bounded = k.midround_budget;
   const uint64_t visit_budget = k.work_budget;
@@ -372,8 +351,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
 // here, which is the complete surface N1 requires; the subsumer may not, hence
 // the `d->redundant()` skip below.
 template <bool Collect>
-static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate,
-                                            std::vector<uint8_t> *scratch) {
+static ApplyResult subsume_forward_try_instance(Kernel &k, Ref candidate) {
   assert(subsume_forward_guard(k));
   // The round's `work_budget` is a round device and is not consulted here, so
   // termination gets its own check — one per call, at entry, where nothing is
@@ -384,10 +362,7 @@ static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate,
   if (!is_victim(k, c))
     return ApplyResult::NoOp;
   k.stats.forward_checked++;
-  std::vector<uint8_t> local_marks;
-  std::vector<uint8_t> &marks = scratch ? *scratch : local_marks;
-  if (marks.size() < 2 * static_cast<size_t>(k.nvars))
-    marks.resize(2 * static_cast<size_t>(k.nvars), 0);
+  std::vector<uint8_t> marks(2 * static_cast<size_t>(k.nvars), 0);
   mark_candidate(k, marks, c, 1);
   // one fused scan per free literal's watch list: binary entries subsume when
   // the other literal is marked, large entries via subsumes_marked
@@ -421,11 +396,6 @@ static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate,
   if constexpr (Collect)
     kernel_collect_garbage(k);
   return ApplyResult::Ok;
-}
-
-template <bool Collect>
-static ApplyResult subsume_forward_try_instance(Kernel &k, Ref candidate) {
-  return subsume_forward_try_impl<Collect>(k, candidate, nullptr);
 }
 
 ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
