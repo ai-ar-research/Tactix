@@ -495,7 +495,7 @@ bool make_affine_basis_journal(
             std::to_string(row) + ",\"rhs\":" +
             (planned.rhs ? "true" : "false") + ",\"variables\":[" +
             join_integers(planned.variables) + "],\"sources\":[" +
-            join_integers<uint64_t>(planned.source_equations) +
+            join_integers(planned.source_equations) +
             "],\"premises\":[" + join_integers(planned.premises) + "]}\n"))
       return false;
   }
