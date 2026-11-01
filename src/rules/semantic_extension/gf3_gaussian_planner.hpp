@@ -19,6 +19,8 @@ struct SourceRow {
   uint64_t source_id = 0;
   std::vector<Term> terms;
   uint8_t rhs = 0;
+
+  friend bool operator==(const SourceRow &, const SourceRow &) = default;
 };
 
 struct ProvenanceTerm {
@@ -105,6 +107,8 @@ struct Statistics {
   uint64_t work = 0;
   uint64_t fill_entries = 0;
   uint64_t retained_plan_bytes = 0;
+
+  friend bool operator==(const Statistics &, const Statistics &) = default;
 };
 
 struct Plan {

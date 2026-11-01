@@ -4,21 +4,13 @@
 
 #include <algorithm>
 #include <climits>
-#include <limits>
 #include <set>
 #include <utility>
 
 namespace tactix::gf3_general_row {
 namespace {
 
-bool power3(uint32_t exponent, uint64_t &result) {
-  result = 1;
-  while (exponent--) {
-    if (result > std::numeric_limits<uint64_t>::max() / 3) return false;
-    result *= 3;
-  }
-  return true;
-}
+using gf3_certificate_common::power3;
 
 struct Selection {
   const gf3_gaussian::RowOutcome *outcome = nullptr;

@@ -4,7 +4,7 @@
 
 #include "kernel/types.hpp"
 #include "rules/structural_action_guard.hpp"
-#include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include "proof/proof.hpp"
 
@@ -28,11 +28,7 @@ struct Gf3AffineActionSessionAccess {
 
 namespace {
 
-bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
+using gf3_live_common::add_work;
 
 Gf3AffineActionKey canonical_key(uint32_t first, uint32_t second) {
   if (second < first) std::swap(first, second);
@@ -41,7 +37,6 @@ Gf3AffineActionKey canonical_key(uint32_t first, uint32_t second) {
 
 enum class KeyStatus : uint8_t { Novel, Present, Invalid, Exhausted };
 
-enum class SessionKeysStatus : uint8_t { Valid, Invalid, Exhausted };
 enum class OwnerLimitStatus : uint8_t { Within, Invalid, Exhausted };
 
 OwnerLimitStatus retained_owner_limit_status(
@@ -129,7 +124,7 @@ OwnerLimitStatus retained_owner_limit_status(
   if (recognized.status == gf3_affine::RecognitionStatus::EffortExhausted)
     return OwnerLimitStatus::Exhausted;
   if (recognized.status != gf3_affine::RecognitionStatus::Recognized ||
-      !gf3_affine::same_theory(owner.theory, recognized.theory) ||
+      owner.theory != recognized.theory ||
       recognized.theory.maximum_variable > owner.external_extent)
     return OwnerLimitStatus::Invalid;
   return OwnerLimitStatus::Exhausted;
@@ -181,7 +176,6 @@ Gf3AffineActionStatus action_status(Gf3AffineLiveStatus status) {
   default: std::abort();
   }
 }
-using OfferMeter = InterruptibleWork;
 
 Gf3AffineLiveRequest make_request(const Kernel &kernel,
                                   const Gf3AffineActionLimits &limits,

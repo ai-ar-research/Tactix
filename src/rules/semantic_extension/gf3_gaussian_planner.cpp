@@ -1,7 +1,8 @@
 #include "rules/semantic_extension/gf3_gaussian_planner.hpp"
 
+#include "rules/semantic_extension/gf3_certificate_common.hpp"
+
 #include <algorithm>
-#include <limits>
 #include <map>
 #include <numeric>
 #include <set>
@@ -10,30 +11,17 @@
 namespace tactix::gf3_gaussian {
 namespace {
 
+using gf3_certificate_common::add3;
+using gf3_certificate_common::add_checked;
+using gf3_certificate_common::multiply3;
+using gf3_certificate_common::multiply_checked;
+using Meter =
+    gf3_certificate_common::Meter<Limits, Charge, Statistics, LimitKind>;
+
 constexpr uint64_t node_bytes = 48;
 constexpr uint64_t row_term_bytes = 8;
 constexpr uint64_t provenance_term_bytes = 16;
 constexpr uint64_t outcome_bytes = 16;
-
-uint8_t add3(uint8_t a, uint8_t b) {
-  return static_cast<uint8_t>((a + b) % 3);
-}
-
-uint8_t multiply3(uint8_t a, uint8_t b) {
-  return static_cast<uint8_t>((a * b) % 3);
-}
-
-bool add_checked(uint64_t a, uint64_t b, uint64_t &result) {
-  if (b > std::numeric_limits<uint64_t>::max() - a) return false;
-  result = a + b;
-  return true;
-}
-
-bool multiply_checked(uint64_t a, uint64_t b, uint64_t &result) {
-  if (a && b > std::numeric_limits<uint64_t>::max() / a) return false;
-  result = a * b;
-  return true;
-}
 
 bool valid_row(const SourceRow &row) {
   if (!row.source_id || row.rhs >= 3) return false;
@@ -107,41 +95,20 @@ std::vector<T> added(const std::vector<T> &a, const std::vector<T> &b) {
   return result;
 }
 
-struct Builder {
-  const Limits &limits;
-  Charge &charge;
+struct Builder : Meter {
   Plan plan;
-  Statistics consumed;
-  LimitKind limit = LimitKind::None;
-  bool interrupted = false;
   std::map<uint32_t, uint32_t> scale_by_two;
 
-  Builder(const Limits &limits_, Charge &charge_)
-      : limits(limits_), charge(charge_) {}
-
-  bool consume_work(uint64_t amount) {
-    uint64_t next = 0;
-    if (!add_checked(consumed.work, amount, next) ||
-        next > limits.maximum_work) {
-      limit = LimitKind::Work;
-      return false;
-    }
-    if (!charge(amount)) {
-      interrupted = true;
-      return false;
-    }
-    consumed.work = next;
-    return true;
-  }
+  using Meter::Meter;
 
   bool consume_retained_plan(uint64_t amount) {
     uint64_t next = 0;
-    if (!add_checked(consumed.retained_plan_bytes, amount, next) ||
+    if (!add_checked(stats.retained_plan_bytes, amount, next) ||
         next > limits.maximum_retained_plan_bytes) {
       limit = LimitKind::RetainedPlan;
       return false;
     }
-    consumed.retained_plan_bytes = next;
+    stats.retained_plan_bytes = next;
     return true;
   }
 
@@ -167,12 +134,12 @@ struct Builder {
       return false;
     if (counts_fill) {
       uint64_t next = 0;
-      if (!add_checked(consumed.fill_entries, node.row.size(), next) ||
+      if (!add_checked(stats.fill_entries, node.row.size(), next) ||
           next > limits.maximum_fill_entries) {
         limit = LimitKind::Fill;
         return false;
       }
-      consumed.fill_entries = next;
+      stats.fill_entries = next;
     }
     uint64_t row_memory = 0, provenance_memory = 0, memory = node_bytes;
     if (!multiply_checked(node.row.size(), row_term_bytes, row_memory) ||
@@ -188,7 +155,7 @@ struct Builder {
   }
 
   bool source(const SourceRow &input, WorkingRow &result) {
-    if (!consume_work(1 + input.terms.size())) return false;
+    if (!spend(1 + input.terms.size())) return false;
     Derivation node;
     node.kind = DerivationKind::Source;
     node.source_id = input.source_id;
@@ -211,7 +178,7 @@ struct Builder {
       result = {stored.row, stored.rhs, stored.provenance, found->second};
       return true;
     }
-    if (!consume_work(1 + input.row.size() + input.provenance.size()))
+    if (!spend(1 + input.row.size() + input.provenance.size()))
       return false;
     Derivation node;
     node.kind = DerivationKind::Scale;
@@ -229,8 +196,8 @@ struct Builder {
   }
 
   bool add(const WorkingRow &a, const WorkingRow &b, WorkingRow &result) {
-    if (!consume_work(1 + a.row.size() + b.row.size() +
-                      a.provenance.size() + b.provenance.size()))
+    if (!spend(1 + a.row.size() + b.row.size() +
+               a.provenance.size() + b.provenance.size()))
       return false;
     Derivation node;
     node.kind = DerivationKind::Add;
@@ -274,7 +241,7 @@ Result decline(Builder &builder, PlanStatus status) {
   Result result;
   result.status = status;
   result.limit = builder.limit;
-  result.consumed = builder.consumed;
+  result.consumed = builder.stats;
   return result;
 }
 
@@ -327,8 +294,8 @@ Result build_plan(const std::vector<SourceRow> &source, const Limits &limits,
       if (!builder.add_outcome(RowOutcomeKind::ZeroRowConflict,
                                row.derivation))
         return decline(builder, PlanStatus::LimitExceeded);
-      builder.plan.statistics = builder.consumed;
-      return {PlanStatus::Complete, LimitKind::None, builder.consumed,
+      builder.plan.statistics = builder.stats;
+      return {PlanStatus::Complete, LimitKind::None, builder.stats,
               std::move(builder.plan)};
     }
     basis.emplace(row.row.front().variable, std::move(row));
@@ -364,8 +331,8 @@ Result build_plan(const std::vector<SourceRow> &source, const Limits &limits,
     if (!builder.add_outcome(kind, row.derivation))
       return decline(builder, PlanStatus::LimitExceeded);
   }
-  builder.plan.statistics = builder.consumed;
-  return {PlanStatus::Complete, LimitKind::None, builder.consumed,
+  builder.plan.statistics = builder.stats;
+  return {PlanStatus::Complete, LimitKind::None, builder.stats,
           std::move(builder.plan)};
 }
 

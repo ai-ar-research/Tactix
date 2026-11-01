@@ -19,9 +19,44 @@ inline bool add_checked(uint64_t first, uint64_t second, uint64_t &result) {
   return true;
 }
 
+inline bool multiply_checked(uint64_t first, uint64_t second,
+                             uint64_t &result) {
+  if (first && second > std::numeric_limits<uint64_t>::max() / first)
+    return false;
+  result = first * second;
+  return true;
+}
+
+inline bool power3(uint32_t exponent, uint64_t &result) {
+  result = 1;
+  while (exponent--) {
+    if (result > std::numeric_limits<uint64_t>::max() / 3) return false;
+    result *= 3;
+  }
+  return true;
+}
+
+inline uint8_t add3(uint8_t first, uint8_t second) {
+  return static_cast<uint8_t>((first + second) % 3);
+}
+
+inline uint8_t multiply3(uint8_t first, uint8_t second) {
+  return static_cast<uint8_t>((first * second) % 3);
+}
+
 inline std::vector<int32_t> canonical(std::vector<int32_t> clause) {
   std::sort(clause.begin(), clause.end());
   return clause;
+}
+
+inline bool valid_clause(const std::vector<int32_t> &clause) {
+  if (clause.empty()) return false;
+  std::set<uint32_t> variables;
+  for (const int32_t literal : clause)
+    if (!literal || literal == INT32_MIN ||
+        !variables.insert(external_variable_of(literal)).second)
+      return false;
+  return true;
 }
 
 template <class Result> struct Outcome {
@@ -146,21 +181,21 @@ bool collect_authenticated_premises(const Theory &theory,
 
 template <class Limits, class Charge, class Statistics, class LimitKind>
 class Meter {
-  const Limits &limits_;
   Charge &charge_;
 
 public:
+  const Limits &limits;
   Statistics stats;
   LimitKind limit = LimitKind::None;
   bool interrupted = false;
 
-  Meter(const Limits &limits, Charge &charge)
-      : limits_(limits), charge_(charge) {}
+  Meter(const Limits &limits_, Charge &charge)
+      : charge_(charge), limits(limits_) {}
 
   bool spend(uint64_t amount) {
     uint64_t next = 0;
     if (!add_checked(stats.work, amount, next) ||
-        next > limits_.maximum_work) {
+        next > limits.maximum_work) {
       limit = LimitKind::Work;
       return false;
     }
@@ -174,7 +209,7 @@ public:
 
   bool retain_source() {
     if (stats.retained_source_references >=
-        limits_.maximum_retained_source_references) {
+        limits.maximum_retained_source_references) {
       limit = LimitKind::RetainedSourceReferences;
       return false;
     }

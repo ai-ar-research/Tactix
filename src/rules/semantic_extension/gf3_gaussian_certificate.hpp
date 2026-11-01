@@ -70,6 +70,7 @@ struct Limits {
            maximum_event_width && maximum_branch_domains &&
            maximum_consequences;
   }
+  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 enum class LimitKind : uint8_t {

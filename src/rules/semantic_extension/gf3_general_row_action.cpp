@@ -4,6 +4,7 @@
 #include "strategy/action_status_statistics.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -23,11 +24,7 @@ struct Gf3GeneralRowActionSessionAccess {
 
 namespace {
 
-bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
+using gf3_live_common::add_work;
 
 uint64_t saturated(uint64_t first, uint64_t second) {
   return second > UINT64_MAX - first ? UINT64_MAX : first + second;
@@ -92,14 +89,7 @@ bool Gf3GeneralRowActionLimits::valid() const {
 
 bool gf3_general_row_action_selection_valid(
     const Gf3GeneralRowActionSelection &selection) {
-  if (selection.identity.size() <= 5 ||
-      selection.identity.rfind("g3r1:", 0) ||
-      (selection.identity.size() - 5) % 2)
-    return false;
-  return std::all_of(selection.identity.begin() + 5,
-                     selection.identity.end(), [](char ch) {
-    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
-  });
+  return gf3_live_common::valid_hex_identity(selection.identity, "g3r1:");
 }
 
 RuleEligibility gf3_general_row_action_guard(const Kernel &kernel) {

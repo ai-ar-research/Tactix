@@ -43,6 +43,8 @@ struct Request {
   // Empty retains the private batch API.  Public controller actions always
   // provide the exact canonical complete-batch identity returned by inspect().
   std::string selected_identity;
+
+  friend bool operator==(const Request &, const Request &) = default;
 };
 
 struct Accounting {

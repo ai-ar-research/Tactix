@@ -4,6 +4,7 @@
 #include "strategy/action_status_statistics.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -20,11 +21,7 @@ struct Gf3GaussianActionSessionAccess {
 
 namespace {
 
-bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
+using gf3_live_common::add_work;
 
 gf3_gaussian_live::Request request(const Kernel &kernel,
                                    const Gf3GaussianActionLimits &limits,
@@ -67,15 +64,6 @@ Gf3GaussianActionStatus status(gf3_gaussian_live::Status value) {
   case S::Prepared: return Gf3GaussianActionStatus::Applied;
   default: std::abort();
   }
-}
-
-bool valid_identity(const std::string &identity) {
-  if (identity.size() <= 5 || identity.rfind("g3b1:", 0) ||
-      (identity.size() - 5) % 2)
-    return false;
-  return std::all_of(identity.begin() + 5, identity.end(), [](char ch) {
-    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
-  });
 }
 
 } // namespace
@@ -158,7 +146,9 @@ Gf3GaussianActionResult gf3_gaussian_action_apply(
     output.status = Gf3GaussianActionStatus::Inapplicable;
     return output;
   }
-  if (!limits.valid() || !valid_identity(identity)) return output;
+  if (!limits.valid() ||
+      !gf3_live_common::valid_hex_identity(identity, "g3b1:"))
+    return output;
   if (identity.size() > limits.maximum_session_identity_bytes) {
     output.status = Gf3GaussianActionStatus::ResourceExhausted;
     return output;

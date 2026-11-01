@@ -1,16 +1,27 @@
 #include "rules/semantic_extension/gf3_gaussian_bridge.hpp"
 
 #include "kernel/types.hpp"
+#include "rules/semantic_extension/gf3_certificate_common.hpp"
 
 #include <algorithm>
 #include <climits>
-#include <limits>
 #include <map>
 #include <set>
 #include <utility>
 
 namespace tactix::gf3_gaussian_bridge {
 namespace {
+
+using gf3_certificate_common::add3;
+using gf3_certificate_common::add_checked;
+using gf3_certificate_common::canonical;
+using gf3_certificate_common::multiply3;
+using gf3_certificate_common::multiply_checked;
+using gf3_certificate_common::power3;
+using gf3_certificate_common::valid_clause;
+using Meter =
+    gf3_certificate_common::Meter<Limits, Charge, Statistics, LimitKind>;
+using Outcome = gf3_certificate_common::Outcome<Result>;
 
 constexpr uint64_t gaussian_node_bytes = 48;
 constexpr uint64_t gaussian_row_term_bytes = 8;
@@ -21,75 +32,8 @@ uint32_t variable(int32_t literal) {
   return external_variable_of(literal);
 }
 
-uint8_t add3(uint8_t first, uint8_t second) {
-  return static_cast<uint8_t>((first + second) % 3);
-}
-
-uint8_t multiply3(uint8_t first, uint8_t second) {
-  return static_cast<uint8_t>((first * second) % 3);
-}
-
-bool add_checked(uint64_t first, uint64_t second, uint64_t &result) {
-  if (second > std::numeric_limits<uint64_t>::max() - first) return false;
-  result = first + second;
-  return true;
-}
-
-bool multiply_checked(uint64_t first, uint64_t second, uint64_t &result) {
-  if (first && second > std::numeric_limits<uint64_t>::max() / first)
-    return false;
-  result = first * second;
-  return true;
-}
-
-bool power3(uint32_t exponent, uint64_t &result) {
-  result = 1;
-  while (exponent--) {
-    if (result > std::numeric_limits<uint64_t>::max() / 3) return false;
-    result *= 3;
-  }
-  return true;
-}
-
-std::vector<int32_t> sorted(std::vector<int32_t> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
-}
-
-bool valid_clause(const std::vector<int32_t> &clause) {
-  if (clause.empty()) return false;
-  std::set<uint32_t> variables;
-  for (const int32_t literal : clause)
-    if (!literal || literal == INT32_MIN ||
-        !variables.insert(variable(literal)).second)
-      return false;
-  return true;
-}
-
-struct Context {
-  const Limits &limits;
-  Charge &charge;
-  Statistics stats;
-  LimitKind limit = LimitKind::None;
-  bool interrupted = false;
-
-  Context(const Limits &limits_, Charge &charge_)
-      : limits(limits_), charge(charge_) {}
-
-  bool spend(uint64_t amount) {
-    uint64_t next = 0;
-    if (!add_checked(stats.work, amount, next) ||
-        next > limits.maximum_work) {
-      limit = LimitKind::Work;
-      return false;
-    }
-    if (!charge(amount)) {
-      interrupted = true;
-      return false;
-    }
-    stats.work = next;
-    return true;
-  }
+struct Context : Meter {
+  using Meter::Meter;
 
   bool add_count(uint64_t amount, uint64_t maximum, uint64_t &counter,
                  LimitKind exhausted) {
@@ -114,7 +58,7 @@ gf3_affine::SourceReference reference(const gf3_affine::Premise &premise) {
 
 bool same_clause(const gf3_affine::Premise &premise,
                  std::vector<int32_t> expected) {
-  return sorted(premise.literals) == sorted(std::move(expected));
+  return canonical(premise.literals) == canonical(std::move(expected));
 }
 
 bool authenticate(const gf3_affine::Theory &theory, Context &context,
@@ -271,56 +215,35 @@ bool authenticate(const gf3_affine::Theory &theory, Context &context,
   return used_occurrences.size() == premises.size();
 }
 
-Result failure(const Context &context, Status invalid) {
-  Result result;
-  result.status = context.interrupted
-                      ? Status::Interrupted
-                      : context.limit != LimitKind::None
-                            ? Status::LimitExceeded
-                            : invalid;
-  result.limit = context.limit;
-  result.consumed = context.stats;
-  return result;
-}
-
-bool same_source_row(const gf3_gaussian::SourceRow &first,
-                     const gf3_gaussian::SourceRow &second) {
-  return first.source_id == second.source_id && first.rhs == second.rhs &&
-         first.terms == second.terms;
-}
-
 using Row = std::map<uint32_t, uint8_t>;
 using Provenance = std::map<uint64_t, uint8_t>;
 
-Row row_map(const std::vector<gf3_gaussian::Term> &terms, bool &valid) {
-  Row result;
-  uint32_t previous = 0;
-  for (const gf3_gaussian::Term &term : terms) {
-    if (!term.variable || term.variable <= previous ||
+// Map form of a strictly increasing term list; clears `valid` on a violation.
+template <class Key, auto Field, class Term>
+std::map<Key, uint8_t> keyed_map(const std::vector<Term> &terms,
+                                 bool &valid) {
+  std::map<Key, uint8_t> result;
+  Key previous = 0;
+  for (const Term &term : terms) {
+    if (!(term.*Field) || term.*Field <= previous ||
         (term.coefficient != 1 && term.coefficient != 2)) {
       valid = false;
       return {};
     }
-    result.emplace(term.variable, term.coefficient);
-    previous = term.variable;
+    result.emplace(term.*Field, term.coefficient);
+    previous = term.*Field;
   }
   return result;
+}
+
+Row row_map(const std::vector<gf3_gaussian::Term> &terms, bool &valid) {
+  return keyed_map<uint32_t, &gf3_gaussian::Term::variable>(terms, valid);
 }
 
 Provenance provenance_map(
     const std::vector<gf3_gaussian::ProvenanceTerm> &terms, bool &valid) {
-  Provenance result;
-  uint64_t previous = 0;
-  for (const gf3_gaussian::ProvenanceTerm &term : terms) {
-    if (!term.source_id || term.source_id <= previous ||
-        (term.coefficient != 1 && term.coefficient != 2)) {
-      valid = false;
-      return {};
-    }
-    result.emplace(term.source_id, term.coefficient);
-    previous = term.source_id;
-  }
-  return result;
+  return keyed_map<uint64_t, &gf3_gaussian::ProvenanceTerm::source_id>(
+      terms, valid);
 }
 
 template <class Key>
@@ -351,16 +274,6 @@ struct Replayed {
   uint8_t rhs = 0;
   Provenance provenance;
 };
-
-bool equivalent_sources(const AuthenticatedTheory &expected,
-                        const Plan &plan) {
-  if (expected.rows.size() != plan.sources.size() ||
-      expected.authentication != plan.authentication)
-    return false;
-  for (size_t i = 0; i < expected.rows.size(); ++i)
-    if (!same_source_row(expected.rows[i], plan.sources[i])) return false;
-  return true;
-}
 
 bool replay_derivations(const AuthenticatedTheory &expected, const Plan &plan,
                         Context &context, std::vector<Replayed> &replayed) {
@@ -505,10 +418,7 @@ bool validate_gaussian_accounting(const Plan &plan, Context &context) {
     context.limit = LimitKind::Gaussian;
     return false;
   }
-  const auto &claimed = plan.gaussian.statistics;
-  return claimed.work == computed.work &&
-         claimed.fill_entries == computed.fill_entries &&
-         claimed.retained_plan_bytes == computed.retained_plan_bytes;
+  return plan.gaussian.statistics == computed;
 }
 
 uint32_t coefficient_rank(std::vector<Row> rows, Context &context) {
@@ -593,13 +503,13 @@ Result build(const gf3_affine::Theory &theory, const Limits &limits,
   Context context{limits, charge};
   AuthenticatedTheory authenticated;
   if (!authenticate(theory, context, authenticated))
-    return failure(context, Status::InvalidTheory);
+    return Outcome::stopped(context, Status::InvalidTheory);
 
   gf3_gaussian::Result gaussian = gf3_gaussian::build_plan(
       authenticated.rows, limits.gaussian,
       [&](uint64_t amount) { return context.spend(amount); });
   if (gaussian.status != gf3_gaussian::PlanStatus::Complete) {
-    Result result = failure(context, Status::InvalidTheory);
+    Result result = Outcome::stopped(context, Status::InvalidTheory);
     if (!context.interrupted && context.limit == LimitKind::None &&
         gaussian.status == gf3_gaussian::PlanStatus::LimitExceeded) {
       result.status = Status::LimitExceeded;
@@ -624,14 +534,15 @@ Result validate(const gf3_affine::Theory &theory, const Plan &plan,
   Context context{limits, charge};
   AuthenticatedTheory expected;
   if (!authenticate(theory, context, expected))
-    return failure(context, Status::InvalidTheory);
-  if (!equivalent_sources(expected, plan))
-    return failure(context, Status::InvalidPlan);
+    return Outcome::stopped(context, Status::InvalidTheory);
+  if (expected.rows != plan.sources ||
+      expected.authentication != plan.authentication)
+    return Outcome::stopped(context, Status::InvalidPlan);
   std::vector<Replayed> replayed;
   if (!replay_derivations(expected, plan, context, replayed) ||
       !validate_gaussian_accounting(plan, context) ||
       !validate_outcomes(expected, plan, replayed, context))
-    return failure(context, Status::InvalidPlan);
+    return Outcome::stopped(context, Status::InvalidPlan);
 
   Result result;
   result.status = Status::Complete;

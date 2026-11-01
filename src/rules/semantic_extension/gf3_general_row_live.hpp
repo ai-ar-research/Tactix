@@ -4,6 +4,7 @@
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 #include "rules/semantic_extension/gf3_general_row.hpp"
 
+#include <compare>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -37,13 +38,8 @@ struct Gf3GeneralRowActionSelection {
   uint64_t tuple = 0;
   std::string identity;
 
-  friend bool operator==(const Gf3GeneralRowActionSelection &,
-                         const Gf3GeneralRowActionSelection &) = default;
-  bool operator<(const Gf3GeneralRowActionSelection &other) const {
-    if (outcome != other.outcome) return outcome < other.outcome;
-    if (tuple != other.tuple) return tuple < other.tuple;
-    return identity < other.identity;
-  }
+  friend auto operator<=>(const Gf3GeneralRowActionSelection &,
+                          const Gf3GeneralRowActionSelection &) = default;
 };
 
 enum class Gf3GeneralRowLiveStatus : uint8_t {

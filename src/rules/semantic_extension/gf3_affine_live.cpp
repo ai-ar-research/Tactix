@@ -2,6 +2,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/gf3_certificate_common.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
@@ -21,24 +22,9 @@ namespace gf3 = gf3_affine;
 using ClauseKey = std::vector<int32_t>;
 
 using Meter = InterruptibleWork;
-
-ClauseKey normalized(ClauseKey clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
-}
-
-bool owner_guard(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.conflict_valid &&
-         !kernel.pending.valid && !kernel.dense &&
-         !kernel.probing.recording && kernel.large_watches_connected &&
-         kernel_propagation_fixpoint(kernel) &&
-         !kernel.external_to_internal.empty() &&
-         kernel.external_to_internal.size() <= INT32_MAX;
-}
-
-bool root_guard(const Kernel &kernel) {
-  return !kernel.level && kernel.trail.empty() && owner_guard(kernel);
-}
+using gf3_certificate_common::canonical;
+using gf3_live_common::owner_guard;
+using gf3_live_common::root_guard;
 
 bool recognition_limits_valid(const Gf3AffineLiveRequest &request) {
   return request.maximum_recognition_work &&
@@ -58,13 +44,6 @@ bool apply_limits_valid(const Gf3AffineLiveRequest &request) {
          request.elimination.maximum_additions &&
          request.elimination.maximum_addition_literals && request.action_id &&
          request.semantic_id && request.records;
-}
-
-Gf3AffineLiveStatus stopped_status(const Meter &meter,
-                                   Gf3AffineLiveStatus otherwise) {
-  if (meter.interrupted) return Gf3AffineLiveStatus::Interrupted;
-  if (meter.exhausted) return Gf3AffineLiveStatus::ResourceExhausted;
-  return otherwise;
 }
 
 struct Capture {
@@ -208,7 +187,7 @@ Gf3AffineLiveStatus retained_owner_status(
       return stopped_status(meter, Gf3AffineLiveStatus::ResourceExhausted);
     return stopped_status(meter, Gf3AffineLiveStatus::Invalid);
   }
-  if (!gf3::same_theory(owner.theory, recognized.theory))
+  if (owner.theory != recognized.theory)
     return Gf3AffineLiveStatus::Invalid;
   checked = std::move(recognized.theory);
   return Gf3AffineLiveStatus::Applied;
@@ -226,7 +205,7 @@ bool current_clause(const Kernel &kernel, const Lit *literals, uint32_t size,
       return false;
     external.push_back(kernel_externalize(kernel, literals[index]));
   }
-  return normalized(std::move(external)) == normalized(expected);
+  return canonical(std::move(external)) == canonical(expected);
 }
 
 bool revalidate_sources(const Kernel &kernel,
@@ -399,11 +378,6 @@ bool render_journal(const Gf3AffineLiveRequest &request,
       "\"reconstruction_witness_required\":false}\n");
 }
 
-Gf3AffineLiveStatus recognition_failure(const Meter &meter,
-                                        Gf3AffineLiveStatus otherwise) {
-  return stopped_status(meter, otherwise);
-}
-
 Gf3AffineLiveStatus plan_failure(const Meter &meter,
                                  const gf3::PairEliminationPlan &plan) {
   if (meter.interrupted) return Gf3AffineLiveStatus::Interrupted;
@@ -443,7 +417,7 @@ Gf3AffineOwnerCaptureResult gf3_affine_live_capture_owner(
   Meter meter{kernel, request.maximum_recognition_work};
   Capture capture;
   if (!capture_and_recognize(kernel, request, meter, capture)) {
-    result.status = recognition_failure(meter, capture.status);
+    result.status = stopped_status(meter, capture.status);
     result.source_work = capture.source_work ? capture.source_work : meter.used;
     result.recognition_work = meter.used;
     return result;
@@ -515,7 +489,7 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
   std::set<ClauseKey> live;
   if (!gf3_live_common::scan_live_external_clauses(
           kernel, meter, [&](ClauseKey clause) {
-            live.insert(normalized(std::move(clause)));
+            live.insert(canonical(std::move(clause)));
           })) {
     result.duplicate_scan_work = meter.used;
     result.duplicate_scan_exhausted = meter.exhausted;
@@ -534,7 +508,7 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
                           : Gf3AffinePreflightStatus::ResourceExhausted;
       return result;
     }
-    if (live.count(normalized(addition.clause)))
+    if (live.count(canonical(addition.clause)))
       ++result.duplicate_additions;
     else
       result.missing_additions.push_back(index);
@@ -627,7 +601,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
     if (!capture_and_recognize(kernel, request, recognition_meter, capture)) {
       result.source_scan_work = recognition_meter.used - scan_begin;
       result.recognition_work = recognition_meter.used;
-      result.status = recognition_failure(recognition_meter, capture.status);
+      result.status = stopped_status(recognition_meter, capture.status);
       return result;
     }
     owned = std::move(capture.snapshot);
