@@ -6,6 +6,8 @@
 #include "rules/registry.hpp"
 
 #include <cstdio>
+#include <cstdlib>
+#include <optional>
 
 namespace tactix {
 
@@ -104,6 +106,61 @@ struct AffineLiveResult {
   // adapter never changes phase, EVSIDS, VMTF, or any other heuristic state.
   std::vector<int32_t> semantic_variables;
 };
+
+// A consistent, quiescent level-zero propagation fixpoint.
+inline bool affine_live_state_applicable(const Kernel &k) {
+  return !k.inconsistent && !k.level && !k.conflict_valid && !k.pending.valid &&
+         !k.dense && !k.probing.recording && k.large_watches_connected &&
+         kernel_propagation_fixpoint(k);
+}
+
+// Shared root-publication admission of the affine live adapters, in their
+// fixed order: clausal proof, applicable state, then one termination poll.
+// Empty means admitted.
+template <class Status>
+std::optional<Status> affine_live_decline(const Kernel &k) {
+  if (k.proof && (k.proof->lrat() || k.proof->terminal_pbp()))
+    return Status::UnsupportedProof;
+  if (!affine_live_state_applicable(k)) return Status::Inapplicable;
+  if (kernel_terminating(k)) return Status::Interrupted;
+  return std::nullopt;
+}
+
+enum class AffineSnapshotPayload : uint8_t {
+  Complete,
+  Invalid,
+  ResourceExhausted
+};
+
+// Replay a cached view's occurrence payload against the clause, literal and
+// work limits. With `require_clause_ids`, every source must also carry a
+// nonzero native identity. `literals` and `work` hold the replayed prefix.
+AffineSnapshotPayload affine_live_snapshot_payload(
+    const AffineLiveSnapshot &, uint64_t maximum_clauses,
+    uint64_t maximum_literals, uint64_t maximum_work, bool require_clause_ids,
+    uint64_t &literals, uint64_t &work);
+
+// Replay one preplanned external proof event at the kernel's exact next
+// identity: a deletion names the current identity, an addition consumes the
+// next one and must equal its planned `id`.
+inline void affine_live_emit_planned_event(Kernel &kernel, bool rat,
+                                           bool deletion, uint64_t id,
+                                           uint64_t deleted_id,
+                                           const std::vector<int32_t> &clause) {
+  const int32_t *literals = clause.empty() ? nullptr : clause.data();
+  if (deletion) {
+    if (kernel.proof && !kernel.proof->del_external(kernel.next_clause_id,
+                                                    deleted_id, literals,
+                                                    clause.size()))
+      std::abort();
+    return;
+  }
+  if (++kernel.next_clause_id != id) std::abort();
+  if (kernel.proof &&
+      !(rat ? kernel.proof->add_external_rat(id, literals, clause.size())
+            : kernel.proof->add_external_rup(id, literals, clause.size())))
+    std::abort();
+}
 
 // Capture only clauses eligible for the requested affine arity. On failure the
 // output is unchanged. Occurrences are stable within this exact source view.

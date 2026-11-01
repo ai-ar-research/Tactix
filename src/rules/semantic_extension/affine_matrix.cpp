@@ -491,15 +491,6 @@ void make_reason(const std::vector<Equation> &sources,
   event.reason_width = uint32_t(event.reason.size());
 }
 
-bool same_event(const MatrixEvent &first, const MatrixEvent &second) {
-  return first.kind == second.kind && first.row == second.row &&
-         first.implied_variable == second.implied_variable &&
-         first.implied_value == second.implied_value &&
-         first.reason == second.reason &&
-         first.deferred_exact_support == second.deferred_exact_support &&
-         first.reason_width == second.reason_width;
-}
-
 bool valid_extension(const std::vector<MatrixAssignment> &prefix,
                      const std::vector<MatrixAssignment> &trail) {
   if (trail.size() < prefix.size() ||
@@ -811,6 +802,15 @@ void AffineMatrix::simplex_evaluate_row(
   }
 }
 
+bool AffineMatrix::simplex_row_contains(size_t row,size_t coordinate) const {
+  if(simplex_.responsible[row]==coordinate)return true;
+  const size_t slot=simplex_.variable_to_slot[coordinate];
+  if(slot==std::numeric_limits<size_t>::max())return false;
+  return bool(simplex_.coefficients[
+      row*simplex_.coefficient_words+slot/64]&
+      (uint64_t{1}<<(slot%64)));
+}
+
 void AffineMatrix::simplex_make_core_reason(
     size_t selected,size_t paired,MatrixEvent &event) const {
   const size_t missing=std::numeric_limits<size_t>::max();
@@ -818,21 +818,13 @@ void AffineMatrix::simplex_make_core_reason(
      (paired!=missing&&paired>=simplex_.rhs.size()))std::abort();
   event.reason.clear();
   event.reason.reserve(admitted_variables_.size());
-  const auto contains=[&](size_t row,size_t coordinate){
-    if(simplex_.responsible[row]==coordinate)return true;
-    const size_t slot=simplex_.variable_to_slot[coordinate];
-    if(slot==missing)return false;
-    return bool(simplex_.coefficients[
-        row*simplex_.coefficient_words+slot/64]&
-        (uint64_t{1}<<(slot%64)));
-  };
   // Basis exchange reuses the selected D slot for the old responsible
   // coordinate, so slot_to_variable is deliberately not kept sorted.  Scan
   // the immutable canonical coordinate order: reason literal order is part
   // of the deterministic CDCL trajectory even when clause semantics agree.
   for(size_t coordinate=0;coordinate<admitted_variables_.size();++coordinate){
-    bool present=contains(selected,coordinate);
-    if(paired!=missing)present^=contains(paired,coordinate);
+    bool present=simplex_row_contains(selected,coordinate);
+    if(paired!=missing)present^=simplex_row_contains(paired,coordinate);
     if(!present)continue;
     const External variable=admitted_variables_[coordinate];
     if(event.kind==MatrixEventKind::Implication&&
@@ -864,18 +856,10 @@ void AffineMatrix::simplex_make_deferred_core_support(
      event.kind!=MatrixEventKind::Implication)std::abort();
   event.reason.clear();
   event.deferred_exact_support.assign(simplex_.variable_words,0);
-  const auto contains=[&](size_t row,size_t coordinate){
-    if(simplex_.responsible[row]==coordinate)return true;
-    const size_t slot=simplex_.variable_to_slot[coordinate];
-    if(slot==missing)return false;
-    return bool(simplex_.coefficients[
-        row*simplex_.coefficient_words+slot/64]&
-        (uint64_t{1}<<(slot%64)));
-  };
   uint64_t width=0;
   for(size_t coordinate=0;coordinate<admitted_variables_.size();++coordinate){
-    bool present=contains(selected,coordinate);
-    if(paired!=missing)present^=contains(paired,coordinate);
+    bool present=simplex_row_contains(selected,coordinate);
+    if(paired!=missing)present^=simplex_row_contains(paired,coordinate);
     if(!present)continue;
     event.deferred_exact_support[coordinate/64]|=
         uint64_t{1}<<(coordinate%64);
@@ -930,6 +914,23 @@ MatrixEvent AffineMatrix::simplex_build_event(
   return result;
 }
 
+size_t AffineMatrix::simplex_first_singleton(size_t coordinate,
+                                             bool value) const {
+  const size_t base=(2*coordinate+size_t(value))*simplex_.row_words;
+  for(size_t at=0;at<simplex_.row_words;++at){
+    const uint64_t bits=simplex_.singleton_rows[base+at];
+    if(bits)return at*64+std::countr_zero(bits);
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t AffineMatrix::simplex_opposite_singleton(size_t coordinate) const {
+  const size_t missing=std::numeric_limits<size_t>::max();
+  const size_t zero=simplex_first_singleton(coordinate,false);
+  const size_t one=simplex_first_singleton(coordinate,true);
+  return zero==missing||one==missing?missing:std::max(zero,one);
+}
+
 void AffineMatrix::simplex_remove_row_index(size_t row) {
   if(!simplex_.watches_ready)return;
   const size_t missing=std::numeric_limits<size_t>::max();
@@ -943,38 +944,25 @@ void AffineMatrix::simplex_remove_row_index(size_t row) {
   clear_watch(simplex_.watch_second[row]);
   simplex_.watch_first[row]=simplex_.watch_second[row]=missing;
 
-  const auto first_bucket=[&](size_t coordinate,bool value){
-    const size_t base=(2*coordinate+size_t(value))*simplex_.row_words;
-    for(size_t at=0;at<simplex_.row_words;++at){
-      const uint64_t bits=simplex_.singleton_rows[base+at];
-      if(bits)return at*64+std::countr_zero(bits);
-    }
-    return missing;
-  };
-  const auto opposite=[&](size_t coordinate){
-    const size_t zero=first_bucket(coordinate,false);
-    const size_t one=first_bucket(coordinate,true);
-    return zero==missing||one==missing?missing:std::max(zero,one);
-  };
   if(simplex_.event_kinds[row]==1){
     simplex_.conflict_rows[word]&=~bit;
   }else if(simplex_.event_kinds[row]==2){
     const size_t coordinate=simplex_.event_coordinates[row];
     if(coordinate>=simplex_.values.size())std::abort();
-    const size_t old_opposite=opposite(coordinate);
+    const size_t old_opposite=simplex_opposite_singleton(coordinate);
     if(old_opposite!=missing)
       simplex_.opposite_rows[old_opposite/64]&=
           ~(uint64_t{1}<<(old_opposite%64));
     const size_t base=(2*coordinate+simplex_.event_values[row])*
         simplex_.row_words;
     simplex_.singleton_rows[base+word]&=~bit;
-    const bool active=first_bucket(coordinate,false)!=missing||
-        first_bucket(coordinate,true)!=missing;
+    const bool active=simplex_first_singleton(coordinate,false)!=missing||
+        simplex_first_singleton(coordinate,true)!=missing;
     const uint64_t coordinate_bit=uint64_t{1}<<(coordinate%64);
     if(active)
       simplex_.active_singleton_variables[coordinate/64]|=coordinate_bit;
     else simplex_.active_singleton_variables[coordinate/64]&=~coordinate_bit;
-    const size_t next_opposite=opposite(coordinate);
+    const size_t next_opposite=simplex_opposite_singleton(coordinate);
     if(next_opposite!=missing)
       simplex_.opposite_rows[next_opposite/64]|=
           uint64_t{1}<<(next_opposite%64);
@@ -1002,19 +990,7 @@ void AffineMatrix::simplex_refresh_row_index(size_t row) {
   }
   if(unset!=1)return;
   if(coordinate==missing||coordinate>=simplex_.values.size())std::abort();
-  const auto first_bucket=[&](bool value){
-    const size_t base=(2*coordinate+size_t(value))*simplex_.row_words;
-    for(size_t at=0;at<simplex_.row_words;++at){
-      const uint64_t bits=simplex_.singleton_rows[base+at];
-      if(bits)return at*64+std::countr_zero(bits);
-    }
-    return missing;
-  };
-  const auto opposite=[&](){
-    const size_t zero=first_bucket(false),one=first_bucket(true);
-    return zero==missing||one==missing?missing:std::max(zero,one);
-  };
-  const size_t old_opposite=opposite();
+  const size_t old_opposite=simplex_opposite_singleton(coordinate);
   if(old_opposite!=missing)
     simplex_.opposite_rows[old_opposite/64]&=
         ~(uint64_t{1}<<(old_opposite%64));
@@ -1024,7 +1000,7 @@ void AffineMatrix::simplex_refresh_row_index(size_t row) {
   simplex_.singleton_rows[base+word]|=bit;
   simplex_.active_singleton_variables[coordinate/64]|=
       uint64_t{1}<<(coordinate%64);
-  const size_t next_opposite=opposite();
+  const size_t next_opposite=simplex_opposite_singleton(coordinate);
   if(next_opposite!=missing)
     simplex_.opposite_rows[next_opposite/64]|=
         uint64_t{1}<<(next_opposite%64);
@@ -1066,10 +1042,8 @@ MatrixEvent AffineMatrix::simplex_indexed_event(
   if(later!=missing){
     const size_t coordinate=simplex_.event_coordinates[later];
     if(coordinate>=simplex_.values.size())std::abort();
-    const size_t zero=first_bit(simplex_.singleton_rows,
-        (2*coordinate)*simplex_.row_words,simplex_.row_words);
-    const size_t one=first_bit(simplex_.singleton_rows,
-        (2*coordinate+1)*simplex_.row_words,simplex_.row_words);
+    const size_t zero=simplex_first_singleton(coordinate,false);
+    const size_t one=simplex_first_singleton(coordinate,true);
     if(zero==missing||one==missing||std::max(zero,one)!=later)std::abort();
     return simplex_build_event(std::min(zero,one),later,
         MatrixEventKind::Conflict,0,false,exact_core_reason,
@@ -1079,10 +1053,8 @@ MatrixEvent AffineMatrix::simplex_indexed_event(
                                     simplex_.variable_words);
   if(coordinate==missing)return {};
   if(coordinate>=simplex_.values.size())std::abort();
-  const size_t zero=first_bit(simplex_.singleton_rows,
-      (2*coordinate)*simplex_.row_words,simplex_.row_words);
-  const size_t one=first_bit(simplex_.singleton_rows,
-      (2*coordinate+1)*simplex_.row_words,simplex_.row_words);
+  const size_t zero=simplex_first_singleton(coordinate,false);
+  const size_t one=simplex_first_singleton(coordinate,true);
   const size_t selected=zero==missing?one:one==missing?zero:std::min(zero,one);
   if(selected==missing)std::abort();
   return simplex_build_event(selected,missing,MatrixEventKind::Implication,
@@ -1214,9 +1186,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
   if(fresh){
     if(!prepare_simplex(incremental.maximum_index_bytes-index_reservation_,candidate))
       return invalid(MatrixSynchronizationFailureStage::SimplexPreparation);
-    simplex_=std::move(candidate);index_={};index_ready_=false;
-    dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};
-    dirty_row_marks_={};dirty_row_ids_={};dirty_row_epoch_=0;
+    simplex_=std::move(candidate);clear_row_index();
     index_reservation_=simplex_.bytes;
   }else simplex_.active=true;
   // Live authentication replays the compact event selection and exact reason.
@@ -1274,16 +1244,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
   const size_t prefix=extension?trail_.size():0;
   trail_=trail;simplex_rows_cache_valid_=false;
   const bool rebuild=fresh||!extension||!simplex_.watches_ready;
-  if(rebuild){
-    simplex_rebuild_index();
-    std::fill(simplex_.pending_responsible_rows.begin(),
-              simplex_.pending_responsible_rows.end(),0);
-    for(size_t row=0;row<simplex_.responsible.size();++row){
-      const size_t coordinate=simplex_.responsible[row];
-      if(coordinate!=missing&&simplex_.values[coordinate])
-        simplex_.pending_responsible_rows[row/64]|=uint64_t{1}<<(row%64);
-    }
-  }else{
+  const auto refresh_touched_rows=[&](){
     for(size_t word=0;word<simplex_.row_words;++word){
       uint64_t bits=simplex_.touched_rows[word];
       while(bits){
@@ -1296,6 +1257,18 @@ MatrixStatus AffineMatrix::synchronize_simplex(
         bits&=bits-1;
       }
     }
+  };
+  if(rebuild){
+    simplex_rebuild_index();
+    std::fill(simplex_.pending_responsible_rows.begin(),
+              simplex_.pending_responsible_rows.end(),0);
+    for(size_t row=0;row<simplex_.responsible.size();++row){
+      const size_t coordinate=simplex_.responsible[row];
+      if(coordinate!=missing&&simplex_.values[coordinate])
+        simplex_.pending_responsible_rows[row/64]|=uint64_t{1}<<(row%64);
+    }
+  }else{
+    refresh_touched_rows();
     for(const auto &[coordinate,value]:added){
       (void)value;
       const size_t row=simplex_.variable_to_row[coordinate];
@@ -1305,22 +1278,19 @@ MatrixStatus AffineMatrix::synchronize_simplex(
   }
   event=simplex_indexed_event(true,defer_exact_reason);
 #ifndef NDEBUG
-  assert(same_event(event,simplex_event(true,defer_exact_reason)));
+  assert(event==simplex_event(true,defer_exact_reason));
 #endif
-  if(event.kind!=MatrixEventKind::None){
+  size_t affected=0,exchanges=0;
+  const auto complete=[&](){
     incremental_ready_=true;predecessor_ready_=false;
     predecessor_rows_.clear();predecessor_trail_.clear();
-    last_dirty_update_=false;last_dirty_rows_=0;
-    last_synchronization_incremental_=extension;
-    last_synchronization_restored_predecessor_=false;
-    last_synchronization_prefix_=prefix;
-    last_synchronization_conditioned_=trail.size()-prefix;
-    last_synchronization_kind_=kind;
+    record_synchronization(kind,extension,false,prefix,trail.size()-prefix,
+                           exchanges!=0,affected);
     const uint64_t charged=uint64_t(worst);
     work_=charged>UINT64_MAX-work_?UINT64_MAX:work_+charged;
     return MatrixStatus::Complete;
-  }
-  size_t affected=0,exchanges=0;
+  };
+  if(event.kind!=MatrixEventKind::None)return complete();
   const auto exchange=[&](size_t pivot_row,size_t slot){
     const size_t old_responsible=simplex_.responsible[pivot_row];
     const size_t new_responsible=simplex_.slot_to_variable[slot];
@@ -1359,18 +1329,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
     simplex_.responsible[pivot_row]=new_responsible;refresh_slot(slot);
     simplex_.pending_responsible_rows[pivot_row/64]&=
         ~(uint64_t{1}<<(pivot_row%64));
-    for(size_t word=0;word<simplex_.row_words;++word){
-      uint64_t bits=simplex_.touched_rows[word];
-      while(bits){
-        const size_t row=word*64+std::countr_zero(bits);
-        simplex_refresh_row_index(row);
-        const size_t responsible=simplex_.responsible[row];
-        if(responsible!=missing&&simplex_.values[responsible])
-          simplex_.pending_responsible_rows[row/64]|=
-              uint64_t{1}<<(row%64);
-        bits&=bits-1;
-      }
-    }
+    refresh_touched_rows();
     ++exchanges;
   };
   // Match the former deterministic external-variable order while consuming
@@ -1394,19 +1353,9 @@ MatrixStatus AffineMatrix::synchronize_simplex(
   }
   event=simplex_indexed_event(true,defer_exact_reason);
 #ifndef NDEBUG
-  assert(same_event(event,simplex_event(true,defer_exact_reason)));
+  assert(event==simplex_event(true,defer_exact_reason));
 #endif
-  incremental_ready_=true;predecessor_ready_=false;
-  predecessor_rows_.clear();predecessor_trail_.clear();
-  last_dirty_update_=exchanges!=0;last_dirty_rows_=affected;
-  last_synchronization_incremental_=extension;
-  last_synchronization_restored_predecessor_=false;
-  last_synchronization_prefix_=prefix;
-  last_synchronization_conditioned_=trail.size()-prefix;
-  last_synchronization_kind_=kind;
-  const uint64_t charged=uint64_t(worst);
-  work_=charged>UINT64_MAX-work_?UINT64_MAX:work_+charged;
-  return MatrixStatus::Complete;
+  return complete();
 }
 
 void AffineMatrix::materialize_simplex_rows() const {
@@ -1458,10 +1407,25 @@ void AffineMatrix::reset_sparse_after_simplex(){
   // immutable admitted rows if compact synchronization is selected again.
   simplex_={};simplex_rows_cache_.clear();simplex_rows_cache_valid_=false;
   rows_=admitted_rows_;trail_.clear();incremental_ready_=false;
+  clear_row_index();
+  predecessor_rows_.clear();predecessor_trail_.clear();predecessor_ready_=false;
+}
+
+void AffineMatrix::clear_row_index(){
   index_={};index_ready_=false;index_reservation_=0;
   dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};
   dirty_row_marks_={};dirty_row_ids_={};dirty_row_epoch_=0;
-  predecessor_rows_.clear();predecessor_trail_.clear();predecessor_ready_=false;
+}
+
+void AffineMatrix::record_synchronization(
+    MatrixSynchronizationKind kind,bool incremental,bool restored_predecessor,
+    size_t prefix,size_t conditioned,bool dirty_update,size_t dirty_rows){
+  last_dirty_update_=dirty_update;last_dirty_rows_=dirty_rows;
+  last_synchronization_incremental_=incremental;
+  last_synchronization_restored_predecessor_=restored_predecessor;
+  last_synchronization_prefix_=prefix;
+  last_synchronization_conditioned_=conditioned;
+  last_synchronization_kind_=kind;
 }
 
 MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
@@ -1510,17 +1474,7 @@ MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
   for(size_t id:admitted_sources_) source_support+=sources_[id].variables.size();
   source_support_bound_=source_support>UINT64_MAX?UINT64_MAX:uint64_t(source_support);
   admitted_variables_ = variable_union(admitted_rows_);
-  rows_ = admitted_rows_; trail_.clear(); incremental_ready_ = false;
-  index_ = {}; index_ready_ = false; index_reservation_ = 0;
-  dirty_variable_xor_scratch_ = {};
-  dirty_source_xor_scratch_ = {};
-  dirty_row_marks_ = {};
-  dirty_row_ids_ = {};
-  dirty_row_epoch_ = 0;
-  predecessor_rows_.clear(); predecessor_trail_.clear(); predecessor_ready_ = false;
-  simplex_ = {};
-  simplex_rows_cache_.clear();
-  simplex_rows_cache_valid_ = false;
+  reset_sparse_after_simplex();
   work_ = work.used;
   return MatrixStatus::Complete;
 }
@@ -1659,14 +1613,7 @@ MatrixStatus AffineMatrix::synchronize(
       dirty_row_ids_ = std::move(prepared.dirty_ids);
       dirty_row_epoch_ = 0;
     } else {
-      index_ = {};
-      index_ready_ = false;
-      index_reservation_ = 0;
-      dirty_variable_xor_scratch_ = {};
-      dirty_source_xor_scratch_ = {};
-      dirty_row_marks_ = {};
-      dirty_row_ids_ = {};
-      dirty_row_epoch_ = 0;
+      clear_row_index();
     }
   };
   bool monotone_set = false;
@@ -1701,12 +1648,8 @@ MatrixStatus AffineMatrix::synchronize(
     MatrixEvent candidate = index_ready_ ? indexed_event() : find_event(rows_);
     if(!finish_reason(candidate))
       return invalid(MatrixSynchronizationFailureStage::DeferredReason);
-    last_dirty_update_ = false; last_dirty_rows_ = 0;
-    last_synchronization_incremental_ = true;
-    last_synchronization_restored_predecessor_ = false;
-    last_synchronization_prefix_ = trail_.size();
-    last_synchronization_conditioned_ = 0;
-    last_synchronization_kind_ = MatrixSynchronizationKind::Extension;
+    record_synchronization(MatrixSynchronizationKind::Extension, true, false,
+                           trail_.size(), 0, false, 0);
     if (sorted_set_extension)
       work_ = work.used > UINT64_MAX - work_ ? UINT64_MAX : work_ + work.used;
     event = std::move(candidate);
@@ -1744,13 +1687,9 @@ MatrixStatus AffineMatrix::synchronize(
     rows_ = std::move(predecessor_rows_);
     predecessor_ready_ = false;
     install_index(prepared);
-    last_dirty_update_ = false; last_dirty_rows_ = 0;
     incremental_ready_ = true;
-    last_synchronization_incremental_ = false;
-    last_synchronization_restored_predecessor_ = true;
-    last_synchronization_prefix_ = 0;
-    last_synchronization_conditioned_ = 0;
-    last_synchronization_kind_ = MatrixSynchronizationKind::Backtrack;
+    record_synchronization(MatrixSynchronizationKind::Backtrack, false, true,
+                           0, 0, false, 0);
     if (work.used > std::numeric_limits<uint64_t>::max() - work_)
       work_ = std::numeric_limits<uint64_t>::max();
     else
@@ -1842,14 +1781,11 @@ MatrixStatus AffineMatrix::synchronize(
   trail_ = trail;
   rows_ = std::move(rows);
   install_index(prepared);
-  last_dirty_update_ = false; last_dirty_rows_ = 0;
   incremental_ready_ = status == MatrixStatus::Complete;
-  last_synchronization_incremental_ = incremental;
-  last_synchronization_restored_predecessor_ = false;
-  last_synchronization_prefix_ = incremental ? trail_.size() - assignments.size()
-                                               : 0;
-  last_synchronization_conditioned_ = assignments.size();
-  last_synchronization_kind_ = kind;
+  record_synchronization(
+      kind, incremental, false,
+      incremental ? trail_.size() - assignments.size() : 0,
+      assignments.size(), false, 0);
   if (work.used > std::numeric_limits<uint64_t>::max() - work_)
     work_ = std::numeric_limits<uint64_t>::max();
   else
@@ -2146,15 +2082,10 @@ MatrixStatus AffineMatrix::synchronize_sliced(
         state.event.reason_width=uint32_t(width);
       }else state.event.reason_width=uint32_t(state.event.reason.size());
       trail_=std::move(state.trail);rows_=std::move(state.rows);event=std::move(state.event);
-      incremental_ready_=true;index_={};index_ready_=false;index_reservation_=0;
-      dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};
-      dirty_row_marks_={};dirty_row_ids_={};dirty_row_epoch_=0;
+      incremental_ready_=true;clear_row_index();
       predecessor_ready_=false;predecessor_rows_.clear();predecessor_trail_.clear();
-      last_dirty_update_=false;last_dirty_rows_=0;
-      last_synchronization_incremental_=false;last_synchronization_restored_predecessor_=false;
-      last_synchronization_prefix_=0;
-      last_synchronization_conditioned_=trail_.size();
-      last_synchronization_kind_=MatrixSynchronizationKind::PriorPartial;
+      record_synchronization(MatrixSynchronizationKind::PriorPartial,false,false,
+                             0,trail_.size(),false,0);
       continuation_={};
       return MatrixStatus::Complete;
     }
@@ -2562,11 +2493,9 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
   // Dirty transactions do not copy the entire predecessor basis. Retraction
   // uses the bounded full rebuild; the old optional predecessor is released.
   predecessor_rows_.clear();predecessor_trail_.clear();predecessor_ready_=false;
-  last_synchronization_prefix_=trail_.size();trail_=trail;
-  incremental_ready_=true;last_synchronization_incremental_=true;
-  last_synchronization_restored_predecessor_=false;last_synchronization_conditioned_=delta.size();
-  last_synchronization_kind_=MatrixSynchronizationKind::Extension;
-  last_dirty_update_=true;last_dirty_rows_=dirty.size();
+  record_synchronization(MatrixSynchronizationKind::Extension,true,false,
+                         trail_.size(),delta.size(),true,dirty.size());
+  trail_=trail;incremental_ready_=true;
   used=work.used;work_=used>UINT64_MAX-work_?UINT64_MAX:work_+used;
   event=std::move(candidate);return MatrixStatus::Complete;
 }
@@ -2618,7 +2547,7 @@ bool AffineMatrix::authenticates(
         !charge(sources_[source].variables.size()))
       return false;
   if (!simplex_.active) make_reason(sources_, trail_, expected);
-  return expected.kind != MatrixEventKind::None && same_event(expected, event);
+  return expected.kind != MatrixEventKind::None && expected == event;
 }
 
 bool AffineMatrix::authenticates_historical(
@@ -2794,7 +2723,7 @@ bool AffineMatrix::retained_authentication_work(
   if (total > UINT64_MAX)
     return false;
   if (!simplex_.active) make_reason(sources_, trail_, expected);
-  if (expected.kind == MatrixEventKind::None || !same_event(expected, event))
+  if (expected.kind == MatrixEventKind::None || expected != event)
     return false;
   work = uint64_t(total);
   return true;

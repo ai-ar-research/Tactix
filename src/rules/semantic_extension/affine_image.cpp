@@ -51,14 +51,6 @@ struct PlanningSink {
   }
 };
 
-bool to_small(const std::vector<External> &input,
-              parity_certificate::SmallClause &output) {
-  if (input.size() > output.lits.size()) return false;
-  output.size = static_cast<uint8_t>(input.size());
-  std::copy(input.begin(), input.end(), output.lits.begin());
-  return true;
-}
-
 } // namespace
 
 std::vector<std::vector<External>> clausal_form(
@@ -283,7 +275,7 @@ bool build_proof_plan(const Image &image, size_t consequence_index,
       return false;
     for (const auto &clause : equation.premise_clauses) {
       parity_certificate::SmallClause small;
-      if (!to_small(clause, small)) return false;
+      if (!to_small_clause(clause, small)) return false;
       premises.push_back(small);
       for (External literal : clause)
         variables.insert(
@@ -298,7 +290,7 @@ bool build_proof_plan(const Image &image, size_t consequence_index,
   parity_certificate::Deriver<PlanningSink> deriver(sink);
   for (const auto &target : result.targets) {
     parity_certificate::SmallClause small, kept;
-    if (!to_small(target, small) ||
+    if (!to_small_clause(target, small) ||
         !deriver.derive(small, premises, consequence.variables, kept))
       return false;
   }

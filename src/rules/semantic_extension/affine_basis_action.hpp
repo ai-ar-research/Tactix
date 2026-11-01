@@ -129,4 +129,10 @@ AffineBasisActionResult affine_basis_action_apply(
     Kernel &, AffineBasisActionSession &, const AffineBasisActionLimits &,
     const AffineBasisRowSelection &);
 
+// Stage neutral theory-variable advice for one committed affine action. Every
+// identity must be a positive external variable.
+void stage_affine_theory_variables(Kernel &, uint64_t action_id,
+                                   const std::vector<int32_t> &existing,
+                                   const std::vector<int32_t> &introduced);
+
 } // namespace tactix

@@ -3,6 +3,7 @@
 #include "strategy/action_status_mapping.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
 
@@ -77,14 +78,7 @@ MatrixTransactionLimits transaction_limits(
 AffineLiveRequest capture_request(
     Kernel &kernel, const strategy::AffineConsequenceParameters &p) {
   AffineLiveRequest request;
-  request.image = {p.maximum_clauses,
-                   p.maximum_groups,
-                   p.maximum_patterns,
-                   p.maximum_elimination_work,
-                   p.maximum_arity,
-                   p.maximum_intermediate_width,
-                   p.maximum_sources,
-                   p.maximum_output_width};
+  request.image = strategy::action_limits(p).image;
   request.maximum_snapshot_literals = p.maximum_snapshot_literals;
   request.maximum_snapshot_work = p.maximum_snapshot_work;
   request.maximum_proof_additions = p.maximum_proof_additions;
@@ -313,6 +307,43 @@ void record_service(Kernel &kernel, const AffineMatrixServiceResult &result) {
     ++kernel.stats.affine_matrix_service_stale;
 }
 
+// Each outcome is counted exactly once, immediately before it is returned.
+AffineMatrixInitResult finish_init(Kernel &kernel,
+                                   AffineMatrixInitResult &result) {
+  record_init(kernel, result);
+  return std::move(result);
+}
+
+AffineMatrixInitResult finish_init(Kernel &kernel,
+                                   AffineMatrixInitResult &result,
+                                   AffineMatrixInitStatus status) {
+  result.status = status;
+  return finish_init(kernel, result);
+}
+
+AffineMatrixServiceResult finish_service(Kernel &kernel,
+                                         AffineMatrixServiceResult &result) {
+  record_service(kernel, result);
+  return std::move(result);
+}
+
+AffineMatrixServiceResult finish_service(Kernel &kernel,
+                                         AffineMatrixServiceResult &result,
+                                         AffineMatrixServiceStatus status) {
+  result.status = status;
+  return finish_service(kernel, result);
+}
+
+// A step stopped by its work meter: Interrupted under termination, otherwise
+// ResourceExhausted.
+AffineMatrixServiceResult stopped_service(Kernel &kernel,
+                                          AffineMatrixServiceResult &result) {
+  return finish_service(kernel, result,
+                        kernel_terminating(kernel)
+                            ? AffineMatrixServiceStatus::Interrupted
+                            : AffineMatrixServiceStatus::ResourceExhausted);
+}
+
 } // namespace
 
 void AffineMatrixSearchSession::remember_terminal_initialization_failure(
@@ -326,6 +357,44 @@ void AffineMatrixSearchSession::remember_terminal_initialization_failure(
   failed_next_clause_id_ = kernel.next_clause_id;
   failed_parameters_ = parameters;
   have_terminal_initialization_failure_ = true;
+}
+
+MatrixLiveRequest AffineMatrixSearchSession::matrix_live_request(
+    const Kernel &kernel, const MatrixEvent &event,
+    bool core_reason_authentication) {
+  MatrixLiveRequest request;
+  request.owner = &source_owner_;
+  request.matrix = &matrix_;
+  request.exact_sources = &image_.equations;
+  request.event = &event;
+  request.owner_identity = owner_version_;
+  request.transaction = transaction_limits(parameters_);
+  request.maximum_revalidation_work = parameters_.maximum_snapshot_work;
+  request.maximum_journal_bytes = parameters_.maximum_journal_bytes;
+  request.maximum_external_extent = parameters_.maximum_external_extent;
+  request.action_id = kernel.structural_action_sequence + 1;
+  request.semantic_id = owner_version_;
+  request.records = records_;
+  request.compact_provenance = kernel.affine_matrix_provenance_compact;
+  request.retained_source_provenance =
+      retained_source_provenance_owner_ == owner_version_;
+  request.core_reason_authentication = core_reason_authentication;
+  request.proof_cache = &proof_cache_;
+  request.pbp_parity_cache = &pbp_proof_cache_;
+  request.premise_leases = persistent() ? &premise_leases_ : nullptr;
+  return request;
+}
+
+void AffineMatrixSearchSession::publish_identity(
+    std::vector<std::string>::iterator at, const std::string &identity) {
+  const auto inserted = published_.insert(at, identity);
+  const uint64_t work = inserted->size() + 1;
+  const uint64_t bytes = inserted->capacity() + 1;
+  if (work > UINT64_MAX - published_work_ ||
+      bytes > UINT64_MAX - published_capacity_bytes_)
+    std::abort();
+  published_work_ += work;
+  published_capacity_bytes_ += bytes;
 }
 
 bool AffineMatrixSearchSession::initialization_retry_suppressed(
@@ -445,40 +514,30 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     const AffineMatrixPersistenceLimits &persistence) {
   AffineMatrixInitResult result;
   if (!affine_matrix_initialize_guard(kernel)) {
-    result.status = AffineMatrixInitStatus::Inapplicable;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result, AffineMatrixInitStatus::Inapplicable);
   }
   if (!parameters.valid() ||
       parameters.semantics !=
           strategy::AffineConsequenceSemantics::CertifiedBasisV2 ||
       (admission != AffineMatrixAdmission::AuthenticatedSubimage &&
        admission != AffineMatrixAdmission::CompleteSnapshot)) {
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result);
   }
   if (persistence.maximum_retained_bytes && (!kernel.proof || kernel.model_extended)) {
-    result.status = AffineMatrixInitStatus::Inapplicable;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result, AffineMatrixInitStatus::Inapplicable);
   }
   if (!persistence.maximum_retained_bytes &&
       session.initialization_retry_suppressed(kernel, parameters)) {
-    result.status = AffineMatrixInitStatus::ResourceExhausted;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
   }
   if (session.enabled() && !session.belongs_to(kernel)) {
-    result.status = AffineMatrixInitStatus::Stale;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result, AffineMatrixInitStatus::Stale);
   }
   if (kernel.structural_action_sequence == UINT64_MAX ||
       session.owner_version_ == UINT64_MAX) {
-    result.status = AffineMatrixInitStatus::ResourceExhausted;
     session.remember_terminal_initialization_failure(kernel, parameters);
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result,
+                       AffineMatrixInitStatus::ResourceExhausted);
   }
 
   AffineLiveSnapshot owner;
@@ -487,9 +546,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   const bool incremental_discovery=persistence.maximum_retained_bytes &&
       session.discovery_owner_==&kernel && session.discovery_proof_==kernel.proof && kernel.proof &&
       session.discovery_stream_ && session.discovery_stream_==kernel.proof->stream_identity() &&
-      session.parameters_==parameters && session.persistence_.maximum_retained_bytes==persistence.maximum_retained_bytes &&
-      session.persistence_.maximum_deferred_deletions==persistence.maximum_deferred_deletions &&
-      session.persistence_.maximum_deferred_literal_work==persistence.maximum_deferred_literal_work;
+      session.matches_profile(parameters,persistence);
   if(incremental_discovery) {
     capture.discovered_through_clause_id=session.discovery_clause_id_;
     capture.known_binary_bodies=&session.discovery_known_binaries_;
@@ -503,7 +560,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   const uint64_t root_vector_bytes = root_vector_wide > UINT64_MAX ? UINT64_MAX : uint64_t(root_vector_wide);
   if (persistence.maximum_retained_bytes &&
       (resident_wide+root_vector_wide+sizeof(AffineLiveSnapshot) >= persistence.maximum_retained_bytes)) {
-    result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+    return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
   }
   capture.maximum_snapshot_bytes = persistence.maximum_retained_bytes ?
       persistence.maximum_retained_bytes-previous_bytes-root_vector_bytes : 0;
@@ -560,8 +617,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       result.resource_stage=AffineMatrixInitResourceStage::Snapshot;
     if (result.status == AffineMatrixInitStatus::ResourceExhausted)
       session.remember_terminal_initialization_failure(kernel, parameters);
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result);
   }
   result.snapshot_clauses = owner.sources.size();
   result.snapshot_literals = owner.literals;
@@ -738,7 +794,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         result.recognition_work=recognition;result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
         if(result.status==AffineMatrixInitStatus::ResourceExhausted)
           result.resource_stage=AffineMatrixInitResourceStage::RootCensus;
-        record_init(kernel,result);return result;
+        return finish_init(kernel,result);
       }
       recognized = planned==RootImageStatus::Prepared?Status::Complete:
           planned==RootImageStatus::NoStructure?Status::NoStructure:
@@ -817,7 +873,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
           if(result.status==AffineMatrixInitStatus::ResourceExhausted &&
              result.resource_stage==AffineMatrixInitResourceStage::None)
             result.resource_stage=AffineMatrixInitResourceStage::RootCensus;
-          record_init(kernel,result);return result;
+          return finish_init(kernel,result);
         }
         image = std::move(root_plan.image);
         full_owner = std::move(owner);
@@ -865,7 +921,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
                         ? AffineMatrixInitStatus::ResourceExhausted
                         : AffineMatrixInitStatus::Invalid;
     if(result.status==AffineMatrixInitStatus::NoStructure&&persistence.maximum_retained_bytes) {
-      if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+      if(!context_current()) {return finish_init(kernel,result,AffineMatrixInitStatus::Stale);}
       commit_discovery(session);
       result.unchanged=session.enabled();
     }
@@ -875,17 +931,14 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     if(result.status==AffineMatrixInitStatus::ResourceExhausted &&
        result.resource_stage==AffineMatrixInitResourceStage::None)
       result.resource_stage=AffineMatrixInitResourceStage::RootImage;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result);
   }
 
   if (admission == AffineMatrixAdmission::CompleteSnapshot &&
       !covers_complete_snapshot(owner, image,
                                 kernel_irredundant_clauses(kernel),
                                 result.covered_clauses)) {
-    result.status = AffineMatrixInitStatus::IncompleteImage;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result, AffineMatrixInitStatus::IncompleteImage);
   }
   if (admission == AffineMatrixAdmission::AuthenticatedSubimage)
     (void)covers_complete_snapshot(owner, image,
@@ -897,8 +950,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   size_t retained_equations = 0;
   if (persistence.maximum_retained_bytes && session.enabled()) {
     if (!session.attached_to(kernel) || !session.persistent()) {
-      result.status = AffineMatrixInitStatus::Stale;
-      record_init(kernel, result); return result;
+      return finish_init(kernel, result, AffineMatrixInitStatus::Stale);
     }
     Image combined;
     for (size_t i = 0; i < session.image_.equations.size(); ++i) {
@@ -906,8 +958,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       uint64_t work = 1 + equation.variables.size() + equation.premises.size();
       for (const auto &clause : equation.premise_clauses) work += 1 + clause.size();
       if (!add(work, parameters.maximum_session_work, result.premise_retention_work)) {
-        result.status = AffineMatrixInitStatus::ResourceExhausted;
-        record_init(kernel, result); return result;
+        return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
       }
       if (kernel.proof->premise_group_active(session.premise_leases_[i])) {
         combined.equations.push_back(equation);
@@ -919,7 +970,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     // once into the same durable source namespace.
     for(const auto &source:session.source_owner_.sources)
       if(!add(1+2*source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
     AffineLiveSnapshot combined_owner = session.source_owner_;
     for (const auto &captured_equation : image.equations) {
@@ -929,15 +980,14 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         copy_work+=1+clause.size();
       }
       if(!add(copy_work,parameters.maximum_session_work,result.premise_retention_work)) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       auto equation=captured_equation;
       bool duplicate = false;
       for (const auto &existing : combined.equations) {
         if (!add(1 + existing.variables.size(), parameters.maximum_session_work,
                  result.premise_retention_work)) {
-          result.status = AffineMatrixInitStatus::ResourceExhausted;
-          record_init(kernel, result); return result;
+          return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
         }
         if (existing.variables == equation.variables && existing.rhs == equation.rhs)
           duplicate = true;
@@ -945,7 +995,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       if (duplicate) continue;
       for (auto &occurrence : equation.premises) {
         if(!add(1+2*owner.sources[occurrence-1].clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
-          result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+          return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
         }
         auto source = owner.sources[occurrence - 1];
         source.occurrence = combined_owner.sources.size() + 1;
@@ -958,11 +1008,10 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     }
     image = std::move(combined); owner = std::move(combined_owner);
     if (image.equations.size() == retained_equations) {
-      if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+      if(!context_current()) {return finish_init(kernel,result,AffineMatrixInitStatus::Stale);}
       commit_discovery(session);
-      result.status = AffineMatrixInitStatus::NoStructure;
       result.unchanged = true;
-      record_init(kernel, result); return result;
+      return finish_init(kernel, result, AffineMatrixInitStatus::NoStructure);
     }
   }
   // Fresh proof IDs are assigned only to genuinely new shortened premises,
@@ -972,13 +1021,13 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     for(uint64_t occurrence:image.equations[i].premises) {
       if (!add(1,parameters.maximum_session_work,result.premise_retention_work) ||
           !occurrence || occurrence>owner.sources.size()) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       auto &source=owner.sources[occurrence-1];
       if(source.kind!=AffineSourceKind::CheckerPremise || source.clause_id)continue;
       if(planned_clause_id==UINT64_MAX || proof_copies.size()==parameters.maximum_proof_additions ||
           proof_copies.size()==parameters.maximum_proof_deletions) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       source.clause_id=++planned_clause_id;
       proof_copies.push_back(occurrence-1);
@@ -1013,8 +1062,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       session.remember_terminal_initialization_failure(kernel, parameters);
     if(result.status==AffineMatrixInitStatus::ResourceExhausted)
       result.resource_stage=AffineMatrixInitResourceStage::Matrix;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result);
   }
   if (admission == AffineMatrixAdmission::CompleteSnapshot &&
       built != MatrixStatus::Complete) {
@@ -1022,8 +1070,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     result.equations = image.equations.size();
     result.rows = matrix.row_count();
     result.admitted_sources = matrix.admitted_sources().size();
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result);
   }
 
   uint64_t retained_bytes = sizeof(AffineMatrixSearchSession);
@@ -1063,7 +1110,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     result.resource_stage = AffineMatrixInitResourceStage::Retained;
     result.resource_required_bytes=retained_bytes;
     result.resource_limit_bytes=persistence.maximum_retained_bytes;
-    record_init(kernel, result); return result;
+    return finish_init(kernel, result);
   }
 
   if(persistence.maximum_retained_bytes) {
@@ -1075,37 +1122,36 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         __uint128_t(proof_copies.size())*21;
     for(const auto &row:matrix.rows()) {
       if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       journal_reserve+=512+__uint128_t(row.variables.size())*12+__uint128_t(row.source_equations.size())*21;
     }
     for(const auto &equation:image.equations) {
       if(!add(1+equation.premises.size(),parameters.maximum_session_work,result.premise_retention_work)) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       journal_reserve+=512+__uint128_t(equation.variables.size())*12;
       for(const auto &clause:equation.premise_clauses)journal_reserve+=512+__uint128_t(clause.size())*12;
     }
     if(!proof_copies.empty())for(const auto &source:full_owner.sources) {
       if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       journal_reserve+=512+__uint128_t(source.clause.size())*12;
     }
     const __uint128_t peak=__uint128_t(retained_bytes)+root_plan.reserved_bytes+
         __uint128_t(2)*root_capture_bytes+(session.enabled()?session.retained_bytes_:0)+4*journal_reserve;
     if(journal_reserve>prospective_journal_bytes || journal_reserve>parameters.maximum_journal_bytes||peak>persistence.maximum_retained_bytes) {
-      result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
     }
   }
   std::string initialization_journal;
   if (!make_initialization_journal(owner_version, matrix,
                                    parameters.maximum_journal_bytes,
                                    initialization_journal)) {
-    result.status = AffineMatrixInitStatus::ResourceExhausted;
     session.remember_terminal_initialization_failure(kernel, parameters);
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result,
+                       AffineMatrixInitStatus::ResourceExhausted);
   }
   if (persistence.maximum_retained_bytes) {
     const auto append = [&](const std::string &part) {
@@ -1165,20 +1211,15 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       journal_fits &= append("]}\n");
     }
     if (!journal_fits) {
-      result.status = AffineMatrixInitStatus::ResourceExhausted;
-      record_init(kernel, result); return result;
+      return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
     }
   }
   const long journal_position = std::ftell(kernel.structural_provenance);
   if (journal_position < 0) {
-    result.status = AffineMatrixInitStatus::Invalid;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result, AffineMatrixInitStatus::Invalid);
   }
   if (kernel_terminating(kernel)) {
-    result.status = AffineMatrixInitStatus::Interrupted;
-    record_init(kernel, result);
-    return result;
+    return finish_init(kernel, result, AffineMatrixInitStatus::Interrupted);
   }
 
   if(persistence.maximum_retained_bytes) {
@@ -1189,8 +1230,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         std::min(result.snapshot_work,parameters.maximum_snapshot_work);
     AffineLiveSnapshot rechecked;
     if(!capture_affine_live_snapshot(kernel,recheck_request,rechecked)) {
-      result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
-      record_init(kernel,result);return result;
+      return finish_init(kernel,result,kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted);
     }
     result.snapshot_work+=rechecked.work;
     bool same=kernel.proof==root_proof && kernel.proof && root_proof_stream &&
@@ -1203,7 +1243,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     for(size_t i=0;same&&i<full_owner.sources.size();++i) {
       const auto &before=full_owner.sources[i];const auto &after=rechecked.sources[i];
       if(!add(2+before.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       same=before.kind==after.kind&&before.ref==after.ref&&before.first==after.first&&
           before.second==after.second&&before.clause_id==after.clause_id&&
@@ -1212,36 +1252,35 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     }
     for(External external:root_facts) {
       if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       const Lit literal=kernel_internalize(kernel,external);
       same=same&&literal!=INVALID_LIT&&kernel_externalize(kernel,literal)==external&&
           !kernel_var_retired(kernel,var_of(literal))&&kernel.values[literal]>0&&
           !kernel.assigned[var_of(literal)].level&&!kernel.model_extended;
     }
-    if(!same) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+    if(!same) {return finish_init(kernel,result,AffineMatrixInitStatus::Stale);}
     Proof::PremiseGroup copies;
     for(size_t occurrence:proof_copies) {
       const auto &source=owner.sources[occurrence];
       if(!add(1+source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
-        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       copies.push_back(source.clause);
     }
     std::vector<Proof::PremiseGroup> pending_copies;
     if(!copies.empty()) {pending_copies.reserve(1);pending_copies.push_back(std::move(copies));}
-    if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+    if(!context_current()) {return finish_init(kernel,result,AffineMatrixInitStatus::Stale);}
     if(!pending_copies.empty()&&!root_proof->can_defer_premise_group_deletions(pending_copies,
         {persistence.maximum_deferred_deletions,persistence.maximum_deferred_literal_work},
         postvalidation_charge)) {
-      result.status=postvalidation_stale?AffineMatrixInitStatus::Stale:
-          kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
-      record_init(kernel,result);return result;
+      return finish_init(kernel,result,postvalidation_stale?AffineMatrixInitStatus::Stale:
+          kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted);
     }
   }
   if(persistence.maximum_retained_bytes &&
       __uint128_t(retained_bytes)+preparation_private_bytes>=persistence.maximum_retained_bytes) {
-    result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+    return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
   }
   std::vector<uint64_t> leases;
   if(persistence.maximum_retained_bytes) retained_leases.reserve(image.equations.size());
@@ -1256,20 +1295,19 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       }
       if (!add(group_work, parameters.maximum_session_work,
                result.premise_retention_work)) {
-        result.status = AffineMatrixInitStatus::ResourceExhausted;
-        record_init(kernel, result); return result;
+        return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
       }
       groups.push_back(equation.premise_clauses);
     }
-    if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+    if(!context_current()) {return finish_init(kernel,result,AffineMatrixInitStatus::Stale);}
     if (!root_proof->retain_premise_groups(groups, parameters.maximum_groups,
         parameters.maximum_snapshot_literals,
         persistence.maximum_retained_bytes - retained_bytes - preparation_private_bytes,
         postvalidation_charge, leases, {persistence.maximum_deferred_deletions, persistence.maximum_deferred_literal_work})) {
-      result.status = postvalidation_stale?AffineMatrixInitStatus::Stale:
+      return finish_init(kernel, result,
+          postvalidation_stale ? AffineMatrixInitStatus::Stale :
           kernel_terminating(kernel) ? AffineMatrixInitStatus::Interrupted :
-                                                 AffineMatrixInitStatus::ResourceExhausted;
-      record_init(kernel, result); return result;
+                                       AffineMatrixInitStatus::ResourceExhausted);
     }
   }
   const uint64_t committed_epoch=kernel.proof?kernel.proof->premise_epoch():0;
@@ -1325,8 +1363,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   result.admitted_sources = session.matrix_.admitted_sources().size();
   result.journal_bytes = initialization_journal.size();
   result.retained_bytes = session.retained_bytes_;
-  record_init(kernel, result);
-  return result;
+  return finish_init(kernel, result);
 }
 
 ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
@@ -1362,10 +1399,7 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
     case Operation::LazySourceSearchStep:
     case Operation::LazyMinimalSearchStep:
     case Operation::MaterializeReasons:
-      if (kernel.affine_matrix_search_session->parameters_ != profile.basis ||
-          kernel.affine_matrix_search_session->persistence_.maximum_retained_bytes != limits.maximum_retained_bytes ||
-          kernel.affine_matrix_search_session->persistence_.maximum_deferred_deletions != limits.maximum_deferred_deletions ||
-          kernel.affine_matrix_search_session->persistence_.maximum_deferred_literal_work != limits.maximum_deferred_literal_work)
+      if (!session.matches_profile(profile.basis, limits))
         return ApplyResult::NoOp;
       session.last_service_ = profile.operation == Operation::SearchStep
           ? affine_matrix_search_step(kernel, session)
@@ -1412,10 +1446,7 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
     return result;
   }
   if (session.enabled() && session.persistent() && session.attached_to(kernel) &&
-      session.parameters_ == parameters &&
-      session.persistence_.maximum_retained_bytes == persistence.maximum_retained_bytes &&
-      session.persistence_.maximum_deferred_deletions == persistence.maximum_deferred_deletions &&
-      session.persistence_.maximum_deferred_literal_work == persistence.maximum_deferred_literal_work &&
+      session.matches_profile(parameters, persistence) &&
       kernel.affine_capture_epochs_trusted &&
       session.refresh_namespace_epoch_ == kernel.affine_semantic_namespace_epoch &&
       session.refresh_arena_generation_ == kernel.arena_generation &&
@@ -1429,19 +1460,15 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
     result.unchanged = true; return result;
   }
   if (!allow_additional_recognition && (!session.enabled() || !session.persistent() ||
-      !session.attached_to(kernel) || session.parameters_ != parameters ||
-      session.persistence_.maximum_retained_bytes != persistence.maximum_retained_bytes ||
-      session.persistence_.maximum_deferred_deletions != persistence.maximum_deferred_deletions ||
-      session.persistence_.maximum_deferred_literal_work != persistence.maximum_deferred_literal_work)) {
+      !session.attached_to(kernel) ||
+      !session.matches_profile(parameters, persistence))) {
     AffineMatrixInitResult result; result.status = AffineMatrixInitStatus::Inapplicable;
     return result;
   }
   AffineMatrixAliasResult rooted;
   if (session.enabled() && session.persistent() && !kernel.level &&
-      session.attached_to(kernel) && session.parameters_ == parameters &&
-      session.persistence_.maximum_retained_bytes == persistence.maximum_retained_bytes &&
-      session.persistence_.maximum_deferred_deletions == persistence.maximum_deferred_deletions &&
-      session.persistence_.maximum_deferred_literal_work == persistence.maximum_deferred_literal_work) {
+      session.attached_to(kernel) &&
+      session.matches_profile(parameters, persistence)) {
     rooted = affine_matrix_search_preserve_aliases(kernel, session, {});
     kernel.stats.affine_matrix_init_root_unit_work += rooted.work;
     if (rooted.status != AffineMatrixServiceStatus::Disabled &&
@@ -1802,10 +1829,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   AffineMatrixServiceResult result;
   if (!session.enabled()) return result;
   if (!session.attached_to(kernel)) {
-    result.status = AffineMatrixServiceStatus::Stale;
     session.disable(kernel);
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::Stale);
   }
   // Backtracking retires handles synchronously at kernel_unassign_literal.
   // Debug keeps the former polling predicate as a boundary assertion.
@@ -1818,24 +1843,19 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   }
 #endif
   if (session.deferred_reason_) {
-    result.status = AffineMatrixServiceStatus::Inapplicable;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::Inapplicable);
   }
   if (kernel.inconsistent || kernel.conflict_valid || kernel.pending.valid ||
       (session.persistent() && kernel.model_extended) || kernel.dense || kernel.probing.recording ||
       !kernel.large_watches_connected || !kernel_propagation_fixpoint(kernel)) {
-    result.status = AffineMatrixServiceStatus::Inapplicable;
     // A transient Boolean/inprocessing boundary cannot revoke durable source
     // ownership. Legacy live-only sessions retain their historical lifecycle.
     if(!session.persistent())session.disable(kernel);
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result,
+                          AffineMatrixServiceStatus::Inapplicable);
   }
   if (kernel.structural_action_sequence == UINT64_MAX) {
-    result.status = AffineMatrixServiceStatus::ResourceExhausted;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
   }
   if (session.persistent()) {
     auto charge = [&](uint64_t amount) {
@@ -1850,9 +1870,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
         uint64_t size = 1 + equation.variables.size() + equation.premises.size();
         for (const auto &clause : equation.premise_clauses) size += 1 + clause.size();
         if (!charge(size)) {
-          result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                       AffineMatrixServiceStatus::ResourceExhausted;
-          record_service(kernel, result); return result;
+          return stopped_service(kernel, result);
         }
         if (kernel.proof->premise_group_active(session.premise_leases_[i])) {
           surviving.equations.push_back(equation);
@@ -1861,21 +1879,17 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       }
       if (surviving.equations.empty()) {
         if (session.lazy_reasons_.empty()) session.disable(kernel);
-        result.status = AffineMatrixServiceStatus::NoEvent;
-        record_service(kernel, result); return result;
+        return finish_service(kernel, result, AffineMatrixServiceStatus::NoEvent);
       }
       if (session.owner_version_ == UINT64_MAX) {
-        result.status = AffineMatrixServiceStatus::ResourceExhausted;
-        record_service(kernel, result); return result;
+        return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
       }
       AffineMatrix replacement;
       const auto status = build_affine_matrix(surviving.equations,
           session.owner_version_ + 1, matrix_limits(session.parameters_, session.persistent()),
           charge, replacement, true);
       if (status != MatrixStatus::Complete && status != MatrixStatus::Partial) {
-        result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                     AffineMatrixServiceStatus::ResourceExhausted;
-        record_service(kernel, result); return result;
+        return stopped_service(kernel, result);
       }
       session.image_ = std::move(surviving); session.matrix_ = std::move(replacement);
       session.premise_leases_ = std::move(leases); ++session.owner_version_;
@@ -1888,9 +1902,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
         session.capture_namespace_epoch_ == kernel.affine_semantic_namespace_epoch;
     if (!namespace_unchanged) for (External external : session.matrix_.admitted_variables()) {
       if (!charge(1)) {
-        result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                     AffineMatrixServiceStatus::ResourceExhausted;
-        record_service(kernel, result); return result;
+        return stopped_service(kernel, result);
       }
       const Lit internal = kernel_internalize(kernel, external);
       if (internal == INVALID_LIT || kernel_var_retired(kernel, var_of(internal)) ||
@@ -1900,9 +1912,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     if (!unavailable.empty()) {
       const auto status = session.matrix_.project(unavailable, charge);
       if (status != MatrixStatus::Complete) {
-        result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                     AffineMatrixServiceStatus::ResourceExhausted;
-        record_service(kernel, result); return result;
+        return stopped_service(kernel, result);
       }
       session.cached_event_valid_ = false; session.capture_valid_ = false;
       result.projected_variables = unavailable.size();
@@ -2040,16 +2050,13 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     session.capture_valid_ = false;
     const auto status = exact_trail(kernel, session.matrix_.admitted_variables(),
         session.parameters_.basis_maximum_work, result.trail_capture_work, fresh_trail);
-    if (status != TrailStatus::Complete) {
-      result.status = status == TrailStatus::Interrupted ? AffineMatrixServiceStatus::Interrupted :
-          status == TrailStatus::Exhausted ? AffineMatrixServiceStatus::ResourceExhausted : AffineMatrixServiceStatus::Stale;
-      record_service(kernel, result); return result;
-    }
+    if (status != TrailStatus::Complete)
+      return finish_service(kernel, result,
+          status == TrailStatus::Interrupted ? AffineMatrixServiceStatus::Interrupted :
+          status == TrailStatus::Exhausted ? AffineMatrixServiceStatus::ResourceExhausted : AffineMatrixServiceStatus::Stale);
   }
   if (!capture_ok) {
-    result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                               AffineMatrixServiceStatus::ResourceExhausted;
-    record_service(kernel, result); return result;
+    return stopped_service(kernel, result);
   }
   const auto &trail = *trail_view;
   bool exhausted = false;
@@ -2065,9 +2072,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   bool cached = false;
   if (session.persistent()) {
     if (!synchronization_charge(1 + (result.unchanged_support ? 0 : trail.size()))) {
-      result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                 AffineMatrixServiceStatus::ResourceExhausted;
-      record_service(kernel, result); return result;
+      return stopped_service(kernel, result);
     }
     cached = session.cached_event_valid_ &&
              session.cached_event_exact_core_ == minimal &&
@@ -2079,9 +2084,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       if (!synchronization_charge(1 + previous.row.variables.size() +
           previous.row.source_equations.size() + previous.reason.size() +
           previous.deferred_exact_support.size())) {
-        result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                   AffineMatrixServiceStatus::ResourceExhausted;
-        record_service(kernel, result); return result;
+        return stopped_service(kernel, result);
       }
       event = previous;
     } else {
@@ -2129,19 +2132,16 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   result.synchronization_failure_stage =
       session.matrix_.last_synchronization_failure_stage();
   if(result.slice_pending) {
-    result.status=AffineMatrixServiceStatus::Pending;
-    record_service(kernel,result);return result;
+    return finish_service(kernel,result,AffineMatrixServiceStatus::Pending);
   }
   if (synchronized != MatrixStatus::Complete &&
-      synchronized != MatrixStatus::Partial) {
-    result.status = kernel_terminating(kernel)
-                        ? AffineMatrixServiceStatus::Interrupted
-                    : synchronized == MatrixStatus::Exhausted || exhausted
-                        ? AffineMatrixServiceStatus::ResourceExhausted
-                        : AffineMatrixServiceStatus::Invalid;
-    record_service(kernel, result);
-    return result;
-  }
+      synchronized != MatrixStatus::Partial)
+    return finish_service(kernel, result,
+                          kernel_terminating(kernel)
+                              ? AffineMatrixServiceStatus::Interrupted
+                          : synchronized == MatrixStatus::Exhausted || exhausted
+                              ? AffineMatrixServiceStatus::ResourceExhausted
+                              : AffineMatrixServiceStatus::Invalid);
   if (session.persistent() && !cached && synchronized == MatrixStatus::Complete) {
     session.matrix_index_bytes_ = session.matrix_.incremental_index_bytes();
     session.retained_bytes_ = index_base + session.matrix_index_bytes_;
@@ -2167,9 +2167,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     // resource failure merely because that slice used the whole work dose.
     if (cache_fits) {
       if (!synchronization_charge(copy_work)) {
-        result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                   AffineMatrixServiceStatus::ResourceExhausted;
-        record_service(kernel, result); return result;
+        return stopped_service(kernel, result);
       }
       session.cached_event_ = event;
       session.cached_event_bytes_ = bytes; session.retained_bytes_ = base + bytes;
@@ -2200,9 +2198,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     result.synchronization_kind = MatrixSynchronizationKind::Extension;
   }
   if (event.kind == MatrixEventKind::None) {
-    result.status = AffineMatrixServiceStatus::NoEvent;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::NoEvent);
   }
   uint32_t deferred_implication_level=0;
   Lit deferred_implied=INVALID_LIT;
@@ -2212,8 +2208,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
         session.owner_version_,session.matrix_,kernel,event,
         deferred_implication_level,deferred_implied,deferred_identity);
     if(!valid){
-      result.status=AffineMatrixServiceStatus::Stale;
-      record_service(kernel,result);return result;
+      return finish_service(kernel,result,AffineMatrixServiceStatus::Stale);
     }
     // Root consequences cross proof/inprocessing boundaries immediately;
     // only genuine non-root implications retain the native lazy handle.
@@ -2224,8 +2219,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
             return positive==INVALID_LIT?int8_t{0}:
                    kernel.values[positive];
           })){
-        result.status=AffineMatrixServiceStatus::Stale;
-        record_service(kernel,result);return result;
+        return finish_service(kernel,result,AffineMatrixServiceStatus::Stale);
       }
       event.deferred_exact_support.clear();
     }
@@ -2235,18 +2229,14 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   // matrix event for the next root window; other reasons carry their false
   // trail antecedents and can be installed as ordinary non-root clauses.
   if (kernel.level && event.reason_width <= 1) {
-    result.status = AffineMatrixServiceStatus::NoEvent;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::NoEvent);
   }
   result.reason_width = event.reason_width;
   result.event_identity = deferred_identity.empty()
       ? event_identity(session.owner_version_, event)
       : std::move(deferred_identity);
   if (result.event_identity.size() > session.parameters_.maximum_journal_bytes) {
-    result.status = AffineMatrixServiceStatus::ResourceExhausted;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
   }
   const bool deferred_exact=!event.deferred_exact_support.empty();
   const auto duplicate=
@@ -2262,69 +2252,41 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
                result.session_work))
         break;
     }
-    result.status = AffineMatrixServiceStatus::ResourceExhausted;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
   }
   if (duplicate != session.published_.end() &&
       *duplicate == result.event_identity) {
-    result.status = AffineMatrixServiceStatus::Duplicate;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::Duplicate);
   }
   if (session.published_.size()+session.lazy_reasons_.size() >=
           session.parameters_.maximum_session_keys ||
       !add(result.event_identity.size()+1,
            session.parameters_.maximum_session_work, result.session_work)) {
-    result.status = AffineMatrixServiceStatus::ResourceExhausted;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
   }
 
   const uint64_t action_id = kernel.structural_action_sequence + 1;
-  MatrixLiveRequest request;
-  request.owner = &session.source_owner_;
-  request.matrix = &session.matrix_;
-  request.exact_sources = &session.image_.equations;
-  request.event = &event;
-  request.owner_identity = session.owner_version_;
-  request.transaction = transaction_limits(session.parameters_);
-  request.maximum_revalidation_work =
-      session.parameters_.maximum_snapshot_work;
-  request.maximum_journal_bytes = session.parameters_.maximum_journal_bytes;
-  request.maximum_external_extent = session.parameters_.maximum_external_extent;
-  request.action_id = action_id;
-  request.semantic_id = session.owner_version_;
-  request.records = session.records_;
-  request.compact_provenance = kernel.affine_matrix_provenance_compact;
-  request.retained_source_provenance =
-      session.retained_source_provenance_owner_ == session.owner_version_;
-  request.detached_reason = detached;
   // The matrix's canonical current-event spelling is the source-support
   // weakening. When the public operation selects its exact XOR core,
   // authenticate the same row/source identity through the historical
   // complete-core audit rather than requiring byte-identical reason spelling.
-  request.core_reason_authentication = minimal;
-  request.proof_cache = &session.proof_cache_;
-  request.pbp_parity_cache = &session.pbp_proof_cache_;
+  MatrixLiveRequest request =
+      session.matrix_live_request(kernel, event, minimal);
+  request.detached_reason = detached;
   if (session.persistent()) {
-    request.premise_leases = &session.premise_leases_;
     if (session.retained_bytes_ >= session.persistence_.maximum_retained_bytes) {
-      result.status = AffineMatrixServiceStatus::ResourceExhausted;
-      record_service(kernel, result); return result;
+      return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
     }
     const __uint128_t key_bytes_wide =
         __uint128_t(2) * session.published_.capacity() * sizeof(std::string) +
         2 * (sizeof(std::string) + result.event_identity.size()+1) +
         __uint128_t(2) * session.published_capacity_bytes_;
     if (key_bytes_wide > UINT64_MAX) {
-      result.status = AffineMatrixServiceStatus::ResourceExhausted;
-      record_service(kernel, result); return result;
+      return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
     }
     const uint64_t key_bytes = uint64_t(key_bytes_wide);
     if (key_bytes >= session.persistence_.maximum_retained_bytes - session.retained_bytes_) {
-      result.status = AffineMatrixServiceStatus::ResourceExhausted;
-      record_service(kernel, result); return result;
+      return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
     }
     request.maximum_persistent_bytes = session.persistence_.maximum_retained_bytes -
                                       session.retained_bytes_ - key_bytes;
@@ -2450,23 +2412,13 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     // An unconsumed lazy handle is not a permanent formula consequence yet.
     // Do not suppress the same event after backtracking; the identity becomes
     // permanent only when Analyze certifies and caches its watched clause.
-    if (!installed_lazy) {
-      const auto inserted = session.published_.insert(duplicate,
-                                                      result.event_identity);
-      const uint64_t work = inserted->size() + 1;
-      const uint64_t bytes = inserted->capacity() + 1;
-      if (work > UINT64_MAX - session.published_work_ ||
-          bytes > UINT64_MAX - session.published_capacity_bytes_)
-        std::abort();
-      session.published_work_ += work;
-      session.published_capacity_bytes_ += bytes;
-    }
+    if (!installed_lazy)
+      session.publish_identity(duplicate, result.event_identity);
     kernel.structural_action_sequence = action_id;
     if (!result.bcp_pending && result.result != ApplyResult::Unsat)
       std::abort();
   }
-  record_service(kernel, result);
-  return result;
+  return finish_service(kernel, result);
 }
 
 AffineMatrixServiceResult affine_matrix_search_step(
@@ -2510,9 +2462,7 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
     bool honor_termination) {
   AffineMatrixServiceResult result;
   if (!session.enabled() || !session.attached_to(kernel)) {
-    result.status = AffineMatrixServiceStatus::Inapplicable;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::Inapplicable);
   }
   const auto at = std::find_if(
       session.lazy_reasons_.begin(), session.lazy_reasons_.end(),
@@ -2520,9 +2470,7 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
         return pending.implied_variable == implied;
       });
   if (at == session.lazy_reasons_.end()) {
-    result.status = AffineMatrixServiceStatus::Inapplicable;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::Inapplicable);
   }
   if (implied >= kernel.nvars ||
       !kernel.values[make_lit(implied, false)] ||
@@ -2530,14 +2478,10 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
       kernel.assigned[implied].reason != AFFINE_REASON) {
     session.erase_lazy_reason_at(
         static_cast<size_t>(at - session.lazy_reasons_.begin()));
-    result.status = AffineMatrixServiceStatus::Stale;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::Stale);
   }
   if (kernel.structural_action_sequence == UINT64_MAX) {
-    result.status = AffineMatrixServiceStatus::ResourceExhausted;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
   }
   if(!at->event.deferred_exact_support.empty()){
     if(!session.matrix_.materialize_deferred_exact_reason(
@@ -2545,8 +2489,7 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
           const Lit positive=kernel_internalize(kernel,variable);
           return positive==INVALID_LIT?int8_t{0}:kernel.values[positive];
         })){
-      result.status=AffineMatrixServiceStatus::Stale;
-      record_service(kernel,result);return result;
+      return finish_service(kernel,result,AffineMatrixServiceStatus::Stale);
     }
     result.reason_vector_constructed=true;
     at->event.deferred_exact_support={};
@@ -2556,8 +2499,7 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
 #endif
   }
   if(at->event_identity.size()>session.parameters_.maximum_journal_bytes){
-    result.status=AffineMatrixServiceStatus::ResourceExhausted;
-    record_service(kernel,result);return result;
+    return finish_service(kernel,result,AffineMatrixServiceStatus::ResourceExhausted);
   }
   const auto duplicate=std::lower_bound(
       session.published_.begin(),session.published_.end(),at->event_identity);
@@ -2570,40 +2512,17 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
      (new_key&&!add(at->event_identity.size()+1,
                    session.parameters_.maximum_session_work,
                    result.session_work))){
-    result.status=AffineMatrixServiceStatus::ResourceExhausted;
-    record_service(kernel,result);return result;
+    return finish_service(kernel,result,AffineMatrixServiceStatus::ResourceExhausted);
   }
 
-  MatrixLiveRequest request;
-  request.owner = &session.source_owner_;
-  request.matrix = &session.matrix_;
-  request.exact_sources = &session.image_.equations;
-  request.event = &at->event;
-  request.owner_identity = session.owner_version_;
-  request.transaction = transaction_limits(session.parameters_);
-  request.maximum_revalidation_work =
-      session.parameters_.maximum_snapshot_work;
-  request.maximum_journal_bytes = session.parameters_.maximum_journal_bytes;
-  request.maximum_external_extent = session.parameters_.maximum_external_extent;
-  request.action_id = kernel.structural_action_sequence + 1;
-  request.semantic_id = session.owner_version_;
-  request.records = session.records_;
-  request.compact_provenance = kernel.affine_matrix_provenance_compact;
-  request.retained_source_provenance =
-      session.retained_source_provenance_owner_ == session.owner_version_;
-  request.core_reason_authentication = at->core_reason_authentication;
+  MatrixLiveRequest request = session.matrix_live_request(
+      kernel, at->event, at->core_reason_authentication);
   request.historical_event = true;
   request.honor_termination = honor_termination;
-  request.proof_cache = &session.proof_cache_;
-  request.pbp_parity_cache = &session.pbp_proof_cache_;
-  request.premise_leases = session.persistent()
-      ? &session.premise_leases_ : nullptr;
   if (session.persistent()) {
     const uint64_t retained = session.retained_bytes();
     if (retained >= session.persistence_.maximum_retained_bytes) {
-      result.status = AffineMatrixServiceStatus::ResourceExhausted;
-      record_service(kernel, result);
-      return result;
+      return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
     }
     request.maximum_persistent_bytes =
         session.persistence_.maximum_retained_bytes - retained;
@@ -2624,24 +2543,13 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
     kernel.assigned[implied].reason = result.live.installed_reason_ref;
     kernel.assigned[implied].affine = false;
 
-    if(new_key){
-      const auto inserted = session.published_.insert(
-          duplicate, result.event_identity);
-      const uint64_t work = inserted->size() + 1;
-      const uint64_t bytes = inserted->capacity() + 1;
-      if (work > UINT64_MAX - session.published_work_ ||
-          bytes > UINT64_MAX - session.published_capacity_bytes_)
-        std::abort();
-      session.published_work_ += work;
-      session.published_capacity_bytes_ += bytes;
-    }
+    if(new_key)session.publish_identity(duplicate, result.event_identity);
     kernel.structural_action_sequence = request.action_id;
     session.erase_lazy_reason_at(
         static_cast<size_t>(at - session.lazy_reasons_.begin()));
     result.reason_materialized = true;
   }
-  record_service(kernel, result);
-  return result;
+  return finish_service(kernel, result);
 }
 
 AffineMatrixServiceResult affine_matrix_materialize_reason(
@@ -2653,18 +2561,14 @@ AffineMatrixServiceResult affine_matrix_materialize_reason(
         kernel, session, session.lazy_reasons_.front().implied_variable);
   if (!session.enabled() || !session.attached_to(kernel) ||
       !session.deferred_reason_) {
-    result.status = AffineMatrixServiceStatus::Inapplicable;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::Inapplicable);
   }
   auto &pending = *session.deferred_reason_;
   const Var implied = pending.implied_variable;
   if (implied >= kernel.nvars || !kernel.values[make_lit(implied, false)] ||
       kernel.assigned[implied].binary ||
       kernel.assigned[implied].reason != pending.provisional_ref) {
-    result.status = AffineMatrixServiceStatus::Stale;
-    record_service(kernel, result);
-    return result;
+    return finish_service(kernel, result, AffineMatrixServiceStatus::Stale);
   }
   result.event_identity = pending.event_identity;
   result.reason_width = pending.event.reason.size();
@@ -2686,73 +2590,52 @@ AffineMatrixServiceResult affine_matrix_materialize_reason(
     session.deferred_reason_.reset();
     result.reason_materialized = true;
   }
-  record_service(kernel, result);
-  return result;
+  return finish_service(kernel, result);
 }
 
 TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                           [](const Kernel &kernel) {
-                            if (kernel.affine_matrix_initialize_parameters_active &&
-                                (kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::SearchStep ||
-                                 kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::DeferredSearchStep ||
-                                 kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::DetachedMinimalSearchStep ||
-                                 kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::DetachedSourceSearchStep ||
-                                 kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::LazySourceSearchStep ||
-                                 kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::LazyMinimalSearchStep))
+                            using Operation = strategy::AffineMatrixInitializeParameters::Operation;
+                            const auto &profile = kernel.affine_matrix_initialize_parameters;
+                            const auto *session = kernel.affine_matrix_search_session;
+                            const bool active = kernel.affine_matrix_initialize_parameters_active;
+                            const auto profile_session = [&] {
+                              return session && session->enabled() && session->attached_to(kernel) &&
+                                     session->matches_profile(profile.basis,
+                                         {profile.maximum_retained_bytes, profile.maximum_deferred_deletions,
+                                          profile.maximum_deferred_literal_work});
+                            };
+                            if (active &&
+                                (profile.operation == Operation::SearchStep ||
+                                 profile.operation == Operation::DeferredSearchStep ||
+                                 profile.operation == Operation::DetachedMinimalSearchStep ||
+                                 profile.operation == Operation::DetachedSourceSearchStep ||
+                                 profile.operation == Operation::LazySourceSearchStep ||
+                                 profile.operation == Operation::LazyMinimalSearchStep))
                               return RuleEligibility{}
                                   .fact("consistent", !kernel.inconsistent)
                                   .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
                                   .fact("propagated", kernel_propagation_fixpoint(kernel))
                                   .fact("sparse", !kernel.dense && kernel.large_watches_connected)
                                   .fact("no-probe-transaction", !kernel.probing.recording)
-                                  .fact("profile-valid", kernel.affine_matrix_initialize_parameters.valid())
+                                  .fact("profile-valid", profile.valid())
                                   .fact("clausal-proof", kernel.proof && !kernel.proof->lrat() && !kernel.proof->terminal_pbp())
                                   .fact("no-extended-model", !kernel.model_extended)
-                                  .fact("session-profile", kernel.affine_matrix_search_session &&
-                                      kernel.affine_matrix_search_session->enabled() &&
-                                      kernel.affine_matrix_search_session->attached_to(kernel) &&
-                                      !kernel.affine_matrix_search_session->has_deferred_reason() &&
-                                      kernel.affine_matrix_search_session->matches_profile(
-                                          kernel.affine_matrix_initialize_parameters.basis,
-                                          {kernel.affine_matrix_initialize_parameters.maximum_retained_bytes,
-                                           kernel.affine_matrix_initialize_parameters.maximum_deferred_deletions,
-                                           kernel.affine_matrix_initialize_parameters.maximum_deferred_literal_work}));
-                            if (kernel.affine_matrix_initialize_parameters_active &&
-                                kernel.affine_matrix_initialize_parameters.operation ==
-                                    strategy::AffineMatrixInitializeParameters::Operation::MaterializeReasons) {
-                              const auto &profile = kernel.affine_matrix_initialize_parameters;
+                                  .fact("session-profile",
+                                        profile_session() && !session->has_deferred_reason());
+                            if (active && profile.operation == Operation::MaterializeReasons)
                               return RuleEligibility{}
                                   .fact("consistent", !kernel.inconsistent)
                                   .fact("profile-valid", profile.valid())
-                                  .fact("session-profile", kernel.affine_matrix_search_session &&
-                                      kernel.affine_matrix_search_session->enabled() &&
-                                      kernel.affine_matrix_search_session->attached_to(kernel) &&
-                                      kernel.affine_matrix_search_session->matches_profile(profile.basis,
-                                          {profile.maximum_retained_bytes,
-                                           profile.maximum_deferred_deletions,
-                                           profile.maximum_deferred_literal_work}))
-                                  .fact("reason-deferred", kernel.affine_matrix_search_session &&
-                                      (kernel.affine_matrix_search_session->has_deferred_reason() ||
-                                       kernel.affine_matrix_search_session->lazy_reason_count()));
-                            }
+                                  .fact("session-profile", profile_session())
+                                  .fact("reason-deferred", session &&
+                                      (session->has_deferred_reason() || session->lazy_reason_count()));
                             auto guard = affine_matrix_initialize_guard(kernel);
-                            if (kernel.affine_matrix_initialize_parameters_active) {
-                              const auto &profile = kernel.affine_matrix_initialize_parameters;
+                            if (active) {
                               guard.fact("profile-valid", profile.valid());
                               guard.fact("persistent-proof", kernel.proof && !kernel.model_extended);
-                              if (profile.operation == strategy::AffineMatrixInitializeParameters::Operation::RootMaintenance)
-                                guard.fact("session-profile", kernel.affine_matrix_search_session &&
-                                    kernel.affine_matrix_search_session->enabled() &&
-                                    kernel.affine_matrix_search_session->attached_to(kernel) &&
-                                    kernel.affine_matrix_search_session->matches_profile(profile.basis,
-                                        {profile.maximum_retained_bytes, profile.maximum_deferred_deletions,
-                                         profile.maximum_deferred_literal_work}));
+                              if (profile.operation == Operation::RootMaintenance)
+                                guard.fact("session-profile", profile_session());
                             }
                             return guard;
                           },

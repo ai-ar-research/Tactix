@@ -16,11 +16,6 @@ namespace {
 
 using SmallClause = parity_certificate::SmallClause;
 
-std::vector<External> key(std::vector<External> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
-}
-
 struct Work {
   uint64_t used = 0;
   uint64_t limit = 0;
@@ -102,15 +97,15 @@ struct PlanningSink {
     event.clause = clause;
     event.id = ++next_id;
     events.push_back(event);
-    active[key(clause)].push_back(event.id);
+    active[sorted_clause(clause)].push_back(event.id);
     ++additions;
     return true;
   }
 
   bool erase_external(const std::vector<External> &clause) {
-    auto found = active.find(key(clause));
+    auto found = active.find(sorted_clause(clause));
     if (found == active.end() || found->second.empty()) {
-      auto inherited = imported.find(key(clause));
+      auto inherited = imported.find(sorted_clause(clause));
       if (inherited == imported.end() || !inherited->second) {
         invalid = true;
         return false;
@@ -135,13 +130,13 @@ struct PlanningSink {
 
   bool import_external(const std::vector<External> &clause) {
     if (clause.empty()) { invalid = true; return false; }
-    ++imported[key(clause)];
+    ++imported[sorted_clause(clause)];
     return true;
   }
 
   bool retained_or_imported(const std::vector<External> &clause,
                             const std::vector<uint64_t> &support_ids) const {
-    const auto wanted = key(clause);
+    const auto wanted = sorted_clause(clause);
     const auto inherited = imported.find(wanted);
     if (inherited != imported.end() && inherited->second) return true;
     const auto own = active.find(wanted);
@@ -154,7 +149,7 @@ struct PlanningSink {
   }
 
   bool mark_install(const std::vector<External> &clause) {
-    auto found = active.find(key(clause));
+    auto found = active.find(sorted_clause(clause));
     if (found == active.end() || found->second.empty()) return false;
     const uint64_t id = found->second.back();
     for (auto event = events.rbegin(); event != events.rend(); ++event)
@@ -185,7 +180,7 @@ struct PlanningSink {
   }
 
   bool only_active(const std::vector<External> &clause) const {
-    const auto wanted = key(clause);
+    const auto wanted = sorted_clause(clause);
     size_t populated = 0;
     for (const auto &[candidate, ids] : active) {
       if (ids.empty()) continue;
@@ -209,7 +204,7 @@ struct PlanningSink {
     for (const MatrixProofEvent &event : events) {
       if (event.kind == MatrixProofEvent::Kind::Delete || event.install)
         continue;
-      const auto found = active.find(key(event.clause));
+      const auto found = active.find(sorted_clause(event.clause));
       if (found == active.end() ||
           std::find(found->second.begin(), found->second.end(), event.id) ==
               found->second.end())
@@ -557,6 +552,62 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       variables.insert(variables.end(), input.variables.begin(),
                        input.variables.end());
   }
+  // Both planners bind the exact sorted source ordinals, their retained or
+  // charged identities and the reason's arena footprint.
+  const auto begin_candidate = [&](AffineMatrixTransaction &transaction) {
+    transaction.owner_identity_ = expected_owner_identity;
+    transaction.authentication_work_ = authentication_work;
+    transaction.source_equations_ = event.row.source_equations;
+    if (!std::is_sorted(transaction.source_equations_.begin(),
+                        transaction.source_equations_.end()) ||
+        std::adjacent_find(transaction.source_equations_.begin(),
+                           transaction.source_equations_.end()) !=
+            transaction.source_equations_.end())
+      return MatrixTransactionStatus::Stale;
+    const bool identities_ready = retain_source_identity
+        ? retain_source_identities(exact_sources,
+                                   transaction.source_equations_, work,
+                                   transaction.source_identity_)
+        : charge_source_identities(exact_sources,
+                                   transaction.source_equations_, work);
+    if (!identities_ready)
+      return work.interrupted ? MatrixTransactionStatus::Interrupted
+                              : MatrixTransactionStatus::ResourceExhausted;
+    const uint64_t arena_words = event.reason.size() > 2
+        ? event.reason.size() + CLAUSE_HEADER_WORDS : 0;
+    if (arena_words > limits.maximum_arena_words)
+      return MatrixTransactionStatus::ResourceExhausted;
+    transaction.arena_words_ = arena_words;
+    transaction.reason_ = event.reason;
+    return MatrixTransactionStatus::Prepared;
+  };
+  const auto finish = [&](AffineMatrixTransaction &transaction,
+                          uint64_t additions, uint64_t deletions,
+                          uint32_t helpers) {
+    transaction.additions_ = additions;
+    transaction.deletions_ = deletions;
+    transaction.helper_extent_ = helpers;
+    transaction.work_ = work.used;
+    transaction.ready_ = true;
+    output = std::move(transaction);
+    return MatrixTransactionStatus::Prepared;
+  };
+  const auto retain_entry = [&](AffineMatrixTransaction &transaction,
+                                uint64_t cache_extent,
+                                std::vector<uint64_t> &&support_ids,
+                                parity_certificate::ActiveTree &&tree) {
+    auto &entry = transaction.cache_entry_;
+    transaction.cache_insert_ = true;
+    entry.entry_id = transaction.cache_generation_ + 1;
+    entry.owner_identity = expected_owner_identity;
+    entry.proof_epoch = proof_epoch;
+    entry.external_extent = static_cast<uint32_t>(cache_extent);
+    entry.source_equations = transaction.source_equations_;
+    entry.source_identity = transaction.source_identity_;
+    entry.support_ids = std::move(support_ids);
+    entry.coordinates = variables;
+    entry.tree = std::move(tree);
+  };
   // Compact PBP already validated the exact equations, their XOR image and
   // the external reason while constructing `pbp_plan`.  The general bridge
   // below builds a dense coordinate frame solely for its clausal parity tree;
@@ -565,26 +616,10 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
   // allocating, sorting and remapping the discarded image.
   if (pbp_plan) {
     AffineMatrixTransaction candidate;
-    candidate.owner_identity_ = expected_owner_identity;
-    candidate.authentication_work_ = authentication_work;
-    candidate.source_equations_ = event.row.source_equations;
-    if (!std::is_sorted(candidate.source_equations_.begin(),
-                        candidate.source_equations_.end()) ||
-        std::adjacent_find(candidate.source_equations_.begin(),
-                           candidate.source_equations_.end()) !=
-            candidate.source_equations_.end())
-      return MatrixTransactionStatus::Stale;
-    const bool identities_ready = retain_source_identity
-        ? retain_source_identities(exact_sources, candidate.source_equations_,
-                                   work, candidate.source_identity_)
-        : charge_source_identities(exact_sources,
-                                   candidate.source_equations_, work);
-    if (!identities_ready)
-      return work.interrupted ? MatrixTransactionStatus::Interrupted
-                              : MatrixTransactionStatus::ResourceExhausted;
-    const uint64_t arena_words = event.reason.size() > 2
-        ? event.reason.size() + CLAUSE_HEADER_WORDS : 0;
-    if (arena_words > limits.maximum_arena_words || !pbp_plan->valid ||
+    if (const auto status = begin_candidate(candidate);
+        status != MatrixTransactionStatus::Prepared)
+      return status;
+    if (!pbp_plan->valid ||
         pbp_plan->starting_external_extent != starting_external_extent ||
         !pbp_plan->proof_constraints ||
         pbp_plan->proof_constraints > limits.maximum_proof_additions ||
@@ -592,17 +627,10 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
         uint64_t(starting_external_extent) + pbp_plan->helper_variables >
             static_cast<uint32_t>(INT32_MAX))
       return MatrixTransactionStatus::ResourceExhausted;
-    candidate.arena_words_ = arena_words;
-    candidate.reason_ = event.reason;
     candidate.compact_pbp_ = true;
     candidate.pbp_plan_ = *pbp_plan;
-    candidate.additions_ = pbp_plan->proof_constraints;
-    candidate.deletions_ = 0;
-    candidate.helper_extent_ = pbp_plan->helper_variables;
-    candidate.work_ = work.used;
-    candidate.ready_ = true;
-    output = std::move(candidate);
-    return MatrixTransactionStatus::Prepared;
+    return finish(candidate, pbp_plan->proof_constraints, 0,
+                  pbp_plan->helper_variables);
   }
   // Every cacheable tree uses the same coordinate frame for this admitted
   // source image.  Projected rows can cite variables no longer present in
@@ -636,19 +664,10 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
 
   equations.reserve(event.row.source_equations.size());
   for (size_t source : event.row.source_equations) {
-    const Equation &input = exact_sources[source];
     parity_certificate::Equation dense;
-    dense.size = static_cast<uint8_t>(input.variables.size());
-    dense.rhs = input.rhs;
-    for (size_t i = 0; i < input.variables.size(); ++i) {
-      const auto found =
-          std::lower_bound(variables.begin(), variables.end(),
-                           input.variables[i]);
-      if (found == variables.end() || *found != input.variables[i])
-        return failed(MatrixTransactionStatus::Invalid,
-                      MatrixTransactionFailureStage::DenseMapping);
-      dense.variables[i] = static_cast<External>(found - variables.begin() + 1);
-    }
+    if (!dense_equation(exact_sources[source], variables, dense))
+      return failed(MatrixTransactionStatus::Invalid,
+                    MatrixTransactionFailureStage::DenseMapping);
     equations.push_back(dense);
   }
 
@@ -658,41 +677,16 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     if (!literal || literal == INT32_MIN)
       return failed(MatrixTransactionStatus::Invalid,
                     MatrixTransactionFailureStage::DenseMapping);
-    const External variable =
-        static_cast<External>(external_variable_of(literal));
-    const auto found = std::lower_bound(variables.begin(), variables.end(),
-                                        variable);
-    if (found == variables.end() || *found != variable)
-      return MatrixTransactionStatus::Stale;
-    External dense = static_cast<External>(found - variables.begin() + 1);
+    const External dense = dense_coordinate(
+        variables, static_cast<External>(external_variable_of(literal)));
+    if (!dense) return MatrixTransactionStatus::Stale;
     dense_reason.push_back(literal < 0 ? -dense : dense);
   }
 
   AffineMatrixTransaction candidate;
-  candidate.owner_identity_ = expected_owner_identity;
-  candidate.authentication_work_ = authentication_work;
-  candidate.source_equations_ = event.row.source_equations;
-  if (!std::is_sorted(candidate.source_equations_.begin(),
-                      candidate.source_equations_.end()) ||
-      std::adjacent_find(candidate.source_equations_.begin(),
-                         candidate.source_equations_.end()) !=
-          candidate.source_equations_.end())
-    return MatrixTransactionStatus::Stale;
-  const bool identities_ready = retain_source_identity
-      ? retain_source_identities(exact_sources, candidate.source_equations_,
-                                 work, candidate.source_identity_)
-      : charge_source_identities(exact_sources, candidate.source_equations_,
-                                 work);
-  if (!identities_ready)
-    return work.interrupted ? MatrixTransactionStatus::Interrupted
-                            : MatrixTransactionStatus::ResourceExhausted;
-  const uint64_t arena_words = event.reason.size() > 2
-                                   ? event.reason.size() + CLAUSE_HEADER_WORDS
-                                   : 0;
-  if (arena_words > limits.maximum_arena_words)
-    return MatrixTransactionStatus::ResourceExhausted;
-  candidate.arena_words_ = arena_words;
-  candidate.reason_ = event.reason;
+  if (const auto status = begin_candidate(candidate);
+      status != MatrixTransactionStatus::Prepared)
+    return status;
   if (!retain_source_identity)
     return failed(MatrixTransactionStatus::Invalid,
                   MatrixTransactionFailureStage::Request);
@@ -719,15 +713,9 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
           !planning.only_active(event.reason))
         return failed(MatrixTransactionStatus::Invalid,
                       MatrixTransactionFailureStage::CachePopulation);
-      candidate.ready_ = true;
-      candidate.additions_ = planning.additions;
-      candidate.deletions_ = planning.deletions;
-      candidate.helper_extent_ = 0;
-      candidate.work_ = work.used;
       candidate.cache_hit_ = true;
       candidate.cache_entry_ = *cached;
-      output = std::move(candidate);
-      return MatrixTransactionStatus::Prepared;
+      return finish(candidate, planning.additions, planning.deletions, 0);
     }
     if (proof_cache->generation() == UINT64_MAX)
       return MatrixTransactionStatus::ResourceExhausted;
@@ -855,27 +843,14 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       delta_equations.reserve(resume_delta.size());
       for (size_t ordinal : resume_delta) {
         const Equation &input = exact_sources[ordinal];
+        parity_certificate::Equation dense;
         if (input.variables.empty() ||
             input.variables.size() >
-                parity_certificate::Equation{}.variables.size()) {
+                parity_certificate::Equation{}.variables.size() ||
+            !dense_equation(input, variables, dense)) {
           usable = false;
           break;
         }
-        parity_certificate::Equation dense;
-        dense.size = static_cast<uint8_t>(input.variables.size());
-        dense.rhs = input.rhs;
-        for (size_t i = 0; i < input.variables.size(); ++i) {
-          const auto found = std::lower_bound(variables.begin(),
-                                              variables.end(),
-                                              input.variables[i]);
-          if (found == variables.end() || *found != input.variables[i]) {
-            usable = false;
-            break;
-          }
-          dense.variables[i] =
-              static_cast<External>(found - variables.begin() + 1);
-        }
-        if (!usable) break;
         delta_equations.push_back(dense);
       }
     }
@@ -900,18 +875,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
             resumed_planning.active_size() != support_ids.size() + 1)
           usable = false;
         else {
-          attempt.cache_insert_ = true;
-          attempt.cache_entry_.entry_id = attempt.cache_generation_ + 1;
-          attempt.cache_entry_.owner_identity = expected_owner_identity;
-          attempt.cache_entry_.proof_epoch = proof_epoch;
-          attempt.cache_entry_.external_extent =
-              static_cast<uint32_t>(cache_extent);
-          attempt.cache_entry_.source_equations =
-              attempt.source_equations_;
-          attempt.cache_entry_.source_identity = attempt.source_identity_;
-          attempt.cache_entry_.support_ids = std::move(support_ids);
-          attempt.cache_entry_.coordinates = variables;
-          attempt.cache_entry_.tree = std::move(resumed_tree);
+          retain_entry(attempt, cache_extent, std::move(support_ids),
+                       std::move(resumed_tree));
           attempt.cache_entry_.parent_entry_id = resume->entry_id;
         }
       } else if (!resumed_certificate.retire_helpers() ||
@@ -923,14 +888,9 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       return work.interrupted ? MatrixTransactionStatus::Interrupted
                               : MatrixTransactionStatus::ResourceExhausted;
     if (usable) {
-      attempt.ready_ = true;
-      attempt.additions_ = resumed_planning.additions;
-      attempt.deletions_ = resumed_planning.deletions;
-      attempt.helper_extent_ = resumed_sink.helpers();
-      attempt.work_ = work.used;
       attempt.cache_resume_ = true;
-      output = std::move(attempt);
-      return MatrixTransactionStatus::Prepared;
+      return finish(attempt, resumed_planning.additions,
+                    resumed_planning.deletions, resumed_sink.helpers());
     }
   }
   uint64_t next_id = starting_clause_id;
@@ -974,17 +934,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
         uint64_t{starting_external_extent} + sink.helpers();
     if (cache_extent > static_cast<uint32_t>(INT32_MAX))
       return MatrixTransactionStatus::ResourceExhausted;
-    candidate.cache_insert_ = true;
-    candidate.cache_entry_.entry_id = candidate.cache_generation_ + 1;
-    candidate.cache_entry_.owner_identity = expected_owner_identity;
-    candidate.cache_entry_.proof_epoch = proof_epoch;
-    candidate.cache_entry_.external_extent =
-        static_cast<uint32_t>(cache_extent);
-    candidate.cache_entry_.source_equations = candidate.source_equations_;
-    candidate.cache_entry_.source_identity = candidate.source_identity_;
-    candidate.cache_entry_.support_ids = std::move(support_ids);
-    candidate.cache_entry_.coordinates = variables;
-    candidate.cache_entry_.tree = std::move(active_tree);
+    retain_entry(candidate, cache_extent, std::move(support_ids),
+                 std::move(active_tree));
   } else if (!event.reason.empty()) {
     if (!certificate.retire_helpers())
       return failed(failure(work, planning),
@@ -993,13 +944,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       return failed(MatrixTransactionStatus::Invalid,
                     MatrixTransactionFailureStage::ProofPopulation);
   }
-  candidate.ready_ = true;
-  candidate.additions_ = planning.additions;
-  candidate.deletions_ = planning.deletions;
-  candidate.helper_extent_ = sink.helpers();
-  candidate.work_ = work.used;
-  output = std::move(candidate);
-  return MatrixTransactionStatus::Prepared;
+  return finish(candidate, planning.additions, planning.deletions,
+                sink.helpers());
 }
 
 } // namespace tactix::affine_semantic_extension

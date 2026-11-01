@@ -17,14 +17,10 @@ namespace {
 namespace affine = affine_semantic_extension;
 using Event = AffineBasisLiveTransaction::Event;
 using SmallClause = parity_certificate::SmallClause;
+using affine::sorted_clause;
+using affine::to_small_clause;
 using semantic_extension::append_bounded;
-
-bool state_applicable(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && !kernel.dense &&
-         !kernel.probing.recording && kernel.large_watches_connected &&
-         kernel_propagation_fixpoint(kernel);
-}
+using semantic_extension::join_integers;
 
 bool valid_request(const AffineBasisLiveRequest &request) {
   return request.records && request.action_id && request.semantic_id &&
@@ -42,18 +38,6 @@ bool valid_request(const AffineBasisLiveRequest &request) {
           (request.owner_version &&
            request.selection->owner_version == request.owner_version &&
            request.selection->elimination_profile == 1));
-}
-
-std::vector<int32_t> clause_key(std::vector<int32_t> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
-}
-
-bool to_small(const std::vector<int32_t> &clause, SmallClause &small) {
-  if (clause.size() > small.lits.size()) return false;
-  small.size = static_cast<uint8_t>(clause.size());
-  std::copy(clause.begin(), clause.end(), small.lits.begin());
-  return true;
 }
 
 int32_t external_atom(const affine::BasisAtom &atom, uint32_t first_extension) {
@@ -103,7 +87,7 @@ struct PlanningSink {
     event.clause.assign(small.lits.begin(), small.lits.begin() + small.size);
     event.id = ++next_id;
     events.push_back(event);
-    active[clause_key(event.clause)].push_back(event.id);
+    active[sorted_clause(event.clause)].push_back(event.id);
     ++additions;
     return true;
   }
@@ -115,7 +99,7 @@ struct PlanningSink {
     }
     std::vector<int32_t> clause(small.lits.begin(),
                                 small.lits.begin() + small.size);
-    auto found = active.find(clause_key(clause));
+    auto found = active.find(sorted_clause(clause));
     if (found == active.end() || found->second.empty()) {
       invalid = true;
       return false;
@@ -133,7 +117,7 @@ struct PlanningSink {
   bool mark_install(const SmallClause &small, bool definition) {
     std::vector<int32_t> clause(small.lits.begin(),
                                 small.lits.begin() + small.size);
-    const auto found = active.find(clause_key(std::move(clause)));
+    const auto found = active.find(sorted_clause(std::move(clause)));
     if (found == active.end() || found->second.empty()) return false;
     const uint64_t id = found->second.back();
     for (auto event = events.rbegin(); event != events.rend(); ++event)
@@ -151,7 +135,7 @@ struct PlanningSink {
     for (const SmallClause &small : expected) {
       std::vector<int32_t> clause(small.lits.begin(),
                                   small.lits.begin() + small.size);
-      ++wanted[clause_key(std::move(clause))];
+      ++wanted[sorted_clause(std::move(clause))];
     }
     size_t populated = 0;
     for (const auto &[clause, ids] : active) {
@@ -307,18 +291,9 @@ WideProofStatus prepare_wide_proof(
   std::vector<parity_certificate::Equation> equations;
   equations.reserve(row.source_equations.size());
   for (size_t source : row.source_equations) {
-    const auto &recognized = image.equations[source];
     parity_certificate::Equation equation;
-    equation.size = static_cast<uint8_t>(recognized.variables.size());
-    equation.rhs = recognized.rhs;
-    for (size_t i = 0; i < recognized.variables.size(); ++i) {
-      const auto found = std::lower_bound(variables.begin(), variables.end(),
-                                          recognized.variables[i]);
-      if (found == variables.end() || *found != recognized.variables[i])
-        return WideProofStatus::Invalid;
-      equation.variables[i] =
-          static_cast<int32_t>(found - variables.begin() + 1);
-    }
+    if (!affine::dense_equation(image.equations[source], variables, equation))
+      return WideProofStatus::Invalid;
     equations.push_back(equation);
   }
 
@@ -341,12 +316,9 @@ WideProofStatus prepare_wide_proof(
   std::vector<int32_t> expected_dense;
   expected_dense.reserve(row.variables.size());
   for (int32_t external : row.variables) {
-    const auto found =
-        std::lower_bound(variables.begin(), variables.end(), external);
-    if (found == variables.end() || *found != external)
-      return WideProofStatus::Invalid;
-    expected_dense.push_back(
-        static_cast<int32_t>(found - variables.begin() + 1));
+    const int32_t dense = affine::dense_coordinate(variables, external);
+    if (!dense) return WideProofStatus::Invalid;
+    expected_dense.push_back(dense);
   }
   if (tree.variables != expected_dense || tree.rhs != row.rhs ||
       tree.definitions.size() + 1 != tree.variables.size())
@@ -437,20 +409,6 @@ WideProofStatus prepare_wide_proof(
   return WideProofStatus::Complete;
 }
 
-std::string integers(const std::vector<int32_t> &values) {
-  std::string result;
-  for (size_t i = 0; i < values.size(); ++i)
-    result += (i ? "," : "") + std::to_string(values[i]);
-  return result;
-}
-
-std::string unsigned_integers(const std::vector<uint64_t> &values) {
-  std::string result;
-  for (size_t i = 0; i < values.size(); ++i)
-    result += (i ? "," : "") + std::to_string(values[i]);
-  return result;
-}
-
 bool add_arena_words(uint64_t &words, const std::vector<int32_t> &clause) {
   if (clause.size() <= 2) return true;
   const uint64_t amount = clause.size() + CLAUSE_HEADER_WORDS;
@@ -464,24 +422,11 @@ bool valid_owned_snapshot(const Kernel &kernel,
                           const AffineLiveSnapshot &snapshot,
                           uint64_t &literals, uint64_t &work) {
   literals = work = 0;
-  if (snapshot.arena_generation != kernel.arena_generation ||
-      snapshot.premises.size() != snapshot.sources.size() ||
-      snapshot.premises.size() > request.image.maximum_clauses)
-    return false;
-  for (size_t i = 0; i < snapshot.premises.size(); ++i) {
-    const auto &premise = snapshot.premises[i];
-    const auto &source = snapshot.sources[i];
-    if (premise.occurrence != i + 1 || source.occurrence != i + 1 ||
-        premise.literals != source.clause || !source.clause_id)
-      return false;
-    if (premise.literals.size() > request.maximum_snapshot_literals - literals)
-      return false;
-    const uint64_t amount = premise.literals.size() + 1;
-    if (amount > request.maximum_snapshot_work - work) return false;
-    literals += premise.literals.size();
-    work += amount;
-  }
-  return true;
+  return snapshot.arena_generation == kernel.arena_generation &&
+         affine_live_snapshot_payload(
+             snapshot, request.image.maximum_clauses,
+             request.maximum_snapshot_literals, request.maximum_snapshot_work,
+             true, literals, work) == AffineSnapshotPayload::Complete;
 }
 
 } // namespace
@@ -539,7 +484,7 @@ bool make_affine_basis_journal(
             ",\"kind\":\"affine-basis-source\",\"occurrence\":" +
             std::to_string(occurrence) + ",\"source_id\":" +
             std::to_string(source.clause_id) + ",\"clause\":[" +
-            integers(source.clause) + "]}\n"))
+            join_integers(source.clause) + "]}\n"))
       return false;
   }
   for (size_t row = 0; row < plan.rows.size(); ++row) {
@@ -549,13 +494,9 @@ bool make_affine_basis_journal(
             ",\"kind\":\"affine-basis-row\",\"row\":" +
             std::to_string(row) + ",\"rhs\":" +
             (planned.rhs ? "true" : "false") + ",\"variables\":[" +
-            integers(planned.variables) + "],\"sources\":[" +
-            [&] {
-              std::vector<uint64_t> sources(planned.source_equations.begin(),
-                                            planned.source_equations.end());
-              return unsigned_integers(sources);
-            }() + "],\"premises\":[" +
-            unsigned_integers(planned.premises) + "]}\n"))
+            join_integers(planned.variables) + "],\"sources\":[" +
+            join_integers<uint64_t>(planned.source_equations) +
+            "],\"premises\":[" + join_integers(planned.premises) + "]}\n"))
       return false;
   }
   for (const auto &event : transaction.events_) {
@@ -573,7 +514,7 @@ bool make_affine_basis_journal(
             std::to_string(event.kind == Event::Kind::Delete
                                ? event.deleted_id : event.id) +
             ",\"install\":" + (event.install ? "true" : "false") +
-            ",\"clause\":[" + integers(event.clause) + "]}\n"))
+            ",\"clause\":[" + join_integers(event.clause) + "]}\n"))
       return false;
   }
   if (transaction.introduced_.size() != transaction.projection_.size() ||
@@ -972,16 +913,9 @@ AffineBasisLiveResult prepare_affine_basis_live(
     AffineBasisLiveTransaction &output) {
   AffineBasisLiveResult result;
   if (!valid_request(request)) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = AffineBasisLiveStatus::UnsupportedProof;
-    return result;
-  }
-  if (!state_applicable(kernel)) {
-    result.status = AffineBasisLiveStatus::Inapplicable;
-    return result;
-  }
-  if (kernel_terminating(kernel)) {
-    result.status = AffineBasisLiveStatus::Interrupted;
+  if (const auto declined =
+          affine_live_decline<AffineBasisLiveStatus>(kernel)) {
+    result.status = *declined;
     return result;
   }
 
@@ -1208,7 +1142,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
       }
       std::iter_swap(clause.begin(), found);
       SmallClause small;
-      if (!to_small(clause, small) || !sink.add(small, true)) {
+      if (!to_small_clause(clause, small) || !sink.add(small, true)) {
         result.status = AffineBasisLiveStatus::ResourceExhausted;
         return result;
       }
@@ -1250,7 +1184,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
       }
       for (const auto &clause : equation.premise_clauses) {
         SmallClause small;
-        if (!to_small(clause, small)) {
+        if (!to_small_clause(clause, small)) {
           result.status = AffineBasisLiveStatus::UnsupportedProof;
           return result;
         }
@@ -1266,7 +1200,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
         std::vector<int32_t> clause;
         SmallClause small;
         if (!external_clause(symbolic, first_extension, clause) ||
-            !to_small(clause, small)) {
+            !to_small_clause(clause, small)) {
           result.status = AffineBasisLiveStatus::Invalid;
           return result;
         }
@@ -1282,7 +1216,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
       std::vector<int32_t> target;
       SmallClause small, kept;
       if (!external_clause(symbolic, first_extension, target) ||
-          !to_small(target, small)) {
+          !to_small_clause(target, small)) {
         result.status = AffineBasisLiveStatus::Invalid;
         return result;
       }
@@ -1300,12 +1234,14 @@ AffineBasisLiveResult prepare_affine_basis_live(
       while (final > before) {
         --final;
         if (transaction.events_[final].kind != Event::Kind::Delete &&
-            clause_key(transaction.events_[final].clause) == clause_key(target))
+            sorted_clause(transaction.events_[final].clause) ==
+                sorted_clause(target))
           break;
       }
       if (final == before &&
           (transaction.events_[final].kind == Event::Kind::Delete ||
-           clause_key(transaction.events_[final].clause) != clause_key(target))) {
+           sorted_clause(transaction.events_[final].clause) !=
+               sorted_clause(target))) {
         result.status = AffineBasisLiveStatus::Invalid;
         return result;
       }
@@ -1386,16 +1322,9 @@ AffineBasisLiveResult publish_affine_basis_live(
     result.status = AffineBasisLiveStatus::Invalid;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = AffineBasisLiveStatus::UnsupportedProof;
-    return result;
-  }
-  if (!state_applicable(kernel)) {
-    result.status = AffineBasisLiveStatus::Inapplicable;
-    return result;
-  }
-  if (kernel_terminating(kernel)) {
-    result.status = AffineBasisLiveStatus::Interrupted;
+  if (const auto declined =
+          affine_live_decline<AffineBasisLiveStatus>(kernel)) {
+    result.status = *declined;
     return result;
   }
   if (kernel.next_clause_id != transaction.starting_clause_id_ ||
@@ -1428,26 +1357,13 @@ AffineBasisLiveResult publish_affine_basis_live(
         std::abort();
   }
   for (const Event &event : transaction.events_) {
-    if (event.kind == Event::Kind::Delete) {
-      if (kernel.proof && !kernel.proof->del_external(
-              kernel.next_clause_id, event.deleted_id,
-              event.clause.empty() ? nullptr : event.clause.data(),
-              event.clause.size()))
-        std::abort();
-      continue;
-    }
-    if (++kernel.next_clause_id != event.id) std::abort();
-    if (kernel.proof) {
-      const bool emitted = event.kind == Event::Kind::Rat
-          ? kernel.proof->add_external_rat(
-                event.id, event.clause.empty() ? nullptr : event.clause.data(),
-                event.clause.size())
-          : kernel.proof->add_external_rup(
-                event.id, event.clause.empty() ? nullptr : event.clause.data(),
-                event.clause.size());
-      if (!emitted) std::abort();
-    }
-    if (event.install && !install_clause(kernel, event)) std::abort();
+    affine_live_emit_planned_event(
+        kernel, event.kind == Event::Kind::Rat,
+        event.kind == Event::Kind::Delete, event.id, event.deleted_id,
+        event.clause);
+    if (event.kind != Event::Kind::Delete && event.install &&
+        !install_clause(kernel, event))
+      std::abort();
   }
   semantic_extension::write_journal_or_abort(request.records,
                                              transaction.journal_);

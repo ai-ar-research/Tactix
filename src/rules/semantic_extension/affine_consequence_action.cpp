@@ -20,16 +20,7 @@ AffineLiveRequest request_from_kernel(Kernel &kernel, uint64_t action_id,
                                       uint64_t semantic_id) {
   const auto &parameters = kernel.affine_consequence_parameters;
   AffineLiveRequest request;
-  request.image.maximum_clauses = parameters.maximum_clauses;
-  request.image.maximum_groups = parameters.maximum_groups;
-  request.image.maximum_patterns = parameters.maximum_patterns;
-  request.image.maximum_elimination_work =
-      parameters.maximum_elimination_work;
-  request.image.maximum_arity = parameters.maximum_arity;
-  request.image.maximum_intermediate_width =
-      parameters.maximum_intermediate_width;
-  request.image.maximum_sources = parameters.maximum_sources;
-  request.image.maximum_output_width = parameters.maximum_output_width;
+  request.image = action_parameters::action_limits(parameters).image;
   request.maximum_snapshot_literals = parameters.maximum_snapshot_literals;
   request.maximum_snapshot_work = parameters.maximum_snapshot_work;
   request.maximum_proof_additions = parameters.maximum_proof_additions;
@@ -183,25 +174,36 @@ AffineConsequenceActionResult apply_selected_consequence(Kernel &kernel) {
   if (output.live.result == ApplyResult::Ok) {
     if (!output.live.published || output.live.semantic_variables.empty())
       std::abort();
-    std::vector<strategy::SemanticVariable> variables;
-    variables.reserve(output.live.semantic_variables.size());
-    for (const int32_t external : output.live.semantic_variables) {
-      if (external <= 0)
-        std::abort();
-      variables.push_back(
-          {static_cast<uint32_t>(external),
-           strategy::SemanticVariableRole::ExistingTheory, 1});
-    }
-    if (!strategy::stage_semantic_variable_candidate(
-            kernel, strategy::SemanticVariableProducer::Affine,
-            output.proposed_action_id, variables))
-      std::abort();
+    stage_affine_theory_variables(kernel, output.proposed_action_id,
+                                  output.live.semantic_variables, {});
     output.candidate_staged = true;
   }
 
   kernel.structural_action_sequence = output.proposed_action_id;
   output.committed_action_id = output.proposed_action_id;
   return output;
+}
+
+// The certified-basis branch of the session-owning entry points.
+void apply_basis(Kernel &kernel, AffineBasisActionSession &session,
+                 const AffineBasisRowSelection *selection,
+                 AffineConsequenceActionResult &output) {
+  if (kernel.affine_basis_action_session != &session) {
+    output.status = AffineConsequenceActionStatus::Inapplicable;
+    output.basis.status = AffineBasisActionStatus::Inapplicable;
+    return;
+  }
+  const auto limits =
+      action_parameters::action_limits(kernel.affine_consequence_parameters);
+  output.basis = selection
+      ? affine_basis_action_apply(kernel, session, limits, *selection)
+      : affine_basis_action_apply(kernel, session, limits);
+  output.status = status(output.basis.status);
+  output.result = output.basis.result;
+  output.proposed_action_id = output.basis.proposed_action_id;
+  output.committed_action_id = output.basis.committed_action_id;
+  output.semantic_id = output.basis.semantic_id;
+  output.candidate_staged = output.basis.candidate_staged;
 }
 
 } // namespace
@@ -253,23 +255,8 @@ AffineConsequenceActionResult affine_consequence_action_apply(
       finalize_selected_consequence(output);
     } else {
       output.semantics = kernel.affine_consequence_parameters.semantics;
-      if (kernel.affine_consequence_parameters.valid()) {
-        if (kernel.affine_basis_action_session != &session) {
-          output.status = AffineConsequenceActionStatus::Inapplicable;
-          output.basis.status = AffineBasisActionStatus::Inapplicable;
-        } else {
-          output.basis = affine_basis_action_apply(
-              kernel, session,
-              action_parameters::action_limits(
-                  kernel.affine_consequence_parameters));
-          output.status = status(output.basis.status);
-          output.result = output.basis.result;
-          output.proposed_action_id = output.basis.proposed_action_id;
-          output.committed_action_id = output.basis.committed_action_id;
-          output.semantic_id = output.basis.semantic_id;
-          output.candidate_staged = output.basis.candidate_staged;
-        }
-      }
+      if (kernel.affine_consequence_parameters.valid())
+        apply_basis(kernel, session, nullptr, output);
     }
   }
   return output;
@@ -284,24 +271,8 @@ AffineConsequenceActionResult affine_consequence_action_apply(
     output.semantics = kernel.affine_consequence_parameters.semantics;
     if (kernel.affine_consequence_parameters.valid() &&
         output.semantics ==
-            strategy::AffineConsequenceSemantics::CertifiedBasisV2) {
-      if (kernel.affine_basis_action_session != &session) {
-        output.status = AffineConsequenceActionStatus::Inapplicable;
-        output.basis.status = AffineBasisActionStatus::Inapplicable;
-      } else {
-        output.basis = affine_basis_action_apply(
-            kernel, session,
-            action_parameters::action_limits(
-                kernel.affine_consequence_parameters),
-            selection);
-        output.status = status(output.basis.status);
-        output.result = output.basis.result;
-        output.proposed_action_id = output.basis.proposed_action_id;
-        output.committed_action_id = output.basis.committed_action_id;
-        output.semantic_id = output.basis.semantic_id;
-        output.candidate_staged = output.basis.candidate_staged;
-      }
-    }
+            strategy::AffineConsequenceSemantics::CertifiedBasisV2)
+      apply_basis(kernel, session, &selection, output);
   }
   return output;
 }
