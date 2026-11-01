@@ -45,13 +45,11 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
       });
     }
   } else {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage() && !c->redundant())
         for (const Lit l : *c)
           if (k.values[l] == 0) // active-variable literals only
             occ.counts[l]++;
-      ref += clause_actual_words(c);
     }
   }
   // binaries: one watch-list scan per active literal. They have an
@@ -132,12 +130,10 @@ uint32_t bve_schedule_occurrence_count(const Kernel &k, Lit lit) {
   if (k.dense) {
     count = k.dense->large_size(lit);
   } else {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage() && !c->redundant())
         for (const Lit other : *c)
           count += other == lit;
-      ref += clause_actual_words(c);
     }
   }
   for (const WatchEntry w : k.watches.entries(lit))
@@ -1559,6 +1555,18 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
       (has_px ? pos : neg).push_back(std::move(m));
     }
   };
+  // Classify one indexed large occurrence of `pivot`, skipping a stale entry;
+  // a tautology belongs to the positive side.
+  const auto gather_large_occurrence = [&](Ref ref, Lit pivot, Lit opposite,
+                                           bool positive) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (c->garbage() || !has_lit(c, pivot))
+      return;
+    const bool has_opposite = has_lit(c, opposite);
+    if (!positive && has_opposite)
+      return; // positive side already handled the tautology
+    classify(ref, c, positive, !positive || has_opposite);
+  };
   if (k.dense && k.dense->track_order) {
     // Consume the exact connected stream. Entries can be stale after deletion
     // or an in-place membership rewrite; filter them against current kernel
@@ -1579,17 +1587,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           gather_bin(pivot, entry.payload, live);
           continue;
         }
-        const Ref ref = entry.payload;
-        const Clause *c = clause_at(k.arena, ref);
-        if (c->garbage() || !has_lit(c, pivot))
-          continue;
-        const bool has_opposite = has_lit(c, opposite);
-        if (!positive && has_opposite)
-          continue; // positive side already handled the tautology
-        if (positive)
-          classify(ref, c, true, has_opposite);
-        else
-          classify(ref, c, false, true);
+        gather_large_occurrence(entry.payload, pivot, opposite, positive);
       }
     };
     gather(px, nx, pos, true);
@@ -1605,15 +1603,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
     const auto gather_large = [&](Lit pivot, Lit opposite,
                                   bool positive) {
       k.dense->with_large(pivot, [&](auto refs) {
-        for (const Ref ref : refs) {
-          const Clause *c = clause_at(k.arena, ref);
-          if (c->garbage() || !has_lit(c, pivot))
-            continue;
-          const bool has_opposite = has_lit(c, opposite);
-          if (!positive && has_opposite)
-            continue;
-          classify(ref, c, positive, !positive || has_opposite);
-        }
+        for (const Ref ref : refs)
+          gather_large_occurrence(ref, pivot, opposite, positive);
       });
     };
     gather_large(px, nx, true);
@@ -1626,9 +1617,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         gather_bin(nx, w.other(), neg);
   } else {
     // N1 fallback: one arena scan in the public no-index state.
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(c);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage()) {
         bool has_px = false, has_nx = false;
         for (const Lit l : *c) {
@@ -1638,7 +1627,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         if (has_px || has_nx)
           classify(ref, c, has_px, has_nx);
       }
-      ref += words;
     }
     // The public non-dense path has no reference connected-list pose; retain
     // its historical arena-first order and append binary watches afterward.

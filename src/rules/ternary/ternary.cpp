@@ -66,12 +66,9 @@ void collect(const Kernel &k, Lit l, std::vector<Tern> &out) {
     });
     return;
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (ternary_candidate(k, c) && has_lit(c, l))
       take(ref, c);
-    ref += words;
   }
 }
 
@@ -91,12 +88,9 @@ bool ternary_exists(const Kernel &k, Lit a, Lit b, Lit c) {
       return false;
     });
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *x = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(x);
+  for (const auto [ref, x] : arena_records(k.arena)) {
     if (!x->garbage() && x->size == 3 && same(x))
       return true;
-    ref += words;
   }
   return false;
 }
@@ -208,15 +202,12 @@ void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
   // one pass to count ternary occurrences per literal; a pivot needs at least
   // one on each side for a pair to exist. The same pass totals live clauses,
   // the base for the max-add governor below (as cadical's htrs_limit is)
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage())
       clauses++;
     if (ternary_candidate(k, c))
       for (const Lit l : *c)
         tern[l]++;
-    ref += words;
   }
   clauses += k.binary_ids.size();
   if (total_clauses)
@@ -346,10 +337,6 @@ static uint32_t ternary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   return copy_literal_instance_prefix(k, pivots, out, cap);
 }
 
-static ApplyResult ternary_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_literal_instance<ternary_apply, ternary_try>(k, inst);
-}
-
 static uint64_t ternary_choice_instance(const TernaryChoice &choice) {
   assert(choice.positive.ref != INVALID_REF &&
          choice.negative.ref != INVALID_REF);
@@ -383,7 +370,8 @@ static ApplyResult ternary_apply_semantic_instance(Kernel &k, uint64_t inst) {
 }
 
 TACTIX_REGISTER_RULE(HyperTernaryRes, RuleTier::Inprocess, ternary_guard,
-                     ternary_apply, ternary_instances, ternary_apply_instance,
+                     ternary_apply, ternary_instances,
+                     (apply_root_literal_instance<ternary_apply, ternary_try>),
                      ternary_semantic_instances,
                      ternary_apply_semantic_instance);
 

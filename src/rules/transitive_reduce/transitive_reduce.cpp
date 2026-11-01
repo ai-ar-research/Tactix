@@ -622,25 +622,14 @@ ApplyResult transitive_reduce_apply(Kernel &k) {
 }
 
 // instance surface: payload = source literal, the shared lit_instance encoding;
-// INSTANCE_CANONICAL = the full round
-static uint32_t transitive_reduce_instances(Kernel &k, uint64_t *out,
-                                            uint32_t cap) {
-  std::vector<Lit> srcs;
-  transitive_reduce_sources(k, srcs);
-  // The set, in the rule's own order. Where a caller starts in it is that
-  // caller's business: the resumption cursor lives in the policy
-  // (DefaultPolicy::SlotEntry::cursor), where a scheduling decision belongs.
-  return copy_literal_instance_prefix(k, srcs, out, cap);
-}
-
-static ApplyResult transitive_reduce_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_literal_instance<transitive_reduce_apply,
-                                     transitive_reduce_try>(k, inst);
-}
-
+// INSTANCE_CANONICAL = the full round. The set, in the rule's own order. Where
+// a caller starts in it is that caller's business: the resumption cursor lives
+// in the policy (DefaultPolicy::SlotEntry::cursor), where a scheduling
+// decision belongs.
 TACTIX_REGISTER_RULE(TransitiveReduce, RuleTier::Inprocess,
                      transitive_reduce_guard, transitive_reduce_apply,
-                     transitive_reduce_instances,
-                     transitive_reduce_apply_instance);
+                     literal_list_instances<transitive_reduce_sources>,
+                     (apply_root_literal_instance<transitive_reduce_apply,
+                                                  transitive_reduce_try>));
 
 } // namespace tactix

@@ -427,16 +427,13 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     // seed: every in-scope irredundant large clause is a candidate
     largecount.assign(2 * k.nvars, 0);
     std::vector<Ref> cand;
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(c);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage() && !c->redundant() && c->size >= 3 &&
           c->size <= max_size) {
         cand.push_back(ref);
         for (const Lit l : *c)
           largecount[l]++;
       }
-      ref += words;
     }
     alive.assign(cand.size(), 1);
     size_t live = cand.size();
@@ -475,12 +472,9 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     idx.built = true;
     return;
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size)
       connect(ref, c);
-    ref += words;
   }
   idx.built = true;
 }
@@ -519,6 +513,28 @@ static constexpr uint8_t MARK_NOUNTED = 4;
   (void)k;
   return !c->garbage() && !c->redundant();
 }
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+// A traced dump of `lit`'s Factor stream: the borrowed initial binary prefix,
+// then the ordered watches, each as `visit(live, other, id, clause)`.
+template <class Visit>
+void for_each_traced_factor_entry(const Kernel &k, const FactorIndex &idx,
+                                  Lit lit, Lit live_lits, Visit visit) {
+  for_each_initial_factor_binary(k, idx, lit, [&](Lit other) {
+    visit(other < live_lits, other, kernel_binary_id(k, lit, other), nullptr);
+  });
+  for (const FactorWatch watch : idx.order[lit]) {
+    if (watch.binary()) {
+      const Lit other = watch.other();
+      visit(other < live_lits, other, kernel_binary_id(k, lit, other),
+            nullptr);
+    } else {
+      const Clause *clause = clause_at(k.arena, watch.ref);
+      visit(grid_clause_live(k, clause), INVALID_LIT, clause->id(), clause);
+    }
+  }
+}
+#endif
 
 // The index only ever holds live irredundant clauses: `build_factor_index`
 // admits no others, and `apply_factoring` removes a grid clause's occurrence
@@ -853,10 +869,8 @@ void dump_factored_and_exit(const Kernel &k, const char *path) {
       if (w.binary() && l < w.other())
         cls.push_back({dl(l), dl(w.other())});
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) { std::vector<int> cl; for (const Lit l : *c) cl.push_back(dl(l)); cls.push_back(cl); }
-    ref += clause_actual_words(c);
   }
   FILE *f = std::fopen(path, "w");
   std::fprintf(f, "p cnf %u %zu\n", k.nvars, cls.size());
@@ -963,15 +977,12 @@ bool prepare_exact_grid(Kernel &k, const FactorGrid &request,
         if (!exact_grid_clause_matches(clause, factor, remainder))
           return false;
       } else {
-        for (Ref ref = 0; ref < k.arena.size();) {
-          const Clause *clause = clause_at(k.arena, ref);
-          const uint32_t words = clause_actual_words(clause);
+        for (const auto [ref, clause] : arena_records(k.arena)) {
           if (exact_grid_clause_matches(clause, factor, remainder) &&
               !used_large.count(ref)) {
             selected = ref;
             break;
           }
-          ref += words;
         }
         if (selected == INVALID_REF)
           return false;
@@ -1129,11 +1140,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       for (const Ref ref : used)
         clause_at(k.arena, ref)->flags &= ~Clause::FACTOR_USED;
 #ifndef NDEBUG
-      for (Ref ref = 0; ref < k.arena.size();) {
-        const Clause *c = clause_at(k.arena, ref);
+      for (const auto [ref, c] : arena_records(k.arena)) {
         assert(!(c->flags & (Clause::FACTOR_RESERVED | Clause::FACTOR_USED)) &&
                "a Factor mark outlived its application");
-        ref += clause_actual_words(c);
       }
 #endif
     }
@@ -1291,24 +1300,12 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     if (selected_literal &&
         std::atoi(selected_literal) == kernel_externalize(k, l)) {
       uint32_t ordinal = 0;
-      for_each_initial_factor_binary(k, fidx, l, [&](Lit other) {
-        event_trace_factor_literal_entry(
-            k, l, ordinal++, other < live_lits, other,
-            kernel_binary_id(k, l, other), nullptr);
-      });
-      for (const FactorWatch watch : fidx.order[l]) {
-        if (watch.binary()) {
-          const Lit other = watch.other();
-          event_trace_factor_literal_entry(
-              k, l, ordinal++, other < live_lits, other,
-              kernel_binary_id(k, l, other), nullptr);
-        } else {
-          const Clause *clause = clause_at(k.arena, watch.ref);
-          const bool live = grid_clause_live(k, clause);
-          event_trace_factor_literal_entry(
-              k, l, ordinal++, live, INVALID_LIT, clause->id(), clause);
-        }
-      }
+      for_each_traced_factor_entry(
+          k, fidx, l, live_lits,
+          [&](bool live, Lit other, uint64_t id, const Clause *clause) {
+            event_trace_factor_literal_entry(k, l, ordinal++, live, other, id,
+                                             clause);
+          });
     }
 #endif
     if (k.value(l) != 0 || kernel_var_retired(k, var_of(l)))
@@ -1552,27 +1549,13 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         event_trace_factor_candidate(k, seed, static_cast<uint32_t>(F.size()),
                                      ordinal, h, c, score);
         uint32_t score_entry_ordinal = 0;
-        for_each_initial_factor_binary(k, fidx, h, [&](Lit other) {
-          event_trace_factor_score_entry(
-              k, seed, static_cast<uint32_t>(F.size()), h,
-              score_entry_ordinal++, other < live_lits, other,
-              kernel_binary_id(k, h, other), nullptr);
-        });
-        for (const FactorWatch watch : fidx.order[h]) {
-          if (watch.binary()) {
-            const Lit other = watch.other();
-            event_trace_factor_score_entry(
-                k, seed, static_cast<uint32_t>(F.size()), h,
-                score_entry_ordinal++, other < live_lits, other,
-                kernel_binary_id(k, h, other), nullptr);
-          } else {
-            const Clause *clause = clause_at(k.arena, watch.ref);
-            const bool live = grid_clause_live(k, clause);
-            event_trace_factor_score_entry(
-                k, seed, static_cast<uint32_t>(F.size()), h,
-                score_entry_ordinal++, live, INVALID_LIT, clause->id(), clause);
-          }
-        }
+        for_each_traced_factor_entry(
+            k, fidx, h, live_lits,
+            [&](bool live, Lit other, uint64_t id, const Clause *clause) {
+              event_trace_factor_score_entry(
+                  k, seed, static_cast<uint32_t>(F.size()), h,
+                  score_entry_ordinal++, live, other, id, clause);
+            });
 #endif
         if (c > bestc) {
           bestc = c;

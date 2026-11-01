@@ -100,11 +100,9 @@ struct Enumerator {
       }
     }
 
-    for (Ref ref = 0; ref < kernel.arena.size();) {
+    for (const auto [ref, clause] : arena_records(kernel.arena)) {
       if (stopped())
         return;
-      const Clause *clause = clause_at(kernel.arena, ref);
-      const uint32_t words = clause_actual_words(clause);
       if (!clause->garbage() && !clause->redundant())
         for (const Lit factor : *clause) {
           Remainder remainder;
@@ -116,7 +114,6 @@ struct Enumerator {
             add_occurrence(factor, std::move(remainder), ref,
                            PhysicalClause{false, ref});
         }
-      ref += words;
     }
 
     for (auto &[factor, columns] : universe) {

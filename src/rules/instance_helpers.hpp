@@ -72,6 +72,18 @@ inline void emit_rup_lemma(Kernel &kernel, uint64_t id,
                  chain);
 }
 
+// A hot-loop work scalar, published to its Stats counter when the scope ends:
+// like Kissat's local `steps` accumulators, it becomes observable only when
+// the scan returns, and every exit, early ones included, commits the exact
+// partial work.
+struct PublishedCounter {
+  uint64_t &published;
+  uint64_t value;
+  explicit PublishedCounter(uint64_t &counter)
+      : published(counter), value(counter) {}
+  ~PublishedCounter() { published = value; }
+};
+
 // Root refutation by a clause every literal of which is root-false (`clause`,
 // or the binary {first, second} when it is null). LRAT cites each literal's
 // root unit and closes with the clause itself; the other formats add the bare
@@ -145,13 +157,32 @@ inline uint32_t copy_positive_variable_instance_prefix(
   });
 }
 
+// The v1 instance surface of a rule whose canonical schedule is a collected
+// list, in that order: literals as `lit_instance` payloads, clauses as arena
+// Refs. Lit and Ref share one integer type, so only the name keeps the two
+// payload encodings apart.
+template <void (*Collect)(const Kernel &, std::vector<Lit> &)>
+inline uint32_t literal_list_instances(Kernel &kernel, uint64_t *out,
+                                       uint32_t cap) {
+  std::vector<Lit> literals;
+  Collect(kernel, literals);
+  return copy_literal_instance_prefix(kernel, literals, out, cap);
+}
+
+template <void (*Collect)(const Kernel &, std::vector<Ref> &)>
+inline uint32_t arena_list_instances(Kernel &kernel, uint64_t *out,
+                                     uint32_t cap) {
+  std::vector<Ref> refs;
+  Collect(kernel, refs);
+  return copy_instance_prefix(refs, out, cap);
+}
+
 inline Ref arena_clause_instance(const Kernel &kernel, uint64_t instance) {
-  for (Ref ref = 0; ref < kernel.arena.size();) {
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (ref == instance)
       return ref;
     if (ref > instance)
       break;
-    ref += clause_actual_words(clause_at(kernel.arena, ref));
   }
   return INVALID_REF;
 }

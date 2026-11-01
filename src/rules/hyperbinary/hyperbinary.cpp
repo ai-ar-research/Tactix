@@ -277,19 +277,6 @@ ApplyResult hyperbinary_apply(Kernel &k) {
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-// instance surface: payload = the probe root, the shared lit_instance encoding
-// (as V1 Probe and M2 Decide); INSTANCE_CANONICAL = the full round.
-// COMPLETE over roots — the enumeration is the same schedule the round walks,
-// and `hyperbinary_try` accepts any unfixed literal, not only a scheduled one.
-static uint32_t hyperbinary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  return failed_literal_instances(k, out, cap);
-}
-
-static ApplyResult hyperbinary_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_literal_instance<hyperbinary_apply, hyperbinary_try>(k,
-                                                                         inst);
-}
-
 // Mark every literal the binary implication graph reaches from `dom`, `dom`
 // included. `ticks`, when given, is charged once per visited literal.
 static void reach_binary_implications(const Kernel &k, Lit dom,
@@ -330,9 +317,7 @@ static uint32_t hyperbinary_semantic_instances(Kernel &k, uint64_t *out,
     queue.clear();
     reach_binary_implications(k, dom, reached, queue, nullptr);
 
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(clause);
+    for (const auto [ref, clause] : arena_records(k.arena)) {
       if (!clause->garbage())
         for (uint32_t pos = 0; pos < clause->size; ++pos) {
           const Lit forced = clause->lits[pos];
@@ -355,7 +340,6 @@ static uint32_t hyperbinary_semantic_instances(Kernel &k, uint64_t *out,
           const uint32_t word = ref + CLAUSE_HEADER_WORDS + pos;
           out[count++] = hyperbinary_semantic_instance(dom, word);
         }
-      ref += words;
     }
   }
   return count;
@@ -375,9 +359,7 @@ static ApplyResult hyperbinary_apply_semantic_instance(Kernel &k,
 
   Ref reason = INVALID_REF;
   uint32_t forced_pos = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     const uint64_t first = static_cast<uint64_t>(ref) + CLAUSE_HEADER_WORDS;
     const uint64_t end = first + clause->size;
     if (literal_word >= first && literal_word < end) {
@@ -387,7 +369,6 @@ static ApplyResult hyperbinary_apply_semantic_instance(Kernel &k,
       forced_pos = static_cast<uint32_t>(literal_word - first);
       break;
     }
-    ref += words;
   }
   if (reason == INVALID_REF)
     return ApplyResult::NoOp;
@@ -413,9 +394,14 @@ static ApplyResult hyperbinary_apply_semantic_instance(Kernel &k,
   return emit_semantic(k, resolvent, chain);
 }
 
+// instance surface: payload = the probe root, the shared lit_instance encoding
+// (as V1 Probe and M2 Decide); INSTANCE_CANONICAL = the full round.
+// COMPLETE over roots — the enumeration is the same schedule the round walks,
+// and `hyperbinary_try` accepts any unfixed literal, not only a scheduled one.
 TACTIX_REGISTER_RULE(HyperBinaryRes, RuleTier::Inprocess, hyperbinary_guard,
-                     hyperbinary_apply, hyperbinary_instances,
-                     hyperbinary_apply_instance,
+                     hyperbinary_apply, failed_literal_instances,
+                     (apply_root_literal_instance<hyperbinary_apply,
+                                                  hyperbinary_try>),
                      hyperbinary_semantic_instances,
                      hyperbinary_apply_semantic_instance);
 

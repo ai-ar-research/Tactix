@@ -134,9 +134,7 @@ bool discover(Kernel &kernel, uint64_t maximum_work, Discovery &result) {
 
   std::map<ClauseKey, Source> clauses;
   std::vector<std::pair<ClauseKey, Source>> ternaries;
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (!charge(1)) return false;
     if (clause->garbage()) continue;
     if (!charge(clause->size)) return false;

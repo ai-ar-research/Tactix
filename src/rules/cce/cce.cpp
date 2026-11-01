@@ -38,15 +38,12 @@ struct CceIndex {
 void build_index(const Kernel &k, CceIndex &idx) {
   std::vector<Ref> relevant_clauses;
   idx.cands.clear();
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (root_clause_relevant(k, c)) {
       relevant_clauses.push_back(ref);
       if (root_irredundant_clause_open(k, c))
         idx.cands.push_back({ref, INVALID_LIT, INVALID_LIT});
     }
-    ref += words;
   }
   idx.occ.build(k, relevant_clauses);
   std::unordered_set<uint64_t> seen;
@@ -555,16 +552,6 @@ ApplyResult cce_apply(Kernel &k) {
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-static uint32_t cce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Lit> lits;
-  cce_literals(k, lits);
-  return copy_literal_instance_prefix(k, lits, out, cap);
-}
-
-static ApplyResult cce_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_literal_instance<cce_apply, cce_try>(k, inst);
-}
-
 static uint32_t cce_semantic_instances(Kernel &k, uint64_t *out,
                                        uint32_t cap) {
   CceIndex index;
@@ -591,7 +578,8 @@ static ApplyResult cce_apply_semantic_instance(Kernel &k, uint64_t inst) {
 }
 
 TACTIX_REGISTER_RULE(CCE, RuleTier::Inprocess, cce_guard, cce_apply,
-                     cce_instances, cce_apply_instance,
+                     literal_list_instances<cce_literals>,
+                     (apply_root_literal_instance<cce_apply, cce_try>),
                      cce_semantic_instances,
                      cce_apply_semantic_instance);
 

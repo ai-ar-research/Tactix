@@ -43,12 +43,9 @@ struct BceIndex {
 
 void build_index(const Kernel &k, BceIndex &idx) {
   std::vector<Ref> relevant;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (root_clause_relevant(k, c))
       relevant.push_back(ref);
-    ref += words;
   }
   idx.occ.build(k, relevant);
 }
@@ -90,12 +87,10 @@ void collect_occs(const Kernel &k, const BceIndex &idx, Lit l, Side side,
 // once in lexicographic endpoint order and contribute both blocking choices.
 void semantic_choices(const Kernel &k, std::vector<BceChoice> &out) {
   out.clear();
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (root_irredundant_clause_open(k, c))
       for (const Lit blocking : *c)
         out.push_back({blocking, {ref, 0}});
-    ref += clause_actual_words(c);
   }
 
   std::vector<std::pair<Lit, Lit>> binaries;
@@ -382,16 +377,6 @@ ApplyResult bce_apply(Kernel &k) {
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-static uint32_t bce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Lit> lits;
-  bce_literals(k, lits);
-  return copy_literal_instance_prefix(k, lits, out, cap);
-}
-
-static ApplyResult bce_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_literal_instance<bce_apply, bce_try>(k, inst);
-}
-
 // Semantic payloads are opaque ordinals in a state snapshot. This avoids
 // aliasing a 32-bit arena reference with a 32-bit binary partner while still
 // naming every individual (clause, blocking-literal) choice.
@@ -427,7 +412,8 @@ static ApplyResult bce_apply_semantic_instance(Kernel &k, uint64_t inst) {
 }
 
 TACTIX_REGISTER_RULE(BCE, RuleTier::Inprocess, bce_guard, bce_apply,
-                     bce_instances, bce_apply_instance,
+                     literal_list_instances<bce_literals>,
+                     (apply_root_literal_instance<bce_apply, bce_try>),
                      bce_semantic_instances,
                      bce_apply_semantic_instance);
 

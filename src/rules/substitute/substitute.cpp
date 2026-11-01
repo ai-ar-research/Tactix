@@ -54,6 +54,12 @@ void substitute_stage_trace(const Kernel &k, const char *stage,
                k.watches.arena.size(), k.watches.arena.capacity(), first,
                second, third);
 }
+
+// The live binary {a, b} under `tag`, with its proof id and live copy count.
+void trace_live_binary(const Kernel &k, const char *tag, Lit a, Lit b) {
+  event_trace_binary_lifecycle(k, tag, a, b, kernel_binary_id(k, a, b),
+                               kernel_binary_copies(k, a, b));
+}
 #else
 inline void substitute_stage_trace(const Kernel &, const char *, size_t = 0,
                                    size_t = 0, size_t = 0) {}
@@ -1020,10 +1026,7 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
         // whole-formula scan after every productive Sweep seed.
         dirty_binary_owners.push_back(owner);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-        event_trace_binary_lifecycle(
-            k, "sweep-ledger-drop", owner, other,
-            kernel_binary_id(k, owner, other),
-            kernel_binary_copies(k, owner, other));
+        trace_live_binary(k, "sweep-ledger-drop", owner, other);
 #endif
         continue;
       }
@@ -1031,10 +1034,7 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
         if (target_other != other) {
           dirty_binary_owners.push_back(owner);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-          event_trace_binary_lifecycle(
-              k, "sweep-ledger-rewrite", owner, other,
-              kernel_binary_id(k, owner, other),
-              kernel_binary_copies(k, owner, other));
+          trace_live_binary(k, "sweep-ledger-rewrite", owner, other);
           event_trace_binary_lifecycle(k, "sweep-ledger-target", owner,
                                        target_other, 0, 0);
 #endif
@@ -1050,10 +1050,7 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
         dirty_binary_owners.push_back(owner);
         dirty_binary_owners.push_back(target_owner);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-        event_trace_binary_lifecycle(
-            k, "sweep-ledger-move", owner, other,
-            kernel_binary_id(k, owner, other),
-            kernel_binary_copies(k, owner, other));
+        trace_live_binary(k, "sweep-ledger-move", owner, other);
         event_trace_binary_lifecycle(k, "sweep-ledger-target", target_owner,
                                      target_other, 0, 0);
 #endif
@@ -1173,9 +1170,7 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
   dirty_binary_owners.push_back(a);
   dirty_binary_owners.push_back(b);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_binary_lifecycle(k, "sweep-ledger-collapse-target", a, b,
-                               kernel_binary_id(k, a, b),
-                               kernel_binary_copies(k, a, b));
+  trace_live_binary(k, "sweep-ledger-collapse-target", a, b);
   event_trace_binary_collapse(k, source, a, b);
 #endif
   if (indexed)
@@ -2535,14 +2530,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   for (const BinaryImage &stored : images) {
     const ExpandedBinaryImage image = expand_image(stored);
     if (image.changed())
-      event_trace_binary_lifecycle(
-          k, image.tautological ? "sweep-physical-tautology"
-                               : image.target_a == image.target_b
-                                     ? "sweep-physical-unit"
-                                     : "sweep-physical-rewrite",
-          image.source_a, image.source_b,
-          kernel_binary_id(k, image.source_a, image.source_b),
-          kernel_binary_copies(k, image.source_a, image.source_b));
+      trace_live_binary(k,
+                        image.tautological ? "sweep-physical-tautology"
+                        : image.target_a == image.target_b
+                            ? "sweep-physical-unit"
+                            : "sweep-physical-rewrite",
+                        image.source_a, image.source_b);
   }
 #endif
 
@@ -2586,18 +2579,23 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         }
         v.resize(kept);
       };
-  const auto bridge_keep_find =
-      [](std::vector<std::pair<uint64_t, uint32_t>> &v,
-         uint64_t key) -> uint32_t * {
+  const auto directed_entry_key = [](Lit from, Lit to) {
+    return (static_cast<uint64_t>(from) << 32) | to;
+  };
+  // Consume one protected copy of the directed entry `from -> to`; false
+  // when none is left.
+  const auto bridge_keep_take =
+      [&](std::vector<std::pair<uint64_t, uint32_t>> &v, Lit from, Lit to) {
+    const uint64_t key = directed_entry_key(from, to);
     const auto it = std::lower_bound(
         v.begin(), v.end(), key,
         [](const std::pair<uint64_t, uint32_t> &a, uint64_t b) {
           return a.first < b;
         });
-    return it != v.end() && it->first == key ? &it->second : nullptr;
-  };
-  const auto directed_entry_key = [](Lit from, Lit to) {
-    return (static_cast<uint64_t>(from) << 32) | to;
+    if (it == v.end() || it->first != key || !it->second)
+      return false;
+    --it->second;
+    return true;
   };
   if (session) {
     affected_binary_owners.reserve(2 * images.size());
@@ -2644,14 +2642,9 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     for (const WatchEntry watch : k.watches.entries(lit)) {
       if (!watch.binary())
         continue;
-      if (session) {
-        uint32_t *const keep = bridge_keep_find(
-            bridge_keep_snapshot, directed_entry_key(lit, watch.other()));
-        if (keep && *keep) {
-          --*keep;
-          continue;
-        }
-      }
+      if (session &&
+          bridge_keep_take(bridge_keep_snapshot, lit, watch.other()))
+        continue;
       images.push_back(make_image(lit, watch.other()));
     }
   };
@@ -2699,17 +2692,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         k.watches.compact(lit, [&](WatchEntry watch) {
           if (!watch.binary())
             return true;
-          if (session) {
-            // Same first-N consumption order as the snapshot above: the lists
-            // are untouched between the two passes, so identical counters
-            // protect identical entries.
-            uint32_t *const keep = bridge_keep_find(
-                bridge_keep_compact, directed_entry_key(lit, watch.other()));
-            if (keep && *keep) {
-              --*keep;
-              return true;
-            }
-          }
+          // Same first-N consumption order as the snapshot above: the lists
+          // are untouched between the two passes, so identical counters
+          // protect identical entries.
+          if (session &&
+              bridge_keep_take(bridge_keep_compact, lit, watch.other()))
+            return true;
           return !mapped(lit) && !mapped(watch.other());
         });
     };
@@ -3288,15 +3276,9 @@ static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   return copy_literal_instance_prefix(k, r.nontrivial_reps, out, cap);
 }
 
-static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return substitute_apply(k);
-  Lit rep;
-  if (!lit_of_instance(k, inst, &rep))
-    return ApplyResult::NoOp;
+// One class, behind the shared root-literal instance prelude (D-LEVEL: the
+// root closure is drained first; a conflict refutes).
+static ApplyResult substitute_apply_class(Kernel &k, Lit rep) {
   if (var_of(rep) >= k.nvars || k.values[rep] != 0)
     return ApplyResult::NoOp;
   // re-derive from the live graph, which may have changed since instances()
@@ -3326,6 +3308,7 @@ static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
 
 TACTIX_REGISTER_RULE(Substitute, RuleTier::Inprocess, substitute_guard,
                      substitute_apply, substitute_instances,
-                     substitute_apply_instance);
+                     (apply_root_literal_instance<substitute_apply,
+                                                  substitute_apply_class>));
 
 } // namespace tactix

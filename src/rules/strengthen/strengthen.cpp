@@ -135,12 +135,10 @@ void strengthen_candidates(const Kernel &k, std::vector<Ref> &out,
     bool redundant;
   };
   std::vector<Cand> cands;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (complete ? is_victim(k, c) : in_round_scope(k, c))
       cands.push_back(
           {ref, kernel_clause_position(k, ref), c->size, c->redundant()});
-    ref += clause_actual_words(c);
   }
   // Irredundant first, then size ascending. The band is the larger population
   // by orders of magnitude and its clauses are small, so a plain size-ascending
@@ -343,18 +341,10 @@ static void trace_forward_result(const Kernel &k, const Clause *candidate,
 // Kissat's forward pass charges one step per candidate, then for every
 // non-empty, non-saturated watch stream charges one plus the number of assumed
 // 128-byte cache lines occupied by its 4-byte watches, and one more per large
-// watch visited.  It publishes that local scalar when the scan returns.  Keep
-// the same representation and commit it through this scope guard on every
-// exit.  The physical ForwardWatch is wider, but the reference currency is
-// deliberately based on Kissat's packed 4-byte watch: ceil(size / 32).
-struct ForwardStepCounter {
-  uint64_t &published;
-  uint64_t value;
-  explicit ForwardStepCounter(uint64_t &counter)
-      : published(counter), value(counter) {}
-  ~ForwardStepCounter() { published = value; }
-};
-
+// watch visited.  It publishes that local scalar when the scan returns; a
+// PublishedCounter keeps the same representation on every exit.  The physical
+// ForwardWatch is wider, but the reference currency is deliberately based on
+// Kissat's packed 4-byte watch: ceil(size / 32).
 static uint64_t forward_cache_lines(size_t watches) {
   return (watches + 31u) / 32u;
 }
@@ -510,6 +500,21 @@ ApplyResult strengthen_reconnect_and_flush(Kernel &k, uint32_t trail_from) {
 #endif
 }
 
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+// Trace a forward-partner match: the physical entry it came from and, for the
+// selected candidate, the verdict with its spelled flipped literal.
+static void trace_forward_match(const Kernel &k, bool selected, Partner &p,
+                                Ref ref, Lit a, Lit b, int64_t flipped) {
+  p.trace_ref = ref;
+  p.trace_a = a;
+  p.trace_b = b;
+  if (selected) {
+    event_trace_detail(k, "strengthen_selected_match_kind", p.res.kind);
+    event_trace_detail(k, "strengthen_selected_match_flipped", flipped);
+  }
+}
+#endif
+
 static Partner find_forward_partner(
     Kernel &k, const std::vector<uint8_t> &marks, const Clause *c,
     std::vector<std::vector<ForwardWatch>> &watches, uint64_t &steps,
@@ -580,16 +585,7 @@ static Partner find_forward_partner(
           if (marks[other]) {
             p.res.kind = CheckResult::SUBSUMED;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-            p.trace_ref = INVALID_REF;
-            p.trace_a = probe;
-            p.trace_b = other;
-#endif
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-            if (selected) {
-              event_trace_detail(k, "strengthen_selected_match_kind",
-                                 p.res.kind);
-              event_trace_detail(k, "strengthen_selected_match_flipped", 0);
-            }
+            trace_forward_match(k, selected, p, INVALID_REF, probe, other, 0);
 #endif
             if (lrat)
               p.id = kernel_binary_id(k, probe, other);
@@ -601,17 +597,8 @@ static Partner find_forward_partner(
             p.res.flipped = other;
             p.absorbed.clear();
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-            p.trace_ref = INVALID_REF;
-            p.trace_a = probe;
-            p.trace_b = other;
-#endif
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-            if (selected) {
-              event_trace_detail(k, "strengthen_selected_match_kind",
-                                 p.res.kind);
-              event_trace_detail(k, "strengthen_selected_match_flipped",
-                                 kernel_externalize(k, p.res.flipped));
-            }
+            trace_forward_match(k, selected, p, INVALID_REF, probe, other,
+                                kernel_externalize(k, p.res.flipped));
 #endif
             if (lrat)
               p.id = kernel_binary_id(k, probe, other);
@@ -641,17 +628,11 @@ static Partner find_forward_partner(
           continue;
         capture_large_partner(k, lrat, p, r, d);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-        p.trace_ref = watch.ref();
-        p.trace_a = p.trace_b = INVALID_LIT;
-#endif
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        if (selected) {
-          event_trace_detail(k, "strengthen_selected_match_kind", r.kind);
-          event_trace_detail(
-              k, "strengthen_selected_match_flipped",
-              r.flipped == INVALID_LIT ? 0
-                                       : kernel_externalize(k, r.flipped));
-        }
+        trace_forward_match(k, selected, p, watch.ref(), INVALID_LIT,
+                            INVALID_LIT,
+                            r.flipped == INVALID_LIT
+                                ? 0
+                                : kernel_externalize(k, r.flipped));
 #endif
         if (r.kind == CheckResult::SUBSUMED) {
           stop_stream = true;
@@ -863,9 +844,7 @@ static void semantic_strengthenings(Kernel &k,
           possible[negate(other)] = 1;
       }
     }
-    for (Ref partner = 0; partner < k.arena.size();) {
-      const Clause *d = clause_at(k.arena, partner);
-      const uint32_t words = clause_actual_words(d);
+    for (const auto [partner, d] : arena_records(k.arena)) {
       if (partner != candidate && !d->garbage()) {
         const CheckResult result = check_marked(k, marks, d);
         if (result.kind == CheckResult::SUBSUMED && !d->redundant())
@@ -873,7 +852,6 @@ static void semantic_strengthenings(Kernel &k,
         else if (result.kind == CheckResult::STRENGTHEN)
           possible[negate(result.flipped)] = 1;
       }
-      partner += words;
     }
     if (subsumed)
       out.push_back({candidate, INVALID_LIT});
@@ -915,9 +893,7 @@ static bool find_semantic_strengthener(Kernel &k,
       return true;
     }
   }
-  for (Ref partner = 0; partner < k.arena.size();) {
-    const Clause *d = clause_at(k.arena, partner);
-    const uint32_t words = clause_actual_words(d);
+  for (const auto [partner, d] : arena_records(k.arena)) {
     if (partner != self && !d->garbage()) {
       const CheckResult result = check_marked(k, marks, d);
       const bool selected =
@@ -930,7 +906,6 @@ static bool find_semantic_strengthener(Kernel &k,
         return true;
       }
     }
-    partner += words;
   }
   return false;
 }
@@ -1080,9 +1055,7 @@ ApplyResult strengthen_apply(Kernel &k) {
   // root-false stripping owners.
   interrupted = poll();
   if (!interrupted)
-    for (Ref ref = 0; ref < k.arena.size();) {
-      Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(c);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage() && !c->redundant() &&
           c->size <= k.strengthen_parameters.clause_size_limit) {
         bool satisfied = false;
@@ -1101,7 +1074,6 @@ ApplyResult strengthen_apply(Kernel &k) {
           changed++;
         }
       }
-      ref += words;
     }
   std::vector<Ref> candidates;
   if (!interrupted) {
@@ -1158,7 +1130,7 @@ ApplyResult strengthen_apply(Kernel &k) {
   // stopped only when spent > budget.  Survivors stay candidates, so the cut
   // is resumable.  Direct rule calls remain unbounded unless explicitly given
   // a budget; DefaultPolicy enables this uniformly for its fused forward pass.
-  ForwardStepCounter steps(k.stats.strengthen_visits);
+  PublishedCounter steps(k.stats.strengthen_visits);
   const uint64_t check_start = steps.value;
   const bool step_bounded = k.midround_budget;
   const uint64_t step_budget = k.work_budget;
@@ -1407,8 +1379,7 @@ ApplyResult strengthen_apply(Kernel &k) {
 
 // Single-candidate instance surface (payload = arena Ref, like C1); applies at
 // most one subsume-or-strengthen step, no cascade.
-template <bool Collect>
-static ApplyResult strengthen_try_impl(Kernel &k, Ref candidate) {
+ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   assert(strengthen_guard(k));
   // `work_budget` is a round device and does not reach this path, so
   // termination is checked here at entry, before the per-clause flush, where
@@ -1437,13 +1408,8 @@ static ApplyResult strengthen_try_impl(Kernel &k, Ref candidate) {
     return ApplyResult::Unsat;
   if (!changed)
     return ApplyResult::NoOp;
-  if constexpr (Collect)
-    kernel_collect_garbage(k);
+  kernel_collect_garbage(k);
   return ApplyResult::Ok;
-}
-
-ApplyResult strengthen_try(Kernel &k, Ref candidate) {
-  return strengthen_try_impl<true>(k, candidate);
 }
 
 // Complete over victims, band or no band, so `instances()` never advertises
@@ -1452,16 +1418,6 @@ static uint32_t strengthen_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Ref> candidates;
   strengthen_candidates(k, candidates, /*complete=*/true);
   return copy_instance_prefix(candidates, out, cap);
-}
-
-template <bool Collect>
-static ApplyResult strengthen_apply_instance_impl(Kernel &k, uint64_t inst) {
-  return apply_root_arena_instance<strengthen_apply,
-                                   strengthen_try_impl<Collect>>(k, inst);
-}
-
-static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
-  return strengthen_apply_instance_impl<true>(k, inst);
 }
 
 // Semantic batches keep arena offsets stable between explicit applications.
@@ -1517,7 +1473,9 @@ static uint32_t strengthen_semantic_instances(Kernel &k, uint64_t *out,
 
 TACTIX_REGISTER_RULE(Strengthen, RuleTier::Inprocess, strengthen_guard,
                      strengthen_apply, strengthen_instances,
-                     strengthen_apply_instance, strengthen_semantic_instances,
+                     (apply_root_arena_instance<strengthen_apply,
+                                                strengthen_try>),
+                     strengthen_semantic_instances,
                      strengthen_apply_semantic_instance);
 
 } // namespace tactix

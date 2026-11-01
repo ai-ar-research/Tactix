@@ -14,6 +14,18 @@
 
 namespace tactix {
 
+// Diagnostic spelling of literals as comma-separated DIMACS literals.
+template <class Lits>
+static std::string vivify_journal_literals(const Kernel &k, const Lits &lits) {
+  std::string out;
+  for (const Lit lit : lits) {
+    if (!out.empty())
+      out.push_back(',');
+    out += std::to_string(kernel_externalize(k, lit));
+  }
+  return out;
+}
+
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 namespace {
 struct VivifyJournalSnapshot {
@@ -43,17 +55,6 @@ struct VivifyJournalFacts {
 static thread_local bool vivify_journal_active;
 static thread_local VivifyJournalFacts vivify_journal_facts;
 
-static std::string vivify_journal_literals(const Kernel &k,
-                                           const std::vector<Lit> &lits) {
-  std::string out;
-  for (const Lit lit : lits) {
-    if (!out.empty())
-      out.push_back(',');
-    out += std::to_string(kernel_externalize(k, lit));
-  }
-  return out;
-}
-
 static std::string vivify_journal_selected_cause(const Kernel &k) {
   const int selected = std::abs(rule_journal_selected_literal());
   if (!selected)
@@ -74,8 +75,7 @@ static std::string vivify_journal_selected_cause(const Kernel &k) {
                  k, a.jumped ? k.jumped_over[var_of(lit)] : a.reason)) +
              ')';
     const Clause *reason = clause_at(k.arena, a.reason);
-    std::vector<Lit> lits(reason->begin(), reason->end());
-    return result + "large(" + vivify_journal_literals(k, lits) + ')';
+    return result + "large(" + vivify_journal_literals(k, *reason) + ')';
   }
   return "unassigned";
 }
@@ -99,14 +99,7 @@ static std::string vivify_journal_candidate(const Kernel &k, const Clause *c,
                     ";scope=" + std::to_string(k.vivify_scope) +
                     ";ordinal=" + std::to_string(ordinal) +
                     ";rank-count=" + std::to_string(rank_count) +
-                    ";lits=";
-  bool first = true;
-  for (const Lit lit : *c) {
-    if (!first)
-      out.push_back(',');
-    first = false;
-    out += std::to_string(kernel_externalize(k, lit));
-  }
+                    ";lits=" + vivify_journal_literals(k, *c);
   return out;
 }
 
@@ -116,8 +109,7 @@ static std::string vivify_journal_selected_clause_pose(const Kernel &k) {
     return "-";
   const uint64_t selected = std::strtoull(value, nullptr, 16);
   std::string result;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) {
       std::vector<int> external;
       external.reserve(c->size);
@@ -134,15 +126,10 @@ static std::string vivify_journal_selected_clause_pose(const Kernel &k) {
       if (hash == selected) {
         if (!result.empty())
           result.push_back('|');
-        result += std::to_string(c->id()) + ':';
-        for (size_t i = 0; i < external.size(); i++) {
-          if (i)
-            result.push_back(',');
-          result += std::to_string(external[i]);
-        }
+        result += std::to_string(c->id()) + ':' +
+                  vivify_journal_literals(k, *c);
       }
     }
-    ref += clause_actual_words(c);
   }
   return result.empty() ? "-" : result;
 }
@@ -379,8 +366,7 @@ static void vivify_journal_occurrence_control(const Kernel &k,
     selected_hash = std::strtoull(value, nullptr, 16);
   std::vector<uint64_t> signatures;
   std::string details = "selected=";
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) {
       bool contains = false;
       std::vector<int> external;
@@ -413,7 +399,6 @@ static void vivify_journal_occurrence_control(const Kernel &k,
         }
       }
     }
-    ref += clause_actual_words(c);
   }
   std::sort(signatures.begin(), signatures.end());
   std::string witnesses = details + ";signatures=";
@@ -552,11 +537,9 @@ static void vivify_compact_schedule(const Kernel &k, VivifyOrder &ord,
   }
 
   uint64_t live_irredundant = 0, live_redundant = 0;
-  for (Ref ref = 0; ref < arena.size();) {
-    const Clause *c = clause_at(arena, ref);
+  for (const auto [ref, c] : arena_records(arena)) {
     if (!c->garbage())
       (c->redundant() ? live_redundant : live_irredundant)++;
-    ref += clause_actual_words(c);
   }
   const bool skip_counts = strategy::vivify_skip_global_order(
       live_irredundant, live_redundant,
@@ -644,11 +627,9 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
     prioritized += priority;
   };
   const auto append_priority = [&](bool priority) {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (c->vivify() == priority && is_candidate(k, c) && in_scope(k, c))
         append_candidate(ref, priority);
-      ref += clause_actual_words(c);
     }
   };
   // Kissat schedules in two arena passes: unprioritized clauses first, then
@@ -706,14 +687,12 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
   // The count_clause call precedes tier and priority filters, so this is the
   // complete live database after pass zero, not merely the active band.
   if (k.vivify_reuse)
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage())
         for (const Lit l : *c) {
           if (ord.counts[l]++ == 0)
             ord.touched.push_back(l);
         }
-      ref += clause_actual_words(c);
     }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   vivify_journal_occurrence_control(k, "occurrence-count");
@@ -739,11 +718,9 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
   }
 
   uint64_t live_irredundant = 0, live_redundant = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage())
       (c->redundant() ? live_redundant : live_irredundant)++;
-    ref += clause_actual_words(c);
   }
   const bool radix_reverse_irredundant =
       k.vivify_scope == 2 && !k.vivify_flush &&
@@ -1056,14 +1033,8 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
         "|source_redundant=" + std::to_string(c->redundant()) +
         "|source_glue=" + std::to_string(c->glue()) +
         "|source_vivify=" + std::to_string(c->vivify()) +
-        "|source_id=" + std::to_string(c->id()) + "|source=";
-    bool first = true;
-    for (const Lit lit : *c) {
-      if (!first)
-        payload.push_back(',');
-      payload += std::to_string(kernel_externalize(k, lit));
-      first = false;
-    }
+        "|source_id=" + std::to_string(c->id()) + "|source=" +
+        vivify_journal_literals(k, *c);
     event_trace_binary_lifecycle(
         k, "vivify-binary-source", lits[0], lits[1], c->id(),
         kernel_binary_copies(k, lits[0], lits[1]), payload.c_str());
@@ -1330,10 +1301,8 @@ static VivifyDeduction deduce(Kernel &k, Ref cref,
     const Clause *reason = clause_at(k.arena, rref);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
     if (vivify_journal_active) {
-      std::vector<Lit> reason_lits(reason->begin(), reason->end());
       journal_reason("large(id=" + std::to_string(reason->id()) +
-                     ";lits=" +
-                     vivify_journal_literals(k, reason_lits) + ')');
+                     ";lits=" + vivify_journal_literals(k, *reason) + ')');
     }
 #endif
     d.used_redundant |= reason->redundant();
@@ -1544,18 +1513,11 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
   if (vivify_journal_active)
     vivify_journal_facts.selected_cause =
         vivify_journal_selected_cause(k);
-  if (vivify_journal_active && conflict) {
-    std::vector<Lit> conflict_lits;
-    if (k.conflict_ref == INVALID_REF) {
-      conflict_lits.push_back(k.conflict_bin[0]);
-      conflict_lits.push_back(k.conflict_bin[1]);
-    } else {
-      const Clause *conflict_clause = clause_at(k.arena, k.conflict_ref);
-      conflict_lits.assign(conflict_clause->begin(), conflict_clause->end());
-    }
+  if (vivify_journal_active && conflict)
     vivify_journal_facts.conflict_clause =
-        vivify_journal_literals(k, conflict_lits);
-  }
+        k.conflict_ref == INVALID_REF
+            ? vivify_journal_literals(k, k.conflict_bin)
+            : vivify_journal_literals(k, *clause_at(k.arena, k.conflict_ref));
 #endif
   VivifyDeduction d =
       deduce(k, cref, implied, marked, analyzed, analyzed_touched);
@@ -1905,16 +1867,6 @@ ApplyResult vivify_try(Kernel &k, Ref candidate) {
   return vivify_one(k, candidate, /*reuse=*/false, 0);
 }
 
-static uint32_t vivify_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Ref> candidates;
-  vivify_candidates(k, candidates);
-  return copy_instance_prefix(candidates, out, cap);
-}
-
-static ApplyResult vivify_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_arena_instance<vivify_apply, vivify_try>(k, inst);
-}
-
 // Additive semantic surface: the v1 callback above intentionally preserves
 // the reference schedule, including its caller-selected scope and ranking.
 // An online policy also needs to name any individual clause to which the
@@ -1933,15 +1885,7 @@ static uint32_t vivify_semantic_instances(Kernel &k, uint64_t *out,
   return count;
 }
 
-static ApplyResult vivify_apply_semantic_instance(Kernel &k, uint64_t inst) {
-  if (inst == INSTANCE_CANONICAL)
-    return vivify_apply_instance(k, inst);
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-
-  const Ref candidate = arena_clause_instance(k, inst);
-  if (candidate == INVALID_REF)
-    return ApplyResult::NoOp;
+static ApplyResult vivify_try_semantic(Kernel &k, Ref candidate) {
   const Clause *c = clause_at(k.arena, candidate);
   if (c->garbage() || c->size < 3)
     return ApplyResult::NoOp;
@@ -1956,8 +1900,10 @@ static ApplyResult vivify_apply_semantic_instance(Kernel &k, uint64_t inst) {
 }
 
 TACTIX_REGISTER_RULE(Vivify, RuleTier::Inprocess, vivify_guard,
-                     vivify_apply, vivify_instances, vivify_apply_instance,
+                     vivify_apply, arena_list_instances<vivify_candidates>,
+                     (apply_root_arena_instance<vivify_apply, vivify_try>),
                      vivify_semantic_instances,
-                     vivify_apply_semantic_instance);
+                     (apply_root_arena_instance<vivify_apply,
+                                                vivify_try_semantic>));
 
 } // namespace tactix

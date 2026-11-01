@@ -43,13 +43,10 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
 // linear-scratch hazard, which dominates the profile when it happens.
 static void occurrence_counts(const Kernel &k, std::vector<uint32_t> &occ) {
   occ.assign(2 * k.nvars, 0);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && !c->redundant())
       for (const Lit l : *c)
         occ[l]++;
-    ref += words;
   }
 }
 
@@ -72,12 +69,9 @@ static void collect_candidates(const Kernel &k,
                                const std::vector<uint32_t> &occ,
                                std::vector<Ref> &out) {
   out.clear();
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (is_candidate(k, c) && has_eligible(k, c, occ))
       out.push_back(ref);
-    ref += words;
   }
 }
 
@@ -335,17 +329,6 @@ ApplyResult instantiate_try_literal(Kernel &k, Ref candidate, Lit literal) {
   return r;
 }
 
-static uint32_t instantiate_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Ref> candidates;
-  instantiate_candidates(k, candidates);
-  return copy_instance_prefix(candidates, out, cap);
-}
-
-static ApplyResult instantiate_apply_instance(Kernel &k, uint64_t inst) {
-  return apply_root_arena_instance<instantiate_apply, instantiate_try>(k,
-                                                                        inst);
-}
-
 static uint32_t instantiate_semantic_instances(Kernel &k, uint64_t *out,
                                                uint32_t cap) {
   uint32_t count = 0;
@@ -382,8 +365,10 @@ static ApplyResult instantiate_apply_semantic_instance(Kernel &k,
 }
 
 TACTIX_REGISTER_RULE(Instantiate, RuleTier::Inprocess, instantiate_guard,
-                     instantiate_apply, instantiate_instances,
-                     instantiate_apply_instance,
+                     instantiate_apply,
+                     arena_list_instances<instantiate_candidates>,
+                     (apply_root_arena_instance<instantiate_apply,
+                                                instantiate_try>),
                      instantiate_semantic_instances,
                      instantiate_apply_semantic_instance);
 
