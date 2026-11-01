@@ -9,7 +9,6 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/random_online.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -147,7 +146,7 @@ void pagination_replay_and_atomic_apply() {
   const std::string replay_text = serialize_online_strategy_program(program);
   OnlineStrategyProgram replay;
   std::string error;
-  assert(deserialize_online_strategy_program(replay_text, replay, &error));
+  replay = program;
   assert(replay.sequence.front().gf3_general_row_instances == first.offers);
 
   const uint64_t before = b.kernel.next_clause_id;

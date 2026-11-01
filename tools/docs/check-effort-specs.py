@@ -153,7 +153,7 @@ TABLE = {
                          [("src/rules/direct_php/direct_php_action.cpp",
                            r'direct_php_action_apply\('),
                           ("tests/test_direct_php_public.cpp",
-                           r'random_generator_reaches_the_same_action\('),
+                           r'explicit_program_reaches_the_same_action\('),
                           ("tests/test_direct_php_public.cpp",
                            r'c_api_executes_terminal_action\(')]),
     "Gf3GaussianConsequence":

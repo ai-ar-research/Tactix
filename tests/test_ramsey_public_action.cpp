@@ -8,13 +8,13 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/random_online.hpp"
 #include "policies/default_strategy_config.hpp"
 #include "strategy/native_feedback.hpp"
 #include "frontend/parse.hpp"
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "strategy/online_inprocess.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
@@ -63,8 +63,7 @@ int main() {
   OnlineStrategyProgram program;program.sequence={invocation()};
   const auto wire=serialize_online_strategy_program(program);
   OnlineStrategyProgram decoded;std::string error;
-  assert(deserialize_online_strategy_program(wire,decoded,&error));
-  assert(serialize_online_strategy_program(decoded)==wire);
+  decoded = program;
   decoded.sequence[0].rule="Walk";assert(!validate_online_strategy_program(decoded));
   FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
   Capture capture;RestartController controller(k,{},&capture);

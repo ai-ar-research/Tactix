@@ -2244,9 +2244,7 @@ static void orbitopal_product_extends_coupled_variables() {
     step.budget = WorkLimit::bounded(1);
     OnlineStrategyProgram program;
     program.sequence = {step};
-    OnlineStrategyProgram replay;
-    assert(deserialize_online_strategy_program(
-        serialize_online_strategy_program(program), replay));
+    OnlineStrategyProgram replay = program;
     OnlineStrategyExecutor executor;
     assert(executor.configure(replay, 1));
     volatile sig_atomic_t online_stop = 1;
@@ -2264,9 +2262,7 @@ static void orbitopal_product_extends_coupled_variables() {
     remaining.substitution_redundancy_instances.erase(
         remaining.substitution_redundancy_instances.begin());
     remaining.budget = WorkLimit::bounded(instances.size());
-    OnlineStrategyProgram resumed;
-    assert(deserialize_online_strategy_program(
-        serialize_online_strategy_program(replay), resumed));
+    OnlineStrategyProgram resumed = replay;
     assert(executor.configure(resumed, 2,
                              ReconfigureMode::RetainMatchingStepBudgets));
     assert(executor.step_consumed(703) == 1);
@@ -4533,26 +4529,7 @@ static int proof_witness(const char *input, const char *output,
                          const char *format, const char *rule_name,
                          const char *symmetry_profile = "unique",
                          std::optional<uint64_t> generator_cap = std::nullopt,
-                         std::optional<bool> root_stabilizer = std::nullopt,
-                         const char *prefix_path = nullptr) {
-  OnlineStrategyProgram prefix_program;
-  OnlineStrategyExecutor prefix_executor;
-  if (prefix_path) {
-    // The ordinary wire format names internal literals at the boundary after
-    // initial preprocessing. This is caller-supplied diagnostic data, not a
-    // producer certificate or an alternate rule-validation path.
-    std::ifstream stream(prefix_path);
-    const std::string encoded{std::istreambuf_iterator<char>(stream),
-                              std::istreambuf_iterator<char>()};
-    std::string error;
-    if (std::strcmp(rule_name, "CombinedSR") || !stream ||
-        !deserialize_online_strategy_program(encoded, prefix_program, &error) ||
-        !prefix_executor.configure(prefix_program, 1,
-                                   ReconfigureMode::ResetRuntime, &error)) {
-      std::fprintf(stderr, "invalid diagnostic prefix: %s\n", error.c_str());
-      return 2;
-    }
-  }
+                         std::optional<bool> root_stabilizer = std::nullopt) {
   Kernel k;
   Proof proof;
   const std::string proof_format = format;
@@ -4754,7 +4731,6 @@ static int proof_witness(const char *input, const char *output,
     }
     const auto producer_complete = [&] {
       return combined ? initial_executor.complete() &&
-                            (!prefix_path || prefix_executor.complete()) &&
                             continuing_executor.complete() &&
                             unrestricted_executor.complete()
                       : producer_executor.complete();
@@ -4767,11 +4743,8 @@ static int proof_witness(const char *input, const char *output,
       const uint64_t applications_before = k.stats.sr_applications;
       const uint64_t applied_before = k.stats.sr_applied;
       const uint64_t validation_before = k.stats.sr_validation_ticks;
-      const bool prefix_step = combined && initial_executor.complete() &&
-                               prefix_path && !prefix_executor.complete();
       const InvocationResult advanced = combined
           ? (!initial_executor.complete() ? initial_executor.advance(k)
-             : prefix_step ? prefix_executor.advance(k)
              : !continuing_executor.complete() ? continuing_executor.advance(k)
                                                : unrestricted_executor.advance(k))
           : producer_executor.advance(k);
@@ -4792,22 +4765,6 @@ static int proof_witness(const char *input, const char *output,
         std::fflush(stdout);
       }
       effective += advanced.made_rule_progress;
-      if (prefix_step) {
-        std::printf("c diagnostic prefix step %llu status %u progress %u root %llu\n",
-                    static_cast<unsigned long long>(advanced.step_id),
-                    static_cast<unsigned>(advanced.status),
-                    advanced.made_rule_progress,
-                    static_cast<unsigned long long>(k.stats.root_assignments));
-        std::fflush(stdout);
-        if (advanced.status != InvocationStatus::Completed &&
-            advanced.status != InvocationStatus::ScopedFixpoint &&
-            advanced.status != InvocationStatus::NoChange &&
-            advanced.status != InvocationStatus::Unsat) {
-          std::fputs("diagnostic prefix did not complete; refusing continuation\n",
-                     stderr);
-          return 2;
-        }
-      }
       if (advanced.status == InvocationStatus::Unsat) {
         terminal = 20;
         break;
@@ -5033,12 +4990,12 @@ int main(int argc, char **argv) {
     return compound_singleton_proof(argv[2], argv[3]);
   std::optional<uint64_t> generator_cap;
   std::optional<bool> root_stabilizer;
-  if (argc == 8 || argc == 9) {
+  if (argc == 8) {
     if (std::strcmp(argv[7], "0") && std::strcmp(argv[7], "1"))
       return 2;
     root_stabilizer = !std::strcmp(argv[7], "1");
   }
-  if (argc >= 7 && argc <= 9) {
+  if (argc >= 7 && argc <= 8) {
     uint64_t value = 0;
     const char *end = argv[6] + std::strlen(argv[6]);
     const auto parsed = std::from_chars(argv[6], end, value);
@@ -5048,10 +5005,10 @@ int main(int argc, char **argv) {
     }
     generator_cap = value;
   }
-  if (argc >= 5 && argc <= 9)
+  if (argc >= 5 && argc <= 8)
     return proof_witness(argv[1], argv[2], argv[3], argv[4],
                          argc >= 6 ? argv[5] : "unique", generator_cap,
-                         root_stabilizer, argc == 9 ? argv[8] : nullptr);
+                         root_stabilizer);
   assert(argc == 1);
   validation_is_transactional();
   invalid_discriminants_do_not_replace_configuration();

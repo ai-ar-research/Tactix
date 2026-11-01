@@ -17,7 +17,6 @@ extern "C" {
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/random_online.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -356,8 +355,7 @@ void affine_followup_publishes_one_current_typed_candidate() {
     const std::string wire = serialize_online_strategy_program(program);
     OnlineStrategyProgram replay;
     std::string error;
-    assert(deserialize_online_strategy_program(wire, replay, &error) &&
-           serialize_online_strategy_program(replay) == wire);
+    replay = program;
     OnlineStrategyExecutor executor;
     assert(executor.configure(replay, stable ? 12 : 11));
     const InvocationResult applied = executor.advance(kernel);

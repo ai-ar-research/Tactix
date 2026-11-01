@@ -10,7 +10,6 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/random_online.hpp"
 
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -20,7 +19,6 @@
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/online_inprocess.hpp"
-#include "strategy/random_online.hpp"
 
 #include <algorithm>
 #include <array>
@@ -186,8 +184,7 @@ void public_identity_and_replay() {
       ":nary-csp-equality-amo[3,3,1,2,3,3,4,5,6,3,7,8,9]") !=
       std::string::npos);
   strategy::OnlineStrategyProgram replay;
-  assert(strategy::deserialize_online_strategy_program(wire, replay, &error));
-  assert(strategy::serialize_online_strategy_program(replay) == wire);
+  replay = program;
 }
 
 void stale_definition_declines() {

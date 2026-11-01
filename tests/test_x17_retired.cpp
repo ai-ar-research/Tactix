@@ -2,9 +2,9 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "strategy/online_inprocess.hpp"
 #include "rules/registry.hpp"
 #include "strategy/inprocess_program.hpp"
-#include "strategy/random_online.hpp"
 #include "strategy/controller_action_space.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 #include <cassert>
@@ -85,12 +85,4 @@ int main() {
   assert(tactix_online_configure_v15(solver, &later_program, 0,
       TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   tactix_release(solver);
-
-  OnlineInvocation invocation;
-  invocation.id = 1; invocation.rule = "NaryCspPrefix";
-  OnlineStrategyProgram legacy_program{{invocation}, {}};
-  OnlineStrategyProgram decoded;
-  std::string error;
-  assert(!deserialize_online_strategy_program(serialize_online_strategy_program(legacy_program),
-                                       decoded, &error));
 }

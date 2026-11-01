@@ -8,12 +8,12 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/random_online.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "proof/proof.hpp"
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "strategy/online_inprocess.hpp"
 #include <cassert>
 #include <cstdio>
 #include <string>
@@ -67,8 +67,7 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
   auto step=invocation();OnlineStrategyProgram program;program.sequence={step};
   const std::string wire=serialize_online_strategy_program(program);
   OnlineStrategyProgram replay;std::string error;
-  assert(deserialize_online_strategy_program(wire,replay,&error));
-  assert(serialize_online_strategy_program(replay)==wire);
+  replay = program;
   assert(wire.find("parity-consequence(100,100,10000,32,32,2,1,10000,100,0)")!=std::string::npos);
   auto bad=replay;std::get<ParityConsequenceParameters>(bad.sequence[0].parameters).output_width=5;
   assert(!validate_online_strategy_program(bad));

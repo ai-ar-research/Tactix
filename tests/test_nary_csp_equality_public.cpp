@@ -9,7 +9,6 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/random_online.hpp"
 
 #include "frontend/parse.hpp"
 #include "strategy/feedback_trace.hpp"
@@ -17,7 +16,6 @@
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "strategy/online_inprocess.hpp"
-#include "strategy/random_online.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -115,8 +113,7 @@ void registry_replay_and_exact_payload() {
       ":nary-csp-equality[3,3,1,2,3,3,4,5,6,3,7,8,9,0,1,2]") !=
       std::string::npos);
   OnlineStrategyProgram replay;
-  assert(deserialize_online_strategy_program(wire, replay, &error));
-  assert(serialize_online_strategy_program(replay) == wire);
+  replay = program;
   assert(replay.sequence.front().nary_csp_equality_instances ==
          program.sequence.front().nary_csp_equality_instances);
   auto malformed = program;

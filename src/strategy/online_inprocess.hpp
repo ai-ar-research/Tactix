@@ -163,12 +163,6 @@ bool validate_parameter_installation(const std::string &rule,
                                      std::string *error = nullptr);
 bool install_permanent_parameters(Kernel &, const InprocessParameters &);
 std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
-bool deserialize_online_strategy_program(const std::string &,
-                                         OnlineStrategyProgram &,
-                                         std::string *error = nullptr,
-                                         bool direct_csp_producer_template =
-                                             false,
-                                         bool allow_native_offer = false);
 
 inline bool validate_online_inprocess_program(const OnlineInprocessProgram &p,
                                               std::string *error = nullptr) {
