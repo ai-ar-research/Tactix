@@ -2,6 +2,7 @@
 
 #include "rules/semantic_extension/direct_csp_action_limits.hpp"
 #include "rules/semantic_extension/nary_csp_action_limits.hpp"
+#include "strategy/scoped_rule_parameters.hpp"
 
 #include <cstdint>
 
@@ -70,8 +71,14 @@ struct AffineConsequenceParameters {
   static AffineConsequenceParameters from_kernel(const Kernel &);
 };
 
+// AffineConsequenceParameters has two field families: the bounded image
+// limits, then the CertifiedBasisV2 limits.
+struct AffineImageFields {};
+struct AffineBasisFields {};
+
 template <class Parameters, class Visitor>
-bool visit_affine_image_parameter_fields(Parameters &p, Visitor visit) {
+auto visit_parameter_fields(FieldsOf<AffineImageFields>, Parameters &p,
+                            Visitor visit) {
   return visit(p.maximum_clauses, p.maximum_snapshot_literals,
                p.maximum_snapshot_work, p.maximum_groups, p.maximum_patterns,
                p.maximum_elimination_work, p.maximum_arity,
@@ -81,30 +88,13 @@ bool visit_affine_image_parameter_fields(Parameters &p, Visitor visit) {
 }
 
 template <class Parameters, class Visitor>
-bool visit_affine_basis_parameter_fields(Parameters &p, Visitor visit) {
+auto visit_parameter_fields(FieldsOf<AffineBasisFields>, Parameters &p,
+                            Visitor visit) {
   return visit(p.basis_maximum_work, p.basis_maximum_intermediate_width,
                p.basis_maximum_sources, p.basis_maximum_premises,
                p.basis_maximum_nodes, p.basis_maximum_direct_width,
                p.maximum_external_extent, p.maximum_session_keys,
                p.maximum_session_work);
-}
-
-template <class Target, class Source>
-void copy_affine_parameter_fields(Target &target, const Source &source) {
-  visit_affine_image_parameter_fields(target, [&](auto &...targets) {
-    return visit_affine_image_parameter_fields(
-        source, [&](const auto &...sources) {
-          ((targets = sources), ...);
-          return true;
-        });
-  });
-  visit_affine_basis_parameter_fields(target, [&](auto &...targets) {
-    return visit_affine_basis_parameter_fields(
-        source, [&](const auto &...sources) {
-          ((targets = sources), ...);
-          return true;
-        });
-  });
 }
 
 // Separate positive-persistence profile: old affine encodings retain zero
@@ -174,6 +164,17 @@ struct ExactCoverExtensionParameters {
   static ExactCoverExtensionParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<ExactCoverExtensionParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.arity, p.maximum_items, p.maximum_source_clauses,
+               p.maximum_source_literals, p.maximum_recognition_work,
+               p.maximum_premise_references, p.maximum_definitions,
+               p.maximum_additions, p.maximum_literal_occurrences,
+               p.maximum_extent_growth, p.maximum_external_extent,
+               p.maximum_journal_bytes);
+}
+
 struct IndependentSetCoverParameters {
   uint64_t maximum_clauses = 0;
   uint64_t maximum_literals = 0;
@@ -188,6 +189,16 @@ struct IndependentSetCoverParameters {
   bool valid() const { return true; }
   static IndependentSetCoverParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<IndependentSetCoverParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_clauses, p.maximum_literals,
+               p.maximum_recognition_work, p.maximum_proof_work,
+               p.maximum_proof_additions, p.maximum_proof_deletions,
+               p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
+               p.maximum_vertices, p.maximum_target);
+}
 
 struct Gf3AffineConsequenceParameters {
   uint64_t maximum_source_clauses = 0;
@@ -217,13 +228,55 @@ struct Gf3AffineConsequenceParameters {
   static Gf3AffineConsequenceParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<Gf3AffineConsequenceParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_source_clauses, p.maximum_source_literals,
+               p.maximum_domains, p.maximum_equations,
+               p.maximum_equation_arity, p.maximum_tuples_per_equation,
+               p.maximum_result_arity, p.maximum_result_tuples,
+               p.maximum_additions, p.maximum_addition_literals,
+               p.maximum_recognition_work, p.maximum_planning_work,
+               p.maximum_duplicate_scan_work, p.maximum_revalidation_work,
+               p.maximum_proof_work, p.maximum_proof_additions,
+               p.maximum_proof_literal_occurrences, p.maximum_arena_words,
+               p.maximum_journal_bytes, p.maximum_external_extent,
+               p.maximum_session_keys, p.maximum_session_work);
+}
+
 // Explicit GuardedCoverV2 profile; zero limits decline rather than inherit V1.
 using DirectCspGuardedCoverParameters =
     DirectCspGuardedCoverActionLimits;
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<DirectCspGuardedCoverParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_source_clauses, p.maximum_source_literals,
+               p.maximum_recognition_work, p.maximum_domains,
+               p.maximum_domain_values, p.maximum_cover_literals,
+               p.maximum_or_definitions, p.maximum_or_inputs,
+               p.maximum_output_literals, p.maximum_proof_work,
+               p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+               p.maximum_journal_bytes, p.maximum_external_extent,
+               p.maximum_session_keys, p.maximum_session_work);
+}
+
 struct DirectCspSupportParameters : DirectCspSupportActionLimits {
   static DirectCspSupportParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<DirectCspSupportParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_source_clauses, p.maximum_source_literals,
+               p.maximum_recognition_work, p.maximum_domain_values,
+               p.maximum_direct_clause_literals,
+               p.maximum_definition_clause_literals, p.maximum_proof_work,
+               p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+               p.maximum_journal_bytes, p.maximum_extent_growth,
+               p.maximum_external_extent, p.maximum_session_keys,
+               p.maximum_session_work, p.allow_extension);
+}
 
 
 struct NaryCspEqualityParameters : NaryCspEqualityLimits {
@@ -231,10 +284,32 @@ struct NaryCspEqualityParameters : NaryCspEqualityLimits {
   bool operator==(const NaryCspEqualityParameters &) const = default;
 };
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<NaryCspEqualityParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_source_clauses, p.maximum_source_literals,
+               p.maximum_recognition_work, p.maximum_domain_values,
+               p.maximum_forbidden_tuples, p.maximum_proof_work,
+               p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+               p.maximum_journal_bytes, p.maximum_extent_growth,
+               p.maximum_external_extent, p.maximum_session_keys);
+}
+
 struct NaryCspEqualityAmoParameters : NaryCspEqualityAmoLimits {
   static NaryCspEqualityAmoParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityAmoParameters &) const = default;
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<NaryCspEqualityAmoParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_source_clauses, p.maximum_source_literals,
+               p.maximum_recognition_work, p.maximum_domain_values,
+               p.maximum_forbidden_tuples, p.maximum_proof_work,
+               p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+               p.maximum_journal_bytes, p.maximum_external_extent,
+               p.maximum_session_keys);
+}
 
 struct NaryCspEqualityTransitivityParameters
     : NaryCspEqualityTransitivityLimits {
@@ -242,6 +317,19 @@ struct NaryCspEqualityTransitivityParameters
   bool operator==(
       const NaryCspEqualityTransitivityParameters &) const = default;
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<NaryCspEqualityTransitivityParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_source_clauses, p.maximum_source_literals,
+               p.maximum_recognition_work, p.maximum_planning_work,
+               p.maximum_domain_values, p.maximum_forbidden_tuples,
+               p.maximum_proof_work, p.maximum_proof_additions,
+               p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
+               p.maximum_external_extent, p.maximum_session_keys,
+               p.maximum_session_bytes, p.maximum_arena_words,
+               p.maximum_watch_words, p.maximum_preparation_bytes);
+}
 
 // Exact controller-visible limits for the terminal direct pigeonhole
 // refutation.  The three producer budgets and replay budget remain distinct
@@ -267,6 +355,19 @@ struct DirectPhpRefutationParameters {
   bool valid() const;
   static DirectPhpRefutationParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<DirectPhpRefutationParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
+               p.maximum_snapshot_work, p.maximum_recognition_clauses,
+               p.maximum_recognition_literals, p.maximum_recognition_work,
+               p.maximum_row_candidates, p.maximum_row_combinations,
+               p.maximum_mapping_trials, p.maximum_holes,
+               p.maximum_proof_additions, p.maximum_proof_deletions,
+               p.maximum_proof_literals, p.maximum_fresh_variables,
+               p.maximum_proof_events, p.maximum_replay_work);
+}
 
 // Exact bounded profile for authenticated Gaussian closure over recognized
 // GF(3) one-hot equations.  The controller supplies one stable identity for
@@ -317,7 +418,8 @@ struct Gf3GaussianConsequenceParameters {
 };
 
 template <class Parameters, class Visitor>
-bool visit_gf3_gaussian_parameter_fields(Parameters &p, Visitor visit) {
+auto visit_parameter_fields(FieldsOf<Gf3GaussianConsequenceParameters>,
+                            Parameters &p, Visitor visit) {
   return visit(
       p.maximum_source_clauses, p.maximum_source_literals, p.maximum_domains,
       p.maximum_equations, p.maximum_equation_arity,
@@ -339,18 +441,6 @@ bool visit_gf3_gaussian_parameter_fields(Parameters &p, Visitor visit) {
       p.maximum_session_identity_bytes);
 }
 
-template <class Target, class Source>
-void copy_gf3_gaussian_parameter_fields(Target &target,
-                                        const Source &source) {
-  visit_gf3_gaussian_parameter_fields(target, [&](auto &...targets) {
-    return visit_gf3_gaussian_parameter_fields(
-        source, [&](const auto &...sources) {
-          ((targets = sources), ...);
-          return true;
-        });
-  });
-}
-
 // One authenticated forbidden tuple of one non-unit GF(3) Gaussian row.
 // Gaussian supplies source/bridge limits; the appended fields bound the
 // single-row Boolean certificate and retained exact replay identity.
@@ -365,6 +455,18 @@ struct Gf3GeneralRowConsequenceParameters {
   static Gf3GeneralRowConsequenceParameters from_kernel(const Kernel &);
   bool operator==(const Gf3GeneralRowConsequenceParameters &) const = default;
 };
+
+// The Gaussian list, then the appended single-row limits.
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<Gf3GeneralRowConsequenceParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit_parameter_fields(
+      FieldsOf<Gf3GaussianConsequenceParameters>{}, p.gaussian,
+      [&](auto &...gaussian) {
+        return visit(gaussian..., p.maximum_row_tuples, p.maximum_row_width,
+                     p.maximum_duplicate_scan_work, p.maximum_arena_words);
+      });
+}
 
 struct TseitinCycleBreakingParameters {
   uint64_t maximum_snapshot_clauses = 100000;
@@ -400,6 +502,25 @@ struct TseitinCycleBreakingParameters {
   static TseitinCycleBreakingParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<TseitinCycleBreakingParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(
+      p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
+      p.maximum_snapshot_work, p.maximum_snapshot_variables,
+      p.maximum_discovery_work, p.maximum_discovery_clauses,
+      p.maximum_discovery_groups, p.maximum_discovery_retained_bytes,
+      p.maximum_admission_work, p.maximum_planning_work,
+      p.maximum_witness_length, p.maximum_planning_additions,
+      p.maximum_transaction_work, p.maximum_transaction_additions,
+      p.maximum_transaction_deletions, p.maximum_transaction_helpers,
+      p.maximum_transaction_witness_literals, p.maximum_validation_ticks,
+      p.maximum_components, p.maximum_identity_bytes,
+      p.maximum_total_identity_bytes, p.maximum_identity_work,
+      p.maximum_journal_bytes, p.maximum_session_keys, p.maximum_session_work,
+      p.maximum_session_identity_bytes);
+}
+
 struct SemanticVariableAdviceParameters {
   uint32_t maximum_variables = 0;
   uint64_t maximum_priority_sum = 0;
@@ -408,6 +529,13 @@ struct SemanticVariableAdviceParameters {
   bool valid() const { return true; }
   static SemanticVariableAdviceParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<SemanticVariableAdviceParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_variables, p.maximum_priority_sum,
+               p.existing_theory_priority, p.introduced_theory_priority);
+}
 
 // One ownership point for the typed public-parameter to native-action mapping.
 // These conversions are pure aggregate construction and perform no validation.

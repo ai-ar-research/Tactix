@@ -35,30 +35,41 @@ void serialize_values(std::ostream &out, const First &first,
   ((out << ',' << rest), ...);
 }
 
-void serialize_affine_image_values(
-    std::ostream &out, const AffineConsequenceParameters &p) {
-  visit_affine_image_parameter_fields(p, [&](const auto &...fields) {
+template <class Family, class Parameters>
+void serialize_fields(std::ostream &out, const Parameters &p) {
+  visit_parameter_fields(FieldsOf<Family>{}, p, [&](const auto &...fields) {
     serialize_values(out, fields...);
-    return true;
   });
 }
 
 void serialize_affine_basis_values(
     std::ostream &out, const AffineConsequenceParameters &p) {
-  serialize_affine_image_values(out, p);
+  serialize_fields<AffineImageFields>(out, p);
   out << ',';
-  visit_affine_basis_parameter_fields(p, [&](const auto &...fields) {
-    serialize_values(out, fields...);
-    return true;
-  });
+  serialize_fields<AffineBasisFields>(out, p);
 }
 
-void serialize_gf3_gaussian_values(
-    std::ostream &out, const Gf3GaussianConsequenceParameters &p) {
-  visit_gf3_gaussian_parameter_fields(p, [&](const auto &...fields) {
-    serialize_values(out, fields...);
-    return true;
-  });
+template <class Parameters> struct Listed {
+  const char *tag;
+};
+
+template <class Parameters>
+bool serialize_family(std::ostream &out, const ActionParameters &parameters,
+                      Listed<Parameters> family) {
+  const auto *p = std::get_if<Parameters>(&parameters);
+  if (p) {
+    out << family.tag;
+    serialize_fields<Parameters>(out, *p);
+    out << ')';
+  }
+  return p != nullptr;
+}
+
+// Families whose stable text is their tag, their field list and ')'.
+template <class... Families>
+bool serialize_listed(std::ostream &out, const ActionParameters &parameters,
+                      Listed<Families>... families) {
+  return (serialize_family(out, parameters, families) || ...);
 }
 
 } // namespace
@@ -98,7 +109,7 @@ std::string serialize_online_strategy_program(
                  std::get_if<AffineConsequenceParameters>(&step.parameters)) {
       if (p->semantics == AffineConsequenceSemantics::SelectedConsequenceV1) {
         out << ":affine-consequence1(";
-        serialize_affine_image_values(out, *p);
+        serialize_fields<AffineImageFields>(out, *p);
         out << ',' << p->consequence << ')';
       } else {
         out << ":affine-consequence2(";
@@ -117,68 +128,36 @@ std::string serialize_online_strategy_program(
           << profile->maximum_deferred_deletions << ','
           << profile->maximum_deferred_literal_work << ')';
     }
-    else if (const auto *p =
-                 std::get_if<ExactCoverExtensionParameters>(&step.parameters))
-      out << ":exact-cover-extension1(" << p->arity << ',' << p->maximum_items
-          << ',' << p->maximum_source_clauses << ','
-          << p->maximum_source_literals << ',' << p->maximum_recognition_work
-          << ',' << p->maximum_premise_references << ','
-          << p->maximum_definitions << ',' << p->maximum_additions << ','
-          << p->maximum_literal_occurrences << ',' << p->maximum_extent_growth
-          << ',' << p->maximum_external_extent << ','
-          << p->maximum_journal_bytes << ')';
-    else if (const auto *p =
-                 std::get_if<IndependentSetCoverParameters>(&step.parameters))
-      out << ":independent-set-cover1(" << p->maximum_clauses << ','
-          << p->maximum_literals << ',' << p->maximum_recognition_work << ','
-          << p->maximum_proof_work << ',' << p->maximum_proof_additions << ','
-          << p->maximum_proof_deletions << ','
-          << p->maximum_proof_literal_occurrences << ','
-          << p->maximum_journal_bytes << ',' << p->maximum_vertices << ','
-          << p->maximum_target << ')';
-    else if (const auto *p =
-                 std::get_if<Gf3AffineConsequenceParameters>(&step.parameters))
-      out << ":gf3-affine-consequence1(" << p->maximum_source_clauses << ','
-          << p->maximum_source_literals << ',' << p->maximum_domains << ','
-          << p->maximum_equations << ',' << p->maximum_equation_arity << ','
-          << p->maximum_tuples_per_equation << ',' << p->maximum_result_arity
-          << ',' << p->maximum_result_tuples << ',' << p->maximum_additions
-          << ',' << p->maximum_addition_literals << ','
-          << p->maximum_recognition_work << ',' << p->maximum_planning_work
-          << ',' << p->maximum_duplicate_scan_work << ','
-          << p->maximum_revalidation_work << ',' << p->maximum_proof_work
-          << ',' << p->maximum_proof_additions << ','
-          << p->maximum_proof_literal_occurrences << ','
-          << p->maximum_arena_words << ',' << p->maximum_journal_bytes << ','
-          << p->maximum_external_extent << ',' << p->maximum_session_keys
-          << ',' << p->maximum_session_work << ')';
-    else if (const auto *p =
-                 std::get_if<DirectCspGuardedCoverParameters>(&step.parameters))
-      out << ":direct-csp-guarded-cover2(" << p->maximum_source_clauses << ',' << p->maximum_source_literals << ',' << p->maximum_recognition_work << ',' << p->maximum_domains << ',' << p->maximum_domain_values << ',' << p->maximum_cover_literals << ',' << p->maximum_or_definitions << ',' << p->maximum_or_inputs << ',' << p->maximum_output_literals << ',' << p->maximum_proof_work << ',' << p->maximum_proof_additions << ',' << p->maximum_proof_literal_occurrences << ',' << p->maximum_journal_bytes << ',' << p->maximum_external_extent << ',' << p->maximum_session_keys << ',' << p->maximum_session_work << ')';
-    else if (const auto *p =
-                 std::get_if<DirectCspSupportParameters>(&step.parameters))
-      out << ":direct-csp-support1(" << p->maximum_source_clauses << ','
-          << p->maximum_source_literals << ',' << p->maximum_recognition_work
-          << ',' << p->maximum_domain_values << ','
-          << p->maximum_direct_clause_literals << ','
-          << p->maximum_definition_clause_literals << ','
-          << p->maximum_proof_work << ',' << p->maximum_proof_additions << ','
-          << p->maximum_proof_literal_occurrences << ','
-          << p->maximum_journal_bytes << ',' << p->maximum_extent_growth << ','
-          << p->maximum_external_extent << ',' << p->maximum_session_keys
-          << ',' << p->maximum_session_work << ',' << p->allow_extension << ')';
-    else if (const auto *p =
-                 std::get_if<NaryCspEqualityParameters>(&step.parameters))
-      out << ":nary-csp-equality1(" << p->maximum_source_clauses << ','
-          << p->maximum_source_literals << ',' << p->maximum_recognition_work
-          << ',' << p->maximum_domain_values << ','
-          << p->maximum_forbidden_tuples << ',' << p->maximum_proof_work << ','
-          << p->maximum_proof_additions << ','
-          << p->maximum_proof_literal_occurrences << ','
-          << p->maximum_journal_bytes << ',' << p->maximum_extent_growth << ','
-          << p->maximum_external_extent << ',' << p->maximum_session_keys << ')';
-    else if (const auto *p = std::get_if<NaryCspEqualityTransitivityParameters>(&step.parameters))
-      out << ":nary-csp-equality-transitivity1(" << p->maximum_source_clauses << ',' << p->maximum_source_literals << ',' << p->maximum_recognition_work << ',' << p->maximum_planning_work << ',' << p->maximum_domain_values << ',' << p->maximum_forbidden_tuples << ',' << p->maximum_proof_work << ',' << p->maximum_proof_additions << ',' << p->maximum_proof_literal_occurrences << ',' << p->maximum_journal_bytes << ',' << p->maximum_external_extent << ',' << p->maximum_session_keys << ',' << p->maximum_session_bytes << ',' << p->maximum_arena_words << ',' << p->maximum_watch_words << ',' << p->maximum_preparation_bytes << ')';
+    else if (serialize_listed(
+                 out, step.parameters,
+                 Listed<ExactCoverExtensionParameters>{":exact-cover-extension1("},
+                 Listed<IndependentSetCoverParameters>{":independent-set-cover1("},
+                 Listed<Gf3AffineConsequenceParameters>{":gf3-affine-consequence1("},
+                 Listed<DirectCspGuardedCoverParameters>{":direct-csp-guarded-cover2("},
+                 Listed<DirectCspSupportParameters>{":direct-csp-support1("},
+                 Listed<NaryCspEqualityParameters>{":nary-csp-equality1("},
+                 Listed<NaryCspEqualityTransitivityParameters>{
+                     ":nary-csp-equality-transitivity1("},
+                 Listed<NaryCspEqualityAmoParameters>{":nary-csp-equality-amo1("},
+                 Listed<DirectPhpRefutationParameters>{":direct-php-refutation1("},
+                 Listed<Gf3GaussianConsequenceParameters>{
+                     ":gf3-gaussian-consequence1("},
+                 Listed<Gf3GeneralRowConsequenceParameters>{":gf3-general-row1("},
+                 Listed<TseitinCycleBreakingParameters>{":tseitin-cycle-breaking1("},
+                 Listed<SemanticVariableAdviceParameters>{
+                     ":semantic-variable-advice1("},
+                 Listed<BalancedSignatureModelParameters>{
+                     ":balanced-signature-model("},
+                 Listed<FermatModelParameters>{":fermat-model("},
+                 Listed<LookupCircuitModelParameters>{":lookup-circuit-model("},
+                 Listed<SimonModelParameters>{":simon-model("},
+                 Listed<StconnProofParameters>{":stconn-proof("},
+                 Listed<SignedCardinalityProofParameters>{
+                     ":signed-cardinality-proof("},
+                 Listed<ExactCoverModelParameters>{":exact-cover-model("},
+                 Listed<IndependentSetModelParameters>{":independent-set-model("})) {
+      // Serialized from the family's shared field list.
+    }
     else if (const auto *p = std::get_if<CardinalitySearchActionLimits>(&step.parameters))
       out << ":cardinality-search1(" << p->inspection.maximum_support_variables
           << ',' << p->inspection.maximum_constraints << ','
@@ -189,64 +168,6 @@ std::string serialize_online_strategy_program(
           << p->resolution.maximum_added_literals << ','
           << p->maximum_source_scan_work << ',' << p->maximum_arena_words
           << ',' << p->maximum_journal_bytes << ')';
-    else if (const auto *p =
-                 std::get_if<NaryCspEqualityAmoParameters>(&step.parameters))
-      out << ":nary-csp-equality-amo1(" << p->maximum_source_clauses << ','
-          << p->maximum_source_literals << ',' << p->maximum_recognition_work
-          << ',' << p->maximum_domain_values << ','
-          << p->maximum_forbidden_tuples << ',' << p->maximum_proof_work << ','
-          << p->maximum_proof_additions << ','
-          << p->maximum_proof_literal_occurrences << ','
-          << p->maximum_journal_bytes << ',' << p->maximum_external_extent
-          << ',' << p->maximum_session_keys << ')';
-    else if (const auto *p =
-                 std::get_if<DirectPhpRefutationParameters>(&step.parameters))
-      out << ":direct-php-refutation1(" << p->maximum_snapshot_clauses << ','
-          << p->maximum_snapshot_literals << ',' << p->maximum_snapshot_work
-          << ',' << p->maximum_recognition_clauses << ','
-          << p->maximum_recognition_literals << ','
-          << p->maximum_recognition_work << ',' << p->maximum_row_candidates
-          << ',' << p->maximum_row_combinations << ','
-          << p->maximum_mapping_trials << ',' << p->maximum_holes << ','
-          << p->maximum_proof_additions << ',' << p->maximum_proof_deletions
-          << ',' << p->maximum_proof_literals << ','
-          << p->maximum_fresh_variables << ',' << p->maximum_proof_events
-          << ',' << p->maximum_replay_work << ')';
-    else if (const auto *p = std::get_if<Gf3GaussianConsequenceParameters>(
-                 &step.parameters)) {
-      out << ":gf3-gaussian-consequence1(";
-      serialize_gf3_gaussian_values(out, *p);
-      out << ')';
-    }
-    else if (const auto *p = std::get_if<Gf3GeneralRowConsequenceParameters>(
-                 &step.parameters)) {
-      out << ":gf3-general-row1(";
-      serialize_gf3_gaussian_values(out, p->gaussian);
-      out << ',' << p->maximum_row_tuples << ','
-          << p->maximum_row_width << ',' << p->maximum_duplicate_scan_work << ','
-          << p->maximum_arena_words << ')';
-    }
-    else if (const auto *p = std::get_if<TseitinCycleBreakingParameters>(
-                 &step.parameters))
-      out << ":tseitin-cycle-breaking1(" << p->maximum_snapshot_clauses << ','
-          << p->maximum_snapshot_literals << ',' << p->maximum_snapshot_work << ','
-          << p->maximum_snapshot_variables << ',' << p->maximum_discovery_work << ','
-          << p->maximum_discovery_clauses << ',' << p->maximum_discovery_groups << ','
-          << p->maximum_discovery_retained_bytes << ',' << p->maximum_admission_work << ','
-          << p->maximum_planning_work << ',' << p->maximum_witness_length << ','
-          << p->maximum_planning_additions << ',' << p->maximum_transaction_work << ','
-          << p->maximum_transaction_additions << ',' << p->maximum_transaction_deletions << ','
-          << p->maximum_transaction_helpers << ',' << p->maximum_transaction_witness_literals << ','
-          << p->maximum_validation_ticks << ',' << p->maximum_components << ','
-          << p->maximum_identity_bytes << ',' << p->maximum_total_identity_bytes << ','
-          << p->maximum_identity_work << ',' << p->maximum_journal_bytes << ','
-          << p->maximum_session_keys << ','
-          << p->maximum_session_work << ',' << p->maximum_session_identity_bytes << ')';
-    else if (const auto *p =
-                 std::get_if<SemanticVariableAdviceParameters>(&step.parameters))
-      out << ":semantic-variable-advice1(" << p->maximum_variables << ','
-          << p->maximum_priority_sum << ',' << p->existing_theory_priority
-          << ',' << p->introduced_theory_priority << ')';
     else if (const auto *p = std::get_if<BceParameters>(&step.parameters))
       out << ":bce(" << p->occurrence_limit << ')';
     else if (const auto *p =
@@ -336,47 +257,6 @@ std::string serialize_online_strategy_program(
           << p->refutation_maximum_constraints << ','
           << p->refutation_maximum_arity << ','
           << p->refutation_maximum_proof_additions << ')';
-    else if (const auto *p = std::get_if<
-                 BalancedSignatureModelParameters>(&step.parameters))
-      out << ":balanced-signature-model(" << p->maximum_balls << ','
-          << p->maximum_width << ',' << p->restarts << ','
-          << p->steps_per_restart << ',' << p->samples_per_step << ','
-          << p->seed << ',' << p->completion_rounds << ')';
-    else if (const auto *p = std::get_if<FermatModelParameters>(
-                 &step.parameters))
-      out << ":fermat-model(" << p->maximum_bits << ','
-          << p->comparator_tail_clauses << ',' << p->rho_constants << ','
-          << p->rho_iterations << ')';
-    else if (const auto *p = std::get_if<LookupCircuitModelParameters>(
-                 &step.parameters))
-      out << ":lookup-circuit-model(" << p->maximum_fanin << ','
-          << p->maximum_fanout << ',' << p->maximum_primary_inputs << ','
-          << p->maximum_support << ','
-          << p->maximum_vector_gate_evaluations << ')';
-    else if (const auto *p =
-                 std::get_if<SimonModelParameters>(&step.parameters))
-      out << ":simon-model(" << p->maximum_rounds << ','
-          << p->maximum_candidates << ')';
-    else if (const auto *p =
-                 std::get_if<StconnProofParameters>(&step.parameters))
-      out << ":stconn-proof(" << p->maximum_width << ','
-          << p->maximum_columns << ',' << p->maximum_rup_clauses << ')';
-    else if (const auto *p = std::get_if<SignedCardinalityProofParameters>(
-                 &step.parameters))
-      out << ":signed-cardinality-proof(" << p->maximum_variables << ','
-          << p->maximum_groups << ',' << p->maximum_constraints << ','
-          << p->maximum_group_arity << ',' << p->maximum_bdd_nodes << ','
-          << p->maximum_proof_additions << ')';
-    else if (const auto *p =
-                 std::get_if<ExactCoverModelParameters>(&step.parameters))
-      out << ":exact-cover-model(" << p->block_arity << ',' << p->maximum_nodes
-          << ',' << p->restarts << ',' << p->restart_nodes << ',' << p->seed
-          << ')';
-    else if (const auto *p =
-                 std::get_if<IndependentSetModelParameters>(&step.parameters))
-      out << ":independent-set-model(" << p->maximum_vertices << ','
-          << p->maximum_steps << ',' << p->completion_rounds << ',' << p->seed
-          << ')';
     else if (const auto *p = std::get_if<RamseyStartupParameters>(&step.parameters))
       out << ":ramsey-startup1(" << p->recognition_clauses << "," << p->recognition_variables
           << "," << p->recognition_pair_cells << "," << p->recognition_work

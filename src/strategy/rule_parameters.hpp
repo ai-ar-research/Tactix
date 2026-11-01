@@ -283,6 +283,14 @@ struct BalancedSignatureModelParameters {
   static BalancedSignatureModelParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<BalancedSignatureModelParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_balls, p.maximum_width, p.restarts,
+               p.steps_per_restart, p.samples_per_step, p.seed,
+               p.completion_rounds);
+}
+
 // SAT-only reconstruction for arithmetic circuits encoding
 // (a-b)(a+b)=N.  The owner recovers N from the final comparator and factors it
 // with deterministic 64-bit Miller--Rabin/Pollard Rho before validating the
@@ -306,6 +314,13 @@ struct FermatModelParameters {
   }
   static FermatModelParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<FermatModelParameters>, Parameters &p,
+                            Visitor visit) {
+  return visit(p.maximum_bits, p.comparator_tail_clauses, p.rho_constants,
+               p.rho_iterations);
+}
 
 // SAT-only reconstruction of feed-forward lookup-table circuits.  The owner
 // enumerates the structural primary-input support with byte-lane SIMD and uses
@@ -334,6 +349,13 @@ struct LookupCircuitModelParameters {
   static LookupCircuitModelParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<LookupCircuitModelParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_fanin, p.maximum_fanout, p.maximum_primary_inputs,
+               p.maximum_support, p.maximum_vector_gate_evaluations);
+}
+
 // SAT-only key search for Simon-family round circuits. Recognition recovers
 // the key permutation and per-round key selection from the CNF itself; these
 // controls bound the admitted circuit depth and exhaustive 32-bit key work.
@@ -348,6 +370,12 @@ struct SimonModelParameters {
   }
   static SimonModelParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<SimonModelParameters>, Parameters &p,
+                            Visitor visit) {
+  return visit(p.maximum_rounds, p.maximum_candidates);
+}
 
 // SAT-only exact-cover model for signed at-most-one block formulas
 // (LymphoSAT's sgen owner). Recognition is exact on the live clause set; the
@@ -374,6 +402,13 @@ struct ExactCoverModelParameters {
   static ExactCoverModelParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<ExactCoverModelParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.block_arity, p.maximum_nodes, p.restarts, p.restart_nodes,
+               p.seed);
+}
+
 // Public graph-model action for the layered exact-count independent-set
 // encoding and the clause-authenticated directed stable-extension core.
 // Recognition never uses an input name.  The stable-extension form searches a
@@ -396,6 +431,13 @@ struct IndependentSetModelParameters {
   static IndependentSetModelParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<IndependentSetModelParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_vertices, p.maximum_steps, p.completion_rounds,
+               p.seed);
+}
+
 // Native RUP refutation of structurally exact bounded-width StConn grids.
 // Width controls the crossing-sequence state space; the other bounds expose
 // formula extent and emitted-proof work without changing recognition.
@@ -413,6 +455,12 @@ struct StconnProofParameters {
   }
   static StconnProofParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<StconnProofParameters>, Parameters &p,
+                            Visitor visit) {
+  return visit(p.maximum_width, p.maximum_columns, p.maximum_rup_clauses);
+}
 
 // Proof-generating cutting-planes reasoning for complete signed-ternary
 // cardinality blocks.  Each block is translated to a reduced BDD and the
@@ -440,6 +488,14 @@ struct SignedCardinalityProofParameters {
   }
   static SignedCardinalityProofParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+auto visit_parameter_fields(FieldsOf<SignedCardinalityProofParameters>,
+                            Parameters &p, Visitor visit) {
+  return visit(p.maximum_variables, p.maximum_groups, p.maximum_constraints,
+               p.maximum_group_arity, p.maximum_bdd_nodes,
+               p.maximum_proof_additions);
+}
 
 // SAT-only low-weight search of an exact projected affine image. Coordinates
 // use stable external DIMACS identities; an explicit empty projection is legal.
@@ -522,9 +578,19 @@ public:
   ~ScopedWalkParameters();
 
 private:
-  Kernel &kernel_;
-  bool saved_bounded_;
-  std::optional<ScopedRuleParameters<WalkParameters>> parameters_;
+  // Declared first: saves the mark before the profile installs, and is
+  // destroyed after the profile's restore.
+  class BoundedMark {
+  public:
+    explicit BoundedMark(Kernel &);
+    ~BoundedMark();
+
+  private:
+    Kernel &kernel_;
+    bool saved_;
+  };
+  BoundedMark bounded_;
+  ScopedRuleParameters<WalkParameters> parameters_;
 };
 
 } // namespace strategy

@@ -266,16 +266,18 @@ void install_walk_guidance(
   k.walk_score_curve = score_curve;
 }
 
-ScopedWalkParameters::ScopedWalkParameters(
-    Kernel &kernel, const WalkParameters &parameters)
-    : kernel_(kernel), saved_bounded_(kernel.work_budget_bounded) {
-  parameters_.emplace(kernel, parameters);
+ScopedWalkParameters::BoundedMark::BoundedMark(Kernel &kernel)
+    : kernel_(kernel), saved_(kernel.work_budget_bounded) {}
+
+ScopedWalkParameters::BoundedMark::~BoundedMark() {
+  kernel_.work_budget_bounded = saved_;
 }
 
-ScopedWalkParameters::~ScopedWalkParameters() {
-  parameters_.reset();
-  kernel_.work_budget_bounded = saved_bounded_;
-}
+ScopedWalkParameters::ScopedWalkParameters(
+    Kernel &kernel, const WalkParameters &parameters)
+    : bounded_(kernel), parameters_(kernel, parameters) {}
+
+ScopedWalkParameters::~ScopedWalkParameters() = default;
 
 void install_rule_parameters(Kernel &k, const ReorderParameters &p) {
   k.reorder_maximum_clause_size = p.maximum_clause_size;
