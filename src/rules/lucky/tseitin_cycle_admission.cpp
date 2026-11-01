@@ -240,10 +240,8 @@ AdmissionResult admit(const AdmissionRequest &request,
                 AdmissionReason::Disconnected);
 
   admitted.occurrence_classification_complete = true;
-  AdmissionResult result;
-  result.status = AdmissionStatus::Admitted;
-  result.reason = AdmissionReason::None;
-  result.work = meter.used();
+  AdmissionResult result =
+      stop(meter, AdmissionStatus::Admitted, AdmissionReason::None);
   result.input = std::move(admitted);
   result.provenance = std::move(provenance);
   return result;

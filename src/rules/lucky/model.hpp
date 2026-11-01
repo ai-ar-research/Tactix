@@ -1,6 +1,7 @@
 #pragma once
 #include "kernel/kernel.hpp"
 #include <iterator>
+#include <type_traits>
 #include <vector>
 namespace tactix {
 // Candidate validation is independent of recognition and of every model-search
@@ -162,6 +163,15 @@ inline bool lucky_internal_variable(const Kernel &k, uint64_t dimacs,
   if (!dimacs || dimacs > k.external_to_internal.size()) return false;
   internal = k.external_to_internal[dimacs - 1];
   return internal != INVALID_VAR && internal < k.nvars;
+}
+// Sets a mapped one-based DIMACS variable in `assignment`, sized k.nvars.
+template <class Value>
+bool lucky_set_external(const Kernel &k, std::vector<Value> &assignment,
+                        uint64_t dimacs, std::type_identity_t<Value> value) {
+  Var internal = INVALID_VAR;
+  if (!lucky_internal_variable(k, dimacs, internal)) return false;
+  assignment[internal] = value;
+  return true;
 }
 // 3^exponent, or false when it exceeds 64 bits.
 inline bool lucky_power_of_three(uint32_t exponent, uint64_t &result) {

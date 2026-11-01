@@ -430,22 +430,12 @@ bool search_balanced_signatures(
   return false;
 }
 
-// `assignment` is sized k.nvars before the first call.
-bool set_external(const Kernel &k, std::vector<int8_t> &assignment,
-                  uint64_t dimacs, int8_t value) {
-  Var internal = INVALID_VAR;
-  if (!lucky_internal_variable(k, dimacs, internal))
-    return false;
-  assignment[internal] = value;
-  return true;
-}
-
 bool build_primary_assignment(const Kernel &k, const Shape &shape,
                               const SearchResult &solution,
                               std::vector<int8_t> &assignment) {
   assignment.assign(k.nvars, 0);
   for (uint64_t dimacs = 1; dimacs <= shape.boundary; ++dimacs)
-    if (!set_external(k, assignment, dimacs, -1))
+    if (!lucky_set_external(k, assignment, dimacs, -1))
       return false;
 
   std::vector<std::vector<int>> codes(
@@ -468,7 +458,7 @@ bool build_primary_assignment(const Kernel &k, const Shape &shape,
     for (size_t i = 0; i < left.size(); ++i) {
       const uint64_t dimacs = 1 + uint64_t{w} * shape.balls * shape.balls +
                               uint64_t{left[i]} * shape.balls + right[i];
-      if (!set_external(k, assignment, dimacs, 1))
+      if (!lucky_set_external(k, assignment, dimacs, 1))
         return false;
     }
   }
@@ -479,7 +469,7 @@ bool build_primary_assignment(const Kernel &k, const Shape &shape,
         uint64_t{solution.rows[ball]} * (2 * shape.balls) + 2 * ball +
         error + 1;
     if (dimacs <= shape.pair_variables || dimacs > shape.boundary ||
-        !set_external(k, assignment, dimacs, 1))
+        !lucky_set_external(k, assignment, dimacs, 1))
       return false;
   }
   return true;

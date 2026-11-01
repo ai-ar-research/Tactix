@@ -353,14 +353,10 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
                     legal_components);
       if (selector(plan, selector_state)) {
         *selected = std::move(plan);
-        Result result;
-        result.status = Status::Discovered;
-        result.reason = Reason::None;
-        result.work = meter.used();
-        result.clauses = snapshot.clauses.size();
-        result.complete_groups = equations.size();
+        Result result = stop(meter, Status::Discovered, Reason::None,
+                             snapshot.clauses.size(), equations.size(),
+                             legal_components);
         result.selected_groups = selected->groups().size();
-        result.components = legal_components;
         result.retained_bytes = peak;
         return result;
       }
@@ -378,14 +374,10 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
                 first_decline == Reason::None ? Reason::Disconnected
                                               : first_decline,
                 snapshot.clauses.size(), equations.size());
-  Result result;
-  result.status = Status::Discovered;
-  result.reason = Reason::None;
-  result.work = meter.used();
-  result.clauses = snapshot.clauses.size();
-  result.complete_groups = equations.size();
+  Result result = stop(meter, Status::Discovered, Reason::None,
+                       snapshot.clauses.size(), equations.size(),
+                       local.size());
   for (const Plan &plan : local) result.selected_groups += plan.groups().size();
-  result.components = local.size();
   result.retained_bytes = retained_bytes;
   if (output) *output = std::move(local);
   return result;

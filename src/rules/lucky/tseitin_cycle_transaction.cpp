@@ -155,10 +155,8 @@ TransactionResult build_transaction(const AdmissionResult &admission,
   transaction.requires_live_x7_validation = true;
   transaction.requires_post_apply_replan = true;
 
-  TransactionResult result;
-  result.status = TransactionStatus::Ready;
-  result.reason = TransactionReason::None;
-  result.work = meter.used();
+  TransactionResult result =
+      stop(meter, TransactionStatus::Ready, TransactionReason::None);
   result.transaction_work = result.work;
   result.transaction = std::move(transaction);
   return result;
@@ -205,17 +203,10 @@ TransactionResult replay_transaction(const AdmissionRequest &request,
   if (!rebuilt.ready())
     return rebuilt;
   if (!(rebuilt.transaction == recorded)) {
-    const uint64_t work = rebuilt.work;
-    const uint64_t admission_work = rebuilt.admission_work;
-    const uint64_t planning_work = rebuilt.planning_work;
-    const uint64_t transaction_work = rebuilt.transaction_work;
-    rebuilt = {};
+    // Keep every work counter; only the mismatched transaction is dropped.
     rebuilt.status = TransactionStatus::InvalidInput;
     rebuilt.reason = TransactionReason::ReplayMismatch;
-    rebuilt.work = work;
-    rebuilt.admission_work = admission_work;
-    rebuilt.planning_work = planning_work;
-    rebuilt.transaction_work = transaction_work;
+    rebuilt.transaction = {};
   }
   return rebuilt;
 }

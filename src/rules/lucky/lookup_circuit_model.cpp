@@ -613,6 +613,16 @@ private:
       trail_.pop_back();
     }
   }
+  // Assigns the input bits of one table row of `gate`, then its outputs.
+  bool assign_row(const Gate &gate, uint32_t input) {
+    bool compatible = true;
+    for (uint32_t i = 0; compatible && i < circuit_.fanin; ++i)
+      compatible = assign(gate.inputs[i], (input >> i) & 1);
+    const uint32_t output = gate.table[input];
+    for (uint32_t i = 0; compatible && i < circuit_.fanout; ++i)
+      compatible = assign(gate.outputs[i], (output >> i) & 1);
+    return compatible;
+  }
   bool candidates(const Gate &gate, std::vector<uint32_t> *masks,
                   uint32_t *input_and, uint32_t *input_or,
                   uint32_t *output_and, uint32_t *output_or,
@@ -736,14 +746,7 @@ private:
         std::vector<std::pair<int64_t, uint32_t>> scored;
         for (const uint32_t input : best_masks) {
           const size_t lookahead = trail_.size();
-          bool compatible = true;
-          for (uint32_t i = 0; compatible && i < circuit_.fanin; ++i)
-            compatible = assign(gate.inputs[i], (input >> i) & 1);
-          const uint32_t output = gate.table[input];
-          for (uint32_t i = 0; compatible && i < circuit_.fanout; ++i)
-            compatible = assign(gate.outputs[i], (output >> i) & 1);
-          if (compatible)
-            compatible = propagate();
+          const bool compatible = assign_row(gate, input) && propagate();
           scored.emplace_back(compatible
                                   ? static_cast<int64_t>(trail_.size() - lookahead)
                                   : -1,
@@ -767,13 +770,7 @@ private:
       }
       for (const uint32_t input : best_masks) {
         const size_t branch = trail_.size();
-        bool compatible = true;
-        for (uint32_t i = 0; compatible && i < circuit_.fanin; ++i)
-          compatible = assign(gate.inputs[i], (input >> i) & 1);
-        const uint32_t output = gate.table[input];
-        for (uint32_t i = 0; compatible && i < circuit_.fanout; ++i)
-          compatible = assign(gate.outputs[i], (output >> i) & 1);
-        if (compatible && dfs())
+        if (assign_row(gate, input) && dfs())
           return true;
         undo(branch);
         if (interrupted_)

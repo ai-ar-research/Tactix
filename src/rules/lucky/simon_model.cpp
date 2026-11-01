@@ -196,19 +196,10 @@ SearchResult find_key(Kernel &k, const Simon &simon, uint64_t maximum,
   return SearchResult::Exhausted;
 }
 
-bool set_external(const Kernel &k, std::vector<uint8_t> &assignment,
-                  uint64_t external, bool value) {
-  Var internal = INVALID_VAR;
-  if (!lucky_internal_variable(k, external, internal))
-    return false;
-  assignment[internal] = value;
-  return true;
-}
-
 bool set_word(const Kernel &k, std::vector<uint8_t> &assignment,
               uint64_t first, uint32_t word) {
   for (uint32_t bit = 0; bit < 32; ++bit)
-    if (!set_external(k, assignment, first + bit, (word >> bit) & 1))
+    if (!lucky_set_external(k, assignment, first + bit, (word >> bit) & 1))
       return false;
   return true;
 }

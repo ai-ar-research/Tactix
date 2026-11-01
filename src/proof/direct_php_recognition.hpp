@@ -13,6 +13,8 @@ struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
   uint64_t native_proof_id = 0;
+
+  friend bool operator==(const Premise &, const Premise &) = default;
 };
 
 struct Identity {

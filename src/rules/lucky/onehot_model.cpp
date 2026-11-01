@@ -404,16 +404,19 @@ bool direct_csp_set_value(const DirectCsp &csp, DirectCspState &state,
   return true;
 }
 
-std::vector<uint8_t>
-direct_csp_boolean_assignment(const DirectCsp &csp,
-                              const std::vector<uint32_t> &values,
-                              uint32_t nvars) {
-  std::vector<uint8_t> assignment(nvars, 0);
+// The variable image of one value per domain: `positive` for a true and
+// `negative` for a false domain variable, zero elsewhere.
+template <class Value>
+std::vector<Value> direct_csp_assignment(const DirectCsp &csp,
+                                         const std::vector<uint32_t> &values,
+                                         uint32_t nvars, Value positive,
+                                         Value negative) {
+  std::vector<Value> assignment(nvars, 0);
   for (uint32_t domain = 0; domain < csp.domains.size(); ++domain)
     for (uint32_t value = 0; value < csp.width; ++value) {
       const Lit lit = csp.domains[domain][value];
       const bool selected = value == values[domain];
-      assignment[var_of(lit)] = selected != negated(lit);
+      assignment[var_of(lit)] = selected != negated(lit) ? positive : negative;
     }
   return assignment;
 }
@@ -607,8 +610,8 @@ bool direct_csp_model(Kernel &k,
       ++restart_steps;
     }
     if (state.bad_edges.empty()) {
-      std::vector<uint8_t> assignment =
-          direct_csp_boolean_assignment(csp, state.value, k.nvars);
+      std::vector<uint8_t> assignment = direct_csp_assignment<uint8_t>(
+          csp, state.value, k.nvars, 1, 0);
       ++k.stats.onehot_model_candidates;
       if (lucky_publish_if_model(k, assignment,
                                  k.stats.direct_csp_model_sat)) {
@@ -628,20 +631,11 @@ bool direct_csp_model(Kernel &k,
   k.stats.direct_csp_model_work += work;
   k.stats.direct_csp_model_best =
       std::min(k.stats.direct_csp_model_best, best_seen);
-  if (!best_value.empty()) {
-    std::vector<int8_t> assignment(k.nvars, 0);
-    for (uint32_t domain = 0; domain < csp.domains.size(); ++domain)
-      for (uint32_t value = 0; value < csp.width; ++value) {
-        const Lit literal = csp.domains[domain][value];
-        const bool literal_true = value == best_value[domain];
-        assignment[var_of(literal)] =
-            literal_true != negated(literal) ? 1 : -1;
-      }
+  if (!best_value.empty())
     kernel_offer_local_search_partial_hint(
-                                   k, strategy::LocalSearchKind::DirectCsp,
-                                   assignment, best_seen, true,
-                                   {work, strategy::LocalSearchEffortUnit::CspWork});
-  }
+        k, strategy::LocalSearchKind::DirectCsp,
+        direct_csp_assignment<int8_t>(csp, best_value, k.nvars, 1, -1),
+        best_seen, true, {work, strategy::LocalSearchEffortUnit::CspWork});
   direct_csp_trace_row("stopped", best_seen, work, work_limit);
   return false;
 }
@@ -941,14 +935,8 @@ ApplyResult onehot_model_apply(Kernel &k) {
           guidance[domains[index][value]] =
               value == field_values[index] ? 1 : -1;
     }
-    if (kernel_rule_interrupt(k, k.stats.onehot_model_interrupted)) {
-      if (!guidance.empty())
-        kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Onehot,
-                                       guidance, UINT64_MAX, false,
-                                       {k.stats.onehot_model_candidates - candidates_before,
-                                        strategy::LocalSearchEffortUnit::CandidateChecks});
-      return ApplyResult::NoOp;
-    }
+    if (kernel_rule_interrupt(k, k.stats.onehot_model_interrupted))
+      break;
   }
   if (!guidance.empty())
     kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Onehot,

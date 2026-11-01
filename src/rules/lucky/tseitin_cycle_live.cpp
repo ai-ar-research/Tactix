@@ -337,31 +337,25 @@ Result map_transaction(const Kernel &kernel,
     result.reason = Reason::ExternalMapping;
     return result;
   }
+  // Declines once the instance is under construction leave it empty.
+  const auto decline = [&](Status status, Reason reason) {
+    instance = {};
+    return finish(result, status, reason);
+  };
   instance = {};
   instance.clause.push_back(clause);
   for (const auto &[external_source, external_target] :
        transaction.x7.substitution) {
     Lit source = INVALID_LIT, target = INVALID_LIT;
     if (!map(external_source, source) || !map(external_target, target) ||
-        var_of(source) != var_of(target) || target != negate(source)) {
-      result.reason = Reason::ExternalMapping;
-      instance = {};
-      return result;
-    }
-    if (kernel.value(source)) {
-      result.status = Status::Stale;
-      result.reason = Reason::AssignedPivot;
-      instance = {};
-      return result;
-    }
+        var_of(source) != var_of(target) || target != negate(source))
+      return decline(Status::Invalid, Reason::ExternalMapping);
+    if (kernel.value(source))
+      return decline(Status::Stale, Reason::AssignedPivot);
     instance.substitution.push_back({source, target});
   }
-  if (kernel.value(clause)) {
-    result.status = Status::Stale;
-    result.reason = Reason::AssignedPivot;
-    instance = {};
-    return result;
-  }
+  if (kernel.value(clause))
+    return decline(Status::Stale, Reason::AssignedPivot);
   result.status = Status::Prepared;
   return result;
 }

@@ -7,7 +7,9 @@
 #include "strategy/action_status_statistics.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
+#include <initializer_list>
 #include <limits>
 #include <map>
 #include <sstream>
@@ -61,6 +63,14 @@ struct WorkMeter {
     interrupted = true;
     return false;
   }
+  // The status of a failed metered step: `otherwise` when the meter itself
+  // neither observed an interrupt nor ran out of budget.
+  TseitinCycleBreakingStatus
+  failure(TseitinCycleBreakingStatus otherwise) const {
+    return interrupted ? TseitinCycleBreakingStatus::Interrupted
+           : exhausted ? TseitinCycleBreakingStatus::ResourceExhausted
+                       : otherwise;
+  }
 };
 
 class Encoder {
@@ -81,8 +91,26 @@ public:
     return true;
   }
   bool i32(int32_t value) { return u64(static_cast<uint32_t>(value)); }
+  bool i32s(const std::vector<int32_t> &values) {
+    for (int32_t value : values)
+      if (!i32(value)) return false;
+    return true;
+  }
   const std::string &bytes() const { return bytes_; }
 };
+
+// The planned proof accounting in identity and journal order; without
+// `emits` only the committed solver clauses are emitted.
+std::array<uint64_t, 6> accounting_fields(
+    const tseitin_cycle::ProofTransaction &transaction, bool emits) {
+  const auto &planned = transaction.accounting;
+  return {emits ? planned.preflight_additions : 0,
+          emits ? planned.preflight_deletions : 0,
+          emits ? planned.temporary_helpers : 0,
+          emits ? planned.proof_only_variables : 0,
+          planned.committed_solver_clauses,
+          emits ? planned.witness_literals : 0};
+}
 
 std::string hex(const char *prefix, const std::string &bytes) {
   static constexpr char digits[] = "0123456789abcdef";
@@ -194,10 +222,8 @@ bool encode_component(const tseitin_cycle_discovery::Plan &plan,
       std::vector<int32_t> literals;
       if (!clause || !sorted_literals(*clause, meter, literals)) return false;
       if (!bytes.u64(occurrence) || !bytes.u64(proof) ||
-          !bytes.u64(clause->literals.size()))
+          !bytes.u64(clause->literals.size()) || !bytes.i32s(literals))
         return false;
-      for (int32_t literal : literals)
-        if (!bytes.i32(literal)) return false;
     }
   }
   if (!bytes.u64(charge) || !bytes.u64(incidence.size())) return false;
@@ -235,11 +261,10 @@ bool encode_transaction(const tseitin_cycle_discovery::Plan &plan,
       !bytes.u64(transaction.requires_live_x7_validation) ||
       !bytes.u64(transaction.requires_post_apply_replan) ||
       !bytes.i32(transaction.identity.pivot) ||
-      !bytes.u64(transaction.identity.cycle_edges.size()))
+      !bytes.u64(transaction.identity.cycle_edges.size()) ||
+      !bytes.i32s(transaction.identity.cycle_edges) ||
+      !bytes.u64(transaction.identity.sources.size()))
     return false;
-  for (int32_t edge : transaction.identity.cycle_edges)
-    if (!bytes.i32(edge)) return false;
-  if (!bytes.u64(transaction.identity.sources.size())) return false;
   for (const auto &source : transaction.identity.sources) {
     if (!bytes.spend(plan.groups().size())) return false;
     const uint64_t local = local_group(plan, source.group_identity);
@@ -250,24 +275,18 @@ bool encode_transaction(const tseitin_cycle_discovery::Plan &plan,
       if (!bytes.u64(premise.occurrence) || !bytes.u64(premise.proof))
         return false;
   }
-  if (!bytes.u64(transaction.x7.clause.size())) return false;
-  for (int32_t literal : transaction.x7.clause)
-    if (!bytes.i32(literal)) return false;
-  if (!bytes.u64(transaction.x7.witness_true.size())) return false;
-  for (int32_t literal : transaction.x7.witness_true)
-    if (!bytes.i32(literal)) return false;
-  if (!bytes.u64(transaction.x7.substitution.size())) return false;
+  if (!bytes.u64(transaction.x7.clause.size()) ||
+      !bytes.i32s(transaction.x7.clause) ||
+      !bytes.u64(transaction.x7.witness_true.size()) ||
+      !bytes.i32s(transaction.x7.witness_true) ||
+      !bytes.u64(transaction.x7.substitution.size()))
+    return false;
   for (const auto &[source, target] : transaction.x7.substitution) {
     if (!bytes.i32(source) || !bytes.i32(target)) return false;
   }
-  if (!bytes.u64(transaction.accounting.preflight_additions) ||
-      !bytes.u64(transaction.accounting.preflight_deletions) ||
-      !bytes.u64(transaction.accounting.temporary_helpers) ||
-      !bytes.u64(transaction.accounting.proof_only_variables) ||
-      !bytes.u64(transaction.accounting.committed_solver_clauses) ||
-      !bytes.u64(transaction.accounting.witness_literals) ||
-      !bytes.u64(transaction.events.size()))
-    return false;
+  for (uint64_t value : accounting_fields(transaction, true))
+    if (!bytes.u64(value)) return false;
+  if (!bytes.u64(transaction.events.size())) return false;
   for (auto event : transaction.events)
     if (!bytes.u64(static_cast<uint8_t>(event))) return false;
   if (!bytes.spend(2 * bytes.bytes().size())) return false;
@@ -313,10 +332,8 @@ bool encode_duplicate_key(const tseitin_cycle_discovery::Plan &plan,
                                       group.premise_proofs[i]);
       std::vector<int32_t> literals;
       if (!clause || !bytes.u64(clause->literals.size()) ||
-          !sorted_literals(*clause, meter, literals))
+          !sorted_literals(*clause, meter, literals) || !bytes.i32s(literals))
         return false;
-      for (int32_t literal : literals)
-        if (!bytes.i32(literal)) return false;
     }
   }
   if (!bytes.i32(-transaction.identity.pivot)) return false;
@@ -436,19 +453,24 @@ TseitinCycleBreakingStatus select_component(
              : status;
 }
 
-// Adds one live preparation's effort; false on counter overflow.
-bool add_preparation(const tseitin_cycle_live::Result &response,
+// Adds one live preparation's effort, or with `replay` one application's
+// replayed stage work; false on counter overflow.
+bool add_live_effort(const tseitin_cycle_live::Result &live, bool replay,
                      TseitinCycleBreakingEffort &effort) {
-  return add(response.snapshot_work, UINT64_MAX, effort.recapture_work) &&
-         add(response.admission_work, UINT64_MAX, effort.admission_work) &&
-         add(response.planning_work, UINT64_MAX, effort.planning_work) &&
-         add(response.transaction_work, UINT64_MAX, effort.transaction_work) &&
-         add(response.validation_ticks, UINT64_MAX, effort.validation_ticks);
+  return add(live.snapshot_work, UINT64_MAX, effort.recapture_work) &&
+         add(replay ? live.replay_admission_work : live.admission_work,
+             UINT64_MAX, effort.admission_work) &&
+         add(replay ? live.replay_planning_work : live.planning_work,
+             UINT64_MAX, effort.planning_work) &&
+         add(replay ? live.replay_transaction_work : live.transaction_work,
+             UINT64_MAX, effort.transaction_work) &&
+         add(live.validation_ticks, UINT64_MAX, effort.validation_ticks);
 }
 
 TseitinCycleBreakingStatus enumerate_offers(
     Kernel &kernel, const TseitinCycleBreakingLimits &limits,
-    std::vector<Offered> &offered, TseitinCycleBreakingEffort &effort) {
+    KernelPoll &action_poll, std::vector<Offered> &offered,
+    TseitinCycleBreakingEffort &effort) {
   offered.clear();
   std::vector<tseitin_cycle_discovery::Plan> plans;
   const auto captured = capture_components(kernel, limits,
@@ -456,8 +478,6 @@ TseitinCycleBreakingStatus enumerate_offers(
                                            effort);
   if (captured != TseitinCycleBreakingStatus::Applied) return captured;
   uint64_t total_identity = 0;
-  KernelPoll action_poll{&kernel, limits.discovery.interrupted,
-                         limits.discovery.interrupt_state};
   std::vector<Offered> local;
   local.reserve(plans.size());
   for (auto &plan : plans) {
@@ -466,7 +486,7 @@ TseitinCycleBreakingStatus enumerate_offers(
     tseitin_cycle_live::Prepared prepared;
     const auto response = tseitin_cycle_discovery::prepare(
         kernel, item.plan, live_request(limits), prepared);
-    if (!add_preparation(response, effort))
+    if (!add_live_effort(response, false, effort))
       return TseitinCycleBreakingStatus::ResourceExhausted;
     if (response.status == tseitin_cycle_live::Status::Stale &&
         response.reason == tseitin_cycle_live::Reason::AssignedPivot)
@@ -487,11 +507,8 @@ TseitinCycleBreakingStatus enumerate_offers(
                               limits.maximum_identity_bytes,
                               item.duplicate_key, meter) ||
         !add(item.identity.size(), limits.maximum_total_identity_bytes,
-             total_identity)) {
-      if (meter.interrupted)
-        return TseitinCycleBreakingStatus::Interrupted;
-      return TseitinCycleBreakingStatus::ResourceExhausted;
-    }
+             total_identity))
+      return meter.failure(TseitinCycleBreakingStatus::ResourceExhausted);
     local.push_back(std::move(item));
   }
   effort.identity_bytes = total_identity;
@@ -535,6 +552,26 @@ bool find_session_key(const std::vector<std::string> &keys,
   return true;
 }
 
+// Locates `key` among the ordered session keys and, when it is new, admits it
+// against the key-count, session-work and `identity_bytes` bounds. Applied
+// leaves its insertion point in `position`; AlreadyApplied names a known key.
+TseitinCycleBreakingStatus admit_session_key(
+    const TseitinCycleBreakingSession &session,
+    const TseitinCycleBreakingLimits &limits, const std::string &key,
+    KernelPoll &poll, uint64_t &session_work, uint64_t &identity_bytes,
+    size_t &position) {
+  bool duplicate = false;
+  WorkMeter meter{limits.maximum_session_work, session_work, &poll};
+  if (!find_session_key(session.keys(), key, meter, position, duplicate))
+    return meter.failure(TseitinCycleBreakingStatus::ResourceExhausted);
+  if (duplicate) return TseitinCycleBreakingStatus::AlreadyApplied;
+  if (session.keys().size() == limits.maximum_session_keys ||
+      !add(key.size(), limits.maximum_session_work, session_work) ||
+      !add(key.size(), limits.maximum_session_identity_bytes, identity_bytes))
+    return TseitinCycleBreakingStatus::ResourceExhausted;
+  return TseitinCycleBreakingStatus::Applied;
+}
+
 bool make_journal(const Kernel &kernel, uint64_t action_id,
                   const TseitinCycleBreakingLimits &limits,
                   const Offered &offered, uint64_t maximum,
@@ -551,6 +588,22 @@ bool make_journal(const Kernel &kernel, uint64_t action_id,
       if ((i && !put(",")) || !item(values[i])) return false;
     return true;
   };
+  // `[first,second]`, each element written by `write`.
+  const auto pair_of = [&](const auto &write, auto first, auto second) {
+    return put("[") && write(first) && put(",") && write(second) && put("]");
+  };
+  // `"name":value` members, comma-led unless the first of the object.
+  const auto bounds =
+      [&](bool first,
+          std::initializer_list<std::pair<const char *, uint64_t>> members) {
+        for (const auto &[name, value] : members) {
+          if (!put(std::string(first ? "\"" : ",\"") + name + "\":") ||
+              !number(value))
+            return false;
+          first = false;
+        }
+        return true;
+      };
   if (!put("{\"action\":\"TseitinCycleBreaking\",\"version\":2,") ||
       !put("\"action_id\":") || !number(action_id) ||
       !put(",\"semantic_id\":") || !number(action_id) ||
@@ -562,61 +615,43 @@ bool make_journal(const Kernel &kernel, uint64_t action_id,
                                                         : "dsr-ascii")
                         : "none") ||
       !put("\",\"parameters\":{") ||
-      !put("\"snapshot_clauses\":") ||
-      !number(limits.snapshot.maximum_clauses) ||
-      !put(",\"snapshot_literals\":") ||
-      !number(limits.snapshot.maximum_literals) ||
-      !put(",\"snapshot_work\":") ||
-      !number(limits.snapshot.maximum_work) ||
-      !put(",\"snapshot_variables\":") ||
-      !number(limits.snapshot.maximum_variables) ||
-      !put(",\"discovery_work\":") || !number(limits.discovery.work) ||
-      !put(",\"discovery_clauses\":") ||
-      !number(limits.discovery.maximum_clauses) ||
-      !put(",\"discovery_groups\":") ||
-      !number(limits.discovery.maximum_groups) ||
-      !put(",\"discovery_width\":") ||
-      !number(limits.discovery.maximum_width) ||
-      !put(",\"discovery_profile_components\":") ||
-      !number(limits.discovery.maximum_components) ||
-      !put(",\"effective_component_cap\":") ||
-      !number(limits.discovery.maximum_groups) ||
+      !bounds(true,
+              {{"snapshot_clauses", limits.snapshot.maximum_clauses},
+               {"snapshot_literals", limits.snapshot.maximum_literals},
+               {"snapshot_work", limits.snapshot.maximum_work},
+               {"snapshot_variables", limits.snapshot.maximum_variables},
+               {"discovery_work", limits.discovery.work},
+               {"discovery_clauses", limits.discovery.maximum_clauses},
+               {"discovery_groups", limits.discovery.maximum_groups},
+               {"discovery_width", limits.discovery.maximum_width},
+               {"discovery_profile_components",
+                limits.discovery.maximum_components},
+               {"effective_component_cap", limits.discovery.maximum_groups}}) ||
       !put(",\"enumeration_mode\":\"selected\"") ||
-      !put(",\"discovery_retained_bytes\":") ||
-      !number(limits.discovery.maximum_retained_bytes) ||
-      !put(",\"admission_work\":") || !number(limits.admission.work) ||
-      !put(",\"planning_work\":") || !number(limits.planning.work) ||
-      !put(",\"planning_witness_length\":") ||
-      !number(limits.planning.witness_length) ||
-      !put(",\"planning_additions\":") ||
-      !number(limits.planning.additions) ||
-      !put(",\"transaction_work\":") || !number(limits.transaction.work) ||
-      !put(",\"transaction_additions\":") ||
-      !number(limits.transaction.additions) ||
-      !put(",\"transaction_deletions\":") ||
-      !number(limits.transaction.deletions) ||
-      !put(",\"transaction_helpers\":") ||
-      !number(limits.transaction.helpers) ||
-      !put(",\"transaction_witness_literals\":") ||
-      !number(limits.transaction.witness_literals) ||
-      !put(",\"validation_ticks\":") ||
-      !number(limits.maximum_validation_ticks) ||
-      !put(",\"maximum_components\":") ||
-      !number(limits.maximum_components) ||
-      !put(",\"maximum_identity_bytes\":") ||
-      !number(limits.maximum_identity_bytes) ||
-      !put(",\"maximum_total_identity_bytes\":") ||
-      !number(limits.maximum_total_identity_bytes) ||
-      !put(",\"maximum_identity_work\":") ||
-      !number(limits.maximum_identity_work) ||
-      !put(",\"maximum_journal_bytes\":") ||
-      !number(limits.maximum_journal_bytes) ||
-      !put(",\"maximum_session_keys\":") ||
-      !number(limits.maximum_session_keys) ||
-      !put(",\"maximum_session_work\":") ||
-      !number(limits.maximum_session_work) ||
-      !put(",\"maximum_session_identity_bytes\":") ||
-      !number(limits.maximum_session_identity_bytes) ||
+      !bounds(false,
+              {{"discovery_retained_bytes",
+                limits.discovery.maximum_retained_bytes},
+               {"admission_work", limits.admission.work},
+               {"planning_work", limits.planning.work},
+               {"planning_witness_length", limits.planning.witness_length},
+               {"planning_additions", limits.planning.additions},
+               {"transaction_work", limits.transaction.work},
+               {"transaction_additions", limits.transaction.additions},
+               {"transaction_deletions", limits.transaction.deletions},
+               {"transaction_helpers", limits.transaction.helpers},
+               {"transaction_witness_literals",
+                limits.transaction.witness_literals},
+               {"validation_ticks", limits.maximum_validation_ticks},
+               {"maximum_components", limits.maximum_components},
+               {"maximum_identity_bytes", limits.maximum_identity_bytes},
+               {"maximum_total_identity_bytes",
+                limits.maximum_total_identity_bytes},
+               {"maximum_identity_work", limits.maximum_identity_work},
+               {"maximum_journal_bytes", limits.maximum_journal_bytes},
+               {"maximum_session_keys", limits.maximum_session_keys},
+               {"maximum_session_work", limits.maximum_session_work},
+               {"maximum_session_identity_bytes",
+                limits.maximum_session_identity_bytes}}) ||
       !put("},\"semantic_key\":\"") || !put(offered.duplicate_key) ||
       !put("\",\"component\":{") ||
       !put("\"charge\":1,\"groups\":["))
@@ -677,52 +712,32 @@ bool make_journal(const Kernel &kernel, uint64_t action_id,
     const uint64_t local = local_group(offered.plan, source.group_identity);
     if (!local || !put("{\"local\":") || !number(local) ||
         !put(",\"vertex\":") || !number(source.vertex) ||
-        !put(",\"premises\":["))
+        !put(",\"premises\":[") ||
+        !list(source.premises,
+              [&](const auto &premise) {
+                return pair_of(number, premise.occurrence, premise.proof);
+              }) ||
+        !put("]}"))
       return false;
-    for (size_t j = 0; j < source.premises.size(); ++j) {
-      if (j && !put(",")) return false;
-      if (!put("[") || !number(source.premises[j].occurrence) ||
-          !put(",") || !number(source.premises[j].proof) || !put("]"))
-        return false;
-    }
-    if (!put("]}")) return false;
   }
   if (!put("],\"clause\":[") || !list(transaction.x7.clause, integer) ||
       !put("],\"witness_true\":[") ||
       !list(transaction.x7.witness_true, integer) ||
-      !put("],\"substitution\":["))
-    return false;
-  for (size_t i = 0; i < transaction.x7.substitution.size(); ++i) {
-    if (i && !put(",")) return false;
-    if (!put("[") || !integer(transaction.x7.substitution[i].first) ||
-        !put(",") || !integer(transaction.x7.substitution[i].second) ||
-        !put("]"))
-      return false;
-  }
-  if (!put("],\"planned_accounting\":[") ||
-      !number(transaction.accounting.preflight_additions) || !put(",") ||
-      !number(transaction.accounting.preflight_deletions) || !put(",") ||
-      !number(transaction.accounting.temporary_helpers) || !put(",") ||
-      !number(transaction.accounting.proof_only_variables) || !put(",") ||
-      !number(transaction.accounting.committed_solver_clauses) || !put(",") ||
-      !number(transaction.accounting.witness_literals) || !put("]"))
+      !put("],\"substitution\":[") ||
+      !list(transaction.x7.substitution,
+            [&](const auto &substituted) {
+              return pair_of(integer, substituted.first, substituted.second);
+            }))
     return false;
   const bool emits = kernel.proof != nullptr;
   const int64_t unit = -transaction.identity.pivot;
   const int64_t auxiliary =
       static_cast<int64_t>(offered.plan.snapshot().external_to_internal.size()) +
       1;
-  if (!put(",\"emitted_accounting\":[") ||
-      !number(emits ? transaction.accounting.preflight_additions : 0) ||
-      !put(",") ||
-      !number(emits ? transaction.accounting.preflight_deletions : 0) ||
-      !put(",") ||
-      !number(emits ? transaction.accounting.temporary_helpers : 0) ||
-      !put(",") ||
-      !number(emits ? transaction.accounting.proof_only_variables : 0) ||
-      !put(",") ||
-      !number(transaction.accounting.committed_solver_clauses) || !put(",") ||
-      !number(emits ? transaction.accounting.witness_literals : 0) ||
+  if (!put("],\"planned_accounting\":[") ||
+      !list(accounting_fields(transaction, true), number) || !put("]") ||
+      !put(",\"emitted_accounting\":[") ||
+      !list(accounting_fields(transaction, emits), number) ||
       !put("],\"fresh_auxiliary\":"))
     return false;
   if (emits) {
@@ -853,33 +868,21 @@ TseitinCycleBreakingOfferResult tseitin_cycle_breaking_offer(
                                   result.effort);
   if (result.status != TseitinCycleBreakingStatus::Applied) return result;
   std::vector<Offered> offered;
-  result.status = enumerate_offers(kernel, limits, offered, result.effort);
+  result.status =
+      enumerate_offers(kernel, limits, action_poll, offered, result.effort);
   if (result.status != TseitinCycleBreakingStatus::Applied) return result;
   for (const auto &item : offered) {
     size_t position = 0;
-    bool duplicate = false;
-    WorkMeter session_meter{limits.maximum_session_work,
-                                result.effort.session_work, &action_poll};
-    if (!find_session_key(session.keys(), item.duplicate_key, session_meter,
-                          position, duplicate)) {
-      result.offers.clear();
-      result.status = session_meter.interrupted
-                          ? TseitinCycleBreakingStatus::Interrupted
-                          : TseitinCycleBreakingStatus::ResourceExhausted;
-      return result;
-    }
-    if (!duplicate) {
-      uint64_t prospective = result.effort.session_identity_bytes;
-      if (session.keys().size() == limits.maximum_session_keys ||
-          !add(item.duplicate_key.size(), limits.maximum_session_work,
-               result.effort.session_work) ||
-          !add(item.duplicate_key.size(),
-               limits.maximum_session_identity_bytes, prospective)) {
-        result.offers.clear();
-        result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-        return result;
-      }
+    uint64_t prospective = result.effort.session_identity_bytes;
+    const auto admitted = admit_session_key(
+        session, limits, item.duplicate_key, action_poll,
+        result.effort.session_work, prospective, position);
+    if (admitted == TseitinCycleBreakingStatus::Applied) {
       result.offers.push_back(item.identity);
+    } else if (admitted != TseitinCycleBreakingStatus::AlreadyApplied) {
+      result.offers.clear();
+      result.status = admitted;
+      return result;
     }
   }
   result.effort.offers = result.offers.size();
@@ -892,25 +895,22 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
     Kernel &kernel, TseitinCycleBreakingSession &session,
     const TseitinCycleBreakingLimits &limits, const std::string &identity) {
   TseitinCycleBreakingResult result;
+  // The result with the status of the step that ends this application.
+  const auto stop = [&](TseitinCycleBreakingStatus status) {
+    result.status = status;
+    return result;
+  };
   result.status = admit_request(kernel, limits);
   if (result.status != TseitinCycleBreakingStatus::Applied) return result;
-  if (identity.size() > limits.maximum_identity_bytes) {
-    result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
+  if (identity.size() > limits.maximum_identity_bytes)
+    return stop(TseitinCycleBreakingStatus::ResourceExhausted);
   KernelPoll action_poll{&kernel, limits.discovery.interrupted,
                          limits.discovery.interrupt_state};
   size_t split = std::string::npos;
   WorkMeter syntax{limits.maximum_identity_work,
                        result.effort.identity_work, &action_poll};
-  if (!parse_identity(identity, syntax, split)) {
-    result.status = syntax.interrupted
-                        ? TseitinCycleBreakingStatus::Interrupted
-                    : syntax.exhausted
-                        ? TseitinCycleBreakingStatus::ResourceExhausted
-                        : TseitinCycleBreakingStatus::Invalid;
-    return result;
-  }
+  if (!parse_identity(identity, syntax, split))
+    return stop(syntax.failure(TseitinCycleBreakingStatus::Invalid));
   result.status = account_session(kernel, session, limits, action_poll,
                                   result.effort);
   if (result.status != TseitinCycleBreakingStatus::Applied) return result;
@@ -923,14 +923,10 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
   tseitin_cycle_live::Prepared prepared;
   const auto response = tseitin_cycle_discovery::prepare(
       kernel, selected.plan, live_request(limits), prepared);
-  if (!add_preparation(response, result.effort)) {
-    result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
-  if (response.status != tseitin_cycle_live::Status::Prepared) {
-    result.status = map(response.status);
-    return result;
-  }
+  if (!add_live_effort(response, false, result.effort))
+    return stop(TseitinCycleBreakingStatus::ResourceExhausted);
+  if (response.status != tseitin_cycle_live::Status::Prepared)
+    return stop(map(response.status));
   selected.transaction = prepared.transaction();
   WorkMeter meter{limits.maximum_identity_work,
                       result.effort.identity_work, &action_poll};
@@ -941,39 +937,15 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
   if (!encoded || !identity_equal(selected.identity, identity, meter) ||
       !encode_duplicate_key(selected.plan, selected.transaction,
                             limits.maximum_identity_bytes,
-                            selected.duplicate_key, meter)) {
-    result.status = meter.interrupted
-                        ? TseitinCycleBreakingStatus::Interrupted
-                    : meter.exhausted
-                        ? TseitinCycleBreakingStatus::ResourceExhausted
-                        : TseitinCycleBreakingStatus::Stale;
-    return result;
-  }
+                            selected.duplicate_key, meter))
+    return stop(meter.failure(TseitinCycleBreakingStatus::Stale));
   result.effort.identity_bytes = selected.identity.size();
   size_t position = 0;
-  bool duplicate = false;
-  WorkMeter session_meter{limits.maximum_session_work,
-                              result.effort.session_work, &action_poll};
-  if (!find_session_key(session.keys(), selected.duplicate_key, session_meter,
-                        position, duplicate)) {
-    result.status = session_meter.interrupted
-                        ? TseitinCycleBreakingStatus::Interrupted
-                        : TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
-  if (duplicate) {
-    result.status = TseitinCycleBreakingStatus::AlreadyApplied;
-    return result;
-  }
-  if (session.keys().size() == limits.maximum_session_keys ||
-      !add(selected.duplicate_key.size(), limits.maximum_session_work,
-           result.effort.session_work) ||
-      !add(selected.duplicate_key.size(),
-           limits.maximum_session_identity_bytes,
-           result.effort.session_identity_bytes)) {
-    result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
+  result.status = admit_session_key(
+      session, limits, selected.duplicate_key, action_poll,
+      result.effort.session_work, result.effort.session_identity_bytes,
+      position);
+  if (result.status != TseitinCycleBreakingStatus::Applied) return result;
   std::vector<std::string> keys;
   keys.reserve(session.keys().size() + 1);
   keys.insert(keys.end(), session.keys().begin(),
@@ -991,25 +963,12 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
       limits.maximum_journal_bytes, journal, journal_meter);
   result.effort.journal_work = journal_work;
   result.effort.journal_bytes = journal.size();
-  if (!journal_ready) {
-    result.status = journal_meter.interrupted
-                        ? TseitinCycleBreakingStatus::Interrupted
-                        : TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
+  if (!journal_ready)
+    return stop(
+        journal_meter.failure(TseitinCycleBreakingStatus::ResourceExhausted));
   const auto apply_request = live_request(limits);
   result.live = tseitin_cycle_live::apply(kernel, prepared, &apply_request);
-  if (!add(result.live.snapshot_work, UINT64_MAX,
-           result.effort.recapture_work) ||
-      !add(result.live.replay_admission_work, UINT64_MAX,
-           result.effort.admission_work) ||
-      !add(result.live.replay_planning_work, UINT64_MAX,
-           result.effort.planning_work) ||
-      !add(result.live.replay_transaction_work, UINT64_MAX,
-           result.effort.transaction_work) ||
-      !add(result.live.validation_ticks, UINT64_MAX,
-           result.effort.validation_ticks))
-    std::abort();
+  if (!add_live_effort(result.live, true, result.effort)) std::abort();
   result.status = map(result.live.status);
   result.result = result.live.result;
   if (result.status != TseitinCycleBreakingStatus::Applied) return result;
