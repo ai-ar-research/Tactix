@@ -6,6 +6,7 @@
 #include "rules/support/failed_literal.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
 
 #include <algorithm>
 
@@ -307,14 +308,8 @@ static uint32_t hyperbinary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult hyperbinary_apply_instance(Kernel &k, uint64_t inst) {
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return hyperbinary_apply(k);
-  Lit p;
-  if (!lit_of_instance(k, inst, &p))
-    return ApplyResult::NoOp;
-  return hyperbinary_try(k, p);
+  return apply_root_literal_instance<hyperbinary_apply, hyperbinary_try>(k,
+                                                                         inst);
 }
 
 static uint32_t hyperbinary_semantic_instances(Kernel &k, uint64_t *out,

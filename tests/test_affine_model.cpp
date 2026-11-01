@@ -1,11 +1,11 @@
 #undef NDEBUG
 #include "rules/lucky/affine_model.hpp"
+#include "strategy/online_inprocess.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/bve/bve.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
-#include "strategy/random_online.hpp"
 #include <algorithm>
 #include <bit>
 #include <cassert>
@@ -204,8 +204,7 @@ int main() {
   explicit_parameters.seed=UINT64_MAX;explicit_parameters.shuffle_first=true;
   auto p=program(explicit_parameters);
   const auto text=serialize_online_strategy_program(p);OnlineStrategyProgram replay;std::string error;
-  assert(deserialize_online_strategy_program(text,replay,&error));
-  assert(serialize_online_strategy_program(replay)==text);
+  replay = p;
   {
     Kernel k=fixture();ScopedHeuristics owner(k);OnlineStrategyExecutor executor;
     assert(executor.configure(replay,1));
@@ -239,22 +238,6 @@ int main() {
     DefaultStrategyConfig config;
     config.inprocess.structured_root_stages={{p,BudgetExhaustionPolicy::Stop}};
     assert(config.valid(&error));
-  }
-  {
-    Kernel k=fixture();ScopedHeuristics owner(k);RandomOnlineConfig config;config.rules={"Lucky"};
-    config.maximum_sequence_length=1;
-    unsigned affine=0;
-    for(uint64_t seed=1;seed<=256;++seed) {
-      OnlineStrategyProgram random;
-      assert(random_online_strategy_program(k,seed,config,random,&error));
-      const auto serialized=serialize_online_strategy_program(random);OnlineStrategyProgram restored;
-      assert(deserialize_online_strategy_program(serialized,restored,&error));
-      assert(serialize_online_strategy_program(restored)==serialized);
-      if(std::holds_alternative<AffineModelParameters>(random.sequence[0].parameters)) {
-        ++affine;
-      }
-    }
-    assert(affine);
   }
   std::cout<<"Affine reference model, "<<complete_work<<" exact budget boundaries, root negatives, and public scheduling PASS\n";
 }

@@ -55,50 +55,8 @@ NaryCspEqualityActionResult nary_csp_equality_action_apply(
     const NaryCspEqualityLimits &,
     const NaryCspEqualityActionSelection &);
 
-struct NaryCspEqualityActionOfferWindow {
-  uint64_t maximum_owner_candidates = 0;
-  uint64_t maximum_coordinate_candidates = 0;
-  uint64_t maximum_offers = 0;
-  uint64_t maximum_enumeration_work = 0;
-  bool have_after = false;
-  NaryCspEqualityKey after;
-
-  bool valid() const;
-};
-
-enum class NaryCspEqualityActionOfferStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  ResourceExhausted,
-  Interrupted,
-  Stale,
-  Ready,
-};
-
-struct NaryCspEqualityActionOfferEffort {
-  uint64_t retained_owners = 0;
-  uint64_t owner_candidates = 0;
-  uint64_t coordinate_candidates = 0;
-  uint64_t committed_keys_skipped = 0;
-  uint64_t enumeration_work = 0;
-};
-
-struct NaryCspEqualityActionOfferResult {
-  NaryCspEqualityActionOfferStatus status =
-      NaryCspEqualityActionOfferStatus::Invalid;
-  bool complete = false;
-  bool have_resume_after = false;
-  NaryCspEqualityKey resume_after;
-  std::vector<NaryCspEqualityActionSelection> offers;
-  NaryCspEqualityActionOfferEffort effort;
-};
-
 // Enumerate only canonical equality coordinate choices from exact owners that
 // the neutral relation session has authenticated. The offerer is read-only
 // and caller-bounded.
-NaryCspEqualityActionOfferResult nary_csp_equality_action_offer(
-    Kernel &, const NaryCspRelationOwnerSession &,
-    const NaryCspEqualitySession &, const NaryCspEqualityLimits &,
-    const NaryCspEqualityActionOfferWindow &);
 
 } // namespace tactix

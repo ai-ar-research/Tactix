@@ -4,6 +4,7 @@
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "diagnostics/event_trace.hpp"
@@ -669,21 +670,12 @@ static uint32_t transitive_reduce_instances(Kernel &k, uint64_t *out,
   // The set, in the rule's own order. Where a caller starts in it is that
   // caller's business: the resumption cursor lives in the policy
   // (DefaultPolicy::SlotEntry::cursor), where a scheduling decision belongs.
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, srcs[i]);
-  return n;
+  return copy_literal_instance_prefix(k, srcs, out, n);
 }
 
 static ApplyResult transitive_reduce_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return transitive_reduce_apply(k);
-  Lit src;
-  if (!lit_of_instance(k, inst, &src))
-    return ApplyResult::NoOp;
-  return transitive_reduce_try(k, src);
+  return apply_root_literal_instance<transitive_reduce_apply,
+                                     transitive_reduce_try>(k, inst);
 }
 
 TACTIX_REGISTER_RULE(TransitiveReduce, RuleTier::Inprocess,

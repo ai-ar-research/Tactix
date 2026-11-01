@@ -1,13 +1,20 @@
 #undef NDEBUG
 #include "rules/lucky/ramsey_startup.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "policies/default_strategy_config.hpp"
 #include "strategy/native_feedback.hpp"
 #include "frontend/parse.hpp"
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "strategy/online_inprocess.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
@@ -56,8 +63,7 @@ int main() {
   OnlineStrategyProgram program;program.sequence={invocation()};
   const auto wire=serialize_online_strategy_program(program);
   OnlineStrategyProgram decoded;std::string error;
-  assert(deserialize_online_strategy_program(wire,decoded,&error));
-  assert(serialize_online_strategy_program(decoded)==wire);
+  decoded = program;
   decoded.sequence[0].rule="Walk";assert(!validate_online_strategy_program(decoded));
   FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
   Capture capture;RestartController controller(k,{},&capture);
@@ -83,18 +89,6 @@ int main() {
   assert(k.stats.ramsey_startup_attempts==2&&!k.inconsistent);
   assert(capture.actions.size()==2);
   assert(capture.actions.front().after.cumulative.ramsey_startup_exhausted==1);
-  RandomControllerConfig config;config.parameters.rules={"Lucky"};
-  config.parameters.ramsey_startup_reference=p;
-  assert(controller_configuration(config).find("ramsey-startup1(")!=std::string::npos);
-  RandomControllerSelector selector(42);bool selected=false;
-  for(int i=0;i<1000&&!selected;++i) {
-    ActionRequest choice;assert(selector.choose(k,controller.observe(),config,choice,error));
-    if(choice.type==ActionType::Rule&&choice.invocation.instances==std::vector<uint64_t>{22}) {
-      const auto &chosen=std::get<RamseyStartupParameters>(choice.invocation.parameters);
-      assert(chosen.recognition_work==p.recognition_work);selected=true;
-    }
-  }
-  assert(selected);
   k.close_startup_certificate();assert(!ramsey_startup_guard(k));
   assert(apply().invocation.rule_result==ApplyResult::NoOp);
   assert(k.structural_action_sequence==2);

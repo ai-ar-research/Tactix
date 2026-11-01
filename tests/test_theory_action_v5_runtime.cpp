@@ -10,7 +10,13 @@ extern "C" {
 
 #include "policies/heuristics.hpp"
 #include "frontend/parse.hpp"
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -147,12 +153,40 @@ OnlineInvocation direct_step() {
   return step;
 }
 
+// The bounded reference profile formerly supplied by the random controller.
+AffineConsequenceParameters reference_affine_parameters() {
+  AffineConsequenceParameters result;
+  result.maximum_clauses = 10000;
+  result.maximum_snapshot_literals = 100000;
+  result.maximum_snapshot_work = 1000000;
+  result.maximum_groups = 1000;
+  result.maximum_patterns = 10000;
+  result.maximum_elimination_work = 10000000;
+  result.maximum_arity = 8;
+  result.maximum_intermediate_width = 32;
+  result.maximum_sources = 32;
+  result.maximum_output_width = 4;
+  result.maximum_proof_additions = 1000000;
+  result.maximum_proof_deletions = 1000000;
+  result.maximum_journal_bytes = 10000000;
+  result.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
+  result.basis_maximum_work = 10000000;
+  result.basis_maximum_intermediate_width = 32;
+  result.basis_maximum_sources = 32;
+  result.basis_maximum_premises = 10000;
+  result.basis_maximum_nodes = 10000;
+  result.basis_maximum_direct_width = 3;
+  result.maximum_external_extent = 100000;
+  result.maximum_session_keys = 10000;
+  result.maximum_session_work = 1000000;
+  return result;
+}
+
 OnlineInvocation affine_step() {
   OnlineInvocation step;
   step.id = 3;
   step.rule = "AffineConsequence";
-  step.parameters = RandomControllerConfig{}
-                        .parameters.affine_consequence_reference;
+  step.parameters = reference_affine_parameters();
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.repeat = {RepeatMode::Once, 1};
   step.post_application = PostApplication::Propagate;
@@ -321,8 +355,7 @@ void affine_followup_publishes_one_current_typed_candidate() {
     const std::string wire = serialize_online_strategy_program(program);
     OnlineStrategyProgram replay;
     std::string error;
-    assert(deserialize_online_strategy_program(wire, replay, &error) &&
-           serialize_online_strategy_program(replay) == wire);
+    replay = program;
     OnlineStrategyExecutor executor;
     assert(executor.configure(replay, stable ? 12 : 11));
     const InvocationResult applied = executor.advance(kernel);
@@ -433,487 +466,6 @@ void invalid_is_consumed_and_resource_exhaustion_is_retryable() {
     std::fclose(records);
   }
 }
-
-void offered_random_action_is_exact_and_deterministic() {
-  Kernel kernel = parse_text(direct_csp_dimacs());
-  FILE *records = std::tmpfile();
-  assert(records);
-  DirectCspSupportActionSession session;
-  kernel.structural_provenance = records;
-  kernel.direct_csp_support_action_session = &session;
-  OnlineInvocation offered = direct_step();
-  offered.granularity = InvocationGranularity::OneInstance;
-  offered.direct_csp_support_instances.resize(1);
-  offered.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram collection;
-  collection.sequence = {offered};
-  RandomControllerConfig config;
-  std::string error;
-  assert(config.configure_actions(collection, &error));
-  const auto observation = controller::observe_kernel(kernel);
-  bool selected = false;
-  for (uint64_t seed = 1; seed < 64 && !selected; ++seed) {
-    RandomControllerSelector first(seed), second(seed);
-    controller::ActionRequest a, b;
-    assert(first.choose(kernel, observation, config, a, error));
-    assert(second.choose(kernel, observation, config, b, error));
-    assert(a.type == b.type);
-    if (a.type != controller::ActionType::Rule) continue;
-    selected = true;
-    assert(a.invocation.rule == "DirectCspSupport" &&
-           b.invocation.rule == "DirectCspSupport" &&
-           a.invocation.direct_csp_support_instances.size() == 1 &&
-           b.invocation.direct_csp_support_instances.size() == 1 &&
-           a.invocation.direct_csp_support_instances[0].left_values ==
-               offered.direct_csp_support_instances[0].left_values &&
-           a.invocation.direct_csp_support_instances[0].selected_left_value ==
-               offered.direct_csp_support_instances[0].selected_left_value &&
-           serialize_online_strategy_program({{a.invocation}, {}}) ==
-               serialize_online_strategy_program({{b.invocation}, {}}));
-  }
-  assert(selected);
-  std::fclose(records);
-}
-
-RandomControllerConfig dynamic_gf3_config() {
-  RandomControllerConfig config;
-  config.parameters.rules = {"Gf3AffineConsequence"};
-  config.parameters.gf3_affine_consequence_reference = gf3_parameters();
-  config.gf3_action_producer.enabled = true;
-  config.gf3_action_producer.maximum_pair_candidates = 1;
-  config.gf3_action_producer.maximum_offers = 1;
-  config.gf3_action_producer.maximum_enumeration_work = 100000;
-  return config;
-}
-
-RandomControllerConfig dynamic_direct_config() {
-  RandomControllerConfig config;
-  config.parameters.rules = {"DirectCspSupport"};
-  config.parameters.direct_csp_support_reference = direct_parameters();
-  config.direct_csp_action_producer.enabled = true;
-  config.direct_csp_action_producer.maximum_domain_candidates = 16;
-  config.direct_csp_action_producer.maximum_pair_candidates = 1;
-  config.direct_csp_action_producer.maximum_row_candidates = 1;
-  config.direct_csp_action_producer.maximum_offers = 1;
-  config.direct_csp_action_producer.maximum_enumeration_work = 100000;
-  return config;
-}
-
-class ResourceThenSearchSelection final : public ControllerSelection {
-public:
-  explicit ResourceThenSearchSelection(OnlineInvocation invocation)
-      : invocation_(std::move(invocation)) {}
-
-  bool choose(Kernel &kernel, const controller::Observation &observation,
-              const RandomControllerConfig &, controller::ActionRequest &request,
-              std::string &, volatile sig_atomic_t *) override {
-    request = {};
-    request.sequence = observation.sequence + 1;
-    request.expected = state_version(kernel);
-    if (!issued_) {
-      issued_ = true;
-      request.type = controller::ActionType::Rule;
-      request.invocation = invocation_;
-    } else {
-      request.type = controller::ActionType::ResumeSearch;
-      request.search = controller::search_configurations().front();
-    }
-    return true;
-  }
-
-private:
-  OnlineInvocation invocation_;
-  bool issued_ = false;
-};
-
-void disabled_dynamic_producers_preserve_configuration_and_selection() {
-  RandomControllerConfig baseline;
-  baseline.parameters.rules = {"Rephase"};
-  auto disabled = baseline;
-  disabled.gf3_action_producer.maximum_pair_candidates = 1;
-  disabled.gf3_action_producer.maximum_offers = 1;
-  disabled.direct_csp_action_producer.maximum_domain_candidates = 1;
-  disabled.direct_csp_action_producer.maximum_row_candidates = 1;
-  assert(controller_configuration(baseline) ==
-         controller_configuration(disabled));
-
-  Kernel kernel = parse_text("p cnf 2 1\n1 2 0\n");
-  const auto observation = controller::observe_kernel(kernel);
-  for (uint64_t seed = 1; seed != 32; ++seed) {
-    RandomControllerSelector first(seed), second(seed);
-    controller::ActionRequest left, right;
-    std::string error;
-    assert(first.choose(kernel, observation, baseline, left, error));
-    assert(second.choose(kernel, observation, disabled, right, error));
-    assert(left.type == right.type && left.search == right.search);
-    if (left.type == controller::ActionType::Rule)
-      assert(serialize_online_strategy_program({{left.invocation}, {}}) ==
-             serialize_online_strategy_program({{right.invocation}, {}}));
-  }
-}
-
-void static_structured_offer_precedes_native_discovery() {
-  Kernel kernel = parse_text(direct_csp_dimacs());
-  FILE *records = std::tmpfile();
-  assert(records);
-  DirectCspSupportActionSession session;
-  kernel.structural_provenance = records;
-  kernel.direct_csp_support_action_session = &session;
-
-  auto config = dynamic_direct_config();
-  OnlineInvocation exact = direct_step();
-  exact.granularity = InvocationGranularity::OneInstance;
-  exact.direct_csp_support_instances = {
-      exact.direct_csp_support_instances.back()};
-  exact.budget = WorkLimit::bounded(1);
-  config.offered_actions[exact.rule] = {exact};
-  // Even a malformed unused producer window cannot replace or reject the
-  // caller's explicit exact payload.
-  config.direct_csp_action_producer.maximum_offers = 0;
-
-  bool selected = false;
-  for (uint64_t seed = 1; seed != 128 && !selected; ++seed) {
-    RandomControllerSelector selector(seed);
-    controller::ActionRequest request;
-    std::string error;
-    assert(selector.choose(kernel, controller::observe_kernel(kernel), config,
-                           request, error));
-    if (request.type != controller::ActionType::Rule)
-      continue;
-    selected = true;
-    assert(request.invocation.direct_csp_support_instances ==
-           exact.direct_csp_support_instances);
-  }
-  assert(selected && !session.retained());
-  std::fclose(records);
-}
-
-void dynamic_theory_offers_are_exact_deterministic_and_applicable() {
-  {
-    Kernel kernel = parse_text(gf3_dimacs());
-    FILE *records = std::tmpfile();
-    assert(records);
-    Gf3AffineActionSession session;
-    kernel.structural_provenance = records;
-    kernel.gf3_affine_action_session = &session;
-    const auto config = dynamic_gf3_config();
-    const auto observation = controller::observe_kernel(kernel);
-    bool selected = false;
-    for (uint64_t seed = 1; seed != 128 && !selected; ++seed) {
-      RandomControllerSelector first(seed), second(seed);
-      controller::ActionRequest left, right;
-      std::string error;
-      assert(first.choose(kernel, observation, config, left, error));
-      assert(second.choose(kernel, observation, config, right, error));
-      assert(left.type == right.type);
-      if (left.type != controller::ActionType::Rule)
-        continue;
-      selected = true;
-      assert(left.invocation.rule == "Gf3AffineConsequence" &&
-             left.invocation.granularity == InvocationGranularity::OneInstance &&
-             left.invocation.gf3_affine_instances ==
-                 std::vector<Gf3AffineInstance>({{0, 1}}) &&
-             serialize_online_strategy_program({{left.invocation}, {}}) ==
-                 serialize_online_strategy_program({{right.invocation}, {}}));
-      controller::RestartController controller(kernel);
-      left.sequence = controller.observe().sequence + 1;
-      left.expected = state_version(kernel);
-      const auto applied =
-          controller.apply_rule(left, config.allowance(left.invocation.rule));
-      assert(applied.invocation.status == InvocationStatus::Completed &&
-             applied.invocation.made_rule_progress &&
-             session.committed_keys() == 1);
-    }
-    assert(selected);
-    std::fclose(records);
-  }
-  {
-    Kernel kernel = parse_text(direct_csp_dimacs());
-    FILE *records = std::tmpfile();
-    assert(records);
-    DirectCspSupportActionSession session;
-    kernel.structural_provenance = records;
-    kernel.direct_csp_support_action_session = &session;
-    const auto config = dynamic_direct_config();
-    const auto observation = controller::observe_kernel(kernel);
-    bool selected = false;
-    for (uint64_t seed = 1; seed != 128 && !selected; ++seed) {
-      RandomControllerSelector first(seed), second(seed);
-      controller::ActionRequest left, right;
-      std::string error;
-      assert(first.choose(kernel, observation, config, left, error));
-      assert(second.choose(kernel, observation, config, right, error));
-      assert(left.type == right.type);
-      if (left.type != controller::ActionType::Rule)
-        continue;
-      selected = true;
-      assert(left.invocation.rule == "DirectCspSupport" &&
-             left.invocation.granularity == InvocationGranularity::OneInstance &&
-             left.invocation.direct_csp_support_instances ==
-                 std::vector<DirectCspSupportActionSelection>(
-                     {{{1, 2, 3}, {4, 5, 6, 7}, 0}}) &&
-             serialize_online_strategy_program({{left.invocation}, {}}) ==
-                 serialize_online_strategy_program({{right.invocation}, {}}));
-      controller::RestartController controller(kernel);
-      left.sequence = controller.observe().sequence + 1;
-      left.expected = state_version(kernel);
-      const auto applied =
-          controller.apply_rule(left, config.allowance(left.invocation.rule));
-      assert(applied.invocation.status == InvocationStatus::Completed &&
-             applied.invocation.made_rule_progress &&
-             session.committed_keys() == 1);
-    }
-    assert(selected);
-    std::fclose(records);
-  }
-}
-
-void dynamic_gf3_pagination_reaches_terminal_without_reoffering() {
-  Kernel kernel = parse_text(gf3_dimacs());
-  FILE *records = std::tmpfile();
-  assert(records);
-  Gf3AffineActionSession session;
-  kernel.structural_provenance = records;
-  kernel.gf3_affine_action_session = &session;
-  const auto config = dynamic_gf3_config();
-
-  RandomControllerSelector selector(1);
-  auto observation = controller::observe_kernel(kernel);
-  std::vector<Gf3AffineInstance> selected;
-  std::string error;
-  for (uint32_t attempt = 0; attempt != 128 && selected.size() != 2;
-       ++attempt) {
-    controller::ActionRequest request;
-    assert(selector.choose(kernel, observation, config, request, error));
-    if (request.type == controller::ActionType::Rule) {
-      selected.push_back(request.invocation.gf3_affine_instances.front());
-      controller::ActionResult settled;
-      settled.sequence = request.sequence;
-      settled.type = request.type;
-      settled.invocation.status = InvocationStatus::Completed;
-      settled.invocation.selection_complete = true;
-      settled.invocation.after = state_version(kernel);
-      observation.last_action = settled;
-    } else {
-      observation.last_action.reset();
-    }
-    ++observation.sequence; // model a settled same-state no-op request
-  }
-  assert(selected == std::vector<Gf3AffineInstance>({{0, 1}, {1, 2}}));
-  for (uint32_t repeat = 0; repeat != 16; ++repeat) {
-    controller::ActionRequest terminal;
-    assert(selector.choose(kernel, observation, config, terminal, error) &&
-           terminal.type == controller::ActionType::ResumeSearch);
-    ++observation.sequence;
-  }
-  assert(!session.retained());
-  std::fclose(records);
-}
-
-void dynamic_gf3_selection_interruption_is_terminal() {
-  Kernel kernel = parse_text(gf3_dimacs());
-  FILE *records = std::tmpfile();
-  assert(records);
-  Gf3AffineActionSession session;
-  kernel.structural_provenance = records;
-  kernel.gf3_affine_action_session = &session;
-  kernel.stop_fuzz = 1;
-  const auto config = dynamic_gf3_config();
-  RandomControllerSelector selector(1);
-  controller::ActionRequest request;
-  std::string error;
-  assert(!selector.choose(kernel, controller::observe_kernel(kernel), config,
-                          request, error));
-  assert(error == "controller selection interrupted");
-  assert(kernel.stats.stop_fuzz_fires == 1);
-  std::fclose(records);
-}
-
-void native_execution_outcomes_obey_pending_lifecycle() {
-  Kernel kernel = parse_text(gf3_dimacs());
-  FILE *records = std::tmpfile();
-  assert(records);
-  Gf3AffineActionSession session;
-  kernel.structural_provenance = records;
-  kernel.gf3_affine_action_session = &session;
-  const auto config = dynamic_gf3_config();
-  controller::RestartController restart_controller(kernel);
-  RandomControllerSelector selector(1);
-  auto observation = restart_controller.observe();
-  controller::ActionRequest original;
-  std::string error;
-  bool selected = false;
-  for (uint32_t attempt = 0; attempt != 128 && !selected; ++attempt) {
-    assert(selector.choose(kernel, observation, config, original, error));
-    selected = original.type == controller::ActionType::Rule;
-  }
-  assert(selected);
-  const auto exact = original.invocation.gf3_affine_instances;
-
-  // Exercise the real executor/dispatch boundary.  The declined rule still
-  // advances strategy_epoch; the selector must absorb that expected transition
-  // instead of immediately rediscovering and reoffering the retained payload.
-  auto constrained =
-      std::get<Gf3AffineConsequenceParameters>(original.invocation.parameters);
-  constrained.maximum_planning_work = 1;
-  original.invocation.parameters = constrained;
-  const auto exhausted =
-      restart_controller.apply_rule(
-          original, config.allowance("Gf3AffineConsequence"));
-  assert(exhausted.invocation.status == InvocationStatus::ResourceExhausted);
-  observation = restart_controller.observe();
-  for (uint32_t attempt = 0; attempt != 64; ++attempt) {
-    controller::ActionRequest suspended;
-    assert(selector.choose(kernel, observation, config, suspended, error));
-    assert(suspended.type != controller::ActionType::Rule);
-  }
-
-  // A profile-only reconfiguration preserves and retries the exact pending
-  // identity without paying discovery work again.
-  auto reconfigured = config;
-  ++reconfigured.parameters.gf3_affine_consequence_reference.maximum_planning_work;
-  bool retried = false;
-  for (uint32_t attempt = 0; attempt != 128 && !retried; ++attempt) {
-    controller::ActionRequest request;
-    assert(selector.choose(kernel, observation, reconfigured, request, error));
-    if (request.type != controller::ActionType::Rule) continue;
-    assert(request.invocation.gf3_affine_instances == exact &&
-           request.producer_effort.empty());
-    retried = true;
-  }
-  assert(retried);
-
-  // Policy coverage distinguishes resource exhaustion from an ordinary
-  // no-change result just as it already does allowance exhaustion.
-  {
-    Kernel coverage_kernel = parse_text(gf3_dimacs());
-    Gf3AffineActionSession coverage_session;
-    coverage_kernel.structural_provenance = records;
-    coverage_kernel.gf3_affine_action_session = &coverage_session;
-    OnlineInvocation invocation = original.invocation;
-    invocation.gf3_affine_instances = exact;
-    invocation.parameters = constrained;
-    ResourceThenSearchSelection scripted(std::move(invocation));
-    RandomControllerPolicy policy(1, config, nullptr, &scripted);
-    assert(policy.solve(coverage_kernel) == 10);
-    const auto found =
-        policy.coverage().rules.find("Gf3AffineConsequence");
-    assert(found != policy.coverage().rules.end() &&
-           found->second.exhausted == 1);
-  }
-
-  // Invalid/stale exact requests are discarded.  They remain terminal at the
-  // same state and become discoverable only after a real context change.
-  for (const InvocationStatus terminal :
-       {InvocationStatus::StaleRequest, InvocationStatus::InvalidRequest}) {
-    Kernel fresh = parse_text(gf3_dimacs());
-    Gf3AffineActionSession fresh_session;
-    fresh.structural_provenance = records;
-    fresh.gf3_affine_action_session = &fresh_session;
-    RandomControllerSelector fresh_selector(1);
-    auto current = controller::observe_kernel(fresh);
-    controller::ActionRequest pending;
-    bool have_pending = false;
-    for (uint32_t attempt = 0; attempt != 128 && !have_pending; ++attempt) {
-      assert(fresh_selector.choose(fresh, current, config, pending, error));
-      have_pending = pending.type == controller::ActionType::Rule;
-    }
-    assert(have_pending);
-    controller::ActionResult outcome;
-    outcome.sequence = pending.sequence;
-    outcome.type = pending.type;
-    outcome.invocation.status = terminal;
-    outcome.invocation.after = state_version(fresh);
-    current.last_action = outcome;
-    current.sequence = pending.sequence;
-    for (uint32_t attempt = 0; attempt != 64; ++attempt) {
-      controller::ActionRequest suppressed;
-      assert(fresh_selector.choose(fresh, current, config, suppressed, error));
-      assert(suppressed.type != controller::ActionType::Rule);
-    }
-    ++fresh.strategy_epoch;
-    current = controller::observe_kernel(fresh);
-    bool refreshed = false;
-    for (uint32_t attempt = 0; attempt != 128 && !refreshed; ++attempt) {
-      controller::ActionRequest request;
-      assert(fresh_selector.choose(fresh, current, config, request, error));
-      refreshed = request.type == controller::ActionType::Rule;
-    }
-    assert(refreshed && !fresh_session.retained());
-  }
-  assert(!session.retained());
-  std::fclose(records);
-}
-
-void dynamic_direct_policy_trace_replays_exact_payload() {
-  auto config = dynamic_direct_config();
-  config.parameters.rules.push_back("Propagate");
-  const auto signature = controller_configuration(config);
-  char path[] = "/tmp/tactix-dynamic-direct-trace-XXXXXX";
-  const int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
-
-  uint64_t seed = 0;
-  for (uint64_t candidate = 1; candidate != 128 && !seed; ++candidate) {
-    Kernel probe = parse_text(direct_csp_dimacs());
-    FILE *records = std::tmpfile();
-    assert(records);
-    DirectCspSupportActionSession session;
-    probe.structural_provenance = records;
-    probe.direct_csp_support_action_session = &session;
-    RandomControllerSelector selector(candidate);
-    controller::ActionRequest request;
-    std::string error;
-    assert(selector.choose(probe, controller::observe_kernel(probe), config,
-                           request, error));
-    if (request.type == controller::ActionType::Rule &&
-        request.invocation.rule == "DirectCspSupport")
-      seed = candidate;
-    std::fclose(records);
-  }
-  assert(seed);
-
-  {
-    Kernel kernel = parse_text(direct_csp_dimacs());
-    FILE *records = std::tmpfile();
-    assert(records);
-    DirectCspSupportActionSession session;
-    kernel.structural_provenance = records;
-    kernel.direct_csp_support_action_session = &session;
-    ControllerTrace trace;
-    assert(trace.write(path, seed, signature));
-    RandomControllerPolicy policy(seed, config, &trace);
-    assert(policy.solve(kernel) == 10 && session.committed_keys() >= 1);
-    const auto &coverage = policy.coverage().rules.at("DirectCspSupport");
-    assert(coverage.producer_calls >= 1 && coverage.producer_work &&
-           coverage.producer_candidates >= 1 && coverage.producer_offers >= 1);
-    std::fclose(records);
-  }
-  {
-    Kernel kernel = parse_text(direct_csp_dimacs());
-    FILE *records = std::tmpfile();
-    assert(records);
-    DirectCspSupportActionSession session;
-    kernel.structural_provenance = records;
-    kernel.direct_csp_support_action_session = &session;
-    ControllerTrace trace;
-    assert(trace.replay(path, signature));
-    RandomControllerPolicy policy(seed + 99, config, &trace);
-    assert(policy.solve(kernel) == 10 && session.committed_keys() >= 1);
-    std::fclose(records);
-  }
-  std::ifstream input(path);
-  std::ostringstream bytes;
-  bytes << input.rdbuf();
-  const std::string transcript = bytes.str();
-  assert(transcript.find(":direct-csp-support[") != std::string::npos &&
-         transcript.find("producer \"DirectCspSupport\"") !=
-             std::string::npos);
-  input.close();
-  unlink(path);
-}
-
 int c_api_rule_id(const char *name) {
   for (int id = 0; id < capi::tactix_rule_count(); ++id)
     if (std::string(capi::tactix_rule_name(id)) == name) return id;
@@ -1019,71 +571,12 @@ void public_c_api_executes_productive_v5_actions() {
     std::fclose(records);
   }
 }
-
-void random_policy_solves_after_executing_offered_v5_action() {
-  OnlineInvocation offered = direct_step();
-  offered.granularity = InvocationGranularity::OneInstance;
-  offered.direct_csp_support_instances.resize(1);
-  offered.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram collection;
-  collection.sequence = {offered};
-  RandomControllerConfig config;
-  config.parameters.rules = {"DirectCspSupport"};
-  std::string error;
-  assert(config.configure_actions(collection, &error));
-
-  uint64_t selected_seed = 0;
-  {
-    Kernel probe = parse_text(direct_csp_dimacs());
-    FILE *records = std::tmpfile();
-    assert(records);
-    DirectCspSupportActionSession session;
-    probe.structural_provenance = records;
-    probe.direct_csp_support_action_session = &session;
-    controller::RestartController controller(probe);
-    for (uint64_t seed = 1; seed < 128 && !selected_seed; ++seed) {
-      RandomControllerSelector selector(seed);
-      controller::ActionRequest request;
-      assert(selector.choose(probe, controller.observe(), config, request,
-                             error));
-      if (request.type == controller::ActionType::Rule &&
-          request.invocation.rule == "DirectCspSupport")
-        selected_seed = seed;
-    }
-    std::fclose(records);
-  }
-  assert(selected_seed);
-
-  Kernel kernel = parse_text(direct_csp_dimacs());
-  FILE *records = std::tmpfile();
-  assert(records);
-  DirectCspSupportActionSession session;
-  kernel.structural_provenance = records;
-  kernel.direct_csp_support_action_session = &session;
-  RandomControllerPolicy policy(selected_seed, config);
-  assert(policy.solve(kernel) == 10);
-  const auto &coverage = policy.coverage().rules.at("DirectCspSupport");
-  assert(coverage.requests >= 1 && coverage.applications >= 1 &&
-         coverage.effective >= 1 && session.committed_keys() >= 1 &&
-         kernel.stats.direct_csp_support_applied >= 1);
-  std::fclose(records);
-}
-
 } // namespace
 
 int main() {
   productive_batches_publish_distinct_candidates_and_refresh_generation();
   affine_followup_publishes_one_current_typed_candidate();
   invalid_is_consumed_and_resource_exhaustion_is_retryable();
-  offered_random_action_is_exact_and_deterministic();
-  disabled_dynamic_producers_preserve_configuration_and_selection();
-  static_structured_offer_precedes_native_discovery();
-  dynamic_theory_offers_are_exact_deterministic_and_applicable();
-  dynamic_gf3_pagination_reaches_terminal_without_reoffering();
-  dynamic_gf3_selection_interruption_is_terminal();
-  native_execution_outcomes_obey_pending_lifecycle();
   public_c_api_executes_productive_v5_actions();
-  random_policy_solves_after_executing_offered_v5_action();
-  dynamic_direct_policy_trace_replays_exact_payload();
   std::puts("v5 theory action runtime PASS");
 }

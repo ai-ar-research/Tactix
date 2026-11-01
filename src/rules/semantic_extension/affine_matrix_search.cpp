@@ -1,5 +1,12 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
+
+#include "strategy/action_status_mapping.hpp"
+
+#include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
+
+#include "kernel/types.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -175,10 +182,7 @@ bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
                                  uint64_t maximum, std::string &journal) {
   journal.clear();
   const auto append = [&](const std::string &text) {
-    if (journal.size() > maximum || text.size() > maximum - journal.size())
-      return false;
-    journal += text;
-    return true;
+    return semantic_extension::append_bounded(journal, maximum, text);
   };
   const auto list = [&](const auto &values) {
     if (!append("[")) return false;
@@ -207,24 +211,19 @@ bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
 }
 
 AffineMatrixServiceStatus live_status(MatrixLiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<AffineMatrixServiceStatus>(
+              status))
+    return *failure;
   switch (status) {
   case MatrixLiveStatus::Applied: return AffineMatrixServiceStatus::Applied;
-  case MatrixLiveStatus::Inapplicable:
   case MatrixLiveStatus::UnsupportedOutcome:
     return AffineMatrixServiceStatus::Inapplicable;
-  case MatrixLiveStatus::ResourceExhausted:
-    return AffineMatrixServiceStatus::ResourceExhausted;
-  case MatrixLiveStatus::Interrupted:
-    return AffineMatrixServiceStatus::Interrupted;
-  case MatrixLiveStatus::UnsupportedProof:
-    return AffineMatrixServiceStatus::UnsupportedProof;
-  case MatrixLiveStatus::Stale: return AffineMatrixServiceStatus::Stale;
-  case MatrixLiveStatus::Invalid:
   case MatrixLiveStatus::Prepared:
   case MatrixLiveStatus::AlreadyApplied:
     return AffineMatrixServiceStatus::Invalid;
+  default: return AffineMatrixServiceStatus::Invalid;
   }
-  return AffineMatrixServiceStatus::Invalid;
 }
 
 void record_init(Kernel &kernel, const AffineMatrixInitResult &result) {
@@ -427,17 +426,16 @@ bool AffineMatrixSearchSession::inspect_lazy_reason(
 }
 
 RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
-  return RuleEligibility{}
+  return StructuralActionGuard(kernel)
       .fact("consistent", !kernel.inconsistent)
       .fact("root", !kernel.level)
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
+      .quiescent()
       .fact("session-attached", kernel.affine_matrix_search_session != nullptr)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
+      .provenance()
       .fact("clausal-proof",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+            !kernel.proof ||
+                (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()))
+      .finish();
 }
 
 AffineMatrixInitResult affine_matrix_search_initialize(
@@ -1111,10 +1109,11 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
   if (persistence.maximum_retained_bytes) {
     const auto append = [&](const std::string &part) {
-      return add(part.size(), parameters.maximum_session_work, result.premise_retention_work) &&
-          part.size() <= parameters.maximum_journal_bytes -
-                            std::min<uint64_t>(initialization_journal.size(), parameters.maximum_journal_bytes) &&
-          (initialization_journal += part, true);
+      return add(part.size(), parameters.maximum_session_work,
+                 result.premise_retention_work) &&
+             semantic_extension::append_bounded(
+                 initialization_journal, parameters.maximum_journal_bytes,
+                 part);
     };
     bool journal_fits = append("{\"kind\":\"affine-matrix-retained-sources\",\"owner\":" +
         std::to_string(owner_version) + ",\"maximum_retained_bytes\":" +
@@ -1672,7 +1671,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     retained_bytes += bytes;
   }
   for (int32_t literal : fixed) {
-    const External variable = literal < 0 ? -literal : literal;
+    const External variable =
+        static_cast<External>(external_variable_of(literal));
     bool duplicate = false;
     for (const auto &existing : image.equations) {
       if (!charge(1 + existing.variables.size())) return exhausted();

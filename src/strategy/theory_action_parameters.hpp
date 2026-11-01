@@ -1,9 +1,18 @@
 #pragma once
 
+#include "rules/semantic_extension/direct_csp_action_limits.hpp"
+#include "rules/semantic_extension/nary_csp_action_limits.hpp"
+
 #include <cstdint>
 
 namespace tactix {
 struct Kernel;
+struct AffineBasisActionLimits;
+struct DirectPhpActionLimits;
+struct Gf3AffineActionLimits;
+struct Gf3GaussianActionLimits;
+struct Gf3GeneralRowActionLimits;
+struct TseitinCycleBreakingLimits;
 namespace strategy {
 
 enum class AffineConsequenceSemantics : uint8_t {
@@ -60,6 +69,43 @@ struct AffineConsequenceParameters {
   }
   static AffineConsequenceParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+bool visit_affine_image_parameter_fields(Parameters &p, Visitor visit) {
+  return visit(p.maximum_clauses, p.maximum_snapshot_literals,
+               p.maximum_snapshot_work, p.maximum_groups, p.maximum_patterns,
+               p.maximum_elimination_work, p.maximum_arity,
+               p.maximum_intermediate_width, p.maximum_sources,
+               p.maximum_output_width, p.maximum_proof_additions,
+               p.maximum_proof_deletions, p.maximum_journal_bytes);
+}
+
+template <class Parameters, class Visitor>
+bool visit_affine_basis_parameter_fields(Parameters &p, Visitor visit) {
+  return visit(p.basis_maximum_work, p.basis_maximum_intermediate_width,
+               p.basis_maximum_sources, p.basis_maximum_premises,
+               p.basis_maximum_nodes, p.basis_maximum_direct_width,
+               p.maximum_external_extent, p.maximum_session_keys,
+               p.maximum_session_work);
+}
+
+template <class Target, class Source>
+void copy_affine_parameter_fields(Target &target, const Source &source) {
+  visit_affine_image_parameter_fields(target, [&](auto &...targets) {
+    return visit_affine_image_parameter_fields(
+        source, [&](const auto &...sources) {
+          ((targets = sources), ...);
+          return true;
+        });
+  });
+  visit_affine_basis_parameter_fields(target, [&](auto &...targets) {
+    return visit_affine_basis_parameter_fields(
+        source, [&](const auto &...sources) {
+          ((targets = sources), ...);
+          return true;
+        });
+  });
+}
 
 // Separate positive-persistence profile: old affine encodings retain zero
 // persistence. Deferred limits bound outstanding physical deletion occupancy,
@@ -172,106 +218,29 @@ struct Gf3AffineConsequenceParameters {
 };
 
 // Explicit GuardedCoverV2 profile; zero limits decline rather than inherit V1.
-struct DirectCspGuardedCoverParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domains = 0;
-  uint32_t maximum_domain_values = 0;
-  uint32_t maximum_cover_literals = 0;
-  uint32_t maximum_or_definitions = 0;
-  uint32_t maximum_or_inputs = 0;
-  uint32_t maximum_output_literals = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_work = 0;
-  bool valid() const;
-  bool operator==(const DirectCspGuardedCoverParameters &) const = default;
-};
+using DirectCspGuardedCoverParameters =
+    DirectCspGuardedCoverActionLimits;
 
-struct DirectCspSupportParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint32_t maximum_direct_clause_literals = 0;
-  uint32_t maximum_definition_clause_literals = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_work = 0;
-  bool allow_extension = false;
-
-  bool valid() const;
+struct DirectCspSupportParameters : DirectCspSupportActionLimits {
   static DirectCspSupportParameters from_kernel(const Kernel &);
 };
 
 
-struct NaryCspEqualityParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-
-  bool valid() const;
+struct NaryCspEqualityParameters : NaryCspEqualityLimits {
   static NaryCspEqualityParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityParameters &) const = default;
 };
 
-struct NaryCspEqualityAmoParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-
-  bool valid() const;
+struct NaryCspEqualityAmoParameters : NaryCspEqualityAmoLimits {
   static NaryCspEqualityAmoParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityAmoParameters &) const = default;
 };
 
-struct NaryCspEqualityTransitivityParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint64_t maximum_planning_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_bytes = 0;
-  uint64_t maximum_arena_words = 0;
-  uint64_t maximum_watch_words = 0;
-  uint64_t maximum_preparation_bytes = 0;
-  bool valid() const;
+struct NaryCspEqualityTransitivityParameters
+    : NaryCspEqualityTransitivityLimits {
   static NaryCspEqualityTransitivityParameters from_kernel(const Kernel &);
-  bool operator==(const NaryCspEqualityTransitivityParameters &) const = default;
+  bool operator==(
+      const NaryCspEqualityTransitivityParameters &) const = default;
 };
 
 // Exact controller-visible limits for the terminal direct pigeonhole
@@ -347,6 +316,41 @@ struct Gf3GaussianConsequenceParameters {
   static Gf3GaussianConsequenceParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+bool visit_gf3_gaussian_parameter_fields(Parameters &p, Visitor visit) {
+  return visit(
+      p.maximum_source_clauses, p.maximum_source_literals, p.maximum_domains,
+      p.maximum_equations, p.maximum_equation_arity,
+      p.maximum_tuples_per_equation, p.maximum_bridge_work,
+      p.maximum_bridge_source_clauses, p.maximum_bridge_source_literals,
+      p.maximum_bridge_domains, p.maximum_bridge_equations,
+      p.maximum_bridge_terms, p.maximum_authentication_references,
+      p.maximum_references_per_equation, p.maximum_gaussian_work,
+      p.maximum_fill_entries, p.maximum_intermediate_width,
+      p.maximum_provenance_terms, p.maximum_derivations,
+      p.maximum_retained_plan_bytes, p.maximum_certificate_work,
+      p.maximum_events, p.maximum_event_literals, p.maximum_active_clauses,
+      p.maximum_retained_source_references, p.maximum_event_width,
+      p.maximum_branch_domains, p.maximum_consequences, p.maximum_capture_work,
+      p.maximum_revalidation_work, p.maximum_proof_additions,
+      p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
+      p.maximum_identity_bytes, p.maximum_external_extent,
+      p.maximum_session_keys, p.maximum_session_work,
+      p.maximum_session_identity_bytes);
+}
+
+template <class Target, class Source>
+void copy_gf3_gaussian_parameter_fields(Target &target,
+                                        const Source &source) {
+  visit_gf3_gaussian_parameter_fields(target, [&](auto &...targets) {
+    return visit_gf3_gaussian_parameter_fields(
+        source, [&](const auto &...sources) {
+          ((targets = sources), ...);
+          return true;
+        });
+  });
+}
+
 // One authenticated forbidden tuple of one non-unit GF(3) Gaussian row.
 // Gaussian supplies source/bridge limits; the appended fields bound the
 // single-row Boolean certificate and retained exact replay identity.
@@ -404,6 +408,25 @@ struct SemanticVariableAdviceParameters {
   bool valid() const { return true; }
   static SemanticVariableAdviceParameters from_kernel(const Kernel &);
 };
+
+// One ownership point for the typed public-parameter to native-action mapping.
+// These conversions are pure aggregate construction and perform no validation.
+AffineBasisActionLimits action_limits(const AffineConsequenceParameters &);
+Gf3AffineActionLimits action_limits(const Gf3AffineConsequenceParameters &);
+DirectCspGuardedCoverActionLimits
+action_limits(const DirectCspGuardedCoverParameters &);
+DirectCspSupportActionLimits action_limits(const DirectCspSupportParameters &);
+NaryCspEqualityLimits action_limits(const NaryCspEqualityParameters &);
+NaryCspEqualityAmoLimits action_limits(const NaryCspEqualityAmoParameters &);
+NaryCspEqualityTransitivityLimits
+action_limits(const NaryCspEqualityTransitivityParameters &);
+DirectPhpActionLimits action_limits(const DirectPhpRefutationParameters &);
+Gf3GaussianActionLimits
+action_limits(const Gf3GaussianConsequenceParameters &);
+Gf3GeneralRowActionLimits
+action_limits(const Gf3GeneralRowConsequenceParameters &);
+TseitinCycleBreakingLimits
+action_limits(const TseitinCycleBreakingParameters &);
 
 void install_rule_parameters(Kernel &, const AffineConsequenceParameters &);
 void install_rule_parameters(Kernel &, const AffineMatrixInitializeParameters &);

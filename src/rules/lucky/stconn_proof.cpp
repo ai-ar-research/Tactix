@@ -1,6 +1,8 @@
 #include "rules/lucky/stconn_proof.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
+#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -237,8 +239,7 @@ public:
     internal_.clear();
     internal_.reserve(external.size());
     for (const int literal : external) {
-      const uint64_t variable = static_cast<uint64_t>(
-          literal < 0 ? -int64_t(literal) : int64_t(literal));
+      const uint64_t variable = external_variable_of(literal);
       if (!variable || variable > kernel_.external_to_internal.size())
         return false;
       const Var internal = kernel_.external_to_internal[variable - 1];
@@ -660,16 +661,8 @@ bool collect_formula(Kernel &k, Formula &formula) {
 } // namespace
 
 RuleEligibility stconn_proof_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", k.level == 0)
-      .fact("propagated", k.propagate_head == k.trail.size())
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected)
-      .fact("proof-format", !k.proof || !k.proof->lrat());
+  RuleEligibility result = lucky_root_eligibility(k);
+  return result.fact("proof-format", !k.proof || !k.proof->lrat());
 }
 
 ApplyResult stconn_proof_apply(Kernel &k) {

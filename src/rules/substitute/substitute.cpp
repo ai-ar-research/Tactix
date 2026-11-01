@@ -7,6 +7,7 @@
 #include "strategy/substitute_execution.hpp"
 
 #include "diagnostics/event_trace.hpp"
+#include "diagnostics/process_memory.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "rules/propagate/propagate.hpp"
 
@@ -24,11 +25,6 @@
 #include <unordered_set>
 #include <utility>
 
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-#include <sys/resource.h>
-#include <unistd.h>
-#endif
-
 namespace tactix {
 
 // Single in-place binary-substitution pass (Kissat substitute_binaries port)
@@ -43,33 +39,17 @@ namespace {
 void substitute_stage_trace(const Kernel &k, const char *stage,
                             size_t first = 0, size_t second = 0,
                             size_t third = 0) {
-  static FILE *out = nullptr;
-  static bool initialized = false;
-  if (!initialized) {
-    initialized = true;
-    const char *path = std::getenv("TACTIX_SUBSTITUTE_MEMORY_TRACE");
-    if (path && *path) {
-      out = std::fopen(path, "w");
-      if (out)
-        std::setvbuf(out, nullptr, _IOLBF, 0);
-    }
-  }
+  static diagnostics::EnvironmentLineFile trace;
+  FILE *out = trace.stream("TACTIX_SUBSTITUTE_MEMORY_TRACE");
   if (!out)
     return;
-  struct rusage usage {};
-  getrusage(RUSAGE_SELF, &usage);
-  unsigned long virtual_pages = 0;
-  if (FILE *statm = std::fopen("/proc/self/statm", "r")) {
-    (void)std::fscanf(statm, "%lu", &virtual_pages);
-    std::fclose(statm);
-  }
-  const unsigned long virtual_kib =
-      virtual_pages * static_cast<unsigned long>(sysconf(_SC_PAGESIZE) / 1024);
+  const long peak_rss_kib = diagnostics::peak_resident_kib();
+  const unsigned long virtual_kib = diagnostics::virtual_memory_kib();
   std::fprintf(out,
                "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\tarena_words=%zu\t"
                "watch_words=%zu\twatch_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
                "third=%zu\n",
-               stage, usage.ru_maxrss, virtual_kib, k.nvars, k.arena.size(),
+               stage, peak_rss_kib, virtual_kib, k.nvars, k.arena.size(),
                k.watches.arena.size(), k.watches.arena.capacity(), first,
                second, third);
 }
@@ -3105,54 +3085,6 @@ ApplyResult substitute_apply_complete(Kernel &k, uint32_t max_rounds) {
                       execution::substitute_complete_active_count(k) != active_before;
              })
       .result;
-}
-
-static ApplyResult substitute_apply_equivalences_impl(
-    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences,
-    bool drain_root) {
-  if (equivalences.empty())
-    return ApplyResult::NoOp;
-  assert(k.level == 0 && !k.conflict_valid);
-  if (drain_root && inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  k.stats.substitute_rounds++;
-  SccResult r = substitute_find_sccs(k, false);
-  if (r.contradiction) {
-    assert(r.contradiction_lit != INVALID_LIT);
-    emit_unsat(k, r.contradiction_lit);
-    return ApplyResult::Unsat;
-  }
-  k.stats.substitute_sccs += r.nontrivial_count;
-  std::vector<uint8_t> sub(2 * k.nvars, 0);
-  for (const auto &eq : equivalences) {
-    const Lit a = eq.first, b = eq.second;
-    if (a >= r.repr.size() || b >= r.repr.size())
-      continue;
-    const Lit rep = r.repr[a];
-    if (rep == INVALID_LIT || r.repr[b] != rep)
-      continue; // the supplied binaries no longer state a live SCC class
-    const Lit mirror = r.repr[negate(a)];
-    for (Lit l = 0; l < static_cast<Lit>(r.repr.size()); l++)
-      if (r.repr[l] != INVALID_LIT && r.repr[l] != l &&
-          (r.repr[l] == rep || r.repr[l] == mirror)) {
-        if (!sub[l])
-          k.stats.substitute_scc_lits++;
-        sub[l] = 1;
-      }
-  }
-  if (std::none_of(sub.begin(), sub.end(), [](uint8_t marked) {
-        return marked != 0;
-      }))
-    return ApplyResult::NoOp;
-  // This path implements Kissat Sweep's connected-clause rewrite. Surviving
-  // large records stay at their existing Ref; lazy unit/binary/deleted records
-  // do not need an arena-order transaction at this call boundary.
-  return do_substitution(k, r, std::move(sub));
-}
-
-ApplyResult substitute_apply_equivalences(
-    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences) {
-  return substitute_apply_equivalences_impl(k, equivalences, true);
 }
 
 ApplyResult substitute_apply_sweep_equivalences(

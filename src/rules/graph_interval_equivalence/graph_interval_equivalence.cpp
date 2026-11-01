@@ -1,5 +1,7 @@
 #include "rules/graph_interval_equivalence/graph_interval_equivalence.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
 #include "proof/proof.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/lucky/graph_labeling_recognition.hpp"
@@ -462,16 +464,13 @@ ApplyResult apply_instance(Kernel &kernel, uint64_t instance) {
 } // namespace
 
 RuleEligibility graph_interval_equivalence_guard(const Kernel &kernel) {
-  return RuleEligibility{}
+  return StructuralActionGuard(kernel)
       .fact("consistent", !kernel.inconsistent)
       .fact("root", kernel.level == 0)
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available", kernel.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-proof", !kernel.proof || !kernel.proof->terminal_pbp());
+      .quiescent()
+      .identity()
+      .fact("clausal-proof", !kernel.proof || !kernel.proof->terminal_pbp())
+      .finish();
 }
 
 ApplyResult graph_interval_equivalence_apply(Kernel &kernel) {

@@ -3,6 +3,7 @@
 #include "kernel/clause.hpp"
 #include "kernel/connected_occurrence.hpp"
 #include "kernel/occ.hpp"
+#include "kernel/splitmix64.hpp"
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
@@ -77,10 +78,7 @@ class BinaryIdMap {
   bool track_values_ = true;
 
   static uint64_t hash(uint64_t x) {
-    x += UINT64_C(0x9e3779b97f4a7c15);
-    x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
-    x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
-    return x ^ (x >> 31);
+    return splitmix64_hash(x);
   }
 
   size_t locate(uint64_t key) const {
@@ -231,10 +229,7 @@ class BinaryLivenessIndex {
   uint32_t exact_literals_ = 0;
 
   static uint64_t hash(uint64_t x) {
-    x += UINT64_C(0x9e3779b97f4a7c15);
-    x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
-    x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
-    return x ^ (x >> 31);
+    return splitmix64_hash(x);
   }
   struct Probe {
     size_t base; // first word of the block

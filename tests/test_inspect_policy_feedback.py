@@ -153,35 +153,6 @@ def main():
         changed = json.loads(json.dumps(rows))
         changed[action]["before"]["version"] = 9
         rejected(encode(changed), "unsupported observation version")
-        producer_rows = json.loads(json.dumps(rows))
-        producer_action = next(
-            i for i, row in enumerate(producer_rows) if row.get("request"))
-        producer = {
-            "family": "Gf3AffineConsequence", "status": 6,
-            "complete": False, "preparation_work": 11,
-            "enumeration_work": 13, "total_work": 24,
-            "candidates": 3, "offers": 1}
-        producer_rows[producer_action]["request"]["producer_effort"] = [producer]
-        path.write_text(encode(producer_rows))
-        inspector.inspect(path)
-        changed = json.loads(json.dumps(producer_rows))
-        del changed[producer_action]["request"]["producer_effort"][0]["offers"]
-        rejected(encode(changed), "producer effort fields")
-        changed = json.loads(json.dumps(producer_rows))
-        changed[producer_action]["request"]["producer_effort"][0]["family"] = "unknown"
-        rejected(encode(changed), "producer family")
-        changed = json.loads(json.dumps(producer_rows))
-        changed[producer_action]["request"]["producer_effort"][0]["status"] = 7
-        rejected(encode(changed), "producer status")
-        changed = json.loads(json.dumps(producer_rows))
-        changed[producer_action]["request"]["producer_effort"][0]["complete"] = 1
-        rejected(encode(changed), "producer completeness")
-        changed = json.loads(json.dumps(producer_rows))
-        changed[producer_action]["request"]["producer_effort"][0]["total_work"] += 1
-        rejected(encode(changed), "producer total work mismatch")
-        changed = json.loads(json.dumps(producer_rows))
-        changed[producer_action]["request"]["producer_effort"][0]["offers"] = 4
-        rejected(encode(changed), "producer offers exceed candidates")
         subprocess.run([sys.argv[1], str(path), "invalid"], check=True, timeout=30,
                        stdout=subprocess.DEVNULL)
         rejected_summary = inspector.inspect(path)

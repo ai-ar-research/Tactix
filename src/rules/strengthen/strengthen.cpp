@@ -2,6 +2,7 @@
 #include "rules/strengthen/strengthen.hpp"
 
 #include "diagnostics/event_trace.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/bve/bve.hpp"
 
@@ -1545,28 +1546,13 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
 static uint32_t strengthen_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Ref> candidates;
   strengthen_candidates(k, candidates, /*complete=*/true);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(candidates.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = candidates[i];
-  return n;
+  return copy_instance_prefix(candidates, out, cap);
 }
 
 template <bool Collect>
 static ApplyResult strengthen_apply_instance_impl(Kernel &k, uint64_t inst) {
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return strengthen_apply(k);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == inst)
-      return strengthen_try_impl<Collect>(k, ref);
-    if (ref > inst)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
-  return ApplyResult::NoOp;
+  return apply_root_arena_instance<strengthen_apply,
+                                   strengthen_try_impl<Collect>>(k, inst);
 }
 
 static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
@@ -1587,16 +1573,7 @@ static ApplyResult strengthen_apply_semantic_instance(Kernel &k, uint64_t inst) 
   strengthen_literal_of_instance(inst, &selected_ref, &selected_gone);
   if (selected_gone != INVALID_LIT && selected_gone >= 2 * k.nvars)
     return ApplyResult::NoOp;
-  Ref candidate_ref = INVALID_REF;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == selected_ref) {
-      candidate_ref = ref;
-      break;
-    }
-    if (ref > selected_ref)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
+  const Ref candidate_ref = arena_clause_instance(k, selected_ref);
   if (candidate_ref == INVALID_REF)
     return ApplyResult::NoOp;
   Clause *candidate = clause_at(k.arena, candidate_ref);

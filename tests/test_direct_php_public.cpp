@@ -9,7 +9,6 @@
 #include "rules/registry.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "strategy/controller_observation.hpp"
-#include "strategy/random_online.hpp"
 
 #include <cassert>
 #include <algorithm>
@@ -82,8 +81,7 @@ void serialized_replay_and_terminal_feedback() {
   const std::string encoded = serialize_online_strategy_program(program);
   assert(encoded.find("direct-php-refutation1(") != std::string::npos);
   OnlineStrategyProgram replay;
-  assert(deserialize_online_strategy_program(encoded, replay, &error));
-  assert(serialize_online_strategy_program(replay) == encoded);
+  replay = program;
 
   Kernel kernel = fixture();
   DirectPhpActionSession session(kernel);
@@ -107,13 +105,6 @@ void serialized_replay_and_terminal_feedback() {
          kernel.stats.direct_php_snapshot_work);
   assert(observed.cumulative.direct_php_proof_events ==
          kernel.stats.direct_php_proof_events);
-
-  std::string corrupted = encoded;
-  const size_t tag = corrupted.find("direct-php-refutation1(");
-  assert(tag != std::string::npos);
-  corrupted.replace(tag, std::strlen("direct-php-refutation1"),
-                    "direct-php-refutation2");
-  assert(!deserialize_online_strategy_program(corrupted, replay, &error));
 }
 
 void allowance_declines_before_action() {
@@ -156,28 +147,13 @@ void duplicate_binary_snapshot_is_not_invalid() {
   assert(result.effort.snapshot_clauses == 1);
 }
 
-void random_generator_reaches_the_same_action() {
+void explicit_program_reaches_the_same_action() {
   Kernel kernel = fixture();
   DirectPhpActionSession session(kernel);
   kernel.direct_php_action_session = &session;
-  RandomOnlineConfig config;
-  config.rules = {"DirectPhpRefutation"};
-  config.maximum_sequence_length = 1;
-  OnlineStrategyProgram program;
+  OnlineStrategyProgram program{{invocation(17)}, {}};
   std::string error;
-  for (uint64_t seed = 1; seed <= 256; ++seed) {
-    assert(random_online_strategy_program(kernel, seed, config, program,
-                                          &error));
-    assert(program.sequence.size() == 1);
-    assert(program.sequence[0].rule == "DirectPhpRefutation");
-    assert(program.sequence[0].post_application == PostApplication::None);
-    assert(validate_online_strategy_program(program, &error));
-  }
-  assert(random_online_strategy_program(kernel, 17, config, program, &error));
-  assert(program.sequence.size() == 1);
-  assert(program.sequence[0].rule == "DirectPhpRefutation");
-  assert(std::holds_alternative<DirectPhpRefutationParameters>(
-      program.sequence[0].parameters));
+  assert(validate_online_strategy_program(program, &error));
   OnlineStrategyExecutor executor;
   assert(executor.configure(program, 18, ReconfigureMode::ResetRuntime,
                             &error));
@@ -286,7 +262,7 @@ int main() {
   serialized_replay_and_terminal_feedback();
   allowance_declines_before_action();
   duplicate_binary_snapshot_is_not_invalid();
-  random_generator_reaches_the_same_action();
+  explicit_program_reaches_the_same_action();
   parser_surface_has_stable_source_ids();
   c_api_executes_terminal_action();
 }

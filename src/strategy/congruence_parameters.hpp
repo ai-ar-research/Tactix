@@ -1,5 +1,7 @@
 #pragma once
 
+#include "strategy/scoped_rule_parameters.hpp"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -31,6 +33,7 @@ struct CongruenceParameters {
   CongruenceBinaryWatchOrder binary_watch_order =
       CongruenceBinaryWatchOrder::Canonical;
 
+  static CongruenceParameters from_kernel(const Kernel &);
   constexpr bool valid() const {
     return xor_arity_limit <= XOR_ARITY_CAPACITY &&
            (binary_watch_order == CongruenceBinaryWatchOrder::Canonical ||
@@ -40,18 +43,7 @@ struct CongruenceParameters {
 
 void install_rule_parameters(Kernel &, const CongruenceParameters &);
 
-class ScopedCongruenceParameters {
-public:
-  ScopedCongruenceParameters(Kernel &, const CongruenceParameters &);
-  ScopedCongruenceParameters(const ScopedCongruenceParameters &) = delete;
-  ScopedCongruenceParameters &operator=(const ScopedCongruenceParameters &) =
-      delete;
-  ~ScopedCongruenceParameters();
-
-private:
-  Kernel &kernel_;
-  CongruenceParameters saved_;
-};
+using ScopedCongruenceParameters = ScopedRuleParameters<CongruenceParameters>;
 
 } // namespace strategy
 } // namespace tactix

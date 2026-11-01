@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include "strategy/local_search.hpp"
+#include "strategy/scoped_rule_parameters.hpp"
 #include "strategy/graph_labeling_parameters.hpp"
 #include "strategy/ramsey_startup_parameters.hpp"
 
@@ -496,21 +497,6 @@ void install_rule_parameters(Kernel &, const GraphLabelingParameters &);
 void install_rule_parameters(Kernel &, const StconnProofParameters &);
 void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
-
-template <class Parameters> class ScopedRuleParameters {
-public:
-  ScopedRuleParameters(Kernel &kernel, const Parameters &parameters)
-      : kernel_(kernel), saved_(Parameters::from_kernel(kernel)) {
-    install_rule_parameters(kernel_, parameters);
-  }
-  ScopedRuleParameters(const ScopedRuleParameters &) = delete;
-  ScopedRuleParameters &operator=(const ScopedRuleParameters &) = delete;
-  ~ScopedRuleParameters() { install_rule_parameters(kernel_, saved_); }
-
-private:
-  Kernel &kernel_;
-  Parameters saved_;
-};
 
 using ScopedBceParameters = ScopedRuleParameters<BceParameters>;
 using ScopedTernaryParameters = ScopedRuleParameters<TernaryParameters>;

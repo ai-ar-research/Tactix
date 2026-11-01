@@ -1,8 +1,10 @@
 #include "policies/default_policy.hpp"
+#include "kernel/splitmix64.hpp"
 #include "policies/strategy_settings.hpp"
 #include "policies/progress.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
+#include "strategy/common_parameter_serialization.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/lucky_execution.hpp"
 #include "strategy/representation_execution.hpp"
@@ -235,64 +237,6 @@ strategy::controller::FeedbackOutcome affine_init_outcome(
     inv.status = InvocationStatus::StaleRequest;
     break;
   case AffineMatrixInitStatus::Invalid:
-    inv.status = InvocationStatus::InvalidRequest;
-    break;
-  }
-  return out;
-}
-
-strategy::controller::FeedbackOutcome affine_service_outcome(
-    const AffineMatrixServiceResult &result,
-    strategy::controller::NativeActionDescription &description) {
-  using strategy::InvocationStatus;
-  description.affine_matrix_status = static_cast<uint8_t>(result.status);
-  description.affine_matrix_event_identity = result.event_identity;
-  description.affine_matrix_synchronization_work =
-      result.synchronization_work;
-  description.affine_matrix_session_work = result.session_work;
-  description.affine_matrix_reason_width = result.reason_width;
-  description.affine_matrix_planner_work = result.live.planner_work;
-  description.affine_matrix_revalidation_work =
-      result.live.revalidation_work;
-  description.affine_matrix_proof_additions = result.live.additions;
-  description.affine_matrix_proof_deletions = result.live.deletions;
-  description.affine_matrix_helper_extent = result.live.helper_extent;
-  description.affine_matrix_journal_bytes = result.live.journal_bytes;
-  description.affine_matrix_bcp_pending = result.bcp_pending;
-
-  strategy::controller::FeedbackOutcome out;
-  auto &inv = out.invocation;
-  inv.rule_result = result.result;
-  inv.work = result.synchronization_work;
-  inv.applications = result.status == AffineMatrixServiceStatus::Applied;
-  inv.made_rule_progress = inv.applications;
-  inv.selection_complete = true;
-  switch (result.status) {
-  case AffineMatrixServiceStatus::Applied:
-    inv.status = InvocationStatus::Completed;
-    break;
-  case AffineMatrixServiceStatus::Disabled:
-  case AffineMatrixServiceStatus::NoEvent:
-  case AffineMatrixServiceStatus::Duplicate:
-    inv.status = InvocationStatus::NoChange;
-    break;
-  case AffineMatrixServiceStatus::Inapplicable:
-  case AffineMatrixServiceStatus::UnsupportedProof:
-    inv.status = InvocationStatus::Inapplicable;
-    break;
-  case AffineMatrixServiceStatus::Pending:
-    inv.status = strategy::InvocationStatus::BudgetExhausted;inv.selection_complete=false;
-    break;
-  case AffineMatrixServiceStatus::ResourceExhausted:
-    inv.status = InvocationStatus::ResourceExhausted;
-    break;
-  case AffineMatrixServiceStatus::Interrupted:
-    inv.status = InvocationStatus::Interrupted;
-    break;
-  case AffineMatrixServiceStatus::Stale:
-    inv.status = InvocationStatus::StaleRequest;
-    break;
-  case AffineMatrixServiceStatus::Invalid:
     inv.status = InvocationStatus::InvalidRequest;
     break;
   }
@@ -539,7 +483,7 @@ ApplyResult default_affine_root_closure(
           return port::affine_matrix_search_step(
               kernel, *kernel.affine_matrix_search_session);
         },
-        affine_service_outcome);
+        execution::affine_matrix_service_feedback);
     if (service.status == AffineMatrixServiceStatus::Applied) {
       if (service.result == ApplyResult::Unsat) return ApplyResult::Unsat;
       if (!service.bcp_pending) std::abort();
@@ -588,6 +532,22 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
     out.invocation.status = before.refine(k, result, out.invocation.status);
     return out;
   });
+}
+
+// `trace(event, payload)` forwards to the caller's EventTrace::macro. Taking a
+// callable rather than an EventTrace keeps that diagnostic type out of this
+// helper's out-of-line -O0 symbols (event_trace_zero_overhead).
+template <LuckyOpportunity Opportunity, typename TraceMacro>
+bool default_traced_lucky_terminal(
+    Kernel &k, const TraceMacro &trace, const char *candidate,
+    const char *begin_event, const char *end_event, ApplyResult terminal,
+    const char *terminal_name, PolicyCompletion *completion = nullptr) {
+  trace(begin_event, "-");
+  const ApplyResult result =
+      default_lucky_opportunity<Opportunity>(k, candidate, completion);
+  const bool reached_terminal = result == terminal;
+  trace(end_event, reached_terminal ? terminal_name : "unknown");
+  return reached_terminal;
 }
 
 ApplyResult default_lucky(Kernel &k, const char *candidate,
@@ -1268,6 +1228,39 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
 
 std::string DefaultStrategyConfig::serialize() const {
   std::ostringstream out;
+  const auto serialize_lucky_parameters = [](const auto &parameters,
+                                              uint64_t instance) {
+    strategy::OnlineStrategyProgram program;
+    strategy::OnlineInvocation invocation;
+    invocation.id = 1;
+    invocation.rule = "Lucky";
+    invocation.parameters = parameters;
+    invocation.granularity = strategy::InvocationGranularity::OneInstance;
+    invocation.instances = {instance};
+    program.sequence.push_back(std::move(invocation));
+    return strategy::serialize_online_strategy_program(program);
+  };
+  const auto serialize_structured_root_stages =
+      [&out](const char *prefix, const auto &stages) {
+        for (size_t i = 0; i < stages.size(); ++i) {
+          const auto &stage = stages[i];
+          out << ' ' << prefix << i << "={"
+              << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
+              << strategy::serialize_online_strategy_program(stage.program)
+              << '}';
+          const auto append_ids = [&](const char *suffix, const auto &ids) {
+            if (ids.empty()) return;
+            out << ' ' << prefix << i << suffix << '=';
+            for (size_t j = 0; j < ids.size(); ++j)
+              out << (j ? "," : "") << ids[j];
+          };
+          append_ids(".progress_followups", stage.progress_followups);
+          append_ids(".before_progress", stage.before_progress);
+          out << ' ' << prefix << i
+              << ".structured_handoff_after_prior_progress="
+              << stage.structured_handoff_after_prior_progress;
+        }
+      };
   out << "strategy-v1"
       << " branching.random_initial_interval="
       << branching.random_initial_interval
@@ -1460,18 +1453,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " affine_search.maximum_service_work=" << affine_search.maximum_service_work
       << " affine_search.maximum_retained_bytes=" << affine_search.maximum_retained_bytes
       << " affine_model.enabled=" << affine_model.enabled;
-  {
-    strategy::OnlineStrategyProgram affine;
-    strategy::OnlineInvocation invocation;
-    invocation.id = 1;
-    invocation.rule = "Lucky";
-    invocation.parameters = affine_model.parameters;
-    invocation.granularity = strategy::InvocationGranularity::OneInstance;
-    invocation.instances = {8};
-    affine.sequence.push_back(std::move(invocation));
-    out << " affine_model.parameters="
-        << strategy::serialize_online_strategy_program(affine);
-  }
+  out << " affine_model.parameters="
+      << serialize_lucky_parameters(affine_model.parameters, 8);
   out
       << " balanced_signature_model.enabled="
       << balanced_signature_model.enabled
@@ -1554,16 +1537,9 @@ std::string DefaultStrategyConfig::serialize() const {
       << independent_set_model.parameters.completion_rounds
       << " independent_set_model.seed=" << independent_set_model.parameters.seed;
   out << " ramsey_startup.enabled=" << ramsey_startup.enabled;
-  {
-    strategy::OnlineStrategyProgram program;
-    strategy::OnlineInvocation invocation;
-    invocation.id = 1; invocation.rule = "Lucky";
-    invocation.parameters = ramsey_startup.parameters;
-    invocation.granularity = strategy::InvocationGranularity::OneInstance;
-    invocation.instances = {LUCKY_STARTUP_RAMSEY};
-    program.sequence.push_back(std::move(invocation));
-    out << " ramsey_startup.parameters=" << strategy::serialize_online_strategy_program(program);
-  }
+  out << " ramsey_startup.parameters="
+      << serialize_lucky_parameters(ramsey_startup.parameters,
+                                    LUCKY_STARTUP_RAMSEY);
   out << " affine_root_closure.enabled=" << affine_root_closure.enabled
       << " affine_root_closure.maximum_clauses="
       << affine_root_closure.maximum_clauses
@@ -1584,18 +1560,9 @@ std::string DefaultStrategyConfig::serialize() const {
       << " affine_root_closure.maximum_session_work="
       << affine_root_closure.maximum_session_work;
   out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled;
-  {
-    strategy::OnlineStrategyProgram graph;
-    strategy::OnlineInvocation invocation;
-    invocation.id = 1;
-    invocation.rule = "Lucky";
-    invocation.parameters = graph_labeling_model.parameters;
-    invocation.granularity = strategy::InvocationGranularity::OneInstance;
-    invocation.instances = {LUCKY_GRAPH_LABELING};
-    graph.sequence.push_back(std::move(invocation));
-    out << " graph_labeling_model.parameters="
-        << strategy::serialize_online_strategy_program(graph);
-  }
+  out << " graph_labeling_model.parameters="
+      << serialize_lucky_parameters(graph_labeling_model.parameters,
+                                    LUCKY_GRAPH_LABELING);
   out
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
@@ -1716,70 +1683,14 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.structured_root_large_domain_limit="
       << inprocess.structured_root_large_domain_limit
 ;
-  for (size_t i = 0; i < inprocess.structured_root_stages.size(); ++i) {
-    const auto &stage = inprocess.structured_root_stages[i];
-    out << " inprocess.structured_root_stage" << i << "={"
-        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
-        << strategy::serialize_online_strategy_program(stage.program) << '}';
-    if (!stage.progress_followups.empty()) {
-      out << " inprocess.structured_root_stage" << i << ".progress_followups=";
-      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
-        out << (j ? "," : "") << stage.progress_followups[j];
-    }
-    if (!stage.before_progress.empty()) {
-      out << " inprocess.structured_root_stage" << i << ".before_progress=";
-      for (size_t j = 0; j < stage.before_progress.size(); ++j)
-        out << (j ? "," : "") << stage.before_progress[j];
-    }
-    out << " inprocess.structured_root_stage" << i
-        << ".structured_handoff_after_prior_progress="
-        << stage.structured_handoff_after_prior_progress;
-  }
-  for (size_t i = 0;
-       i < inprocess.structured_root_bounded_backtracking_stages.size(); ++i) {
-    const auto &stage =
-        inprocess.structured_root_bounded_backtracking_stages[i];
-    out << " inprocess.structured_root_bounded_backtracking_stage" << i << "={"
-        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
-        << strategy::serialize_online_strategy_program(stage.program) << '}';
-    if (!stage.progress_followups.empty()) {
-      out << " inprocess.structured_root_bounded_backtracking_stage" << i
-          << ".progress_followups=";
-      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
-        out << (j ? "," : "") << stage.progress_followups[j];
-    }
-    if (!stage.before_progress.empty()) {
-      out << " inprocess.structured_root_bounded_backtracking_stage" << i
-          << ".before_progress=";
-      for (size_t j = 0; j < stage.before_progress.size(); ++j)
-        out << (j ? "," : "") << stage.before_progress[j];
-    }
-    out << " inprocess.structured_root_bounded_backtracking_stage" << i
-        << ".structured_handoff_after_prior_progress="
-        << stage.structured_handoff_after_prior_progress;
-  }
-  for (size_t i = 0; i < inprocess.structured_root_large_domain_stages.size();
-       ++i) {
-    const auto &stage = inprocess.structured_root_large_domain_stages[i];
-    out << " inprocess.structured_root_large_stage" << i << "={"
-        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
-        << strategy::serialize_online_strategy_program(stage.program) << '}';
-    if (!stage.progress_followups.empty()) {
-      out << " inprocess.structured_root_large_stage" << i
-          << ".progress_followups=";
-      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
-        out << (j ? "," : "") << stage.progress_followups[j];
-    }
-    if (!stage.before_progress.empty()) {
-      out << " inprocess.structured_root_large_stage" << i
-          << ".before_progress=";
-      for (size_t j = 0; j < stage.before_progress.size(); ++j)
-        out << (j ? "," : "") << stage.before_progress[j];
-    }
-    out << " inprocess.structured_root_large_stage" << i
-        << ".structured_handoff_after_prior_progress="
-        << stage.structured_handoff_after_prior_progress;
-  }
+  serialize_structured_root_stages("inprocess.structured_root_stage",
+                                   inprocess.structured_root_stages);
+  serialize_structured_root_stages(
+      "inprocess.structured_root_bounded_backtracking_stage",
+      inprocess.structured_root_bounded_backtracking_stages);
+  serialize_structured_root_stages(
+      "inprocess.structured_root_large_stage",
+      inprocess.structured_root_large_domain_stages);
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
   out << " inprocess.bve_default_ceiling=" << inprocess.bve_default_ceiling
@@ -1907,69 +1818,9 @@ std::string DefaultStrategyConfig::serialize() const {
       out << candidate_order_name(*step.candidate_order);
     else
       out << "inherit";
-    if (const auto *p =
-            std::get_if<strategy::BveParameters>(&step.parameters)) {
-      out << ":bve(" << p->gate_mask << ',' << p->growth_bound << ','
-          << p->occurrence_limit << ',' << p->clause_size_limit << ','
-          << p->xor_arity_limit << ',' << p->resolvent_size_limit << ','
-          << p->backward_occurrence_limit << ',' << p->definition_budget << ','
-          << p->definition_cores << ','
-          << p->definition_core_budget_multiplier << ',' << p->backward << ','
-          << static_cast<unsigned>(p->candidate_scope) << ','
-          << p->resolvent_count_limit << ','
-          << static_cast<unsigned>(p->traversal) << ','
-          << p->on_the_fly_strengthening << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::SubsumeForwardParameters>(
-                       &step.parameters)) {
-      out << ":c1(" << p->clause_size_limit << ','
-          << p->large_occurrence_limit << ','
-          << p->binary_occurrence_limit << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::StrengthenParameters>(
-                       &step.parameters)) {
-      out << ":c2(" << p->clause_size_limit << ','
-          << p->occurrence_limit << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::ParityConsequenceParameters>(&step.parameters)) {
-      out << ":parity-consequence(" << p->maximum_clauses << ','
-          << p->maximum_groups << ',' << p->selection_work << ','
-          << p->intermediate_width << ',' << p->source_count << ','
-          << p->output_width << ',' << p->descending << ','
-          << p->maximum_proof_additions << ',' << p->maximum_tree_variables
-          << ',' << p->consequence << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::CongruenceParameters>(
-                       &step.parameters)) {
-      out << ":congruence(" << p->and_arity_limit << ','
-          << p->gate_count_limit << ',' << p->xor_arity_limit << ','
-          << static_cast<unsigned>(p->binary_watch_order) << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::InstantiateParameters>(
-                       &step.parameters)) {
-      out << ":instantiate(" << p->minimum_clause_size << ','
-          << p->occurrence_limit << ',' << p->minimum_unassigned << ','
-          << p->include_redundant << ',' << p->new_material_threshold << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::BackboneParameters>(
-                       &step.parameters)) {
-      out << ":backbone(" << p->initial_rounds << ','
-          << p->maximum_rounds << ')';
-    } else if (const auto *p = std::get_if<SweepLimits>(&step.parameters)) {
-      out << ":sweep(" << p->max_depth << ',' << p->max_depth_ceiling << ','
-          << p->max_env_vars << ',' << p->max_env_vars_ceiling << ','
-          << p->max_env_clauses << ',' << p->max_env_clauses_ceiling << ','
-          << p->max_candidates << ',' << p->env_ticks << ','
-          << p->max_proof_steps << ',' << p->max_seeds << ','
-          << p->round_ticks << ',' << p->strip_false << ','
-          << p->measure_closure << ',' << p->full_partition << ','
-          << p->skip_embedded_fixed << ',' << p->flip_rounds << ','
-          << p->resume << ',' << p->force_general_proof << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::VivifyParameters>(&step.parameters)) {
-      out << ":vivify(" << unsigned(p->scope) << ',' << p->reuse << ','
-          << p->flush << ',' << p->irredundant_sort_ratio << ')';
-    } else {
+    if (!strategy::serialize_common_parameters(
+            out, step.parameters,
+            strategy::CommonParameterFormat::DefaultConfiguration)) {
       out << ":inherit";
     }
   }
@@ -2866,10 +2717,7 @@ void DefaultCandidateOrder::rank(const Kernel &k, uint32_t rule,
   if (arm == CandidateOrder::Random) {
     for (uint32_t i = n; i > 1; i--) {
       rng_ += increment_;
-      uint64_t z = rng_;
-      z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
-      z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
-      z ^= z >> 31;
+      const uint64_t z = splitmix64_scramble(rng_);
       std::swap(insts[i - 1], insts[z % i]);
     }
     return;
@@ -4036,7 +3884,7 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
             affine_search_diagnostics_.service_work,work);
         return serviced;
       },
-      affine_service_outcome);
+      execution::affine_matrix_service_feedback);
   affine_search_diagnostics_.overhead_nanos += now_nanos()-started;
   const bool optional_disable=record_affine_service_result(kernel,result,root);
   record_affine_survival(affine_search_diagnostics_, survival_before,
@@ -4066,7 +3914,7 @@ AffineMatrixServiceResult DefaultPolicy::materialize_affine_reason(
       }, [&] {
         return port::affine_matrix_materialize_reason(
             kernel, *kernel.affine_matrix_search_session);
-      }, affine_service_outcome);
+      }, execution::affine_matrix_service_feedback);
   ++affine_search_diagnostics_.materialization_attempts;
   if (result.status == AffineMatrixServiceStatus::Inapplicable)
     ++affine_search_diagnostics_.materialization_inapplicable;
@@ -4715,6 +4563,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   inprocess_.build(k, completion_);
   EventTrace event_trace;
   event_trace.open_from_env(k);
+  const auto lucky_trace = [&](const char *event, const char *payload) {
+    event_trace.macro(k, event, payload);
+  };
   // Paired search-time deletion counters on every analysis_end row: the
   // clause a solver deletes between two boundaries is invisible in the
   // journals, and kissat's rows carry the same three statistics.
@@ -4799,14 +4650,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     return finish(20);
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
-    event_trace.macro(k, "signed_cardinality_proof_begin");
-    const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::SignedCardinality>(
-        k, "signed-cardinality-proof", completion_);
-    if (counting == ApplyResult::Unsat) {
-      event_trace.macro(k, "signed_cardinality_proof_end", "unsat");
+    if (default_traced_lucky_terminal<
+            LuckyOpportunity::SignedCardinality>(
+            k, lucky_trace, "signed-cardinality-proof",
+            "signed_cardinality_proof_begin",
+            "signed_cardinality_proof_end", ApplyResult::Unsat, "unsat",
+            completion_))
       return finish(20);
-    }
-    event_trace.macro(k, "signed_cardinality_proof_end", "unknown");
   }
   // Signed at-most-one block exact cover (the sgen owner): exact recognition
   // on the live clause set, then bounded search and whole-formula model check.
@@ -4828,14 +4678,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
   }
   if (config_.stconn_proof.enabled && stconn_proof_guard(k)) {
-    event_trace.macro(k, "stconn_proof_begin");
-    const ApplyResult stconn = default_lucky_opportunity<LuckyOpportunity::Stconn>(
-        k, "stconn-proof", completion_);
-    if (stconn == ApplyResult::Unsat) {
-      event_trace.macro(k, "stconn_proof_end", "unsat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Stconn>(
+            k, lucky_trace, "stconn-proof", "stconn_proof_begin",
+            "stconn_proof_end", ApplyResult::Unsat, "unsat", completion_))
       return finish(20);
-    }
-    event_trace.macro(k, "stconn_proof_end", "unknown");
   }
   // The LymphoSAT Oddball owner constructs balanced ternary signatures at the
   // untouched imported root. A complete candidate is checked against the
@@ -4843,83 +4689,53 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // publishes only its partial assignment as later Walk/CDCL guidance.
   if (config_.balanced_signature_model.enabled &&
       balanced_signature_model_guard(k)) {
-    event_trace.macro(k, "balanced_signature_model_begin");
-    const ApplyResult balanced =
-        default_lucky_opportunity<LuckyOpportunity::BalancedSignature>(
-            k, "balanced-signature-model", completion_);
-    if (balanced == ApplyResult::Sat) {
-      event_trace.macro(k, "balanced_signature_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::BalancedSignature>(
+            k, lucky_trace, "balanced-signature-model",
+            "balanced_signature_model_begin", "balanced_signature_model_end",
+            ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "balanced_signature_model_end", "unknown");
   }
   // SAT-only LymphoSAT owners retain their bounded theory-specific model
   // constructors. Every completed assignment is checked against the whole live
   // CNF before publication; exhaustion remains unknown.
   if (config_.fermat_model.enabled && fermat_model_guard(k)) {
-    event_trace.macro(k, "fermat_model_begin");
-    const ApplyResult result = default_lucky_opportunity<LuckyOpportunity::Fermat>(
-        k, "fermat-model", completion_);
-    if (result == ApplyResult::Sat) {
-      event_trace.macro(k, "fermat_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Fermat>(
+            k, lucky_trace, "fermat-model", "fermat_model_begin",
+            "fermat_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "fermat_model_end", "unknown");
   }
   if (config_.cerny_model.enabled && cerny_model_guard(k)) {
-    event_trace.macro(k, "cerny_model_begin");
-    const ApplyResult result = default_lucky_opportunity<LuckyOpportunity::Cerny>(
-        k, "cerny-model", completion_);
-    if (result == ApplyResult::Sat) {
-      event_trace.macro(k, "cerny_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Cerny>(
+            k, lucky_trace, "cerny-model", "cerny_model_begin",
+            "cerny_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "cerny_model_end", "unknown");
   }
   if (config_.lookup_circuit_model.enabled && lookup_circuit_model_guard(k)) {
-    event_trace.macro(k, "lookup_circuit_model_begin");
-    const ApplyResult result =
-        default_lucky_opportunity<LuckyOpportunity::LookupCircuit>(
-            k, "lookup-circuit-model", completion_);
-    if (result == ApplyResult::Sat) {
-      event_trace.macro(k, "lookup_circuit_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::LookupCircuit>(
+            k, lucky_trace, "lookup-circuit-model",
+            "lookup_circuit_model_begin", "lookup_circuit_model_end",
+            ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "lookup_circuit_model_end", "unknown");
   }
   if (config_.simon_model.enabled && simon_model_guard(k)) {
-    event_trace.macro(k, "simon_model_begin");
-    const ApplyResult result = default_lucky_opportunity<LuckyOpportunity::Simon>(
-        k, "simon-model", completion_);
-    if (result == ApplyResult::Sat) {
-      event_trace.macro(k, "simon_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Simon>(
+            k, lucky_trace, "simon-model", "simon_model_begin",
+            "simon_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "simon_model_end", "unknown");
   }
   // The proof-only parity action keeps the constructor's exact recognizer and
   // certificate path without entering its private assignment search.
   if (parity_model_guard(k)) {
-    event_trace.macro(k, "parity_proof_begin");
-    const ApplyResult parity =
-        default_lucky_opportunity<LuckyOpportunity::ParityProof>(
-            k, "parity-proof", completion_);
-    if (parity == ApplyResult::Unsat) {
-      event_trace.macro(k, "parity_proof_end", "unsat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::ParityProof>(
+            k, lucky_trace, "parity-proof", "parity_proof_begin",
+            "parity_proof_end", ApplyResult::Unsat, "unsat", completion_))
       return finish(20);
-    }
-    event_trace.macro(k, "parity_proof_end", "unknown");
   }
   if (config_.parity_model.enabled && parity_model_guard(k)) {
-    event_trace.macro(k, "parity_model_begin");
-    const ApplyResult parity =
-        default_lucky_opportunity<LuckyOpportunity::Parity>(
-            k, "parity-model", completion_);
-    if (parity == ApplyResult::Sat) {
-      event_trace.macro(k, "parity_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Parity>(
+            k, lucky_trace, "parity-model", "parity_model_begin",
+            "parity_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "parity_model_end", "unknown");
   }
   // The exact-one proof compares a complete live incidence system with the
   // parser's stable binary order. Run it while both still describe the same
@@ -5020,15 +4836,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
   }
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
-    event_trace.macro(k, "direct_csp_model_begin");
-    const ApplyResult direct_csp =
-        default_lucky_opportunity<LuckyOpportunity::DirectCsp>(
-            k, "direct-csp-model", completion_);
-    if (direct_csp == ApplyResult::Sat) {
-      event_trace.macro(k, "direct_csp_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::DirectCsp>(
+            k, lucky_trace, "direct-csp-model", "direct_csp_model_begin",
+            "direct_csp_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "direct_csp_model_end", "unknown");
   }
   if (k.input_binary_order_captured)
     (void)port::complete_action(completion_, FeedbackKind::Support,
@@ -5055,15 +4866,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     event_trace.macro(k, "lucky_early_end", "unknown");
   }
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
-    event_trace.macro(k, "onehot_model_begin");
-    const ApplyResult onehot =
-        default_lucky_opportunity<LuckyOpportunity::Onehot>(
-            k, "onehot-model", completion_);
-    if (onehot == ApplyResult::Sat) {
-      event_trace.macro(k, "onehot_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Onehot>(
+            k, lucky_trace, "onehot-model", "onehot_model_begin",
+            "onehot_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "onehot_model_end", "unknown");
   }
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer

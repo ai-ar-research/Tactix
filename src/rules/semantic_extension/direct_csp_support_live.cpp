@@ -1,6 +1,9 @@
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/csp_physical_scan.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -16,26 +19,7 @@ namespace {
 
 namespace support = direct_csp_support;
 
-struct Meter {
-  const Kernel &kernel;
-  uint64_t limit = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > limit || amount > limit - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
+using Meter = InterruptibleWork;
 
 DirectCspSupportLiveStatus stopped_status(
     const Meter &meter, DirectCspSupportLiveStatus otherwise) {
@@ -45,7 +29,7 @@ DirectCspSupportLiveStatus stopped_status(
 }
 
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 std::vector<int32_t> normalized(std::vector<int32_t> clause) {
@@ -218,25 +202,11 @@ CaptureSliceStatus capture_slice(
                   FoundClause{native_id, external, wanted->second});
     return true;
   };
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
-    if (!meter.charge(1)) return capture_stopped(meter);
-    if (!clause->garbage() &&
-        !observe(clause->lits, clause->size, clause->id()))
-      return failure;
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1)) return capture_stopped(meter);
-      if (!watch.binary() || first >= watch.other()) continue;
-      const Lit pair[] = {first, watch.other()};
-      const uint64_t native_id =
-          kernel.binary_ids.tracks_values()
-              ? kernel_binary_id(kernel, first, watch.other())
-              : 0;
-      if (!observe(pair, 2, native_id)) return failure;
-    }
+  const csp_physical_scan::Status scan =
+      csp_physical_scan::run(kernel, meter, observe);
+  if (scan != csp_physical_scan::Status::Complete)
+    return scan == csp_physical_scan::Status::Stopped ? capture_stopped(meter)
+                                                       : failure;
 
   DirectCspSupportOwnerSnapshot snapshot;
   snapshot.external_extent = kernel.external_to_internal.size();
@@ -326,30 +296,6 @@ bool owner_payload_valid(const DirectCspSupportOwnerSnapshot &owner,
     literals += premise.literals.size();
   }
   return literals == owner.source_literals;
-}
-
-bool owner_equal(const DirectCspSupportOwnerSnapshot &first,
-                 const DirectCspSupportOwnerSnapshot &second) {
-  if (first.external_extent != second.external_extent ||
-      first.source_literals != second.source_literals ||
-      first.capture_work != second.capture_work ||
-      first.source.size() != second.source.size())
-    return false;
-  for (size_t index = 0; index < first.source.size(); ++index) {
-    const auto &a = first.source[index];
-    const auto &b = second.source[index];
-    if (a.occurrence != b.occurrence ||
-        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
-      return false;
-  }
-  const auto domain_equal = [](const support::Domain &a,
-                               const support::Domain &b) {
-    return a.values == b.values && a.at_least_one == b.at_least_one &&
-           a.at_most_one == b.at_most_one;
-  };
-  return domain_equal(first.relation.left, second.relation.left) &&
-         domain_equal(first.relation.right, second.relation.right) &&
-         first.relation.forbidden == second.relation.forbidden;
 }
 
 bool metered_sort(ClauseKey &key, Meter &meter) {
@@ -456,29 +402,7 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &wanted,
   return false;
 }
 
-struct Journal {
-  uint64_t maximum = 0;
-  uint64_t work = 0;
-  std::string bytes;
-
-  bool append(const std::string &text) {
-    if (text.size() > UINT64_MAX - work) return false;
-    work += text.size();
-    if (text.size() > maximum - bytes.size()) return false;
-    bytes += text;
-    return true;
-  }
-  bool integers(const std::vector<int32_t> &values) {
-    for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i]))) return false;
-    return true;
-  }
-  bool unsigneds(const std::vector<uint64_t> &values) {
-    for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i]))) return false;
-    return true;
-  }
-};
+using Journal = semantic_extension::BoundedJournal<true>;
 
 bool render_journal(const DirectCspSupportLiveRequest &request,
                     const DirectCspSupportOwnerSnapshot &owner,
@@ -513,7 +437,7 @@ bool render_journal(const DirectCspSupportLiveRequest &request,
       !journal.append("],\"compatible\":[") ||
       !journal.integers(plan.compatible_right_values) ||
       !journal.append("],\"forbidden_premises\":[") ||
-      !journal.unsigneds(plan.forbidden_premises) ||
+      !journal.integers(plan.forbidden_premises) ||
       !journal.append("]}\n"))
     return false;
   for (size_t index = 0; index < plan.additions.size(); ++index) {
@@ -713,7 +637,7 @@ void prepare_live_action(Kernel &kernel,
     return;
   }
 
-  prepared.journal = Journal{request.maximum_journal_bytes, 0, {}};
+  prepared.journal = Journal{request.maximum_journal_bytes};
   prepared.first_id = kernel.next_clause_id + 1;
   if (!render_journal(request, *prepared.owner, prepared.plan,
                       prepared.first_id, proof_work, prepared.journal)) {
@@ -744,7 +668,7 @@ void prepare_live_action(Kernel &kernel,
   result.recognition_limit_exhausted = meter.exhausted;
   current.external_extent = prepared.owner->external_extent;
   current.capture_work = prepared.owner->capture_work;
-  if (!owner_equal(current, *prepared.owner)) {
+  if (!direct_csp_support_same_live_owner(current, *prepared.owner)) {
     result.status = DirectCspSupportLiveStatus::Stale;
     return;
   }
@@ -917,10 +841,7 @@ DirectCspSupportLiveResult direct_csp_support_live_apply(
                               redundant ? literals.size() : 0, id);
     }
   }
-  if (std::fwrite(journal.bytes.data(), 1, journal.bytes.size(),
-                  request.records) != journal.bytes.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
 
   result.status = DirectCspSupportLiveStatus::Applied;
   result.result = ApplyResult::Ok;

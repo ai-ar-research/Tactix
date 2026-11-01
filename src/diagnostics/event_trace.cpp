@@ -2,6 +2,8 @@
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 
+#include "diagnostics/process_memory.hpp"
+#include "kernel/splitmix64.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/bve/bve.hpp"
 
@@ -14,7 +16,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <sys/resource.h>
 #if defined(__GLIBC__)
 #include <malloc.h>
 #endif
@@ -22,6 +23,17 @@
 namespace tactix {
 void emit_heap_set_snapshot(const Kernel &k, bool after_decision);
 namespace {
+
+// Opens a diagnostic trace for writing; a trace the user requested but that
+// cannot be created reports its environment variable and exits with status 2.
+FILE *open_trace_or_exit(const char *path, const char *environment) {
+  FILE *out = std::fopen(path, "w");
+  if (!out) {
+    std::perror(environment);
+    std::exit(2);
+  }
+  return out;
+}
 
 EventTrace *active_trace;
 bool bve_retry_trace_armed;
@@ -52,6 +64,74 @@ bool exit_selector_matches(const char *event, const char *payload,
   const std::string selector =
       std::string(event) + "|" + (payload ? payload : "-");
   return selector.find(match) != std::string::npos;
+}
+
+void append_absolute_integers(const char *spec, std::vector<int> &values) {
+  const char *cursor = spec;
+  while (*cursor) {
+    char *end = nullptr;
+    const long value = std::strtol(cursor, &end, 10);
+    if (end == cursor)
+      break;
+    values.push_back(std::abs(static_cast<int>(value)));
+    cursor = *end == ',' ? end + 1 : end;
+    if (*end && *end != ',')
+      break;
+  }
+}
+
+template <class Integer = int>
+std::vector<Integer> sorted_external_clause(const Kernel &k,
+                                            const Clause &clause) {
+  std::vector<Integer> result;
+  result.reserve(clause.size);
+  for (const Lit lit : clause)
+    result.push_back(kernel_externalize(k, lit));
+  std::sort(result.begin(), result.end());
+  return result;
+}
+
+void append_factor_entry_literals(std::string &payload, const Kernel &k,
+                                  Lit selected, Lit other,
+                                  const Clause *clause) {
+  if (!clause) {
+    payload += std::to_string(kernel_externalize(k, selected));
+    payload += ',';
+    payload += std::to_string(kernel_externalize(k, other));
+    return;
+  }
+  const auto lits = sorted_external_clause(k, *clause);
+  for (size_t i = 0; i < lits.size(); i++) {
+    if (i)
+      payload += ',';
+    payload += std::to_string(lits[i]);
+  }
+}
+
+void append_clause_pose(std::string &payload, const Kernel &k,
+                        const Clause &clause) {
+  std::vector<int> external;
+  external.reserve(clause.size);
+  for (const Lit lit : clause) {
+    if (!external.empty())
+      payload.push_back(',');
+    const int value = kernel_externalize(k, lit);
+    payload += std::to_string(value);
+    external.push_back(value);
+  }
+  payload += "|levels=";
+  for (uint32_t i = 0; i < clause.size; ++i) {
+    if (i)
+      payload.push_back(',');
+    payload += std::to_string(k.var_level(var_of(clause.lits[i])));
+  }
+  std::sort(external.begin(), external.end());
+  payload += "|set=";
+  for (size_t i = 0; i != external.size(); ++i) {
+    if (i)
+      payload.push_back(',');
+    payload += std::to_string(external[i]);
+  }
 }
 
 template <class T> size_t capacity_bytes(const std::vector<T> &values) {
@@ -90,21 +170,11 @@ DenseStorage dense_storage(const OccIndex *dense) {
 
 void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
                        size_t temporary_bytes = 0, uint32_t subject = 0) {
-  static bool initialized = false;
-  static FILE *out = nullptr;
-  if (!initialized) {
-    initialized = true;
-    const char *path = std::getenv("TACTIX_SLOT_MEMORY_TRACE");
-    if (path && *path) {
-      out = std::fopen(path, "w");
-      if (out)
-        std::setvbuf(out, nullptr, _IOLBF, 0);
-    }
-  }
+  static diagnostics::EnvironmentLineFile trace;
+  FILE *out = trace.stream("TACTIX_SLOT_MEMORY_TRACE");
   if (!out)
     return;
-  rusage usage{};
-  getrusage(RUSAGE_SELF, &usage);
+  const long peak_rss_kib = diagnostics::peak_resident_kib();
   size_t heap_used_kib = 0, heap_free_kib = 0, mmap_kib = 0;
 #if defined(__GLIBC__)
   const struct mallinfo2 allocator = mallinfo2();
@@ -201,7 +271,7 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
                "dense_ordered_arena_capacity_bytes=%zu\t"
                "memory_conflicts=%llu\tmemory_decisions=%llu\t"
                "memory_subject_internal=%u\n",
-               name, stage, usage.ru_maxrss, current_rss_kib, vm_kib, k.nvars,
+               name, stage, peak_rss_kib, current_rss_kib, vm_kib, k.nvars,
                k.arena.size(), k.arena.capacity(), k.watches.arena.size(),
                k.watches.arena.capacity(), k.watches.heads.capacity(),
                k.reconstruction.size(), k.reconstruction.capacity(),
@@ -439,11 +509,8 @@ void flush_decision_prefix(const Kernel &k) {
   auto &s = decision_prefix;
   if (!s.enabled || s.emitted || k.stats.conflicts < s.conflict + 1)
     return; // flush at first checkpoint past target so STOP fires (3.125)
-  FILE *out = std::fopen(s.path.c_str(), "w");
-  if (!out) {
-    std::perror("TACTIX_DECISION_PREFIX_TRACE");
-    std::exit(2);
-  }
+  FILE *out = open_trace_or_exit(s.path.c_str(),
+                                 "TACTIX_DECISION_PREFIX_TRACE");
   std::fputs("# tactix-decision-prefix\t1\n", out);
   std::fputs("# solver\tconflict\tstart_decisions\tend_decisions\tcount\t"
              "hash\tcommon\tcommon_reached\tcommon_hash\tfirst\t"
@@ -710,11 +777,7 @@ static void emit_standalone_inprocess_score(const Kernel &k,
       std::getenv("SAT_INPROCESS_SCORE_PHASES") != nullptr;
   static FILE *out = nullptr;
   if (!out) {
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_INPROCESS_SCORE_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_INPROCESS_SCORE_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# tactix-inprocess-score\t1\n", out);
     std::fputs("# solver\tlabel\tconflicts\tdecisions\texternal\tscore\t"
@@ -756,11 +819,7 @@ static void emit_standalone_macro_active_set(const Kernel &k,
   if (const char *conflict = std::getenv("SAT_MACRO_ACTIVE_SET_CONFLICT"))
     if (*conflict && std::strtoull(conflict, nullptr, 10) != k.stats.conflicts)
       return;
-  FILE *out = std::fopen(path, "w");
-  if (!out) {
-    std::perror("TACTIX_MACRO_ACTIVE_SET");
-    std::exit(2);
-  }
+  FILE *out = open_trace_or_exit(path, "TACTIX_MACRO_ACTIVE_SET");
   std::fprintf(out, "# tactix-macro-active-set\t1\n");
   std::fprintf(out, "# solver\tevent\tconflicts\tactive\n");
   std::fprintf(out, "# tactix\t%s\t%llu\t%llu\n", event,
@@ -806,11 +865,7 @@ static void emit_standalone_macro_watch(const Kernel &k,
   const Lit watched = kernel_internalize(k, external);
   if (watched == INVALID_LIT)
     return;
-  FILE *out = std::fopen(path, "w");
-  if (!out) {
-    std::perror("TACTIX_MACRO_WATCH_TRACE");
-    std::exit(2);
-  }
+  FILE *out = open_trace_or_exit(path, "TACTIX_MACRO_WATCH_TRACE");
   std::fputs("# tactix-macro-watch\t1\n", out);
   std::fputs("# solver\tevent\tconflicts\texternal\tordinal\tblocking\t"
              "size\tsearched\tset\tpose\n",
@@ -821,11 +876,7 @@ static void emit_standalone_macro_watch(const Kernel &k,
     if (entry.binary())
       continue;
     const Clause *clause = clause_at(k.arena, entry.ref());
-    std::vector<int> set;
-    set.reserve(clause->size);
-    for (const Lit lit : *clause)
-      set.push_back(kernel_externalize(k, lit));
-    std::sort(set.begin(), set.end());
+    const auto set = sorted_external_clause(k, *clause);
     std::fprintf(out, "tactix\t%s\t%llu\t%d\t%zu\t%d\t%u\t%u\t",
                  event, (unsigned long long)k.stats.conflicts, external,
                  current, kernel_externalize(k, entry.blocking()),
@@ -862,11 +913,7 @@ static void emit_standalone_macro_watch_series(const Kernel &k,
     return;
   if (!initialized) {
     initialized = true;
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_MACRO_WATCH_SERIES_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_MACRO_WATCH_SERIES_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# tactix-macro-watch-series\t1\n", out);
     std::fputs("# solver\tseq\tevent\tconflicts\texternal\ttotal\tlarge\n",
@@ -901,11 +948,7 @@ void emit_standalone_inprocess_boundary(const Kernel &k, const char *name,
     if (const char *from =
             std::getenv("SAT_INPROCESS_BOUNDARY_CONFLICT_FROM"))
       conflict_from = std::strtoull(from, nullptr, 10);
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_INPROCESS_BOUNDARY_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_INPROCESS_BOUNDARY_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# tactix-inprocess-boundary\t1\n", out);
     std::fputs("# solver\tseq\tname\tstage\tconflicts\tdecisions\t"
@@ -955,11 +998,7 @@ static void emit_standalone_macro_boundary(const Kernel &k,
     if (const char *from =
             std::getenv("SAT_MACRO_BOUNDARY_CONFLICT_FROM"))
       conflict_from = std::strtoull(from, nullptr, 10);
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_MACRO_BOUNDARY_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_MACRO_BOUNDARY_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# tactix-macro-boundary\t1\n", out);
     std::fputs("# solver\tseq\tevent\tconflicts\tdecisions\t"
@@ -989,11 +1028,7 @@ static void emit_standalone_macro_boundary(const Kernel &k,
       !std::strcmp(event, state_event)) {
     static FILE *state = nullptr;
     if (!state) {
-      state = std::fopen(state_path, "w");
-      if (!state) {
-        std::perror("TACTIX_MACRO_BOUNDARY_STATE");
-        std::exit(2);
-      }
+      state = open_trace_or_exit(state_path, "TACTIX_MACRO_BOUNDARY_STATE");
       std::setvbuf(state, nullptr, _IOLBF, 0);
       std::fputs("# tactix-macro-state\t1\n", state);
       std::fputs("# solver\tevent\tconflicts\tdecisions\tpropagations\t"
@@ -1159,10 +1194,7 @@ void emit_formula_set_snapshot(const Kernel &k, const char *event,
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *clause = clause_at(k.arena, ref);
     if (!clause->garbage() || include_garbage) {
-      std::vector<int32_t> external;
-      external.reserve(clause->size);
-      for (const Lit lit : *clause)
-        external.push_back(kernel_externalize(k, lit));
+      const auto external = sorted_external_clause<int32_t>(k, *clause);
       bool selected_clause = !external_filter || !*external_filter;
       for (const int lit : external)
         selected_clause |= selected_snapshot_external(external_filter, lit);
@@ -1170,7 +1202,6 @@ void emit_formula_set_snapshot(const Kernel &k, const char *event,
         ref += clause_actual_words(clause);
         continue;
       }
-      std::sort(external.begin(), external.end());
       const uint64_t clause_hash =
           eliminate_cleanup_clause_hash(k, *clause);
       if (const char *selected_hash =
@@ -1318,19 +1349,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("TACTIX_EVENT_TRACE_HEAP_POP_ONLY") != nullptr;
   heap_vars_only_ =
       std::getenv("TACTIX_EVENT_TRACE_HEAP_VARS_ONLY") != nullptr;
-  if (const char *spec = std::getenv("SAT_EVENT_TRACE_HEAP_VARS")) {
-    const char *cursor = spec;
-    while (*cursor) {
-      char *end = nullptr;
-      const long value = std::strtol(cursor, &end, 10);
-      if (end == cursor)
-        break;
-      heap_vars_.push_back(std::abs(static_cast<int>(value)));
-      cursor = *end == ',' ? end + 1 : end;
-      if (*end && *end != ',')
-        break;
-    }
-  }
+  if (const char *spec = std::getenv("SAT_EVENT_TRACE_HEAP_VARS"))
+    append_absolute_integers(spec, heap_vars_);
   skip_decisions_ =
       std::getenv("TACTIX_EVENT_TRACE_SKIP_DECISIONS") != nullptr;
   skip_randec_draws_ =
@@ -1365,19 +1385,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("SAT_EVENT_TRACE_CLAUSE_LIFECYCLE_ONLY") != nullptr;
   substitute_only_ =
       std::getenv("SAT_EVENT_TRACE_SUBSTITUTE_ONLY") != nullptr;
-  if (const char *spec = std::getenv("SAT_EVENT_TRACE_IMPLY_LITERALS")) {
-    const char *cursor = spec;
-    while (*cursor) {
-      char *end = nullptr;
-      const long value = std::strtol(cursor, &end, 10);
-      if (end == cursor)
-        break;
-      imply_literals_.push_back(std::abs(static_cast<int>(value)));
-      cursor = *end == ',' ? end + 1 : end;
-      if (*end && *end != ',')
-        break;
-    }
-  }
+  if (const char *spec = std::getenv("SAT_EVENT_TRACE_IMPLY_LITERALS"))
+    append_absolute_integers(spec, imply_literals_);
   bve_heap_only_ =
       std::getenv("TACTIX_EVENT_TRACE_BVE_HEAP_ONLY") != nullptr;
   bve_pop_only_ =
@@ -2108,11 +2117,7 @@ void EventTrace::vivify_candidate(const Kernel &k, const char *event,
     return;
   }
   const Clause *clause = clause_at(k.arena, cref);
-  std::vector<int> external;
-  external.reserve(clause->size);
-  for (const Lit lit : *clause)
-    external.push_back(kernel_externalize(k, lit));
-  std::sort(external.begin(), external.end());
+  const auto external = sorted_external_clause(k, *clause);
   std::string payload = "ordinal=" + std::to_string(ordinal) +
                         "|ticks=" + std::to_string(ticks) +
                         "|limit=" + std::to_string(limit) +
@@ -2775,11 +2780,7 @@ void EventTrace::watch_move(const Kernel &k, Lit propagated, Lit target,
       std::getenv("TACTIX_EVENT_TRACE_WATCH_MOVE_CLAUSE_SET");
   if (!selected || !*selected)
     return;
-  std::vector<int> external;
-  external.reserve(clause->size);
-  for (const Lit lit : *clause)
-    external.push_back(kernel_externalize(k, lit));
-  std::sort(external.begin(), external.end());
+  const auto external = sorted_external_clause(k, *clause);
   std::string key;
   for (const int lit : external) {
     if (!key.empty())
@@ -2898,11 +2899,7 @@ void event_trace_vivify_candidate(const Kernel &k, const char *event,
       selected = !*to || ordinal <= std::strtoull(to, nullptr, 10);
   if (selected) {
     const Clause *clause = clause_at(k.arena, cref);
-    std::vector<int> semantic;
-    semantic.reserve(clause->size);
-    for (const Lit lit : *clause)
-      semantic.push_back(kernel_externalize(k, lit));
-    std::sort(semantic.begin(), semantic.end());
+    const auto semantic = sorted_external_clause(k, *clause);
     std::fprintf(out,
                  "tactix\t%llu\t%s\t%llu\t%u\t%llu\t%llu\t%llu\t%u\t"
                  "%llu\t%u\t%u\t%u\t%u\t%u\t",
@@ -2939,11 +2936,7 @@ void event_trace_vivify_counts(const Kernel &k, const uint32_t *counts,
     standalone_initialized = true;
     const char *path = std::getenv("TACTIX_VIVIFY_COUNTS_TRACE");
     if (path && *path) {
-      standalone = std::fopen(path, "w");
-      if (!standalone) {
-        std::perror("TACTIX_VIVIFY_COUNTS_TRACE");
-        std::exit(2);
-      }
+      standalone = open_trace_or_exit(path, "TACTIX_VIVIFY_COUNTS_TRACE");
       std::setvbuf(standalone, nullptr, _IOLBF, 0);
       std::fputs("# tactix-vivify-counts\t1\n", standalone);
       std::fputs("# solver\tseq\tconflicts\tliterals\n", standalone);
@@ -3116,11 +3109,7 @@ void event_trace_randec_state(const Kernel &k, const char *stage,
     if (path && *path && conflict && *conflict && limit && *limit) {
       selected_conflict = std::strtoull(conflict, nullptr, 10);
       cap = std::strtoull(limit, nullptr, 10);
-      out = std::fopen(path, "w");
-      if (!out) {
-        std::perror("TACTIX_RANDEC_STATE_TRACE");
-        std::exit(2);
-      }
+      out = open_trace_or_exit(path, "TACTIX_RANDEC_STATE_TRACE");
       std::setvbuf(out, nullptr, _IOLBF, 0);
       std::fputs("# tactix-randec-state\t1\n", out);
       std::fputs("# solver\tseq\tstage\tconflicts\tdecisions\tlevel\t"
@@ -3893,21 +3882,7 @@ void EventTrace::factor_score_entry(const Kernel &k, Lit seed, uint32_t depth,
       "|kind=" + (clause ? "large" : "binary") +
       "|live=" + (live ? "1" : "0") + "|id=" + std::to_string(id) +
       "|lits=";
-  if (clause) {
-    std::vector<int> lits;
-    for (const Lit lit : *clause)
-      lits.push_back(kernel_externalize(k, lit));
-    std::sort(lits.begin(), lits.end());
-    for (size_t i = 0; i < lits.size(); i++) {
-      if (i)
-        payload += ',';
-      payload += std::to_string(lits[i]);
-    }
-  } else {
-    payload += std::to_string(kernel_externalize(k, candidate));
-    payload += ',';
-    payload += std::to_string(kernel_externalize(k, other));
-  }
+  append_factor_entry_literals(payload, k, candidate, other, clause);
   emit(k, "factor_score_entry", payload.c_str(), false);
 }
 
@@ -4026,11 +4001,7 @@ void event_trace_substitute_map(const Kernel &k, Lit lit, Lit representative) {
             std::abs(static_cast<int>(variable));
         cursor = *end ? end + 1 : end;
       }
-      standalone.out = std::fopen(path, "w");
-      if (!standalone.out) {
-        std::perror("TACTIX_SUBSTITUTE_MAP_TRACE");
-        std::exit(2);
-      }
+      standalone.out = open_trace_or_exit(path, "TACTIX_SUBSTITUTE_MAP_TRACE");
       std::setvbuf(standalone.out, nullptr, _IOLBF, 0);
       std::fputs("# tactix-substitute-map\t1\n", standalone.out);
       std::fputs("# solver\tround\tconflicts\texternal\trepresentative\t"
@@ -4090,21 +4061,7 @@ void EventTrace::factor_literal_entry(const Kernel &k, Lit selected_lit,
       "|kind=" + (clause ? "large" : "binary") +
       "|live=" + (live ? "1" : "0") + "|id=" + std::to_string(id) +
       "|lits=";
-  if (clause) {
-    std::vector<int> lits;
-    for (const Lit lit : *clause)
-      lits.push_back(kernel_externalize(k, lit));
-    std::sort(lits.begin(), lits.end());
-    for (size_t i = 0; i < lits.size(); i++) {
-      if (i)
-        payload += ',';
-      payload += std::to_string(lits[i]);
-    }
-  } else {
-    payload += std::to_string(kernel_externalize(k, selected_lit));
-    payload += ',';
-    payload += std::to_string(kernel_externalize(k, other));
-  }
+  append_factor_entry_literals(payload, k, selected_lit, other, clause);
   emit(k, "factor_literal_entry", payload.c_str(), false);
 }
 
@@ -4516,11 +4473,7 @@ void event_trace_recompute_input(const Kernel &k, const Clause *c) {
   }
   static std::FILE *out = nullptr;
   if (!out) {
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_RECOMPUTE_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_RECOMPUTE_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# recompute-input\t1\n", out);
     std::fputs("# solver\tconflicts\tglue\tsize\texternal:level:value...\n",
@@ -4558,11 +4511,7 @@ void event_trace_bve_candidate(const Kernel &k, Var var, const char *stage,
          std::strtoul(external, nullptr, 10) == actual)) {
       static std::FILE *out = nullptr;
       if (!out) {
-        out = std::fopen(path, "w");
-        if (!out) {
-          std::perror("TACTIX_BVE_CANDIDATE_TRACE");
-          std::exit(2);
-        }
+        out = open_trace_or_exit(path, "TACTIX_BVE_CANDIDATE_TRACE");
         std::setvbuf(out, nullptr, _IOLBF, 0);
         std::fputs("# bve-candidate-observer\t1\n", out);
       }
@@ -4663,11 +4612,8 @@ void event_trace_bve_retry_mark(const Kernel &k, Var var, const char *source,
   uint32_t clause_size = 0;
   std::string clause_lits = "-";
   if (clause) {
-    std::vector<int32_t> external_clause;
-    external_clause.reserve(clause->size);
-    for (const Lit lit : *clause)
-      external_clause.push_back(kernel_externalize(k, lit));
-    std::sort(external_clause.begin(), external_clause.end());
+    const auto external_clause =
+        sorted_external_clause<int32_t>(k, *clause);
     clause_hash = 1469598103934665603ull;
     for (const int32_t lit : external_clause) {
       clause_hash ^= static_cast<uint32_t>(lit);
@@ -4925,11 +4871,7 @@ void event_trace_bve_heap(const Kernel &k, const char *stage, Var trigger,
          std::strtoull(conflict, nullptr, 10) == k.stats.conflicts)) {
       static std::FILE *out = nullptr;
       if (!out) {
-        out = std::fopen(path, "w");
-        if (!out) {
-          std::perror("TACTIX_BVE_HEAP_TRACE");
-          std::exit(2);
-        }
+        out = open_trace_or_exit(path, "TACTIX_BVE_HEAP_TRACE");
         std::setvbuf(out, nullptr, _IOLBF, 0);
         std::fputs("# bve-heap-observer\t1\n", out);
       }
@@ -4956,13 +4898,6 @@ void event_trace_bve_heap(const Kernel &k, const char *stage, Var trigger,
                            size);
 }
 
-static uint64_t bve_schedule_member_hash(uint64_t value) {
-  value += 0x9e3779b97f4a7c15ull;
-  value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ull;
-  value = (value ^ (value >> 27)) * 0x94d049bb133111ebull;
-  return value ^ (value >> 31);
-}
-
 static std::string bve_schedule_payload(const Kernel &k, const Var *members,
                                         const double *scores, uint32_t size,
                                         uint32_t bound,
@@ -4973,7 +4908,7 @@ static std::string bve_schedule_payload(const Kernel &k, const Var *members,
   for (uint32_t i = 0; i < size; ++i) {
     const Var member = members[i];
     const uint64_t external = k.internal_to_external[member] + 1ull;
-    const uint64_t mixed = bve_schedule_member_hash(external);
+    const uint64_t mixed = splitmix64_hash(external);
     xor_hash ^= mixed;
     sum_hash += mixed;
     external_sum += external;
@@ -4982,7 +4917,7 @@ static std::string bve_schedule_payload(const Kernel &k, const Var *members,
     uint64_t bits;
     static_assert(sizeof bits == sizeof scores[member]);
     std::memcpy(&bits, scores + member, sizeof bits);
-    const uint64_t score_mixed = bve_schedule_member_hash(mixed ^ bits);
+    const uint64_t score_mixed = splitmix64_hash(mixed ^ bits);
     score_xor ^= score_mixed;
     score_sum += score_mixed;
   }
@@ -5388,11 +5323,7 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
                     (unsigned long long)eliminate_cleanup_clause_hash(
                         k, *clause),
                     clause->size, root, retired);
-      std::vector<int32_t> external;
-      external.reserve(clause->size);
-      for (const Lit lit : *clause)
-        external.push_back(kernel_externalize(k, lit));
-      std::sort(external.begin(), external.end());
+      const auto external = sorted_external_clause<int32_t>(k, *clause);
       std::string clause_payload(prefix);
       for (size_t i = 0; i != external.size(); ++i) {
         if (i)
@@ -6085,28 +6016,7 @@ void EventTrace::clause_glue(const Kernel &k, const char *source,
                         "|id=" + std::to_string(clause->id()) +
                         "|old=" + std::to_string(old_glue) +
                         "|new=" + std::to_string(new_glue) + "|pose=";
-  std::vector<int> external;
-  external.reserve(clause->size);
-  for (const Lit lit : *clause) {
-    if (!external.empty())
-      payload.push_back(',');
-    const int value = kernel_externalize(k, lit);
-    payload += std::to_string(value);
-    external.push_back(value);
-  }
-  payload += "|levels=";
-  for (uint32_t i = 0; i < clause->size; ++i) {
-    if (i)
-      payload.push_back(',');
-    payload += std::to_string(k.var_level(var_of(clause->lits[i])));
-  }
-  std::sort(external.begin(), external.end());
-  payload += "|set=";
-  for (size_t i = 0; i != external.size(); ++i) {
-    if (i)
-      payload.push_back(',');
-    payload += std::to_string(external[i]);
-  }
+  append_clause_pose(payload, k, *clause);
   emit(k, "reason_glue", payload.c_str(), false);
 }
 
@@ -6117,28 +6027,7 @@ void EventTrace::clause_used(const Kernel &k, const Clause *clause,
   std::string payload = "mode=" + std::to_string(mode) +
                         "|glue=" + std::to_string(clause->glue()) +
                         "|pose=";
-  std::vector<int> external;
-  external.reserve(clause->size);
-  for (const Lit lit : *clause) {
-    if (!external.empty())
-      payload.push_back(',');
-    const int value = kernel_externalize(k, lit);
-    payload += std::to_string(value);
-    external.push_back(value);
-  }
-  payload += "|levels=";
-  for (uint32_t i = 0; i < clause->size; ++i) {
-    if (i)
-      payload.push_back(',');
-    payload += std::to_string(k.var_level(var_of(clause->lits[i])));
-  }
-  std::sort(external.begin(), external.end());
-  payload += "|set=";
-  for (size_t i = 0; i != external.size(); ++i) {
-    if (i)
-      payload.push_back(',');
-    payload += std::to_string(external[i]);
-  }
+  append_clause_pose(payload, k, *clause);
   emit(k, "reason_used", payload.c_str(), false);
 }
 

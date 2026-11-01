@@ -1,5 +1,10 @@
 #include "rules/semantic_extension/affine_basis_action.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+
+#include "rules/structural_action_guard.hpp"
+
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
@@ -118,27 +123,19 @@ MergeStatus merge_new_keys(const AffineBasisActionSession &session,
 }
 
 AffineBasisActionStatus action_status(AffineBasisLiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<AffineBasisActionStatus>(
+              status))
+    return *failure;
   switch (status) {
-  case AffineBasisLiveStatus::Invalid:
-    return AffineBasisActionStatus::Invalid;
-  case AffineBasisLiveStatus::Inapplicable:
-    return AffineBasisActionStatus::Inapplicable;
   case AffineBasisLiveStatus::NoStructure:
     return AffineBasisActionStatus::NoStructure;
-  case AffineBasisLiveStatus::ResourceExhausted:
-    return AffineBasisActionStatus::ResourceExhausted;
-  case AffineBasisLiveStatus::Interrupted:
-    return AffineBasisActionStatus::Interrupted;
-  case AffineBasisLiveStatus::UnsupportedProof:
-    return AffineBasisActionStatus::UnsupportedProof;
-  case AffineBasisLiveStatus::Stale:
-    return AffineBasisActionStatus::Stale;
   case AffineBasisLiveStatus::Prepared:
     return AffineBasisActionStatus::Invalid;
   case AffineBasisLiveStatus::Applied:
     return AffineBasisActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 AffineBasisLiveRequest make_request(const Kernel &kernel,
@@ -472,8 +469,8 @@ bool affine_basis_row_selection_within_limits(
       for (const int32_t variable : equation.variables)
         if (std::count_if(premise.clause.begin(), premise.clause.end(),
                           [variable](int32_t literal) {
-                            return (literal < 0 ? -literal : literal) ==
-                                   variable;
+                            return external_variable_of(literal) ==
+                                   static_cast<uint32_t>(variable);
                           }) != 1)
           return false;
       if (negative_parity != static_cast<unsigned>(!equation.rhs))
@@ -484,22 +481,11 @@ bool affine_basis_row_selection_within_limits(
 }
 
 RuleEligibility affine_basis_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("candidate-slot-empty",
-            !kernel.semantic_variable_candidate_pending)
-      .fact("candidate-id-available",
-            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return root_action_guard(kernel, false)
+      .identity()
+      .semantic_candidate()
+      .clausal_certificate()
+      .finish();
 }
 
 AffineBasisOfferPage affine_basis_action_offers(

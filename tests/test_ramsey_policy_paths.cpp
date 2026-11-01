@@ -1,6 +1,13 @@
 #undef NDEBUG
 #include "policies/default_policy.hpp"
-#include "policies/random_controller_policy.hpp"
+#include "strategy/online_inprocess.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "frontend/parse.hpp"
@@ -39,34 +46,11 @@ static std::string fixture() {
     for(int sign:{1,-1})out<<sign*edge[a][b]<<' '<<sign*edge[a][c]<<' '<<sign*edge[a][d]<<' '<<sign*edge[b][c]<<' '<<sign*edge[b][d]<<' '<<sign*edge[c][d]<<" 0\n";
   return out.str();
 }
-static RandomControllerConfig random_config() {
-  OnlineInvocation yes;yes.id=1;yes.rule="Lucky";yes.parameters=profile();
-  yes.granularity=InvocationGranularity::OneInstance;yes.instances={LUCKY_STARTUP_RAMSEY};
-  yes.budget=WorkLimit::bounded(1);
-  yes.rule_work_budget={RuleWorkBudgetMode::Bounded,20000000};
-  auto no=yes;no.id=2;std::get<RamseyStartupParameters>(no.parameters).certificate_work=0;
-  OnlineStrategyProgram choices;choices.sequence={yes,no};
-  RandomControllerConfig config;assert(config.configure_actions(choices));return config;
-}
-// Find a deterministic selection witness for a NoOp followed by productive
-// Ramsey. This is targeted coverage, not seed selection for performance.
-static uint64_t seed_for_two_actions(const std::string &cnf,const RandomControllerConfig &config) {
-  Kernel k;input(k,cnf);RestartController controller(k);
-  for(uint64_t seed=1;seed<=1000;++seed) {
-    RandomControllerSelector selector(seed);ActionRequest first,second;std::string error;
-    assert(selector.choose(k,controller.observe(),config,first,error));
-    assert(selector.choose(k,controller.observe(),config,second,error));
-    if(first.type==ActionType::Rule && second.type==ActionType::Rule &&
-       !std::get<RamseyStartupParameters>(first.invocation.parameters).certificate_work &&
-       std::get<RamseyStartupParameters>(second.invocation.parameters).certificate_work) return seed;
-  }
-  assert(false);return 0;
-}
 struct Outcome {std::vector<Var> map;uint64_t logical,recognition,certificate,additions;};
-static Outcome execute(const std::string &cnf,const std::string &prefix,bool random,
-                       uint64_t seed,bool proof_enabled,bool replay) {
+static Outcome execute(const std::string &cnf,const std::string &prefix,
+                       bool proof_enabled,bool replay) {
   Kernel k;Proof proof;
-  const std::string suffix=random?"-random":"-default";
+  const std::string suffix="-default";
   const std::string proof_path=prefix+suffix+(replay?"-replay":"")+".dsr";
   if(proof_enabled) {
     assert(proof.open(proof_path.c_str(),ProofFormat::DsrAscii));
@@ -78,21 +62,10 @@ static Outcome execute(const std::string &cnf,const std::string &prefix,bool ran
   FeedbackTrace feedback;
   const std::string feedback_path=prefix+suffix+".feedback.jsonl";
   if(proof_enabled)assert(replay?feedback.replay(feedback_path.c_str(),"ramsey-policy-paths"):feedback.write(feedback_path.c_str(),"ramsey-policy-paths"));
-  if(random) {
-    const auto config=random_config();ControllerTrace trace;
-    const std::string path=prefix+"-random.controller";
-    if(proof_enabled)assert(replay?trace.replay(path.c_str(),controller_configuration(config)):trace.write(path.c_str(),seed,controller_configuration(config)));
-    RandomControllerPolicy policy(seed,config,proof_enabled?&trace:nullptr,nullptr,proof_enabled?&feedback:nullptr);
-    assert(policy.solve(k)==20);
-    assert(policy.coverage().rules.at("Lucky").applications==2);
-    assert(k.stats.ramsey_startup_attempts==2&&k.structural_action_sequence==2);
-    assert(trace.error().empty());
-  } else {
-    DefaultStrategyConfig config;assert_production_profile(config);
-    DefaultPolicy policy(config);if(proof_enabled)policy.set_feedback(&feedback);
-    assert(policy.solve(k)==20);
-    assert(k.stats.ramsey_startup_attempts==1&&k.structural_action_sequence==1);
-  }
+  DefaultStrategyConfig config;assert_production_profile(config);
+  DefaultPolicy policy(config);if(proof_enabled)policy.set_feedback(&feedback);
+  assert(policy.solve(k)==20);
+  assert(k.stats.ramsey_startup_attempts==1&&k.structural_action_sequence==1);
   assert(k.stats.ramsey_startup_unsat==1&&k.stats.ramsey_startup_recognized==1);
   assert(k.inconsistent&&!k.startup_certificate_open&&k.nvars==variables);
   assert(k.stats.decisions==0&&k.stats.conflicts==0);
@@ -128,22 +101,17 @@ int main(int argc,char **argv) {
   std::string cnf=fixture(),prefix="/tmp/tactix-ramsey-policy-paths";
   if(argc==3){std::ifstream in(argv[1]);assert(in);std::ostringstream buffer;buffer<<in.rdbuf();cnf=buffer.str();prefix=argv[2];}
   else assert(argc==1);
-  const uint64_t seed=seed_for_two_actions(cnf,random_config());
-  Outcome reference;
-  for(bool random:{false,true}) {
-    const auto plain=execute(cnf,prefix,random,seed,false,false);
-    const auto recorded=execute(cnf,prefix,random,seed,true,false);
-    const auto replayed=execute(cnf,prefix,random,seed,true,true);
-    for(const auto *other:{&recorded,&replayed}) {
-      assert(plain.map==other->map&&plain.logical==other->logical);
-      assert(plain.recognition==other->recognition&&plain.certificate==other->certificate&&plain.additions==other->additions);
-    }
-    if(!random)reference=plain;
-    else assert(reference.map==plain.map&&reference.logical==plain.logical&&reference.additions==plain.additions);
+  const auto plain=execute(cnf,prefix,false,false);
+  const auto recorded=execute(cnf,prefix,true,false);
+  const auto replayed=execute(cnf,prefix,true,true);
+  for(const auto *other:{&recorded,&replayed}) {
+    assert(plain.map==other->map&&plain.logical==other->logical);
+    assert(plain.recognition==other->recognition&&plain.certificate==other->certificate&&plain.additions==other->additions);
   }
+  const Outcome &reference=plain;
   const auto enabled=non_ramsey(true),disabled=non_ramsey(false);
   assert(enabled.verdict==disabled.verdict&&enabled.model==disabled.model);
   assert(enabled.map==disabled.map&&enabled.decisions==disabled.decisions);
   assert(enabled.conflicts==disabled.conflicts&&enabled.propagations==disabled.propagations);
-  std::cout<<"{\"policy_paths_verified\":true,\"random_seed\":"<<seed<<",\"logical_id\":"<<reference.logical<<",\"additions\":"<<reference.additions<<"}\n";
+  std::cout<<"{\"policy_paths_verified\":true,\"logical_id\":"<<reference.logical<<",\"additions\":"<<reference.additions<<"}\n";
 }

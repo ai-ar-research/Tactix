@@ -1,6 +1,10 @@
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
 #include "proof/proof.hpp"
+#include "strategy/action_status_mapping.hpp"
+#include "strategy/action_status_statistics.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <cstdlib>
@@ -38,81 +42,32 @@ AffineLiveRequest request_from_kernel(Kernel &kernel, uint64_t action_id,
   return request;
 }
 
-AffineBasisActionLimits basis_limits_from_kernel(const Kernel &kernel) {
-  const auto &parameters = kernel.affine_consequence_parameters;
-  AffineBasisActionLimits limits;
-  limits.image.maximum_clauses = parameters.maximum_clauses;
-  limits.image.maximum_groups = parameters.maximum_groups;
-  limits.image.maximum_patterns = parameters.maximum_patterns;
-  limits.image.maximum_elimination_work =
-      parameters.maximum_elimination_work;
-  limits.image.maximum_arity = parameters.maximum_arity;
-  limits.image.maximum_intermediate_width =
-      parameters.maximum_intermediate_width;
-  limits.image.maximum_sources = parameters.maximum_sources;
-  limits.image.maximum_output_width = parameters.maximum_output_width;
-  limits.basis.maximum_work = parameters.basis_maximum_work;
-  limits.basis.maximum_intermediate_width =
-      parameters.basis_maximum_intermediate_width;
-  limits.basis.maximum_sources = parameters.basis_maximum_sources;
-  limits.basis.maximum_premises = parameters.basis_maximum_premises;
-  limits.basis.maximum_nodes = parameters.basis_maximum_nodes;
-  limits.basis.maximum_direct_width = parameters.basis_maximum_direct_width;
-  limits.maximum_snapshot_literals = parameters.maximum_snapshot_literals;
-  limits.maximum_snapshot_work = parameters.maximum_snapshot_work;
-  limits.maximum_proof_additions = parameters.maximum_proof_additions;
-  limits.maximum_proof_deletions = parameters.maximum_proof_deletions;
-  limits.maximum_journal_bytes = parameters.maximum_journal_bytes;
-  limits.maximum_external_extent = parameters.maximum_external_extent;
-  limits.maximum_session_keys = parameters.maximum_session_keys;
-  limits.maximum_session_work = parameters.maximum_session_work;
-  return limits;
-}
-
 AffineConsequenceActionStatus status(AffineLiveStatus value) {
+  if (const auto failure = strategy::map_standard_action_failure<
+          AffineConsequenceActionStatus>(value))
+    return *failure;
   switch (value) {
-  case AffineLiveStatus::Invalid:
-    return AffineConsequenceActionStatus::Invalid;
-  case AffineLiveStatus::Inapplicable:
-    return AffineConsequenceActionStatus::Inapplicable;
   case AffineLiveStatus::NoStructure:
     return AffineConsequenceActionStatus::NoStructure;
-  case AffineLiveStatus::ResourceExhausted:
-    return AffineConsequenceActionStatus::ResourceExhausted;
-  case AffineLiveStatus::Interrupted:
-    return AffineConsequenceActionStatus::Interrupted;
-  case AffineLiveStatus::UnsupportedProof:
-    return AffineConsequenceActionStatus::UnsupportedProof;
-  case AffineLiveStatus::Stale:
-    return AffineConsequenceActionStatus::Stale;
   case AffineLiveStatus::Applied:
     return AffineConsequenceActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 AffineConsequenceActionStatus status(AffineBasisActionStatus value) {
+  if (const auto failure = strategy::map_standard_action_failure<
+          AffineConsequenceActionStatus>(value))
+    return *failure;
   switch (value) {
-  case AffineBasisActionStatus::Invalid:
-    return AffineConsequenceActionStatus::Invalid;
-  case AffineBasisActionStatus::Inapplicable:
-    return AffineConsequenceActionStatus::Inapplicable;
   case AffineBasisActionStatus::NoStructure:
     return AffineConsequenceActionStatus::NoStructure;
-  case AffineBasisActionStatus::ResourceExhausted:
-    return AffineConsequenceActionStatus::ResourceExhausted;
-  case AffineBasisActionStatus::Interrupted:
-    return AffineConsequenceActionStatus::Interrupted;
-  case AffineBasisActionStatus::UnsupportedProof:
-    return AffineConsequenceActionStatus::UnsupportedProof;
-  case AffineBasisActionStatus::Stale:
-    return AffineConsequenceActionStatus::Stale;
   case AffineBasisActionStatus::AlreadyPublished:
     return AffineConsequenceActionStatus::AlreadyPublished;
   case AffineBasisActionStatus::Applied:
     return AffineConsequenceActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 struct RecordAffineConsequence {
@@ -174,34 +129,18 @@ struct RecordAffineConsequence {
             live.existing_theory_variables.size() +
             live.introduced_theory_variables.size();
     }
-    switch (result.status) {
-    case AffineConsequenceActionStatus::Applied:
-      ++stats.affine_consequence_applied;
-      break;
-    case AffineConsequenceActionStatus::NoStructure:
-      ++stats.affine_consequence_no_structure;
-      break;
-    case AffineConsequenceActionStatus::AlreadyPublished:
-      ++stats.affine_consequence_already_published;
-      break;
-    case AffineConsequenceActionStatus::Invalid:
-      ++stats.affine_consequence_invalid;
-      break;
-    case AffineConsequenceActionStatus::Inapplicable:
-      ++stats.affine_consequence_inapplicable;
-      break;
-    case AffineConsequenceActionStatus::ResourceExhausted:
-      ++stats.affine_consequence_resource_exhausted;
-      break;
-    case AffineConsequenceActionStatus::Interrupted:
-      ++stats.affine_consequence_interrupted;
-      break;
-    case AffineConsequenceActionStatus::UnsupportedProof:
-      ++stats.affine_consequence_unsupported_proof;
-      break;
-    case AffineConsequenceActionStatus::Stale:
-      ++stats.affine_consequence_stale;
-      break;
+    if (!strategy::record_standard_action_status(
+            result.status, TACTIX_STANDARD_ACTION_STATUS_COUNTERS(
+                               stats, affine_consequence))) {
+      switch (result.status) {
+      case AffineConsequenceActionStatus::NoStructure:
+        ++stats.affine_consequence_no_structure;
+        break;
+      case AffineConsequenceActionStatus::AlreadyPublished:
+        ++stats.affine_consequence_already_published;
+        break;
+      default: break;
+      }
     }
   }
 };
@@ -268,28 +207,15 @@ AffineConsequenceActionResult apply_selected_consequence(Kernel &kernel) {
 } // namespace
 
 RuleEligibility affine_consequence_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("no-conflict",
-            !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
+  return root_action_guard(kernel, false)
       .fact("basis-session-attached",
             kernel.affine_consequence_parameters.semantics !=
                     strategy::AffineConsequenceSemantics::CertifiedBasisV2 ||
                 kernel.affine_basis_action_session != nullptr)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("candidate-slot-empty",
-            !kernel.semantic_variable_candidate_pending)
-      .fact("candidate-id-available",
-            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
-      .fact("clausal-certificate",
-            !kernel.proof ||
-                (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+      .identity()
+      .semantic_candidate()
+      .clausal_certificate()
+      .finish();
 }
 
 AffineConsequenceActionResult affine_consequence_action_apply(Kernel &kernel) {
@@ -333,7 +259,9 @@ AffineConsequenceActionResult affine_consequence_action_apply(
           output.basis.status = AffineBasisActionStatus::Inapplicable;
         } else {
           output.basis = affine_basis_action_apply(
-              kernel, session, basis_limits_from_kernel(kernel));
+              kernel, session,
+              action_parameters::action_limits(
+                  kernel.affine_consequence_parameters));
           output.status = status(output.basis.status);
           output.result = output.basis.result;
           output.proposed_action_id = output.basis.proposed_action_id;
@@ -362,7 +290,10 @@ AffineConsequenceActionResult affine_consequence_action_apply(
         output.basis.status = AffineBasisActionStatus::Inapplicable;
       } else {
         output.basis = affine_basis_action_apply(
-            kernel, session, basis_limits_from_kernel(kernel), selection);
+            kernel, session,
+            action_parameters::action_limits(
+                kernel.affine_consequence_parameters),
+            selection);
         output.status = status(output.basis.status);
         output.result = output.basis.result;
         output.proposed_action_id = output.basis.proposed_action_id;

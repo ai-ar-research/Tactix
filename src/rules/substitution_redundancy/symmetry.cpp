@@ -8,6 +8,7 @@
 #include "diagnostics/symmetry_trace.hpp"
 #include "diagnostics/formula_fingerprint.hpp"
 #include "diagnostics/graph_capture.hpp"
+#include "kernel/splitmix64.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -60,14 +61,6 @@ uint64_t generator_validation_upper_bound(const FormulaSnapshot &snapshot,
       saturating_twice(support));
 }
 
-uint64_t splitmix64(uint64_t &state) {
-  state += 0x9e3779b97f4a7c15ull;
-  uint64_t value = state;
-  value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ull;
-  value = (value ^ (value >> 27)) * 0x94d049bb133111ebull;
-  return value ^ (value >> 31);
-}
-
 template <class T>
 void apply_order(std::vector<T> &values, SymmetryTraversalOrder order,
                  uint64_t seed) {
@@ -78,7 +71,7 @@ void apply_order(std::vector<T> &values, SymmetryTraversalOrder order,
   if (order != SymmetryTraversalOrder::Seeded)
     return;
   for (size_t remaining = values.size(); remaining > 1; --remaining) {
-    const size_t selected = splitmix64(seed) % remaining;
+    const size_t selected = splitmix64_next(seed) % remaining;
     std::swap(values[remaining - 1], values[selected]);
   }
 }
@@ -494,7 +487,7 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
       static_cast<uint64_t>(settings.seed) ^ 0x4c49544552414c53ull;
   for (auto &clause : result) {
     apply_order(clause.literals, settings.literal_order, literal_seed);
-    splitmix64(literal_seed);
+    splitmix64_next(literal_seed);
   }
   return true;
 }
@@ -1516,7 +1509,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
             pair_seed ^= static_cast<uint64_t>(
                              std::max(fixed_false, witness_true))
                          << 32;
-            const bool select_canonical = (splitmix64(pair_seed) & 1u) == 0;
+            const bool select_canonical =
+                (splitmix64_next(pair_seed) & 1u) == 0;
             if (canonical != select_canonical)
               continue;
           }

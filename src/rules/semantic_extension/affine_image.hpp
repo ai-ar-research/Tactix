@@ -2,13 +2,25 @@
 #pragma once
 
 #include "rules/lucky/parity_certificate.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <iterator>
+#include <utility>
 #include <vector>
 
 namespace tactix::affine_semantic_extension {
 
 using External = int32_t;
+
+template <class T>
+void xor_sorted(const std::vector<T> &first, const std::vector<T> &second,
+                std::vector<T> &output) {
+  output.clear();
+  output.reserve(first.size() + second.size());
+  std::set_symmetric_difference(first.begin(), first.end(), second.begin(),
+                                second.end(), std::back_inserter(output));
+}
 
 struct Premise {
   uint64_t occurrence = 0;
@@ -32,7 +44,42 @@ struct Equation {
   // One exact input occurrence for each forbidden assignment.
   std::vector<uint64_t> premises;
   std::vector<std::vector<External>> premise_clauses;
+
+  friend bool operator==(const Equation &, const Equation &) = default;
 };
+
+struct ReducedEquation {
+  std::vector<External> variables;
+  bool rhs = false;
+  std::vector<size_t> sources;
+};
+
+template <class Basis, class Consume>
+bool reduce_equation(
+    ReducedEquation &row, const Basis &basis, size_t maximum_width,
+    size_t maximum_sources, bool drop_overflow, Consume consume) {
+  while (!row.variables.empty()) {
+    if (!consume(uint64_t{1} + row.variables.size() + row.sources.size()))
+      return false;
+    // Ascending pivots; the source XOR preserves the exact derivation.
+    const auto found = basis.find(row.variables.front());
+    if (found == basis.end()) return true;
+    std::vector<External> variables;
+    std::vector<size_t> sources;
+    xor_sorted(row.variables, found->second.variables, variables);
+    xor_sorted(row.sources, found->second.sources, sources);
+    row.variables = std::move(variables);
+    row.sources = std::move(sources);
+    row.rhs ^= found->second.rhs;
+    if (row.variables.size() <= maximum_width &&
+        row.sources.size() <= maximum_sources)
+      continue;
+    if (!drop_overflow) return false;
+    row.sources.clear();
+    return true;
+  }
+  return true;
+}
 
 struct Consequence {
   std::vector<External> variables;

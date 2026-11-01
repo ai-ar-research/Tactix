@@ -1,5 +1,9 @@
 #include "rules/direct_php/direct_php_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+#include "strategy/action_status_mapping.hpp"
+#include "strategy/action_status_statistics.hpp"
+
 #include <algorithm>
 #include <cstdlib>
 #include <limits>
@@ -53,24 +57,19 @@ bool same_certificate_limits(const direct_php_certificate::Limits &a,
 }
 
 DirectPhpActionStatus action_status(LiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<DirectPhpActionStatus>(status))
+    return *failure;
   switch (status) {
-  case LiveStatus::Invalid: return DirectPhpActionStatus::Invalid;
-  case LiveStatus::Inapplicable: return DirectPhpActionStatus::Inapplicable;
   case LiveStatus::NotRecognized:
     return DirectPhpActionStatus::NotRecognized;
   case LiveStatus::Malformed: return DirectPhpActionStatus::Malformed;
   case LiveStatus::Ambiguous: return DirectPhpActionStatus::Ambiguous;
-  case LiveStatus::ResourceExhausted:
-    return DirectPhpActionStatus::ResourceExhausted;
-  case LiveStatus::Interrupted: return DirectPhpActionStatus::Interrupted;
-  case LiveStatus::UnsupportedProof:
-    return DirectPhpActionStatus::UnsupportedProof;
-  case LiveStatus::Stale: return DirectPhpActionStatus::Stale;
   case LiveStatus::Admitted: return DirectPhpActionStatus::Invalid;
   case LiveStatus::Prepared: return DirectPhpActionStatus::Prepared;
   case LiveStatus::Applied: return DirectPhpActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 direct_php_live::Request live_request(const DirectPhpActionLimits &limits) {
@@ -422,16 +421,7 @@ bool DirectPhpActionLimits::valid() const {
 }
 
 RuleEligibility direct_php_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return root_action_guard(kernel, true).clausal_certificate().finish();
 }
 
 DirectPhpActionResult direct_php_action_prepare(
@@ -503,27 +493,23 @@ void record_direct_php_action_feedback(Kernel &kernel,
                                        const DirectPhpActionResult &result) {
   auto &s = kernel.stats;
   ++s.direct_php_attempts;
-  switch (result.status) {
-  case DirectPhpActionStatus::Invalid: ++s.direct_php_invalid; break;
-  case DirectPhpActionStatus::Inapplicable: ++s.direct_php_inapplicable; break;
-  case DirectPhpActionStatus::NotRecognized:
-    ++s.direct_php_not_recognized; break;
-  case DirectPhpActionStatus::Malformed: ++s.direct_php_malformed; break;
-  case DirectPhpActionStatus::Ambiguous: ++s.direct_php_ambiguous; break;
-  case DirectPhpActionStatus::ResourceExhausted:
-    ++s.direct_php_resource_exhausted; break;
-  case DirectPhpActionStatus::Interrupted: ++s.direct_php_interrupted; break;
-  case DirectPhpActionStatus::UnsupportedProof:
-    ++s.direct_php_unsupported_proof; break;
-  case DirectPhpActionStatus::UnsupportedProofSplit:
-    ++s.direct_php_unsupported_proof_split; break;
-  case DirectPhpActionStatus::Stale: ++s.direct_php_stale; break;
-  case DirectPhpActionStatus::AlreadyApplied:
-    ++s.direct_php_already_applied; break;
-  case DirectPhpActionStatus::ReplayMismatch:
-    ++s.direct_php_replay_mismatch; break;
-  case DirectPhpActionStatus::Prepared: ++s.direct_php_prepared; break;
-  case DirectPhpActionStatus::Applied: ++s.direct_php_applied; break;
+  if (!strategy::record_standard_action_status(
+          result.status,
+          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(s, direct_php))) {
+    switch (result.status) {
+    case DirectPhpActionStatus::NotRecognized:
+      ++s.direct_php_not_recognized; break;
+    case DirectPhpActionStatus::Malformed: ++s.direct_php_malformed; break;
+    case DirectPhpActionStatus::Ambiguous: ++s.direct_php_ambiguous; break;
+    case DirectPhpActionStatus::UnsupportedProofSplit:
+      ++s.direct_php_unsupported_proof_split; break;
+    case DirectPhpActionStatus::AlreadyApplied:
+      ++s.direct_php_already_applied; break;
+    case DirectPhpActionStatus::ReplayMismatch:
+      ++s.direct_php_replay_mismatch; break;
+    case DirectPhpActionStatus::Prepared: ++s.direct_php_prepared; break;
+    default: break;
+    }
   }
   s.direct_php_snapshot_clauses += result.effort.snapshot_clauses;
   s.direct_php_snapshot_literals += result.effort.snapshot_literals;

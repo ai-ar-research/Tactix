@@ -11,21 +11,7 @@
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp" // BveGate enum for --bve-gates
 #include "rules/registry.hpp" // now_nanos + the rule list for `c timing`
-#include "rules/semantic_extension/exact_cover_action.hpp"
-#include "rules/semantic_extension/affine_basis_action.hpp"
-#include "rules/semantic_extension/affine_matrix_search.hpp"
-#include "rules/semantic_extension/independent_set_cover_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
-#include "rules/semantic_extension/nary_csp_relation_owner.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
-#include "rules/direct_php/direct_php_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/structural_action_sessions.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -369,40 +355,7 @@ int main(int argc, char **argv) {
   }
   Kernel kernel;
   kernel.affine_matrix_provenance_compact = compact_affine_provenance;
-  AffineBasisActionSession affine_basis_session;
-  AffineMatrixSearchSession affine_matrix_search_session;
-  ExactCoverExtensionActionSession exact_cover_extension_session;
-  IndependentSetCoverActionSession independent_set_cover_session;
-  Gf3AffineActionSession gf3_affine_action_session;
-  DirectCspSupportActionSession direct_csp_support_action_session;
-  DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
-  NaryCspRelationOwnerSession nary_csp_relation_owner_session;
-  NaryCspEqualitySession nary_csp_equality_session;
-  NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
-  NaryCspEqualityAmoSession nary_csp_equality_amo_session;
-  DirectPhpActionSession direct_php_action_session(kernel);
-  Gf3GaussianActionSession gf3_gaussian_action_session;
-  Gf3GeneralRowActionSession gf3_general_row_action_session;
-  TseitinCycleBreakingSession tseitin_cycle_breaking_session;
-  kernel.affine_basis_action_session = &affine_basis_session;
-  kernel.affine_matrix_search_session = &affine_matrix_search_session;
-  kernel.exact_cover_extension_action_session =
-      &exact_cover_extension_session;
-  kernel.independent_set_cover_action_session =
-      &independent_set_cover_session;
-  kernel.gf3_affine_action_session = &gf3_affine_action_session;
-  kernel.direct_csp_support_action_session =
-      &direct_csp_support_action_session;
-  kernel.direct_csp_guarded_cover_action_session =
-      &direct_csp_guarded_cover_action_session;
-  kernel.nary_csp_relation_owner_session = &nary_csp_relation_owner_session;
-  kernel.nary_csp_equality_session = &nary_csp_equality_session;
-  kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;
-  kernel.nary_csp_equality_amo_session = &nary_csp_equality_amo_session;
-  kernel.gf3_general_row_action_session = &gf3_general_row_action_session;
-  kernel.direct_php_action_session = &direct_php_action_session;
-  kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
-  kernel.tseitin_cycle_breaking_session = &tseitin_cycle_breaking_session;
+  StructuralActionSessions structural_action_sessions(kernel);
   kernel_defer_cold_state(kernel);
   kernel.bve_gate_mask = bve_gate_mask;
   // Each env knob below poses one `Kernel` config field; that field documents
@@ -671,7 +624,8 @@ int main(int argc, char **argv) {
         {"paused_support_variables", affine.paused_support_variables},
         {"last_survival_action", affine.last_survival_action},
         {"last_disable_cause", affine.last_disable_cause},
-        {"retained_bytes", affine_matrix_search_session.retained_bytes()},
+        {"retained_bytes",
+         structural_action_sessions.affine_matrix_search.retained_bytes()},
         {"retired_sources", affine.retired_sources},
         {"projected_variables", affine.projected_variables},
         {"initialization_work", affine.initialization_work},

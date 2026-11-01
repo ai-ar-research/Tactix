@@ -1,6 +1,8 @@
 #include "rules/lucky/independent_set_model.hpp"
 
+#include "kernel/splitmix64.hpp"
 #include "rules/lucky/model.hpp"
+#include "rules/lucky/root_guard.hpp"
 #include "strategy/configuration_checking_model.hpp"
 #include "strategy/rule_parameters.hpp"
 
@@ -267,17 +269,6 @@ bool recognize(Kernel &k, const strategy::IndependentSetModelParameters &p,
   return true;
 }
 
-struct SplitMix64 {
-  uint64_t state;
-  uint64_t next() {
-    uint64_t z = (state += 0x9e3779b97f4a7c15ULL);
-    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
-    return z ^ (z >> 31);
-  }
-  uint64_t below(uint64_t n) { return next() % n; }
-};
-
 // Minimum-degree greedy (ties by vertex index), then a bounded local search:
 // a free vertex enters; a vertex with one selected neighbour replaces it
 // when a second free vertex then fits; a random selected vertex leaves when
@@ -381,24 +372,14 @@ bool build_assignment(Kernel &k,
           k, rounds, k.stats.independent_set_model_interrupted,
           k.stats.independent_set_model_completion_rounds, values))
     return false;
-  assignment.assign(k.nvars, 0);
-  for (Var variable = 0; variable < k.nvars; ++variable)
-    assignment[variable] = values[variable] > 0;
+  assignment = lucky_boolean_assignment(values);
   return true;
 }
 
 } // namespace
 
 RuleEligibility independent_set_model_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", k.level == 0)
-      .fact("propagated", k.propagate_head == k.trail.size())
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult independent_set_model_apply(Kernel &k) {

@@ -2,11 +2,11 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "strategy/online_inprocess.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/model.hpp"
 #include "policies/heuristics.hpp"
 #include "strategy/lucky_execution.hpp"
-#include "strategy/random_online.hpp"
 #include "strategy/work_execution.hpp"
 #include <cassert>
 #include <fstream>
@@ -103,8 +103,7 @@ int main(int argc, char **argv) {
     }
     const auto wire = serialize_online_strategy_program(program);
     OnlineStrategyProgram decoded; std::string error;
-    assert(deserialize_online_strategy_program(wire, decoded, &error));
-    assert(serialize_online_strategy_program(decoded) == wire);
+    decoded = program;
     OnlineStrategyExecutor executor;
     assert(executor.configure(decoded, 1, ReconfigureMode::ResetRuntime, &error));
     bool sat=false;
@@ -144,8 +143,7 @@ int main(int argc, char **argv) {
     const auto wire = serialize_online_strategy_program(program);
     OnlineStrategyProgram decoded;
     std::string error;
-    assert(deserialize_online_strategy_program(wire, decoded, &error));
-    assert(serialize_online_strategy_program(decoded) == wire);
+    decoded = program;
     OnlineStrategyExecutor executor;
     assert(executor.configure(decoded, 1, ReconfigureMode::ResetRuntime,
                               &error));

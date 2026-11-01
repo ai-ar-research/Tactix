@@ -15,8 +15,22 @@ struct DirectCspSupportOwnerSnapshot {
   uint64_t capture_work = 0;
   std::vector<direct_csp_support::Premise> source;
   direct_csp_support::Relation relation;
-
 };
+
+inline bool direct_csp_support_same_owner_image(
+    const DirectCspSupportOwnerSnapshot &first,
+    const DirectCspSupportOwnerSnapshot &second) {
+  return first.source_literals == second.source_literals &&
+         first.source == second.source && first.relation == second.relation;
+}
+
+inline bool direct_csp_support_same_live_owner(
+    const DirectCspSupportOwnerSnapshot &first,
+    const DirectCspSupportOwnerSnapshot &second) {
+  return first.external_extent == second.external_extent &&
+         first.capture_work == second.capture_work &&
+         direct_csp_support_same_owner_image(first, second);
+}
 
 enum class DirectCspSupportLiveStatus : uint8_t {
   Applied,

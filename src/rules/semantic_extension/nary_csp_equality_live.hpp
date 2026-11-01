@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rules/semantic_extension/nary_csp_action_limits.hpp"
 #include "rules/registry.hpp"
 #include "rules/semantic_extension/nary_csp_equality.hpp"
 #include "rules/semantic_extension/nary_csp_relation_live.hpp"
@@ -47,23 +48,6 @@ private:
   const Kernel *owner_ = nullptr;
   std::vector<NaryCspEqualityKey> keys_;
   std::vector<NaryCspEqualityRecord> records_;
-};
-
-struct NaryCspEqualityLimits {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-
-  bool valid() const;
 };
 
 struct NaryCspEqualityRequest {

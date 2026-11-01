@@ -1,6 +1,8 @@
 #include "rules/lucky/simon_model.hpp"
 
+#include "kernel/types.hpp"
 #include "rules/lucky/model.hpp"
+#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -128,8 +130,7 @@ bool recover_round_keys(Kernel &k, Simon &simon) {
       std::array<uint32_t, 3> external{};
       for (uint32_t i = 0; i < 3; ++i) {
         const int literal = kernel_externalize(k, clause->lits[i]);
-        external[i] = static_cast<uint32_t>(
-            literal < 0 ? -int64_t(literal) : int64_t(literal));
+        external[i] = external_variable_of(literal);
       }
       for (uint32_t round = 0; round < simon.rounds; ++round) {
         const uint32_t base = 160 * round;
@@ -260,15 +261,7 @@ bool build_assignment(Kernel &k, const Simon &simon, uint32_t key,
 } // namespace
 
 RuleEligibility simon_model_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", k.level == 0)
-      .fact("propagated", k.propagate_head == k.trail.size())
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult simon_model_apply(Kernel &k) {

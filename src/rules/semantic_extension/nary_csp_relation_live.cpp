@@ -1,5 +1,8 @@
 #include "rules/semantic_extension/nary_csp_relation_live.hpp"
 
+#include "rules/semantic_extension/csp_physical_scan.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
@@ -14,35 +17,7 @@ namespace {
 namespace relation = nary_csp_relation;
 using ClauseKey = std::vector<int32_t>;
 
-struct Meter {
-  const Kernel &kernel;
-  uint64_t limit = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > limit || amount > limit - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
-
-uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  return std::pair(variable(first), first) <
-         std::pair(variable(second), second);
-}
+using Meter = InterruptibleWork;
 
 ClauseKey normalized(ClauseKey key) {
   std::sort(key.begin(), key.end());
@@ -123,10 +98,10 @@ CaptureStatus build_expected(
     for (size_t value = 0; value < values.size(); ++value) {
       const int32_t literal = values[value];
       if (!literal || literal == INT32_MIN ||
-          (value && !literal_less(values[value - 1], literal)))
+          (value && !external_literal_less(values[value - 1], literal)))
         return CaptureStatus::Invalid;
       if (!meter.charge(1)) return stopped_capture(meter);
-      if (!variables.insert(variable(literal)).second ||
+      if (!variables.insert(external_variable_of(literal)).second ||
           !output.tuple_literals
                .emplace(-literal,
                         relation::DomainValue{static_cast<uint32_t>(domain),
@@ -254,25 +229,11 @@ CaptureStatus capture_slice(
     return failure == CaptureStatus::Complete;
   };
 
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
-    if (!meter.charge(1)) return stopped_capture(meter);
-    if (!clause->garbage() &&
-        !observe(clause->lits, clause->size, clause->id()))
-      return failure;
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1)) return stopped_capture(meter);
-      if (!watch.binary() || first >= watch.other()) continue;
-      const Lit pair[] = {first, watch.other()};
-      const uint64_t native_id =
-          kernel.binary_ids.tracks_values()
-              ? kernel_binary_id(kernel, first, watch.other())
-              : 0;
-      if (!observe(pair, 2, native_id)) return failure;
-    }
+  const csp_physical_scan::Status scan =
+      csp_physical_scan::run(kernel, meter, observe);
+  if (scan != csp_physical_scan::Status::Complete)
+    return scan == csp_physical_scan::Status::Stopped ? stopped_capture(meter)
+                                                       : failure;
 
   if (found_domains.size() != expected.domain_clauses.size())
     return CaptureStatus::NoStructure;
@@ -337,23 +298,6 @@ CaptureStatus capture_slice(
   return CaptureStatus::Complete;
 }
 
-struct FormulaMark {
-  KernelChangeMark change;
-  uint64_t semantic_namespace = 0;
-  uint64_t arena_generation = 0;
-  uint64_t next_clause_id = 0;
-  uint32_t variables = 0;
-  size_t external_extent = 0;
-
-  bool operator==(const FormulaMark &) const = default;
-};
-
-FormulaMark formula_mark(const Kernel &kernel) {
-  return {kernel_change_mark(kernel), kernel.affine_semantic_namespace_epoch,
-          kernel.arena_generation, kernel.next_clause_id, kernel.nvars,
-          kernel.external_to_internal.size()};
-}
-
 } // namespace
 
 bool NaryCspRelationCaptureRequest::valid() const {
@@ -375,7 +319,8 @@ NaryCspRelationCaptureResult nary_csp_relation_capture_owner(
     return result;
   }
 
-  const FormulaMark before = formula_mark(kernel);
+  const csp_physical_scan::FormulaMark before =
+      csp_physical_scan::formula_mark(kernel);
   Meter meter{kernel, request.maximum_recognition_work};
   NaryCspRelationOwnerSnapshot captured;
   const CaptureStatus status = capture_slice(kernel, request, meter, captured);
@@ -389,7 +334,7 @@ NaryCspRelationCaptureResult nary_csp_relation_capture_owner(
     result.status = NaryCspRelationCaptureStatus::Interrupted;
     return result;
   }
-  if (formula_mark(kernel) != before) {
+  if (csp_physical_scan::formula_mark(kernel) != before) {
     result.status = NaryCspRelationCaptureStatus::Stale;
     return result;
   }

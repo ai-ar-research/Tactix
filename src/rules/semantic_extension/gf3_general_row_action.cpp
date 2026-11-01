@@ -1,5 +1,10 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+#include "strategy/action_status_statistics.hpp"
+
+#include "rules/structural_action_guard.hpp"
+
 #include <algorithm>
 #include <limits>
 #include <utility>
@@ -41,22 +46,18 @@ void accumulate(Gf3GeneralRowLiveEffort &target,
 
 Gf3GeneralRowActionStatus status(Gf3GeneralRowLiveStatus value) {
   using S = Gf3GeneralRowLiveStatus;
+  if (const auto failure =
+          strategy::map_standard_action_failure<Gf3GeneralRowActionStatus>(
+              value))
+    return *failure;
   switch (value) {
-  case S::Invalid: return Gf3GeneralRowActionStatus::Invalid;
-  case S::Inapplicable: return Gf3GeneralRowActionStatus::Inapplicable;
   case S::NoStructure: return Gf3GeneralRowActionStatus::NoStructure;
   case S::NoConsequence: return Gf3GeneralRowActionStatus::NoConsequence;
   case S::Duplicate: return Gf3GeneralRowActionStatus::AlreadyPublished;
-  case S::ResourceExhausted:
-    return Gf3GeneralRowActionStatus::ResourceExhausted;
-  case S::Interrupted: return Gf3GeneralRowActionStatus::Interrupted;
-  case S::UnsupportedProof:
-    return Gf3GeneralRowActionStatus::UnsupportedProof;
-  case S::Stale: return Gf3GeneralRowActionStatus::Stale;
   case S::Ready:
   case S::Applied: return Gf3GeneralRowActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 bool retainable(const Gf3GeneralRowActionSelection &selection,
@@ -105,20 +106,15 @@ RuleEligibility gf3_general_row_action_guard(const Kernel &kernel) {
   const auto *session = kernel.gf3_general_row_action_session;
   const bool retained_search_owner = session && session->retained() &&
                                      session->belongs_to(kernel);
-  return RuleEligibility{}
+  return StructuralActionGuard(kernel)
       .fact("consistent", !kernel.inconsistent)
       .fact("root-or-retained-search", !kernel.level || retained_search_owner)
       .fact("assignment-free-or-retained-search",
             kernel.trail.empty() || retained_search_owner)
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+      .quiescent()
+      .identity()
+      .clausal_certificate()
+      .finish();
 }
 
 Gf3GeneralRowActionResult gf3_general_row_action_apply(
@@ -310,30 +306,26 @@ void record_gf3_general_row_action_feedback(
   s.gf3_general_row_identity_bytes += result.live.effort.identity_bytes;
   s.gf3_general_row_session_work += result.session_work;
   s.gf3_general_row_session_identity_bytes += result.session_identity_bytes;
+  const bool standard_status = strategy::record_standard_action_status(
+      result.status,
+      {s.gf3_general_row_applied, s.gf3_general_row_invalid,
+       s.gf3_general_row_inapplicable, s.gf3_general_row_exhausted,
+       s.gf3_general_row_interrupted, s.gf3_general_row_unsupported_proof,
+       s.gf3_general_row_stale});
   if (result.status == Gf3GeneralRowActionStatus::Applied) {
-    ++s.gf3_general_row_applied;
     s.gf3_general_row_installed_clauses +=
         result.live.installed_clause_id != 0;
     s.gf3_general_row_semantic_variables +=
         result.live.semantic_variables.size();
-  } else if (result.status == Gf3GeneralRowActionStatus::Invalid)
-    ++s.gf3_general_row_invalid;
-  else if (result.status == Gf3GeneralRowActionStatus::Inapplicable)
-    ++s.gf3_general_row_inapplicable;
-  else if (result.status == Gf3GeneralRowActionStatus::NoStructure)
+  } else if (!standard_status &&
+             result.status == Gf3GeneralRowActionStatus::NoStructure)
     ++s.gf3_general_row_no_structure;
-  else if (result.status == Gf3GeneralRowActionStatus::NoConsequence)
+  else if (!standard_status &&
+           result.status == Gf3GeneralRowActionStatus::NoConsequence)
     ++s.gf3_general_row_no_consequence;
-  else if (result.status == Gf3GeneralRowActionStatus::AlreadyPublished)
+  else if (!standard_status &&
+           result.status == Gf3GeneralRowActionStatus::AlreadyPublished)
     ++s.gf3_general_row_already_published;
-  else if (result.status == Gf3GeneralRowActionStatus::ResourceExhausted)
-    ++s.gf3_general_row_exhausted;
-  else if (result.status == Gf3GeneralRowActionStatus::Interrupted)
-    ++s.gf3_general_row_interrupted;
-  else if (result.status == Gf3GeneralRowActionStatus::Stale)
-    ++s.gf3_general_row_stale;
-  else if (result.status == Gf3GeneralRowActionStatus::UnsupportedProof)
-    ++s.gf3_general_row_unsupported_proof;
 }
 
 } // namespace tactix

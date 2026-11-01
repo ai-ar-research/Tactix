@@ -9,16 +9,6 @@ VivifyParameters VivifyParameters::from_kernel(const Kernel &kernel) {
           kernel.vivify_irredundant_sort_ratio};
 }
 
-ScopedVivifyParameters::ScopedVivifyParameters(
-    Kernel &kernel, const VivifyParameters &parameters)
-    : kernel_(kernel), saved_(VivifyParameters::from_kernel(kernel)) {
-  install_rule_parameters(kernel_, parameters);
-}
-
-ScopedVivifyParameters::~ScopedVivifyParameters() {
-  install_rule_parameters(kernel_, saved_);
-}
-
 void install_rule_parameters(Kernel &k, const VivifyParameters &parameters) {
   k.vivify_scope = parameters.scope;
   k.vivify_reuse = parameters.reuse;

@@ -153,7 +153,7 @@ TABLE = {
                          [("src/rules/direct_php/direct_php_action.cpp",
                            r'direct_php_action_apply\('),
                           ("tests/test_direct_php_public.cpp",
-                           r'random_generator_reaches_the_same_action\('),
+                           r'explicit_program_reaches_the_same_action\('),
                           ("tests/test_direct_php_public.cpp",
                            r'c_api_executes_terminal_action\(')]),
     "Gf3GaussianConsequence":
@@ -169,16 +169,12 @@ TABLE = {
                          [("src/rules/lucky/tseitin_cycle_action.cpp",
                            r'tseitin_cycle_breaking_apply\('),
                           ("tests/test_tseitin_cycle_action.cpp",
-                           r'typed_replay_random_reach_and_separate_propagation\('),
-                          ("tests/test_tseitin_cycle_action.cpp",
                            r'c_v7_is_backward_compatible_and_deep_copies_identity\(')]),
     "NaryCspEquality":
                         (EXPLICIT, "typed authenticated n-ary equality action; default slot disabled",
                          [r'std::strcmp\(rules\[i\]\.name, "NaryCspEquality"\)'],
                          [("src/rules/semantic_extension/nary_csp_equality_action.cpp",
                            r'nary_csp_equality_action_apply\('),
-                          ("tests/test_nary_csp_equality_public.cpp",
-                           r'native_offer_paginates_and_suppresses_committed_key\('),
                           ("tests/test_nary_csp_equality_public.cpp",
                            r'c_v10_deep_copies_and_executes_exact_payload\(')]),
     "NaryCspEqualityAmo":
@@ -187,8 +183,6 @@ TABLE = {
                          [("src/rules/semantic_extension/nary_csp_equality_amo_action.cpp",
                            r'nary_csp_equality_amo_apply\('),
                           ("tests/test_nary_csp_equality_amo.cpp",
-                           r'native_controller_offer_applies_once\('),
-                          ("tests/test_nary_csp_equality_amo.cpp",
                            r'c_v12_deep_copies_and_executes_exact_payload\(')]),
     "NaryCspEqualityTransitivity":
                         (EXPLICIT, "typed retained-owner triangle action; default slot disabled",
@@ -196,16 +190,12 @@ TABLE = {
                          [("src/rules/semantic_extension/nary_csp_equality_transitivity_action.cpp",
                            r'nary_csp_equality_transitivity_apply\('),
                           ("tests/test_nary_csp_equality_transitivity_frontend.cpp",
-                           r'controller_selection\('),
-                          ("tests/test_nary_csp_equality_transitivity_frontend.cpp",
                            r'c15_deep_copy\(')]),
     "Gf3GeneralRowConsequence":
                         (EXPLICIT, "typed authenticated GF(3) general-row action; default slot disabled",
                          [r'std::strcmp\(rules\[i\]\.name, "Gf3GeneralRowConsequence"\)'],
                          [("src/rules/semantic_extension/gf3_general_row_action.cpp",
                            r'gf3_general_row_action_apply\('),
-                          ("tests/test_gf3_general_row_public.cpp",
-                           r'native_producer_reaches_exact_action\('),
                           ("tests/test_gf3_general_row_public.cpp",
                            r'c_v11_deep_copies_typed_selection\(')]),
     "CardinalitySearch":

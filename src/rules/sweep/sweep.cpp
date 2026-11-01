@@ -2,6 +2,8 @@
 // soundness argument and deviation ledger: sweep.hpp.
 #include "proof/proof.hpp"
 #include "diagnostics/rule_journal.hpp"
+#include "kernel/splitmix64.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/substitute/substitute.hpp"
@@ -678,22 +680,15 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
 }
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-static uint64_t sweep_trace_mix(uint64_t x) {
-  x += 0x9e3779b97f4a7c15ull;
-  x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ull;
-  x = (x ^ (x >> 27)) * 0x94d049bb133111ebull;
-  return x ^ (x >> 31);
-}
-
 static uint64_t sweep_environment_hash(const Kernel &k, const SweepEnv &e) {
   uint64_t result = 0;
   for (uint32_t i = 0; i < e.nclauses(); i++) {
     const uint32_t begin = e.clause_off[i], end = e.clause_off[i + 1];
-    uint64_t clause = sweep_trace_mix(end - begin);
+    uint64_t clause = splitmix64_hash(end - begin);
     for (uint32_t j = begin; j < end; j++)
-      clause += sweep_trace_mix(static_cast<uint64_t>(
+      clause += splitmix64_hash(static_cast<uint64_t>(
           static_cast<int64_t>(kernel_externalize(k, e.clause_lits[j]))));
-    result += sweep_trace_mix(clause);
+    result += splitmix64_hash(clause);
   }
   return result;
 }
@@ -1305,75 +1300,62 @@ static uint32_t detect_full_partition(
     }
 
     SweepPairProof pair;
+    // One implication query: Sat refines the partition from the model, Unsat
+    // captures the direction's proof.
+    enum class Direction { Proved, Refined, Budget, Failed };
+    const auto prove_direction = [&](bool negate_a, bool negate_b,
+                                     const char *label,
+                                     SweepDirProof &proof) {
+      assumptions = {sub_lit(e.sub_of_var[var_of(a)], negate_a),
+                     sub_lit(e.sub_of_var[var_of(b)], negate_b)};
+      solved++;
+      k.stats.sweep_candidates++;
+      k.stats.sweep_solves++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      const uint64_t ticks_before = e.solver.kitten_ticks();
+#endif
+      const SubResult res = sweep_solve(k, e, assumptions, lim.env_ticks);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_query(k, seed, query_ordinal++, label, a, b,
+                              static_cast<int>(res),
+                              e.solver.kitten_ticks() - ticks_before,
+                              e.solver.conflicts());
+      if (res == SubResult::Sat)
+        event_trace_sweep_model(k, seed, query_ordinal - 1, e.vars.data(),
+                                e.solver.model().data(), e.vars.size());
+#else
+      (void)label;
+#endif
+      if (res == SubResult::Budget) {
+        k.stats.sweep_budget++;
+        return Direction::Budget;
+      }
+      if (res == SubResult::Sat) {
+        k.stats.sweep_dir_sat++;
+        const uint32_t before = partition_size(r);
+        partition_refine(k, r);
+        k.stats.sweep_cand_refined += before - partition_size(r);
+        return Direction::Refined;
+      }
+      k.stats.sweep_dir_unsat++;
+      assert(!e.solver.inconsistent());
+      return sweep_capture_dir(k, e, lim.max_proof_steps, proof)
+                 ? Direction::Proved
+                 : Direction::Failed;
+    };
     // Kissat asks ¬a ∧ b first, then a ∧ ¬b.  Reversing these two sound
     // implication checks changes the first SAT model and therefore every
     // subsequent partition refinement and model-flip trajectory.
-    assumptions = {sub_lit(e.sub_of_var[var_of(a)], !negated(a)),
-                   sub_lit(e.sub_of_var[var_of(b)], negated(b))};
-    solved++;
-    k.stats.sweep_candidates++;
-    k.stats.sweep_solves++;
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t fwd_ticks_before = e.solver.kitten_ticks();
-#endif
-    SubResult res = sweep_solve(k, e, assumptions, lim.env_ticks);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    event_trace_sweep_query(k, seed, query_ordinal++, "equiv_fwd", a, b,
-                            static_cast<int>(res),
-                            e.solver.kitten_ticks() - fwd_ticks_before,
-                            e.solver.conflicts());
-    if (res == SubResult::Sat)
-      event_trace_sweep_model(k, seed, query_ordinal - 1, e.vars.data(),
-                              e.solver.model().data(), e.vars.size());
-#endif
-    if (res == SubResult::Budget) {
-      k.stats.sweep_budget++;
+    Direction direction =
+        prove_direction(!negated(a), negated(b), "equiv_fwd", pair.fwd);
+    if (direction == Direction::Proved)
+      direction =
+          prove_direction(negated(a), !negated(b), "equiv_rev", pair.rev);
+    if (direction == Direction::Budget)
       break;
-    }
-    if (res == SubResult::Sat) {
-      k.stats.sweep_dir_sat++;
-      const uint32_t before = partition_size(r);
-      partition_refine(k, r);
-      k.stats.sweep_cand_refined += before - partition_size(r);
+    if (direction == Direction::Refined)
       continue;
-    }
-    k.stats.sweep_dir_unsat++;
-    assert(!e.solver.inconsistent());
-    if (!sweep_capture_dir(k, e, lim.max_proof_steps, pair.fwd))
-      return found;
-
-    assumptions = {sub_lit(e.sub_of_var[var_of(a)], negated(a)),
-                   sub_lit(e.sub_of_var[var_of(b)], !negated(b))};
-    solved++;
-    k.stats.sweep_candidates++;
-    k.stats.sweep_solves++;
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t rev_ticks_before = e.solver.kitten_ticks();
-#endif
-    res = sweep_solve(k, e, assumptions, lim.env_ticks);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    event_trace_sweep_query(k, seed, query_ordinal++, "equiv_rev", a, b,
-                            static_cast<int>(res),
-                            e.solver.kitten_ticks() - rev_ticks_before,
-                            e.solver.conflicts());
-    if (res == SubResult::Sat)
-      event_trace_sweep_model(k, seed, query_ordinal - 1, e.vars.data(),
-                              e.solver.model().data(), e.vars.size());
-#endif
-    if (res == SubResult::Budget) {
-      k.stats.sweep_budget++;
-      break;
-    }
-    if (res == SubResult::Sat) {
-      k.stats.sweep_dir_sat++;
-      const uint32_t before = partition_size(r);
-      partition_refine(k, r);
-      k.stats.sweep_cand_refined += before - partition_size(r);
-      continue;
-    }
-    k.stats.sweep_dir_unsat++;
-    assert(!e.solver.inconsistent());
-    if (!sweep_capture_dir(k, e, lim.max_proof_steps, pair.rev))
+    if (direction == Direction::Failed)
       return found;
     sweep_capture_core_units(k, e, pair.fwd, r, lim, commit_inline);
     if (k.inconsistent)
@@ -3211,10 +3193,7 @@ ApplyResult sweep_try_with_limits(Kernel &k, Var seed,
 static uint32_t sweep_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Var> seeds;
   sweep_seeds(k, seeds);
-  const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(seeds.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = static_cast<uint64_t>(seeds[i]);
-  return n;
+  return copy_instance_prefix(seeds, out, cap);
 }
 
 static ApplyResult sweep_apply_instance(Kernel &k, uint64_t inst) {

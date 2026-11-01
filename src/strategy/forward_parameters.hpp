@@ -1,5 +1,7 @@
 #pragma once
 
+#include "strategy/scoped_rule_parameters.hpp"
+
 #include <cstdint>
 
 namespace tactix {
@@ -19,6 +21,7 @@ struct SubsumeForwardParameters {
   uint32_t large_occurrence_limit = LARGE_OCCURRENCE_DEFAULT;
   uint32_t binary_occurrence_limit = BINARY_OCCURRENCE_DEFAULT;
 
+  static SubsumeForwardParameters from_kernel(const Kernel &);
   constexpr bool valid() const { return true; }
 };
 
@@ -31,38 +34,16 @@ struct StrengthenParameters {
   uint32_t clause_size_limit = CLAUSE_SIZE_DEFAULT;
   uint32_t occurrence_limit = OCCURRENCE_DEFAULT;
 
+  static StrengthenParameters from_kernel(const Kernel &);
   constexpr bool valid() const { return true; }
 };
 
 void install_rule_parameters(Kernel &, const SubsumeForwardParameters &);
 void install_rule_parameters(Kernel &, const StrengthenParameters &);
 
-class ScopedSubsumeForwardParameters {
-public:
-  ScopedSubsumeForwardParameters(Kernel &, const SubsumeForwardParameters &);
-  ScopedSubsumeForwardParameters(const ScopedSubsumeForwardParameters &) =
-      delete;
-  ScopedSubsumeForwardParameters &
-  operator=(const ScopedSubsumeForwardParameters &) = delete;
-  ~ScopedSubsumeForwardParameters();
+using ScopedSubsumeForwardParameters = ScopedRuleParameters<SubsumeForwardParameters>;
 
-private:
-  Kernel &kernel_;
-  SubsumeForwardParameters saved_;
-};
-
-class ScopedStrengthenParameters {
-public:
-  ScopedStrengthenParameters(Kernel &, const StrengthenParameters &);
-  ScopedStrengthenParameters(const ScopedStrengthenParameters &) = delete;
-  ScopedStrengthenParameters &operator=(const ScopedStrengthenParameters &) =
-      delete;
-  ~ScopedStrengthenParameters();
-
-private:
-  Kernel &kernel_;
-  StrengthenParameters saved_;
-};
+using ScopedStrengthenParameters = ScopedRuleParameters<StrengthenParameters>;
 
 } // namespace strategy
 } // namespace tactix

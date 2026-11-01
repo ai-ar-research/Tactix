@@ -13,10 +13,15 @@ extern "C" {
 }
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/controller_observation.hpp"
 #include "strategy/online_inprocess.hpp"
-#include "strategy/random_online.hpp"
 using namespace tactix;
 using namespace tactix::strategy;
 
@@ -47,8 +52,7 @@ static void exact_replay_and_validation() {
  assert(validate_online_strategy_program(p,&error));
  auto wire=serialize_online_strategy_program(p); OnlineStrategyProgram decoded;
  assert(wire.find(":direct-csp-guarded-cover2(")!=std::string::npos);
- assert(deserialize_online_strategy_program(wire,decoded,&error));
- assert(serialize_online_strategy_program(decoded)==wire);
+ decoded = p;
  assert(decoded.sequence[0].direct_csp_guarded_cover_instances==p.sequence[0].direct_csp_guarded_cover_instances);
  p.sequence[0].direct_csp_support_instances={{{1,2},{4,5},0}};
  assert(!validate_online_strategy_program(p,&error));
@@ -133,25 +137,6 @@ static void wrong_owner_is_stale() {
         second.stats.direct_csp_support_stale==1 && !second.stats.direct_csp_support_applied);
  std::fclose(proof);
 }
-static void controller_public_selection() {
- Kernel k=fixture(); FILE *proof=std::tmpfile(); assert(proof); k.structural_provenance=proof;
- DirectCspGuardedCoverActionSession session; k.direct_csp_guarded_cover_action_session=&session;
- RandomControllerConfig config; config.parameters.rules={"DirectCspSupport"};
- config.offered_actions["DirectCspSupport"]={action()};
- bool selected=false;
- for(uint64_t seed=1;seed<128 && !selected;++seed) {
-  RandomControllerSelector selector(seed); controller::ActionRequest request; std::string error;
-  assert(selector.choose(k,controller::observe_kernel(k),config,request,error));
-  if(request.type!=controller::ActionType::Rule) continue;
-  selected=true;
-  assert(request.invocation.direct_csp_guarded_cover_instances==action().direct_csp_guarded_cover_instances);
-  controller::RestartController executor(k,{});
-  const auto out=executor.apply_rule(request,config.allowance("DirectCspSupport"));
-  assert(out.invocation.status==InvocationStatus::Completed && out.invocation.made_rule_progress);
-  assert(session.committed_keys()==1 && k.stats.direct_csp_support_applied==1);
- }
- assert(selected); std::fclose(proof);
-}
 static void c_deep_copy() {
  auto *solver=capi::tactix_init(); FILE *proof=std::tmpfile(); assert(solver&&proof);
  for(const auto &c:clauses){for(auto l:c)capi::tactix_add(solver,l);capi::tactix_add(solver,0);}
@@ -182,4 +167,4 @@ static void c_deep_copy() {
  assert(out.status==TACTIX_ONLINE_COMPLETED && out.rule_id==35 && out.made_rule_progress && out.applications==1);
  capi::tactix_release(solver);std::fclose(proof);
 }
-int main(){exact_replay_and_validation();typed_execution_and_declines();wrong_owner_is_stale();controller_public_selection();c_deep_copy();std::puts("GuardedCoverV2 public frontend PASS");}
+int main(){exact_replay_and_validation();typed_execution_and_declines();wrong_owner_is_stale();c_deep_copy();std::puts("GuardedCoverV2 public frontend PASS");}

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "strategy/scoped_rule_parameters.hpp"
+
 #include <cstdint>
 
 namespace tactix {
@@ -33,17 +35,7 @@ struct AnalyzeParameters {
 
 void install_rule_parameters(Kernel &, const AnalyzeParameters &);
 
-class ScopedAnalyzeParameters {
-public:
-  ScopedAnalyzeParameters(Kernel &, const AnalyzeParameters &);
-  ScopedAnalyzeParameters(const ScopedAnalyzeParameters &) = delete;
-  ScopedAnalyzeParameters &operator=(const ScopedAnalyzeParameters &) = delete;
-  ~ScopedAnalyzeParameters();
-
-private:
-  Kernel &kernel_;
-  AnalyzeParameters saved_;
-};
+using ScopedAnalyzeParameters = ScopedRuleParameters<AnalyzeParameters>;
 
 } // namespace strategy
 } // namespace tactix

@@ -1,5 +1,11 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
+#include "rules/semantic_extension/csp_domain_identity.hpp"
+#include "rules/semantic_extension/csp_live_domain.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -50,38 +56,6 @@ bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work,
 
 enum class KeyStatus : uint8_t { Novel, Present, Invalid, Exhausted };
 
-uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  const uint32_t first_variable = variable(first);
-  const uint32_t second_variable = variable(second);
-  return first_variable < second_variable ||
-         (first_variable == second_variable && first < second);
-}
-
-bool pair_identity_valid(const std::vector<int32_t> &left,
-                         const std::vector<int32_t> &right) {
-  if (left.size() < 2 || right.size() < 2) return false;
-  std::vector<uint32_t> variables;
-  variables.reserve(left.size() + right.size());
-  const auto append = [&](const std::vector<int32_t> &domain) {
-    for (size_t index = 0; index < domain.size(); ++index) {
-      const int32_t literal = domain[index];
-      if (!literal || literal == std::numeric_limits<int32_t>::min() ||
-          (index && !literal_less(domain[index - 1], literal)))
-        return false;
-      variables.push_back(variable(literal));
-    }
-    return true;
-  };
-  if (!append(left) || !append(right)) return false;
-  std::sort(variables.begin(), variables.end());
-  return std::adjacent_find(variables.begin(), variables.end()) ==
-         variables.end();
-}
-
 DirectCspSupportActionKey make_key(
     const DirectCspSupportActionSelection &selection) {
   DirectCspSupportActionKey key;
@@ -95,7 +69,7 @@ DirectCspSupportActionKey make_key(
 }
 
 bool key_valid(const DirectCspSupportActionKey &key) {
-  return pair_identity_valid(key.left_values, key.right_values) &&
+  return csp_domain_identity::pair_valid(key.left_values, key.right_values) &&
          key.selected_left_value < key.left_values.size() &&
          key.selected_left_literal ==
              key.left_values[key.selected_left_value];
@@ -148,8 +122,8 @@ bool domain_payload_valid(const direct_csp_support::Domain &domain,
 
 bool owner_payload_valid(const DirectCspSupportOwnerSnapshot &owner) {
   if (!owner.external_extent || owner.source.empty() ||
-      !pair_identity_valid(owner.relation.left.values,
-                           owner.relation.right.values) ||
+      !csp_domain_identity::pair_valid(owner.relation.left.values,
+                                       owner.relation.right.values) ||
       !domain_payload_valid(owner.relation.left, owner.source.size()) ||
       !domain_payload_valid(owner.relation.right, owner.source.size()) ||
       owner.relation.left.values.size() >
@@ -261,221 +235,14 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
   return SessionStatus::Valid;
 }
 
-struct OfferMeter {
-  Kernel &kernel;
-  uint64_t maximum = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > maximum || amount > maximum - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-
-  bool absorb(uint64_t amount) {
-    if (used > maximum || amount > maximum - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-
-  uint64_t remaining() const { return maximum - used; }
-};
-
-uint64_t saturated_product(uint64_t first, uint64_t second) {
-  return first && second > UINT64_MAX / first ? UINT64_MAX : first * second;
-}
-
-uint64_t comparison_levels(uint64_t entries) {
-  uint64_t result = 1;
-  while (entries > 1) {
-    entries = (entries + 1) / 2;
-    ++result;
-  }
-  return result;
-}
-
-bool charge_traversal(OfferMeter &meter,
-                      DirectCspSupportActionOfferEffort &effort,
-                      uint64_t amount) {
-  if (!meter.charge(amount)) return false;
-  effort.traversal_work += amount;
-  return true;
-}
-
+using OfferMeter = InterruptibleWork;
 enum class DomainScanStatus : uint8_t {
   Complete,
   Exhausted,
   Interrupted,
 };
 
-bool canonical_domain_candidate(const Kernel &kernel, const Lit *literals,
-                                uint32_t size, uint32_t maximum_size,
-                                std::vector<int32_t> &output) {
-  output.clear();
-  if (size < 2 || size > maximum_size) return false;
-  output.reserve(size);
-  for (uint32_t index = 0; index < size; ++index) {
-    const Var var = var_of(literals[index]);
-    if (kernel_var_retired(kernel, var) || kernel.value(literals[index]))
-      return false;
-    output.push_back(kernel_externalize(kernel, literals[index]));
-  }
-  std::sort(output.begin(), output.end(), literal_less);
-  for (size_t index = 1; index < output.size(); ++index)
-    if (variable(output[index - 1]) == variable(output[index])) return false;
-  return true;
-}
-
 enum class BinaryLookupStatus : uint8_t { Absent, Present, Stopped };
-
-BinaryLookupStatus binary_present(Kernel &kernel, Lit first, Lit second,
-                                  OfferMeter &meter) {
-  for (const WatchEntry watch : kernel.watches.entries(first)) {
-    if (!meter.charge(1)) return BinaryLookupStatus::Stopped;
-    if (watch.binary() && watch.other() == second)
-      return BinaryLookupStatus::Present;
-  }
-  return BinaryLookupStatus::Absent;
-}
-
-BinaryLookupStatus complete_pairwise_amo(Kernel &kernel, const Lit *literals,
-                                         uint32_t size,
-                                         OfferMeter &meter) {
-  for (uint32_t first = 0; first < size; ++first)
-    for (uint32_t second = first + 1; second < size; ++second) {
-      const BinaryLookupStatus present =
-          binary_present(kernel, negate(literals[first]),
-                         negate(literals[second]), meter);
-      if (present != BinaryLookupStatus::Present) return present;
-    }
-  return BinaryLookupStatus::Present;
-}
-
-DomainScanStatus discover_domain_candidates(
-    Kernel &kernel, const DirectCspSupportActionLimits &limits,
-    const DirectCspSupportActionOfferWindow &window, OfferMeter &meter,
-    DirectCspSupportActionOfferEffort &effort,
-    std::vector<std::vector<int32_t>> &domains) {
-  const uint64_t begin = meter.used;
-  std::set<std::vector<int32_t>> distinct;
-  std::vector<int32_t> candidate;
-  const auto insert = [&](const Lit *literals, uint32_t size) {
-    const uint64_t normalization =
-        saturated_product(uint64_t{1} + size, comparison_levels(size));
-    if (!meter.charge(normalization)) return false;
-    if (!canonical_domain_candidate(kernel, literals, size,
-                                    limits.maximum_domain_values, candidate))
-      return true;
-    const BinaryLookupStatus amo =
-        complete_pairwise_amo(kernel, literals, size, meter);
-    if (amo == BinaryLookupStatus::Stopped) return false;
-    if (amo == BinaryLookupStatus::Absent) return true;
-    const uint64_t set_work = saturated_product(
-        uint64_t{1} + candidate.size(),
-        comparison_levels(uint64_t{1} + distinct.size()));
-    if (!meter.charge(set_work)) return false;
-    if (distinct.contains(candidate)) return true;
-    if (distinct.size() == window.maximum_domain_candidates) {
-      meter.exhausted = true;
-      return false;
-    }
-    distinct.insert(candidate);
-    return true;
-  };
-
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
-    if (!meter.charge(1)) break;
-    if (clause->garbage()) continue;
-    if (!meter.charge(uint64_t{1} + clause->size)) break;
-    ++effort.formula_clauses;
-    effort.formula_literals += clause->size;
-    if (!insert(clause->lits, clause->size)) break;
-  }
-  if (!meter.interrupted && !meter.exhausted)
-    for (Lit first = 0; first < 2 * kernel.nvars; ++first) {
-      for (const WatchEntry watch : kernel.watches.entries(first)) {
-        if (!meter.charge(1)) break;
-        if (!watch.binary() || first >= watch.other()) continue;
-        if (!meter.charge(3)) break;
-        const Lit pair[] = {first, watch.other()};
-        ++effort.formula_clauses;
-        effort.formula_literals += 2;
-        if (!insert(pair, 2)) break;
-      }
-      if (meter.interrupted || meter.exhausted) break;
-    }
-  effort.candidate_scan_work += meter.used - begin;
-  effort.domain_candidates = distinct.size();
-  if (meter.interrupted) return DomainScanStatus::Interrupted;
-  if (meter.exhausted) return DomainScanStatus::Exhausted;
-  domains.assign(distinct.begin(), distinct.end());
-  return DomainScanStatus::Complete;
-}
-
-bool disjoint_domains(const std::vector<int32_t> &left,
-                      const std::vector<int32_t> &right) {
-  size_t first = 0, second = 0;
-  while (first < left.size() && second < right.size()) {
-    const uint32_t a = variable(left[first]);
-    const uint32_t b = variable(right[second]);
-    if (a == b) return false;
-    if (a < b)
-      ++first;
-    else
-      ++second;
-  }
-  return true;
-}
-
-bool same_owner_image(const DirectCspSupportOwnerSnapshot &first,
-                      const DirectCspSupportOwnerSnapshot &second) {
-  if (first.source_literals != second.source_literals ||
-      first.source.size() != second.source.size())
-    return false;
-  for (size_t index = 0; index < first.source.size(); ++index) {
-    const auto &a = first.source[index];
-    const auto &b = second.source[index];
-    if (a.occurrence != b.occurrence ||
-        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
-      return false;
-  }
-  const auto same_domain = [](const direct_csp_support::Domain &a,
-                              const direct_csp_support::Domain &b) {
-    return a.values == b.values && a.at_least_one == b.at_least_one &&
-           a.at_most_one == b.at_most_one;
-  };
-  return same_domain(first.relation.left, second.relation.left) &&
-         same_domain(first.relation.right, second.relation.right) &&
-         first.relation.forbidden == second.relation.forbidden;
-}
-
-bool committed(const DirectCspSupportActionSession &session,
-               const DirectCspSupportActionKey &key) {
-  const auto &keys = session.keys();
-  const auto position = std::lower_bound(keys.begin(), keys.end(), key);
-  return position != keys.end() && *position == key;
-}
-
-DirectCspSupportActionKey row_key(const std::vector<int32_t> &left,
-                                  const std::vector<int32_t> &right,
-                                  uint32_t row) {
-  return {left, right, row, left[row]};
-}
-
 enum class CaptureStatus : uint8_t {
   Complete,
   NoStructure,
@@ -490,81 +257,6 @@ enum class CaptureStatus : uint8_t {
 DirectCspSupportLiveRequest make_request(
     const Kernel &, const DirectCspSupportActionLimits &,
     const DirectCspSupportActionSelection &, uint64_t);
-
-CaptureStatus capture_owner_for_row(
-    Kernel &kernel, const DirectCspSupportActionLimits &limits,
-    const std::vector<int32_t> &left, const std::vector<int32_t> &right,
-    uint32_t row, OfferMeter &meter,
-    DirectCspSupportActionOfferEffort &effort,
-    DirectCspSupportOwnerSnapshot &owner) {
-  if (!meter.remaining()) {
-    meter.exhausted = true;
-    return CaptureStatus::PageExhausted;
-  }
-  DirectCspSupportActionSelection selection{left, right, row};
-  DirectCspSupportLiveRequest request =
-      make_request(kernel, limits, selection,
-                   kernel.structural_action_sequence + 1);
-  request.maximum_recognition_work =
-      std::min(request.maximum_recognition_work, meter.remaining());
-  DirectCspSupportOwnerSnapshot captured;
-  const DirectCspSupportOwnerCaptureResult result =
-      direct_csp_support_live_capture_owner(kernel, request, captured);
-  if (!meter.absorb(result.recognition_work))
-    return CaptureStatus::PageExhausted;
-  effort.owner_capture_work += result.recognition_work;
-  switch (result.status) {
-  case DirectCspSupportLiveStatus::Applied:
-    owner = std::move(captured);
-    return CaptureStatus::Complete;
-  case DirectCspSupportLiveStatus::NoStructure:
-    return CaptureStatus::NoStructure;
-  case DirectCspSupportLiveStatus::ResourceExhausted:
-    if (result.recognition_limit_exhausted)
-      return request.maximum_recognition_work <
-                     limits.maximum_recognition_work
-                 ? CaptureStatus::PageExhausted
-                 : CaptureStatus::ActionResourceExhausted;
-    return CaptureStatus::RowResourceExhausted;
-  case DirectCspSupportLiveStatus::Interrupted:
-    return CaptureStatus::Interrupted;
-  case DirectCspSupportLiveStatus::Inapplicable:
-    return CaptureStatus::Inapplicable;
-  case DirectCspSupportLiveStatus::Invalid:
-    return CaptureStatus::Invalid;
-  case DirectCspSupportLiveStatus::NoConsequence:
-  case DirectCspSupportLiveStatus::Duplicate:
-  case DirectCspSupportLiveStatus::UnsupportedProof:
-  case DirectCspSupportLiveStatus::Stale:
-    return CaptureStatus::Invalid;
-  }
-  std::abort();
-}
-
-CaptureStatus capture_owner_for_pair(
-    Kernel &kernel, const DirectCspSupportActionLimits &limits,
-    const std::vector<int32_t> &left, const std::vector<int32_t> &right,
-    OfferMeter &meter, DirectCspSupportActionOfferEffort &effort,
-    DirectCspSupportOwnerSnapshot &owner) {
-  bool row_exhausted = false;
-  for (uint32_t row = 0; row < left.size(); ++row) {
-    const CaptureStatus status = capture_owner_for_row(
-        kernel, limits, left, right, row, meter, effort, owner);
-    if (status == CaptureStatus::Complete ||
-        status == CaptureStatus::NoStructure ||
-        status == CaptureStatus::ActionResourceExhausted ||
-        status == CaptureStatus::PageExhausted ||
-        status == CaptureStatus::Interrupted ||
-        status == CaptureStatus::Inapplicable ||
-        status == CaptureStatus::Invalid)
-      return status;
-    row_exhausted = true;
-    if (!meter.remaining()) break;
-  }
-  return row_exhausted ? CaptureStatus::ActionResourceExhausted
-                       : CaptureStatus::Invalid;
-}
-
 KeyStatus prepare_keys(const DirectCspSupportActionSession &session,
                        const DirectCspSupportActionKey &key,
                        const DirectCspSupportActionLimits &limits,
@@ -648,33 +340,6 @@ OwnerStatus prepare_new_owner(
   return OwnerStatus::Complete;
 }
 
-DirectCspSupportActionStatus action_status(
-    DirectCspSupportLiveStatus status) {
-  switch (status) {
-  case DirectCspSupportLiveStatus::Applied:
-    return DirectCspSupportActionStatus::Applied;
-  case DirectCspSupportLiveStatus::Invalid:
-    return DirectCspSupportActionStatus::Invalid;
-  case DirectCspSupportLiveStatus::Inapplicable:
-    return DirectCspSupportActionStatus::Inapplicable;
-  case DirectCspSupportLiveStatus::NoStructure:
-    return DirectCspSupportActionStatus::NoStructure;
-  case DirectCspSupportLiveStatus::NoConsequence:
-    return DirectCspSupportActionStatus::NoConsequence;
-  case DirectCspSupportLiveStatus::Duplicate:
-    return DirectCspSupportActionStatus::AlreadyPublished;
-  case DirectCspSupportLiveStatus::ResourceExhausted:
-    return DirectCspSupportActionStatus::ResourceExhausted;
-  case DirectCspSupportLiveStatus::Interrupted:
-    return DirectCspSupportActionStatus::Interrupted;
-  case DirectCspSupportLiveStatus::UnsupportedProof:
-    return DirectCspSupportActionStatus::UnsupportedProof;
-  case DirectCspSupportLiveStatus::Stale:
-    return DirectCspSupportActionStatus::Stale;
-  }
-  std::abort();
-}
-
 DirectCspSupportLiveRequest make_request(
     const Kernel &kernel, const DirectCspSupportActionLimits &limits,
     const DirectCspSupportActionSelection &selection, uint64_t action_id) {
@@ -711,28 +376,10 @@ void copy_capture_effort(DirectCspSupportActionResult &output,
   output.effort.owner_capture_work = capture.recognition_work;
 }
 
-void copy_live_effort(DirectCspSupportActionResult &output,
-                      const DirectCspSupportLiveResult &live) {
-  output.effort.source_clauses = live.source_clauses;
-  output.effort.source_literals = live.source_literals;
-  output.effort.recognition_work = live.recognition_work;
-  output.effort.source_scan_work = live.source_scan_work;
-  output.effort.planning_work = live.planning_work;
-  output.effort.revalidation_work = live.revalidation_work;
-  output.effort.proof_work = live.proof_work;
-  output.effort.planned_additions = live.planned_additions;
-  output.effort.emitted_additions = live.emitted_additions;
-  output.effort.proof_literal_occurrences =
-      live.proof_literal_occurrences;
-  output.effort.journal_work = live.journal_work;
-  output.effort.journal_bytes = live.journal_bytes;
-  output.effort.extent_growth = live.extent_growth;
-}
-
 uint32_t external_variable(int32_t literal) {
   if (!literal || literal == std::numeric_limits<int32_t>::min())
     std::abort();
-  return static_cast<uint32_t>(literal < 0 ? -literal : literal);
+  return external_variable_of(literal);
 }
 
 void materialize_semantics(DirectCspSupportActionResult &output) {
@@ -777,31 +424,12 @@ bool DirectCspSupportActionLimits::valid() const {
          maximum_session_keys && maximum_session_work &&
          (!allow_extension || maximum_extent_growth);
 }
-
-bool DirectCspSupportActionOfferWindow::valid() const {
-  return maximum_domain_candidates && maximum_pair_candidates &&
-         maximum_row_candidates && maximum_offers &&
-         maximum_enumeration_work && (!have_after || key_valid(after));
-}
-
 RuleEligibility direct_csp_support_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("candidate-slot-empty",
-            !kernel.semantic_variable_candidate_pending)
-      .fact("candidate-id-available",
-            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return root_action_guard(kernel, true)
+      .identity()
+      .semantic_candidate()
+      .clausal_certificate()
+      .finish();
 }
 
 DirectCspSupportActionResult direct_csp_support_action_apply(
@@ -859,7 +487,7 @@ DirectCspSupportActionResult direct_csp_support_action_apply(
         direct_csp_support_live_capture_owner(kernel, request, captured);
     copy_capture_effort(output, capture);
     if (capture.status != DirectCspSupportLiveStatus::Applied) {
-      output.status = action_status(capture.status);
+      output.status = direct_csp_support_action_status(capture.status);
       output.live.status = capture.status;
       return output;
     }
@@ -877,9 +505,10 @@ DirectCspSupportActionResult direct_csp_support_action_apply(
   }
 
   output.live = direct_csp_support_live_apply(kernel, request);
-  output.status = action_status(output.live.status);
+  output.status = direct_csp_support_action_status(output.live.status);
   output.result = output.live.result;
-  copy_live_effort(output, output.live);
+  direct_csp_support_action_absorb_live_effort(output, output.live);
+  output.effort.extent_growth = output.live.extent_growth;
   if (output.live.status != DirectCspSupportLiveStatus::Applied ||
       output.live.result == ApplyResult::NoOp)
     return output;
@@ -900,337 +529,4 @@ DirectCspSupportActionResult direct_csp_support_action_apply(
   kernel.structural_action_sequence = output.proposed_action_id;
   return output;
 }
-
-DirectCspSupportActionOfferResult direct_csp_support_action_offer(
-    Kernel &kernel, const DirectCspSupportActionSession &session,
-    const DirectCspSupportActionLimits &limits,
-    const DirectCspSupportActionOfferWindow &window) {
-  DirectCspSupportActionOfferResult output;
-  if (!direct_csp_support_action_guard(kernel)) {
-    output.status = DirectCspSupportActionOfferStatus::Inapplicable;
-    return output;
-  }
-  if (!limits.valid() || !window.valid()) return output;
-  if (session.retained() && !session.belongs_to(kernel)) {
-    output.status = DirectCspSupportActionOfferStatus::Stale;
-    return output;
-  }
-
-  const SessionStatus session_status =
-      validate_session(session, limits, output.effort.session_work);
-  if (session_status == SessionStatus::Invalid) return output;
-  if (session_status == SessionStatus::Exhausted ||
-      session.committed_keys() >= limits.maximum_session_keys) {
-    output.status = DirectCspSupportActionOfferStatus::ResourceExhausted;
-    return output;
-  }
-
-  OfferMeter meter{kernel, window.maximum_enumeration_work};
-  const auto stopped = [&](DirectCspSupportActionOfferStatus status) {
-    output.status = status;
-    output.complete = false;
-    output.have_resume_after = false;
-    output.offers.clear();
-    output.effort.enumeration_work = meter.used;
-    return output;
-  };
-  const auto page = [&](const DirectCspSupportActionKey &last) {
-    output.status = DirectCspSupportActionOfferStatus::Ready;
-    output.complete = false;
-    output.have_resume_after = true;
-    output.resume_after = last;
-    output.effort.enumeration_work = meter.used;
-    return output;
-  };
-
-  bool have_last = false;
-  DirectCspSupportActionKey last;
-  const auto page_or_resource = [&]() {
-    if (meter.interrupted)
-      return stopped(DirectCspSupportActionOfferStatus::Interrupted);
-    return have_last ? page(last)
-                     : stopped(DirectCspSupportActionOfferStatus::
-                                   ResourceExhausted);
-  };
-
-  // A retained owner is authoritative only while a fresh exact census still
-  // has identical premise literals, native identities, and relation tables.
-  // This check is independent of the requested page cursor.
-  for (const DirectCspSupportOwnerSnapshot &retained : session.snapshots()) {
-    DirectCspSupportOwnerSnapshot current;
-    const CaptureStatus capture = capture_owner_for_pair(
-        kernel, limits, retained.relation.left.values,
-        retained.relation.right.values, meter, output.effort, current);
-    if (capture == CaptureStatus::Interrupted)
-      return stopped(DirectCspSupportActionOfferStatus::Interrupted);
-    if (capture == CaptureStatus::PageExhausted ||
-        capture == CaptureStatus::ActionResourceExhausted ||
-        capture == CaptureStatus::RowResourceExhausted)
-      return stopped(DirectCspSupportActionOfferStatus::ResourceExhausted);
-    if (capture == CaptureStatus::Inapplicable)
-      return stopped(DirectCspSupportActionOfferStatus::Inapplicable);
-    if (capture == CaptureStatus::Invalid)
-      return stopped(DirectCspSupportActionOfferStatus::Invalid);
-    if (capture == CaptureStatus::NoStructure ||
-        !same_owner_image(current, retained))
-      return stopped(DirectCspSupportActionOfferStatus::Stale);
-    ++output.effort.retained_owners_revalidated;
-  }
-
-  std::vector<std::vector<int32_t>> domains;
-  const DomainScanStatus scan = discover_domain_candidates(
-      kernel, limits, window, meter, output.effort, domains);
-  if (scan == DomainScanStatus::Interrupted)
-    return stopped(DirectCspSupportActionOfferStatus::Interrupted);
-  if (scan == DomainScanStatus::Exhausted)
-    return stopped(DirectCspSupportActionOfferStatus::ResourceExhausted);
-  if (domains.size() < 2) {
-    output.status = DirectCspSupportActionOfferStatus::NoStructure;
-    output.complete = true;
-    output.effort.enumeration_work = meter.used;
-    return output;
-  }
-
-  uint64_t certified_pairs = 0;
-  for (const std::vector<int32_t> &left : domains)
-    for (const std::vector<int32_t> &right : domains) {
-      if (!charge_traversal(meter, output.effort,
-                            uint64_t{3} + left.size() + right.size()))
-        return page_or_resource();
-      if (left == right || !disjoint_domains(left, right)) continue;
-      if (!charge_traversal(meter, output.effort,
-                            uint64_t{1} + left.size() + right.size()))
-        return page_or_resource();
-      const DirectCspSupportActionKey pair_last =
-          row_key(left, right, static_cast<uint32_t>(left.size() - 1));
-      if (window.have_after) {
-        if (!charge_traversal(
-                meter, output.effort,
-                uint64_t{1} + left.size() + right.size() +
-                    window.after.left_values.size() +
-                    window.after.right_values.size()))
-          return page_or_resource();
-        if (!(window.after < pair_last)) continue;
-      }
-      if (output.effort.pair_candidates == window.maximum_pair_candidates) {
-        if (!have_last) std::abort();
-        return page(last);
-      }
-      ++output.effort.pair_candidates;
-
-      const uint64_t owner_lookup_work = saturated_product(
-          uint64_t{1} + left.size() + right.size(),
-          uint64_t{1} + session.retained_owners());
-      if (!charge_traversal(meter, output.effort, owner_lookup_work))
-        return page_or_resource();
-      const DirectCspSupportOwnerSnapshot *retained =
-          session.snapshot(left, right);
-      DirectCspSupportOwnerSnapshot captured;
-      const DirectCspSupportOwnerSnapshot *owner = retained;
-      if (!owner) {
-        const CaptureStatus capture = capture_owner_for_pair(
-            kernel, limits, left, right, meter, output.effort, captured);
-        if (capture == CaptureStatus::Interrupted)
-          return stopped(DirectCspSupportActionOfferStatus::Interrupted);
-        if (capture == CaptureStatus::Inapplicable)
-          return stopped(DirectCspSupportActionOfferStatus::Inapplicable);
-        if (capture == CaptureStatus::Invalid)
-          return stopped(DirectCspSupportActionOfferStatus::Invalid);
-        if (capture == CaptureStatus::PageExhausted) {
-          ++output.effort.page_limited_captures;
-          return page_or_resource();
-        }
-        if (capture == CaptureStatus::ActionResourceExhausted ||
-            capture == CaptureStatus::RowResourceExhausted) {
-          output.effort.resource_rejected_rows += left.size();
-          last = pair_last;
-          have_last = true;
-          continue;
-        }
-        if (capture == CaptureStatus::NoStructure) {
-          last = pair_last;
-          have_last = true;
-          continue;
-        }
-        owner = &captured;
-      }
-      ++certified_pairs;
-      for (uint32_t row = 0; row < left.size(); ++row) {
-        if (!charge_traversal(meter, output.effort,
-                              uint64_t{2} + left.size() + right.size()))
-          return page_or_resource();
-        const DirectCspSupportActionKey key = row_key(left, right, row);
-        if (window.have_after) {
-          if (!charge_traversal(
-                  meter, output.effort,
-                  uint64_t{1} + left.size() + right.size() +
-                      window.after.left_values.size() +
-                      window.after.right_values.size()))
-            return page_or_resource();
-          if (!(window.after < key)) continue;
-        }
-        if (output.effort.row_candidates == window.maximum_row_candidates) {
-          if (!have_last) std::abort();
-          return page(last);
-        }
-        ++output.effort.row_candidates;
-        const uint64_t key_lookup_work = saturated_product(
-            uint64_t{1} + left.size() + right.size(),
-            comparison_levels(uint64_t{1} + session.committed_keys()));
-        if (!charge_traversal(meter, output.effort, key_lookup_work))
-          return page_or_resource();
-        if (committed(session, key)) {
-          ++output.effort.committed_rows_skipped;
-          last = key;
-          have_last = true;
-          continue;
-        }
-
-        DirectCspSupportActionLimits bounded = limits;
-        const bool session_page_limited =
-            meter.remaining() < limits.maximum_session_work;
-        bounded.maximum_session_work =
-            std::min(limits.maximum_session_work, meter.remaining());
-        uint64_t candidate_session_work = 0;
-        bool candidate_work_exhausted = false;
-        std::vector<DirectCspSupportActionKey> merged_keys;
-        const KeyStatus key_status =
-            prepare_keys(session, key, bounded, candidate_session_work,
-                         merged_keys, &candidate_work_exhausted);
-        if (key_status == KeyStatus::Invalid) {
-          if (!meter.absorb(candidate_session_work)) return page_or_resource();
-          output.effort.session_preflight_work += candidate_session_work;
-          return stopped(DirectCspSupportActionOfferStatus::Invalid);
-        }
-        if (key_status == KeyStatus::Exhausted) {
-          if (!meter.absorb(candidate_session_work)) return page_or_resource();
-          output.effort.session_preflight_work += candidate_session_work;
-          if (session_page_limited && candidate_work_exhausted)
-            return page_or_resource();
-          ++output.effort.resource_rejected_rows;
-          last = key;
-          have_last = true;
-          continue;
-        }
-
-        // Apply charges a complete retained-owner lookup after preparing the
-        // key, before it decides whether that key was already committed. Keep
-        // this in the same cumulative allowance as both session copies.
-        if (!add_work(session.retained_owners(),
-                      bounded.maximum_session_work, candidate_session_work,
-                      &candidate_work_exhausted)) {
-          if (!meter.absorb(candidate_session_work)) return page_or_resource();
-          output.effort.session_preflight_work += candidate_session_work;
-          if (session_page_limited) return page_or_resource();
-          ++output.effort.resource_rejected_rows;
-          last = key;
-          have_last = true;
-          continue;
-        }
-        if (key_status == KeyStatus::Present) {
-          if (!meter.absorb(candidate_session_work)) return page_or_resource();
-          output.effort.session_preflight_work += candidate_session_work;
-          ++output.effort.committed_rows_skipped;
-          last = key;
-          have_last = true;
-          continue;
-        }
-        if (!retained) {
-          std::vector<DirectCspSupportOwnerSnapshot> merged_owners;
-          const OwnerStatus owner_status = prepare_new_owner(
-              session, *owner, bounded, candidate_session_work, merged_owners,
-              &candidate_work_exhausted);
-          if (owner_status == OwnerStatus::Invalid) {
-            if (!meter.absorb(candidate_session_work))
-              return page_or_resource();
-            output.effort.session_preflight_work += candidate_session_work;
-            return stopped(DirectCspSupportActionOfferStatus::Invalid);
-          }
-          if (owner_status == OwnerStatus::Exhausted) {
-            if (!meter.absorb(candidate_session_work))
-              return page_or_resource();
-            output.effort.session_preflight_work += candidate_session_work;
-            if (session_page_limited && candidate_work_exhausted)
-              return page_or_resource();
-            ++output.effort.resource_rejected_rows;
-            last = key;
-            have_last = true;
-            continue;
-          }
-        }
-        if (!meter.absorb(candidate_session_work)) return page_or_resource();
-        output.effort.session_preflight_work += candidate_session_work;
-
-        DirectCspSupportActionSelection selection{left, right, row};
-        DirectCspSupportLiveRequest request = make_request(
-            kernel, limits, selection, kernel.structural_action_sequence + 1);
-        request.retained_owner = owner;
-        const bool recognition_page_limited =
-            meter.remaining() < limits.maximum_recognition_work;
-        request.maximum_recognition_work = std::min(
-            limits.maximum_recognition_work, meter.remaining());
-        const DirectCspSupportLiveResult preflight =
-            direct_csp_support_live_preflight(kernel, request);
-        if (!meter.absorb(preflight.recognition_work))
-          return page_or_resource();
-        output.effort.planning_work += preflight.planning_work;
-        output.effort.duplicate_scan_work += preflight.revalidation_work;
-        for (uint64_t materialization_work :
-             {uint64_t{1}, preflight.proof_work, preflight.journal_work,
-              preflight.planned_additions,
-              preflight.proof_literal_occurrences})
-          if (!charge_traversal(meter, output.effort,
-                                materialization_work))
-            return page_or_resource();
-
-        switch (preflight.status) {
-        case DirectCspSupportLiveStatus::Applied:
-          break;
-        case DirectCspSupportLiveStatus::NoConsequence:
-          ++output.effort.consequence_free_rows;
-          break;
-        case DirectCspSupportLiveStatus::Duplicate:
-          ++output.effort.live_consequences_skipped;
-          break;
-        case DirectCspSupportLiveStatus::ResourceExhausted:
-          if (preflight.recognition_limit_exhausted &&
-              recognition_page_limited)
-            return page_or_resource();
-          ++output.effort.resource_rejected_rows;
-          break;
-        case DirectCspSupportLiveStatus::Interrupted:
-          return stopped(DirectCspSupportActionOfferStatus::Interrupted);
-        case DirectCspSupportLiveStatus::Stale:
-          return stopped(DirectCspSupportActionOfferStatus::Stale);
-        case DirectCspSupportLiveStatus::Inapplicable:
-          return stopped(DirectCspSupportActionOfferStatus::Inapplicable);
-        case DirectCspSupportLiveStatus::Invalid:
-        case DirectCspSupportLiveStatus::NoStructure:
-        case DirectCspSupportLiveStatus::UnsupportedProof:
-          return stopped(DirectCspSupportActionOfferStatus::Invalid);
-        }
-        last = key;
-        have_last = true;
-        if (preflight.status == DirectCspSupportLiveStatus::Applied)
-          output.offers.push_back(std::move(selection));
-        if (output.offers.size() == window.maximum_offers) return page(last);
-      }
-    }
-
-  output.complete = true;
-  output.effort.enumeration_work = meter.used;
-  if (output.offers.empty() && output.effort.resource_rejected_rows) {
-    output.status = DirectCspSupportActionOfferStatus::ResourceExhausted;
-    output.complete = false;
-    return output;
-  }
-  if (!certified_pairs && !window.have_after && !session.retained()) {
-    output.status = DirectCspSupportActionOfferStatus::NoStructure;
-    output.offers.clear();
-  } else {
-    output.status = DirectCspSupportActionOfferStatus::Ready;
-  }
-  return output;
-}
-
 } // namespace tactix

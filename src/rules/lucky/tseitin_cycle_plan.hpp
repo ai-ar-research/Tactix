@@ -127,6 +127,4 @@ bool validate_candidate(const Input &, const Candidate &, uint64_t maximum_work,
 bool preserves_relations_on_falsifying_assignment(
     const Input &, const Candidate &, const std::vector<bool> &assignment);
 
-const char *decline_reason_name(DeclineReason);
-
 } // namespace tactix::tseitin_cycle

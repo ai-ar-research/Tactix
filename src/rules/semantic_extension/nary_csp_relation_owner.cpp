@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 
+#include "rules/semantic_extension/csp_physical_scan.hpp"
+
 #include <algorithm>
 #include <limits>
 
@@ -55,23 +57,6 @@ bool session_work(
   return true;
 }
 
-struct FormulaMark {
-  KernelChangeMark change;
-  uint64_t semantic_namespace = 0;
-  uint64_t arena_generation = 0;
-  uint64_t next_clause_id = 0;
-  uint32_t variables = 0;
-  size_t external_extent = 0;
-
-  bool operator==(const FormulaMark &) const = default;
-};
-
-FormulaMark formula_mark(const Kernel &kernel) {
-  return {kernel_change_mark(kernel), kernel.affine_semantic_namespace_epoch,
-          kernel.arena_generation, kernel.next_clause_id, kernel.nvars,
-          kernel.external_to_internal.size()};
-}
-
 bool same_authenticated_image(const NaryCspRelationOwnerSnapshot &first,
                               const NaryCspRelationOwnerSnapshot &second) {
   // external_extent and capture_work describe when/how each observation was
@@ -108,7 +93,8 @@ NaryCspRelationCaptureResult nary_csp_relation_prepare_owner(
   }
 
   const auto *previous = session.snapshot(request.domains);
-  const FormulaMark before = formula_mark(kernel);
+  const csp_physical_scan::FormulaMark before =
+      csp_physical_scan::formula_mark(kernel);
   NaryCspRelationOwnerSnapshot captured;
   result = nary_csp_relation_capture_owner(kernel, request, captured);
   if (result.status != NaryCspRelationCaptureStatus::Applied) {
@@ -169,7 +155,7 @@ NaryCspRelationCaptureResult nary_csp_relation_prepare_owner(
     result.session_work = session.session_work();
     return result;
   }
-  if (formula_mark(kernel) != before) {
+  if (csp_physical_scan::formula_mark(kernel) != before) {
     result.status = NaryCspRelationCaptureStatus::Stale;
     result.retained_owners = session.retained_owners();
     result.session_work = session.session_work();

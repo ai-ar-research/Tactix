@@ -1,5 +1,12 @@
 #undef NDEBUG
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "strategy/online_inprocess.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <cassert>
@@ -64,83 +71,7 @@ static void test_controller_boundary(Branching branching) {
   kernel_check_invariants(k);
 }
 
-static Kernel pigeonhole() {
-  Kernel k;
-  constexpr unsigned pigeons = 5, holes = 4;
-  kernel_reserve_vars(k, pigeons * holes);
-  auto cell = [](unsigned pigeon, unsigned hole) {
-    return make_lit(pigeon * holes + hole, false);
-  };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    Lit clause[holes];
-    for (unsigned h = 0; h < holes; ++h)
-      clause[h] = cell(p, h);
-    kernel_add_large_clause(k, clause, holes, false, 0);
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h)
-        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)));
-  }
-  return k;
-}
-
 int main() {
   test_controller_boundary(Branching::Vmtf);
   test_controller_boundary(Branching::Evsids);
-  uint64_t retained = 0;
-  uint64_t replay_seed = 0;
-  for (const bool reuse : {false, true}) {
-    for (uint64_t seed = 1; seed <= 16; ++seed) {
-      Kernel k = pigeonhole();
-      RandomControllerConfig config;
-      config.parameters.rules = {"Propagate"};
-      config.search.restart.initial_interval = 1;
-      config.search.restart.reluctant_period = 1;
-      config.reuse_search_trail = reuse;
-      RandomControllerPolicy policy(seed, config);
-      assert(policy.solve(k) == 20);
-      assert(k.inconsistent && !k.pending.valid);
-      if (reuse) {
-        retained += policy.coverage().partial_restarts;
-        if (!replay_seed && policy.coverage().partial_restarts)
-          replay_seed = seed;
-      } else
-        assert(policy.coverage().partial_restarts == 0);
-      assert(k.stats.restarts_reused == policy.coverage().partial_restarts);
-      kernel_check_invariants(k);
-    }
-  }
-  assert(retained && replay_seed);
-  RandomControllerConfig config;
-  config.parameters.rules = {"Propagate"};
-  config.search.restart.initial_interval = 1;
-  config.search.restart.reluctant_period = 1;
-  const std::string path = "controller-retention-" + std::to_string(getpid()) + ".trace";
-  uint64_t recorded_partial = 0, recorded_full = 0;
-  {
-    ControllerTrace trace;
-    assert(trace.write(path.c_str(), replay_seed, controller_configuration(config)));
-    Kernel k = pigeonhole();
-    RandomControllerPolicy policy(replay_seed, config, &trace);
-    assert(policy.solve(k) == 20);
-    recorded_partial = policy.coverage().partial_restarts;
-    recorded_full = policy.coverage().full_restarts;
-    assert(recorded_partial && trace.error().empty());
-  }
-  {
-    ControllerTrace replay;
-    assert(replay.replay(path.c_str(), controller_configuration(config)));
-    Kernel k = pigeonhole();
-    RandomControllerPolicy policy(999, config, &replay);
-    assert(policy.solve(k) == 20);
-    assert(policy.coverage().partial_restarts == recorded_partial);
-    assert(policy.coverage().full_restarts == recorded_full);
-    assert(replay.error().empty());
-  }
-  {
-    ControllerTrace wrong_profile;
-    config.reuse_search_trail = false;
-    assert(!wrong_profile.replay(path.c_str(), controller_configuration(config)));
-    assert(wrong_profile.error().find("configuration differs") != std::string::npos);
-  }
-  assert(std::remove(path.c_str()) == 0);
 }

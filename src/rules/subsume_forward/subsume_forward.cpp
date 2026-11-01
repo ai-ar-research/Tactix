@@ -1,6 +1,7 @@
 // See subsume_forward.hpp for the rule's contract.
 #include "rules/subsume_forward/subsume_forward.hpp"
 
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
@@ -372,7 +373,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
 // the `d->redundant()` skip below.
 template <bool Collect>
 static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate,
-                                            std::vector<uint8_t> *scratch = nullptr) {
+                                            std::vector<uint8_t> *scratch) {
   assert(subsume_forward_guard(k));
   // The round's `work_budget` is a round device and is not consulted here, so
   // termination gets its own check — one per call, at entry, where nothing is
@@ -422,8 +423,13 @@ static ApplyResult subsume_forward_try_impl(Kernel &k, Ref candidate,
   return ApplyResult::Ok;
 }
 
+template <bool Collect>
+static ApplyResult subsume_forward_try_instance(Kernel &k, Ref candidate) {
+  return subsume_forward_try_impl<Collect>(k, candidate, nullptr);
+}
+
 ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
-  return subsume_forward_try_impl<true>(k, candidate);
+  return subsume_forward_try_instance<true>(k, candidate);
 }
 
 ApplyResult subsume_forward_try_fastel(Kernel &k, Ref candidate,
@@ -515,11 +521,7 @@ static uint32_t subsume_forward_instances(Kernel &k, uint64_t *out,
                                           uint32_t cap) {
   std::vector<Ref> candidates;
   subsume_forward_candidates(k, candidates, /*complete=*/true);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(candidates.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = candidates[i];
-  return n;
+  return copy_instance_prefix(candidates, out, cap);
 }
 
 bool subsume_forward_compact_fastel_prefix(Kernel &k, Lit lit, size_t prefix) {
@@ -598,21 +600,9 @@ template <bool Collect>
 static ApplyResult subsume_forward_apply_instance_impl(Kernel &k, uint64_t inst) {
   if (inst != INSTANCE_CANONICAL && (inst & SUBSUME_FORWARD_FASTEL_INSTANCE))
     return subsume_forward_apply_fastel(k, inst);
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return subsume_forward_apply(k);
-  // validate the payload against clause starts (arbitrary uint64s must be
-  // rejected, not dereferenced)
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == inst)
-      return subsume_forward_try_impl<Collect>(k, ref);
-    if (ref > inst)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
-  return ApplyResult::NoOp;
+  return apply_root_arena_instance<subsume_forward_apply,
+                                   subsume_forward_try_instance<Collect>>(k,
+                                                                         inst);
 }
 
 static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {

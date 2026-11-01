@@ -1,5 +1,8 @@
 #include "rules/semantic_extension/affine_matrix_live.hpp"
 
+#include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
+
 #include "kernel/clause.hpp"
 
 #include <algorithm>
@@ -41,27 +44,7 @@ uint64_t AffineMatrixLivePrepared::retained_bytes() const {
 
 namespace {
 
-struct Work {
-  uint64_t used = 0;
-  uint64_t maximum = 0;
-  Kernel &kernel;
-  bool honor_termination = true;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (honor_termination && kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > maximum || amount > maximum - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
+using Work = InterruptibleWork;
 
 bool valid(const MatrixLiveRequest &request) {
   return request.owner && request.matrix && request.exact_sources &&
@@ -85,12 +68,6 @@ bool applicable(const Kernel &kernel, bool historical_event = false) {
   // Analyze.  Ordinary live publication retains its exact-fixpoint contract.
   return historical_event ||
          (!kernel.conflict_valid && kernel_propagation_fixpoint(kernel));
-}
-
-bool same_equation(const Equation &first, const Equation &second) {
-  return first.variables == second.variables && first.rhs == second.rhs &&
-         first.premises == second.premises &&
-         first.premise_clauses == second.premise_clauses;
 }
 
 bool same_event(const MatrixEvent &first, const MatrixEvent &second) {
@@ -198,7 +175,7 @@ bool validate_selected_sources(
         !kernel.proof->premise_group_matches((*leases)[ordinal], identity.premise_clauses)))
       return false;
     if ((&current_sources[ordinal] != &identity &&
-         !same_equation(current_sources[ordinal], identity)) ||
+         current_sources[ordinal] != identity) ||
         identity.premises.size() != identity.premise_clauses.size())
       return false;
     for (size_t i = 0; i < identity.premises.size(); ++i) {
@@ -305,11 +282,8 @@ bool make_journal(const MatrixLiveRequest &request,
       journal_work = UINT64_MAX;
     else
       journal_work += text.size();
-    if (journal.size() > request.maximum_journal_bytes ||
-        text.size() > request.maximum_journal_bytes - journal.size())
-      return false;
-    journal += text;
-    return true;
+    return tactix::semantic_extension::append_bounded(
+        journal, request.maximum_journal_bytes, text);
   };
   const auto list = [&](const auto &values) {
     if (!append("[")) return false;
@@ -715,7 +689,7 @@ MatrixLiveResult prepare_affine_matrix_live(
       result.status = MatrixLiveStatus::ResourceExhausted; return result;
     }
   }
-  Work validation{0, request.maximum_revalidation_work, kernel,
+  Work validation{kernel, request.maximum_revalidation_work, 0,
                   request.honor_termination};
   if (!validate_selected_sources(
           kernel, (candidate.immediate_ || request.retained_publication)
@@ -855,7 +829,7 @@ MatrixLiveResult publish_affine_matrix_live(
       result.status = MatrixLiveStatus::Stale;
       return result;
     }
-    Work validation{0, request.maximum_revalidation_work, kernel,
+    Work validation{kernel, request.maximum_revalidation_work, 0,
                     request.honor_termination};
     std::vector<uint64_t> occurrences;
     std::vector<uint64_t> clause_ids;
@@ -957,10 +931,10 @@ MatrixLiveResult publish_affine_matrix_live(
     // then charge that recorded suffix without walking the same premise
     // population again.  If the aggregate would cross the bound, replay the
     // old suffix so the terminal partial-work report remains exact.
-    Work validation{0, request.maximum_revalidation_work, kernel,
+    Work validation{kernel, request.maximum_revalidation_work, 0,
                     request.honor_termination};
     if (!validation.charge(prepared.transaction_.authentication_work())) {
-      Work replay{0, request.maximum_revalidation_work, kernel,
+      Work replay{kernel, request.maximum_revalidation_work, 0,
                   request.honor_termination};
       const bool authenticated = request.matrix->authenticates(
           request.owner_identity, *request.exact_sources, *request.event,
@@ -977,7 +951,7 @@ MatrixLiveResult publish_affine_matrix_live(
     }
     const uint64_t selected_work = result.revalidation_work;
     if (!validation.charge(selected_work)) {
-      Work replay{validation.used, request.maximum_revalidation_work, kernel,
+      Work replay{kernel, request.maximum_revalidation_work, validation.used,
                   request.honor_termination};
       std::vector<uint64_t> occurrences;
       std::vector<uint64_t> clause_ids;
@@ -1096,10 +1070,8 @@ MatrixLiveResult publish_affine_matrix_live(
   result.implication_consumed = implication_consumed;
   result.detached_reason = request.detached_reason && implication_consumed &&
                            prepared.physical_reason_.size() >= 3;
-  if (std::fwrite(prepared.journal_.data(), 1, prepared.journal_.size(),
-                  request.records) != prepared.journal_.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records,
+                                             prepared.journal_);
   if (prepared.transaction_.proof_cache_insert() &&
       (!request.proof_cache ||
        !request.proof_cache->commit(

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "strategy/scoped_rule_parameters.hpp"
+
 #include <cstdint>
 
 namespace tactix {
@@ -15,23 +17,13 @@ struct BackboneParameters {
   uint32_t initial_rounds = INITIAL_ROUNDS_DEFAULT;
   uint32_t maximum_rounds = MAXIMUM_ROUNDS_DEFAULT;
 
+  static BackboneParameters from_kernel(const Kernel &);
   constexpr bool valid() const { return true; }
 };
 
 void install_rule_parameters(Kernel &, const BackboneParameters &);
 
-class ScopedBackboneParameters {
-public:
-  ScopedBackboneParameters(Kernel &, const BackboneParameters &);
-  ScopedBackboneParameters(const ScopedBackboneParameters &) = delete;
-  ScopedBackboneParameters &operator=(const ScopedBackboneParameters &) =
-      delete;
-  ~ScopedBackboneParameters();
-
-private:
-  Kernel &kernel_;
-  BackboneParameters saved_;
-};
+using ScopedBackboneParameters = ScopedRuleParameters<BackboneParameters>;
 
 } // namespace strategy
 } // namespace tactix

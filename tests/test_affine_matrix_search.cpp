@@ -1,6 +1,13 @@
 #undef NDEBUG
 #include "kernel/clause.hpp"
-#include "policies/random_controller_policy.hpp"
+#include "strategy/online_inprocess.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
@@ -135,56 +142,6 @@ std::string journal_contents(FILE *journal) {
   assert(!std::fseek(journal, length, SEEK_SET));
   return result;
 }
-
-void unchanged_terminal_initialization_is_suppressed() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
-  install_implication_formula(kernel);
-
-  auto exhausted = parameters();
-  exhausted.maximum_snapshot_work = 1;
-  kernel.affine_consequence_parameters = exhausted;
-  assert(affine_matrix_initialize_guard(kernel));
-  const auto first =
-      affine_matrix_search_initialize(kernel, session, exhausted);
-  assert(first.status == AffineMatrixInitStatus::ResourceExhausted);
-  assert(session.initialization_retry_suppressed(kernel, exhausted));
-  assert(affine_matrix_initialize_guard(kernel));
-  const auto attempts = kernel.stats.affine_matrix_init_attempts;
-  const auto retry =
-      affine_matrix_search_initialize(kernel, session, exhausted);
-  assert(retry.status == AffineMatrixInitStatus::ResourceExhausted &&
-         !retry.snapshot_work && !retry.recognition_work && !retry.matrix_work &&
-         kernel.stats.affine_matrix_init_attempts == attempts + 1);
-
-  RandomControllerConfig config;
-  config.parameters.rules = {"AffineMatrixInitialize"};
-  config.parameters.affine_consequence_reference = exhausted;
-  const auto unchanged = controller_action_availability(kernel, config);
-  const auto unchanged_entry = std::find_if(
-      unchanged.begin(), unchanged.end(), [](const auto &entry) {
-        return entry.rule == "AffineMatrixInitialize";
-      });
-  assert(unchanged_entry != unchanged.end() && !unchanged_entry->eligible &&
-         unchanged_entry->reason == "unchanged-terminal-initialization");
-
-  auto reconfigured = exhausted;
-  ++reconfigured.maximum_snapshot_work;
-  assert(!session.initialization_retry_suppressed(kernel, reconfigured));
-  config.parameters.affine_consequence_reference = reconfigured;
-  const auto changed = controller_action_availability(kernel, config);
-  const auto changed_entry = std::find_if(
-      changed.begin(), changed.end(), [](const auto &entry) {
-        return entry.rule == "AffineMatrixInitialize";
-      });
-  assert(changed_entry != changed.end() && changed_entry->eligible);
-  std::fclose(journal);
-}
-
 void complete_snapshot_policy_admission() {
   {
     Kernel kernel;
@@ -930,18 +887,6 @@ static std::string initialize_partial_fixture() {
          journal_record.find("\"sources\":[1]") != std::string::npos &&
          journal_record.find("\"sources\":[2]") == std::string::npos);
 
-  RandomControllerConfig active_config;
-  active_config.parameters.rules = {"AffineMatrixInitialize"};
-  active_config.parameters.affine_consequence_reference = p;
-  const auto availability =
-      controller_action_availability(kernel, active_config);
-  const auto active = std::find_if(
-      availability.begin(), availability.end(), [](const auto &entry) {
-        return entry.rule == "AffineMatrixInitialize";
-      });
-  assert(active != availability.end() && !active->eligible &&
-         active->reason == "affine-matrix-session-active");
-
   const uint64_t owner = session.owner_version();
   const long before = std::ftell(journal);
   p.basis_maximum_intermediate_width = 1;
@@ -990,65 +935,6 @@ void root_formula(Kernel &kernel) {
   add_equation(kernel,{1,2,3},false);
   add_equation(kernel,{1,2,4},false);
   add_equation(kernel,{3,4,5},true);
-}
-void decide(RestartController &controller,Kernel &kernel,int literal) {
-  assert(controller.search_service("Decide",INSTANCE_CANONICAL,[&]{
-    kernel_assign_decision(kernel,kernel_internalize(kernel,literal));return ApplyResult::Ok;
-  })==ApplyResult::Ok);
-  assert(controller.search_service("Propagate",INSTANCE_CANONICAL,[&]{return propagate_apply(kernel);})==ApplyResult::Ok);
-}
-void restart_only_replay() {
-  char path[]="/tmp/tactix-affine-restart-only-XXXXXX";
-  const int fd=mkstemp(path);assert(fd>=0);assert(!close(fd));
-  for(bool replay:{false,true}) {
-    Kernel kernel;AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session=&session;
-    FILE *journal=std::tmpfile();assert(journal);kernel.structural_provenance=journal;
-    root_formula(kernel);Capture feedback;RestartController controller(kernel,{},&feedback);
-    ControllerTrace trace;
-    assert(replay?trace.replay(path,"restart-only-v1"):trace.write(path,17,"restart-only-v1"));
-    const auto record=[&](const char *kind,uint64_t status){
-      const auto state=state_version(kernel);
-      assert(trace.event(std::string(kind)+" "+std::to_string(status)+" "+std::to_string(state.strategy_epoch)+" "+std::to_string(kernel.trail.size())));
-    };
-    const auto initialized=controller.apply_rule(initialize_request(controller,kernel,parameters()),{WorkUnit::Applications,1,{}});
-    assert(initialized.invocation.status==InvocationStatus::Completed);record("initialize",unsigned(initialized.invocation.status));
-    // Initial root setup is an explicit public action, not an implicit restart.
-    assert(!controller.affine_matrix_root_service_due());
-    assert(controller.resume_search(resume_request(controller,kernel)).resumed_search);record("resume",1);
-    decide(controller,kernel,-6);decide(controller,kernel,-7);
-    const auto calls=kernel.stats.affine_matrix_service_calls;
-    const auto owner=session.owner_version(),id=kernel.next_clause_id;
-    const auto declined=controller.affine_matrix_fixpoint_service();
-    assert(declined.status==AffineMatrixServiceStatus::Inapplicable&&kernel.stats.affine_matrix_service_calls==calls&&session.owner_version()==owner&&kernel.next_clause_id==id&&!session.published_keys());
-    record("mid-interval",unsigned(declined.status));
-    assert(controller.restart(1)==ApplyResult::Ok&&kernel.level==1);
-    assert(!controller.affine_matrix_root_service_due());
-    assert(controller.affine_matrix_fixpoint_service().status==AffineMatrixServiceStatus::Inapplicable&&kernel.stats.affine_matrix_service_calls==calls);
-    record("partial-restart",1);
-    assert(controller.full_restart()==ApplyResult::Ok&&kernel.level==0&&controller.affine_matrix_root_service_due());record("full-restart",0);
-    const auto used=controller.affine_matrix_fixpoint_service();
-    assert(used.status==AffineMatrixServiceStatus::Applied&&used.installed_reason==std::vector<int32_t>{5}&&used.bcp_pending&&session.published_keys()==1);
-    assert(trace.event(affine_matrix_service_trace_record(kernel,used)));
-    assert(controller.resume_search(resume_request(controller,kernel)).invocation.status==InvocationStatus::Inapplicable);
-    assert(session.enabled()&&session.published_keys()==1);
-    assert(controller.search_service("Propagate",INSTANCE_CANONICAL,[&]{return propagate_apply(kernel);})==ApplyResult::Ok);
-    assert(kernel.value(kernel_internalize(kernel,5))>0&&kernel_propagation_fixpoint(kernel));record("consume",1);
-    const auto finished=controller.affine_matrix_fixpoint_service();
-    assert(finished.status==AffineMatrixServiceStatus::NoEvent||finished.status==AffineMatrixServiceStatus::Duplicate);
-    assert(!controller.affine_matrix_root_service_due());
-    assert(controller.resume_search(resume_request(controller,kernel)).resumed_search);record("resume",2);
-    const auto resumed_calls=kernel.stats.affine_matrix_service_calls;
-    assert(controller.affine_matrix_fixpoint_service().status==AffineMatrixServiceStatus::Inapplicable&&kernel.stats.affine_matrix_service_calls==resumed_calls);
-    decide(controller,kernel,-1);if(!kernel.value(kernel_internalize(kernel,2)))decide(controller,kernel,-2);
-    if(!kernel.value(kernel_internalize(kernel,6)))decide(controller,kernel,-6);
-    if(!kernel.value(kernel_internalize(kernel,7)))decide(controller,kernel,-7);
-    assert(!kernel.unassigned_active);kernel_extend_model(kernel);
-    for(const auto &pair:std::vector<std::pair<std::vector<int32_t>,bool>>{{{1,2,3},false},{{1,2,4},false},{{3,4,5},true}})
-      for(const auto &clause:clausal_form(pair.first,pair.second)){bool sat=false;for(int x:clause)sat|=kernel.model_values[internalize(x)]>0;assert(sat);}
-    assert(trace.finish(10));std::fclose(journal);
-  }
-  std::remove(path);
 }
 void root_decline_atomicity() {
   for(bool interrupted:{false,true}){
@@ -1535,7 +1421,6 @@ int main(int argc,char **argv){
   if(argc==5&&!std::strcmp(argv[1],"--proof-search-chain-seed"))
     return search_chain_proof_fixture(argv[3],argv[4],
                                       static_cast<uint32_t>(std::stoul(argv[2])));
-  unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
   deferred_reason_has_public_materialization_boundary();
   detached_minimal_reason_is_public_and_unwatched();
@@ -1548,5 +1433,5 @@ int main(int argc,char **argv){
   repeated_deferred_pbp_reasons_preserve_cache_generation();
   deferred_pbp_reason_survives_backtrack_and_cache_resume();
   partial_admission_feedback_provenance_and_replay();
-  restart_only_replay();root_decline_atomicity();std::puts("test_affine_matrix_search: passed");
+  root_decline_atomicity();std::puts("test_affine_matrix_search: passed");
 }

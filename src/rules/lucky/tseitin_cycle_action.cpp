@@ -1,6 +1,10 @@
 #include "rules/lucky/tseitin_cycle_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
 #include "proof/proof.hpp"
+#include "strategy/action_status_mapping.hpp"
+#include "strategy/action_status_statistics.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -407,21 +411,17 @@ tseitin_cycle_live::Request live_request(
 
 TseitinCycleBreakingStatus map(tseitin_cycle_live::Status status) {
   using S = tseitin_cycle_live::Status;
+  if (const auto failure =
+          strategy::map_standard_action_failure<TseitinCycleBreakingStatus>(
+              status))
+    return *failure;
   switch (status) {
   case S::Prepared:
   case S::Captured:
   case S::Applied: return TseitinCycleBreakingStatus::Applied;
-  case S::Inapplicable: return TseitinCycleBreakingStatus::Inapplicable;
-  case S::ResourceExhausted:
-    return TseitinCycleBreakingStatus::ResourceExhausted;
-  case S::Interrupted: return TseitinCycleBreakingStatus::Interrupted;
-  case S::UnsupportedProof:
-    return TseitinCycleBreakingStatus::UnsupportedProof;
-  case S::Stale: return TseitinCycleBreakingStatus::Stale;
   case S::Declined: return TseitinCycleBreakingStatus::NoStructure;
-  case S::Invalid: return TseitinCycleBreakingStatus::Invalid;
+  default: std::abort();
   }
-  std::abort();
 }
 
 TseitinCycleBreakingStatus map(tseitin_cycle_discovery::Status status) {
@@ -930,7 +930,7 @@ bool TseitinCycleBreakingLimits::valid() const {
 }
 
 RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
-  return RuleEligibility{}
+  return StructuralActionGuard(kernel)
       .fact("consistent", !kernel.inconsistent)
       .fact("root", !kernel.level)
       .fact("root-assignments-only",
@@ -938,14 +938,31 @@ RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
                         [&](Lit lit) {
                           return kernel.assigned[var_of(lit)].level == 0;
                         }))
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("sr-proof", !kernel.proof || kernel.proof->supports_sr());
+      .quiescent()
+      .identity()
+      .fact("sr-proof", !kernel.proof || kernel.proof->supports_sr())
+      .finish();
+}
+
+// Session ownership, key-count, and ordered per-key work/identity accounting
+// shared by offer and apply. Applied means the retained session is admitted.
+static TseitinCycleBreakingStatus account_session(
+    Kernel &kernel, const TseitinCycleBreakingSession &session,
+    const TseitinCycleBreakingLimits &limits, ActionPoll &action_poll,
+    TseitinCycleBreakingEffort &effort) {
+  if (session.retained() && !session.belongs_to(kernel))
+    return TseitinCycleBreakingStatus::Stale;
+  if (session.keys().size() > limits.maximum_session_keys)
+    return TseitinCycleBreakingStatus::ResourceExhausted;
+  for (const auto &key : session.keys()) {
+    if (action_interrupted(&action_poll))
+      return TseitinCycleBreakingStatus::Interrupted;
+    if (!add(key.size(), limits.maximum_session_work, effort.session_work) ||
+        !add(key.size(), limits.maximum_session_identity_bytes,
+             effort.session_identity_bytes))
+      return TseitinCycleBreakingStatus::ResourceExhausted;
+  }
+  return TseitinCycleBreakingStatus::Applied;
 }
 
 TseitinCycleBreakingOfferResult tseitin_cycle_breaking_offer(
@@ -963,27 +980,9 @@ TseitinCycleBreakingOfferResult tseitin_cycle_breaking_offer(
   if (!limits.valid()) return result;
   ActionPoll action_poll{&kernel, limits.discovery.interrupted,
                          limits.discovery.interrupt_state};
-  if (session.retained() && !session.belongs_to(kernel)) {
-    result.status = TseitinCycleBreakingStatus::Stale;
-    return result;
-  }
-  if (session.keys().size() > limits.maximum_session_keys) {
-    result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
-  for (const auto &key : session.keys()) {
-    if (action_interrupted(&action_poll)) {
-      result.status = TseitinCycleBreakingStatus::Interrupted;
-      return result;
-    }
-    if (!add(key.size(), limits.maximum_session_work,
-             result.effort.session_work) ||
-        !add(key.size(), limits.maximum_session_identity_bytes,
-             result.effort.session_identity_bytes)) {
-      result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-      return result;
-    }
-  }
+  result.status = account_session(kernel, session, limits, action_poll,
+                                  result.effort);
+  if (result.status != TseitinCycleBreakingStatus::Applied) return result;
   std::vector<Offered> offered;
   result.status = enumerate_offers(kernel, limits, offered, result.effort);
   if (result.status != TseitinCycleBreakingStatus::Applied) return result;
@@ -1054,27 +1053,9 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
                         : TseitinCycleBreakingStatus::Invalid;
     return result;
   }
-  if (session.retained() && !session.belongs_to(kernel)) {
-    result.status = TseitinCycleBreakingStatus::Stale;
-    return result;
-  }
-  if (session.keys().size() > limits.maximum_session_keys) {
-    result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
-  for (const auto &key : session.keys()) {
-    if (action_interrupted(&action_poll)) {
-      result.status = TseitinCycleBreakingStatus::Interrupted;
-      return result;
-    }
-    if (!add(key.size(), limits.maximum_session_work,
-             result.effort.session_work) ||
-        !add(key.size(), limits.maximum_session_identity_bytes,
-             result.effort.session_identity_bytes)) {
-      result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-      return result;
-    }
-  }
+  result.status = account_session(kernel, session, limits, action_poll,
+                                  result.effort);
+  if (result.status != TseitinCycleBreakingStatus::Applied) return result;
 
   const std::string_view selected_component(identity.data() + 5, split - 5);
   Offered selected;
@@ -1258,35 +1239,26 @@ void record_tseitin_cycle_breaking_feedback(
   kernel.stats.tseitin_cycle_proof_witness_literals +=
       result.effort.proof_witness_literals;
   kernel.stats.tseitin_cycle_proof_routes += result.effort.proof_routes;
-  switch (result.status) {
-  case TseitinCycleBreakingStatus::Applied:
-    ++kernel.stats.tseitin_cycle_applied;
+  const bool standard_status = strategy::record_standard_action_status(
+      result.status,
+      {kernel.stats.tseitin_cycle_applied, kernel.stats.tseitin_cycle_invalid,
+       kernel.stats.tseitin_cycle_inapplicable,
+       kernel.stats.tseitin_cycle_exhausted,
+       kernel.stats.tseitin_cycle_interrupted,
+       kernel.stats.tseitin_cycle_unsupported_proof,
+       kernel.stats.tseitin_cycle_stale});
+  if (result.status == TseitinCycleBreakingStatus::Applied)
     ++kernel.stats.tseitin_cycle_units;
-    break;
-  case TseitinCycleBreakingStatus::Invalid:
-    ++kernel.stats.tseitin_cycle_invalid;
-    break;
-  case TseitinCycleBreakingStatus::Inapplicable:
-    ++kernel.stats.tseitin_cycle_inapplicable;
-    break;
-  case TseitinCycleBreakingStatus::NoStructure:
-    ++kernel.stats.tseitin_cycle_no_structure;
-    break;
-  case TseitinCycleBreakingStatus::ResourceExhausted:
-    ++kernel.stats.tseitin_cycle_exhausted;
-    break;
-  case TseitinCycleBreakingStatus::Interrupted:
-    ++kernel.stats.tseitin_cycle_interrupted;
-    break;
-  case TseitinCycleBreakingStatus::UnsupportedProof:
-    ++kernel.stats.tseitin_cycle_unsupported_proof;
-    break;
-  case TseitinCycleBreakingStatus::Stale:
-    ++kernel.stats.tseitin_cycle_stale;
-    break;
-  case TseitinCycleBreakingStatus::AlreadyApplied:
-    ++kernel.stats.tseitin_cycle_already_applied;
-    break;
+  if (!standard_status) {
+    switch (result.status) {
+    case TseitinCycleBreakingStatus::NoStructure:
+      ++kernel.stats.tseitin_cycle_no_structure;
+      break;
+    case TseitinCycleBreakingStatus::AlreadyApplied:
+      ++kernel.stats.tseitin_cycle_already_applied;
+      break;
+    default: break;
+    }
   }
 }
 

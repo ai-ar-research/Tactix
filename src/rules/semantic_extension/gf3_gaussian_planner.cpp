@@ -77,59 +77,29 @@ struct WorkingRow {
   uint32_t derivation = 0;
 };
 
-std::vector<Term> scaled(const std::vector<Term> &row, uint8_t factor) {
-  std::vector<Term> result = row;
-  for (Term &term : result)
+template <typename T>
+std::vector<T> scaled(const std::vector<T> &terms, uint8_t factor) {
+  std::vector<T> result = terms;
+  for (T &term : result)
     term.coefficient = multiply3(term.coefficient, factor);
   return result;
 }
 
-std::vector<ProvenanceTerm>
-scaled(const std::vector<ProvenanceTerm> &provenance, uint8_t factor) {
-  std::vector<ProvenanceTerm> result = provenance;
-  for (ProvenanceTerm &term : result)
-    term.coefficient = multiply3(term.coefficient, factor);
-  return result;
-}
-
-std::vector<Term> added(const std::vector<Term> &a,
-                        const std::vector<Term> &b) {
-  std::vector<Term> result;
+// GF(3) sum of two lists sorted by `Key`; zero coefficients are dropped.
+template <auto Key, typename T>
+std::vector<T> added(const std::vector<T> &a, const std::vector<T> &b) {
+  std::vector<T> result;
   result.reserve(a.size() + b.size());
   size_t i = 0, j = 0;
   while (i < a.size() || j < b.size()) {
-    if (j == b.size() ||
-        (i < a.size() && a[i].variable < b[j].variable)) {
+    if (j == b.size() || (i < a.size() && a[i].*Key < b[j].*Key)) {
       result.push_back(a[i++]);
-    } else if (i == a.size() || b[j].variable < a[i].variable) {
+    } else if (i == a.size() || b[j].*Key < a[i].*Key) {
       result.push_back(b[j++]);
     } else {
       const uint8_t coefficient =
           add3(a[i].coefficient, b[j].coefficient);
-      if (coefficient) result.push_back({a[i].variable, coefficient});
-      ++i;
-      ++j;
-    }
-  }
-  return result;
-}
-
-std::vector<ProvenanceTerm>
-added(const std::vector<ProvenanceTerm> &a,
-      const std::vector<ProvenanceTerm> &b) {
-  std::vector<ProvenanceTerm> result;
-  result.reserve(a.size() + b.size());
-  size_t i = 0, j = 0;
-  while (i < a.size() || j < b.size()) {
-    if (j == b.size() ||
-        (i < a.size() && a[i].source_id < b[j].source_id)) {
-      result.push_back(a[i++]);
-    } else if (i == a.size() || b[j].source_id < a[i].source_id) {
-      result.push_back(b[j++]);
-    } else {
-      const uint8_t coefficient =
-          add3(a[i].coefficient, b[j].coefficient);
-      if (coefficient) result.push_back({a[i].source_id, coefficient});
+      if (coefficient) result.push_back({a[i].*Key, coefficient});
       ++i;
       ++j;
     }
@@ -266,9 +236,10 @@ struct Builder {
     node.kind = DerivationKind::Add;
     node.first_parent = a.derivation;
     node.second_parent = b.derivation;
-    node.row = added(a.row, b.row);
+    node.row = added<&Term::variable>(a.row, b.row);
     node.rhs = add3(a.rhs, b.rhs);
-    node.provenance = added(a.provenance, b.provenance);
+    node.provenance =
+        added<&ProvenanceTerm::source_id>(a.provenance, b.provenance);
     uint32_t id = 0;
     if (!add_node(std::move(node), true, id)) return false;
     const Derivation &stored = plan.derivations[id - 1];

@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/affine_image.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -30,23 +32,6 @@ struct Witness {
 };
 
 using Group = std::map<Pattern, Witness>;
-
-void xor_sorted(const std::vector<External> &a,
-                const std::vector<External> &b,
-                std::vector<External> &result) {
-  result.clear();
-  result.reserve(a.size() + b.size());
-  std::set_symmetric_difference(a.begin(), a.end(), b.begin(), b.end(),
-                                std::back_inserter(result));
-}
-
-void xor_sorted(const std::vector<size_t> &a, const std::vector<size_t> &b,
-                std::vector<size_t> &result) {
-  result.clear();
-  result.reserve(a.size() + b.size());
-  std::set_symmetric_difference(a.begin(), a.end(), b.begin(), b.end(),
-                                std::back_inserter(result));
-}
 
 struct PlanningSink {
   uint64_t maximum;
@@ -121,7 +106,8 @@ bool authenticates_clausal_form(const Equation &equation) {
     uint32_t negative = 0;
     for (const External literal : clause) {
       if (!literal || literal == INT32_MIN) return false;
-      const External variable = literal < 0 ? -literal : literal;
+      const External variable =
+          static_cast<External>(external_variable_of(literal));
       const auto found = std::lower_bound(equation.variables.begin(),
                                           equation.variables.end(), variable);
       if (found == equation.variables.end() || *found != variable)
@@ -179,7 +165,8 @@ Status recognize(const std::vector<Premise> &input, const Limits &limits,
     std::vector<std::pair<External, bool>> ordered;
     ordered.reserve(premise.literals.size());
     for (External literal : premise.literals)
-      ordered.push_back({literal < 0 ? -literal : literal, literal < 0});
+      ordered.push_back(
+          {static_cast<External>(external_variable_of(literal)), literal < 0});
     std::sort(ordered.begin(), ordered.end());
     bool unsupported = false;
     for (size_t i = 1; i < ordered.size(); ++i)
@@ -239,42 +226,25 @@ Status recognize(const std::vector<Premise> &input, const Limits &limits,
   }
   if (result.equations.empty()) return Status::NoStructure;
 
-  struct Row {
-    std::vector<External> variables;
-    bool rhs = false;
-    std::vector<size_t> sources;
-  };
-  std::map<External, Row> basis;
+  std::map<External, ReducedEquation> basis;
   for (size_t index = 0; index < result.equations.size(); ++index) {
-    Row row{result.equations[index].variables, result.equations[index].rhs,
-            {index}};
+    ReducedEquation row{result.equations[index].variables,
+                        result.equations[index].rhs, {index}};
     if (row.variables.size() > limits.maximum_intermediate_width) continue;
-    while (!row.variables.empty()) {
-      const uint64_t cost = 1 + row.variables.size() + row.sources.size();
-      if (cost > limits.maximum_elimination_work - result.elimination_work)
-        return Status::Exhausted;
-      if (!charge(cost)) return Status::Interrupted;
-      result.elimination_work += cost;
-      // Ascending pivots deliberately expose cancellations between equations
-      // that share their low-index structural coordinates but differ in a
-      // small boundary. That is the affine constructor's useful projection
-      // pattern; the exact source trace below remains independent of ranking.
-      const External pivot = row.variables.front();
-      const auto found = basis.find(pivot);
-      if (found == basis.end()) break;
-      std::vector<External> variables;
-      std::vector<size_t> sources;
-      xor_sorted(row.variables, found->second.variables, variables);
-      xor_sorted(row.sources, found->second.sources, sources);
-      row.variables = std::move(variables);
-      row.sources = std::move(sources);
-      row.rhs ^= found->second.rhs;
-      if (row.variables.size() > limits.maximum_intermediate_width ||
-          row.sources.size() > limits.maximum_sources) {
-        row.sources.clear();
-        break;
-      }
-    }
+    bool interrupted = false;
+    if (!reduce_equation(
+        row, basis, limits.maximum_intermediate_width,
+        limits.maximum_sources, true, [&](uint64_t cost) {
+          if (cost > limits.maximum_elimination_work - result.elimination_work)
+            return false;
+          if (!charge(cost)) {
+            interrupted = true;
+            return false;
+          }
+          result.elimination_work += cost;
+          return true;
+        }))
+      return interrupted ? Status::Interrupted : Status::Exhausted;
     if (row.sources.empty()) continue;
     if (row.sources.size() > 1 &&
         row.variables.size() <= limits.maximum_output_width &&
@@ -316,7 +286,8 @@ bool build_proof_plan(const Image &image, size_t consequence_index,
       if (!to_small(clause, small)) return false;
       premises.push_back(small);
       for (External literal : clause)
-        variables.insert(literal < 0 ? -literal : literal);
+        variables.insert(
+            static_cast<External>(external_variable_of(literal)));
     }
   }
   if (variables.size() > 16) return false;

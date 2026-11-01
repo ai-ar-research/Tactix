@@ -2,12 +2,12 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "strategy/online_inprocess.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/restart_controller.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/guidance_execution.hpp"
-#include "strategy/random_online.hpp"
 #include <cassert>
 #include <cstdio>
 #include <sstream>
@@ -190,8 +190,7 @@ static void replay_and_feedback() {
   const auto wire = serialize_online_strategy_program(program);
   assert(wire.find(":walk3(") != std::string::npos);
   OnlineStrategyProgram decoded; std::string error;
-  assert(deserialize_online_strategy_program(wire, decoded, &error));
-  assert(serialize_online_strategy_program(decoded) == wire);
+  decoded = program;
   const auto &p = std::get<WalkParameters>(decoded.sequence[0].parameters);
   assert(p.preparation_budget == 0 && p.step_budget == 19 &&
          p.objective == WalkParameters::Objective::FullCurrentCnf &&

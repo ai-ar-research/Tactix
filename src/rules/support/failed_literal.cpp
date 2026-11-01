@@ -1,6 +1,7 @@
 #include "rules/support/failed_literal.hpp"
 
 #include "proof/proof.hpp"
+#include "proof/rup_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
@@ -101,15 +102,7 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
   }
   unwind(k, propagation);
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof) {
-    if (lrat) {
-      kernel_build_lrat_chain(entries, last, k.lrat_chain);
-      k.proof->add_rup(id, &unit, 1, k.lrat_chain.data(),
-                       static_cast<uint32_t>(k.lrat_chain.size()));
-    } else {
-      k.proof->add_rup(id, &unit, 1, nullptr, 0);
-    }
-  }
+  rup_helpers::emit(k, id, id, &unit, 1, entries, last);
   k.unit_ids[var_of(unit)] = id;
   *unit_out = unit;
   return true;

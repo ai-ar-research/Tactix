@@ -1,5 +1,10 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+#include "strategy/action_status_statistics.hpp"
+
+#include "rules/structural_action_guard.hpp"
+
 #include <algorithm>
 #include <limits>
 
@@ -45,26 +50,23 @@ gf3_gaussian_live::Request request(const Kernel &kernel,
 
 Gf3GaussianActionStatus status(gf3_gaussian_live::Status value) {
   using S = gf3_gaussian_live::Status;
+  if (const auto failure =
+          strategy::map_standard_action_failure<Gf3GaussianActionStatus>(
+              value))
+    return *failure;
   switch (value) {
   case S::Applied: return Gf3GaussianActionStatus::Applied;
-  case S::Inapplicable: return Gf3GaussianActionStatus::Inapplicable;
   case S::NoStructure: return Gf3GaussianActionStatus::NoStructure;
   case S::NoSupportedOutcome:
     return Gf3GaussianActionStatus::NoSupportedOutcome;
-  case S::ResourceExhausted:
-    return Gf3GaussianActionStatus::ResourceExhausted;
-  case S::Interrupted: return Gf3GaussianActionStatus::Interrupted;
-  case S::UnsupportedProof:
   case S::UnsupportedProofSplit:
     return Gf3GaussianActionStatus::UnsupportedProof;
-  case S::Stale: return Gf3GaussianActionStatus::Stale;
   case S::Duplicate:
   case S::AlreadyApplied:
     return Gf3GaussianActionStatus::AlreadyPublished;
   case S::Prepared: return Gf3GaussianActionStatus::Applied;
-  case S::Invalid: return Gf3GaussianActionStatus::Invalid;
+  default: std::abort();
   }
-  std::abort();
 }
 
 bool valid_identity(const std::string &identity) {
@@ -106,19 +108,10 @@ bool Gf3GaussianActionLimits::valid() const {
 }
 
 RuleEligibility gf3_gaussian_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return root_action_guard(kernel, true)
+      .identity()
+      .clausal_certificate()
+      .finish();
 }
 
 Gf3GaussianActionOfferResult gf3_gaussian_action_offer(
@@ -271,28 +264,26 @@ void record_gf3_gaussian_action_feedback(
   kernel.stats.gf3_gaussian_identity_bytes += result.live.effort.identity_bytes;
   kernel.stats.gf3_gaussian_session_identity_bytes +=
       result.session_identity_bytes;
+  const bool standard_status = strategy::record_standard_action_status(
+      result.status,
+      {kernel.stats.gf3_gaussian_applied, kernel.stats.gf3_gaussian_invalid,
+       kernel.stats.gf3_gaussian_inapplicable,
+       kernel.stats.gf3_gaussian_exhausted,
+       kernel.stats.gf3_gaussian_interrupted,
+       kernel.stats.gf3_gaussian_unsupported_proof,
+       kernel.stats.gf3_gaussian_stale});
   if (result.status == Gf3GaussianActionStatus::Applied) {
-    ++kernel.stats.gf3_gaussian_applied;
     kernel.stats.gf3_gaussian_units += result.live.published_units.size();
     kernel.stats.gf3_gaussian_conflicts += result.live.contradiction;
-  } else if (result.status == Gf3GaussianActionStatus::Invalid)
-    ++kernel.stats.gf3_gaussian_invalid;
-  else if (result.status == Gf3GaussianActionStatus::Inapplicable)
-    ++kernel.stats.gf3_gaussian_inapplicable;
-  else if (result.status == Gf3GaussianActionStatus::NoStructure)
+  } else if (!standard_status &&
+             result.status == Gf3GaussianActionStatus::NoStructure)
     ++kernel.stats.gf3_gaussian_no_structure;
-  else if (result.status == Gf3GaussianActionStatus::NoSupportedOutcome)
+  else if (!standard_status &&
+           result.status == Gf3GaussianActionStatus::NoSupportedOutcome)
     ++kernel.stats.gf3_gaussian_no_supported_outcome;
-  else if (result.status == Gf3GaussianActionStatus::AlreadyPublished)
+  else if (!standard_status &&
+           result.status == Gf3GaussianActionStatus::AlreadyPublished)
     ++kernel.stats.gf3_gaussian_already_published;
-  else if (result.status == Gf3GaussianActionStatus::ResourceExhausted)
-    ++kernel.stats.gf3_gaussian_exhausted;
-  else if (result.status == Gf3GaussianActionStatus::Interrupted)
-    ++kernel.stats.gf3_gaussian_interrupted;
-  else if (result.status == Gf3GaussianActionStatus::Stale)
-    ++kernel.stats.gf3_gaussian_stale;
-  else if (result.status == Gf3GaussianActionStatus::UnsupportedProof)
-    ++kernel.stats.gf3_gaussian_unsupported_proof;
 }
 
 } // namespace tactix

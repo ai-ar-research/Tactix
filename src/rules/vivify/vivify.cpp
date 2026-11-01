@@ -3,9 +3,11 @@
 
 #include "diagnostics/rule_journal.hpp"
 #include "diagnostics/event_trace.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
+#include "proof/rup_helpers.hpp"
 
 #include <algorithm>
 #include <unordered_map>
@@ -1024,17 +1026,6 @@ void vivify_trim_replacement_prefix(Kernel &k, Lit implied,
     kernel_backtrack(k, retained, /*update_phases=*/false);
 }
 
-// last == 0 means the sorted entries already end in the conflicting hint
-// (the implied literal's own reason); otherwise `last` closes the chain
-static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
-                       std::vector<std::pair<uint32_t, uint64_t>> &entries,
-                       uint64_t last) {
-  kernel_build_lrat_chain(entries, last, k.lrat_chain);
-  k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
-                   k.lrat_chain.data(),
-                   static_cast<uint32_t>(k.lrat_chain.size()));
-}
-
 // Replace `c` (at cref) by `lits`, proof add before delete; `entries`+`last`
 // form the LRAT chain. The replacement keeps the candidate's redundancy and
 // takes the shared post-shrink glue (kernel_shrunken_glue). No
@@ -1070,18 +1061,11 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
         kernel_binary_copies(k, lits[0], lits[1]), payload.c_str());
   }
 #endif
-  const bool lrat = k.proof && k.proof->lrat();
   const bool redundant = c->redundant();
   const uint32_t glue = kernel_shrunken_glue(
       k, c->glue(), static_cast<uint32_t>(lits.size()));
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof) {
-    if (lrat)
-      emit_chain(k, id, lits, entries, last);
-    else
-      k.proof->add_rup(0, lits.data(), static_cast<uint32_t>(lits.size()),
-                       nullptr, 0);
-  }
+  rup_helpers::emit(k, id, 0, lits, entries, last);
   k.stats.vivified++;
   // Kissat overwrites a large candidate inside its existing arena allocation.
   // This is search-visible: retaining only a logical-position alias still
@@ -1966,28 +1950,11 @@ ApplyResult vivify_try(Kernel &k, Ref candidate) {
 static uint32_t vivify_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Ref> candidates;
   vivify_candidates(k, candidates);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(candidates.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = candidates[i];
-  return n;
+  return copy_instance_prefix(candidates, out, cap);
 }
 
 static ApplyResult vivify_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U (no-op at a
-  // fixpoint); a root conflict during the drain refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return vivify_apply(k);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == inst)
-      return vivify_try(k, ref);
-    if (ref > inst)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
-  return ApplyResult::NoOp;
+  return apply_root_arena_instance<vivify_apply, vivify_try>(k, inst);
 }
 
 // Additive semantic surface: the v1 callback above intentionally preserves
@@ -2014,16 +1981,7 @@ static ApplyResult vivify_apply_semantic_instance(Kernel &k, uint64_t inst) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
 
-  Ref candidate = INVALID_REF;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == inst) {
-      candidate = ref;
-      break;
-    }
-    if (ref > inst)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
+  const Ref candidate = arena_clause_instance(k, inst);
   if (candidate == INVALID_REF)
     return ApplyResult::NoOp;
   const Clause *c = clause_at(k.arena, candidate);

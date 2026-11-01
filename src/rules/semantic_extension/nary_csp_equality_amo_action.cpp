@@ -1,5 +1,9 @@
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/csp_domain_identity.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -12,6 +16,8 @@
 
 namespace tactix {
 
+using semantic_extension::append_bounded;
+
 struct NaryCspEqualityAmoSessionAccess {
   static void commit(NaryCspEqualityAmoSession &session, const Kernel &kernel,
                      std::vector<NaryCspEqualityAmoKey> keys) {
@@ -21,15 +27,6 @@ struct NaryCspEqualityAmoSessionAccess {
 };
 
 namespace {
-
-uint32_t external_variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  return std::pair(external_variable(first), first) <
-         std::pair(external_variable(second), second);
-}
 
 NaryCspEqualityKey equality_key(
     const std::vector<std::vector<int32_t>> &domains, uint32_t residual) {
@@ -99,14 +96,6 @@ NaryCspRelationCaptureRequest capture_request(
   return request;
 }
 
-bool append_bounded(std::string &journal, uint64_t limit,
-                    const std::string &text) {
-  if (text.size() > limit - std::min<uint64_t>(limit, journal.size()))
-    return false;
-  journal += text;
-  return true;
-}
-
 std::string domains_json(
     const std::vector<std::vector<int32_t>> &domains) {
   std::string result = "[";
@@ -146,40 +135,16 @@ bool NaryCspEqualityAmoLimits::valid() const {
 }
 
 RuleEligibility nary_csp_equality_amo_guard(const Kernel &kernel) {
-  return nary_csp_relation_owner_guard(kernel)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("candidate-slot-empty",
-            !kernel.semantic_variable_candidate_pending)
-      .fact("candidate-id-available",
-            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return extend_action_guard(kernel, nary_csp_relation_owner_guard(kernel))
+      .identity()
+      .semantic_candidate()
+      .clausal_certificate()
+      .finish();
 }
 
 bool nary_csp_equality_amo_selection_valid(
     const NaryCspEqualityAmoSelection &selection) {
-  if (selection.domains.size() != 3) return false;
-  const size_t values = selection.domains.front().size();
-  if (values < 2) return false;
-  std::vector<uint32_t> variables;
-  for (size_t domain = 0; domain < 3; ++domain) {
-    const auto &literals = selection.domains[domain];
-    if (literals.size() != values ||
-        (domain && !(selection.domains[domain - 1] < literals)))
-      return false;
-    for (size_t index = 0; index < values; ++index) {
-      const int32_t literal = literals[index];
-      if (!literal || literal == INT32_MIN ||
-          (index && !literal_less(literals[index - 1], literal)))
-        return false;
-      variables.push_back(external_variable(literal));
-    }
-  }
-  std::sort(variables.begin(), variables.end());
-  return std::adjacent_find(variables.begin(), variables.end()) ==
-         variables.end();
+  return csp_domain_identity::ordered_three_valid(selection.domains, 2);
 }
 
 bool nary_csp_equality_amo_selection_within_limits(
@@ -351,10 +316,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
         std::abort();
     }
   }
-  if (std::fwrite(journal.data(), 1, journal.size(), records) !=
-          journal.size() ||
-      std::fflush(records) || std::ferror(records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(records, journal);
   std::vector<NaryCspEqualityAmoKey> keys = session.keys();
   keys.insert(std::lower_bound(keys.begin(), keys.end(), key), key);
   NaryCspEqualityAmoSessionAccess::commit(session, kernel, std::move(keys));

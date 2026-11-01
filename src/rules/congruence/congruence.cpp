@@ -3,7 +3,9 @@
 
 #include "kernel/kernel.hpp"
 #include "diagnostics/event_trace.hpp"
+#include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
+#include "proof/rup_helpers.hpp"
 #include "rules/propagate/propagate.hpp"   // inprocess_reach_root
 #include "rules/substitute/substitute.hpp" // big_path_chain (bridged LRAT chains)
 
@@ -23,8 +25,6 @@
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 #include <csignal>
-#include <sys/resource.h>
-#include <unistd.h>
 #endif
 
 namespace tactix {
@@ -92,33 +92,17 @@ struct BudgetScope {
 void congruence_stage_trace(const Kernel &k, const char *stage,
                             size_t first = 0, size_t second = 0,
                             size_t third = 0, size_t fourth = 0) {
-  static FILE *out = nullptr;
-  static bool initialized = false;
-  if (!initialized) {
-    initialized = true;
-    const char *path = std::getenv("TACTIX_CONGRUENCE_MEMORY_TRACE");
-    if (path && *path) {
-      out = std::fopen(path, "w");
-      if (out)
-        std::setvbuf(out, nullptr, _IOLBF, 0);
-    }
-  }
+  static diagnostics::EnvironmentLineFile trace;
+  FILE *out = trace.stream("TACTIX_CONGRUENCE_MEMORY_TRACE");
   if (!out)
     return;
-  struct rusage usage {};
-  getrusage(RUSAGE_SELF, &usage);
-  unsigned long virtual_pages = 0;
-  if (FILE *statm = std::fopen("/proc/self/statm", "r")) {
-    (void)std::fscanf(statm, "%lu", &virtual_pages);
-    std::fclose(statm);
-  }
-  const unsigned long virtual_kib =
-      virtual_pages * static_cast<unsigned long>(sysconf(_SC_PAGESIZE) / 1024);
+  const long peak_rss_kib = diagnostics::peak_resident_kib();
+  const unsigned long virtual_kib = diagnostics::virtual_memory_kib();
   std::fprintf(out,
                "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\tarena_words=%zu\t"
                "watch_words=%zu\twatch_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
                "third=%zu\tfourth=%zu\n",
-               stage, usage.ru_maxrss, virtual_kib, k.nvars, k.arena.size(),
+               stage, peak_rss_kib, virtual_kib, k.nvars, k.arena.size(),
                k.watches.arena.size(), k.watches.arena.capacity(), first,
                second, third, fourth);
 }
@@ -1769,19 +1753,7 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     return false;
   if (!lrat)
     return true; // the replay itself was the whole question
-  if (!cube_root_units.empty()) {
-    std::sort(cube_root_units.begin(), cube_root_units.end());
-    cube_root_units.erase(
-        std::unique(cube_root_units.begin(), cube_root_units.end()),
-        cube_root_units.end());
-    entries.erase(std::remove_if(entries.begin(), entries.end(),
-                                 [&](const auto &entry) {
-                                   return std::binary_search(
-                                       cube_root_units.begin(),
-                                       cube_root_units.end(), entry.second);
-                                 }),
-                  entries.end());
-  }
+  rup_helpers::remove_assumption_unit_hints(entries, cube_root_units);
   // (trail position ascending, conflict last) — kernel.hpp's chain contract
   kernel_build_lrat_chain(entries, last, chain);
   // An empty chain is not a proof: a trivially true lemma conflicts against its

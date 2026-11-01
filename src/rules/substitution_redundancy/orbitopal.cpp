@@ -1831,19 +1831,17 @@ bool admit_product_refinement(
   return true;
 }
 
+template <typename Individualize>
 bool product_child_partition(
     const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
     volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    symmetry_backend::RefinementBranch &branch,
-    uint32_t literal_count, const std::vector<Lit> &orbit, Lit anchor,
-    ProductChildPartition &child) {
+    const std::vector<Lit> &orbit, ProductChildPartition &child,
+    Individualize individualize) {
   symmetry_backend::IndividualizedPartition partition;
   const uint64_t remaining = parameters.maximum_detection_ticks - result.ticks;
   RefinementStopContext context{&kernel, stop};
   const symmetry_backend::Status status =
-      symmetry_backend::individualized_partition(
-          branch, anchor, literal_count, remaining,
-          refinement_stopped, &context, partition);
+      individualize(remaining, &context, partition);
   result.ticks = partition.ticks > UINT64_MAX - result.ticks
                      ? UINT64_MAX
                      : result.ticks + partition.ticks;
@@ -1869,37 +1867,34 @@ bool product_child_partition(
 bool product_child_partition(
     const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
     volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
+    symmetry_backend::RefinementBranch &branch,
+    uint32_t literal_count, const std::vector<Lit> &orbit, Lit anchor,
+    ProductChildPartition &child) {
+  return product_child_partition(
+      kernel, parameters, stop, result, orbit, child,
+      [&](uint64_t remaining, RefinementStopContext *context,
+          symmetry_backend::IndividualizedPartition &partition) {
+        return symmetry_backend::individualized_partition(
+            branch, anchor, literal_count, remaining, refinement_stopped,
+            context, partition);
+      });
+}
+
+bool product_child_partition(
+    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
+    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
     FormulaRefinement &refinement, const std::vector<Lit> &orbit,
     const std::vector<Lit> &anchors,
     ProductChildPartition &child) {
-  symmetry_backend::IndividualizedPartition partition;
-  const uint64_t remaining = parameters.maximum_detection_ticks - result.ticks;
-  RefinementStopContext context{&kernel, stop};
-  const symmetry_backend::Status status =
-      symmetry_backend::individualized_partition(
-          *refinement.session, anchors.data(),
-          static_cast<uint32_t>(anchors.size()), refinement.literal_count,
-          remaining, refinement_stopped, &context, partition);
-  result.ticks = partition.ticks > UINT64_MAX - result.ticks
-                     ? UINT64_MAX
-                     : result.ticks + partition.ticks;
-  if (status != symmetry_backend::Status::Complete) {
-    result.status = status == symmetry_backend::Status::Interrupted
-                        ? OrbitopalEnumerationStatus::Interrupted
-                        : traced_orbitopal_limit(__func__, __LINE__);
-    symmetry_backend::release(partition);
-    return false;
-  }
-  child.cells.resize(orbit.size());
-  child.sizes.clear();
-  for (size_t at = 0; at < orbit.size(); ++at) {
-    const Lit literal = orbit[at];
-    const uint32_t cell = partition.cells[literal];
-    child.cells[at] = cell;
-    ++child.sizes[cell];
-  }
-  symmetry_backend::release(partition);
-  return true;
+  return product_child_partition(
+      kernel, parameters, stop, result, orbit, child,
+      [&](uint64_t remaining, RefinementStopContext *context,
+          symmetry_backend::IndividualizedPartition &partition) {
+        return symmetry_backend::individualized_partition(
+            *refinement.session, anchors.data(),
+            static_cast<uint32_t>(anchors.size()), refinement.literal_count,
+            remaining, refinement_stopped, context, partition);
+      });
 }
 
 bool product_child_partition(

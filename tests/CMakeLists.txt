@@ -405,9 +405,6 @@ add_executable(test_theory_action_v5_runtime test_theory_action_v5_runtime.cpp)
 target_link_libraries(test_theory_action_v5_runtime PRIVATE tactix_lib)
 add_test(NAME theory_action_v5_runtime COMMAND test_theory_action_v5_runtime)
 
-add_executable(test_random_controller_policy test_random_controller_policy.cpp)
-target_link_libraries(test_random_controller_policy PRIVATE tactix_lib)
-add_test(NAME random_controller_policy COMMAND test_random_controller_policy)
 
 add_executable(test_direct_csp_guarded_cover test_direct_csp_guarded_cover.cpp)
 target_link_libraries(test_direct_csp_guarded_cover PRIVATE tactix_lib)
@@ -446,10 +443,6 @@ add_test(NAME affine_matrix_actual_geometry_proof_model
                  $<TARGET_FILE:test_affine_matrix_actual_geometry> ${CMAKE_SOURCE_DIR})
 set_tests_properties(affine_matrix_actual_geometry_proof_model PROPERTIES SKIP_RETURN_CODE 77)
 
-add_test(NAME random_controller_affine_resource_proof_model
-         COMMAND bash ${CMAKE_SOURCE_DIR}/tests/random_controller_affine_resource_proof_model.sh
-                 $<TARGET_FILE:test_random_controller_affine_resource> ${CMAKE_SOURCE_DIR})
-set_tests_properties(random_controller_affine_resource_proof_model PROPERTIES SKIP_RETURN_CODE 77)
 
 foreach(normalization_test affine_root_image affine_matrix_root_normalized)
   add_test(NAME ${normalization_test}_proof_model
@@ -784,36 +777,6 @@ set_tests_properties(proof_output_failure PROPERTIES SKIP_RETURN_CODE 77)
 # The nonvacuous 728-graph clique-order sweep also exercises bounded prefixes;
 # the full online suite takes about 21 seconds under ASan/UBSan.
 set_tests_properties(online_inprocess PROPERTIES TIMEOUT 60)
-
-# These unit fixtures still exercise historical producer/selection helpers.
-# Keep that machinery out of tactix_lib and every shipped/public executable.
-set(TACTIX_CONTROLLER_FIXTURE_TESTS
-    test_affine_matrix_search
-    test_controller_execution_signature
-    test_controller_trail_retention
-    test_direct_csp_guarded_cover_frontend
-    test_feedback_trace
-    test_gf3_gaussian_public
-    test_gf3_general_row_public
-    test_guarded_cover_controller_producer
-    test_nary_csp_equality_amo
-    test_nary_csp_equality_public
-    test_nary_csp_equality_transitivity_frontend
-    test_parity_consequence
-    test_policy_feedback
-    test_ramsey_policy_paths
-    test_ramsey_public_action
-    test_ramsey_startup
-    test_random_controller_affine_resource
-    test_random_controller_policy
-    test_theory_action_v5_runtime
-    test_tseitin_cycle_action)
-foreach(test_target IN LISTS TACTIX_CONTROLLER_FIXTURE_TESTS)
-  if(TARGET "${test_target}")
-    target_link_libraries("${test_target}" PRIVATE
-                          tactix_controller_test_support)
-  endif()
-endforeach()
 
 add_test(NAME tseitin_cycle_action_journal
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-trim ${CMAKE_SOURCE_DIR}/tools/checkers/bin/srcheck --

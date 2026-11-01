@@ -1,5 +1,7 @@
 #include "rules/lucky/tseitin_cycle_discovery.hpp"
 
+#include "kernel/types.hpp"
+#include "rules/lucky/callback_work_meter.hpp"
 #include "rules/lucky/parity_premises.hpp"
 
 #include <algorithm>
@@ -13,28 +15,9 @@ namespace {
 
 using External = parity_premises::External;
 
-class Meter {
-  const Limits &limits_;
-  uint64_t used_ = 0;
-  Status stopped_ = Status::Discovered;
-
-public:
-  explicit Meter(const Limits &limits) : limits_(limits) {}
-  bool spend(uint64_t amount = 1) {
-    if (limits_.interrupted && limits_.interrupted(limits_.interrupt_state)) {
-      stopped_ = Status::Interrupted;
-      return false;
-    }
-    if (amount > limits_.work - used_) {
-      stopped_ = Status::ResourceExhausted;
-      return false;
-    }
-    used_ += amount;
-    return true;
-  }
-  uint64_t used() const { return used_; }
-  Status stopped() const { return stopped_; }
-};
+using Meter = CallbackWorkMeter<Limits, Status, Status::Discovered,
+                                Status::Interrupted,
+                                Status::ResourceExhausted>;
 
 Result stop(const Meter &meter, Status status, Reason reason,
             uint64_t clauses = 0, uint64_t groups = 0,
@@ -325,7 +308,8 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
         if (!meter.spend())
           return metered_stop(meter, snapshot.clauses.size(), equations.size(),
                               legal_components);
-        const External variable = literal < 0 ? -literal : literal;
+        const External variable =
+            static_cast<External>(external_variable_of(literal));
         if (edges.count(variable)) {
           residual = true;
           break;
@@ -487,26 +471,6 @@ prepare(Kernel &kernel, const Plan &plan,
   }
   return tseitin_cycle_live::prepare(kernel, plan.snapshot(), plan.groups(),
                                      request, prepared);
-}
-
-const char *reason_name(Reason reason) {
-  switch (reason) {
-  case Reason::None: return "none";
-  case Reason::InvalidLimits: return "invalid-limits";
-  case Reason::InvalidSnapshot: return "invalid-snapshot";
-  case Reason::ClauseLimit: return "clause-limit";
-  case Reason::GroupLimit: return "group-limit";
-  case Reason::WorkLimit: return "work-limit";
-  case Reason::Interrupted: return "interrupted";
-  case Reason::NoCompleteEquations: return "no-complete-equations";
-  case Reason::AmbiguousEquation: return "ambiguous-equation";
-  case Reason::Disconnected: return "disconnected";
-  case Reason::EdgeNotInExactlyTwoEquations:
-    return "edge-not-in-exactly-two-equations";
-  case Reason::EvenCharge: return "even-charge";
-  case Reason::ResidualEdgeTouch: return "residual-edge-touch";
-  }
-  return "unknown";
 }
 
 } // namespace tactix::tseitin_cycle_discovery

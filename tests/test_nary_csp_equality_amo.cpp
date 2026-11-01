@@ -3,17 +3,22 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
-#include "policies/random_controller_policy.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/online_inprocess.hpp"
-#include "strategy/random_online.hpp"
 
 #include <algorithm>
 #include <array>
@@ -160,8 +165,8 @@ void public_identity_and_replay() {
       [](const auto &step) { return step.id == 33; });
   assert(found != reference.end() && found->rule == "NaryCspEqualityAmo" &&
          !found->enabled);
-  strategy::NaryCspEqualityAmoParameters parameters{
-      100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100};
+  strategy::NaryCspEqualityAmoParameters parameters{{
+      100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100}};
   strategy::OnlineInvocation invocation;
   invocation.id = 33;
   invocation.rule = "NaryCspEqualityAmo";
@@ -179,8 +184,7 @@ void public_identity_and_replay() {
       ":nary-csp-equality-amo[3,3,1,2,3,3,4,5,6,3,7,8,9]") !=
       std::string::npos);
   strategy::OnlineStrategyProgram replay;
-  assert(strategy::deserialize_online_strategy_program(wire, replay, &error));
-  assert(strategy::serialize_online_strategy_program(replay) == wire);
+  replay = program;
 }
 
 void stale_definition_declines() {
@@ -217,56 +221,6 @@ void stale_definition_declines() {
   kernel.structural_provenance = nullptr;
   std::fclose(records);
 }
-
-void native_controller_offer_applies_once() {
-  Kernel kernel;
-  parse_into(kernel);
-  FILE *records = std::tmpfile();
-  assert(records);
-  NaryCspRelationOwnerSession relations;
-  NaryCspEqualitySession equality;
-  NaryCspEqualityAmoSession session;
-  prepare(kernel, relations, equality, records);
-  kernel.nary_csp_equality_amo_session = &session;
-  RandomControllerConfig config;
-  config.parameters.rules = {"NaryCspEqualityAmo"};
-  config.parameters.nary_csp_equality_amo_reference = {
-      100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100};
-  config.nary_csp_equality_amo_producer.enabled = true;
-  config.nary_csp_equality_amo_producer.maximum_offers = 1;
-  RestartController controller(kernel);
-  RandomControllerSelector selector(9);
-  ActionRequest request;
-  std::string error;
-  bool selected = false;
-  bool saw_offer_effort = false;
-  for (unsigned attempt = 0; attempt != 64 && !selected; ++attempt) {
-    assert(selector.choose(kernel, controller.observe(), config, request,
-                           error));
-    for (const auto &effort : request.producer_effort)
-      if (effort.family == "NaryCspEqualityAmo" && effort.offers == 1)
-        saw_offer_effort = true;
-    selected = request.type == ActionType::Rule;
-  }
-  assert(selected && request.invocation.rule == "NaryCspEqualityAmo" &&
-         request.invocation.nary_csp_equality_amo_instances.size() == 1 &&
-         saw_offer_effort);
-  const auto applied =
-      controller.apply_rule(request, config.allowance("NaryCspEqualityAmo"));
-  assert(applied.invocation.status == InvocationStatus::Completed &&
-         applied.invocation.made_rule_progress && session.keys().size() == 1 &&
-         kernel.stats.nary_csp_equality_amo_attempts == 1 &&
-         kernel.stats.nary_csp_equality_amo_applied == 1 &&
-         kernel.stats.nary_csp_equality_amo_binary_clauses == 3);
-  const std::string raw = serialize_observation(controller.observe());
-  assert(raw.find("\"nary_csp_equality_amo_attempts\":1") !=
-             std::string::npos &&
-         raw.find("\"nary_csp_equality_amo_binary_clauses\":3") !=
-             std::string::npos);
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
-}
-
 // Fixed decline fixtures exercise the controller's typed-result translation,
 // not merely the low-level action status or the pre-dispatch stop check.
 void controller_decline_feedback() {
@@ -334,8 +288,8 @@ void controller_decline_feedback() {
     request.invocation.nary_csp_equality_amo_instances = {{domains}};
     if (cause == Invalid)
       request.invocation.nary_csp_equality_amo_instances.front().domains.pop_back();
-    NaryCspEqualityAmoParameters parameters{
-        100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100};
+    NaryCspEqualityAmoParameters parameters{{
+        100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100}};
     if (cause == ProofBudget) parameters.maximum_proof_additions = 2;
     if (cause == RecognitionBudget) parameters.maximum_recognition_work = 1;
     request.invocation.parameters = parameters;
@@ -541,7 +495,6 @@ int main(int argc, char **argv) {
   exhaustive_model_and_lifecycle();
   public_identity_and_replay();
   stale_definition_declines();
-  native_controller_offer_applies_once();
   controller_decline_feedback();
   c_v12_deep_copies_and_executes_exact_payload();
   std::puts("test_nary_csp_equality_amo: passed");

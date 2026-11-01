@@ -1,8 +1,11 @@
 #include "rules/semantic_extension/independent_set_live.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -25,30 +28,7 @@ struct Snapshot {
   uint64_t literals = 0;
 };
 
-struct WorkMeter {
-  const Kernel &kernel;
-  uint64_t limit = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > limit || amount > limit - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-
-  static bool callback(void *context, uint64_t amount) {
-    return static_cast<WorkMeter *>(context)->charge(amount);
-  }
-};
+using WorkMeter = InterruptibleWork;
 
 IndependentSetLiveStatus meter_status(const WorkMeter &meter,
                                       IndependentSetLiveStatus otherwise) {
@@ -169,8 +149,7 @@ bool import_owner_snapshot(const IndependentSetOwnerSnapshot &owner,
       return false;
     for (int32_t literal : source.literals) {
       if (!literal || literal == INT32_MIN ||
-          uint64_t(literal < 0 ? -int64_t(literal) : literal) >
-              owner.external_variables ||
+          external_variable_of(literal) > owner.external_variables ||
           std::binary_search(source.literals.begin(), source.literals.end(),
                              -literal))
         return false;
@@ -814,10 +793,7 @@ IndependentSetLiveResult independent_set_live_apply(
     }
   if (propagate_service(kernel) != ApplyResult::Ok)
     std::abort();
-  if (std::fwrite(journal.data(), 1, journal.size(), request.records) !=
-          journal.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, journal);
   return result;
 }
 

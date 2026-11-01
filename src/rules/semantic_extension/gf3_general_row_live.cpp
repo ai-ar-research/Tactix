@@ -1,39 +1,28 @@
 #include "rules/semantic_extension/gf3_general_row_live.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
-#include <limits>
 #include <set>
-#include <string_view>
 
 namespace tactix {
 namespace {
 
 using ClauseKey = std::vector<int32_t>;
 
-struct Meter {
-  const Kernel &kernel;
-  uint64_t maximum = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
+using Meter = InterruptibleWork;
 
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > maximum || amount > maximum - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
+using gf3_live_common::append_u8;
+using gf3_live_common::append_u32;
+using gf3_live_common::append_u64;
+using semantic_extension::append_bounded;
 
 ClauseKey canonical(ClauseKey clause) {
   std::sort(clause.begin(), clause.end());
@@ -59,27 +48,20 @@ Gf3AffineLiveRequest owner_request(const Gf3GeneralRowLiveLimits &limits) {
 }
 
 Gf3GeneralRowLiveStatus owner_status(Gf3AffineLiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<Gf3GeneralRowLiveStatus>(
+              status))
+    return *failure;
   switch (status) {
   case Gf3AffineLiveStatus::Applied:
     return Gf3GeneralRowLiveStatus::Ready;
-  case Gf3AffineLiveStatus::Inapplicable:
-    return Gf3GeneralRowLiveStatus::Inapplicable;
   case Gf3AffineLiveStatus::NoStructure:
   case Gf3AffineLiveStatus::NoConsequence:
     return Gf3GeneralRowLiveStatus::NoStructure;
-  case Gf3AffineLiveStatus::ResourceExhausted:
-    return Gf3GeneralRowLiveStatus::ResourceExhausted;
-  case Gf3AffineLiveStatus::Interrupted:
-    return Gf3GeneralRowLiveStatus::Interrupted;
-  case Gf3AffineLiveStatus::UnsupportedProof:
-    return Gf3GeneralRowLiveStatus::UnsupportedProof;
-  case Gf3AffineLiveStatus::Stale:
-    return Gf3GeneralRowLiveStatus::Stale;
-  case Gf3AffineLiveStatus::Invalid:
   case Gf3AffineLiveStatus::Duplicate:
     return Gf3GeneralRowLiveStatus::Invalid;
+  default: std::abort();
   }
-  std::abort();
 }
 
 Gf3GeneralRowLiveStatus planner_status(gf3_general_row::Status status) {
@@ -100,30 +82,10 @@ Gf3GeneralRowLiveStatus planner_status(gf3_general_row::Status status) {
   std::abort();
 }
 
-void append_u8(std::string &bytes, uint8_t value) {
-  bytes.push_back(static_cast<char>(value));
-}
-void append_u32(std::string &bytes, uint32_t value) {
-  for (unsigned shift = 0; shift != 32; shift += 8)
-    append_u8(bytes, static_cast<uint8_t>(value >> shift));
-}
-void append_u64(std::string &bytes, uint64_t value) {
-  for (unsigned shift = 0; shift != 64; shift += 8)
-    append_u8(bytes, static_cast<uint8_t>(value >> shift));
-}
-
 bool append_reference(std::string &bytes,
                       const gf3_affine::SourceReference &reference,
                       const Gf3AffineOwnerSnapshot &owner) {
-  append_u64(bytes, reference.occurrence);
-  append_u64(bytes, reference.native_proof_id);
-  if (!reference.occurrence || reference.occurrence > owner.sources.size())
-    return false;
-  const auto &clause = owner.sources[reference.occurrence - 1].clause;
-  append_u64(bytes, clause.size());
-  for (int32_t literal : clause)
-    append_u32(bytes, static_cast<uint32_t>(literal));
-  return true;
+  return gf3_live_common::append_reference(bytes, reference, owner);
 }
 
 bool count_bytes(uint64_t amount, uint64_t maximum, uint64_t &total) {
@@ -142,58 +104,12 @@ bool count_reference(uint64_t maximum, uint64_t &total,
          count_bytes(24 + 4 * clause.size(), maximum, total);
 }
 
-std::string hex(std::string_view bytes) {
-  static constexpr char digits[] = "0123456789abcdef";
-  std::string result = "g3r1:";
-  if (bytes.size() > (std::numeric_limits<size_t>::max() - result.size()) / 2)
-    return {};
-  result.reserve(result.size() + 2 * bytes.size());
-  for (unsigned char byte : bytes) {
-    result.push_back(digits[byte >> 4]);
-    result.push_back(digits[byte & 15]);
-  }
-  return result;
-}
-
-bool collect_live_clauses(const Kernel &kernel, Meter &meter,
-                          std::vector<ClauseKey> &clauses) {
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    const uint32_t words = clause_actual_words(clause);
-    if (!words || words > kernel.arena.size() - reference) return false;
-    reference += words;
-    if (!meter.charge(uint64_t{1} + clause->size)) return false;
-    if (clause->garbage()) continue;
-    ClauseKey external;
-    external.reserve(clause->size);
-    for (Lit literal : *clause)
-      external.push_back(kernel_externalize(kernel, literal));
-    clauses.push_back(canonical(std::move(external)));
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1)) return false;
-      if (!watch.binary() || first >= watch.other()) continue;
-      clauses.push_back(canonical({kernel_externalize(kernel, first),
-                                   kernel_externalize(kernel, watch.other())}));
-    }
-  return true;
-}
-
 bool subsumed(const std::vector<ClauseKey> &live, const ClauseKey &candidate) {
   for (const auto &clause : live)
     if (std::includes(candidate.begin(), candidate.end(), clause.begin(),
                       clause.end()))
       return true;
   return false;
-}
-
-bool append_bounded(std::string &target, uint64_t maximum,
-                    const std::string &text) {
-  if (target.size() > maximum || text.size() > maximum - target.size())
-    return false;
-  target += text;
-  return true;
 }
 
 std::string literals(const std::vector<int32_t> &clause) {
@@ -316,7 +232,10 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
 
   Meter duplicate{kernel, request.limits.maximum_duplicate_scan_work};
   std::vector<ClauseKey> live;
-  if (!collect_live_clauses(kernel, duplicate, live)) {
+  if (!gf3_live_common::scan_live_external_clauses(
+          kernel, duplicate, [&](ClauseKey clause) {
+            live.push_back(canonical(std::move(clause)));
+          })) {
     result.effort.duplicate_scan_work = duplicate.used;
     result.status = duplicate.interrupted
                         ? Gf3GeneralRowLiveStatus::Interrupted
@@ -559,7 +478,7 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &owner,
       if (!append_reference(bytes, tuple.premise, owner.affine)) return false;
     }
   }
-  identity = hex(bytes);
+  identity = gf3_live_common::hex("g3r1:", bytes, true);
   return !identity.empty() && identity.size() <= maximum_bytes;
 }
 
@@ -616,10 +535,7 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
       kernel_rearm_theory_clause(kernel, internal.data(), internal.size());
     result.installed_clause_id = id;
   }
-  if (std::fwrite(prepared.journal.data(), 1, prepared.journal.size(),
-                  request.records) != prepared.journal.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, prepared.journal);
   std::set<int32_t> semantic;
   for (const auto &term : result.plan.duplicate_key.row) {
     const auto &domain = result.owner.affine.theory.domains[term.variable - 1];

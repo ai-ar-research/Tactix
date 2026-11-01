@@ -5,6 +5,7 @@
 #include "rules/lucky/lucky.hpp"
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
+#include "rules/semantic_extension/csp_domain_identity.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -13,6 +14,7 @@
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
+#include "strategy/action_status_statistics.hpp"
 #include "strategy/rule_execution.hpp"
 #include "strategy/work_execution.hpp"
 #include "strategy/guidance_outcome.hpp"
@@ -28,6 +30,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cstring>
+#include <initializer_list>
 #include <limits>
 #include <optional>
 #include <unordered_map>
@@ -55,6 +58,39 @@ bool selected_affine_guard(const RuleVTable &rule, Kernel &kernel,
     return static_cast<bool>(rule_guard(rule, kernel));
   }
   return static_cast<bool>(rule_guard(rule, kernel));
+}
+
+struct StructuredPayloadShape {
+  unsigned kinds = 0;
+  size_t size = 0;
+};
+
+StructuredPayloadShape structured_payload_shape(
+    const OnlineInvocation &step) {
+  StructuredPayloadShape result;
+  const auto include = [&](size_t size) {
+    if (!size)
+      return;
+    if (!result.kinds)
+      result.size = size;
+    ++result.kinds;
+  };
+  include(step.factor_grids.size());
+  include(step.substitution_redundancy_instances.size());
+  include(step.condition_instances.size());
+  include(step.independent_set_cover_instances.size());
+  include(step.affine_basis_instances.size());
+  include(step.gf3_affine_instances.size());
+  include(step.direct_csp_guarded_cover_instances.size());
+  include(step.direct_csp_support_instances.size());
+  include(step.nary_csp_equality_instances.size());
+  include(step.nary_csp_equality_transitivity_instances.size());
+  include(step.nary_csp_equality_amo_instances.size());
+  include(step.gf3_gaussian_instances.size());
+  include(step.gf3_general_row_instances.size());
+  include(step.cardinality_search_instances.size());
+  include(step.tseitin_cycle_instances.size());
+  return result;
 }
 
 } // namespace
@@ -127,108 +163,72 @@ bool valid_post_application(PostApplication value) {
   return false;
 }
 
+ActionParameterMetadata parameter_metadata(const OnlineInvocation &step,
+                                           bool check_validity = false) {
+  return std::visit(
+      [&](const auto &parameters) {
+        return action_parameter_metadata(parameters, step.rule,
+                                         check_validity);
+      },
+      step.parameters);
+}
+
 bool parameter_matches(const OnlineInvocation &step) {
-  if (std::holds_alternative<std::monostate>(step.parameters))
-    return true;
-  if (std::holds_alternative<AnalyzeParameters>(step.parameters))
-    return step.rule == "ConflictAnalysis";
-  if (std::holds_alternative<BveParameters>(step.parameters))
-    return step.rule == "BVE";
-  if (std::holds_alternative<SubsumeForwardParameters>(step.parameters))
-    return step.rule == "SubsumeForward";
-  if (std::holds_alternative<StrengthenParameters>(step.parameters))
-    return step.rule == "Strengthen";
-  if (std::holds_alternative<ParityConsequenceParameters>(step.parameters))
-    return step.rule == "ParityConsequence";
-  if (std::holds_alternative<AffineMatrixInitializeParameters>(step.parameters))
-    return step.rule == "AffineMatrixInitialize";
-  if (std::holds_alternative<AffineConsequenceParameters>(step.parameters))
-    return step.rule == "AffineConsequence" ||
-           step.rule == "AffineMatrixInitialize";
-  if (std::holds_alternative<ExactCoverExtensionParameters>(step.parameters))
-    return step.rule == "ExactCoverExtension";
-  if (std::holds_alternative<IndependentSetCoverParameters>(step.parameters))
-    return step.rule == "IndependentSetCover";
-  if (std::holds_alternative<Gf3AffineConsequenceParameters>(step.parameters))
-    return step.rule == "Gf3AffineConsequence";
-  if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters))
-    return step.rule == "DirectCspSupport";
-  if (std::holds_alternative<DirectCspSupportParameters>(step.parameters))
-    return step.rule == "DirectCspSupport";
-  if (std::holds_alternative<NaryCspEqualityParameters>(step.parameters))
-    return step.rule == "NaryCspEquality";
-  if (std::holds_alternative<NaryCspEqualityTransitivityParameters>(step.parameters))
-    return step.rule == "NaryCspEqualityTransitivity";
-  if (std::holds_alternative<NaryCspEqualityAmoParameters>(step.parameters))
-    return step.rule == "NaryCspEqualityAmo";
-  if (std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
-    return step.rule == "DirectPhpRefutation";
-  if (std::holds_alternative<Gf3GaussianConsequenceParameters>(step.parameters))
-    return step.rule == "Gf3GaussianConsequence";
-  if (std::holds_alternative<Gf3GeneralRowConsequenceParameters>(
-          step.parameters))
-    return step.rule == "Gf3GeneralRowConsequence";
-  if (std::holds_alternative<CardinalitySearchActionLimits>(step.parameters))
-    return step.rule == "CardinalitySearch";
-  if (std::holds_alternative<TseitinCycleBreakingParameters>(step.parameters))
-    return step.rule == "TseitinCycleBreaking";
-  if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
-    return step.rule == "SemanticVariableAdvice";
-  if (std::holds_alternative<CongruenceParameters>(step.parameters))
-    return step.rule == "Congruence";
-  if (std::holds_alternative<InstantiateParameters>(step.parameters))
-    return step.rule == "Instantiate";
-  if (std::holds_alternative<BackboneParameters>(step.parameters))
-    return step.rule == "Backbone";
-  if (std::holds_alternative<SweepParameters>(step.parameters))
-    return step.rule == "Sweep";
-  if (std::holds_alternative<VivifyParameters>(step.parameters))
-    return step.rule == "Vivify";
-  if (std::holds_alternative<BceParameters>(step.parameters))
-    return step.rule == "BCE";
-  if (std::holds_alternative<TernaryParameters>(step.parameters))
-    return step.rule == "HyperTernaryRes";
-  if (std::holds_alternative<FactorParameters>(step.parameters))
-    return step.rule == "Factor";
-  if (std::holds_alternative<TransitiveReduceParameters>(step.parameters))
-    return step.rule == "TransitiveReduce";
-  if (std::holds_alternative<SubstituteParameters>(step.parameters))
-    return step.rule == "Substitute";
-  if (std::holds_alternative<ReduceParameters>(step.parameters))
-    return step.rule == "Reduce";
-  if (std::holds_alternative<WalkParameters>(step.parameters))
-    return step.rule == "Walk";
-  if (std::holds_alternative<ReorderParameters>(step.parameters))
-    return step.rule == "Reorder";
-  if (std::holds_alternative<ParityModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<OnehotModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<BalancedSignatureModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<FermatModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<LookupCircuitModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<SimonModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<StconnProofParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<SignedCardinalityProofParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<ExactCoverModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<IndependentSetModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<RamseyStartupParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<GraphLabelingParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<AffineModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<SubstitutionRedundancyParameters>(step.parameters))
-    return step.rule == "SubstitutionRedundancy";
-  return false;
+  return parameter_metadata(step).matches_rule;
+}
+
+enum TheoryRetention : uint8_t {
+  RetainInvalid = 1u << 0,
+  RetainInapplicable = 1u << 1,
+  RetainResourceExhausted = 1u << 2,
+  RetainInterrupted = 1u << 3,
+  RetainStale = 1u << 4,
+};
+
+struct TheoryStatusDisposition {
+  std::optional<InvocationStatus> status;
+  bool retain = false;
+};
+
+template <class Status>
+bool status_in(Status status, std::initializer_list<Status> candidates) {
+  return std::find(candidates.begin(), candidates.end(), status) !=
+         candidates.end();
+}
+
+template <class Status>
+TheoryStatusDisposition theory_status_disposition(
+    Status status, std::initializer_list<Status> invalid,
+    std::initializer_list<Status> inapplicable,
+    std::initializer_list<Status> resource_exhausted,
+    std::initializer_list<Status> interrupted,
+    std::initializer_list<Status> stale, uint8_t retention) {
+  if (status_in(status, invalid))
+    return {InvocationStatus::InvalidRequest,
+            static_cast<bool>(retention & RetainInvalid)};
+  if (status_in(status, inapplicable))
+    return {InvocationStatus::Inapplicable,
+            static_cast<bool>(retention & RetainInapplicable)};
+  if (status_in(status, resource_exhausted))
+    return {InvocationStatus::ResourceExhausted,
+            static_cast<bool>(retention & RetainResourceExhausted)};
+  if (status_in(status, interrupted))
+    return {InvocationStatus::Interrupted,
+            static_cast<bool>(retention & RetainInterrupted)};
+  if (status_in(status, stale))
+    return {InvocationStatus::StaleRequest,
+            static_cast<bool>(retention & RetainStale)};
+  return {};
+}
+
+template <class Status>
+TheoryStatusDisposition standard_theory_status_disposition(
+    Status status, uint8_t retention) {
+  return theory_status_disposition(
+      status, {Status::Invalid},
+      {Status::Inapplicable, Status::UnsupportedProof},
+      {Status::ResourceExhausted}, {Status::Interrupted}, {Status::Stale},
+      retention);
 }
 
 uint64_t saturated_add(uint64_t a, uint64_t b) {
@@ -252,219 +252,22 @@ WorkUnit action_work_unit(const std::string &rule) {
   return WorkUnit::Applications;
 }
 
-AffineBasisActionLimits affine_basis_limits(
-    const AffineConsequenceParameters &p) {
-  AffineBasisActionLimits limits;
-  limits.image = {p.maximum_clauses, p.maximum_groups, p.maximum_patterns,
-                  p.maximum_elimination_work, p.maximum_arity,
-                  p.maximum_intermediate_width, p.maximum_sources,
-                  p.maximum_output_width};
-  limits.basis = {p.basis_maximum_work,
-                  p.basis_maximum_intermediate_width,
-                  p.basis_maximum_sources,
-                  p.basis_maximum_premises,
-                  p.basis_maximum_nodes,
-                  p.basis_maximum_direct_width};
-  limits.maximum_snapshot_literals = p.maximum_snapshot_literals;
-  limits.maximum_snapshot_work = p.maximum_snapshot_work;
-  limits.maximum_proof_additions = p.maximum_proof_additions;
-  limits.maximum_proof_deletions = p.maximum_proof_deletions;
-  limits.maximum_journal_bytes = p.maximum_journal_bytes;
-  limits.maximum_external_extent = p.maximum_external_extent;
-  limits.maximum_session_keys = p.maximum_session_keys;
-  limits.maximum_session_work = p.maximum_session_work;
-  return limits;
-}
-
-Gf3AffineActionLimits gf3_affine_limits(
-    const Gf3AffineConsequenceParameters &p) {
-  return {{p.maximum_source_clauses, p.maximum_source_literals,
-           p.maximum_domains, p.maximum_equations,
-           p.maximum_equation_arity, p.maximum_tuples_per_equation},
-          {p.maximum_result_arity, p.maximum_result_tuples,
-           p.maximum_additions, p.maximum_addition_literals},
-          p.maximum_recognition_work,
-          p.maximum_planning_work,
-          p.maximum_duplicate_scan_work,
-          p.maximum_revalidation_work,
-          p.maximum_proof_work,
-          p.maximum_proof_additions,
-          p.maximum_proof_literal_occurrences,
-          p.maximum_arena_words,
-          p.maximum_journal_bytes,
-          p.maximum_external_extent,
-          p.maximum_session_keys,
-          p.maximum_session_work};
-}
-
-DirectCspGuardedCoverActionLimits guarded_cover_limits(
-    const DirectCspGuardedCoverParameters &p) {
-  return {p.maximum_source_clauses, p.maximum_source_literals, p.maximum_recognition_work, p.maximum_domains, p.maximum_domain_values, p.maximum_cover_literals, p.maximum_or_definitions, p.maximum_or_inputs, p.maximum_output_literals, p.maximum_proof_work, p.maximum_proof_additions, p.maximum_proof_literal_occurrences, p.maximum_journal_bytes, p.maximum_external_extent, p.maximum_session_keys, p.maximum_session_work};
-}
-
-DirectCspSupportActionLimits direct_csp_limits(
-    const DirectCspSupportParameters &p) {
-  return {p.maximum_source_clauses,
-          p.maximum_source_literals,
-          p.maximum_recognition_work,
-          p.maximum_domain_values,
-          p.maximum_direct_clause_literals,
-          p.maximum_definition_clause_literals,
-          p.maximum_proof_work,
-          p.maximum_proof_additions,
-          p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes,
-          p.maximum_extent_growth,
-          p.maximum_external_extent,
-          p.maximum_session_keys,
-          p.maximum_session_work,
-          p.allow_extension};
-}
-
-NaryCspEqualityLimits nary_csp_equality_limits(
-    const NaryCspEqualityParameters &p) {
-  return {p.maximum_source_clauses, p.maximum_source_literals,
-          p.maximum_recognition_work, p.maximum_domain_values,
-          p.maximum_forbidden_tuples, p.maximum_proof_work,
-          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes, p.maximum_extent_growth,
-          p.maximum_external_extent, p.maximum_session_keys};
-}
-
-NaryCspEqualityAmoLimits nary_csp_equality_amo_limits(
-    const NaryCspEqualityAmoParameters &p) {
-  return {p.maximum_source_clauses, p.maximum_source_literals,
-          p.maximum_recognition_work, p.maximum_domain_values,
-          p.maximum_forbidden_tuples, p.maximum_proof_work,
-          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes, p.maximum_external_extent,
-          p.maximum_session_keys};
-}
-
-NaryCspEqualityTransitivityLimits nary_csp_equality_transitivity_limits(const NaryCspEqualityTransitivityParameters &p) { return {p.maximum_source_clauses,p.maximum_source_literals,p.maximum_recognition_work,p.maximum_planning_work,p.maximum_domain_values,p.maximum_forbidden_tuples,p.maximum_proof_work,p.maximum_proof_additions,p.maximum_proof_literal_occurrences,p.maximum_journal_bytes,p.maximum_external_extent,p.maximum_session_keys,p.maximum_session_bytes,p.maximum_arena_words,p.maximum_watch_words,p.maximum_preparation_bytes}; }
-
-DirectPhpActionLimits direct_php_limits(
-    const DirectPhpRefutationParameters &p) {
-  return {{p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
-           p.maximum_snapshot_work},
-          {p.maximum_recognition_clauses, p.maximum_recognition_literals,
-           p.maximum_recognition_work, p.maximum_row_candidates,
-           p.maximum_row_combinations, p.maximum_mapping_trials,
-           p.maximum_holes},
-          {p.maximum_proof_additions, p.maximum_proof_deletions,
-           p.maximum_proof_literals, p.maximum_fresh_variables,
-           p.maximum_proof_events},
-          p.maximum_replay_work};
-}
-
-Gf3GaussianActionLimits gf3_gaussian_limits(
-    const Gf3GaussianConsequenceParameters &p) {
-  return {{p.maximum_source_clauses, p.maximum_source_literals,
-           p.maximum_domains, p.maximum_equations,
-           p.maximum_equation_arity, p.maximum_tuples_per_equation},
-          {{p.maximum_bridge_work, p.maximum_bridge_source_clauses,
-            p.maximum_bridge_source_literals, p.maximum_bridge_domains,
-            p.maximum_bridge_equations, p.maximum_bridge_terms,
-            p.maximum_authentication_references,
-            p.maximum_references_per_equation,
-            {p.maximum_gaussian_work, p.maximum_fill_entries,
-             p.maximum_intermediate_width, p.maximum_provenance_terms,
-             p.maximum_derivations, p.maximum_retained_plan_bytes}},
-           p.maximum_certificate_work, p.maximum_events,
-           p.maximum_event_literals, p.maximum_active_clauses,
-           p.maximum_retained_source_references, p.maximum_event_width,
-           p.maximum_branch_domains, p.maximum_consequences},
-          p.maximum_capture_work, p.maximum_revalidation_work,
-          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes, p.maximum_identity_bytes,
-          p.maximum_external_extent, p.maximum_session_keys,
-          p.maximum_session_work, p.maximum_session_identity_bytes};
-}
-
-Gf3GeneralRowActionLimits gf3_general_row_limits(
-    const Gf3GeneralRowConsequenceParameters &p) {
-  const auto &g = p.gaussian;
-  return {{{g.maximum_source_clauses, g.maximum_source_literals,
-            g.maximum_domains, g.maximum_equations,
-            g.maximum_equation_arity, g.maximum_tuples_per_equation},
-           {{g.maximum_bridge_work, g.maximum_bridge_source_clauses,
-             g.maximum_bridge_source_literals, g.maximum_bridge_domains,
-             g.maximum_bridge_equations, g.maximum_bridge_terms,
-             g.maximum_authentication_references,
-             g.maximum_references_per_equation,
-             {g.maximum_gaussian_work, g.maximum_fill_entries,
-              g.maximum_intermediate_width, g.maximum_provenance_terms,
-              g.maximum_derivations, g.maximum_retained_plan_bytes}},
-            g.maximum_certificate_work, g.maximum_events,
-            g.maximum_event_literals, g.maximum_active_clauses,
-            g.maximum_retained_source_references, p.maximum_row_tuples,
-            g.maximum_event_width, g.maximum_branch_domains,
-            p.maximum_row_width},
-           g.maximum_capture_work, p.maximum_duplicate_scan_work,
-           g.maximum_revalidation_work, g.maximum_proof_additions,
-           g.maximum_proof_literal_occurrences, p.maximum_arena_words,
-           g.maximum_journal_bytes, g.maximum_identity_bytes,
-           g.maximum_external_extent},
-          g.maximum_session_keys, g.maximum_session_work,
-          g.maximum_session_identity_bytes};
-}
-
-TseitinCycleBreakingLimits tseitin_cycle_limits(
-    const TseitinCycleBreakingParameters &p) {
-  TseitinCycleBreakingLimits result;
-  result.snapshot = {p.maximum_snapshot_clauses,
-                     p.maximum_snapshot_literals,
-                     p.maximum_snapshot_work,
-                     p.maximum_snapshot_variables, nullptr, nullptr};
-  result.discovery = {p.maximum_discovery_work,
-                      p.maximum_discovery_clauses,
-                      p.maximum_discovery_groups,
-                      4, nullptr, nullptr,
-                      p.maximum_components,
-                      p.maximum_discovery_retained_bytes};
-  result.admission = {p.maximum_admission_work, nullptr, nullptr};
-  result.planning = {p.maximum_planning_work, p.maximum_witness_length,
-                     p.maximum_planning_additions};
-  result.transaction = {p.maximum_transaction_work,
-                        p.maximum_transaction_additions,
-                        p.maximum_transaction_deletions,
-                        p.maximum_transaction_helpers,
-                        p.maximum_transaction_witness_literals,
-                        nullptr, nullptr};
-  result.maximum_validation_ticks = p.maximum_validation_ticks;
-  result.maximum_components = p.maximum_components;
-  result.maximum_identity_bytes = p.maximum_identity_bytes;
-  result.maximum_total_identity_bytes = p.maximum_total_identity_bytes;
-  result.maximum_identity_work = p.maximum_identity_work;
-  result.maximum_journal_bytes = p.maximum_journal_bytes;
-  result.maximum_session_keys = p.maximum_session_keys;
-  result.maximum_session_work = p.maximum_session_work;
-  result.maximum_session_identity_bytes = p.maximum_session_identity_bytes;
-  return result;
-}
-
 void record_gf3_affine_feedback(Kernel &k,
                                 const Gf3AffineActionResult &result,
                                 size_t keys_before) {
   ++k.stats.gf3_affine_attempts;
-  switch (result.status) {
-  case Gf3AffineActionStatus::Applied: ++k.stats.gf3_affine_applied; break;
-  case Gf3AffineActionStatus::NoStructure:
-    ++k.stats.gf3_affine_no_structure; break;
-  case Gf3AffineActionStatus::NoConsequence:
-    ++k.stats.gf3_affine_no_consequence; break;
-  case Gf3AffineActionStatus::AlreadyPublished:
-    ++k.stats.gf3_affine_already_published; break;
-  case Gf3AffineActionStatus::Invalid: ++k.stats.gf3_affine_invalid; break;
-  case Gf3AffineActionStatus::Inapplicable:
-    ++k.stats.gf3_affine_inapplicable; break;
-  case Gf3AffineActionStatus::ResourceExhausted:
-    ++k.stats.gf3_affine_resource_exhausted; break;
-  case Gf3AffineActionStatus::Interrupted:
-    ++k.stats.gf3_affine_interrupted; break;
-  case Gf3AffineActionStatus::UnsupportedProof:
-    ++k.stats.gf3_affine_unsupported_proof; break;
-  case Gf3AffineActionStatus::Stale: ++k.stats.gf3_affine_stale; break;
+  if (!record_standard_action_status(
+          result.status,
+          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats, gf3_affine))) {
+    switch (result.status) {
+    case Gf3AffineActionStatus::NoStructure:
+      ++k.stats.gf3_affine_no_structure; break;
+    case Gf3AffineActionStatus::NoConsequence:
+      ++k.stats.gf3_affine_no_consequence; break;
+    case Gf3AffineActionStatus::AlreadyPublished:
+      ++k.stats.gf3_affine_already_published; break;
+    default: break;
+    }
   }
   const auto &e = result.effort;
   k.stats.gf3_affine_source_clauses += e.source_clauses;
@@ -492,27 +295,19 @@ void record_direct_csp_feedback(Kernel &k,
                                 const DirectCspSupportActionResult &result,
                                 size_t keys_before, size_t owners_before) {
   ++k.stats.direct_csp_support_attempts;
-  switch (result.status) {
-  case DirectCspSupportActionStatus::Applied:
-    ++k.stats.direct_csp_support_applied; break;
-  case DirectCspSupportActionStatus::NoStructure:
-    ++k.stats.direct_csp_support_no_structure; break;
-  case DirectCspSupportActionStatus::NoConsequence:
-    ++k.stats.direct_csp_support_no_consequence; break;
-  case DirectCspSupportActionStatus::AlreadyPublished:
-    ++k.stats.direct_csp_support_already_published; break;
-  case DirectCspSupportActionStatus::Invalid:
-    ++k.stats.direct_csp_support_invalid; break;
-  case DirectCspSupportActionStatus::Inapplicable:
-    ++k.stats.direct_csp_support_inapplicable; break;
-  case DirectCspSupportActionStatus::ResourceExhausted:
-    ++k.stats.direct_csp_support_resource_exhausted; break;
-  case DirectCspSupportActionStatus::Interrupted:
-    ++k.stats.direct_csp_support_interrupted; break;
-  case DirectCspSupportActionStatus::UnsupportedProof:
-    ++k.stats.direct_csp_support_unsupported_proof; break;
-  case DirectCspSupportActionStatus::Stale:
-    ++k.stats.direct_csp_support_stale; break;
+  if (!record_standard_action_status(
+          result.status,
+          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats,
+                                                 direct_csp_support))) {
+    switch (result.status) {
+    case DirectCspSupportActionStatus::NoStructure:
+      ++k.stats.direct_csp_support_no_structure; break;
+    case DirectCspSupportActionStatus::NoConsequence:
+      ++k.stats.direct_csp_support_no_consequence; break;
+    case DirectCspSupportActionStatus::AlreadyPublished:
+      ++k.stats.direct_csp_support_already_published; break;
+    default: break;
+    }
   }
   const auto &e = result.effort;
   k.stats.direct_csp_support_source_clauses += e.source_clauses;
@@ -549,27 +344,19 @@ void record_nary_csp_equality_feedback(
     Kernel &k, const NaryCspEqualityActionResult &result,
     size_t keys_before) {
   ++k.stats.nary_csp_equality_attempts;
-  switch (result.status) {
-  case NaryCspEqualityActionStatus::Applied:
-    ++k.stats.nary_csp_equality_applied; break;
-  case NaryCspEqualityActionStatus::NoStructure:
-    ++k.stats.nary_csp_equality_no_structure; break;
-  case NaryCspEqualityActionStatus::NoConsequence:
-    ++k.stats.nary_csp_equality_no_consequence; break;
-  case NaryCspEqualityActionStatus::AlreadyPublished:
-    ++k.stats.nary_csp_equality_already_published; break;
-  case NaryCspEqualityActionStatus::Invalid:
-    ++k.stats.nary_csp_equality_invalid; break;
-  case NaryCspEqualityActionStatus::Inapplicable:
-    ++k.stats.nary_csp_equality_inapplicable; break;
-  case NaryCspEqualityActionStatus::ResourceExhausted:
-    ++k.stats.nary_csp_equality_resource_exhausted; break;
-  case NaryCspEqualityActionStatus::Interrupted:
-    ++k.stats.nary_csp_equality_interrupted; break;
-  case NaryCspEqualityActionStatus::UnsupportedProof:
-    ++k.stats.nary_csp_equality_unsupported_proof; break;
-  case NaryCspEqualityActionStatus::Stale:
-    ++k.stats.nary_csp_equality_stale; break;
+  if (!record_standard_action_status(
+          result.status,
+          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats,
+                                                 nary_csp_equality))) {
+    switch (result.status) {
+    case NaryCspEqualityActionStatus::NoStructure:
+      ++k.stats.nary_csp_equality_no_structure; break;
+    case NaryCspEqualityActionStatus::NoConsequence:
+      ++k.stats.nary_csp_equality_no_consequence; break;
+    case NaryCspEqualityActionStatus::AlreadyPublished:
+      ++k.stats.nary_csp_equality_already_published; break;
+    default: break;
+    }
   }
   const auto &e = result.live;
   k.stats.nary_csp_equality_source_clauses += e.source_clauses;
@@ -783,164 +570,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
          step.instances !=
              std::vector<uint64_t>{LUCKY_STARTUP_RAMSEY}))
       return reject("Lucky Ramsey parameters require instance 22");
-    if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Analyze parameters are invalid");
-    if (const auto *p = std::get_if<BveParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("BVE parameters are invalid");
-    if (const auto *p =
-            std::get_if<SubsumeForwardParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("C1 parameters are invalid");
-    if (const auto *p = std::get_if<StrengthenParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("C2 parameters are invalid");
-    if (const auto *p = std::get_if<ParityConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("ParityConsequence parameters are invalid");
-    if (const auto *p = std::get_if<AffineConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("AffineConsequence parameters are invalid");
-    if (const auto *p = std::get_if<AffineMatrixInitializeParameters>(&step.parameters);
-        p && !p->valid()) return reject("Persistent affine parameters are invalid");
-    if (const auto *p =
-            std::get_if<ExactCoverExtensionParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("ExactCoverExtension parameters are invalid");
-    if (const auto *p =
-            std::get_if<IndependentSetCoverParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("IndependentSetCover parameters are invalid");
-    if (const auto *p =
-            std::get_if<Gf3AffineConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Gf3AffineConsequence parameters are invalid");
-    if (const auto *p =
-            std::get_if<DirectCspGuardedCoverParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("GuardedCoverV2 parameters are invalid");
-    if (const auto *p =
-            std::get_if<DirectCspSupportParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("DirectCspSupport parameters are invalid");
-    if (const auto *p =
-            std::get_if<NaryCspEqualityParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("NaryCspEquality parameters are invalid");
-    if (const auto *p =
-            std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("NaryCspEqualityAmo parameters are invalid");
-    if (const auto *p =
-            std::get_if<DirectPhpRefutationParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("DirectPhpRefutation parameters are invalid");
-    if (const auto *p =
-            std::get_if<Gf3GaussianConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Gf3GaussianConsequence parameters are invalid");
-    if (const auto *p =
-            std::get_if<Gf3GeneralRowConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Gf3GeneralRowConsequence parameters are invalid");
-    if (const auto *p =
-            std::get_if<TseitinCycleBreakingParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("TseitinCycleBreaking parameters are invalid");
-    if (const auto *p =
-            std::get_if<SemanticVariableAdviceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("SemanticVariableAdvice parameters are invalid");
-    if (const auto *p = std::get_if<CongruenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Congruence parameters are invalid");
-    if (const auto *p = std::get_if<InstantiateParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Instantiate parameters are invalid");
-    if (const auto *p = std::get_if<BackboneParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Backbone parameters are invalid");
-    if (const auto *p = std::get_if<SweepParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Sweep parameters are invalid");
-    if (const auto *p = std::get_if<VivifyParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Vivify parameters are invalid");
-    if (const auto *p = std::get_if<BceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("BCE parameters are invalid");
-    if (const auto *p = std::get_if<TernaryParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("ternary parameters are invalid");
-    if (const auto *p = std::get_if<FactorParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Factor parameters are invalid");
-    if (const auto *p =
-            std::get_if<TransitiveReduceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("transitive parameters are invalid");
-    if (const auto *p = std::get_if<SubstituteParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Substitute parameters are invalid");
-    if (const auto *p = std::get_if<ReduceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Reduce parameters are invalid");
-    if (const auto *p = std::get_if<WalkParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Walk parameters are invalid");
-    if (const auto *p = std::get_if<ReorderParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Reorder parameters are invalid");
-    if (const auto *p =
-            std::get_if<ParityModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky parity-model parameters are invalid");
-    if (const auto *p =
-            std::get_if<OnehotModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky onehot-model parameters are invalid");
-    if (const auto *p =
-            std::get_if<BalancedSignatureModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky balanced-signature-model parameters are invalid");
-    if (const auto *p = std::get_if<FermatModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky fermat-model parameters are invalid");
-    if (const auto *p =
-            std::get_if<LookupCircuitModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky lookup-circuit-model parameters are invalid");
-    if (const auto *p = std::get_if<SimonModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky simon-model parameters are invalid");
-    if (const auto *p = std::get_if<StconnProofParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky stconn-proof parameters are invalid");
-    if (const auto *p =
-            std::get_if<SignedCardinalityProofParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky signed-cardinality-proof parameters are invalid");
-    if (const auto *p = std::get_if<ExactCoverModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky exact-cover-model parameters are invalid");
-    if (const auto *p =
-            std::get_if<IndependentSetModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky independent-set-model parameters are invalid");
-    if (const auto *p = std::get_if<RamseyStartupParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky ramsey-startup parameters are invalid");
-    if (const auto *p = std::get_if<GraphLabelingParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky graph-labeling parameters are invalid");
-    if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky affine-model parameters are invalid");
-    if (const auto *p = std::get_if<SubstitutionRedundancyParameters>(
-            &step.parameters);
-        p && !p->valid())
-      return reject("SR parameters are invalid");
+    if (const char *message =
+            parameter_metadata(step, true).invalid_message)
+      return reject(message);
     if (!step.factor_grids.empty() && step.rule != "Factor")
       return reject("exact Factor grids are attached to a different rule");
     if (!step.factor_grids.empty() && !step.instances.empty())
@@ -1046,7 +678,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         return reject("GF2 affine row requires certified-basis parameters");
       if (step.affine_basis_instances.size() > p->maximum_session_keys)
         return reject("GF2 affine row collection exceeds session limits");
-      const auto limits = affine_basis_limits(*p);
+      const auto limits = action_limits(*p);
       for (const auto &selection : step.affine_basis_instances)
         if (!affine_basis_row_selection_within_limits(selection, limits))
           return reject("GF2 affine row is malformed or exceeds limits");
@@ -1106,7 +738,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       const auto *p =
           std::get_if<Gf3GeneralRowConsequenceParameters>(&step.parameters);
       if (!p) return reject("GF3 general-row selection has no typed limits");
-      const auto limits = gf3_general_row_limits(*p);
+      const auto limits = action_limits(*p);
       for (const auto &selection : step.gf3_general_row_instances)
         if (!gf3_general_row_action_selection_valid(selection) ||
             selection.identity.size() >
@@ -1145,45 +777,23 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     for (const Gf3AffineInstance &instance : step.gf3_affine_instances)
       if (instance.first_equation >= instance.second_equation)
         return reject("GF3 equation pair is not canonical");
-    const auto direct_literal_variable = [](int32_t literal) {
-      return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-    };
-    const auto direct_literal_less = [&](int32_t first, int32_t second) {
-      const uint32_t first_variable = direct_literal_variable(first);
-      const uint32_t second_variable = direct_literal_variable(second);
-      return first_variable < second_variable ||
-             (first_variable == second_variable && first < second);
-    };
     for (const DirectCspSupportActionSelection &instance :
          step.direct_csp_support_instances) {
       if (instance.left_values.size() < 2 || instance.right_values.size() < 2 ||
           instance.selected_left_value >= instance.left_values.size())
         return reject("DirectCSP support selection is incomplete");
-      std::vector<uint32_t> variables;
-      variables.reserve(instance.left_values.size() +
-                        instance.right_values.size());
-      const auto append_domain = [&](const std::vector<int32_t> &domain) {
-        for (size_t index = 0; index < domain.size(); ++index) {
-          const int32_t literal = domain[index];
-          if (!literal || literal == std::numeric_limits<int32_t>::min() ||
-              (index && !direct_literal_less(domain[index - 1], literal)))
-            return false;
-          variables.push_back(direct_literal_variable(literal));
-        }
-        return true;
-      };
-      if (!append_domain(instance.left_values) ||
-          !append_domain(instance.right_values))
+      const csp_domain_identity::PairStatus identity =
+          csp_domain_identity::pair_status(instance.left_values,
+                                           instance.right_values);
+      if (identity == csp_domain_identity::PairStatus::InvalidDomain)
         return reject("DirectCSP domain is not canonically ordered");
-      std::sort(variables.begin(), variables.end());
-      if (std::adjacent_find(variables.begin(), variables.end()) !=
-          variables.end())
+      if (identity == csp_domain_identity::PairStatus::RepeatedVariable)
         return reject("DirectCSP domains repeat a variable");
     }
     if (!step.nary_csp_equality_instances.empty()) {
       const auto *p = std::get_if<NaryCspEqualityParameters>(&step.parameters);
       if (!p) return reject("n-ary CSP equality has no typed limits");
-      const NaryCspEqualityLimits limits = nary_csp_equality_limits(*p);
+      const NaryCspEqualityLimits limits = action_limits(*p);
       for (const auto &instance : step.nary_csp_equality_instances)
         if (!nary_csp_equality_action_selection_within_limits(instance, limits))
           return reject("n-ary CSP equality is malformed or exceeds limits");
@@ -1210,7 +820,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
       if (!p) return reject("n-ary CSP equality AMO has no typed limits");
       const NaryCspEqualityAmoLimits limits =
-          nary_csp_equality_amo_limits(*p);
+          action_limits(*p);
       for (const auto &instance : step.nary_csp_equality_amo_instances)
         if (!nary_csp_equality_amo_selection_within_limits(instance, limits))
           return reject(
@@ -1230,25 +840,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           !representable(instance.witness))
         return reject("Condition instance has an invalid external literal");
     }
-    const unsigned structured_payload_kinds =
-        !step.factor_grids.empty() +
-        !step.substitution_redundancy_instances.empty() +
-        !step.condition_instances.empty() +
-        !step.independent_set_cover_instances.empty() +
-        !step.affine_basis_instances.empty() +
-        !step.gf3_affine_instances.empty() +
-        !step.direct_csp_guarded_cover_instances.empty() +
-        !step.direct_csp_support_instances.empty() +
-        !step.nary_csp_equality_instances.empty() +
-        !step.nary_csp_equality_transitivity_instances.empty() +
-        !step.nary_csp_equality_amo_instances.empty() +
-        !step.gf3_gaussian_instances.empty() +
-        !step.gf3_general_row_instances.empty() +
-        !step.cardinality_search_instances.empty() +
-        !step.tseitin_cycle_instances.empty();
-    if (structured_payload_kinds && !step.instances.empty())
+    const StructuredPayloadShape structured = structured_payload_shape(step);
+    if (structured.kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
-    if (structured_payload_kinds > 1)
+    if (structured.kinds > 1)
       return reject("different structured selection kinds cannot be mixed");
     if (step.rule == "Lucky" &&
         std::any_of(step.instances.begin(), step.instances.end(),
@@ -1264,46 +859,17 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                       return !strategy::valid_local_search_kind(kind);
                     }))
       return reject("LocalSearchGuidance kind is retired");
-    const size_t structured_size = !step.factor_grids.empty()
-                                       ? step.factor_grids.size()
-                                       : !step.substitution_redundancy_instances.empty()
-                                             ? step.substitution_redundancy_instances.size()
-                                             : !step.condition_instances.empty()
-                                                   ? step.condition_instances.size()
-                                                   : !step.independent_set_cover_instances.empty()
-                                                         ? step.independent_set_cover_instances.size()
-                                                         : !step.affine_basis_instances.empty()
-                                                               ? step.affine_basis_instances.size()
-                                                         : !step.gf3_affine_instances.empty()
-                                                               ? step.gf3_affine_instances.size()
-                                                               : !step.direct_csp_guarded_cover_instances.empty()
-                          ? step.direct_csp_guarded_cover_instances.size()
-                          : !step.direct_csp_support_instances.empty()
-                                                                     ? step.direct_csp_support_instances.size()
-                                                                     : !step.nary_csp_equality_instances.empty()
-                                                                           ? step.nary_csp_equality_instances.size()
-                                                                     : !step.nary_csp_equality_transitivity_instances.empty()
- ? step.nary_csp_equality_transitivity_instances.size()
- : !step.nary_csp_equality_amo_instances.empty()
- ? step.nary_csp_equality_amo_instances.size()
-                                                                     : !step.gf3_gaussian_instances.empty()
-                                                                           ? step.gf3_gaussian_instances.size()
-                                                                     : !step.gf3_general_row_instances.empty()
-                                                                           ? step.gf3_general_row_instances.size()
-                                                                           : !step.cardinality_search_instances.empty()
-                                                                                 ? step.cardinality_search_instances.size()
-                                                                                 : step.tseitin_cycle_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
-      if ((structured_payload_kinds && structured_size != 1) ||
-          (!structured_payload_kinds && step.instances.size() != 1))
+      if ((structured.kinds && structured.size != 1) ||
+          (!structured.kinds && step.instances.size() != 1))
         return reject("one-instance selection does not contain one payload");
-      if (!structured_payload_kinds &&
+      if (!structured.kinds &&
           step.instances.front() == INSTANCE_CANONICAL)
         return reject("explicit selection contains the canonical whole-rule payload");
       break;
     case InvocationGranularity::SelectedBatch:
-      if (step.instances.empty() && !structured_payload_kinds)
+      if (step.instances.empty() && !structured.kinds)
         return reject("selected batch is empty");
       if (std::find(step.instances.begin(), step.instances.end(),
                     INSTANCE_CANONICAL) != step.instances.end())
@@ -1321,7 +887,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "CardinalitySearch" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action requires an explicit payload");
-      if (!step.instances.empty() || structured_payload_kinds)
+      if (!step.instances.empty() || structured.kinds)
         return reject("complete pass carries explicit payloads");
       break;
     case InvocationGranularity::CanonicalApplication:
@@ -1336,13 +902,13 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "CardinalitySearch" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action has no canonical payload");
-      if (!step.instances.empty() || structured_payload_kinds)
+      if (!step.instances.empty() || structured.kinds)
         return reject("canonical application carries explicit payloads");
       break;
     case InvocationGranularity::NativeProducerOffer:
       if (!allow_native_offer)
         return reject("native producer offer is controller-prefix-only");
-      if (!step.instances.empty() || structured_payload_kinds)
+      if (!step.instances.empty() || structured.kinds)
         return reject("native producer offer carries an explicit payload");
       if (step.rule != "AffineConsequence" &&
           step.rule != "Gf3AffineConsequence" &&
@@ -1539,14 +1105,6 @@ bool OnlineStrategyExecutor::configure(const OnlineStrategyProgram &program,
   return true;
 }
 
-void OnlineStrategyExecutor::reset_runtime() {
-  runtime_.assign(program_.sequence.size(), Runtime{});
-  step_index_ = 0;
-  sequence_passes_ = 0;
-  sequence_progress_ = false;
-  complete_ = program_.sequence.empty();
-}
-
 uint64_t OnlineStrategyExecutor::step_consumed(StepId id) const {
   for (size_t i = 0; i < program_.sequence.size(); ++i)
     if (program_.sequence[i].id == id)
@@ -1628,53 +1186,11 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   if (step.granularity == InvocationGranularity::CanonicalApplication) {
     runtime.selection = {INSTANCE_CANONICAL};
   } else if (step.granularity != InvocationGranularity::CompleteCurrentPass) {
-    if (step.factor_grids.empty() &&
-        step.substitution_redundancy_instances.empty() &&
-        step.condition_instances.empty() &&
-        step.independent_set_cover_instances.empty() &&
-        step.affine_basis_instances.empty() &&
-        step.gf3_affine_instances.empty() &&
-        step.direct_csp_guarded_cover_instances.empty() &&
-        step.direct_csp_support_instances.empty() &&
-        step.nary_csp_equality_instances.empty() &&
-        step.nary_csp_equality_transitivity_instances.empty() &&
-        step.nary_csp_equality_amo_instances.empty() &&
-        step.gf3_gaussian_instances.empty() &&
-        step.gf3_general_row_instances.empty() &&
-        step.cardinality_search_instances.empty() &&
-        step.tseitin_cycle_instances.empty()) {
+    const StructuredPayloadShape structured = structured_payload_shape(step);
+    if (!structured.kinds) {
       runtime.selection = step.instances;
     } else {
-      const size_t size = !step.factor_grids.empty()
-                              ? step.factor_grids.size()
-                              : !step.substitution_redundancy_instances.empty()
-                                    ? step.substitution_redundancy_instances.size()
-                                    : !step.condition_instances.empty()
-                                          ? step.condition_instances.size()
-                                          : !step.independent_set_cover_instances.empty()
-                                                ? step.independent_set_cover_instances.size()
-                                                : !step.affine_basis_instances.empty()
-                                                      ? step.affine_basis_instances.size()
-                                                : !step.gf3_affine_instances.empty()
-                                                      ? step.gf3_affine_instances.size()
-                                                      : !step.direct_csp_guarded_cover_instances.empty()
-                          ? step.direct_csp_guarded_cover_instances.size()
-                          : !step.direct_csp_support_instances.empty()
-                                                            ? step.direct_csp_support_instances.size()
-                                                            : !step.nary_csp_equality_instances.empty()
-                                                                  ? step.nary_csp_equality_instances.size()
-                                                            : !step.nary_csp_equality_transitivity_instances.empty()
- ? step.nary_csp_equality_transitivity_instances.size()
- : !step.nary_csp_equality_amo_instances.empty()
- ? step.nary_csp_equality_amo_instances.size()
-                                                            : !step.gf3_gaussian_instances.empty()
-                                                                  ? step.gf3_gaussian_instances.size()
-                                                            : !step.gf3_general_row_instances.empty()
-                                                                  ? step.gf3_general_row_instances.size()
-                                                                  : !step.cardinality_search_instances.empty()
-                                                                        ? step.cardinality_search_instances.size()
-                                                                        : step.tseitin_cycle_instances.size();
-      runtime.selection.resize(size);
+      runtime.selection.resize(structured.size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
     }
@@ -2394,7 +1910,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       k.gf3_affine_action_session->committed_keys();
                   gf3_affine_application.emplace(gf3_affine_action_apply(
                       k, *k.gf3_affine_action_session,
-                      gf3_affine_limits(parameters), selected.first_equation,
+                      action_limits(parameters), selected.first_equation,
                       selected.second_equation));
                   record_gf3_affine_feedback(k, *gf3_affine_application,
                                              keys_before);
@@ -2407,7 +1923,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                   const auto owners_before = k.direct_csp_guarded_cover_action_session->retained_owners();
                   direct_csp_application.emplace(direct_csp_guarded_cover_action_apply(
                       k, *k.direct_csp_guarded_cover_action_session,
-                      guarded_cover_limits(parameters), step.direct_csp_guarded_cover_instances[payload]));
+                      action_limits(parameters), step.direct_csp_guarded_cover_instances[payload]));
                   record_direct_csp_feedback(k, *direct_csp_application, keys_before, owners_before);
                   return direct_csp_application->result;
                 })
@@ -2421,7 +1937,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       k.direct_csp_support_action_session->retained_owners();
                   direct_csp_application.emplace(direct_csp_support_action_apply(
                       k, *k.direct_csp_support_action_session,
-                      direct_csp_limits(parameters),
+                      action_limits(parameters),
                       step.direct_csp_support_instances[payload]));
                   record_direct_csp_feedback(k, *direct_csp_application,
                                              keys_before, owners_before);
@@ -2440,7 +1956,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       nary_csp_equality_action_apply(
                           k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
-                          nary_csp_equality_limits(parameters),
+                          action_limits(parameters),
                           step.nary_csp_equality_instances[payload]));
                   record_nary_csp_equality_feedback(
                       k, *nary_csp_equality_application, keys_before);
@@ -2462,7 +1978,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                           k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
                           *k.nary_csp_equality_transitivity_session,
-                          nary_csp_equality_transitivity_limits(parameters),
+                          action_limits(parameters),
                           step.nary_csp_equality_transitivity_instances[payload],
                           k.structural_provenance));
                   record_nary_csp_equality_transitivity_feedback(
@@ -2485,7 +2001,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                           k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
                           *k.nary_csp_equality_amo_session,
-                          nary_csp_equality_amo_limits(parameters),
+                          action_limits(parameters),
                           step.nary_csp_equality_amo_instances[payload],
                           k.structural_provenance));
                   record_nary_csp_equality_amo_feedback(
@@ -2498,7 +2014,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       std::get<Gf3GaussianConsequenceParameters>(step.parameters);
                   gf3_gaussian_application.emplace(gf3_gaussian_action_apply(
                       k, *k.gf3_gaussian_action_session,
-                      gf3_gaussian_limits(parameters),
+                      action_limits(parameters),
                       step.gf3_gaussian_instances[payload]));
                   record_gf3_gaussian_action_feedback(
                       k, *gf3_gaussian_application);
@@ -2514,7 +2030,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                   gf3_general_row_application.emplace(
                       gf3_general_row_action_apply(
                           k, *k.gf3_general_row_action_session,
-                          gf3_general_row_limits(parameters),
+                          action_limits(parameters),
                           step.gf3_general_row_instances[payload]));
                   record_gf3_general_row_action_feedback(
                       k, *gf3_general_row_application);
@@ -2536,7 +2052,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                   tseitin_cycle_application.emplace(
                       tseitin_cycle_breaking_apply(
                           k, *k.tseitin_cycle_breaking_session,
-                          tseitin_cycle_limits(parameters),
+                          action_limits(parameters),
                           step.tseitin_cycle_instances[payload]));
                   record_tseitin_cycle_breaking_feedback(
                       k, *tseitin_cycle_application);
@@ -2561,7 +2077,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                   direct_php_application.emplace(direct_php_action_apply(
                       k, *k.direct_php_action_session,
                       DirectPhpActionRequest{1, 1,
-                                             direct_php_limits(parameters)}));
+                                             action_limits(parameters)}));
                   record_direct_php_action_feedback(k,
                                                     *direct_php_application);
                   return direct_php_application->status ==
@@ -2754,439 +2270,107 @@ InvocationResult OnlineStrategyExecutor::advance(
         out.selection_complete = false;
         preserve_theory_selection = true;
       };
+      const auto settle_theory_status =
+          [&](const TheoryStatusDisposition &disposition) {
+            if (!disposition.status)
+              return;
+            out.status = *disposition.status;
+            if (disposition.retain)
+              retain_theory_selection();
+          };
+      constexpr uint8_t retain_all_theory_failures =
+          RetainInvalid | RetainInapplicable | RetainResourceExhausted |
+          RetainInterrupted | RetainStale;
+      constexpr uint8_t retain_retryable_theory_failures =
+          RetainResourceExhausted | RetainInterrupted;
+      const auto settle_standard = [&](const auto &application,
+                                       uint8_t retain) {
+        if (application)
+          settle_theory_status(standard_theory_status_disposition(
+              application->status, retain));
+      };
       // The append-only persistent profile preserves detailed native declines.
       // Legacy zero-persistence dispatch and its historical statuses stay on
       // the registered adapter path above.
       if (affine_matrix_initialization) {
-        switch (affine_matrix_initialization->status) {
-        case AffineMatrixInitStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::Inapplicable:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::Pending:
+        if (affine_matrix_initialization->status ==
+            AffineMatrixInitStatus::Pending) {
           out.status = out.budget_status == BudgetStatus::Exhausted
                            ? InvocationStatus::BudgetExhausted
                            : InvocationStatus::Completed;
           retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::NoStructure:
-        case AffineMatrixInitStatus::IncompleteImage:
-        case AffineMatrixInitStatus::IncompleteMatrix:
-        case AffineMatrixInitStatus::Applied:
-        case AffineMatrixInitStatus::AppliedPartial:
-          break;
-        }
+        } else
+          settle_theory_status(theory_status_disposition(
+              affine_matrix_initialization->status,
+              {AffineMatrixInitStatus::Invalid},
+              {AffineMatrixInitStatus::Inapplicable},
+              {AffineMatrixInitStatus::ResourceExhausted},
+              {AffineMatrixInitStatus::Interrupted},
+              {AffineMatrixInitStatus::Stale}, retain_all_theory_failures));
       }
       if (affine_matrix_service) {
-        switch (affine_matrix_service->status) {
-        case AffineMatrixServiceStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::Disabled:
-        case AffineMatrixServiceStatus::Inapplicable:
-        case AffineMatrixServiceStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::Pending:
+        if (affine_matrix_service->status ==
+            AffineMatrixServiceStatus::Pending) {
           // A private Gaussian slice consumed one public application, not
           // the enclosing allowance. Keep this exact selected action pending.
           out.status = out.budget_status == BudgetStatus::Exhausted
                            ? InvocationStatus::BudgetExhausted
                            : InvocationStatus::Completed;
           retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::NoEvent:
-        case AffineMatrixServiceStatus::Duplicate:
-        case AffineMatrixServiceStatus::Applied:
-          break;
-        }
+        } else
+          settle_theory_status(theory_status_disposition(
+              affine_matrix_service->status,
+              {AffineMatrixServiceStatus::Invalid},
+              {AffineMatrixServiceStatus::Disabled,
+               AffineMatrixServiceStatus::Inapplicable,
+               AffineMatrixServiceStatus::UnsupportedProof},
+              {AffineMatrixServiceStatus::ResourceExhausted},
+              {AffineMatrixServiceStatus::Interrupted},
+              {AffineMatrixServiceStatus::Stale}, retain_all_theory_failures));
       }
-      if (affine_application) {
-        switch (affine_application->status) {
-        case AffineConsequenceActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::Inapplicable:
-        case AffineConsequenceActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::NoStructure:
-        case AffineConsequenceActionStatus::AlreadyPublished:
-        case AffineConsequenceActionStatus::Applied:
-          break;
-        }
-      }
-      if (exact_cover_application) {
-        switch (exact_cover_application->live.status) {
-        case ExactCoverLiveStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::Inapplicable:
-        case ExactCoverLiveStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::NoStructure:
-        case ExactCoverLiveStatus::AlreadyPublished:
-        case ExactCoverLiveStatus::Applied:
-          break;
-        }
-      }
-      if (independent_set_application) {
-        switch (independent_set_application->status) {
-        case IndependentSetLiveStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::Inapplicable:
-        case IndependentSetLiveStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::NoStructure:
-        case IndependentSetLiveStatus::Duplicate:
-        case IndependentSetLiveStatus::Applied:
-          break;
-        }
-      }
-      if (gf3_affine_application) {
-        switch (gf3_affine_application->status) {
-        case Gf3AffineActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case Gf3AffineActionStatus::Inapplicable:
-        case Gf3AffineActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case Gf3AffineActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case Gf3AffineActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case Gf3AffineActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case Gf3AffineActionStatus::NoStructure:
-        case Gf3AffineActionStatus::NoConsequence:
-        case Gf3AffineActionStatus::AlreadyPublished:
-        case Gf3AffineActionStatus::Applied:
-          break;
-        }
-      }
-      if (direct_csp_application) {
-        switch (direct_csp_application->status) {
-        case DirectCspSupportActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case DirectCspSupportActionStatus::Inapplicable:
-        case DirectCspSupportActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case DirectCspSupportActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case DirectCspSupportActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case DirectCspSupportActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case DirectCspSupportActionStatus::NoStructure:
-        case DirectCspSupportActionStatus::NoConsequence:
-        case DirectCspSupportActionStatus::AlreadyPublished:
-        case DirectCspSupportActionStatus::Applied:
-          break;
-        }
-      }
-      if (nary_csp_equality_application) {
-        switch (nary_csp_equality_application->status) {
-        case NaryCspEqualityActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case NaryCspEqualityActionStatus::Inapplicable:
-        case NaryCspEqualityActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case NaryCspEqualityActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case NaryCspEqualityActionStatus::NoStructure:
-        case NaryCspEqualityActionStatus::NoConsequence:
-        case NaryCspEqualityActionStatus::AlreadyPublished:
-        case NaryCspEqualityActionStatus::Applied:
-          break;
-        }
-      }
-      if (nary_csp_equality_amo_application) {
-        switch (nary_csp_equality_amo_application->status) {
-        case NaryCspEqualityAmoStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case NaryCspEqualityAmoStatus::Inapplicable:
-        case NaryCspEqualityAmoStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case NaryCspEqualityAmoStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityAmoStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityAmoStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case NaryCspEqualityAmoStatus::NoStructure:
-        case NaryCspEqualityAmoStatus::MissingEquality:
-        case NaryCspEqualityAmoStatus::Duplicate:
-        case NaryCspEqualityAmoStatus::Applied:
-          break;
-        }
-      }
-      if (nary_csp_equality_transitivity_application) {
-        switch (nary_csp_equality_transitivity_application->status) {
-        case NaryCspEqualityTransitivityStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case NaryCspEqualityTransitivityStatus::Inapplicable:
-        case NaryCspEqualityTransitivityStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case NaryCspEqualityTransitivityStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityTransitivityStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityTransitivityStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case NaryCspEqualityTransitivityStatus::Ready:
-        case NaryCspEqualityTransitivityStatus::MissingEquality:
-        case NaryCspEqualityTransitivityStatus::Duplicate:
-        case NaryCspEqualityTransitivityStatus::Applied:
-          break;
-        }
-      }
-      if (gf3_gaussian_application) {
-        switch (gf3_gaussian_application->status) {
-        case Gf3GaussianActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case Gf3GaussianActionStatus::Inapplicable:
-        case Gf3GaussianActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case Gf3GaussianActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case Gf3GaussianActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case Gf3GaussianActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case Gf3GaussianActionStatus::NoStructure:
-        case Gf3GaussianActionStatus::NoSupportedOutcome:
-        case Gf3GaussianActionStatus::AlreadyPublished:
-        case Gf3GaussianActionStatus::Applied:
-          break;
-        }
-      }
-      if (gf3_general_row_application) {
-        switch (gf3_general_row_application->status) {
-        case Gf3GeneralRowActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case Gf3GeneralRowActionStatus::Inapplicable:
-        case Gf3GeneralRowActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case Gf3GeneralRowActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case Gf3GeneralRowActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case Gf3GeneralRowActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case Gf3GeneralRowActionStatus::NoStructure:
-        case Gf3GeneralRowActionStatus::NoConsequence:
-        case Gf3GeneralRowActionStatus::AlreadyPublished:
-        case Gf3GeneralRowActionStatus::Applied:
-          break;
-        }
-      }
-      if (cardinality_search_application) {
-        switch (cardinality_search_application->status) {
-        case CardinalitySearchActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case CardinalitySearchActionStatus::Inapplicable:
-        case CardinalitySearchActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case CardinalitySearchActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case CardinalitySearchActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case CardinalitySearchActionStatus::NoSource:
-        case CardinalitySearchActionStatus::NoEvent:
-        case CardinalitySearchActionStatus::Applied:
-          break;
-        }
-      }
-      if (tseitin_cycle_application) {
-        switch (tseitin_cycle_application->status) {
-        case TseitinCycleBreakingStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case TseitinCycleBreakingStatus::Inapplicable:
-        case TseitinCycleBreakingStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case TseitinCycleBreakingStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case TseitinCycleBreakingStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case TseitinCycleBreakingStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case TseitinCycleBreakingStatus::NoStructure:
-        case TseitinCycleBreakingStatus::AlreadyApplied:
-        case TseitinCycleBreakingStatus::Applied:
-          break;
-        }
-      }
-      if (direct_php_application) {
-        switch (direct_php_application->status) {
-        case DirectPhpActionStatus::Invalid:
-        case DirectPhpActionStatus::ReplayMismatch:
-        case DirectPhpActionStatus::Prepared:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case DirectPhpActionStatus::Inapplicable:
-        case DirectPhpActionStatus::UnsupportedProof:
-        case DirectPhpActionStatus::UnsupportedProofSplit:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case DirectPhpActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case DirectPhpActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case DirectPhpActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case DirectPhpActionStatus::NotRecognized:
-        case DirectPhpActionStatus::Malformed:
-        case DirectPhpActionStatus::Ambiguous:
-        case DirectPhpActionStatus::AlreadyApplied:
-        case DirectPhpActionStatus::Applied:
-          break;
-        }
-      }
+      settle_standard(affine_application, retain_all_theory_failures);
+      if (exact_cover_application)
+        settle_theory_status(standard_theory_status_disposition(
+            exact_cover_application->live.status,
+            retain_all_theory_failures));
+      settle_standard(independent_set_application, retain_all_theory_failures);
+      settle_standard(gf3_affine_application,
+                      retain_retryable_theory_failures);
+      settle_standard(direct_csp_application,
+                      retain_retryable_theory_failures);
+      settle_standard(nary_csp_equality_application,
+                      retain_retryable_theory_failures);
+      settle_standard(nary_csp_equality_amo_application,
+                      retain_retryable_theory_failures);
+      settle_standard(nary_csp_equality_transitivity_application,
+                      retain_retryable_theory_failures);
+      settle_standard(gf3_gaussian_application,
+                      retain_retryable_theory_failures);
+      settle_standard(gf3_general_row_application,
+                      retain_retryable_theory_failures);
+      if (cardinality_search_application)
+        settle_theory_status(theory_status_disposition(
+            cardinality_search_application->status,
+            {CardinalitySearchActionStatus::Invalid},
+            {CardinalitySearchActionStatus::Inapplicable,
+             CardinalitySearchActionStatus::UnsupportedProof},
+            {CardinalitySearchActionStatus::ResourceExhausted},
+            {CardinalitySearchActionStatus::Interrupted}, {},
+            retain_retryable_theory_failures));
+      settle_standard(tseitin_cycle_application,
+                      retain_retryable_theory_failures);
+      if (direct_php_application)
+        settle_theory_status(theory_status_disposition(
+            direct_php_application->status,
+            {DirectPhpActionStatus::Invalid,
+             DirectPhpActionStatus::ReplayMismatch,
+             DirectPhpActionStatus::Prepared},
+            {DirectPhpActionStatus::Inapplicable,
+             DirectPhpActionStatus::UnsupportedProof,
+             DirectPhpActionStatus::UnsupportedProofSplit},
+            {DirectPhpActionStatus::ResourceExhausted},
+            {DirectPhpActionStatus::Interrupted}, {DirectPhpActionStatus::Stale},
+            retain_retryable_theory_failures));
       if (sr_application) {
         switch (sr_application->status) {
         case SubstitutionRedundancyApplicationStatus::Invalid:

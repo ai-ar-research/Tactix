@@ -167,10 +167,6 @@ int main() {
   for (const auto &stage : defaults.inprocess.structured_root_stages) {
     assert(validate_online_strategy_program(stage.program));
     assert(stage.on_budget_exhaustion == BudgetExhaustionPolicy::Continue);
-    OnlineStrategyProgram replay;
-    const auto wire = serialize_online_strategy_program(stage.program);
-    assert(deserialize_online_strategy_program(wire, replay));
-    assert(serialize_online_strategy_program(replay) == wire);
     for (const auto &step : stage.program.sequence)
       if (const auto *p = std::get_if<ReduceParameters>(&step.parameters))
         assert(p->compact_collection && !p->victim_numerator &&

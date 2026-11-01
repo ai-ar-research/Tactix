@@ -1,6 +1,9 @@
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -17,26 +20,7 @@ namespace {
 namespace gf3 = gf3_affine;
 using ClauseKey = std::vector<int32_t>;
 
-struct Meter {
-  const Kernel &kernel;
-  uint64_t limit = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > limit || amount > limit - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
+using Meter = InterruptibleWork;
 
 ClauseKey normalized(ClauseKey clause) {
   std::sort(clause.begin(), clause.end());
@@ -192,39 +176,6 @@ bool capture_and_recognize(const Kernel &kernel,
   return true;
 }
 
-bool same_domain(const gf3::Domain &first, const gf3::Domain &second) {
-  return first.values == second.values &&
-         first.at_least_one == second.at_least_one &&
-         first.at_most_one == second.at_most_one;
-}
-
-bool same_equation(const gf3::Equation &first, const gf3::Equation &second) {
-  return first.domains == second.domains &&
-         first.coefficients == second.coefficients && first.rhs == second.rhs &&
-         first.forbidden_by_tuple == second.forbidden_by_tuple;
-}
-
-bool same_theory(const gf3::Theory &first, const gf3::Theory &second) {
-  if (first.maximum_variable != second.maximum_variable ||
-      first.source.size() != second.source.size() ||
-      first.domains.size() != second.domains.size() ||
-      first.equations.size() != second.equations.size())
-    return false;
-  for (size_t index = 0; index < first.source.size(); ++index) {
-    const auto &a = first.source[index];
-    const auto &b = second.source[index];
-    if (a.occurrence != b.occurrence ||
-        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
-      return false;
-  }
-  for (size_t index = 0; index < first.domains.size(); ++index)
-    if (!same_domain(first.domains[index], second.domains[index])) return false;
-  for (size_t index = 0; index < first.equations.size(); ++index)
-    if (!same_equation(first.equations[index], second.equations[index]))
-      return false;
-  return true;
-}
-
 Gf3AffineLiveStatus retained_owner_status(
     const Gf3AffineOwnerSnapshot &owner,
     const Gf3AffineLiveRequest &request, Meter &meter, gf3::Theory &checked) {
@@ -262,7 +213,7 @@ Gf3AffineLiveStatus retained_owner_status(
       return stopped_status(meter, Gf3AffineLiveStatus::ResourceExhausted);
     return stopped_status(meter, Gf3AffineLiveStatus::Invalid);
   }
-  if (!same_theory(owner.theory, recognized.theory))
+  if (!gf3::same_theory(owner.theory, recognized.theory))
     return Gf3AffineLiveStatus::Invalid;
   checked = std::move(recognized.theory);
   return Gf3AffineLiveStatus::Applied;
@@ -336,68 +287,7 @@ bool revalidate_sources(const Kernel &kernel,
   return true;
 }
 
-bool collect_live_clauses(const Kernel &kernel, Meter &meter,
-                          std::set<ClauseKey> &clauses) {
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    const uint32_t words = clause_actual_words(clause);
-    if (!words || words > kernel.arena.size() - reference) return false;
-    reference += words;
-    if (!meter.charge(uint64_t{1} + clause->size)) return false;
-    if (clause->garbage()) continue;
-    ClauseKey external;
-    external.reserve(clause->size);
-    for (Lit literal : *clause)
-      external.push_back(kernel_externalize(kernel, literal));
-    clauses.insert(normalized(std::move(external)));
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1)) return false;
-      if (!watch.binary() || first >= watch.other()) continue;
-      clauses.insert(normalized(
-          {kernel_externalize(kernel, first),
-           kernel_externalize(kernel, watch.other())}));
-    }
-  return true;
-}
-
-struct Journal {
-  uint64_t maximum = 0;
-  uint64_t work = 0;
-  std::string bytes;
-
-  bool append(const std::string &text) {
-    if (text.size() > UINT64_MAX - work) {
-      work = UINT64_MAX;
-      return false;
-    }
-    work += text.size();
-    if (bytes.size() > maximum || text.size() > maximum - bytes.size())
-      return false;
-    bytes += text;
-    return true;
-  }
-  bool integers(const std::vector<int32_t> &values) {
-    for (size_t index = 0; index < values.size(); ++index)
-      if (!append((index ? "," : "") + std::to_string(values[index])))
-        return false;
-    return true;
-  }
-  bool unsigneds(const std::vector<uint32_t> &values) {
-    for (size_t index = 0; index < values.size(); ++index)
-      if (!append((index ? "," : "") + std::to_string(values[index])))
-        return false;
-    return true;
-  }
-  bool bytes_array(const std::vector<uint8_t> &values) {
-    for (size_t index = 0; index < values.size(); ++index)
-      if (!append((index ? "," : "") +
-                  std::to_string(static_cast<unsigned>(values[index]))))
-        return false;
-    return true;
-  }
-};
+using Journal = semantic_extension::BoundedJournal<true, true>;
 
 const gf3::Premise *premise(const gf3::Theory &theory, uint64_t occurrence) {
   if (!occurrence || occurrence > theory.source.size()) return nullptr;
@@ -459,18 +349,18 @@ bool render_journal(const Gf3AffineLiveRequest &request,
                         ",\"kind\":\"gf3-affine-equation\",\"index\":" +
                         std::to_string(equation_index) +
                         ",\"domains\":[") ||
-        !journal.unsigneds(equation.domains) ||
+        !journal.integers(equation.domains) ||
         !journal.append("],\"coefficients\":[") ||
-        !journal.bytes_array(equation.coefficients) ||
+        !journal.integers(equation.coefficients) ||
         !journal.append("],\"rhs\":" + std::to_string(equation.rhs) +
                         "}\n"))
       return false;
   }
   if (!journal.append("{" + ids +
                       ",\"kind\":\"gf3-affine-consequence\",\"domains\":[") ||
-      !journal.unsigneds(plan.consequence.domains) ||
+      !journal.integers(plan.consequence.domains) ||
       !journal.append("],\"coefficients\":[") ||
-      !journal.bytes_array(plan.consequence.coefficients) ||
+      !journal.integers(plan.consequence.coefficients) ||
       !journal.append("],\"rhs\":" +
                       std::to_string(plan.consequence.rhs) +
                       ",\"projection\":\"identity-original-variables\","
@@ -628,7 +518,10 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
 
   Meter meter{kernel, request.maximum_duplicate_scan_work};
   std::set<ClauseKey> live;
-  if (!collect_live_clauses(kernel, meter, live)) {
+  if (!gf3_live_common::scan_live_external_clauses(
+          kernel, meter, [&](ClauseKey clause) {
+            live.insert(normalized(std::move(clause)));
+          })) {
     result.duplicate_scan_work = meter.used;
     result.duplicate_scan_exhausted = meter.exhausted;
     result.status = meter.interrupted
@@ -697,7 +590,7 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
   uint64_t next_id = kernel.next_clause_id;
   for (size_t index : result.missing_additions)
     result.published_clause_ids[index] = ++next_id;
-  Journal journal{request.maximum_journal_bytes, 0, {}};
+  Journal journal{request.maximum_journal_bytes};
   if (!render_journal(request, owner, plan, result.published_clause_ids,
                       result.proof_work, journal)) {
     result.journal_work = journal.work;
@@ -840,10 +733,8 @@ Gf3AffineLiveResult gf3_affine_live_apply(
                               literals.size(), id);
     result.published_clause_ids.push_back(id);
   }
-  if (std::fwrite(preflight.journal.data(), 1, preflight.journal.size(),
-                  request.records) != preflight.journal.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records,
+                                             preflight.journal);
 
   result.status = Gf3AffineLiveStatus::Applied;
   result.result = ApplyResult::Ok;

@@ -2,8 +2,14 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "frontend/parse.hpp"
-#include "policies/random_controller_policy.hpp"
 #include "policies/restart_controller.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/parity_certificate.hpp"
@@ -605,163 +611,6 @@ void dsr_and_unsupported_proof_contract() {
     unlink(unsupported_path);
   }
 }
-
-RandomControllerConfig random_tseitin_config() {
-  RandomControllerConfig config;
-  config.parameters.rules = {"TseitinCycleBreaking"};
-  config.tseitin_cycle_action_producer.enabled = true;
-  return config;
-}
-
-void typed_replay_random_reach_and_separate_propagation() {
-  Fixture source(true);
-  TseitinCycleBreakingSession source_session;
-  const auto offered = tseitin_cycle_breaking_offer(
-      source.kernel, source_session, limits());
-  assert(offered.offers.size() == 2);
-
-  OnlineInvocation step;
-  step.id = 27;
-  step.rule = "TseitinCycleBreaking";
-  step.parameters = TseitinCycleBreakingParameters{};
-  step.granularity = InvocationGranularity::OneInstance;
-  step.tseitin_cycle_instances = {offered.offers.back()};
-  step.work_unit = WorkUnit::Applications;
-  step.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram program{{step}, {}};
-  const std::string text = serialize_online_strategy_program(program);
-  OnlineStrategyProgram replay;
-  std::string error;
-  assert(deserialize_online_strategy_program(text, replay, &error));
-  assert(replay.sequence[0].tseitin_cycle_instances ==
-         step.tseitin_cycle_instances);
-
-  Fixture executed(true);
-  TseitinCycleBreakingSession executed_session;
-  executed.kernel.tseitin_cycle_breaking_session = &executed_session;
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(replay, 71, ReconfigureMode::ResetRuntime,
-                            &error));
-  const auto applied = executor.advance(executed.kernel);
-  assert(applied.status == InvocationStatus::Completed &&
-         applied.applications == 1 &&
-         executed_session.keys().size() == 1);
-  assert(!executed.kernel.startup_certificate_open);
-  assert(!kernel_propagation_fixpoint(executed.kernel));
-  const size_t trail_after_action = executed.kernel.trail.size();
-  assert(trail_after_action == 1);
-
-  OnlineInvocation propagation;
-  propagation.id = 100;
-  propagation.rule = "Propagate";
-  propagation.granularity = InvocationGranularity::CanonicalApplication;
-  propagation.work_unit = WorkUnit::Propagations;
-  propagation.budget = WorkLimit::bounded(1000);
-  OnlineStrategyExecutor propagation_executor;
-  assert(propagation_executor.configure({{propagation}, {}}, 72,
-                                        ReconfigureMode::ResetRuntime,
-                                        &error));
-  const auto propagated = propagation_executor.advance(executed.kernel);
-  assert(propagated.status == InvocationStatus::Completed ||
-         propagated.status == InvocationStatus::ScopedFixpoint ||
-         propagated.status == InvocationStatus::NoChange ||
-         propagated.status == InvocationStatus::Unsat);
-  assert(kernel_propagation_fixpoint(executed.kernel) ||
-         executed.kernel.inconsistent || executed.kernel.conflict_valid);
-  assert(executed_session.keys().size() == 1);
-
-  Fixture candidate(true);
-  TseitinCycleBreakingSession session;
-  candidate.kernel.tseitin_cycle_breaking_session = &session;
-  RandomControllerSelector selector(1);
-  auto observation = observe_kernel(candidate.kernel);
-  std::vector<std::string> reached;
-  bool saw_producer = false;
-  for (uint32_t round = 0; round != 2; ++round) {
-    ActionRequest selected;
-    bool selected_rule = false;
-    for (uint32_t attempt = 0; attempt != 32 && !selected_rule; ++attempt) {
-      assert(selector.choose(candidate.kernel, observation,
-                             random_tseitin_config(), selected, error));
-      if (!selected.producer_effort.empty()) {
-        assert(selected.producer_effort.size() == 1);
-        assert(selected.producer_effort.front().complete);
-        assert(selected.producer_effort.front().candidates == 2);
-        assert(selected.producer_effort.front().offers == 2);
-        assert(selected.producer_effort.front().preparation_work >=
-               offered.offers[0].size() + offered.offers[1].size());
-        saw_producer = true;
-      }
-      selected_rule = selected.type == ActionType::Rule;
-    }
-    assert(selected_rule && saw_producer);
-    const std::string identity =
-        selected.invocation.tseitin_cycle_instances.front();
-    assert(std::find(offered.offers.begin(), offered.offers.end(), identity) !=
-           offered.offers.end());
-    assert(std::find(reached.begin(), reached.end(), identity) == reached.end());
-    reached.push_back(identity);
-    ActionResult consumed;
-    consumed.sequence = selected.sequence;
-    consumed.type = selected.type;
-    consumed.invocation.status = InvocationStatus::Completed;
-    consumed.invocation.selection_complete = true;
-    consumed.invocation.after = state_version(candidate.kernel);
-    observation.last_action = consumed;
-    observation.sequence = selected.sequence;
-  }
-  assert(reached.size() == 2);
-}
-
-void random_pending_requires_profile_reconfiguration() {
-  Fixture fixture;
-  TseitinCycleBreakingSession session;
-  fixture.kernel.tseitin_cycle_breaking_session = &session;
-  auto config = random_tseitin_config();
-  RestartController controller(fixture.kernel);
-  RandomControllerSelector selector(1);
-  auto observation = controller.observe();
-  ActionRequest original;
-  std::string error;
-  bool selected = false;
-  for (uint32_t attempt = 0; attempt != 64 && !selected; ++attempt) {
-    assert(selector.choose(fixture.kernel, observation, config, original,
-                           error));
-    selected = original.type == ActionType::Rule;
-  }
-  assert(selected && original.invocation.tseitin_cycle_instances.size() == 1);
-  const auto exact = original.invocation.tseitin_cycle_instances;
-  auto constrained = std::get<TseitinCycleBreakingParameters>(
-      original.invocation.parameters);
-  constrained.maximum_journal_bytes = 1;
-  original.invocation.parameters = constrained;
-  const auto exhausted =
-      controller.apply_rule(original, config.allowance("TseitinCycleBreaking"));
-  assert(exhausted.invocation.status == InvocationStatus::ResourceExhausted);
-  assert(fixture.kernel.startup_certificate_open);
-  observation = controller.observe();
-  for (uint32_t attempt = 0; attempt != 32; ++attempt) {
-    ActionRequest suspended;
-    assert(selector.choose(fixture.kernel, observation, config, suspended,
-                           error));
-    assert(suspended.type != ActionType::Rule);
-  }
-  auto reconfigured = config;
-  ++reconfigured.parameters.tseitin_cycle_breaking_reference
-        .maximum_snapshot_work;
-  bool retried = false;
-  for (uint32_t attempt = 0; attempt != 64 && !retried; ++attempt) {
-    ActionRequest request;
-    assert(selector.choose(fixture.kernel, observation, reconfigured, request,
-                           error));
-    if (request.type != ActionType::Rule) continue;
-    assert(request.invocation.tseitin_cycle_instances == exact);
-    assert(request.producer_effort.empty());
-    retried = true;
-  }
-  assert(retried && session.keys().empty() && fixture.kernel.trail.empty());
-}
-
 void c_v7_is_backward_compatible_and_deep_copies_identity() {
   assert(std::strcmp(tactix_rule_name(38), "TseitinCycleBreaking") == 0);
   const auto reference = reference_inprocess_program();
@@ -1064,8 +913,6 @@ int main() {
   malformed_and_residual_staleness_are_nonmutating();
   semantic_duplicate_key_is_storage_order_independent();
   dsr_and_unsupported_proof_contract();
-  typed_replay_random_reach_and_separate_propagation();
-  random_pending_requires_profile_reconfiguration();
   c_v7_is_backward_compatible_and_deep_copies_identity();
   propagated_root_rebuilds_the_complete_component_census();
   assigned_edges_select_an_available_cycle();

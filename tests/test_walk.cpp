@@ -2,10 +2,10 @@
 // defaults get wrong at root and is deterministic.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "strategy/online_inprocess.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/registry.hpp"
-#include "strategy/random_online.hpp"
 
 #include <cassert>
 #include <bit>
@@ -150,41 +150,6 @@ static void test_configuration_checking_profiles_and_structure() {
   kernel_add_large_clause(imbalanced, negative, 3, false, 0);
   assert(walk_complementary_ternary_fraction_permille(imbalanced) == 200);
 
-  strategy::RandomOnlineConfig random_config;
-  random_config.rules = {"Walk"};
-  random_config.maximum_sequence_length = 1;
-  bool saw_probsat = false;
-  bool saw_configuration_checking[3] = {false, false, false};
-  for (uint64_t seed = 1; seed <= 256; ++seed) {
-    strategy::OnlineStrategyProgram program;
-    std::string error;
-    assert(strategy::random_online_strategy_program(
-        unpaired, seed, random_config, program, &error));
-    assert(program.sequence.size() == 1);
-    const auto &parameters = std::get<strategy::WalkParameters>(
-        program.sequence.front().parameters);
-    assert(parameters.valid());
-    if (parameters.algorithm == strategy::WalkParameters::Algorithm::ProbSat) {
-      saw_probsat = true;
-    } else {
-      const auto index = static_cast<uint32_t>(parameters.initialization);
-      assert(index < 3);
-      saw_configuration_checking[index] = true;
-      const std::string encoded =
-          strategy::serialize_online_strategy_program(program);
-      assert(encoded.find(":walk4(") != std::string::npos);
-      strategy::OnlineStrategyProgram decoded;
-      const bool decoded_ok = strategy::deserialize_online_strategy_program(
-          encoded, decoded, &error);
-      if (!decoded_ok)
-        std::fprintf(stderr, "walk4 decode failed: %s: %s\n",
-                     error.c_str(), encoded.c_str());
-      assert(decoded_ok);
-      assert(strategy::serialize_online_strategy_program(decoded) == encoded);
-    }
-  }
-  assert(saw_probsat && saw_configuration_checking[0] &&
-         saw_configuration_checking[1] && saw_configuration_checking[2]);
 }
 
 // Configuration checking uses the primal graph only to re-enable variables

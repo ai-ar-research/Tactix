@@ -1,6 +1,8 @@
 #include "rules/lucky/exact_cover_model.hpp"
 
+#include "kernel/splitmix64.hpp"
 #include "rules/lucky/model.hpp"
+#include "rules/lucky/root_guard.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <algorithm>
@@ -144,18 +146,6 @@ bool recognize(Kernel &k, const strategy::ExactCoverModelParameters &p,
   return true;
 }
 
-// The owner's SplitMix64.
-struct SplitMix64 {
-  uint64_t state;
-  uint64_t next() {
-    uint64_t z = (state += 0x9e3779b97f4a7c15ULL);
-    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
-    return z ^ (z >> 31);
-  }
-  uint64_t below(uint64_t n) { return next() % n; }
-};
-
 // ExactDfsSolver: minimum-remaining-rows column choice (random tie-break
 // when randomized), rows ordered by the sum of their columns' sizes and then
 // the DIMACS literal (shuffled when randomized).
@@ -290,15 +280,7 @@ bool solve(Kernel &k, const strategy::ExactCoverModelParameters &p,
 } // namespace
 
 RuleEligibility exact_cover_model_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", k.level == 0)
-      .fact("propagated", k.propagate_head == k.trail.size())
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult exact_cover_model_apply(Kernel &k) {

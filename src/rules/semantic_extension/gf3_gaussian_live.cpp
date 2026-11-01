@@ -1,6 +1,8 @@
 #include "rules/semantic_extension/gf3_gaussian_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -39,50 +41,22 @@ struct PreparedAccess {
 
 namespace {
 
+using gf3_live_common::append_u8;
+using gf3_live_common::append_u32;
+using gf3_live_common::append_u64;
+using semantic_extension::append_bounded;
+
 bool add(uint64_t &value, uint64_t amount) {
   if (amount > std::numeric_limits<uint64_t>::max() - value) return false;
   value += amount;
   return true;
 }
 
-void append_u8(std::string &bytes, uint8_t value) {
-  bytes.push_back(static_cast<char>(value));
-}
-
-void append_u32(std::string &bytes, uint32_t value) {
-  for (unsigned shift = 0; shift != 32; shift += 8)
-    append_u8(bytes, static_cast<uint8_t>(value >> shift));
-}
-
-void append_u64(std::string &bytes, uint64_t value) {
-  for (unsigned shift = 0; shift != 64; shift += 8)
-    append_u8(bytes, static_cast<uint8_t>(value >> shift));
-}
-
 void append_reference(std::string &bytes,
                       const gf3_affine::SourceReference &reference,
                       const Gf3AffineOwnerSnapshot &owner) {
-  append_u64(bytes, reference.occurrence);
-  append_u64(bytes, reference.native_proof_id);
-  if (!reference.occurrence || reference.occurrence > owner.sources.size()) {
+  if (!gf3_live_common::append_reference(bytes, reference, owner))
     append_u64(bytes, UINT64_MAX);
-    return;
-  }
-  const auto &clause = owner.sources[reference.occurrence - 1].clause;
-  append_u64(bytes, clause.size());
-  for (int32_t literal : clause)
-    append_u32(bytes, static_cast<uint32_t>(literal));
-}
-
-std::string hex(std::string_view bytes) {
-  static constexpr char digit[] = "0123456789abcdef";
-  std::string result = "g3g1:";
-  result.reserve(result.size() + 2 * bytes.size());
-  for (unsigned char byte : bytes) {
-    result.push_back(digit[byte >> 4]);
-    result.push_back(digit[byte & 15]);
-  }
-  return result;
 }
 
 std::string outcome_identity(
@@ -124,7 +98,7 @@ std::string outcome_identity(
       append_reference(bytes, tuple.premise, owner);
     }
   }
-  return hex(bytes);
+  return gf3_live_common::hex("g3g1:", bytes, false);
 }
 
 bool sized_add(uint64_t &value, uint64_t amount) {
@@ -283,13 +257,6 @@ Status certificate_status(gf3_gaussian_certificate::Status status) {
   std::abort();
 }
 
-bool append(std::string &output, uint64_t maximum, const std::string &text) {
-  if (output.size() > maximum || text.size() > maximum - output.size())
-    return false;
-  output += text;
-  return true;
-}
-
 std::string integers(const std::vector<int32_t> &values) {
   std::string result;
   for (size_t index = 0; index < values.size(); ++index)
@@ -357,14 +324,14 @@ bool make_journal(const Request &request, Prepared &prepared) {
   const std::string identity =
       "\"action\":" + std::to_string(request.action_id) +
       ",\"semantic\":" + std::to_string(request.semantic_id);
-  if (!append(journal, request.maximum_journal_bytes,
+  if (!append_bounded(journal, request.maximum_journal_bytes,
               "{" + identity +
                   ",\"kind\":\"gf3-gaussian-begin\",\"proof\":\"rup\","
                   "\"publication\":\"unit-or-conflict-only\","
                   "\"selection\":\"" + request.selected_identity + "\"}\n"))
     return false;
   for (const auto &source : PreparedAccess::owner(prepared).sources)
-    if (!append(journal, request.maximum_journal_bytes,
+    if (!append_bounded(journal, request.maximum_journal_bytes,
                 "{" + identity +
                     ",\"kind\":\"gf3-gaussian-source\",\"occurrence\":" +
                     std::to_string(source.occurrence) +
@@ -373,7 +340,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
                     ",\"clause\":[" + integers(source.clause) + "]}\n"))
       return false;
   for (const auto &authentication : prepared.bridge().authentication)
-    if (!append(
+    if (!append_bounded(
             journal, request.maximum_journal_bytes,
             "{" + identity +
                 ",\"kind\":\"gf3-gaussian-authentication\",\"source_id\":" +
@@ -397,7 +364,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
                 gf3_gaussian_certificate::ConsequenceKind::Conflict
             ? "conflict"
             : "unit-equation";
-    if (!append(journal, request.maximum_journal_bytes,
+    if (!append_bounded(journal, request.maximum_journal_bytes,
                 "{" + identity +
                     ",\"kind\":\"gf3-gaussian-consequence\",\"index\":" +
                     std::to_string(index) + ",\"outcome\":\"" + kind +
@@ -417,7 +384,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
         : event.role == gf3_gaussian_certificate::EventRole::Consequence
             ? "consequence"
             : "conflict";
-    if (!append(journal, request.maximum_journal_bytes,
+    if (!append_bounded(journal, request.maximum_journal_bytes,
                 "{" + identity +
                     ",\"kind\":\"gf3-gaussian-rup\",\"event\":" +
                     std::to_string(index) + ",\"clause_id\":" +
@@ -429,7 +396,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
                     ",\"clause\":[" + integers(event.clause) + "]}\n"))
       return false;
   }
-  if (!append(journal, request.maximum_journal_bytes,
+  if (!append_bounded(journal, request.maximum_journal_bytes,
               "{" + identity +
                   ",\"kind\":\"gf3-gaussian-complete\",\"events\":" +
                   std::to_string(certificate.events.size()) +
@@ -683,7 +650,8 @@ Result prepare_internal(Kernel &kernel, const Request &request,
     append_u64(batch_bytes, identity.size());
     batch_bytes.append(identity);
   }
-  PreparedAccess::batch_identity(prepared) = hex(batch_bytes);
+  PreparedAccess::batch_identity(prepared) =
+      gf3_live_common::hex("g3g1:", batch_bytes, false);
   prepared.batch_identity_.replace(0, 5, "g3b1:");
   if (prepared.batch_identity_.size() != batch_encoded_bytes ||
       !add(result.effort.identity_bytes, prepared.batch_identity_.size()) ||
@@ -813,10 +781,8 @@ Result publish_internal(Kernel &kernel, const Request &request,
     kernel_assign_unit(kernel, unit);
     result.published_units.push_back(event.clause.front());
   }
-  if (std::fwrite(prepared.journal_.data(), 1, prepared.journal_.size(),
-                  request.records) != prepared.journal_.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records,
+                                             prepared.journal_);
   prepared.spent_ = true;
   result.status = Status::Applied;
   result.result = result.contradiction ? ApplyResult::Unsat : ApplyResult::Ok;

@@ -4,6 +4,7 @@
 // Step 5, C4): the policy chooses a profile, the session owns its state and
 // the kernel's score notifications reach it for the session's lifetime.
 #include "diagnostics/event_trace.hpp"
+#include "kernel/indexed_max_heap.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/bve/bve.hpp"
@@ -62,9 +63,7 @@ public:
     k.bve_occurrence_count_image = &occurrence_counts_;
     pop_ordinal_ = 0;
     pop_hash_ = 1469598103934665603ull;
-    stack_.clear();
-    pos_.assign(k.nvars, UINT32_MAX);
-    score_.assign(k.nvars, 0.0);
+    heap_.reset(k.nvars);
     payload_.assign(k.nvars, INSTANCE_CANONICAL);
     eligible_.assign(k.nvars, 0);
     std::vector<uint8_t> inserted(k.nvars, 0);
@@ -146,30 +145,21 @@ public:
         insertion_hash ^= k.internal_to_external[v] + 1ull;
         insertion_hash *= 1099511628211ull;
       }
-    event_trace_bve_schedule(k, stack_.data(), score_.data(),
-                             static_cast<uint32_t>(stack_.size()), k.bve_bound,
-                             insertion_hash);
+    event_trace_bve_schedule(k, heap_.members().data(), heap_.scores().data(),
+                             heap_.size(), k.bve_bound, insertion_hash);
   }
 
-  bool empty() const { return stack_.empty(); }
+  bool empty() const { return heap_.empty(); }
 
   uint64_t pop_max() {
-    assert(!stack_.empty());
-    const Var result = stack_[0];
-    const Var last = stack_.back();
-    stack_.pop_back();
-    pos_[result] = UINT32_MAX;
-    if (!stack_.empty()) {
-      stack_[0] = last;
-      pos_[last] = 0;
-      bubble_down(last);
-    }
+    const Var result = heap_.pop_max();
     pop_ordinal_++;
     pop_hash_ ^= kernel_->internal_to_external[result] + 1ull;
     pop_hash_ *= 1099511628211ull;
     event_trace_bve_pop(*kernel_, pop_ordinal_, pop_hash_, result,
-                        score_[result], stack_.empty() ? INVALID_VAR : stack_[0],
-                        static_cast<uint32_t>(stack_.size()));
+                        heap_.score(result),
+                        heap_.empty() ? INVALID_VAR : heap_.members()[0],
+                        heap_.size());
     trace_selected("pop", result, false);
     return payload_[result];
   }
@@ -180,7 +170,7 @@ public:
 
 private:
   bool contains(Var v) const {
-    return v < pos_.size() && pos_[v] != UINT32_MAX;
+    return heap_.contains(v);
   }
 
   bool active(Var v) const {
@@ -217,10 +207,7 @@ private:
     // bound growth rearms it for every variable (RescheduleBveCandidatesRequest).
     if (!k.bve_retry[v])
       return;
-    score_[v] = schedule_score(v);
-    pos_[v] = static_cast<uint32_t>(stack_.size());
-    stack_.push_back(v);
-    bubble_up(v);
+    heap_.insert(v, schedule_score(v));
   }
 
   void update(Var v, bool reinsert) {
@@ -228,16 +215,11 @@ private:
     // non-fixed variable of a removed clause is rescored and, when absent,
     // pushed, whether or not this round scheduled it; the pop-time retry
     // check is the only eligibility test.  Adding a resolvent never pushes.
-    if (v >= pos_.size() || !active(v))
+    if (v >= heap_.extent() || !active(v))
       return;
-    const double old = score_[v];
     const double now = schedule_score(v);
-    score_[v] = now;
     if (contains(v)) {
-      if (now > old)
-        bubble_up(v);
-      else if (now < old)
-        bubble_down(v);
+      heap_.update_score(v, now);
     } else if (reinsert) {
       // eliminate.c::update_after_removing_variable pushes an active variable
       // which is absent from the physical schedule without consulting its
@@ -248,72 +230,31 @@ private:
       // at the pre-apply guard; it must not suppress this physical reinsertion.
       if (payload_[v] == INSTANCE_CANONICAL)
         payload_[v] = lit_instance(*kernel_, make_lit(v, false));
-      pos_[v] = static_cast<uint32_t>(stack_.size());
-      stack_.push_back(v);
-      bubble_up(v);
-    }
+      heap_.insert(v, now);
+    } else
+      heap_.assign_score(v, now);
     trace_selected(reinsert ? "update-reinsert" : "update-add", v, false);
   }
 
   void trace_selected(const char *stage, Var trigger, bool force) {
-    const Var root = stack_.empty() ? INVALID_VAR : stack_[0];
+    const Var root = heap_.empty() ? INVALID_VAR : heap_.members()[0];
     for (size_t i = 0; i < trace_vars_.size(); i++) {
       const Var v = trace_vars_[i];
-      const uint32_t position = contains(v) ? pos_[v] : UINT32_MAX;
-      const double score = score_[v];
+      const uint32_t position = heap_.position(v);
+      const double score = heap_.score(v);
       if (!force && position == trace_last_pos_[i] &&
           score == trace_last_score_[i])
         continue;
       event_trace_bve_heap(*kernel_, stage, trigger, v, score, position, root,
-                           static_cast<uint32_t>(stack_.size()));
+                           heap_.size());
       trace_last_pos_[i] = position;
       trace_last_score_[i] = score;
     }
   }
 
-  void bubble_up(Var v) {
-    uint32_t at = pos_[v];
-    while (at) {
-      const uint32_t parent_at = (at - 1) / 2;
-      const Var parent = stack_[parent_at];
-      if (score_[parent] >= score_[v])
-        break;
-      stack_[at] = parent;
-      pos_[parent] = at;
-      at = parent_at;
-    }
-    stack_[at] = v;
-    pos_[v] = at;
-  }
-
-  void bubble_down(Var v) {
-    uint32_t at = pos_[v];
-    for (;;) {
-      uint32_t child_at = 2 * at + 1;
-      if (child_at >= stack_.size())
-        break;
-      Var child = stack_[child_at];
-      const uint32_t sibling_at = child_at + 1;
-      if (sibling_at < stack_.size() &&
-          score_[stack_[sibling_at]] > score_[child]) {
-        child_at = sibling_at;
-        child = stack_[child_at];
-      }
-      if (score_[child] <= score_[v])
-        break;
-      stack_[at] = child;
-      pos_[child] = at;
-      at = child_at;
-    }
-    stack_[at] = v;
-    pos_[v] = at;
-  }
-
   Kernel *kernel_ = nullptr;
-  std::vector<Var> stack_;
-  std::vector<uint32_t> pos_;
+  IndexedMaxHeap<Var, double> heap_;
   std::vector<uint32_t> occurrence_counts_;
-  std::vector<double> score_;
   std::vector<uint64_t> payload_;
   std::vector<uint8_t> eligible_;
   std::vector<Var> trace_vars_;

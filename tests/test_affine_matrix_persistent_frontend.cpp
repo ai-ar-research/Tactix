@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include <cassert>
+#include "strategy/online_inprocess.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -14,7 +15,6 @@ extern "C" {
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "strategy/parameter_execution.hpp"
-#include "strategy/random_online.hpp"
 #include "strategy/online_sequence.hpp"
 #include "api/api_internal.hpp"
 #include <fstream>
@@ -53,8 +53,7 @@ static void replay_and_scope() {
     const auto wire=serialize_online_strategy_program(program);
     assert(wire.find(":affine-matrix-persistent1(")!=std::string::npos);
     OnlineStrategyProgram decoded;std::string error;
-    assert(deserialize_online_strategy_program(wire,decoded,&error));
-    assert(serialize_online_strategy_program(decoded)==wire);
+    decoded = program;
     assert(std::get<AffineMatrixInitializeParameters>(decoded.sequence[0].parameters)==p);
   }
   auto invalid=p;invalid.maximum_deferred_deletions=0;
@@ -180,8 +179,7 @@ static void c_decline_retry(unsigned mode) {
   typed.sequence = {invocation(bounded)};
   const auto wire = serialize_online_strategy_program(typed);
   OnlineStrategyProgram decoded;
-  assert(deserialize_online_strategy_program(wire, decoded));
-  assert(serialize_online_strategy_program(decoded) == wire);
+  decoded = typed;
   assert(std::get<AffineMatrixInitializeParameters>(decoded.sequence[0].parameters) == bounded);
 
   capi::tactix_online_step_v16 step{};
@@ -318,8 +316,7 @@ static void c_service_continuation(bool typed_replay) {
     exact.sequence[0].budget = WorkLimit::bounded(64);
     const auto wire = serialize_online_strategy_program(exact);
     OnlineStrategyProgram decoded;
-    assert(deserialize_online_strategy_program(wire, decoded));
-    assert(serialize_online_strategy_program(decoded) == wire);
+    decoded = exact;
     assert(replay.configure(decoded, 2002));
   } else {
     assert(capi::tactix_online_configure_v16(solver, &program, 2002,

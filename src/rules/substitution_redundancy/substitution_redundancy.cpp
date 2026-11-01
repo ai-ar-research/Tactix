@@ -812,34 +812,6 @@ ApplyResult substitution_redundancy_apply(
       .rule_result;
 }
 
-ApplyResult substitution_redundancy_apply_orbitopal(
-    Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop) {
-  std::vector<SubstitutionRedundancyInstance> instances;
-  const OrbitopalEnumerationResult enumeration =
-      substitution_redundancy_enumerate_orbitopal(
-          kernel, parameters,
-          [&](const SubstitutionRedundancyInstance &instance) {
-            instances.push_back(instance);
-            return true;
-          },
-          stop);
-  if (enumeration.status == OrbitopalEnumerationStatus::Interrupted)
-    return ApplyResult::NoOp;
-  bool progress = false;
-  for (const SubstitutionRedundancyInstance &instance : instances) {
-    if ((stop && *stop) || (kernel.stop && *kernel.stop))
-      break;
-    const ApplyResult applied = substitution_redundancy_apply_orbitopal_prefix(
-                                    kernel, instance, parameters, stop)
-                                    .rule_result;
-    if (applied == ApplyResult::Unsat)
-      return applied;
-    progress |= applied == ApplyResult::Ok;
-  }
-  return progress ? ApplyResult::Ok : ApplyResult::NoOp;
-}
-
 TACTIX_REGISTER_RULE(SubstitutionRedundancy, RuleTier::Inprocess,
                      substitution_redundancy_guard,
                      substitution_redundancy_apply);

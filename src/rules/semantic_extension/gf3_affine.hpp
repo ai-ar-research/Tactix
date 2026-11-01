@@ -45,6 +45,9 @@ struct Theory {
   uint32_t maximum_variable = 0;
 };
 
+// Exact semantic identity used when revalidating retained live/action owners.
+bool same_theory(const Theory &first, const Theory &second);
+
 struct RecognitionBounds {
   uint64_t maximum_source_clauses = 0;
   uint64_t maximum_source_literals = 0;

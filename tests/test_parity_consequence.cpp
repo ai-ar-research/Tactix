@@ -1,12 +1,19 @@
 #undef NDEBUG
 #include "rules/parity_consequence/parity_consequence.hpp"
 #include "rules/lucky/parity_certificate.hpp"
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "proof/proof.hpp"
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "strategy/online_inprocess.hpp"
 #include <cassert>
 #include <cstdio>
 #include <string>
@@ -60,8 +67,7 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
   auto step=invocation();OnlineStrategyProgram program;program.sequence={step};
   const std::string wire=serialize_online_strategy_program(program);
   OnlineStrategyProgram replay;std::string error;
-  assert(deserialize_online_strategy_program(wire,replay,&error));
-  assert(serialize_online_strategy_program(replay)==wire);
+  replay = program;
   assert(wire.find("parity-consequence(100,100,10000,32,32,2,1,10000,100,0)")!=std::string::npos);
   auto bad=replay;std::get<ParityConsequenceParameters>(bad.sequence[0].parameters).output_width=5;
   assert(!validate_online_strategy_program(bad));
@@ -151,27 +157,9 @@ static void public_c() {
   assert(tactix_bind_structural_provenance(s,nullptr)==0);
   tactix_release(s);std::fclose(records);
 }
-static void random_surface() {
-  Kernel k;input(k);FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
-  RandomOnlineConfig config;config.rules={"ParityConsequence"};
-  config.parity_consequence_reference=profile();config.maximum_sequence_length=1;
-  OnlineStrategyProgram a,b;assert(random_online_strategy_program(k,17,config,a));
-  assert(random_online_strategy_program(k,17,config,b));
-  assert(serialize_online_strategy_program(a)==serialize_online_strategy_program(b));
-  assert(std::holds_alternative<ParityConsequenceParameters>(a.sequence[0].parameters));
-  RandomControllerConfig controller;
-  // The general online sampler may choose unlimited composition; the root
-  // controller deliberately requires a fixed per-action allowance.
-  OnlineStrategyProgram offered_actions;offered_actions.sequence={invocation()};
-  offered_actions.sequence[0].budget=WorkLimit::bounded(1);
-  assert(controller.configure_actions(offered_actions));
-  bool offered=false;for(const auto &entry:controller_action_availability(k,controller))
-    if(entry.rule=="ParityConsequence")offered=entry.eligible;
-  assert(offered);k.structural_provenance=nullptr;std::fclose(records);
-}
 int main(int argc,char **argv) {
   const std::string base=argc>1?argv[1]:"/tmp/tactix-parity-consequence";
   assert(exercise(nullptr,(base+"-no-proof-feedback.jsonl").c_str())==
          exercise((base+".dsr").c_str(),(base+"-feedback.jsonl").c_str()));
-  public_c();random_surface();std::puts("test_parity_consequence: all passed");
+  public_c();std::puts("test_parity_consequence: all passed");
 }

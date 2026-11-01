@@ -1,4 +1,6 @@
 #include "rules/semantic_extension/affine_root_image.hpp"
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <bit>
 #include <set>
@@ -19,7 +21,9 @@ struct Meter {
   }
 };
 bool valid_literal(External literal) { return literal && literal != INT32_MIN; }
-External variable(External literal) { return literal < 0 ? -literal : literal; }
+External variable(External literal) {
+  return static_cast<External>(external_variable_of(literal));
+}
 bool valid_source_identity(const AffineLiveSource &source) {
   switch (source.kind) {
   case AffineSourceKind::Large:
