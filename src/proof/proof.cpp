@@ -212,9 +212,7 @@ void Proof::observe_checker_id_rebind(uint64_t predecessor_id,
                                       uint32_t size) noexcept {
   observe_checker(CheckerPopulationEventKind::IdRebind,
                   CheckerClauseRole::Input, checker_id, checker_id,
-                  PopulationClauseView::internal_lits(lits, size,
-                                                       variable_map_),
-                  false, predecessor_id);
+                  internal_view(lits, size), false, predecessor_id);
 }
 
 void Proof::finish_input_transaction() {
@@ -461,8 +459,7 @@ void Proof::put_external_lit(Lit l) {
 void Proof::put_external_dimacs(int32_t e) {
   assert(e && e != INT32_MIN);
   if (binary()) {
-    const uint32_t magnitude =
-        static_cast<uint32_t>(e < 0 ? -int64_t(e) : int64_t(e));
+    const uint32_t magnitude = external_variable_of(e);
     uint32_t u = (magnitude << 1) | (e < 0);
     while (u >= 128) {
       put_byte(static_cast<unsigned char>(128 | (u & 127)));
@@ -681,6 +678,25 @@ void Proof::end_line() {
     fputs("0\n", file_);
 }
 
+void Proof::put_line_tag(bool deletion) {
+  if (format_ == ProofFormat::DsrBinary)
+    put_byte(deletion ? 2 : 1);
+  else if (format_ == ProofFormat::DratBinary)
+    put_byte(deletion ? 'd' : 'a');
+  else if (deletion) {
+    fputc('d', file_);
+    if (format_ == ProofFormat::DsrAscii || format_ == ProofFormat::DratAscii)
+      fputc(' ', file_);
+  }
+}
+
+void Proof::put_clausal_line(bool deletion, const Lit *lits, uint32_t size) {
+  put_line_tag(deletion);
+  for (uint32_t i = 0; i < size; i++)
+    put_lit(lits[i]);
+  end_line();
+}
+
 uint32_t Proof::external_variable_bound() const {
   uint32_t bound = std::max(pending_max_external_, proof_external_max_);
   if (external_variable_map_)
@@ -840,9 +856,8 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
     pending_unit_literals_.insert(unit);
     if (id)
       pending_unit_ids_.insert(id);
-    pending_max_external_ = static_cast<uint32_t>(
-        std::max<int64_t>(pending_max_external_,
-            unit < 0 ? -int64_t(unit) : int64_t(unit)));
+    pending_max_external_ =
+        std::max(pending_max_external_, external_variable_of(unit));
     if (!pending_population_transaction_)
       pending_population_transaction_ = ++next_population_transaction_;
     kind = CheckerPopulationEventKind::StageAdd;
@@ -856,19 +871,11 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
       put_u64(chain[i]);
     fputs("0\n", file_);
   } else {
-    if (format_ == ProofFormat::DsrBinary)
-      put_byte(1);
-    else if (format_ == ProofFormat::DratBinary)
-      put_byte('a');
-    for (uint32_t i = 0; i < size; i++)
-      put_lit(lits[i]);
-    end_line();
+    put_clausal_line(false, lits, size);
   }
   population_add(id, lits, size);
-  observe_checker(kind, role, id, id,
-                  PopulationClauseView::internal_lits(lits, size,
-                                                       variable_map_),
-                  false, 0, transaction);
+  observe_checker(kind, role, id, id, internal_view(lits, size), false, 0,
+                  transaction);
   if (streaming_pbp() && !size)
     finish_streaming_pbp_unsat();
 }
@@ -899,9 +906,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
     put_pbp_clause("red", lits, size);
     const int32_t external = externalize(checker_lit(lits[0]));
     std::fprintf(file_, " : x%" PRIu32 " -> %d ;\n",
-                 static_cast<uint32_t>(external < 0 ? -int64_t(external)
-                                                    : int64_t(external)),
-                 external < 0 ? 0 : 1);
+                 external_variable_of(external), external < 0 ? 0 : 1);
     note_pbp_derived(id, size);
   } else if (format_ == ProofFormat::Lrat) {
     put_u64(id);
@@ -915,19 +920,11 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
     // DSR/DRAT: a witnessless addition with the pivot ordered first. The
     // checker first tries RUP and then infers first-literal RAT. DRAT output
     // is unchanged.
-    if (format_ == ProofFormat::DsrBinary)
-      put_byte(1);
-    else if (format_ == ProofFormat::DratBinary)
-      put_byte('a');
-    for (uint32_t i = 0; i < size; i++)
-      put_lit(lits[i]);
-    end_line();
+    put_clausal_line(false, lits, size);
   }
   population_add(id, lits, size);
   observe_checker(CheckerPopulationEventKind::Add, CheckerClauseRole::Rat,
-                  id, id,
-                  PopulationClauseView::internal_lits(lits, size,
-                                                       variable_map_));
+                  id, id, internal_view(lits, size));
 }
 
 bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
@@ -978,11 +975,8 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     for (uint32_t i = 0; i < nmappings; ++i)
       pivot_assigned |= var_of(mappings[i].from) == pivot_var;
     const auto put_constant = [&](Lit source, bool value) {
-      const int32_t external = external_lit(source);
       std::fprintf(file_, " x%" PRIu32 " -> %d",
-                   static_cast<uint32_t>(external < 0 ? -int64_t(external)
-                                                      : int64_t(external)),
-                   value ? 1 : 0);
+                   external_variable_of(external_lit(source)), value ? 1 : 0);
     };
     if (!pivot_assigned)
       put_constant(lits[0], !negated(lits[0]));
@@ -994,19 +988,15 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
       if (from < 0)
         to = -to;
       std::fprintf(file_, " x%" PRIu32 " -> %sx%" PRIu32,
-                   static_cast<uint32_t>(from < 0 ? -int64_t(from)
-                                                  : int64_t(from)),
-                   to < 0 ? "~" : "",
-                   static_cast<uint32_t>(to < 0 ? -int64_t(to)
-                                                : int64_t(to)));
+                   external_variable_of(from), to < 0 ? "~" : "",
+                   external_variable_of(to));
     }
     std::fputs(" ;\n", file_);
     note_pbp_derived(id, size);
     population_add(id, lits, size);
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::SubstitutionRedundancy, id, id,
-                    PopulationClauseView::internal_lits(lits, size,
-                                                         variable_map_));
+                    internal_view(lits, size));
     has_sr_witness_ = true;
     return true;
   }
@@ -1033,10 +1023,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     const Lit auxiliary = make_lit(external_variables, false);
     const int32_t external_auxiliary = externalize(auxiliary);
     const auto temporary = [&](bool deletion, bool negative) {
-      if (format_ == ProofFormat::DsrBinary)
-        put_byte(deletion ? 2 : 1);
-      else if (deletion)
-        fputs("d ", file_);
+      put_line_tag(deletion);
       put_external_lit(negative ? negate(auxiliary) : auxiliary);
       for (uint32_t i = 0; i < size; ++i)
         put_lit(lits[i]);
@@ -1046,8 +1033,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     // image is exactly the already-validated candidate image C|sigma.
     temporary(false, true);
     end_line();
-    PopulationClauseView negative_helper =
-        PopulationClauseView::internal_lits(lits, size, variable_map_);
+    PopulationClauseView negative_helper = internal_view(lits, size);
     negative_helper.prefix = -external_auxiliary;
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::DsrSubstitutionHelper, 0, 0,
@@ -1066,21 +1052,15 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
       }
     }
     end_line();
-    PopulationClauseView positive_helper =
-        PopulationClauseView::internal_lits(lits, size, variable_map_);
+    PopulationClauseView positive_helper = internal_view(lits, size);
     positive_helper.prefix = external_auxiliary;
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::DsrSubstitutionHelper, 0, 0,
                     positive_helper, true);
-    if (format_ == ProofFormat::DsrBinary)
-      put_byte(1);
-    for (uint32_t i = 0; i < size; ++i)
-      put_lit(lits[i]);
-    end_line();
+    put_clausal_line(false, lits, size);
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::SubstitutionRedundancy, id, id,
-                    PopulationClauseView::internal_lits(lits, size,
-                                                         variable_map_));
+                    internal_view(lits, size));
     // These are nonunit clauses, so the checkers honour both deletions.
     // No live clause retains the auxiliary identity after this transaction.
     temporary(true, false);
@@ -1098,12 +1078,11 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     return true;
   }
   const Lit emitted_pivot = lits[plan.pivot];
-  PopulationClauseView emitted_clause =
-      PopulationClauseView::internal_lits(lits, size, variable_map_);
+  PopulationClauseView emitted_clause = internal_view(lits, size);
   emitted_clause.first_body_index = plan.pivot;
-  const auto put_addition = [&](bool lemma) {
-    if (format_ == ProofFormat::DsrBinary)
-      put_byte(1);
+  // The pivot-first clause, optionally extended by the plan's lemma literal.
+  const auto put_emitted = [&](bool deletion, bool lemma) {
+    put_line_tag(deletion);
     put_lit(emitted_pivot);
     for (uint32_t i = 0; i < size; ++i)
       if (i != plan.pivot)
@@ -1111,21 +1090,9 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     if (lemma)
       put_lit(plan.lemma);
   };
-  const auto put_lemma_deletion = [&] {
-    if (format_ == ProofFormat::DsrBinary)
-      put_byte(2);
-    else
-      fputs("d ", file_);
-    put_lit(emitted_pivot);
-    for (uint32_t i = 0; i < size; ++i)
-      if (i != plan.pivot)
-        put_lit(lits[i]);
-    put_lit(plan.lemma);
-    end_line();
-  };
 
   if (plan.form == DsrWitnessForm::Lemma) {
-    put_addition(true);
+    put_emitted(false, true);
     end_line();
     PopulationClauseView lemma = emitted_clause;
     lemma.suffix = externalize(checker_lit(plan.lemma));
@@ -1133,7 +1100,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                     CheckerClauseRole::DsrSubstitutionHelper, 0, 0, lemma,
                     true);
   }
-  put_addition(false);
+  put_emitted(false, false);
   if (plan.form != DsrWitnessForm::Rup) {
     const Var dropped = plan.form == DsrWitnessForm::Direct
                             ? INVALID_VAR
@@ -1162,7 +1129,8 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   if (plan.form != DsrWitnessForm::Rup)
     has_sr_witness_ = true;
   if (plan.form == DsrWitnessForm::Lemma) {
-    put_lemma_deletion();
+    put_emitted(true, true);
+    end_line();
     PopulationClauseView lemma = emitted_clause;
     lemma.suffix = externalize(checker_lit(plan.lemma));
     observe_checker(CheckerPopulationEventKind::DeleteRequested,
@@ -1254,8 +1222,7 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     population_del(del_id, lits, size);
     observe_checker(CheckerPopulationEventKind::DeleteRequested,
                     CheckerClauseRole::None, line_id, del_id,
-                    PopulationClauseView::internal_lits(lits, size,
-                                                         variable_map_));
+                    internal_view(lits, size));
     return;
   }
   const Lit external_unit = size == 1 ? checker_lit(lits[0]) : INVALID_LIT;
@@ -1277,22 +1244,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     population_del(del_id, lits, size);
     observe_checker(CheckerPopulationEventKind::Delete,
                     CheckerClauseRole::None, line_id, del_id,
-                    PopulationClauseView::internal_lits(lits, size,
-                                                         variable_map_));
+                    internal_view(lits, size));
     return;
   }
-  if (format_ == ProofFormat::DsrBinary)
-    put_byte(2);
-  else if (format_ == ProofFormat::DratBinary)
-    put_byte('d');
-  else
-    fputc('d', file_);
-  if (format_ == ProofFormat::DsrAscii ||
-      format_ == ProofFormat::DratAscii)
-    fputc(' ', file_);
-  for (uint32_t i = 0; i < size; i++)
-    put_lit(lits[i]);
-  end_line();
+  put_clausal_line(true, lits, size);
   if (defer)
     end_pending_deletion(main_file);
   population_del(del_id, lits, size);
@@ -1301,9 +1256,8 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
             : CheckerPopulationEventKind::DeleteRequested;
   observe_checker(deletion_kind,
                   CheckerClauseRole::None, line_id, del_id,
-                  PopulationClauseView::internal_lits(lits, size,
-                                                       variable_map_),
-                  false, 0, defer ? pending_population_transaction_ : 0);
+                  internal_view(lits, size), false, 0,
+                  defer ? pending_population_transaction_ : 0);
 }
 
 namespace {
@@ -1344,27 +1298,20 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
     put_pbp_external_clause("rup", lits, size);
     std::fputs(" ;\n", file_);
     note_pbp_derived(id, size);
-    population_external(true, id, lits, size);
-    observe_checker(CheckerPopulationEventKind::Add, role, id, id,
-                    PopulationClauseView::external_lits(lits, size), true);
-    if (!size)
-      finish_streaming_pbp_unsat();
-    return true;
+  } else {
+    put_line_tag(false);
+    for (uint32_t i = 0; i < size; ++i) {
+      proof_external_max_ =
+          std::max(proof_external_max_, external_variable_of(lits[i]));
+      put_external_dimacs(lits[i]);
+    }
+    end_line();
   }
-  if (format_ == ProofFormat::DsrBinary)
-    put_byte(1);
-  else if (format_ == ProofFormat::DratBinary)
-    put_byte('a');
-  for (uint32_t i = 0; i < size; ++i) {
-    proof_external_max_ = std::max(proof_external_max_,
-                                   static_cast<uint32_t>(
-                                       lits[i] < 0 ? -int64_t(lits[i]) : lits[i]));
-    put_external_dimacs(lits[i]);
-  }
-  end_line();
   population_external(true, id, lits, size);
   observe_checker(CheckerPopulationEventKind::Add, role, id, id,
                   PopulationClauseView::external_lits(lits, size), true);
+  if (streaming_pbp() && !size)
+    finish_streaming_pbp_unsat();
   return true;
 }
 
@@ -1386,9 +1333,7 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
     put_pbp_external_clause("red", lits, size);
     const int32_t pivot = lits[0];
     std::fprintf(file_, " : x%" PRIu32 " -> %d ;\n",
-                 static_cast<uint32_t>(pivot < 0 ? -int64_t(pivot)
-                                                 : int64_t(pivot)),
-                 pivot < 0 ? 0 : 1);
+                 external_variable_of(pivot), pivot < 0 ? 0 : 1);
     note_pbp_derived(id, size);
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::ExternalRat, id, id,
@@ -1647,6 +1592,22 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     return std::binary_search(plan.odd_variables.begin(),
                               plan.odd_variables.end(), variable);
   };
+  // Add each reason literal that `select(literal, variable)` names.
+  const auto add_reason_literals = [&](auto select) {
+    for (uint32_t i = 0; i < reason_size; ++i) {
+      const int32_t literal = reason[i];
+      const int32_t variable =
+          static_cast<int32_t>(external_variable_of(literal));
+      if (!select(literal, variable))
+        continue;
+      text.put(" ");
+      if (literal < 0)
+        text.put("~");
+      text.put("x");
+      text.put_uint(static_cast<uint32_t>(variable));
+      text.put(" +");
+    }
+  };
   const auto sum_and_round = [&](const std::vector<uint64_t> &ids,
                                  bool lower_side) {
     text.put("pol ");
@@ -1656,20 +1617,10 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       text.put_uint(ids[i]);
       text.put(" +");
     }
-    for (uint32_t i = 0; i < reason_size; ++i) {
-      const int32_t literal = reason[i];
-      const int32_t variable =
-          static_cast<int32_t>(external_variable_of(literal));
-      if (odd(variable) &&
-          ((lower_side && literal < 0) || (!lower_side && literal > 0))) {
-        text.put(" ");
-        if (literal < 0)
-          text.put("~");
-        text.put("x");
-        text.put_uint(static_cast<uint32_t>(variable));
-        text.put(" +");
-      }
-    }
+    add_reason_literals([&](int32_t literal, int32_t variable) {
+      return odd(variable) &&
+             ((lower_side && literal < 0) || (!lower_side && literal > 0));
+    });
     text.put(" 2 d ;\n");
     return constraint();
   };
@@ -1680,19 +1631,8 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   text.put(" ");
   text.put_uint(hi);
   text.put(" +");
-  for (uint32_t i = 0; i < reason_size; ++i) {
-    const int32_t literal = reason[i];
-    const int32_t variable =
-        static_cast<int32_t>(external_variable_of(literal));
-    if (!odd(variable)) {
-      text.put(" ");
-      if (literal < 0)
-        text.put("~");
-      text.put("x");
-      text.put_uint(static_cast<uint32_t>(variable));
-      text.put(" +");
-    }
-  }
+  add_reason_literals(
+      [&](int32_t, int32_t variable) { return !odd(variable); });
   text.put(" ;\n");
   (void)constraint();
   text.flush();
@@ -1977,15 +1917,9 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
     flush_pending_dsr_units();
   const bool defer = !pending_units_.empty();
   FILE *const main_file = defer ? begin_pending_deletion() : nullptr;
-  if (format_ == ProofFormat::DsrBinary)
-    put_byte(2);
-  else if (format_ == ProofFormat::DratBinary)
-    put_byte('d');
-  else
-    fputs("d ", file_);
+  put_line_tag(true);
   for (uint32_t i = 0; i < size; ++i) {
-    const uint32_t variable = static_cast<uint32_t>(
-        lits[i] < 0 ? -int64_t(lits[i]) : lits[i]);
+    const uint32_t variable = external_variable_of(lits[i]);
     proof_external_max_ = std::max(proof_external_max_, variable);
     if (defer)
       pending_max_external_ = std::max(pending_max_external_, variable);
@@ -2107,9 +2041,7 @@ void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
     track_pbp_original_constraint(id, size);
   }
   observe_checker(CheckerPopulationEventKind::InputSeed,
-                  CheckerClauseRole::Input, id, id,
-                  PopulationClauseView::internal_lits(lits, size,
-                                                       variable_map_));
+                  CheckerClauseRole::Input, id, id, internal_view(lits, size));
 }
 
 } // namespace tactix

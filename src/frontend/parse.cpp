@@ -245,6 +245,62 @@ static void propagate_input_unit(Kernel &k) {
   k.inconsistent = true;
 }
 
+// Activation, kissat's `tumble` order (heuristics_seed_activation_order), of
+// the normalized clause's unassigned literals in clause order.
+template <class Lits>
+[[gnu::always_inline]] static inline void
+activate_input_literals(Kernel &k, const Lits &lits) {
+  if (k.input_activated.size() < k.nvars)
+    k.input_activated.resize(k.nvars, 0);
+  for (const Lit lit : lits) {
+    const Var v = var_of(lit);
+    assert(k.values[make_lit(v, false)] == 0);
+    if (!k.input_activated[v]) {
+      k.input_activated[v] = 1;
+      if (k.tumble)
+        k.input_activation_order.push_back(v);
+    }
+  }
+}
+
+// Store the normalized input binary (a, b) unless the pair is already live;
+// returns whether it was stored. A duplicate binary consumes its input id but
+// is not stored or proved; `raw` is that input clause's checker copy.
+// No deletion occurs during import. Native LRAT's BinaryIdMap is therefore
+// the exact live-set image. DRAT/proofless import first asks its compact
+// no-false-negative filter, then confirms possible hits against mirrored
+// watches, which remain the exact identity authority after input.
+// Evidence: benchmarks/reports/2026-08-27-sat-factor-marks-search-localization.md.
+[[gnu::always_inline]] static inline bool
+ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
+                    const std::vector<Lit> &raw,
+                    RawInputObservation &observation) {
+  const uint64_t key = kernel_binary_key(a, b);
+  const bool duplicate = k.binary_ids.tracks_keys()
+                             ? k.binary_ids.count(key)
+                             : kernel_binary_live(k, a, b);
+  if (duplicate) {
+    observation.note(RawDropped | RawDuplicate);
+    // Each raw duplicate still exists in the checker. Keep exactly the
+    // one copy represented by the kernel so a later deletion removes it.
+    if (k.proof && !k.proof->lrat())
+      k.proof->del(k.next_clause_id, id, raw.data(),
+                   static_cast<uint32_t>(raw.size()));
+    return false;
+  }
+  if (!k.binary_ids.tracks_keys() && k.binary_liveness &&
+      k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
+    grow_input_binary_liveness(k, k.binary_ids.size() + 1);
+  kernel_add_new_binary_clause(k, a, b, id);
+  observation.note(RawAdmitted);
+  if (k.input_binary_order_captured)
+    k.input_binary_order.push_back(key);
+  // Kissat's original-clause constructor checks vector defragmentation only
+  // after the complete clause has joined the watch database.
+  k.watches.defrag_if_needed();
+  return true;
+}
+
 [[gnu::noinline]] static void ingest_clause_generic(Kernel &k,
                                                     std::vector<Lit> &scratch) {
   // Every input clause consumes one proof id in input order, including
@@ -395,17 +451,7 @@ static void propagate_input_unit(Kernel &k) {
   // first-occurrence file order, which is exactly the population and order
   // the raw file literals would activate: repeats are skipped by
   // input_activated and root-assigned variables are never activated.
-  if (k.input_activated.size() < k.nvars)
-    k.input_activated.resize(k.nvars, 0);
-  for (const Lit lit : scratch) {
-    const Var v = var_of(lit);
-    assert(k.values[make_lit(v, false)] == 0);
-    if (!k.input_activated[v]) {
-      k.input_activated[v] = 1;
-      if (k.tumble)
-        k.input_activation_order.push_back(v);
-    }
-  }
+  activate_input_literals(k, scratch);
 
   if (scratch.empty()) { // empty input clause: immediate refutation
     observation.note(RawAdmitted | RawEmpty |
@@ -438,38 +484,10 @@ static void propagate_input_unit(Kernel &k) {
     propagate_input_unit(k);
   } else if (scratch.size() == 2) {
     observation.note(RawBinary);
-    // A duplicate binary consumes its input id but is not stored or proved.
-    // No deletion occurs during import. Native LRAT's BinaryIdMap is therefore
-    // the exact live-set image. DRAT/proofless import first asks its compact
-    // no-false-negative filter, then confirms possible hits against mirrored
-    // watches, which remain the exact identity authority after input.
-    // Evidence: benchmarks/reports/2026-08-27-sat-factor-marks-search-localization.md.
-    const uint64_t key = kernel_binary_key(scratch[0], scratch[1]);
-    const bool duplicate = k.binary_ids.tracks_keys()
-                               ? k.binary_ids.count(key)
-                               : kernel_binary_live(k, scratch[0], scratch[1]);
-    if (duplicate) {
-      observation.note(RawDropped | RawDuplicate);
-      // Each raw duplicate still exists in the checker. Keep exactly the
-      // one copy represented by the kernel so a later deletion removes it.
-      if (k.proof && !k.proof->lrat()) {
-        const auto &raw = original.empty() ? scratch : original;
-        k.proof->del(k.next_clause_id, id, raw.data(),
-                     static_cast<uint32_t>(raw.size()));
-      }
-      return;
-    }
-    if (!k.binary_ids.tracks_keys() && k.binary_liveness &&
-        k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
-      grow_input_binary_liveness(k, k.binary_ids.size() + 1);
-    kernel_add_new_binary_clause(k, scratch[0], scratch[1], id);
-    observation.note(RawAdmitted);
-    if (k.input_binary_order_captured)
-      k.input_binary_order.push_back(key);
-    // Kissat's original-clause constructor checks vector defragmentation only
-    // after the complete clause has joined the watch database.
-    k.watches.defrag_if_needed();
-    if (shrunk)
+    if (ingest_input_binary(k, id, scratch[0], scratch[1],
+                            original.empty() ? scratch : original,
+                            observation) &&
+        shrunk)
       restate_input(k, id, scratch, root_units, 0, original);
   } else {
     observation.note(RawAdmitted | RawLarge);
@@ -502,36 +520,9 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
         k.proof->seed_population(id, scratch.data(), 2);
       kernel_record_import(k, var_of(a));
       kernel_record_import(k, var_of(b));
-
-      if (k.input_activated.size() < k.nvars)
-        k.input_activated.resize(k.nvars, 0);
-      for (const Lit lit : {a, b}) {
-        const Var v = var_of(lit);
-        if (!k.input_activated[v]) {
-          k.input_activated[v] = 1;
-          if (k.tumble)
-            k.input_activation_order.push_back(v);
-        }
-      }
-
-      const uint64_t key = kernel_binary_key(a, b);
-      const bool duplicate = k.binary_ids.tracks_keys()
-                                 ? k.binary_ids.count(key)
-                                 : kernel_binary_live(k, a, b);
-      if (duplicate) {
-        observation.note(RawDropped | RawDuplicate);
-        if (k.proof && !k.proof->lrat())
-          k.proof->del(k.next_clause_id, id, scratch.data(), 2);
-        return;
-      }
-      if (!k.binary_ids.tracks_keys() && k.binary_liveness &&
-          k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
-        grow_input_binary_liveness(k, k.binary_ids.size() + 1);
-      kernel_add_new_binary_clause(k, a, b, id);
-      observation.note(RawAdmitted);
-      if (k.input_binary_order_captured)
-        k.input_binary_order.push_back(key);
-      k.watches.defrag_if_needed();
+      const Lit pair[2] = {a, b};
+      activate_input_literals(k, pair);
+      ingest_input_binary(k, id, a, b, scratch, observation);
       return;
     }
   }
@@ -734,13 +725,10 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
                             {static_cast<Lit>(key >> 32),
                              static_cast<Lit>(key)}});
     });
-    for (Ref ref = 0; ref < current.arena.size();) {
-      Clause *c = clause_at(current.arena, ref);
+    for (const auto [ref, c] : arena_records(current.arena))
       if (!c->garbage())
         live.emplace(c->id(), Live{0, ref,
                                    std::vector<Lit>(c->begin(), c->end())});
-      ref += clause_actual_words(c);
-    }
     uint64_t raw_id = 0;
     std::vector<Lit> raw;
     std::vector<uint64_t> chain;

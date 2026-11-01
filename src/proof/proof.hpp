@@ -390,6 +390,11 @@ private:
     assert(var_of(l) < variable_map_->size());
     return make_lit((*variable_map_)[var_of(l)], negated(l));
   }
+  // The population view of internal literals under the same map.
+  PopulationClauseView internal_view(const Lit *lits,
+                                     uint32_t size) const noexcept {
+    return PopulationClauseView::internal_lits(lits, size, variable_map_);
+  }
   // A staged DSR-unit batch spools the next deletion line; see del().
   FILE *begin_pending_deletion();
   void end_pending_deletion(FILE *main_file);
@@ -401,6 +406,9 @@ private:
   void put_lit(Lit l);
   void put_external_lit(Lit l);
   void put_external_dimacs(int32_t literal);
+  // A DSR/DRAT line: binary formats tag every line, text ones a deletion.
+  void put_line_tag(bool deletion);
+  void put_clausal_line(bool deletion, const Lit *lits, uint32_t size);
   void put_pbp_clause(const char *rule, const Lit *lits, uint32_t size);
   void put_pbp_external_clause(const char *rule, const int32_t *lits,
                                uint32_t size);

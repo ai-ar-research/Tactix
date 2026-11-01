@@ -47,13 +47,7 @@ public:
   using value_type = T;
   ReallocWords() = default;
   ~ReallocWords() { Allocator::release(first_); }
-  ReallocWords(const ReallocWords &other) {
-    reserve(other.size());
-    if (other.size()) {
-      std::memcpy(first_, other.first_, other.size() * sizeof(T));
-      last_ = first_ + other.size();
-    }
-  }
+  ReallocWords(const ReallocWords &other) { *this = other; }
   ReallocWords &operator=(const ReallocWords &other) {
     if (this == &other)
       return *this;
