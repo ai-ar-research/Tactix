@@ -61,36 +61,35 @@ bool add(uint64_t amount, uint64_t maximum, uint64_t &value) {
   return true;
 }
 
+// Identity, session-key and journal work share one meter: spend() polls for an
+// interrupt before charging; charge() only adds to the bounded work total.
+struct WorkMeter {
+  uint64_t maximum = UINT64_MAX;
+  uint64_t &work;
+  ActionPoll *poll = nullptr;
+  bool exhausted = false;
+  bool interrupted = false;
+  bool charge(uint64_t amount) {
+    if (add(amount, maximum, work)) return true;
+    exhausted = true;
+    return false;
+  }
+  bool spend(uint64_t amount) {
+    if (!action_interrupted(poll)) return charge(amount);
+    interrupted = true;
+    return false;
+  }
+};
+
 class Encoder {
   std::string bytes_;
   uint64_t maximum_ = 0;
-  uint64_t maximum_work_ = UINT64_MAX;
-  uint64_t *work_ = nullptr;
-  bool *exhausted_ = nullptr;
-  tseitin_cycle::InterruptPoll interrupted_ = nullptr;
-  void *interrupt_state_ = nullptr;
-  bool *was_interrupted_ = nullptr;
+  WorkMeter &meter_;
 
 public:
-  explicit Encoder(uint64_t maximum, uint64_t maximum_work = UINT64_MAX,
-                   uint64_t *work = nullptr, bool *exhausted = nullptr,
-                   tseitin_cycle::InterruptPoll interrupted = nullptr,
-                   void *interrupt_state = nullptr,
-                   bool *was_interrupted = nullptr)
-      : maximum_(maximum), maximum_work_(maximum_work), work_(work),
-        exhausted_(exhausted), interrupted_(interrupted),
-        interrupt_state_(interrupt_state),
-        was_interrupted_(was_interrupted) {}
-  bool spend(uint64_t amount) {
-    if (interrupted_ && interrupted_(interrupt_state_)) {
-      if (was_interrupted_) *was_interrupted_ = true;
-      return false;
-    }
-    if (!work_) return true;
-    if (add(amount, maximum_work_, *work_)) return true;
-    if (exhausted_) *exhausted_ = true;
-    return false;
-  }
+  Encoder(uint64_t maximum, WorkMeter &meter)
+      : maximum_(maximum), meter_(meter) {}
+  bool spend(uint64_t amount) { return meter_.spend(amount); }
   bool u64(uint64_t value) {
     if (!spend(8)) return false;
     if (bytes_.size() > maximum_ || 8 > maximum_ - bytes_.size())
@@ -114,35 +113,14 @@ std::string hex(const char *prefix, const std::string &bytes) {
   return result;
 }
 
-bool identity_step(uint64_t amount, uint64_t maximum, uint64_t &work,
-                   tseitin_cycle::InterruptPoll interrupted,
-                   void *interrupt_state, bool &exhausted,
-                   bool &was_interrupted) {
-  if (interrupted && interrupted(interrupt_state)) {
-    was_interrupted = true;
-    return false;
-  }
-  if (!add(amount, maximum, work)) {
-    exhausted = true;
-    return false;
-  }
-  return true;
-}
-
-bool parse_identity(const std::string &identity, uint64_t maximum_work,
-                    uint64_t &work,
-                    tseitin_cycle::InterruptPoll interrupted,
-                    void *interrupt_state, bool &exhausted,
-                    bool &was_interrupted, size_t &split) {
-  if (!identity_step(5, maximum_work, work, interrupted, interrupt_state,
-                     exhausted, was_interrupted) ||
+bool parse_identity(const std::string &identity, WorkMeter &meter,
+                    size_t &split) {
+  if (!meter.spend(5) ||
       identity.size() <= 7 || identity.compare(0, 5, "tcx2:"))
     return false;
   split = std::string::npos;
   for (size_t index = 5; index < identity.size(); ++index) {
-    if (!identity_step(1, maximum_work, work, interrupted, interrupt_state,
-                       exhausted, was_interrupted))
-      return false;
+    if (!meter.spend(1)) return false;
     const char ch = identity[index];
     if (ch == ':') {
       if (split != std::string::npos) return false;
@@ -158,18 +136,10 @@ bool parse_identity(const std::string &identity, uint64_t maximum_work,
 }
 
 bool identity_equal(std::string_view left, std::string_view right,
-                    uint64_t maximum_work, uint64_t &work,
-                    tseitin_cycle::InterruptPoll interrupted,
-                    void *interrupt_state, bool &exhausted,
-                    bool &was_interrupted) {
-  if (!identity_step(1, maximum_work, work, interrupted, interrupt_state,
-                     exhausted, was_interrupted) ||
-      left.size() != right.size())
-    return false;
+                    WorkMeter &meter) {
+  if (!meter.spend(1) || left.size() != right.size()) return false;
   for (size_t index = 0; index < left.size(); ++index) {
-    if (!identity_step(1, maximum_work, work, interrupted, interrupt_state,
-                       exhausted, was_interrupted) ||
-        left[index] != right[index])
+    if (!meter.spend(1) || left[index] != right[index])
       return false;
   }
   return true;
@@ -199,13 +169,8 @@ const tseitin_cycle::LiveClause *clause_for(
 
 bool encode_component(const tseitin_cycle_discovery::Plan &plan,
                       uint64_t maximum_bytes, std::string &component,
-                      uint64_t maximum_work = UINT64_MAX,
-                      uint64_t *work = nullptr, bool *exhausted = nullptr,
-                      tseitin_cycle::InterruptPoll interrupted = nullptr,
-                      void *interrupt_state = nullptr,
-                      bool *was_interrupted = nullptr) {
-  Encoder bytes(maximum_bytes, maximum_work, work, exhausted, interrupted,
-                interrupt_state, was_interrupted);
+                      WorkMeter &meter) {
+  Encoder bytes(maximum_bytes, meter);
   const auto &groups = plan.groups();
   if (!bytes.u64(3) || !bytes.u64(groups.size())) return false;
   bool charge = false;
@@ -270,13 +235,8 @@ bool encode_component(const tseitin_cycle_discovery::Plan &plan,
 bool encode_transaction(const tseitin_cycle_discovery::Plan &plan,
                         const tseitin_cycle::ProofTransaction &transaction,
                         uint64_t maximum_bytes, std::string &prepared,
-                        uint64_t maximum_work = UINT64_MAX,
-                        uint64_t *work = nullptr, bool *exhausted = nullptr,
-                        tseitin_cycle::InterruptPoll interrupted = nullptr,
-                        void *interrupt_state = nullptr,
-                        bool *was_interrupted = nullptr) {
-  Encoder bytes(maximum_bytes, maximum_work, work, exhausted, interrupted,
-                interrupt_state, was_interrupted);
+                        WorkMeter &meter) {
+  Encoder bytes(maximum_bytes, meter);
   if (!bytes.u64(transaction.version) ||
       !bytes.u64(transaction.requires_unassigned_pivot) ||
       !bytes.u64(transaction.requires_live_x7_validation) ||
@@ -330,32 +290,16 @@ bool encode_transaction(const tseitin_cycle_discovery::Plan &plan,
 bool encode_identity(const tseitin_cycle_discovery::Plan &plan,
                      const tseitin_cycle::ProofTransaction &transaction,
                      uint64_t maximum, std::string &component,
-                     std::string &identity, uint64_t maximum_work = UINT64_MAX,
-                     uint64_t *work = nullptr, bool *exhausted = nullptr,
-                     tseitin_cycle::InterruptPoll interrupted = nullptr,
-                     void *interrupt_state = nullptr,
-                     bool *was_interrupted = nullptr) {
+                     std::string &identity, WorkMeter &meter) {
   if (maximum <= 6) return false;
   const uint64_t raw_limit = (maximum - 6) / 2;
   std::string prepared;
-  if (!encode_component(plan, raw_limit, component, maximum_work, work,
-                        exhausted, interrupted, interrupt_state,
-                        was_interrupted) ||
-      !encode_transaction(plan, transaction, raw_limit, prepared,
-                          maximum_work, work, exhausted, interrupted,
-                          interrupt_state, was_interrupted) ||
+  if (!encode_component(plan, raw_limit, component, meter) ||
+      !encode_transaction(plan, transaction, raw_limit, prepared, meter) ||
       component.size() > maximum - 6 ||
       prepared.size() > maximum - 6 - component.size())
     return false;
-  if (interrupted && interrupted(interrupt_state)) {
-    if (was_interrupted) *was_interrupted = true;
-    return false;
-  }
-  if (work && !add(6 + component.size() + prepared.size(), maximum_work,
-                   *work)) {
-    if (exhausted) *exhausted = true;
-    return false;
-  }
+  if (!meter.spend(6 + component.size() + prepared.size())) return false;
   identity = "tcx2:" + component + ':' + prepared;
   return identity.size() <= maximum;
 }
@@ -363,15 +307,9 @@ bool encode_identity(const tseitin_cycle_discovery::Plan &plan,
 bool encode_duplicate_key(const tseitin_cycle_discovery::Plan &plan,
                           const tseitin_cycle::ProofTransaction &transaction,
                           uint64_t maximum, std::string &key,
-                          uint64_t maximum_work = UINT64_MAX,
-                          uint64_t *work = nullptr,
-                          bool *exhausted = nullptr,
-                          tseitin_cycle::InterruptPoll interrupted = nullptr,
-                          void *interrupt_state = nullptr,
-                          bool *was_interrupted = nullptr) {
+                          WorkMeter &meter) {
   if (maximum <= 5) return false;
-  Encoder bytes((maximum - 5) / 2, maximum_work, work, exhausted, interrupted,
-                interrupt_state, was_interrupted);
+  Encoder bytes((maximum - 5) / 2, meter);
   if (!bytes.u64(1) || !bytes.u64(plan.groups().size())) return false;
   for (const auto &group : plan.groups()) {
     if (!bytes.u64(group.certified.equation.size) ||
@@ -467,11 +405,7 @@ TseitinCycleBreakingStatus capture_components(
 struct ComponentMatch {
   std::string_view target;
   uint64_t raw_limit = 0;
-  uint64_t maximum_work = 0;
-  uint64_t *work = nullptr;
-  bool exhausted = false;
-  ActionPoll *poll = nullptr;
-  bool interrupted = false;
+  WorkMeter meter;
 };
 
 bool matches_component(const tseitin_cycle_discovery::Plan &plan,
@@ -480,13 +414,9 @@ bool matches_component(const tseitin_cycle_discovery::Plan &plan,
   std::string encoded;
   // An unrelated component that exceeds the selected payload bound is a
   // definite non-match, not a failure of selected-action authentication.
-  if (!encode_component(plan, match.raw_limit, encoded, match.maximum_work,
-                        match.work, &match.exhausted, action_interrupted,
-                        match.poll, &match.interrupted))
+  if (!encode_component(plan, match.raw_limit, encoded, match.meter))
     return false;
-  return identity_equal(encoded, match.target, match.maximum_work,
-                        *match.work, action_interrupted, match.poll,
-                        match.exhausted, match.interrupted);
+  return identity_equal(encoded, match.target, match.meter);
 }
 
 TseitinCycleBreakingStatus select_component(
@@ -505,15 +435,15 @@ TseitinCycleBreakingStatus select_component(
   auto bounded_discovery = discovery_limits(kernel, limits.discovery, poll);
   bounded_discovery.maximum_components = bounded_discovery.maximum_groups;
   ComponentMatch match{target, (limits.maximum_identity_bytes - 6) / 2,
-                       limits.maximum_identity_work,
-                       &effort.identity_work, false, &poll, false};
+                       {limits.maximum_identity_work, effort.identity_work,
+                        &poll}};
   const auto discovered = tseitin_cycle_discovery::select(
       snapshot, bounded_discovery, matches_component, &match, selected);
   effort.discovery_work = discovered.work;
   effort.retained_bytes = discovered.retained_bytes;
   effort.candidates = discovered.components;
-  if (match.interrupted) return TseitinCycleBreakingStatus::Interrupted;
-  if (match.exhausted) return TseitinCycleBreakingStatus::ResourceExhausted;
+  if (match.meter.interrupted) return TseitinCycleBreakingStatus::Interrupted;
+  if (match.meter.exhausted) return TseitinCycleBreakingStatus::ResourceExhausted;
   if (discovered.discovered()) return TseitinCycleBreakingStatus::Applied;
   const auto status = map(discovered.status);
   return status == TseitinCycleBreakingStatus::NoStructure
@@ -557,24 +487,17 @@ TseitinCycleBreakingStatus enumerate_offers(
     if (response.status != tseitin_cycle_live::Status::Prepared)
       return map(response.status);
     item.transaction = prepared.transaction();
-    bool identity_exhausted = false;
-    bool identity_interrupted = false;
+    WorkMeter meter{limits.maximum_identity_work, effort.identity_work,
+                        &action_poll};
     if (!encode_identity(item.plan, item.transaction,
                          limits.maximum_identity_bytes, item.component,
-                         item.identity, limits.maximum_identity_work,
-                         &effort.identity_work, &identity_exhausted,
-                         action_interrupted, &action_poll,
-                         &identity_interrupted) ||
+                         item.identity, meter) ||
         !encode_duplicate_key(item.plan, item.transaction,
                               limits.maximum_identity_bytes,
-                              item.duplicate_key,
-                              limits.maximum_identity_work,
-                              &effort.identity_work, &identity_exhausted,
-                              action_interrupted, &action_poll,
-                              &identity_interrupted) ||
+                              item.duplicate_key, meter) ||
         !add(item.identity.size(), limits.maximum_total_identity_bytes,
              total_identity)) {
-      if (identity_interrupted)
+      if (meter.interrupted)
         return TseitinCycleBreakingStatus::Interrupted;
       return TseitinCycleBreakingStatus::ResourceExhausted;
     }
@@ -595,11 +518,8 @@ bool append(std::string &journal, uint64_t maximum,
 }
 
 bool find_session_key(const std::vector<std::string> &keys,
-                      const std::string &target, uint64_t maximum_work,
-                      uint64_t &work, size_t &position, bool &found,
-                      tseitin_cycle::InterruptPoll interrupted = nullptr,
-                      void *interrupt_state = nullptr,
-                      bool *was_interrupted = nullptr) {
+                      const std::string &target, WorkMeter &meter,
+                      size_t &position, bool &found) {
   position = 0;
   found = false;
   for (; position < keys.size(); ++position) {
@@ -607,18 +527,14 @@ bool find_session_key(const std::vector<std::string> &keys,
     const size_t common = std::min(key.size(), target.size());
     size_t index = 0;
     for (; index < common; ++index) {
-      if (interrupted && interrupted(interrupt_state)) {
-        if (was_interrupted) *was_interrupted = true;
-        return false;
-      }
-      if (!add(1, maximum_work, work)) return false;
+      if (!meter.spend(1)) return false;
       if (key[index] != target[index]) break;
     }
     if (index < common) {
       if (key[index] > target[index]) return true;
       continue;
     }
-    if (!add(1, maximum_work, work)) return false;
+    if (!meter.charge(1)) return false;
     if (key.size() == target.size()) {
       found = true;
       return true;
@@ -631,16 +547,10 @@ bool find_session_key(const std::vector<std::string> &keys,
 bool make_journal(const Kernel &kernel, uint64_t action_id,
                   const TseitinCycleBreakingLimits &limits,
                   const Offered &offered, uint64_t maximum,
-                  std::string &journal, ActionPoll &poll,
-                  uint64_t &work, bool &was_interrupted) {
+                  std::string &journal, WorkMeter &meter) {
   const auto &transaction = offered.transaction;
   const auto put = [&](const std::string &text) {
-    if (action_interrupted(&poll)) {
-      was_interrupted = true;
-      return false;
-    }
-    if (!add(text.size(), UINT64_MAX, work)) return false;
-    return append(journal, maximum, text);
+    return meter.spend(text.size()) && append(journal, maximum, text);
   };
   const auto number = [&](uint64_t value) { return put(std::to_string(value)); };
   const auto integer = [&](int64_t value) { return put(std::to_string(value)); };
@@ -739,11 +649,7 @@ bool make_journal(const Kernel &kernel, uint64_t action_id,
       uint64_t canonical_work = 0;
       if (!canonical_clause_work(clause->literals.size(), canonical_work))
         return false;
-      if (action_interrupted(&poll)) {
-        was_interrupted = true;
-        return false;
-      }
-      if (!add(canonical_work, UINT64_MAX, work)) return false;
+      if (!meter.spend(canonical_work)) return false;
       std::vector<int32_t> literals = clause->literals;
       std::sort(literals.begin(), literals.end());
       if (!put("{\"occurrence\":") || !number(occurrence) ||
@@ -989,14 +895,12 @@ TseitinCycleBreakingOfferResult tseitin_cycle_breaking_offer(
   for (const auto &item : offered) {
     size_t position = 0;
     bool duplicate = false;
-    bool session_interrupted = false;
-    if (!find_session_key(session.keys(), item.duplicate_key,
-                          limits.maximum_session_work,
-                          result.effort.session_work, position, duplicate,
-                          action_interrupted, &action_poll,
-                          &session_interrupted)) {
+    WorkMeter session_meter{limits.maximum_session_work,
+                                result.effort.session_work, &action_poll};
+    if (!find_session_key(session.keys(), item.duplicate_key, session_meter,
+                          position, duplicate)) {
       result.offers.clear();
-      result.status = session_interrupted
+      result.status = session_meter.interrupted
                           ? TseitinCycleBreakingStatus::Interrupted
                           : TseitinCycleBreakingStatus::ResourceExhausted;
       return result;
@@ -1041,14 +945,12 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
   ActionPoll action_poll{&kernel, limits.discovery.interrupted,
                          limits.discovery.interrupt_state};
   size_t split = std::string::npos;
-  bool syntax_exhausted = false, syntax_interrupted = false;
-  if (!parse_identity(identity, limits.maximum_identity_work,
-                      result.effort.identity_work, action_interrupted,
-                      &action_poll, syntax_exhausted, syntax_interrupted,
-                      split)) {
-    result.status = syntax_interrupted
+  WorkMeter syntax{limits.maximum_identity_work,
+                       result.effort.identity_work, &action_poll};
+  if (!parse_identity(identity, syntax, split)) {
+    result.status = syntax.interrupted
                         ? TseitinCycleBreakingStatus::Interrupted
-                    : syntax_exhausted
+                    : syntax.exhausted
                         ? TseitinCycleBreakingStatus::ResourceExhausted
                         : TseitinCycleBreakingStatus::Invalid;
     return result;
@@ -1082,30 +984,19 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
     return result;
   }
   selected.transaction = prepared.transaction();
-  bool identity_exhausted = false;
-  bool identity_interrupted = false;
+  WorkMeter meter{limits.maximum_identity_work,
+                      result.effort.identity_work, &action_poll};
   const bool encoded = encode_identity(selected.plan, selected.transaction,
-                       limits.maximum_identity_bytes, selected.component,
-                       selected.identity, limits.maximum_identity_work,
-                       &result.effort.identity_work,
-                       &identity_exhausted, action_interrupted, &action_poll,
-                       &identity_interrupted);
-  const bool exact = encoded && identity_equal(
-      selected.identity, identity, limits.maximum_identity_work,
-      result.effort.identity_work, action_interrupted, &action_poll,
-      identity_exhausted, identity_interrupted);
-  if (!exact ||
+                                       limits.maximum_identity_bytes,
+                                       selected.component, selected.identity,
+                                       meter);
+  if (!encoded || !identity_equal(selected.identity, identity, meter) ||
       !encode_duplicate_key(selected.plan, selected.transaction,
                             limits.maximum_identity_bytes,
-                            selected.duplicate_key,
-                            limits.maximum_identity_work,
-                            &result.effort.identity_work,
-                            &identity_exhausted, action_interrupted,
-                            &action_poll,
-                            &identity_interrupted)) {
-    result.status = identity_interrupted
+                            selected.duplicate_key, meter)) {
+    result.status = meter.interrupted
                         ? TseitinCycleBreakingStatus::Interrupted
-                    : identity_exhausted
+                    : meter.exhausted
                         ? TseitinCycleBreakingStatus::ResourceExhausted
                         : TseitinCycleBreakingStatus::Stale;
     return result;
@@ -1113,13 +1004,11 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
   result.effort.identity_bytes = selected.identity.size();
   size_t position = 0;
   bool duplicate = false;
-  bool session_interrupted = false;
-  if (!find_session_key(session.keys(), selected.duplicate_key,
-                        limits.maximum_session_work,
-                        result.effort.session_work, position, duplicate,
-                        action_interrupted, &action_poll,
-                        &session_interrupted)) {
-    result.status = session_interrupted
+  WorkMeter session_meter{limits.maximum_session_work,
+                              result.effort.session_work, &action_poll};
+  if (!find_session_key(session.keys(), selected.duplicate_key, session_meter,
+                        position, duplicate)) {
+    result.status = session_meter.interrupted
                         ? TseitinCycleBreakingStatus::Interrupted
                         : TseitinCycleBreakingStatus::ResourceExhausted;
     return result;
@@ -1147,16 +1036,15 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
 
   result.proposed_action_id = kernel.structural_action_sequence + 1;
   std::string journal;
-  bool journal_interrupted = false;
   uint64_t journal_work = 0;
+  WorkMeter journal_meter{UINT64_MAX, journal_work, &action_poll};
   const bool journal_ready = make_journal(
       kernel, result.proposed_action_id, limits, selected,
-      limits.maximum_journal_bytes, journal, action_poll, journal_work,
-      journal_interrupted);
+      limits.maximum_journal_bytes, journal, journal_meter);
   result.effort.journal_work = journal_work;
   result.effort.journal_bytes = journal.size();
   if (!journal_ready) {
-    result.status = journal_interrupted
+    result.status = journal_meter.interrupted
                         ? TseitinCycleBreakingStatus::Interrupted
                         : TseitinCycleBreakingStatus::ResourceExhausted;
     return result;
