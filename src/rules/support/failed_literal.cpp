@@ -1,5 +1,6 @@
 #include "rules/support/failed_literal.hpp"
 
+#include "diagnostics/event_trace.hpp"
 #include "proof/proof.hpp"
 #include "proof/rup_helpers.hpp"
 #include "rules/instance_helpers.hpp"

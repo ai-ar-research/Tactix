@@ -1,5 +1,6 @@
 #include "rules/factor/factor.hpp"
 
+#include "diagnostics/event_trace.hpp"
 #include "kernel/indexed_max_heap.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"

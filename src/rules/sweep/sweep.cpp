@@ -1,6 +1,7 @@
 // Sweep: candidate selection, environment construction and emission. Contract,
 // soundness argument and deviation ledger: sweep.hpp.
 #include "proof/proof.hpp"
+#include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "kernel/splitmix64.hpp"
 #include "rules/instance_helpers.hpp"
