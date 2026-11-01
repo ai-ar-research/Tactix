@@ -175,11 +175,17 @@ public:
 
 private:
   void emit(const Kernel &, const char *, const char *, bool snapshot);
+  // Emits a non-snapshot record whose payload concatenates `parts`.
+  template <class... Parts>
+  void emit_parts(const Kernel &, const char *event, const Parts &...parts);
   void emit_heap_scores(const Kernel &);
   bool heap_var_selected(const Kernel &, Var) const;
+  // Whether a stable-heap event may be traced at all.
+  bool heap_event_admitted(const Kernel &) const;
   void watch_state(const Kernel &, Lit propagated, const char *event,
                    bool emit_summary);
   bool want_detail(const Kernel &);
+  int selected_sweep_seed(const Kernel &, Var seed, const char *environment);
   // Whether the explicit conflict window, if any, holds the current conflict.
   bool in_detail_window(const Kernel &k) const {
     return !detail_window_ || (k.stats.conflicts >= detail_conflict_from_ &&

@@ -545,36 +545,34 @@ void rule_journal_note_cube_reconstruction(const Kernel &k,
                                     external_witness + ')');
 }
 
-void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
-                           uint32_t nchain) {
+// Records `kind(id=<id>;<field>=<values>)` as an antecedent of the active
+// transaction; an empty list is spelled "implicit".
+template <class Value>
+static void note_antecedent(const char *kind, const char *field, uint64_t id,
+                            const Value *values, uint32_t size) {
   if (!transaction.active)
     return;
-  std::string item = "rup(id=" + std::to_string(id) + ";chain=";
-  if (!nchain)
+  std::string item =
+      std::string(kind) + "(id=" + std::to_string(id) + ";" + field + "=";
+  if (!size)
     item += "implicit";
-  for (uint32_t i = 0; i < nchain; i++) {
+  for (uint32_t i = 0; i < size; i++) {
     if (i)
       item.push_back(',');
-    item += std::to_string(chain[i]);
+    item += std::to_string(values[i]);
   }
   item.push_back(')');
   transaction.antecedents.push_back(std::move(item));
 }
 
+void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
+                           uint32_t nchain) {
+  note_antecedent("rup", "chain", id, chain, nchain);
+}
+
 void rule_journal_note_rat(uint64_t id, const int64_t *hints,
                            uint32_t nhints) {
-  if (!transaction.active)
-    return;
-  std::string item = "rat(id=" + std::to_string(id) + ";hints=";
-  if (!nhints)
-    item += "implicit";
-  for (uint32_t i = 0; i < nhints; i++) {
-    if (i)
-      item.push_back(',');
-    item += std::to_string(hints[i]);
-  }
-  item.push_back(')');
-  transaction.antecedents.push_back(std::move(item));
+  note_antecedent("rat", "hints", id, hints, nhints);
 }
 
 // The `|`-joined items of the active transaction, or "none".
