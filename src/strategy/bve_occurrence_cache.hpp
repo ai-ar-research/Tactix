@@ -39,9 +39,7 @@ public:
       const StateVersion current = state_version(k);
       const auto &image = cache.image_;
       if (!image || image.use_count() != 1 || image->owner != &k ||
-          image->version.arena_generation != current.arena_generation ||
-          image->version.touch_epoch != current.touch_epoch ||
-          image->version.strategy_epoch != current.strategy_epoch) {
+          image->version != current) {
         cache.image_ = std::make_shared<Image>();
         // Ordinary dense images exclude redundant clauses. Sparse BVE also
         // deletes those on its pivot, so retain that path when any are live.

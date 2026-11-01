@@ -60,6 +60,17 @@ bool selected_affine_guard(const RuleVTable &rule, Kernel &kernel,
   return static_cast<bool>(rule_guard(rule, kernel));
 }
 
+// The registered rule; a GuardedCoverV2 profile also needs its bound session.
+RuleVTable selected_rule(const OnlineInvocation &step) {
+  RuleVTable rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
+  if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters))
+    rule.guard = [](const Kernel &owner) {
+      return direct_csp_guarded_cover_action_guard(owner).fact(
+          "session-bound", owner.direct_csp_guarded_cover_action_session != nullptr);
+    };
+  return rule;
+}
+
 struct StructuredPayloadShape {
   unsigned kinds = 0;
   size_t size = 0;
@@ -280,23 +291,40 @@ WorkUnit action_work_unit(const std::string &rule) {
   return WorkUnit::Applications;
 }
 
+// A structured theory attempt ends in a standard outcome or a producer decline.
+template <class Status>
+void record_theory_action_status(Status status, uint64_t &attempts,
+                                 StandardActionStatusCounters standard,
+                                 uint64_t &no_structure,
+                                 uint64_t &no_consequence,
+                                 uint64_t &already_published) {
+  ++attempts;
+  if (record_standard_action_status(status, standard))
+    return;
+  switch (status) {
+  case Status::NoStructure: ++no_structure; break;
+  case Status::NoConsequence: ++no_consequence; break;
+  case Status::AlreadyPublished: ++already_published; break;
+  default: break;
+  }
+}
+
+// A declaration's candidates, and those it introduces as theory variables.
+void record_semantic_variables(uint64_t &candidates, uint64_t &introduced,
+                               const std::vector<SemanticVariable> &variables) {
+  candidates += variables.size();
+  for (const SemanticVariable &variable : variables)
+    introduced += variable.role == SemanticVariableRole::IntroducedTheory;
+}
+
 void record_gf3_affine_feedback(Kernel &k,
                                 const Gf3AffineActionResult &result,
                                 size_t keys_before) {
-  ++k.stats.gf3_affine_attempts;
-  if (!record_standard_action_status(
-          result.status,
-          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats, gf3_affine))) {
-    switch (result.status) {
-    case Gf3AffineActionStatus::NoStructure:
-      ++k.stats.gf3_affine_no_structure; break;
-    case Gf3AffineActionStatus::NoConsequence:
-      ++k.stats.gf3_affine_no_consequence; break;
-    case Gf3AffineActionStatus::AlreadyPublished:
-      ++k.stats.gf3_affine_already_published; break;
-    default: break;
-    }
-  }
+  record_theory_action_status(
+      result.status, k.stats.gf3_affine_attempts,
+      TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats, gf3_affine),
+      k.stats.gf3_affine_no_structure, k.stats.gf3_affine_no_consequence,
+      k.stats.gf3_affine_already_published);
   const auto &e = result.effort;
   k.stats.gf3_affine_source_clauses += e.source_clauses;
   k.stats.gf3_affine_source_literals += e.source_literals;
@@ -322,21 +350,12 @@ void record_gf3_affine_feedback(Kernel &k,
 void record_direct_csp_feedback(Kernel &k,
                                 const DirectCspSupportActionResult &result,
                                 size_t keys_before, size_t owners_before) {
-  ++k.stats.direct_csp_support_attempts;
-  if (!record_standard_action_status(
-          result.status,
-          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats,
-                                                 direct_csp_support))) {
-    switch (result.status) {
-    case DirectCspSupportActionStatus::NoStructure:
-      ++k.stats.direct_csp_support_no_structure; break;
-    case DirectCspSupportActionStatus::NoConsequence:
-      ++k.stats.direct_csp_support_no_consequence; break;
-    case DirectCspSupportActionStatus::AlreadyPublished:
-      ++k.stats.direct_csp_support_already_published; break;
-    default: break;
-    }
-  }
+  record_theory_action_status(
+      result.status, k.stats.direct_csp_support_attempts,
+      TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats, direct_csp_support),
+      k.stats.direct_csp_support_no_structure,
+      k.stats.direct_csp_support_no_consequence,
+      k.stats.direct_csp_support_already_published);
   const auto &e = result.effort;
   k.stats.direct_csp_support_source_clauses += e.source_clauses;
   k.stats.direct_csp_support_source_literals += e.source_literals;
@@ -358,34 +377,20 @@ void record_direct_csp_feedback(Kernel &k,
       result.committed_keys > keys_before;
   k.stats.direct_csp_support_owner_commits +=
       result.retained_owners > owners_before;
-  k.stats.direct_csp_support_candidate_variables +=
-      result.semantic_variables.size();
-  k.stats.direct_csp_support_introduced_variables +=
-      std::count_if(result.semantic_variables.begin(),
-                    result.semantic_variables.end(), [](const auto &variable) {
-                      return variable.role ==
-                             SemanticVariableRole::IntroducedTheory;
-                    });
+  record_semantic_variables(k.stats.direct_csp_support_candidate_variables,
+                            k.stats.direct_csp_support_introduced_variables,
+                            result.semantic_variables);
 }
 
 void record_nary_csp_equality_feedback(
     Kernel &k, const NaryCspEqualityActionResult &result,
     size_t keys_before) {
-  ++k.stats.nary_csp_equality_attempts;
-  if (!record_standard_action_status(
-          result.status,
-          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats,
-                                                 nary_csp_equality))) {
-    switch (result.status) {
-    case NaryCspEqualityActionStatus::NoStructure:
-      ++k.stats.nary_csp_equality_no_structure; break;
-    case NaryCspEqualityActionStatus::NoConsequence:
-      ++k.stats.nary_csp_equality_no_consequence; break;
-    case NaryCspEqualityActionStatus::AlreadyPublished:
-      ++k.stats.nary_csp_equality_already_published; break;
-    default: break;
-    }
-  }
+  record_theory_action_status(
+      result.status, k.stats.nary_csp_equality_attempts,
+      TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats, nary_csp_equality),
+      k.stats.nary_csp_equality_no_structure,
+      k.stats.nary_csp_equality_no_consequence,
+      k.stats.nary_csp_equality_already_published);
   const auto &e = result.live;
   k.stats.nary_csp_equality_source_clauses += e.source_clauses;
   k.stats.nary_csp_equality_source_literals += e.source_literals;
@@ -401,14 +406,9 @@ void record_nary_csp_equality_feedback(
   k.stats.nary_csp_equality_session_commits +=
       k.nary_csp_equality_session &&
       k.nary_csp_equality_session->keys().size() > keys_before;
-  k.stats.nary_csp_equality_candidate_variables +=
-      result.semantic_variables.size();
-  k.stats.nary_csp_equality_introduced_variables +=
-      std::count_if(result.semantic_variables.begin(),
-                    result.semantic_variables.end(), [](const auto &variable) {
-                      return variable.role ==
-                             SemanticVariableRole::IntroducedTheory;
-                    });
+  record_semantic_variables(k.stats.nary_csp_equality_candidate_variables,
+                            k.stats.nary_csp_equality_introduced_variables,
+                            result.semantic_variables);
 }
 
 void record_nary_csp_equality_amo_feedback(
@@ -590,23 +590,23 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (const char *message =
             parameter_metadata(step, true).invalid_message)
       return reject(message);
-    if (!step.factor_grids.empty() && step.rule != "Factor")
+    // Each structured payload family is attached to exactly one rule.
+    const auto foreign = [&](const auto &payloads, const char *owner) {
+      return !payloads.empty() && step.rule != owner;
+    };
+    if (foreign(step.factor_grids, "Factor"))
       return reject("exact Factor grids are attached to a different rule");
     if (!step.factor_grids.empty() && !step.instances.empty())
       return reject("scalar and exact-grid selections cannot be mixed");
-    if (!step.substitution_redundancy_instances.empty() &&
-        step.rule != "SubstitutionRedundancy")
+    if (foreign(step.substitution_redundancy_instances, "SubstitutionRedundancy"))
       return reject("SR instances are attached to a different rule");
-    if (!step.condition_instances.empty() && step.rule != "Condition")
+    if (foreign(step.condition_instances, "Condition"))
       return reject("Condition instances are attached to a different rule");
-    if (!step.independent_set_cover_instances.empty() &&
-        step.rule != "IndependentSetCover")
+    if (foreign(step.independent_set_cover_instances, "IndependentSetCover"))
       return reject("independent-set covers are attached to a different rule");
-    if (!step.gf3_affine_instances.empty() &&
-        step.rule != "Gf3AffineConsequence")
+    if (foreign(step.gf3_affine_instances, "Gf3AffineConsequence"))
       return reject("GF3 equation pairs are attached to a different rule");
-    if (!step.affine_basis_instances.empty() &&
-        step.rule != "AffineConsequence")
+    if (foreign(step.affine_basis_instances, "AffineConsequence"))
       return reject("GF2 affine rows are attached to a different rule");
     if (!step.direct_csp_guarded_cover_instances.empty()) {
       const auto *p = std::get_if<DirectCspGuardedCoverParameters>(&step.parameters);
@@ -635,11 +635,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
          !(allow_native_offer &&
            step.granularity == InvocationGranularity::NativeProducerOffer)))
       return reject("GuardedCoverV2 requires explicit selections or an authorized native producer template");
-    if (!step.direct_csp_support_instances.empty() &&
-        step.rule != "DirectCspSupport")
+    if (foreign(step.direct_csp_support_instances, "DirectCspSupport"))
       return reject("DirectCSP supports are attached to a different rule");
-    if (!step.nary_csp_equality_instances.empty() &&
-        step.rule != "NaryCspEquality")
+    if (foreign(step.nary_csp_equality_instances, "NaryCspEquality"))
       return reject("n-ary CSP equalities are attached to a different rule");
     if (step.rule == "NaryCspEqualityTransitivity") {
       const auto *p=std::get_if<NaryCspEqualityTransitivityParameters>(&step.parameters);
@@ -647,20 +645,16 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.granularity==InvocationGranularity::NativeProducerOffer)
         return reject("transitivity requires positive typed limits and explicit selections");
     }
-    if (!step.nary_csp_equality_transitivity_instances.empty() &&
-        step.rule != "NaryCspEqualityTransitivity")
+    if (foreign(step.nary_csp_equality_transitivity_instances,
+                "NaryCspEqualityTransitivity"))
       return reject("transitivity payload belongs to a different rule");
-    if (!step.nary_csp_equality_amo_instances.empty() &&
-        step.rule != "NaryCspEqualityAmo")
+    if (foreign(step.nary_csp_equality_amo_instances, "NaryCspEqualityAmo"))
       return reject("n-ary CSP equality AMOs are attached to a different rule");
-    if (!step.gf3_gaussian_instances.empty() &&
-        step.rule != "Gf3GaussianConsequence")
+    if (foreign(step.gf3_gaussian_instances, "Gf3GaussianConsequence"))
       return reject("GF3 Gaussian identities are attached to a different rule");
-    if (!step.gf3_general_row_instances.empty() &&
-        step.rule != "Gf3GeneralRowConsequence")
+    if (foreign(step.gf3_general_row_instances, "Gf3GeneralRowConsequence"))
       return reject("GF3 general-row selections are attached to a different rule");
-    if (!step.cardinality_search_instances.empty() &&
-        step.rule != "CardinalitySearch")
+    if (foreign(step.cardinality_search_instances, "CardinalitySearch"))
       return reject("cardinality search bounds are attached to a different rule");
     if (step.rule == "CardinalitySearch") {
       const auto *limits =
@@ -682,12 +676,15 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           return reject("cardinality search bound is malformed or exceeds limits");
       }
     }
-    if (!step.tseitin_cycle_instances.empty() &&
-        step.rule != "TseitinCycleBreaking")
+    if (foreign(step.tseitin_cycle_instances, "TseitinCycleBreaking"))
       return reject("Tseitin cycle identities are attached to a different rule");
-    if (step.rule == "Gf3AffineConsequence" &&
-        step.granularity != InvocationGranularity::NativeProducerOffer &&
-        (step.gf3_affine_instances.empty() || !step.instances.empty()))
+    // Outside a native offer, a structured rule takes only its typed payloads.
+    const auto untyped = [&](const char *rule, bool missing) {
+      return step.rule == rule &&
+             step.granularity != InvocationGranularity::NativeProducerOffer &&
+             (missing || !step.instances.empty());
+    };
+    if (untyped("Gf3AffineConsequence", step.gf3_affine_instances.empty()))
       return reject("GF3 affine action requires typed equation-pair payloads");
     if (!step.affine_basis_instances.empty()) {
       const auto *p = std::get_if<AffineConsequenceParameters>(&step.parameters);
@@ -700,36 +697,26 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         if (!affine_basis_row_selection_within_limits(selection, limits))
           return reject("GF2 affine row is malformed or exceeds limits");
     }
-    if (step.rule == "DirectCspSupport" &&
-        step.granularity != InvocationGranularity::NativeProducerOffer &&
-        ((step.direct_csp_support_instances.empty() &&
-          step.direct_csp_guarded_cover_instances.empty()) || !step.instances.empty()))
+    if (untyped("DirectCspSupport",
+                step.direct_csp_support_instances.empty() &&
+                    step.direct_csp_guarded_cover_instances.empty()))
       return reject("DirectCSP action requires typed support payloads");
-    if (step.rule == "NaryCspEquality" &&
-        step.granularity != InvocationGranularity::NativeProducerOffer &&
-        (step.nary_csp_equality_instances.empty() || !step.instances.empty()))
+    if (untyped("NaryCspEquality", step.nary_csp_equality_instances.empty()))
       return reject("n-ary CSP equality requires typed payloads");
-    if (step.rule == "NaryCspEqualityAmo" &&
-        step.granularity != InvocationGranularity::NativeProducerOffer &&
-        (step.nary_csp_equality_amo_instances.empty() ||
-         !step.instances.empty()))
+    if (untyped("NaryCspEqualityAmo",
+                step.nary_csp_equality_amo_instances.empty()))
       return reject("n-ary CSP equality AMO requires typed payloads");
-    if (step.rule == "Gf3GaussianConsequence" &&
-        step.granularity != InvocationGranularity::NativeProducerOffer &&
-        (step.gf3_gaussian_instances.size() != 1 || !step.instances.empty() ||
-         step.granularity != InvocationGranularity::OneInstance))
+    const bool one_instance =
+        step.granularity == InvocationGranularity::OneInstance;
+    if (untyped("Gf3GaussianConsequence",
+                step.gf3_gaussian_instances.size() != 1 || !one_instance))
       return reject("GF3 Gaussian action requires exact identity payloads");
-    if (step.rule == "Gf3GeneralRowConsequence" &&
-        step.granularity != InvocationGranularity::NativeProducerOffer &&
-        (step.gf3_general_row_instances.size() != 1 ||
-         !step.instances.empty() ||
-         step.granularity != InvocationGranularity::OneInstance ||
-         step.post_application != PostApplication::Propagate))
+    if (untyped("Gf3GeneralRowConsequence",
+                step.gf3_general_row_instances.size() != 1 || !one_instance ||
+                    step.post_application != PostApplication::Propagate))
       return reject("GF3 general-row action requires one exact payload and Propagate follow-up");
-    if (step.rule == "TseitinCycleBreaking" &&
-        step.granularity != InvocationGranularity::NativeProducerOffer &&
-        (step.tseitin_cycle_instances.size() != 1 || !step.instances.empty() ||
-         step.granularity != InvocationGranularity::OneInstance))
+    if (untyped("TseitinCycleBreaking",
+                step.tseitin_cycle_instances.size() != 1 || !one_instance))
       return reject("Tseitin cycle action requires one exact identity payload");
     for (const std::string &identity : step.gf3_gaussian_instances)
       if (identity.size() <= 5 || identity.rfind("g3b1:", 0) ||
@@ -1150,6 +1137,11 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                volatile sig_atomic_t *stop,
                                                Allowance *sr_discovery_allowance,
                                                DiscoveryFeedbackPolicy discovery_feedback) {
+  // A declined preparation reports why; no selection is bound.
+  const auto fail = [&out](InvocationStatus status) {
+    out.status = status;
+    return false;
+  };
   // An explicit scope remains bound across repeated passes/sequences. Only
   // CompleteCurrentPass asks for fresh enumeration after a representation
   // change; repeating a pass is not permission to reinterpret old payloads.
@@ -1173,27 +1165,12 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
           SubstitutionRedundancyProducer::GeneralComplete;
   const bool continuing_general_sr = runtime.sr_general_mode && general_sr;
   runtime.bve_occurrences.reset();
-  runtime.selection.clear();
-  runtime.structured_selection.clear();
-  runtime.sr_selection.clear();
-  runtime.cursor = 0;
+  runtime.clear_selection(general_sr);
   if (!continuing_general_sr)
     runtime.pass_progress = false;
-  runtime.selection_truncated = false;
-  runtime.selection_discovery_exhausted = false;
-  runtime.sr_general_mode = general_sr;
-  if (!general_sr)
-    runtime.sr_general_cursor = {};
-  RuleVTable rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
-  if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters))
-    rule.guard = [](const Kernel &owner) {
-      return direct_csp_guarded_cover_action_guard(owner).fact(
-          "session-bound", owner.direct_csp_guarded_cover_action_session != nullptr);
-    };
-  if (!selected_affine_guard(rule,k,step) && !explicit_fixpoint_propagation_service(step, k)) {
-    out.status = InvocationStatus::Inapplicable;
-    return false;
-  }
+  RuleVTable rule = selected_rule(step);
+  if (!selected_affine_guard(rule,k,step) && !explicit_fixpoint_propagation_service(step, k))
+    return fail(InvocationStatus::Inapplicable);
   if (step.granularity == InvocationGranularity::CanonicalApplication) {
     runtime.selection = {INSTANCE_CANONICAL};
   } else if (step.granularity != InvocationGranularity::CompleteCurrentPass) {
@@ -1216,10 +1193,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
           return true;
         },
         FactorEnumerationOptions{maximum, stop});
-    if (enumeration.status == FactorEnumerationStatus::Stopped) {
-      out.status = InvocationStatus::Interrupted;
-      return false;
-    }
+    if (enumeration.status == FactorEnumerationStatus::Stopped)
+      return fail(InvocationStatus::Interrupted);
     runtime.selection_truncated =
         enumeration.status == FactorEnumerationStatus::LimitReached;
     runtime.selection.resize(runtime.structured_selection.size());
@@ -1304,17 +1279,13 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
           substitution_redundancy_next_general(
               k, parameters, runtime.sr_general_cursor, instance, stop);
       if (enumeration.status ==
-          SubstitutionRedundancyGeneralStatus::Interrupted) {
-        out.status = InvocationStatus::Interrupted;
-        return false;
-      }
+          SubstitutionRedundancyGeneralStatus::Interrupted)
+        return fail(InvocationStatus::Interrupted);
       if (enumeration.status ==
               SubstitutionRedundancyGeneralStatus::ResourceExhausted ||
           enumeration.status ==
-              SubstitutionRedundancyGeneralStatus::LimitReached) {
-        out.status = InvocationStatus::ResourceExhausted;
-        return false;
-      }
+              SubstitutionRedundancyGeneralStatus::LimitReached)
+        return fail(InvocationStatus::ResourceExhausted);
       if (enumeration.status == SubstitutionRedundancyGeneralStatus::Found)
         runtime.sr_selection.push_back(std::move(instance));
     } else if (parameters.producer ==
@@ -1329,14 +1300,10 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
               stop);
       out.budget_status = discovery_budget.charge(
           WorkUnit::SrDiscoveryTicks, enumeration.ticks);
-      if (out.budget_status == BudgetStatus::AccountingOverflow) {
-        out.status = InvocationStatus::AccountingError;
-        return false;
-      }
-      if (enumeration.status == OrbitopalEnumerationStatus::Interrupted) {
-        out.status = InvocationStatus::Interrupted;
-        return false;
-      }
+      if (out.budget_status == BudgetStatus::AccountingOverflow)
+        return fail(InvocationStatus::AccountingError);
+      if (enumeration.status == OrbitopalEnumerationStatus::Interrupted)
+        return fail(InvocationStatus::Interrupted);
       runtime.selection_truncated =
           enumeration.status == OrbitopalEnumerationStatus::LimitReached;
       // Orbitopal sub-strategies share one structured detector family.  A
@@ -1388,10 +1355,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         k.stats.sr_singleton_forcing_rows_declined +=
             enumeration.singleton_forcing_rows_declined;
       }
-      if (out.budget_status == BudgetStatus::AccountingOverflow) {
-        out.status = InvocationStatus::AccountingError;
-        return false;
-      }
+      if (out.budget_status == BudgetStatus::AccountingOverflow)
+        return fail(InvocationStatus::AccountingError);
       if (enumeration.discovery_progress_units &&
           !inline_generator_feedback) {
         // The generic callback prefix is exact but intentionally unpublished:
@@ -1405,20 +1370,14 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         out.step_id = step.id;
         return false;
       }
-      if (enumeration.status == SymmetryEnumerationStatus::Interrupted) {
-        out.status = InvocationStatus::Interrupted;
-        return false;
-      }
-      if (enumeration.status == SymmetryEnumerationStatus::Invalid) {
-        out.status = InvocationStatus::InvalidRequest;
-        return false;
-      }
+      if (enumeration.status == SymmetryEnumerationStatus::Interrupted)
+        return fail(InvocationStatus::Interrupted);
+      if (enumeration.status == SymmetryEnumerationStatus::Invalid)
+        return fail(InvocationStatus::InvalidRequest);
       if (enumeration.status ==
               SymmetryEnumerationStatus::ResourceExhausted ||
-          enumeration.status == SymmetryEnumerationStatus::Failed) {
-        out.status = InvocationStatus::ResourceExhausted;
-        return false;
-      }
+          enumeration.status == SymmetryEnumerationStatus::Failed)
+        return fail(InvocationStatus::ResourceExhausted);
       runtime.selection_truncated =
           enumeration.status == SymmetryEnumerationStatus::LimitReached;
       runtime.selection_discovery_exhausted =
@@ -1452,15 +1411,12 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
     const auto *configured = std::get_if<BveParameters>(&step.parameters);
     const BveParameters parameters =
         configured ? *configured : BveParameters::from_kernel(k);
-    if ((stop && *stop) || (k.stop && *k.stop)) {
-      out.status = InvocationStatus::Interrupted;
-      return false;
-    }
+    if ((stop && *stop) || (k.stop && *k.stop))
+      return fail(InvocationStatus::Interrupted);
     bve_complete_instances(k, rule, parameters, runtime.selection);
     if ((stop && *stop) || (k.stop && *k.stop)) {
       runtime.selection.clear();
-      out.status = InvocationStatus::Interrupted;
-      return false;
+      return fail(InvocationStatus::Interrupted);
     }
   } else {
     out.status = enumerate_complete_instances(k, rule, runtime.selection, stop);
@@ -1480,14 +1436,7 @@ bool OnlineStrategyExecutor::finish_step_pass(const Kernel &k,
                                               InvocationResult &out) {
   runtime.selection_ready = false;
   runtime.bve_occurrences.reset();
-  runtime.selection.clear();
-  runtime.structured_selection.clear();
-  runtime.sr_selection.clear();
-  runtime.sr_general_cursor = {};
-  runtime.sr_general_mode = false;
-  runtime.selection_truncated = false;
-  runtime.selection_discovery_exhausted = false;
-  runtime.cursor = 0;
+  runtime.clear_selection();
   ++runtime.passes;
   const bool progress = runtime.pass_progress;
   sequence_progress_ |= progress;
@@ -1509,16 +1458,9 @@ bool OnlineStrategyExecutor::finish_sequence(const Kernel &k,
     step_index_ = 0;
     for (Runtime &runtime : runtime_) {
       runtime.passes = 0;
-      runtime.cursor = 0;
       runtime.pass_progress = false;
       runtime.selection_ready = false;
-      runtime.selection.clear();
-      runtime.structured_selection.clear();
-      runtime.sr_selection.clear();
-      runtime.sr_general_cursor = {};
-      runtime.sr_general_mode = false;
-      runtime.selection_truncated = false;
-      runtime.selection_discovery_exhausted = false;
+      runtime.clear_selection();
     }
     sequence_progress_ = false;
     return false;
@@ -1569,24 +1511,28 @@ InvocationResult OnlineStrategyExecutor::advance(
     const OnlineInvocation &step = program_.sequence[step_index_];
     Runtime &runtime = runtime_[step_index_];
     out.work_unit = step.work_unit;
-    if (runtime.selection_ready &&
-        (runtime.selection_owner != &k ||
-         runtime.expected_state.arena_generation != k.arena_generation ||
-         runtime.expected_state.touch_epoch != k.touch_epoch ||
-         runtime.expected_state.strategy_epoch != k.strategy_epoch)) {
+    const bool regenerated = runtime.selection_ready &&
+                             runtime.cursor < runtime.selection.size() &&
+                             runtime.selection_generation != k.arena_generation;
+    if ((runtime.selection_ready &&
+         (runtime.selection_owner != &k ||
+          runtime.expected_state != state_version(k))) ||
+        (regenerated &&
+         step.granularity != InvocationGranularity::CompleteCurrentPass)) {
       out.status = InvocationStatus::StaleRequest;
       out.step_id = step.id;
       out.after = state_version(k);
       return out;
     }
-    if (runtime.selection_ready && runtime.cursor < runtime.selection.size() &&
-        runtime.selection_generation != k.arena_generation) {
-      if (step.granularity != InvocationGranularity::CompleteCurrentPass) {
-        out.status = InvocationStatus::StaleRequest;
-        out.step_id = step.id;
-        out.after = state_version(k);
-        return out;
-      }
+    // Bind a fresh selection; a declined preparation is reported now.
+    const auto prepare = [&] {
+      if (prepare_selection(k, step, runtime, out, stop,
+                            sr_discovery_allowance, discovery_feedback))
+        return true;
+      out.after = state_version(k);
+      return false;
+    };
+    if (regenerated) {
       // A preceding semantic action collected or rebuilt the arena. A
       // complete pass has no caller-owned payload identity, so restart its
       // enumeration at the new epoch while retaining progress already made in
@@ -1594,11 +1540,8 @@ InvocationResult OnlineStrategyExecutor::advance(
       // above and can never be silently absorbed here.
       const bool progress = runtime.pass_progress;
       runtime.selection_ready = false;
-      if (!prepare_selection(k, step, runtime, out, stop,
-                             sr_discovery_allowance, discovery_feedback)) {
-        out.after = state_version(k);
+      if (!prepare())
         return out;
-      }
       runtime.pass_progress |= progress;
     }
     // A drained selection ends the pass unless truncated discovery keeps it
@@ -1622,13 +1565,10 @@ InvocationResult OnlineStrategyExecutor::advance(
       return false;
     };
     if (!runtime.selection_ready) {
-      if (!prepare_selection(k, step, runtime, out, stop,
-                             sr_discovery_allowance, discovery_feedback)) {
-        // An inapplicable scope is not a fixpoint and is not consumed. The
-        // caller may change solver state or replace the program and retry.
-        out.after = state_version(k);
+      // An inapplicable scope is not a fixpoint and is not consumed. The
+      // caller may change solver state or replace the program and retry.
+      if (!prepare())
         return out;
-      }
       if (runtime.selection.empty()) {
         if (end_pass())
           return out;
@@ -1639,11 +1579,8 @@ InvocationResult OnlineStrategyExecutor::advance(
       if (runtime.sr_general_mode &&
           !runtime.sr_general_cursor.complete) {
         runtime.selection_ready = false;
-        if (!prepare_selection(k, step, runtime, out, stop,
-                               sr_discovery_allowance, discovery_feedback)) {
-          out.after = state_version(k);
+        if (!prepare())
           return out;
-        }
         continue;
       }
       if (end_pass())
@@ -1658,12 +1595,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       return out;
     }
 
-    RuleVTable rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
-    if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters))
-      rule.guard = [](const Kernel &owner) {
-        return direct_csp_guarded_cover_action_guard(owner).fact(
-            "session-bound", owner.direct_csp_guarded_cover_action_session != nullptr);
-      };
+    RuleVTable rule = selected_rule(step);
     // Eligibility can change between advances even when arena offsets remain
     // valid. A declined guard does not consume an application or certify scope.
     const bool explicit_fixpoint_propagation =
@@ -1838,6 +1770,25 @@ InvocationResult OnlineStrategyExecutor::advance(
           independent_set_application;
       bool condition_declined = false;
       bool condition_interrupted = false;
+      // Transitivity and AMO derive from the owned n-ary CSP equalities under
+      // structural provenance, each in its own session.
+      const auto derive_nary = [&](auto &application, auto session,
+                                   const auto &parameters,
+                                   const auto &selections, auto derive,
+                                   auto record) {
+        if (!k.nary_csp_relation_owner_session ||
+            !k.nary_csp_equality_session || !(k.*session) ||
+            !k.structural_provenance)
+          return ApplyResult::NoOp;
+        const size_t keys_before = (k.*session)->keys().size();
+        application.emplace(derive(k, *k.nary_csp_relation_owner_session,
+                                   *k.nary_csp_equality_session, *(k.*session),
+                                   action_limits(parameters),
+                                   selections[payload],
+                                   k.structural_provenance));
+        record(k, *application, keys_before);
+        return application->result;
+      };
       const ApplyResult result = execution::execute_action(
           k, execution::RuleApplicationRequest{}, [&] { return
           !step.affine_basis_instances.empty()
@@ -1914,49 +1865,23 @@ InvocationResult OnlineStrategyExecutor::advance(
                 })
           : !step.nary_csp_equality_transitivity_instances.empty()
               ? apply_rule_structured(rule, k, "nary-csp-equality-transitivity", [&] {
-                  const auto &parameters =
-                      std::get<NaryCspEqualityTransitivityParameters>(step.parameters);
-                  if (!k.nary_csp_relation_owner_session ||
-                      !k.nary_csp_equality_session ||
-                      !k.nary_csp_equality_transitivity_session ||
-                      !k.structural_provenance)
-                    return ApplyResult::NoOp;
-                  const size_t keys_before =
-                      k.nary_csp_equality_transitivity_session->keys().size();
-                  nary_csp_equality_transitivity_application.emplace(
-                      nary_csp_equality_transitivity_apply(
-                          k, *k.nary_csp_relation_owner_session,
-                          *k.nary_csp_equality_session,
-                          *k.nary_csp_equality_transitivity_session,
-                          action_limits(parameters),
-                          step.nary_csp_equality_transitivity_instances[payload],
-                          k.structural_provenance));
-                  record_nary_csp_equality_transitivity_feedback(
-                      k, *nary_csp_equality_transitivity_application, keys_before);
-                  return nary_csp_equality_transitivity_application->result;
+                  return derive_nary(
+                      nary_csp_equality_transitivity_application,
+                      &Kernel::nary_csp_equality_transitivity_session,
+                      std::get<NaryCspEqualityTransitivityParameters>(step.parameters),
+                      step.nary_csp_equality_transitivity_instances,
+                      nary_csp_equality_transitivity_apply,
+                      record_nary_csp_equality_transitivity_feedback);
                 })
           : !step.nary_csp_equality_amo_instances.empty()
               ? apply_rule_structured(rule, k, "nary-csp-equality-amo", [&] {
-                  const auto &parameters =
-                      std::get<NaryCspEqualityAmoParameters>(step.parameters);
-                  if (!k.nary_csp_relation_owner_session ||
-                      !k.nary_csp_equality_session ||
-                      !k.nary_csp_equality_amo_session ||
-                      !k.structural_provenance)
-                    return ApplyResult::NoOp;
-                  const size_t keys_before =
-                      k.nary_csp_equality_amo_session->keys().size();
-                  nary_csp_equality_amo_application.emplace(
-                      nary_csp_equality_amo_apply(
-                          k, *k.nary_csp_relation_owner_session,
-                          *k.nary_csp_equality_session,
-                          *k.nary_csp_equality_amo_session,
-                          action_limits(parameters),
-                          step.nary_csp_equality_amo_instances[payload],
-                          k.structural_provenance));
-                  record_nary_csp_equality_amo_feedback(
-                      k, *nary_csp_equality_amo_application, keys_before);
-                  return nary_csp_equality_amo_application->result;
+                  return derive_nary(
+                      nary_csp_equality_amo_application,
+                      &Kernel::nary_csp_equality_amo_session,
+                      std::get<NaryCspEqualityAmoParameters>(step.parameters),
+                      step.nary_csp_equality_amo_instances,
+                      nary_csp_equality_amo_apply,
+                      record_nary_csp_equality_amo_feedback);
                 })
           : !step.gf3_gaussian_instances.empty()
               ? apply_rule_structured(rule, k, "gf3-gaussian-consequence", [&] {
@@ -2043,6 +1968,11 @@ InvocationResult OnlineStrategyExecutor::advance(
                   const AffineMatrixPersistenceLimits limits{
                       profile.maximum_retained_bytes, profile.maximum_deferred_deletions,
                       profile.maximum_deferred_literal_work};
+                  const auto service = [&](auto operation) {
+                    affine_matrix_service.emplace(
+                        operation(k, *k.affine_matrix_search_session));
+                    return affine_matrix_service->result;
+                  };
                   using Operation = AffineMatrixInitializeParameters::Operation;
                   switch (profile.operation) {
                   case Operation::Initialize:
@@ -2057,37 +1987,19 @@ InvocationResult OnlineStrategyExecutor::advance(
                         profile.operation == Operation::Refresh));
                     return affine_matrix_initialization->result;
                   case Operation::SearchStep:
-                    affine_matrix_service.emplace(affine_matrix_search_step(
-                        k, *k.affine_matrix_search_session));
-                    return affine_matrix_service->result;
+                    return service(affine_matrix_search_step);
                   case Operation::DeferredSearchStep:
-                    affine_matrix_service.emplace(affine_matrix_search_step_deferred(
-                        k, *k.affine_matrix_search_session));
-                    return affine_matrix_service->result;
+                    return service(affine_matrix_search_step_deferred);
                   case Operation::DetachedMinimalSearchStep:
-                    affine_matrix_service.emplace(
-                        affine_matrix_search_step_detached_minimal(
-                            k, *k.affine_matrix_search_session));
-                    return affine_matrix_service->result;
+                    return service(affine_matrix_search_step_detached_minimal);
                   case Operation::DetachedSourceSearchStep:
-                    affine_matrix_service.emplace(
-                        affine_matrix_search_step_detached_source(
-                            k, *k.affine_matrix_search_session));
-                    return affine_matrix_service->result;
+                    return service(affine_matrix_search_step_detached_source);
                   case Operation::LazySourceSearchStep:
-                    affine_matrix_service.emplace(
-                        affine_matrix_search_step_lazy_source(
-                            k, *k.affine_matrix_search_session));
-                    return affine_matrix_service->result;
+                    return service(affine_matrix_search_step_lazy_source);
                   case Operation::LazyMinimalSearchStep:
-                    affine_matrix_service.emplace(
-                        affine_matrix_search_step_lazy_minimal(
-                            k, *k.affine_matrix_search_session));
-                    return affine_matrix_service->result;
+                    return service(affine_matrix_search_step_lazy_minimal);
                   case Operation::MaterializeReasons:
-                    affine_matrix_service.emplace(affine_matrix_materialize_reason(
-                        k, *k.affine_matrix_search_session));
-                    return affine_matrix_service->result;
+                    return service(affine_matrix_materialize_reason);
                   }
                   return ApplyResult::NoOp;
                 })
@@ -2221,11 +2133,14 @@ InvocationResult OnlineStrategyExecutor::advance(
           RetainInterrupted | RetainStale;
       constexpr uint8_t retain_retryable_theory_failures =
           RetainResourceExhausted | RetainInterrupted;
-      const auto settle_standard = [&](const auto &application,
-                                       uint8_t retain) {
-        if (application)
-          settle_theory_status(standard_theory_status_disposition(
-              application->status, retain));
+      const auto settle_standard = [&](uint8_t retain,
+                                       const auto &...applications) {
+        const auto settle = [&](const auto &application) {
+          if (application)
+            settle_theory_status(standard_theory_status_disposition(
+                application->status, retain));
+        };
+        (settle(applications), ...);
       };
       // The append-only persistent profile preserves detailed native declines.
       // Legacy zero-persistence dispatch and its historical statuses stay on
@@ -2266,26 +2181,17 @@ InvocationResult OnlineStrategyExecutor::advance(
               {AffineMatrixServiceStatus::Interrupted},
               {AffineMatrixServiceStatus::Stale}, retain_all_theory_failures));
       }
-      settle_standard(affine_application, retain_all_theory_failures);
+      settle_standard(retain_all_theory_failures, affine_application);
       if (exact_cover_application)
         settle_theory_status(standard_theory_status_disposition(
             exact_cover_application->live.status,
             retain_all_theory_failures));
-      settle_standard(independent_set_application, retain_all_theory_failures);
-      settle_standard(gf3_affine_application,
-                      retain_retryable_theory_failures);
-      settle_standard(direct_csp_application,
-                      retain_retryable_theory_failures);
-      settle_standard(nary_csp_equality_application,
-                      retain_retryable_theory_failures);
-      settle_standard(nary_csp_equality_amo_application,
-                      retain_retryable_theory_failures);
-      settle_standard(nary_csp_equality_transitivity_application,
-                      retain_retryable_theory_failures);
-      settle_standard(gf3_gaussian_application,
-                      retain_retryable_theory_failures);
-      settle_standard(gf3_general_row_application,
-                      retain_retryable_theory_failures);
+      settle_standard(retain_all_theory_failures, independent_set_application);
+      settle_standard(retain_retryable_theory_failures, gf3_affine_application,
+                      direct_csp_application, nary_csp_equality_application,
+                      nary_csp_equality_amo_application,
+                      nary_csp_equality_transitivity_application,
+                      gf3_gaussian_application, gf3_general_row_application);
       if (cardinality_search_application)
         settle_theory_status(theory_status_disposition(
             cardinality_search_application->status,
@@ -2295,8 +2201,7 @@ InvocationResult OnlineStrategyExecutor::advance(
             {CardinalitySearchActionStatus::ResourceExhausted},
             {CardinalitySearchActionStatus::Interrupted}, {},
             retain_retryable_theory_failures));
-      settle_standard(tseitin_cycle_application,
-                      retain_retryable_theory_failures);
+      settle_standard(retain_retryable_theory_failures, tseitin_cycle_application);
       if (direct_php_application)
         settle_theory_status(theory_status_disposition(
             direct_php_application->status,
@@ -2352,17 +2257,14 @@ InvocationResult OnlineStrategyExecutor::advance(
         default:
           break;
         }
-        if (out.status == InvocationStatus::InvalidRequest ||
-            out.status == InvocationStatus::StaleRequest ||
-            out.status == InvocationStatus::Inapplicable ||
-            out.status == InvocationStatus::Interrupted ||
-            out.status == InvocationStatus::ResourceExhausted) {
-          out.work = 0;
-          out.applications = 0;
+        const bool declined = out.status == InvocationStatus::InvalidRequest ||
+                              out.status == InvocationStatus::StaleRequest ||
+                              out.status == InvocationStatus::Inapplicable ||
+                              out.status == InvocationStatus::Interrupted ||
+                              out.status == InvocationStatus::ResourceExhausted;
+        if (declined)
           out.selection_complete = false;
-          out.budget_status = BudgetStatus::Ready;
-        }
-        if (consume_generated_sr_noop) {
+        if (declined || consume_generated_sr_noop) {
           out.work = 0;
           out.applications = 0;
           out.budget_status = BudgetStatus::Ready;

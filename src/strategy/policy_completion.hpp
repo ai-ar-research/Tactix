@@ -19,6 +19,15 @@ struct NativeFeedbackSpec {
   uint64_t (*meter)(const Kernel &) = nullptr;
 };
 
+// A support transition metered by the native tick counter.
+inline NativeFeedbackSpec ticks_feedback(std::string description) {
+  NativeFeedbackSpec spec;
+  spec.description.description = std::move(description);
+  spec.description.effort_currency = "ticks";
+  spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+  return spec;
+}
+
 // One policy's explicit completion lifetime. There is no Kernel hook, global
 // observer or change to native accounting. Owners provide a pure snapshot and
 // lazy request descriptions, keeping their own scheduling and execution order.

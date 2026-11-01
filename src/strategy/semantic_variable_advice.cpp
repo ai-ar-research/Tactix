@@ -10,22 +10,22 @@ namespace tactix::strategy {
 
 namespace {
 
-bool same_version(const StateVersion &a, const StateVersion &b) {
-  return a.arena_generation == b.arena_generation &&
-         a.touch_epoch == b.touch_epoch &&
-         a.strategy_epoch == b.strategy_epoch;
-}
-
 bool branchable_role(SemanticVariableRole role) {
   return role == SemanticVariableRole::ExistingTheory ||
          role == SemanticVariableRole::IntroducedTheory;
 }
 
 bool current(const Kernel &k, const SemanticVariableCandidateInfo &candidate) {
-  const StateVersion state = state_version(k);
-  return candidate.arena_generation == state.arena_generation &&
-         candidate.touch_epoch == state.touch_epoch &&
-         candidate.strategy_epoch == state.strategy_epoch;
+  return StateVersion{candidate.arena_generation, candidate.touch_epoch,
+                      candidate.strategy_epoch} == state_version(k);
+}
+
+// Clear the staged declaration's identity and variables.
+void clear_staged_candidate(Kernel &k) {
+  k.semantic_variable_candidate_pending = false;
+  static_cast<SemanticVariableCandidateInfo &>(
+      k.staged_semantic_variable_candidate) = {};
+  k.staged_semantic_variable_candidate.variables.clear();
 }
 
 } // namespace
@@ -64,7 +64,7 @@ SemanticVariableAdviceResult commit_semantic_variable_advice(
   if (!advice.action_id || !limits.maximum_variables ||
       !limits.maximum_priority_sum || advice.variables.empty())
     return out;
-  if (!same_version(advice.source, state_version(k))) {
+  if (advice.source != state_version(k)) {
     out.status = SemanticVariableAdviceStatus::Stale;
     return out;
   }
@@ -141,10 +141,7 @@ SemanticVariableAdviceResult apply_semantic_variable_advice(
 
 void begin_semantic_variable_candidate_action(Kernel &k) {
   if (!k.semantic_variable_candidate_pending) return;
-  k.semantic_variable_candidate_pending = false;
-  static_cast<SemanticVariableCandidateInfo &>(
-      k.staged_semantic_variable_candidate) = {};
-  k.staged_semantic_variable_candidate.variables.clear();
+  clear_staged_candidate(k);
 }
 
 bool stage_semantic_variable_candidate(
@@ -183,10 +180,7 @@ bool take_staged_semantic_variable_candidate(
     Kernel &k, SemanticVariableCandidate &out) {
   if (!k.semantic_variable_candidate_pending) return false;
   out = std::move(k.staged_semantic_variable_candidate);
-  k.semantic_variable_candidate_pending = false;
-  static_cast<SemanticVariableCandidateInfo &>(
-      k.staged_semantic_variable_candidate) = {};
-  k.staged_semantic_variable_candidate.variables.clear();
+  clear_staged_candidate(k);
   return true;
 }
 

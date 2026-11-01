@@ -216,6 +216,20 @@ private:
     SubstitutionRedundancyGeneralCursor sr_general_cursor;
     bool sr_general_mode = false;
     BveOccurrenceCache bve_occurrences;
+
+    // Drop the bound payloads, their cursor and discovery state. Only a
+    // general SR pass keeps its producer cursor across enumerations.
+    void clear_selection(bool general_sr = false) {
+      selection.clear();
+      structured_selection.clear();
+      sr_selection.clear();
+      cursor = 0;
+      selection_truncated = false;
+      selection_discovery_exhausted = false;
+      sr_general_mode = general_sr;
+      if (!general_sr)
+        sr_general_cursor = {};
+    }
   };
 
   bool prepare_selection(Kernel &, const OnlineInvocation &, Runtime &,
