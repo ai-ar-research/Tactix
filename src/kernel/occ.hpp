@@ -8,6 +8,7 @@
 
 #include "kernel/types.hpp"
 #include "kernel/realloc_words.hpp"
+#include "kernel/vector_stack.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -170,88 +171,18 @@ public:
     holes_ = total;
   }
 
-  // collect.h defaults, as transliterated in watch.hpp: inspect only above
-  // 2^18 words and only when more than 75 % of the stack is unusable.
+  // The collect.h checkpoint shared with watch.hpp (vector_stack.hpp).
   void defrag_if_needed() {
-    constexpr size_t SIZE_LIMIT = size_t{1} << 18;
-    const size_t stack_size = arena_.empty() ? 0 : arena_.size() + 1;
-    if (stack_size <= SIZE_LIMIT)
+    if (!vector_stack_needs_defrag(arena_, holes_))
       return;
-    if (holes_ <= (uint64_t{stack_size} * 75) / 100)
-      return;
-    defrag();
+    defrags++;
+    vector_stack_defrag(arena_, heads_, holes_);
   }
 
 private:
   void grow(Lit l) {
-    Head &head = heads_[l];
-    assert(head.size == head.capacity);
-    if (arena_.capacity() == 0)
-      arena_.reserve(3);
-    // A slice ending at the live end of the arena extends in place whenever
-    // the allocation has room (inlinevector.h).
-    if (static_cast<size_t>(head.offset) + head.size == arena_.size() &&
-        arena_.size() < arena_.capacity()) {
-      arena_.resize(arena_.size() + 1);
-      heads_[l].capacity++;
-      holes_++;
-      return;
-    }
-    const uint32_t ncap = head.size ? 2 * head.size : 1;
-    const size_t needed = arena_.size() + ncap;
-    assert(needed <= UINT32_MAX);
-    if (needed > arena_.capacity()) {
-      size_t stack_capacity = 4;
-      while (stack_capacity - 1 < needed)
-        stack_capacity *= 2;
-      arena_.reserve(stack_capacity - 1);
-    }
-    const uint32_t noff = static_cast<uint32_t>(arena_.size());
-    arena_.resize(arena_.size() + ncap);
-    relocations++;
-    Head &fresh = heads_[l];
-    std::copy(arena_.begin() + fresh.offset,
-              arena_.begin() + fresh.offset + fresh.size,
-              arena_.begin() + noff);
-    // The abandoned image and the unused half of the new one are both usable,
-    // the accounting of vector.c:kissat_enlarge_vector.
-    holes_ += ncap;
-    fresh.offset = noff;
-    fresh.capacity = ncap;
-  }
-
-  void defrag() {
-    defrags++;
-    std::vector<Lit> order;
-    order.reserve(heads_.size());
-    for (Lit lit = 0; lit < heads_.size(); lit++)
-      if (heads_[lit].size)
-        order.push_back(lit);
-    std::sort(order.begin(), order.end(), [&](Lit a, Lit b) {
-      return heads_[a].offset < heads_[b].offset;
-    });
-    size_t live = 0;
-    for (const Lit lit : order)
-      live += heads_[lit].size;
-    size_t stack_capacity = 1;
-    while (stack_capacity < live + 1)
-      stack_capacity *= 2;
-    ReallocWords<T> fresh;
-    if (live)
-      fresh.reserve(stack_capacity - 1);
-    for (const Lit lit : order) {
-      Head &head = heads_[lit];
-      const uint32_t noff = static_cast<uint32_t>(fresh.size());
-      fresh.insert(fresh.end(), arena_.begin() + head.offset,
-                   arena_.begin() + head.offset + head.size);
-      head.offset = noff;
-      head.capacity = head.size;
-    }
-    for (Head &head : heads_)
-      if (!head.size)
-        head = Head{};
-    arena_.swap(fresh);
-    holes_ = 0;
+    if (vector_stack_grow(arena_, heads_, l, holes_))
+      relocations++;
   }
 
   ReallocWords<T> arena_;

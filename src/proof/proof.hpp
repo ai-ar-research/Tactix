@@ -372,10 +372,30 @@ private:
   std::string population_key(uint64_t id, const Lit *lits, uint32_t size) const;
   void population_add(uint64_t id, const Lit *lits, uint32_t size);
   void population_del(uint64_t id, const Lit *lits, uint32_t size);
+  // The same oracle for a proof-only clause given by external DIMACS literals.
+  void population_external(bool add, uint64_t id, const int32_t *lits,
+                           uint32_t size);
   std::unordered_map<std::string, uint32_t> population_;
   uint64_t unbacked_deletions_ = 0;
   bool armed_ = false;
+#else
+  void population_add(uint64_t, const Lit *, uint32_t) {}
+  void population_del(uint64_t, const Lit *, uint32_t) {}
+  void population_external(bool, uint64_t, const int32_t *, uint32_t) {}
 #endif
+  // The checker-visible literal for an internal literal under the bound map.
+  Lit checker_lit(Lit l) const {
+    if (!variable_map_)
+      return l;
+    assert(var_of(l) < variable_map_->size());
+    return make_lit((*variable_map_)[var_of(l)], negated(l));
+  }
+  // A staged DSR-unit batch spools the next deletion line; see del().
+  FILE *begin_pending_deletion();
+  void end_pending_deletion(FILE *main_file);
+  template <class External>
+  bool put_pbp_deletion(uint64_t del_id, uint32_t size, External external);
+  void note_pbp_derived(uint64_t id, uint32_t clause_size);
   void put_byte(unsigned char byte);
   void flush_binary();
   void put_lit(Lit l);

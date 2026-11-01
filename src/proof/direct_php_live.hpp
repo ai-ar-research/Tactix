@@ -378,20 +378,42 @@ inline bool exact_source(const Snapshot &snapshot,
   return true;
 }
 
+// The live-kernel preconditions every phase re-establishes, in this order:
+// a supported proof route, an applicable root state and, when `poll_stop`,
+// no pending interrupt.
+inline bool gate(const Kernel &k, bool poll_stop, Result &result) {
+  if (k.proof && (k.proof->lrat() || k.proof->terminal_pbp()))
+    result.status = Status::UnsupportedProof;
+  else if (!applicable(k))
+    result.status = Status::Inapplicable;
+  else if (poll_stop && kernel_terminating(k))
+    result.status = Status::Interrupted;
+  else
+    return true;
+  return false;
+}
+
+// Recapture the live formula and require the earlier snapshot unchanged.
+inline bool unchanged(Kernel &k, const SnapshotLimits &limits,
+                      const Snapshot &expected, Result &result) {
+  Snapshot current;
+  const CaptureStatus captured = capture(k, limits, current);
+  if (captured == CaptureStatus::Interrupted)
+    result.status = Status::Interrupted;
+  else if (captured != CaptureStatus::Complete || !(current == expected))
+    result.status = Status::Stale;
+  else
+    return true;
+  return false;
+}
+
 } // namespace detail
 
 inline Result admit(Kernel &kernel, const Request &request, Admission &output) {
   Result result;
-  if (!detail::valid(request))
+  if (!detail::valid(request) ||
+      !detail::gate(kernel, /*poll_stop=*/false, result))
     return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Status::UnsupportedProof;
-    return result;
-  }
-  if (!detail::applicable(kernel)) {
-    result.status = Status::Inapplicable;
-    return result;
-  }
   Snapshot snapshot;
   const detail::CaptureStatus captured =
       detail::capture(kernel, request.snapshot, snapshot, &result);
@@ -438,18 +460,8 @@ inline Result admit(Kernel &kernel, const Request &request, Admission &output) {
     result.status = Status::Interrupted;
     return result;
   }
-  Snapshot revalidated;
-  const detail::CaptureStatus recaptured =
-      detail::capture(kernel, request.snapshot, revalidated);
-  if (recaptured == detail::CaptureStatus::Interrupted) {
-    result.status = Status::Interrupted;
+  if (!detail::unchanged(kernel, request.snapshot, snapshot, result))
     return result;
-  }
-  if (recaptured != detail::CaptureStatus::Complete ||
-      !(revalidated == snapshot)) {
-    result.status = Status::Stale;
-    return result;
-  }
   Admission local;
   local.ready_ = true;
   local.request_ = request;
@@ -472,30 +484,10 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
     result.status = Status::Invalid;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Status::UnsupportedProof;
+  if (!detail::gate(kernel, /*poll_stop=*/true, result) ||
+      !detail::unchanged(kernel, admission.request().snapshot,
+                         admission.snapshot(), result))
     return result;
-  }
-  if (!detail::applicable(kernel)) {
-    result.status = Status::Inapplicable;
-    return result;
-  }
-  if (kernel_terminating(kernel)) {
-    result.status = Status::Interrupted;
-    return result;
-  }
-  Snapshot current;
-  const detail::CaptureStatus captured =
-      detail::capture(kernel, admission.request().snapshot, current);
-  if (captured == detail::CaptureStatus::Interrupted) {
-    result.status = Status::Interrupted;
-    return result;
-  }
-  if (captured != detail::CaptureStatus::Complete ||
-      !(current == admission.snapshot())) {
-    result.status = Status::Stale;
-    return result;
-  }
 
   Transaction local;
   local.request_ = admission.request();
@@ -598,18 +590,8 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
     result.status = Status::Invalid;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Status::UnsupportedProof;
+  if (!detail::gate(kernel, /*poll_stop=*/true, result))
     return result;
-  }
-  if (!detail::applicable(kernel)) {
-    result.status = Status::Inapplicable;
-    return result;
-  }
-  if (kernel_terminating(kernel)) {
-    result.status = Status::Interrupted;
-    return result;
-  }
   if (kernel.next_clause_id != transaction.starting_clause_id_ ||
       kernel.arena_generation != transaction.arena_generation_ ||
       kernel.nvars != transaction.starting_nvars_ ||
@@ -619,18 +601,9 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
     result.status = Status::Stale;
     return result;
   }
-  Snapshot current;
-  const detail::CaptureStatus captured = detail::capture(
-      kernel, transaction.request_.snapshot, current);
-  if (captured == detail::CaptureStatus::Interrupted) {
-    result.status = Status::Interrupted;
+  if (!detail::unchanged(kernel, transaction.request_.snapshot,
+                         transaction.snapshot_, result))
     return result;
-  }
-  if (captured != detail::CaptureStatus::Complete ||
-      !(current == transaction.snapshot_)) {
-    result.status = Status::Stale;
-    return result;
-  }
 
   // No interruption point exists below this boundary: proof bytes and their
   // monotonically reserved namespace cannot be rolled back.

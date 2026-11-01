@@ -629,17 +629,27 @@ void kernel_publish_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
   }
 }
 
-// Does the live binary pair (x, other) ANTECEDE x's current assignment? Under
-// reason jumping the recorded reason is a virtual resolvent, so the real first
-// antecedent is (x ∨ jumped_over[x]) rather than (x ∨ reason); the second
-// antecedent, ¬jumped_over[x]'s own reason, is a pair whose own endpoint
-// answers this same question, so an endpoint-local test still covers the whole
-// chain.
-static bool binary_antecedes(const Kernel &k, Lit x, Lit other) {
-  const Assigned &ax = k.assigned[var_of(x)];
-  if (!ax.binary)
-    return false;
-  return ax.jumped ? k.jumped_over[var_of(x)] == other : ax.reason == other;
+// Retire every live ROOT assignment the pair (a, b) antecedes before the pair
+// is deleted; false refuses the deletion for a live non-root antecedent (never
+// at a root). Does the live binary pair (x, other) ANTECEDE x's current
+// assignment? Under reason jumping the recorded reason is a virtual resolvent,
+// so the real first antecedent is (x ∨ jumped_over[x]) rather than
+// (x ∨ reason); the second antecedent, ¬jumped_over[x]'s own reason, is a pair
+// whose own endpoint answers this same question, so an endpoint-local test
+// still covers the whole chain.
+static bool retire_binary_root_reasons(Kernel &k, Lit a, Lit b) {
+  for (const Lit x : {a, b}) {
+    Assigned &ax = k.assigned[var_of(x)];
+    const Lit other = (x == a) ? b : a;
+    if (k.values[x] <= 0 || !ax.binary ||
+        (ax.jumped ? k.jumped_over[var_of(x)] != other : ax.reason != other))
+      continue;
+    if (ax.level != 0)
+      return false; // live non-root reason: refuse (never at a root)
+    kernel_materialize_dsr_root_unit(k, x);
+    ax.reason = UNIT_REASON;
+  }
+  return true;
 }
 
 // Remove exactly one physical copy from both mirror lists while preserving
@@ -671,8 +681,9 @@ static void remove_one_binary_watch_pair(Kernel &k, Lit a, Lit b) {
 static void record_binary_copy_deletion(Kernel &k, Lit a, Lit b,
                                         const char *touch_reason,
                                         const char *event,
-                                        uint32_t remaining_copies) {
-  ++k.stats.binaries_deleted;
+                                        uint32_t remaining_copies,
+                                        uint32_t deleted_copies = 1) {
+  k.stats.binaries_deleted += deleted_copies;
   kernel_mark_bve_retry(k, var_of(a), touch_reason);
   kernel_mark_bve_retry(k, var_of(b), touch_reason);
   kernel_notify_bve_score(k, var_of(a), true);
@@ -692,16 +703,8 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   // (2) retire a live ROOT reason BEFORE deleting the clause that names it, so
   // no trail reason ever cites a just-deleted binary (the corpus-003 analog for
   // binary reasons; GC cannot do this — its reason-fix loop skips binaries).
-  for (const Lit x : {a, b}) {
-    Assigned &ax = k.assigned[var_of(x)];
-    const Lit other = (x == a) ? b : a;
-    if (k.values[x] > 0 && binary_antecedes(k, x, other)) {
-      if (ax.level != 0)
-        return false;          // live non-root reason: refuse (never at a root)
-      kernel_materialize_dsr_root_unit(k, x);
-      ax.reason = UNIT_REASON;
-    }
-  }
+  if (!retire_binary_root_reasons(k, a, b))
+    return false;
   // (3) remove the mirror watch entries by in-place compaction (write cursor),
   // preserving large watches and the binary mirror-symmetry invariant.
   remove_one_binary_watch_pair(k, a, b);
@@ -857,16 +860,8 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
     return false; // absent (idempotent)
   // retire a live ROOT reason before removing the clause(s) that name it (a no-op
   // for Factor, whose grid literals are both unassigned, but kept for generality)
-  for (const Lit x : {a, b}) {
-    Assigned &ax = k.assigned[var_of(x)];
-    const Lit other = (x == a) ? b : a;
-    if (k.values[x] > 0 && binary_antecedes(k, x, other)) {
-      if (ax.level != 0)
-        return false; // live non-root reason: refuse (never at a root)
-      kernel_materialize_dsr_root_unit(k, x);
-      ax.reason = UNIT_REASON;
-    }
-  }
+  if (!retire_binary_root_reasons(k, a, b))
+    return false;
   // Remove every matching mirror.  Factor's null-stack dense entry makes each
   // original pair unique and leaves binary-only slices.  Kissat removes that
   // exact case by finding the word and moving only its suffix
@@ -911,15 +906,8 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
     for (uint32_t i = 0; i < copies; i++)
       k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
   }
-  k.stats.binaries_deleted += copies;
-  kernel_mark_bve_retry(k, var_of(a), "delete-all-binary");
-  kernel_mark_bve_retry(k, var_of(b), "delete-all-binary");
-  kernel_notify_bve_score(k, var_of(a), true);
-  kernel_notify_bve_score(k, var_of(b), true);
-  kernel_removed_var(k, var_of(a));
-  kernel_removed_var(k, var_of(b));
-  event_trace_binary_lifecycle(k, "delete-all", a, b,
-                               kernel_binary_id(k, a, b), 0);
+  record_binary_copy_deletion(k, a, b, "delete-all-binary", "delete-all", 0,
+                              copies);
   const Lit clause[2] = {a, b};
   kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
                                SolverClauseKind::Binary,
@@ -1243,6 +1231,25 @@ void PendingUnits::refute(Kernel &k, Lit u) const {
       k, ids.empty() ? 0 : ids[var_of(u)], k.unit_ids[var_of(u)]);
 }
 
+// Rewrite images usually retain the source order (root stripping and
+// connected substitution). Restarting each membership lookup at the first
+// literal turns those unchanged runs into quadratic scans. Continue after
+// the previous match, wrapping over the prefix if necessary: every query
+// still searches the complete image, including arbitrary reorderings.
+// No marks, clause pose, or shared scratch are changed by this cursor.
+static auto lit_membership(const Lit *begin, const Lit *end) {
+  return [begin, end, next = begin](Lit lit) mutable {
+    const Lit *found = std::find(next, end, lit);
+    if (found == end) {
+      found = std::find(begin, next, lit);
+      if (found == next)
+        return false;
+    }
+    next = found + 1;
+    return true;
+  };
+}
+
 ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
                                      const Lit *lits, uint32_t size,
                                      bool redundant, uint32_t glue,
@@ -1271,13 +1278,15 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   // This is one semantic rewrite, not a deletion of every old literal followed
   // by an unrelated addition.  Kissat arms elimination only for literals that
   // actually disappear from the clause.
-  if (semantic_irredundant)
+  if (semantic_irredundant) {
+    auto in_new = lit_membership(lits, lits + size);
     for (const Lit old : *c)
-      if (std::find(lits, lits + size, old) == lits + size) {
+      if (!in_new(old)) {
         kernel_mark_bve_retry(k, var_of(old));
         kernel_removed_var(k, var_of(old));
         kernel_notify_bve_score(k, var_of(old), true);
       }
+  }
   kernel_delete_clause(k, c, false); // before any arena-mutating add below
   if (size == 0) { // under-derived root only (corpus 002): the ADD just
     k.inconsistent = true; // emitted IS the refutation
@@ -1343,31 +1352,14 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   const Lit old_first = c->lits[0], old_second = c->lits[1];
   const bool redundant = c->redundant();
 
-  // Rewrite images usually retain the source order (root stripping and
-  // connected substitution). Restarting each membership lookup at the first
-  // literal turns those unchanged runs into quadratic scans. Continue after
-  // the previous match, wrapping over the prefix if necessary: every query
-  // still searches the complete image, including arbitrary reorderings.
-  // No marks, clause pose, or shared scratch are changed by this cursor.
-  const auto membership = [](const Lit *begin, const Lit *end) {
-    return [begin, end, next = begin](Lit lit) mutable {
-      const Lit *found = std::find(next, end, lit);
-      if (found == end) {
-        found = std::find(begin, next, lit);
-        if (found == next)
-          return false;
-      }
-      next = found + 1;
-      return true;
-    };
-  };
-  auto in_new = membership(lits, lits + size);
+  // Order-preserving membership cursors (lit_membership above).
+  auto in_new = lit_membership(lits, lits + size);
 
   // Update the optional dense membership while the old semantic image is
   // still readable.  Retained literals keep the same Ref and therefore their
   // exact occurrence position; only a genuinely new literal is appended.
   if (k.dense && !redundant) {
-    auto in_old = membership(c->lits, c->lits + old_size);
+    auto in_old = lit_membership(c->lits, c->lits + old_size);
     for (uint32_t i = 0; i < old_size; i++) {
       const Lit lit = c->lits[i];
       if (in_new(lit))
@@ -2963,6 +2955,118 @@ void kernel_rebuild_large_watches(Kernel &k, bool flush_eliminated) {
   k.large_watches_connected = true;
 }
 
+// Dense resume knows the complete entry size of every watch list.  Build the
+// packed arena once, as Kissat's dense->sparse transition does, instead of
+// feeding tens of millions of entries through capacity doubling, slice
+// relocation, and repeated whole-arena defragmentation.  The begin step
+// releases the old image and sizes both mirrors of every pair in `binaries`;
+// the finish step sizes and fills the live large clauses its visitor names,
+// each after Kissat's watch-pair selection with a reset replacement cursor.
+// Iterating the pair vector writes each literal's binary partners in vector
+// order, ahead of its large watches.
+static void begin_packed_watches(
+    Kernel &k, const std::vector<std::pair<Lit, Lit>> &binaries) {
+  std::vector<uint32_t>().swap(k.watches.arena);
+  k.watches.holes = 0;
+  for (WatchHead &head : k.watches.heads)
+    head = WatchHead{};
+  for (const auto &[a, b] : binaries) {
+    k.watches.heads[a].add_binary_word();
+    k.watches.heads[b].add_binary_word();
+  }
+}
+
+// `large_order` lists the live large clauses to watch; null means every live
+// record in physical arena order.  `extraction_headroom` selects Congruence's
+// canonical rebuild: one spare word per `suffix` endpoint while the image
+// stays 32-bit addressable, bounded global relocation slack, and the resulting
+// holes recount.  Without it every slice is exact and the image has no holes.
+static void finish_packed_watches(
+    Kernel &k, const std::vector<std::pair<Lit, Lit>> &binaries,
+    const std::vector<Ref> *large_order, bool extraction_headroom,
+    const std::vector<std::pair<Lit, Lit>> *suffix = nullptr) {
+  const auto for_each_large = [&](auto visit) {
+    if (large_order) {
+      for (const Ref ref : *large_order)
+        visit(ref);
+      return;
+    }
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_actual_words(c);
+      if (!c->garbage())
+        visit(ref);
+      ref += words;
+    }
+  };
+  if (suffix)
+    for (const auto &[a, b] : *suffix) {
+      k.watches.heads[a].capacity++;
+      k.watches.heads[b].capacity++;
+    }
+  for_each_large([&](Ref ref) {
+    Clause *c = clause_at(k.arena, ref);
+    sort_clause_watches_like_kissat(k, c);
+    c->searched = 2;
+    k.watches.heads[c->lits[0]].add_large_words();
+    k.watches.heads[c->lits[1]].add_large_words();
+  });
+  bool keep_extraction_suffix = false;
+  if (extraction_headroom) {
+    uint64_t planned_words = 0;
+    for (const WatchHead &head : k.watches.heads)
+      planned_words += static_cast<uint64_t>(head.size) + head.capacity;
+    keep_extraction_suffix = planned_words <= UINT32_MAX;
+  }
+  uint64_t total_words = 0;
+  for (WatchHead &head : k.watches.heads) {
+    const uint64_t capacity = static_cast<uint64_t>(head.size) +
+                              (keep_extraction_suffix ? head.capacity : 0);
+    assert(total_words + capacity <= UINT32_MAX);
+    head.offset = static_cast<uint32_t>(total_words);
+    head.capacity = static_cast<uint32_t>(capacity);
+    total_words += capacity;
+    head.size = 0;
+  }
+  if (extraction_headroom) {
+    // The canonical layout is exact per list, but Congruence immediately adds
+    // a sparse set of representative binaries.  With an exactly-sized global
+    // vector, the first list relocation asks std::vector to geometrically copy
+    // the entire (often GiB-scale) arena.  Reserve bounded relocation headroom
+    // while the replacement arena is still empty, preserving every slice and
+    // entry order without paying that transient duplicate.
+    const uint64_t relocation_slack = std::min<uint64_t>(
+        {total_words / 16, uint64_t{1} << 24, UINT32_MAX - total_words});
+    k.watches.arena.reserve(
+        static_cast<size_t>(total_words + relocation_slack));
+  }
+  k.watches.arena.resize(static_cast<size_t>(total_words));
+  const auto push_word = [&](Lit lit, uint32_t word) {
+    WatchHead &head = k.watches.heads[lit];
+    assert(head.size < head.capacity);
+    k.watches.arena[head.offset + head.size++] = word;
+  };
+  for (const auto &[a, b] : binaries) {
+    push_word(a, binary_watch(b).raw);
+    push_word(b, binary_watch(a).raw);
+  }
+  for_each_large([&](Ref ref) {
+    const Clause *c = clause_at(k.arena, ref);
+    const Lit first = c->lits[0], second = c->lits[1];
+    push_word(first, blocking_watch(second).raw);
+    push_word(first, ref);
+    push_word(second, blocking_watch(first).raw);
+    push_word(second, ref);
+    assert(k.watches.heads[first].has_large());
+    assert(k.watches.heads[second].has_large());
+  });
+  if (extraction_headroom) {
+    k.watches.holes = 0;
+    for (const WatchHead &head : k.watches.heads)
+      k.watches.holes += head.capacity - head.size;
+  }
+}
+
 void kernel_resume_walk_watches(Kernel &k) {
   // Walk's non-null dense entry deletes root-satisfied binaries before saving
   // and restoring the root-open population.  `dense.c:flush_large_watches`
@@ -3027,14 +3131,7 @@ void kernel_resume_walk_watches(Kernel &k) {
           binaries.emplace_back(lit, watch.other());
     }
 
-  std::vector<uint32_t>().swap(k.watches.arena);
-  k.watches.holes = 0;
-  for (WatchHead &head : k.watches.heads)
-    head = WatchHead{};
-  for (const auto &[a, b] : binaries) {
-    k.watches.heads[a].add_binary_word();
-    k.watches.heads[b].add_binary_word();
-  }
+  begin_packed_watches(k, binaries);
   std::vector<Ref> large_order;
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
@@ -3048,41 +3145,8 @@ void kernel_resume_walk_watches(Kernel &k) {
   // alias is the exact current source-arena position. Reconstruct that order before
   // sizing and filling the exact watch image.
   kernel_sort_refs_by_logical_clause_position(k, large_order);
-  for (const Ref ref : large_order) {
-    Clause *c = clause_at(k.arena, ref);
-    sort_clause_watches_like_kissat(k, c);
-    c->searched = 2;
-    k.watches.heads[c->lits[0]].add_large_words();
-    k.watches.heads[c->lits[1]].add_large_words();
-  }
-  uint64_t total_words = 0;
-  for (WatchHead &head : k.watches.heads) {
-    assert(total_words + head.size <= UINT32_MAX);
-    head.offset = static_cast<uint32_t>(total_words);
-    head.capacity = head.size;
-    total_words += head.size;
-    head.size = 0;
-  }
-  k.watches.arena.resize(static_cast<size_t>(total_words));
-  const auto push_word = [&](Lit lit, uint32_t word) {
-    WatchHead &head = k.watches.heads[lit];
-    assert(head.size < head.capacity);
-    k.watches.arena[head.offset + head.size++] = word;
-  };
-  for (const auto &[a, b] : binaries) {
-    push_word(a, binary_watch(b).raw);
-    push_word(b, binary_watch(a).raw);
-  }
-  for (const Ref ref : large_order) {
-    Clause *c = clause_at(k.arena, ref);
-    const Lit first = c->lits[0], second = c->lits[1];
-    push_word(first, blocking_watch(second).raw);
-    push_word(first, ref);
-    push_word(second, blocking_watch(first).raw);
-    push_word(second, ref);
-    assert(k.watches.heads[first].has_large());
-    assert(k.watches.heads[second].has_large());
-  }
+  finish_packed_watches(k, binaries, &large_order,
+                        /*extraction_headroom=*/false);
 }
 
 void kernel_canonicalize_binary_watches(Kernel &k,
@@ -3221,91 +3285,15 @@ void kernel_canonicalize_binary_watches(Kernel &k,
     }
     begin = end;
   }
-  // Dense resume knows the complete entry size of every watch list.  Build the
-  // packed arena once (plus the bounded extraction suffix below), as Kissat's
-  // dense->sparse transition does, instead of
-  // feeding tens of millions of entries through capacity doubling, slice
-  // relocation, and repeated whole-arena defragmentation.  Iterating the
-  // globally ordered pair vector writes each literal's binary partners in the
-  // same order as the former push loop: smaller partners first, then larger
-  // partners, both in import order.
+  // Build the packed image (begin/finish_packed_watches) plus the bounded
+  // extraction suffix.  Iterating the globally ordered pair vector writes each
+  // literal's binary partners in the same order as the former push loop:
+  // smaller partners first, then larger partners, both in import order.
   std::vector<uint8_t>().swap(seen);
   std::vector<Var>().swap(ordered_variables);
-  std::vector<uint32_t>().swap(k.watches.arena);
-  k.watches.holes = 0;
-  for (WatchHead &head : k.watches.heads)
-    head = WatchHead{};
-  for (const auto &binary : binaries) {
-    k.watches.heads[binary.first].add_binary_word();
-    k.watches.heads[binary.second].add_binary_word();
-  }
-  if (binary_suffix)
-    for (const auto &[a, b] : *binary_suffix) {
-      k.watches.heads[a].capacity++;
-      k.watches.heads[b].capacity++;
-    }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
-    if (!c->garbage()) {
-      sort_clause_watches_like_kissat(k, c);
-      c->searched = 2;
-      k.watches.heads[c->lits[0]].add_large_words();
-      k.watches.heads[c->lits[1]].add_large_words();
-    }
-    ref += words;
-  }
-  uint64_t planned_words = 0;
-  for (const WatchHead &head : k.watches.heads)
-    planned_words += static_cast<uint64_t>(head.size) + head.capacity;
-  const bool keep_extraction_suffix = planned_words <= UINT32_MAX;
-  uint64_t total_words = 0;
-  for (WatchHead &head : k.watches.heads) {
-    const uint64_t capacity = static_cast<uint64_t>(head.size) +
-                              (keep_extraction_suffix ? head.capacity : 0);
-    assert(total_words + capacity <= UINT32_MAX);
-    head.offset = static_cast<uint32_t>(total_words);
-    head.capacity = static_cast<uint32_t>(capacity);
-    total_words += capacity;
-    head.size = 0;
-  }
-  // The canonical layout is exact per list, but Congruence immediately adds a
-  // sparse set of representative binaries.  With an exactly-sized global
-  // vector, the first list relocation asks std::vector to geometrically copy
-  // the entire (often GiB-scale) arena.  Reserve bounded relocation headroom
-  // while the replacement arena is still empty, preserving every slice and
-  // entry order without paying that transient duplicate.
-  const uint64_t relocation_slack = std::min<uint64_t>(
-      {total_words / 16, uint64_t{1} << 24, UINT32_MAX - total_words});
-  k.watches.arena.reserve(
-      static_cast<size_t>(total_words + relocation_slack));
-  k.watches.arena.resize(static_cast<size_t>(total_words));
-  const auto push_word = [&](Lit lit, uint32_t word) {
-    WatchHead &head = k.watches.heads[lit];
-    assert(head.size < head.capacity);
-    k.watches.arena[head.offset + head.size++] = word;
-  };
-  for (const auto &binary : binaries) {
-    push_word(binary.first, binary_watch(binary.second).raw);
-    push_word(binary.second, binary_watch(binary.first).raw);
-  }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
-    if (!c->garbage()) {
-      const Lit first = c->lits[0], second = c->lits[1];
-      push_word(first, blocking_watch(second).raw);
-      push_word(first, ref);
-      push_word(second, blocking_watch(first).raw);
-      push_word(second, ref);
-      assert(k.watches.heads[first].has_large());
-      assert(k.watches.heads[second].has_large());
-    }
-    ref += words;
-  }
-  k.watches.holes = 0;
-  for (const WatchHead &head : k.watches.heads)
-    k.watches.holes += head.capacity - head.size;
+  begin_packed_watches(k, binaries);
+  finish_packed_watches(k, binaries, /*large_order=*/nullptr,
+                        /*extraction_headroom=*/true, binary_suffix);
   // Congruence's extraction ends at Kissat's dense-to-sparse resume: the
   // packed image above contains both mirrors of every binary and both sparse
   // watches of every live large clause.  Dense phase entry now clears this
