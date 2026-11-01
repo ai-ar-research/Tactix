@@ -169,67 +169,6 @@ inline void direct_csp_support_action_absorb_live_effort(
   output.effort.journal_bytes = live.journal_bytes;
 }
 
-// One caller-bounded deterministic page over exact ordered domain pairs and
-// their selected left rows.  The continuation key is the last syntactically
-// valid disjoint pair/row position processed, including a rejected candidate;
-// this lets the next page advance across non-structures and terminal rows.
-// It stays meaningful while that Kernel's root formula and session are
-// unchanged; callers restart from the beginning after an action mutates either
-// one. Zero never means unlimited.
-struct DirectCspSupportActionOfferWindow {
-  uint64_t maximum_domain_candidates = 0;
-  uint64_t maximum_pair_candidates = 0;
-  uint64_t maximum_row_candidates = 0;
-  uint64_t maximum_offers = 0;
-  uint64_t maximum_enumeration_work = 0;
-  bool have_after = false;
-  DirectCspSupportActionKey after;
-
-  bool valid() const;
-};
-
-enum class DirectCspSupportActionOfferStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  Stale,
-  Ready,
-};
-
-struct DirectCspSupportActionOfferEffort {
-  uint64_t formula_clauses = 0;
-  uint64_t formula_literals = 0;
-  uint64_t candidate_scan_work = 0;
-  uint64_t owner_capture_work = 0;
-  uint64_t planning_work = 0;
-  uint64_t duplicate_scan_work = 0;
-  uint64_t session_work = 0;
-  uint64_t session_preflight_work = 0;
-  uint64_t enumeration_work = 0;
-  uint64_t traversal_work = 0;
-  uint64_t domain_candidates = 0;
-  uint64_t pair_candidates = 0;
-  uint64_t row_candidates = 0;
-  uint64_t retained_owners_revalidated = 0;
-  uint64_t committed_rows_skipped = 0;
-  uint64_t consequence_free_rows = 0;
-  uint64_t live_consequences_skipped = 0;
-  uint64_t resource_rejected_rows = 0;
-  uint64_t page_limited_captures = 0;
-};
-
-struct DirectCspSupportActionOfferResult {
-  DirectCspSupportActionOfferStatus status =
-      DirectCspSupportActionOfferStatus::Invalid;
-  bool complete = false;
-  bool have_resume_after = false;
-  DirectCspSupportActionKey resume_after;
-  std::vector<DirectCspSupportActionSelection> offers;
-  DirectCspSupportActionOfferEffort effort;
-};
-
 // Formula/proof-state eligibility only. Selection, effort, and retained state
 // remain explicit controller inputs; the guard is pure and performs no scan.
 RuleEligibility direct_csp_support_action_guard(const Kernel &);
@@ -250,9 +189,5 @@ DirectCspSupportActionResult direct_csp_support_action_apply(
 // certifies both AMO domains and every directed cross entry.  Retained owners
 // are recaptured and compared before any offer is returned.  Durable committed
 // keys are never re-offered.
-DirectCspSupportActionOfferResult direct_csp_support_action_offer(
-    Kernel &, const DirectCspSupportActionSession &,
-    const DirectCspSupportActionLimits &,
-    const DirectCspSupportActionOfferWindow &);
 
 } // namespace tactix

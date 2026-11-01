@@ -57,20 +57,4 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
     Kernel &,const NaryCspRelationOwnerSession &,const NaryCspEqualitySession &,
     NaryCspEqualityTransitivitySession &,const NaryCspEqualityTransitivityLimits &,
     const NaryCspEqualityTransitivitySelection &,FILE *records);
-// Caller-bounded deterministic record triples; no native installation implied.
-struct NaryCspEqualityTransitivityOfferWindow {
-  uint64_t maximum_candidates=0,maximum_offers=0,maximum_enumeration_work=0;
-  bool have_after=false;
-  NaryCspEqualityTransitivityKey after;
-};
-struct NaryCspEqualityTransitivityOfferResult {
-  NaryCspEqualityTransitivityStatus status=NaryCspEqualityTransitivityStatus::Invalid;
-  uint64_t candidates=0,enumeration_work=0;
-  bool complete=false,have_resume_after=false;
-  NaryCspEqualityTransitivityKey resume_after;
-  std::vector<NaryCspEqualityTransitivitySelection> offers;
-};
-NaryCspEqualityTransitivityOfferResult nary_csp_equality_transitivity_offer(
-    Kernel &,const NaryCspEqualitySession &,const NaryCspEqualityTransitivitySession &,
-    const NaryCspEqualityTransitivityLimits &,const NaryCspEqualityTransitivityOfferWindow &);
 } // namespace tactix

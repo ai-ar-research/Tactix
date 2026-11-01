@@ -26,11 +26,6 @@ struct Meter {
  }
  Status failure()const{return interrupted?Status::Interrupted:Status::ResourceExhausted;}
 };
-uint64_t equality_key_bytes(const NaryCspEqualityKey &key){
- uint64_t bytes=sizeof(key)+key.domains.size()*sizeof(ExternalClause);
- for(const auto &d:key.domains)bytes+=d.size()*sizeof(int32_t);
- return bytes;
-}
 uint64_t key_bytes(const Selection &s) {
  uint64_t n=sizeof(s);
  for(const auto &d:s.domains)n+=d.size()*sizeof(int32_t);
@@ -274,67 +269,5 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  out.proof_work=plan.publication_work;out.proof_additions=plan.additions;out.proof_deletions=plan.deletions;
  out.proof_literal_occurrences=plan.literal_occurrences;out.journal_bytes=journal.size();out.recognition_work=meter.work;
  out.propagation_pending=!kernel_propagation_fixpoint(k);return finish();
-}
-NaryCspEqualityTransitivityOfferResult nary_csp_equality_transitivity_offer(
- Kernel &k,const NaryCspEqualitySession &equalities,const NaryCspEqualityTransitivitySession &session,
- const NaryCspEqualityTransitivityLimits &limits,const NaryCspEqualityTransitivityOfferWindow &window){
- NaryCspEqualityTransitivityOfferResult out;
- if(!nary_csp_equality_transitivity_guard(k)){out.status=Status::Inapplicable;return out;}
- if(!limits.valid()||!window.maximum_candidates||!window.maximum_offers||!window.maximum_enumeration_work)return out;
- if(!equalities.belongs_to(k)||(session.retained()&&!session.belongs_to(k))){out.status=Status::Stale;return out;}
- Meter meter{k,window.maximum_enumeration_work};std::vector<Selection> candidates;
- uint64_t candidate_bytes=0,largest_key=1;
- const auto &records=equalities.records();
- for(size_t a=0;a<records.size();++a)for(size_t b=a+1;b<records.size();++b)for(size_t c=b+1;c<records.size();++c){
-   if(out.candidates==window.maximum_candidates||!meter.charge()){
-     out.status=meter.interrupted?Status::Interrupted:Status::ResourceExhausted;out.enumeration_work=meter.work;return out;}
-   ++out.candidates;const std::array<size_t,3> indexes{a,b,c};
-   std::vector<ExternalClause> domains;
-   for(auto index:indexes){const auto &r=records[index];
-     if(equality_key_bytes(r.key)>limits.maximum_preparation_bytes/3||!meter.charge(3*equality_key_bytes(r.key))){out.status=meter.failure();out.enumeration_work=meter.work;return out;}
-     if(r.key.first_equal_domain>=r.key.domains.size()||r.key.second_equal_domain>=r.key.domains.size())continue;
-     domains.push_back(r.key.domains[r.key.first_equal_domain]);domains.push_back(r.key.domains[r.key.second_equal_domain]);
-   }
-   std::sort(domains.begin(),domains.end());domains.erase(std::unique(domains.begin(),domains.end()),domains.end());
-   if(domains.size()!=3||domains[0].size()>limits.maximum_domain_values)continue;
-   Selection selection;std::copy(domains.begin(),domains.end(),selection.domains.begin());
-   bool complete=true;
-   for(size_t pair=0;pair<3;++pair){bool found=false;
-     for(auto index:indexes){const auto &r=records[index];
-       if(r.key.first_equal_domain<r.key.domains.size()&&r.key.second_equal_domain<r.key.domains.size()&&
-          r.key.domains[r.key.first_equal_domain]==domains[pairs[pair].first]&&r.key.domains[r.key.second_equal_domain]==domains[pairs[pair].second]){
-          selection.equalities[pair]=r.key;selection.equality_variables[pair]=r.extension_variable;found=true;break;}}
-     complete&=found;
-   }
-   if(!complete)continue;
-   const uint64_t n=selection.domains[0].size();
-   if(n && (n>meter.bound/(18*n)||!meter.charge(18*n*n))){out.status=meter.failure();out.enumeration_work=meter.work;return out;}
-   if(!nary_csp_equality_transitivity_selection_valid(selection))continue;
-   if(window.have_after){
-     if(!meter.charge(key_bytes(window.after)+key_bytes(selection))){out.status=meter.failure();out.enumeration_work=meter.work;return out;}
-     if(!(window.after<selection))continue;
-   }
-   bool duplicate=false;
-   for(const auto &key:session.keys()){
-     if(!meter.charge(key_bytes(key)+key_bytes(selection))){out.status=meter.failure();out.enumeration_work=meter.work;return out;}
-     if(key==selection){duplicate=true;break;}
-   }
-   if(duplicate)continue;
-   // Explicit bound on temporary offer storage, independent of search policy.
-   if(key_bytes(selection)>limits.maximum_preparation_bytes-std::min(candidate_bytes,limits.maximum_preparation_bytes)){
-     out.status=Status::ResourceExhausted;out.enumeration_work=meter.work;return out;}
-   candidate_bytes+=key_bytes(selection);largest_key=std::max(largest_key,key_bytes(selection));
-   candidates.push_back(std::move(selection));
- }
- // Conservative sort bound; charge before comparison work or result mutation.
- const uint64_t count=candidates.size();
- if(count && (count>meter.bound/(count+1)||count*(count+1)>meter.bound/largest_key)){out.status=Status::ResourceExhausted;out.enumeration_work=meter.work;return out;}
- if(!meter.charge(count*(count+1)*largest_key)){
-   out.status=meter.failure();out.enumeration_work=meter.work;return out;}
- std::sort(candidates.begin(),candidates.end());candidates.erase(std::unique(candidates.begin(),candidates.end()),candidates.end());
- out.complete=candidates.size()<=window.maximum_offers;
- if(candidates.size()>window.maximum_offers)candidates.resize(window.maximum_offers);
- out.offers=std::move(candidates);out.enumeration_work=meter.work;out.status=Status::Ready;
- if(!out.offers.empty()){out.have_resume_after=true;out.resume_after=out.offers.back();}return out;
 }
 } // namespace tactix
