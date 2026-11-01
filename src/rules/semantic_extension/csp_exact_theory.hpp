@@ -49,6 +49,24 @@ enum class BuildStatus : uint8_t {
   EffortExhausted,
 };
 
+// Plan vocabulary shared by the exact DirectCSP and n-ary CSP planners.
+enum class PlanStatus : uint8_t {
+  Planned,
+  NoConsequence,
+  InvalidRequest,
+  IncompleteTheory,
+  BoundExceeded,
+  EffortExhausted,
+};
+
+enum class ReferenceKind : uint8_t { SourceOccurrence, PlannedAddition };
+
+struct Reference {
+  ReferenceKind kind = ReferenceKind::SourceOccurrence;
+  uint64_t id = 0;
+  uint64_t native_proof_id = 0;
+};
+
 template <class Premise> struct Snapshot {
   std::map<uint64_t, const Premise *> by_occurrence;
   std::set<uint64_t> used;

@@ -4,56 +4,15 @@
 
 #include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/csp_domain_identity.hpp"
-#include "rules/semantic_extension/csp_live_domain.hpp"
 
 #include <algorithm>
 #include <array>
 #include <climits>
-#include <limits>
-#include <map>
-#include <set>
 #include <utility>
 
 namespace tactix {
 namespace {
 
-template <class Charge>
-bool binary_present(Kernel &kernel, Lit first, Lit second, Charge &charge,
-                    bool &stopped) {
-  if (!charge()) {
-    stopped = true;
-    return false;
-  }
-  if (kernel.watches.binary_size(second) < kernel.watches.binary_size(first))
-    std::swap(first, second);
-  const bool binaries_first = kernel.watches.heads[first].binaries_first();
-  for (const WatchEntry watch : kernel.watches.entries(first)) {
-    if (!charge()) {
-      stopped = true;
-      return false;
-    }
-    if (!watch.binary()) {
-      if (binaries_first) break;
-      continue;
-    }
-    if (watch.other() == second) return true;
-  }
-  return false;
-}
-
-template <class Charge>
-bool complete_amo(Kernel &kernel, const std::vector<int32_t> &domain,
-                  Charge &charge, bool &stopped) {
-  for (size_t first = 0; first < domain.size(); ++first)
-    for (size_t second = first + 1; second < domain.size(); ++second) {
-      const Lit left = kernel_internalize(kernel, -domain[first]);
-      const Lit right = kernel_internalize(kernel, -domain[second]);
-      if (left == INVALID_LIT || right == INVALID_LIT ||
-          !binary_present(kernel, left, right, charge, stopped))
-        return false;
-    }
-  return true;
-}
 NaryCspEqualityActionStatus live_status(NaryCspEqualityLiveStatus status) {
   if (const auto failure = strategy::map_standard_action_failure<
           NaryCspEqualityActionStatus>(status))
@@ -68,7 +27,6 @@ NaryCspEqualityActionStatus live_status(NaryCspEqualityLiveStatus status) {
   default: return NaryCspEqualityActionStatus::Invalid;
   }
 }
-enum class DiagonalCheck : uint8_t { Missing, Complete, Exhausted };
 } // namespace
 
 bool nary_csp_equality_action_selection_valid(
@@ -126,17 +84,9 @@ NaryCspEqualityActionResult nary_csp_equality_action_apply(
   uint64_t acquisition_work = 0;
   bool owner_freshly_captured = false;
   if (!owner) {
-    NaryCspRelationCaptureRequest capture;
-    capture.domains = selection.domains;
-    capture.maximum_source_clauses = limits.maximum_source_clauses;
-    capture.maximum_source_literals = limits.maximum_source_literals;
-    capture.maximum_recognition_work = limits.maximum_recognition_work;
-    capture.maximum_domains = 3;
-    capture.maximum_domain_values = limits.maximum_domain_values;
-    capture.maximum_forbidden_tuples = limits.maximum_forbidden_tuples;
-    capture.maximum_external_extent = limits.maximum_external_extent;
     const auto acquired = nary_csp_relation_prepare_owner(
-        kernel, relation_session, capture,
+        kernel, relation_session,
+        nary_csp_ternary_capture_request(selection.domains, limits),
         {limits.maximum_session_keys, limits.maximum_recognition_work},
         staged_owner);
     acquisition_work = acquired.recognition_work;

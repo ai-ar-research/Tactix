@@ -46,23 +46,6 @@ NaryCspEqualityKey make_key(const NaryCspRelationOwnerSnapshot &owner,
   return key;
 }
 
-NaryCspRelationCaptureRequest capture_request(
-    const NaryCspRelationOwnerSnapshot &owner,
-    const equality::Selection &selection,
-    const NaryCspEqualityLimits &limits) {
-  NaryCspRelationCaptureRequest request;
-  request.domains = owner_domains(owner);
-  (void)selection;
-  request.maximum_source_clauses = limits.maximum_source_clauses;
-  request.maximum_source_literals = limits.maximum_source_literals;
-  request.maximum_recognition_work = limits.maximum_recognition_work;
-  request.maximum_domains = 3;
-  request.maximum_domain_values = limits.maximum_domain_values;
-  request.maximum_forbidden_tuples = limits.maximum_forbidden_tuples;
-  request.maximum_external_extent = limits.maximum_external_extent;
-  return request;
-}
-
 NaryCspEqualityLiveStatus capture_status(NaryCspRelationCaptureStatus status) {
   switch (status) {
   case NaryCspRelationCaptureStatus::Interrupted:
@@ -107,17 +90,10 @@ bool render_journal(const NaryCspEqualityRequest &request,
                       ",\"residual_domain\":" +
                       std::to_string(plan.selection.residual_domain) + "}\n"))
     return false;
-  for (const auto &premise : owner.source) {
-    if (!journal.append("{\"kind\":\"nary-csp-equality-source\",\"action\":" +
-                        std::to_string(request.action_id) +
-                        ",\"occurrence\":" +
-                        std::to_string(premise.occurrence) +
-                        ",\"native_proof_id\":" +
-                        std::to_string(premise.native_proof_id) +
-                        ",\"clause\":[") ||
-        !journal.integers(premise.literals) || !journal.append("]}\n"))
-      return false;
-  }
+  if (!semantic_extension::append_source_premises(
+          journal, "nary-csp-equality-source", request.action_id,
+          owner.source))
+    return false;
   for (size_t domain = 0; domain < owner.relation.domains.size(); ++domain) {
     if (!journal.append("{\"kind\":\"nary-csp-equality-domain\",\"action\":" +
                         std::to_string(request.action_id) +
@@ -195,7 +171,8 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
   } else {
     const auto captured = nary_csp_relation_capture_owner(
         kernel,
-        capture_request(*request.owner, request.selection, request.limits),
+        nary_csp_ternary_capture_request(owner_domains(*request.owner),
+                                         request.limits),
         current);
     result.recognition_work = captured.recognition_work;
     result.source_clauses = captured.source_clauses;

@@ -21,13 +21,6 @@ namespace support = direct_csp_support;
 
 using Meter = InterruptibleWork;
 
-DirectCspSupportLiveStatus stopped_status(
-    const Meter &meter, DirectCspSupportLiveStatus otherwise) {
-  if (meter.interrupted) return DirectCspSupportLiveStatus::Interrupted;
-  if (meter.exhausted) return DirectCspSupportLiveStatus::ResourceExhausted;
-  return otherwise;
-}
-
 uint32_t variable(int32_t literal) {
   return external_variable_of(literal);
 }
@@ -35,15 +28,6 @@ uint32_t variable(int32_t literal) {
 std::vector<int32_t> normalized(std::vector<int32_t> clause) {
   std::sort(clause.begin(), clause.end());
   return clause;
-}
-
-bool root_guard(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && kernel.trail.empty() && !kernel.dense &&
-         !kernel.probing.recording && kernel.large_watches_connected &&
-         kernel_propagation_fixpoint(kernel) &&
-         !kernel.external_to_internal.empty() &&
-         kernel.external_to_internal.size() <= INT32_MAX;
 }
 
 bool request_limits_valid(const DirectCspSupportLiveRequest &request) {
@@ -135,9 +119,7 @@ enum class CaptureSliceStatus : uint8_t {
 };
 
 CaptureSliceStatus capture_stopped(const Meter &meter) {
-  if (meter.interrupted) return CaptureSliceStatus::Interrupted;
-  if (meter.exhausted) return CaptureSliceStatus::ResourceExhausted;
-  return CaptureSliceStatus::Invalid;
+  return stopped_status(meter, CaptureSliceStatus::Invalid);
 }
 
 DirectCspSupportLiveStatus live_capture_status(CaptureSliceStatus status) {
@@ -416,16 +398,10 @@ bool render_journal(const DirectCspSupportLiveRequest &request,
                       std::to_string(request.selected_left_value) +
                       ",\"recognition\":\"exact-retained-two-domain-slice\"}\n"))
     return false;
-  for (const auto &premise : owner.source) {
-    if (!journal.append(
-            "{\"kind\":\"direct-csp-support-source\",\"action\":" +
-            std::to_string(request.action_id) + ",\"occurrence\":" +
-            std::to_string(premise.occurrence) +
-            ",\"native_proof_id\":" +
-            std::to_string(premise.native_proof_id) + ",\"clause\":[") ||
-        !journal.integers(premise.literals) || !journal.append("]}\n"))
-      return false;
-  }
+  if (!semantic_extension::append_source_premises(
+          journal, "direct-csp-support-source", request.action_id,
+          owner.source))
+    return false;
   if (!journal.append(
           "{\"kind\":\"direct-csp-support-theory\",\"action\":" +
           std::to_string(request.action_id) +
@@ -530,7 +506,7 @@ void prepare_live_action(Kernel &kernel,
     result.status = DirectCspSupportLiveStatus::UnsupportedProof;
     return;
   }
-  if (!root_guard(kernel)) {
+  if (!csp_physical_scan::root_ready(kernel)) {
     result.status = kernel_terminating(kernel)
                         ? DirectCspSupportLiveStatus::Interrupted
                         : DirectCspSupportLiveStatus::Inapplicable;
@@ -718,7 +694,7 @@ DirectCspSupportOwnerCaptureResult direct_csp_support_live_capture_owner(
   if (!capture_limits_valid(request) || request.left_values.empty() ||
       request.right_values.empty())
     return result;
-  if (!root_guard(kernel)) {
+  if (!csp_physical_scan::root_ready(kernel)) {
     result.status = kernel_terminating(kernel)
                         ? DirectCspSupportLiveStatus::Interrupted
                         : DirectCspSupportLiveStatus::Inapplicable;

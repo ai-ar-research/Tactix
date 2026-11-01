@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 
 #include "rules/semantic_extension/direct_csp_guarded_cover_work.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <sstream>
@@ -78,34 +79,6 @@ namespace tactix {
       return true;
     }
 
-    // Clause identities may advance for a freshly proved replacement large
-    // premise. Literal image, occurrence ordering and binary archive/sentinel
-    // identities must remain exact; this never residualizes or remaps sources.
-    bool refresh_compatible(const DirectCspGuardedCoverOwnerSnapshot &old,
-                            const DirectCspGuardedCoverOwnerSnapshot &fresh,
-                            const direct_csp_guarded_cover::Charge &charge) {
-      namespace detail = direct_csp_guarded_cover::detail;
-      uint64_t shape_work = detail::add(1, detail::add(
-          old.selection.cover.size(), detail::multiply(4, old.selection.blockers.size())));
-      for (const auto &domain : old.selection.domains)
-        shape_work = detail::add(shape_work, detail::add(1, domain.size()));
-      for (const auto &definition : old.selection.exact_or)
-        shape_work = detail::add(shape_work, detail::add(1, definition.inputs.size()));
-      if (!charge(shape_work) ||
-          !direct_csp_guarded_cover_owner_shape_equal(old.selection,
-                                                    fresh.selection) ||
-          old.source_literals != fresh.source_literals ||
-          old.source.size() != fresh.source.size()) return false;
-      for (size_t index = 0; index < old.source.size(); ++index) {
-        const auto &a = old.source[index], &b = fresh.source[index];
-        if (!charge(1 + a.literals.size()) ||
-            a.occurrence != b.occurrence || a.literals != b.literals ||
-            (a.literals.size() < 3 && a.native_proof_id != b.native_proof_id))
-          return false;
-      }
-      return true;
-    }
-
   }
 
   DirectCspGuardedCoverKeyLookup
@@ -144,28 +117,17 @@ namespace tactix {
     DirectCspGuardedCoverActionResult out;
     if(!l.valid())return out;
 
-    uint64_t work=0;
-    bool interrupted=false;
+    InterruptibleWork meter{k,l.maximum_session_work};
 
     auto charge=[&](uint64_t n){
-      if(kernel_terminating(k)){
-        interrupted=true;
-        return false;
-      }
-
-      if(n>l.maximum_session_work-work){
-        return false;
-      }
-
-      work+=n;
-      return true;
+      return meter.charge(n);
     };
 
     auto exhausted=[&](){
-      out.status=interrupted?DirectCspSupportActionStatus::Interrupted:DirectCspSupportActionStatus::ResourceExhausted;
+      out.status=meter.interrupted?DirectCspSupportActionStatus::Interrupted:DirectCspSupportActionStatus::ResourceExhausted;
 
-      out.live.status=interrupted?DirectCspSupportLiveStatus::Interrupted:DirectCspSupportLiveStatus::ResourceExhausted;
-      out.effort.session_work=work;
+      out.live.status=meter.interrupted?DirectCspSupportLiveStatus::Interrupted:DirectCspSupportLiveStatus::ResourceExhausted;
+      out.effort.session_work=meter.used;
       return out;
     };
 
@@ -207,7 +169,7 @@ namespace tactix {
         out.committed_keys=session.committed_keys();
         out.retained_owners=session.retained_owners();
         out.owner_retained=true;
-        out.effort.session_work=work;
+        out.effort.session_work=meter.used;
         return out;
       }
     }
@@ -249,13 +211,7 @@ namespace tactix {
 
     for (const auto &owner : DirectCspGuardedCoverSessionAccess::owners(session)) {
 
-      uint64_t shape_work = direct_csp_guarded_cover::detail::add(1, direct_csp_guarded_cover::detail::add(owner.selection.cover.size(), direct_csp_guarded_cover::detail::multiply(owner.selection.blockers.size(), 4)));
-
-      for (const auto &domain : owner.selection.domains) shape_work = direct_csp_guarded_cover::detail::add(shape_work, direct_csp_guarded_cover::detail::add(1, domain.size()));
-
-      for (const auto &definition : owner.selection.exact_or) shape_work = direct_csp_guarded_cover::detail::add(shape_work, direct_csp_guarded_cover::detail::add(1, definition.inputs.size()));
-
-      if (!charge(shape_work)) return exhausted();
+      if (!charge(direct_csp_guarded_cover_shape_work(owner.selection))) return exhausted();
 
       if (direct_csp_guarded_cover_owner_shape_equal(owner.selection, s)) {
 
@@ -288,7 +244,7 @@ namespace tactix {
       out.status=DirectCspSupportActionStatus::ResourceExhausted;
       out.live.status=DirectCspSupportLiveStatus::ResourceExhausted;
       out.live.recognition_limit_exhausted=true;
-      out.effort.session_work=work;
+      out.effort.session_work=meter.used;
       return out;
     }
     r.maximum_recognition_work-=capture.recognition_work;
@@ -300,11 +256,11 @@ namespace tactix {
         if(charge(amount))return true;
         comparison_stopped=true;return false;
       };
-      if(!refresh_compatible(*retained,captured,compare_charge)){
+      if(!direct_csp_guarded_cover_same_source(*retained,captured,compare_charge,true)){
         if(comparison_stopped)return exhausted();
         out.status=DirectCspSupportActionStatus::Stale;
         out.live.status=DirectCspSupportLiveStatus::Stale;
-        out.effort.session_work=work;
+        out.effort.session_work=meter.used;
         return out;
       }
       const size_t index=static_cast<size_t>(retained-
@@ -329,7 +285,7 @@ namespace tactix {
 
     }
 
-    out.effort.session_work=work;
+    out.effort.session_work=meter.used;
     out.live=direct_csp_guarded_cover_live_apply(k,r);
     direct_csp_support_action_absorb_live_effort(out,out.live);
     out.status=direct_csp_support_action_status(out.live.status);

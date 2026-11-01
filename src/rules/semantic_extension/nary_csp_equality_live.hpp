@@ -18,15 +18,7 @@ struct NaryCspEqualityKey {
   uint32_t second_equal_domain = 0;
   uint32_t residual_domain = 0;
 
-  bool operator==(const NaryCspEqualityKey &) const = default;
-  bool operator<(const NaryCspEqualityKey &other) const {
-    if (domains != other.domains) return domains < other.domains;
-    if (first_equal_domain != other.first_equal_domain)
-      return first_equal_domain < other.first_equal_domain;
-    if (second_equal_domain != other.second_equal_domain)
-      return second_equal_domain < other.second_equal_domain;
-    return residual_domain < other.residual_domain;
-  }
+  auto operator<=>(const NaryCspEqualityKey &) const = default;
 };
 
 struct NaryCspEqualityRecord {

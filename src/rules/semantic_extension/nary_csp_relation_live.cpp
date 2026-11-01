@@ -47,9 +47,7 @@ enum class CaptureStatus : uint8_t {
 };
 
 CaptureStatus stopped_capture(const Meter &meter) {
-  if (meter.interrupted) return CaptureStatus::Interrupted;
-  if (meter.exhausted) return CaptureStatus::ResourceExhausted;
-  return CaptureStatus::Invalid;
+  return stopped_status(meter, CaptureStatus::Invalid);
 }
 
 NaryCspRelationCaptureStatus public_status(CaptureStatus status) {

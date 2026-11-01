@@ -4,6 +4,7 @@
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
@@ -29,15 +30,6 @@ struct Snapshot {
 };
 
 using WorkMeter = InterruptibleWork;
-
-IndependentSetLiveStatus meter_status(const WorkMeter &meter,
-                                      IndependentSetLiveStatus otherwise) {
-  if (meter.interrupted)
-    return IndependentSetLiveStatus::Interrupted;
-  if (meter.exhausted)
-    return IndependentSetLiveStatus::ResourceExhausted;
-  return otherwise;
-}
 
 bool take_clause(const Kernel &kernel,
                  const IndependentSetLiveRequest &request, WorkMeter &meter,
@@ -110,13 +102,7 @@ std::vector<independent::Premise> premises(const Snapshot &snapshot) {
 }
 
 bool root_snapshot_guard(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && !kernel.dense && !kernel.probing.recording &&
-         kernel.large_watches_connected &&
-         kernel_propagation_fixpoint(kernel) && kernel.trail.empty() &&
-         !kernel.external_to_internal.empty() &&
-         kernel.external_to_internal.size() <= INT32_MAX &&
-         !kernel_terminating(kernel);
+  return csp_physical_scan::root_ready(kernel) && !kernel_terminating(kernel);
 }
 
 bool owner_request_valid(const IndependentSetLiveRequest &request) {
@@ -457,8 +443,8 @@ independent_set_live_capture_owner_detailed(
   if (!snapshot_live(kernel, request, recognition, snapshot)) {
     result.source_scan_work = recognition.used - scan_before;
     result.recognition_work = recognition.used;
-    result.status = meter_status(recognition,
-                                 IndependentSetLiveStatus::NoStructure);
+    result.status = stopped_status(recognition,
+                                   IndependentSetLiveStatus::NoStructure);
     return result;
   }
   result.source_scan_work = recognition.used - scan_before;
@@ -473,8 +459,8 @@ independent_set_live_capture_owner_detailed(
           WorkMeter::callback, &recognition, image)) {
     result.theory_recognition_work = recognition.used - recognition_before;
     result.recognition_work = recognition.used;
-    result.status = meter_status(recognition,
-                                 IndependentSetLiveStatus::NoStructure);
+    result.status = stopped_status(recognition,
+                                   IndependentSetLiveStatus::NoStructure);
     return result;
   }
   result.theory_recognition_work = recognition.used - recognition_before;
@@ -577,7 +563,7 @@ IndependentSetLiveResult independent_set_live_apply(
     return outcome;
   };
   const auto recognition_decline = [&](IndependentSetLiveStatus fallback) {
-    result.status = meter_status(recognition, fallback);
+    result.status = stopped_status(recognition, fallback);
     update_recognition();
     return result;
   };
@@ -646,8 +632,8 @@ IndependentSetLiveResult independent_set_live_apply(
           image, selected, certificate_limits, WorkMeter::callback,
           &proof_work, certificate)) {
     result.proof_work = proof_work.used;
-    result.status = meter_status(proof_work,
-                                 IndependentSetLiveStatus::ResourceExhausted);
+    result.status = stopped_status(proof_work,
+                                   IndependentSetLiveStatus::ResourceExhausted);
     return result;
   }
   result.proof_work = proof_work.used;

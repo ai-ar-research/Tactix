@@ -30,16 +30,7 @@ struct DirectCspSupportActionKey {
   uint32_t selected_left_value = 0;
   int32_t selected_left_literal = 0;
 
-  bool operator==(const DirectCspSupportActionKey &) const = default;
-  bool operator<(const DirectCspSupportActionKey &other) const {
-    if (left_values != other.left_values)
-      return left_values < other.left_values;
-    if (right_values != other.right_values)
-      return right_values < other.right_values;
-    if (selected_left_value != other.selected_left_value)
-      return selected_left_value < other.selected_left_value;
-    return selected_left_literal < other.selected_left_literal;
-  }
+  auto operator<=>(const DirectCspSupportActionKey &) const = default;
 };
 
 // The controller owns one session for one Kernel lifetime.  Its first
@@ -182,12 +173,5 @@ DirectCspSupportActionResult direct_csp_support_action_apply(
     Kernel &, DirectCspSupportActionSession &,
     const DirectCspSupportActionLimits &,
     const DirectCspSupportActionSelection &);
-
-// Discover exact, productive support-row payloads without modifying the
-// kernel, proof stream, provenance stream, or retained session.  Candidate
-// domains come from live ALO clauses, while the existing complete owner census
-// certifies both AMO domains and every directed cross entry.  Retained owners
-// are recaptured and compared before any offer is returned.  Durable committed
-// keys are never re-offered.
 
 } // namespace tactix

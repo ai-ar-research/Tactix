@@ -23,6 +23,17 @@ inline FormulaMark formula_mark(const Kernel &kernel) {
           kernel.external_to_internal.size()};
 }
 
+// An assignment-free, propagated, sparse root with a nonempty external extent
+// that fits signed external literals. Pure: it polls no termination.
+inline bool root_ready(const Kernel &kernel) {
+  return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
+         !kernel.pending.valid && kernel.trail.empty() && !kernel.dense &&
+         !kernel.probing.recording && kernel.large_watches_connected &&
+         kernel_propagation_fixpoint(kernel) &&
+         !kernel.external_to_internal.empty() &&
+         kernel.external_to_internal.size() <= INT32_MAX;
+}
+
 // Exact physical premises in stable arena-then-binary order.
 template <class Meter, class Observe>
 Status run(const Kernel &kernel, Meter &meter, Observe &observe) {
