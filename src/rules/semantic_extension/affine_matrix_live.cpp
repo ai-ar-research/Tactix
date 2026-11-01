@@ -776,6 +776,11 @@ MatrixLiveResult publish_affine_matrix_live(
                         : MatrixLiveStatus::Inapplicable;
     return result;
   }
+  // Only the clausal bridge plans against the matrix proof cache, recording
+  // its generation and the proof's persistent-support epoch. A compact PBP
+  // plan never reads that cache (prepare passes it none); the parity cache
+  // it does read is bound by the PbpPlan audit below. Its unrecorded
+  // defaults must not mark it stale after an unrelated cache commit.
   if (kernel.next_clause_id != prepared.starting_clause_id_ ||
       kernel.arena_generation != prepared.arena_generation_ ||
       kernel.nvars != prepared.starting_nvars_ ||
@@ -784,7 +789,7 @@ MatrixLiveResult publish_affine_matrix_live(
        kernel.level != prepared.starting_level_) ||
       !proof_unchanged(kernel, prepared.had_proof_, prepared.proof_,
                        prepared.proof_format_) ||
-      (request.proof_cache &&
+      (request.proof_cache && !prepared.transaction_.compact_pbp() &&
        (request.proof_cache->generation() !=
             prepared.transaction_.proof_cache_generation() ||
         (kernel.proof &&

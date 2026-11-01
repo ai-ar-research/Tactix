@@ -876,6 +876,112 @@ static int removed_source_proof_fixture(const char *cnf_path,
   return 0;
 }
 
+// Advance the matrix proof cache as an unrelated owner's commit would.
+static void commit_unrelated_entry(AffineMatrixProofCache &cache) {
+  const uint64_t before = cache.generation();
+  MatrixProofCacheEntry entry;
+  entry.entry_id = before + 1;
+  entry.owner_identity = 7; // never the requests' owner 991
+  entry.support_ids = {1};
+  assert(cache.commit(std::move(entry), before) &&
+         cache.generation() == before + 1);
+}
+
+// A clausal plan reads the matrix proof cache and stays bound to it. A
+// compact streaming-PBP plan never reads it, so a later commit there must
+// not make the compact publication stale (it made Analyze abort on a lazy
+// affine reason, Tier D linvrinv5).
+static void compact_pbp_publication_ignores_unconsulted_matrix_cache() {
+  {
+    Kernel kernel;
+    install_implication_formula(kernel);
+    decide(kernel, -1);
+    decide(kernel, -2);
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    Fixture fixture;
+    recognize_and_synchronize(kernel, journal, fixture);
+    AffineMatrixProofCache cache;
+    auto request = live_request(journal, fixture.owner, fixture.matrix,
+                                fixture.image.equations, fixture.event);
+    request.proof_cache = &cache;
+    AffineMatrixLivePrepared prepared;
+    assert(prepare_affine_matrix_live(kernel, request, prepared).status ==
+           MatrixLiveStatus::Prepared);
+    commit_unrelated_entry(cache);
+    const auto stale = publish_affine_matrix_live(kernel, request, prepared);
+    assert(stale.status == MatrixLiveStatus::Stale && !stale.compact_pbp &&
+           stale.audit_stage == MatrixLiveResult::AuditStage::KernelSnapshot);
+    std::fclose(journal);
+  }
+
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 10);
+  const std::vector<int32_t> first{1, 2, 3, 4, 9, 10};
+  const std::vector<int32_t> second{5, 6, 7, 8, 9, 10};
+  add_equation(kernel, first, false);
+  add_equation(kernel, second, true);
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  AffineLiveSnapshot owner;
+  const auto capture = capture_request(journal);
+  assert(capture_affine_live_snapshot(kernel, capture, owner));
+  Image image;
+  assert(recognize(owner.premises, capture.image,
+                   [](uint64_t) { return true; }, image) == Status::Complete);
+  for (int32_t variable = 1; variable <= 8; ++variable)
+    add_clause(kernel, {-variable});
+  assert(!kernel_propagate(kernel));
+  AffineMatrix matrix;
+  assert(build_affine_matrix(image.equations, 991, matrix_limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  MatrixEvent event;
+  assert(matrix.synchronize(trail(kernel), [](uint64_t) { return true; },
+                            event) == MatrixStatus::Complete);
+
+  char proof_path[] = "/tmp/tactix-affine-live-compact-cache-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::PbpStreaming));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  uint64_t id = 0;
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{{first, false},
+                                                          {second, true}})
+    for (const auto &external : clausal_form(variables, rhs)) {
+      std::vector<Lit> clause;
+      for (const int32_t literal : external)
+        clause.push_back(kernel_internalize(kernel, literal));
+      proof.seed_population(++id, clause.data(), clause.size());
+    }
+  for (int32_t variable = 1; variable <= 8; ++variable) {
+    const Lit unit = kernel_internalize(kernel, -variable);
+    proof.seed_population(++id, &unit, 1);
+  }
+  assert(id == kernel.next_clause_id);
+  proof.finish_input_transaction();
+  assert(proof.commit_clause_stream());
+  kernel.proof = &proof;
+
+  AffineMatrixProofCache cache;
+  commit_unrelated_entry(cache);
+  PbpParityBoundsCache pbp_cache;
+  auto request = live_request(journal, owner, matrix, image.equations, event);
+  request.proof_cache = &cache;
+  request.pbp_parity_cache = &pbp_cache;
+  request.retained_source_provenance = true;
+  const auto result = apply_affine_matrix_live(kernel, request);
+  assert(result.status == MatrixLiveStatus::Applied && result.compact_pbp &&
+         result.conflict && cache.generation() == 1 && pbp_cache.size() > 0);
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
 int main(int argc, char **argv) {
   if (argc == 4 && std::strcmp(argv[1], "--proof") == 0)
     return proof_fixture(argv[2], argv[3]);
@@ -894,6 +1000,7 @@ int main(int argc, char **argv) {
   conflict_is_consumed_by_ordinary_bcp();
   unit_above_root_declines();
   stale_publication_boundaries();
+  compact_pbp_publication_ignores_unconsulted_matrix_cache();
   resource_and_interruption_are_atomic();
   helper_namespace_is_monotone();
   std::puts("test_affine_matrix_live: passed");
