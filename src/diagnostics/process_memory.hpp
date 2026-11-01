@@ -13,14 +13,18 @@ class EnvironmentLineFile {
   FILE *out_ = nullptr;
 
 public:
-  FILE *stream(const char *environment) {
+  // A stream that opens successfully starts with `header`, if one is given.
+  FILE *stream(const char *environment, const char *header = nullptr) {
     if (!initialized_) {
       initialized_ = true;
       const char *path = std::getenv(environment);
       if (path && *path) {
         out_ = std::fopen(path, "w");
-        if (out_)
+        if (out_) {
           std::setvbuf(out_, nullptr, _IOLBF, 0);
+          if (header)
+            std::fputs(header, out_);
+        }
       }
     }
     return out_;

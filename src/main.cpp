@@ -22,6 +22,8 @@
 #include <vector>
 
 #include <csignal>
+#include <cstdarg>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -138,6 +140,34 @@ static bool feedback_metadata(const char *input, uint32_t bve_gates,
   return true;
 }
 
+// Reports a frontend failure on stderr, then the `s UNKNOWN` verdict.
+[[gnu::format(printf, 1, 2)]] static int fail_unknown(const char *format,
+                                                      ...) {
+  va_list arguments;
+  va_start(arguments, format);
+  vfprintf(stderr, format, arguments);
+  va_end(arguments);
+  printf("s UNKNOWN\n");
+  return 1;
+}
+
+// Poses a `uint32_t` kernel knob from a decimal environment value.
+static void env_u32(const char *name, uint32_t &knob) {
+  if (const char *value = getenv(name))
+    knob = (uint32_t)strtoul(value, nullptr, 10);
+}
+
+// Poses a boolean kernel knob: any value but a leading '0' enables it.
+static void env_flag(const char *name, bool &knob) {
+  if (const char *value = getenv(name))
+    knob = *value != '0';
+}
+
+// `part` as a percentage of `whole`, or 0 when `whole` is 0.
+static double percent_of(uint64_t part, uint64_t whole) {
+  return whole ? 100.0 * (double)part / (double)whole : 0.0;
+}
+
 int main(int argc, char **argv) {
   setvbuf(stdout, nullptr, _IOFBF, 1 << 20);
   const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
@@ -182,11 +212,9 @@ int main(int argc, char **argv) {
     } else if (!strncmp(a, "--default-affine-search=", 24)) {
       if (!strcmp(a + 24, "on")) default_affine_search = true;
       else if (!strcmp(a + 24, "off")) default_affine_search = false;
-      else {
-        fprintf(stderr, "tactix: --default-affine-search requires on or off\n");
-        printf("s UNKNOWN\n");
-        return 1;
-      }
+      else
+        return fail_unknown(
+            "tactix: --default-affine-search requires on or off\n");
     } else if (!strncmp(a, "--default-affine-reasons=", 25)) {
       using ReasonMode = DefaultStrategyConfig::AffineSearch::ReasonMode;
       if (!strcmp(a + 25, "eager"))
@@ -201,30 +229,23 @@ int main(int argc, char **argv) {
         default_affine_reason_mode = ReasonMode::LazySource;
       else if (!strcmp(a + 25, "lazy-minimal"))
         default_affine_reason_mode = ReasonMode::LazyMinimal;
-      else {
-        fprintf(stderr,
-                "tactix: --default-affine-reasons requires eager, deferred, "
-                "detached-minimal, detached-source, lazy-source, or "
-                "lazy-minimal\n");
-        printf("s UNKNOWN\n");
-        return 1;
-      }
+      else
+        return fail_unknown(
+            "tactix: --default-affine-reasons requires eager, deferred, "
+            "detached-minimal, detached-source, lazy-source, or "
+            "lazy-minimal\n");
     } else if (!strncmp(a, "--default-graph-labeling=", 25)) {
       if (!strcmp(a + 25, "on")) default_graph_labeling = true;
       else if (!strcmp(a + 25, "off")) default_graph_labeling = false;
-      else {
-        fprintf(stderr, "tactix: --default-graph-labeling requires on or off\n");
-        printf("s UNKNOWN\n");
-        return 1;
-      }
+      else
+        return fail_unknown(
+            "tactix: --default-graph-labeling requires on or off\n");
     } else if (!strncmp(a, "--default-structured-symmetry=", 30)) {
       if (!strcmp(a + 30, "on")) default_structured_symmetry = true;
       else if (!strcmp(a + 30, "off")) default_structured_symmetry = false;
-      else {
-        fprintf(stderr, "tactix: --default-structured-symmetry requires on or off\n");
-        printf("s UNKNOWN\n");
-        return 1;
-      }
+      else
+        return fail_unknown(
+            "tactix: --default-structured-symmetry requires on or off\n");
     } else if (!strncmp(a, "--structural-provenance=", 24)) {
       structural_provenance_path = a + 24;
     } else if (!strcmp(a, "--compact-affine-provenance")) {
@@ -262,9 +283,7 @@ int main(int argc, char **argv) {
           } else if (*p == ',') {
             p++;
           } else {
-            fprintf(stderr, "tactix: bad --bve-gates spec '%s'\n", spec);
-            printf("s UNKNOWN\n");
-            return 1;
+            return fail_unknown("tactix: bad --bve-gates spec '%s'\n", spec);
           }
         }
       }
@@ -280,17 +299,13 @@ int main(int argc, char **argv) {
              "<cnf[.xz|.gz]> [proof]\n");
       return 0;
     } else if (a[0] == '-' && a[1]) {
-      fprintf(stderr, "tactix: unknown option '%s'\n", a);
-      printf("s UNKNOWN\n");
-      return 1;
+      return fail_unknown("tactix: unknown option '%s'\n", a);
     } else if (!cnf_path) {
       cnf_path = a;
     } else if (!proof_path) {
       proof_path = a;
     } else {
-      fprintf(stderr, "tactix: too many arguments\n");
-      printf("s UNKNOWN\n");
-      return 1;
+      return fail_unknown("tactix: too many arguments\n");
     }
   }
 
@@ -304,11 +319,8 @@ int main(int argc, char **argv) {
                                 : ProofFormat::DratAscii)
                 : (binary_proof ? ProofFormat::DsrBinary
                                 : ProofFormat::DsrAscii);
-  if (!cnf_path) {
-    fprintf(stderr, "tactix: no input file\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
+  if (!cnf_path)
+    return fail_unknown("tactix: no input file\n");
 
   signal(SIGTERM, handle_signal);
   signal(SIGINT, handle_signal);
@@ -318,11 +330,9 @@ int main(int argc, char **argv) {
 
   if ((feedback_path && feedback_replay_path) ||
       (feedback_path && !*feedback_path) ||
-      (feedback_replay_path && !*feedback_replay_path)) {
-    fprintf(stderr, "tactix: choose one nonempty feedback recording or replay path\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
+      (feedback_replay_path && !*feedback_replay_path))
+    return fail_unknown(
+        "tactix: choose one nonempty feedback recording or replay path\n");
   if (structural_provenance_path) {
     for (const char *other : {cnf_path, proof_path, feedback_path,
                               feedback_replay_path}) {
@@ -346,11 +356,8 @@ int main(int argc, char **argv) {
       const auto first = std::filesystem::weakly_canonical(record, first_error);
       const auto second = std::filesystem::weakly_canonical(other, second_error);
       if ((!first_error && !second_error && first == second) ||
-          std::filesystem::equivalent(record, other, equivalent_error)) {
-        fprintf(stderr, "tactix: feedback path aliases input or proof\n");
-        printf("s UNKNOWN\n");
-        return 1;
-      }
+          std::filesystem::equivalent(record, other, equivalent_error))
+        return fail_unknown("tactix: feedback path aliases input or proof\n");
     }
   }
   Kernel kernel;
@@ -361,51 +368,36 @@ int main(int argc, char **argv) {
   // Each env knob below poses one `Kernel` config field; that field documents
   // its default and soundness class. They are read here rather than in
   // DefaultPolicy so configuration is posed before it owns the session.
-  if (const char *ol = getenv("TACTIX_BCE_OCC_LIMIT"))
-    kernel.bce_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
-  if (const char *ol = getenv("TACTIX_TERNARY_OCC_LIMIT"))
-    kernel.ternary_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
-  if (const char *ma = getenv("TACTIX_TERNARY_MAXADD"))
-    kernel.ternary_max_add_percent = (uint32_t)strtoul(ma, nullptr, 10);
-  if (const char *bw = getenv("TACTIX_BVE_BACKWARD"))
-    kernel.bve_backward = (*bw != '0');
-  if (const char *otf = getenv("TACTIX_BVE_ON_THE_FLY"))
-    kernel.bve_on_the_fly_strengthening = (*otf != '0');
+  env_u32("TACTIX_BCE_OCC_LIMIT", kernel.bce_occ_limit);
+  env_u32("TACTIX_TERNARY_OCC_LIMIT", kernel.ternary_occ_limit);
+  env_u32("TACTIX_TERNARY_MAXADD", kernel.ternary_max_add_percent);
+  env_flag("TACTIX_BVE_BACKWARD", kernel.bve_backward);
+  env_flag("TACTIX_BVE_ON_THE_FLY", kernel.bve_on_the_fly_strengthening);
   if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
     kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
   if (const char *dc = getenv("TACTIX_BVE_DEF_CORES"))
     kernel.bve_definition_cores = std::clamp<uint32_t>(
         static_cast<uint32_t>(strtoul(dc, nullptr, 10)), 1, 100);
-  if (const char *dm = getenv("TACTIX_BVE_DEF_CORE_MULTIPLIER"))
-    kernel.bve_definition_core_budget_multiplier =
-        static_cast<uint32_t>(strtoul(dm, nullptr, 10));
-  if (const char *ee = getenv("TACTIX_V4_EARLY_EXIT"))
-    kernel.transitive_early_exit = (*ee != '0');
-  if (const char *lm = getenv("TACTIX_TRANSITIVE_LIVE_METER"))
-    kernel.transitive_live_meter = (*lm != '0');
+  env_u32("TACTIX_BVE_DEF_CORE_MULTIPLIER",
+          kernel.bve_definition_core_budget_multiplier);
+  env_flag("TACTIX_V4_EARLY_EXIT", kernel.transitive_early_exit);
+  env_flag("TACTIX_TRANSITIVE_LIVE_METER", kernel.transitive_live_meter);
   if (const char *meter = getenv("TACTIX_V4_METER"))
     kernel.transitive_budget_checked = !std::strcmp(meter, "checked");
   // Vivify's cross-candidate trail reuse ships ON; =0 also restores the older
   // probe/candidate order, which cannot be separated (Kernel::vivify_reuse).
-  if (const char *vr = getenv("TACTIX_VIVIFY_REUSE"))
-    kernel.vivify_reuse = (*vr != '0');
-  if (const char *vf = getenv("TACTIX_VIVIFY_FLUSH"))
-    kernel.vivify_flush = (*vf != '0');
-  if (const char *fs = getenv("TACTIX_FACTOR_SIZE"))
-    kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
+  env_flag("TACTIX_VIVIFY_REUSE", kernel.vivify_reuse);
+  env_flag("TACTIX_VIVIFY_FLUSH", kernel.vivify_flush);
+  env_u32("TACTIX_FACTOR_SIZE", kernel.factor_size);
   // Kissat's `reduction > bound` acceptance threshold (factor.c:939), default 0
   // accepting any positive gain. Formula-shape-blind, which is why it and not a
   // scope gate is the candidate for making broad admission safe: Factor's
   // winners and losers sit at the same scope fraction.
-  if (const char *fb = getenv("TACTIX_FACTOR_BOUND"))
-    kernel.factor_bound = (uint32_t)strtoul(fb, nullptr, 10);
+  env_u32("TACTIX_FACTOR_BOUND", kernel.factor_bound);
   // Fresh-variable demotion ships ON (reference parity); `=0` is the off arm.
-  if (const char *fd = getenv("TACTIX_FACTOR_DEMOTE"))
-    kernel.factor_demote_fresh = (*fd != '0');
-  if (const char *cr = getenv("TACTIX_FACTOR_CAND_ROUNDS"))
-    kernel.factor_cand_rounds = (uint32_t)strtoul(cr, nullptr, 10);
-  if (const char *sf = getenv("TACTIX_STOP_FUZZ"))
-    kernel.stop_fuzz = (uint32_t)strtoul(sf, nullptr, 10); // see kernel_terminating
+  env_flag("TACTIX_FACTOR_DEMOTE", kernel.factor_demote_fresh);
+  env_u32("TACTIX_FACTOR_CAND_ROUNDS", kernel.factor_cand_rounds);
+  env_u32("TACTIX_STOP_FUZZ", kernel.stop_fuzz); // see kernel_terminating
   if (getenv("TACTIX_SUBST_DEMOTE"))
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
   // Eager subsumption of recent learned clauses ships ON at kissat's default
@@ -421,17 +413,13 @@ int main(int argc, char **argv) {
   // Conflict-clause reuse ships ON, matching Kissat's
   // one_literal_on_conflict_level shortcut; `=0` is the diagnostic revert.
   kernel.conflict_reuse = true;
-  if (const char *cr = getenv("TACTIX_CONFLICT_REUSE"))
-    kernel.conflict_reuse = (*cr != '0');
+  env_flag("TACTIX_CONFLICT_REUSE", kernel.conflict_reuse);
   // Kissat's `jumpreasons` ships ON; =0 restores direct antecedent reasons.
-  if (const char *jr = getenv("TACTIX_JUMP_REASONS"))
-    kernel.jump_reasons = (*jr != '0');
+  env_flag("TACTIX_JUMP_REASONS", kernel.jump_reasons);
   // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
   // `=0` reverts to the pre-parity behaviour and is the priced arm.
-  if (const char *sg = getenv("TACTIX_SHRINK_GLUE"))
-    kernel.shrink_glue_promote = sg[0] != '0';
-  if (const char *tb = getenv("TACTIX_TUMBLE"))
-    kernel.tumble = tb[0] != '0';
+  env_flag("TACTIX_SHRINK_GLUE", kernel.shrink_glue_promote);
+  env_flag("TACTIX_TUMBLE", kernel.tumble);
   // The stream is session-owned and outlives policy execution. Structural
   // actions require a complete provenance sink even when the caller does not
   // retain it; tmpfile keeps the normal CLI capable without creating a named
@@ -468,11 +456,8 @@ int main(int argc, char **argv) {
       proof_format == ProofFormat::DsrBinary ||
       proof_format == ProofFormat::DsrAscii;
   if (proof_path) {
-    if (!proof.open(proof_path, proof_format)) {
-      fprintf(stderr, "tactix: cannot write proof to '%s'\n", proof_path);
-      printf("s UNKNOWN\n");
-      return 1;
-    }
+    if (!proof.open(proof_path, proof_format))
+      return fail_unknown("tactix: cannot write proof to '%s'\n", proof_path);
     kernel.proof = &proof;
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
@@ -480,11 +465,8 @@ int main(int argc, char **argv) {
 
   bool piped = false;
   FILE *in = open_input(cnf_path, &piped);
-  if (!in) {
-    fprintf(stderr, "tactix: cannot read '%s'\n", cnf_path);
-    printf("s UNKNOWN\n");
-    return 1;
-  }
+  if (!in)
+    return fail_unknown("tactix: cannot read '%s'\n", cnf_path);
   const uint64_t parse_t0 = frontend_time ? tactix::now_nanos() : 0;
   const char *err = parse_dimacs(in, kernel);
   const uint64_t parse_nanos =
@@ -493,14 +475,12 @@ int main(int argc, char **argv) {
   // must not be solved as if it were the input.
   const int close_status = piped ? pclose(in) : fclose(in);
   if (!err && piped && close_status != 0) {
-    fprintf(stderr, "tactix: decompressing '%s' failed\n", cnf_path);
-    printf("s UNKNOWN\n");
+    fail_unknown("tactix: decompressing '%s' failed\n", cnf_path);
     fflush(stdout);
     return 1;
   }
   if (err) {
-    fprintf(stderr, "tactix: parse error: %s\n", err);
-    printf("s UNKNOWN\n");
+    fail_unknown("tactix: parse error: %s\n", err);
     fflush(stdout);
     return 1;
   }
@@ -1037,10 +1017,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.reactivations);
     printf("c substdec    %llu decisions on substituted vars (%.2f%% of %llu)\n",
            (unsigned long long)kernel.stats.decisions_substituted,
-           kernel.stats.decisions
-               ? 100.0 * (double)kernel.stats.decisions_substituted /
-                     (double)kernel.stats.decisions
-               : 0.0,
+           percent_of(kernel.stats.decisions_substituted, kernel.stats.decisions),
            (unsigned long long)kernel.stats.decisions);
     printf("c extension   %u vars added, %llu decisions on them (%.2f%% of "
            "%llu)\n",
@@ -1048,10 +1025,7 @@ int main(int argc, char **argv) {
                ? 0u
                : kernel.nvars - kernel.first_extension_var,
            (unsigned long long)kernel.stats.decisions_extension,
-           kernel.stats.decisions
-               ? 100.0 * (double)kernel.stats.decisions_extension /
-                     (double)kernel.stats.decisions
-               : 0.0,
+           percent_of(kernel.stats.decisions_extension, kernel.stats.decisions),
            (unsigned long long)kernel.stats.decisions);
     printf("c interrupt   %llu rule applications aborted on the stop flag "
            "(%llu stress fires)\n",
@@ -1061,14 +1035,10 @@ int main(int argc, char **argv) {
            "%llu reason-side only (%.2f%% of those)\n",
            (unsigned long long)kernel.stats.bumps_extension,
            (unsigned long long)kernel.stats.bumps,
-           kernel.stats.bumps ? 100.0 * (double)kernel.stats.bumps_extension /
-                                    (double)kernel.stats.bumps
-                              : 0.0,
+           percent_of(kernel.stats.bumps_extension, kernel.stats.bumps),
            (unsigned long long)kernel.stats.bumps_ext_reason_only,
-           kernel.stats.bumps_extension
-               ? 100.0 * (double)kernel.stats.bumps_ext_reason_only /
-                     (double)kernel.stats.bumps_extension
-               : 0.0);
+           percent_of(kernel.stats.bumps_ext_reason_only,
+                      kernel.stats.bumps_extension));
     // factor_ticks is Factor's dosing currency and what FACTOR_INIT_TICKS caps,
     // so it separates a bound opening burst from an inert arm.
     printf("c factor      %llu factorings, %llu large remainders offered, "
@@ -1173,10 +1143,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.reduce_scans,
            (unsigned long long)kernel.stats.reduce_scan_words,
            (unsigned long long)kernel.stats.reduce_skippable_words,
-           kernel.stats.reduce_scan_words
-               ? 100.0 * (double)kernel.stats.reduce_skippable_words /
-                     (double)kernel.stats.reduce_scan_words
-               : 0.0);
+           percent_of(kernel.stats.reduce_skippable_words,
+                      kernel.stats.reduce_scan_words));
     printf("c mode        %s after %llu switches (%llu ticks, "
            "%llu target phases saved)\n",
            !kernel.h ? "unguided" : kernel.h->stable ? "stable" : "focused",

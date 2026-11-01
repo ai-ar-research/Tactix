@@ -180,6 +180,11 @@ private:
   void watch_state(const Kernel &, Lit propagated, const char *event,
                    bool emit_summary);
   bool want_detail(const Kernel &);
+  // Whether the explicit conflict window, if any, holds the current conflict.
+  bool in_detail_window(const Kernel &k) const {
+    return !detail_window_ || (k.stats.conflicts >= detail_conflict_from_ &&
+                               k.stats.conflicts <= detail_conflict_to_);
+  }
 
   std::FILE *out_ = nullptr;
   uint64_t sequence_ = 0;
