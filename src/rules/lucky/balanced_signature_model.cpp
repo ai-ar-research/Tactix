@@ -31,20 +31,10 @@ int external_value(const Kernel &k, uint64_t dimacs) {
       k, make_lit(static_cast<Var>(dimacs - 1), false));
 }
 
-bool power_of_three(uint32_t exponent, uint64_t &result) {
-  result = 1;
-  for (uint32_t i = 0; i < exponent; ++i) {
-    if (result > UINT64_MAX / 3)
-      return false;
-    result *= 3;
-  }
-  return true;
-}
-
 bool validate_shape(const Kernel &k, uint32_t balls, uint32_t width,
                     Shape &out) {
   uint64_t cube = 0;
-  if (balls < 3 || !power_of_three(width, cube))
+  if (balls < 3 || !lucky_power_of_three(width, cube))
     return false;
   const uint64_t signatures = (cube - 1) / 2;
   if (balls > UINT64_MAX / balls / width)
@@ -440,12 +430,11 @@ bool search_balanced_signatures(
   return false;
 }
 
+// `assignment` is sized k.nvars before the first call.
 bool set_external(const Kernel &k, std::vector<int8_t> &assignment,
                   uint64_t dimacs, int8_t value) {
-  if (!dimacs || dimacs > k.external_to_internal.size())
-    return false;
-  const Var internal = k.external_to_internal[dimacs - 1];
-  if (internal == INVALID_VAR || internal >= assignment.size())
+  Var internal = INVALID_VAR;
+  if (!lucky_internal_variable(k, dimacs, internal))
     return false;
   assignment[internal] = value;
   return true;
@@ -547,13 +536,10 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
           k.stats.balanced_signature_interrupted,
           k.stats.balanced_signature_completion_rounds, signed_assignment))
     return ApplyResult::NoOp;
-  std::vector<uint8_t> assignment =
-      lucky_boolean_assignment(signed_assignment);
-  if (!lucky_model_valid(k, assignment))
-    return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.balanced_signature_sat;
-  return ApplyResult::Sat;
+  return lucky_publish_if_model(k, lucky_boolean_assignment(signed_assignment),
+                                k.stats.balanced_signature_sat)
+             ? ApplyResult::Sat
+             : ApplyResult::NoOp;
 }
 
 } // namespace tactix

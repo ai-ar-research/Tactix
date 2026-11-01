@@ -210,12 +210,11 @@ bool construct_word(const Automaton &automaton, std::vector<uint32_t> &word) {
   return false;
 }
 
+// `assignment` is sized k.nvars before the first call.
 bool set_external(const Kernel &k, std::vector<uint8_t> &assignment,
                   uint64_t dimacs, bool value) {
-  if (!dimacs || dimacs > k.external_to_internal.size())
-    return false;
-  const Var internal = k.external_to_internal[dimacs - 1];
-  if (internal == INVALID_VAR || internal >= assignment.size())
+  Var internal = INVALID_VAR;
+  if (!lucky_internal_variable(k, dimacs, internal))
     return false;
   assignment[internal] = value;
   return true;
@@ -269,10 +268,8 @@ ApplyResult cerny_model_apply(Kernel &k) {
     return ApplyResult::NoOp;
   std::vector<uint8_t> assignment;
   if (!build_assignment(k, automaton, word, assignment) ||
-      !lucky_model_valid(k, assignment))
+      !lucky_publish_if_model(k, assignment, k.stats.cerny_model_sat))
     return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.cerny_model_sat;
   return ApplyResult::Sat;
 }
 

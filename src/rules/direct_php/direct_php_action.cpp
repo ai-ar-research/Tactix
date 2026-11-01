@@ -36,26 +36,6 @@ bool same_snapshot_limits(const direct_php_live::SnapshotLimits &a,
          a.maximum_work == b.maximum_work;
 }
 
-bool same_recognition_limits(const direct_php_recognition::Limits &a,
-                             const direct_php_recognition::Limits &b) {
-  return a.maximum_clauses == b.maximum_clauses &&
-         a.maximum_literals == b.maximum_literals &&
-         a.maximum_work == b.maximum_work &&
-         a.maximum_row_candidates == b.maximum_row_candidates &&
-         a.maximum_row_combinations == b.maximum_row_combinations &&
-         a.maximum_mapping_trials == b.maximum_mapping_trials &&
-         a.maximum_holes == b.maximum_holes;
-}
-
-bool same_certificate_limits(const direct_php_certificate::Limits &a,
-                             const direct_php_certificate::Limits &b) {
-  return a.maximum_additions == b.maximum_additions &&
-         a.maximum_deletions == b.maximum_deletions &&
-         a.maximum_literals == b.maximum_literals &&
-         a.maximum_fresh_variables == b.maximum_fresh_variables &&
-         a.maximum_events == b.maximum_events;
-}
-
 DirectPhpActionStatus action_status(LiveStatus status) {
   if (const auto failure =
           strategy::map_standard_action_failure<DirectPhpActionStatus>(status))
@@ -403,8 +383,7 @@ DirectPhpActionResult DirectPhpPreparedActionAccess::prepare_impl(
 bool operator==(const DirectPhpActionLimits &a,
                 const DirectPhpActionLimits &b) {
   return same_snapshot_limits(a.snapshot, b.snapshot) &&
-         same_recognition_limits(a.recognition, b.recognition) &&
-         same_certificate_limits(a.certificate, b.certificate) &&
+         a.recognition == b.recognition && a.certificate == b.certificate &&
          a.maximum_replay_work == b.maximum_replay_work;
 }
 

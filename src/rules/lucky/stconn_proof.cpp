@@ -2,6 +2,7 @@
 
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
+#include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
@@ -239,11 +240,9 @@ public:
     internal_.clear();
     internal_.reserve(external.size());
     for (const int literal : external) {
-      const uint64_t variable = external_variable_of(literal);
-      if (!variable || variable > kernel_.external_to_internal.size())
-        return false;
-      const Var internal = kernel_.external_to_internal[variable - 1];
-      if (internal == INVALID_VAR || internal >= kernel_.nvars)
+      Var internal = INVALID_VAR;
+      if (!lucky_internal_variable(kernel_, external_variable_of(literal),
+                                   internal))
         return false;
       internal_.push_back(make_lit(internal, literal < 0));
     }
@@ -290,10 +289,7 @@ class StConnProof {
         vector<int> c;
         c.reserve(vals.size());
         for (auto [v, val] : vals) c.push_back(val ? -v : v);
-        sort(c.begin(), c.end(), [](int a, int b) {
-            int aa = abs(a), bb = abs(b);
-            return aa == bb ? a < b : aa < bb;
-        });
+        sort(c.begin(), c.end(), external_literal_less);
         return c;
     }
 
@@ -404,10 +400,7 @@ class StConnProof {
     }
 
     bool emit_clause(vector<int> c) {
-        sort(c.begin(), c.end(), [](int a, int b) {
-            int aa = abs(a), bb = abs(b);
-            return aa == bb ? a < b : aa < bb;
-        });
+        sort(c.begin(), c.end(), external_literal_less);
         c.erase(unique(c.begin(), c.end()), c.end());
         for (int i = 1; i < (int)c.size(); ++i) {
             if (abs(c[i]) == abs(c[i - 1]) && c[i] != c[i - 1]) return true; // tautological
@@ -436,10 +429,7 @@ class StConnProof {
                 return RED_OUTSIDE;
             }
         }
-        sort(out.begin(), out.end(), [](int a, int b) {
-            int aa = abs(a), bb = abs(b);
-            return aa == bb ? a < b : aa < bb;
-        });
+        sort(out.begin(), out.end(), external_literal_less);
         out.erase(unique(out.begin(), out.end()), out.end());
         return RED_CLAUSE;
     }

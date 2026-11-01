@@ -194,14 +194,12 @@ bool factor_pair(Kernel &k, U64 value,
   return low > 1 && high > 1 && U128{low} * high == value;
 }
 
+// `assignment` is sized k.nvars.
 bool set_external(const Kernel &k, std::vector<int8_t> &assignment,
                   uint32_t dimacs, bool value) {
-  if (!dimacs || dimacs > k.external_to_internal.size())
-    return false;
-  const Var internal = k.external_to_internal[dimacs - 1];
-  if (internal == INVALID_VAR || internal >= assignment.size())
-    return false;
-  return lucky_assign_literal(assignment, make_lit(internal, !value));
+  Var internal = INVALID_VAR;
+  return lucky_internal_variable(k, dimacs, internal) &&
+         lucky_assign_literal(assignment, make_lit(internal, !value));
 }
 
 } // namespace
@@ -251,13 +249,10 @@ ApplyResult fermat_model_apply(Kernel &k) {
           k, uint64_t{k.nvars} + 1, k.stats.fermat_model_interrupted,
           k.stats.fermat_model_completion_rounds, signed_assignment, true))
     return ApplyResult::NoOp;
-  std::vector<uint8_t> assignment =
-      lucky_boolean_assignment(signed_assignment);
-  if (!lucky_model_valid(k, assignment))
-    return ApplyResult::NoOp;
-  lucky_publish_model(k, assignment);
-  ++k.stats.fermat_model_sat;
-  return ApplyResult::Sat;
+  return lucky_publish_if_model(k, lucky_boolean_assignment(signed_assignment),
+                                k.stats.fermat_model_sat)
+             ? ApplyResult::Sat
+             : ApplyResult::NoOp;
 }
 
 } // namespace tactix

@@ -21,22 +21,6 @@ namespace {
 using Domain = std::array<Var, 3>;
 using FieldRow = std::vector<uint8_t>;
 
-uint64_t binary_key(Lit a, Lit b) {
-  if (b < a)
-    std::swap(a, b);
-  return (uint64_t{a} << 32) | b;
-}
-
-bool pow3(uint32_t exponent, uint64_t &result) {
-  result = 1;
-  while (exponent--) {
-    if (result > std::numeric_limits<uint64_t>::max() / 3)
-      return false;
-    result *= 3;
-  }
-  return true;
-}
-
 uint8_t field_sub(uint8_t a, uint8_t b) {
   return static_cast<uint8_t>((a + 3 - b) % 3);
 }
@@ -124,12 +108,6 @@ uint64_t direct_csp_state_hash(const DirectCspState &state) {
   for (const uint32_t weight : state.edge_weight)
     mix(weight);
   return hash;
-}
-
-uint64_t direct_csp_edge_key(uint32_t a, uint32_t b) {
-  if (b < a)
-    std::swap(a, b);
-  return (uint64_t{a} << 32) | b;
 }
 
 bool direct_csp_violates(const DirectCspEdge &edge, uint32_t va,
@@ -250,7 +228,7 @@ bool recognize_direct_csp(const Kernel &k, DirectCsp &csp,
         std::swap(a, b);
         std::swap(va, vb);
       }
-      const uint64_t key = direct_csp_edge_key(a, b);
+      const uint64_t key = kernel_binary_key(a, b);
       auto [it, inserted] = edge_by_pair.emplace(
           key, static_cast<uint32_t>(csp.edges.size()));
       if (inserted) {
@@ -632,9 +610,8 @@ bool direct_csp_model(Kernel &k,
       std::vector<uint8_t> assignment =
           direct_csp_boolean_assignment(csp, state.value, k.nvars);
       ++k.stats.onehot_model_candidates;
-      if (lucky_model_valid(k, assignment)) {
-        lucky_publish_model(k, assignment);
-        ++k.stats.direct_csp_model_sat;
+      if (lucky_publish_if_model(k, assignment,
+                                 k.stats.direct_csp_model_sat)) {
         ++k.stats.onehot_model_sat;
         k.stats.direct_csp_model_work += work;
         k.stats.direct_csp_model_best = 0;
@@ -748,7 +725,7 @@ ApplyResult onehot_model_apply(Kernel &k) {
         continue;
       if (++constraints > parameters.maximum_constraints)
         return ApplyResult::NoOp;
-      binaries.insert(binary_key(lit, watch.other()));
+      binaries.insert(kernel_binary_key(lit, watch.other()));
     }
     if (kernel_rule_interrupt(k, k.stats.onehot_model_interrupted))
       return ApplyResult::NoOp;
@@ -770,9 +747,9 @@ ApplyResult onehot_model_apply(Kernel &k) {
     const Lit a = make_lit(domain[0], true);
     const Lit b = make_lit(domain[1], true);
     const Lit c = make_lit(domain[2], true);
-    if (!binaries.count(binary_key(a, b)) ||
-        !binaries.count(binary_key(a, c)) ||
-        !binaries.count(binary_key(b, c)))
+    if (!binaries.count(kernel_binary_key(a, b)) ||
+        !binaries.count(kernel_binary_key(a, c)) ||
+        !binaries.count(kernel_binary_key(b, c)))
       continue;
     const int32_t index = static_cast<int32_t>(domains.size());
     domains.push_back(domain);
@@ -824,7 +801,8 @@ ApplyResult onehot_model_apply(Kernel &k) {
     if (!arity || arity > parameters.maximum_equation_arity || arity > 63)
       continue;
     uint64_t tuples = 0;
-    if (!pow3(arity, tuples) || forbidden.size() != 2 * (tuples / 3))
+    if (!lucky_power_of_three(arity, tuples) ||
+        forbidden.size() != 2 * (tuples / 3))
       continue;
     const uint64_t coefficient_sets = uint64_t{1} << (arity - 1);
     bool found = false;
@@ -949,11 +927,9 @@ ApplyResult onehot_model_apply(Kernel &k) {
       assignment[selected] = 1;
     }
     ++k.stats.onehot_model_candidates;
-    if (root_compatible && lucky_model_valid(k, assignment)) {
-      lucky_publish_model(k, assignment);
-      ++k.stats.onehot_model_sat;
+    if (root_compatible &&
+        lucky_publish_if_model(k, assignment, k.stats.onehot_model_sat))
       return ApplyResult::Sat;
-    }
     if (root_compatible && guidance.empty()) {
       guidance.assign(k.nvars, 0);
       for (Var var = 0; var < k.nvars; ++var) {

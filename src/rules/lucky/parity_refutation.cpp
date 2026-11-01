@@ -1,6 +1,7 @@
 #include "rules/lucky/parity_refutation.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
+#include "rules/lucky/startup_pb_writer.hpp"
 
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
@@ -204,44 +205,14 @@ bool collect_equations(Kernel &k,
   return true;
 }
 
-using Sink = RefutationProofSink<SmallClause>;
-
-bool generate(Kernel &k, const std::vector<Equation> &equations,
-              const strategy::ParityModelParameters &parameters, bool writing,
-              uint64_t &additions, uint64_t &deletions, uint32_t &fresh) {
-  Sink sink(k, writing, static_cast<uint32_t>(k.external_to_internal.size()),
-            parameters.refutation_maximum_proof_additions,
-            k.stats.parity_model_interrupted);
-  Certificate certificate(
-      sink, static_cast<uint32_t>(k.external_to_internal.size()));
-  const bool ok = certificate.run(equations) && !sink.stopped;
-  additions = sink.additions;
-  deletions = sink.deletions;
-  fresh = sink.fresh;
-  return ok;
-}
-
 // Threshold carry definitions represent floor(sum(x)/2). Unlike a clausal
 // running parity tree, both bounds can be summed and rounded in PB directly.
 // Local case splits have at most 2^arity leaves and cite no generator numbering.
-class PbParityCertificate {
+class PbParityCertificate : public StartupPbWriter {
   Kernel &k_;
-  FILE *out_;
-  uint64_t initial_, id_, limit_;
+  uint64_t limit_;
   uint32_t fresh_;
 
-  void text(const char *format, ...) {
-    if (!out_)
-      return;
-    va_list args;
-    va_start(args, format);
-    std::vfprintf(out_, format, args);
-    va_end(args);
-  }
-  void term(unsigned coefficient, int32_t literal) {
-    text("%u %sx%u ", coefficient, literal < 0 ? "~" : "",
-         external_variable_of(literal));
-  }
   void block_assignments(const Equation &row, unsigned depth, unsigned mask) {
     // A complete XOR encoding propagates its last variable after n-1 are
     // fixed. The threshold definitions then force every carry, so the
@@ -271,25 +242,14 @@ class PbParityCertificate {
     text("qed pbc : -1 ;\n");
     return ++id_;
   }
-  uint64_t sum_and_round(const std::vector<uint64_t> &ids) {
-    text("pol %llu", static_cast<unsigned long long>(ids[0]));
-    for (size_t i = 1; i < ids.size(); ++i)
-      text(" %llu +", static_cast<unsigned long long>(ids[i]));
-    text(" 2 d ;\n");
-    return ++id_;
-  }
 
 public:
   PbParityCertificate(Kernel &k, FILE *out, uint64_t limit)
-      : k_(k), out_(out),
-        initial_(k.input_unit_clause_count + k.input_nonunit_clause_count),
-        id_(initial_), limit_(limit),
+      : StartupPbWriter(k, out), k_(k), limit_(limit),
         fresh_(static_cast<uint32_t>(k.external_to_internal.size())) {}
 
-  uint64_t additions() const { return id_ - initial_; }
-
   bool run(const std::vector<Equation> &equations) {
-    text("pseudo-Boolean proof version 3.0\n");
+    header();
     std::vector<uint64_t> lower, upper;
     lower.reserve(equations.size());
     upper.reserve(equations.size());
@@ -331,11 +291,12 @@ public:
           (!out_ && kernel_rule_interrupt(k_, k_.stats.parity_model_interrupted)))
         return false;
     }
-    const uint64_t lo = sum_and_round(lower), hi = sum_and_round(upper);
+    // Sum each bound family and round by two.
+    const uint64_t lo = sum(lower, 1, 2), hi = sum(upper, 1, 2);
     text("pol %llu %llu + ;\n", static_cast<unsigned long long>(lo),
          static_cast<unsigned long long>(hi));
     ++id_;
-    text("output NONE ;\nconclusion UNSAT : -1 ;\nend pseudo-Boolean proof ;\n");
+    footer();
     return additions() <= limit_ && (!out_ || !std::ferror(out_));
   }
 };
@@ -390,24 +351,16 @@ ApplyResult parity_refutation_apply(
     return ApplyResult::NoOp;
   ++k.stats.parity_refutation_recognized;
 
-  if (k.proof) {
-    uint64_t preflight_additions = 0, preflight_deletions = 0;
-    uint32_t preflight_fresh = 0;
-    if (!generate(k, equations, parameters, false, preflight_additions,
-                  preflight_deletions, preflight_fresh))
-      return ApplyResult::NoOp;
-    uint64_t additions = 0, deletions = 0;
-    uint32_t fresh = 0;
-    // Emission is terminal and atomic with respect to solver scheduling.  Stop
-    // requests are honored throughout recognition and preflight; once bytes are
-    // written, finish the already-bounded proof rather than expose a prefix.
-    if (!generate(k, equations, parameters, true, additions, deletions, fresh) ||
-        additions != preflight_additions || deletions != preflight_deletions ||
-        fresh != preflight_fresh)
-      std::abort();
-    k.stats.parity_refutation_proof_additions += additions;
-    k.stats.parity_refutation_proof_deletions += deletions;
-  }
+  if (!refute_with_preflight<SmallClause>(
+          k, parameters.refutation_maximum_proof_additions,
+          k.stats.parity_model_interrupted,
+          k.stats.parity_refutation_proof_additions,
+          k.stats.parity_refutation_proof_deletions,
+          [&](auto &sink, uint32_t variables) {
+            Certificate certificate(sink, variables);
+            return certificate.run(equations);
+          }))
+    return ApplyResult::NoOp;
   k.inconsistent = true;
   ++k.stats.parity_refutation_unsat;
   return ApplyResult::Unsat;

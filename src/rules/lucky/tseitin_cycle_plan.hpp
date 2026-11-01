@@ -114,8 +114,6 @@ bool validate_candidate(const Input &, const Candidate &);
 // structural scan performed; `exhausted` distinguishes a truncated validation
 // from a fully checked invalid candidate.
 bool validate_candidate(const Input &, const Candidate &, uint64_t maximum_work,
-                        uint64_t &work, bool &exhausted);
-bool validate_candidate(const Input &, const Candidate &, uint64_t maximum_work,
                         bool (*interrupted)(void *), void *interrupt_state,
                         uint64_t &work, bool &exhausted,
                         bool &was_interrupted);

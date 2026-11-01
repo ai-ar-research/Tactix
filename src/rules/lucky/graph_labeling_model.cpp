@@ -454,10 +454,9 @@ ApplyResult graph_labeling_model_apply(Kernel &k) {
   const uint64_t reserve = std::min(ceiling, p.work[size_t(Stage::Publication)]);
   uint64_t used = 0;
   bool interrupted = false;
-  const auto phase = [&](Stage stage) {
-    const uint64_t cap = p.work[size_t(stage)];
+  // A charge for at most `cap` work from now on that keeps `used` within `end`.
+  const auto charger = [&](uint64_t cap, uint64_t end) {
     const uint64_t phase_start = used;
-    const uint64_t end = stage == Stage::Publication ? ceiling : ceiling - reserve;
     bool exhausted = false;
     return [&, cap, phase_start, end, exhausted](uint64_t amount) mutable {
       if (exhausted || interrupted) return false;
@@ -474,6 +473,10 @@ ApplyResult graph_labeling_model_apply(Kernel &k) {
       k.stats.graph_labeling_work += amount;
       return true;
     };
+  };
+  const auto phase = [&](Stage stage) {
+    return charger(p.work[size_t(stage)],
+                   stage == Stage::Publication ? ceiling : ceiling - reserve);
   };
   Shape shape;
   auto recognition = phase(Stage::Recognition);
@@ -542,20 +545,8 @@ ApplyResult graph_labeling_model_apply(Kernel &k) {
   const uint64_t publication_preparation = used - publication_start;
   std::vector<uint8_t> model;
   if (!best.score.first && p.work[size_t(Stage::Completion)]) {
-    const uint64_t cap = p.work[size_t(Stage::Completion)];
-    const uint64_t start = used;
-    const uint64_t end = ceiling - reserve + publication_preparation;
-    bool exhausted = false;
-    auto completion = [&](uint64_t amount) {
-      if (exhausted || interrupted) return false;
-      if (kernel_rule_interrupt(k, k.stats.graph_labeling_interrupted)) {
-        interrupted = true; return false;
-      }
-      if (amount > cap - (used - start) || amount > end - used) {
-        exhausted = true; ++k.stats.graph_labeling_budget; return false;
-      }
-      used += amount; k.stats.graph_labeling_work += amount; return true;
-    };
+    auto completion = charger(p.work[size_t(Stage::Completion)],
+                              ceiling - reserve + publication_preparation);
     const uint64_t retained_bytes = graph_bytes + k.nvars;
     const auto result = complete_model(k, partial, p.workspace_bytes - retained_bytes,
                                        completion, model);

@@ -41,20 +41,10 @@ bool canonical_clause(const std::vector<External> &input,
   for (External literal : output)
     if (!literal || literal == INT32_MIN)
       return false;
-  std::sort(output.begin(), output.end(), [](External left, External right) {
-    const External a = left < 0 ? -left : left;
-    const External b = right < 0 ? -right : right;
-    if (a != b)
-      return a < b;
-    return left < right;
-  });
-  for (size_t i = 1; i < output.size(); ++i) {
-    const External previous = output[i - 1] < 0 ? -output[i - 1]
-                                                 : output[i - 1];
-    const External current = output[i] < 0 ? -output[i] : output[i];
-    if (previous == current)
+  std::sort(output.begin(), output.end(), external_literal_less);
+  for (size_t i = 1; i < output.size(); ++i)
+    if (external_variable_of(output[i - 1]) == external_variable_of(output[i]))
       return false;
-  }
   return true;
 }
 

@@ -68,6 +68,8 @@ struct Limits {
   uint64_t maximum_literals = std::numeric_limits<uint64_t>::max();
   uint64_t maximum_fresh_variables = std::numeric_limits<uint64_t>::max();
   uint64_t maximum_events = std::numeric_limits<uint64_t>::max();
+
+  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 enum class Status : uint8_t {

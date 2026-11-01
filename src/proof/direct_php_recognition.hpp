@@ -50,6 +50,8 @@ struct Limits {
   uint64_t maximum_row_combinations = 0;
   uint64_t maximum_mapping_trials = 0;
   uint32_t maximum_holes = 0;
+
+  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 using Charge = bool (*)(void *context, uint64_t amount);
