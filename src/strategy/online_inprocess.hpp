@@ -164,11 +164,6 @@ bool validate_parameter_installation(const std::string &rule,
 bool install_permanent_parameters(Kernel &, const InprocessParameters &);
 std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
 
-inline bool validate_online_inprocess_program(const OnlineInprocessProgram &p,
-                                              std::string *error = nullptr) {
-  return validate_online_strategy_program(p, error);
-}
-
 InvocationStatus enumerate_complete_instances(Kernel &, const RuleVTable &,
                                               std::vector<uint64_t> &,
                                               volatile sig_atomic_t *stop = nullptr);

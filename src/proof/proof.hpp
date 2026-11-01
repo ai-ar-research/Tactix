@@ -241,9 +241,6 @@ public:
   uint64_t persistent_external_epoch() const {
     return persistent_external_epoch_;
   }
-  size_t persistent_external_clauses() const {
-    return persistent_external_.size();
-  }
   uint64_t persistent_external_bytes() const;
 
   // Exact, already authenticated checker premises. These are not duplicate

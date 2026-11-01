@@ -2318,10 +2318,6 @@ inline uint32_t kernel_num_output_vars(const Kernel &k) {
              : k.original_external_vars;
 }
 
-inline uint32_t kernel_num_original_internal_vars(const Kernel &k) {
-  return k.first_extension_var == UINT32_MAX ? k.nvars : k.first_extension_var;
-}
-
 // Solver-created variables have permanent external identities at or beyond
 // the input-model boundary. Unlike `first_extension_var`, this predicate is
 // stable across internal-variable compaction and does not assume extensions
