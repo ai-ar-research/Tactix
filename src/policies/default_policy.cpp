@@ -76,6 +76,7 @@
 #include <iomanip>
 #include <locale>
 #include <sstream>
+#include <type_traits>
 #include <utility>
 
 namespace tactix {
@@ -153,6 +154,36 @@ uint64_t affine_service_work(const Kernel &kernel) {
            kernel.stats.affine_matrix_service_lifecycle_work})
     result = saturated_sum(result, value);
   return result;
+}
+
+// A support transaction's feedback names its native payload and, optionally,
+// the one native counter (and currency) that prices it.
+execution::NativeFeedbackSpec support_feedback(
+    std::string description, const char *currency = "",
+    uint64_t (*meter)(const Kernel &) = nullptr) {
+  execution::NativeFeedbackSpec spec;
+  spec.description.description = std::move(description);
+  spec.description.effort_currency = currency;
+  spec.meter = meter;
+  return spec;
+}
+
+uint64_t ticks_meter(const Kernel &kernel) { return kernel.stats.ticks; }
+uint64_t propagations_meter(const Kernel &kernel) {
+  return kernel.stats.propagations;
+}
+
+// The persistent affine service's version-2 matrix event under its allowance.
+execution::NativeFeedbackSpec affine_search_service_feedback(
+    const char *description, uint64_t allowance) {
+  execution::NativeFeedbackSpec spec;
+  spec.meter = affine_service_work;
+  spec.description.version = 2;
+  spec.description.description = description;
+  spec.description.effort_currency = "affine-matrix-work";
+  spec.description.effort_allowance = strategy::WorkLimit::bounded(allowance);
+  spec.description.have_affine_matrix_event = true;
+  return spec;
 }
 
 std::optional<strategy::AffineConsequenceParameters>
@@ -359,34 +390,22 @@ using strategy::controller::IntervalStart;
 using strategy::controller::StopReason;
 
 namespace {
-template <class Apply>
-ApplyResult default_direct_rule(Kernel &k, const char *name,
-                                const std::string &candidate, Apply &&apply,
-                                ApplyResult declined_result =
-                                    ApplyResult::NoOp) {
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-  return journal_direct_rule(k, name, candidate,
-                             std::function<ApplyResult()>(apply),
-                             declined_result);
-#else
-  (void)k;
-  (void)name;
-  (void)candidate;
-  (void)declined_result;
-  return apply();
-#endif
-}
-
 // Candidate descriptions are diagnostic rule-journal data, not part of the
 // production rule transition.  Keep dynamic descriptions lazy so a build
 // without the journal does not allocate and shift a string for every hot-path
-// application (in particular, every decision).
+// application (in particular, every decision).  `candidate` is either the
+// description or a callable producing it; only a journal build reads it.
 template <class Candidate, class Apply>
-ApplyResult default_direct_rule_lazy(
+ApplyResult default_direct_rule(
     Kernel &k, const char *name, Candidate &&candidate, Apply &&apply,
     ApplyResult declined_result = ApplyResult::NoOp) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-  return journal_direct_rule(k, name, candidate(),
+  std::string description;
+  if constexpr (std::is_invocable_v<Candidate &>)
+    description = candidate();
+  else
+    description = candidate;
+  return journal_direct_rule(k, name, description,
                              std::function<ApplyResult()>(apply),
                              declined_result);
 #else
@@ -468,16 +487,9 @@ ApplyResult default_affine_root_closure(
         completion, FeedbackKind::SearchService, "AffineMatrixSearch",
         INSTANCE_CANONICAL,
         [&] {
-          execution::NativeFeedbackSpec spec;
-          spec.meter = affine_service_work;
-          spec.description.version = 2;
-          spec.description.description =
-              "default-root-complete-snapshot-fixpoint";
-          spec.description.effort_currency = "affine-matrix-work";
-          spec.description.effort_allowance = strategy::WorkLimit::bounded(
+          return affine_search_service_feedback(
+              "default-root-complete-snapshot-fixpoint",
               selected->basis_maximum_work);
-          spec.description.have_affine_matrix_event = true;
-          return spec;
         },
         [&] {
           return port::affine_matrix_search_step(
@@ -570,6 +582,48 @@ ApplyResult default_lucky(Kernel &k, const char *candidate,
       heuristics_consume_root_assignments(k, trail_begin);
     return result;
   });
+}
+
+// One Walk request: `selected_walk` is both the record's typed parameters and
+// the request payload.  `describe` builds the record's description lazily.
+template <class Describe>
+ApplyResult default_walk(Kernel &k, PolicyCompletion *completion,
+                         const strategy::WalkParameters &selected_walk,
+                         uint64_t allowance, uint64_t seed,
+                         Describe &&describe) {
+  const strategy::GuidanceOutcomeSnapshot before_walk(k);
+  return port::complete_action(
+      completion, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
+      [&] {
+        auto spec = execution::native_rule_feedback(
+            k, "Walk", INSTANCE_CANONICAL, describe(),
+            [](const Kernel &kernel) { return kernel.stats.walk_steps; },
+            "walk-steps", strategy::WorkLimit::bounded(allowance));
+        spec.description.invocation->parameters = selected_walk;
+        return spec;
+      },
+      [&] {
+        static const RuleVTable &walk_rule = registered_rule("Walk");
+        return port::execute_action(
+            k,
+            execution::WalkRequest{
+                allowance, seed, 0,
+                strategy::WalkParameters::Objective::LegacyWalk,
+                strategy::WalkParameters::Admission::Legacy, 0,
+                selected_walk.algorithm, selected_walk.initialization,
+                selected_walk.maximum_tries,
+                selected_walk.flips_per_try,
+                selected_walk.weight_smoothing_threshold,
+                selected_walk.smoothing_old_numerator,
+                selected_walk.smoothing_denominator, selected_walk.aspiration},
+            [&] { return port::apply_rule(walk_rule, k); });
+      },
+      [&](ApplyResult result) {
+        auto out = strategy::controller::feedback_outcome(result);
+        out.invocation.status =
+            before_walk.refine(k, result, out.invocation.status);
+        return out;
+      });
 }
 } // namespace
 
@@ -1188,24 +1242,21 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
                                    .stabilize_structured_variables);
                      }))
       return reject("structured handoff feedback requires a graph handoff");
-    for (size_t i = 0; i < stage.progress_followups.size(); ++i) {
-      const auto id = stage.progress_followups[i];
-      if (std::none_of(stage.program.sequence.begin(), stage.program.sequence.end(),
-              [id](const auto &step) { return step.id == id; }) ||
-          std::find(stage.progress_followups.begin(), stage.progress_followups.begin() + i,
-                    id) != stage.progress_followups.begin() + i)
+    // Entry i of a step-id list names an existing step not named before it.
+    const auto names_new_step = [&](const auto &ids, size_t i) {
+      const auto id = ids[i];
+      return std::any_of(stage.program.sequence.begin(), stage.program.sequence.end(),
+                         [id](const auto &step) { return step.id == id; }) &&
+             std::find(ids.begin(), ids.begin() + i, id) == ids.begin() + i;
+    };
+    for (size_t i = 0; i < stage.progress_followups.size(); ++i)
+      if (!names_new_step(stage.progress_followups, i))
         return reject("progress followup must name a unique existing step");
-    }
-    for (size_t i = 0; i < stage.before_progress.size(); ++i) {
-      const auto id = stage.before_progress[i];
-      if (std::none_of(stage.program.sequence.begin(), stage.program.sequence.end(),
-              [id](const auto &step) { return step.id == id; }) ||
-          std::find(stage.before_progress.begin(), stage.before_progress.begin() + i,
-                    id) != stage.before_progress.begin() + i ||
+    for (size_t i = 0; i < stage.before_progress.size(); ++i)
+      if (!names_new_step(stage.before_progress, i) ||
           std::find(stage.progress_followups.begin(), stage.progress_followups.end(),
-                    id) != stage.progress_followups.end())
+                    stage.before_progress[i]) != stage.progress_followups.end())
         return reject("before-progress step must name a unique existing non-followup");
-    }
     // This scheduler owns a quiescent-root preprocessing scope. All declared
     // inprocessing actions, Reduce, Propagate and Lucky fit that boundary
     // (Lucky may terminate with a model); other search
@@ -1867,34 +1918,23 @@ DefaultPolicy::DefaultPolicy(const DefaultStrategyConfig &config)
 
 const DefaultStrategyConfig::Inprocess &
 DefaultInprocessScheduler::config() const {
-  if (config_)
-    return *config_;
-  static const DefaultStrategyConfig::Inprocess defaults;
-  return defaults;
+  return configured_or_default(config_);
 }
 
 uint32_t DefaultBveBoundRamp::num_passes() const {
-  const DefaultStrategyConfig::Inprocess *cfg = config_;
-  if (!cfg) {
-    static const DefaultStrategyConfig::Inprocess defaults;
-    cfg = &defaults;
-  }
-  const uint32_t cap = cfg->bve_default_ceiling;
+  const auto &cfg = configured_or_default(config_);
+  const uint32_t cap = cfg.bve_default_ceiling;
   uint32_t n = 0;
-  for (uint32_t i = 0; i < cfg->bve_bounds.size(); i++)
-    if (cfg->bve_bounds[i] <= cap)
+  for (uint32_t i = 0; i < cfg.bve_bounds.size(); i++)
+    if (cfg.bve_bounds[i] <= cap)
       n = i + 1;
   return n ? n : 1;
 }
 
 uint32_t DefaultBveBoundRamp::bound(uint32_t pass) const {
-  const DefaultStrategyConfig::Inprocess *cfg = config_;
-  if (!cfg) {
-    static const DefaultStrategyConfig::Inprocess defaults;
-    cfg = &defaults;
-  }
-  const size_t last = cfg->bve_bounds.size() - 1;
-  return cfg->bve_bounds[pass < cfg->bve_bounds.size() ? pass : last];
+  const auto &cfg = configured_or_default(config_);
+  const size_t last = cfg.bve_bounds.size() - 1;
+  return cfg.bve_bounds[pass < cfg.bve_bounds.size() ? pass : last];
 }
 
 void CadicalArenaOrder::order(const Kernel &k, std::vector<Ref> &refs) {
@@ -1983,9 +2023,7 @@ ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
   constexpr execution::RootPreparationRequest preparation{false, true};
   return port::complete_action(completion_, FeedbackKind::Support, "RootPreparation",
       execution::root_preparation_argument(preparation, true), [] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = "probing=0;clear-unflushed-root=1;restart-purpose=preparation";
-        return spec;
+        return support_feedback("probing=0;clear-unflushed-root=1;restart-purpose=preparation");
       }, [&] { return port::execute_action(k, preparation,
       [&] { heuristics_update_target_phases(k); },
       [&](const execution::RestartRequest &request) {
@@ -2043,41 +2081,10 @@ ApplyResult DefaultPolicy::run_configuration_checking_walk(
   selected.smoothing_denominator =
       config_.rephase.configuration_checking_smoothing_denominator;
   selected.aspiration = config_.rephase.configuration_checking_aspiration;
-  const strategy::GuidanceOutcomeSnapshot before_walk(k);
-  return port::complete_action(
-      completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
-      [&] {
-        auto spec = execution::native_rule_feedback(
-            k, "Walk", INSTANCE_CANONICAL,
-            description + ";complementary-ternary-permille=" +
-                std::to_string(complementary_ternary_permille_),
-            [](const Kernel &kernel) { return kernel.stats.walk_steps; },
-            "walk-steps", strategy::WorkLimit::bounded(allowance));
-        spec.description.invocation->parameters = selected;
-        return spec;
-      },
-      [&] {
-        static const RuleVTable &walk_rule = registered_rule("Walk");
-        return port::execute_action(
-            k,
-            execution::WalkRequest{
-                allowance, seed, 0,
-                strategy::WalkParameters::Objective::LegacyWalk,
-                strategy::WalkParameters::Admission::Legacy, 0,
-                selected.algorithm, selected.initialization,
-                selected.maximum_tries,
-                selected.flips_per_try,
-                selected.weight_smoothing_threshold,
-                selected.smoothing_old_numerator,
-                selected.smoothing_denominator, selected.aspiration},
-            [&] { return port::apply_rule(walk_rule, k); });
-      },
-      [&](ApplyResult result) {
-        auto out = strategy::controller::feedback_outcome(result);
-        out.invocation.status =
-            before_walk.refine(k, result, out.invocation.status);
-        return out;
-      });
+  return default_walk(k, completion_, selected, allowance, seed, [&] {
+    return description + ";complementary-ternary-permille=" +
+           std::to_string(complementary_ternary_permille_);
+  });
 }
 
 void DefaultPolicy::reset_schedule(const Kernel &k) {
@@ -2169,9 +2176,7 @@ public:
       : kernel_(k), completion_(completion) {
     (void)port::complete_action(completion_, FeedbackKind::Support,
         "EnterExecutionContext", execution::execution_context_argument(Context), [] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = description();
-          return spec;
+          return support_feedback(description());
         }, [&] {
           scope_.emplace(kernel_);
           return ApplyResult::Ok;
@@ -2181,9 +2186,7 @@ public:
     if (!scope_) return;
     (void)port::complete_action(completion_, FeedbackKind::Support,
         "LeaveExecutionContext", execution::execution_context_argument(Context), [] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = description();
-          return spec;
+          return support_feedback(description());
         }, [&] {
           scope_.reset();
           return ApplyResult::Ok;
@@ -2507,9 +2510,7 @@ uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst,
         proxy = (*reference_compact_order)[compact >> 1];
     }
     if (k.h->stable) {
-      const double s = transitive_reference_order
-                           ? transitive_activity(k, proxy)
-                           : k.h->scores.score[proxy];
+      const double s = k.h->scores.score[proxy];
       uint64_t bits = 0;
       std::memcpy(&bits, &s, sizeof bits);
       return bits;
@@ -2931,8 +2932,7 @@ void DefaultPolicy::update_formula_classification(Kernel &k) const {
 }
 
 size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
-  static const DefaultStrategyConfig::Reduction defaults;
-  const auto &cfg = config_ ? *config_ : defaults;
+  const auto &cfg = configured_or_default(config_);
   if (!ramp)
     return reduce_fractional_victims(candidates, cfg.victim_numerator,
                                      cfg.victim_denominator);
@@ -2993,8 +2993,7 @@ Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
 }
 
 int8_t DefaultBranching::forced_phase(const Kernel &k) const {
-  static const DefaultStrategyConfig::Branching defaults;
-  const auto &cfg = config_ ? *config_ : defaults;
+  const auto &cfg = configured_or_default(config_);
   if (k.h->stable || !cfg.focused_phase_switch_span ||
       cfg.focused_phase_pattern.empty())
     return 0;
@@ -3003,8 +3002,7 @@ int8_t DefaultBranching::forced_phase(const Kernel &k) const {
 }
 
 Lit DefaultBranching::decide_lit(const Kernel &k, Var v) {
-  static const DefaultStrategyConfig::Branching defaults;
-  const auto &cfg = config_ ? *config_ : defaults;
+  const auto &cfg = configured_or_default(config_);
   int8_t phase = 0;
   if (!k.h->stable && cfg.focused_phase_switch_span &&
       !cfg.focused_phase_pattern.empty()) {
@@ -3029,8 +3027,7 @@ Lit DefaultBranching::decide_lit(const Kernel &k, Var v) {
 void DefaultBranching::start_random_sequence(Kernel &k) {
   if (!randec_enabled || k.h->stable || randec_remaining)
     return;
-  static const DefaultStrategyConfig::Branching defaults;
-  const auto &cfg = config_ ? *config_ : defaults;
+  const auto &cfg = configured_or_default(config_);
   randec_sequences++;
   const double n = static_cast<double>(randec_sequences);
   const double logn = std::log10(n + cfg.logarithm_offset);
@@ -3048,17 +3045,38 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   // focused tests may set these public members before solve().
   config_.analysis.chronological_levels = chrono_levels;
   config_.branching.random_sequences = default_branching_.randec_enabled;
+  // Each diagnostic setting keeps its own historical parse: a decimal u32 or
+  // u64, a nonzero decimal flag, a flag whose first character is not '0', or
+  // the mere presence of the setting.
+  const auto setting_u32 = [](const char *name, uint32_t &slot) {
+    if (const char *s = strategy_setting(name))
+      slot = static_cast<uint32_t>(std::strtoul(s, nullptr, 10));
+  };
+  const auto setting_u64 = [](const char *name, uint64_t &slot) {
+    if (const char *s = strategy_setting(name))
+      slot = std::strtoull(s, nullptr, 10);
+  };
+  const auto setting_number_flag = [](const char *name, bool &slot) {
+    if (const char *s = strategy_setting(name))
+      slot = std::strtoul(s, nullptr, 10) != 0;
+  };
+  const auto setting_flag = [](const char *name, bool &slot) {
+    if (const char *s = strategy_setting(name))
+      slot = *s != '0';
+  };
+  const auto setting_present = [](const char *name, auto &slot, auto value) {
+    if (strategy_setting(name))
+      slot = value;
+  };
   if (const char *fm = strategy_setting("TACTIX_FORCE_MODE")) {
     if (!std::strcmp(fm, "focused"))
       config_.mode.force = 1;
     else if (!std::strcmp(fm, "stable"))
       config_.mode.force = 2;
   }
-  if (strategy_setting("TACTIX_NO_BUMP_REASONS"))
-    config_.analysis.bump_reason_limit = 0;
-  if (const char *bl = strategy_setting("TACTIX_BUMP_REASONS_LIMIT"))
-    config_.analysis.bump_reason_limit =
-        static_cast<uint32_t>(std::strtoul(bl, nullptr, 10));
+  setting_present("TACTIX_NO_BUMP_REASONS", config_.analysis.bump_reason_limit,
+                  uint32_t{0});
+  setting_u32("TACTIX_BUMP_REASONS_LIMIT", config_.analysis.bump_reason_limit);
   if (const char *br = strategy_setting("TACTIX_BUMP_REASONS_RATE"))
     config_.analysis.bump_reason_rate = std::strtod(br, nullptr);
   const char *cad = strategy_setting("TACTIX_REDUCE_CADENCE"); // "sqrt" | "arith"
@@ -3071,153 +3089,108 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   else if (cad)
     config_.reduction.ramp_fraction =
         config_.reduction.square_root_cadence;
-  if (strategy_setting("TACTIX_NO_DYNAMIC_TIERS"))
-    config_.reduction.dynamic_tiers = false;
-  if (strategy_setting("TACTIX_NO_COMPACT"))
-    config_.reduction.compact_variables = false;
-  if (const char *ll = strategy_setting("TACTIX_LUCKY_LATE"))
-    config_.rephase.late_lucky = std::strtoul(ll, nullptr, 10) != 0;
-  if (strategy_setting("TACTIX_REPHASE_BOTH_MODES"))
-    config_.rephase.stable_only = false;
-  if (const char *ro = strategy_setting("TACTIX_REORDER"))
-    config_.reorder.mode =
-        static_cast<uint32_t>(std::strtoul(ro, nullptr, 10));
+  setting_present("TACTIX_NO_DYNAMIC_TIERS", config_.reduction.dynamic_tiers, false);
+  setting_present("TACTIX_NO_COMPACT", config_.reduction.compact_variables, false);
+  setting_number_flag("TACTIX_LUCKY_LATE", config_.rephase.late_lucky);
+  setting_present("TACTIX_REPHASE_BOTH_MODES", config_.rephase.stable_only, false);
+  setting_u32("TACTIX_REORDER", config_.reorder.mode);
   if (const char *cl = strategy_setting("TACTIX_CHRONO_LEVELS")) {
     const long n = std::strtol(cl, nullptr, 10);
     if (n >= 0)
       config_.analysis.chronological_levels = static_cast<uint32_t>(n);
   }
-  if (const char *value = strategy_setting("TACTIX_CONFLICT_REUSE"))
-    config_.analysis.conflict_reuse = *value != '0';
-  if (const char *value = strategy_setting("TACTIX_JUMP_REASONS"))
-    config_.analysis.jump_reasons = *value != '0';
-  if (const char *value = strategy_setting("TACTIX_SHRINK_GLUE"))
-    config_.analysis.shrink_glue_promote = *value != '0';
-  if (strategy_setting("TACTIX_NO_EXT_REASON_BUMP"))
-    config_.analysis.bump_extension_reasons = false;
+  setting_flag("TACTIX_CONFLICT_REUSE", config_.analysis.conflict_reuse);
+  setting_flag("TACTIX_JUMP_REASONS", config_.analysis.jump_reasons);
+  setting_flag("TACTIX_SHRINK_GLUE", config_.analysis.shrink_glue_promote);
+  setting_present("TACTIX_NO_EXT_REASON_BUMP",
+                  config_.analysis.bump_extension_reasons, false);
   if (const char *value = strategy_setting("TACTIX_EAGER_SUBSUME"))
     config_.analysis.eager_subsume = std::min<uint32_t>(
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10)),
         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
-  if (const char *rd = strategy_setting("TACTIX_RANDEC"))
-    config_.branching.random_sequences = *rd != '0';
-  if (const char *wp = strategy_setting("TACTIX_WALK_PERMILLE"))
-    config_.rephase.walk_permille = std::strtoull(wp, nullptr, 10);
-  if (const char *bc = strategy_setting("TACTIX_BVE_RAMP_MAX"))
-    config_.inprocess.bve_default_ceiling =
-        static_cast<uint32_t>(std::strtoul(bc, nullptr, 10));
-  if (const char *dt = strategy_setting("TACTIX_BVE_DEF_TICKS"))
-    config_.inprocess.bve_definition_budget = std::strtoull(dt, nullptr, 10);
+  setting_flag("TACTIX_RANDEC", config_.branching.random_sequences);
+  setting_u64("TACTIX_WALK_PERMILLE", config_.rephase.walk_permille);
+  setting_u32("TACTIX_BVE_RAMP_MAX", config_.inprocess.bve_default_ceiling);
+  setting_u64("TACTIX_BVE_DEF_TICKS", config_.inprocess.bve_definition_budget);
   if (const char *dc = strategy_setting("TACTIX_BVE_DEF_CORES"))
     config_.inprocess.bve_definition_cores = std::clamp<uint32_t>(
         static_cast<uint32_t>(std::strtoul(dc, nullptr, 10)), 1, 100);
-  if (const char *dm = strategy_setting("TACTIX_BVE_DEF_CORE_MULTIPLIER"))
-    config_.inprocess.bve_definition_core_budget_multiplier =
-        static_cast<uint32_t>(std::strtoul(dm, nullptr, 10));
-  if (const char *value = strategy_setting("TACTIX_BVE_BACKWARD"))
-    config_.inprocess.bve_backward = *value != '0';
-  if (const char *value = strategy_setting("TACTIX_BVE_ON_THE_FLY"))
-    config_.inprocess.bve_on_the_fly_strengthening = *value != '0';
-  if (const char *value = strategy_setting("TACTIX_BCE_OCC_LIMIT"))
-    config_.inprocess.bce_parameters.occurrence_limit =
-        static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = strategy_setting("TACTIX_TERNARY_OCC_LIMIT"))
-    config_.inprocess.ternary_parameters.occurrence_limit =
-        static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = strategy_setting("TACTIX_TERNARY_MAXADD"))
-    config_.inprocess.ternary_parameters.maximum_add_percent =
-        static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = strategy_setting("TACTIX_FACTOR_SIZE"))
-    config_.inprocess.factor_parameters.maximum_clause_size =
-        static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = strategy_setting("TACTIX_FACTOR_BOUND"))
-    config_.inprocess.factor_parameters.growth_bound =
-        static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = strategy_setting("TACTIX_FACTOR_DEMOTE"))
-    config_.inprocess.factor_parameters.demote_fresh = *value != '0';
-  if (const char *value = strategy_setting("TACTIX_FACTOR_CAND_ROUNDS"))
-    config_.inprocess.factor_parameters.candidate_rounds =
-        static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = strategy_setting("TACTIX_V4_EARLY_EXIT"))
-    config_.inprocess.transitive_parameters.early_exit = *value != '0';
-  if (const char *value = strategy_setting("TACTIX_TRANSITIVE_LIVE_METER"))
-    config_.inprocess.transitive_parameters.live_meter = *value != '0';
+  setting_u32("TACTIX_BVE_DEF_CORE_MULTIPLIER",
+              config_.inprocess.bve_definition_core_budget_multiplier);
+  setting_flag("TACTIX_BVE_BACKWARD", config_.inprocess.bve_backward);
+  setting_flag("TACTIX_BVE_ON_THE_FLY",
+               config_.inprocess.bve_on_the_fly_strengthening);
+  setting_u32("TACTIX_BCE_OCC_LIMIT",
+              config_.inprocess.bce_parameters.occurrence_limit);
+  setting_u32("TACTIX_TERNARY_OCC_LIMIT",
+              config_.inprocess.ternary_parameters.occurrence_limit);
+  setting_u32("TACTIX_TERNARY_MAXADD",
+              config_.inprocess.ternary_parameters.maximum_add_percent);
+  setting_u32("TACTIX_FACTOR_SIZE",
+              config_.inprocess.factor_parameters.maximum_clause_size);
+  setting_u32("TACTIX_FACTOR_BOUND",
+              config_.inprocess.factor_parameters.growth_bound);
+  setting_flag("TACTIX_FACTOR_DEMOTE",
+               config_.inprocess.factor_parameters.demote_fresh);
+  setting_u32("TACTIX_FACTOR_CAND_ROUNDS",
+              config_.inprocess.factor_parameters.candidate_rounds);
+  setting_flag("TACTIX_V4_EARLY_EXIT",
+               config_.inprocess.transitive_parameters.early_exit);
+  setting_flag("TACTIX_TRANSITIVE_LIVE_METER",
+               config_.inprocess.transitive_parameters.live_meter);
   if (const char *value = strategy_setting("TACTIX_V4_METER"))
     config_.inprocess.transitive_parameters.checked_budget_meter =
         !std::strcmp(value, "checked");
-  if (const char *value = strategy_setting("TACTIX_VIVIFY_REUSE"))
-    config_.inprocess.vivify_parameters.reuse = *value != '0';
-  if (const char *value = strategy_setting("TACTIX_VIVIFY_FLUSH"))
-    config_.inprocess.vivify_parameters.flush = *value != '0';
-  if (strategy_setting("TACTIX_SUBST_DEMOTE"))
-    config_.inprocess.substitute_parameters.demote_substituted = true;
-  if (strategy_setting("TACTIX_NO_BVE"))
-    config_.inprocess.bve_enabled = false;
-  if (strategy_setting("TACTIX_NO_FACTOR"))
-    config_.inprocess.factor_enabled = false;
-  if (strategy_setting("TACTIX_NO_SWEEP"))
-    config_.inprocess.sweep_enabled = false;
-  if (const char *hold = strategy_setting("TACTIX_SUBSUME_HOLD"))
-    config_.inprocess.hold_subsume_until_eliminate = *hold != '0';
-  if (const char *touch = strategy_setting("TACTIX_TOUCH_MARKS"))
-    config_.inprocess.touch_filter = *touch != '0';
-  if (const char *redundant = strategy_setting("TACTIX_TOUCH_REDUNDANT"))
-    config_.inprocess.likely_kept_redundant = *redundant != '0';
-  const auto sweep_u32 = [](const char *name, uint32_t &slot) {
-    if (const char *s = strategy_setting(name))
-      slot = static_cast<uint32_t>(std::strtoul(s, nullptr, 10));
-  };
-  const auto sweep_bool = [](const char *name, bool &slot) {
-    if (const char *s = strategy_setting(name))
-      slot = std::strtoul(s, nullptr, 10) != 0;
-  };
-  sweep_u32("TACTIX_SWEEP_DEPTH",
-            config_.inprocess.sweep_parameters.max_depth);
-  sweep_u32("TACTIX_SWEEP_VARS",
-            config_.inprocess.sweep_parameters.max_env_vars);
-  sweep_u32("TACTIX_SWEEP_CLAUSES",
-            config_.inprocess.sweep_parameters.max_env_clauses);
-  sweep_u32("TACTIX_SWEEP_CANDIDATES",
-            config_.inprocess.sweep_parameters.max_candidates);
-  sweep_u32("TACTIX_SWEEP_FLIP_ROUNDS",
-            config_.inprocess.sweep_parameters.flip_rounds);
-  sweep_u32("TACTIX_SWEEP_SEEDS",
-            config_.inprocess.sweep_parameters.max_seeds);
-  if (const char *s = strategy_setting("TACTIX_SWEEP_TICKS"))
-    config_.inprocess.sweep_parameters.env_ticks =
-        std::strtoull(s, nullptr, 10);
-  if (const char *s = strategy_setting("TACTIX_SWEEP_ROUND_TICKS"))
-    config_.inprocess.sweep_parameters.round_ticks =
-        std::strtoull(s, nullptr, 10);
-  sweep_bool("TACTIX_SWEEP_STRIP",
-             config_.inprocess.sweep_parameters.strip_false);
-  sweep_bool("TACTIX_SWEEP_CLOSURE",
-             config_.inprocess.sweep_parameters.measure_closure);
-  sweep_bool("TACTIX_SWEEP_PARTITION",
-             config_.inprocess.sweep_parameters.full_partition);
-  sweep_bool("TACTIX_SWEEP_RESUME",
-             config_.inprocess.sweep_parameters.resume);
-  sweep_bool("TACTIX_SWEEP_FORCE_GENERAL",
-             config_.inprocess.sweep_parameters.force_general_proof);
-  sweep_bool("TACTIX_ARENA_ORDER",
-             config_.inprocess.cadical_arena_ordering_enabled);
+  setting_flag("TACTIX_VIVIFY_REUSE", config_.inprocess.vivify_parameters.reuse);
+  setting_flag("TACTIX_VIVIFY_FLUSH", config_.inprocess.vivify_parameters.flush);
+  setting_present("TACTIX_SUBST_DEMOTE",
+                  config_.inprocess.substitute_parameters.demote_substituted, true);
+  setting_present("TACTIX_NO_BVE", config_.inprocess.bve_enabled, false);
+  setting_present("TACTIX_NO_FACTOR", config_.inprocess.factor_enabled, false);
+  setting_present("TACTIX_NO_SWEEP", config_.inprocess.sweep_enabled, false);
+  setting_flag("TACTIX_SUBSUME_HOLD",
+               config_.inprocess.hold_subsume_until_eliminate);
+  setting_flag("TACTIX_TOUCH_MARKS", config_.inprocess.touch_filter);
+  setting_flag("TACTIX_TOUCH_REDUNDANT", config_.inprocess.likely_kept_redundant);
+  setting_u32("TACTIX_SWEEP_DEPTH",
+              config_.inprocess.sweep_parameters.max_depth);
+  setting_u32("TACTIX_SWEEP_VARS",
+              config_.inprocess.sweep_parameters.max_env_vars);
+  setting_u32("TACTIX_SWEEP_CLAUSES",
+              config_.inprocess.sweep_parameters.max_env_clauses);
+  setting_u32("TACTIX_SWEEP_CANDIDATES",
+              config_.inprocess.sweep_parameters.max_candidates);
+  setting_u32("TACTIX_SWEEP_FLIP_ROUNDS",
+              config_.inprocess.sweep_parameters.flip_rounds);
+  setting_u32("TACTIX_SWEEP_SEEDS",
+              config_.inprocess.sweep_parameters.max_seeds);
+  setting_u64("TACTIX_SWEEP_TICKS",
+              config_.inprocess.sweep_parameters.env_ticks);
+  setting_u64("TACTIX_SWEEP_ROUND_TICKS",
+              config_.inprocess.sweep_parameters.round_ticks);
+  setting_number_flag("TACTIX_SWEEP_STRIP",
+                      config_.inprocess.sweep_parameters.strip_false);
+  setting_number_flag("TACTIX_SWEEP_CLOSURE",
+                      config_.inprocess.sweep_parameters.measure_closure);
+  setting_number_flag("TACTIX_SWEEP_PARTITION",
+                      config_.inprocess.sweep_parameters.full_partition);
+  setting_number_flag("TACTIX_SWEEP_RESUME",
+                      config_.inprocess.sweep_parameters.resume);
+  setting_number_flag("TACTIX_SWEEP_FORCE_GENERAL",
+                      config_.inprocess.sweep_parameters.force_general_proof);
+  setting_number_flag("TACTIX_ARENA_ORDER",
+                      config_.inprocess.cadical_arena_ordering_enabled);
 
-  if (strategy_setting("TACTIX_NO_CLOSURE_DELAY"))
-    config_.inprocess.closure_delay = false;
-  if (const char *value = strategy_setting("TACTIX_FACTOR_INIT_TICKS"))
-    config_.inprocess.factor_initial_ticks = std::strtoull(value, nullptr, 10);
-  if (strategy_setting("TACTIX_PREPROCESS_ONLY"))
-    config_.inprocess.preprocess_only = true;
-  if (const char *value = strategy_setting("TACTIX_PREPROCESS_FOLLOWUPS"))
-    config_.inprocess.preprocess_followups =
-        std::strtoul(value, nullptr, 10) != 0;
+  setting_present("TACTIX_NO_CLOSURE_DELAY", config_.inprocess.closure_delay, false);
+  setting_u64("TACTIX_FACTOR_INIT_TICKS", config_.inprocess.factor_initial_ticks);
+  setting_present("TACTIX_PREPROCESS_ONLY", config_.inprocess.preprocess_only, true);
+  setting_number_flag("TACTIX_PREPROCESS_FOLLOWUPS",
+                      config_.inprocess.preprocess_followups);
   if (const char *value = strategy_setting("TACTIX_SLOT_CLOCKS"))
     config_.inprocess.split_clocks = std::strtoul(value, nullptr, 10) != 1;
-  if (const char *value = strategy_setting("TACTIX_SLOT_WATERMARK"))
-    config_.inprocess.watermarks = std::strtoul(value, nullptr, 10) != 0;
-  if (const char *value = strategy_setting("TACTIX_FACTOR_COUPLE"))
-    config_.inprocess.couple_factor_bound =
-        std::strtoul(value, nullptr, 10) != 0;
+  setting_number_flag("TACTIX_SLOT_WATERMARK", config_.inprocess.watermarks);
+  setting_number_flag("TACTIX_FACTOR_COUPLE",
+                      config_.inprocess.couple_factor_bound);
 
   const auto list_has = [](const char *list, const std::string &name) {
     if (!list)
@@ -3576,10 +3549,6 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
   }
 }
 
-void DefaultInprocessScheduler::build(Kernel &k) {
-  build(k, nullptr);
-}
-
 void DefaultInprocessScheduler::initialize_search_limits(const Kernel &k) {
   if (search_limits_initialized_)
     return;
@@ -3824,41 +3793,28 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   result=port::complete_action(
       completion_,FeedbackKind::SearchService,"AffineMatrixSearch",INSTANCE_CANONICAL,
       [&] {
-        execution::NativeFeedbackSpec spec;
-        spec.meter=affine_service_work;
-        spec.description.version=2;
-        spec.description.description=root ? "default-persistent-restart-root"
-                                          : "default-persistent-search";
-        spec.description.effort_currency="affine-matrix-work";
-        spec.description.effort_allowance=strategy::WorkLimit::bounded(
+        return affine_search_service_feedback(
+            root ? "default-persistent-restart-root" : "default-persistent-search",
             affine_service_allowance_);
-        spec.description.have_affine_matrix_event=true;
-        return spec;
       },[&] {
         AffineMatrixServiceResult serviced;
         using ReasonMode = DefaultStrategyConfig::AffineSearch::ReasonMode;
-        if (!root && config_.affine_search.reason_mode == ReasonMode::Deferred)
-          serviced = port::affine_matrix_search_step_deferred(
-              kernel, *kernel.affine_matrix_search_session);
-        else if (!root && config_.affine_search.reason_mode ==
-                              ReasonMode::DetachedMinimal)
-          serviced = port::affine_matrix_search_step_detached_minimal(
-              kernel, *kernel.affine_matrix_search_session);
-        else if (!root && config_.affine_search.reason_mode ==
-                              ReasonMode::DetachedSource)
-          serviced = port::affine_matrix_search_step_detached_source(
-              kernel, *kernel.affine_matrix_search_session);
-        else if (!root && config_.affine_search.reason_mode ==
-                              ReasonMode::LazySource)
-          serviced = port::affine_matrix_search_step_lazy_source(
-              kernel, *kernel.affine_matrix_search_session);
-        else if (!root && config_.affine_search.reason_mode ==
-                              ReasonMode::LazyMinimal)
-          serviced = port::affine_matrix_search_step_lazy_minimal(
-              kernel, *kernel.affine_matrix_search_session);
+        // A restart-root service always takes the eager source-support step.
+        const ReasonMode mode =
+            root ? ReasonMode::EagerSourceSupport : config_.affine_search.reason_mode;
+        auto &session = *kernel.affine_matrix_search_session;
+        if (mode == ReasonMode::Deferred)
+          serviced = port::affine_matrix_search_step_deferred(kernel, session);
+        else if (mode == ReasonMode::DetachedMinimal)
+          serviced = port::affine_matrix_search_step_detached_minimal(kernel, session);
+        else if (mode == ReasonMode::DetachedSource)
+          serviced = port::affine_matrix_search_step_detached_source(kernel, session);
+        else if (mode == ReasonMode::LazySource)
+          serviced = port::affine_matrix_search_step_lazy_source(kernel, session);
+        else if (mode == ReasonMode::LazyMinimal)
+          serviced = port::affine_matrix_search_step_lazy_minimal(kernel, session);
         else
-          serviced = port::affine_matrix_search_step(
-              kernel, *kernel.affine_matrix_search_session);
+          serviced = port::affine_matrix_search_step(kernel, session);
         uint64_t work=0;
         for (uint64_t amount : {serviced.trail_capture_work,serviced.synchronization_work,
              serviced.session_work,serviced.live.planner_work,serviced.live.revalidation_work,
@@ -3939,7 +3895,7 @@ Lit DefaultPolicy::search_decide(Kernel &k) {
         return execution::native_rule_feedback(
             k, "Decide", lit_instance(k, decision),
             "literal=" + std::to_string(kernel_externalize(k, decision)));
-      }, [&] { return default_direct_rule_lazy(
+      }, [&] { return default_direct_rule(
       k, "Decide",
       [&] {
         return "literal=" +
@@ -4447,11 +4403,26 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // Preserve the input's structural classification across preprocessing: the
   // very simplifications that expose an easier residual can retire one member
   // of a complementary pair. Scheduling is formula-derived, not name-derived.
+  // Only paired ternary clauses count toward the fraction, and every one is a
+  // live large irredundant clause.  When even that bound misses a threshold,
+  // the census cannot select Walk and is never read, so it is not taken.
+  const uint64_t live_clauses =
+      k.watches.binary_clauses() + k.live_irredundant_large;
+  const uint64_t complementary_bound =
+      live_clauses ? std::min<uint64_t>(PERMILLE_SCALE,
+                                        PERMILLE_SCALE *
+                                            k.live_irredundant_large /
+                                            live_clauses)
+                   : 0;
+  const bool complementary_census =
+      live_clauses >= config_.rephase.configuration_checking_minimum_clauses &&
+      complementary_bound >=
+          config_.rephase.complementary_ternary_minimum_permille;
   complementary_ternary_permille_ =
-      walk_complementary_ternary_fraction_permille(k);
+      complementary_census ? walk_complementary_ternary_fraction_permille(k)
+                           : 0;
   complementary_ternary_walk_ =
-      k.watches.binary_clauses() + k.live_irredundant_large >=
-          config_.rephase.configuration_checking_minimum_clauses &&
+      complementary_census &&
       complementary_ternary_permille_ >=
           config_.rephase.complementary_ternary_minimum_permille;
   configuration_checking_walk_ = complementary_ternary_walk_;
@@ -4475,9 +4446,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   affine_usefulness_paused_=false;
   (void)port::complete_action(completion_, FeedbackKind::Support,
       "ResetGraphLabelingSession", INSTANCE_CANONICAL, [] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = "per-solve";
-        return spec;
+        return support_feedback("per-solve");
       }, [&] {
         port::execute_action(k, execution::ResetGraphLabelingSessionRequest{});
         return ApplyResult::Ok;
@@ -4612,9 +4581,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   (void)port::complete_action(completion_, FeedbackKind::Support,
       "CloseStartupCertificate", INSTANCE_CANONICAL, [] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = "close-original-input-opportunity;commit-native-dsr";
-        return spec;
+        return support_feedback("close-original-input-opportunity;commit-native-dsr");
       }, [&] {
         port::execute_action(k, execution::CloseStartupCertificateRequest{});
         return ApplyResult::NoOp;
@@ -4827,9 +4794,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (k.input_binary_order_captured)
     (void)port::complete_action(completion_, FeedbackKind::Support,
         "ReleaseInputBinaryOrder", INSTANCE_CANONICAL, [] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = "after-original-input-opportunities";
-          return spec;
+          return support_feedback("after-original-input-opportunities");
         }, [&] {
           port::execute_action(k, execution::ReleaseInputBinaryOrderRequest{});
           return ApplyResult::Ok;
@@ -4873,11 +4838,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       config_.inprocess.structured_root_residual_search_handoff) {
     (void)port::complete_action(completion_, FeedbackKind::Support,
         "PrepareResidualGuidance", INSTANCE_CANONICAL, [] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = "prepare-first-search-activation-seed";
-          spec.description.effort_currency = "activation-variables";
-          spec.meter = [](const Kernel &kernel) { return kernel.stats.residual_handoff_variables; };
-          return spec;
+          return support_feedback(
+              "prepare-first-search-activation-seed", "activation-variables",
+              [](const Kernel &kernel) { return kernel.stats.residual_handoff_variables; });
         }, [&] {
           const uint64_t started = now_nanos();
           k.stats.residual_handoff_variables +=
@@ -4891,11 +4854,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (!k.h)
     (void)port::complete_action(completion_, FeedbackKind::Support,
         "AttachHeuristics", INSTANCE_CANONICAL, [] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = "fresh;activation-storage=shrink";
-          spec.description.effort_currency = "ticks";
-          spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-          return spec;
+          return support_feedback("fresh;activation-storage=shrink", "ticks", ticks_meter);
         }, [&] {
           owned_h.emplace(k);
           return ApplyResult::Ok;
@@ -4903,11 +4862,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (!residual_import_order.empty())
     (void)port::complete_action(completion_, FeedbackKind::Support,
         "SeedResidualImportOrder", INSTANCE_CANONICAL, [&] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = "variables=" + std::to_string(residual_import_order.size());
-          spec.description.effort_currency = "ticks";
-          spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-          return spec;
+          return support_feedback("variables=" + std::to_string(residual_import_order.size()),
+              "ticks", ticks_meter);
         }, [&] {
           port::execute_action(k, execution::ResidualImportRequest{residual_import_order});
           return ApplyResult::Ok;
@@ -4941,11 +4897,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                            static_cast<uint32_t>(k.trail.size()));
   (void)port::complete_action(completion_, FeedbackKind::Support,
       "CompactRandomOrder", INSTANCE_CANONICAL, [] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = "fold-root-fixed-branching-population";
-        spec.description.effort_currency = "ticks";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-        return spec;
+        return support_feedback("fold-root-fixed-branching-population", "ticks", ticks_meter);
       }, [&] {
         port::execute_action(k, execution::CompactRandomOrderRequest{});
         return ApplyResult::Ok;
@@ -5025,9 +4977,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // marker is cleared (Kissat physically clears that prefix).
   (void)port::complete_action(completion_, FeedbackKind::Support,
       "ConsumeRootPrefix", INSTANCE_CANONICAL, [] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = "before-search";
-        return spec;
+        return support_feedback("before-search");
       }, [&] {
         return port::execute_action(k, execution::ConsumeRootPrefixRequest{})
                    ? ApplyResult::Ok : ApplyResult::NoOp;
@@ -5136,7 +5086,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return port::execute_action(
           k, request,
           [&](auto &&apply) {
-            return default_direct_rule_lazy(
+            return default_direct_rule(
                 k, "ConflictAnalysis",
                 [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
                 apply);
@@ -5297,9 +5247,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       feedback.end_interval(StopReason::RootPreparation);
       (void)port::complete_action(completion_, FeedbackKind::Support,
           "ReductionPreparation", INSTANCE_CANONICAL, [] {
-            execution::NativeFeedbackSpec spec;
-            spec.description.description = "native-reduce-root-preparation";
-            return spec;
+            return support_feedback("native-reduce-root-preparation");
           }, [&] {
             default_prepare_reduction(k);
             return k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
@@ -5369,9 +5317,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (compact_due)
         (void)port::complete_action(completion_, FeedbackKind::Support,
             "CompactVariables", execution::COMPACT_FOLD_FIXED | execution::COMPACT_PUBLISH_RANDOM_ORDER, [] {
-              execution::NativeFeedbackSpec spec;
-              spec.description.description = "fold-fixed=1;publish-random-order=1";
-              return spec;
+              return support_feedback("fold-fixed=1;publish-random-order=1");
             }, [&] {
               const bool compacted = port::execute_action(k, execution::CompactVariablesRequest{true});
               if (compacted) heuristics_compact_random_order_fixed(k);
@@ -5521,11 +5467,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                            : execution::WarmupPhase::Heuristic;
           (void)port::complete_action(completion_, FeedbackKind::Support,
               "Warmup", static_cast<uint64_t>(phase), [] {
-                execution::NativeFeedbackSpec spec;
-                spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-                spec.description.effort_currency = "ticks";
-                spec.description.description = "native-assignment-phase-warmup";
-                return spec;
+                return support_feedback("native-assignment-phase-warmup", "ticks", ticks_meter);
               }, [&] { return port::execute_action(k, execution::WarmupRequest{},
               [&] { return default_branching_.pick(k); }, [&](Lit decision) {
             event_trace.detail(k, "decision", kernel_externalize(k, decision));
@@ -5551,35 +5493,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         selected_walk.step_budget = allowance;
         selected_walk.random_seed = seed;
         selected_walk.seed_candidate = 0;
-        const strategy::GuidanceOutcomeSnapshot before_walk(k);
-        (void)port::complete_action(completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
-            [&] {
-              auto spec = execution::native_rule_feedback(k, "Walk", INSTANCE_CANONICAL,
-                  "native-walk", [](const Kernel &kernel) { return kernel.stats.walk_steps; },
-                  "walk-steps", strategy::WorkLimit::bounded(allowance));
-              spec.description.description += ";algorithm=probsat";
-              spec.description.invocation->parameters = selected_walk;
-              return spec;
-            }, [&] {
-              static const RuleVTable &walk_rule = registered_rule("Walk");
-              return port::execute_action(k, execution::WalkRequest{
-                  allowance, seed, 0,
-                  strategy::WalkParameters::Objective::LegacyWalk,
-                  strategy::WalkParameters::Admission::Legacy, 0,
-                  selected_walk.algorithm, selected_walk.initialization,
-                  selected_walk.maximum_tries,
-                  selected_walk.flips_per_try,
-                  selected_walk.weight_smoothing_threshold,
-                  selected_walk.smoothing_old_numerator,
-                  selected_walk.smoothing_denominator,
-                  selected_walk.aspiration},
-                                               [&] { return port::apply_rule(walk_rule, k); });
-            },
-            [&](ApplyResult result) {
-              auto out = strategy::controller::feedback_outcome(result);
-              out.invocation.status = before_walk.refine(k, result, out.invocation.status);
-              return out;
-            });
+        (void)default_walk(k, completion_, selected_walk, allowance, seed,
+                           [] { return "native-walk;algorithm=probsat"; });
       } else {
         const DefaultRephaseSlot effective =
             slot == DefaultRephaseSlot::Walk
@@ -5879,11 +5794,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     uint32_t n =
         r.instances(k, payloads_.data(),
                     static_cast<uint32_t>(payloads_.size()));
+    // Resolved once per FastEl pass for the gather and every candidate below.
+    const RuleVTable *fastel_subsume = nullptr;
     if (initial_fast_bve) {
-      const std::vector<RuleVTable> &rules = tactix_rules();
       const int subsume_id = tactix_rule_id("SubsumeForward");
       assert(subsume_id >= 0);
-      const RuleVTable &subsume = rules[static_cast<size_t>(subsume_id)];
+      fastel_subsume = &tactix_rules()[static_cast<size_t>(subsume_id)];
+      const RuleVTable &subsume = *fastel_subsume;
       const strategy::BveParameters &parameters =
           config().initial_fast_elimination_parameters;
       struct Candidate {
@@ -6011,10 +5928,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         const Var variable = var_of(candidate);
         if (variable >= k.bve_retry.size() || !k.bve_retry[variable])
           continue;
-        const int subsume_id = tactix_rule_id("SubsumeForward");
-        assert(subsume_id >= 0);
-        const RuleVTable &subsume =
-            tactix_rules()[static_cast<size_t>(subsume_id)];
+        const RuleVTable &subsume = *fastel_subsume;
         const strategy::BveParameters &parameters =
             config().initial_fast_elimination_parameters;
         const size_t pos = fastel_flush_occurrences(
@@ -6204,9 +6118,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     // physical state from which that common consumer reconstructs.
     (void)port::complete_action(ctx.completion, FeedbackKind::Support,
         "CollectGarbage", INSTANCE_CANONICAL, [] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = "completed-bve-round;watch-start=0;sparse=0;preserve-eager=0";
-          return spec;
+          return support_feedback("completed-bve-round;watch-start=0;sparse=0;preserve-eager=0");
         }, [&] {
           port::execute_action(k, execution::CollectGarbageRequest{});
           return ApplyResult::NoOp;
@@ -6262,11 +6174,6 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
     return true;
   }
   return false;
-}
-
-void DefaultInprocessScheduler::factor_dose_config(Kernel &k, SlotEntry &,
-                                                   PolicyCompletion *completion) {
-  set_factor_composite(k, true, completion);
 }
 
 void DefaultInprocessScheduler::set_factor_composite(Kernel &k, bool composite,
@@ -6396,11 +6303,6 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
                                      : (remaining0 ? remaining0 : 1);
   const uint64_t spent_before = e.meter(k);
   bool substitute_round_budget_break = false;
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-  e.journal_last_round_spent = 0;
-  e.journal_rounds = 0;
-  e.journal_round_budget_break = false;
-#endif
   // kissat substitute.c runs round one of every authored call unconditionally;
   // after a round retires a variable its own effort is compared with the
   // handed allowance (10 per mille of the Probe reference), and an overrun
@@ -6413,7 +6315,7 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
     substitute_rounds.round_effort_ceiling = k.stats.conflicts != 0;
   }
   if (factor_entry)
-    factor_dose_config(k, e, completion);
+    set_factor_composite(k, true, completion);
   // The fused Strengthen pass reproduces Kissat's forward-step ceiling at the
   // only reference cut point: strictly between complete candidates.  The
   // standalone C1 decomposition retains its diagnostic per-partner budget.
@@ -6690,11 +6592,8 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     const size_t closure_trail_from = k.trail.size();
     const ApplyResult closure = port::complete_action(ctx.completion,
         FeedbackKind::Support, "ForwardClosure", INSTANCE_CANONICAL, [&] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = "trail-from=" + std::to_string(forward_trail_from);
-          spec.description.effort_currency = "propagations";
-          spec.meter = [](const Kernel &kernel) { return kernel.stats.propagations; };
-          return spec;
+          return support_feedback("trail-from=" + std::to_string(forward_trail_from),
+              "propagations", propagations_meter);
         }, [&] {
           const ApplyResult result = port::execute_action(
               k, execution::ForwardClosureRequest{forward_trail_from});
@@ -7029,12 +6928,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   const ApplyResult root_result = port::complete_action(completion,
       FeedbackKind::Support, "RootPreparation",
       execution::root_preparation_argument(preparation, group != SlotGroup::Probe), [&] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = std::string("probing=") +
-            std::to_string(group == SlotGroup::Probe) + ";clear-unflushed-root=1;purpose=preparation";
-        spec.description.effort_currency = "propagations";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.propagations; };
-        return spec;
+        return support_feedback(std::string("probing=") +
+            std::to_string(group == SlotGroup::Probe) + ";clear-unflushed-root=1;purpose=preparation",
+            "propagations", propagations_meter);
       }, [&] { return port::execute_action(
       k, preparation,
       [&] {
@@ -7062,13 +6958,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   (void)port::complete_action(completion, FeedbackKind::Support,
       "InprocessPhaseEntry",
       execution::inprocess_phase_argument(group == SlotGroup::Eliminate, factor_bound), [&] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = std::string("group=") +
+        return support_feedback(std::string("group=") +
             (group == SlotGroup::Probe ? "probe" : "eliminate") +
-            ";factor-selection=default;factor-bound=" + std::to_string(factor_bound);
-        spec.description.effort_currency = "ticks";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-        return spec;
+            ";factor-selection=default;factor-bound=" + std::to_string(factor_bound),
+            "ticks", ticks_meter);
       }, [&] {
   if (group == SlotGroup::Eliminate)
     event_trace_eliminate_cleanup(k, "entry");
@@ -7090,11 +6983,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     // terminal model and release only the phase-owned guidance handoff.
     (void)port::complete_action(completion, FeedbackKind::Support,
         "InprocessPhaseExit", INSTANCE_CANONICAL, [] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = "structured-terminal=sat;no-occurrence-session";
-          spec.description.effort_currency = "ticks";
-          spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-          return spec;
+          return support_feedback("structured-terminal=sat;no-occurrence-session",
+              "ticks", ticks_meter);
         }, [&] {
           phase.exit_terminal(k);
           k.stats.inprocess_propagations += k.stats.propagations - phase_props_at_entry;
@@ -7107,13 +6997,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   const uint64_t dense_connect_started = now_nanos();
   (void)port::complete_action(completion, FeedbackKind::Support,
       "OpenOccurrenceSession", INSTANCE_CANONICAL, [&] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = std::string("group=") +
+        return support_feedback(std::string("group=") +
             (group == SlotGroup::Probe ? "probe" : "eliminate") +
-            ";track-order=" + (group == SlotGroup::Eliminate ? "1" : "0");
-        spec.description.effort_currency = "ticks";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-        return spec;
+            ";track-order=" + (group == SlotGroup::Eliminate ? "1" : "0"), "ticks", ticks_meter);
       }, [&] {
         phase.open_occurrences(k, occurrence_index_);
         return ApplyResult::Ok;
@@ -7147,9 +7033,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     ctx.round_changed = false;
     (void)port::complete_action(completion, FeedbackKind::Support,
         "BeginForwardRound", INSTANCE_CANONICAL, [&] {
-          execution::NativeFeedbackSpec spec;
-          spec.description.description = "round=" + std::to_string(ctx.outer);
-          return spec;
+          return support_feedback("round=" + std::to_string(ctx.outer));
         }, [&] {
           return port::execute_action(k, execution::BeginForwardRoundRequest{})
                      ? ApplyResult::Ok : ApplyResult::NoOp;
@@ -7358,13 +7242,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   const uint64_t phase_exit_started = now_nanos();
   (void)port::complete_action(completion, FeedbackKind::Support,
       "InprocessPhaseExit", INSTANCE_CANONICAL, [&] {
-        execution::NativeFeedbackSpec spec;
-        spec.description.description = std::string("group=") +
+        return support_feedback(std::string("group=") +
             (group == SlotGroup::Probe ? "probe" : "eliminate") +
-            ";sparse-resume-trail=" + std::to_string(phase.sparse_resume_trail());
-        spec.description.effort_currency = "ticks";
-        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
-        return spec;
+            ";sparse-resume-trail=" + std::to_string(phase.sparse_resume_trail()),
+            "ticks", ticks_meter);
       }, [&] {
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
     event_trace_eliminate_cleanup(k, "before");
@@ -7411,10 +7292,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       // a candidate again whenever the bound grows.
       (void)port::complete_action(completion, FeedbackKind::Support,
           "RescheduleBveCandidates", INSTANCE_CANONICAL, [&] {
-            execution::NativeFeedbackSpec spec;
-            spec.description.description =
-                "growth-bound=" + std::to_string(bve_level_);
-            return spec;
+            return support_feedback("growth-bound=" + std::to_string(bve_level_));
           }, [&] {
             return port::execute_action(k, execution::RescheduleBveCandidatesRequest{})
                        ? ApplyResult::Ok : ApplyResult::NoOp;

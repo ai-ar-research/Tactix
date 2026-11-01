@@ -118,12 +118,10 @@ ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {
   reorder_weights(k, weight);
   std::vector<Var> sorted;
   sorted.reserve(k.nvars);
-  std::vector<Var> compact_position(k.nvars, INVALID_VAR);
   for (Var compact = 0; compact < k.compact_import_order.size(); ++compact) {
     const Var v = k.compact_import_order[compact];
     if (v >= k.nvars)
       continue;
-    compact_position[v] = compact;
     if (heuristics_var_active(k, v))
       sorted.push_back(v);
   }
