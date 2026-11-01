@@ -75,6 +75,12 @@ struct Limits {
   uint32_t maximum_provenance_terms = 0;
   uint32_t maximum_derivations = 0;
   uint64_t maximum_retained_plan_bytes = 0;
+  bool valid() const {
+    return maximum_work && maximum_fill_entries &&
+           maximum_intermediate_width && maximum_provenance_terms &&
+           maximum_derivations && maximum_retained_plan_bytes;
+  }
+  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 enum class LimitKind : uint8_t {

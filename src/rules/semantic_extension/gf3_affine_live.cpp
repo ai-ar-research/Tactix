@@ -42,12 +42,7 @@ bool root_guard(const Kernel &kernel) {
 
 bool recognition_limits_valid(const Gf3AffineLiveRequest &request) {
   return request.maximum_recognition_work &&
-         request.recognition.maximum_source_clauses &&
-         request.recognition.maximum_source_literals &&
-         request.recognition.maximum_domains &&
-         request.recognition.maximum_equations &&
-         request.recognition.maximum_equation_arity >= 2 &&
-         request.recognition.maximum_tuples_per_equation;
+         request.recognition.valid();
 }
 
 bool apply_limits_valid(const Gf3AffineLiveRequest &request) {

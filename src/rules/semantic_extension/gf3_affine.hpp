@@ -55,6 +55,13 @@ struct RecognitionBounds {
   uint32_t maximum_equations = 0;
   uint32_t maximum_equation_arity = 0;
   uint64_t maximum_tuples_per_equation = 0;
+  bool valid() const {
+    return maximum_source_clauses && maximum_source_literals &&
+           maximum_domains && maximum_equations &&
+           maximum_equation_arity >= 2 && maximum_tuples_per_equation;
+  }
+  friend bool operator==(const RecognitionBounds &,
+                         const RecognitionBounds &) = default;
 };
 
 enum class RecognitionStatus : uint8_t {

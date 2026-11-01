@@ -260,12 +260,7 @@ semantic_advice(const std::vector<int32_t> &literals) {
 } // namespace
 
 bool Gf3AffineActionLimits::valid() const {
-  return recognition.maximum_source_clauses &&
-         recognition.maximum_source_literals && recognition.maximum_domains &&
-         recognition.maximum_equations &&
-         recognition.maximum_equation_arity >= 2 &&
-         recognition.maximum_tuples_per_equation &&
-         elimination.maximum_result_arity &&
+  return recognition.valid() && elimination.maximum_result_arity &&
          elimination.maximum_result_tuples && elimination.maximum_additions &&
          elimination.maximum_addition_literals && maximum_recognition_work &&
          maximum_planning_work && maximum_duplicate_scan_work &&

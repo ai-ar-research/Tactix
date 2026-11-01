@@ -81,26 +81,8 @@ bool valid_identity(const std::string &identity) {
 } // namespace
 
 bool Gf3GaussianActionLimits::valid() const {
-  const auto &r = recognition;
-  const auto &c = certificate;
-  const auto &b = c.bridge;
-  const auto &g = b.gaussian;
-  return r.maximum_source_clauses && r.maximum_source_literals &&
-         r.maximum_domains && r.maximum_equations &&
-         r.maximum_equation_arity >= 2 && r.maximum_tuples_per_equation &&
-         b.maximum_work && b.maximum_source_clauses &&
-         b.maximum_source_literals && b.maximum_domains &&
-         b.maximum_equations && b.maximum_terms &&
-         b.maximum_authentication_references &&
-         b.maximum_references_per_equation && g.maximum_work &&
-         g.maximum_fill_entries && g.maximum_intermediate_width &&
-         g.maximum_provenance_terms && g.maximum_derivations &&
-         g.maximum_retained_plan_bytes && c.maximum_work &&
-         c.maximum_events && c.maximum_event_literals &&
-         c.maximum_active_clauses &&
-         c.maximum_retained_source_references && c.maximum_event_width &&
-         c.maximum_branch_domains && c.maximum_consequences &&
-         maximum_capture_work && maximum_revalidation_work &&
+  return recognition.valid() && certificate.bridge.valid() &&
+         certificate.valid() && maximum_capture_work && maximum_revalidation_work &&
          maximum_proof_additions && maximum_proof_literal_occurrences &&
          maximum_journal_bytes && maximum_identity_bytes &&
          maximum_external_extent && maximum_session_keys &&

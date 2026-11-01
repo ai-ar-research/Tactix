@@ -172,32 +172,8 @@ bool valid(const Request &request) {
          (request.selected_identity.empty() ||
           request.selected_identity.size() <= request.maximum_identity_bytes) &&
          request.action_id && request.semantic_id && request.records &&
-         recognition.maximum_source_clauses &&
-         recognition.maximum_source_literals && recognition.maximum_domains &&
-         recognition.maximum_equations &&
-         recognition.maximum_equation_arity >= 2 &&
-         recognition.maximum_tuples_per_equation &&
-         certificate.bridge.maximum_work &&
-         certificate.bridge.maximum_source_clauses &&
-         certificate.bridge.maximum_source_literals &&
-         certificate.bridge.maximum_domains &&
-         certificate.bridge.maximum_equations &&
-         certificate.bridge.maximum_terms &&
-         certificate.bridge.maximum_authentication_references &&
-         certificate.bridge.maximum_references_per_equation &&
-         certificate.bridge.gaussian.maximum_work &&
-         certificate.bridge.gaussian.maximum_fill_entries &&
-         certificate.bridge.gaussian.maximum_intermediate_width &&
-         certificate.bridge.gaussian.maximum_provenance_terms &&
-         certificate.bridge.gaussian.maximum_derivations &&
-         certificate.bridge.gaussian.maximum_retained_plan_bytes &&
-         certificate.maximum_work && certificate.maximum_events &&
-         certificate.maximum_event_literals &&
-         certificate.maximum_active_clauses &&
-         certificate.maximum_retained_source_references &&
-         certificate.maximum_event_width &&
-         certificate.maximum_branch_domains &&
-         certificate.maximum_consequences;
+         recognition.valid() && certificate.bridge.valid() &&
+         certificate.valid();
 }
 
 Gf3AffineLiveRequest owner_request(const Request &request) {
@@ -462,38 +438,8 @@ bool plan_events(Kernel &kernel, const Request &request, Prepared &prepared,
 
 bool same_request(const Request &request, const Prepared &prepared) {
   const Request &retained = PreparedAccess::request(prepared);
-  const auto same_recognition = [](const auto &a, const auto &b) {
-    return a.maximum_source_clauses == b.maximum_source_clauses &&
-           a.maximum_source_literals == b.maximum_source_literals &&
-           a.maximum_domains == b.maximum_domains &&
-           a.maximum_equations == b.maximum_equations &&
-           a.maximum_equation_arity == b.maximum_equation_arity &&
-           a.maximum_tuples_per_equation == b.maximum_tuples_per_equation;
-  };
-  const auto same_gaussian = [](const auto &a, const auto &b) {
-    return a.maximum_work == b.maximum_work &&
-           a.maximum_fill_entries == b.maximum_fill_entries &&
-           a.maximum_intermediate_width == b.maximum_intermediate_width &&
-           a.maximum_provenance_terms == b.maximum_provenance_terms &&
-           a.maximum_derivations == b.maximum_derivations &&
-           a.maximum_retained_plan_bytes == b.maximum_retained_plan_bytes;
-  };
-  const auto same_bridge = [&](const auto &a, const auto &b) {
-    return a.maximum_work == b.maximum_work &&
-           a.maximum_source_clauses == b.maximum_source_clauses &&
-           a.maximum_source_literals == b.maximum_source_literals &&
-           a.maximum_domains == b.maximum_domains &&
-           a.maximum_equations == b.maximum_equations &&
-           a.maximum_terms == b.maximum_terms &&
-           a.maximum_authentication_references ==
-               b.maximum_authentication_references &&
-           a.maximum_references_per_equation ==
-               b.maximum_references_per_equation &&
-           same_gaussian(a.gaussian, b.gaussian);
-  };
   const auto same_certificate = [&](const auto &a, const auto &b) {
-    return same_bridge(a.bridge, b.bridge) &&
-           a.maximum_work == b.maximum_work &&
+    return a.bridge == b.bridge && a.maximum_work == b.maximum_work &&
            a.maximum_events == b.maximum_events &&
            a.maximum_event_literals == b.maximum_event_literals &&
            a.maximum_active_clauses == b.maximum_active_clauses &&
@@ -503,7 +449,7 @@ bool same_request(const Request &request, const Prepared &prepared) {
            a.maximum_branch_domains == b.maximum_branch_domains &&
            a.maximum_consequences == b.maximum_consequences;
   };
-  return same_recognition(request.recognition, retained.recognition) &&
+  return request.recognition == retained.recognition &&
          same_certificate(request.certificate, retained.certificate) &&
          request.maximum_capture_work == retained.maximum_capture_work &&
          request.maximum_revalidation_work ==

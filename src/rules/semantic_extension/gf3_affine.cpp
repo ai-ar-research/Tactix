@@ -158,10 +158,7 @@ RecognitionResult recognize(const std::vector<Premise> &source,
     return add_count(amount, result.consumed_work);
   };
 
-  if (!bounds.maximum_source_clauses || !bounds.maximum_source_literals ||
-      !bounds.maximum_domains || !bounds.maximum_equations ||
-      bounds.maximum_equation_arity < 2 ||
-      !bounds.maximum_tuples_per_equation || source.empty() || !charge)
+  if (!bounds.valid() || source.empty() || !charge)
     return decline(RecognitionStatus::InvalidRequest);
   if (source.size() > bounds.maximum_source_clauses)
     return decline(RecognitionStatus::BoundExceeded);

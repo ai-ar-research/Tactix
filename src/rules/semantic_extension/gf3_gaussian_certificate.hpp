@@ -63,6 +63,13 @@ struct Limits {
   uint32_t maximum_event_width = 0;
   uint32_t maximum_branch_domains = 0;
   uint32_t maximum_consequences = 0;
+  // Validates this level's bounds; callers validate `bridge` separately.
+  bool valid() const {
+    return maximum_work && maximum_events && maximum_event_literals &&
+           maximum_active_clauses && maximum_retained_source_references &&
+           maximum_event_width && maximum_branch_domains &&
+           maximum_consequences;
+  }
 };
 
 enum class LimitKind : uint8_t {

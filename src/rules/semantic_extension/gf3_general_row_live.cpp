@@ -305,26 +305,7 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
 } // namespace
 
 bool Gf3GeneralRowLiveLimits::valid() const {
-  const auto &bridge = planner.bridge;
-  const auto &gaussian = bridge.gaussian;
-  return recognition.maximum_source_clauses &&
-         recognition.maximum_source_literals && recognition.maximum_domains &&
-         recognition.maximum_equations &&
-         recognition.maximum_equation_arity >= 2 &&
-         recognition.maximum_tuples_per_equation &&
-         bridge.maximum_work && bridge.maximum_source_clauses &&
-         bridge.maximum_source_literals && bridge.maximum_domains &&
-         bridge.maximum_equations && bridge.maximum_terms &&
-         bridge.maximum_authentication_references &&
-         bridge.maximum_references_per_equation && gaussian.maximum_work &&
-         gaussian.maximum_fill_entries && gaussian.maximum_intermediate_width &&
-         gaussian.maximum_provenance_terms && gaussian.maximum_derivations &&
-         gaussian.maximum_retained_plan_bytes && planner.maximum_work &&
-         planner.maximum_events && planner.maximum_event_literals &&
-         planner.maximum_active_clauses &&
-         planner.maximum_retained_source_references &&
-         planner.maximum_row_tuples && planner.maximum_event_width &&
-         planner.maximum_branch_domains && planner.maximum_row_width &&
+  return recognition.valid() && planner.bridge.valid() && planner.valid() &&
          maximum_capture_work && maximum_duplicate_scan_work &&
          maximum_revalidation_work && maximum_proof_additions &&
          maximum_proof_literal_occurrences && maximum_arena_words &&
