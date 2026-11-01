@@ -584,6 +584,49 @@ ApplyResult default_lucky(Kernel &k, const char *candidate,
   });
 }
 
+// A support transaction that executes one native request, with a fixed
+// outcome; `meter` optionally prices it in `currency`.
+template <class Request>
+void default_support_request(Kernel &k, PolicyCompletion *completion,
+                             const char *name, const char *description,
+                             const Request &request, ApplyResult outcome,
+                             const char *currency = "",
+                             uint64_t (*meter)(const Kernel &) = nullptr) {
+  (void)port::complete_action(
+      completion, FeedbackKind::Support, name, INSTANCE_CANONICAL,
+      [&] { return support_feedback(description, currency, meter); },
+      [&] {
+        port::execute_action(k, request);
+        return outcome;
+      });
+}
+
+// One Lucky 26/27 graph-labeling action: registry dispatch of the typed
+// operation, whose result the policy keeps.
+template <class Describe>
+execution::GraphLabelingActionResult default_graph_labeling_action(
+    Kernel &kernel, PolicyCompletion *completion, uint64_t instance,
+    const char *selector, const char *candidate,
+    execution::GraphLabelingOperation operation, Describe &&describe) {
+  return port::complete_action(
+      completion, FeedbackKind::Rule, "Lucky", instance,
+      [&] {
+        return execution::native_rule_feedback(kernel, "Lucky", instance,
+                                               candidate);
+      },
+      [&] {
+        execution::GraphLabelingActionResult out;
+        static const RuleVTable &lucky = registered_rule("Lucky");
+        (void)port::apply_rule_structured(lucky, kernel, selector, [&] {
+          out = port::execute_action(kernel, execution::GraphLabelingActionRequest{
+              operation, strategy::GraphLabelingParameters::from_kernel(kernel)});
+          return out.result;
+        });
+        return out;
+      },
+      std::forward<Describe>(describe));
+}
+
 // One Walk request: `selected_walk` is both the record's typed parameters and
 // the request payload.  `describe` builds the record's description lazily.
 template <class Describe>
@@ -858,6 +901,18 @@ void pose_vivify_tiers(Kernel &k, const RetierSchedule &tiers,
 void retier_current_mode(Kernel &k, RetierSchedule &tiers) {
   reduce_retier(k, tiers, k.h && k.h->stable ? 1u : 0u);
 }
+
+// One serialize() group: ` <group>.<key>=<value>` per field, in call order,
+// each value inserted through its own type's stream operator.
+struct SnapshotGroup {
+  std::ostream &out;
+  const char *group;
+  template <class Value>
+  SnapshotGroup &operator()(const char *key, const Value &value) {
+    out << ' ' << group << '.' << key << '=' << value;
+    return *this;
+  }
+};
 } // namespace
 
 strategy::OnlineStrategyProgram
@@ -919,18 +974,17 @@ DefaultStrategyConfig::reference_structured_root_program() {
   // progress.
   orbitopal_parameters.orbitopal_discovery_order =
       OrbitopalDiscoveryOrder::UniqueLiteralThenRefinement;
-  orbitopal_parameters.graph_symmetry.maximum_graph_vertices =
-      SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
-  orbitopal_parameters.graph_symmetry.maximum_graph_edges =
-      SYMMETRY_GRAPH_EDGE_LIMIT_DEFAULT;
-  orbitopal_parameters.graph_symmetry.maximum_generators =
-      SYMMETRY_GENERATOR_LIMIT_DEFAULT;
-  orbitopal_parameters.graph_symmetry.backend_search_budget =
-      SYMMETRY_BACKTRACK_LIMIT_DEFAULT;
-  orbitopal_parameters.graph_symmetry.backend_support_budget =
-      SYMMETRY_SUPPORT_LIMIT_DEFAULT;
-  orbitopal_parameters.graph_symmetry.backend_component_size_limit =
-      SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
+  // Both symmetry producers share the reference graph and backend limits.
+  const auto pose_symmetry_limits = [](GraphSymmetryParameters &symmetry) {
+    symmetry.maximum_graph_vertices = SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
+    symmetry.maximum_graph_edges = SYMMETRY_GRAPH_EDGE_LIMIT_DEFAULT;
+    symmetry.maximum_generators = SYMMETRY_GENERATOR_LIMIT_DEFAULT;
+    symmetry.backend_search_budget = SYMMETRY_BACKTRACK_LIMIT_DEFAULT;
+    symmetry.backend_support_budget = SYMMETRY_SUPPORT_LIMIT_DEFAULT;
+    symmetry.backend_component_size_limit =
+        SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
+  };
+  pose_symmetry_limits(orbitopal_parameters.graph_symmetry);
   orbitopal.parameters = orbitopal_parameters;
   orbitopal.granularity =
       strategy::InvocationGranularity::CompleteCurrentPass;
@@ -950,18 +1004,7 @@ DefaultStrategyConfig::reference_structured_root_program() {
       SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT;
   graph_parameters.producer =
       SubstitutionRedundancyProducer::GraphSymmetry;
-  graph_parameters.graph_symmetry.maximum_graph_vertices =
-      SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
-  graph_parameters.graph_symmetry.maximum_graph_edges =
-      SYMMETRY_GRAPH_EDGE_LIMIT_DEFAULT;
-  graph_parameters.graph_symmetry.maximum_generators =
-      SYMMETRY_GENERATOR_LIMIT_DEFAULT;
-  graph_parameters.graph_symmetry.backend_search_budget =
-      SYMMETRY_BACKTRACK_LIMIT_DEFAULT;
-  graph_parameters.graph_symmetry.backend_support_budget =
-      SYMMETRY_SUPPORT_LIMIT_DEFAULT;
-  graph_parameters.graph_symmetry.backend_component_size_limit =
-      SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT;
+  pose_symmetry_limits(graph_parameters.graph_symmetry);
   graph_parameters.graph_symmetry.maximum_fixing_instances =
       SYMMETRY_FIXING_LIMIT_DEFAULT;
   // One direct generator changes the stabilizer used by the next pass.  Fresh
@@ -1312,118 +1355,113 @@ std::string DefaultStrategyConfig::serialize() const {
               << stage.structured_handoff_after_prior_progress;
         }
       };
-  out << "strategy-v1"
-      << " branching.random_initial_interval="
-      << branching.random_initial_interval
-      << " branching.random_sequence_length="
-      << branching.random_sequence_length
-      << " branching.random_seed=" << branching.random_seed
-      << " branching.logarithm_offset=" << branching.logarithm_offset
-      << " branching.focused_phase_switch_span="
-      << branching.focused_phase_switch_span
-      << " branching.random_sequences=" << branching.random_sequences;
+  const auto &parity = parity_model.parameters;
+  const auto &balanced = balanced_signature_model.parameters;
+  const auto &cardinality = signed_cardinality_proof.parameters;
+  const auto &ip = inprocess;
+  out << "strategy-v1";
+  SnapshotGroup{out, "branching"}
+      ("random_initial_interval", branching.random_initial_interval)
+      ("random_sequence_length", branching.random_sequence_length)
+      ("random_seed", branching.random_seed)
+      ("logarithm_offset", branching.logarithm_offset)
+      ("focused_phase_switch_span", branching.focused_phase_switch_span)
+      ("random_sequences", branching.random_sequences);
   for (size_t i = 0; i < branching.focused_phase_pattern.size(); ++i)
     out << " branching.focused_phase" << i << '='
         << static_cast<int>(branching.focused_phase_pattern[i]);
-  out << " analysis.minimize_depth_limit=" << analysis.minimize_depth_limit
-      << " analysis.bump_reason_limit=" << analysis.bump_reason_limit
-      << " analysis.bump_reason_rate=" << analysis.bump_reason_rate
-      << " analysis.reason_depth=" << analysis.reason_depth
-      << " analysis.chronological_levels=" << analysis.chronological_levels
-      << " analysis.conflict_reuse=" << analysis.conflict_reuse
-      << " analysis.jump_reasons=" << analysis.jump_reasons
-      << " analysis.shrink_glue_promote=" << analysis.shrink_glue_promote
-      << " analysis.bump_extension_reasons="
-      << analysis.bump_extension_reasons
-      << " analysis.eager_subsume=" << analysis.eager_subsume
-      << " analysis.small_clause_limit=" << analysis.small_clause_limit
-      << " analysis.big_binary_fraction_permille="
-      << analysis.big_binary_fraction_permille
-      << " restart.glue_margin=" << restart.glue_margin
-      << " restart.initial_interval=" << restart.initial_interval
-      << " restart.fast_ema_window=" << restart.fast_ema_window
-      << " restart.slow_ema_window=" << restart.slow_ema_window
-      << " restart.logarithm_offset=" << restart.logarithm_offset
-      << " restart.logarithm_bias=" << restart.logarithm_bias
-      << " restart.reluctant_period=" << restart.reluctant_period
-      << " restart.reluctant_limit=" << restart.reluctant_limit
-      << " mode.initial_conflicts=" << mode.initial_conflicts
-      << " mode.interval=" << mode.interval
-      << " mode.logarithm_offset=" << mode.logarithm_offset
-      << " mode.logarithm_power=" << mode.logarithm_power
-      << " mode.force=" << mode.force
-      << " reduction.initial_interval=" << reduction.initial_interval
-      << " reduction.arithmetic_interval=" << reduction.arithmetic_interval
-      << " reduction.arithmetic_step=" << reduction.arithmetic_step
-      << " reduction.low_percent=" << reduction.low_percent
-      << " reduction.high_percent=" << reduction.high_percent
-      << " reduction.logarithm_offset=" << reduction.logarithm_offset
-      << " reduction.compact_inactive_percent="
-      << reduction.compact_inactive_percent
-      << " reduction.retier_initial_interval="
-      << reduction.retier_initial_interval
-      << " reduction.retier_max_interval=" << reduction.retier_max_interval
-      << " reduction.retier_growth=" << reduction.retier_growth
-      << " reduction.tier1_default=" << reduction.tier1_default
-      << " reduction.tier2_default=" << reduction.tier2_default
-      << " reduction.tier1_relative_permille="
-      << reduction.tier1_relative_permille
-      << " reduction.tier2_relative_permille="
-      << reduction.tier2_relative_permille
-      << " reduction.reduce_tier1_mode="
-      << unsigned(reduction.reduce_tier1_mode)
-      << " reduction.reduce_tier2_mode="
-      << unsigned(reduction.reduce_tier2_mode)
-      << " reduction.victim_numerator=" << reduction.victim_numerator
-      << " reduction.victim_denominator=" << reduction.victim_denominator
-      << " reduction.protect_tiers=" << reduction.protect_tiers
-      << " reduction.canonical_compact_collection="
-      << reduction.canonical_compact_collection
-      << " reduction.bookkeeping=" << reduction.bookkeeping
-      << " reduction.square_root_cadence="
-      << reduction.square_root_cadence
-      << " reduction.ramp_fraction=" << reduction.ramp_fraction
-      << " reduction.dynamic_tiers=" << reduction.dynamic_tiers
-      << " reduction.compact_variables=" << reduction.compact_variables
-      << " rephase.initial_interval=" << rephase.initial_interval
-      << " rephase.interval=" << rephase.interval
-      << " rephase.logarithm_offset=" << rephase.logarithm_offset
-      << " rephase.logarithm_power=" << rephase.logarithm_power
-      << " rephase.walk_permille=" << rephase.walk_permille
-      << " rephase.walk_even_break_base_milli="
-      << rephase.walk_even_break_base_milli
-      << " rephase.walk_inapplicable_fallback="
-      << static_cast<unsigned>(rephase.walk_inapplicable_fallback)
-      << " rephase.walk_warmup=" << rephase.walk_warmup
-      << " rephase.walk_use_branch_seed="
-      << rephase.walk_use_branch_seed
-      << " rephase.walk_random_seed=" << rephase.walk_random_seed
-      << " rephase.configuration_checking_walk_permille="
-      << rephase.configuration_checking_walk_permille
-      << " rephase.configuration_checking_minimum_step_budget="
-      << rephase.configuration_checking_minimum_step_budget
-      << " rephase.configuration_checking_conflict_interval="
-      << rephase.configuration_checking_conflict_interval
-      << " rephase.configuration_checking_minimum_clauses="
-      << rephase.configuration_checking_minimum_clauses
-      << " rephase.complementary_ternary_minimum_permille="
-      << rephase.complementary_ternary_minimum_permille
-      << " rephase.configuration_checking_maximum_tries="
-      << rephase.configuration_checking_maximum_tries
-      << " rephase.configuration_checking_random_seed="
-      << rephase.configuration_checking_random_seed
-      << " rephase.configuration_checking_flips_per_try="
-      << rephase.configuration_checking_flips_per_try
-      << " rephase.configuration_checking_weight_threshold="
-      << rephase.configuration_checking_weight_threshold
-      << " rephase.configuration_checking_smoothing_old_numerator="
-      << rephase.configuration_checking_smoothing_old_numerator
-      << " rephase.configuration_checking_smoothing_denominator="
-      << rephase.configuration_checking_smoothing_denominator
-      << " rephase.configuration_checking_aspiration="
-      << rephase.configuration_checking_aspiration
-      << " rephase.stable_only=" << rephase.stable_only
-      << " rephase.late_lucky=" << rephase.late_lucky;
+  SnapshotGroup{out, "analysis"}
+      ("minimize_depth_limit", analysis.minimize_depth_limit)
+      ("bump_reason_limit", analysis.bump_reason_limit)
+      ("bump_reason_rate", analysis.bump_reason_rate)
+      ("reason_depth", analysis.reason_depth)
+      ("chronological_levels", analysis.chronological_levels)
+      ("conflict_reuse", analysis.conflict_reuse)
+      ("jump_reasons", analysis.jump_reasons)
+      ("shrink_glue_promote", analysis.shrink_glue_promote)
+      ("bump_extension_reasons", analysis.bump_extension_reasons)
+      ("eager_subsume", analysis.eager_subsume)
+      ("small_clause_limit", analysis.small_clause_limit)
+      ("big_binary_fraction_permille", analysis.big_binary_fraction_permille);
+  SnapshotGroup{out, "restart"}
+      ("glue_margin", restart.glue_margin)
+      ("initial_interval", restart.initial_interval)
+      ("fast_ema_window", restart.fast_ema_window)
+      ("slow_ema_window", restart.slow_ema_window)
+      ("logarithm_offset", restart.logarithm_offset)
+      ("logarithm_bias", restart.logarithm_bias)
+      ("reluctant_period", restart.reluctant_period)
+      ("reluctant_limit", restart.reluctant_limit);
+  SnapshotGroup{out, "mode"}
+      ("initial_conflicts", mode.initial_conflicts)
+      ("interval", mode.interval)
+      ("logarithm_offset", mode.logarithm_offset)
+      ("logarithm_power", mode.logarithm_power)
+      ("force", mode.force);
+  SnapshotGroup{out, "reduction"}
+      ("initial_interval", reduction.initial_interval)
+      ("arithmetic_interval", reduction.arithmetic_interval)
+      ("arithmetic_step", reduction.arithmetic_step)
+      ("low_percent", reduction.low_percent)
+      ("high_percent", reduction.high_percent)
+      ("logarithm_offset", reduction.logarithm_offset)
+      ("compact_inactive_percent", reduction.compact_inactive_percent)
+      ("retier_initial_interval", reduction.retier_initial_interval)
+      ("retier_max_interval", reduction.retier_max_interval)
+      ("retier_growth", reduction.retier_growth)
+      ("tier1_default", reduction.tier1_default)
+      ("tier2_default", reduction.tier2_default)
+      ("tier1_relative_permille", reduction.tier1_relative_permille)
+      ("tier2_relative_permille", reduction.tier2_relative_permille)
+      ("reduce_tier1_mode", unsigned(reduction.reduce_tier1_mode))
+      ("reduce_tier2_mode", unsigned(reduction.reduce_tier2_mode))
+      ("victim_numerator", reduction.victim_numerator)
+      ("victim_denominator", reduction.victim_denominator)
+      ("protect_tiers", reduction.protect_tiers)
+      ("canonical_compact_collection", reduction.canonical_compact_collection)
+      ("bookkeeping", reduction.bookkeeping)
+      ("square_root_cadence", reduction.square_root_cadence)
+      ("ramp_fraction", reduction.ramp_fraction)
+      ("dynamic_tiers", reduction.dynamic_tiers)
+      ("compact_variables", reduction.compact_variables);
+  SnapshotGroup{out, "rephase"}
+      ("initial_interval", rephase.initial_interval)
+      ("interval", rephase.interval)
+      ("logarithm_offset", rephase.logarithm_offset)
+      ("logarithm_power", rephase.logarithm_power)
+      ("walk_permille", rephase.walk_permille)
+      ("walk_even_break_base_milli", rephase.walk_even_break_base_milli)
+      ("walk_inapplicable_fallback",
+       static_cast<unsigned>(rephase.walk_inapplicable_fallback))
+      ("walk_warmup", rephase.walk_warmup)
+      ("walk_use_branch_seed", rephase.walk_use_branch_seed)
+      ("walk_random_seed", rephase.walk_random_seed)
+      ("configuration_checking_walk_permille",
+       rephase.configuration_checking_walk_permille)
+      ("configuration_checking_minimum_step_budget",
+       rephase.configuration_checking_minimum_step_budget)
+      ("configuration_checking_conflict_interval",
+       rephase.configuration_checking_conflict_interval)
+      ("configuration_checking_minimum_clauses",
+       rephase.configuration_checking_minimum_clauses)
+      ("complementary_ternary_minimum_permille",
+       rephase.complementary_ternary_minimum_permille)
+      ("configuration_checking_maximum_tries",
+       rephase.configuration_checking_maximum_tries)
+      ("configuration_checking_random_seed",
+       rephase.configuration_checking_random_seed)
+      ("configuration_checking_flips_per_try",
+       rephase.configuration_checking_flips_per_try)
+      ("configuration_checking_weight_threshold",
+       rephase.configuration_checking_weight_threshold)
+      ("configuration_checking_smoothing_old_numerator",
+       rephase.configuration_checking_smoothing_old_numerator)
+      ("configuration_checking_smoothing_denominator",
+       rephase.configuration_checking_smoothing_denominator)
+      ("configuration_checking_aspiration",
+       rephase.configuration_checking_aspiration)
+      ("stable_only", rephase.stable_only)
+      ("late_lucky", rephase.late_lucky);
   for (size_t i = 0; i < rephase.walk_score_curve.size(); ++i)
     out << " rephase.walk_score_point" << i << '='
         << rephase.walk_score_curve[i].average_clause_size_milli << ':'
@@ -1431,309 +1469,223 @@ std::string DefaultStrategyConfig::serialize() const {
   for (size_t i = 0; i < rephase.rotation.size(); ++i)
     out << " rephase.rotation" << i << '='
         << static_cast<unsigned>(rephase.rotation[i]);
-  out
-      << " reorder.initial_interval=" << reorder.initial_interval
-      << " reorder.interval=" << reorder.interval
-      << " reorder.mode=" << reorder.mode
-      << " reorder.target=" << static_cast<unsigned>(reorder.target)
-      << " reorder.maximum_clause_size="
-      << reorder.parameters.maximum_clause_size
-      << " reorder.clause_decay_milli="
-      << reorder.parameters.clause_decay_milli
-      << " reorder.binary_weight_milli="
-      << reorder.parameters.binary_weight_milli
-      << " reorder.balanced_polarity_milli="
-      << reorder.parameters.balanced_polarity_milli
-      << " parity_model.enabled=" << parity_model.enabled
-      << " parity_model.maximum_variables="
-      << parity_model.parameters.maximum_variables
-      << " parity_model.maximum_groups="
-      << parity_model.parameters.maximum_groups
-      << " parity_model.maximum_constraints="
-      << parity_model.parameters.maximum_constraints
-      << " parity_model.minimum_group_clauses="
-      << parity_model.parameters.minimum_group_clauses
-      << " parity_model.minimum_equations="
-      << parity_model.parameters.minimum_equations
-      << " parity_model.maximum_free_variables="
-      << parity_model.parameters.maximum_free_variables
-      << " parity_model.candidate_budget="
-      << parity_model.parameters.candidate_budget
-      << " parity_model.refutation_maximum_variables="
-      << parity_model.parameters.refutation_maximum_variables
-      << " parity_model.refutation_maximum_groups="
-      << parity_model.parameters.refutation_maximum_groups
-      << " parity_model.refutation_maximum_constraints="
-      << parity_model.parameters.refutation_maximum_constraints
-      << " parity_model.refutation_maximum_arity="
-      << parity_model.parameters.refutation_maximum_arity
-      << " parity_model.refutation_probe_constraints="
-      << parity_model.parameters.refutation_probe_constraints
-      << " parity_model.refutation_minimum_probe_repeats="
-      << parity_model.parameters.refutation_minimum_probe_repeats
-      << " parity_model.refutation_maximum_proof_additions="
-      << parity_model.parameters.refutation_maximum_proof_additions
-      << " onehot_model.enabled=" << onehot_model.enabled
-      << " onehot_model.maximum_variables="
-      << onehot_model.parameters.maximum_variables
-      << " onehot_model.maximum_domains="
-      << onehot_model.parameters.maximum_domains
-      << " onehot_model.maximum_constraints="
-      << onehot_model.parameters.maximum_constraints
-      << " onehot_model.maximum_equation_arity="
-      << onehot_model.parameters.maximum_equation_arity
-      << " onehot_model.minimum_domains="
-      << onehot_model.parameters.minimum_domains
-      << " onehot_model.minimum_equations="
-      << onehot_model.parameters.minimum_equations
-      << " onehot_model.maximum_free_domains="
-      << onehot_model.parameters.maximum_free_domains
-      << " onehot_model.candidate_budget="
-      << onehot_model.parameters.candidate_budget
-      << " affine_search.enabled=" << affine_search.enabled
-      << " affine_search.reason_mode="
-      << static_cast<unsigned>(affine_search.reason_mode)
-      << " affine_search.maximum_rows=" << affine_search.maximum_rows
-      << " affine_search.maximum_row_width=" << affine_search.maximum_row_width
-      << " affine_search.maximum_arity=" << affine_search.maximum_arity
-      << " affine_search.autodisable=" << affine_search.autodisable
-      << " affine_search.minimum_usefulness=" << affine_search.minimum_usefulness
-      << " affine_search.autodisable_minimum_calls=" << affine_search.autodisable_minimum_calls
-      << " affine_search.autodisable_check_every=" << affine_search.autodisable_check_every
-      << " affine_search.maximum_initialization_work=" << affine_search.maximum_initialization_work
-      << " affine_search.maximum_service_work=" << affine_search.maximum_service_work
-      << " affine_search.maximum_retained_bytes=" << affine_search.maximum_retained_bytes
-      << " affine_model.enabled=" << affine_model.enabled;
-  out << " affine_model.parameters="
-      << serialize_lucky_parameters(affine_model.parameters, 8);
-  out
-      << " balanced_signature_model.enabled="
-      << balanced_signature_model.enabled
-      << " balanced_signature_model.maximum_balls="
-      << balanced_signature_model.parameters.maximum_balls
-      << " balanced_signature_model.maximum_width="
-      << balanced_signature_model.parameters.maximum_width
-      << " balanced_signature_model.restarts="
-      << balanced_signature_model.parameters.restarts
-      << " balanced_signature_model.steps_per_restart="
-      << balanced_signature_model.parameters.steps_per_restart
-      << " balanced_signature_model.samples_per_step="
-      << balanced_signature_model.parameters.samples_per_step
-      << " balanced_signature_model.seed="
-      << balanced_signature_model.parameters.seed
-      << " balanced_signature_model.completion_rounds="
-      << balanced_signature_model.parameters.completion_rounds
-      << " fermat_model.enabled=" << fermat_model.enabled
-      << " fermat_model.maximum_bits="
-      << fermat_model.parameters.maximum_bits
-      << " fermat_model.comparator_tail_clauses="
-      << fermat_model.parameters.comparator_tail_clauses
-      << " fermat_model.rho_constants="
-      << fermat_model.parameters.rho_constants
-      << " fermat_model.rho_iterations="
-      << fermat_model.parameters.rho_iterations
-      << " cerny_model.enabled=" << cerny_model.enabled
-      << " lookup_circuit_model.enabled=" << lookup_circuit_model.enabled
-      << " lookup_circuit_model.maximum_fanin="
-      << lookup_circuit_model.parameters.maximum_fanin
-      << " lookup_circuit_model.maximum_fanout="
-      << lookup_circuit_model.parameters.maximum_fanout
-      << " lookup_circuit_model.maximum_primary_inputs="
-      << lookup_circuit_model.parameters.maximum_primary_inputs
-      << " lookup_circuit_model.maximum_support="
-      << lookup_circuit_model.parameters.maximum_support
-      << " lookup_circuit_model.maximum_vector_gate_evaluations="
-      << lookup_circuit_model.parameters.maximum_vector_gate_evaluations
-      << " simon_model.enabled=" << simon_model.enabled
-      << " simon_model.maximum_rounds="
-      << simon_model.parameters.maximum_rounds
-      << " simon_model.maximum_candidates="
-      << simon_model.parameters.maximum_candidates
-      << " stconn_proof.enabled=" << stconn_proof.enabled
-      << " stconn_proof.maximum_width="
-      << stconn_proof.parameters.maximum_width
-      << " stconn_proof.maximum_columns="
-      << stconn_proof.parameters.maximum_columns
-      << " stconn_proof.maximum_rup_clauses="
-      << stconn_proof.parameters.maximum_rup_clauses
-      << " signed_cardinality_proof.enabled="
-      << signed_cardinality_proof.enabled
-      << " signed_cardinality_proof.maximum_variables="
-      << signed_cardinality_proof.parameters.maximum_variables
-      << " signed_cardinality_proof.maximum_groups="
-      << signed_cardinality_proof.parameters.maximum_groups
-      << " signed_cardinality_proof.maximum_constraints="
-      << signed_cardinality_proof.parameters.maximum_constraints
-      << " signed_cardinality_proof.maximum_group_arity="
-      << signed_cardinality_proof.parameters.maximum_group_arity
-      << " signed_cardinality_proof.maximum_bdd_nodes="
-      << signed_cardinality_proof.parameters.maximum_bdd_nodes
-      << " signed_cardinality_proof.maximum_proof_additions="
-      << signed_cardinality_proof.parameters.maximum_proof_additions
-      << " exact_cover_model.enabled=" << exact_cover_model.enabled
-      << " exact_cover_model.block_arity="
-      << exact_cover_model.parameters.block_arity
-      << " exact_cover_model.maximum_nodes="
-      << exact_cover_model.parameters.maximum_nodes
-      << " exact_cover_model.restarts=" << exact_cover_model.parameters.restarts
-      << " exact_cover_model.restart_nodes="
-      << exact_cover_model.parameters.restart_nodes
-      << " exact_cover_model.seed=" << exact_cover_model.parameters.seed
-      << " independent_set_model.enabled=" << independent_set_model.enabled
-      << " independent_set_model.maximum_vertices="
-      << independent_set_model.parameters.maximum_vertices
-      << " independent_set_model.maximum_steps="
-      << independent_set_model.parameters.maximum_steps
-      << " independent_set_model.completion_rounds="
-      << independent_set_model.parameters.completion_rounds
-      << " independent_set_model.seed=" << independent_set_model.parameters.seed;
-  out << " ramsey_startup.enabled=" << ramsey_startup.enabled;
-  out << " ramsey_startup.parameters="
-      << serialize_lucky_parameters(ramsey_startup.parameters,
-                                    LUCKY_STARTUP_RAMSEY);
-  out << " affine_root_closure.enabled=" << affine_root_closure.enabled
-      << " affine_root_closure.maximum_clauses="
-      << affine_root_closure.maximum_clauses
-      << " affine_root_closure.maximum_snapshot_work="
-      << affine_root_closure.maximum_snapshot_work
-      << " affine_root_closure.maximum_recognition_work="
-      << affine_root_closure.maximum_recognition_work
-      << " affine_root_closure.maximum_basis_work="
-      << affine_root_closure.maximum_basis_work
-      << " affine_root_closure.maximum_row_width="
-      << affine_root_closure.maximum_row_width
-      << " affine_root_closure.maximum_proof_additions="
-      << affine_root_closure.maximum_proof_additions
-      << " affine_root_closure.maximum_proof_deletions="
-      << affine_root_closure.maximum_proof_deletions
-      << " affine_root_closure.maximum_journal_bytes="
-      << affine_root_closure.maximum_journal_bytes
-      << " affine_root_closure.maximum_session_work="
-      << affine_root_closure.maximum_session_work;
-  out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled;
-  out << " graph_labeling_model.parameters="
-      << serialize_lucky_parameters(graph_labeling_model.parameters,
-                                    LUCKY_GRAPH_LABELING);
-  out
-      << " inprocess.bve_enabled=" << inprocess.bve_enabled
-      << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
-      << " inprocess.factor_enabled=" << inprocess.factor_enabled
-      << " inprocess.sweep_enabled=" << inprocess.sweep_enabled
-      << " inprocess.factor_repeated_enabled="
-      << inprocess.factor_repeated_enabled
-      << " inprocess.preprocess_only=" << inprocess.preprocess_only
-      << " inprocess.initial_fast_elimination="
-      << inprocess.initial_fast_elimination
-      << " inprocess.initial_fast_elimination_rounds="
-      << inprocess.initial_fast_elimination_rounds
-      << " inprocess.initial_fast_elimination_resolvent_count_limit="
-      << inprocess.initial_fast_elimination_parameters.resolvent_count_limit
-      << " inprocess.initial_fast_elimination_traversal="
-      << static_cast<unsigned>(
-             inprocess.initial_fast_elimination_parameters.traversal)
-      << " inprocess.cadical_arena_ordering_enabled="
-      << inprocess.cadical_arena_ordering_enabled
-      << " inprocess.append_unlisted_rules="
-      << inprocess.append_unlisted_rules
-      << " inprocess.eliminate_interval=" << inprocess.eliminate_interval
-      << " inprocess.probe_interval=" << inprocess.probe_interval
-      << " inprocess.minimum_effort_ticks="
-      << inprocess.minimum_effort_ticks
-      << " inprocess.preprocess_initial_ticks="
-      << inprocess.preprocess_initial_ticks
-      << " inprocess.phase_rounds=" << inprocess.phase_rounds
-      << " inprocess.substitute_rounds=" << inprocess.substitute_rounds
-      << " inprocess.substitute_search_rounds="
-      << inprocess.substitute_search_rounds
-      << " inprocess.factor_initial_ticks=" << inprocess.factor_initial_ticks
-      << " inprocess.logarithm_offset=" << inprocess.logarithm_offset
-      << " inprocess.scale_quadratic=" << inprocess.scale_quadratic
-      << " inprocess.scale_constant=" << inprocess.scale_constant
-      << " inprocess.scale_log_shift=" << inprocess.scale_log_shift
-      << " inprocess.candidate_order_seed="
-      << inprocess.candidate_order_seed
-      << " inprocess.congruence_and_arity_limit="
-      << inprocess.congruence_parameters.and_arity_limit
-      << " inprocess.congruence_gate_count_limit="
-      << inprocess.congruence_parameters.gate_count_limit
-      << " inprocess.congruence_xor_arity_limit="
-      << inprocess.congruence_parameters.xor_arity_limit
-      << " inprocess.congruence_binary_watch_order="
-      << static_cast<unsigned>(inprocess.congruence_parameters.binary_watch_order)
-      << " inprocess.instantiate_minimum_clause_size="
-      << inprocess.instantiate_parameters.minimum_clause_size
-      << " inprocess.instantiate_occurrence_limit="
-      << inprocess.instantiate_parameters.occurrence_limit
-      << " inprocess.instantiate_minimum_unassigned="
-      << inprocess.instantiate_parameters.minimum_unassigned
-      << " inprocess.instantiate_include_redundant="
-      << inprocess.instantiate_parameters.include_redundant
-      << " inprocess.instantiate_new_material_threshold="
-      << inprocess.instantiate_parameters.new_material_threshold
-      << " inprocess.backbone_initial_rounds="
-      << inprocess.backbone_parameters.initial_rounds
-      << " inprocess.backbone_maximum_rounds="
-      << inprocess.backbone_parameters.maximum_rounds
-      << " inprocess.vivify_scope="
-      << unsigned(inprocess.vivify_parameters.scope)
-      << " inprocess.vivify_reuse=" << inprocess.vivify_parameters.reuse
-      << " inprocess.vivify_flush=" << inprocess.vivify_parameters.flush
-      << " inprocess.vivify_irredundant_sort_ratio="
-      << inprocess.vivify_parameters.irredundant_sort_ratio
-      << " inprocess.bce_occurrence_limit="
-      << inprocess.bce_parameters.occurrence_limit
-      << " inprocess.ternary_occurrence_limit="
-      << inprocess.ternary_parameters.occurrence_limit
-      << " inprocess.ternary_maximum_add_percent="
-      << inprocess.ternary_parameters.maximum_add_percent
-      << " inprocess.factor_maximum_clause_size="
-      << inprocess.factor_parameters.maximum_clause_size
-      << " inprocess.factor_growth_bound="
-      << inprocess.factor_parameters.growth_bound
-      << " inprocess.factor_candidate_rounds="
-      << inprocess.factor_parameters.candidate_rounds
-      << " inprocess.factor_composite="
-      << inprocess.factor_parameters.composite
-      << " inprocess.factor_demote_fresh="
-      << inprocess.factor_parameters.demote_fresh
-      << " inprocess.transitive_early_exit="
-      << inprocess.transitive_parameters.early_exit
-      << " inprocess.transitive_live_meter="
-      << inprocess.transitive_parameters.live_meter
-      << " inprocess.transitive_checked_budget_meter="
-      << inprocess.transitive_parameters.checked_budget_meter
-      << " inprocess.substitute_demote="
-      << inprocess.substitute_parameters.demote_substituted
-      << " inprocess.touch_filter=" << inprocess.touch_filter
-      << " inprocess.likely_kept_redundant="
-      << inprocess.likely_kept_redundant
-      << " inprocess.structured_root_before_lucky="
-      << inprocess.structured_root_before_lucky
-      << " inprocess.structured_root_symmetry_enabled="
-      << inprocess.structured_root_symmetry_enabled
-      << " inprocess.structured_root_residual_search_handoff="
-      << inprocess.structured_root_residual_search_handoff
-      << " inprocess.structured_root_sr_discovery_unlimited="
-      << inprocess.structured_root_sr_discovery_budget.is_unlimited()
-      << " inprocess.structured_root_sr_discovery_ticks="
-      << (inprocess.structured_root_sr_discovery_budget.is_unlimited()
-              ? 0
-              : inprocess.structured_root_sr_discovery_budget.amount())
-      << " inprocess.structured_root_progress_feedback="
-      << inprocess.structured_root_progress_feedback
-      << " inprocess.structured_root_large_domain_progress_feedback="
-      << inprocess.structured_root_large_domain_progress_feedback
-      << " inprocess.structured_root_progress_minimum_ticks="
-      << inprocess.structured_root_progress_minimum_ticks
-      << " inprocess.structured_root_progress_ticks_per_variable="
-      << inprocess.structured_root_progress_ticks_per_variable
-      << " inprocess.structured_root_bce_after_unique_literal_amo="
-      << inprocess.structured_root_bce_after_unique_literal_amo
-      << " inprocess.structured_root_backtracking_domain_limit="
-      << inprocess.structured_root_backtracking_domain_limit
-      << " inprocess.structured_root_large_domain_limit="
-      << inprocess.structured_root_large_domain_limit
-;
+  SnapshotGroup{out, "reorder"}
+      ("initial_interval", reorder.initial_interval)
+      ("interval", reorder.interval)
+      ("mode", reorder.mode)
+      ("target", static_cast<unsigned>(reorder.target))
+      ("maximum_clause_size", reorder.parameters.maximum_clause_size)
+      ("clause_decay_milli", reorder.parameters.clause_decay_milli)
+      ("binary_weight_milli", reorder.parameters.binary_weight_milli)
+      ("balanced_polarity_milli", reorder.parameters.balanced_polarity_milli);
+  SnapshotGroup{out, "parity_model"}
+      ("enabled", parity_model.enabled)
+      ("maximum_variables", parity.maximum_variables)
+      ("maximum_groups", parity.maximum_groups)
+      ("maximum_constraints", parity.maximum_constraints)
+      ("minimum_group_clauses", parity.minimum_group_clauses)
+      ("minimum_equations", parity.minimum_equations)
+      ("maximum_free_variables", parity.maximum_free_variables)
+      ("candidate_budget", parity.candidate_budget)
+      ("refutation_maximum_variables", parity.refutation_maximum_variables)
+      ("refutation_maximum_groups", parity.refutation_maximum_groups)
+      ("refutation_maximum_constraints", parity.refutation_maximum_constraints)
+      ("refutation_maximum_arity", parity.refutation_maximum_arity)
+      ("refutation_probe_constraints", parity.refutation_probe_constraints)
+      ("refutation_minimum_probe_repeats",
+       parity.refutation_minimum_probe_repeats)
+      ("refutation_maximum_proof_additions",
+       parity.refutation_maximum_proof_additions);
+  SnapshotGroup{out, "onehot_model"}
+      ("enabled", onehot_model.enabled)
+      ("maximum_variables", onehot_model.parameters.maximum_variables)
+      ("maximum_domains", onehot_model.parameters.maximum_domains)
+      ("maximum_constraints", onehot_model.parameters.maximum_constraints)
+      ("maximum_equation_arity", onehot_model.parameters.maximum_equation_arity)
+      ("minimum_domains", onehot_model.parameters.minimum_domains)
+      ("minimum_equations", onehot_model.parameters.minimum_equations)
+      ("maximum_free_domains", onehot_model.parameters.maximum_free_domains)
+      ("candidate_budget", onehot_model.parameters.candidate_budget);
+  SnapshotGroup{out, "affine_search"}
+      ("enabled", affine_search.enabled)
+      ("reason_mode", static_cast<unsigned>(affine_search.reason_mode))
+      ("maximum_rows", affine_search.maximum_rows)
+      ("maximum_row_width", affine_search.maximum_row_width)
+      ("maximum_arity", affine_search.maximum_arity)
+      ("autodisable", affine_search.autodisable)
+      ("minimum_usefulness", affine_search.minimum_usefulness)
+      ("autodisable_minimum_calls", affine_search.autodisable_minimum_calls)
+      ("autodisable_check_every", affine_search.autodisable_check_every)
+      ("maximum_initialization_work", affine_search.maximum_initialization_work)
+      ("maximum_service_work", affine_search.maximum_service_work)
+      ("maximum_retained_bytes", affine_search.maximum_retained_bytes);
+  SnapshotGroup{out, "affine_model"}
+      ("enabled", affine_model.enabled)
+      ("parameters", serialize_lucky_parameters(affine_model.parameters, 8));
+  SnapshotGroup{out, "balanced_signature_model"}
+      ("enabled", balanced_signature_model.enabled)
+      ("maximum_balls", balanced.maximum_balls)
+      ("maximum_width", balanced.maximum_width)
+      ("restarts", balanced.restarts)
+      ("steps_per_restart", balanced.steps_per_restart)
+      ("samples_per_step", balanced.samples_per_step)
+      ("seed", balanced.seed)
+      ("completion_rounds", balanced.completion_rounds);
+  SnapshotGroup{out, "fermat_model"}
+      ("enabled", fermat_model.enabled)
+      ("maximum_bits", fermat_model.parameters.maximum_bits)
+      ("comparator_tail_clauses",
+       fermat_model.parameters.comparator_tail_clauses)
+      ("rho_constants", fermat_model.parameters.rho_constants)
+      ("rho_iterations", fermat_model.parameters.rho_iterations);
+  SnapshotGroup{out, "cerny_model"}("enabled", cerny_model.enabled);
+  SnapshotGroup{out, "lookup_circuit_model"}
+      ("enabled", lookup_circuit_model.enabled)
+      ("maximum_fanin", lookup_circuit_model.parameters.maximum_fanin)
+      ("maximum_fanout", lookup_circuit_model.parameters.maximum_fanout)
+      ("maximum_primary_inputs",
+       lookup_circuit_model.parameters.maximum_primary_inputs)
+      ("maximum_support", lookup_circuit_model.parameters.maximum_support)
+      ("maximum_vector_gate_evaluations",
+       lookup_circuit_model.parameters.maximum_vector_gate_evaluations);
+  SnapshotGroup{out, "simon_model"}
+      ("enabled", simon_model.enabled)
+      ("maximum_rounds", simon_model.parameters.maximum_rounds)
+      ("maximum_candidates", simon_model.parameters.maximum_candidates);
+  SnapshotGroup{out, "stconn_proof"}
+      ("enabled", stconn_proof.enabled)
+      ("maximum_width", stconn_proof.parameters.maximum_width)
+      ("maximum_columns", stconn_proof.parameters.maximum_columns)
+      ("maximum_rup_clauses", stconn_proof.parameters.maximum_rup_clauses);
+  SnapshotGroup{out, "signed_cardinality_proof"}
+      ("enabled", signed_cardinality_proof.enabled)
+      ("maximum_variables", cardinality.maximum_variables)
+      ("maximum_groups", cardinality.maximum_groups)
+      ("maximum_constraints", cardinality.maximum_constraints)
+      ("maximum_group_arity", cardinality.maximum_group_arity)
+      ("maximum_bdd_nodes", cardinality.maximum_bdd_nodes)
+      ("maximum_proof_additions", cardinality.maximum_proof_additions);
+  SnapshotGroup{out, "exact_cover_model"}
+      ("enabled", exact_cover_model.enabled)
+      ("block_arity", exact_cover_model.parameters.block_arity)
+      ("maximum_nodes", exact_cover_model.parameters.maximum_nodes)
+      ("restarts", exact_cover_model.parameters.restarts)
+      ("restart_nodes", exact_cover_model.parameters.restart_nodes)
+      ("seed", exact_cover_model.parameters.seed);
+  SnapshotGroup{out, "independent_set_model"}
+      ("enabled", independent_set_model.enabled)
+      ("maximum_vertices", independent_set_model.parameters.maximum_vertices)
+      ("maximum_steps", independent_set_model.parameters.maximum_steps)
+      ("completion_rounds", independent_set_model.parameters.completion_rounds)
+      ("seed", independent_set_model.parameters.seed);
+  SnapshotGroup{out, "ramsey_startup"}
+      ("enabled", ramsey_startup.enabled)
+      ("parameters", serialize_lucky_parameters(ramsey_startup.parameters,
+                                                LUCKY_STARTUP_RAMSEY));
+  SnapshotGroup{out, "affine_root_closure"}
+      ("enabled", affine_root_closure.enabled)
+      ("maximum_clauses", affine_root_closure.maximum_clauses)
+      ("maximum_snapshot_work", affine_root_closure.maximum_snapshot_work)
+      ("maximum_recognition_work", affine_root_closure.maximum_recognition_work)
+      ("maximum_basis_work", affine_root_closure.maximum_basis_work)
+      ("maximum_row_width", affine_root_closure.maximum_row_width)
+      ("maximum_proof_additions", affine_root_closure.maximum_proof_additions)
+      ("maximum_proof_deletions", affine_root_closure.maximum_proof_deletions)
+      ("maximum_journal_bytes", affine_root_closure.maximum_journal_bytes)
+      ("maximum_session_work", affine_root_closure.maximum_session_work);
+  SnapshotGroup{out, "graph_labeling_model"}
+      ("enabled", graph_labeling_model.enabled)
+      ("parameters",
+       serialize_lucky_parameters(graph_labeling_model.parameters,
+                                  LUCKY_GRAPH_LABELING));
+  SnapshotGroup{out, "inprocess"}
+      ("bve_enabled", ip.bve_enabled)
+      ("vivify_enabled", ip.vivify_enabled)
+      ("factor_enabled", ip.factor_enabled)
+      ("sweep_enabled", ip.sweep_enabled)
+      ("factor_repeated_enabled", ip.factor_repeated_enabled)
+      ("preprocess_only", ip.preprocess_only)
+      ("initial_fast_elimination", ip.initial_fast_elimination)
+      ("initial_fast_elimination_rounds", ip.initial_fast_elimination_rounds)
+      ("initial_fast_elimination_resolvent_count_limit",
+       ip.initial_fast_elimination_parameters.resolvent_count_limit)
+      ("initial_fast_elimination_traversal",
+       static_cast<unsigned>(ip.initial_fast_elimination_parameters.traversal))
+      ("cadical_arena_ordering_enabled", ip.cadical_arena_ordering_enabled)
+      ("append_unlisted_rules", ip.append_unlisted_rules)
+      ("eliminate_interval", ip.eliminate_interval)
+      ("probe_interval", ip.probe_interval)
+      ("minimum_effort_ticks", ip.minimum_effort_ticks)
+      ("preprocess_initial_ticks", ip.preprocess_initial_ticks)
+      ("phase_rounds", ip.phase_rounds)
+      ("substitute_rounds", ip.substitute_rounds)
+      ("substitute_search_rounds", ip.substitute_search_rounds)
+      ("factor_initial_ticks", ip.factor_initial_ticks)
+      ("logarithm_offset", ip.logarithm_offset)
+      ("scale_quadratic", ip.scale_quadratic)
+      ("scale_constant", ip.scale_constant)
+      ("scale_log_shift", ip.scale_log_shift)
+      ("candidate_order_seed", ip.candidate_order_seed)
+      ("congruence_and_arity_limit", ip.congruence_parameters.and_arity_limit)
+      ("congruence_gate_count_limit", ip.congruence_parameters.gate_count_limit)
+      ("congruence_xor_arity_limit", ip.congruence_parameters.xor_arity_limit)
+      ("congruence_binary_watch_order",
+       static_cast<unsigned>(ip.congruence_parameters.binary_watch_order))
+      ("instantiate_minimum_clause_size",
+       ip.instantiate_parameters.minimum_clause_size)
+      ("instantiate_occurrence_limit",
+       ip.instantiate_parameters.occurrence_limit)
+      ("instantiate_minimum_unassigned",
+       ip.instantiate_parameters.minimum_unassigned)
+      ("instantiate_include_redundant",
+       ip.instantiate_parameters.include_redundant)
+      ("instantiate_new_material_threshold",
+       ip.instantiate_parameters.new_material_threshold)
+      ("backbone_initial_rounds", ip.backbone_parameters.initial_rounds)
+      ("backbone_maximum_rounds", ip.backbone_parameters.maximum_rounds)
+      ("vivify_scope", unsigned(ip.vivify_parameters.scope))
+      ("vivify_reuse", ip.vivify_parameters.reuse)
+      ("vivify_flush", ip.vivify_parameters.flush)
+      ("vivify_irredundant_sort_ratio",
+       ip.vivify_parameters.irredundant_sort_ratio)
+      ("bce_occurrence_limit", ip.bce_parameters.occurrence_limit)
+      ("ternary_occurrence_limit", ip.ternary_parameters.occurrence_limit)
+      ("ternary_maximum_add_percent", ip.ternary_parameters.maximum_add_percent)
+      ("factor_maximum_clause_size", ip.factor_parameters.maximum_clause_size)
+      ("factor_growth_bound", ip.factor_parameters.growth_bound)
+      ("factor_candidate_rounds", ip.factor_parameters.candidate_rounds)
+      ("factor_composite", ip.factor_parameters.composite)
+      ("factor_demote_fresh", ip.factor_parameters.demote_fresh)
+      ("transitive_early_exit", ip.transitive_parameters.early_exit)
+      ("transitive_live_meter", ip.transitive_parameters.live_meter)
+      ("transitive_checked_budget_meter",
+       ip.transitive_parameters.checked_budget_meter)
+      ("substitute_demote", ip.substitute_parameters.demote_substituted)
+      ("touch_filter", ip.touch_filter)
+      ("likely_kept_redundant", ip.likely_kept_redundant)
+      ("structured_root_before_lucky", ip.structured_root_before_lucky)
+      ("structured_root_symmetry_enabled", ip.structured_root_symmetry_enabled)
+      ("structured_root_residual_search_handoff",
+       ip.structured_root_residual_search_handoff)
+      ("structured_root_sr_discovery_unlimited",
+       ip.structured_root_sr_discovery_budget.is_unlimited())
+      ("structured_root_sr_discovery_ticks",
+       ip.structured_root_sr_discovery_budget.is_unlimited()
+           ? 0 : ip.structured_root_sr_discovery_budget.amount())
+      ("structured_root_progress_feedback",
+       ip.structured_root_progress_feedback)
+      ("structured_root_large_domain_progress_feedback",
+       ip.structured_root_large_domain_progress_feedback)
+      ("structured_root_progress_minimum_ticks",
+       ip.structured_root_progress_minimum_ticks)
+      ("structured_root_progress_ticks_per_variable",
+       ip.structured_root_progress_ticks_per_variable)
+      ("structured_root_bce_after_unique_literal_amo",
+       ip.structured_root_bce_after_unique_literal_amo)
+      ("structured_root_backtracking_domain_limit",
+       ip.structured_root_backtracking_domain_limit)
+      ("structured_root_large_domain_limit",
+       ip.structured_root_large_domain_limit);
   serialize_structured_root_stages("inprocess.structured_root_stage",
                                    inprocess.structured_root_stages);
   serialize_structured_root_stages(
@@ -1744,111 +1696,79 @@ std::string DefaultStrategyConfig::serialize() const {
       inprocess.structured_root_large_domain_stages);
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
-  out << " inprocess.bve_default_ceiling=" << inprocess.bve_default_ceiling
-      << " inprocess.bve_occurrence_limit="
-      << inprocess.bve_occurrence_limit
-      << " inprocess.bve_clause_size_limit="
-      << inprocess.bve_clause_size_limit
-      << " inprocess.bve_xor_arity_limit="
-      << inprocess.bve_xor_arity_limit
-      << " inprocess.bve_resolvent_size_limit="
-      << inprocess.bve_resolvent_size_limit
-      << " inprocess.bve_backward_occurrence_limit="
-      << inprocess.bve_backward_occurrence_limit
-      << " inprocess.bve_definition_budget="
-      << inprocess.bve_definition_budget
-      << " inprocess.bve_definition_cores="
-      << inprocess.bve_definition_cores
-      << " inprocess.bve_definition_core_budget_multiplier="
-      << inprocess.bve_definition_core_budget_multiplier
-      << " inprocess.bve_backward=" << inprocess.bve_backward
-      << " inprocess.bve_on_the_fly_strengthening="
-      << inprocess.bve_on_the_fly_strengthening
-      << " inprocess.factor_decade_round_cap="
-      << inprocess.factor_decade_round_cap
-      << " inprocess.factor_decade_cap=" << inprocess.factor_decade_cap
-      << " inprocess.factor_decade_offset=" << inprocess.factor_decade_offset
-      << " inprocess.factor_decade_base=" << inprocess.factor_decade_base
-      << " inprocess.factor_active_ceiling=" << inprocess.factor_active_ceiling
-      << " inprocess.bve_permille=" << inprocess.bve_permille
-      << " inprocess.initial_fast_elimination_bve_permille="
-      << inprocess.initial_fast_elimination_bve_permille
-      << " inprocess.probe_permille=" << inprocess.probe_permille
-      << " inprocess.hyper_binary_permille="
-      << inprocess.hyper_binary_permille
-      << " inprocess.backbone_permille=" << inprocess.backbone_permille
-      << " inprocess.transitive_permille=" << inprocess.transitive_permille
-      << " inprocess.vivify_permille=" << inprocess.vivify_permille
-      << " inprocess.strengthen_permille=" << inprocess.strengthen_permille
-      << " inprocess.subsume_forward_permille="
-      << inprocess.subsume_forward_permille
-      << " inprocess.factor_permille=" << inprocess.factor_permille
-      << " inprocess.hyper_ternary_permille="
-      << inprocess.hyper_ternary_permille
-      << " inprocess.bce_permille=" << inprocess.bce_permille
-      << " inprocess.cce_permille=" << inprocess.cce_permille
-      << " inprocess.instantiate_permille=" << inprocess.instantiate_permille
-      << " inprocess.sweep_permille=" << inprocess.sweep_permille
-      << " inprocess.substitute_permille=" << inprocess.substitute_permille
-      << " inprocess.sweep_depth=" << inprocess.sweep_parameters.max_depth
-      << " inprocess.sweep_max_depth="
-      << inprocess.sweep_parameters.max_depth_ceiling
-      << " inprocess.sweep_vars=" << inprocess.sweep_parameters.max_env_vars
-      << " inprocess.sweep_max_vars="
-      << inprocess.sweep_parameters.max_env_vars_ceiling
-      << " inprocess.sweep_clauses="
-      << inprocess.sweep_parameters.max_env_clauses
-      << " inprocess.sweep_max_clauses="
-      << inprocess.sweep_parameters.max_env_clauses_ceiling
-      << " inprocess.sweep_candidate_pairs="
-      << inprocess.sweep_parameters.max_candidates
-      << " inprocess.sweep_flip_rounds="
-      << inprocess.sweep_parameters.flip_rounds
-      << " inprocess.sweep_seed_cap=" << inprocess.sweep_parameters.max_seeds
-      << " inprocess.sweep_environment_ticks="
-      << inprocess.sweep_parameters.env_ticks
-      << " inprocess.sweep_round_ticks="
-      << inprocess.sweep_parameters.round_ticks
-      << " inprocess.sweep_proof_steps="
-      << inprocess.sweep_parameters.max_proof_steps
-      << " inprocess.sweep_strip_root_false="
-      << inprocess.sweep_parameters.strip_false
-      << " inprocess.sweep_measure_closure="
-      << inprocess.sweep_parameters.measure_closure
-      << " inprocess.sweep_full_partition="
-      << inprocess.sweep_parameters.full_partition
-      << " inprocess.sweep_skip_embedded_fixed="
-      << inprocess.sweep_parameters.skip_embedded_fixed
-      << " inprocess.sweep_resume=" << inprocess.sweep_parameters.resume
-      << " inprocess.sweep_force_general_proof="
-      << inprocess.sweep_parameters.force_general_proof
-      << " inprocess.congruence_productivity_permille="
-      << inprocess.congruence_productivity_permille
-      << " inprocess.sweep_productivity_permille="
-      << inprocess.sweep_productivity_permille
-      << " inprocess.vivify_irredundant_productivity_percent="
-      << inprocess.vivify_irredundant_productivity_percent
-      << " inprocess.vivify_tier_mode="
-      << unsigned(inprocess.vivify_tier_mode)
-      << " inprocess.vivify_redundant_share="
-      << inprocess.vivify_redundant_share
-      << " inprocess.vivify_total_share=" << inprocess.vivify_total_share;
+  SnapshotGroup{out, "inprocess"}
+      ("bve_default_ceiling", ip.bve_default_ceiling)
+      ("bve_occurrence_limit", ip.bve_occurrence_limit)
+      ("bve_clause_size_limit", ip.bve_clause_size_limit)
+      ("bve_xor_arity_limit", ip.bve_xor_arity_limit)
+      ("bve_resolvent_size_limit", ip.bve_resolvent_size_limit)
+      ("bve_backward_occurrence_limit", ip.bve_backward_occurrence_limit)
+      ("bve_definition_budget", ip.bve_definition_budget)
+      ("bve_definition_cores", ip.bve_definition_cores)
+      ("bve_definition_core_budget_multiplier",
+       ip.bve_definition_core_budget_multiplier)
+      ("bve_backward", ip.bve_backward)
+      ("bve_on_the_fly_strengthening", ip.bve_on_the_fly_strengthening)
+      ("factor_decade_round_cap", ip.factor_decade_round_cap)
+      ("factor_decade_cap", ip.factor_decade_cap)
+      ("factor_decade_offset", ip.factor_decade_offset)
+      ("factor_decade_base", ip.factor_decade_base)
+      ("factor_active_ceiling", ip.factor_active_ceiling)
+      ("bve_permille", ip.bve_permille)
+      ("initial_fast_elimination_bve_permille",
+       ip.initial_fast_elimination_bve_permille)
+      ("probe_permille", ip.probe_permille)
+      ("hyper_binary_permille", ip.hyper_binary_permille)
+      ("backbone_permille", ip.backbone_permille)
+      ("transitive_permille", ip.transitive_permille)
+      ("vivify_permille", ip.vivify_permille)
+      ("strengthen_permille", ip.strengthen_permille)
+      ("subsume_forward_permille", ip.subsume_forward_permille)
+      ("factor_permille", ip.factor_permille)
+      ("hyper_ternary_permille", ip.hyper_ternary_permille)
+      ("bce_permille", ip.bce_permille)
+      ("cce_permille", ip.cce_permille)
+      ("instantiate_permille", ip.instantiate_permille)
+      ("sweep_permille", ip.sweep_permille)
+      ("substitute_permille", ip.substitute_permille)
+      ("sweep_depth", ip.sweep_parameters.max_depth)
+      ("sweep_max_depth", ip.sweep_parameters.max_depth_ceiling)
+      ("sweep_vars", ip.sweep_parameters.max_env_vars)
+      ("sweep_max_vars", ip.sweep_parameters.max_env_vars_ceiling)
+      ("sweep_clauses", ip.sweep_parameters.max_env_clauses)
+      ("sweep_max_clauses", ip.sweep_parameters.max_env_clauses_ceiling)
+      ("sweep_candidate_pairs", ip.sweep_parameters.max_candidates)
+      ("sweep_flip_rounds", ip.sweep_parameters.flip_rounds)
+      ("sweep_seed_cap", ip.sweep_parameters.max_seeds)
+      ("sweep_environment_ticks", ip.sweep_parameters.env_ticks)
+      ("sweep_round_ticks", ip.sweep_parameters.round_ticks)
+      ("sweep_proof_steps", ip.sweep_parameters.max_proof_steps)
+      ("sweep_strip_root_false", ip.sweep_parameters.strip_false)
+      ("sweep_measure_closure", ip.sweep_parameters.measure_closure)
+      ("sweep_full_partition", ip.sweep_parameters.full_partition)
+      ("sweep_skip_embedded_fixed", ip.sweep_parameters.skip_embedded_fixed)
+      ("sweep_resume", ip.sweep_parameters.resume)
+      ("sweep_force_general_proof", ip.sweep_parameters.force_general_proof)
+      ("congruence_productivity_permille", ip.congruence_productivity_permille)
+      ("sweep_productivity_permille", ip.sweep_productivity_permille)
+      ("vivify_irredundant_productivity_percent",
+       ip.vivify_irredundant_productivity_percent)
+      ("vivify_tier_mode", unsigned(ip.vivify_tier_mode))
+      ("vivify_redundant_share", ip.vivify_redundant_share)
+      ("vivify_total_share", ip.vivify_total_share);
   for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i)
     out << " inprocess.vivify_tier_share" << i << '='
         << inprocess.vivify_tier_shares[i]
         << " inprocess.vivify_tier_scope" << i << '='
         << unsigned(inprocess.vivify_tier_scopes[i]);
-  out << " inprocess.closure_delay=" << inprocess.closure_delay
-      << " inprocess.split_clocks=" << inprocess.split_clocks
-      << " inprocess.watermarks=" << inprocess.watermarks
-      << " inprocess.preprocess_followups="
-      << inprocess.preprocess_followups
-      << " inprocess.hold_subsume_until_eliminate="
-      << inprocess.hold_subsume_until_eliminate
-      << " inprocess.forward_midround_budget="
-      << inprocess.forward_midround_budget
-      << " inprocess.couple_factor_bound="
-      << inprocess.couple_factor_bound;
+  SnapshotGroup{out, "inprocess"}
+      ("closure_delay", ip.closure_delay)
+      ("split_clocks", ip.split_clocks)
+      ("watermarks", ip.watermarks)
+      ("preprocess_followups", ip.preprocess_followups)
+      ("hold_subsume_until_eliminate", ip.hold_subsume_until_eliminate)
+      ("forward_midround_budget", ip.forward_midround_budget)
+      ("couple_factor_bound", ip.couple_factor_bound);
   for (size_t i = 0; i < inprocess.program.size(); ++i) {
     const strategy::InprocessStep &step = inprocess.program[i];
     out << " inprocess.step" << i << '=' << step.id << ':' << step.rule << ':'
@@ -2174,28 +2094,27 @@ template <execution::ExecutionContext Context> class RecordedExecutionContext {
 public:
   RecordedExecutionContext(Kernel &k, PolicyCompletion *completion)
       : kernel_(k), completion_(completion) {
-    (void)port::complete_action(completion_, FeedbackKind::Support,
-        "EnterExecutionContext", execution::execution_context_argument(Context), [] {
-          return support_feedback(description());
-        }, [&] {
-          scope_.emplace(kernel_);
-          return ApplyResult::Ok;
-        });
+    record("EnterExecutionContext", [&] { scope_.emplace(kernel_); });
   }
   void leave() {
     if (!scope_) return;
-    (void)port::complete_action(completion_, FeedbackKind::Support,
-        "LeaveExecutionContext", execution::execution_context_argument(Context), [] {
-          return support_feedback(description());
-        }, [&] {
-          scope_.reset();
-          return ApplyResult::Ok;
-        });
+    record("LeaveExecutionContext", [&] { scope_.reset(); });
   }
   RecordedExecutionContext(const RecordedExecutionContext &) = delete;
   RecordedExecutionContext &operator=(const RecordedExecutionContext &) = delete;
 
 private:
+  // One recorded ENTER_CONTEXT / LEAVE_CONTEXT support transition.
+  template <class Transition>
+  void record(const char *name, Transition &&transition) {
+    (void)port::complete_action(completion_, FeedbackKind::Support, name,
+        execution::execution_context_argument(Context), [] {
+          return support_feedback(description());
+        }, [&] {
+          transition();
+          return ApplyResult::Ok;
+        });
+  }
   static const char *description() {
     return Context == execution::ExecutionContext::Startup ? "context=startup"
            : Context == execution::ExecutionContext::Inprocessing
@@ -4262,22 +4181,9 @@ DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
       !graph_labeling_model_guard(kernel))
     return result;
   ++graph_labeling_diagnostics_.authentication_attempts;
-  result = port::complete_action(
-      completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_AUTHENTICATE,
-      [&] { return execution::native_rule_feedback(kernel, "Lucky",
-          LUCKY_GRAPH_AUTHENTICATE, "graph-authenticate"); },
-      [&] {
-        // Registry dispatch of Lucky 26; the policy keeps the typed result.
-        execution::GraphLabelingActionResult out;
-        static const RuleVTable &lucky = registered_rule("Lucky");
-        (void)port::apply_rule_structured(lucky, kernel, "26", [&] {
-          out = port::execute_action(kernel, execution::GraphLabelingActionRequest{
-              execution::GraphLabelingOperation::Authenticate,
-              strategy::GraphLabelingParameters::from_kernel(kernel)});
-          return out.result;
-        });
-        return out;
-      },
+  result = default_graph_labeling_action(
+      kernel, completion_, LUCKY_GRAPH_AUTHENTICATE, "26", "graph-authenticate",
+      execution::GraphLabelingOperation::Authenticate,
       [](const execution::GraphLabelingActionResult &out) {
         return strategy::controller::feedback_outcome(out.result);
       }).authentication;
@@ -4319,22 +4225,9 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
                         strategy::RuleWorkBudgetMode::Bounded, allowance}
                   : strategy::RuleWorkBudget{});
   const strategy::GuidanceOutcomeSnapshot before(kernel);
-  result = port::complete_action(
-      completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_CONTINUE,
-      [&] { return execution::native_rule_feedback(kernel, "Lucky",
-          LUCKY_GRAPH_CONTINUE, "graph-continue"); },
-      [&] {
-        // Registry dispatch of Lucky 27; the policy keeps the typed result.
-        execution::GraphLabelingActionResult out;
-        static const RuleVTable &lucky = registered_rule("Lucky");
-        (void)port::apply_rule_structured(lucky, kernel, "27", [&] {
-          out = port::execute_action(kernel, execution::GraphLabelingActionRequest{
-              execution::GraphLabelingOperation::Continue,
-              strategy::GraphLabelingParameters::from_kernel(kernel)});
-          return out.result;
-        });
-        return out;
-      },
+  result = default_graph_labeling_action(
+      kernel, completion_, LUCKY_GRAPH_CONTINUE, "27", "graph-continue",
+      execution::GraphLabelingOperation::Continue,
       [&](const execution::GraphLabelingActionResult &out) {
         auto feedback = strategy::controller::feedback_outcome(out.result);
         feedback.invocation.status = before.refine(kernel, out.result, feedback.invocation.status);
@@ -4444,13 +4337,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   affine_schedule_={};
   affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
   affine_usefulness_paused_=false;
-  (void)port::complete_action(completion_, FeedbackKind::Support,
-      "ResetGraphLabelingSession", INSTANCE_CANONICAL, [] {
-        return support_feedback("per-solve");
-      }, [&] {
-        port::execute_action(k, execution::ResetGraphLabelingSessionRequest{});
-        return ApplyResult::Ok;
-      });
+  default_support_request(k, completion_, "ResetGraphLabelingSession",
+                          "per-solve",
+                          execution::ResetGraphLabelingSessionRequest{},
+                          ApplyResult::Ok);
   reset_graph_labeling_schedule(k);
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.chronological_levels = chrono_levels;
@@ -4467,32 +4357,22 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                    config_.parity_model.parameters}, completion_, "Lucky", LUCKY_PARITY_PROOF);
   port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.onehot_model.parameters}, completion_, "Lucky", LUCKY_EXACT_ONE_PROOF);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.affine_model.parameters}, completion_, "Lucky", 8);
-  port::execute_action(
-      k,
-      execution::ParameterInstallationRequest{
-          config_.balanced_signature_model.parameters},
-      completion_, "Lucky", 10);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.fermat_model.parameters}, completion_, "Lucky", 11);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.lookup_circuit_model.parameters}, completion_, "Lucky", 13);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.simon_model.parameters}, completion_, "Lucky", 14);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.stconn_proof.parameters}, completion_, "Lucky", 15);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.signed_cardinality_proof.parameters}, completion_, "Lucky", 16);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.exact_cover_model.parameters}, completion_, "Lucky", 17);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.independent_set_model.parameters}, completion_, "Lucky", 18);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.graph_labeling_model.parameters}, completion_, "Lucky",
-                            LUCKY_GRAPH_LABELING);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.ramsey_startup.parameters}, completion_, "Lucky", LUCKY_STARTUP_RAMSEY);
+  // Each further Lucky family's typed profile, at its public instance.
+  const auto install_lucky = [&](const auto &parameters, uint64_t instance) {
+    port::execute_action(k, execution::ParameterInstallationRequest{parameters},
+                         completion_, "Lucky", instance);
+  };
+  install_lucky(config_.affine_model.parameters, 8);
+  install_lucky(config_.balanced_signature_model.parameters, 10);
+  install_lucky(config_.fermat_model.parameters, 11);
+  install_lucky(config_.lookup_circuit_model.parameters, 13);
+  install_lucky(config_.simon_model.parameters, 14);
+  install_lucky(config_.stconn_proof.parameters, 15);
+  install_lucky(config_.signed_cardinality_proof.parameters, 16);
+  install_lucky(config_.exact_cover_model.parameters, 17);
+  install_lucky(config_.independent_set_model.parameters, 18);
+  install_lucky(config_.graph_labeling_model.parameters, LUCKY_GRAPH_LABELING);
+  install_lucky(config_.ramsey_startup.parameters, LUCKY_STARTUP_RAMSEY);
   strategy::ReduceParameters reduce = strategy::ReduceParameters::from_kernel(k);
   reduce.victim_numerator = config_.reduction.victim_numerator;
   reduce.victim_denominator = config_.reduction.victim_denominator;
@@ -4579,13 +4459,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (counting == ApplyResult::Unsat)
       return finish(20);
   }
-  (void)port::complete_action(completion_, FeedbackKind::Support,
-      "CloseStartupCertificate", INSTANCE_CANONICAL, [] {
-        return support_feedback("close-original-input-opportunity;commit-native-dsr");
-      }, [&] {
-        port::execute_action(k, execution::CloseStartupCertificateRequest{});
-        return ApplyResult::NoOp;
-      });
+  default_support_request(
+      k, completion_, "CloseStartupCertificate",
+      "close-original-input-opportunity;commit-native-dsr",
+      execution::CloseStartupCertificateRequest{}, ApplyResult::NoOp);
   ApplyResult startup = default_propagate(k, "startup", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
@@ -4792,27 +4669,31 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
   }
   if (k.input_binary_order_captured)
-    (void)port::complete_action(completion_, FeedbackKind::Support,
-        "ReleaseInputBinaryOrder", INSTANCE_CANONICAL, [] {
-          return support_feedback("after-original-input-opportunities");
-        }, [&] {
-          port::execute_action(k, execution::ReleaseInputBinaryOrderRequest{});
-          return ApplyResult::Ok;
-        });
-  if (lucky_guard(k)) {
-    event_trace.macro(k, "lucky_early_begin");
-    k.stats.lucky_early_calls++;
-    const ApplyResult lucky = default_lucky(k, "early", completion_);
-    if (lucky == ApplyResult::Unsat) {
-      event_trace.macro(k, "lucky_early_end", "unsat");
-      return finish(20);
-    }
-    if (lucky == ApplyResult::Sat) {
-      event_trace.macro(k, "lucky_early_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "lucky_early_end", "unknown");
-  }
+    default_support_request(k, completion_, "ReleaseInputBinaryOrder",
+                            "after-original-input-opportunities",
+                            execution::ReleaseInputBinaryOrderRequest{},
+                            ApplyResult::Ok);
+  // Whole-formula Lucky between its trace events: the verdict it proves (10
+  // or 20), otherwise zero. A proved model also counts in `sat`, when given.
+  const auto lucky_window = [&](const char *candidate, const char *begin,
+                                const char *end, uint64_t &calls,
+                                uint64_t *sat) {
+    event_trace.macro(k, begin);
+    calls++;
+    const ApplyResult lucky = default_lucky(k, candidate, completion_);
+    const int verdict = lucky == ApplyResult::Unsat ? 20
+                        : lucky == ApplyResult::Sat ? 10 : 0;
+    if (verdict == 10 && sat)
+      ++*sat;
+    event_trace.macro(k, end,
+                      verdict == 20 ? "unsat" : verdict ? "sat" : "unknown");
+    return verdict;
+  };
+  if (lucky_guard(k))
+    if (const int verdict = lucky_window("early", "lucky_early_begin",
+                                         "lucky_early_end",
+                                         k.stats.lucky_early_calls, nullptr))
+      return finish(verdict);
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::Onehot>(
             k, lucky_trace, "onehot-model", "onehot_model_begin",
@@ -4895,13 +4776,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // policy state and must use the same compacted population and ordering.
   event_trace_target_state(k, "startup-compact-pre",
                            static_cast<uint32_t>(k.trail.size()));
-  (void)port::complete_action(completion_, FeedbackKind::Support,
-      "CompactRandomOrder", INSTANCE_CANONICAL, [] {
-        return support_feedback("fold-root-fixed-branching-population", "ticks", ticks_meter);
-      }, [&] {
-        port::execute_action(k, execution::CompactRandomOrderRequest{});
-        return ApplyResult::Ok;
-      });
+  default_support_request(k, completion_, "CompactRandomOrder",
+                          "fold-root-fixed-branching-population",
+                          execution::CompactRandomOrderRequest{},
+                          ApplyResult::Ok, "ticks", ticks_meter);
   event_trace_target_state(
       k, "startup-compact-post",
       static_cast<uint32_t>(k.compact_import_order.size() -
@@ -4942,21 +4820,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
        run_affine_search(k,true)==ApplyResult::Unsat)
       return finish(20);
   }
-  if (lucky_late_ && lucky_guard(k)) {
-    event_trace.macro(k, "lucky_late_begin");
-    k.stats.lucky_late_calls++;
-    const ApplyResult lucky = default_lucky(k, "late", completion_);
-    if (lucky == ApplyResult::Unsat) {
-      event_trace.macro(k, "lucky_late_end", "unsat");
-      return finish(20);
-    }
-    if (lucky == ApplyResult::Sat) {
-      k.stats.lucky_late_sat++;
-      event_trace.macro(k, "lucky_late_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "lucky_late_end", "unknown");
-  }
+  if (lucky_late_ && lucky_guard(k))
+    if (const int verdict = lucky_window("late", "lucky_late_begin",
+                                         "lucky_late_end",
+                                         k.stats.lucky_late_calls,
+                                         &k.stats.lucky_late_sat))
+      return finish(verdict);
   if (config_.graph_labeling_model.enabled &&
       k.graph_labeling_session.authenticated()) {
     const auto graph = run_graph_labeling(k);
@@ -6116,13 +5985,10 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     // elimination round; deferring its lazy garbage until phase exit carries
     // a much larger arena into the following Strengthen round and changes the
     // physical state from which that common consumer reconstructs.
-    (void)port::complete_action(ctx.completion, FeedbackKind::Support,
-        "CollectGarbage", INSTANCE_CANONICAL, [] {
-          return support_feedback("completed-bve-round;watch-start=0;sparse=0;preserve-eager=0");
-        }, [&] {
-          port::execute_action(k, execution::CollectGarbageRequest{});
-          return ApplyResult::NoOp;
-        });
+    default_support_request(
+        k, ctx.completion, "CollectGarbage",
+        "completed-bve-round;watch-start=0;sparse=0;preserve-eager=0",
+        execution::CollectGarbageRequest{}, ApplyResult::NoOp);
     // The resolution ceiling belongs to the whole Eliminate phase.  Finish
     // this round's cleanup, but do not start another forward round after
     // exhausting it (Kissat eliminate.c::eliminate_variables).  Equality still
@@ -6277,14 +6143,12 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     if (k.stats.conflicts > 0) {
       const uint64_t tried = k.stats.vivify_checked - tried_before;
       const uint64_t produced_now = produced() - produced_before;
-      if (tried == 0 ||
-          static_cast<unsigned __int128>(produced_now) * PERCENT_SCALE <
-              static_cast<unsigned __int128>(tried) *
-                  cfg.vivify_irredundant_productivity_percent) {
-        update_inprocess_delay(e.delay_current,e.delay_count,true);
-      } else {
-        update_inprocess_delay(e.delay_current,e.delay_count,false);
-      }
+      update_inprocess_delay(
+          e.delay_current, e.delay_count,
+          tried == 0 ||
+              static_cast<unsigned __int128>(produced_now) * PERCENT_SCALE <
+                  static_cast<unsigned __int128>(tried) *
+                      cfg.vivify_irredundant_productivity_percent);
     }
   }
   return ar;
