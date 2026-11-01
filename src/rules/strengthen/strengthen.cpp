@@ -80,22 +80,17 @@ static bool selected_forward_clause(const Kernel &k, const Clause *clause) {
 RuleEligibility strengthen_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
   // regardless of a recorded conflict (D-SPLIT-3, `docs/dev/calculus.md` §7).
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
-// Victim criteria, shared with C1 (duplicated deliberately — modules stay
-// self-contained per §5.3). Redundancy is not one of them: deleting a redundant
-// clause is S2 Forget, and strengthening one emits an add-RUP that stands
-// against the whole formula at emit time.
+// Victim criteria, shared with C1: live and not root-satisfied. Both modules
+// take the predicate from rules/instance_helpers.hpp, which each already uses,
+// so neither depends on the other and the §5.3 module contract is unaffected.
+// Redundancy is not one of them: deleting a redundant clause is S2 Forget, and
+// strengthening one emits an add-RUP that stands against the whole formula at
+// emit time.
 static bool is_victim(const Kernel &k, const Clause *c) {
-  if (c->garbage())
-    return false;
-  for (const Lit l : *c)
-    if (k.value(l) > 0)
-      return false; // root-satisfied
-  return true;
+  return root_clause_relevant(k, c);
 }
 
 // Does the canonical round work on `c`? Irredundant always; a redundant clause
@@ -225,6 +220,20 @@ struct Partner {
   Lit trace_a = INVALID_LIT, trace_b = INVALID_LIT;
 #endif
 };
+
+// Record large partner `d` with its check result; LRAT also needs the partner
+// id and the units of its root-falsified literals.
+static void capture_large_partner(const Kernel &k, bool lrat, Partner &p,
+                                  const CheckResult &r, const Clause *d) {
+  p.res = r;
+  p.absorbed.clear();
+  if (lrat) {
+    p.id = d->id();
+    for (const Lit m : *d)
+      if (k.value(m) < 0)
+        p.absorbed.push_back(k.unit_ids[var_of(m)]);
+  }
+}
 
 // Kissat's forward-subsumption index is one mixed watch stream per literal.
 // Dense-mode entry first flushes every large reference, leaving the binary
@@ -372,28 +381,7 @@ static void forward_assign_root(Kernel &k, Lit unit, uint32_t reason,
 
 static void forward_refute(Kernel &k, const Clause *clause,
                            Lit first = INVALID_LIT, Lit second = INVALID_LIT) {
-  if (k.proof) {
-    if (k.proof->lrat()) {
-      k.lrat_entries.clear();
-      const auto add = [&](Lit lit) {
-        assert(k.value(lit) < 0);
-        const Var v = var_of(lit);
-        k.lrat_entries.emplace_back(k.assigned[v].trail, k.unit_ids[v]);
-      };
-      if (clause)
-        for (const Lit lit : *clause)
-          add(lit);
-      else {
-        add(first);
-        add(second);
-      }
-      kernel_lrat_chain(k, clause ? clause->id()
-                                 : kernel_binary_id(k, first, second));
-      k.proof->add_empty(++k.next_clause_id, k.lrat_chain.data(),
-                         static_cast<uint32_t>(k.lrat_chain.size()));
-    } else
-      k.proof->add_empty(0, nullptr, 0);
-  }
+  emit_falsified_refutation(k, clause, first, second);
   k.inconsistent = true;
   k.conflict_valid = false;
 }
@@ -651,8 +639,7 @@ static Partner find_forward_partner(
         }
         if (r.kind == CheckResult::NONE)
           continue;
-        p.res = r;
-        p.absorbed.clear();
+        capture_large_partner(k, lrat, p, r, d);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         p.trace_ref = watch.ref();
         p.trace_a = p.trace_b = INVALID_LIT;
@@ -666,12 +653,6 @@ static Partner find_forward_partner(
                                        : kernel_externalize(k, r.flipped));
         }
 #endif
-        if (lrat) {
-          p.id = d->id();
-          for (const Lit m : *d)
-            if (k.value(m) < 0)
-              p.absorbed.push_back(k.unit_ids[var_of(m)]);
-        }
         if (r.kind == CheckResult::SUBSUMED) {
           stop_stream = true;
           break;
@@ -755,12 +736,8 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t watermark,
     if (value > 0)
       continue;
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof) {
-      const uint64_t chain[2] = {w.first, w.second};
-      k.proof->add_rup(k.proof->lrat() ? id : 0, &w.unit, 1,
-                       k.proof->lrat() ? chain : nullptr,
-                       k.proof->lrat() ? 2 : 0);
-    }
+    const uint64_t chain[2] = {w.first, w.second};
+    emit_rup_lemma(k, id, &w.unit, 1, chain, 2);
     if (value < 0) {
       kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(w.unit)]);
       return UINT64_MAX;
@@ -774,105 +751,54 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t watermark,
   return removed;
 }
 
-// scan the candidate's watch lists (both phases) for binary partners and the
-// round's occurrence lists (both phases) for large ones. occs == nullptr
-// selects the watch-list-only discovery the single-candidate instance surface
-// uses. Free literals only; both scans are read-only.
+// The single-candidate instance surface's partner discovery: binary partners
+// in the same-phase watch lists, then large partners in the watch lists of the
+// candidate's free literals. Free literals only; both scans are read-only.
 static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
-                            const Clause *c,
-                            const std::vector<std::vector<Ref>> *occs,
-                            Ref self, uint64_t &visits, uint64_t visit_start,
-                            bool bounded, uint64_t visit_budget,
-                            bool *budget_exhausted) {
+                            const Clause *c, Ref self, uint64_t &visits) {
   Partner p;
   const bool lrat = k.proof && k.proof->lrat();
-  const auto budget_cut = [&]() {
-    if (!budget_exhausted || !bounded ||
-        visits - visit_start < visit_budget)
-      return false;
-    *budget_exhausted = true;
-    return true;
-  };
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
-    for (int phase = 0; phase < 2; phase++) {
-      const Lit probe = phase ? negate(l) : l;
-      // Kissat scans binaries only in `forward_literal(lit, true)`.  Its
-      // opposite-phase `forward_literal(NOT(lit), false)` walk considers large
-      // occurrences only.  Opposite-phase binary discovery is logically
-      // redundant (the same binary is reachable from its same-phase literal)
-      // but changes which of several valid strengtheners wins first.
-      if (phase == 0) {
-        const bool stop_at_large = k.watches.heads[probe].binaries_first();
-        bool strengthened_by_binary = false;
-        for (const WatchEntry w : k.watches.entries(probe)) {
-          if (!w.binary()) {
-            if (stop_at_large)
-              break;
-            continue;
-          }
-          if (budget_cut())
-            return p;
-          visits++; // a binary partner compared
-          const Lit o = w.other();
-          if (phase == 0) {
-            // no redundancy check on the binary partner: the binary-subsumer
-            // argument in subsume_forward.hpp covers this
-            if (marks[o]) { // (l ∨ o), both in candidate: subsumes
-              p.res.kind = CheckResult::SUBSUMED;
-              if (lrat)
-                p.id = kernel_binary_id(k, probe, o);
-              return p;
-            }
-            if (marks[negate(o)]) { // (l ∨ o), candidate has ¬o: drop ¬o
-              p.res.kind = CheckResult::STRENGTHEN;
-              p.res.flipped = o;
-              p.absorbed.clear();
-              if (lrat)
-                p.id = kernel_binary_id(k, probe, o);
-              // Kissat breaks this one `forward_literal` watch walk, but
-              // carries `remove` into the remaining candidate literals where
-              // a later strengthener may overwrite it.
-              strengthened_by_binary = true;
-              break;
-            }
-          }
-        }
-        if (strengthened_by_binary)
-          continue;
-      }
-      if (!occs) // instance surface: large partners via watch lists below
+    // Kissat scans binaries only in `forward_literal(lit, true)`.  Its
+    // opposite-phase `forward_literal(NOT(lit), false)` walk considers large
+    // occurrences only.  Opposite-phase binary discovery is logically
+    // redundant (the same binary is reachable from its same-phase literal)
+    // but changes which of several valid strengtheners wins first.
+    const bool stop_at_large = k.watches.heads[l].binaries_first();
+    for (const WatchEntry w : k.watches.entries(l)) {
+      if (!w.binary()) {
+        if (stop_at_large)
+          break;
         continue;
-      const std::vector<Ref> &os = (*occs)[probe];
-      for (const Ref dref : os) {
-        if (budget_cut())
-          return p;
-        visits++;
-        const Clause *d = clause_at(k.arena, dref);
-        const CheckResult r = check_marked(k, marks, d);
-        if (r.kind == CheckResult::NONE)
-          continue;
-        p.res = r;
+      }
+      visits++; // a binary partner compared
+      const Lit o = w.other();
+      // no redundancy check on the binary partner: the binary-subsumer
+      // argument in subsume_forward.hpp covers this
+      if (marks[o]) { // (l ∨ o), both in candidate: subsumes
+        p.res.kind = CheckResult::SUBSUMED;
+        if (lrat)
+          p.id = kernel_binary_id(k, l, o);
+        return p;
+      }
+      if (marks[negate(o)]) { // (l ∨ o), candidate has ¬o: drop ¬o
+        p.res.kind = CheckResult::STRENGTHEN;
+        p.res.flipped = o;
         p.absorbed.clear();
-        if (lrat) {
-          p.id = d->id();
-          for (const Lit m : *d)
-            if (k.value(m) < 0)
-              p.absorbed.push_back(k.unit_ids[var_of(m)]);
-        }
-        if (r.kind == CheckResult::SUBSUMED)
-          return p;
-        // Large strengtheners do not break `forward_literal`; the last valid
-        // one in the remaining physical occurrence scans wins.
+        if (lrat)
+          p.id = kernel_binary_id(k, l, o);
+        // Kissat breaks this one `forward_literal` watch walk, but
+        // carries `remove` into the remaining candidate literals where
+        // a later strengthener may overwrite it.
+        break;
       }
     }
   }
-  if (occs)
-    return p;
-  // instance surface: large partners live in the watch lists of the candidate's
-  // own free literals — a partner watches two of its own literals, each a
-  // candidate literal or its negation — so rerun the phase loop for them
+  // large partners live in the watch lists of the candidate's own free
+  // literals — a partner watches two of its own literals, each a candidate
+  // literal or its negation — so rerun the phase loop for them
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
@@ -884,8 +810,6 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         const Ref dref = w.ref();
         if (dref == self)
           continue;
-        if (budget_cut())
-          return p;
         visits++;
         const Clause *d = clause_at(k.arena, dref);
         if (d->garbage() || d->redundant() || d->size > c->size)
@@ -893,16 +817,11 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         const CheckResult r = check_marked(k, marks, d);
         if (r.kind == CheckResult::NONE)
           continue;
-        p.res = r;
-        p.absorbed.clear();
-        if (lrat) {
-          p.id = d->id();
-          for (const Lit m : *d)
-            if (k.value(m) < 0)
-              p.absorbed.push_back(k.unit_ids[var_of(m)]);
-        }
+        capture_large_partner(k, lrat, p, r, d);
         if (r.kind == CheckResult::SUBSUMED)
           return p;
+        // Large strengtheners do not break `forward_literal`; the last valid
+        // one in the remaining physical occurrence scans wins.
       }
     }
   }
@@ -1007,14 +926,7 @@ static bool find_semantic_strengthener(Kernel &k,
               : result.kind == CheckResult::STRENGTHEN &&
                     negate(result.flipped) == gone;
       if (selected) {
-        out.res = result;
-        out.absorbed.clear();
-        if (lrat) {
-          out.id = d->id();
-          for (const Lit literal : *d)
-            if (k.value(literal) < 0)
-              out.absorbed.push_back(k.unit_ids[var_of(literal)]);
-        }
+        capture_large_partner(k, lrat, out, result, d);
         return true;
       }
     }
@@ -1075,30 +987,24 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
   }
 #endif
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof) {
-    if (lrat) {
-      chain.insert(chain.end(), p.absorbed.begin(), p.absorbed.end());
-      // The victim and partner may contain the same root-false literal. Its
-      // unit is needed only once; a second citation is not a propagation in
-      // the checker's LRAT replay (AM358-v2 H3).
-      size_t kept = 0;
-      for (const uint64_t hint : chain) {
-        bool duplicate = false;
-        for (size_t i = 0; i < kept && !duplicate; i++)
-          duplicate = chain[i] == hint;
-        if (!duplicate)
-          chain[kept++] = hint;
-      }
-      chain.resize(kept);
-      chain.push_back(p.id);    // partner propagates the flipped literal
-      chain.push_back(c->id()); // then the original conflicts
-      k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
-                       chain.data(), static_cast<uint32_t>(chain.size()));
-    } else {
-      k.proof->add_rup(0, lits.data(), static_cast<uint32_t>(lits.size()),
-                       nullptr, 0);
+  if (lrat) {
+    chain.insert(chain.end(), p.absorbed.begin(), p.absorbed.end());
+    // The victim and partner may contain the same root-false literal. Its
+    // unit is needed only once; a second citation is not a propagation in
+    // the checker's LRAT replay (AM358-v2 H3).
+    size_t kept = 0;
+    for (const uint64_t hint : chain) {
+      bool duplicate = false;
+      for (size_t i = 0; i < kept && !duplicate; i++)
+        duplicate = chain[i] == hint;
+      if (!duplicate)
+        chain[kept++] = hint;
     }
+    chain.resize(kept);
+    chain.push_back(p.id);    // partner propagates the flipped literal
+    chain.push_back(c->id()); // then the original conflicts
   }
+  emit_rup_lemma(k, id, lits, chain);
   k.stats.strengthened++;
   (*changed)++;
   // Rewrites preserve redundancy; read before the replacement garbages `c`.
@@ -1521,8 +1427,7 @@ static ApplyResult strengthen_try_impl(Kernel &k, Ref candidate) {
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   mark_candidate(k, marks, c, 1);
   uint64_t visits = k.stats.strengthen_visits;
-  const Partner p = find_partner(k, marks, c, nullptr, candidate, visits,
-                                 visits, false, 0, nullptr);
+  const Partner p = find_partner(k, marks, c, candidate, visits);
   k.stats.strengthen_visits = visits;
   mark_candidate(k, marks, clause_at(k.arena, candidate), 0);
   uint64_t changed = 0;
@@ -1603,12 +1508,11 @@ static uint32_t strengthen_semantic_instances(Kernel &k, uint64_t *out,
                                               uint32_t cap) {
   std::vector<SemanticStrengthening> choices;
   semantic_strengthenings(k, choices);
-  const uint32_t count = std::min<uint32_t>(
-      cap, static_cast<uint32_t>(choices.size()));
-  for (uint32_t i = 0; i < count; ++i)
-    out[i] = strengthen_literal_instance(choices[i].candidate,
-                                         choices[i].gone);
-  return count;
+  return copy_instance_prefix(choices, out, cap,
+                              [](const SemanticStrengthening &choice) {
+                                return strengthen_literal_instance(
+                                    choice.candidate, choice.gone);
+                              });
 }
 
 TACTIX_REGISTER_RULE(Strengthen, RuleTier::Inprocess, strengthen_guard,

@@ -136,13 +136,10 @@ bool add_resolvent(Kernel &k, const Tern &positive, const Tern &negative,
   // RUP from its two parents, in checker-propagation order: negating the
   // resolvent falsifies every literal of `positive` but the pivot, so it forces
   // the pivot and `negative` is then falsified (the E1 resolvent argument).
-  const bool lrat = k.proof && k.proof->lrat();
   const uint64_t id = ++k.next_clause_id;
   const uint64_t chain[2] = {positive.id, negative.id};
-  if (k.proof)
-    k.proof->add_rup(lrat ? id : 0, res.data(),
-                     static_cast<uint32_t>(res.size()),
-                     lrat ? chain : nullptr, lrat ? 2 : 0);
+  emit_rup_lemma(k, id, res.data(), static_cast<uint32_t>(res.size()), chain,
+                 2);
   if (res.size() == 2) {
     kernel_add_binary_clause(k, res[0], res[1], id);
     ++k.stats.ternary_binaries;
@@ -200,11 +197,7 @@ uint64_t ternary_percent_limit(uint64_t base, uint32_t percent) {
   return high > maximum - low ? maximum : high + low;
 }
 
-RuleEligibility ternary_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
-}
+RuleEligibility ternary_guard(const Kernel &k) { return root_level_guard(k); }
 
 void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
                     uint64_t *total_clauses, bool complete) {
@@ -368,11 +361,7 @@ static uint32_t ternary_semantic_instances(Kernel &k, uint64_t *out,
                                            uint32_t cap) {
   std::vector<TernaryChoice> choices;
   semantic_choices(k, choices);
-  const uint32_t count = std::min<uint32_t>(
-      cap, static_cast<uint32_t>(choices.size()));
-  for (uint32_t i = 0; i < count; ++i)
-    out[i] = ternary_choice_instance(choices[i]);
-  return count;
+  return copy_instance_prefix(choices, out, cap, ternary_choice_instance);
 }
 
 static ApplyResult ternary_apply_semantic_instance(Kernel &k, uint64_t inst) {

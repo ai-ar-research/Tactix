@@ -260,11 +260,7 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
 
 } // namespace
 
-RuleEligibility sweep_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
-}
+RuleEligibility sweep_guard(const Kernel &k) { return root_level_guard(k); }
 
 // The variable's large-clause + watch degree, both polarities. Without the
 // phase occurrence index only the watch lists are readable, which still ranks
@@ -1531,63 +1527,56 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     // The sub-solver keeps only the last solve's derivation, so direction 1's
     // must be copied out before direction 2's solve overwrites it.
     SweepPairProof pair;
-    // Direction 1: x ∧ ¬y unsatisfiable ⇔ F ⊨ (¬x ∨ y).
-    assumptions.clear();
-    assumptions.push_back(sub_lit(e.sub_of_var[seed], false));
-    assumptions.push_back(
-        sub_lit(e.sub_of_var[var_of(y)], !negated(y)));
-    solved++;
-    k.stats.sweep_candidates++;
-    k.stats.sweep_solves++;
-    res = sweep_solve(k, e, assumptions, lim.env_ticks);
-    if (res == SubResult::Budget) {
-      k.stats.sweep_budget++;
-      break;
-    }
-    if (res == SubResult::Sat) {
-      k.stats.sweep_dir_sat++;
-      k.stats.sweep_cand_refined +=
-          refine(e, e.solver.model(), seed_lit, r.candidates);
-      continue;
-    }
-    k.stats.sweep_dir_unsat++;
-    assert(!e.solver.inconsistent() && "a satisfiable environment cannot then "
-                                       "derive the empty clause");
+    // One implication query: Sat refines the candidates from the model, Unsat
+    // captures the direction's proof; Stop ends this seed's candidate loop.
+    enum class Direction { Proved, Refined, Stop };
+    const auto prove_direction = [&](bool forward, SweepDirProof &proof) {
+      assumptions.clear();
+      assumptions.push_back(sub_lit(e.sub_of_var[seed], !forward));
+      assumptions.push_back(
+          sub_lit(e.sub_of_var[var_of(y)], negated(y) != forward));
+      solved++;
+      k.stats.sweep_candidates++;
+      k.stats.sweep_solves++;
+      res = sweep_solve(k, e, assumptions, lim.env_ticks);
+      if (res == SubResult::Budget) {
+        k.stats.sweep_budget++;
+        return Direction::Stop;
+      }
+      if (res == SubResult::Sat) {
+        k.stats.sweep_dir_sat++;
+        k.stats.sweep_cand_refined +=
+            refine(e, e.solver.model(), seed_lit, r.candidates);
+        return Direction::Refined;
+      }
+      k.stats.sweep_dir_unsat++;
+      assert(!e.solver.inconsistent() && "a satisfiable environment cannot "
+                                         "then derive the empty clause");
 #ifndef NDEBUG
-    { // Emission depends on this: a refutation under assumptions must hand back a
-      // derivation whose target clause is a sub-clause of the negated
-      // assumptions. Checked here, where the assumptions are still in hand.
-      const SubStep *target = e.solver.refutation_target();
-      assert(target);
-      for (const SubLit tl : target->lits)
-        assert(tl == sub_negate(assumptions[0]) ||
-               tl == sub_negate(assumptions[1]));
-    }
+      if (forward) {
+        // Emission depends on this: a refutation under assumptions must hand
+        // back a derivation whose target clause is a sub-clause of the negated
+        // assumptions. Checked here, where the assumptions are still in hand.
+        const SubStep *target = e.solver.refutation_target();
+        assert(target);
+        for (const SubLit tl : target->lits)
+          assert(tl == sub_negate(assumptions[0]) ||
+                 tl == sub_negate(assumptions[1]));
+      }
 #endif
-    if (!sweep_capture_dir(k, e, lim.max_proof_steps, pair.fwd))
-      break;
+      return sweep_capture_dir(k, e, lim.max_proof_steps, proof)
+                 ? Direction::Proved
+                 : Direction::Stop;
+    };
+    // Direction 1: x ∧ ¬y unsatisfiable ⇔ F ⊨ (¬x ∨ y).
+    Direction direction = prove_direction(true, pair.fwd);
     // Direction 2: ¬x ∧ y unsatisfiable ⇔ F ⊨ (x ∨ ¬y).
-    assumptions.clear();
-    assumptions.push_back(sub_lit(e.sub_of_var[seed], true));
-    assumptions.push_back(sub_lit(e.sub_of_var[var_of(y)], negated(y)));
-    solved++;
-    k.stats.sweep_candidates++;
-    k.stats.sweep_solves++;
-    res = sweep_solve(k, e, assumptions, lim.env_ticks);
-    if (res == SubResult::Budget) {
-      k.stats.sweep_budget++;
+    if (direction == Direction::Proved)
+      direction = prove_direction(false, pair.rev);
+    if (direction == Direction::Stop)
       break;
-    }
-    if (res == SubResult::Sat) {
-      k.stats.sweep_dir_sat++;
-      k.stats.sweep_cand_refined +=
-          refine(e, e.solver.model(), seed_lit, r.candidates);
+    if (direction == Direction::Refined)
       continue;
-    }
-    k.stats.sweep_dir_unsat++;
-    assert(!e.solver.inconsistent());
-    if (!sweep_capture_dir(k, e, lim.max_proof_steps, pair.rev))
-      break;
     // Both directions refuted over env ⊆ F, so F ⊨ x ≡ y.
     r.found.push_back({std::min(seed_lit, y), std::max(seed_lit, y)});
     r.proofs.push_back(std::move(pair));
@@ -2026,12 +2015,9 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
     return false;
   if (!congruence_replay_rup(k, rev, 2, chain_rev, RupReplay::Decide))
     return false;
-  const bool lrat = k.proof && k.proof->lrat();
   auto add = [&](const Lit *l, const std::vector<uint64_t> &ch) {
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, l, 2, lrat ? ch.data() : nullptr,
-                       lrat ? static_cast<uint32_t>(ch.size()) : 0);
+    emit_rup_lemma(k, id, l, 2, ch);
     kernel_add_binary_clause(k, l[0], l[1], id);
   };
   add(fwd, chain_fwd);
@@ -2482,11 +2468,7 @@ static bool sweep_apply_general_plan(Kernel &k,
         chain.push_back(id_of[antecedent]);
     }
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, lifted.data(),
-                       static_cast<uint32_t>(lifted.size()),
-                       lrat ? chain.data() : nullptr,
-                       lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    emit_rup_lemma(k, id, lifted, chain);
     if (step->sub_id < id_of.size())
       id_of[step->sub_id] = id;
     last_id = id;
@@ -2623,12 +2605,7 @@ static bool sweep_emit_unit(Kernel &k, Lit unit) {
   if (!congruence_replay_rup(k, &unit, 1, chain, RupReplay::Decide))
     return false;
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof) {
-    const bool lrat = k.proof->lrat();
-    k.proof->add_rup(lrat ? id : 0, &unit, 1,
-                     lrat ? chain.data() : nullptr,
-                     lrat ? static_cast<uint32_t>(chain.size()) : 0);
-  }
+  emit_rup_lemma(k, id, &unit, 1, chain);
   k.unit_ids[var_of(unit)] = id;
   kernel_assign_unit(k, unit);
   k.stats.sweep_units++;
@@ -2861,46 +2838,35 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
         round.equivalences_emitted = idx;
         break;
       }
-      if (first.eligible() && second.eligible() && k.value(first.t0) >= 0 &&
-          k.value(second.t0) >= 0) {
+      // Commit one captured unit unless the root already holds it; false when
+      // its emission stops part-way.
+      const auto apply_unit_plan = [&](const SweepGeneralPlan &plan) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
         uint64_t pre_digest = 0;
-        bool journal_plan =
-            begin_journal_sweep_general(k, first, pre_digest);
+        const bool journal_plan =
+            begin_journal_sweep_general(k, plan, pre_digest);
 #endif
-        const bool apply_first = k.value(first.t0) == 0;
-        if (apply_first) {
-          if (!sweep_apply_general_plan(k, first)) {
-            round.equivalences_emitted = idx;
-            break;
-          }
+        const bool apply = k.value(plan.t0) == 0;
+        if (apply) {
+          if (!sweep_apply_general_plan(k, plan))
+            return false;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-          event_trace_sweep_unit(k, first.t0);
+          event_trace_sweep_unit(k, plan.t0);
 #endif
         }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
         if (journal_plan)
-          journal_sweep_general(k, first, pre_digest,
-                                apply_first ? "applied" : "no-op", "none",
-                                "unit");
-        journal_plan = begin_journal_sweep_general(k, second, pre_digest);
+          journal_sweep_general(k, plan, pre_digest,
+                                apply ? "applied" : "no-op", "none", "unit");
 #endif
-        const bool apply_second = k.value(second.t0) == 0;
-        if (apply_second) {
-          if (!sweep_apply_general_plan(k, second)) {
-            round.equivalences_emitted = idx;
-            break;
-          }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-          event_trace_sweep_unit(k, second.t0);
-#endif
+        return true;
+      };
+      if (first.eligible() && second.eligible() && k.value(first.t0) >= 0 &&
+          k.value(second.t0) >= 0) {
+        if (!apply_unit_plan(first) || !apply_unit_plan(second)) {
+          round.equivalences_emitted = idx;
+          break;
         }
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-        if (journal_plan)
-          journal_sweep_general(k, second, pre_digest,
-                                apply_second ? "applied" : "no-op", "none",
-                                "unit");
-#endif
         k.stats.sweep_general++;
         any = true;
         continue;

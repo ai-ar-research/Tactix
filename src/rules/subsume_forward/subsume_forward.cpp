@@ -13,9 +13,7 @@ namespace tactix {
 RuleEligibility subsume_forward_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
   // regardless of a recorded conflict (D-SPLIT-3, `docs/dev/calculus.md` §7).
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
 // is `d` (irredundant, live) a subsumer of the marked candidate? true iff every
@@ -42,12 +40,7 @@ static bool subsumes_marked(const Kernel &k, const std::vector<uint8_t> &marks,
 // redundant clause is licensed unconditionally (S2 Forget). The load-bearing
 // redundancy check sits on the subsumer instead (subsume_forward.hpp).
 static bool is_victim(const Kernel &k, const Clause *c) {
-  if (c->garbage())
-    return false;
-  for (const Lit l : *c)
-    if (k.value(l) > 0)
-      return false; // root-satisfied
-  return true;
+  return root_clause_relevant(k, c);
 }
 
 // ...and the narrower set the canonical round works on. The redundant tier band

@@ -51,10 +51,7 @@ uint64_t hyperbinary_semantic_instance(Lit dominator,
 
 RuleEligibility hyperbinary_guard(const Kernel &k) {
   // quiescent root, the probing-family precondition (V1's argument)
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("root-level", k.level == 0);
+  return failed_literal_guard(k);
 }
 
 // Same schedule as V1 Probe: a literal is worth assuming only if its negation
@@ -66,16 +63,6 @@ void hyperbinary_candidates(const Kernel &k, std::vector<Lit> &out) {
 
 namespace {
 
-void unwind(Kernel &k) {
-  k.conflict_valid = false;
-  k.conflict_ref = INVALID_REF;
-  if (k.level > 0)
-    kernel_backtrack(k, 0, /*update_phases=*/false);
-  // Give search back the watch order and `searched` hints this probe churned.
-  // MUST run before the caller mutates the formula (kernel_probing_begin).
-  kernel_probing_end(k);
-}
-
 // Close `p` under propagation, then read the resolvents off the finished
 // trail. Returns false if the probe conflicted — that is V1 Probe's failed
 // literal, and it belongs to V1: emitting a unit here would duplicate another
@@ -83,16 +70,14 @@ void unwind(Kernel &k) {
 bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
              std::vector<Resolvent> &out) {
   kernel_probing_begin(k);
-  k.level++;
-  k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
   const uint32_t base = static_cast<uint32_t>(k.trail.size());
-  kernel_assign(k, p, k.level, DECISION_REASON, false);
+  kernel_assign_decision(k, p);
   // A conflict here means `p` is a failed literal, which is V1 Probe's
   // inference and its proof obligation. Note the polarity: unlike V1, this rule
   // wants the probe to SURVIVE, because the resolvents are read off a
   // consistent level-1 closure.
   if (kernel_propagate_probing(k)) {
-    unwind(k);
+    probe_unwind(k);
     return false;
   }
 
@@ -155,7 +140,7 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
       }
     out.push_back(Resolvent{dom, l, ref, subsumes});
   }
-  unwind(k);
+  probe_unwind(k);
   return true;
 }
 
@@ -174,11 +159,8 @@ bool emit(Kernel &k, const Resolvent &r, std::vector<uint64_t> &chain) {
     k.stats.hbr_declined++;
     return false;
   }
-  const bool lrat = k.proof && k.proof->lrat();
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof)
-    k.proof->add_rup(lrat ? id : 0, lits, 2, lrat ? chain.data() : nullptr,
-                     lrat ? static_cast<uint32_t>(chain.size()) : 0);
+  emit_rup_lemma(k, id, lits, 2, chain);
   kernel_add_binary_clause(k, lits[0], lits[1], id);
   k.stats.hbr_binaries++;
 
@@ -210,12 +192,8 @@ ApplyResult emit_semantic(Kernel &k, const Resolvent &r,
     ++k.stats.hbr_declined;
     return ApplyResult::NoOp;
   }
-  const bool lrat = k.proof && k.proof->lrat();
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof)
-    k.proof->add_rup(lrat ? id : 0, &unit, 1,
-                     lrat ? chain.data() : nullptr,
-                     lrat ? static_cast<uint32_t>(chain.size()) : 0);
+  emit_rup_lemma(k, id, &unit, 1, chain);
   ++k.stats.hbr_units;
   if (value < 0) {
     kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(unit)]);
@@ -312,6 +290,27 @@ static ApplyResult hyperbinary_apply_instance(Kernel &k, uint64_t inst) {
                                                                          inst);
 }
 
+// Mark every literal the binary implication graph reaches from `dom`, `dom`
+// included. `ticks`, when given, is charged once per visited literal.
+static void reach_binary_implications(const Kernel &k, Lit dom,
+                                      std::vector<uint8_t> &reached,
+                                      std::vector<Lit> &queue,
+                                      uint64_t *ticks) {
+  reached[dom] = 1;
+  queue.push_back(dom);
+  for (size_t head = 0; head < queue.size(); ++head) {
+    const auto entries = k.watches.entries(negate(queue[head]));
+    if (ticks)
+      ++*ticks;
+    for (const WatchEntry watch : entries) {
+      if (!watch.binary() || reached[watch.other()])
+        continue;
+      reached[watch.other()] = 1;
+      queue.push_back(watch.other());
+    }
+  }
+}
+
 static uint32_t hyperbinary_semantic_instances(Kernel &k, uint64_t *out,
                                                uint32_t cap) {
   uint32_t count = 0;
@@ -329,15 +328,7 @@ static uint32_t hyperbinary_semantic_instances(Kernel &k, uint64_t *out,
       continue;
     std::fill(reached.begin(), reached.end(), 0);
     queue.clear();
-    reached[dom] = 1;
-    queue.push_back(dom);
-    for (size_t head = 0; head < queue.size(); ++head)
-      for (const WatchEntry watch : k.watches.entries(negate(queue[head]))) {
-        if (!watch.binary() || reached[watch.other()])
-          continue;
-        reached[watch.other()] = 1;
-        queue.push_back(watch.other());
-      }
+    reach_binary_implications(k, dom, reached, queue, nullptr);
 
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *clause = clause_at(k.arena, ref);
@@ -403,18 +394,7 @@ static ApplyResult hyperbinary_apply_semantic_instance(Kernel &k,
 
   std::vector<uint8_t> reached(2 * k.nvars, 0);
   std::vector<Lit> queue;
-  reached[dom] = 1;
-  queue.push_back(dom);
-  for (size_t head = 0; head < queue.size(); ++head) {
-    const auto entries = k.watches.entries(negate(queue[head]));
-    ++k.stats.hbr_ticks;
-    for (const WatchEntry watch : entries) {
-      if (!watch.binary() || reached[watch.other()])
-        continue;
-      reached[watch.other()] = 1;
-      queue.push_back(watch.other());
-    }
-  }
+  reach_binary_implications(k, dom, reached, queue, &k.stats.hbr_ticks);
 
   const Clause *clause = clause_at(k.arena, reason);
   const Lit forced = clause->lits[forced_pos];

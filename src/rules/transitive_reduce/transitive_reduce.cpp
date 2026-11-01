@@ -21,9 +21,7 @@ namespace tactix {
 RuleEligibility transitive_reduce_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
   // regardless of a recorded conflict (D-SPLIT-3, `docs/dev/calculus.md` §7).
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
 namespace {
@@ -97,6 +95,24 @@ bool transitive_trace_pair(const Kernel &k, Lit a, Lit b) {
 
 bool transitive_trace_all_sources() { return transitive_trace.all_sources; }
 
+// The internal/import/reference/active/value columns of a row's literal pair,
+// in that order. An absent second literal (INVALID_LIT) has no import order,
+// is inactive and has value 0.
+void transitive_trace_pair_columns(const Kernel &k, Lit a, Lit b) {
+  const bool has_b = b != INVALID_LIT;
+  std::fprintf(
+      transitive_trace.out, "\t%u\t%u\t%llu\t%llu\t%llu\t%llu\t%d\t%d\t%d\t%d",
+      a, b, static_cast<unsigned long long>(kernel_import_lit_order(k, a)),
+      static_cast<unsigned long long>(has_b ? kernel_import_lit_order(k, b)
+                                            : UINT64_MAX),
+      static_cast<unsigned long long>(kernel_compact_import_lit_order(k, a)),
+      static_cast<unsigned long long>(
+          has_b ? kernel_compact_import_lit_order(k, b) : UINT64_MAX),
+      !kernel_var_retired(k, var_of(a)),
+      has_b && !kernel_var_retired(k, var_of(b)), k.values[a],
+      has_b ? k.values[b] : 0);
+}
+
 void transitive_trace_row(const Kernel &k, const char *event,
                           uint64_t source_sequence, Lit source,
                           size_t candidate_ordinal, Lit destination,
@@ -105,31 +121,16 @@ void transitive_trace_row(const Kernel &k, const char *event,
                           uint32_t out_degree) {
   std::fprintf(
       transitive_trace.out,
-      "tactix\t%s\t%llu\t%llu\t%d\t%zu\t%d\t%llu\t%llu\t%d\t%d\t%zu\t%u"
-      "\t%u\t%u\t%llu\t%llu\t%llu\t%llu\t%d\t%d\t%d\t%d\t0\t-\n",
+      "tactix\t%s\t%llu\t%llu\t%d\t%zu\t%d\t%llu\t%llu\t%d\t%d\t%zu\t%u",
       event, static_cast<unsigned long long>(source_sequence),
       static_cast<unsigned long long>(k.stats.conflicts),
       kernel_externalize(k, source), candidate_ordinal,
       destination == INVALID_LIT ? 0 : kernel_externalize(k, destination),
       static_cast<unsigned long long>(ticks_before),
       static_cast<unsigned long long>(ticks_after), redundant, failed,
-      candidate_count, out_degree, source,
-      destination == INVALID_LIT ? INVALID_LIT : destination,
-      static_cast<unsigned long long>(kernel_import_lit_order(k, source)),
-      static_cast<unsigned long long>(
-          destination == INVALID_LIT ? UINT64_MAX
-                                     : kernel_import_lit_order(k, destination)),
-      static_cast<unsigned long long>(
-          kernel_compact_import_lit_order(k, source)),
-      static_cast<unsigned long long>(
-          destination == INVALID_LIT
-              ? UINT64_MAX
-              : kernel_compact_import_lit_order(k, destination)),
-      !kernel_var_retired(k, var_of(source)),
-      destination != INVALID_LIT &&
-          !kernel_var_retired(k, var_of(destination)),
-      k.values[source],
-      destination == INVALID_LIT ? 0 : k.values[destination]);
+      candidate_count, out_degree);
+  transitive_trace_pair_columns(k, source, destination);
+  std::fputs("\t0\t-\n", transitive_trace.out);
 }
 
 bool transitive_trace_selected_endpoint(int external) {
@@ -149,18 +150,11 @@ void transitive_trace_endpoints(const Kernel &k) {
     const int external = kernel_externalize(k, lit);
     if (!transitive_trace_selected_endpoint(external))
       continue;
-    std::fprintf(
-        transitive_trace.out,
-        "tactix\tendpoint\t0\t%llu\t%d\t0\t0\t0\t0\t0\t0\t0\t0\t%u\t%u"
-        "\t%llu\t%llu\t%llu\t%llu\t%d\t0\t%d\t0\t0\t-\n",
-        static_cast<unsigned long long>(k.stats.conflicts), external, lit,
-        INVALID_LIT,
-        static_cast<unsigned long long>(kernel_import_lit_order(k, lit)),
-        static_cast<unsigned long long>(UINT64_MAX),
-        static_cast<unsigned long long>(
-            kernel_compact_import_lit_order(k, lit)),
-        static_cast<unsigned long long>(UINT64_MAX),
-        !kernel_var_retired(k, var_of(lit)), k.values[lit]);
+    std::fprintf(transitive_trace.out,
+                 "tactix\tendpoint\t0\t%llu\t%d\t0\t0\t0\t0\t0\t0\t0\t0",
+                 static_cast<unsigned long long>(k.stats.conflicts), external);
+    transitive_trace_pair_columns(k, lit, INVALID_LIT);
+    std::fputs("\t0\t-\n", transitive_trace.out);
   }
 }
 
@@ -168,21 +162,12 @@ void transitive_trace_admission(const Kernel &k, Lit src, Lit dst,
                                 uint32_t copies, const char *skip_reason) {
   if (!transitive_trace_pair(k, src, dst))
     return;
-  std::fprintf(
-      transitive_trace.out,
-      "tactix\tadmission\t0\t%llu\t%d\t0\t%d\t0\t0\t0\t0\t0\t0\t%u\t%u"
-      "\t%llu\t%llu\t%llu\t%llu\t%d\t%d\t%d\t%d\t%u\t%s\n",
-      static_cast<unsigned long long>(k.stats.conflicts),
-      kernel_externalize(k, src), kernel_externalize(k, dst), src, dst,
-      static_cast<unsigned long long>(kernel_import_lit_order(k, src)),
-      static_cast<unsigned long long>(kernel_import_lit_order(k, dst)),
-      static_cast<unsigned long long>(
-          kernel_compact_import_lit_order(k, src)),
-      static_cast<unsigned long long>(
-          kernel_compact_import_lit_order(k, dst)),
-      !kernel_var_retired(k, var_of(src)),
-      !kernel_var_retired(k, var_of(dst)), k.values[src], k.values[dst], copies,
-      skip_reason);
+  std::fprintf(transitive_trace.out,
+               "tactix\tadmission\t0\t%llu\t%d\t0\t%d\t0\t0\t0\t0\t0\t0",
+               static_cast<unsigned long long>(k.stats.conflicts),
+               kernel_externalize(k, src), kernel_externalize(k, dst));
+  transitive_trace_pair_columns(k, src, dst);
+  std::fprintf(transitive_trace.out, "\t%u\t%s\n", copies, skip_reason);
 }
 
 void transitive_trace_walk_node(const Kernel &k, Lit src, Lit dst, Lit node,
@@ -195,21 +180,14 @@ void transitive_trace_walk_node(const Kernel &k, Lit src, Lit dst, Lit node,
                 kernel_externalize(k, node));
   std::fprintf(
       transitive_trace.out,
-      "tactix\twalk-node\t0\t%llu\t%d\t%zu\t%d\t%llu\t%llu\t0\t0\t0\t0\t%u\t%u"
-      "\t%llu\t%llu\t%llu\t%llu\t%d\t%d\t%d\t%d\t%u\t%s\n",
+      "tactix\twalk-node\t0\t%llu\t%d\t%zu\t%d\t%llu\t%llu\t0\t0\t0\t0",
       static_cast<unsigned long long>(k.stats.conflicts),
       kernel_externalize(k, src), ordinal, kernel_externalize(k, dst),
       static_cast<unsigned long long>(ticks_before),
-      static_cast<unsigned long long>(ticks_after), node, dst,
-      static_cast<unsigned long long>(kernel_import_lit_order(k, node)),
-      static_cast<unsigned long long>(kernel_import_lit_order(k, dst)),
-      static_cast<unsigned long long>(
-          kernel_compact_import_lit_order(k, node)),
-      static_cast<unsigned long long>(
-          kernel_compact_import_lit_order(k, dst)),
-      !kernel_var_retired(k, var_of(node)),
-      !kernel_var_retired(k, var_of(dst)), k.values[node], k.values[dst],
-      watch_entries, node_payload);
+      static_cast<unsigned long long>(ticks_after));
+  transitive_trace_pair_columns(k, node, dst);
+  std::fprintf(transitive_trace.out, "\t%u\t%s\n", watch_entries,
+               node_payload);
 }
 
 void transitive_trace_walk_entries(const Kernel &k, Lit src, Lit dst,
@@ -250,27 +228,14 @@ void transitive_trace_walk_entries(const Kernel &k, Lit src, Lit dst,
     }
     std::fprintf(
         transitive_trace.out,
-        "tactix\twalk-watch\t0\t%llu\t%d\t%zu\t%d\t0\t0\t%d\t0\t0\t0"
-        "\t%u\t%u\t%llu\t%llu\t%llu\t%llu\t%d\t%d\t%d\t%d\t%llu\t%s\n",
+        "tactix\twalk-watch\t0\t%llu\t%d\t%zu\t%d\t0\t0\t%d\t0\t0\t0",
         static_cast<unsigned long long>(k.stats.conflicts),
         kernel_externalize(k, watched), ordinal,
         other == INVALID_LIT ? 0 : kernel_externalize(k, other),
-        entry.binary() ? 0 : 1, watched,
-        other == INVALID_LIT ? INVALID_LIT : other,
-        static_cast<unsigned long long>(kernel_import_lit_order(k, watched)),
-        static_cast<unsigned long long>(
-            other == INVALID_LIT ? UINT64_MAX
-                                 : kernel_import_lit_order(k, other)),
-        static_cast<unsigned long long>(
-            kernel_compact_import_lit_order(k, watched)),
-        static_cast<unsigned long long>(
-            other == INVALID_LIT
-                ? UINT64_MAX
-                : kernel_compact_import_lit_order(k, other)),
-        !kernel_var_retired(k, var_of(watched)),
-        other != INVALID_LIT && !kernel_var_retired(k, var_of(other)),
-        k.values[watched], other == INVALID_LIT ? 0 : k.values[other],
-        static_cast<unsigned long long>(id), payload.c_str());
+        entry.binary() ? 0 : 1);
+    transitive_trace_pair_columns(k, watched, other);
+    std::fprintf(transitive_trace.out, "\t%llu\t%s\n",
+                 static_cast<unsigned long long>(id), payload.c_str());
     ordinal++;
   }
 }
@@ -577,12 +542,8 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
   k.stats.transitive_ticks += w.ticks;
   w.ticks = 0;
   if (failed_source) {
-    const bool lrat = k.proof && k.proof->lrat();
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, &src, 1,
-                       lrat ? w.proof_chain.data() : nullptr,
-                       lrat ? static_cast<uint32_t>(w.proof_chain.size()) : 0);
+    emit_rup_lemma(k, id, &src, 1, w.proof_chain);
     k.unit_ids[var_of(src)] = id;
     kernel_assign_unit(k, src);
     res = ApplyResult::Ok;
@@ -666,11 +627,10 @@ static uint32_t transitive_reduce_instances(Kernel &k, uint64_t *out,
                                             uint32_t cap) {
   std::vector<Lit> srcs;
   transitive_reduce_sources(k, srcs);
-  const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(srcs.size()));
   // The set, in the rule's own order. Where a caller starts in it is that
   // caller's business: the resumption cursor lives in the policy
   // (DefaultPolicy::SlotEntry::cursor), where a scheduling decision belongs.
-  return copy_literal_instance_prefix(k, srcs, out, n);
+  return copy_literal_instance_prefix(k, srcs, out, cap);
 }
 
 static ApplyResult transitive_reduce_apply_instance(Kernel &k, uint64_t inst) {

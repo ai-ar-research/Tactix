@@ -3,6 +3,7 @@
 #include "kernel/indexed_max_heap.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp" // inprocess_reach_root
 
 #include <algorithm>
@@ -403,10 +404,25 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   // two candidate clauses. Dropping one can drop its neighbours below the bar,
   // so the prune iterates to fixpoint, bounded by `k.factor_cand_rounds`; 0
   // restores the unfiltered candidate set exactly.
+  // Connect one large clause to every one of its literals' streams.
+  const auto connect = [&](Ref ref, const Clause *c) {
+    idx.large_count++;
+    for (const Lit l : *c) {
+      idx.order[l].push_back(FactorWatch::large_watch(ref));
+      idx.live_degree[l]++;
+    }
+  };
   std::vector<uint8_t> alive;
   if (k.factor_cand_rounds && max_size >= 3) {
     std::vector<uint32_t> bincount, largecount, newcount;
     count_binaries(k, bincount);
+    // Every literal of `c` occurs in at least two candidate clauses.
+    const auto qualifies = [&](const Clause *c) {
+      for (const Lit l : *c)
+        if (bincount[l] + largecount[l] < 2)
+          return false;
+      return true;
+    };
     // seed: every in-scope irredundant large clause is a candidate
     largecount.assign(2 * k.nvars, 0);
     std::vector<Ref> cand;
@@ -430,14 +446,8 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
         if (!alive[i])
           continue;
         const Clause *c = clause_at(k.arena, cand[i]);
-        bool keep = true;
-        for (const Lit l : *c)
-          if (bincount[l] + largecount[l] < 2) {
-            keep = false;
-            break;
-          }
-        alive[i] = keep;
-        if (!keep)
+        alive[i] = qualifies(c);
+        if (!alive[i])
           continue;
         for (const Lit l : *c)
           newcount[l]++;
@@ -458,19 +468,8 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
       if (!alive[i])
         continue;
       const Clause *c = clause_at(k.arena, cand[i]);
-      bool connect = true;
-      for (const Lit l : *c)
-        if (bincount[l] + largecount[l] < 2) {
-          connect = false;
-          break;
-        }
-      if (!connect)
-        continue;
-      idx.large_count++;
-      for (const Lit l : *c) {
-        idx.order[l].push_back(FactorWatch::large_watch(cand[i]));
-        idx.live_degree[l]++;
-      }
+      if (qualifies(c))
+        connect(cand[i], c);
     }
     idx.built = true;
     return;
@@ -478,13 +477,8 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
-    if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size) {
-      idx.large_count++;
-      for (const Lit l : *c) {
-        idx.order[l].push_back(FactorWatch::large_watch(ref));
-        idx.live_degree[l]++;
-      }
-    }
+    if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size)
+      connect(ref, c);
     ref += words;
   }
   idx.built = true;
@@ -873,11 +867,7 @@ void dump_factored_and_exit(const Kernel &k, const char *path) {
 
 } // namespace
 
-RuleEligibility factor_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
-}
+RuleEligibility factor_guard(const Kernel &k) { return root_level_guard(k); }
 
 namespace {
 

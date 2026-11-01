@@ -14,9 +14,7 @@ namespace tactix {
 RuleEligibility instantiate_guard(const Kernel &k) {
   // Declared quiescent-root boundary. A pure F-rewrite, so a recorded conflict does not
   // bar it; level == 0 is what the occurrence and unassigned filters need.
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
 // Canonical candidate advice. None of these strategy limits constrains the
@@ -69,10 +67,11 @@ static bool has_eligible(const Kernel &k, const Clause *c,
   return false;
 }
 
-void instantiate_candidates(const Kernel &k, std::vector<Ref> &out) {
+// The candidates over precomputed occurrence counts `occ`, in arena order.
+static void collect_candidates(const Kernel &k,
+                               const std::vector<uint32_t> &occ,
+                               std::vector<Ref> &out) {
   out.clear();
-  std::vector<uint32_t> occ;
-  occurrence_counts(k, occ);
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
@@ -82,22 +81,10 @@ void instantiate_candidates(const Kernel &k, std::vector<Ref> &out) {
   }
 }
 
-// decision-free probe assumption / abandonment (C3 Vivify's copies of the
-// Lucky primitives; a rule may not call another rule, so these are local)
-static void assume(Kernel &k, Lit lit) {
-  k.level++;
-  k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
-  kernel_assign(k, lit, k.level, DECISION_REASON, false);
-}
-
-static void unwind(Kernel &k) {
-  k.conflict_valid = false;
-  k.conflict_ref = INVALID_REF;
-  if (k.level > 0)
-    kernel_backtrack(k, 0, /*update_phases=*/false);
-  // give search back the watch order / `searched` hints this probe churned;
-  // MUST run before the arena is mutated (the log holds Refs)
-  kernel_probing_end(k);
+void instantiate_candidates(const Kernel &k, std::vector<Ref> &out) {
+  std::vector<uint32_t> occ;
+  occurrence_counts(k, occ);
+  collect_candidates(k, occ, out);
 }
 
 // probe one (clause, literal) pair. Returns true when the assumption set
@@ -108,10 +95,11 @@ static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
   const Clause *c = clause_at(k.arena, cref);
   kernel_probing_begin(k);
   if (k.value(lit) != 0) { // defensive: duplicate literal in the clause
-    unwind(k);
+    probe_unwind(k);
     return false;
   }
-  assume(k, lit); // l TRUE — the assumption D's negation does NOT contain
+  // l TRUE — the assumption D's negation does NOT contain
+  kernel_assign_decision(k, lit);
   for (const Lit m : *c) {
     if (m == lit)
       continue;
@@ -121,10 +109,10 @@ static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
     if (v > 0) {
       // a literal of D is true under the assumption set itself: only reachable
       // when the clause holds m and a ¬lit-style duplicate. Abandon.
-      unwind(k);
+      probe_unwind(k);
       return false;
     }
-    assume(k, negate(m)); // every other literal FALSE
+    kernel_assign_decision(k, negate(m)); // every other literal FALSE
   }
   k.stats.instantiate_checked++;
   // the candidate is satisfied by `lit` under this assumption set, so it
@@ -132,7 +120,7 @@ static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
   // not arise here)
   if (kernel_propagate_probing(k))
     return true;
-  unwind(k);
+  probe_unwind(k);
   return false;
 }
 
@@ -214,7 +202,7 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
         }
       rup_helpers::remove_assumption_unit_hints(entries, cube_root_units);
     }
-    unwind(k); // trail down + probing scope closed BEFORE the arena moves
+    probe_unwind(k); // trail down + probing scope closed BEFORE the arena moves
     for (const Var tv : seen_touched)
       seen[tv] = 0;
     seen_touched.clear();
@@ -256,13 +244,7 @@ ApplyResult instantiate_apply(Kernel &k) {
   std::vector<uint32_t> occ;
   occurrence_counts(k, occ);
   std::vector<Ref> candidates;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
-    if (is_candidate(k, c) && has_eligible(k, c, occ))
-      candidates.push_back(ref);
-    ref += words;
-  }
+  collect_candidates(k, occ, candidates);
   uint64_t changed = 0;
   bool ended = false;
   // budget_aware batch round: the policy's ledger is in propagation ticks, C3

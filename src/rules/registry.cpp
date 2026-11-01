@@ -41,19 +41,15 @@ RuleEligibility rule_guard(const RuleVTable &rule, const Kernel &kernel) {
 
 namespace {
 
-ApplyResult gf3_affine_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
-ApplyResult direct_csp_support_canonical_noop(Kernel &) {
-  return ApplyResult::NoOp;
-}
-ApplyResult gf3_gaussian_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
-ApplyResult tseitin_cycle_breaking_canonical_noop(Kernel &) {
-  return ApplyResult::NoOp;
-}
-ApplyResult nary_csp_equality_canonical_noop(Kernel &) {
-  return ApplyResult::NoOp;
-}
-ApplyResult nary_csp_equality_amo_canonical_noop(Kernel &) {
-  return ApplyResult::NoOp;
+// The canonical instance shared by the session-backed actions below: it does
+// nothing.
+ApplyResult canonical_noop(Kernel &) { return ApplyResult::NoOp; }
+
+// A session-backed action's own guard, plus its bound session.
+template <RuleEligibility (*Guard)(const Kernel &), auto Session>
+RuleEligibility session_bound(const Kernel &kernel) {
+  RuleEligibility result = Guard(kernel);
+  return result.fact("session-bound", kernel.*Session != nullptr);
 }
 
 ApplyResult direct_php_canonical_apply(Kernel &kernel) {
@@ -67,17 +63,17 @@ ApplyResult direct_php_canonical_apply(Kernel &kernel) {
              ? ApplyResult::Unsat : ApplyResult::NoOp;
 }
 
-RuleEligibility gf3_affine_registry_guard(const Kernel &kernel) {
-  RuleEligibility result = gf3_affine_action_guard(kernel);
-  return result.fact("session-bound",
-                     kernel.gf3_affine_action_session != nullptr);
-}
-
-RuleEligibility direct_csp_support_registry_guard(const Kernel &kernel) {
-  RuleEligibility result = direct_csp_support_action_guard(kernel);
-  return result.fact("session-bound",
-                     kernel.direct_csp_support_action_session != nullptr);
-}
+constexpr auto gf3_affine_registry_guard = session_bound<
+    gf3_affine_action_guard, &Kernel::gf3_affine_action_session>;
+constexpr auto direct_csp_support_registry_guard =
+    session_bound<direct_csp_support_action_guard,
+                  &Kernel::direct_csp_support_action_session>;
+constexpr auto gf3_gaussian_registry_guard = session_bound<
+    gf3_gaussian_action_guard, &Kernel::gf3_gaussian_action_session>;
+constexpr auto tseitin_cycle_breaking_registry_guard = session_bound<
+    tseitin_cycle_breaking_guard, &Kernel::tseitin_cycle_breaking_session>;
+constexpr auto gf3_general_row_registry_guard = session_bound<
+    gf3_general_row_action_guard, &Kernel::gf3_general_row_action_session>;
 
 RuleEligibility direct_php_registry_guard(const Kernel &kernel) {
   RuleEligibility result = direct_php_action_guard(kernel);
@@ -88,19 +84,6 @@ RuleEligibility direct_php_registry_guard(const Kernel &kernel) {
             strategy::action_limits(
                 kernel.direct_php_refutation_parameters).valid());
 }
-
-RuleEligibility gf3_gaussian_registry_guard(const Kernel &kernel) {
-  RuleEligibility result = gf3_gaussian_action_guard(kernel);
-  return result.fact("session-bound",
-                     kernel.gf3_gaussian_action_session != nullptr);
-}
-
-RuleEligibility tseitin_cycle_breaking_registry_guard(const Kernel &kernel) {
-  RuleEligibility result = tseitin_cycle_breaking_guard(kernel);
-  return result.fact("session-bound",
-                     kernel.tseitin_cycle_breaking_session != nullptr);
-}
-
 
 RuleEligibility nary_csp_equality_registry_guard(const Kernel &kernel) {
   RuleEligibility result = nary_csp_equality_action_guard(kernel);
@@ -122,52 +105,37 @@ RuleEligibility nary_csp_equality_amo_registry_guard(const Kernel &kernel) {
             kernel.nary_csp_equality_amo_session != nullptr);
 }
 
-ApplyResult nary_csp_equality_transitivity_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
 RuleEligibility nary_csp_equality_transitivity_registry_guard(const Kernel &k) {
  return nary_csp_equality_transitivity_guard(k).fact("relation-session-bound", k.nary_csp_relation_owner_session != nullptr).fact("equality-session-bound", k.nary_csp_equality_session != nullptr).fact("transitivity-session-bound", k.nary_csp_equality_transitivity_session != nullptr);
 }
 
-ApplyResult gf3_general_row_canonical_noop(Kernel &) {
-  return ApplyResult::NoOp;
-}
-
-ApplyResult cardinality_search_canonical_noop(Kernel &) {
-  return ApplyResult::NoOp;
-}
-
-RuleEligibility gf3_general_row_registry_guard(const Kernel &kernel) {
-  RuleEligibility result = gf3_general_row_action_guard(kernel);
-  return result.fact("session-bound",
-                     kernel.gf3_general_row_action_session != nullptr);
-}
-
 TACTIX_REGISTER_RULE(Gf3AffineConsequence, RuleTier::Inprocess,
-                     gf3_affine_registry_guard, gf3_affine_canonical_noop);
+                     gf3_affine_registry_guard, canonical_noop);
 TACTIX_REGISTER_RULE(DirectCspSupport, RuleTier::Inprocess,
                      direct_csp_support_registry_guard,
-                     direct_csp_support_canonical_noop);
+                     canonical_noop);
 TACTIX_REGISTER_RULE(DirectPhpRefutation, RuleTier::Inprocess,
                      direct_php_registry_guard, direct_php_canonical_apply);
 TACTIX_REGISTER_RULE(Gf3GaussianConsequence, RuleTier::Inprocess,
                      gf3_gaussian_registry_guard,
-                     gf3_gaussian_canonical_noop);
+                     canonical_noop);
 TACTIX_REGISTER_RULE(TseitinCycleBreaking, RuleTier::Inprocess,
                      tseitin_cycle_breaking_registry_guard,
-                     tseitin_cycle_breaking_canonical_noop);
+                     canonical_noop);
 TACTIX_REGISTER_RULE(NaryCspEquality, RuleTier::Inprocess,
                      nary_csp_equality_registry_guard,
-                     nary_csp_equality_canonical_noop);
+                     canonical_noop);
 TACTIX_REGISTER_RULE(Gf3GeneralRowConsequence, RuleTier::Inprocess,
                      gf3_general_row_registry_guard,
-                     gf3_general_row_canonical_noop);
+                     canonical_noop);
 TACTIX_REGISTER_RULE(CardinalitySearch, RuleTier::Inprocess,
                      cardinality_search_action_guard,
-                     cardinality_search_canonical_noop);
-TACTIX_REGISTER_RULE(NaryCspEqualityTransitivity, RuleTier::Inprocess, nary_csp_equality_transitivity_registry_guard, nary_csp_equality_transitivity_canonical_noop);
+                     canonical_noop);
+TACTIX_REGISTER_RULE(NaryCspEqualityTransitivity, RuleTier::Inprocess, nary_csp_equality_transitivity_registry_guard, canonical_noop);
 
 TACTIX_REGISTER_RULE(NaryCspEqualityAmo, RuleTier::Inprocess,
                      nary_csp_equality_amo_registry_guard,
-                     nary_csp_equality_amo_canonical_noop);
+                     canonical_noop);
 
 } // namespace
 
@@ -388,6 +356,22 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
   return result;
 }
 
+// One explicit instance through the vtable slot `apply`.
+ApplyResult dispatch_instance(const RuleVTable &vt, Kernel &k, uint64_t inst,
+                              ApplyResult (*RuleVTable::*apply)(Kernel &,
+                                                                uint64_t)) {
+  if (!vt.startup_instance || !vt.startup_instance(inst)) {
+    execution::execute_action(k, execution::CloseStartupCertificateRequest{});
+  }
+  return dispatch_rule(vt, k,
+                       [&] {
+                         return inst == INSTANCE_CANONICAL
+                                    ? std::string("canonical")
+                                    : std::to_string(inst);
+                       },
+                       [&] { return (vt.*apply)(k, inst); });
+}
+
 } // namespace
 
 ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
@@ -398,30 +382,12 @@ ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
 
 ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
                                 uint64_t inst) {
-  if (!vt.startup_instance || !vt.startup_instance(inst)) {
-    execution::execute_action(k, execution::CloseStartupCertificateRequest{});
-  }
-  return dispatch_rule(vt, k,
-                       [&] {
-                         return inst == INSTANCE_CANONICAL
-                                    ? std::string("canonical")
-                                    : std::to_string(inst);
-                       },
-                       [&] { return vt.apply_instance(k, inst); });
+  return dispatch_instance(vt, k, inst, &RuleVTable::apply_instance);
 }
 
 ApplyResult apply_rule_semantic_instance(const RuleVTable &vt, Kernel &k,
                                          uint64_t inst) {
-  if (!vt.startup_instance || !vt.startup_instance(inst)) {
-    execution::execute_action(k, execution::CloseStartupCertificateRequest{});
-  }
-  return dispatch_rule(vt, k,
-                       [&] {
-                         return inst == INSTANCE_CANONICAL
-                                    ? std::string("canonical")
-                                    : std::to_string(inst);
-                       },
-                       [&] { return vt.apply_semantic_instance(k, inst); });
+  return dispatch_instance(vt, k, inst, &RuleVTable::apply_semantic_instance);
 }
 
 ApplyResult apply_rule_structured(const RuleVTable &vt, Kernel &k,
