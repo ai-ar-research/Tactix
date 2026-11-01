@@ -17,6 +17,7 @@
 #include <charconv>
 #include <cctype>
 #include <filesystem>
+#include <initializer_list>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -166,6 +167,31 @@ static void env_flag(const char *name, bool &knob) {
 // `part` as a percentage of `whole`, or 0 when `whole` is 0.
 static double percent_of(uint64_t part, uint64_t whole) {
   return whole ? 100.0 * (double)part / (double)whole : 0.0;
+}
+
+// One counter of a `c` statistics line, printed as `<value> <label>`.
+struct StatCount {
+  unsigned long long value;
+  const char *label;
+};
+
+// Prints a `c` statistics line: `prefix`, then the counters joined by
+// `separator`, then the newline. The line is written with one stdio call,
+// as the single printf it replaces was.
+static void stat_line(const char *prefix,
+                      std::initializer_list<StatCount> counts,
+                      const char *separator = ", ") {
+  std::string line = prefix;
+  const char *join = "";
+  for (const StatCount &count : counts) {
+    line += join;
+    line += std::to_string(count.value);
+    line += ' ';
+    line += count.label;
+    join = separator;
+  }
+  line += '\n';
+  fputs(line.c_str(), stdout);
 }
 
 int main(int argc, char **argv) {
@@ -703,16 +729,14 @@ int main(int argc, char **argv) {
           printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
       }
     }
-    printf("c count-pb    %llu calls, %llu stars, %llu UNSAT, %llu work, "
-           "%llu interrupted, %llu additions\n",
-           (unsigned long long)kernel.stats.counting_calls,
-           (unsigned long long)kernel.stats.counting_stars,
-           (unsigned long long)kernel.stats.counting_unsat,
-           (unsigned long long)kernel.stats.counting_work,
-           (unsigned long long)kernel.stats.counting_interrupted,
-           (unsigned long long)kernel.stats.counting_additions);
-    printf("c input       %llu clauses restated (normalized literals)\n",
-           (unsigned long long)kernel.stats.input_restated);
+    stat_line("c count-pb    ", {{kernel.stats.counting_calls, "calls"},
+                                 {kernel.stats.counting_stars, "stars"},
+                                 {kernel.stats.counting_unsat, "UNSAT"},
+                                 {kernel.stats.counting_work, "work"},
+                                 {kernel.stats.counting_interrupted, "interrupted"},
+                                 {kernel.stats.counting_additions, "additions"}});
+    stat_line("c input       ",
+              {{kernel.stats.input_restated, "clauses restated (normalized literals)"}});
     printf("c decisions   %llu (%llu via API)\n",
            (unsigned long long)kernel.stats.decisions,
            (unsigned long long)kernel.stats.api_decisions);
@@ -736,12 +760,9 @@ int main(int argc, char **argv) {
       printf("c reduction   %.1f%% of resolved lits removed by minimize+shrink\n",
              100.0 * removed / (kept + removed));
     }
-    printf("c minimized   %llu lits\n",
-           (unsigned long long)kernel.stats.minimized);
-    printf("c min-depth   %llu cutoffs\n",
-           (unsigned long long)kernel.stats.minimize_depth_cutoffs);
-    printf("c shrunken    %llu lits\n",
-           (unsigned long long)kernel.stats.shrunken);
+    stat_line("c minimized   ", {{kernel.stats.minimized, "lits"}});
+    stat_line("c min-depth   ", {{kernel.stats.minimize_depth_cutoffs, "cutoffs"}});
+    stat_line("c shrunken    ", {{kernel.stats.shrunken, "lits"}});
     printf("c reasonbump  %llu vars in %llu rounds (%llu depth2, %llu aborted)\n",
            (unsigned long long)kernel.stats.reason_bumped,
            (unsigned long long)kernel.stats.reason_bump_rounds,
@@ -766,64 +787,51 @@ int main(int argc, char **argv) {
            kernel.tumble ? "activation order" : "off");
     // Kissat reports these three; they are the only readout of the sweep
     // that seeds Walk, and Walk's own step count is downstream of them.
-    printf("c warmup      %llu warmups, %llu decisions, %llu propagations\n",
-           (unsigned long long)kernel.stats.warmups,
-           (unsigned long long)kernel.stats.warming_decisions,
-           (unsigned long long)kernel.stats.warming_propagations);
-    printf("c denseocc    %llu slice moves, %llu defrags\n",
-           (unsigned long long)kernel.stats.dense_slice_moves,
-           (unsigned long long)kernel.stats.dense_defrags);
-    printf("c sparsecol   %llu runs, %llu clauses\n",
-           (unsigned long long)kernel.stats.sparse_collections,
-           (unsigned long long)kernel.stats.sparse_collected);
+    stat_line("c warmup      ", {{kernel.stats.warmups, "warmups"},
+                                 {kernel.stats.warming_decisions, "decisions"},
+                                 {kernel.stats.warming_propagations, "propagations"}});
+    stat_line("c denseocc    ", {{kernel.stats.dense_slice_moves, "slice moves"},
+                                 {kernel.stats.dense_defrags, "defrags"}});
+    stat_line("c sparsecol   ", {{kernel.stats.sparse_collections, "runs"},
+                                 {kernel.stats.sparse_collected, "clauses"}});
     // `vivified` here counts strengthened clauses only, so it is not comparable
     // to kissat's counter of the same name, an aggregate (statistics.h:247)
     // over subsumed, promoted, shrunken, implied, asym and instantiated.
-    printf("c vivify      %llu rounds, %llu vivified, %llu deleted, "
-           "%llu flushed, %llu checked\n",
-           (unsigned long long)kernel.stats.vivify_rounds,
-           (unsigned long long)kernel.stats.vivified,
-           (unsigned long long)kernel.stats.vivify_deleted,
-           (unsigned long long)kernel.stats.vivify_flushed,
-           (unsigned long long)kernel.stats.vivify_checked);
+    stat_line("c vivify      ", {{kernel.stats.vivify_rounds, "rounds"},
+                                 {kernel.stats.vivified, "vivified"},
+                                 {kernel.stats.vivify_deleted, "deleted"},
+                                 {kernel.stats.vivify_flushed, "flushed"},
+                                 {kernel.stats.vivify_checked, "checked"}});
     // Vivify trail reuse is inert three independent ways, one number each
     // (docs/design/2026-08-05-vivify-trail-reuse.md §4).
-    printf("c vivify2     %llu reused, %llu probes, %llu full, %llu tier3, "
-           "%llu prio, %llu rearm, %llu polls, %llu term\n",
-           (unsigned long long)kernel.stats.vivify_reused,
-           (unsigned long long)kernel.stats.vivify_probes,
-           (unsigned long long)kernel.stats.vivify_reuse_full,
-           (unsigned long long)kernel.stats.vivify_tier3,
-           (unsigned long long)kernel.stats.vivify_prioritized,
-           (unsigned long long)kernel.stats.vivify_reprioritized,
-           (unsigned long long)kernel.stats.vivify_polls,
-           (unsigned long long)kernel.stats.vivify_terminated);
-    printf("c vivify3     %llu subsumed, %llu promoted, %llu shrunken, "
-           "%llu implied, %llu asym, %llu instantiated, %llu noop\n",
-           (unsigned long long)kernel.stats.vivify_subsumed,
-           (unsigned long long)kernel.stats.vivify_promoted,
-           (unsigned long long)kernel.stats.vivify_shrunken,
-           (unsigned long long)kernel.stats.vivify_implied,
-           (unsigned long long)kernel.stats.vivify_asymmetric,
-           (unsigned long long)kernel.stats.vivify_instantiated,
-           (unsigned long long)kernel.stats.vivify_noop);
-    printf("c probe       %llu rounds, %llu probed, %llu failed\n",
-           (unsigned long long)kernel.stats.probe_rounds,
-           (unsigned long long)kernel.stats.probed,
-           (unsigned long long)kernel.stats.probe_failed);
-    printf("c backbone    %llu rounds, %llu probed, %llu failed\n",
-           (unsigned long long)kernel.stats.backbone_rounds,
-           (unsigned long long)kernel.stats.backbone_probed,
-           (unsigned long long)kernel.stats.backbone_failed);
-    printf("c transitive  %llu rounds, %llu checked, %llu deleted, "
-           "%llu units, %llu ticks, %llu polls, %llu terminated\n",
-           (unsigned long long)kernel.stats.transitive_rounds,
-           (unsigned long long)kernel.stats.transitive_checked,
-           (unsigned long long)kernel.stats.transitive_deleted,
-           (unsigned long long)kernel.stats.transitive_units,
-           (unsigned long long)kernel.stats.transitive_ticks,
-           (unsigned long long)kernel.stats.transitive_polls,
-           (unsigned long long)kernel.stats.transitive_terminated);
+    stat_line("c vivify2     ", {{kernel.stats.vivify_reused, "reused"},
+                                 {kernel.stats.vivify_probes, "probes"},
+                                 {kernel.stats.vivify_reuse_full, "full"},
+                                 {kernel.stats.vivify_tier3, "tier3"},
+                                 {kernel.stats.vivify_prioritized, "prio"},
+                                 {kernel.stats.vivify_reprioritized, "rearm"},
+                                 {kernel.stats.vivify_polls, "polls"},
+                                 {kernel.stats.vivify_terminated, "term"}});
+    stat_line("c vivify3     ", {{kernel.stats.vivify_subsumed, "subsumed"},
+                                 {kernel.stats.vivify_promoted, "promoted"},
+                                 {kernel.stats.vivify_shrunken, "shrunken"},
+                                 {kernel.stats.vivify_implied, "implied"},
+                                 {kernel.stats.vivify_asymmetric, "asym"},
+                                 {kernel.stats.vivify_instantiated, "instantiated"},
+                                 {kernel.stats.vivify_noop, "noop"}});
+    stat_line("c probe       ", {{kernel.stats.probe_rounds, "rounds"},
+                                 {kernel.stats.probed, "probed"},
+                                 {kernel.stats.probe_failed, "failed"}});
+    stat_line("c backbone    ", {{kernel.stats.backbone_rounds, "rounds"},
+                                 {kernel.stats.backbone_probed, "probed"},
+                                 {kernel.stats.backbone_failed, "failed"}});
+    stat_line("c transitive  ", {{kernel.stats.transitive_rounds, "rounds"},
+                                 {kernel.stats.transitive_checked, "checked"},
+                                 {kernel.stats.transitive_deleted, "deleted"},
+                                 {kernel.stats.transitive_units, "units"},
+                                 {kernel.stats.transitive_ticks, "ticks"},
+                                 {kernel.stats.transitive_polls, "polls"},
+                                 {kernel.stats.transitive_terminated, "terminated"}});
     printf("c substitute  %llu rounds, %llu ticks, %llu non-trivial SCCs (%llu lits), "
            "%llu vars substituted, %llu rounds skipped / %llu partial "
            "(%llu lits poisoned) on the hazard check\n",
@@ -835,10 +843,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.substitute_hazard_skips,
            (unsigned long long)kernel.stats.substitute_hazard_partial,
            (unsigned long long)kernel.stats.substitute_hazard_lits);
-    printf("c bce         %llu rounds, %llu deleted, %llu ticks\n",
-           (unsigned long long)kernel.stats.bce_rounds,
-           (unsigned long long)kernel.stats.bce_deleted,
-           (unsigned long long)kernel.stats.bce_ticks);
+    stat_line("c bce         ", {{kernel.stats.bce_rounds, "rounds"},
+                                 {kernel.stats.bce_deleted, "deleted"},
+                                 {kernel.stats.bce_ticks, "ticks"}});
     // With `cla 0` no covered literal was added, so nothing BCE does not
     // already do was exercised; `blocked 0` means no witness was pushed.
     printf("c cce         %llu rounds, %llu tried, %llu deleted "
@@ -852,14 +859,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.cce_cla,
            (unsigned long long)kernel.stats.cce_ticks);
     // Its touched-epoch consumer, same contract as `c touch` below.
-    printf("c cce2        %llu skipped / %llu advances / %llu rearmed\n",
-           (unsigned long long)kernel.stats.cce_mark_skipped,
-           (unsigned long long)kernel.stats.cce_mark_advances,
-           (unsigned long long)kernel.stats.cce_rearmed);
-    printf("c instantiate %llu rounds, %llu literals removed, %llu probed\n",
-           (unsigned long long)kernel.stats.instantiate_rounds,
-           (unsigned long long)kernel.stats.instantiated,
-           (unsigned long long)kernel.stats.instantiate_checked);
+    stat_line("c cce2        ", {{kernel.stats.cce_mark_skipped, "skipped"},
+                                 {kernel.stats.cce_mark_advances, "advances"},
+                                 {kernel.stats.cce_rearmed, "rearmed"}}, " / ");
+    stat_line("c instantiate ", {{kernel.stats.instantiate_rounds, "rounds"},
+                                 {kernel.stats.instantiated, "literals removed"},
+                                 {kernel.stats.instantiate_checked, "probed"}});
     printf("c sweep       %llu rounds, %llu swept, %llu environments (%llu clauses), "
            "%llu solves, %llu candidates, %llu equivalences, %llu units "
            "(%llu already binary), %llu env-unsat, %llu budget, %llu ticks\n",
@@ -890,12 +895,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_cand_refined,
            (unsigned long long)kernel.stats.sweep_dir_sat,
            (unsigned long long)kernel.stats.sweep_dir_unsat);
-    printf("c sweepflip   %llu attempts, %llu successful\n",
-           (unsigned long long)kernel.stats.sweep_flip_attempts,
-           (unsigned long long)kernel.stats.sweep_flipped);
-    printf("c sweepback   %llu candidates, %llu flipped\n",
-           (unsigned long long)kernel.stats.sweep_backbone_candidates,
-           (unsigned long long)kernel.stats.sweep_backbone_flipped);
+    stat_line("c sweepflip   ", {{kernel.stats.sweep_flip_attempts, "attempts"},
+                                 {kernel.stats.sweep_flipped, "successful"}});
+    stat_line("c sweepback   ", {{kernel.stats.sweep_backbone_candidates, "candidates"},
+                                 {kernel.stats.sweep_backbone_flipped, "flipped"}});
     printf("c sweepcost   %llu dedup ticks, %llu sub-solver ticks, "
            "%llu representation words; closure "
            "%llu/%llu occurrences, %llu/%llu vars whole\n",
@@ -906,12 +909,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_occ_f,
            (unsigned long long)kernel.stats.sweep_vars_closed,
            (unsigned long long)kernel.stats.sweep_vars_total);
-    printf("c sweepemit   %llu binaries, %llu not-rup, %llu general pairs, "
-           "%llu strip units cited\n",
-           (unsigned long long)kernel.stats.sweep_binaries,
-           (unsigned long long)kernel.stats.sweep_not_rup,
-           (unsigned long long)kernel.stats.sweep_general,
-           (unsigned long long)kernel.stats.sweep_strip_cited);
+    stat_line("c sweepemit   ", {{kernel.stats.sweep_binaries, "binaries"},
+                                 {kernel.stats.sweep_not_rup, "not-rup"},
+                                 {kernel.stats.sweep_general, "general pairs"},
+                                 {kernel.stats.sweep_strip_cited, "strip units cited"}});
     printf("c sweepsched  %llu scheduled, %llu rescheduled, %llu resumed, "
            "%llu completed, %zu tail; limits %u vars, %u clauses, depth %u\n",
            (unsigned long long)kernel.stats.sweep_scheduled,
@@ -922,37 +923,32 @@ int main(int argc, char **argv) {
            kernel.stats.sweep_limit_vars,
            kernel.stats.sweep_limit_clauses,
            kernel.stats.sweep_limit_depth);
-    printf("c ternary     %llu rounds, %llu resolvents, %llu binaries, "
-           "%llu ticks\n",
-           (unsigned long long)kernel.stats.ternary_rounds,
-           (unsigned long long)kernel.stats.ternary_resolvents,
-           (unsigned long long)kernel.stats.ternary_binaries,
-           (unsigned long long)kernel.stats.ternary_ticks);
+    stat_line("c ternary     ", {{kernel.stats.ternary_rounds, "rounds"},
+                                 {kernel.stats.ternary_resolvents, "resolvents"},
+                                 {kernel.stats.ternary_binaries, "binaries"},
+                                 {kernel.stats.ternary_ticks, "ticks"}});
     // A resolvent is emitted only if the RUP replay re-derives it, so binaries
     // 0 with declines > 0 means the rule ran and refused.
-    printf("c hbr         %llu rounds, %llu probes, %llu binaries, "
-           "%llu subsumed, %llu declined, %llu ticks\n",
-           (unsigned long long)kernel.stats.hbr_rounds,
-           (unsigned long long)kernel.stats.hbr_probes,
-           (unsigned long long)kernel.stats.hbr_binaries,
-           (unsigned long long)kernel.stats.hbr_subsumed,
-           (unsigned long long)kernel.stats.hbr_declined,
-           (unsigned long long)kernel.stats.hbr_ticks);
+    stat_line("c hbr         ", {{kernel.stats.hbr_rounds, "rounds"},
+                                 {kernel.stats.hbr_probes, "probes"},
+                                 {kernel.stats.hbr_binaries, "binaries"},
+                                 {kernel.stats.hbr_subsumed, "subsumed"},
+                                 {kernel.stats.hbr_declined, "declined"},
+                                 {kernel.stats.hbr_ticks, "ticks"}});
     // `stale backjumps` should be 0: nonzero means conflicts are dropped and
     // re-derived, which is otherwise invisible in a tier run.
     // `re-arms` counts clause additions that landed behind the propagation
     // cursor; each one is a unit or falsified clause the trail-driven scan
     // would otherwise never revisit.
-    printf("c chrono      %llu chronological, %llu stale backjumps, "
-           "%llu propagation re-arms\n",
-           (unsigned long long)kernel.stats.chronological,
-           (unsigned long long)kernel.stats.backjump_stale,
-           (unsigned long long)kernel.stats.propagation_rearms);
+    stat_line("c chrono      ",
+              {{kernel.stats.chronological, "chronological"},
+               {kernel.stats.backjump_stale, "stale backjumps"},
+               {kernel.stats.propagation_rearms, "propagation re-arms"}});
     // The second number separates the full mechanism from the subset a version
     // that declines instead of repairing would reach.
-    printf("c reuse       %llu conflicts reused, %llu needed watch repair\n",
-           (unsigned long long)kernel.stats.conflict_reused,
-           (unsigned long long)kernel.stats.conflict_watch_repaired);
+    stat_line("c reuse       ",
+              {{kernel.stats.conflict_reused, "conflicts reused"},
+               {kernel.stats.conflict_watch_repaired, "needed watch repair"}});
     printf("c jumpreason  %llu binary reasons jumped, %llu classifications, "
            "%llu big-binary; gate %s\n",
            (unsigned long long)kernel.stats.jumped_reasons,
@@ -961,38 +957,30 @@ int main(int argc, char **argv) {
            kernel.jump_reasons_bigbig ? "on" : "off");
     // What a binary-first watch order would be worth: `ordered` over `scans` is
     // the reachability, `large` over `words` the ceiling on an early break.
-    printf("c binprop     %llu scans, %llu flagged, %llu words, %llu skipped, "
-           "%llu residual-ordered, %llu residual-large\n",
-           (unsigned long long)kernel.stats.binprop_scans,
-           (unsigned long long)kernel.stats.binprop_flagged,
-           (unsigned long long)kernel.stats.binprop_words,
-           (unsigned long long)kernel.stats.binprop_skipped,
-           (unsigned long long)kernel.stats.binprop_ordered,
-           (unsigned long long)kernel.stats.binprop_large);
-    printf("c inprocess   %llu phases\n",
-           (unsigned long long)kernel.stats.inprocess_phases);
-    printf("c conggates   %llu and, %llu xor, %llu ite\n",
-           (unsigned long long)kernel.stats.congruence_gates_and,
-           (unsigned long long)kernel.stats.congruence_gates_xor,
-           (unsigned long long)kernel.stats.congruence_gates_ite);
-    printf("c congruence  %llu rounds, %llu binary rebuilds, %llu gates, "
-           "%llu merges, %llu units, %llu unjustified, %llu ticks, "
-           "%llu budget stops\n",
-           (unsigned long long)kernel.stats.congruence_rounds,
-           (unsigned long long)kernel.stats.congruence_binary_rebuilds,
-           (unsigned long long)kernel.stats.congruence_gates,
-           (unsigned long long)kernel.stats.congruence_merges,
-           (unsigned long long)kernel.stats.congruence_units,
-           (unsigned long long)kernel.stats.congruence_unjustified,
-           (unsigned long long)kernel.stats.congruence_ticks,
-           (unsigned long long)kernel.stats.congruence_budget_stops);
-    printf("c congy1      %llu found, %llu units, %llu binary equivalences, "
-           "%llu ticks\n",
-           (unsigned long long)kernel.stats.congruence_y1_found,
-           (unsigned long long)kernel.stats.congruence_y1_units,
-           (unsigned long long)
-               kernel.stats.congruence_binary_equivalences,
-           (unsigned long long)kernel.stats.congruence_y1_ticks);
+    stat_line("c binprop     ", {{kernel.stats.binprop_scans, "scans"},
+                                 {kernel.stats.binprop_flagged, "flagged"},
+                                 {kernel.stats.binprop_words, "words"},
+                                 {kernel.stats.binprop_skipped, "skipped"},
+                                 {kernel.stats.binprop_ordered, "residual-ordered"},
+                                 {kernel.stats.binprop_large, "residual-large"}});
+    stat_line("c inprocess   ", {{kernel.stats.inprocess_phases, "phases"}});
+    stat_line("c conggates   ", {{kernel.stats.congruence_gates_and, "and"},
+                                 {kernel.stats.congruence_gates_xor, "xor"},
+                                 {kernel.stats.congruence_gates_ite, "ite"}});
+    stat_line("c congruence  ",
+              {{kernel.stats.congruence_rounds, "rounds"},
+               {kernel.stats.congruence_binary_rebuilds, "binary rebuilds"},
+               {kernel.stats.congruence_gates, "gates"},
+               {kernel.stats.congruence_merges, "merges"},
+               {kernel.stats.congruence_units, "units"},
+               {kernel.stats.congruence_unjustified, "unjustified"},
+               {kernel.stats.congruence_ticks, "ticks"},
+               {kernel.stats.congruence_budget_stops, "budget stops"}});
+    stat_line("c congy1      ",
+              {{kernel.stats.congruence_y1_found, "found"},
+               {kernel.stats.congruence_y1_units, "units"},
+               {kernel.stats.congruence_binary_equivalences, "binary equivalences"},
+               {kernel.stats.congruence_y1_ticks, "ticks"}});
     {
       uint64_t n_sub = 0, n_elim = 0;
       for (Var v = 0; v < kernel.nvars; v++) {
@@ -1010,11 +998,10 @@ int main(int argc, char **argv) {
     printf("c compact     %llu passes removed %llu internal variables\n",
            (unsigned long long)kernel.stats.variable_compactions,
            (unsigned long long)kernel.stats.compacted_variables);
-    printf("c deactivate  %llu deactivations, %llu repeated reports, "
-           "%llu re-bumps of retired vars\n",
-           (unsigned long long)kernel.stats.deactivations,
-           (unsigned long long)kernel.stats.deactivation_repeats,
-           (unsigned long long)kernel.stats.reactivations);
+    stat_line("c deactivate  ",
+              {{kernel.stats.deactivations, "deactivations"},
+               {kernel.stats.deactivation_repeats, "repeated reports"},
+               {kernel.stats.reactivations, "re-bumps of retired vars"}});
     printf("c substdec    %llu decisions on substituted vars (%.2f%% of %llu)\n",
            (unsigned long long)kernel.stats.decisions_substituted,
            percent_of(kernel.stats.decisions_substituted, kernel.stats.decisions),
@@ -1041,29 +1028,27 @@ int main(int argc, char **argv) {
                       kernel.stats.bumps_extension));
     // factor_ticks is Factor's dosing currency and what FACTOR_INIT_TICKS caps,
     // so it separates a bound opening burst from an inert arm.
-    printf("c factor      %llu factorings, %llu large remainders offered, "
-           "%llu ticks\n",
-           (unsigned long long)kernel.stats.factorings,
-           (unsigned long long)kernel.stats.factor_large_remainders,
-           (unsigned long long)kernel.stats.factor_ticks);
-    printf("c factor-rem  %llu materialized, %llu reused\n",
-           (unsigned long long)kernel.stats.factor_remainders_materialized,
-           (unsigned long long)kernel.stats.factor_remainders_reused);
-    printf("c factor-bnd  %llu grids rejected by the coupled bound\n",
-           (unsigned long long)kernel.stats.factor_rejected_by_bound);
-    printf("c factor-dem  %llu demotions, %llu fresh vars demoted\n",
-           (unsigned long long)kernel.stats.factor_demotions,
-           (unsigned long long)kernel.stats.factor_demoted_vars);
-    printf("c sr          %llu applications, %llu applied, %llu validation "
-           "ticks, %llu witness literals, %llu unique-literal AMO binaries\n",
-           (unsigned long long)kernel.stats.sr_applications,
-           (unsigned long long)kernel.stats.sr_applied,
-           (unsigned long long)kernel.stats.sr_validation_ticks,
-           (unsigned long long)kernel.stats.sr_witness_literals,
-           (unsigned long long)kernel.stats.sr_unique_literal_amo_binaries);
-    printf("c sr-life     %llu post-AMO nonhelper consequences, %llu graph root units\n",
-           (unsigned long long)kernel.stats.sr_post_amo_nonhelper_applied,
-           (unsigned long long)kernel.stats.sr_post_amo_graph_root_units);
+    stat_line("c factor      ",
+              {{kernel.stats.factorings, "factorings"},
+               {kernel.stats.factor_large_remainders, "large remainders offered"},
+               {kernel.stats.factor_ticks, "ticks"}});
+    stat_line("c factor-rem  ",
+              {{kernel.stats.factor_remainders_materialized, "materialized"},
+               {kernel.stats.factor_remainders_reused, "reused"}});
+    stat_line("c factor-bnd  ",
+              {{kernel.stats.factor_rejected_by_bound, "grids rejected by the coupled bound"}});
+    stat_line("c factor-dem  ",
+              {{kernel.stats.factor_demotions, "demotions"},
+               {kernel.stats.factor_demoted_vars, "fresh vars demoted"}});
+    stat_line("c sr          ",
+              {{kernel.stats.sr_applications, "applications"},
+               {kernel.stats.sr_applied, "applied"},
+               {kernel.stats.sr_validation_ticks, "validation ticks"},
+               {kernel.stats.sr_witness_literals, "witness literals"},
+               {kernel.stats.sr_unique_literal_amo_binaries, "unique-literal AMO binaries"}});
+    stat_line("c sr-life     ",
+              {{kernel.stats.sr_post_amo_nonhelper_applied, "post-AMO nonhelper consequences"},
+               {kernel.stats.sr_post_amo_graph_root_units, "graph root units"}});
   printf("c sr-admit    %llu nonforcing cut batches declined, %llu cuts; "
          "%llu singleton forcing batches declined, %llu rows\n",
            (unsigned long long)kernel.stats.sr_nonforcing_cut_batches_declined,
@@ -1080,13 +1065,11 @@ int main(int argc, char **argv) {
              (unsigned long long)kernel.stats.residual_handoff_calls,
              (unsigned long long)kernel.stats.residual_handoff_variables,
              kernel.stats.residual_handoff_nanos / 1e9);
-    printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
-           (unsigned long long)kernel.stats.bve_rounds,
-           (unsigned long long)kernel.stats.bve_eliminated,
-           (unsigned long long)kernel.stats.bve_resolutions);
-    printf("c bve-otf     %llu strengthened, %llu subsumed\n",
-           (unsigned long long)kernel.stats.bve_otf_strengthened,
-           (unsigned long long)kernel.stats.bve_otf_subsumed);
+    stat_line("c bve         ", {{kernel.stats.bve_rounds, "rounds"},
+                                 {kernel.stats.bve_eliminated, "eliminated"},
+                                 {kernel.stats.bve_resolutions, "resolutions"}});
+    stat_line("c bve-otf     ", {{kernel.stats.bve_otf_strengthened, "strengthened"},
+                                 {kernel.stats.bve_otf_subsumed, "subsumed"}});
     printf("c fastel      %llu checks, %llu candidates / %llu active, "
            "%llu discovery ticks, %llu budget stops, %llu minority declines, "
            "%llu root-suppressed, %llu extensions protected, %llu eliminated, "
@@ -1103,12 +1086,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.fastel_eliminated,
            (unsigned long long)kernel.stats.fastel_resolutions,
            kernel.stats.fastel_nanos / 1e9);
-    printf("c bve-bwd     %llu subsumers, %llu subsumed, %llu strengthened, "
-           "%llu units\n",
-           (unsigned long long)kernel.stats.bve_bwd_queued,
-           (unsigned long long)kernel.stats.bve_bwd_subsumed,
-           (unsigned long long)kernel.stats.bve_bwd_strengthened,
-           (unsigned long long)kernel.stats.bve_bwd_units);
+    stat_line("c bve-bwd     ", {{kernel.stats.bve_bwd_queued, "subsumers"},
+                                 {kernel.stats.bve_bwd_subsumed, "subsumed"},
+                                 {kernel.stats.bve_bwd_strengthened, "strengthened"},
+                                 {kernel.stats.bve_bwd_units, "units"}});
     printf("c bve-gates   %llu equiv, %llu andor, %llu ite, %llu xor, "
            "%llu definition; %llu resolvent pairs saved\n",
            (unsigned long long)kernel.stats.bve_gates_equiv,
@@ -1119,12 +1100,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_gate_pairs_saved);
     // `checked` proves the sub-solve path runs, `definition` above that it
     // finds something, and `budget` whether TACTIX_BVE_DEF_TICKS binds.
-    printf("c bve-def     %llu checked, %llu ticks, %llu hit the tick "
-           "ceiling, %llu units\n",
-           (unsigned long long)kernel.stats.bve_definitions_checked,
-           (unsigned long long)kernel.stats.bve_definition_ticks,
-           (unsigned long long)kernel.stats.bve_definition_budget,
-           (unsigned long long)kernel.stats.bve_definition_units);
+    stat_line("c bve-def     ",
+              {{kernel.stats.bve_definitions_checked, "checked"},
+               {kernel.stats.bve_definition_ticks, "ticks"},
+               {kernel.stats.bve_definition_budget, "hit the tick ceiling"},
+               {kernel.stats.bve_definition_units, "units"}});
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
@@ -1154,9 +1134,8 @@ int main(int argc, char **argv) {
     printf("c rephased    %llu (%llu best phases saved)\n",
            (unsigned long long)kernel.stats.rephased,
            (unsigned long long)kernel.stats.best_saved);
-    printf("c reordered   %llu eligible, %llu decision re-rankings\n",
-           (unsigned long long)kernel.stats.reorder_eligible,
-           (unsigned long long)kernel.stats.reordered);
+    stat_line("c reordered   ", {{kernel.stats.reorder_eligible, "eligible"},
+                                 {kernel.stats.reordered, "decision re-rankings"}});
     printf("c lucky       %llu early, %llu late (%llu SAT), %llu probes\n",
            (unsigned long long)kernel.stats.lucky_early_calls,
            (unsigned long long)kernel.stats.lucky_late_calls,
@@ -1170,123 +1149,102 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.parity_model_candidates,
            (unsigned long long)kernel.stats.parity_model_sat,
            (unsigned long long)kernel.stats.parity_model_interrupted);
-    printf("c parity-ref %llu probe declines, %llu recognized, %llu UNSAT, "
-           "%llu proof additions, %llu proof deletions\n",
-           (unsigned long long)kernel.stats.parity_refutation_probe_declines,
-           (unsigned long long)kernel.stats.parity_refutation_recognized,
-           (unsigned long long)kernel.stats.parity_refutation_unsat,
-           (unsigned long long)kernel.stats.parity_refutation_proof_additions,
-           (unsigned long long)kernel.stats.parity_refutation_proof_deletions);
-    printf("c theory-act %llu parity, %llu affine, %llu exact-cover, "
-           "%llu independent-set, %llu advice attempts\n",
-           (unsigned long long)kernel.stats.parity_consequence_attempts,
-           (unsigned long long)kernel.stats.affine_consequence_attempts,
-           (unsigned long long)kernel.stats.exact_cover_extension_attempts,
-           (unsigned long long)kernel.stats.independent_set_cover_attempts,
-           (unsigned long long)kernel.stats.semantic_variable_advice_attempts);
-    printf("c directphp  %llu attempts, %llu applied, %llu not-recognized, "
-           "%llu resource-exhausted, %llu interrupted, %llu stale, "
-           "%llu replay-mismatch\n",
-           (unsigned long long)kernel.stats.direct_php_attempts,
-           (unsigned long long)kernel.stats.direct_php_applied,
-           (unsigned long long)kernel.stats.direct_php_not_recognized,
-           (unsigned long long)kernel.stats.direct_php_resource_exhausted,
-           (unsigned long long)kernel.stats.direct_php_interrupted,
-           (unsigned long long)kernel.stats.direct_php_stale,
-           (unsigned long long)kernel.stats.direct_php_replay_mismatch);
-    printf("c gf3-gauss  %llu attempts, %llu applied, %llu no-structure, "
-           "%llu no-outcome, %llu exhausted, %llu interrupted, %llu stale, "
-           "%llu unsupported-proof\n",
-           (unsigned long long)kernel.stats.gf3_gaussian_attempts,
-           (unsigned long long)kernel.stats.gf3_gaussian_applied,
-           (unsigned long long)kernel.stats.gf3_gaussian_no_structure,
-           (unsigned long long)kernel.stats.gf3_gaussian_no_supported_outcome,
-           (unsigned long long)kernel.stats.gf3_gaussian_exhausted,
-           (unsigned long long)kernel.stats.gf3_gaussian_interrupted,
-           (unsigned long long)kernel.stats.gf3_gaussian_stale,
-           (unsigned long long)kernel.stats.gf3_gaussian_unsupported_proof);
-    printf("c gf3-row    %llu attempts, %llu applied, %llu no-structure, "
-           "%llu no-consequence, %llu already-published, %llu exhausted, "
-           "%llu interrupted, %llu stale, %llu unsupported-proof, "
-           "%llu clauses\n",
-           (unsigned long long)kernel.stats.gf3_general_row_attempts,
-           (unsigned long long)kernel.stats.gf3_general_row_applied,
-           (unsigned long long)kernel.stats.gf3_general_row_no_structure,
-           (unsigned long long)kernel.stats.gf3_general_row_no_consequence,
-           (unsigned long long)kernel.stats.gf3_general_row_already_published,
-           (unsigned long long)kernel.stats.gf3_general_row_exhausted,
-           (unsigned long long)kernel.stats.gf3_general_row_interrupted,
-           (unsigned long long)kernel.stats.gf3_general_row_stale,
-           (unsigned long long)kernel.stats.gf3_general_row_unsupported_proof,
-           (unsigned long long)kernel.stats.gf3_general_row_installed_clauses);
-    printf("c card-search %llu attempts, %llu applied\n",
-           (unsigned long long)kernel.stats.cardinality_search_attempts,
-           (unsigned long long)kernel.stats.cardinality_search_applied);
-    printf("c tseitin-cycle %llu attempts, %llu applied, %llu no-structure, "
-           "%llu exhausted, %llu interrupted, %llu stale, "
-           "%llu unsupported-proof\n",
-           (unsigned long long)kernel.stats.tseitin_cycle_attempts,
-           (unsigned long long)kernel.stats.tseitin_cycle_applied,
-           (unsigned long long)kernel.stats.tseitin_cycle_no_structure,
-           (unsigned long long)kernel.stats.tseitin_cycle_exhausted,
-           (unsigned long long)kernel.stats.tseitin_cycle_interrupted,
-           (unsigned long long)kernel.stats.tseitin_cycle_stale,
-           (unsigned long long)kernel.stats.tseitin_cycle_unsupported_proof);
-    printf("c nary-eq    %llu attempts, %llu applied, %llu no-structure, "
-           "%llu no-consequence, %llu already-published, %llu invalid, "
-           "%llu inapplicable, %llu exhausted, %llu interrupted, %llu stale, "
-           "%llu unsupported-proof, %llu introduced\n",
-           (unsigned long long)kernel.stats.nary_csp_equality_attempts,
-           (unsigned long long)kernel.stats.nary_csp_equality_applied,
-           (unsigned long long)kernel.stats.nary_csp_equality_no_structure,
-           (unsigned long long)kernel.stats.nary_csp_equality_no_consequence,
-           (unsigned long long)kernel.stats.nary_csp_equality_already_published,
-           (unsigned long long)kernel.stats.nary_csp_equality_invalid,
-           (unsigned long long)kernel.stats.nary_csp_equality_inapplicable,
-           (unsigned long long)kernel.stats.nary_csp_equality_resource_exhausted,
-           (unsigned long long)kernel.stats.nary_csp_equality_interrupted,
-           (unsigned long long)kernel.stats.nary_csp_equality_stale,
-           (unsigned long long)kernel.stats.nary_csp_equality_unsupported_proof,
-           (unsigned long long)kernel.stats.nary_csp_equality_introduced_variables);
-    printf("c nary-eq-amo %llu attempts, %llu applied, %llu missing-equality, "
-           "%llu stale, %llu duplicate, %llu declined, %llu clauses\n",
-           (unsigned long long)kernel.stats.nary_csp_equality_amo_attempts,
-           (unsigned long long)kernel.stats.nary_csp_equality_amo_applied,
-           (unsigned long long)kernel.stats.nary_csp_equality_amo_missing_equality,
-           (unsigned long long)kernel.stats.nary_csp_equality_amo_stale,
-           (unsigned long long)kernel.stats.nary_csp_equality_amo_duplicate,
-           (unsigned long long)kernel.stats.nary_csp_equality_amo_declined,
-           (unsigned long long)kernel.stats.nary_csp_equality_amo_binary_clauses);
-    printf("c affine-matrix-init %llu attempts, %llu applied, %llu partial, "
-           "%llu incomplete-image, %llu incomplete-matrix, %llu exhausted, "
-           "%llu interrupted, %llu normalization-RUP-checks, %llu shortening-additions, %llu maintenance-service-work\n",
-           (unsigned long long)kernel.stats.affine_matrix_init_attempts,
-           (unsigned long long)kernel.stats.affine_matrix_init_applied,
-           (unsigned long long)kernel.stats.affine_matrix_init_applied_partial,
-           (unsigned long long)kernel.stats.affine_matrix_init_incomplete_image,
-           (unsigned long long)kernel.stats.affine_matrix_init_incomplete_matrix,
-           (unsigned long long)kernel.stats.affine_matrix_init_exhausted,
-           (unsigned long long)kernel.stats.affine_matrix_init_interrupted,
-           (unsigned long long)kernel.stats.affine_matrix_init_normalization_rup_checks,
-           (unsigned long long)kernel.stats.affine_matrix_init_shortening_additions,
-           (unsigned long long)kernel.stats.affine_matrix_init_maintenance_service_work);
-    printf("c affine_discovery %llu recognized-groups, %llu unchanged-groups, %llu recognizer-work\n",
-           (unsigned long long)kernel.stats.affine_matrix_init_discovery_recognized_groups,
-           (unsigned long long)kernel.stats.affine_matrix_init_discovery_skipped_groups,
-           (unsigned long long)kernel.stats.affine_matrix_init_discovery_recognizer_work);
-    printf("c affine     %llu calls, %llu equations, %llu coordinates, "
-           "%llu entries, %llu candidates, %llu SAT, %llu work, "
-           "%llu budgets, %llu unavailable, %llu interrupted\n",
-           (unsigned long long)kernel.stats.affine_model_calls,
-           (unsigned long long)kernel.stats.affine_model_equations,
-           (unsigned long long)kernel.stats.affine_model_projection,
-           (unsigned long long)kernel.stats.affine_model_entries,
-           (unsigned long long)kernel.stats.affine_model_candidates,
-           (unsigned long long)kernel.stats.affine_model_sat,
-           (unsigned long long)kernel.stats.affine_model_work,
-           (unsigned long long)kernel.stats.affine_model_budget,
-           (unsigned long long)kernel.stats.affine_model_unavailable,
-           (unsigned long long)kernel.stats.affine_model_interrupted);
+    stat_line("c parity-ref ",
+              {{kernel.stats.parity_refutation_probe_declines, "probe declines"},
+               {kernel.stats.parity_refutation_recognized, "recognized"},
+               {kernel.stats.parity_refutation_unsat, "UNSAT"},
+               {kernel.stats.parity_refutation_proof_additions, "proof additions"},
+               {kernel.stats.parity_refutation_proof_deletions, "proof deletions"}});
+    stat_line("c theory-act ",
+              {{kernel.stats.parity_consequence_attempts, "parity"},
+               {kernel.stats.affine_consequence_attempts, "affine"},
+               {kernel.stats.exact_cover_extension_attempts, "exact-cover"},
+               {kernel.stats.independent_set_cover_attempts, "independent-set"},
+               {kernel.stats.semantic_variable_advice_attempts, "advice attempts"}});
+    stat_line("c directphp  ",
+              {{kernel.stats.direct_php_attempts, "attempts"},
+               {kernel.stats.direct_php_applied, "applied"},
+               {kernel.stats.direct_php_not_recognized, "not-recognized"},
+               {kernel.stats.direct_php_resource_exhausted, "resource-exhausted"},
+               {kernel.stats.direct_php_interrupted, "interrupted"},
+               {kernel.stats.direct_php_stale, "stale"},
+               {kernel.stats.direct_php_replay_mismatch, "replay-mismatch"}});
+    stat_line("c gf3-gauss  ",
+              {{kernel.stats.gf3_gaussian_attempts, "attempts"},
+               {kernel.stats.gf3_gaussian_applied, "applied"},
+               {kernel.stats.gf3_gaussian_no_structure, "no-structure"},
+               {kernel.stats.gf3_gaussian_no_supported_outcome, "no-outcome"},
+               {kernel.stats.gf3_gaussian_exhausted, "exhausted"},
+               {kernel.stats.gf3_gaussian_interrupted, "interrupted"},
+               {kernel.stats.gf3_gaussian_stale, "stale"},
+               {kernel.stats.gf3_gaussian_unsupported_proof, "unsupported-proof"}});
+    stat_line("c gf3-row    ",
+              {{kernel.stats.gf3_general_row_attempts, "attempts"},
+               {kernel.stats.gf3_general_row_applied, "applied"},
+               {kernel.stats.gf3_general_row_no_structure, "no-structure"},
+               {kernel.stats.gf3_general_row_no_consequence, "no-consequence"},
+               {kernel.stats.gf3_general_row_already_published, "already-published"},
+               {kernel.stats.gf3_general_row_exhausted, "exhausted"},
+               {kernel.stats.gf3_general_row_interrupted, "interrupted"},
+               {kernel.stats.gf3_general_row_stale, "stale"},
+               {kernel.stats.gf3_general_row_unsupported_proof, "unsupported-proof"},
+               {kernel.stats.gf3_general_row_installed_clauses, "clauses"}});
+    stat_line("c card-search ", {{kernel.stats.cardinality_search_attempts, "attempts"},
+                                 {kernel.stats.cardinality_search_applied, "applied"}});
+    stat_line("c tseitin-cycle ",
+              {{kernel.stats.tseitin_cycle_attempts, "attempts"},
+               {kernel.stats.tseitin_cycle_applied, "applied"},
+               {kernel.stats.tseitin_cycle_no_structure, "no-structure"},
+               {kernel.stats.tseitin_cycle_exhausted, "exhausted"},
+               {kernel.stats.tseitin_cycle_interrupted, "interrupted"},
+               {kernel.stats.tseitin_cycle_stale, "stale"},
+               {kernel.stats.tseitin_cycle_unsupported_proof, "unsupported-proof"}});
+    stat_line("c nary-eq    ",
+              {{kernel.stats.nary_csp_equality_attempts, "attempts"},
+               {kernel.stats.nary_csp_equality_applied, "applied"},
+               {kernel.stats.nary_csp_equality_no_structure, "no-structure"},
+               {kernel.stats.nary_csp_equality_no_consequence, "no-consequence"},
+               {kernel.stats.nary_csp_equality_already_published, "already-published"},
+               {kernel.stats.nary_csp_equality_invalid, "invalid"},
+               {kernel.stats.nary_csp_equality_inapplicable, "inapplicable"},
+               {kernel.stats.nary_csp_equality_resource_exhausted, "exhausted"},
+               {kernel.stats.nary_csp_equality_interrupted, "interrupted"},
+               {kernel.stats.nary_csp_equality_stale, "stale"},
+               {kernel.stats.nary_csp_equality_unsupported_proof, "unsupported-proof"},
+               {kernel.stats.nary_csp_equality_introduced_variables, "introduced"}});
+    stat_line("c nary-eq-amo ",
+              {{kernel.stats.nary_csp_equality_amo_attempts, "attempts"},
+               {kernel.stats.nary_csp_equality_amo_applied, "applied"},
+               {kernel.stats.nary_csp_equality_amo_missing_equality, "missing-equality"},
+               {kernel.stats.nary_csp_equality_amo_stale, "stale"},
+               {kernel.stats.nary_csp_equality_amo_duplicate, "duplicate"},
+               {kernel.stats.nary_csp_equality_amo_declined, "declined"},
+               {kernel.stats.nary_csp_equality_amo_binary_clauses, "clauses"}});
+    stat_line("c affine-matrix-init ",
+              {{kernel.stats.affine_matrix_init_attempts, "attempts"},
+               {kernel.stats.affine_matrix_init_applied, "applied"},
+               {kernel.stats.affine_matrix_init_applied_partial, "partial"},
+               {kernel.stats.affine_matrix_init_incomplete_image, "incomplete-image"},
+               {kernel.stats.affine_matrix_init_incomplete_matrix, "incomplete-matrix"},
+               {kernel.stats.affine_matrix_init_exhausted, "exhausted"},
+               {kernel.stats.affine_matrix_init_interrupted, "interrupted"},
+               {kernel.stats.affine_matrix_init_normalization_rup_checks, "normalization-RUP-checks"},
+               {kernel.stats.affine_matrix_init_shortening_additions, "shortening-additions"},
+               {kernel.stats.affine_matrix_init_maintenance_service_work, "maintenance-service-work"}});
+    stat_line("c affine_discovery ",
+              {{kernel.stats.affine_matrix_init_discovery_recognized_groups, "recognized-groups"},
+               {kernel.stats.affine_matrix_init_discovery_skipped_groups, "unchanged-groups"},
+               {kernel.stats.affine_matrix_init_discovery_recognizer_work, "recognizer-work"}});
+    stat_line("c affine     ", {{kernel.stats.affine_model_calls, "calls"},
+                                {kernel.stats.affine_model_equations, "equations"},
+                                {kernel.stats.affine_model_projection, "coordinates"},
+                                {kernel.stats.affine_model_entries, "entries"},
+                                {kernel.stats.affine_model_candidates, "candidates"},
+                                {kernel.stats.affine_model_sat, "SAT"},
+                                {kernel.stats.affine_model_work, "work"},
+                                {kernel.stats.affine_model_budget, "budgets"},
+                                {kernel.stats.affine_model_unavailable, "unavailable"},
+                                {kernel.stats.affine_model_interrupted, "interrupted"}});
     printf("c onehot     %llu calls, %llu domains, %llu equations, rank %llu, "
            "%llu candidates, %llu SAT, %llu interrupted\n",
            (unsigned long long)kernel.stats.onehot_model_calls,
@@ -1308,66 +1266,53 @@ int main(int argc, char **argv) {
                                     ? 0
                                     : kernel.stats.direct_csp_model_best),
            (unsigned long long)kernel.stats.direct_csp_model_sat);
-    printf("c exact-one  %llu calls, %llu recognized, %llu equations, "
-           "%llu UNSAT, %llu interrupted, %llu proof additions, "
-           "%llu proof deletions\n",
-           (unsigned long long)kernel.stats.exact_one_refutation_calls,
-           (unsigned long long)kernel.stats.exact_one_refutation_recognized,
-           (unsigned long long)kernel.stats.exact_one_refutation_equations,
-           (unsigned long long)kernel.stats.exact_one_refutation_unsat,
-           (unsigned long long)kernel.stats.exact_one_refutation_interrupted,
-           (unsigned long long)kernel.stats.exact_one_refutation_proof_additions,
-           (unsigned long long)kernel.stats.exact_one_refutation_proof_deletions);
-    printf("c balance    %llu calls, %llu recognized, %llu forced TTF, "
-           "%llu candidates, %llu restarts, %llu steps, "
-           "%llu completion rounds, %llu SAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.balanced_signature_calls,
-           (unsigned long long)kernel.stats.balanced_signature_recognized,
-           (unsigned long long)kernel.stats.balanced_signature_forced_ttf,
-           (unsigned long long)kernel.stats.balanced_signature_candidates,
-           (unsigned long long)kernel.stats.balanced_signature_restarts,
-           (unsigned long long)kernel.stats.balanced_signature_steps,
-           (unsigned long long)kernel.stats.balanced_signature_completion_rounds,
-           (unsigned long long)kernel.stats.balanced_signature_sat,
-           (unsigned long long)kernel.stats.balanced_signature_interrupted);
-    printf("c fermat     %llu calls, %llu recognized, %llu candidates, "
-           "%llu factor iterations, %llu completion rounds, %llu SAT, "
-           "%llu interrupted\n",
-           (unsigned long long)kernel.stats.fermat_model_calls,
-           (unsigned long long)kernel.stats.fermat_model_recognized,
-           (unsigned long long)kernel.stats.fermat_model_candidates,
-           (unsigned long long)kernel.stats.fermat_model_factor_iterations,
-           (unsigned long long)kernel.stats.fermat_model_completion_rounds,
-           (unsigned long long)kernel.stats.fermat_model_sat,
-           (unsigned long long)kernel.stats.fermat_model_interrupted);
-    printf("c cerny      %llu calls, %llu recognized, %llu states, "
-           "%llu length, %llu SAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.cerny_model_calls,
-           (unsigned long long)kernel.stats.cerny_model_recognized,
-           (unsigned long long)kernel.stats.cerny_model_states,
-           (unsigned long long)kernel.stats.cerny_model_length,
-           (unsigned long long)kernel.stats.cerny_model_sat,
-           (unsigned long long)kernel.stats.cerny_model_interrupted);
-    printf("c lookup     %llu calls, %llu recognized, %llu gates, "
-           "%llu support, %llu vector gate evaluations, %llu CSP work, "
-           "%llu SAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.lookup_circuit_model_calls,
-           (unsigned long long)kernel.stats.lookup_circuit_model_recognized,
-           (unsigned long long)kernel.stats.lookup_circuit_model_gates,
-           (unsigned long long)kernel.stats.lookup_circuit_model_support,
-           (unsigned long long)
-               kernel.stats.lookup_circuit_model_vector_evaluations,
-           (unsigned long long)kernel.stats.lookup_circuit_model_csp_work,
-           (unsigned long long)kernel.stats.lookup_circuit_model_sat,
-           (unsigned long long)kernel.stats.lookup_circuit_model_interrupted);
-    printf("c simon      %llu calls, %llu recognized, %llu rounds, "
-           "%llu candidates, %llu SAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.simon_model_calls,
-           (unsigned long long)kernel.stats.simon_model_recognized,
-           (unsigned long long)kernel.stats.simon_model_rounds,
-           (unsigned long long)kernel.stats.simon_model_candidates,
-           (unsigned long long)kernel.stats.simon_model_sat,
-           (unsigned long long)kernel.stats.simon_model_interrupted);
+    stat_line("c exact-one  ",
+              {{kernel.stats.exact_one_refutation_calls, "calls"},
+               {kernel.stats.exact_one_refutation_recognized, "recognized"},
+               {kernel.stats.exact_one_refutation_equations, "equations"},
+               {kernel.stats.exact_one_refutation_unsat, "UNSAT"},
+               {kernel.stats.exact_one_refutation_interrupted, "interrupted"},
+               {kernel.stats.exact_one_refutation_proof_additions, "proof additions"},
+               {kernel.stats.exact_one_refutation_proof_deletions, "proof deletions"}});
+    stat_line("c balance    ",
+              {{kernel.stats.balanced_signature_calls, "calls"},
+               {kernel.stats.balanced_signature_recognized, "recognized"},
+               {kernel.stats.balanced_signature_forced_ttf, "forced TTF"},
+               {kernel.stats.balanced_signature_candidates, "candidates"},
+               {kernel.stats.balanced_signature_restarts, "restarts"},
+               {kernel.stats.balanced_signature_steps, "steps"},
+               {kernel.stats.balanced_signature_completion_rounds, "completion rounds"},
+               {kernel.stats.balanced_signature_sat, "SAT"},
+               {kernel.stats.balanced_signature_interrupted, "interrupted"}});
+    stat_line("c fermat     ",
+              {{kernel.stats.fermat_model_calls, "calls"},
+               {kernel.stats.fermat_model_recognized, "recognized"},
+               {kernel.stats.fermat_model_candidates, "candidates"},
+               {kernel.stats.fermat_model_factor_iterations, "factor iterations"},
+               {kernel.stats.fermat_model_completion_rounds, "completion rounds"},
+               {kernel.stats.fermat_model_sat, "SAT"},
+               {kernel.stats.fermat_model_interrupted, "interrupted"}});
+    stat_line("c cerny      ", {{kernel.stats.cerny_model_calls, "calls"},
+                                {kernel.stats.cerny_model_recognized, "recognized"},
+                                {kernel.stats.cerny_model_states, "states"},
+                                {kernel.stats.cerny_model_length, "length"},
+                                {kernel.stats.cerny_model_sat, "SAT"},
+                                {kernel.stats.cerny_model_interrupted, "interrupted"}});
+    stat_line("c lookup     ",
+              {{kernel.stats.lookup_circuit_model_calls, "calls"},
+               {kernel.stats.lookup_circuit_model_recognized, "recognized"},
+               {kernel.stats.lookup_circuit_model_gates, "gates"},
+               {kernel.stats.lookup_circuit_model_support, "support"},
+               {kernel.stats.lookup_circuit_model_vector_evaluations, "vector gate evaluations"},
+               {kernel.stats.lookup_circuit_model_csp_work, "CSP work"},
+               {kernel.stats.lookup_circuit_model_sat, "SAT"},
+               {kernel.stats.lookup_circuit_model_interrupted, "interrupted"}});
+    stat_line("c simon      ", {{kernel.stats.simon_model_calls, "calls"},
+                                {kernel.stats.simon_model_recognized, "recognized"},
+                                {kernel.stats.simon_model_rounds, "rounds"},
+                                {kernel.stats.simon_model_candidates, "candidates"},
+                                {kernel.stats.simon_model_sat, "SAT"},
+                                {kernel.stats.simon_model_interrupted, "interrupted"}});
     printf("c stconn     %llu calls, %llu recognized, width %llu, "
            "%llu columns, %llu RUP clauses, %llu budget stops, %llu UNSAT, "
            "%llu interrupted\n",
@@ -1379,28 +1324,24 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.stconn_proof_budget_exhausted,
            (unsigned long long)kernel.stats.stconn_proof_unsat,
            (unsigned long long)kernel.stats.stconn_proof_interrupted);
-    printf("c signedcard %llu calls, %llu recognized, %llu groups, "
-           "%llu BDD nodes, %llu proof additions, %llu budget stops, "
-           "%llu UNSAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.signed_cardinality_proof_calls,
-           (unsigned long long)kernel.stats.signed_cardinality_proof_recognized,
-           (unsigned long long)kernel.stats.signed_cardinality_proof_groups,
-           (unsigned long long)kernel.stats.signed_cardinality_proof_bdd_nodes,
-           (unsigned long long)kernel.stats.signed_cardinality_proof_additions,
-           (unsigned long long)
-               kernel.stats.signed_cardinality_proof_budget_exhausted,
-           (unsigned long long)kernel.stats.signed_cardinality_proof_unsat,
-           (unsigned long long)kernel.stats.signed_cardinality_proof_interrupted);
-    printf("c exactcover %llu calls, %llu recognized, %llu blocks, %llu nodes, "
-           "%llu restarts, %llu budget stops, %llu SAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.exact_cover_model_calls,
-           (unsigned long long)kernel.stats.exact_cover_model_recognized,
-           (unsigned long long)kernel.stats.exact_cover_model_blocks,
-           (unsigned long long)kernel.stats.exact_cover_model_nodes,
-           (unsigned long long)kernel.stats.exact_cover_model_restarts,
-           (unsigned long long)kernel.stats.exact_cover_model_budget_exhausted,
-           (unsigned long long)kernel.stats.exact_cover_model_sat,
-           (unsigned long long)kernel.stats.exact_cover_model_interrupted);
+    stat_line("c signedcard ",
+              {{kernel.stats.signed_cardinality_proof_calls, "calls"},
+               {kernel.stats.signed_cardinality_proof_recognized, "recognized"},
+               {kernel.stats.signed_cardinality_proof_groups, "groups"},
+               {kernel.stats.signed_cardinality_proof_bdd_nodes, "BDD nodes"},
+               {kernel.stats.signed_cardinality_proof_additions, "proof additions"},
+               {kernel.stats.signed_cardinality_proof_budget_exhausted, "budget stops"},
+               {kernel.stats.signed_cardinality_proof_unsat, "UNSAT"},
+               {kernel.stats.signed_cardinality_proof_interrupted, "interrupted"}});
+    stat_line("c exactcover ",
+              {{kernel.stats.exact_cover_model_calls, "calls"},
+               {kernel.stats.exact_cover_model_recognized, "recognized"},
+               {kernel.stats.exact_cover_model_blocks, "blocks"},
+               {kernel.stats.exact_cover_model_nodes, "nodes"},
+               {kernel.stats.exact_cover_model_restarts, "restarts"},
+               {kernel.stats.exact_cover_model_budget_exhausted, "budget stops"},
+               {kernel.stats.exact_cover_model_sat, "SAT"},
+               {kernel.stats.exact_cover_model_interrupted, "interrupted"}});
     printf("c indepset   %llu calls, %llu recognized, %llu vertices, %llu target, "
            "%llu greedy, %llu found, %llu steps, %llu completion rounds, "
            "%llu SAT, %llu interrupted; %llu stable cores, %llu covers, "
@@ -1421,22 +1362,20 @@ int main(int argc, char **argv) {
                kernel.stats.independent_set_stable_cover_clauses,
            (unsigned long long)
                kernel.stats.independent_set_stable_resolvents);
-    printf("c graphlabel %llu calls, %llu recognized, %llu vertices, %llu separation, "
-           "%llu seeds, %llu nodes, %llu repairs, %llu anneal attempts, "
-           "%llu work, %llu budget stops, %llu interrupted, %llu models rejected, %llu SAT\n",
-           (unsigned long long)kernel.stats.graph_labeling_calls,
-           (unsigned long long)kernel.stats.graph_labeling_recognized,
-           (unsigned long long)kernel.stats.graph_labeling_vertices,
-           (unsigned long long)kernel.stats.graph_labeling_separation,
-           (unsigned long long)kernel.stats.graph_labeling_seeds,
-           (unsigned long long)kernel.stats.graph_labeling_nodes,
-           (unsigned long long)kernel.stats.graph_labeling_repairs,
-           (unsigned long long)kernel.stats.graph_labeling_anneal_attempts,
-           (unsigned long long)kernel.stats.graph_labeling_work,
-           (unsigned long long)kernel.stats.graph_labeling_budget,
-           (unsigned long long)kernel.stats.graph_labeling_interrupted,
-           (unsigned long long)kernel.stats.graph_labeling_models_rejected,
-           (unsigned long long)kernel.stats.graph_labeling_sat);
+    stat_line("c graphlabel ",
+              {{kernel.stats.graph_labeling_calls, "calls"},
+               {kernel.stats.graph_labeling_recognized, "recognized"},
+               {kernel.stats.graph_labeling_vertices, "vertices"},
+               {kernel.stats.graph_labeling_separation, "separation"},
+               {kernel.stats.graph_labeling_seeds, "seeds"},
+               {kernel.stats.graph_labeling_nodes, "nodes"},
+               {kernel.stats.graph_labeling_repairs, "repairs"},
+               {kernel.stats.graph_labeling_anneal_attempts, "anneal attempts"},
+               {kernel.stats.graph_labeling_work, "work"},
+               {kernel.stats.graph_labeling_budget, "budget stops"},
+               {kernel.stats.graph_labeling_interrupted, "interrupted"},
+               {kernel.stats.graph_labeling_models_rejected, "models rejected"},
+               {kernel.stats.graph_labeling_sat, "SAT"}});
     printf("c graphinterv %llu calls, %llu recognized, %llu vertices, "
            "%llu gates, %llu intervals, %llu groups, %llu selected, "
            "%llu work, %llu source clauses/%llu literals/%llu bytes, "
@@ -1460,20 +1399,18 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.graph_interval_equivalence_duplicates,
            (unsigned long long)kernel.stats.graph_interval_equivalence_published,
            (unsigned long long)kernel.stats.graph_interval_equivalence_proof_literal_occurrences);
-    printf("c ramsey     %llu attempts, %llu recognized, %llu recognition work, "
-           "%llu certificate work, %llu nodes, %llu additions, %llu deletions, "
-           "%llu helpers, %llu budget stops, %llu UNSAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.ramsey_startup_attempts,
-           (unsigned long long)kernel.stats.ramsey_startup_recognized,
-           (unsigned long long)kernel.stats.ramsey_startup_recognition_work,
-           (unsigned long long)kernel.stats.ramsey_startup_certificate_work,
-           (unsigned long long)kernel.stats.ramsey_startup_nodes,
-           (unsigned long long)kernel.stats.ramsey_startup_additions,
-           (unsigned long long)kernel.stats.ramsey_startup_deletions,
-           (unsigned long long)kernel.stats.ramsey_startup_helpers,
-           (unsigned long long)kernel.stats.ramsey_startup_exhausted,
-           (unsigned long long)kernel.stats.ramsey_startup_unsat,
-           (unsigned long long)kernel.stats.ramsey_startup_interrupted);
+    stat_line("c ramsey     ",
+              {{kernel.stats.ramsey_startup_attempts, "attempts"},
+               {kernel.stats.ramsey_startup_recognized, "recognized"},
+               {kernel.stats.ramsey_startup_recognition_work, "recognition work"},
+               {kernel.stats.ramsey_startup_certificate_work, "certificate work"},
+               {kernel.stats.ramsey_startup_nodes, "nodes"},
+               {kernel.stats.ramsey_startup_additions, "additions"},
+               {kernel.stats.ramsey_startup_deletions, "deletions"},
+               {kernel.stats.ramsey_startup_helpers, "helpers"},
+               {kernel.stats.ramsey_startup_exhausted, "budget stops"},
+               {kernel.stats.ramsey_startup_unsat, "UNSAT"},
+               {kernel.stats.ramsey_startup_interrupted, "interrupted"}});
     printf("c localsearch %llu hints offered (%llu phases, %llu replacements), "
            "%llu applied / %llu target installs from %llu attempts "
            "(%llu eligible, %llu changed, "
@@ -1511,9 +1448,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.walk_seed_budget_exhausted,
            (unsigned long long)kernel.stats.walk_seed_interrupted,
            (unsigned long long)kernel.stats.local_search_hints_stale);
-    printf("c randec      %llu sequences, %llu random decisions\n",
-           (unsigned long long)kernel.stats.random_sequences,
-           (unsigned long long)kernel.stats.random_decisions);
+    stat_line("c randec      ", {{kernel.stats.random_sequences, "sequences"},
+                                 {kernel.stats.random_decisions, "random decisions"}});
     printf("c subsume     %llu rounds (%llu checked, %llu visits, %llu subsumed)\n",
            (unsigned long long)kernel.stats.forward_subsumptions,
            (unsigned long long)kernel.stats.forward_checked,
@@ -1526,9 +1462,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthen_visits,
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed);
-    printf("c budgetstop  %llu C1 rounds, %llu C2 rounds stopped mid-round\n",
-           (unsigned long long)kernel.stats.budget_stops_c1,
-           (unsigned long long)kernel.stats.budget_stops_c2);
+    stat_line("c budgetstop  ",
+              {{kernel.stats.budget_stops_c1, "C1 rounds"},
+               {kernel.stats.budget_stops_c2, "C2 rounds stopped mid-round"}});
     // Non-wedge witness for the touched-epoch filters (Kernel::touched):
     // `marks` must keep growing on a long solve, `skipped` and `checked` (the
     // `c subsume` / `c strengthen` lines) must both be non-zero, and `advances`
@@ -1544,8 +1480,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthen_mark_skipped,
            (unsigned long long)kernel.stats.strengthen_mark_advances,
            (unsigned long long)kernel.stats.strengthen_rearmed);
-    printf("c subhold     %llu elimination rounds held open by C1/C2\n",
-           (unsigned long long)kernel.stats.subsume_holds);
+    stat_line("c subhold     ",
+              {{kernel.stats.subsume_holds, "elimination rounds held open by C1/C2"}});
     printf("c touch3      BCE %llu skipped / %llu rearmed, X2 %llu skipped / "
            "%llu rearmed, X4 %llu skipped / %llu rearmed\n",
            (unsigned long long)kernel.stats.bce_mark_skipped,
@@ -1579,9 +1515,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthen_red_skipped,
            (unsigned long long)kernel.stats.strengthen_red_subsumed,
            (unsigned long long)kernel.stats.strengthen_red_strengthened);
-    printf("c touch4      Factor %llu seeds skipped / %llu rearmed\n",
-           (unsigned long long)kernel.stats.factor_mark_skipped,
-           (unsigned long long)kernel.stats.factor_rearmed);
+    stat_line("c touch4      Factor ",
+              {{kernel.stats.factor_mark_skipped, "seeds skipped"},
+               {kernel.stats.factor_rearmed, "rearmed"}}, " / ");
     // --- `c timing`: where the wall clock actually goes ---------------------
     // Rules are charged individually by the registry dispatch wrapper, inside
     // the slot and out. The slot line is the whole inprocessing phase, so slot
