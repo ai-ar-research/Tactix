@@ -620,6 +620,114 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   std::fclose(journal);
 }
 
+// Streaming PBP plans a compact reason without the matrix proof cache, and
+// its encoder accepts only source equations of 2..8 variables. Root
+// maintenance gives an archived root fact a 1-variable source equation, so
+// the next reason citing it takes the clausal bridge and commits a matrix
+// proof cache entry. An outstanding compact lazy handle must stay
+// publishable when ConflictAnalysis needs it (it was misjudged Stale and the
+// solver aborted on Tier D linvrinv5).
+void lazy_compact_pbp_reason_survives_matrix_cache_commit() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 11);
+  std::vector<std::vector<int32_t>> original;
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{2, 4, 5}, false}, {{3, 4, 5, 6}, false},
+           {{7, 9, 10}, false}, {{8, 9, 10, 11}, false}})
+    for (const auto &clause : clausal_form(variables, rhs))
+      original.push_back(clause);
+  for (const auto &clause : original) add_clause(kernel, clause);
+  char proof_path[] = "/tmp/tactix-affine-lazy-compact-cache-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::PbpStreaming));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  uint64_t id = 0;
+  for (const auto &external : original) {
+    std::vector<Lit> clause;
+    for (int32_t literal : external)
+      clause.push_back(kernel_internalize(kernel, literal));
+    proof.seed_population(++id, clause.data(), clause.size());
+  }
+  assert(id == kernel.next_clause_id);
+  proof.finish_input_transaction();
+  assert(proof.commit_clause_stream());
+  kernel.proof = &proof;
+  const auto p = parameters();
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, p,
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+
+  // Late root facts: 1 stays the fixed representative, 2 is archived and
+  // root maintenance names it by the 1-variable source equation 2 = 0.
+  add_clause(kernel, {-1});
+  add_clause(kernel, {-2});
+  assert(!kernel_propagate(kernel) && kernel_propagation_fixpoint(kernel));
+  assert(kernel_sparse_collect_root(kernel, 0) !=
+         RootCollectOutcome::NoChange);
+  kernel_collect_garbage(kernel);
+  assert(kernel_compact_variables(kernel, true) &&
+         kernel_internalize(kernel, 2) == INVALID_LIT &&
+         kernel_internalize(kernel, 1) != INVALID_LIT);
+  const auto maintained =
+      affine_matrix_search_refresh(kernel, session, p, persistence, false);
+  assert(maintained.status == AffineMatrixInitStatus::AppliedPartial &&
+         maintained.result == ApplyResult::Ok);
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -3));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  // The reason cites the root-unit source, so the compact encoder declines.
+  const auto clausal = affine_matrix_search_step(kernel, session);
+  assert(clausal.status == AffineMatrixServiceStatus::Applied &&
+         !clausal.live.compact_pbp && clausal.live.proof_cache_insert);
+  assert(propagate_apply(kernel) == ApplyResult::Ok &&
+         kernel.value(kernel_internalize(kernel, -6)) > 0);
+
+  for (const int decision : {-7, -8}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const auto lazy = affine_matrix_search_step_lazy_minimal(kernel, session);
+  const Var implied = var_of(kernel_internalize(kernel, 11));
+  assert(lazy.status == AffineMatrixServiceStatus::Applied &&
+         lazy.reason_deferred && session.lazy_reason_count() == 1 &&
+         kernel.assigned[implied].affine &&
+         kernel.assigned[implied].reason == AFFINE_REASON);
+
+  const Lit conflict[2] = {kernel_internalize(kernel, 8),
+                           kernel_internalize(kernel, 11)};
+  kernel_add_binary_clause(kernel, conflict[0], conflict[1],
+                           ++kernel.next_clause_id);
+  kernel.conflict_ref = INVALID_REF;
+  kernel.conflict_bin[0] = conflict[0];
+  kernel.conflict_bin[1] = conflict[1];
+  kernel.conflict_valid = true;
+  const RuleVTable &analyze =
+      tactix_rules()[tactix_rule_id("ConflictAnalysis")];
+  assert(rule_guard(analyze, kernel));
+  assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
+  assert(session.lazy_reason_count() == 0 &&
+         kernel.stats.affine_matrix_analyze_handles == 1 &&
+         kernel.stats.affine_matrix_analyze_materializations == 1);
+  proof.flush();
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
 void lazy_source_backtrack_discards_without_publication() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -1427,6 +1535,7 @@ int main(int argc,char **argv){
   lazy_source_handles_are_multiple_public_and_consumed_on_demand();
   lazy_minimal_handle_is_public_and_consumed_on_demand();
   lazy_minimal_materializes_only_analyze_ancestor();
+  lazy_compact_pbp_reason_survives_matrix_cache_commit();
   lazy_source_backtrack_discards_without_publication();
   deferred_reason_materializes_at_later_conflict(false);
   deferred_reason_materializes_at_later_conflict(true);
