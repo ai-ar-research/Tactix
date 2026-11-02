@@ -1,14 +1,8 @@
 #undef NDEBUG
-#include "tactix.h"
+#include "api_test_support.h"
 
 #include <assert.h>
 #include <stdio.h>
-
-static void add_clause(tactix *solver, const int *literals) {
-  while (*literals)
-    tactix_add(solver, *literals++);
-  tactix_add(solver, 0);
-}
 
 int main(int argc, char **argv) {
   assert(argc == 3);
