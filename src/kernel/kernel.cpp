@@ -1073,7 +1073,7 @@ template <bool HasH> static void kernel_unassign_literal(Kernel &k, Lit lit) {
 // maintains search guidance — the four `H` touches (target/best snapshot, phase
 // save, heap re-insert, VMTF search-cache) each sit under `if constexpr
 // (HasH)`, so the null-`H` instantiation's inner loop carries no per-literal
-// `if (k.h)`. Only <true> is instantiated today.
+// `if (k.h)`. kernel_backtrack dispatches both instantiations.
 template <bool HasH>
 static void kernel_backtrack_impl(Kernel &k, uint32_t target,
                                   bool search_backtrack) {
@@ -1783,8 +1783,8 @@ static void probing_snapshot_list(Kernel &k, Lit l) {
                       h.binaries_first()});
   lg.words.insert(lg.words.end(), b, b + h.size);
   // S3: snapshot traffic is real memory work — charge it to the tick
-  // currency (same cache-line unit as the scan at :602) so the effort
-  // ledger can meter it against the probing techniques' budgets.
+  // currency (the cache-line unit of propagate_literal's watch scan) so the
+  // effort ledger can meter it against the probing techniques' budgets.
   kernel_charge_ticks(k, 1 + kernel_cache_lines(h.size));
 }
 
