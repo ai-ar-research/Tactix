@@ -167,18 +167,14 @@ public:
   // count: +1 positive, -1 negative, 0 H's phase. Warm-up takes no random
   // decision, so its picks are H's next variable with this polarity.
   int8_t forced_phase(const Kernel &) const;
-  static constexpr uint64_t RANDEC_INIT =
-      DefaultStrategyConfig::RANDOM_INITIAL_INTERVAL_DEFAULT;
-  static constexpr uint64_t RANDEC_SEED =
-      DefaultStrategyConfig::RANDOM_SEED_DEFAULT;
   // Kissat random.h's fixed 64-bit LCG.  These define the generator rather
   // than a tunable strategy arm, so they do not belong in DefaultStrategyConfig.
   static constexpr uint64_t RANDEC_MULTIPLIER = 6364136223846793005ull;
   static constexpr uint64_t RANDEC_INCREMENT = 1442695040888963407ull;
   uint64_t randec_remaining = 0;
-  uint64_t randec_next = RANDEC_INIT;
+  uint64_t randec_next = DefaultStrategyConfig::RANDOM_INITIAL_INTERVAL_DEFAULT;
   uint64_t randec_sequences = 0;
-  uint64_t randec_rng = RANDEC_SEED;
+  uint64_t randec_rng = DefaultStrategyConfig::RANDOM_SEED_DEFAULT;
   bool randec_enabled = true;
   void start_random_sequence(Kernel &);
   void on_search_propagation_conflict() override {
@@ -228,29 +224,6 @@ class DefaultPolicy final : public Policy,
                             public DefaultDatabaseControl,
                             public DefaultPhaseControl {
 public:
-  static constexpr uint64_t RESTART_INTERVAL =
-      DefaultStrategyConfig::RESTART_INTERVAL_DEFAULT;
-  static constexpr uint64_t REDUCE_INTERVAL_INIT =
-      DefaultStrategyConfig::REDUCE_INTERVAL_DEFAULT;
-  static constexpr uint64_t REDUCE_INTERVAL_ARITH =
-      DefaultStrategyConfig::REDUCE_ARITHMETIC_DEFAULT;
-  static constexpr uint64_t REDUCE_INTERVAL_STEP =
-      DefaultStrategyConfig::REDUCE_ARITHMETIC_STEP_DEFAULT;
-  static constexpr uint64_t MODE_INITIAL_CONFLICTS =
-      DefaultStrategyConfig::MODE_INITIAL_CONFLICTS_DEFAULT;
-  static constexpr uint64_t MODE_INTERVAL =
-      DefaultStrategyConfig::MODE_INTERVAL_DEFAULT;
-  static constexpr uint64_t RELUCTANT_PERIOD =
-      DefaultStrategyConfig::RELUCTANT_PERIOD_DEFAULT;
-  static constexpr uint64_t REPHASE_INTERVAL_INIT =
-      DefaultStrategyConfig::REPHASE_INTERVAL_DEFAULT;
-  static constexpr uint64_t REORDER_INTERVAL_INIT =
-      DefaultStrategyConfig::REORDER_INITIAL_INTERVAL_DEFAULT;
-  static constexpr double BUMP_REASONS_RATE =
-      DefaultStrategyConfig::BUMP_REASON_RATE_DEFAULT;
-  static constexpr uint32_t CHRONO_LEVELS =
-      DefaultStrategyConfig::CHRONOLOGICAL_LEVELS_DEFAULT;
-
   DefaultPolicy();
   explicit DefaultPolicy(const DefaultStrategyConfig &);
   // The default arms and scheduler point into config_. A compiler-generated
@@ -285,7 +258,7 @@ public:
 
   bool reset_schedule_per_solve = true;
   uint64_t solves = 0;
-  uint32_t chrono_levels = CHRONO_LEVELS;
+  uint32_t chrono_levels = DefaultStrategyConfig::CHRONOLOGICAL_LEVELS_DEFAULT;
   ReductionPolicy *reduction = nullptr;
 
 
@@ -382,7 +355,7 @@ private:
 
   uint32_t force_mode_ = 0;
   uint32_t bump_reasons_limit_ = 0;
-  double bump_reasons_rate_ = BUMP_REASONS_RATE;
+  double bump_reasons_rate_ = DefaultStrategyConfig::BUMP_REASON_RATE_DEFAULT;
   ReasonBumpDelay bump_reasons_delay_;
   bool reduce_sqrt_ = true;
   bool compact_ = true;

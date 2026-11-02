@@ -1026,7 +1026,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bumps_ext_reason_only,
            percent_of(kernel.stats.bumps_ext_reason_only,
                       kernel.stats.bumps_extension));
-    // factor_ticks is Factor's dosing currency and what FACTOR_INIT_TICKS caps,
+    // factor_ticks is Factor's dosing currency and what factor_initial_ticks caps,
     // so it separates a bound opening burst from an inert arm.
     stat_line("c factor      ",
               {{kernel.stats.factorings, "factorings"},

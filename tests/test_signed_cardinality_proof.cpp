@@ -61,7 +61,8 @@ int main() {
     Kernel kernel = fixture();
     strategy::SignedCardinalityProofParameters parameters;
     parameters.maximum_proof_additions = 1;
-    strategy::ScopedSignedCardinalityProofParameters posed(kernel, parameters);
+    strategy::ScopedRuleParameters<strategy::SignedCardinalityProofParameters> posed(
+        kernel, parameters);
     assert(signed_cardinality_proof_apply(kernel) == ApplyResult::NoOp);
     assert(!kernel.inconsistent);
     assert(kernel.stats.signed_cardinality_proof_budget_exhausted == 1);

@@ -319,7 +319,7 @@ int main() {
     k.var_status[6] = VarStatus::Eliminated;
     strategy::OnehotModelParameters parameters;
     parameters.candidate_budget = 1;
-    strategy::ScopedOnehotModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::OnehotModelParameters> posed(k, parameters);
     const size_t arena_words = k.arena.size();
     assert(direct_csp_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.direct_csp_model_restarts == 1);
@@ -344,7 +344,7 @@ int main() {
     k.input_binary_order = {1, 2, 3};
     strategy::OnehotModelParameters parameters;
     parameters.candidate_budget = 0;
-    strategy::ScopedOnehotModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::OnehotModelParameters> posed(k, parameters);
     assert(direct_csp_model_apply(k) == ApplyResult::NoOp);
     assert(!k.input_binary_order_captured && k.input_binary_order.empty());
   }
@@ -366,7 +366,7 @@ int main() {
     kernel_add_binary_clause(k, make_lit(9, false), make_lit(10, false));
     strategy::OnehotModelParameters parameters;
     parameters.candidate_budget = 27;
-    strategy::ScopedOnehotModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::OnehotModelParameters> posed(k, parameters);
     assert(onehot_model_apply(k) == ApplyResult::NoOp);
     const auto &hint = k.local_search_hints[
         static_cast<size_t>(strategy::LocalSearchKind::Onehot)];
@@ -404,14 +404,14 @@ int main() {
     Kernel k = fixture();
     strategy::OnehotModelParameters parameters;
     parameters.maximum_constraints = 4;
-    strategy::ScopedOnehotModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::OnehotModelParameters> posed(k, parameters);
     assert(onehot_model_apply(k) == ApplyResult::NoOp && k.trail.empty());
   }
   {
     Kernel k = fixture();
     strategy::OnehotModelParameters parameters;
     parameters.candidate_budget = 0;
-    strategy::ScopedOnehotModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::OnehotModelParameters> posed(k, parameters);
     assert(onehot_model_apply(k) == ApplyResult::NoOp && k.trail.empty());
   }
   {

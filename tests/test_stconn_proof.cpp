@@ -169,7 +169,7 @@ int main() {
     Kernel k = fixture();
     strategy::StconnProofParameters parameters;
     parameters.maximum_rup_clauses = 1;
-    strategy::ScopedStconnProofParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::StconnProofParameters> posed(k, parameters);
     assert(stconn_proof_apply(k) == ApplyResult::NoOp);
     assert(!k.inconsistent && k.stats.stconn_proof_budget_exhausted == 1);
   }

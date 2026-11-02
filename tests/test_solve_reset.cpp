@@ -187,18 +187,18 @@ static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
       std::printf("  NOT DIRTY: %s\n", what);
   };
   note(p.averages[0].initialized, "averages[focused]");
-  note(p.restart.next_conflicts != DefaultPolicy::RESTART_INTERVAL,
+  note(p.restart.next_conflicts != DefaultStrategyConfig::RESTART_INTERVAL_DEFAULT,
        "restart limit");
-  note(p.reduce.next_conflicts != DefaultPolicy::REDUCE_INTERVAL_INIT,
+  note(p.reduce.next_conflicts != DefaultStrategyConfig::REDUCE_INTERVAL_DEFAULT,
        "reduce limit");
   note(p.mode.count != 0 ||
-           p.mode.conflicts_limit != DefaultPolicy::MODE_INITIAL_CONFLICTS,
+           p.mode.conflicts_limit != DefaultStrategyConfig::MODE_INITIAL_CONFLICTS_DEFAULT,
        "mode alternation");
   note(p.reluctant.u != 1 || p.reluctant.v != 1 ||
-           p.reluctant.wait != DefaultPolicy::RELUCTANT_PERIOD,
+           p.reluctant.wait != DefaultStrategyConfig::RELUCTANT_PERIOD_DEFAULT,
        "reluctant sequence");
   note(p.rephase.count != 0 ||
-           p.rephase.next_conflicts != DefaultPolicy::REPHASE_INTERVAL_INIT,
+           p.rephase.next_conflicts != DefaultStrategyConfig::REPHASE_INTERVAL_DEFAULT,
        "rephase schedule");
   note(p.inprocess().initialized(), "inprocessing prime flag");
   note(p.inprocess().probe_clock.rounds != 0, "probe clock");

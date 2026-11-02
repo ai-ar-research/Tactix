@@ -505,16 +505,9 @@ int main() {
     assert(reference_order.valid());
     assert(reference_order.serialize().find("inprocess.structured_root_before_lucky=0") != std::string::npos);
   }
-  assert(defaults.reduction.initial_interval ==
-         DefaultPolicy::REDUCE_INTERVAL_INIT);
-  assert(defaults.mode.interval == DefaultPolicy::MODE_INTERVAL);
-  assert(defaults.inprocess.eliminate_interval ==
-         DefaultInprocessScheduler::SUBSUME_INTERVAL);
   assert(defaults.inprocess.substitute_rounds ==
          DefaultStrategyConfig::SUBSTITUTE_ROUNDS_DEFAULT);
   assert(defaults.inprocess.substitute_search_rounds == 1);
-  assert(defaults.analysis.bump_reason_rate ==
-         DefaultPolicy::BUMP_REASONS_RATE);
   assert(defaults.reduction.tier1_default == TIER1_STATIC);
   assert(defaults.reduction.tier2_default == TIER2_STATIC);
   assert(defaults.reduction.victim_numerator == 3);

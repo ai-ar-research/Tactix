@@ -111,7 +111,7 @@ int main() {
     Kernel k = fixture();
     strategy::LookupCircuitModelParameters parameters;
     parameters.maximum_fanin = 1;
-    strategy::ScopedLookupCircuitModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::LookupCircuitModelParameters> posed(k, parameters);
     assert(lookup_circuit_model_apply(k) == ApplyResult::NoOp);
   }
   {

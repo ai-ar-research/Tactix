@@ -100,7 +100,7 @@ int main() {
     Kernel k = fixture();
     strategy::SimonModelParameters parameters;
     parameters.maximum_rounds = 0;
-    strategy::ScopedSimonModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::SimonModelParameters> posed(k, parameters);
     assert(simon_model_apply(k) == ApplyResult::NoOp);
   }
   {

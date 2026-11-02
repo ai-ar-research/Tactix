@@ -84,7 +84,7 @@ int main() {
     Kernel k = fixture();
     strategy::FermatModelParameters parameters;
     parameters.maximum_bits = 9;
-    strategy::ScopedFermatModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::FermatModelParameters> posed(k, parameters);
     assert(fermat_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.fermat_model_recognized == 0);
   }
