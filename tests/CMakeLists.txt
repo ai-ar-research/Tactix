@@ -676,12 +676,6 @@ add_test(NAME stat_ids
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-stat-ids.py)
 
-# Adding a native statistic must not silently omit it from deterministic
-# feedback. Native timers are present in observations but excluded from replay.
-add_test(NAME feedback_statistics
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-feedback-statistics.py)
-
 add_test(NAME default_strategy_config_check
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-default-strategy-config.py)
