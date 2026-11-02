@@ -237,11 +237,9 @@ ApplyResult sweep_try_with_limits(Kernel &, Var seed, const SweepLimits &);
 // two binaries, declining the rest.
 ApplyResult sweep_apply(Kernel &);
 
-// Compatibility name for callers that already supply a typed profile. It is
-// exact: strategy settings are never read or amended inside the rule.
+// The full apply under a typed profile, used exactly: strategy settings are
+// never read or amended inside the rule.
 ApplyResult sweep_apply_with_limits(Kernel &, const SweepLimits &);
-// Typed online calls use the supplied object exactly.
-ApplyResult sweep_apply_exact_limits(Kernel &, const SweepLimits &);
 
 // Tactix commits Sweep equivalences per environment, while Kissat's following
 // Substitute deactivates the complete union in one internal-variable scan.

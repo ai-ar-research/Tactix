@@ -133,7 +133,7 @@ static void test_unbounded_clause_limit_sizes_from_formula() {
   // An unbounded semantic cap retains the ordinary reference-sized initial
   // table and grows from actual admissions; it never sizes from UINT32_MAX.
   assert(round.env.key_slots.size() == 4096);
-  assert(sweep_apply_exact_limits(k, limits) != ApplyResult::Unsat);
+  assert(sweep_apply_with_limits(k, limits) != ApplyResult::Unsat);
   kernel_check_invariants(k);
 }
 
@@ -1067,7 +1067,7 @@ static void test_se_general_path_emits(void) {
 
   SweepLimits limits;
   limits.force_general_proof = true;
-  const ApplyResult r = sweep_apply_exact_limits(k, limits);
+  const ApplyResult r = sweep_apply_with_limits(k, limits);
   assert(r == ApplyResult::Ok && "the general path must justify what RUP cannot");
   assert(k.stats.sweep_general >= 1 &&
          "S-e NEVER FIRED -- the general path is unreachable and untested");
@@ -1112,7 +1112,7 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
 
   SweepLimits limits;
   limits.force_general_proof = true;
-  assert(sweep_apply_exact_limits(k, limits) == ApplyResult::Ok);
+  assert(sweep_apply_with_limits(k, limits) == ApplyResult::Ok);
   assert(k.stats.substitute_vars == 0);
   assert(k.stats.sweep_general >= 1);
   assert(substitute_apply(k) == ApplyResult::Ok);
@@ -1148,7 +1148,7 @@ static void test_dense_call_collects_once_across_productive_environments() {
   const uint64_t generation = k.arena_generation;
   SweepLimits limits;
   limits.force_general_proof = true;
-  assert(sweep_apply_exact_limits(k, limits) == ApplyResult::Ok);
+  assert(sweep_apply_with_limits(k, limits) == ApplyResult::Ok);
   assert(k.stats.sweep_equivalences >= 2);
   assert(k.stats.substitute_vars == 0);
   assert(k.arena_generation == generation);
@@ -1184,7 +1184,7 @@ static void test_sessionless_substitution_keeps_binaries_whole(void) {
 
   SweepLimits limits;
   limits.force_general_proof = true;
-  const ApplyResult r = sweep_apply_exact_limits(k, limits);
+  const ApplyResult r = sweep_apply_with_limits(k, limits);
   assert(r == ApplyResult::Ok);
   assert(k.stats.sweep_equivalences >= 1 &&
          "the connected Sweep substitution under test never ran");
