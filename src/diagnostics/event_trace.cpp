@@ -219,9 +219,7 @@ struct FormulaDigest {
 
 FormulaDigest formula_digest(const Kernel &k) {
   FormulaDigest digest;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (clause->garbage())
       continue;
     const uint64_t hash = eliminate_cleanup_clause_hash(k, *clause);
@@ -827,9 +825,7 @@ RankingSummary summarize_ranking(const Kernel &k, bool include_top) {
 void live_clause_counts(const Kernel &k, uint64_t &irredundant,
                         uint64_t &redundant) {
   irredundant = redundant = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    ref += clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (c->garbage())
       continue;
     (c->redundant() ? redundant : irredundant)++;
@@ -871,10 +867,7 @@ void annotate_clause_set(const Kernel &k, std::string &payload) {
   payload += "|clause_set=" + std::string(spec) + "|clause_poses=";
   size_t matches = 0;
   std::vector<uint8_t> matched(selected.size());
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Ref clause_ref = ref;
-    const Clause *clause = clause_at(k.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [clause_ref, clause] : arena_records(k.arena)) {
     if (clause->garbage() || clause->size != selected.size())
       continue;
     std::fill(matched.begin(), matched.end(), 0);
@@ -1339,26 +1332,21 @@ void emit_formula_set_snapshot(const Kernel &k, const char *event,
       std::getenv("SAT_EVENT_TRACE_FORMULA_SET_EXTERNALS");
   const bool include_garbage =
       std::getenv("SAT_EVENT_TRACE_FORMULA_SET_INCLUDE_GARBAGE") != nullptr;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() || include_garbage) {
       const auto external = sorted_external_clause<int32_t>(k, *clause);
       bool selected_clause = !external_filter || !*external_filter;
       for (const int lit : external)
         selected_clause |= selected_snapshot_external(external_filter, lit);
-      if (!selected_clause) {
-        ref += clause_actual_words(clause);
+      if (!selected_clause)
         continue;
-      }
       const uint64_t clause_hash =
           eliminate_cleanup_clause_hash(k, *clause);
       if (const char *selected_hash =
               std::getenv("SAT_EVENT_TRACE_FORMULA_SET_HASH"))
         if (*selected_hash &&
-            std::strtoull(selected_hash, nullptr, 16) != clause_hash) {
-          ref += clause_actual_words(clause);
+            std::strtoull(selected_hash, nullptr, 16) != clause_hash)
           continue;
-        }
       std::fprintf(out, "%u\t%u\t%016llx\t", clause->redundant(),
                    clause->size,
                    (unsigned long long)clause_hash);
@@ -1390,7 +1378,6 @@ void emit_formula_set_snapshot(const Kernel &k, const char *event,
         std::fprintf(out, "\tgarbage=%u", clause->garbage());
       std::fputc('\n', out);
     }
-    ref += clause_actual_words(clause);
   }
   std::fclose(out);
   dumped = true;
@@ -2233,9 +2220,7 @@ void EventTrace::vivify_counts(const Kernel &k, const uint32_t *counts,
                    kernel_import_lit_order(k, lit), "@compact=",
                    kernel_compact_import_lit_order(k, lit));
       if (std::getenv("SAT_EVENT_TRACE_VIVIFY_CLAUSES")) {
-        for (Ref ref = 0; ref < k.arena.size();) {
-          const Clause *clause = clause_at(k.arena, ref);
-          ref += clause_actual_words(clause);
+        for (const auto [clause_ref, clause] : arena_records(k.arena)) {
           if (clause->garbage() ||
               std::find(clause->begin(), clause->end(), lit) == clause->end())
             continue;
@@ -2250,7 +2235,6 @@ void EventTrace::vivify_counts(const Kernel &k, const uint32_t *counts,
           char hex[17];
           std::snprintf(hex, sizeof hex, "%016llx",
                         static_cast<unsigned long long>(hash));
-          const Ref clause_ref = ref - clause_actual_words(clause);
           emit_parts(k, "vivify_occurrence_clause", "literal=", external,
                      "|hash=", hex, "|size=", clause->size, "|redundant=",
                      clause->redundant(), "|glue=", clause->glue(),
@@ -2338,12 +2322,8 @@ void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
         a.reason != UNIT_REASON)
       reason[a.reason] = 1;
   }
-  uint64_t live = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    live += c->redundant() && !c->garbage();
-    ref += clause_actual_words(c);
-  }
+  uint64_t irredundant = 0, live = 0;
+  live_clause_counts(k, irredundant, live);
   const uint64_t reduction = k.stats.reductions + 1;
   std::fprintf(file,
                "tactix\tsummary\t%llu\t%llu\t%s\t%u\t%u\t%llu\t"
@@ -2352,13 +2332,9 @@ void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
                (unsigned long long)k.stats.conflicts,
                k.h && k.h->stable ? "stable" : "focused", k.tier1, k.tier2,
                (unsigned long long)live, candidates.size(), victims);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const Ref next = ref + clause_actual_words(c);
-    if (!c->redundant() || c->garbage()) {
-      ref = next;
+  for (const auto [ref, c] : arena_records(k.arena)) {
+    if (!c->redundant() || c->garbage())
       continue;
-    }
     const uint32_t used = c->used(), glue = c->glue();
     const char *eligibility =
         reason[ref] ? "reason"
@@ -2386,7 +2362,6 @@ void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
       std::fprintf(file, "-\t0\t");
     print_list(file, literals);
     std::fputc('\n', file);
-    ref = next;
   }
   std::fflush(file);
 }
@@ -2877,15 +2852,12 @@ void event_trace_vivify_counts(const Kernel &k, const uint32_t *counts,
             std::getenv("SAT_VIVIFY_COUNTS_TRACE_CLAUSE_HASH")) {
       const uint64_t wanted = std::strtoull(selected_hash, nullptr, 16);
       const Clause *target = nullptr;
-      for (Ref ref = 0; ref < k.arena.size();) {
-        const Clause *clause = clause_at(k.arena, ref);
+      for (const auto [ref, clause] : arena_records(k.arena))
         if (!clause->garbage() &&
             eliminate_cleanup_clause_hash(k, *clause) == wanted) {
           target = clause;
           break;
         }
-        ref += clause_actual_words(clause);
-      }
       if (!target) {
         std::fputs("|target=absent", standalone);
       } else {
@@ -4716,9 +4688,7 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
       retired_external.push_back(k.internal_to_external[var] + 1);
   std::sort(retired_external.begin(), retired_external.end());
   const uint64_t retired_variables_hash = fnv_hash(retired_external);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       const bool redundant = clause->redundant();
       (redundant ? live_redundant : live_irredundant)++;
@@ -4731,23 +4701,19 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
         retired |= kernel_var_retired(k, var_of(lit));
       }
       if (root || retired) {
-        const uint64_t hash = clause_hash ? clause_hash
-                                          : eliminate_cleanup_clause_hash(
-                                                k, *clause);
-        collect_hash += hash;
+        collect_hash += clause_hash;
         if (root) {
-          root_hash += hash;
+          root_hash += clause_hash;
           (redundant ? root_redundant : root_irredundant)++;
         }
         if (retired) {
-          retired_hash += hash;
+          retired_hash += clause_hash;
           (redundant ? retired_redundant : retired_irredundant)++;
         }
         if (root && retired)
           (redundant ? both_redundant : both_irredundant)++;
       }
     }
-    ref += words;
   }
   for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
   {
@@ -4769,7 +4735,7 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
       binary_list_hash =
           mix_signed(binary_list_hash, kernel_externalize(k, watch.other()));
       ++binary_list_count;
-      if (!watch.binary() || lit >= watch.other())
+      if (lit >= watch.other())
         continue;
       binary_hash += binary_pair_hash(k, lit, watch.other());
       ++binary_count;
@@ -4841,9 +4807,9 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
   const char *clauses = std::getenv("TACTIX_EVENT_TRACE_ELIMINATE_CLAUSES");
   if (!clauses || *clauses != '1')
     return;
-  for (Ref ref = 0; ref < k.arena.size() && emitted_ < limit_;) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
+    if (emitted_ >= limit_)
+      break;
     if (!clause->garbage() && clause->redundant()) {
       bool root = false, retired = false;
       for (const Lit lit : *clause) {
@@ -4861,7 +4827,6 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
       append_list(clause_payload, sorted_external_clause<int32_t>(k, *clause));
       emit(k, "eliminate_cleanup_clause", clause_payload.c_str(), false);
     }
-    ref += words;
   }
 }
 

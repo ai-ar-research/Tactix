@@ -262,8 +262,7 @@ uint64_t rule_journal_digest(const Kernel &k) {
     for (const uint64_t key : binary_keys)
       facts.push_back(mix(mix(UINT64_C(0xB1), key), UINT64_C(1)));
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       uint64_t item = mix(UINT64_C(0xC1), clause->id());
       item = mix(item, clause->redundant());
@@ -275,7 +274,6 @@ uint64_t rule_journal_digest(const Kernel &k) {
         item = mix(item, static_cast<uint64_t>(static_cast<int64_t>(lit)));
       facts.push_back(item);
     }
-    ref += clause_actual_words(clause);
   }
   std::sort(facts.begin(), facts.end());
   for (const uint64_t fact : facts)
