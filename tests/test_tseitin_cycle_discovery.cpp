@@ -87,6 +87,25 @@ live::Snapshot snapshot(Kernel &kernel) {
   return result;
 }
 
+// The single connected component of a complete snapshot: enumerate, declined
+// as disconnected unless exactly one component is legal.
+discovery::Result discover(const live::Snapshot &snapshot,
+                           const discovery::Limits &limits,
+                           discovery::Plan &output) {
+  output = {};
+  std::vector<discovery::Plan> components;
+  discovery::Result result = discovery::enumerate(snapshot, limits, components);
+  if (!result.discovered()) return result;
+  if (components.size() != 1) {
+    result.status = discovery::Status::Declined;
+    result.reason = discovery::Reason::Disconnected;
+    result.selected_groups = 0;
+    return result;
+  }
+  output = std::move(components.front());
+  return result;
+}
+
 struct InterruptState {
   uint64_t calls = 0;
   uint64_t stop = UINT64_MAX;
@@ -140,7 +159,7 @@ void positive_and_no_mutation() {
     const uint64_t next_clause_id = kernel.next_clause_id;
     const uint64_t touch_epoch = kernel.touch_epoch;
     discovery::Plan plan;
-    const discovery::Result result = discovery::discover(
+    const discovery::Result result = discover(
         before, discovery_limits(), plan);
     assert(result.discovered() && plan.ready());
     assert(result.clauses == 6 && result.complete_groups == 3 &&
@@ -161,7 +180,7 @@ void positive_and_no_mutation() {
         {false, {2, 4, 6}}, {false, {3, 5, 6}}};
     Kernel kernel = formula(width_three);
     discovery::Plan plan;
-    assert(discovery::discover(snapshot(kernel), discovery_limits(), plan)
+    assert(discover(snapshot(kernel), discovery_limits(), plan)
                .discovered());
     assert(plan.groups().size() == 4);
     live::Prepared prepared;
@@ -178,7 +197,7 @@ void rejects_even_disconnected_ambiguous_and_incomplete() {
     Kernel kernel = formula(even);
     discovery::Plan plan;
     const auto result =
-        discovery::discover(snapshot(kernel), discovery_limits(), plan);
+        discover(snapshot(kernel), discovery_limits(), plan);
     assert(result.status == discovery::Status::Declined);
     assert(result.reason == discovery::Reason::EvenCharge && !plan.ready());
   }
@@ -190,7 +209,7 @@ void rejects_even_disconnected_ambiguous_and_incomplete() {
     Kernel kernel = formula(disconnected);
     discovery::Plan plan;
     const auto result =
-        discovery::discover(snapshot(kernel), discovery_limits(), plan);
+        discover(snapshot(kernel), discovery_limits(), plan);
     assert(result.status == discovery::Status::Declined);
     assert(result.reason == discovery::Reason::Disconnected && !plan.ready());
   }
@@ -204,7 +223,7 @@ void rejects_even_disconnected_ambiguous_and_incomplete() {
                                  ++kernel.next_clause_id);
     discovery::Plan plan;
     const auto result =
-        discovery::discover(snapshot(kernel), discovery_limits(), plan);
+        discover(snapshot(kernel), discovery_limits(), plan);
     assert(result.status == discovery::Status::Declined);
     assert(result.reason == discovery::Reason::AmbiguousEquation &&
            !plan.ready());
@@ -216,7 +235,7 @@ void rejects_even_disconnected_ambiguous_and_incomplete() {
                              ++kernel.next_clause_id);
     discovery::Plan plan;
     const auto result =
-        discovery::discover(snapshot(kernel), discovery_limits(), plan);
+        discover(snapshot(kernel), discovery_limits(), plan);
     assert(result.status == discovery::Status::Inapplicable);
     assert(result.reason == discovery::Reason::NoCompleteEquations &&
            !plan.ready());
@@ -272,7 +291,7 @@ void rejects_residual_and_bad_degree() {
                              ++kernel.next_clause_id);
     discovery::Plan plan;
     const auto result =
-        discovery::discover(snapshot(kernel), discovery_limits(), plan);
+        discover(snapshot(kernel), discovery_limits(), plan);
     assert(result.status == discovery::Status::Declined);
     assert(result.reason == discovery::Reason::ResidualEdgeTouch &&
            !plan.ready());
@@ -283,7 +302,7 @@ void rejects_residual_and_bad_degree() {
     Kernel kernel = formula(degree_one);
     discovery::Plan plan;
     const auto result =
-        discovery::discover(snapshot(kernel), discovery_limits(), plan);
+        discover(snapshot(kernel), discovery_limits(), plan);
     assert(result.status == discovery::Status::Declined);
     assert(result.reason ==
            discovery::Reason::EdgeNotInExactlyTwoEquations);
@@ -295,13 +314,13 @@ void bounded_and_interruptible() {
   const live::Snapshot captured = snapshot(kernel);
   discovery::Plan exact;
   const auto complete =
-      discovery::discover(captured, discovery_limits(), exact);
+      discover(captured, discovery_limits(), exact);
   assert(complete.discovered() && complete.work > 0);
   {
     auto limits = discovery_limits();
     limits.work = complete.work - 1;
     discovery::Plan plan;
-    const auto result = discovery::discover(captured, limits, plan);
+    const auto result = discover(captured, limits, plan);
     assert(result.status == discovery::Status::ResourceExhausted);
     assert(result.reason == discovery::Reason::WorkLimit && !plan.ready());
   }
@@ -309,7 +328,7 @@ void bounded_and_interruptible() {
     auto limits = discovery_limits();
     limits.maximum_clauses = 5;
     discovery::Plan plan;
-    const auto result = discovery::discover(captured, limits, plan);
+    const auto result = discover(captured, limits, plan);
     assert(result.status == discovery::Status::ResourceExhausted);
     assert(result.reason == discovery::Reason::ClauseLimit && !plan.ready());
   }
@@ -317,7 +336,7 @@ void bounded_and_interruptible() {
     auto limits = discovery_limits();
     limits.maximum_groups = 2;
     discovery::Plan plan;
-    const auto result = discovery::discover(captured, limits, plan);
+    const auto result = discover(captured, limits, plan);
     assert(result.status == discovery::Status::ResourceExhausted);
     assert(result.reason == discovery::Reason::GroupLimit && !plan.ready());
   }
@@ -327,7 +346,7 @@ void bounded_and_interruptible() {
     limits.interrupted = interrupt_after;
     limits.interrupt_state = &state;
     discovery::Plan plan;
-    const auto result = discovery::discover(captured, limits, plan);
+    const auto result = discover(captured, limits, plan);
     assert(result.status == discovery::Status::Interrupted);
     assert(result.reason == discovery::Reason::Interrupted && !plan.ready());
   }
@@ -341,17 +360,6 @@ void bounded_and_interruptible() {
     assert(result.status == live::Status::Interrupted);
     assert(output.sources.empty());
   }
-  {
-    InterruptState state{0, 1};
-    auto limits = discovery_limits();
-    limits.interrupted = interrupt_after;
-    limits.interrupt_state = &state;
-    discovery::Plan plan;
-    const auto result =
-        discovery::capture(kernel, snapshot_limits(), limits, plan);
-    assert(result.status == discovery::Status::Interrupted);
-    assert(result.reason == discovery::Reason::Interrupted && !plan.ready());
-  }
 }
 
 void deterministic_order_and_stale_plan() {
@@ -361,8 +369,8 @@ void deterministic_order_and_stale_plan() {
   std::reverse(permuted.sources.begin(), permuted.sources.end());
   std::reverse(permuted.clauses.begin(), permuted.clauses.end());
   discovery::Plan first, second;
-  assert(discovery::discover(ordered, discovery_limits(), first).discovered());
-  assert(discovery::discover(permuted, discovery_limits(), second).discovered());
+  assert(discover(ordered, discovery_limits(), first).discovered());
+  assert(discover(permuted, discovery_limits(), second).discovered());
   assert(same_groups(first.groups(), second.groups()));
 
   kernel_add_binary_clause(kernel, internalize(1), internalize(4),
@@ -376,8 +384,7 @@ void deterministic_order_and_stale_plan() {
 void capture_prepare_apply_and_proof_replay() {
   Kernel kernel = formula(odd_triangle);
   discovery::Plan plan;
-  const auto found = discovery::capture(
-      kernel, snapshot_limits(), discovery_limits(), plan);
+  const auto found = discover(snapshot(kernel), discovery_limits(), plan);
   assert(found.discovered() && plan.ready());
 
   live::Prepared prepared;
