@@ -431,12 +431,9 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
   }
   // Extraction is read-only, so aborting is free: the caller returns NoOp.
   uint32_t xtick = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (congruence_scan_stopped(k, xtick))
       return; // read-only work: fewer gates, sound
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
-    ref += words;
     if (c->garbage() || c->redundant() || c->size < 3 ||
         !congruence_and_size_admitted(k, c->size))
       continue;
@@ -1285,14 +1282,11 @@ void build_clause_index(const Kernel &k, ClauseIndex &index,
   // Pure extraction only indexes. Apply may also retire satisfied records;
   // each such deletion is complete and sound if an interrupt follows it.
   uint32_t xtick = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
+  for (const auto [clause_ref, c] : arena_records(k.arena)) {
     if (congruence_scan_stopped(k, xtick))
       return; // a truncated index only ever loses gates: XOR and ITE both
               // require every defining clause to be present, so a missing
               // entry can suppress a gate but never fabricate one.
-    const Ref clause_ref = ref;
-    const Clause *c = clause_at(k.arena, ref);
-    ref += clause_actual_words(c);
     if (c->garbage() || c->redundant())
       continue;
     ls.clear();
@@ -2435,13 +2429,11 @@ static bool find_congruence_binary_candidates(
   congruence_candidate_trace_begin(k);
   bool complete = true;
   uint32_t tick = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (congruence_scan_stopped(k, tick)) {
       complete = false;
       break;
     }
-    const Clause *c = clause_at(k.arena, ref);
-    ref += clause_actual_words(c);
     if (c->garbage() || c->redundant() || c->size != 3)
       continue;
     Lit lits[3] = {c->lits[0], c->lits[1], c->lits[2]};
@@ -2658,8 +2650,7 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
   uint64_t last_irredundant = 0;
   bool have_irredundant = false;
   std::vector<Ref> prefix;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->redundant()) {
       last_irredundant = std::max(last_irredundant,
                                  kernel_clause_position(k, ref));
@@ -2667,7 +2658,6 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     }
     if (!c->garbage())
       prefix.push_back(ref);
-    ref += clause_actual_words(c);
   }
   kernel_sort_refs_by_logical_clause_position(k, prefix);
   for (const Ref ref : prefix) {
