@@ -93,6 +93,40 @@ AffineConsequenceParameters parameters() {
   return result;
 }
 
+// The persistent-matrix initialization the scenarios start from.
+void initialize_persistent(Kernel &kernel, AffineMatrixSearchSession &session) {
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+}
+
+// Bind the variable maps and seed the PBP input population with original.
+void seed_pbp_population(Proof &proof, Kernel &kernel,
+                         const std::vector<std::vector<int32_t>> &original) {
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  uint64_t id = 0;
+  for (const auto &external : original) {
+    std::vector<Lit> clause;
+    for (int32_t literal : external)
+      clause.push_back(kernel_internalize(kernel, literal));
+    proof.seed_population(++id, clause.data(), clause.size());
+  }
+  assert(id == kernel.next_clause_id);
+  proof.finish_input_transaction();
+  assert(proof.commit_clause_stream());
+}
+
+// Create the mkstemp file a proof is then opened on.
+void reserve_path(char *path) {
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+}
+
 ActionRequest initialize_request(RestartController &controller, Kernel &kernel,
                                  const AffineConsequenceParameters &p) {
   ActionRequest request;
@@ -218,9 +252,7 @@ void deferred_reason_has_public_materialization_boundary() {
   kernel.structural_provenance = journal;
   install_implication_formula(kernel);
   char proof_path[] = "/tmp/tactix-affine-deferred-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
@@ -298,9 +330,7 @@ void detached_minimal_reason_is_public_and_unwatched() {
   add_equation(kernel, {1, 2, 3, 4, 6, 7}, false);
   add_equation(kernel, {3, 4, 5, 6, 7}, true);
   char proof_path[] = "/tmp/tactix-affine-detached-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
@@ -369,9 +399,7 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
            {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
     add_equation(kernel, variables, rhs);
   char proof_path[] = "/tmp/tactix-affine-lazy-multiple-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
@@ -472,19 +500,12 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   kernel.structural_provenance = journal;
   install_implication_formula(kernel);
   char proof_path[] = "/tmp/tactix-affine-lazy-minimal-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
   kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
+  initialize_persistent(kernel, session);
   for (const int decision : {-1, 2}) {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
     assert(propagate_apply(kernel) == ApplyResult::Ok);
@@ -535,19 +556,12 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
            {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
     add_equation(kernel, variables, rhs);
   char proof_path[] = "/tmp/tactix-affine-lazy-analyze-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
   kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
+  initialize_persistent(kernel, session);
   for (const int decision : {-1, -2}) {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
     assert(propagate_apply(kernel) == ApplyResult::Ok);
@@ -633,23 +647,10 @@ void lazy_compact_pbp_reason_survives_matrix_cache_commit() {
       original.push_back(clause);
   for (const auto &clause : original) add_clause(kernel, clause);
   char proof_path[] = "/tmp/tactix-affine-lazy-compact-cache-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::PbpStreaming));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  uint64_t id = 0;
-  for (const auto &external : original) {
-    std::vector<Lit> clause;
-    for (int32_t literal : external)
-      clause.push_back(kernel_internalize(kernel, literal));
-    proof.seed_population(++id, clause.data(), clause.size());
-  }
-  assert(id == kernel.next_clause_id);
-  proof.finish_input_transaction();
-  assert(proof.commit_clause_stream());
+  seed_pbp_population(proof, kernel, original);
   kernel.proof = &proof;
   const auto p = parameters();
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
@@ -726,19 +727,12 @@ void lazy_source_backtrack_discards_without_publication() {
   kernel.structural_provenance = journal;
   install_implication_formula(kernel);
   char proof_path[] = "/tmp/tactix-affine-lazy-backtrack-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
   kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
+  initialize_persistent(kernel, session);
   for (const int decision : {-1, -2}) {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
     assert(propagate_apply(kernel) == ApplyResult::Ok);
@@ -788,9 +782,7 @@ void deferred_reason_materializes_at_later_conflict(bool pbp) {
   original.push_back({6, -7});
   for (const auto &clause : original) add_clause(kernel, clause);
   char proof_path[] = "/tmp/tactix-affine-deferred-conflict-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, pbp ? ProofFormat::PbpStreaming
                                     : ProofFormat::DsrAscii));
@@ -811,12 +803,7 @@ void deferred_reason_materializes_at_later_conflict(bool pbp) {
     proof.arm_population_shadow();
   }
   kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
+  initialize_persistent(kernel, session);
   kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
@@ -853,30 +840,12 @@ void repeated_deferred_pbp_reasons_preserve_cache_generation() {
       original.push_back(clause);
   for (const auto &clause : original) add_clause(kernel, clause);
   char proof_path[] = "/tmp/tactix-affine-deferred-repeat-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::PbpStreaming));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  uint64_t id = 0;
-  for (const auto &external : original) {
-    std::vector<Lit> clause;
-    for (int32_t literal : external)
-      clause.push_back(kernel_internalize(kernel, literal));
-    proof.seed_population(++id, clause.data(), clause.size());
-  }
-  assert(id == kernel.next_clause_id);
-  proof.finish_input_transaction();
-  assert(proof.commit_clause_stream());
+  seed_pbp_population(proof, kernel, original);
   kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
+  initialize_persistent(kernel, session);
   for (const auto &[first, second, implied] :
        std::vector<std::tuple<int32_t, int32_t, int32_t>>{
            {-1, -2, -5}, {-6, -7, -10}}) {
@@ -914,30 +883,12 @@ void deferred_pbp_reason_survives_backtrack_and_cache_resume() {
       original.push_back(clause);
   for (const auto &clause : original) add_clause(kernel, clause);
   char proof_path[] = "/tmp/tactix-affine-deferred-resume-XXXXXX";
-  const int fd = mkstemp(proof_path);
-  assert(fd >= 0);
-  close(fd);
+  reserve_path(proof_path);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::PbpStreaming));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  uint64_t id = 0;
-  for (const auto &external : original) {
-    std::vector<Lit> clause;
-    for (int32_t literal : external)
-      clause.push_back(kernel_internalize(kernel, literal));
-    proof.seed_population(++id, clause.data(), clause.size());
-  }
-  assert(id == kernel.next_clause_id);
-  proof.finish_input_transaction();
-  assert(proof.commit_clause_stream());
+  seed_pbp_population(proof, kernel, original);
   kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
+  initialize_persistent(kernel, session);
   for (const auto &[first, implied] :
        std::vector<std::pair<int32_t, int32_t>>{{-1, -5}, {1, 5}}) {
     kernel_assign_decision(kernel, kernel_internalize(kernel, first));

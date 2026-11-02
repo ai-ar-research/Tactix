@@ -58,6 +58,19 @@ static AffineBasisLiveRequest request(FILE *records) {
   return result;
 }
 
+// Capture the affine live snapshot the configured request's image names.
+static void capture_owner(Kernel &kernel, const AffineBasisLiveRequest &configured,
+                          AffineLiveSnapshot &owner) {
+  AffineLiveRequest capture;
+  capture.image = configured.image;
+  capture.maximum_snapshot_literals = configured.maximum_snapshot_literals;
+  capture.maximum_snapshot_work = configured.maximum_snapshot_work;
+  capture.records = configured.records;
+  capture.action_id = configured.action_id;
+  capture.semantic_id = configured.semantic_id;
+  assert(capture_affine_live_snapshot(kernel, capture, owner));
+}
+
 using ProofClause = std::vector<int32_t>;
 
 static ProofClause normalized(ProofClause clause) {
@@ -277,15 +290,8 @@ static void exact_owned_row_selection() {
   FILE *records = std::tmpfile();
   assert(records);
   auto configured = request(records);
-  AffineLiveRequest capture;
-  capture.image = configured.image;
-  capture.maximum_snapshot_literals = configured.maximum_snapshot_literals;
-  capture.maximum_snapshot_work = configured.maximum_snapshot_work;
-  capture.records = records;
-  capture.action_id = configured.action_id;
-  capture.semantic_id = configured.semantic_id;
   AffineLiveSnapshot owner;
-  assert(capture_affine_live_snapshot(kernel, capture, owner));
+  capture_owner(kernel, configured, owner);
 
   Image image;
   assert(recognize(owner.premises, configured.image,
@@ -347,15 +353,8 @@ static void exact_owned_wide_row_selection(const char *proof_path) {
   FILE *records = std::tmpfile();
   assert(records);
   auto configured = request(records);
-  AffineLiveRequest capture;
-  capture.image = configured.image;
-  capture.maximum_snapshot_literals = configured.maximum_snapshot_literals;
-  capture.maximum_snapshot_work = configured.maximum_snapshot_work;
-  capture.records = records;
-  capture.action_id = configured.action_id;
-  capture.semantic_id = configured.semantic_id;
   AffineLiveSnapshot owner;
-  assert(capture_affine_live_snapshot(kernel, capture, owner));
+  capture_owner(kernel, configured, owner);
 
   Image image;
   assert(recognize(owner.premises, configured.image,

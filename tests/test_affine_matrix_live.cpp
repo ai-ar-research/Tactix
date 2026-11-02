@@ -558,6 +558,30 @@ static void helper_namespace_is_monotone() {
   std::fclose(journal);
 }
 
+// Seed the PBP input population: the clauses of first = 0 and second = 1,
+// then the root units -1..-8.
+static void seed_two_equation_population(Proof &proof, Kernel &kernel,
+                                         const std::vector<int32_t> &first,
+                                         const std::vector<int32_t> &second) {
+  uint64_t id = 0;
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{{first, false},
+                                                          {second, true}})
+    for (const auto &external : clausal_form(variables, rhs)) {
+      std::vector<Lit> clause;
+      for (const int32_t literal : external)
+        clause.push_back(kernel_internalize(kernel, literal));
+      proof.seed_population(++id, clause.data(), clause.size());
+    }
+  for (int32_t variable = 1; variable <= 8; ++variable) {
+    const Lit unit = kernel_internalize(kernel, -variable);
+    proof.seed_population(++id, &unit, 1);
+  }
+  assert(id == kernel.next_clause_id);
+  proof.finish_input_transaction();
+  assert(proof.commit_clause_stream());
+}
+
 static int proof_fixture(const char *cnf_path, const char *proof_path,
                          bool pbp = false) {
   Kernel kernel;
@@ -591,25 +615,7 @@ static int proof_fixture(const char *cnf_path, const char *proof_path,
                                     : ProofFormat::DsrAscii));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
-  if (pbp) {
-    uint64_t id = 0;
-    for (const auto &[variables, rhs] :
-         std::vector<std::pair<std::vector<int32_t>, bool>>{{first, false},
-                                                            {second, true}})
-      for (const auto &external : clausal_form(variables, rhs)) {
-        std::vector<Lit> clause;
-        for (const int32_t literal : external)
-          clause.push_back(kernel_internalize(kernel, literal));
-        proof.seed_population(++id, clause.data(), clause.size());
-      }
-    for (int32_t variable = 1; variable <= 8; ++variable) {
-      const Lit unit = kernel_internalize(kernel, -variable);
-      proof.seed_population(++id, &unit, 1);
-    }
-    assert(id == kernel.next_clause_id);
-    proof.finish_input_transaction();
-    assert(proof.commit_clause_stream());
-  }
+  if (pbp) seed_two_equation_population(proof, kernel, first, second);
   kernel.proof = &proof;
   auto request = live_request(journal, owner, matrix, image.equations, event);
   PbpParityBoundsCache pbp_cache;
@@ -938,23 +944,7 @@ static void compact_pbp_publication_ignores_unconsulted_matrix_cache() {
   assert(proof.open(proof_path, ProofFormat::PbpStreaming));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
-  uint64_t id = 0;
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{{first, false},
-                                                          {second, true}})
-    for (const auto &external : clausal_form(variables, rhs)) {
-      std::vector<Lit> clause;
-      for (const int32_t literal : external)
-        clause.push_back(kernel_internalize(kernel, literal));
-      proof.seed_population(++id, clause.data(), clause.size());
-    }
-  for (int32_t variable = 1; variable <= 8; ++variable) {
-    const Lit unit = kernel_internalize(kernel, -variable);
-    proof.seed_population(++id, &unit, 1);
-  }
-  assert(id == kernel.next_clause_id);
-  proof.finish_input_transaction();
-  assert(proof.commit_clause_stream());
+  seed_two_equation_population(proof, kernel, first, second);
   kernel.proof = &proof;
 
   AffineMatrixProofCache cache;
