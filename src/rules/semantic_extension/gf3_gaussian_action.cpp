@@ -11,13 +11,7 @@
 
 namespace tactix {
 
-struct Gf3GaussianActionSessionAccess {
-  static void commit(Gf3GaussianActionSession &session, const Kernel &kernel,
-                     std::vector<std::string> keys) {
-    session.owner_ = &kernel;
-    session.keys_.swap(keys);
-  }
-};
+struct Gf3GaussianActionSessionAccess {};
 
 namespace {
 
@@ -201,7 +195,7 @@ Gf3GaussianActionResult gf3_gaussian_action_apply(
   output.result = output.live.result;
   if (output.status != Gf3GaussianActionStatus::Applied) return output;
 
-  Gf3GaussianActionSessionAccess::commit(session, kernel, std::move(merged));
+  session.commit({}, kernel, std::move(merged));
   kernel.structural_action_sequence = output.proposed_action_id;
   output.committed_action_id = output.proposed_action_id;
   return output;

@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/action_epilogue.hpp"
 
 #include "proof/proof.hpp"
 #include "strategy/action_status_mapping.hpp"
@@ -159,8 +160,9 @@ AffineConsequenceActionResult apply_selected_consequence(Kernel &kernel) {
   if (output.live.result == ApplyResult::Ok) {
     if (!output.live.published || output.live.semantic_variables.empty())
       std::abort();
-    stage_affine_theory_variables(kernel, output.proposed_action_id,
-                                  output.live.semantic_variables, {});
+    stage_theory_variables_or_abort(
+        kernel, strategy::SemanticVariableProducer::Affine,
+        output.proposed_action_id, output.live.semantic_variables, {});
     output.candidate_staged = true;
   }
 

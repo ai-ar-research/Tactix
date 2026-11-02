@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rules/semantic_extension/action_epilogue.hpp"
 #include "rules/semantic_extension/gf3_gaussian_live.hpp"
 
 #include <cstdint>
@@ -25,16 +26,9 @@ struct Gf3GaussianActionLimits {
   bool valid() const;
 };
 
-class Gf3GaussianActionSession {
-public:
-  bool retained() const { return owner_ != nullptr; }
-  bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
-  const std::vector<std::string> &keys() const { return keys_; }
-
-private:
-  friend struct Gf3GaussianActionSessionAccess;
-  const Kernel *owner_ = nullptr;
-  std::vector<std::string> keys_;
+struct Gf3GaussianActionSessionAccess;
+class Gf3GaussianActionSession
+    : public KernelKeyedSession<std::string, Gf3GaussianActionSessionAccess> {
 };
 
 enum class Gf3GaussianActionStatus : uint8_t {

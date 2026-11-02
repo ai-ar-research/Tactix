@@ -20,13 +20,7 @@ using semantic_extension::append_bounded;
 using semantic_extension::join_integers;
 using semantic_extension::join_rendered;
 
-struct NaryCspEqualityAmoSessionAccess {
-  static void commit(NaryCspEqualityAmoSession &session, const Kernel &kernel,
-                     std::vector<NaryCspEqualityAmoKey> keys) {
-    session.owner_ = &kernel;
-    session.keys_ = std::move(keys);
-  }
-};
+struct NaryCspEqualityAmoSessionAccess {};
 
 namespace {
 
@@ -294,7 +288,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
   semantic_extension::write_journal_or_abort(records, journal);
   std::vector<NaryCspEqualityAmoKey> keys = session.keys();
   keys.insert(std::lower_bound(keys.begin(), keys.end(), key), key);
-  NaryCspEqualityAmoSessionAccess::commit(session, kernel, std::move(keys));
+  session.commit({}, kernel, std::move(keys));
   kernel.structural_action_sequence = action_id;
   result.committed_action_id = action_id;
   result.propagation_pending = !kernel_propagation_fixpoint(kernel);

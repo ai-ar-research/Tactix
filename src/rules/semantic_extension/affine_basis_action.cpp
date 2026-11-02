@@ -3,6 +3,7 @@
 #include "strategy/action_status_mapping.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/action_epilogue.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include "kernel/types.hpp"
@@ -614,9 +615,10 @@ static AffineBasisActionResult apply_basis_action(
       std::move(merged));
   output.committed_keys = session.committed_keys();
   if (output.live.result == ApplyResult::Ok) {
-    stage_affine_theory_variables(kernel, output.proposed_action_id,
-                                  output.live.existing_theory_variables,
-                                  output.live.introduced_theory_variables);
+    stage_theory_variables_or_abort(
+        kernel, strategy::SemanticVariableProducer::Affine,
+        output.proposed_action_id, output.live.existing_theory_variables,
+        output.live.introduced_theory_variables);
     output.candidate_staged = true;
   }
   kernel.structural_action_sequence = output.proposed_action_id;
@@ -628,27 +630,6 @@ AffineBasisActionResult affine_basis_action_apply(
     Kernel &kernel, AffineBasisActionSession &session,
     const AffineBasisActionLimits &limits) {
   return apply_basis_action(kernel, session, limits, nullptr);
-}
-
-void stage_affine_theory_variables(Kernel &kernel, uint64_t action_id,
-                                   const std::vector<int32_t> &existing,
-                                   const std::vector<int32_t> &introduced) {
-  std::vector<strategy::SemanticVariable> variables;
-  variables.reserve(existing.size() + introduced.size());
-  for (int32_t external : existing) {
-    if (external <= 0) std::abort();
-    variables.push_back({static_cast<uint32_t>(external),
-                         strategy::SemanticVariableRole::ExistingTheory, 1});
-  }
-  for (int32_t external : introduced) {
-    if (external <= 0) std::abort();
-    variables.push_back({static_cast<uint32_t>(external),
-                         strategy::SemanticVariableRole::IntroducedTheory, 1});
-  }
-  if (!strategy::stage_semantic_variable_candidate(
-          kernel, strategy::SemanticVariableProducer::Affine, action_id,
-          variables))
-    std::abort();
 }
 
 AffineBasisActionResult affine_basis_action_apply(

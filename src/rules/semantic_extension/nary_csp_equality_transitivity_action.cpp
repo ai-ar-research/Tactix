@@ -8,12 +8,7 @@
 #include <cstdlib>
 #include <string>
 namespace tactix {
-struct NaryCspEqualityTransitivitySessionAccess {
- static void commit(NaryCspEqualityTransitivitySession &s,const Kernel &k,
-                    std::vector<NaryCspEqualityTransitivityKey> keys) {
-   s.owner_=&k;s.keys_=std::move(keys);
- }
-};
+struct NaryCspEqualityTransitivitySessionAccess{};
 namespace {
 using Selection=NaryCspEqualityTransitivitySelection;
 using Status=NaryCspEqualityTransitivityStatus;
@@ -252,7 +247,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
      if(!k.proof)++k.next_clause_id;}
  }
  semantic_extension::write_journal_or_abort(records,journal);
- NaryCspEqualityTransitivitySessionAccess::commit(session,k,std::move(keys));k.structural_action_sequence=out.proposed_action_id;
+ session.commit({},k,std::move(keys));k.structural_action_sequence=out.proposed_action_id;
  out.published_consequences=std::move(consequences);
  out.committed_action_id=out.proposed_action_id;out.status=Status::Applied;out.result=ApplyResult::Ok;
  out.proof_work=plan.publication_work;out.proof_additions=plan.additions;out.proof_deletions=plan.deletions;
