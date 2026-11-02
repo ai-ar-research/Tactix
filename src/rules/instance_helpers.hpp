@@ -87,6 +87,24 @@ inline void emit_rup_lemma(Kernel &kernel, uint64_t id,
                  chain);
 }
 
+// A proof-only RUP lemma, deleted once the derivation it supports is done.
+// `id` is already the deletion id: the LRAT clause id, 0 in other formats.
+struct TransientLemma {
+  uint64_t id;
+  std::vector<Lit> lits;
+};
+
+// Delete the transient lemmas, newest first, and forget them.
+inline void delete_transients(Kernel &kernel,
+                              std::vector<TransientLemma> &transients) {
+  if (kernel.proof)
+    for (size_t i = transients.size(); i-- > 0;)
+      kernel.proof->del(kernel.next_clause_id, transients[i].id,
+                        transients[i].lits.data(),
+                        static_cast<uint32_t>(transients[i].lits.size()));
+  transients.clear();
+}
+
 // A hot-loop work scalar, published to its Stats counter when the scope ends:
 // like Kissat's local `steps` accumulators, it becomes observable only when
 // the scan returns, and every exit, early ones included, commits the exact

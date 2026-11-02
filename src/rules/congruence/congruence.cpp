@@ -1375,20 +1375,6 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 // conclusion is in, and kept so the round can `del` it. LRAT deletes by id;
 // DSR/DRAT need the literals. Proof-only clauses must not survive their use:
 // a later SR witness is validated against the live kernel, not these ladders.
-struct TransientLemma {
-  uint64_t id;
-  std::vector<Lit> lits;
-};
-
-// Drop the transient ladder lemmas, newest first.
-void delete_transients(Kernel &k, std::vector<TransientLemma> &t) {
-  if (k.proof)
-    for (size_t i = t.size(); i-- > 0;)
-      k.proof->del(k.next_clause_id, t[i].id, t[i].lits.data(),
-                   static_cast<uint32_t>(t[i].lits.size()));
-  t.clear();
-}
-
 // What canonicalizing a gate under the current representatives yielded. A
 // degenerate gate is not a dead end: each degeneracy is itself an inference
 // over F (`docs/dev/calculus.md` V6).

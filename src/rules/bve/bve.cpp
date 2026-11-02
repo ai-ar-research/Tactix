@@ -601,11 +601,7 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
 
   std::vector<Lit> lifted;
   std::vector<uint64_t> chain;
-  struct Transient {
-    uint64_t id;
-    std::vector<Lit> lits;
-  };
-  std::vector<Transient> transients;
+  std::vector<TransientLemma> transients;
   uint64_t last_id = 0;
   for (size_t si = 0; si < s.deriv.steps.size(); si++) {
     const SubStep &step = s.deriv.steps[si];
@@ -630,17 +626,13 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
     id_of[step.id] = id;
     last_id = id;
     if (k.proof && si + 1 != s.deriv.steps.size())
-      transients.push_back({id, lifted});
+      transients.push_back({lrat ? id : 0, lifted});
   }
   assert(last_id);
   k.unit_ids[var_of(unit)] = last_id;
   kernel_assign_unit(k, unit);
   k.stats.bve_definition_units++;
-  if (k.proof)
-    for (size_t i = transients.size(); i-- > 0;)
-      k.proof->del(k.next_clause_id, lrat ? transients[i].id : 0,
-                   transients[i].lits.data(),
-                   static_cast<uint32_t>(transients[i].lits.size()));
+  delete_transients(k, transients);
 }
 
 // Returns the BVE_GATE_* bit of the type found, or 0 for "no gate". `k` is
