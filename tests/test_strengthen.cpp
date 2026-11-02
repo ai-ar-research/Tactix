@@ -472,7 +472,7 @@ static void test_semantic_outcomes_include_every_removed_literal() {
 
     uint64_t instances[16];
     const uint32_t count = rule.semantic_instances(k, instances, 16);
-    const uint64_t wanted = strengthen_literal_instance(
+    const uint64_t wanted = clause_literal_instance(
         candidate, internalize(removed));
     assert(std::find(instances, instances + count, wanted) !=
            instances + count);
@@ -729,7 +729,7 @@ static int semantic_proof_witness(const char *input, const char *output,
   assert(candidate != INVALID_REF && partner != INVALID_REF);
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("Strengthen")];
   assert(rule.apply_semantic_instance(
-             k, strengthen_literal_instance(candidate, three)) ==
+             k, clause_literal_instance(candidate, three)) ==
          ApplyResult::Ok);
   DefaultPolicy policy;
   const int result = policy.solve(k, nullptr);

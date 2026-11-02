@@ -1431,7 +1431,7 @@ static ApplyResult strengthen_apply_semantic_instance(Kernel &k, uint64_t inst) 
     return strengthen_apply(k);
   Ref selected_ref;
   Lit selected_gone;
-  strengthen_literal_of_instance(inst, &selected_ref, &selected_gone);
+  clause_literal_of_instance(inst, &selected_ref, &selected_gone);
   if (selected_gone != INVALID_LIT && selected_gone >= 2 * k.nvars)
     return ApplyResult::NoOp;
   const Ref candidate_ref = arena_clause_instance(k, selected_ref);
@@ -1465,7 +1465,7 @@ static uint32_t strengthen_semantic_instances(Kernel &k, uint64_t *out,
   semantic_strengthenings(k, choices);
   return copy_instance_prefix(choices, out, cap,
                               [](const SemanticStrengthening &choice) {
-                                return strengthen_literal_instance(
+                                return clause_literal_instance(
                                     choice.candidate, choice.gone);
                               });
 }

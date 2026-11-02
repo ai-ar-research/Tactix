@@ -38,16 +38,6 @@ void instantiate_candidates(const Kernel &, std::vector<Ref> &out);
 ApplyResult instantiate_try(Kernel &, Ref candidate);
 ApplyResult instantiate_try_literal(Kernel &, Ref candidate, Lit literal);
 
-inline uint64_t instantiate_pair_instance(Ref candidate, Lit literal) {
-  return (static_cast<uint64_t>(candidate) << 32) |
-         static_cast<uint32_t>(literal);
-}
-inline void instantiate_pair_of_instance(uint64_t instance, Ref *candidate,
-                                         Lit *literal) {
-  *candidate = static_cast<Ref>(instance >> 32);
-  *literal = static_cast<Lit>(static_cast<uint32_t>(instance));
-}
-
 // Canonical: the full round. No steps budget in the rule — the round is
 // budget_aware, reading `Kernel::work_budget` in propagation ticks.
 ApplyResult instantiate_apply(Kernel &);

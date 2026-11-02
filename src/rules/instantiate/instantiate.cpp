@@ -334,7 +334,7 @@ static uint32_t instantiate_semantic_instances(Kernel &k, uint64_t *out,
     if (!c->garbage())
       for (const Lit literal : *c) {
         if (k.value(literal) == 0)
-          out[count++] = instantiate_pair_instance(ref, literal);
+          out[count++] = clause_literal_instance(ref, literal);
         if (count == cap)
           break;
       }
@@ -351,7 +351,7 @@ static ApplyResult instantiate_apply_semantic_instance(Kernel &k,
     return instantiate_apply(k);
   Ref selected_ref;
   Lit selected_literal;
-  instantiate_pair_of_instance(instance, &selected_ref, &selected_literal);
+  clause_literal_of_instance(instance, &selected_ref, &selected_literal);
   if (selected_ref == INVALID_REF || selected_literal >= 2 * k.nvars)
     return ApplyResult::NoOp;
   const Ref ref = arena_clause_instance(k, selected_ref);

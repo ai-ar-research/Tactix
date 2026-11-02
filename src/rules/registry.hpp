@@ -114,6 +114,19 @@ inline bool lit_of_instance(const Kernel &k, uint64_t inst, Lit *out) {
   return true;
 }
 
+// --- clause-literal payloads (Instantiate, Strengthen) ----------------------
+// A snapshot pair: arena Ref in the high word, internal literal in the low
+// word. Any state mutation invalidates it.
+inline uint64_t clause_literal_instance(Ref clause, Lit literal) {
+  return (static_cast<uint64_t>(clause) << 32) |
+         static_cast<uint32_t>(literal);
+}
+inline void clause_literal_of_instance(uint64_t instance, Ref *clause,
+                                       Lit *literal) {
+  *clause = static_cast<Ref>(instance >> 32);
+  *literal = static_cast<Lit>(static_cast<uint32_t>(instance));
+}
+
 // `guard` is the soundness precondition of the formal model (plan §4):
 // whenever it holds, apply() is total and sound under any policy, any order. A
 // guard may encode conflict/handoff state-machine constraints — a recorded

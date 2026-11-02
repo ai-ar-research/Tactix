@@ -354,7 +354,7 @@ static void budget_survives_compatible_online_reconfiguration() {
   strengthen_candidates(k, candidates, true);
   assert(candidates.size() == 1);
   const uint64_t selection =
-      strengthen_literal_instance(candidates[0], INVALID_LIT);
+      clause_literal_instance(candidates[0], INVALID_LIT);
 
   OnlineInprocessProgram program;
   program.sequence.push_back({
@@ -459,7 +459,7 @@ static void selected_strengthening_preserves_pending_offsets() {
     std::reverse(victims.begin(), victims.end());
     std::vector<uint64_t> selections;
     for (const uint64_t victim : victims)
-      selections.push_back(strengthen_literal_instance(
+      selections.push_back(clause_literal_instance(
           static_cast<Ref>(victim), internalize(1)));
     OnlineInvocation step;
     step.id = 32;
@@ -557,7 +557,7 @@ static void pending_selection_rechecks_guard_and_kernel_stop() {
   std::vector<Ref> candidates;
   strengthen_candidates(k, candidates, true);
   const uint64_t selection =
-      strengthen_literal_instance(candidates[0], INVALID_LIT);
+      clause_literal_instance(candidates[0], INVALID_LIT);
   OnlineInvocation step;
   step.id = 72;
   step.rule = "Strengthen";
@@ -592,7 +592,7 @@ static void pending_selection_rejects_collection_and_external_mutation() {
     strengthen_candidates(k, candidates, true);
     assert(candidates.size() == 1);
     const uint64_t selection =
-        strengthen_literal_instance(candidates[0], INVALID_LIT);
+        clause_literal_instance(candidates[0], INVALID_LIT);
     OnlineInvocation step;
     step.id = 71;
     step.rule = "Strengthen";
@@ -647,7 +647,7 @@ static void semantic_instances_and_parameters_compose() {
   for (uint64_t instance : instances) {
     Ref ref;
     Lit literal;
-    instantiate_pair_of_instance(instance, &ref, &literal);
+    clause_literal_of_instance(instance, &ref, &literal);
     if (kernel_externalize(k, literal) == 2)
       selected = instance;
   }
