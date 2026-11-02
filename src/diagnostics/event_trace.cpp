@@ -1332,6 +1332,14 @@ void emit_binary_set_snapshot(const Kernel &k, const char *event,
 
 } // namespace
 
+// The free event functions that only forward to the active trace.
+#define TACTIX_TRACE_FORWARD(name, parameters, arguments)                     \
+  void event_trace_##name parameters {                                        \
+    if (active_trace)                                                         \
+      active_trace->name arguments;                                           \
+  }
+#include "diagnostics/event_trace_forwarders.inc"
+
 void emit_formula_set_snapshot(const Kernel &k, const char *event,
                                const char *payload) {
   static bool dumped = false;
@@ -2623,34 +2631,6 @@ void EventTrace::watch_cost(const Kernel &k, Lit propagated,
              "|total=", total);
 }
 
-void event_trace_watch_scan(const Kernel &k, Lit propagated) {
-  if (active_trace)
-    active_trace->watch_scan(k, propagated);
-}
-
-void event_trace_watch_scan_post(const Kernel &k, Lit propagated) {
-  if (active_trace)
-    active_trace->watch_scan_post(k, propagated);
-}
-
-void event_trace_watch_move(const Kernel &k, Lit propagated, Lit target,
-                            Lit blocking, const Clause *clause) {
-  if (active_trace)
-    active_trace->watch_move(k, propagated, target, blocking, clause);
-}
-
-void event_trace_watch_cost(const Kernel &k, Lit propagated,
-                            uint64_t words_before, uint64_t words_after,
-                            uint64_t base, uint64_t binary_assignments,
-                            uint64_t large_dereferences,
-                            uint64_t relocations,
-                            uint64_t large_assignments, uint64_t total) {
-  if (active_trace)
-    active_trace->watch_cost(k, propagated, words_before, words_after, base,
-                             binary_assignments, large_dereferences,
-                             relocations, large_assignments, total);
-}
-
 void event_trace_detail(const Kernel &k, const char *event, int64_t payload) {
   if (active_trace)
     active_trace->detail(k, event, payload);
@@ -2798,31 +2778,6 @@ void event_trace_vivify_round(const Kernel &k, const char *stage,
                static_cast<unsigned long long>(k.work_budget_offset));
 }
 
-void event_trace_learned_stage(const Kernel &k, const char *event,
-                               const std::vector<Lit> &clause) {
-  if (active_trace)
-    active_trace->learned_stage(k, event, clause);
-}
-
-void event_trace_clause_glue(const Kernel &k, const char *source,
-                             const Clause *clause, uint32_t old_glue,
-                             uint32_t new_glue) {
-  if (active_trace)
-    active_trace->clause_glue(k, source, clause, old_glue, new_glue);
-}
-
-void event_trace_clause_used(const Kernel &k, const Clause *clause,
-                             uint32_t mode) {
-  if (active_trace)
-    active_trace->clause_used(k, clause, mode);
-}
-
-void event_trace_retier(const Kernel &k, const RetierSchedule &tiers,
-                        uint32_t mode, const uint64_t *used_glue) {
-  if (active_trace)
-    active_trace->retier(k, tiers, mode, used_glue);
-}
-
 void event_trace_randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
                              Var var, bool accepted) {
   if (active_trace) {
@@ -2896,12 +2851,6 @@ void EventTrace::phase_pick(const Kernel &k, Var var, int8_t target,
              "|saved=", saved, "|result=", result);
 }
 
-void event_trace_phase_pick(const Kernel &k, Var var, int8_t target,
-                            int8_t saved, int8_t result) {
-  if (active_trace)
-    active_trace->phase_pick(k, var, target, saved, result);
-}
-
 void EventTrace::target_save(const Kernel &k) {
   if (!want_detail(k) || emitted_ >= limit_)
     return;
@@ -2909,11 +2858,6 @@ void EventTrace::target_save(const Kernel &k) {
   std::string payload = concat("assigned=", assigned.size(), "|set=");
   append_list(payload, assigned);
   emit(k, "target_save", payload.c_str(), false);
-}
-
-void event_trace_target_save(const Kernel &k) {
-  if (active_trace)
-    active_trace->target_save(k);
 }
 
 void EventTrace::target_state(const Kernel &k, const char *stage,
@@ -2981,11 +2925,6 @@ void EventTrace::phase_save(const Kernel &k, Lit lit) {
     if (*selected && std::abs(std::atoi(selected)) != std::abs(external))
       return;
   emit_parts(k, "phase_save", "lit=", external);
-}
-
-void event_trace_phase_save(const Kernel &k, Lit lit) {
-  if (active_trace)
-    active_trace->phase_save(k, lit);
 }
 
 void EventTrace::slot_boundary(const Kernel &k, const char *name,
@@ -3134,18 +3073,6 @@ void EventTrace::sweep_schedule(const Kernel &k, Var seed, uint64_t pos,
              rank);
 }
 
-void event_trace_sweep_schedule(const Kernel &k, Var seed, uint64_t pos,
-                                uint64_t neg, uint64_t rank,
-                                uint64_t import_order) {
-  if (active_trace)
-    active_trace->sweep_schedule(k, seed, pos, neg, rank, import_order);
-}
-
-void event_trace_sweep_seed(const Kernel &k, Var seed) {
-  if (active_trace)
-    active_trace->sweep_seed(k, seed);
-}
-
 void EventTrace::sweep_environment(const Kernel &k, Var seed, uint32_t vars,
                                    uint32_t clauses, uint64_t hash) {
   if (!want_detail(k) || emitted_ >= limit_)
@@ -3156,12 +3083,6 @@ void EventTrace::sweep_environment(const Kernel &k, Var seed, uint32_t vars,
   emit_parts(k, "sweep_environment", "external=",
              kernel_externalize(k, make_lit(seed, false)), "|vars=", vars,
              "|clauses=", clauses, "|hash=", digest);
-}
-
-void event_trace_sweep_environment(const Kernel &k, Var seed, uint32_t vars,
-                                   uint32_t clauses, uint64_t hash) {
-  if (active_trace)
-    active_trace->sweep_environment(k, seed, vars, clauses, hash);
 }
 
 void EventTrace::sweep_environment_clause(const Kernel &k, Var seed,
@@ -3179,13 +3100,6 @@ void EventTrace::sweep_environment_clause(const Kernel &k, Var seed,
   emit(k, "sweep_environment_clause", payload.c_str(), false);
 }
 
-void event_trace_sweep_environment_clause(const Kernel &k, Var seed,
-                                          uint32_t ordinal, const Lit *lits,
-                                          uint32_t size) {
-  if (active_trace)
-    active_trace->sweep_environment_clause(k, seed, ordinal, lits, size);
-}
-
 void EventTrace::sweep_query(const Kernel &k, Var seed, uint32_t ordinal,
                              const char *kind, Lit a, Lit b, int result,
                              uint64_t ticks, uint64_t conflicts) {
@@ -3198,14 +3112,6 @@ void EventTrace::sweep_query(const Kernel &k, Var seed, uint32_t ordinal,
   emit_parts(k, "sweep_query", "seed=", external, "|ordinal=", ordinal,
              "|kind=", kind, "|a=", ea, "|b=", eb, "|result=", result,
              "|ticks=", ticks, "|conflicts=", conflicts);
-}
-
-void event_trace_sweep_query(const Kernel &k, Var seed, uint32_t ordinal,
-                             const char *kind, Lit a, Lit b, int result,
-                             uint64_t ticks, uint64_t conflicts) {
-  if (active_trace)
-    active_trace->sweep_query(k, seed, ordinal, kind, a, b, result, ticks,
-                              conflicts);
 }
 
 void EventTrace::sweep_model(const Kernel &k, Var seed, uint32_t ordinal,
@@ -3226,13 +3132,6 @@ void EventTrace::sweep_model(const Kernel &k, Var seed, uint32_t ordinal,
   emit(k, "sweep_query_model", payload.c_str(), false);
 }
 
-void event_trace_sweep_model(const Kernel &k, Var seed, uint32_t ordinal,
-                             const Var *vars, const int8_t *values,
-                             uint32_t size) {
-  if (active_trace)
-    active_trace->sweep_model(k, seed, ordinal, vars, values, size);
-}
-
 void EventTrace::sweep_flip(const Kernel &k, Var seed, const char *stage,
                             Lit lit, bool result, uint64_t ticks) {
   const int external =
@@ -3242,12 +3141,6 @@ void EventTrace::sweep_flip(const Kernel &k, Var seed, const char *stage,
   emit_parts(k, "sweep_flip", "seed=", external, "|stage=", stage, "|lit=",
              kernel_externalize(k, lit), "|result=", result ? 1 : 0, "|ticks=",
              ticks);
-}
-
-void event_trace_sweep_flip(const Kernel &k, Var seed, const char *stage,
-                            Lit lit, bool result, uint64_t ticks) {
-  if (active_trace)
-    active_trace->sweep_flip(k, seed, stage, lit, result, ticks);
 }
 
 void EventTrace::sweep_effort(const Kernel &k, uint32_t external,
@@ -3260,13 +3153,6 @@ void EventTrace::sweep_effort(const Kernel &k, uint32_t external,
              "|solves=", solves);
 }
 
-void event_trace_sweep_effort(const Kernel &k, uint32_t external,
-                              uint64_t ticks_before, uint64_t ticks_after,
-                              uint64_t solves) {
-  if (active_trace)
-    active_trace->sweep_effort(k, external, ticks_before, ticks_after, solves);
-}
-
 void EventTrace::sweep_environment_var(const Kernel &k, Var seed,
                                        uint32_t ordinal, Var var,
                                        uint32_t depth) {
@@ -3277,13 +3163,6 @@ void EventTrace::sweep_environment_var(const Kernel &k, Var seed,
   emit_parts(k, "sweep_environment_var", "seed=", external, "|ordinal=",
              ordinal, "|external=", kernel_externalize(k, make_lit(var, false)),
              "|depth=", depth);
-}
-
-void event_trace_sweep_environment_var(const Kernel &k, Var seed,
-                                       uint32_t ordinal, Var var,
-                                       uint32_t depth) {
-  if (active_trace)
-    active_trace->sweep_environment_var(k, seed, ordinal, var, depth);
 }
 
 void EventTrace::sweep_binary_attempt(const Kernel &k, Var seed,
@@ -3300,15 +3179,6 @@ void EventTrace::sweep_binary_attempt(const Kernel &k, Var seed,
              "|other_depth=", other_depth, "|disposition=", disposition);
 }
 
-void event_trace_sweep_binary_attempt(const Kernel &k, Var seed,
-                                      uint32_t ordinal, Lit lit, Lit other,
-                                      int32_t lit_depth, int32_t other_depth,
-                                      const char *disposition) {
-  if (active_trace)
-    active_trace->sweep_binary_attempt(k, seed, ordinal, lit, other,
-                                       lit_depth, other_depth, disposition);
-}
-
 void EventTrace::sweep_watch(const Kernel &k, Var seed, uint32_t ordinal,
                              Lit other) {
   const int external =
@@ -3317,12 +3187,6 @@ void EventTrace::sweep_watch(const Kernel &k, Var seed, uint32_t ordinal,
     return;
   emit_parts(k, "sweep_watch", "seed=", external, "|ordinal=", ordinal,
              "|other=", kernel_externalize(k, other));
-}
-
-void event_trace_sweep_watch(const Kernel &k, Var seed, uint32_t ordinal,
-                             Lit other) {
-  if (active_trace)
-    active_trace->sweep_watch(k, seed, ordinal, other);
 }
 
 void EventTrace::sweep_equivalence(const Kernel &k, Lit a, Lit b) {
@@ -3334,11 +3198,6 @@ void EventTrace::sweep_equivalence(const Kernel &k, Lit a, Lit b) {
       return;
   emit_parts(k, "sweep_equivalence", "a=", kernel_externalize(k, a), "|b=",
              kernel_externalize(k, b));
-}
-
-void event_trace_sweep_equivalence(const Kernel &k, Lit a, Lit b) {
-  if (active_trace)
-    active_trace->sweep_equivalence(k, a, b);
 }
 
 void EventTrace::sweep_commit(const Kernel &k, Lit a, Lit b, int8_t av,
@@ -3355,12 +3214,6 @@ void EventTrace::sweep_commit(const Kernel &k, Lit a, Lit b, int8_t av,
   emit_parts(k, "sweep_commit", "a=", external_a, "|b=", external_b, "|av=",
              static_cast<int>(av), "|bv=", static_cast<int>(bv), "|proof=",
              k.proof ? 1 : 0, "|stage=", stage);
-}
-
-void event_trace_sweep_commit(const Kernel &k, Lit a, Lit b, int8_t av,
-                              int8_t bv, const char *stage) {
-  if (active_trace)
-    active_trace->sweep_commit(k, a, b, av, bv, stage);
 }
 
 void EventTrace::sweep_rewrite_binary(const Kernel &k, Lit source,
@@ -3381,14 +3234,6 @@ void EventTrace::sweep_rewrite_binary(const Kernel &k, Lit source,
                 kernel_externalize(k, source), external_representative,
                 position, kernel_externalize(k, other));
   emit(k, "sweep_rewrite_binary", payload, false);
-}
-
-void event_trace_sweep_rewrite_binary(const Kernel &k, Lit source,
-                                      Lit representative, uint32_t position,
-                                      Lit other) {
-  if (active_trace)
-    active_trace->sweep_rewrite_binary(k, source, representative, position,
-                                       other);
 }
 
 void EventTrace::sweep_rewrite_occurrence(const Kernel &k, Lit source,
@@ -3418,24 +3263,10 @@ void EventTrace::sweep_rewrite_occurrence(const Kernel &k, Lit source,
   emit(k, "sweep_rewrite_occurrence", detail.c_str(), false);
 }
 
-void event_trace_sweep_rewrite_occurrence(const Kernel &k, Lit source,
-                                          Lit representative,
-                                          uint32_t position, bool binary,
-                                          uint32_t payload) {
-  if (active_trace)
-    active_trace->sweep_rewrite_occurrence(k, source, representative, position,
-                                           binary, payload);
-}
-
 void EventTrace::sweep_unit(const Kernel &k, Lit lit) {
   if (!want_detail(k) || emitted_ >= limit_)
     return;
   emit_parts(k, "sweep_unit", "lit=", kernel_externalize(k, lit));
-}
-
-void event_trace_sweep_unit(const Kernel &k, Lit lit) {
-  if (active_trace)
-    active_trace->sweep_unit(k, lit);
 }
 
 void EventTrace::factor_seed(const Kernel &k, Lit seed, uint32_t score,
@@ -3448,12 +3279,6 @@ void EventTrace::factor_seed(const Kernel &k, Lit seed, uint32_t score,
       return;
   emit_parts(k, "factor_seed", "external=", kernel_externalize(k, seed),
              "|score=", score, "|remainders=", remainders);
-}
-
-void event_trace_factor_seed(const Kernel &k, Lit seed, uint32_t score,
-                             uint32_t remainders) {
-  if (active_trace)
-    active_trace->factor_seed(k, seed, score, remainders);
 }
 
 void EventTrace::factor_remainder(const Kernel &k, Lit seed,
@@ -3469,13 +3294,6 @@ void EventTrace::factor_remainder(const Kernel &k, Lit seed,
   emit(k, "factor_remainder", payload.c_str(), false);
 }
 
-void event_trace_factor_remainder(const Kernel &k, Lit seed,
-                                  uint32_t ordinal, bool large,
-                                  const Lit *lits, uint32_t size) {
-  if (active_trace)
-    active_trace->factor_remainder(k, seed, ordinal, large, lits, size);
-}
-
 void EventTrace::factor_candidate(const Kernel &k, Lit seed, uint32_t depth,
                                   uint32_t ordinal, Lit candidate,
                                   uint32_t count, uint32_t score) {
@@ -3486,14 +3304,6 @@ void EventTrace::factor_candidate(const Kernel &k, Lit seed, uint32_t depth,
              "|depth=", depth, "|ordinal=", ordinal, "|candidate=",
              kernel_externalize(k, candidate), "|count=", count, "|score=",
              score);
-}
-
-void event_trace_factor_candidate(const Kernel &k, Lit seed, uint32_t depth,
-                                  uint32_t ordinal, Lit candidate,
-                                  uint32_t count, uint32_t score) {
-  if (active_trace)
-    active_trace->factor_candidate(k, seed, depth, ordinal, candidate, count,
-                                   score);
 }
 
 void EventTrace::factor_score_entry(const Kernel &k, Lit seed, uint32_t depth,
@@ -3518,15 +3328,6 @@ void EventTrace::factor_score_entry(const Kernel &k, Lit seed, uint32_t depth,
   emit(k, "factor_score_entry", payload.c_str(), false);
 }
 
-void event_trace_factor_score_entry(const Kernel &k, Lit seed, uint32_t depth,
-                                    Lit candidate, uint32_t ordinal, bool live,
-                                    Lit other, uint64_t id,
-                                    const Clause *clause) {
-  if (active_trace)
-    active_trace->factor_score_entry(k, seed, depth, candidate, ordinal, live,
-                                     other, id, clause);
-}
-
 void EventTrace::factor_literal_state(const Kernel &k, Lit lit, bool marked,
                                       bool retired, int value,
                                       uint32_t score) {
@@ -3542,13 +3343,6 @@ void EventTrace::factor_literal_state(const Kernel &k, Lit lit, bool marked,
   emit_parts(k, "factor_literal_state", "external=", kernel_externalize(k, lit),
              "|active=", retired ? "0" : "1", "|marked=", marked ? "1" : "0",
              "|value=", value, "|score=", score);
-}
-
-void event_trace_factor_literal_state(const Kernel &k, Lit lit, bool marked,
-                                      bool retired, int value,
-                                      uint32_t score) {
-  if (active_trace)
-    active_trace->factor_literal_state(k, lit, marked, retired, value, score);
 }
 
 void EventTrace::substitute_map(const Kernel &k, Lit lit, Lit representative) {
@@ -3680,14 +3474,6 @@ void EventTrace::factor_literal_entry(const Kernel &k, Lit selected_lit,
   emit(k, "factor_literal_entry", payload.c_str(), false);
 }
 
-void event_trace_factor_literal_entry(const Kernel &k, Lit lit,
-                                      uint32_t ordinal, bool live, Lit other,
-                                      uint64_t id, const Clause *clause) {
-  if (active_trace)
-    active_trace->factor_literal_entry(k, lit, ordinal, live, other, id,
-                                       clause);
-}
-
 void EventTrace::factor_candidate_source(const Kernel &k, Lit seed,
                                          uint32_t depth, uint32_t column,
                                          Lit scan, Lit candidate,
@@ -3706,16 +3492,6 @@ void EventTrace::factor_candidate_source(const Kernel &k, Lit seed,
   emit(k, "factor_candidate_source", payload.c_str(), false);
 }
 
-void event_trace_factor_candidate_source(const Kernel &k, Lit seed,
-                                         uint32_t depth, uint32_t column,
-                                         Lit scan, Lit candidate,
-                                         const Clause *current,
-                                         const Clause *matched) {
-  if (active_trace)
-    active_trace->factor_candidate_source(k, seed, depth, column, scan,
-                                          candidate, current, matched);
-}
-
 void EventTrace::factor_candidate_binary_source(const Kernel &k, Lit seed,
                                                 uint32_t depth,
                                                 uint32_t column, Lit q,
@@ -3727,15 +3503,6 @@ void EventTrace::factor_candidate_binary_source(const Kernel &k, Lit seed,
              kernel_externalize(k, seed), "|depth=", depth, "|column=", column,
              "|q=", kernel_externalize(k, q), "|candidate=",
              kernel_externalize(k, candidate));
-}
-
-void event_trace_factor_candidate_binary_source(const Kernel &k, Lit seed,
-                                                uint32_t depth,
-                                                uint32_t column, Lit q,
-                                                Lit candidate) {
-  if (active_trace)
-    active_trace->factor_candidate_binary_source(k, seed, depth, column, q,
-                                                 candidate);
 }
 
 void EventTrace::factor_pair(const Kernel &k, Lit grid_seed,
@@ -3766,12 +3533,6 @@ void EventTrace::factor_pair(const Kernel &k, Lit grid_seed,
              b == INVALID_LIT ? 2 : static_cast<int>(k.value(b)));
 }
 
-void event_trace_factor_pair(const Kernel &k, Lit grid_seed,
-                             const char *stage) {
-  if (active_trace)
-    active_trace->factor_pair(k, grid_seed, stage);
-}
-
 void EventTrace::factor_heap(const Kernel &k, Lit grid_seed,
                              const char *stage, Lit a, uint32_t pos_a,
                              uint32_t score_a, Lit b, uint32_t pos_b,
@@ -3791,15 +3552,6 @@ void EventTrace::factor_heap(const Kernel &k, Lit grid_seed,
              "|score_a=", score_a, "|b=", kernel_externalize(k, b), "|pos_b=",
              pos_b == UINT32_MAX ? -1 : static_cast<int64_t>(pos_b),
              "|score_b=", score_b, "|size=", size);
-}
-
-void event_trace_factor_heap(const Kernel &k, Lit grid_seed,
-                             const char *stage, Lit a, uint32_t pos_a,
-                             uint32_t score_a, Lit b, uint32_t pos_b,
-                             uint32_t score_b, uint32_t size) {
-  if (active_trace)
-    active_trace->factor_heap(k, grid_seed, stage, a, pos_a, score_a, b,
-                              pos_b, score_b, size);
 }
 
 void EventTrace::factor_heap_digest(const Kernel &k, Lit grid_seed,
@@ -3824,13 +3576,6 @@ void EventTrace::factor_heap_digest(const Kernel &k, Lit grid_seed,
   emit(k, "factor_heap_digest", payload, false);
 }
 
-void event_trace_factor_heap_digest(const Kernel &k, Lit grid_seed,
-                                    uint32_t size, uint64_t hash, Lit top,
-                                    uint32_t top_score) {
-  if (active_trace)
-    active_trace->factor_heap_digest(k, grid_seed, size, hash, top, top_score);
-}
-
 void EventTrace::factor_schedule(const Kernel &k, uint32_t ordinal, Lit lit,
                                  uint32_t score) {
   if (!want_detail(k) || emitted_ >= limit_ ||
@@ -3838,12 +3583,6 @@ void EventTrace::factor_schedule(const Kernel &k, uint32_t ordinal, Lit lit,
     return;
   emit_parts(k, "factor_schedule", "ordinal=", ordinal, "|internal=", lit,
              "|external=", kernel_externalize(k, lit), "|score=", score);
-}
-
-void event_trace_factor_schedule(const Kernel &k, uint32_t ordinal, Lit lit,
-                                 uint32_t score) {
-  if (active_trace)
-    active_trace->factor_schedule(k, ordinal, lit, score);
 }
 
 void EventTrace::factor_mark_transition(const Kernel &k, Lit lit, bool marked,
@@ -3854,12 +3593,6 @@ void EventTrace::factor_mark_transition(const Kernel &k, Lit lit, bool marked,
   emit_parts(k, "factor_mark_transition", "external=",
              kernel_externalize(k, lit), "|marked=", marked ? "1" : "0",
              "|source=", source);
-}
-
-void event_trace_factor_mark_transition(const Kernel &k, Lit lit, bool marked,
-                                        const char *source) {
-  if (active_trace)
-    active_trace->factor_mark_transition(k, lit, marked, source);
 }
 
 void EventTrace::factor_update(const Kernel &k, Lit grid_seed,
@@ -3880,12 +3613,6 @@ void EventTrace::factor_update(const Kernel &k, Lit grid_seed,
              "|external=", kernel_externalize(k, lit), "|score=", score);
 }
 
-void event_trace_factor_update(const Kernel &k, Lit grid_seed,
-                               uint32_t ordinal, Lit lit, uint32_t score) {
-  if (active_trace)
-    active_trace->factor_update(k, grid_seed, ordinal, lit, score);
-}
-
 void EventTrace::factor_grid(const Kernel &k, Lit seed, uint32_t factors,
                              uint32_t remainders, int delta) {
   if (!want_detail(k) || emitted_ >= limit_)
@@ -3895,24 +3622,12 @@ void EventTrace::factor_grid(const Kernel &k, Lit seed, uint32_t factors,
              delta);
 }
 
-void event_trace_factor_grid(const Kernel &k, Lit seed, uint32_t factors,
-                             uint32_t remainders, int delta) {
-  if (active_trace)
-    active_trace->factor_grid(k, seed, factors, remainders, delta);
-}
-
 void EventTrace::factor_grid_member(const Kernel &k, uint32_t ordinal,
                                     Lit factor) {
   if (!want_detail(k) || emitted_ >= limit_)
     return;
   emit_parts(k, "factor_grid_member", "ordinal=", ordinal, "|external=",
              kernel_externalize(k, factor));
-}
-
-void event_trace_factor_grid_member(const Kernel &k, uint32_t ordinal,
-                                    Lit factor) {
-  if (active_trace)
-    active_trace->factor_grid_member(k, ordinal, factor);
 }
 
 void EventTrace::factor_fresh(const Kernel &k, Lit seed, Var fresh,
@@ -3955,18 +3670,6 @@ void EventTrace::factor_fresh(const Kernel &k, Lit seed, Var fresh,
                              exit_match_.c_str()))
     return;
   emit(k, "factor_fresh", payload.c_str(), false);
-}
-
-void event_trace_factor_fresh(const Kernel &k, Lit seed, Var fresh,
-                              const Lit *factors, uint32_t factor_count,
-                              uint32_t remainders, int delta,
-                              uint64_t ticks, uint64_t pops,
-                              uint64_t first_ticks, uint64_t next_ticks,
-                              uint64_t match_ticks) {
-  if (active_trace)
-    active_trace->factor_fresh(k, seed, fresh, factors, factor_count,
-                               remainders, delta, ticks, pops, first_ticks,
-                               next_ticks, match_ticks);
 }
 
 // Whether TACTIX_EVENT_TRACE_BVE_EXTERNAL rejects `var`: it names another
@@ -4193,21 +3896,6 @@ void EventTrace::bve_occurrences(
   emit(k, "bve_occurrences", payload, false);
 }
 
-void event_trace_bve_occurrences(
-    const Kernel &k, Var var, uint32_t pos_ordered, uint32_t neg_ordered,
-    uint32_t pos_true_binary, uint32_t neg_true_binary,
-    uint32_t pos_satisfied_large, uint32_t neg_satisfied_large,
-    uint32_t pos_satisfied_effective_binary,
-    uint32_t neg_satisfied_effective_binary, uint32_t pos_tautological,
-    uint32_t neg_tautological) {
-  if (active_trace)
-    active_trace->bve_occurrences(
-        k, var, pos_ordered, neg_ordered, pos_true_binary, neg_true_binary,
-        pos_satisfied_large, neg_satisfied_large,
-        pos_satisfied_effective_binary, neg_satisfied_effective_binary,
-        pos_tautological, neg_tautological);
-}
-
 void event_trace_bve_definition(const Kernel &k, Var var, uint64_t attempt,
                                 uint32_t core, const char *outcome,
                                 uint64_t ticks, uint64_t budget,
@@ -4249,15 +3937,6 @@ void EventTrace::bve_plan(const Kernel &k, Var var, uint32_t side0,
              "|resolve_gate=", resolve_gate ? "1" : "0");
 }
 
-void event_trace_bve_plan(const Kernel &k, Var var, uint32_t side0,
-                          uint32_t side1, uint32_t gate_kind, uint32_t gate0,
-                          uint32_t gate1, uint64_t charged,
-                          bool resolve_gate) {
-  if (active_trace)
-    active_trace->bve_plan(k, var, side0, side1, gate_kind, gate0, gate1,
-                           charged, resolve_gate);
-}
-
 static uint64_t bve_clause_hash(const Kernel &k, const Lit *lits,
                                 uint32_t size) {
   return fnv_hash(sorted_external_clause<int32_t>(k, std::span(lits, size)));
@@ -4293,15 +3972,6 @@ void EventTrace::bve_pair(const Kernel &k, Var var, uint32_t ordinal,
   payload += "|side1_pose=";
   append_list(payload, std::span(side1, size1), ExternalLiteral{k});
   emit(k, "bve_pair", payload.c_str(), false);
-}
-
-void event_trace_bve_pair(const Kernel &k, Var var, uint32_t ordinal,
-                          const Lit *side0, uint32_t size0, Ref ref0,
-                          uint64_t id0, const Lit *side1, uint32_t size1,
-                          Ref ref1, uint64_t id1, const char *outcome) {
-  if (active_trace)
-    active_trace->bve_pair(k, var, ordinal, side0, size0, ref0, id0, side1,
-                           size1, ref1, id1, outcome);
 }
 
 void EventTrace::bve_heap(const Kernel &k, const char *stage, Var trigger,
@@ -4541,14 +4211,6 @@ void EventTrace::bve_pop(const Kernel &k, uint64_t ordinal,
   emit(k, selected ? "bve_pop" : "bve_pop_checkpoint", payload, snapshot);
 }
 
-void event_trace_bve_pop(const Kernel &k, uint64_t ordinal,
-                         uint64_t cumulative_hash, Var popped, double score,
-                         Var root, uint32_t size) {
-  if (active_trace)
-    active_trace->bve_pop(k, ordinal, cumulative_hash, popped, score, root,
-                          size);
-}
-
 static uint64_t eliminate_cleanup_clause_pose_hash(const Kernel &k,
                                                    const Clause &clause) {
   uint64_t hash = 1469598103934665603ull;
@@ -4718,11 +4380,6 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
       emit(k, "eliminate_cleanup_clause", clause_payload.c_str(), false);
     }
   }
-}
-
-void event_trace_eliminate_cleanup(const Kernel &k, const char *stage) {
-  if (active_trace)
-    active_trace->eliminate_cleanup(k, stage);
 }
 
 // Appends `external:score` for variable `v`, then `:position` (`:-` outside
@@ -4990,56 +4647,6 @@ void EventTrace::restart_clock(const Kernel &k, uint64_t limit,
   emit(k, "restart_clock", payload, false);
 }
 
-void event_trace_analyzed(const Kernel &k, const std::vector<Var> &analyzed,
-                          const std::vector<uint8_t> &seen,
-                          uint8_t bump_mask) {
-  if (active_trace)
-    active_trace->analyzed(k, analyzed, seen, bump_mask);
-}
-
-void event_trace_analyzed_post(const Kernel &k,
-                               const std::vector<Var> &analyzed) {
-  if (active_trace)
-    active_trace->analyzed_post(k, analyzed);
-}
-
-void event_trace_heap_scores(const Kernel &k) {
-  if (active_trace)
-    active_trace->heap_scores(k);
-}
-
-void event_trace_heap_insert(const Kernel &k, Var v, uint32_t from,
-                             uint32_t to) {
-  if (active_trace)
-    active_trace->heap_insert(k, v, from, to);
-}
-
-void event_trace_heap_remove(const Kernel &k, Var removed, Var last,
-                             uint32_t removed_pos, uint32_t from,
-                             uint32_t to) {
-  if (active_trace)
-    active_trace->heap_remove(k, removed, last, removed_pos, from, to);
-}
-
-void event_trace_heap_pop(const Kernel &k, const char *stage, Var held,
-                          Var other, uint32_t from, uint32_t to) {
-  if (active_trace)
-    active_trace->heap_pop(k, stage, held, other, from, to);
-}
-
-void event_trace_binary_assignment(const Kernel &k, Lit assigned,
-                                   Lit immediate_reason, Lit stored_reason,
-                                   bool jumped) {
-  if (active_trace)
-    active_trace->binary_assignment(k, assigned, immediate_reason,
-                                    stored_reason, jumped);
-}
-
-void event_trace_binary_add(const Kernel &k, Lit a, Lit b) {
-  if (active_trace)
-    active_trace->binary_add(k, a, b);
-}
-
 void event_trace_binary_lifecycle(const Kernel &k, const char *event, Lit a,
                                   Lit b, uint64_t id, uint32_t copies,
                                   const char *payload) {
@@ -5091,11 +4698,6 @@ const char *event_trace_rule_enter(const char *rule) {
 
 void event_trace_rule_leave(const char *previous) {
   binary_lifecycle_rule = previous ? previous : "-";
-}
-
-void event_trace_root_assign(const Kernel &k, Lit lit) {
-  if (active_trace)
-    active_trace->root_assign(k, lit);
 }
 
 void EventTrace::implications(const Kernel &k, size_t trail_begin) {
