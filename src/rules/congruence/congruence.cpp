@@ -6,6 +6,7 @@
 #include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
 #include "proof/rup_helpers.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"   // inprocess_reach_root
 #include "rules/substitute/substitute.hpp" // big_path_chain (bridged LRAT chains)
 
@@ -294,9 +295,7 @@ template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
 } // namespace
 
 RuleEligibility congruence_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
 void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
@@ -1004,7 +1003,8 @@ inline SmallKey small_key(const Lit *ls, uint32_t n) {
 // Flat open-addressed SmallKey set — the clause index and both extraction dedup
 // sets. A set, not a map: XOR and ITE only ask "does this clause exist", and
 // keys live in the bucket array so a lookup touches one cache line. `size == 0`
-// is the empty marker; iteration order is hash-dependent, see `sorted_keys`.
+// is the empty marker; iteration order is hash-dependent, so canonical walks
+// use the sorted ClauseIndex instead.
 class SmallKeySet {
 public:
   SmallKeySet() : buckets_(64), mask_(63) {}
@@ -1212,8 +1212,8 @@ public:
   Iterator end() const { return Iterator(this, records_.size()); }
 
   // Preserve the old work-meter denomination.  SmallKeySet started at 64
-  // buckets and doubled just before crossing 70 percent load; sorted_keys
-  // charged one visit per bucket plus one per stored key.
+  // buckets and doubled just before crossing 70 percent load; the retired key
+  // sort charged one visit per bucket plus one per stored key.
   size_t legacy_bucket_count() const {
     size_t buckets = 64;
     while (records_.size() * 10 > buckets * 7)
@@ -1266,16 +1266,6 @@ private:
   std::vector<uint32_t> first_literal_offsets_;
   std::vector<uint8_t> ternary_presence_;
 };
-
-// Iterating a hash table is implementation-ordered, and gate emission order
-// feeds the closure's merge order and hence the search trajectory, which must
-// not fork across toolchains. `operator<` totally orders stored keys, so this
-// is independent of the table's. Built once per apply, by value.
-static const ClauseIndex &sorted_keys(const Kernel &k,
-                                      const ClauseIndex &index) {
-  k.stats.congruence_ticks += index.legacy_bucket_count() + index.size();
-  return index;
-}
 
 // Index every irredundant clause whose root-effective size is
 // 3..CONG_XOR_ARITY+1.  Kissat's XOR/ITE candidate initialization ignores
@@ -1337,14 +1327,12 @@ void build_clause_index(const Kernel &k, ClauseIndex &index,
 // not the relation, and the gate would be unsound (`docs/dev/calculus.md` V6). It
 // yields s gates, one per output vᵢ, with the other variables as inputs.
 void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
-                            const ClauseIndex &sorted,
                             std::vector<CongGate> &out) {
-  (void)k;
   SmallKeySet seen;     // by sorted positive vars
   std::vector<Lit> pos; // positive lits, sorted
   Lit probe[CONG_XOR_ARITY + 1];
   uint32_t xtick = 0;
-  for (const SmallKey &base : sorted) {
+  for (const SmallKey &base : index) {
     if (congruence_scan_stopped(k, xtick))
       return; // read-only: fewer gates
     const uint32_t s = base.size;
@@ -1756,11 +1744,7 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     for (const Var tv : touched)
       seen[tv] = 0;
   }
-  k.conflict_valid = false;
-  k.conflict_ref = INVALID_REF;
-  if (k.level > 0)
-    kernel_backtrack(k, 0, /*update_phases=*/false);
-  kernel_probing_end(k);
+  probe_unwind(k);
   if (!conflict)
     return false;
   if (!lrat)
@@ -1999,9 +1983,7 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
 // ternaries before emission, so a mis-detected pair cannot yield an unsound
 // gate.
 void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
-                            const ClauseIndex &sorted,
                             std::vector<CongGate> &out) {
-  (void)k;
   uint8_t presence = 0;
   bool direct_presence = false;
   auto has = [&](Lit a, Lit b, Lit c) -> bool {
@@ -2024,7 +2006,7 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   std::vector<uint32_t> ce_slot(literal_count, UINT32_MAX);
   std::vector<Lit> ce_keys;
   std::vector<std::vector<std::pair<Lit, Lit>>> ce_lists;
-  const size_t sparse_limit = std::min(sorted.size(), literal_count);
+  const size_t sparse_limit = std::min(index.size(), literal_count);
   ce_keys.reserve(sparse_limit);
   ce_lists.reserve(sparse_limit);
   const auto add_conditional = [&](Lit lhs, Lit cond, Lit rhs) {
@@ -2040,8 +2022,8 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   };
   uint32_t xtick = 0;
   size_t record_position = 0;
-  for (const SmallKey &cl : sorted) {
-    presence = sorted.ternary_presence(record_position++);
+  for (const SmallKey &cl : index) {
+    presence = index.ternary_presence(record_position++);
     direct_presence = var_of(cl.lits[0]) != var_of(cl.lits[1]) &&
                       var_of(cl.lits[1]) != var_of(cl.lits[2]);
     // sorted; only the first 3 literals are scanned
@@ -2066,7 +2048,8 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   direct_presence = false;
   SmallKeySet seen;
   ConditionalIndex conditional_index;
-  // Canonical order (see sorted_keys), independent of first-touch order above.
+  // Canonical order (the sorted literal order, as for the ClauseIndex walk),
+  // independent of first-touch order above.
   std::sort(ce_keys.begin(), ce_keys.end());
   for (const Lit L : ce_keys) {
     if (cong_budget.over(k))
@@ -2227,15 +2210,46 @@ struct AddedEquivalence {
   bool reverse = false;
 };
 
+// Publish the RUP root unit `u` (LRAT cites `chain`) and close the root.
+// NoOp when `u` is already root-true; Unsat when it contradicts the trail
+// (the empty clause is emitted from the opposite unit) or its closure refutes.
+// A recorded unit bumps `counter` (and `extra`) and sets `*asserted` before
+// it is assigned; the contradiction path does neither. A non-null
+// `shadow_origin` names the unit to the proof-population oracle.
+ApplyResult publish_unit(Kernel &k, Lit u, const std::vector<uint64_t> &chain,
+                         uint64_t &counter, uint64_t *extra,
+                         const char *shadow_origin, bool *asserted) {
+  if (k.value(u) > 0)
+    return ApplyResult::NoOp; // already true at the root — adds nothing
+  const Var v = var_of(u);
+  const uint64_t trail_id = k.unit_ids[v];
+  const bool contradicts_trail = k.value(u) < 0;
+  const uint64_t id = ++k.next_clause_id;
+  if (shadow_origin && k.proof && k.proof->population_shadow())
+    std::fprintf(stderr, "PROOF SHADOW: Congruence unit %d origin=%s\n",
+                 kernel_externalize(k, u), shadow_origin);
+  emit_rup_lemma(k, id, &u, 1, chain);
+  if (contradicts_trail) {
+    kernel_emit_empty_from_pair(k, id, trail_id);
+    return ApplyResult::Unsat;
+  }
+  if (extra)
+    ++*extra;
+  ++counter;
+  if (asserted)
+    *asserted = true;
+  k.unit_ids[v] = id; // this unit is the variable's identity from here
+  kernel_assign_unit(k, u);
+  return inprocess_reach_root(k) ? ApplyResult::Unsat : ApplyResult::Ok;
+}
+
 // Publish the RUP binary (x ∨ y) under the next clause id; only LRAT lines
 // carry `chain`.
-void add_rup_binary(Kernel &k, bool lrat, Lit x, Lit y,
+void add_rup_binary(Kernel &k, Lit x, Lit y,
                     const std::vector<uint64_t> &chain, const char *site) {
   const uint64_t id = ++k.next_clause_id;
   const Lit lits[2] = {x, y};
-  if (k.proof)
-    k.proof->add_rup(lrat ? id : 0, lits, 2, lrat ? chain.data() : nullptr,
-                     lrat ? static_cast<uint32_t>(chain.size()) : 0);
+  emit_rup_lemma(k, id, lits, 2, chain);
   event_trace_binary_lifecycle(k, site, x, y, id,
                                kernel_binary_copies(k, x, y));
   kernel_add_binary_clause(k, x, y, id);
@@ -2252,7 +2266,7 @@ void trace_equivalence_sides(const Kernel &k, const char *site, Lit a, Lit b,
 
 // Add the still-missing sides (¬a∨b),(a∨¬b) of a==b with their chains, and
 // report which of them are new.
-void publish_equivalence(Kernel &k, bool lrat, Lit a, Lit b,
+void publish_equivalence(Kernel &k, Lit a, Lit b,
                          const std::vector<uint64_t> &chain_fwd,
                          const std::vector<uint64_t> &chain_rev,
                          AddedEquivalence *added, const char *site) {
@@ -2262,7 +2276,7 @@ void publish_equivalence(Kernel &k, bool lrat, Lit a, Lit b,
     // a degenerate pair (outputs equal or complementary) would make this
     // binary duplicate-carrying or tautological, neither emittable
     assert(x != y && x != negate(y));
-    add_rup_binary(k, lrat, x, y, ch, site);
+    add_rup_binary(k, x, y, ch, site);
   };
   const bool had_fwd = kernel_binary_live(k, negate(a), b);
   const bool had_rev = kernel_binary_live(k, a, negate(b));
@@ -2338,7 +2352,7 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
   }
   // chain_fwd: ga.out=1 → ga inputs → bridge → gb.base;
   // chain_rev: gb.out=1 → gb inputs → bridge → ga.base.
-  publish_equivalence(k, lrat, a, b, chain_fwd, chain_rev, added,
+  publish_equivalence(k, a, b, chain_fwd, chain_rev, added,
                       "congruence-gate-equivalence-site");
   return true;
 }
@@ -2360,7 +2374,7 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
     if (!kernel_binary_live(k, a, negate(b)) && chain_rev.empty())
       return false;
   }
-  publish_equivalence(k, lrat, a, b, chain_fwd, chain_rev, added,
+  publish_equivalence(k, a, b, chain_fwd, chain_rev, added,
                       "congruence-chained-equivalence-site");
   return true;
 }
@@ -2396,9 +2410,9 @@ bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
     if (!congruence_rup_chain(k, reverse, 2, reverse_chain))
       return false;
   }
-  add_rup_binary(k, lrat, forward[0], forward[1], forward_chain,
+  add_rup_binary(k, forward[0], forward[1], forward_chain,
                  "congruence-representative-site");
-  add_rup_binary(k, lrat, reverse[0], reverse[1], reverse_chain,
+  add_rup_binary(k, reverse[0], reverse[1], reverse_chain,
                  "congruence-representative-site");
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (trace_sparse_add)
@@ -2488,7 +2502,7 @@ static void install_congruence_binary_candidates(
     }
     note_prefix(x);
     note_prefix(y);
-    add_rup_binary(k, lrat, x, y, chain, "congruence-extracted-site");
+    add_rup_binary(k, x, y, chain, "congruence-extracted-site");
     extracted++;
   }
   // Kissat accumulates extracted pairs in a separate dense-mode suffix, radix
@@ -2934,36 +2948,27 @@ static void extract_gates(const Kernel &k, std::vector<CongGate> &out,
                           bool with_xor_ite, Kernel *cleanup) {
   const size_t base = out.size();
   congruence_stage_trace(k, "and-begin", out.size());
-  {
-    congruence_extract(k, out);
-  }
+  congruence_extract(k, out);
   congruence_stage_trace(k, "and-end", out.size());
   k.stats.congruence_gates_and += out.size() - base; // see Stats
   if (with_xor_ite) {
     ClauseIndex index; // built once, shared by XOR + ITE extraction
     congruence_stage_trace(k, "small-index-begin", out.size());
-    {
-      build_clause_index(k, index, cleanup);
-    }
+    build_clause_index(k, index, cleanup);
     congruence_stage_trace(k, "small-index-end", out.size(), index.size());
-    // …and so is its canonical iteration order: the index is immutable for the
-    // whole apply, so sorting it per consumer would recompute the same vector.
-    const ClauseIndex *sorted = nullptr;
-    {
-      sorted = &sorted_keys(k, index);
-    }
-    congruence_stage_trace(k, "small-sort-end", out.size(), sorted->size());
+    // …and so is its canonical iteration order: the finished index is already
+    // sorted and immutable for the whole apply, so both extractors walk it
+    // directly. The work meter still charges the retired hash-table key sort:
+    // one visit per legacy bucket plus one per stored key.
+    k.stats.congruence_ticks += index.legacy_bucket_count() + index.size();
+    congruence_stage_trace(k, "small-sort-end", out.size(), index.size());
     const size_t before_xor = out.size();
-    {
-      congruence_extract_xor(k, index, *sorted, out);
-    }
-    congruence_stage_trace(k, "xor-end", out.size(), sorted->size());
+    congruence_extract_xor(k, index, out);
+    congruence_stage_trace(k, "xor-end", out.size(), index.size());
     k.stats.congruence_gates_xor += out.size() - before_xor;
     const size_t before_ite = out.size();
-    {
-      congruence_extract_ite(k, index, *sorted, out);
-    }
-    congruence_stage_trace(k, "ite-end", out.size(), sorted->size());
+    congruence_extract_ite(k, index, out);
+    congruence_stage_trace(k, "ite-end", out.size(), index.size());
     k.stats.congruence_gates_ite += out.size() - before_ite;
   }
 }
@@ -3024,19 +3029,14 @@ ApplyResult congruence_apply(Kernel &k) {
   ScopedBinaryLiveness binary_liveness(k, saved_binaries);
   ScopedBinaryExitTrace binary_exit_trace{k};
   std::vector<std::pair<Lit, Lit>> binary_candidates;
-  bool binary_candidates_complete = false;
-  {
-    binary_candidates_complete =
-        find_congruence_binary_candidates(k, binary_candidates);
-  }
+  const bool binary_candidates_complete =
+      find_congruence_binary_candidates(k, binary_candidates);
   congruence_stage_trace(k, "binary-candidates-end",
                          binary_candidates.size());
-  {
-    if (k.congruence_parameters.binary_watch_order ==
-        strategy::CongruenceBinaryWatchOrder::Canonical)
-      kernel_canonicalize_binary_watches(k, true, &binary_candidates,
-                                         &saved_binaries);
-  }
+  if (k.congruence_parameters.binary_watch_order ==
+      strategy::CongruenceBinaryWatchOrder::Canonical)
+    kernel_canonicalize_binary_watches(k, true, &binary_candidates,
+                                       &saved_binaries);
   congruence_stage_trace(k, "binary-rebuild-end");
   congruence_candidate_trace_end(k, binary_candidates_complete,
                                  binary_candidates.size());
@@ -3060,27 +3060,9 @@ ApplyResult congruence_apply(Kernel &k) {
   auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain,
                          const char *origin,
                          uint64_t *counter = nullptr) -> bool {
-    const Var v = var_of(u);
-    if (k.value(u) > 0)
-      return false; // already true at the root — the inference adds nothing
-    const uint64_t trail_id = k.unit_ids[v];
-    const bool contradicts_trail = k.value(u) < 0;
-    const uint64_t id = ++k.next_clause_id;
-    if (k.proof && k.proof->population_shadow())
-      std::fprintf(stderr, "PROOF SHADOW: Congruence unit %d origin=%s\n",
-                   kernel_externalize(k, u), origin);
-    if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, &u, 1, lrat ? uchain.data() : nullptr,
-                       lrat ? static_cast<uint32_t>(uchain.size()) : 0);
-    if (contradicts_trail) {
-      kernel_emit_empty_from_pair(k, id, trail_id);
-      return true;
-    }
-    ++(counter ? *counter : k.stats.congruence_units);
-    recorded_unit = true;
-    k.unit_ids[v] = id; // this unit is the variable's identity from here
-    kernel_assign_unit(k, u);
-    return inprocess_reach_root(k);
+    return publish_unit(k, u, uchain,
+                        counter ? *counter : k.stats.congruence_units,
+                        nullptr, origin, &recorded_unit) == ApplyResult::Unsat;
   };
   // Every recorded unit has already reached root closure.  Keep the common
   // finish path for result accounting and all early exits.
@@ -3095,10 +3077,8 @@ ApplyResult congruence_apply(Kernel &k) {
   // the resulting binaries participate in unit/equivalence discovery and in
   // gate extraction during this same closure.
   uint64_t extracted_binaries = 0;
-  {
-    install_congruence_binary_candidates(k, binary_candidates,
-                                         extracted_binaries);
-  }
+  install_congruence_binary_candidates(k, binary_candidates,
+                                       extracted_binaries);
   std::vector<std::pair<Lit, Lit>>().swap(binary_candidates);
   congruence_stage_trace(k, "binary-extract-end", extracted_binaries);
 
@@ -3138,12 +3118,10 @@ ApplyResult congruence_apply(Kernel &k) {
 
   // The binary-resolution unit sweep follows binary and gate extraction; its
   // immediate root closure seeds value-driven gate simplification below.
-  {
-    if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
-          return record_unit(u, ch, "y1", &k.stats.congruence_y1_units);
-        }))
-      return ApplyResult::Unsat;
-  }
+  if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
+        return record_unit(u, ch, "y1", &k.stats.congruence_y1_units);
+      }))
+    return ApplyResult::Unsat;
   congruence_stage_trace(k, "binary-units-end", gates.size());
 
   // The congruence closure (kissat's), an incremental worklist over a union-find
@@ -3516,11 +3494,8 @@ ApplyResult congruence_apply(Kernel &k) {
     Lit out_i;
     GateKind kind_i;
     bool value_derived_i = false;
-    Canon ci;
-    {
-      ci = canonicalize(k, gates[i], find, key, out_i, cancelled, reps,
-                        value_derived_i, kind_i);
-    }
+    const Canon ci = canonicalize(k, gates[i], find, key, out_i, cancelled,
+                                  reps, value_derived_i, kind_i);
     k.stats.congruence_ticks += 1 + gates[i].inputs.size();
     if (ci == Canon::Skip)
       continue; // degenerate in a way this rule does not exploit — sound
@@ -3556,7 +3531,7 @@ ApplyResult congruence_apply(Kernel &k) {
             unsat = true;
           break; // any root closure invalidates this value snapshot
         }
-        add_rup_binary(k, lrat, x, y, chain, "congruence-ite-to-and-site");
+        add_rup_binary(k, x, y, chain, "congruence-ite-to-and-site");
         recorded_implication = true;
       }
       if (unsat)
@@ -3916,12 +3891,6 @@ struct CongruenceSemanticAction {
   bool value_derived = false;
 };
 
-uint64_t congruence_pair_instance(Lit a, Lit b) {
-  if (b < a)
-    std::swap(a, b);
-  return (static_cast<uint64_t>(a) << 32) | b;
-}
-
 // Reconstruct the equivalence partition already stated by complementary
 // binary pairs. This is the persistent state between individual closure
 // steps: each successful semantic action adds one such pair, and the next
@@ -4011,7 +3980,7 @@ void for_each_congruence_semantic_action(Kernel &k, Visitor visit) {
   // transition and the proof replay deliberately chooses a current witness.
   bool keep_visiting = true;
   for_each_congruence_binary_unit(k, [&](Lit unit) {
-    const uint64_t payload = congruence_pair_instance(unit, unit);
+    const uint64_t payload = kernel_binary_key(unit, unit);
     if (!emitted.insert(payload).second)
       return true;
     CongruenceSemanticAction action;
@@ -4051,11 +4020,11 @@ void for_each_congruence_semantic_action(Kernel &k, Visitor visit) {
                             ? CongruenceSemanticKind::UnaryContradiction
                             : CongruenceSemanticKind::UnaryEquivalence;
         action.second_output = other;
-        payload = congruence_pair_instance(output, other);
+        payload = kernel_binary_key(output, other);
       } else {
         action.action = CongruenceSemanticKind::GateUnit;
         action.unit = canonical == Canon::Unit ? negate(output) : key[0];
-        payload = congruence_pair_instance(action.unit, action.unit);
+        payload = kernel_binary_key(action.unit, action.unit);
       }
       if (!emitted.insert(payload).second)
         continue;
@@ -4083,7 +4052,7 @@ void for_each_congruence_semantic_action(Kernel &k, Visitor visit) {
         if (ra == rb)
           continue;
         const bool contradiction = ra == negate(rb);
-        const uint64_t payload = congruence_pair_instance(a, b);
+        const uint64_t payload = kernel_binary_key(a, b);
         if (!emitted.insert(payload).second)
           continue;
         CongruenceSemanticAction action;
@@ -4128,30 +4097,10 @@ uint32_t congruence_semantic_instances(Kernel &k, uint64_t *out,
 ApplyResult congruence_record_semantic_unit(
     Kernel &k, Lit unit, const std::vector<uint64_t> &chain,
     CongruenceSemanticKind origin) {
-  if (k.value(unit) > 0)
-    return ApplyResult::NoOp;
-  const Var variable = var_of(unit);
-  const uint64_t opposite_id = k.unit_ids[variable];
-  const bool contradiction = k.value(unit) < 0;
-  const uint64_t id = ++k.next_clause_id;
-  const bool lrat = k.proof && k.proof->lrat();
-  if (k.proof)
-    k.proof->add_rup(lrat ? id : 0, &unit, 1,
-                     lrat ? chain.data() : nullptr,
-                     lrat ? static_cast<uint32_t>(chain.size()) : 0);
-  if (contradiction) {
-    kernel_emit_empty_from_pair(k, id, opposite_id);
-    return ApplyResult::Unsat;
-  }
-  if (origin == CongruenceSemanticKind::BinaryResolutionUnit) {
-    ++k.stats.congruence_y1_found;
-    ++k.stats.congruence_y1_units;
-  } else {
-    ++k.stats.congruence_units;
-  }
-  k.unit_ids[variable] = id;
-  kernel_assign_unit(k, unit);
-  return inprocess_reach_root(k) ? ApplyResult::Unsat : ApplyResult::Ok;
+  const bool y1 = origin == CongruenceSemanticKind::BinaryResolutionUnit;
+  return publish_unit(
+      k, unit, chain, y1 ? k.stats.congruence_y1_units : k.stats.congruence_units,
+      y1 ? &k.stats.congruence_y1_found : nullptr, nullptr, nullptr);
 }
 
 ApplyResult congruence_refute_semantic_contradiction(Kernel &k, Lit literal) {
