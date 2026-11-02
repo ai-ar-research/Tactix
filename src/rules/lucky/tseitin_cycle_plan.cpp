@@ -1,7 +1,7 @@
 #include "rules/lucky/tseitin_cycle_plan.hpp"
 
 #include "rules/lucky/callback_work_meter.hpp"
-#include "rules/lucky/disjoint_sets.hpp"
+#include "rules/disjoint_sets.hpp"
 
 #include <algorithm>
 #include <map>

@@ -1,7 +1,7 @@
 #include "rules/lucky/opportunities.hpp"
 
 #include "kernel/splitmix64.hpp"
-#include "rules/lucky/disjoint_sets.hpp"
+#include "rules/disjoint_sets.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
 #include "strategy/rule_parameters.hpp"

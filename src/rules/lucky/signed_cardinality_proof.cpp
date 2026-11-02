@@ -3,7 +3,7 @@
 #include "kernel/types.hpp"
 #include "proof/cardinality_certificate.hpp"
 #include "proof/proof.hpp"
-#include "rules/lucky/disjoint_sets.hpp"
+#include "rules/disjoint_sets.hpp"
 #include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
