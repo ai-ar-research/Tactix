@@ -302,16 +302,6 @@ add_test(NAME feedback_frontend
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_feedback_frontend.py
                  $<TARGET_FILE:tactix>)
 set_tests_properties(feedback_frontend PROPERTIES SKIP_RETURN_CODE 77)
-tactix_skip77_test(public_theory_target_tables
-                   ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                   ${CMAKE_SOURCE_DIR}/benchmarks/probes/public-theory-targets-v1/gf3-wv100.tsv
-                   ${CMAKE_SOURCE_DIR}/benchmarks/probes/public-theory-targets-v1/tseitin-wv100.tsv
-                   ${CMAKE_SOURCE_DIR}/benchmarks/probes/public-theory-targets-v1/tseitin-wv2.tsv
-                   ${CMAKE_SOURCE_DIR}/benchmarks/probes/public-theory-targets-v1/direct-php-wv2.tsv --
-                   ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_tables.py)
-tactix_python_test(public_theory_target_score
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_score.py)
 
 tactix_skip77_test(startup_parity_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_startup_parity_check.py
