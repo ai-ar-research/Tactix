@@ -1,6 +1,7 @@
 #pragma once
 
-// Internal fixed-test access; this is not part of the public C interface.
+// Internal access for fixed tests and api_work.cpp's additive entry points;
+// this is not part of the public C interface.
 namespace tactix {
 struct Kernel;
 namespace strategy {

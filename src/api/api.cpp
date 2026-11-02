@@ -88,8 +88,8 @@ extern "C" {
 static void input_complete(tactix_solver *solver);
 }
 
-// Private fixed-test introspection keeps fault injection independent of the
-// opaque C handle layout. Production actions still use the public C API.
+// Internal introspection of the opaque C handle, for fixed tests and for
+// api_work.cpp's additive entry points; neither depends on the handle layout.
 namespace tactix::api_detail {
 Kernel &kernel_for_fixed_testing(void *opaque) {
   assert(opaque);
@@ -940,8 +940,10 @@ bool online_affine_matrix(
   return profile.valid();
 }
 
+// The v1 conversion never validates the converted program; it ignores the
+// trailing validate flag every converter takes.
 bool online_program(const tactix_online_program &source, const Kernel &kernel,
-                    strategy::OnlineInprocessProgram &target) {
+                    strategy::OnlineInprocessProgram &target, bool) {
   if (!c_array(source.steps, source.step_count) ||
       !online_repeat(source.repeat_mode, source.repeat_limit, target.repeat))
     return false;
@@ -1026,18 +1028,13 @@ bool online_base_program(const Source &source, const Kernel &kernel,
     base_steps.push_back(source.steps[i].base);
   const BaseProgram base{base_steps.data(), source.step_count,
                          source.repeat_mode, source.repeat_limit};
-  if constexpr (std::is_invocable_r_v<
-                    bool, Convert, const BaseProgram &, const Kernel &,
-                    strategy::OnlineInprocessProgram &, bool>)
-    return std::forward<Convert>(convert)(base, kernel, target, false);
-  else
-    return std::forward<Convert>(convert)(base, kernel, target);
+  return std::forward<Convert>(convert)(base, kernel, target, false);
 }
 
 bool online_program_v2(const tactix_online_program_v2 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
-                       bool validate = true) {
+                       bool validate) {
   if (!online_base_program<tactix_online_program>(
           source, kernel, target, true, online_program))
     return false;
@@ -1086,7 +1083,7 @@ bool online_program_v2(const tactix_online_program_v2 &source,
 bool online_program_v3(const tactix_online_program_v3 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
-                       bool validate = true) {
+                       bool validate) {
   if (!online_base_program<tactix_online_program_v2>(
           source, kernel, target, true, online_program_v2))
     return false;
@@ -1135,7 +1132,7 @@ bool online_program_v3(const tactix_online_program_v3 &source,
 bool online_program_v4(const tactix_online_program_v4 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
-                       bool validate = true) {
+                       bool validate) {
   if (!online_base_program<tactix_online_program_v3>(
           source, kernel, target, true, online_program_v3))
     return false;
@@ -1248,7 +1245,7 @@ bool copy_identity_instances(const Instance *instances, int count,
 bool online_program_v5(const tactix_online_program_v5 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
-                       bool validate = true) {
+                       bool validate) {
   if (!online_base_program<tactix_online_program_v4>(
           source, kernel, target, true, online_program_v4))
     return false;
@@ -1291,7 +1288,7 @@ bool online_program_v5(const tactix_online_program_v5 &source,
 bool online_program_v6(const tactix_online_program_v6 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
-                       bool validate = true) {
+                       bool validate) {
   if (!online_base_program<tactix_online_program_v5>(
           source, kernel, target, true, online_program_v5))
     return false;
@@ -1312,7 +1309,7 @@ bool online_program_v6(const tactix_online_program_v6 &source,
 bool online_program_v7(const tactix_online_program_v7 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
-                       bool validate = true) {
+                       bool validate) {
   if (!online_base_program<tactix_online_program_v6>(
           source, kernel, target, true, online_program_v6))
     return false;
@@ -1334,7 +1331,7 @@ bool online_program_v7(const tactix_online_program_v7 &source,
 bool online_program_v8(const tactix_online_program_v8 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
-                       bool validate = true) {
+                       bool validate) {
   if (!online_base_program<tactix_online_program_v7>(
           source, kernel, target, true, online_program_v7))
     return false;
@@ -1351,7 +1348,7 @@ bool online_program_v8(const tactix_online_program_v8 &source,
 bool online_program_v9(const tactix_online_program_v9 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
-                       bool validate = true) {
+                       bool validate) {
   if (!online_base_program<tactix_online_program_v8>(
           source, kernel, target, true, online_program_v8))
     return false;
@@ -1470,7 +1467,7 @@ bool online_program_v9(const tactix_online_program_v9 &source,
 bool online_program_v10(const tactix_online_program_v10 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
-                        bool validate = true) {
+                        bool validate) {
   if (!online_base_program<tactix_online_program_v9>(
           source, kernel, target, true, online_program_v9))
     return false;
@@ -1500,7 +1497,7 @@ bool online_program_v10(const tactix_online_program_v10 &source,
 bool online_program_v11(const tactix_online_program_v11 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
-                        bool validate = true) {
+                        bool validate) {
   if (!online_base_program<tactix_online_program_v10>(
           source, kernel, target, true, online_program_v10))
     return false;
@@ -1534,7 +1531,7 @@ bool online_program_v11(const tactix_online_program_v11 &source,
 bool online_program_v12(const tactix_online_program_v12 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
-                        bool validate = true) {
+                        bool validate) {
   if (!online_base_program<tactix_online_program_v11>(
           source, kernel, target, true, online_program_v11))
     return false;
@@ -1560,7 +1557,7 @@ bool online_program_v12(const tactix_online_program_v12 &source,
 bool online_program_v13(const tactix_online_program_v13 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
-                        bool validate = true) {
+                        bool validate) {
   if (!online_base_program<tactix_online_program_v12>(
           source, kernel, target, false, online_program_v12))
     return false;
@@ -1581,7 +1578,7 @@ bool online_program_v13(const tactix_online_program_v13 &source,
 bool online_program_v14(const tactix_online_program_v14 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
-                        bool validate = true) {
+                        bool validate) {
   if (!online_base_program<tactix_online_program_v13>(
           source, kernel, target, false, online_program_v13))
     return false;
@@ -1647,7 +1644,7 @@ bool online_program_v14(const tactix_online_program_v14 &source,
 }
 
 bool online_program_v15(const tactix_online_program_v15 &source,
-                        const Kernel &kernel, strategy::OnlineInprocessProgram &target, bool validate = true) {
+                        const Kernel &kernel, strategy::OnlineInprocessProgram &target, bool validate) {
   if (!online_base_program<tactix_online_program_v14>(
           source, kernel, target, false, online_program_v14))
     return false;
@@ -1701,7 +1698,7 @@ bool online_program_v15(const tactix_online_program_v15 &source,
 
 bool online_program_v16(const tactix_online_program_v16 &source,
                         const Kernel &kernel, strategy::OnlineInprocessProgram &target,
-                        bool validate = true) {
+                        bool validate) {
   if (!online_base_program<tactix_online_program_v15>(
           source, kernel, target, false, online_program_v15))
     return false;
@@ -1730,7 +1727,8 @@ bool online_program_v16(const tactix_online_program_v16 &source,
 
 bool online_program_v17(const tactix_online_program_v17 &source,
                         const Kernel &kernel,
-                        strategy::OnlineInprocessProgram &target) {
+                        strategy::OnlineInprocessProgram &target,
+                        bool validate) {
   if (!online_base_program<tactix_online_program_v16>(
           source, kernel, target, true, online_program_v16))
     return false;
@@ -1791,7 +1789,7 @@ bool online_program_v17(const tactix_online_program_v17 &source,
     step.parameters = limits;
     step.cardinality_search_instances.push_back(std::move(bounds));
   }
-  return strategy::validate_online_strategy_program(target);
+  return !validate || strategy::validate_online_strategy_program(target);
 }
 
 
@@ -1826,7 +1824,7 @@ int configure_online_program(tactix_solver *solver, const Source *source,
        reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
     return -1;
   strategy::OnlineInprocessProgram program;
-  if (!convert(*source, solver->kernel, program))
+  if (!convert(*source, solver->kernel, program, true))
     return -1;
   std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
   strategy::OnlineInprocessExecutor *executor = solver->online.get();
@@ -2364,22 +2362,16 @@ int tactix_read_retier_schedule(tactix_solver *s, tactix_retier_schedule *out) {
 int tactix_online_configure(tactix_solver *s,
                             const tactix_online_program *source,
                             uint64_t revision, int reconfigure_mode) {
-  return configure_online_program(
-      s, source, revision, reconfigure_mode,
-      [](const auto &input, const auto &kernel, auto &program) {
-        return online_program(input, kernel, program);
-      });
+  return configure_online_program(s, source, revision, reconfigure_mode,
+                                  online_program);
 }
 
 #define TACTIX_DEFINE_ONLINE_CONFIGURE(version)                               \
   int tactix_online_configure_v##version(                                    \
       tactix_solver *s, const tactix_online_program_v##version *source,       \
       uint64_t revision, int reconfigure_mode) {                             \
-    return configure_online_program(                                         \
-        s, source, revision, reconfigure_mode,                               \
-        [](const auto &input, const auto &kernel, auto &program) {            \
-          return online_program_v##version(input, kernel, program);           \
-        });                                                                  \
+    return configure_online_program(s, source, revision, reconfigure_mode,   \
+                                    online_program_v##version);              \
   }
 
 TACTIX_DEFINE_ONLINE_CONFIGURE(2)
@@ -2758,6 +2750,16 @@ void publish_support_roots(tactix_solver *s, size_t begin) {
     HeuristicRulePublisher{}.roots(s->kernel, begin);
 }
 
+// Propagates at the root and publishes any roots it derived.
+static ApplyResult propagate_publishing_roots(tactix_solver *s) {
+  Kernel &k = s->kernel;
+  const size_t begin = k.trail.size();
+  const uint64_t roots = k.stats.root_assignments;
+  const ApplyResult propagated = propagate_apply(k);
+  if (k.stats.root_assignments != roots) publish_support_roots(s, begin);
+  return propagated;
+}
+
 // Leave the open inprocessing phase bracket (DefaultPolicy's phase exit).
 int leave_phase(tactix_solver *s) {
   Kernel &k = s->kernel;
@@ -2767,13 +2769,7 @@ int leave_phase(tactix_solver *s) {
         if (s->guidance_publication == TACTIX_GUIDANCE_NATIVE)
           HeuristicRulePublisher{}.retirements(k);
       },
-      [&] {
-        const size_t begin = k.trail.size();
-        const uint64_t roots = k.stats.root_assignments;
-        const ApplyResult propagated = propagate_apply(k);
-        if (k.stats.root_assignments != roots) publish_support_roots(s, begin);
-        return propagated;
-      });
+      [&] { return propagate_publishing_roots(s); });
   if (left == ApplyResult::Unsat) {
     s->proof.flush();
     return 20;
@@ -2835,14 +2831,7 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
         [&](const execution::RestartRequest &request) {
           return execution::execute_action(k, request);
         },
-        [&] {
-          const size_t begin = k.trail.size();
-          const uint64_t roots = k.stats.root_assignments;
-          const ApplyResult propagated = propagate_apply(k);
-          if (k.stats.root_assignments != roots)
-            publish_support_roots(s, begin);
-          return propagated;
-        });
+        [&] { return propagate_publishing_roots(s); });
     result = support_result(s, prepared);
     break;
   }
