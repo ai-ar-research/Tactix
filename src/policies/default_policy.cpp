@@ -477,8 +477,9 @@ ApplyResult default_affine_root_closure(
               selected->basis_maximum_work);
         },
         [&] {
-          return port::affine_matrix_search_step(
-              kernel, *kernel.affine_matrix_search_session);
+          return port::affine_matrix_search_service(
+              kernel, *kernel.affine_matrix_search_session,
+              strategy::AffineMatrixInitializeParameters::Operation::SearchStep);
         },
         execution::affine_matrix_service_feedback);
     if (service.status == AffineMatrixServiceStatus::Applied) {
@@ -3701,24 +3702,20 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
             root ? "default-persistent-restart-root" : "default-persistent-search",
             affine_service_allowance_);
       },[&] {
-        AffineMatrixServiceResult serviced;
         using ReasonMode = DefaultStrategyConfig::AffineSearch::ReasonMode;
+        using Operation = strategy::AffineMatrixInitializeParameters::Operation;
         // A restart-root service always takes the eager source-support step.
-        const ReasonMode mode =
-            root ? ReasonMode::EagerSourceSupport : config_.affine_search.reason_mode;
-        auto &session = *kernel.affine_matrix_search_session;
-        if (mode == ReasonMode::Deferred)
-          serviced = port::affine_matrix_search_step_deferred(kernel, session);
-        else if (mode == ReasonMode::DetachedMinimal)
-          serviced = port::affine_matrix_search_step_detached_minimal(kernel, session);
-        else if (mode == ReasonMode::DetachedSource)
-          serviced = port::affine_matrix_search_step_detached_source(kernel, session);
-        else if (mode == ReasonMode::LazySource)
-          serviced = port::affine_matrix_search_step_lazy_source(kernel, session);
-        else if (mode == ReasonMode::LazyMinimal)
-          serviced = port::affine_matrix_search_step_lazy_minimal(kernel, session);
-        else
-          serviced = port::affine_matrix_search_step(kernel, session);
+        Operation operation = Operation::SearchStep;
+        if (!root) switch (config_.affine_search.reason_mode) {
+          case ReasonMode::Deferred: operation = Operation::DeferredSearchStep; break;
+          case ReasonMode::DetachedMinimal: operation = Operation::DetachedMinimalSearchStep; break;
+          case ReasonMode::DetachedSource: operation = Operation::DetachedSourceSearchStep; break;
+          case ReasonMode::LazySource: operation = Operation::LazySourceSearchStep; break;
+          case ReasonMode::LazyMinimal: operation = Operation::LazyMinimalSearchStep; break;
+          default: break;
+        }
+        AffineMatrixServiceResult serviced = port::affine_matrix_search_service(
+            kernel, *kernel.affine_matrix_search_session, operation);
         uint64_t work=0;
         for (uint64_t amount : {serviced.trail_capture_work,serviced.synchronization_work,
              serviced.session_work,serviced.live.planner_work,serviced.live.revalidation_work,
@@ -3755,8 +3752,9 @@ AffineMatrixServiceResult DefaultPolicy::materialize_affine_reason(
         spec.description.have_affine_matrix_event = true;
         return spec;
       }, [&] {
-        return port::affine_matrix_materialize_reason(
-            kernel, *kernel.affine_matrix_search_session);
+        return port::affine_matrix_search_service(
+            kernel, *kernel.affine_matrix_search_session,
+            strategy::AffineMatrixInitializeParameters::Operation::MaterializeReasons);
       }, execution::affine_matrix_service_feedback);
   ++affine_search_diagnostics_.materialization_attempts;
   if (result.status == AffineMatrixServiceStatus::Inapplicable)

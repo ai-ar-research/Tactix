@@ -1968,11 +1968,6 @@ InvocationResult OnlineStrategyExecutor::advance(
                   const AffineMatrixPersistenceLimits limits{
                       profile.maximum_retained_bytes, profile.maximum_deferred_deletions,
                       profile.maximum_deferred_literal_work};
-                  const auto service = [&](auto operation) {
-                    affine_matrix_service.emplace(
-                        operation(k, *k.affine_matrix_search_session));
-                    return affine_matrix_service->result;
-                  };
                   using Operation = AffineMatrixInitializeParameters::Operation;
                   switch (profile.operation) {
                   case Operation::Initialize:
@@ -1987,19 +1982,15 @@ InvocationResult OnlineStrategyExecutor::advance(
                         profile.operation == Operation::Refresh));
                     return affine_matrix_initialization->result;
                   case Operation::SearchStep:
-                    return service(affine_matrix_search_step);
                   case Operation::DeferredSearchStep:
-                    return service(affine_matrix_search_step_deferred);
                   case Operation::DetachedMinimalSearchStep:
-                    return service(affine_matrix_search_step_detached_minimal);
                   case Operation::DetachedSourceSearchStep:
-                    return service(affine_matrix_search_step_detached_source);
                   case Operation::LazySourceSearchStep:
-                    return service(affine_matrix_search_step_lazy_source);
                   case Operation::LazyMinimalSearchStep:
-                    return service(affine_matrix_search_step_lazy_minimal);
                   case Operation::MaterializeReasons:
-                    return service(affine_matrix_materialize_reason);
+                    affine_matrix_service.emplace(affine_matrix_search_service(
+                        k, *k.affine_matrix_search_session, profile.operation));
+                    return affine_matrix_service->result;
                   }
                   return ApplyResult::NoOp;
                 })

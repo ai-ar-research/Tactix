@@ -1396,19 +1396,7 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
     case Operation::MaterializeReasons:
       if (!session.matches_profile(profile.basis, limits))
         return ApplyResult::NoOp;
-      session.last_service_ = profile.operation == Operation::SearchStep
-          ? affine_matrix_search_step(kernel, session)
-          : profile.operation == Operation::DeferredSearchStep
-              ? affine_matrix_search_step_deferred(kernel, session)
-          : profile.operation == Operation::DetachedMinimalSearchStep
-              ? affine_matrix_search_step_detached_minimal(kernel, session)
-          : profile.operation == Operation::DetachedSourceSearchStep
-              ? affine_matrix_search_step_detached_source(kernel, session)
-          : profile.operation == Operation::LazySourceSearchStep
-              ? affine_matrix_search_step_lazy_source(kernel, session)
-          : profile.operation == Operation::LazyMinimalSearchStep
-              ? affine_matrix_search_step_lazy_minimal(kernel, session)
-              : affine_matrix_materialize_reason(kernel, session);
+      session.last_service_ = affine_matrix_search_service(kernel, session, profile.operation);
       return session.last_service_->result;
   }
   return ApplyResult::NoOp;
