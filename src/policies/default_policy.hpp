@@ -372,7 +372,6 @@ private:
   GraphLabelingSliceResult run_graph_labeling(Kernel &);
   bool graph_labeling_due(const Kernel &);
   void schedule_graph_labeling(const Kernel &, const GraphLabelingSliceResult &);
-  void reset_graph_labeling_schedule(const Kernel &);
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
   void configure_from_env(const Kernel &);

@@ -2023,13 +2023,6 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   inprocess_.reset(k);
 }
 
-static uint64_t active_variables(const Kernel &k) {
-  // Kissat's `solver->active` is live state.  Cumulative retirement counters
-  // cannot reconstruct it after compaction and also miss Factor's fresh
-  // activation, which is precisely what makes `proberounds` enter round two.
-  return kernel_active_variables(k);
-}
-
 // Formula rules publish events without depending on decision heuristics.
 // Consume each Substitute round before a later round or watch reconnection
 // derives more roots: native substitute_round retires its representatives at
@@ -2151,8 +2144,11 @@ struct DelaySpec {
   bool denom_delta;
 };
 constexpr DelaySpec DELAY_SPECS[] = {
+    // Kissat's `solver->active` is live state.  Cumulative retirement counters
+    // cannot reconstruct it after compaction and also miss Factor's fresh
+    // activation, which is precisely what makes `proberounds` enter round two.
     {"Congruence", [](const Kernel &k) { return k.stats.congruence_merges; },
-     active_variables,
+     kernel_active_variables,
      &DefaultStrategyConfig::Inprocess::congruence_productivity_permille,
      false},
     // kissat `sweep.c`: `if (kissat_average (eliminated, swept) < 0.001)
@@ -2314,42 +2310,31 @@ const SlotOrderRow *default_slot_order(size_t *count) {
 }
 
 
+namespace {
+constexpr struct {
+  const char *name;
+  CandidateOrder order;
+} CANDIDATE_ORDER_NAMES[] = {
+    {"native", CandidateOrder::Native},
+    {"reverse", CandidateOrder::Reverse},
+    {"random", CandidateOrder::Random},
+    {"occ-asc", CandidateOrder::OccAsc},
+    {"occ-desc", CandidateOrder::OccDesc},
+    {"negocc-desc", CandidateOrder::NegOccDesc},
+    {"heuristic", CandidateOrder::Heuristic},
+};
+} // namespace
+
 const char *candidate_order_name(CandidateOrder o) {
-  switch (o) {
-  case CandidateOrder::Native:
-    return "native";
-  case CandidateOrder::Reverse:
-    return "reverse";
-  case CandidateOrder::Random:
-    return "random";
-  case CandidateOrder::OccAsc:
-    return "occ-asc";
-  case CandidateOrder::OccDesc:
-    return "occ-desc";
-  case CandidateOrder::NegOccDesc:
-    return "negocc-desc";
-  case CandidateOrder::Heuristic:
-    return "heuristic";
-  }
+  for (const auto &row : CANDIDATE_ORDER_NAMES)
+    if (row.order == o) return row.name;
   return "native";
 }
 
 bool parse_candidate_order(const char *s, CandidateOrder *out) {
-  static const struct {
-    const char *n;
-    CandidateOrder o;
-  } table[] = {
-      {"native", CandidateOrder::Native},
-      {"reverse", CandidateOrder::Reverse},
-      {"random", CandidateOrder::Random},
-      {"occ-asc", CandidateOrder::OccAsc},
-      {"occ-desc", CandidateOrder::OccDesc},
-      {"negocc-desc", CandidateOrder::NegOccDesc},
-      {"heuristic", CandidateOrder::Heuristic},
-  };
-  for (const auto &row : table)
-    if (!std::strcmp(s, row.n)) {
-      *out = row.o;
+  for (const auto &row : CANDIDATE_ORDER_NAMES)
+    if (!std::strcmp(s, row.name)) {
+      *out = row.order;
       return true;
     }
   return false;
@@ -2367,10 +2352,6 @@ uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
   for (const WatchEntry w : k.watches.entries(l))
     n += w.binary() ? 1u : (binary_only ? 0u : 1u);
   return n;
-}
-
-double transitive_activity(const Kernel &k, Var v) {
-  return k.h->scores.score[v];
 }
 
 uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst,
@@ -2527,8 +2508,8 @@ bool rank_transitive_reference(const Kernel &k, uint64_t *insts,
     const Var i = a >> 1, j = b >> 1; // transitive.c's second IDX
     const Var iv = k.compact_import_order[i], jv = k.compact_import_order[j];
     if (k.h->stable) {
-      const double s = transitive_activity(k, iv);
-      const double t = transitive_activity(k, jv);
+      const double s = k.h->scores.score[iv];
+      const double t = k.h->scores.score[jv];
       if (s < t)
         return true;
       if (s > t)
@@ -4074,12 +4055,6 @@ ApplyResult DefaultPolicy::affine_restart_service(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-void DefaultPolicy::reset_graph_labeling_schedule(const Kernel &kernel) {
-  (void)kernel;
-  graph_labeling_diagnostics_ = {};
-  graph_labeling_schedule_ = {};
-}
-
 bool DefaultPolicy::graph_labeling_due(const Kernel &kernel) {
   // Due at Kissat's Eliminate conflict limit, after the fruitlessness delay.
   if (!config_.graph_labeling_model.enabled ||
@@ -4304,7 +4279,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                           "per-solve",
                           execution::ResetGraphLabelingSessionRequest{},
                           ApplyResult::Ok);
-  reset_graph_labeling_schedule(k);
+  graph_labeling_diagnostics_ = {};
+  graph_labeling_schedule_ = {};
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.chronological_levels = chrono_levels;
   analysis.minimize_depth_limit = config_.analysis.minimize_depth_limit;
@@ -5603,7 +5579,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // owner's radix order is known. Charge that mandatory lower bound to
       // the same typed startup dose as resolution. If it cannot fit, decline
       // before allocating or mutating a partial owner domain.
-      const uint64_t active = active_variables(k);
+      const uint64_t active = kernel_active_variables(k);
       ++k.stats.fastel_rounds;
       k.stats.fastel_active += active;
       const uint64_t resolution_remaining = ledger_remaining(e, k, e.limit);
@@ -5706,7 +5682,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // rounds (fastel.c) gather the re-armed variables unconditionally.
       if (!initial_fast_elimination_admitted_ &&
           !default_should_run_initial_fast_elimination(candidates.size(),
-                                                       active_variables(k))) {
+                                                       kernel_active_variables(k))) {
         ++k.stats.fastel_declined;
         candidates.clear();
       } else {
@@ -5975,7 +5951,7 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
     e.tm.dec_profile++;
     return true;
   }
-  const uint64_t active = active_variables(k);
+  const uint64_t active = kernel_active_variables(k);
   // A nonzero ceiling is an explicit diagnostic arm. Production leaves it at
   // zero and follows Kissat's factordelay predicate below for every formula.
   if (cfg.factor_active_ceiling && active >= cfg.factor_active_ceiling)
@@ -6839,7 +6815,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   SlotPhaseCtx ctx{group, stop, completion};
   ctx.phase_unsat = structured_unsat;
   const std::vector<RuleVTable> &rules = tactix_rules();
-  uint64_t active_before = active_variables(k);
+  uint64_t active_before = kernel_active_variables(k);
   size_t sweep_retired_begin = SIZE_MAX;
   size_t sweep_substituted_begin = SIZE_MAX;
   const int rounds = initial_fast_elimination_active_
@@ -7063,7 +7039,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         (!k.subsume_complete || !k.strengthen_complete);
     if (!ctx.round_changed && subsume_pending)
       k.stats.subsume_holds++;
-    const uint64_t active_now = active_variables(k);
+    const uint64_t active_now = kernel_active_variables(k);
     if (active_now == active_before && !subsume_pending)
       break; // outer fixpoint: the round retired and created nothing
     active_before = active_now;

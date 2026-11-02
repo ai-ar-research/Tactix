@@ -7,6 +7,8 @@
 #include "kernel/kernel.hpp"
 #include "strategy/heuristic_execution.hpp"
 
+#include <algorithm>
+
 namespace tactix {
 
 // Consume formula-rule advice without giving rules access to policy state.
@@ -79,6 +81,15 @@ void heuristics_supersede_target_guidance(Kernel &, Var,
                                           TargetGuidanceOverwrite);
 void heuristics_supersede_all_target_guidance(Kernel &,
                                               TargetGuidanceOverwrite);
+// The rephase tail (kissat reset_phases): the fresh saved phases become the
+// target ones, superseding all target provenance, and the rephase is counted.
+inline void heuristics_reset_targets_from_saved(Kernel &k,
+                                                TargetGuidanceOverwrite source) {
+  heuristics_supersede_all_target_guidance(k, source);
+  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
+  k.h->target_assigned = 0;
+  k.stats.rephased++;
+}
 
 // Record an actual successful Decide boundary.  `consumed_target` distinguishes
 // configurations that selected another phase source while a target happened to
