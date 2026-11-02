@@ -12,6 +12,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 #include <span>
 #include <string>
 #include <type_traits>
@@ -113,6 +114,23 @@ uint32_t bve_retry_trace_candidate;
   // diagnostic endpoint has already flushed every selected artifact and must
   // terminate cleanly rather than falling through into more solver work.
   std::exit(0);
+}
+
+// Whether `event` is one of `names`.
+bool event_in(const char *event, std::initializer_list<const char *> names) {
+  for (const char *name : names)
+    if (!std::strcmp(event, name))
+      return true;
+  return false;
+}
+
+// Whether `event` begins with one of `prefixes`.
+bool event_prefixed(const char *event,
+                    std::initializer_list<const char *> prefixes) {
+  for (const char *prefix : prefixes)
+    if (!std::strncmp(event, prefix, std::strlen(prefix)))
+      return true;
+  return false;
 }
 
 bool exit_selector_matches(const char *event, const char *payload,
@@ -1433,6 +1451,9 @@ bool EventTrace::open_from_env(const Kernel &k) {
   const char *path = std::getenv("TACTIX_EVENT_TRACE");
   if (!path || !*path)
     return false;
+  const auto flag = [](const char *environment) {
+    return std::getenv(environment) != nullptr;
+  };
   read_decimal("TACTIX_EVENT_TRACE_LIMIT", limit_);
   detail_window_ |=
       read_decimal("TACTIX_EVENT_TRACE_CONFLICT_FROM", detail_conflict_from_);
@@ -1450,78 +1471,52 @@ bool EventTrace::open_from_env(const Kernel &k) {
                heap_remove_decision_);
   read_decimal("SAT_EVENT_TRACE_BVE_POP_FROM", bve_pop_from_);
   read_decimal("SAT_EVENT_TRACE_BVE_POP_TO", bve_pop_to_);
-  compact_probe_ = std::getenv("TACTIX_EVENT_TRACE_COMPACT_PROBE") != nullptr;
-  boundary_only_ = std::getenv("TACTIX_EVENT_TRACE_BOUNDARY_ONLY") != nullptr;
+  compact_probe_ = flag("TACTIX_EVENT_TRACE_COMPACT_PROBE");
+  boundary_only_ = flag("TACTIX_EVENT_TRACE_BOUNDARY_ONLY");
   if (const char *match =
           std::getenv("SAT_EVENT_TRACE_EXIT_AFTER_MATCH"))
     exit_match_ = match;
   read_decimal("SAT_EVENT_TRACE_EXIT_CONFLICT", exit_conflict_);
-  target_only_ = !exit_match_.empty() &&
-                 std::getenv("SAT_EVENT_TRACE_TARGET_ONLY") != nullptr;
-  skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
-  skip_imply_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_IMPLY") != nullptr;
-  skip_heap_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_HEAP") != nullptr;
-  heap_each_bump_ =
-      std::getenv("TACTIX_EVENT_TRACE_HEAP_EACH_BUMP") != nullptr;
-  heap_pop_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_HEAP_POP_ONLY") != nullptr;
-  heap_vars_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_HEAP_VARS_ONLY") != nullptr;
+  target_only_ = !exit_match_.empty() && flag("SAT_EVENT_TRACE_TARGET_ONLY");
+  skip_watch_ = flag("TACTIX_EVENT_TRACE_SKIP_WATCH");
+  skip_imply_ = flag("TACTIX_EVENT_TRACE_SKIP_IMPLY");
+  skip_heap_ = flag("TACTIX_EVENT_TRACE_SKIP_HEAP");
+  heap_each_bump_ = flag("TACTIX_EVENT_TRACE_HEAP_EACH_BUMP");
+  heap_pop_only_ = flag("TACTIX_EVENT_TRACE_HEAP_POP_ONLY");
+  heap_vars_only_ = flag("TACTIX_EVENT_TRACE_HEAP_VARS_ONLY");
   if (const char *spec = std::getenv("SAT_EVENT_TRACE_HEAP_VARS"))
     append_absolute_integers(spec, heap_vars_);
-  skip_decisions_ =
-      std::getenv("TACTIX_EVENT_TRACE_SKIP_DECISIONS") != nullptr;
-  skip_randec_draws_ =
-      std::getenv("TACTIX_EVENT_TRACE_SKIP_RANDEC_DRAWS") != nullptr;
-  skip_analysis_ticks_ =
-      std::getenv("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != nullptr;
-  keep_snapshots_ =
-      std::getenv("TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS") != nullptr;
-  search_only_ = std::getenv("TACTIX_EVENT_TRACE_SEARCH_ONLY") != nullptr;
-  control_only_ = std::getenv("TACTIX_EVENT_TRACE_CONTROL_ONLY") != nullptr;
-  snapshot_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_SNAPSHOT_ONLY") != nullptr;
-  glue_only_ = std::getenv("TACTIX_EVENT_TRACE_GLUE_ONLY") != nullptr;
-  phase_only_ = std::getenv("TACTIX_EVENT_TRACE_PHASE_ONLY") != nullptr;
-  formula_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_FORMULA_ONLY") != nullptr;
-  trajectory_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY") != nullptr;
-  learned_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_LEARNED_ONLY") != nullptr;
-  imply_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_IMPLY_ONLY") != nullptr;
-  factor_fresh_only_ =
-      std::getenv("SAT_EVENT_TRACE_FACTOR_FRESH_ONLY") != nullptr;
-  factor_update_only_ =
-      std::getenv("SAT_EVENT_TRACE_FACTOR_UPDATE_ONLY") != nullptr;
-  factor_literal_only_ =
-      std::getenv("SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY") != nullptr;
-  factor_seed_only_ =
-      std::getenv("SAT_EVENT_TRACE_FACTOR_SEED_ONLY") != nullptr;
-  clause_lifecycle_only_ =
-      std::getenv("SAT_EVENT_TRACE_CLAUSE_LIFECYCLE_ONLY") != nullptr;
-  substitute_only_ =
-      std::getenv("SAT_EVENT_TRACE_SUBSTITUTE_ONLY") != nullptr;
+  skip_decisions_ = flag("TACTIX_EVENT_TRACE_SKIP_DECISIONS");
+  skip_randec_draws_ = flag("TACTIX_EVENT_TRACE_SKIP_RANDEC_DRAWS");
+  skip_analysis_ticks_ = flag("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS");
+  keep_snapshots_ = flag("TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS");
+  search_only_ = flag("TACTIX_EVENT_TRACE_SEARCH_ONLY");
+  control_only_ = flag("TACTIX_EVENT_TRACE_CONTROL_ONLY");
+  snapshot_only_ = flag("TACTIX_EVENT_TRACE_SNAPSHOT_ONLY");
+  glue_only_ = flag("TACTIX_EVENT_TRACE_GLUE_ONLY");
+  phase_only_ = flag("TACTIX_EVENT_TRACE_PHASE_ONLY");
+  formula_only_ = flag("TACTIX_EVENT_TRACE_FORMULA_ONLY");
+  trajectory_only_ = flag("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY");
+  learned_only_ = flag("TACTIX_EVENT_TRACE_LEARNED_ONLY");
+  imply_only_ = flag("TACTIX_EVENT_TRACE_IMPLY_ONLY");
+  factor_fresh_only_ = flag("SAT_EVENT_TRACE_FACTOR_FRESH_ONLY");
+  factor_update_only_ = flag("SAT_EVENT_TRACE_FACTOR_UPDATE_ONLY");
+  factor_literal_only_ = flag("SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY");
+  factor_seed_only_ = flag("SAT_EVENT_TRACE_FACTOR_SEED_ONLY");
+  clause_lifecycle_only_ = flag("SAT_EVENT_TRACE_CLAUSE_LIFECYCLE_ONLY");
+  substitute_only_ = flag("SAT_EVENT_TRACE_SUBSTITUTE_ONLY");
   if (const char *spec = std::getenv("SAT_EVENT_TRACE_IMPLY_LITERALS"))
     append_absolute_integers(spec, imply_literals_);
-  bve_heap_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_BVE_HEAP_ONLY") != nullptr;
-  bve_pop_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_BVE_POP_ONLY") != nullptr;
-  conflict_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_CONFLICT_ONLY") != nullptr;
-  checkpoint_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_CHECKPOINT_ONLY") != nullptr;
-  sweep_only_ = std::getenv("TACTIX_EVENT_TRACE_SWEEP_ONLY") != nullptr;
-  watch_only_ = std::getenv("TACTIX_EVENT_TRACE_WATCH_ONLY") != nullptr;
-  watch_only_strict_ =
-      std::getenv("TACTIX_EVENT_TRACE_WATCH_ONLY_STRICT") != nullptr;
-  watch_cost_ = std::getenv("TACTIX_EVENT_TRACE_WATCH_COST") != nullptr;
-  search_watch_cost_only_ =
-      std::getenv("TACTIX_EVENT_TRACE_SEARCH_WATCH_COST_ONLY") != nullptr;
-  watch_within_vivify_ =
-      std::getenv("TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY") != nullptr;
+  bve_heap_only_ = flag("TACTIX_EVENT_TRACE_BVE_HEAP_ONLY");
+  bve_pop_only_ = flag("TACTIX_EVENT_TRACE_BVE_POP_ONLY");
+  conflict_only_ = flag("TACTIX_EVENT_TRACE_CONFLICT_ONLY");
+  checkpoint_only_ = flag("TACTIX_EVENT_TRACE_CHECKPOINT_ONLY");
+  sweep_only_ = flag("TACTIX_EVENT_TRACE_SWEEP_ONLY");
+  watch_only_ = flag("TACTIX_EVENT_TRACE_WATCH_ONLY");
+  watch_only_strict_ = flag("TACTIX_EVENT_TRACE_WATCH_ONLY_STRICT");
+  watch_cost_ = flag("TACTIX_EVENT_TRACE_WATCH_COST");
+  search_watch_cost_only_ = flag("TACTIX_EVENT_TRACE_SEARCH_WATCH_COST_ONLY");
+  watch_within_vivify_ = flag("TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY");
   out_ = std::fopen(path, "w");
   if (!out_)
     return false;
@@ -1557,7 +1552,7 @@ void EventTrace::close() {
 void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                       bool snapshot) {
   if (std::getenv("SAT_EVENT_TRACE_ALL_ROOTS") &&
-      std::strcmp(event, "root_assign") && std::strcmp(event, "analysis_end"))
+      !event_in(event, {"root_assign", "analysis_end"}))
     return;
   const bool exit_after_match =
       exit_selector_matches(event, payload, exit_match_.c_str()) &&
@@ -1568,54 +1563,44 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   // Reject unrelated BVE/Factor and macro families before they can consume the
   // row cap on the long prefix leading to a late Probe call.  The explicitly
   // selected terminal boundary always survives this filter.
-  if (substitute_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "substitute_map") && !exit_after_match)
+  if (substitute_only_ && !event_in(event, {"trace_begin", "substitute_map"}) &&
+      !exit_after_match)
     return;
   // Selected watch-list captures must reject macro snapshots before snapshot
   // extraction.  The broader WATCH_ONLY mode deliberately retains them for
   // existing lifecycle diagnostics.
-  if (watch_only_strict_ && std::strcmp(event, "watch") &&
-      std::strcmp(event, "watch_post") &&
-      std::strcmp(event, "watch_post_summary"))
+  if (watch_only_strict_ &&
+      !event_in(event, {"watch", "watch_post", "watch_post_summary"}))
     return;
-  if (factor_fresh_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "factor_fresh") && !exit_after_match)
+  if (factor_fresh_only_ && !event_in(event, {"trace_begin", "factor_fresh"}) &&
+      !exit_after_match)
     return;
-  if (factor_update_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "factor_update") &&
-      std::strcmp(event, "factor_heap") &&
-      std::strcmp(event, "factor_heap_digest") &&
-      std::strcmp(event, "factor_fresh") && !exit_after_match)
+  if (factor_update_only_ &&
+      !event_in(event, {"trace_begin", "factor_update", "factor_heap",
+                        "factor_heap_digest", "factor_fresh"}) &&
+      !exit_after_match)
     return;
   const bool selected_sweep_commit =
       std::getenv("SAT_EVENT_TRACE_SWEEP_COMMIT") != nullptr;
-  if (factor_literal_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "factor_literal_state") &&
-      std::strcmp(event, "factor_literal_entry") &&
-      std::strcmp(event, "factor_mark_transition") &&
-      std::strcmp(event, "binary_add") &&
-      std::strcmp(event, "factor_fresh") &&
+  if (factor_literal_only_ &&
+      !event_in(event, {"trace_begin", "factor_literal_state",
+                        "factor_literal_entry", "factor_mark_transition",
+                        "binary_add", "factor_fresh"}) &&
       (!selected_sweep_commit ||
-       (std::strcmp(event, "sweep_equivalence") &&
-        std::strcmp(event, "sweep_commit"))))
+       !event_in(event, {"sweep_equivalence", "sweep_commit"})))
     return;
-  if (factor_seed_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "factor_seed") &&
-      std::strcmp(event, "factor_remainder") &&
-      std::strcmp(event, "factor_candidate") &&
-      std::strcmp(event, "factor_candidate_source") &&
-      std::strcmp(event, "factor_candidate_binary_source") &&
-      std::strcmp(event, "factor_score_entry") &&
-      std::strcmp(event, "factor_fresh") && !exit_after_match)
+  if (factor_seed_only_ &&
+      !event_in(event, {"trace_begin", "factor_seed", "factor_remainder",
+                        "factor_candidate", "factor_candidate_source",
+                        "factor_candidate_binary_source", "factor_score_entry",
+                        "factor_fresh"}) && !exit_after_match)
     return;
   // Selected-clause lifecycle traces retain macro snapshots to follow arena
   // relocation, but reject ordinary search detail before it can consume the
   // row cap or dominate solver time.
   if (clause_lifecycle_only_ && !snapshot &&
-      std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "eliminate_cleanup") &&
-      std::strcmp(event, "factor_literal_state") &&
-      std::strcmp(event, "terminate"))
+      !event_in(event, {"trace_begin", "eliminate_cleanup",
+                        "factor_literal_state", "terminate"}))
     return;
   if (clause_lifecycle_only_ && snapshot && !in_detail_window(k))
     return;
@@ -1625,8 +1610,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   // 17-second diagnostic hit its 300-second runner cap before the target.
   if (sweep_only_ && snapshot && !in_detail_window(k))
     return;
-  if (conflict_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "conflict") && std::strcmp(event, "terminate"))
+  if (conflict_only_ &&
+      !event_in(event, {"trace_begin", "conflict", "terminate"}))
     return;
   if (snapshot)
     emit_binary_set_snapshot(k, event, payload);
@@ -1634,75 +1619,56 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     emit_formula_set_snapshot(k, event, payload);
   if (!out_)
     return;
-  if (snapshot_only_ && !snapshot && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "terminate"))
+  if (snapshot_only_ && !snapshot &&
+      !event_in(event, {"trace_begin", "terminate"}))
     return;
-  if (learned_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "learned") &&
-      std::strcmp(event, "terminate"))
+  if (learned_only_ &&
+      !event_in(event, {"trace_begin", "learned", "terminate"}))
     return;
-  if (imply_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "imply") && std::strcmp(event, "terminate"))
+  if (imply_only_ && !event_in(event, {"trace_begin", "imply", "terminate"}))
     return;
   // Cumulative BVE-pop checkpoints are sufficient to locate a dynamic heap
   // split.  Keep this surface separate from BVE_HEAP_ONLY, which deliberately
   // retains candidate plans and can produce hundreds of thousands of rows.
-  if (bve_pop_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "bve_schedule") &&
-      std::strcmp(event, "bve_pop_checkpoint") &&
-      std::strcmp(event, "bve_pop") && std::strcmp(event, "terminate"))
+  if (bve_pop_only_ &&
+      !event_in(event, {"trace_begin", "bve_schedule", "bve_pop_checkpoint",
+                        "bve_pop", "terminate"}))
     return;
-  if (bve_heap_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "bve_heap") &&
-      std::strcmp(event, "bve_schedule") &&
-      std::strcmp(event, "bve_pop_checkpoint") &&
-      std::strcmp(event, "bve_pop") &&
-      std::strcmp(event, "bve_candidate") &&
-      std::strcmp(event, "bve_occurrences") &&
-      std::strcmp(event, "bve_definition") &&
-      std::strcmp(event, "bve_plan") && std::strcmp(event, "bve_pair") &&
-      std::strcmp(event, "analysis_end") &&
-      std::strcmp(event, "terminate"))
+  if (bve_heap_only_ &&
+      !event_in(event, {"trace_begin", "bve_heap", "bve_schedule",
+                        "bve_pop_checkpoint", "bve_pop", "bve_candidate",
+                        "bve_occurrences", "bve_definition", "bve_plan",
+                        "bve_pair", "analysis_end", "terminate"}))
     return;
-  if (heap_vars_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "heap_insert") &&
-      std::strcmp(event, "heap_remove") &&
-      std::strcmp(event, "heap_pop") && std::strcmp(event, "root_assign") &&
-      std::strcmp(event, "substitute_map") &&
-      std::strcmp(event, "analysis_end") &&
-      std::strcmp(event, "terminate"))
+  if (heap_vars_only_ &&
+      !event_in(event, {"trace_begin", "heap_insert", "heap_remove", "heap_pop",
+                        "root_assign", "substitute_map", "analysis_end",
+                        "terminate"}))
     return;
-  if (checkpoint_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "checkpoint") && std::strcmp(event, "terminate"))
+  if (checkpoint_only_ &&
+      !event_in(event, {"trace_begin", "checkpoint", "terminate"}))
     return;
-  if (formula_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "formula_checkpoint") &&
-      std::strcmp(event, "terminate"))
+  if (formula_only_ &&
+      !event_in(event, {"trace_begin", "formula_checkpoint", "terminate"}))
     return;
-  if (heap_pop_only_ && std::strcmp(event, "heap_insert") &&
-      std::strcmp(event, "heap_pop") &&
-      std::strcmp(event, "heap_remove") &&
-      std::strcmp(event, "heap_scores") && std::strcmp(event, "decision") &&
-      std::strcmp(event, "analysis_end"))
+  if (heap_pop_only_ &&
+      !event_in(event, {"heap_insert", "heap_pop", "heap_remove", "heap_scores",
+                        "decision", "analysis_end"}))
     return;
   if (snapshot && !keep_snapshots_ && stop_after_conflict_ != UINT64_MAX &&
       k.stats.conflicts < stop_after_conflict_ &&
-      std::strcmp(event, "analysis_end") &&
-      std::strcmp(event, "formula_checkpoint"))
+      !event_in(event, {"analysis_end", "formula_checkpoint"}))
     return;
-  if (glue_only_ && std::strcmp(event, "reason_glue") &&
-      std::strcmp(event, "reason_used") &&
-      std::strcmp(event, "retier") &&
-      std::strcmp(event, "analysis_end"))
+  if (glue_only_ &&
+      !event_in(event, {"reason_glue", "reason_used", "retier",
+                        "analysis_end"}))
     return;
-  if (phase_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "target_state") &&
-      std::strcmp(event, "phase_pick") &&
-      std::strcmp(event, "phase_save") &&
-      std::strcmp(event, "formula_checkpoint"))
+  if (phase_only_ &&
+      !event_in(event, {"trace_begin", "target_state", "phase_pick",
+                        "phase_save", "formula_checkpoint"}))
     return;
   if (skip_watch_ && !std::strncmp(event, "watch", 5) &&
-      std::strcmp(event, "watch_move") && std::strcmp(event, "watch_cost"))
+      !event_in(event, {"watch_move", "watch_cost"}))
     return;
   if (skip_imply_ && !std::strcmp(event, "imply"))
     return;
@@ -1710,124 +1676,71 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "heap_reinsert"))
     return;
   if (skip_decisions_ &&
-      (!std::strcmp(event, "decision") || !std::strcmp(event, "randec_draw") ||
-       !std::strcmp(event, "randec_state") ||
-       !std::strcmp(event, "phase_pick")))
+      event_in(event, {"decision", "randec_draw", "randec_state",
+                       "phase_pick"}))
     return;
   if (skip_randec_draws_ && !std::strcmp(event, "randec_draw"))
     return;
   if (skip_analysis_ticks_ && !std::strncmp(event, "analysis_tick", 13))
     return;
-  if (watch_only_ && !snapshot && std::strcmp(event, "watch") &&
-      std::strcmp(event, "watch_post") &&
-      std::strcmp(event, "watch_post_summary") &&
-      std::strcmp(event, "watch_move") &&
-      std::strcmp(event, "watch_cost") &&
-      std::strcmp(event, "reason_glue") &&
-      std::strcmp(event, "vivify_candidate") &&
-      std::strcmp(event, "vivify_candidate_end") &&
-      std::strcmp(event, "vivify_budget_stop"))
+  if (watch_only_ && !snapshot &&
+      !event_in(event, {"watch", "watch_post", "watch_post_summary",
+                        "watch_move", "watch_cost", "reason_glue",
+                        "vivify_candidate", "vivify_candidate_end",
+                        "vivify_budget_stop"}))
     return;
-  if (search_only_ && !snapshot && std::strcmp(event, "decision") &&
-      std::strcmp(event, "randec_draw") &&
-      std::strcmp(event, "randec_state") &&
-      std::strcmp(event, "phase_pick") &&
-      std::strcmp(event, "score_bump") &&
-      std::strcmp(event, "heap_insert") &&
-      std::strcmp(event, "heap_remove") &&
-      std::strcmp(event, "heap_reinsert") &&
-      std::strcmp(event, "heap_scores") &&
-      std::strcmp(event, "binary_assignment") &&
-      std::strcmp(event, "binary_add") &&
-      std::strcmp(event, "sweep_seed") &&
-      std::strcmp(event, "sweep_environment") &&
-      std::strcmp(event, "sweep_environment_clause") &&
-      std::strcmp(event, "sweep_query") &&
-      std::strcmp(event, "sweep_query_model") &&
-      std::strcmp(event, "sweep_equivalence") &&
-      std::strcmp(event, "sweep_commit") &&
-      std::strcmp(event, "sweep_rewrite_binary") &&
-      std::strcmp(event, "assignment") && std::strcmp(event, "watch") &&
-      std::strcmp(event, "watch_post") &&
-      std::strcmp(event, "watch_post_summary") &&
-      std::strcmp(event, "imply") &&
-      std::strcmp(event, "conflict") && std::strncmp(event, "analyzed", 8) &&
-      std::strncmp(event, "analysis_", 9) &&
-      std::strncmp(event, "reason_", 7) &&
-      std::strncmp(event, "learned", 7))
+  if (search_only_ && !snapshot &&
+      !event_in(event, {"decision", "randec_draw", "randec_state", "phase_pick",
+                        "score_bump", "heap_insert", "heap_remove",
+                        "heap_reinsert", "heap_scores", "binary_assignment",
+                        "binary_add", "sweep_seed", "sweep_environment",
+                        "sweep_environment_clause", "sweep_query",
+                        "sweep_query_model", "sweep_equivalence",
+                        "sweep_commit", "sweep_rewrite_binary", "assignment",
+                        "watch", "watch_post", "watch_post_summary", "imply",
+                        "conflict"}) &&
+      !event_prefixed(event, {"analyzed", "analysis_", "reason_", "learned"}))
     return;
   // Bounded trajectory comparison without the much larger implication stream.
   // Snapshots retain control transitions; detailed records retain only choices
   // and conflict-analysis transactions needed to find the first mismatch.
-  if (control_only_ && !snapshot && std::strcmp(event, "decision") &&
-      std::strcmp(event, "randec_draw") &&
-      std::strcmp(event, "randec_state") &&
-      std::strcmp(event, "score_bump") &&
-      std::strcmp(event, "heap_scores") &&
-      std::strcmp(event, "assignment") &&
-      std::strcmp(event, "heap_reinsert") && std::strcmp(event, "watch") &&
-      std::strcmp(event, "watch_post") &&
-      std::strcmp(event, "watch_post_summary") &&
-      std::strcmp(event, "conflict") &&
-      std::strncmp(event, "analyzed", 8) &&
-      std::strncmp(event, "analysis_", 9) &&
-      std::strncmp(event, "learned", 7) &&
-      std::strncmp(event, "factor_", 7) &&
-      std::strncmp(event, "vivify_", 7) &&
-      std::strncmp(event, "root_", 5) &&
-      std::strncmp(event, "reason_", 7))
+  if (control_only_ && !snapshot &&
+      !event_in(event, {"decision", "randec_draw", "randec_state", "score_bump",
+                        "heap_scores", "assignment", "heap_reinsert", "watch",
+                        "watch_post", "watch_post_summary", "conflict"}) &&
+      !event_prefixed(event, {"analyzed", "analysis_", "learned", "factor_",
+                              "vivify_", "root_", "reason_"}))
     return;
   // Minimal portable search trajectory.  Keep macro/snapshot boundaries and
   // only the choices plus learned-clause transaction needed to locate the
   // first semantic divergence before enabling the high-volume internals.
-  if (sweep_only_ && !snapshot && std::strcmp(event, "sweep_schedule") &&
-      std::strcmp(event, "sweep_seed") &&
-      std::strcmp(event, "sweep_environment") &&
-      std::strcmp(event, "sweep_environment_clause") &&
-      std::strcmp(event, "sweep_environment_var") &&
-      std::strcmp(event, "sweep_binary_attempt") &&
-      std::strcmp(event, "sweep_effort") &&
-      std::strcmp(event, "sweep_query") &&
-      std::strcmp(event, "sweep_query_model") &&
-      std::strcmp(event, "sweep_equivalence") &&
-      std::strcmp(event, "sweep_commit") &&
-      std::strcmp(event, "sweep_flip") &&
-      std::strcmp(event, "sweep_rewrite_binary") &&
-      std::strcmp(event, "sweep_rewrite_occurrence") &&
-      std::strcmp(event, "sweep_watch") &&
-      std::strcmp(event, "sweep_unit"))
+  if (sweep_only_ && !snapshot &&
+      !event_in(event, {"sweep_schedule", "sweep_seed", "sweep_environment",
+                        "sweep_environment_clause", "sweep_environment_var",
+                        "sweep_binary_attempt", "sweep_effort", "sweep_query",
+                        "sweep_query_model", "sweep_equivalence",
+                        "sweep_commit", "sweep_flip", "sweep_rewrite_binary",
+                        "sweep_rewrite_occurrence", "sweep_watch",
+                        "sweep_unit"}))
     return;
   if (trajectory_only_ && !snapshot &&
       !(sweep_only_ && !std::strncmp(event, "sweep_", 6)) &&
-      std::strcmp(event, "decision") &&
-      std::strcmp(event, "randec_draw") &&
-      std::strcmp(event, "randec_state") &&
-      std::strcmp(event, "phase_pick") && std::strcmp(event, "conflict") &&
-      std::strcmp(event, "mode_clock") &&
-      std::strcmp(event, "restart_clock") &&
-      std::strcmp(event, "analysis_begin") &&
-      std::strcmp(event, "analysis_end") &&
-      std::strcmp(event, "analysis_eager_subsumed") &&
-      std::strcmp(event, "analysis_otfs_strengthened") &&
-      std::strcmp(event, "analysis_otfs_subsumed") &&
-      std::strncmp(event, "backbone_", 9) &&
-      std::strncmp(event, "learned", 7))
+      !event_in(event, {"decision", "randec_draw", "randec_state", "phase_pick",
+                        "conflict", "mode_clock", "restart_clock",
+                        "analysis_begin", "analysis_end",
+                        "analysis_eager_subsumed", "analysis_otfs_strengthened",
+                        "analysis_otfs_subsumed"}) &&
+      !event_prefixed(event, {"backbone_", "learned"}))
     return;
-  if (compact_probe_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "probe_begin") && std::strcmp(event, "probe_end") &&
-      std::strcmp(event, "preprocess_begin") &&
-      std::strcmp(event, "preprocess_end") &&
-      std::strcmp(event, "slot_boundary") &&
-      std::strncmp(event, "factor_", 7) &&
-      std::strncmp(event, "bve_", 4) &&
-      std::strncmp(event, "eliminate_", 10) &&
-      std::strncmp(event, "substitute_", 11))
+  if (compact_probe_ &&
+      !event_in(event, {"trace_begin", "probe_begin", "probe_end",
+                        "preprocess_begin", "preprocess_end",
+                        "slot_boundary"}) &&
+      !event_prefixed(event, {"factor_", "bve_", "eliminate_", "substitute_"}))
     return;
-  if (boundary_only_ && std::strcmp(event, "trace_begin") &&
-      std::strcmp(event, "probe_begin") && std::strcmp(event, "probe_end") &&
-      std::strcmp(event, "preprocess_begin") &&
-      std::strcmp(event, "preprocess_end") &&
-      std::strcmp(event, "slot_boundary"))
+  if (boundary_only_ &&
+      !event_in(event, {"trace_begin", "probe_begin", "probe_end",
+                        "preprocess_begin", "preprocess_end", "slot_boundary"}))
     return;
   // A requested terminal observation is stronger than the ordinary row cap.
   // Otherwise a noisy retained family can exhaust the cap and make an
