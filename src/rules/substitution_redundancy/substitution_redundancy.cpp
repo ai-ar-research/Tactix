@@ -2,6 +2,7 @@
 
 #include "engine/subsolver.hpp"
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
@@ -577,9 +578,7 @@ SubstitutionRedundancyGeneralResult substitution_redundancy_next_general(
 }
 
 RuleEligibility substitution_redundancy_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
 ApplyResult substitution_redundancy_apply(Kernel &) {
@@ -795,14 +794,6 @@ substitution_redundancy_apply_orbitopal_prefix(
     volatile sig_atomic_t *stop) {
   return substitution_redundancy_apply_detailed_impl(k, instance, parameters,
                                                       stop, true);
-}
-
-ApplyResult substitution_redundancy_apply(
-    Kernel &k, const SubstitutionRedundancyInstance &instance,
-    const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop) {
-  return substitution_redundancy_apply_detailed(k, instance, parameters, stop)
-      .rule_result;
 }
 
 TACTIX_REGISTER_RULE(SubstitutionRedundancy, RuleTier::Inprocess,
