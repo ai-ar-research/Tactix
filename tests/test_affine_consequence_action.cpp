@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 #include "strategy/semantic_variable_advice.hpp"
@@ -73,12 +74,6 @@ static strategy::AffineConsequenceParameters basis_parameters() {
   result.maximum_external_extent = 100000;
   result.maximum_session_keys = 10000;
   result.maximum_session_work = 1000000;
-  return result;
-}
-
-static long position(FILE *file) {
-  const long result = std::ftell(file);
-  assert(result >= 0);
   return result;
 }
 

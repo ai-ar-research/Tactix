@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/graph_interval_equivalence/graph_interval_equivalence.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -66,17 +67,6 @@ void fixture(Kernel &kernel, bool complete) {
   if (complete) add(kernel, {-2, -11});
 }
 
-std::string contents(FILE *file) {
-  std::fflush(file);
-  std::rewind(file);
-  std::string result;
-  char buffer[4096];
-  while (const size_t size = std::fread(buffer, 1, sizeof buffer, file))
-    result.append(buffer, size);
-  assert(!std::ferror(file));
-  return result;
-}
-
 void positive(const char *proof_path) {
   Kernel kernel;
   fixture(kernel, true);
@@ -111,7 +101,7 @@ void positive(const char *proof_path) {
   assert(kernel.structural_action_sequence == 1);
   assert(kernel.stats.graph_interval_equivalence_duplicates == 2);
 
-  const std::string provenance = contents(records);
+  const std::string provenance = stream_contents(records);
   assert(provenance.find("\"kind\":\"authenticated-duplicate-interval\"") !=
          std::string::npos);
   assert(provenance.find("\"row\":0,\"first\":0,\"last\":1") !=
@@ -256,7 +246,7 @@ void c_api_surface() {
   assert(values[0] == INSTANCE_CANONICAL);
   assert(tactix_apply_instance(solver, id, 1) == 0);
   assert(tactix_apply_instance(solver, id, 1) == 1);
-  assert(contents(records).find("\"proof_additions\":2") != std::string::npos);
+  assert(stream_contents(records).find("\"proof_additions\":2") != std::string::npos);
   assert(tactix_bind_structural_provenance(solver, nullptr) == 0);
   tactix_release(solver);
   std::fclose(records);

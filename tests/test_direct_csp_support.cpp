@@ -1,11 +1,11 @@
 #undef NDEBUG
+#include "clause_oracle.hpp"
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <iostream>
-#include <map>
 #include <set>
 #include <vector>
 
@@ -59,19 +59,6 @@ Bounds generous() {
   return {1000, 10000, 100, 16, 100, 100, 10000, false, 0};
 }
 
-bool literal_value(int32_t literal, uint64_t assignment) {
-  const uint32_t variable =
-      static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-  const bool value = assignment & (uint64_t{1} << (variable - 1));
-  return literal > 0 ? value : !value;
-}
-
-bool clause_value(const std::vector<int32_t> &clause, uint64_t assignment) {
-  for (int32_t literal : clause)
-    if (literal_value(literal, assignment)) return true;
-  return false;
-}
-
 void check_semantic_entailment(const Fixture &fixture,
                                const std::vector<int32_t> &consequence,
                                uint32_t variables) {
@@ -81,48 +68,6 @@ void check_semantic_entailment(const Fixture &fixture,
     for (const Premise &premise : fixture.source)
       source_model &= clause_value(premise.literals, assignment);
     if (source_model) assert(clause_value(consequence, assignment));
-  }
-}
-
-bool rup(const std::vector<std::vector<int32_t>> &formula,
-         const std::vector<int32_t> &addition) {
-  std::map<uint32_t, bool> assigned;
-  auto assign = [&](int32_t literal) {
-    const uint32_t variable =
-        static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-    const bool value = literal > 0;
-    const auto [where, inserted] = assigned.emplace(variable, value);
-    return inserted || where->second == value;
-  };
-  for (int32_t literal : addition)
-    if (!assign(-literal)) return true;
-  for (;;) {
-    bool changed = false;
-    for (const auto &clause : formula) {
-      bool satisfied = false;
-      int32_t unit = 0;
-      uint32_t open = 0;
-      for (int32_t literal : clause) {
-        const uint32_t variable = static_cast<uint32_t>(
-            literal < 0 ? -int64_t(literal) : literal);
-        const auto found = assigned.find(variable);
-        if (found == assigned.end()) {
-          unit = literal;
-          ++open;
-        } else if (found->second == (literal > 0)) {
-          satisfied = true;
-          break;
-        }
-      }
-      if (satisfied) continue;
-      if (!open) return true;
-      if (open == 1) {
-        const size_t before = assigned.size();
-        if (!assign(unit)) return true;
-        changed |= assigned.size() != before;
-      }
-    }
-    if (!changed) return false;
   }
 }
 
@@ -149,7 +94,7 @@ void test_direct_support_and_source_identity() {
   std::vector<std::vector<int32_t>> formula;
   for (const Premise &premise : fixture.source)
     formula.push_back(premise.literals);
-  assert(rup(formula, plan.additions[0].clause));
+  assert(rup_implied(formula, plan.additions[0].clause));
   assert(!plan.projection.extension_variable);
 }
 
@@ -197,7 +142,7 @@ void test_exact_or_extension_and_projection() {
     formula.push_back(premise.literals);
   for (size_t i = 0; i < plan.additions.size(); ++i) {
     if (plan.additions[i].proof == ProofStep::Rup)
-      assert(rup(formula, plan.additions[i].clause));
+      assert(rup_implied(formula, plan.additions[i].clause));
     formula.push_back(plan.additions[i].clause);
   }
   // Every original model has exactly the advertised extension value, and

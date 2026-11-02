@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "checker_certificate.hpp"
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -41,29 +43,14 @@ static std::vector<Premise> source_formula(bool missing_edge = false) {
 static std::string dimacs(const std::vector<Premise> &source,
                           uint32_t variables = 9,
                           const std::vector<std::vector<int32_t>> &extra = {}) {
-  std::ostringstream out;
-  out << "p cnf " << variables << ' ' << source.size() + extra.size() << '\n';
-  for (const Premise &premise : source) {
-    for (int32_t literal : premise.literals) out << literal << ' ';
-    out << "0\n";
-  }
-  for (const auto &clause : extra) {
-    for (int32_t literal : clause) out << literal << ' ';
-    out << "0\n";
-  }
-  return out.str();
+  std::vector<std::vector<int32_t>> clauses;
+  for (const Premise &premise : source) clauses.push_back(premise.literals);
+  clauses.insert(clauses.end(), extra.begin(), extra.end());
+  return dimacs_text(variables, clauses);
 }
 
 static Kernel parse_source(const std::vector<Premise> &source) {
-  const std::string text = dimacs(source);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  return kernel;
+  return parse_dimacs_text(dimacs(source));
 }
 
 static BatchPlanningRequest planning_request() {
@@ -307,31 +294,14 @@ static void write_certificate(const char *cnf_path, const char *proof_path,
   const auto source = source_formula();
   const std::vector<std::vector<int32_t>> gadget = {
       {14, 15}, {-14, 15}, {14, -15}, {-14, -15}};
-  const std::string checker_cnf = dimacs(source, 15, gadget);
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  assert(std::fwrite(checker_cnf.data(), 1, checker_cnf.size(), cnf) ==
-         checker_cnf.size());
-  std::fclose(cnf);
-
   Kernel kernel = parse_source(source);
   kernel.next_clause_id = source.size() + gadget.size();
-  Proof proof;
-  assert(proof.open(proof_path, format));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  FILE *records = std::tmpfile();
-  assert(records);
-  const BatchPlan plan = make_plan(source);
-  assert(publish_batch(kernel, plan, {700, 100000, records}).result ==
-         ApplyResult::Ok);
-  const int32_t unit = 14;
-  assert(proof.add_external_rup(++kernel.next_clause_id, &unit, 1));
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-  std::fclose(records);
+  write_checker_certificate(cnf_path, dimacs(source, 15, gadget), proof_path,
+                            format, kernel, 14, [&](FILE *records) {
+    const BatchPlan plan = make_plan(source);
+    assert(publish_batch(kernel, plan, {700, 100000, records}).result ==
+           ApplyResult::Ok);
+  });
 }
 
 int main(int argc, char **argv) {

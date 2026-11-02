@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "kernel/clause.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "policies/restart_controller.hpp"
@@ -130,18 +131,6 @@ void install_partial_formula(Kernel &kernel) {
   assert(kernel_propagation_fixpoint(kernel));
 }
 
-std::string journal_contents(FILE *journal) {
-  assert(!std::fflush(journal));
-  const long length = std::ftell(journal);
-  assert(length >= 0);
-  std::rewind(journal);
-  std::string result(size_t(length), '\0');
-  if (length)
-    assert(std::fread(result.data(), 1, size_t(length), journal) ==
-           size_t(length));
-  assert(!std::fseek(journal, length, SEEK_SET));
-  return result;
-}
 void complete_snapshot_policy_admission() {
   {
     Kernel kernel;
@@ -988,7 +977,7 @@ static std::string initialize_partial_fixture() {
          session.enabled() && !session.complete_admission() &&
          kernel.stats.affine_matrix_init_applied == 1 &&
          kernel.stats.affine_matrix_init_applied_partial == 1);
-  const std::string journal_record = journal_contents(journal);
+  const std::string journal_record = written_bytes(journal);
   assert(journal_record.find("\"admission\":\"partial\"") !=
          std::string::npos);
   assert(journal_record.find("\"sources\":[0]") != std::string::npos &&
@@ -1022,7 +1011,7 @@ static std::string initialize_partial_fixture() {
     return propagate_apply(kernel);
   }) == ApplyResult::Ok);
   assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
-  const std::string deterministic_record = journal_contents(journal);
+  const std::string deterministic_record = written_bytes(journal);
   assert(deterministic_record.find("\"admission\":\"partial\"") !=
              std::string::npos &&
          deterministic_record.find("\"source_ordinals\":[0,1]") !=

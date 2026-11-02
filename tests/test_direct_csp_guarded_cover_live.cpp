@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "kernel_image.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
@@ -7,42 +8,6 @@
 #include <csignal>
 #include <sstream>
 using namespace tactix;
-struct Image {
-  uint32_t nvars = 0;
-  uint64_t next_id = 0;
-  size_t arena = 0;
-  size_t extent = 0;
-  size_t trail = 0;
-  uint64_t generation = 0;
-  std::vector<Var> internal_to_external;
-  std::vector<Var> external_to_internal;
-  std::vector<size_t> watches;
-};
-
-Image image(const Kernel &kernel) {
-  Image result;
-  result.nvars = kernel.nvars;
-  result.next_id = kernel.next_clause_id;
-  result.arena = kernel.arena.size();
-  result.extent = kernel.external_to_internal.size();
-  result.trail = kernel.trail.size();
-  result.generation = kernel.arena_generation;
-  result.internal_to_external = kernel.internal_to_external;
-  result.external_to_internal = kernel.external_to_internal;
-  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
-    result.watches.push_back(kernel.watches.size(literal));
-  return result;
-}
-
-bool operator==(const Image &a, const Image &b) {
-  return a.nvars == b.nvars && a.next_id == b.next_id &&
-         a.arena == b.arena && a.extent == b.extent &&
-         a.trail == b.trail && a.generation == b.generation &&
-         a.internal_to_external == b.internal_to_external &&
-         a.external_to_internal == b.external_to_internal &&
-         a.watches == b.watches;
-}
-
 int main(int argc, char **argv) {
   DirectCspGuardedCoverActionSelection selection{
       {{1,2,3},{4,5},{11,12}}, {0,0,0}, {8,9,10},

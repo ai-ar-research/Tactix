@@ -1,4 +1,7 @@
 #undef NDEBUG
+#include "checker_certificate.hpp"
+#include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 
 #include "frontend/parse.hpp"
@@ -49,30 +52,14 @@ std::vector<std::vector<int32_t>> formula(bool complete = true) {
 }
 
 std::string dimacs(bool complete = true, bool checker_suffix = false) {
-  const auto clauses = formula(complete);
-  std::ostringstream output;
-  output << "p cnf " << (checker_suffix ? 31 : 21) << ' '
-         << clauses.size() + (checker_suffix ? 4 : 0) << '\n';
-  for (const auto &clause : clauses) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
+  auto clauses = formula(complete);
   if (checker_suffix)
-    output << "30 31 0\n-30 31 0\n30 -31 0\n-30 -31 0\n";
-  return output.str();
+    clauses.insert(clauses.end(), {{30, 31}, {-30, 31}, {30, -31}, {-30, -31}});
+  return dimacs_text(checker_suffix ? 31 : 21, clauses);
 }
 
 Kernel parse(bool complete = true) {
-  const std::string text = dimacs(complete);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
-  return kernel;
+  return parse_dimacs_text(dimacs(complete), ParsedRoot::EmptyTrail);
 }
 
 Gf3AffineActionLimits limits() {
@@ -130,12 +117,6 @@ bool operator==(const Image &first, const Image &second) {
          first.arena_generation == second.arena_generation &&
          first.candidate_pending == second.candidate_pending &&
          first.watches == second.watches;
-}
-
-long position(FILE *file) {
-  const long result = std::ftell(file);
-  assert(result >= 0);
-  return result;
 }
 
 void delete_published(Kernel &kernel, const std::vector<uint64_t> &ids) {
@@ -390,33 +371,17 @@ void proof_modes_and_guard() {
 
 void write_certificate(const char *cnf_path, const char *proof_path,
                        ProofFormat format) {
-  const std::string checker = dimacs(true, true);
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  assert(std::fwrite(checker.data(), 1, checker.size(), cnf) == checker.size());
-  std::fclose(cnf);
-
   Kernel kernel = parse();
   kernel.next_clause_id = formula().size() + 4;
-  Proof proof;
-  assert(proof.open(proof_path, format));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
   Gf3AffineActionSession session;
-  const auto result =
-      gf3_affine_action_apply(kernel, session, limits(), 0, 1);
-  assert(result.status == Gf3AffineActionStatus::Applied &&
-         result.effort.emitted_additions == 54);
-  const int32_t unit = 30;
-  assert(proof.add_external_rup(++kernel.next_clause_id, &unit, 1));
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-  std::fclose(records);
+  write_checker_certificate(cnf_path, dimacs(true, true), proof_path, format,
+                            kernel, 30, [&](FILE *records) {
+    attach(kernel, records);
+    const auto result =
+        gf3_affine_action_apply(kernel, session, limits(), 0, 1);
+    assert(result.status == Gf3AffineActionStatus::Applied &&
+           result.effort.emitted_additions == 54);
+  });
 }
 
 } // namespace

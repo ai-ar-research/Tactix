@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "clause_oracle.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
 
 #include <algorithm>
@@ -141,54 +142,9 @@ std::vector<std::vector<int32_t>> clauses_of(const Encoding &encoding) {
   return result;
 }
 
-bool assign(std::vector<int8_t> &values, int32_t literal) {
-  const uint32_t variable = static_cast<uint32_t>(literal < 0
-                                                      ? -int64_t(literal)
-                                                      : literal);
-  const int8_t wanted = literal > 0 ? 1 : -1;
-  if (!values[variable]) {
-    values[variable] = wanted;
-    return true;
-  }
-  return values[variable] == wanted;
-}
-
 bool rup(const std::vector<std::vector<int32_t>> &formula,
          const std::vector<int32_t> &candidate, uint32_t variables) {
-  std::vector<int8_t> values(variables + 1, 0);
-  for (int32_t literal : candidate)
-    if (!assign(values, -literal))
-      return true;
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (const auto &clause : formula) {
-      bool satisfied = false;
-      uint32_t unassigned = 0;
-      int32_t unit = 0;
-      for (int32_t literal : clause) {
-        const uint32_t variable = static_cast<uint32_t>(
-            literal < 0 ? -int64_t(literal) : literal);
-        if (!values[variable]) {
-          ++unassigned;
-          unit = literal;
-        } else if ((values[variable] > 0) == (literal > 0)) {
-          satisfied = true;
-          break;
-        }
-      }
-      if (satisfied)
-        continue;
-      if (!unassigned)
-        return true;
-      if (unassigned == 1) {
-        if (!assign(values, unit))
-          return true;
-        changed = true;
-      }
-    }
-  }
-  return false;
+  return rup_implied(formula, candidate, ClauseLiterals{}, variables);
 }
 
 void exhaustive_semantics(const Encoding &encoding) {

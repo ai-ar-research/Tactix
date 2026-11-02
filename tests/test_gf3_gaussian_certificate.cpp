@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "clause_oracle.hpp"
 #include "rules/semantic_extension/gf3_gaussian_certificate.hpp"
 
 #include <algorithm>
@@ -139,53 +140,10 @@ gf3_gaussian_bridge::Plan bridge(const gf3_affine::Theory &theory) {
   return std::move(result.plan);
 }
 
-uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-}
-
-bool assign(std::vector<int8_t> &assignment, int32_t literal) {
-  const uint32_t atom = variable(literal);
-  const int8_t value = literal > 0 ? 1 : -1;
-  if (assignment[atom] == -value) return false;
-  assignment[atom] = value;
-  return true;
-}
-
 bool independently_rup(const std::vector<std::vector<int32_t>> &active,
                        const std::vector<int32_t> &candidate,
                        uint32_t maximum_variable) {
-  std::vector<int8_t> assignment(uint64_t(maximum_variable) + 1, 0);
-  for (int32_t literal : candidate)
-    if (!assign(assignment, -literal)) return true;
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (const auto &clause : active) {
-      bool satisfied = false;
-      uint32_t open = 0;
-      int32_t last = 0;
-      for (int32_t literal : clause) {
-        const int8_t value = assignment[variable(literal)];
-        if (value && (literal > 0) == (value > 0)) {
-          satisfied = true;
-          break;
-        }
-        if (!value) {
-          ++open;
-          last = literal;
-        }
-      }
-      if (satisfied) continue;
-      if (!open) return true;
-      if (open == 1) {
-        const uint32_t atom = variable(last);
-        const int8_t before = assignment[atom];
-        if (!assign(assignment, last)) return true;
-        changed |= !before;
-      }
-    }
-  }
-  return false;
+  return rup_implied(active, candidate, ClauseLiterals{}, maximum_variable);
 }
 
 void independently_check_events(
@@ -233,20 +191,6 @@ void independently_check_events(
     next_event += consequence.event_count;
   }
   assert(next_event == plan.events.size());
-}
-
-bool literal_value(int32_t literal,
-                   const std::vector<int8_t> &assignment) {
-  const int8_t value = assignment[variable(literal)];
-  return value && (literal > 0) == (value > 0);
-}
-
-bool clause_value(const std::vector<int32_t> &clause,
-                  const std::vector<int8_t> &assignment) {
-  return std::any_of(clause.begin(), clause.end(),
-                     [&](int32_t literal) {
-                       return literal_value(literal, assignment);
-                     });
 }
 
 void independently_check_semantics(

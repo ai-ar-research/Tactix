@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 #include "rules/lucky/tseitin_cycle_discovery.hpp"
@@ -122,18 +123,6 @@ std::string temporary_path() {
   assert(descriptor >= 0);
   close(descriptor);
   return pattern;
-}
-
-std::string read_file(const std::string &path) {
-  FILE *file = std::fopen(path.c_str(), "rb");
-  assert(file);
-  std::string output;
-  char bytes[4096];
-  while (const size_t count = std::fread(bytes, 1, sizeof bytes, file))
-    output.append(bytes, count);
-  assert(!std::ferror(file));
-  assert(!std::fclose(file));
-  return output;
 }
 
 bool same_groups(const std::vector<cycle::CertifiedGroup> &left,

@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
@@ -109,17 +110,6 @@ TseitinCycleBreakingLimits limits() {
   return result;
 }
 
-std::string contents(FILE *file) {
-  assert(!std::fflush(file));
-  assert(!std::fseek(file, 0, SEEK_SET));
-  std::string result;
-  char buffer[4096];
-  while (const size_t count = std::fread(buffer, 1, sizeof buffer, file))
-    result.append(buffer, count);
-  assert(!std::ferror(file));
-  return result;
-}
-
 bool interrupted(void *) { return true; }
 
 struct StopAfter {
@@ -227,7 +217,7 @@ void offers_all_components_and_applies_exact_selection() {
          fixture.kernel.stats.tseitin_cycle_units == 1 &&
          fixture.kernel.stats.tseitin_cycle_discovery_work > 0 &&
          fixture.kernel.stats.tseitin_cycle_recapture_work > 0);
-  const std::string journal = contents(fixture.journal);
+  const std::string journal = stream_contents(fixture.journal);
   if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_JOURNAL")) {
     FILE *copy = std::fopen(path, "wb");
     assert(copy && std::fwrite(journal.data(), 1, journal.size(), copy) ==
@@ -510,7 +500,7 @@ void dsr_and_unsupported_proof_contract() {
     assert(fixture.kernel.stats.tseitin_cycle_proof_only_variables == 1);
     assert(fixture.kernel.stats.tseitin_cycle_proof_witness_literals == 5);
     assert(fixture.kernel.stats.tseitin_cycle_proof_routes == 1);
-    const std::string journal = contents(fixture.journal);
+    const std::string journal = stream_contents(fixture.journal);
     assert(journal.find("\"proof_format\":\"dsr-ascii\"") !=
            std::string::npos);
     assert(journal.find("\"helper_additions\":[[") != std::string::npos);
@@ -522,7 +512,7 @@ void dsr_and_unsupported_proof_contract() {
   }
   FILE *proof_file = std::fopen(dsr_path, "rb");
   assert(proof_file);
-  const std::string proof_text = contents(proof_file);
+  const std::string proof_text = stream_contents(proof_file);
   assert(!std::fclose(proof_file));
   assert(!proof_text.empty());
   if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_DSR_ASCII")) {
@@ -554,7 +544,7 @@ void dsr_and_unsupported_proof_contract() {
     assert(applied.effort.proof_additions == 3 &&
            applied.effort.proof_deletions == 2 &&
            applied.effort.proof_literal_occurrences == 5);
-    const std::string journal = contents(fixture.journal);
+    const std::string journal = stream_contents(fixture.journal);
     assert(journal.find("\"proof_format\":\"dsr-binary\"") !=
            std::string::npos);
     proof.flush();
@@ -562,7 +552,7 @@ void dsr_and_unsupported_proof_contract() {
   }
   FILE *binary_file = std::fopen(binary_path, "rb");
   assert(binary_file);
-  const std::string binary_proof = contents(binary_file);
+  const std::string binary_proof = stream_contents(binary_file);
   assert(!std::fclose(binary_file));
   assert(!binary_proof.empty());
   if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_DSR_BINARY")) {
@@ -766,7 +756,7 @@ void propagated_root_rebuilds_the_complete_component_census() {
       kernel, session, limits(), fresh.offers.back());
   assert(second.status == TseitinCycleBreakingStatus::Applied &&
          session.keys().size() == 2);
-  const std::string records = contents(journal);
+  const std::string records = stream_contents(journal);
   assert(std::count(records.begin(), records.end(), '\n') == 2);
   assert(records.find("\"external_root_units\":[]") != std::string::npos);
   assert(records.find("\"external_root_units\":[") != std::string::npos);
@@ -781,7 +771,7 @@ void propagated_root_rebuilds_the_complete_component_census() {
   if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_REPEAT_DSR")) {
     FILE *source = std::fopen(proof_path, "rb");
     assert(source);
-    const std::string bytes = contents(source);
+    const std::string bytes = stream_contents(source);
     assert(!std::fclose(source));
     FILE *copy = std::fopen(path, "wb");
     assert(copy && std::fwrite(bytes.data(), 1, bytes.size(), copy) ==

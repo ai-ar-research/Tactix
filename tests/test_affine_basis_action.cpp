@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -75,17 +76,6 @@ static void attach(Kernel &kernel, FILE *records) {
   kernel.structural_action_sequence = 40;
 }
 
-static std::string contents(FILE *file) {
-  std::fflush(file);
-  const long end = std::ftell(file);
-  assert(end >= 0);
-  std::rewind(file);
-  std::string output(static_cast<size_t>(end), '\0');
-  assert(!end || std::fread(output.data(), 1, output.size(), file) ==
-                     output.size());
-  return output;
-}
-
 static void success_preserves_identity_and_metadata() {
   Kernel kernel = extension_fixture();
   FILE *records = std::tmpfile();
@@ -139,7 +129,7 @@ static void success_preserves_identity_and_metadata() {
            strategy::SemanticVariableRole::ExistingTheory);
     assert(candidate->variables[i].priority == 1);
   }
-  const std::string journal = contents(records);
+  const std::string journal = written_bytes(records);
   assert(journal.find("\"action\":41,\"semantic\":41") !=
          std::string::npos);
   assert(journal.find("\"owner\":1") != std::string::npos);

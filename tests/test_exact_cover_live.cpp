@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "checker_certificate.hpp"
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/exact_cover_live.hpp"
@@ -35,15 +37,7 @@ static std::string exact_cover_cnf(bool extra = false) {
 }
 
 static Kernel parse(bool extra = false) {
-  const std::string text = exact_cover_cnf(extra);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  return kernel;
+  return parse_dimacs_text(exact_cover_cnf(extra));
 }
 
 static ExactCoverLiveRequest request(FILE *records,
@@ -290,31 +284,15 @@ static void write_certificate(const char *cnf_path, const char *proof_path,
   assert(checker.starts_with(header));
   checker.replace(0, header.size(), "p cnf 15 19\n");
   checker += "14 15 0\n-14 15 0\n14 -15 0\n-14 -15 0\n";
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  assert(std::fwrite(checker.data(), 1, checker.size(), cnf) ==
-         checker.size());
-  std::fclose(cnf);
-
   Kernel kernel = parse();
   ExactCoverLiveSession session;
   kernel.next_clause_id = 19;
-  Proof proof;
-  assert(proof.open(proof_path, format));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto result =
-      exact_cover_live_apply(kernel, request(records, session));
-  assert(result.status == ExactCoverLiveStatus::Applied);
-  const int32_t unit = 14;
-  assert(proof.add_external_rup(++kernel.next_clause_id, &unit, 1));
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-  std::fclose(records);
+  write_checker_certificate(cnf_path, checker, proof_path, format, kernel, 14,
+                            [&](FILE *records) {
+    const auto result =
+        exact_cover_live_apply(kernel, request(records, session));
+    assert(result.status == ExactCoverLiveStatus::Applied);
+  });
 }
 
 int main(int argc, char **argv) {

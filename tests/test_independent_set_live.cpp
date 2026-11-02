@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/independent_set_live.hpp"
 
 #include "frontend/parse.hpp"
@@ -68,26 +70,11 @@ Encoding make_encoding(uint32_t vertices, uint32_t target,
 }
 
 std::string dimacs(const Encoding &encoding) {
-  std::ostringstream output;
-  output << "p cnf " << encoding.variables << ' ' << encoding.clauses.size()
-         << '\n';
-  for (const auto &clause : encoding.clauses) {
-    for (int32_t literal : clause)
-      output << literal << ' ';
-    output << "0\n";
-  }
-  return output.str();
+  return dimacs_text(encoding.variables, encoding.clauses);
 }
 
 void load(Kernel &kernel, const Encoding &encoding) {
-  const std::string text = dimacs(encoding);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
+  parse_dimacs_text(dimacs(encoding), kernel, ParsedRoot::EmptyTrail);
 }
 
 IndependentSetLiveRequest request(FILE *records,
@@ -174,17 +161,6 @@ assert_failed_unchanged(Kernel &kernel,
   assert_declined(result);
   assert(image(kernel) == before);
   assert(std::ftell(candidate.records) == record_position);
-  return result;
-}
-
-std::string read_all(FILE *file) {
-  assert(!std::fflush(file));
-  const long end = std::ftell(file);
-  assert(end >= 0);
-  std::rewind(file);
-  std::string result(static_cast<size_t>(end), '\0');
-  assert(std::fread(result.data(), 1, result.size(), file) == result.size());
-  std::fseek(file, end, SEEK_SET);
   return result;
 }
 
@@ -297,7 +273,7 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
   assert(kernel.nvars == encoding.variables &&
          kernel.external_to_internal == initial_map);
   assert(!kernel.startup_certificate_open);
-  const std::string journal = read_all(records);
+  const std::string journal = written_bytes(records);
   assert(result.journal_work == journal.size());
   assert(journal.find("independent-set-live-source") != std::string::npos);
   assert(journal.find("forbidden-assignment") != std::string::npos);

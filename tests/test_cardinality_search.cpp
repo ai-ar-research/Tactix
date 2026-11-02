@@ -1,8 +1,8 @@
 #undef NDEBUG
+#include "clause_oracle.hpp"
 #include "rules/semantic_extension/cardinality_search.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <climits>
 #include <cstdio>
@@ -120,48 +120,11 @@ bool cnf_satisfied(const std::vector<Constraint> &constraints,
   return true;
 }
 
+// The fixtures range over variables 1..5.
 bool rup(const std::vector<Clause> &database, const Clause &addition) {
-  std::array<int8_t, 6> values{};
-  for (int32_t literal : addition) {
-    const int32_t variable = std::abs(literal);
-    assert(variable >= 1 && variable <= 5);
-    const int8_t value = literal > 0 ? -1 : 1;
-    if (values[variable] && values[variable] != value) return true;
-    values[variable] = value;
-  }
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (const Clause &clause : database) {
-      bool satisfied = false;
-      int32_t unknown = 0;
-      unsigned remaining = 0;
-      for (int32_t literal : clause) {
-        const int8_t value = values[std::abs(literal)];
-        if (value == (literal > 0 ? 1 : -1)) {
-          satisfied = true;
-          break;
-        }
-        if (!value) {
-          unknown = literal;
-          ++remaining;
-        }
-      }
-      if (satisfied) continue;
-      if (!remaining) return true;
-      if (remaining == 1) {
-        const int8_t value = unknown > 0 ? 1 : -1;
-        if (values[std::abs(unknown)] &&
-            values[std::abs(unknown)] != value)
-          return true;
-        if (!values[std::abs(unknown)]) {
-          values[std::abs(unknown)] = value;
-          changed = true;
-        }
-      }
-    }
-  }
-  return false;
+  for (int32_t literal : addition)
+    assert(std::abs(literal) >= 1 && std::abs(literal) <= 5);
+  return rup_implied(database, addition, ClauseLiterals{}, 5);
 }
 
 void validate_rup_plan(const std::vector<Constraint> &constraints,

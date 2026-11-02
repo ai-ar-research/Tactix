@@ -1,4 +1,7 @@
 #undef NDEBUG
+#include "kernel_image.hpp"
+#include "checker_certificate.hpp"
+#include "dimacs_text.hpp"
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
 
 #include "frontend/parse.hpp"
@@ -33,29 +36,13 @@ std::vector<std::vector<int32_t>> clauses(bool unit_row = false) {
 
 std::string dimacs(bool unit_row = false, bool checker_suffix = false) {
   auto formula = clauses(unit_row);
-  std::ostringstream output;
-  output << "p cnf " << (checker_suffix ? 21 : 7) << ' '
-         << formula.size() + (checker_suffix ? 4 : 0) << '\n';
-  for (const auto &clause : formula) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
   if (checker_suffix)
-    output << "20 21 0\n-20 21 0\n20 -21 0\n-20 -21 0\n";
-  return output.str();
+    formula.insert(formula.end(), {{20, 21}, {-20, 21}, {20, -21}, {-20, -21}});
+  return dimacs_text(checker_suffix ? 21 : 7, formula);
 }
 
 Kernel parse(bool unit_row = false) {
-  const std::string text = dimacs(unit_row);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
-  return kernel;
+  return parse_dimacs_text(dimacs(unit_row), ParsedRoot::EmptyTrail);
 }
 
 DirectCspSupportLiveRequest request(FILE *records, uint32_t selected = 1) {
@@ -79,42 +66,6 @@ DirectCspSupportLiveRequest request(FILE *records, uint32_t selected = 1) {
   result.semantic_id = 91;
   result.records = records;
   return result;
-}
-
-struct Image {
-  uint32_t nvars = 0;
-  uint64_t next_id = 0;
-  size_t arena = 0;
-  size_t extent = 0;
-  size_t trail = 0;
-  uint64_t generation = 0;
-  std::vector<Var> internal_to_external;
-  std::vector<Var> external_to_internal;
-  std::vector<size_t> watches;
-};
-
-Image image(const Kernel &kernel) {
-  Image result;
-  result.nvars = kernel.nvars;
-  result.next_id = kernel.next_clause_id;
-  result.arena = kernel.arena.size();
-  result.extent = kernel.external_to_internal.size();
-  result.trail = kernel.trail.size();
-  result.generation = kernel.arena_generation;
-  result.internal_to_external = kernel.internal_to_external;
-  result.external_to_internal = kernel.external_to_internal;
-  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
-    result.watches.push_back(kernel.watches.size(literal));
-  return result;
-}
-
-bool operator==(const Image &a, const Image &b) {
-  return a.nvars == b.nvars && a.next_id == b.next_id &&
-         a.arena == b.arena && a.extent == b.extent &&
-         a.trail == b.trail && a.generation == b.generation &&
-         a.internal_to_external == b.internal_to_external &&
-         a.external_to_internal == b.external_to_internal &&
-         a.watches == b.watches;
 }
 
 DirectCspSupportLiveResult decline_unchanged(
@@ -380,32 +331,16 @@ void unsupported_proofs_decline_before_mutation() {
 
 void write_certificate(const char *cnf_path, const char *proof_path,
                        ProofFormat format) {
-  const std::string checker = dimacs(false, true);
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  assert(std::fwrite(checker.data(), 1, checker.size(), cnf) == checker.size());
-  std::fclose(cnf);
-
   Kernel kernel = parse();
   kernel.next_clause_id = clauses().size() + 4;
-  Proof proof;
-  assert(proof.open(proof_path, format));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  FILE *records = std::tmpfile();
-  assert(records);
-  auto candidate = request(records, 0);
-  candidate.maximum_direct_clause_literals = 2;
-  candidate.allow_extension = true;
-  const auto result = direct_csp_support_live_apply(kernel, candidate);
-  assert(result.status == DirectCspSupportLiveStatus::Applied);
-  const int32_t unit = 20;
-  assert(proof.add_external_rup(++kernel.next_clause_id, &unit, 1));
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-  std::fclose(records);
+  write_checker_certificate(cnf_path, dimacs(false, true), proof_path, format,
+                            kernel, 20, [&](FILE *records) {
+    auto candidate = request(records, 0);
+    candidate.maximum_direct_clause_literals = 2;
+    candidate.allow_extension = true;
+    const auto result = direct_csp_support_live_apply(kernel, candidate);
+    assert(result.status == DirectCspSupportLiveStatus::Applied);
+  });
 }
 
 } // namespace

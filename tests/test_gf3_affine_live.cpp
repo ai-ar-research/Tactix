@@ -1,4 +1,8 @@
 #undef NDEBUG
+#include "kernel_image.hpp"
+#include "checker_certificate.hpp"
+#include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 
 #include "frontend/parse.hpp"
@@ -53,30 +57,14 @@ std::vector<std::vector<int32_t>> formula(bool complete = true) {
 }
 
 std::string dimacs(bool complete = true, bool checker_suffix = false) {
-  const auto clauses = formula(complete);
-  std::ostringstream output;
-  output << "p cnf " << (checker_suffix ? 21 : 15) << ' '
-         << clauses.size() + (checker_suffix ? 4 : 0) << '\n';
-  for (const auto &clause : clauses) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
+  auto clauses = formula(complete);
   if (checker_suffix)
-    output << "20 21 0\n-20 21 0\n20 -21 0\n-20 -21 0\n";
-  return output.str();
+    clauses.insert(clauses.end(), {{20, 21}, {-20, 21}, {20, -21}, {-20, -21}});
+  return dimacs_text(checker_suffix ? 21 : 15, clauses);
 }
 
 Kernel parse(bool complete = true) {
-  const std::string text = dimacs(complete);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
-  return kernel;
+  return parse_dimacs_text(dimacs(complete), ParsedRoot::EmptyTrail);
 }
 
 Gf3AffineLiveRequest request(FILE *records) {
@@ -98,59 +86,6 @@ Gf3AffineLiveRequest request(FILE *records) {
   result.action_id = 81;
   result.semantic_id = 93;
   result.records = records;
-  return result;
-}
-
-struct Image {
-  uint32_t nvars = 0;
-  uint64_t next_id = 0;
-  size_t arena = 0;
-  size_t extent = 0;
-  size_t trail = 0;
-  uint64_t generation = 0;
-  std::vector<Var> internal_to_external;
-  std::vector<Var> external_to_internal;
-  std::vector<size_t> watches;
-};
-
-Image image(const Kernel &kernel) {
-  Image result;
-  result.nvars = kernel.nvars;
-  result.next_id = kernel.next_clause_id;
-  result.arena = kernel.arena.size();
-  result.extent = kernel.external_to_internal.size();
-  result.trail = kernel.trail.size();
-  result.generation = kernel.arena_generation;
-  result.internal_to_external = kernel.internal_to_external;
-  result.external_to_internal = kernel.external_to_internal;
-  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
-    result.watches.push_back(kernel.watches.size(literal));
-  return result;
-}
-
-bool operator==(const Image &first, const Image &second) {
-  return first.nvars == second.nvars && first.next_id == second.next_id &&
-         first.arena == second.arena && first.extent == second.extent &&
-         first.trail == second.trail &&
-         first.generation == second.generation &&
-         first.internal_to_external == second.internal_to_external &&
-         first.external_to_internal == second.external_to_internal &&
-         first.watches == second.watches;
-}
-
-long position(FILE *file) {
-  const long result = std::ftell(file);
-  assert(result >= 0);
-  return result;
-}
-
-std::string read_all(FILE *file) {
-  assert(!std::fflush(file));
-  const long end = position(file);
-  std::rewind(file);
-  std::string result(static_cast<size_t>(end), '\0');
-  assert(std::fread(result.data(), 1, result.size(), file) == result.size());
-  assert(!std::fseek(file, end, SEEK_SET));
   return result;
 }
 
@@ -205,7 +140,7 @@ void capture_publish_continue_and_duplicate() {
   assert(!result.reconstruction_witness_required);
   assert(!result.propagation_pending);
   assert(result.journal_bytes == static_cast<uint64_t>(position(records)));
-  const std::string journal = read_all(records);
+  const std::string journal = written_bytes(records);
   assert(journal.find("\"kind\":\"gf3-affine-consequence\"") !=
          std::string::npos);
   assert(journal.find("\"reconstruction_witness_required\":false") !=
@@ -370,30 +305,14 @@ void unsupported_proofs_decline_cleanly() {
 
 void write_certificate(const char *cnf_path, const char *proof_path,
                        ProofFormat format) {
-  const std::string checker = dimacs(true, true);
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  assert(std::fwrite(checker.data(), 1, checker.size(), cnf) == checker.size());
-  std::fclose(cnf);
-
   Kernel kernel = parse();
   kernel.next_clause_id = formula().size() + 4;
-  Proof proof;
-  assert(proof.open(proof_path, format));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto result = gf3_affine_live_apply(kernel, request(records));
-  assert(result.status == Gf3AffineLiveStatus::Applied &&
-         result.emitted_additions == 54);
-  const int32_t unit = 20;
-  assert(proof.add_external_rup(++kernel.next_clause_id, &unit, 1));
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-  std::fclose(records);
+  write_checker_certificate(cnf_path, dimacs(true, true), proof_path, format,
+                            kernel, 20, [&](FILE *records) {
+    const auto result = gf3_affine_live_apply(kernel, request(records));
+    assert(result.status == Gf3AffineLiveStatus::Applied &&
+           result.emitted_additions == 54);
+  });
 }
 
 } // namespace

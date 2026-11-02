@@ -1,4 +1,7 @@
 #undef NDEBUG
+#include "checker_certificate.hpp"
+#include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 
 #include "frontend/parse.hpp"
@@ -25,31 +28,13 @@ std::vector<std::vector<int32_t>> clauses() {
 }
 
 std::string dimacs(bool checker_suffix = false) {
-  const auto formula = clauses();
-  std::ostringstream output;
-  output << "p cnf " << (checker_suffix ? 21 : 7) << ' '
-         << formula.size() + (checker_suffix ? 4 : 0) << '\n';
-  for (const auto &clause : formula) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
+  auto formula = clauses();
   if (checker_suffix)
-    output << "20 21 0\n-20 21 0\n20 -21 0\n-20 -21 0\n";
-  return output.str();
+    formula.insert(formula.end(), {{20, 21}, {-20, 21}, {20, -21}, {-20, -21}});
+  return dimacs_text(checker_suffix ? 21 : 7, formula);
 }
 
-Kernel parse() {
-  const std::string text = dimacs();
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
-  return kernel;
-}
+Kernel parse() { return parse_dimacs_text(dimacs(), ParsedRoot::EmptyTrail); }
 DirectCspSupportActionSelection selection(uint32_t row) {
   return {{1, 2, 3}, {4, 5, 6, 7}, row};
 }
@@ -127,12 +112,6 @@ bool operator==(const Image &first, const Image &second) {
          first.arena_generation == second.arena_generation &&
          first.candidate_pending == second.candidate_pending &&
          first.watches == second.watches;
-}
-
-long position(FILE *file) {
-  const long result = std::ftell(file);
-  assert(result >= 0);
-  return result;
 }
 
 void direct_then_extension_and_durable_replay() {
@@ -569,33 +548,17 @@ void projection_preserves_an_original_model() {
 
 void write_certificate(const char *cnf_path, const char *proof_path,
                        ProofFormat format) {
-  const std::string checker = dimacs(true);
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  assert(std::fwrite(checker.data(), 1, checker.size(), cnf) == checker.size());
-  std::fclose(cnf);
-
   Kernel kernel = parse();
   kernel.next_clause_id = clauses().size() + 4;
-  Proof proof;
-  assert(proof.open(proof_path, format));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
   DirectCspSupportActionSession session;
-  const auto result = direct_csp_support_action_apply(
-      kernel, session, limits(true), selection(0));
-  assert(result.status == DirectCspSupportActionStatus::Applied &&
-         result.effort.emitted_additions == 5);
-  const int32_t unit = 20;
-  assert(proof.add_external_rup(++kernel.next_clause_id, &unit, 1));
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-  std::fclose(records);
+  write_checker_certificate(cnf_path, dimacs(true), proof_path, format, kernel, 20,
+                            [&](FILE *records) {
+    attach(kernel, records);
+    const auto result = direct_csp_support_action_apply(
+        kernel, session, limits(true), selection(0));
+    assert(result.status == DirectCspSupportActionStatus::Applied &&
+           result.effort.emitted_additions == 5);
+  });
 }
 
 void write_model(const char *cnf_path, const char *model_path) {

@@ -2,6 +2,7 @@
 // the pure planner/model projection here, and every RAT/RUP lemma through the
 // pinned native DSR checker route (nary_csp_equality_proof.sh).
 #undef NDEBUG
+#include "clause_oracle.hpp"
 #include "rules/semantic_extension/nary_csp_equality.hpp"
 
 #include <algorithm>
@@ -9,7 +10,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
-#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -64,60 +64,6 @@ Bounds generous(int32_t extension = 10) {
   return {1000, 10000, 16, 1000, 1000, 10000, extension};
 }
 
-uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-}
-
-bool literal_value(int32_t literal, uint64_t assignment) {
-  const bool value = assignment & (uint64_t{1} << (variable(literal) - 1));
-  return literal > 0 ? value : !value;
-}
-
-bool clause_value(const std::vector<int32_t> &clause, uint64_t assignment) {
-  return std::any_of(clause.begin(), clause.end(), [&](int32_t literal) {
-    return literal_value(literal, assignment);
-  });
-}
-
-bool rup(const std::vector<std::vector<int32_t>> &formula,
-         const std::vector<int32_t> &addition) {
-  std::map<uint32_t, bool> assigned;
-  auto assign = [&](int32_t literal) {
-    const uint32_t var = variable(literal);
-    const bool value = literal > 0;
-    const auto [where, inserted] = assigned.emplace(var, value);
-    return inserted || where->second == value;
-  };
-  for (int32_t literal : addition)
-    if (!assign(-literal)) return true;
-  for (;;) {
-    bool changed = false;
-    for (const auto &clause : formula) {
-      bool satisfied = false;
-      int32_t unit = 0;
-      uint32_t open = 0;
-      for (int32_t literal : clause) {
-        const auto found = assigned.find(variable(literal));
-        if (found == assigned.end()) {
-          unit = literal;
-          ++open;
-        } else if (found->second == (literal > 0)) {
-          satisfied = true;
-          break;
-        }
-      }
-      if (satisfied) continue;
-      if (!open) return true;
-      if (open == 1) {
-        const size_t before = assigned.size();
-        if (!assign(unit)) return true;
-        changed |= assigned.size() != before;
-      }
-    }
-    if (!changed) return false;
-  }
-}
-
 bool tautological(const std::vector<int32_t> &clause) {
   std::set<int32_t> literals(clause.begin(), clause.end());
   for (int32_t literal : literals)
@@ -139,7 +85,7 @@ void verify_rat(const std::vector<std::vector<int32_t>> &formula,
     std::sort(resolvent.begin(), resolvent.end());
     resolvent.erase(std::unique(resolvent.begin(), resolvent.end()),
                     resolvent.end());
-    assert(tautological(resolvent) || rup(formula, resolvent));
+    assert(tautological(resolvent) || rup_implied(formula, resolvent));
   }
 }
 
@@ -149,7 +95,7 @@ void verify_proof_shape(const Fixture &fixture, const Plan &plan) {
     formula.push_back(premise.literals);
   for (const Addition &addition : plan.additions) {
     if (addition.proof == ProofStep::Rup)
-      assert(rup(formula, addition.clause));
+      assert(rup_implied(formula, addition.clause));
     else
       verify_rat(formula, addition);
     formula.push_back(addition.clause);

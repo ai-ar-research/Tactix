@@ -7,6 +7,7 @@
 // dispatch. Trail, clause arena, analysis counters, posed tiers, retier
 // schedule and proof bytes must stay identical, in DRAT and LRAT.
 #undef NDEBUG
+#include "test_io.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
@@ -27,15 +28,6 @@
 using namespace tactix;
 
 namespace {
-
-std::string read_file(const std::string &path) {
-  std::ifstream input(path, std::ios::binary);
-  assert(input);
-  // Copy through rdbuf: GCC 13.1's string(InputIt) trips UBSan (PR 109703).
-  std::ostringstream text;
-  text << input.rdbuf();
-  return text.str();
-}
 
 std::string random_cnf(std::mt19937_64 &rng, uint32_t vars, uint32_t clauses) {
   std::ostringstream out;

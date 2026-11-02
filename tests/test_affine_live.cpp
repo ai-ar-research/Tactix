@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "rules/semantic_extension/affine_live.hpp"
 
 #include "proof/proof.hpp"
@@ -49,22 +50,6 @@ static AffineLiveRequest request(FILE *records) {
   result.action_id = 1;
   result.semantic_id = 7;
   result.records = records;
-  return result;
-}
-
-static long position(FILE *file) {
-  const long result = std::ftell(file);
-  assert(result >= 0);
-  return result;
-}
-
-static std::string read_all(FILE *file) {
-  assert(!std::fflush(file));
-  const long end = position(file);
-  std::rewind(file);
-  std::string result(static_cast<size_t>(end), '\0');
-  assert(std::fread(result.data(), 1, result.size(), file) == result.size());
-  assert(!std::fseek(file, end, SEEK_SET));
   return result;
 }
 
@@ -329,7 +314,7 @@ static void uninstalled_target_cleanup_and_deferred_propagation() {
     assert(result.status == AffineLiveStatus::Applied &&
            result.result == ApplyResult::Ok && result.published == 1);
     assert(result.preflight_deletions == result.deletions);
-    assert(read_all(records).find("affine-proof-delete-uninstalled") !=
+    assert(written_bytes(records).find("affine-proof-delete-uninstalled") !=
            std::string::npos);
     assert(kernel_binary_live(k, kernel_internalize(k, 5),
                               kernel_internalize(k, 6)));
@@ -353,7 +338,7 @@ static void uninstalled_target_cleanup_and_deferred_propagation() {
            !kernel_propagation_fixpoint(k));
     assert(!k.value(kernel_internalize(k, 6)) &&
            k.next_clause_id == before_id + result.additions);
-    const std::string journal = read_all(records);
+    const std::string journal = written_bytes(records);
     assert(journal.find("\"propagation\":\"deferred-controller\"") !=
                std::string::npos &&
            journal.find("\"propagation_pending\":true") !=
@@ -502,7 +487,7 @@ static void proof_run(const char *proof_path, const char *cnf_path,
          result.result == ApplyResult::Ok &&
          result.published == (covered_target ? 1 : 2));
   if (covered_target)
-    assert(read_all(records).find("affine-proof-delete-uninstalled") !=
+    assert(written_bytes(records).find("affine-proof-delete-uninstalled") !=
            std::string::npos);
   const int32_t seven = 7;
   assert(proof.add_external_rup(++k.next_clause_id, &seven, 1));

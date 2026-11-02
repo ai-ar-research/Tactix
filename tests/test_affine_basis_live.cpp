@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "clause_oracle.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/affine_basis_live.hpp"
 
 #include "proof/proof.hpp"
@@ -56,16 +58,6 @@ static AffineBasisLiveRequest request(FILE *records) {
   return result;
 }
 
-static std::string contents(FILE *file) {
-  std::fflush(file);
-  std::rewind(file);
-  std::string result;
-  char buffer[4096];
-  while (const size_t count = std::fread(buffer, 1, sizeof buffer, file))
-    result.append(buffer, count);
-  return result;
-}
-
 using ProofClause = std::vector<int32_t>;
 
 static ProofClause normalized(ProofClause clause) {
@@ -80,51 +72,9 @@ static bool tautological(const ProofClause &clause) {
   return false;
 }
 
-static bool rup(const std::vector<ProofClause> &database, const ProofClause &candidate) {
-  std::map<int32_t, int8_t> values;
-  for (int32_t literal : candidate) {
-    const int32_t variable = std::abs(literal);
-    const int8_t value = literal > 0 ? -1 : 1;
-    if (values[variable] && values[variable] != value) return true;
-    values[variable] = value;
-  }
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (const ProofClause &clause : database) {
-      bool satisfied = false;
-      uint32_t open = 0;
-      int32_t unit = 0;
-      for (int32_t literal : clause) {
-        const int8_t value = values[std::abs(literal)];
-        if (value && (value > 0) == (literal > 0)) {
-          satisfied = true;
-          break;
-        }
-        if (!value) {
-          ++open;
-          unit = literal;
-        }
-      }
-      if (satisfied) continue;
-      if (!open) return true;
-      if (open == 1) {
-        const int32_t variable = std::abs(unit);
-        const int8_t value = unit > 0 ? 1 : -1;
-        if (values[variable] && values[variable] != value) return true;
-        if (!values[variable]) {
-          values[variable] = value;
-          changed = true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
 static bool rat(const std::vector<ProofClause> &database, const ProofClause &candidate) {
-  if (candidate.empty()) return rup(database, candidate);
-  if (rup(database, candidate)) return true;
+  if (candidate.empty()) return rup_implied(database, candidate);
+  if (rup_implied(database, candidate)) return true;
   const int32_t pivot = candidate.front();
   for (const ProofClause &partner : database) {
     if (std::find(partner.begin(), partner.end(), -pivot) == partner.end())
@@ -137,7 +87,7 @@ static bool rat(const std::vector<ProofClause> &database, const ProofClause &can
     std::sort(resolvent.begin(), resolvent.end());
     resolvent.erase(std::unique(resolvent.begin(), resolvent.end()),
                     resolvent.end());
-    if (!tautological(resolvent) && !rup(database, resolvent)) return false;
+    if (!tautological(resolvent) && !rup_implied(database, resolvent)) return false;
   }
   return true;
 }
@@ -172,7 +122,7 @@ static void verify_transaction_proof(
     }
     assert(event.kind == AffineBasisLiveTransaction::Event::Kind::Rat
                ? rat(database, event.clause)
-               : rup(database, event.clause));
+               : rup_implied(database, event.clause));
     database.push_back(event.clause);
     active.emplace(event.id, event.clause);
   }
@@ -202,7 +152,7 @@ static void successful_basis(bool with_proof, const char *proof_path) {
   assert(kernel_binary_live(kernel, internalize(5), internalize(6)));
   assert(kernel_binary_live(kernel, internalize(-5), internalize(-6)));
   assert(applied.propagation_pending);
-  const std::string journal = contents(records);
+  const std::string journal = stream_contents(records);
   assert(journal.find("affine-basis-definition-rat") != std::string::npos);
   assert(journal.find("\"projection\":\"omit-extension\"") !=
          std::string::npos);
@@ -470,7 +420,7 @@ static void exact_owned_wide_row_selection(const char *proof_path) {
   assert(kernel.nvars == 15 + prepared.extent_growth &&
          kernel_num_output_vars(kernel) == 15);
   assert(propagate_service(kernel) == ApplyResult::Ok);
-  const std::string journal = contents(records);
+  const std::string journal = stream_contents(records);
   assert(journal.find("\"definitions\":13") != std::string::npos);
   assert(journal.find("affine-basis-helper-fix-rat") != std::string::npos);
   assert(journal.find("affine-basis-proof-rat") != std::string::npos);

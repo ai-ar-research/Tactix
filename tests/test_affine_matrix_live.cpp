@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/affine_matrix_live.hpp"
 
@@ -131,17 +132,6 @@ static void decide(Kernel &kernel, int32_t external) {
   assert(kernel_propagation_fixpoint(kernel));
 }
 
-static std::string records(FILE *file) {
-  assert(!std::fflush(file));
-  const long end = std::ftell(file);
-  assert(end >= 0);
-  std::rewind(file);
-  std::string result(static_cast<size_t>(end), '\0');
-  assert(std::fread(result.data(), 1, result.size(), file) == result.size());
-  assert(!std::fseek(file, end, SEEK_SET));
-  return result;
-}
-
 static void implication_is_assigned_without_prefix_rescan() {
   Kernel kernel;
   install_implication_formula(kernel);
@@ -171,7 +161,7 @@ static void implication_is_assigned_without_prefix_rescan() {
   assert(!kernel_propagate(kernel));
   assert(kernel.value(kernel_internalize(kernel, -5)) > 0 &&
          kernel_propagation_fixpoint(kernel));
-  const std::string provenance = records(journal);
+  const std::string provenance = written_bytes(journal);
   assert(provenance.find("\"event\":\"implication\"") != std::string::npos &&
          provenance.find("\"reason\":[1,2,-5]") != std::string::npos &&
          provenance.find("\"sources\":[") != std::string::npos &&
@@ -205,14 +195,14 @@ static void compact_provenance_keeps_authenticated_reason() {
   changed.compact_provenance = false;
   const auto rejected = publish_affine_matrix_live(kernel, changed, prepared);
   assert(rejected.status == MatrixLiveStatus::Invalid &&
-         records(journal).empty());
+         written_bytes(journal).empty());
   const auto applied = publish_affine_matrix_live(kernel, request, prepared);
   assert(applied.status == MatrixLiveStatus::Applied && applied.implication &&
          applied.implication_consumed &&
          applied.preflight_additions > 0 && applied.journal_bytes > 0);
   assert(!kernel_propagate(kernel));
   assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
-  const std::string provenance = records(journal);
+  const std::string provenance = written_bytes(journal);
   assert(provenance.find("\"reason\":[1,2,-5]") != std::string::npos &&
          provenance.find("\"sources\":[") != std::string::npos &&
          provenance.find("\"occurrence\":") != std::string::npos &&
@@ -260,7 +250,7 @@ static void historical_implication_can_be_preflighted_after_tableau_advance() {
   const auto planned = prepare_affine_matrix_live(kernel, retained, prepared);
   assert(planned.status == MatrixLiveStatus::Prepared && planned.implication &&
          prepared.ready() && kernel.next_clause_id == clause_id &&
-         kernel.arena.size() == arena_words && records(journal).empty());
+         kernel.arena.size() == arena_words && written_bytes(journal).empty());
 
   // A conflict boundary is exactly where the future public materialization
   // action needs this pure plan; preflight must not require a BCP fixpoint.
@@ -321,7 +311,7 @@ static void retained_implication_can_be_published_at_conflict() {
          published.installed_reason_ref != INVALID_REF &&
          clause_at(kernel.arena, published.installed_reason_ref)->id() ==
              published.installed_reason_id &&
-         !records(journal).empty());
+         !written_bytes(journal).empty());
   std::fclose(journal);
 }
 
@@ -634,7 +624,7 @@ static int proof_fixture(const char *cnf_path, const char *proof_path,
          result.compact_pbp == pbp &&
          (!pbp || (result.deletions == 0 && pbp_cache.size() > 0)));
   if (pbp) {
-    const std::string provenance = records(journal);
+    const std::string provenance = written_bytes(journal);
     assert(provenance.find("\"source_ordinals\":[") != std::string::npos &&
            provenance.find("\"sources_ref\":{\"retained_owner\":991}") !=
                std::string::npos &&
