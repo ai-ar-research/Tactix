@@ -51,6 +51,11 @@ thread_local RuleJournalMeter effort_meter;
 
 static void close_journal_at_exit();
 
+// Whether external literal `external` names the selected journal variable.
+static bool literal_selected(int external) {
+  return std::abs(external) == std::abs(state.literal);
+}
+
 static uint64_t mix(uint64_t hash, uint64_t value) {
   return (hash ^ value) * UINT64_C(1099511628211);
 }
@@ -312,11 +317,6 @@ int rule_journal_selected_literal() {
   return state.literal;
 }
 
-uint64_t rule_journal_selected_clause_id() {
-  open_journal();
-  return state.clause_id;
-}
-
 const char *rule_journal_outcome(ApplyResult result) {
   switch (result) {
   case ApplyResult::Ok:
@@ -400,8 +400,7 @@ void rule_journal_note_binary_add(const Kernel &k, uint32_t a, uint32_t b,
     return;
   const int ea = kernel_externalize(k, a);
   const int eb = kernel_externalize(k, b);
-  if (state.literal && ea != state.literal && ea != -state.literal &&
-      eb != state.literal && eb != -state.literal)
+  if (state.literal && !literal_selected(ea) && !literal_selected(eb))
     return;
   transaction.deltas.push_back("add-binary(id=" + std::to_string(id) +
                                ";lits=" + std::to_string(ea) + ',' +
@@ -417,10 +416,8 @@ void rule_journal_note_binary_rewrite(const Kernel &k, uint32_t source_a,
   const int sb = kernel_externalize(k, source_b);
   const int ta = kernel_externalize(k, target_a);
   const int tb = kernel_externalize(k, target_b);
-  if (state.literal && std::abs(sa) != std::abs(state.literal) &&
-      std::abs(sb) != std::abs(state.literal) &&
-      std::abs(ta) != std::abs(state.literal) &&
-      std::abs(tb) != std::abs(state.literal))
+  if (state.literal && !literal_selected(sa) && !literal_selected(sb) &&
+      !literal_selected(ta) && !literal_selected(tb))
     return;
   transaction.deltas.push_back(
       "rewrite-binary(source=" + std::to_string(sa) + ',' +
@@ -490,7 +487,7 @@ void rule_journal_note_root_assignment(const Kernel &k, uint32_t lit,
   if (!transaction.active)
     return;
   const int external = kernel_externalize(k, lit);
-  if (state.literal && std::abs(external) != std::abs(state.literal))
+  if (state.literal && !literal_selected(external))
     return;
   transaction.deltas.push_back(
       "root-unit(lit=" + std::to_string(external) +
@@ -503,7 +500,7 @@ void rule_journal_note_variable_status(const Kernel &k, uint32_t var,
   if (!transaction.active)
     return;
   const int external = kernel_externalize(k, make_lit(var, false));
-  if (state.literal && std::abs(external) != std::abs(state.literal))
+  if (state.literal && !literal_selected(external))
     return;
   transaction.deltas.push_back("retire-var(var=" + std::to_string(external) +
                                ";status=" + status + ')');
@@ -514,8 +511,7 @@ void rule_journal_note_reconstruction(const Kernel &k, uint32_t witness,
   if (!transaction.active)
     return;
   const int external_witness = kernel_externalize(k, witness);
-  bool selected = !state.literal ||
-                  std::abs(external_witness) == std::abs(state.literal);
+  bool selected = !state.literal || literal_selected(external_witness);
   const std::string external_rest =
       external_list(rest, nrest, ExternalLiteral{k}, &selected);
   if (!selected)
