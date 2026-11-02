@@ -414,6 +414,11 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   endforeach()
 endif()
 
+# The import-free count-cache subset of the vivify compact contract, in its own
+# process so its digest line matches the frozen-parent control.
+add_test(NAME vivify_count_cache
+         COMMAND test_vivify_compact_contract --count-cache)
+
 # The full-device failure fixture is unavailable on platforms without /dev/full.
 set_tests_properties(proof_output_failure PROPERTIES SKIP_RETURN_CODE 77)
 

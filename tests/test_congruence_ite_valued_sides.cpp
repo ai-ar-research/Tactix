@@ -1,4 +1,5 @@
-// V6 root-cofactored ITE implications stay unmaterialized: exhaustive original/final models, all literal signs,
+// V6 Ite root-value rescheduling, and root-cofactored ITE implications stay
+// unmaterialized: exhaustive original/final models, all literal signs,
 // both import orders, direct/public action surfaces; no DefaultPolicy solve.
 #undef NDEBUG
 #include "kernel/kernel.hpp"

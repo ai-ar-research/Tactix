@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "default_action_map.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -71,43 +72,12 @@ int main(int argc, char **argv) {
       proof.bind_variable_map(&k.internal_to_external);
       k.proof = &proof;
       DefaultStrategyConfig config;
-      if (profile) {
-        // Native scheduler profiles isolate search with many atomic M3
-        // transitions; profile zero still exercises the shipped preprocessing.
-        config.inprocess.program.clear();
-        config.inprocess.append_unlisted_rules = false;
-        config.inprocess.structured_root_stages.clear();
-        config.inprocess.structured_root_bounded_backtracking_stages.clear();
-        config.inprocess.structured_root_large_domain_stages.clear();
-        config.inprocess.initial_fast_elimination = false;
-        config.rephase.walk_warmup = false;
-        config.rephase.late_lucky = false;
-        config.mode.force = profile <= 2 ? profile : 2;
-        config.analysis.chronological_levels = profile == 2 ? 0 : 100;
-        config.restart.reluctant_period = 2;
-        config.reduction.initial_interval = 5;
-        config.rephase.initial_interval = 10;
-        config.reorder.initial_interval = 10;
-        if (profile >= 3) {
-          // Exercise support transactions that ordinary short fixtures do not
-          // reach: complete warm-up, Walk handoff and automatic mode changes.
-          config.rephase.walk_warmup = true;
-          config.rephase.stable_only = false;
-          config.rephase.initial_interval = 1;
-          config.rephase.interval = 1;
-          config.rephase.rotation = {DefaultRephaseSlot::Walk};
-          config.rephase.walk_permille = 1;
-          if (profile == 4) {
-            config.mode.force = 0;
-            config.mode.initial_conflicts = 1;
-            config.mode.interval = 1;
-          }
-          if (profile == 5) {
-            config.rephase.rotation = {DefaultRephaseSlot::Best,
-                DefaultRephaseSlot::Original, DefaultRephaseSlot::Inverted};
-          }
-        }
-      }
+      // Native scheduler profiles isolate search with many atomic M3
+      // transitions; profile zero still exercises the shipped preprocessing.
+      // Profiles 3-5 exercise support transactions that ordinary short
+      // fixtures do not reach: complete warm-up, Walk handoff and automatic
+      // mode changes.
+      action_map::signature_profile(config, profile);
       DefaultPolicy policy(config);
       strategy::controller::FeedbackTrace receiver;
       if (feedback) {

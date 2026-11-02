@@ -1,6 +1,11 @@
 // Compact schedule regression: exact transactions across canonical and fallback
 // modes, reversed import/literal order and physically relocated logical ties.
 // Compile this same fixture against frozen7030 for an independent digest control.
+//
+// With --count-cache (CTest vivify_count_cache) it runs the import-free subset
+// instead: actual repeated scheduling and canonical transactions, not a
+// comparator mirror, with no import record, reversal or replacement. Each mode
+// runs in its own process; the frozen-parent control compares its full digest.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
@@ -8,11 +13,13 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <unistd.h>
 using namespace tactix;
 
 static uint64_t digest = UINT64_C(1469598103934665603);
 static uint64_t proof_bytes = 0, flushed = 0;
+static bool count_cache = false;
 static void hash(uint64_t value) {
   digest = (digest ^ value) * UINT64_C(1099511628211);
 }
@@ -73,8 +80,9 @@ static void check(unsigned scope, bool reuse, bool flush, unsigned priority,
                   bool replace) {
   Kernel k; kernel_reserve_vars(k, 8);
   k.vivify_scope = scope; k.vivify_reuse = reuse; k.vivify_flush = flush;
-  for (unsigned i = 0; i < 8; ++i)
-    kernel_record_import(k, reverse_import ? 7 - i : i);
+  if (!count_cache)
+    for (unsigned i = 0; i < 8; ++i)
+      kernel_record_import(k, reverse_import ? 7 - i : i);
   std::vector<Ref> originals;
   const std::vector<std::vector<int>> clauses = {
     {1,2,3}, {1,2,3,4}, {3,4,5}, {3,4,5}, {3,4,5,6},
@@ -111,14 +119,16 @@ static void check(unsigned scope, bool reuse, bool flush, unsigned priority,
     kernel_assign_unit(k, internalize(-8));
   }
   const auto before = models(k); assert(!before.empty());
-  char path[] = "vivify-compact-contract-XXXXXX";
+  char compact_path[] = "vivify-compact-contract-XXXXXX";
+  char count_cache_path[] = "vivify-count-cache-XXXXXX";
+  char *path = count_cache ? count_cache_path : compact_path;
   const int fd = mkstemp(path); assert(fd >= 0); close(fd);
   Proof proof;
   if (mode) {
     assert(proof.open(path, mode == 1 ? ProofFormat::DratAscii : ProofFormat::Lrat));
     k.proof = &proof;
   }
-  hash(reverse_import); hash(replace);
+  if (!count_cache) { hash(reverse_import); hash(replace); }
   hash(scope); hash(reuse); hash(flush); hash(priority); hash(root_false); hash(mode);
   query(k);
   // A cut round and a complete repeat exercise stale scratch, rewritten keys,
@@ -140,12 +150,19 @@ static void check(unsigned scope, bool reuse, bool flush, unsigned priority,
   assert(!std::ferror(input)); std::fclose(input);
   assert(std::remove(path) == 0);
 }
-int main() {
+int main(int argc, char **argv) {
+  assert(argc == 1 || (argc == 2 && !std::strcmp(argv[1], "--count-cache")));
+  count_cache = argc == 2;
   unsigned cases = 0;
   for (unsigned scope = 0; scope != 6; ++scope)
     for (bool reuse : {false, true}) for (bool flush : {false, true})
       for (unsigned priority = 0; priority != 3; ++priority)
         for (bool root_false : {false, true}) for (unsigned mode = 0; mode != 3; ++mode) {
+          if (count_cache) {
+            check(scope, reuse, flush, priority, root_false, mode, false, false);
+            ++cases;
+            continue;
+          }
           for (bool reverse_import : {false, true}) for (bool replace : {false, true}) {
             check(scope, reuse, flush, priority, root_false, mode, reverse_import, replace);
             ++cases;
@@ -155,7 +172,7 @@ int main() {
   Kernel empty; kernel_reserve_vars(empty, 1);
   std::vector<Ref> out; vivify_candidates(empty, out); assert(out.empty());
   assert(proof_bytes && flushed);
-  std::printf("vivify-compact-contract cases=%u digest=%016llx proof-bytes=%llu subsumed=%llu\n",
-      cases, (unsigned long long)digest, (unsigned long long)proof_bytes,
+  std::printf("%s cases=%u digest=%016llx proof-bytes=%llu subsumed=%llu\n",
+      count_cache ? "vivify-count-cache" : "vivify-compact-contract", cases, (unsigned long long)digest, (unsigned long long)proof_bytes,
       (unsigned long long)flushed);
 }
