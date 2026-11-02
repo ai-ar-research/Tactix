@@ -459,9 +459,17 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
   return true;
 }
 
+// Append the moved points of a dense literal image in source order.
+template <class Image>
+void append_moved_points(SparseLiteralPermutation &sparse, const Image &image,
+                         uint32_t literal_count) {
+  for (Lit source = 0; source < literal_count; ++source)
+    if (const Lit target = image[source]; source != target)
+      sparse.moved.emplace_back(source, target);
+}
+
 SubstitutionRedundancyInstance negative_fixing_instance(
-    const Kernel &, Lit fixed_false, Lit witness_true,
-    const SparseLiteralPermutation &image) {
+    Lit fixed_false, Lit witness_true, const SparseLiteralPermutation &image) {
   SubstitutionRedundancyInstance instance;
   instance.clause = {negate(fixed_false)};
   instance.witness = {negate(fixed_false), witness_true};
@@ -797,8 +805,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
         return result;
       }
       SparseLiteralPermutation sparse{literal_count, {}};
-      for (Lit source = 0; source < literal_count; ++source)
-        if (source != image[source]) sparse.moved.emplace_back(source, image[source]);
+      append_moved_points(sparse, image, literal_count);
       generators.push_back(std::move(sparse));
     }
     for (const Var variable : advice->fixed_variables) {
@@ -998,10 +1005,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       literal_image = proposed.images &&
           (!literal_count || proposed.count <= UINT64_MAX / literal_count);
       if (literal_image)
-        for (Lit source = 0; source < literal_count; ++source) {
-          const Lit target = proposed.images[row * literal_count + source];
-          if (source != target) image.moved.emplace_back(source, target);
-        }
+        append_moved_points(image, proposed.images + row * literal_count,
+                            literal_count);
     }
     if (literal_image && exact_sparse_automorphism(kernel, snapshot, image,
                            generator_workspace, parameters, stop, result,
@@ -1241,10 +1246,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
             valid_chain = false;
             break;
           }
-          for (Lit literal = 0; literal < literal_count; ++literal) {
-            const Lit target = fixings.images[row * literal_count + literal];
-            if (target != literal) image.moved.emplace_back(literal, target);
-          }
+          append_moved_points(image, fixings.images + row * literal_count,
+                              literal_count);
         }
       }
       // Every materialized backend map crosses an untrusted boundary. It must
@@ -1416,8 +1419,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
           locally_fixed[fixed_false] = 1;
           values[fixed_false] = -1;
           values[negate(fixed_false)] = 1;
-          if (!visitor(negative_fixing_instance(
-                  kernel, fixed_false, witness_true, image))) {
+          if (!visitor(
+                  negative_fixing_instance(fixed_false, witness_true, image))) {
             visitor_stopped = true;
             emitted = true;
             break;
