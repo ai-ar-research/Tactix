@@ -71,6 +71,38 @@ bool parse_decimal(const char *text, uint64_t &value) {
   return end != text && !*end;
 }
 
+// How a scan of a comma-separated decimal list ended.
+enum class DecimalList { Complete, Stopped, Malformed };
+
+// Visits each decimal of the comma-separated list `spec` in order, parsed as
+// strtol, strtoul or strtoull for a long, unsigned long or unsigned long long
+// `Value`. A value is visited before its separator is checked; the scan stops
+// when `visit` returns false, and is malformed at a token that is not a
+// decimal or is followed by neither a comma nor the end.
+template <class Value, class Visit>
+DecimalList visit_decimal_list(const char *spec, Visit visit) {
+  while (*spec) {
+    char *end = nullptr;
+    Value value;
+    if constexpr (std::is_same_v<Value, long>)
+      value = std::strtol(spec, &end, 10);
+    else if constexpr (std::is_same_v<Value, unsigned long>)
+      value = std::strtoul(spec, &end, 10);
+    else
+      value = std::strtoull(spec, &end, 10);
+    if (end == spec)
+      return DecimalList::Malformed;
+    if (!visit(value))
+      return DecimalList::Stopped;
+    spec = end;
+    if (*spec == ',')
+      ++spec;
+    else if (*spec)
+      return DecimalList::Malformed;
+  }
+  return DecimalList::Complete;
+}
+
 EventTrace *active_trace;
 bool bve_retry_trace_armed;
 uint32_t bve_retry_trace_candidate;
@@ -116,17 +148,10 @@ const char *late_trace_path(const Kernel &k, const char *event,
 }
 
 void append_absolute_integers(const char *spec, std::vector<int> &values) {
-  const char *cursor = spec;
-  while (*cursor) {
-    char *end = nullptr;
-    const long value = std::strtol(cursor, &end, 10);
-    if (end == cursor)
-      break;
+  visit_decimal_list<long>(spec, [&](long value) {
     values.push_back(std::abs(static_cast<int>(value)));
-    cursor = *end == ',' ? end + 1 : end;
-    if (*end && *end != ',')
-      break;
-  }
+    return true;
+  });
 }
 
 // The external literals of a clause, or of any internal literal range, sorted.
@@ -847,22 +872,15 @@ void annotate_clause_set(const Kernel &k, std::string &payload) {
   if (conflict_to && parse_decimal(conflict_to, limit) &&
       k.stats.conflicts > limit)
     return;
+  // At most 64 values; a 65th, or a malformed list, selects nothing.
   std::vector<int> selected;
-  const char *cursor = spec;
-  while (*cursor) {
-    if (selected.size() == 64)
-      return;
-    char *end = nullptr;
-    const long value = std::strtol(cursor, &end, 10);
-    if (end == cursor)
-      return;
-    selected.push_back(static_cast<int>(value));
-    cursor = end;
-    if (*cursor == ',')
-      cursor++;
-    else if (*cursor)
-      return;
-  }
+  if (visit_decimal_list<long>(spec, [&](long value) {
+        if (selected.size() == 64)
+          return false;
+        selected.push_back(static_cast<int>(value));
+        return true;
+      }) != DecimalList::Complete)
+    return;
   std::sort(selected.begin(), selected.end());
   payload += "|clause_set=" + std::string(spec) + "|clause_poses=";
   size_t matches = 0;
@@ -932,20 +950,9 @@ static bool selected_snapshot_external(const char *spec, int external) {
   if (!spec || !*spec)
     return true;
   external = std::abs(external);
-  while (*spec) {
-    char *end = nullptr;
-    const long selected = std::strtol(spec, &end, 10);
-    if (end == spec)
-      return false;
-    if (std::abs(selected) == external)
-      return true;
-    spec = end;
-    if (*spec == ',')
-      ++spec;
-    else if (*spec)
-      return false;
-  }
-  return false;
+  return visit_decimal_list<long>(spec, [&](long selected) {
+           return std::abs(selected) != external;
+         }) == DecimalList::Stopped;
 }
 
 static void emit_standalone_inprocess_score(const Kernel &k,
@@ -2053,13 +2060,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     }
     if (const char *spec = std::getenv("SAT_EVENT_TRACE_SUBSUME_VARS")) {
       annotated_payload += "|subsume_vars=";
-      const char *cursor = spec;
       bool first = true;
-      while (*cursor) {
-        char *end = nullptr;
-        const long wanted = std::strtol(cursor, &end, 10);
-        if (end == cursor)
-          break;
+      visit_decimal_list<long>(spec, [&](long wanted) {
         Lit found = INVALID_LIT;
         for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
           if (kernel_externalize(k, lit) == wanted) {
@@ -2083,12 +2085,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                          ":", k.touched[var], ":", k.value(found));
           }
         }
-        cursor = end;
-        if (*cursor == ',')
-          ++cursor;
-        else if (*cursor)
-          break;
-      }
+        return true;
+      });
       append_parts(annotated_payload, "|touch_epoch=", k.touch_epoch,
                    "|strengthen_mark=", k.strengthen_touch_mark);
     }
@@ -2474,18 +2472,9 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
 static bool formula_checkpoint_selected(const char *spec, uint64_t conflict) {
   if (!spec || !*spec)
     return false;
-  while (*spec) {
-    char *end = nullptr;
-    const uint64_t selected = std::strtoull(spec, &end, 10);
-    if (end == spec)
-      return false;
-    if (selected == conflict)
-      return true;
-    spec = *end == ',' ? end + 1 : end;
-    if (*end && *end != ',')
-      return false;
-  }
-  return false;
+  return visit_decimal_list<unsigned long long>(
+             spec, [&](uint64_t selected) { return selected != conflict; }) ==
+         DecimalList::Stopped;
 }
 
 static bool formula_checkpoint_threshold_reached(const char *spec,
@@ -2496,21 +2485,16 @@ static bool formula_checkpoint_threshold_reached(const char *spec,
     return false;
   bool found = false;
   uint64_t reached = 0;
-  while (*spec) {
-    char *end = nullptr;
-    const uint64_t threshold = std::strtoull(spec, &end, 10);
-    if (end == spec)
-      return false;
-    if (threshold <= conflict &&
-        (!have_emitted || threshold > last_emitted) &&
-        (!found || threshold > reached)) {
-      reached = threshold;
-      found = true;
-    }
-    spec = *end == ',' ? end + 1 : end;
-    if (*end && *end != ',')
-      return false;
-  }
+  if (visit_decimal_list<unsigned long long>(spec, [&](uint64_t threshold) {
+        if (threshold <= conflict &&
+            (!have_emitted || threshold > last_emitted) &&
+            (!found || threshold > reached)) {
+          reached = threshold;
+          found = true;
+        }
+        return true;
+      }) == DecimalList::Malformed)
+    return false;
   if (found) {
     have_emitted = true;
     last_emitted = reached;
@@ -4575,19 +4559,12 @@ void event_trace_bve_schedule(const Kernel &k, const Var *members,
       }
       if (const char *spec = std::getenv("SAT_BVE_SCHEDULE_SELECTED")) {
         std::vector<uint32_t> selected;
-        const char *cursor = spec;
-        while (*cursor) {
-          char *end = nullptr;
-          const unsigned long external = std::strtoul(cursor, &end, 10);
-          if (end == cursor || !external || external > UINT32_MAX)
-            break;
+        visit_decimal_list<unsigned long>(spec, [&](unsigned long external) {
+          if (!external || external > UINT32_MAX)
+            return false;
           selected.push_back(static_cast<uint32_t>(external));
-          cursor = end;
-          if (*cursor == ',')
-            ++cursor;
-          else if (*cursor)
-            break;
-        }
+          return true;
+        });
         for (Var var = 0; var != k.nvars; ++var) {
           const int base = kernel_externalize(k, make_lit(var, false));
           const uint32_t external = static_cast<uint32_t>(std::abs(base));
