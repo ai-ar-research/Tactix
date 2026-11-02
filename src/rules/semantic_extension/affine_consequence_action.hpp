@@ -7,17 +7,8 @@
 
 namespace tactix {
 
-enum class AffineConsequenceActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
-};
+// The action reports the certified-basis status vocabulary unchanged.
+using AffineConsequenceActionStatus = AffineBasisActionStatus;
 
 struct AffineConsequenceActionResult {
   // The prospective identity is observable for deterministic replay, but the

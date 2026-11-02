@@ -50,6 +50,27 @@ private:
   std::vector<NaryCspRelationOwnerSnapshot> snapshots_;
 };
 
+// Whether two captures authenticate the same retained image. external_extent
+// and capture_work describe when/how each observation was made. Extension
+// growth and unrelated clauses do not invalidate identical retained physical
+// premises.
+inline bool same_authenticated_image(
+    const NaryCspRelationOwnerSnapshot &first,
+    const NaryCspRelationOwnerSnapshot &second) {
+  return first.source_literals == second.source_literals &&
+         first.source == second.source && first.relation == second.relation;
+}
+
+// A downstream action's status for a declined recapture of a retained owner.
+template <class Status>
+Status nary_csp_owner_recapture_status(NaryCspRelationCaptureStatus status) {
+  return status == NaryCspRelationCaptureStatus::Interrupted
+             ? Status::Interrupted
+         : status == NaryCspRelationCaptureStatus::ResourceExhausted
+             ? Status::ResourceExhausted
+             : Status::Stale;
+}
+
 // Capture and stage a complete replacement session. Applied is the only status
 // that changes output. A downstream publishing action can therefore install
 // output only after its own atomic commit. Duplicate leaves output untouched.

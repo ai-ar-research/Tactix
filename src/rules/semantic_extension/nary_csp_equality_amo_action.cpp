@@ -206,17 +206,12 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
       current);
   result.recognition_work = captured.recognition_work;
   if (captured.status != NaryCspRelationCaptureStatus::Applied) {
-    result.status = captured.status == NaryCspRelationCaptureStatus::Interrupted
-                        ? NaryCspEqualityAmoStatus::Interrupted
-                    : captured.status ==
-                              NaryCspRelationCaptureStatus::ResourceExhausted
-                        ? NaryCspEqualityAmoStatus::ResourceExhausted
-                        : NaryCspEqualityAmoStatus::Stale;
+    result.status =
+        nary_csp_owner_recapture_status<NaryCspEqualityAmoStatus>(
+            captured.status);
     return result;
   }
-  current.capture_work = owner->capture_work;
-  current.external_extent = owner->external_extent;
-  if (current != *owner) {
+  if (!same_authenticated_image(current, *owner)) {
     result.status = NaryCspEqualityAmoStatus::Stale;
     return result;
   }

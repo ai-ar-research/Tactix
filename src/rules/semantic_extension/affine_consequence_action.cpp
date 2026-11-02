@@ -46,21 +46,6 @@ AffineConsequenceActionStatus status(AffineLiveStatus value) {
   }
 }
 
-AffineConsequenceActionStatus status(AffineBasisActionStatus value) {
-  if (const auto failure = strategy::map_standard_action_failure<
-          AffineConsequenceActionStatus>(value))
-    return *failure;
-  switch (value) {
-  case AffineBasisActionStatus::NoStructure:
-    return AffineConsequenceActionStatus::NoStructure;
-  case AffineBasisActionStatus::AlreadyPublished:
-    return AffineConsequenceActionStatus::AlreadyPublished;
-  case AffineBasisActionStatus::Applied:
-    return AffineConsequenceActionStatus::Applied;
-  default: std::abort();
-  }
-}
-
 struct RecordAffineConsequence {
   Kernel &kernel;
   AffineConsequenceActionResult &result;
@@ -199,7 +184,7 @@ void apply_basis(Kernel &kernel, AffineBasisActionSession *session,
   output.basis = selection
       ? affine_basis_action_apply(kernel, *session, limits, *selection)
       : affine_basis_action_apply(kernel, *session, limits);
-  output.status = status(output.basis.status);
+  output.status = output.basis.status;
   output.result = output.basis.result;
   output.proposed_action_id = output.basis.proposed_action_id;
   output.committed_action_id = output.basis.committed_action_id;

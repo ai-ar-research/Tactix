@@ -170,10 +170,8 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
    const auto captured=nary_csp_relation_capture_owner(k,capture_request(r->key,limits,meter.remaining(),
      limits.maximum_source_clauses-out.source_clauses,limits.maximum_source_literals-out.source_literals),fresh);
    if(!meter.charge(captured.recognition_work)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
-   if(captured.status!=NaryCspRelationCaptureStatus::Applied){out.status=captured.status==NaryCspRelationCaptureStatus::Interrupted?Status::Interrupted:
-     captured.status==NaryCspRelationCaptureStatus::ResourceExhausted?Status::ResourceExhausted:Status::Stale;out.recognition_work=meter.used;return finish();}
-   fresh.capture_work=saved->capture_work;fresh.external_extent=saved->external_extent;
-   if(fresh!=*saved){out.status=Status::Stale;return finish();}
+   if(captured.status!=NaryCspRelationCaptureStatus::Applied){out.status=nary_csp_owner_recapture_status<Status>(captured.status);out.recognition_work=meter.used;return finish();}
+   if(!same_authenticated_image(fresh,*saved)){out.status=Status::Stale;return finish();}
    for(const auto &p:fresh.source)if(!source(p.literals,p.native_proof_id,true)){out.status=meter.exhausted||meter.interrupted?stopped_status(meter,Status::ResourceExhausted):
       source_resource?Status::ResourceExhausted:Status::Stale;return finish();}
    const auto n=selected.domains[0].size();
