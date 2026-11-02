@@ -2425,141 +2425,90 @@ int tactix_online_complete(tactix_solver *s) {
 uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   const Kernel &k = s->kernel;
   switch (stat_id) {
-  case 0: // TACTIX_STAT_CONFLICTS
-    return k.stats.conflicts;
-  case 1: // TACTIX_STAT_DECISIONS
-    return k.stats.decisions;
-  case 2: // TACTIX_STAT_PROPAGATIONS
-    return k.stats.propagations;
-  case 3: // TACTIX_STAT_TICKS
-    return k.stats.ticks;
-  case 4: // TACTIX_STAT_LEARNED
-    return k.stats.learned;
-  case 5: // TACTIX_STAT_RESTARTS
-    return k.stats.restarts;
-  case 6: // TACTIX_STAT_REDUCTIONS
-    return k.stats.reductions;
-  case 7: // TACTIX_STAT_SWITCHES
-    return k.stats.switched;
-  case 8: // TACTIX_STAT_LEVEL
-    return k.level;
-  case 9: // TACTIX_STAT_UNASSIGNED
-    return k.unassigned;
-  case 10: // TACTIX_STAT_LAST_LEARNED_GLUE (pending.glue persists
-           // after Backjump consumes the pending clause)
+  case TACTIX_STAT_CONFLICTS: return k.stats.conflicts;
+  case TACTIX_STAT_DECISIONS: return k.stats.decisions;
+  case TACTIX_STAT_PROPAGATIONS: return k.stats.propagations;
+  case TACTIX_STAT_TICKS: return k.stats.ticks;
+  case TACTIX_STAT_LEARNED: return k.stats.learned;
+  case TACTIX_STAT_RESTARTS: return k.stats.restarts;
+  case TACTIX_STAT_REDUCTIONS: return k.stats.reductions;
+  case TACTIX_STAT_SWITCHES: return k.stats.switched;
+  case TACTIX_STAT_LEVEL: return k.level;
+  case TACTIX_STAT_UNASSIGNED: return k.unassigned;
+  case TACTIX_STAT_LAST_LEARNED_GLUE:
+    // pending.glue persists after Backjump consumes the pending clause.
     return k.pending.glue;
-  case 11: // TACTIX_STAT_STABLE (0 for an unguided solver with no H)
+  case TACTIX_STAT_STABLE:
+    // 0 for an unguided solver with no H.
     return k.h && k.h->stable ? 1 : 0;
-  case 12: // TACTIX_STAT_REPHASED
-    return k.stats.rephased;
-  case 13: // TACTIX_STAT_SUBSUMPTIONS
-    return k.stats.forward_subsumptions;
-  case 14: // TACTIX_STAT_IRREDUNDANT_CLAUSES
-    return kernel_irredundant_clauses(k);
-  case 15: // TACTIX_STAT_ROOT_FIXED
-    return kernel_logical_root_fixed(k);
-  case 16: // TACTIX_STAT_BINARY_CLAUSES
-    return k.binary_ids.size();
-  case 17: // TACTIX_STAT_STRENGTHENED
-    return k.stats.strengthened;
-  case 18: // TACTIX_STAT_VIVIFIED
-    return k.stats.vivified;
-  case 19: // TACTIX_STAT_PROBE_FAILED
-    return k.stats.probe_failed;
-  case 20: // TACTIX_STAT_BACKBONE_FAILED
-    return k.stats.backbone_failed;
-  case 21: // TACTIX_STAT_TRANSITIVE_DELETED
-    return k.stats.transitive_deleted;
-  case 22: // TACTIX_STAT_FACTORINGS
-    return k.stats.factorings;
-  case 23: // TACTIX_STAT_FACTOR_TICKS
-    return k.stats.factor_ticks;
-  case 24: // TACTIX_STAT_BVE_ELIMINATED
-    return k.stats.bve_eliminated;
-  case 25: // TACTIX_STAT_BVE_RESOLUTIONS
-    return k.stats.bve_resolutions;
+  case TACTIX_STAT_REPHASED: return k.stats.rephased;
+  case TACTIX_STAT_SUBSUMPTIONS: return k.stats.forward_subsumptions;
+  case TACTIX_STAT_IRREDUNDANT_CLAUSES: return kernel_irredundant_clauses(k);
+  case TACTIX_STAT_ROOT_FIXED: return kernel_logical_root_fixed(k);
+  case TACTIX_STAT_BINARY_CLAUSES: return k.binary_ids.size();
+  case TACTIX_STAT_STRENGTHENED: return k.stats.strengthened;
+  case TACTIX_STAT_VIVIFIED: return k.stats.vivified;
+  case TACTIX_STAT_PROBE_FAILED: return k.stats.probe_failed;
+  case TACTIX_STAT_BACKBONE_FAILED: return k.stats.backbone_failed;
+  case TACTIX_STAT_TRANSITIVE_DELETED: return k.stats.transitive_deleted;
+  case TACTIX_STAT_FACTORINGS: return k.stats.factorings;
+  case TACTIX_STAT_FACTOR_TICKS: return k.stats.factor_ticks;
+  case TACTIX_STAT_BVE_ELIMINATED: return k.stats.bve_eliminated;
+  case TACTIX_STAT_BVE_RESOLUTIONS: return k.stats.bve_resolutions;
   // BCE / HyperTernaryRes / Instantiate / Reorder, each a yield/effort pair
-  case 26: // TACTIX_STAT_BCE_DELETED
-    return k.stats.bce_deleted;
-  case 27: // TACTIX_STAT_BCE_TICKS
-    return k.stats.bce_ticks;
-  case 28: // TACTIX_STAT_TERNARY_RESOLVENTS
-    return k.stats.ternary_resolvents;
-  case 29: // TACTIX_STAT_TERNARY_TICKS
-    return k.stats.ternary_ticks;
-  case 30: // TACTIX_STAT_INSTANTIATED
-    return k.stats.instantiated;
-  case 31: // TACTIX_STAT_REORDERED
-    return k.stats.reordered;
+  case TACTIX_STAT_BCE_DELETED: return k.stats.bce_deleted;
+  case TACTIX_STAT_BCE_TICKS: return k.stats.bce_ticks;
+  case TACTIX_STAT_TERNARY_RESOLVENTS: return k.stats.ternary_resolvents;
+  case TACTIX_STAT_TERNARY_TICKS: return k.stats.ternary_ticks;
+  case TACTIX_STAT_INSTANTIATED: return k.stats.instantiated;
+  case TACTIX_STAT_REORDERED: return k.stats.reordered;
   // Each effort id is the counter that family's EFFORT_SPECS meter reads, so
   // the cost-per-unit axis uses the currency the schedule doses in.
-  case 32: // TACTIX_STAT_VIVIFY_TICKS
-    return k.stats.vivify_ticks;
-  case 33: // TACTIX_STAT_PROBE_TICKS
-    return k.stats.probe_ticks;
-  case 34: // TACTIX_STAT_BACKBONE_TICKS
-    return k.stats.backbone_ticks;
-  case 35: // TACTIX_STAT_TRANSITIVE_TICKS
-    return k.stats.transitive_ticks;
-  case 36: // TACTIX_STAT_FORWARD_SUBSUMED
-    return k.stats.forward_subsumed;
-  case 37: // TACTIX_STAT_FORWARD_VISITS
-    return k.stats.forward_visits;
-  case 38: // TACTIX_STAT_STRENGTHEN_VISITS
-    return k.stats.strengthen_visits;
-  case 39: // TACTIX_STAT_INSTANTIATE_TICKS
-    return k.stats.instantiate_ticks;
-  case 40: // TACTIX_STAT_SWEEP_EQUIVALENCES
-    return k.stats.sweep_equivalences;
-  case 41: // TACTIX_STAT_SWEEP_TICKS
+  case TACTIX_STAT_VIVIFY_TICKS: return k.stats.vivify_ticks;
+  case TACTIX_STAT_PROBE_TICKS: return k.stats.probe_ticks;
+  case TACTIX_STAT_BACKBONE_TICKS: return k.stats.backbone_ticks;
+  case TACTIX_STAT_TRANSITIVE_TICKS: return k.stats.transitive_ticks;
+  case TACTIX_STAT_FORWARD_SUBSUMED: return k.stats.forward_subsumed;
+  case TACTIX_STAT_FORWARD_VISITS: return k.stats.forward_visits;
+  case TACTIX_STAT_STRENGTHEN_VISITS: return k.stats.strengthen_visits;
+  case TACTIX_STAT_INSTANTIATE_TICKS: return k.stats.instantiate_ticks;
+  case TACTIX_STAT_SWEEP_EQUIVALENCES: return k.stats.sweep_equivalences;
+  case TACTIX_STAT_SWEEP_TICKS:
     // The public Sweep effort statistic follows the currency DefaultPolicy
     // spends.  `sweep_ticks` remains the broader scan diagnostic.
     return k.stats.sweep_ticks_sub;
-  case 42: // TACTIX_STAT_CONGRUENCE_MERGES
-    return k.stats.congruence_merges;
-  case 43: // TACTIX_STAT_CONGRUENCE_TICKS
-    return k.stats.congruence_ticks;
-  case 44: // TACTIX_STAT_CCE_DELETED
-    return k.stats.cce_deleted;
-  case 45: // TACTIX_STAT_CCE_TICKS
-    return k.stats.cce_ticks;
-  case 46: // TACTIX_STAT_SUBSTITUTE_VARS
-    return k.stats.substitute_vars;
-  case 47: // TACTIX_STAT_SUBSTITUTE_SCC_LITS
-    return k.stats.substitute_scc_lits;
-  case 48: // TACTIX_STAT_HBR_BINARIES
-    return k.stats.hbr_binaries;
-  case 49: // TACTIX_STAT_HBR_TICKS
-    return k.stats.hbr_ticks;
-  case 50: // TACTIX_STAT_SUBSTITUTE_TICKS
-    return k.stats.substitute_ticks;
-  case 51: // TACTIX_STAT_HBR_UNITS
-    return k.stats.hbr_units;
-  case 52: // TACTIX_STAT_PARITY_CONSEQUENCE_ATTEMPTS
+  case TACTIX_STAT_CONGRUENCE_MERGES: return k.stats.congruence_merges;
+  case TACTIX_STAT_CONGRUENCE_TICKS: return k.stats.congruence_ticks;
+  case TACTIX_STAT_CCE_DELETED: return k.stats.cce_deleted;
+  case TACTIX_STAT_CCE_TICKS: return k.stats.cce_ticks;
+  case TACTIX_STAT_SUBSTITUTE_VARS: return k.stats.substitute_vars;
+  case TACTIX_STAT_SUBSTITUTE_SCC_LITS: return k.stats.substitute_scc_lits;
+  case TACTIX_STAT_HBR_BINARIES: return k.stats.hbr_binaries;
+  case TACTIX_STAT_HBR_TICKS: return k.stats.hbr_ticks;
+  case TACTIX_STAT_SUBSTITUTE_TICKS: return k.stats.substitute_ticks;
+  case TACTIX_STAT_HBR_UNITS: return k.stats.hbr_units;
+  case TACTIX_STAT_PARITY_CONSEQUENCE_ATTEMPTS:
     return k.stats.parity_consequence_attempts;
-  case 53: // TACTIX_STAT_PARITY_CONSEQUENCE_CLAUSES
+  case TACTIX_STAT_PARITY_CONSEQUENCE_CLAUSES:
     return k.stats.parity_consequence_clauses;
-  case 54: // TACTIX_STAT_PARITY_CONSEQUENCE_EQUATIONS
+  case TACTIX_STAT_PARITY_CONSEQUENCE_EQUATIONS:
     return k.stats.parity_consequence_equations;
-  case 55: // TACTIX_STAT_PARITY_CONSEQUENCE_SELECTION_WORK
+  case TACTIX_STAT_PARITY_CONSEQUENCE_SELECTION_WORK:
     return k.stats.parity_consequence_selection_work;
-  case 56: // TACTIX_STAT_PARITY_CONSEQUENCE_PREFLIGHT_ADDITIONS
+  case TACTIX_STAT_PARITY_CONSEQUENCE_PREFLIGHT_ADDITIONS:
     return k.stats.parity_consequence_preflight_additions;
-  case 57: // TACTIX_STAT_PARITY_CONSEQUENCE_ADDITIONS
+  case TACTIX_STAT_PARITY_CONSEQUENCE_ADDITIONS:
     return k.stats.parity_consequence_additions;
-  case 58: // TACTIX_STAT_PARITY_CONSEQUENCE_DELETIONS
+  case TACTIX_STAT_PARITY_CONSEQUENCE_DELETIONS:
     return k.stats.parity_consequence_deletions;
-  case 59: // TACTIX_STAT_PARITY_CONSEQUENCE_HELPERS
+  case TACTIX_STAT_PARITY_CONSEQUENCE_HELPERS:
     return k.stats.parity_consequence_helpers;
-  case 60: // TACTIX_STAT_PARITY_CONSEQUENCE_PUBLISHED
+  case TACTIX_STAT_PARITY_CONSEQUENCE_PUBLISHED:
     return k.stats.parity_consequence_published;
-  case 61: // TACTIX_STAT_BACKJUMPS
-    return k.stats.backjumps;
-  case 62: // TACTIX_STAT_BVE_OTF_STRENGTHENED
-    return k.stats.bve_otf_strengthened;
-  case 63: // TACTIX_STAT_BVE_OTF_SUBSUMED
-    return k.stats.bve_otf_subsumed;
-  case 64: // TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED
+  case TACTIX_STAT_BACKJUMPS: return k.stats.backjumps;
+  case TACTIX_STAT_BVE_OTF_STRENGTHENED: return k.stats.bve_otf_strengthened;
+  case TACTIX_STAT_BVE_OTF_SUBSUMED: return k.stats.bve_otf_subsumed;
+  case TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED:
     return k.stats.fastel_extensions_protected;
 
   default:
@@ -2570,64 +2519,54 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
 uint64_t tactix_config(tactix_solver *s, int cfg_id) {
   const Kernel &k = s->kernel;
   switch (cfg_id) {
-  case 0: // TACTIX_CFG_BVE_GATES
-    return k.bve_gate_mask;
-  case 1: // TACTIX_CFG_BVE_BOUND
-    return k.bve_bound;
-  case 2: // TACTIX_CFG_FACTOR_BOUND
-    return k.factor_bound;
-  case 3: // TACTIX_CFG_FACTOR_COMPOSITE
-    return k.factor_composite ? 1 : 0;
-  case 4: // TACTIX_CFG_WORK_BUDGET
-    return k.work_budget;
-  case 5: // TACTIX_CFG_VIVIFY_SCOPE
-    return k.vivify_scope;
-  case 6: // TACTIX_CFG_SUBSUME_CLAUSE_SIZE
+  case TACTIX_CFG_BVE_GATES: return k.bve_gate_mask;
+  case TACTIX_CFG_BVE_BOUND: return k.bve_bound;
+  case TACTIX_CFG_FACTOR_BOUND: return k.factor_bound;
+  case TACTIX_CFG_FACTOR_COMPOSITE: return k.factor_composite ? 1 : 0;
+  case TACTIX_CFG_WORK_BUDGET: return k.work_budget;
+  case TACTIX_CFG_VIVIFY_SCOPE: return k.vivify_scope;
+  case TACTIX_CFG_SUBSUME_CLAUSE_SIZE:
     return k.subsume_forward_parameters.clause_size_limit;
-  case 7: // TACTIX_CFG_SUBSUME_LARGE_OCCURRENCES
+  case TACTIX_CFG_SUBSUME_LARGE_OCCURRENCES:
     return k.subsume_forward_parameters.large_occurrence_limit;
-  case 8: // TACTIX_CFG_SUBSUME_BINARY_OCCURRENCES
+  case TACTIX_CFG_SUBSUME_BINARY_OCCURRENCES:
     return k.subsume_forward_parameters.binary_occurrence_limit;
-  case 9: // TACTIX_CFG_STRENGTHEN_CLAUSE_SIZE
+  case TACTIX_CFG_STRENGTHEN_CLAUSE_SIZE:
     return k.strengthen_parameters.clause_size_limit;
-  case 10: // TACTIX_CFG_STRENGTHEN_OCCURRENCES
+  case TACTIX_CFG_STRENGTHEN_OCCURRENCES:
     return k.strengthen_parameters.occurrence_limit;
-  case 11: // TACTIX_CFG_ANALYZE_MINIMIZE_DEPTH
+  case TACTIX_CFG_ANALYZE_MINIMIZE_DEPTH:
     return k.analyze_parameters.minimize_depth_limit;
-  case 12: // TACTIX_CFG_CONGRUENCE_AND_ARITY
+  case TACTIX_CFG_CONGRUENCE_AND_ARITY:
     return k.congruence_parameters.and_arity_limit;
-  case 13: // TACTIX_CFG_CONGRUENCE_GATE_COUNT
+  case TACTIX_CFG_CONGRUENCE_GATE_COUNT:
     return k.congruence_parameters.gate_count_limit;
-  case 14: // TACTIX_CFG_CONGRUENCE_XOR_ARITY
+  case TACTIX_CFG_CONGRUENCE_XOR_ARITY:
     return k.congruence_parameters.xor_arity_limit;
-  case 26: // TACTIX_CFG_CONGRUENCE_WATCH_ORDER
+  case TACTIX_CFG_CONGRUENCE_WATCH_ORDER:
     return static_cast<uint64_t>(k.congruence_parameters.binary_watch_order);
-  case 16: // TACTIX_CFG_INSTANTIATE_MINIMUM_CLAUSE_SIZE
+  case TACTIX_CFG_INSTANTIATE_MINIMUM_CLAUSE_SIZE:
     return k.instantiate_parameters.minimum_clause_size;
-  case 17: // TACTIX_CFG_INSTANTIATE_OCCURRENCE_LIMIT
+  case TACTIX_CFG_INSTANTIATE_OCCURRENCE_LIMIT:
     return k.instantiate_parameters.occurrence_limit;
-  case 18: // TACTIX_CFG_INSTANTIATE_MINIMUM_UNASSIGNED
+  case TACTIX_CFG_INSTANTIATE_MINIMUM_UNASSIGNED:
     return k.instantiate_parameters.minimum_unassigned;
-  case 19: // TACTIX_CFG_INSTANTIATE_INCLUDE_REDUNDANT
+  case TACTIX_CFG_INSTANTIATE_INCLUDE_REDUNDANT:
     return k.instantiate_parameters.include_redundant ? 1 : 0;
-  case 20: // TACTIX_CFG_BACKBONE_INITIAL_ROUNDS
+  case TACTIX_CFG_BACKBONE_INITIAL_ROUNDS:
     return k.backbone_parameters.initial_rounds;
-  case 21: // TACTIX_CFG_BACKBONE_MAXIMUM_ROUNDS
+  case TACTIX_CFG_BACKBONE_MAXIMUM_ROUNDS:
     return k.backbone_parameters.maximum_rounds;
-  case 22: // TACTIX_CFG_VIVIFY_REUSE
-    return k.vivify_reuse ? 1 : 0;
-  case 23: // TACTIX_CFG_VIVIFY_FLUSH
-    return k.vivify_flush ? 1 : 0;
-  case 24: // TACTIX_CFG_VIVIFY_IRREDUNDANT_SORT_RATIO
+  case TACTIX_CFG_VIVIFY_REUSE: return k.vivify_reuse ? 1 : 0;
+  case TACTIX_CFG_VIVIFY_FLUSH: return k.vivify_flush ? 1 : 0;
+  case TACTIX_CFG_VIVIFY_IRREDUNDANT_SORT_RATIO:
     return k.vivify_irredundant_sort_ratio;
-  case 25: // TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD
+  case TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD:
     return k.instantiate_parameters.new_material_threshold;
-  case 27: // TACTIX_CFG_GUIDANCE_PUBLICATION
+  case TACTIX_CFG_GUIDANCE_PUBLICATION:
     return static_cast<uint64_t>(s->guidance_publication);
-  case 28: // TACTIX_CFG_TOUCH_FILTER
-    return k.touch_filter ? 1 : 0;
-  case 29: // TACTIX_CFG_LIKELY_KEPT_REDUNDANT
-    return k.touch_redundant ? 1 : 0;
+  case TACTIX_CFG_TOUCH_FILTER: return k.touch_filter ? 1 : 0;
+  case TACTIX_CFG_LIKELY_KEPT_REDUNDANT: return k.touch_redundant ? 1 : 0;
   default:
     return UINT64_MAX;
   }

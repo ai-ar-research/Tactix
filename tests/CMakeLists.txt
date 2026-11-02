@@ -670,8 +670,8 @@ add_test(NAME effort_specs
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-effort-specs.py)
 
 # The §5.6 reward channel: every dosed rule exposes a (yield, effort) pair,
-# header numbering matches api.cpp's case order, and every case returns the
-# counter its macro names -- a swapped pair inverts the learner's cost axis.
+# api.cpp's macro-labeled cases follow header numbering, and every case returns
+# the counter its macro names -- a swapped pair inverts the learner's cost axis.
 add_test(NAME stat_ids
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-stat-ids.py)
