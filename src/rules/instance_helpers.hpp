@@ -145,6 +145,29 @@ inline void probe_unwind(Kernel &kernel, bool end_scope = true) {
     kernel_probing_end(kernel);
 }
 
+// Retire `variable` with `status` (Eliminated, Substituted): it leaves the
+// active pool if it was an unassigned active variable, the journal records
+// `journal_status`, and the policy learns of it from `retired_events`. The
+// caller pushes the reconstruction witness that must accompany it.
+inline void retire_variable(Kernel &kernel, Var variable, VarStatus status,
+                            const char *journal_status) {
+  if (kernel.var_status.size() < kernel.nvars)
+    kernel.var_status.resize(kernel.nvars, VarStatus::Active);
+  if (kernel.var_status[variable] == VarStatus::Active &&
+      kernel.values[make_lit(variable, false)] == 0) {
+    assert(kernel.unassigned_active > 0); // it leaves the active pool
+    kernel.unassigned_active--;
+  }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_variable_status(kernel, variable, journal_status);
+#else
+  (void)journal_status;
+#endif
+  kernel_affine_note_namespace_change(kernel);
+  kernel.var_status[variable] = status;
+  kernel.retired_events.push_back(variable);
+}
+
 template <class Value, class Project = std::identity>
 inline uint32_t copy_instance_prefix(const std::vector<Value> &values,
                                      uint64_t *out, uint32_t cap,

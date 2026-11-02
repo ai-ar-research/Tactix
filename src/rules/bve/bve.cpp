@@ -2411,19 +2411,9 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   // elim.cpp:723 flags.cpp:34-46, kissat eliminate.c:405 flags.c:77-100 — so
   // it leaves the decision structures and the active-variable count instead of
   // burning propagation-free decisions, and the phase fixpoint test sees BVE
-  // progress. Reconstruction supplies its value either way.
-  if (k.var_status.size() < k.nvars)
-    k.var_status.resize(k.nvars, VarStatus::Active);
-  if (k.var_status[x] == VarStatus::Active && k.values[px] == 0) {
-    assert(k.unassigned_active > 0);
-    k.unassigned_active--;
-  }
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-  rule_journal_note_variable_status(k, x, "eliminated");
-#endif
-  kernel_affine_note_namespace_change(k);
-  k.var_status[x] = VarStatus::Eliminated;
-  k.retired_events.push_back(x); // the policy deactivates its own H from this
+  // progress. Reconstruction supplies its value either way. The policy
+  // deactivates its own H from the retirement event.
+  retire_variable(k, x, VarStatus::Eliminated, "eliminated");
 
   // delete every clause on x: live (pos/neg) plus delete-only (redundant,
   // satisfied, tautology). Large → proof del + garbage; each connected binary
