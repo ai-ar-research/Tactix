@@ -2,6 +2,7 @@
 
 #include "rules/lucky/graph_labeling_completion.hpp"
 #include "rules/lucky/graph_labeling_repair.hpp"
+#include "rules/lucky/root_guard.hpp"
 #include "rules/lucky/graph_labeling_window_cursor.hpp"
 #include "strategy/rule_parameters.hpp"
 
@@ -140,15 +141,7 @@ std::vector<int8_t> graph_partial_assignment(
 } // namespace
 
 RuleEligibility graph_labeling_model_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", !k.level)
-      .fact("propagated", kernel_propagation_fixpoint(k))
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected);
+  return lucky_root_eligibility(k, true);
 }
 
 GraphLabelingAuthenticationResult graph_labeling_model_authenticate(

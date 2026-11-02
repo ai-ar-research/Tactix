@@ -376,8 +376,7 @@ bool derive(const System &system, Sink &sink) {
 } // namespace
 
 RuleEligibility signed_cardinality_proof_guard(const Kernel &k) {
-  RuleEligibility result = lucky_root_eligibility(k);
-  return result.fact("proof-format", !k.proof || !k.proof->lrat());
+  return lucky_clausal_root_eligibility(k);
 }
 
 ApplyResult signed_cardinality_proof_apply(Kernel &k) {

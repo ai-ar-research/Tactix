@@ -1,6 +1,7 @@
 #include "rules/lucky/tseitin_cycle_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -30,10 +31,7 @@ enum class CaptureStop { Complete, Invalid, ClauseLimit, LiteralLimit,
                          WorkLimit, VariableLimit, Interrupted };
 
 bool applicable(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && !kernel.dense &&
-         !kernel.probing.recording && kernel.large_watches_connected &&
-         kernel_propagation_fixpoint(kernel);
+  return lucky_root_eligibility(kernel, true);
 }
 
 bool valid(const SnapshotLimits &limits) {

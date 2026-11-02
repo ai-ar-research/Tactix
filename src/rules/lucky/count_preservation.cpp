@@ -1,4 +1,5 @@
 #include "rules/lucky/opportunities.hpp"
+#include "rules/lucky/root_guard.hpp"
 #include "rules/lucky/startup_pb_writer.hpp"
 
 #include "kernel/types.hpp"
@@ -466,10 +467,7 @@ public:
 } // namespace
 
 RuleEligibility count_preservation_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root", k.level == 0 && !k.conflict_valid)
-      .fact("original-input-boundary", k.startup_certificate_open);
+  return lucky_startup_eligibility(k);
 }
 ApplyResult count_preservation_apply(Kernel &k) {
   if (!count_preservation_guard(k) || k.trail.empty() ||
