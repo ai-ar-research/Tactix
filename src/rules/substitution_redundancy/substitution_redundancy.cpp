@@ -3,6 +3,7 @@
 #include "engine/subsolver.hpp"
 #include "proof/proof.hpp"
 #include "rules/instance_helpers.hpp"
+#include "rules/substitution_redundancy/detection_support.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
@@ -12,6 +13,9 @@
 
 namespace tactix {
 namespace {
+
+using sr_detail::finish;
+using sr_detail::stop_requested;
 
 enum class ValidationStatus : uint8_t {
   Valid,
@@ -435,22 +439,6 @@ ValidationResult validate_semantics(
   return {ValidationStatus::Valid, formula.ticks()};
 }
 
-// Record `status` in an application outcome and return that outcome.
-SubstitutionRedundancyApplicationResult
-finish(SubstitutionRedundancyApplicationResult &outcome,
-       SubstitutionRedundancyApplicationStatus status) {
-  outcome.status = status;
-  return outcome;
-}
-
-// Record `status` in a general-discovery result and return that result.
-SubstitutionRedundancyGeneralResult
-finish(SubstitutionRedundancyGeneralResult &result,
-       SubstitutionRedundancyGeneralStatus status) {
-  result.status = status;
-  return result;
-}
-
 bool increment_digits(std::vector<uint32_t> &digits, uint32_t base) {
   for (size_t i = 0; i < digits.size(); ++i) {
     if (++digits[i] < base)
@@ -539,7 +527,7 @@ SubstitutionRedundancyGeneralResult substitution_redundancy_next_general(
       cursor.touch_epoch != k.touch_epoch)
     reset_general_cursor(k, cursor);
   while (!cursor.complete) {
-    if ((stop && *stop) || (k.stop && *k.stop))
+    if (stop_requested(k, stop))
       return finish(result, SubstitutionRedundancyGeneralStatus::Interrupted);
     if (result.candidates == parameters.maximum_general_candidates_per_advance)
       return finish(result, SubstitutionRedundancyGeneralStatus::LimitReached);
@@ -617,7 +605,7 @@ substitution_redundancy_apply_detailed_impl(
                   SubstitutionRedundancyApplicationStatus::Inapplicable);
 
   ++k.stats.sr_applications;
-  if ((stop && *stop) || (k.stop && *k.stop))
+  if (stop_requested(k, stop))
     return finish(outcome,
                   SubstitutionRedundancyApplicationStatus::Interrupted);
   if (inprocess_reach_root(k)) {

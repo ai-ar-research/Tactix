@@ -1,5 +1,6 @@
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include "rules/disjoint_sets.hpp"
+#include "rules/substitution_redundancy/detection_support.hpp"
 #include "rules/substitution_redundancy/orbitopal_group.hpp"
 #include "rules/substitution_redundancy/row_feasibility.hpp"
 
@@ -15,6 +16,12 @@
 namespace tactix {
 namespace {
 
+using sr_detail::backend_stop;
+using sr_detail::fail;
+using sr_detail::saturating_add;
+using sr_detail::stop_requested;
+using sr_detail::StopContext;
+
 // Diagnostics identify the exact local allowance that ended discovery. The
 // returned status is unchanged; site coordinates belong to the pinned source.
 OrbitopalEnumerationStatus traced_orbitopal_limit(const char *function,
@@ -23,20 +30,12 @@ OrbitopalEnumerationStatus traced_orbitopal_limit(const char *function,
   return OrbitopalEnumerationStatus::LimitReached;
 }
 
-// Record `status` in the pass result and fail the current step.
-bool fail(OrbitopalEnumerationResult &result,
-          OrbitopalEnumerationStatus status) {
-  result.status = status;
-  return false;
-}
-
 // Fold one backend call's work into the pass. A stop maps to Interrupted and
 // any other incomplete status to the traced limit at the caller's site.
 bool backend_complete(OrbitopalEnumerationResult &result,
                       symmetry_backend::Status status, uint64_t ticks,
                       const char *function, unsigned line) {
-  result.ticks = ticks > UINT64_MAX - result.ticks ? UINT64_MAX
-                                                   : result.ticks + ticks;
+  result.ticks = saturating_add(result.ticks, ticks);
   if (status == symmetry_backend::Status::Complete)
     return true;
   result.status = status == symmetry_backend::Status::Interrupted
@@ -85,11 +84,6 @@ bool charge(const Kernel &, volatile sig_atomic_t *,
             const SubstitutionRedundancyParameters &,
             OrbitopalEnumerationResult &, uint64_t);
 
-struct RefinementStopContext {
-  const Kernel *kernel;
-  volatile sig_atomic_t *stop;
-};
-
 // Satsuma shares a max(16 * variables, 16 Mi) split allowance across its
 // structured detectors.  Tactix charges deterministic degree/width work
 // instead of backend-specific split counts.  Use the same owner scale as a
@@ -135,12 +129,6 @@ private:
   uint64_t checkpoint_ = 0;
   uint64_t matrices_ = 0;
 };
-
-bool refinement_stopped(void *opaque) noexcept {
-  const auto &context = *static_cast<RefinementStopContext *>(opaque);
-  return (context.stop && *context.stop) ||
-         (context.kernel->stop && *context.kernel->stop);
-}
 
 class MaximumCliqueSearch {
 public:
@@ -227,7 +215,7 @@ public:
 
 private:
   bool interrupted() const {
-    return (stop_ && *stop_) || (kernel_.stop && *kernel_.stop);
+    return stop_requested(kernel_, stop_);
   }
 
   bool tick() {
@@ -396,7 +384,7 @@ bool contains_clause(const LogicalFormula &formula,
 bool charge(const Kernel &kernel, volatile sig_atomic_t *stop,
             const SubstitutionRedundancyParameters &parameters,
             OrbitopalEnumerationResult &result, uint64_t amount) {
-  if ((stop && *stop) || (kernel.stop && *kernel.stop))
+  if (stop_requested(kernel, stop))
     return fail(result, OrbitopalEnumerationStatus::Interrupted);
   const uint64_t limit = parameters.maximum_detection_ticks;
   if (result.ticks >= limit || amount > limit - result.ticks) {
@@ -1167,13 +1155,13 @@ bool prepare_formula_refinement(
     const symmetry_backend::Graph graph{
         storage.vertex_count, storage.edge_count, storage.colors.data(),
         storage.degrees.data(), storage.edges.data()};
-    RefinementStopContext context{&kernel, stop};
+    StopContext context{&kernel, stop};
     uint64_t preparation_ticks = 0;
     const uint64_t remaining =
         parameters.maximum_detection_ticks - result.ticks;
     const symmetry_backend::Status prepared =
         symmetry_backend::prepare_refinement(
-            graph, remaining, refinement_stopped, &context, cached.session,
+            graph, remaining, backend_stop, &context, cached.session,
             preparation_ticks);
     if (!backend_complete(result, prepared, preparation_ticks, __func__,
                           __LINE__))
@@ -1203,13 +1191,13 @@ bool complete_matrix_by_refinement(
     anchors.push_back(row.front());
 
   const uint64_t remaining = parameters.maximum_detection_ticks - result.ticks;
-  RefinementStopContext context{&kernel, stop};
+  StopContext context{&kernel, stop};
   BackendOwner<symmetry_backend::RefinementRows> owned_refined;
   auto &refined = owned_refined.value;
   RowColumnFeasibility feedback(matrix);
   const symmetry_backend::Status status = symmetry_backend::refine_rows(
       *cached.session, anchors.data(), anchors.size(), cached.literal_count,
-      remaining, refinement_stopped, &context, refined,
+      remaining, backend_stop, &context, refined,
       RowColumnFeasibility::observe, &feedback);
   if (!backend_complete(result, status, refined.ticks, __func__, __LINE__))
     return false;
@@ -1298,27 +1286,17 @@ bool prepare_formula_automorphisms(
                           __func__, __LINE__))
     return false;
 
-  symmetry_backend::DetectionSettings detection;
-  detection.seed = settings.seed;
-  detection.error_bound = settings.error_bound;
-  detection.search_budget = settings.backend_search_budget;
-  detection.support_budget = settings.backend_support_budget;
-  detection.component_size_limit = settings.backend_component_size_limit;
-  detection.maximum_generators = settings.maximum_generators;
-  detection.preserve_generator_order = settings.preserve_detector_order;
-  detection.returned_prefix_size = literal_count;
-  detection.sparse_output = true;
-  detection.decompose = settings.decompose;
-  detection.prefer_depth_first = settings.prefer_depth_first;
-  detection.strong_certification = settings.strong_certification;
+  const symmetry_backend::DetectionSettings detection =
+      sr_detail::detection_settings(settings,
+                                    static_cast<uint32_t>(literal_count));
   const symmetry_backend::Graph graph{
       storage.vertex_count, storage.edge_count, storage.colors.data(),
       storage.degrees.data(), storage.edges.data()};
-  RefinementStopContext context{&kernel, stop};
+  StopContext context{&kernel, stop};
   BackendOwner<symmetry_backend::Permutations> owned_proposed;
   auto &proposed = owned_proposed.value;
   automorphisms.detection_status = symmetry_backend::detect(
-      graph, detection, refinement_stopped, &context, proposed);
+      graph, detection, backend_stop, &context, proposed);
   if (automorphisms.detection_status == symmetry_backend::Status::Interrupted)
     return fail(result, OrbitopalEnumerationStatus::Interrupted);
   if (automorphisms.detection_status == symmetry_backend::Status::Invalid ||
@@ -1530,11 +1508,11 @@ bool constrained_dimension_automorphisms(
       }
     const uint64_t remaining =
         parameters.maximum_detection_ticks - result.ticks;
-    RefinementStopContext context{&kernel, stop};
+    StopContext context{&kernel, stop};
     const orbitopal_group::Result group =
         orbitopal_group::find_kernel_transposition(
             induced, parameters.maximum_orbitopal_product_states, remaining,
-            refinement_stopped, &context);
+            backend_stop, &context);
     trace.event("product_kernel_search",
                 "rows\t%zu\tcolumns\t%zu\tstates\t%llu\tticks\t%llu\tstatus\t%u\tword_nodes\t%zu",
                 matrix.size(), columns,
@@ -1565,7 +1543,7 @@ bool constrained_dimension_automorphisms(
     auto evaluated = orbitopal_group::evaluate_word(
         group.word, literal_count, encoded_generators,
         parameters.maximum_detection_ticks - result.ticks,
-        refinement_stopped, &context);
+        backend_stop, &context);
     result.ticks += evaluated.ticks;
     if (evaluated.status != orbitopal_group::Status::Found) {
       result.status = evaluated.status == orbitopal_group::Status::Interrupted
@@ -1814,7 +1792,7 @@ bool product_child_partition(
   BackendOwner<symmetry_backend::IndividualizedPartition> owned_partition;
   auto &partition = owned_partition.value;
   const uint64_t remaining = parameters.maximum_detection_ticks - result.ticks;
-  RefinementStopContext context{&kernel, stop};
+  StopContext context{&kernel, stop};
   const symmetry_backend::Status status =
       individualize(remaining, &context, partition);
   if (!backend_complete(result, status, partition.ticks, __func__, __LINE__))
@@ -1838,10 +1816,10 @@ bool product_child_partition(
     ProductChildPartition &child) {
   return product_child_partition(
       kernel, parameters, stop, result, orbit, child,
-      [&](uint64_t remaining, RefinementStopContext *context,
+      [&](uint64_t remaining, StopContext *context,
           symmetry_backend::IndividualizedPartition &partition) {
         return symmetry_backend::individualized_partition(
-            branch, anchor, literal_count, remaining, refinement_stopped,
+            branch, anchor, literal_count, remaining, backend_stop,
             context, partition);
       });
 }
@@ -1854,12 +1832,12 @@ bool product_child_partition(
     ProductChildPartition &child) {
   return product_child_partition(
       kernel, parameters, stop, result, orbit, child,
-      [&](uint64_t remaining, RefinementStopContext *context,
+      [&](uint64_t remaining, StopContext *context,
           symmetry_backend::IndividualizedPartition &partition) {
         return symmetry_backend::individualized_partition(
             *refinement.session, anchors.data(),
             static_cast<uint32_t>(anchors.size()), refinement.literal_count,
-            remaining, refinement_stopped, context, partition);
+            remaining, backend_stop, context, partition);
       });
 }
 
@@ -2327,11 +2305,11 @@ bool emit_refined_row_candidates(
   if (parameters.orbitopal_base_probe_filter) {
     const uint64_t remaining =
         parameters.maximum_detection_ticks - result.ticks;
-    RefinementStopContext context{&kernel, stop};
+    StopContext context{&kernel, stop};
     uint64_t probe_ticks = 0;
     const symmetry_backend::Status probe_status =
         symmetry_backend::probe_base_length(
-            *refinement.session, remaining, refinement_stopped, &context,
+            *refinement.session, remaining, backend_stop, &context,
             probed_base_length, probe_ticks);
     if (!backend_complete(result, probe_status, probe_ticks, __func__,
                           __LINE__))
@@ -2362,12 +2340,12 @@ bool emit_refined_row_candidates(
     BackendOwner<symmetry_backend::RefinementOrbit> owned_reduced;
     auto &reduced = owned_reduced.value;
     const uint64_t remaining = parameters.maximum_detection_ticks - result.ticks;
-    RefinementStopContext context{&kernel, stop};
+    StopContext context{&kernel, stop};
     const symmetry_backend::Status reduction_status = trace.measure(
         "row_reduce_orbit", [&] {
           return symmetry_backend::reduce_orbit(
             *refinement.session, orbit.data(), orbit.size(),
-            refinement.literal_count, remaining, refinement_stopped, &context,
+            refinement.literal_count, remaining, backend_stop, &context,
             reduced);
         });
     trace.event("row_reduced", "count\t%u\tticks\t%llu\tstatus\t%u",
@@ -2653,7 +2631,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
     for (size_t seed = 0; seed < columns.size(); ++seed) {
       if (used[seed])
         continue;
-      if ((stop && *stop) || (kernel.stop && *kernel.stop)) {
+      if (stop_requested(kernel, stop)) {
         result.status = OrbitopalEnumerationStatus::Interrupted;
         return result;
       }

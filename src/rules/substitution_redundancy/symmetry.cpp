@@ -1,6 +1,7 @@
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include "rules/substitution_redundancy/clause_multiset.hpp"
 #include "rules/substitution_redundancy/cut_orbit_index.hpp"
+#include "rules/substitution_redundancy/detection_support.hpp"
 #include "rules/substitution_redundancy/literal_permutation.hpp"
 
 #include "symmetry_backend/dejavu_backend.hpp"
@@ -18,6 +19,13 @@
 namespace tactix {
 namespace {
 
+using sr_detail::backend_stop;
+using sr_detail::fail;
+using sr_detail::finish;
+using sr_detail::saturating_add;
+using sr_detail::stop_requested;
+using sr_detail::StopContext;
+
 struct FormulaSnapshot {
   SymmetryClauseMultiset clause_index;
   std::vector<uint32_t> occurrences;
@@ -31,15 +39,6 @@ struct SymmetryGraphStorage {
   uint64_t edge_count = 0;
   bool direct_binary_edges = false;
 };
-
-struct StopContext {
-  const Kernel *kernel;
-  volatile sig_atomic_t *external;
-};
-
-uint64_t saturating_add(uint64_t first, uint64_t second) {
-  return second > UINT64_MAX - first ? UINT64_MAX : first + second;
-}
 
 uint64_t saturating_twice(uint64_t value) {
   return value > UINT64_MAX / 2 ? UINT64_MAX : 2 * value;
@@ -76,29 +75,10 @@ void apply_order(std::vector<T> &values, SymmetryTraversalOrder order,
   }
 }
 
-bool backend_stop(void *opaque) noexcept {
-  const auto *context = static_cast<const StopContext *>(opaque);
-  return (context->external && *context->external) ||
-         (context->kernel->stop && *context->kernel->stop);
-}
-
-// Record `status` in the pass result and return that result.
-SymmetryEnumerationResult finish(SymmetryEnumerationResult &result,
-                                 SymmetryEnumerationStatus status) {
-  result.status = status;
-  return result;
-}
-
-// Record `status` in the pass result and fail the current step.
-bool fail(SymmetryEnumerationResult &result, SymmetryEnumerationStatus status) {
-  result.status = status;
-  return false;
-}
-
 bool charge(const Kernel &kernel, const SubstitutionRedundancyParameters &p,
             volatile sig_atomic_t *stop, SymmetryEnumerationResult &result,
             uint64_t amount) {
-  if ((stop && *stop) || (kernel.stop && *kernel.stop))
+  if (stop_requested(kernel, stop))
     return fail(result, SymmetryEnumerationStatus::Interrupted);
   if (result.ticks >= p.maximum_detection_ticks ||
       amount > p.maximum_detection_ticks - result.ticks) {
@@ -854,19 +834,9 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
         for (size_t i = 0; i < graph_storage.edges.size(); i += 2)
           edge(graph_storage.edges[i], graph_storage.edges[i + 1]);
       });
-  symmetry_backend::DetectionSettings settings;
-  settings.seed = configured.seed;
-  settings.error_bound = configured.error_bound;
-  settings.search_budget = configured.backend_search_budget;
-  settings.support_budget = configured.backend_support_budget;
-  settings.component_size_limit = configured.backend_component_size_limit;
+  symmetry_backend::DetectionSettings settings =
+      sr_detail::detection_settings(configured, literal_count);
   settings.maximum_generators = configured.maximum_generators - generators.size();
-  settings.returned_prefix_size = literal_count;
-  settings.sparse_output = true;
-  settings.decompose = configured.decompose;
-  settings.prefer_depth_first = configured.prefer_depth_first;
-  settings.strong_certification = configured.strong_certification;
-  settings.preserve_generator_order = configured.preserve_detector_order;
   const uint64_t validation_quantum =
       generator_validation_upper_bound(snapshot, literal_count);
   const uint64_t remaining_detection_ticks =
@@ -1460,9 +1430,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       }
     }
   }
-  result.ticks = result.ticks > UINT64_MAX - group_ticks
-                     ? UINT64_MAX
-                     : result.ticks + group_ticks;
+  result.ticks = saturating_add(result.ticks, group_ticks);
   return settled();
 }
 
