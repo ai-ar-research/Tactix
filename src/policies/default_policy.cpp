@@ -851,7 +851,6 @@ static uint64_t scale_permille(uint64_t reference, uint32_t permille) {
 }
 constexpr uint64_t PERCENT_SCALE = 100;
 constexpr uint32_t MODES_PER_CYCLE = 2;
-constexpr uint32_t REORDER_STABLE_ONLY = 2;
 
 // The posed tier boundaries are ReduceParameters' tier1/tier2, which Reduce
 // ranking, Vivify's tier bands and the likely-kept material filter read. A
@@ -2063,15 +2062,6 @@ using execution::metered_rule_apply;
 
 using InprocessScope =
     execution::ExecutionScope<execution::ExecutionContext::Inprocessing>;
-
-// Kissat's `search_ticks` is charged only by the ordinary CDCL search
-// propagator.  Startup propagation, both Lucky trials, sparse root collection,
-// and `probe_initially` all run before search and therefore must not seed mode
-// or inprocessing effort references.  This scope suppresses only that tick
-// currency; unlike `InprocessScope` it deliberately leaves assignment-time
-// phase saving unchanged outside the actual Probe pipeline.
-using PreSearchTickScope =
-    execution::ExecutionScope<execution::ExecutionContext::Startup>;
 
 // An execution context held across a span of actions. Entry and an explicit
 // leave are the public ENTER_CONTEXT / LEAVE_CONTEXT supports; an early exit
@@ -3650,8 +3640,6 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
       affine_completed_census_.reset();
   }
   if(result.unchanged)++affine_search_diagnostics_.unchanged_refreshes;
-  affine_search_diagnostics_.root_unit_work+=result.root_unit_work;
-  affine_search_diagnostics_.root_unit_additions+=result.root_unit_additions;
   if (!refresh || recognize) {
     affine_refresh_ticks_=search_ticks(kernel);
     affine_refresh_work_=0;
@@ -3872,17 +3860,10 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   affine_search_diagnostics_.cached_event_calls+=result.synchronized && result.cached_event;
   affine_search_diagnostics_.capture_delta_literals=saturated_sum(
       affine_search_diagnostics_.capture_delta_literals,result.capture_delta_literals);
-  affine_search_diagnostics_.lifecycle_work+=result.lifecycle_work;
-  affine_search_diagnostics_.trail_capture_work+=result.trail_capture_work;
-  affine_search_diagnostics_.synchronization_work+=result.synchronization_work;
   affine_search_diagnostics_.synchronization_nanos+=result.synchronization_nanos;
   affine_search_diagnostics_.publication_nanos+=result.publication_nanos;
-  affine_search_diagnostics_.conditioned_rows+=result.synchronization_conditioned;
   affine_search_diagnostics_.retired_sources+=result.retired_source_groups;
   affine_search_diagnostics_.projected_variables+=result.projected_variables;
-  if(result.synchronized && result.cached_event)++affine_search_diagnostics_.unchanged_reductions;
-  if(result.status==AffineMatrixServiceStatus::NoEvent)++affine_search_diagnostics_.no_event;
-  if(result.status==AffineMatrixServiceStatus::Duplicate)++affine_search_diagnostics_.duplicates;
   if(result.status==AffineMatrixServiceStatus::ResourceExhausted)++affine_search_diagnostics_.resource_declines;
   affine_search_diagnostics_.reasons_deferred += result.reason_deferred;
   affine_search_diagnostics_.reasons_materialized += result.reason_materialized;
@@ -4297,11 +4278,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   complementary_ternary_permille_ =
       complementary_census ? walk_complementary_ternary_fraction_permille(k)
                            : 0;
-  complementary_ternary_walk_ =
+  configuration_checking_walk_ =
       complementary_census &&
       complementary_ternary_permille_ >=
           config_.rephase.complementary_ternary_minimum_permille;
-  configuration_checking_walk_ = complementary_ternary_walk_;
   configuration_checking_preprocessing_deferred_ =
       configuration_checking_walk_;
   configuration_checking_walk_applications_ = 0;
@@ -4418,6 +4398,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     return verdict;
   };
 
+  // Kissat's `search_ticks` is charged only by the ordinary CDCL search
+  // propagator.  Startup propagation, both Lucky trials, sparse root collection,
+  // and `probe_initially` all run before search and therefore must not seed mode
+  // or inprocessing effort references.  This Startup context suppresses only
+  // that tick currency; unlike `InprocessScope` it deliberately leaves
+  // assignment-time phase saving unchanged outside the actual Probe pipeline.
   std::optional<RecordedExecutionContext<execution::ExecutionContext::Startup>>
       presearch_ticks;
   presearch_ticks.emplace(k, completion_);
@@ -5580,7 +5566,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
   const bool level_mode = bve_entry && ramp;
   const uint32_t passes = level_mode ? 1 : ramp ? ramp->num_passes() : 1;
-  uint64_t elim_at_last_pass = k.stats.bve_eliminated;
   const bool use_retry = bve_entry && !ramp;
   bool engaged = false; // a pass got past the budget break and ran instances
   for (uint32_t pass = 0; pass < passes && !ctx.phase_unsat; pass++) {
@@ -5596,7 +5581,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       port::execute_action(k, execution::ParameterInstallationRequest{bound},
                                 ctx.completion, "BVE");
     }
-    elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
     // Pose and validate BVE's typed invocation once per pass.  Keeping this
     // session outside the hot candidate loop preserves the legacy default
     // schedule without paying parameter save/restore and rule validation for
@@ -5958,7 +5942,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
   }
   if (level_mode && engaged && !ctx.phase_unsat)
     bve_ran_this_phase_ = true;
-  (void)elim_at_last_pass;
   if (bve_entry && ctx.outer == 0 && !initial_fast_bve)
     bve_rounds_run_++;
   if (bve_entry && !initial_fast_bve && !ctx.phase_unsat) {

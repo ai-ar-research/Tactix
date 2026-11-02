@@ -69,8 +69,6 @@ struct Heuristics {
   // only resets when Rephase consumes it (type Best).
   std::vector<int8_t> best; // by var: +1/-1, 0 = never saved
   uint32_t best_assigned = 0;
-  // cadical phases.prev (S6 Walk, diagnostic arm TACTIX_WALK_PREV): the
-  // previous walk's assignment, so local search resumes from it. Empty = none.
 };
 
 enum class TargetGuidanceOverwrite : uint8_t { NativeCapture, Rephase, Walk };

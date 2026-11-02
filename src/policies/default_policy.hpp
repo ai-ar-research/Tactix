@@ -68,7 +68,7 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t empty_maintenance_skips = 0, unchanged_census_skips = 0;
   uint64_t usefulness_resumptions = 0, paused_search_skips = 0;
   uint64_t root_services = 0, search_services = 0;
-  uint64_t no_event = 0, duplicates = 0, resource_declines = 0;
+  uint64_t resource_declines = 0;
   uint64_t service_inapplicable = 0, service_interrupted = 0;
   uint64_t service_unsupported_proof = 0, service_stale = 0;
   uint64_t service_invalid = 0;
@@ -90,7 +90,6 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t materialization_retained_authentications = 0;
   uint64_t materialization_last_audit_stage = 0;
   uint64_t initialization_work = 0, service_work = 0, overhead_nanos = 0;
-  uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
   uint64_t synchronization_nanos = 0, publication_nanos = 0;
   uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;
   uint64_t cached_event_calls = 0;
@@ -105,7 +104,7 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t pending_slices=0, resumed_slices=0, completed_slice_steps=0;
   uint64_t slice_work=0, slice_cumulative_work=0, minimum_slice_work=0;
   uint64_t proof_additions = 0, proof_deletions = 0;
-  uint64_t root_unit_work = 0, root_unit_additions = 0, premise_maintenance_work = 0;
+  uint64_t premise_maintenance_work = 0;
   uint64_t alias_work = 0, alias_proof_additions = 0;
   uint64_t recognized_equations = 0, admitted_sources = 0, active_sources = 0;
   uint64_t retired_sources = 0, projected_variables = 0;
@@ -127,7 +126,7 @@ struct DefaultAffineSearchDiagnostics {
   // 2 Default terminal failure; retained after a new admission.
   uint64_t last_survival_action = 0, last_disable_cause = 0;
 
-  uint64_t conditioned_rows = 0, unchanged_reductions = 0, widest_reason = 0;
+  uint64_t widest_reason = 0;
 };
 
 struct DefaultGraphLabelingDiagnostics {
@@ -344,7 +343,6 @@ private:
   uint64_t affine_usefulness_checks_ = 0;
   bool affine_usefulness_paused_ = false;
   bool configuration_checking_walk_ = false;
-  bool complementary_ternary_walk_ = false;
   bool configuration_checking_preprocessing_deferred_ = false;
   uint32_t complementary_ternary_permille_ = 0;
   uint32_t configuration_checking_walk_applications_ = 0;

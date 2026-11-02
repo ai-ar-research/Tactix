@@ -1623,7 +1623,7 @@ static void test_effort_limit_is_kissats(void) {
   e.group = SlotGroup::Eliminate;
   e.meter = [](const Kernel &) -> uint64_t { return 0; };
 
-  // During search, the reference floors at MIN_EFFORT_TICKS, so the delta is
+  // During search, the reference floors at INPROCESS_MINIMUM_EFFORT_DEFAULT, so the delta is
   // 1e7/1000*100 == 1e6. A large formula must NOT lift it — the active floor
   // that used to do so was cadical's and is gone.
   k.stats.conflicts = 1;

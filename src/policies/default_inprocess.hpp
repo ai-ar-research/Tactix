@@ -150,8 +150,6 @@ public:
   // themselves have one home in DefaultStrategyConfig.
   static constexpr uint64_t SUBSUME_INTERVAL =
       DefaultStrategyConfig::INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
-  static constexpr uint64_t MIN_EFFORT_TICKS =
-      DefaultStrategyConfig::INPROCESS_MINIMUM_EFFORT_DEFAULT;
   static constexpr uint64_t FACTOR_INIT_TICKS =
       DefaultStrategyConfig::FACTOR_INITIAL_EFFORT_DEFAULT;
 
