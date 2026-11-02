@@ -7,6 +7,7 @@
 #include "proof/proof.hpp"
 #include "proof/rup_helpers.hpp"
 #include "rules/instance_helpers.hpp"
+#include "rules/support/stage_trace.hpp"
 #include "rules/propagate/propagate.hpp"   // inprocess_reach_root
 #include "rules/substitute/substitute.hpp" // big_path_chain (bridged LRAT chains)
 
@@ -111,15 +112,8 @@ void congruence_stage_trace(const Kernel &k, const char *stage,
   FILE *out = trace.stream("TACTIX_CONGRUENCE_MEMORY_TRACE");
   if (!out)
     return;
-  const long peak_rss_kib = diagnostics::peak_resident_kib();
-  const unsigned long virtual_kib = diagnostics::virtual_memory_kib();
-  std::fprintf(out,
-               "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\tarena_words=%zu\t"
-               "watch_words=%zu\twatch_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
-               "third=%zu\tfourth=%zu\n",
-               stage, peak_rss_kib, virtual_kib, k.nvars, k.arena.size(),
-               k.watches.arena.size(), k.watches.arena.capacity(), first,
-               second, third, fourth);
+  memory_stage_fields(out, k, stage, first, second, third);
+  std::fprintf(out, "\tfourth=%zu\n", fourth);
 }
 
 // Exact, low-level representation ledger for paired Congruence diagnostics.
@@ -133,20 +127,13 @@ void congruence_binary_trace(const Kernel &k, const char *stage) {
   static uint64_t selected_conflict = UINT64_MAX;
   if (!initialized) {
     initialized = true;
-    const char *path = std::getenv("TACTIX_CONGRUENCE_BINARY_TRACE");
-    const char *conflict =
-        std::getenv("TACTIX_CONGRUENCE_BINARY_TRACE_CONFLICT");
-    if (path && *path && conflict && *conflict) {
-      selected_conflict = std::strtoull(conflict, nullptr, 10);
-      out = std::fopen(path, "w");
-      if (out) {
-        std::setvbuf(out, nullptr, _IOLBF, 0);
-        std::fputs("# tactix-congruence-binaries\t1\n", out);
-        std::fputs("# solver\tkind\tstage\tconflicts\tordinal\ta\tb\t"
-                   "internal_a\tinternal_b\tticks\n",
-                   out);
-      }
-    }
+    out = open_conflict_selected_trace(
+        "TACTIX_CONGRUENCE_BINARY_TRACE",
+        "TACTIX_CONGRUENCE_BINARY_TRACE_CONFLICT",
+        "# tactix-congruence-binaries\t1\n"
+        "# solver\tkind\tstage\tconflicts\tordinal\ta\tb\t"
+        "internal_a\tinternal_b\tticks\n",
+        selected_conflict);
   }
   if (!out || k.stats.conflicts != selected_conflict)
     return;
@@ -199,21 +186,14 @@ bool congruence_candidate_trace_enabled(const Kernel &k) {
   auto &s = congruence_candidate_trace_state;
   if (!s.initialized) {
     s.initialized = true;
-    const char *path = std::getenv("TACTIX_CONGRUENCE_CANDIDATE_TRACE");
-    const char *conflict =
-        std::getenv("TACTIX_CONGRUENCE_CANDIDATE_TRACE_CONFLICT");
-    if (path && *path && conflict && *conflict) {
-      s.selected_conflict = std::strtoull(conflict, nullptr, 10);
-      s.out = std::fopen(path, "w");
-      if (s.out) {
-        std::setvbuf(s.out, nullptr, _IOLBF, 0);
-        std::fputs("# tactix-congruence-candidates\t1\n", s.out);
-        std::fputs("# solver\tkind\tconflicts\tordinal\tpose_a\tpose_b\t"
-                   "pose_c\tkey_a\tkey_b\tkey_c\tx\ty\tentry\texit\t"
-                   "delta\tdisposition\n",
-                   s.out);
-      }
-    }
+    s.out = open_conflict_selected_trace(
+        "TACTIX_CONGRUENCE_CANDIDATE_TRACE",
+        "TACTIX_CONGRUENCE_CANDIDATE_TRACE_CONFLICT",
+        "# tactix-congruence-candidates\t1\n"
+        "# solver\tkind\tconflicts\tordinal\tpose_a\tpose_b\t"
+        "pose_c\tkey_a\tkey_b\tkey_c\tx\ty\tentry\texit\t"
+        "delta\tdisposition\n",
+        s.selected_conflict);
   }
   return s.out && k.stats.conflicts == s.selected_conflict;
 }

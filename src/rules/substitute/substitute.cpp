@@ -11,6 +11,7 @@
 #include "diagnostics/rule_journal.hpp"
 #include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/support/stage_trace.hpp"
 
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
@@ -44,15 +45,8 @@ void substitute_stage_trace(const Kernel &k, const char *stage,
   FILE *out = trace.stream("TACTIX_SUBSTITUTE_MEMORY_TRACE");
   if (!out)
     return;
-  const long peak_rss_kib = diagnostics::peak_resident_kib();
-  const unsigned long virtual_kib = diagnostics::virtual_memory_kib();
-  std::fprintf(out,
-               "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\tarena_words=%zu\t"
-               "watch_words=%zu\twatch_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
-               "third=%zu\n",
-               stage, peak_rss_kib, virtual_kib, k.nvars, k.arena.size(),
-               k.watches.arena.size(), k.watches.arena.capacity(), first,
-               second, third);
+  memory_stage_fields(out, k, stage, first, second, third);
+  std::fputc('\n', out);
 }
 
 // The live binary {a, b} under `tag`, with its proof id and live copy count.
