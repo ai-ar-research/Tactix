@@ -132,13 +132,7 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
     parent[var_of(l)] = dom;
     if (dom == p)
       continue; // (¬p ∨ l) is the trivial resolvent: no dominance was gained
-    bool subsumes = false;
-    for (uint32_t j = 0; j < c->size; j++)
-      if (c->lits[j] == negate(dom)) {
-        subsumes = true;
-        break;
-      }
-    out.push_back(Resolvent{dom, l, ref, subsumes});
+    out.push_back(Resolvent{dom, l, ref, clause_contains(c, negate(dom))});
   }
   probe_unwind(k);
   return true;
@@ -386,10 +380,8 @@ static ApplyResult hyperbinary_apply_semantic_instance(Kernel &k,
   for (uint32_t pos = 0; pos < clause->size; ++pos)
     if (pos != forced_pos && !reached[negate(clause->lits[pos])])
       return ApplyResult::NoOp;
-  bool subsumes = false;
-  for (const Lit literal : *clause)
-    subsumes |= literal == negate(dom);
-  const Resolvent resolvent{dom, forced, reason, subsumes};
+  const Resolvent resolvent{dom, forced, reason,
+                            clause_contains(clause, negate(dom))};
   std::vector<uint64_t> chain;
   return emit_semantic(k, resolvent, chain);
 }

@@ -172,8 +172,7 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
   } else {
     const Clause *candidate = clause_at(k.arena, choice.candidate.ref);
     if (!root_irredundant_clause_open(k, candidate) ||
-        std::find(candidate->begin(), candidate->end(), blocking) ==
-            candidate->end())
+        !clause_contains(candidate, blocking))
       return ApplyResult::NoOp;
     lits.assign(candidate->begin(), candidate->end());
   }
@@ -209,10 +208,7 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
 RuleEligibility bce_guard(const Kernel &k) { return root_level_guard(k); }
 
 void bce_literals(const Kernel &k, std::vector<Lit> &out) {
-  out.clear();
-  for (Lit l = 0; l < 2 * k.nvars; l++)
-    if (root_literal_open(k, l))
-      out.push_back(l);
+  root_open_literals(k, out);
 }
 
 // One blocking literal, against an already-built index. `marked` is

@@ -128,13 +128,9 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
   if ((!selected && !is_candidate(k, c)) ||
       (selected && c->garbage()))
     return ApplyResult::NoOp;
-  if (selected) {
-    bool present = false;
-    for (const Lit lit : *c)
-      present |= lit == *selected;
-    if (!present || k.value(*selected) != 0)
-      return ApplyResult::NoOp;
-  }
+  if (selected &&
+      (!clause_contains(c, *selected) || k.value(*selected) != 0))
+    return ApplyResult::NoOp;
   const bool lrat = k.proof && k.proof->lrat();
   // Persistent walk scratch (the per-call linear-scratch fix, shared in shape
   // with C3 Vivify's copy): grown on demand, restored all-zero in O(marked) at

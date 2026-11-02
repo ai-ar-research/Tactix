@@ -465,10 +465,7 @@ bool cover_range(Kernel &k, const CceIndex &idx, Coveror &cv,
 RuleEligibility cce_guard(const Kernel &k) { return root_level_guard(k); }
 
 void cce_literals(const Kernel &k, std::vector<Lit> &out) {
-  out.clear();
-  for (Lit l = 0; l < 2 * k.nvars; l++)
-    if (root_literal_open(k, l))
-      out.push_back(l);
+  root_open_literals(k, out);
 }
 
 // N1 single-instance entry: every candidate clause containing `l`. It pays for
@@ -482,13 +479,10 @@ ApplyResult cce_try(Kernel &k, Lit l) {
   cv.resize(k.nvars);
   std::vector<CceCandidate> cands;
   for (const CceCandidate &candidate : idx.cands) {
-    bool contains = candidate.binary()
-                        ? candidate.first == l || candidate.second == l
-                        : false;
-    if (!candidate.binary()) {
-      const Clause *clause = clause_at(k.arena, candidate.ref);
-      contains = std::find(clause->begin(), clause->end(), l) != clause->end();
-    }
+    const bool contains =
+        candidate.binary()
+            ? candidate.first == l || candidate.second == l
+            : clause_contains(clause_at(k.arena, candidate.ref), l);
     if (contains)
       cands.push_back(candidate);
   }

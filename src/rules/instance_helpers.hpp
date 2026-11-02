@@ -24,6 +24,21 @@ inline bool root_literal_open(const Kernel &kernel, Lit literal) {
   return kernel.values[literal] == 0;
 }
 
+// Every root-open literal in index order: the BCE/CCE canonical schedule.
+inline void root_open_literals(const Kernel &kernel, std::vector<Lit> &out) {
+  out.clear();
+  for (Lit l = 0; l < 2 * kernel.nvars; l++)
+    if (root_literal_open(kernel, l))
+      out.push_back(l);
+}
+
+inline bool clause_contains(const Clause *clause, Lit target) {
+  for (const Lit literal : *clause)
+    if (literal == target)
+      return true;
+  return false;
+}
+
 // A wholly unassigned live irredundant clause is no root reason: a reason is
 // unit, so all but one of its literals are assigned. This is the shared BCE/CCE
 // deletion-candidate predicate at a drained root.

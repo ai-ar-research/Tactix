@@ -599,7 +599,7 @@ SweepSubstitutionSession::occurrences(const Kernel &k, Lit lit) {
       }
       const Clause *clause = clause_at(k.arena, occurrence.payload);
       if (clause->garbage() || clause->redundant() ||
-          std::find(clause->begin(), clause->end(), lit) == clause->end())
+          !clause_contains(clause, lit))
         continue;
       ordered.push_back({false, occurrence.payload});
     }
@@ -1199,7 +1199,7 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
   const auto rewritten_in_place = [&](Lit lit, bool append) {
     if (append || !indexed)
       return false;
-    return std::find(old->begin(), old->end(), lit) != old->end();
+    return clause_contains(old, lit);
   };
   if (!rewritten_in_place(a, append_a))
     push_move(k, *old, a, source, {true, b});

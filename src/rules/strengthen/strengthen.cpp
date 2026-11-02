@@ -1441,8 +1441,7 @@ static ApplyResult strengthen_apply_semantic_instance(Kernel &k, uint64_t inst) 
   if (!is_victim(k, candidate) ||
       (selected_gone != INVALID_LIT &&
        (k.value(selected_gone) != 0 ||
-        std::find(candidate->begin(), candidate->end(), selected_gone) ==
-            candidate->end())))
+        !clause_contains(candidate, selected_gone))))
     return ApplyResult::NoOp;
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   mark_candidate(k, marks, candidate, 1);

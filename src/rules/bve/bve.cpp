@@ -81,10 +81,7 @@ void bve_flush_units_while_connected(Kernel &k, uint32_t trail_from) {
       Clause *c = clause_at(k.arena, entry.payload);
       if (c->garbage())
         continue;
-      bool has_unit = false;
-      for (const Lit l : *c)
-        has_unit |= l == unit;
-      if (!has_unit)
+      if (!clause_contains(c, unit))
         continue;
 
       // `kissat_eliminate_clause (c, unit)` marks every non-fixed literal for
@@ -107,12 +104,7 @@ void bve_flush_units_while_connected(Kernel &k, uint32_t trail_from) {
     const uint32_t before = k.dense->large_size(unit);
     k.dense->compact_large(unit, [&](Ref ref) {
       const Clause *c = clause_at(k.arena, ref);
-      if (c->garbage())
-        return false;
-      for (const Lit l : *c)
-        if (l == unit)
-          return true;
-      return false;
+      return !c->garbage() && clause_contains(c, unit);
     });
     const uint32_t removed = before - k.dense->large_size(unit);
     if (removed && k.bve_occurrence_count_image)
@@ -1329,13 +1321,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   bool antecedent_oversized = false;
   bool rescore_popped_candidate = false;
 
-  auto has_lit = [](const Clause *c, Lit target) {
-    for (const Lit l : *c)
-      if (l == target)
-        return true;
-    return false;
-  };
-
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   // Pure diagnostic: its only consumers are the two trace calls below, which
   // are empty inline functions in a production build.  Left compiled in, it
@@ -1361,7 +1346,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           continue;
         }
         const Clause *c = clause_at(k.arena, entry.payload);
-        if (c->garbage() || !has_lit(c, pivot))
+        if (c->garbage() || !clause_contains(c, pivot))
           continue;
         bool satisfied = false;
         uint32_t root_nonfalse = 0;
@@ -1379,7 +1364,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
               k, x, 0x80000000u + satisfied_ordinal++, c->lits, c->size,
               entry.payload, c->id(), nonfalse.data(), nonfalse.size(),
               entry.payload, c->id(), "satisfied-occurrence-audit");
-        result.tautological += has_lit(c, opposite);
+        result.tautological += clause_contains(c, opposite);
       }
       return result;
     };
@@ -1560,9 +1545,9 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   const auto gather_large_occurrence = [&](Ref ref, Lit pivot, Lit opposite,
                                            bool positive) {
     const Clause *c = clause_at(k.arena, ref);
-    if (c->garbage() || !has_lit(c, pivot))
+    if (c->garbage() || !clause_contains(c, pivot))
       return;
-    const bool has_opposite = has_lit(c, opposite);
+    const bool has_opposite = clause_contains(c, opposite);
     if (!positive && has_opposite)
       return; // positive side already handled the tautology
     classify(ref, c, positive, !positive || has_opposite);

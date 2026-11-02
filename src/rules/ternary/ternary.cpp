@@ -22,15 +22,6 @@ struct Tern {
   Lit l[3];
 };
 
-bool root_open(const Kernel &k, Lit l) { return k.values[l] == 0; }
-
-bool has_lit(const Clause *c, Lit t) {
-  for (const Lit l : *c)
-    if (l == t)
-      return true;
-  return false;
-}
-
 // Ternary, irredundant, all three literals unassigned at the drained root. A
 // root-true literal makes the clause satisfied; a root-false one makes it
 // really a shorter clause, and resolving the stale ternary form would emit a
@@ -38,8 +29,8 @@ bool has_lit(const Clause *c, Lit t) {
 bool ternary_candidate(const Kernel &k, const Clause *c) {
   if (c->garbage() || c->redundant() || c->size != 3)
     return false;
-  return root_open(k, c->lits[0]) && root_open(k, c->lits[1]) &&
-         root_open(k, c->lits[2]);
+  return root_literal_open(k, c->lits[0]) && root_literal_open(k, c->lits[1]) &&
+         root_literal_open(k, c->lits[2]);
 }
 
 // Collect the ternary clauses containing `l`. Dense fast-path when the shared
@@ -67,7 +58,7 @@ void collect(const Kernel &k, Lit l, std::vector<Tern> &out) {
     return;
   }
   for (const auto [ref, c] : arena_records(k.arena)) {
-    if (ternary_candidate(k, c) && has_lit(c, l))
+    if (ternary_candidate(k, c) && clause_contains(c, l))
       take(ref, c);
   }
 }
@@ -76,7 +67,7 @@ void collect(const Kernel &k, Lit l, std::vector<Tern> &out) {
 // cadical's `ternary_find_ternary_clause` shape.
 bool ternary_exists(const Kernel &k, Lit a, Lit b, Lit c) {
   auto same = [&](const Clause *x) {
-    return has_lit(x, a) && has_lit(x, b) && has_lit(x, c);
+    return clause_contains(x, a) && clause_contains(x, b) && clause_contains(x, c);
   };
   if (k.dense) {
     return k.dense->with_large(a, [&](auto refs) {
