@@ -237,13 +237,8 @@ ApplyResult parity_model_apply(Kernel &k) {
         else if (present[var]) guidance[var] = assignment[var] ? 1 : -1;
       }
     }
-    if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted)) {
-      kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Parity,
-                                     guidance, UINT64_MAX, false,
-                                     {k.stats.parity_model_candidates - candidates_before,
-                                      strategy::LocalSearchEffortUnit::CandidateChecks});
-      return ApplyResult::NoOp;
-    }
+    if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
+      break;
   }
   if (!guidance.empty())
     kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Parity,

@@ -39,7 +39,7 @@ struct Sink {
       journal.clause(rat?"define-xor-rat":"derive-xor-rup",id,c.lits.data(),c.size);
     }
     std::vector<External> key(c.lits.begin(),c.lits.begin()+c.size);std::sort(key.begin(),key.end());active_ids[key].push_back(id);
-    if(c.size==1 && static_cast<uint32_t>(c.lits[0]<0?-c.lits[0]:c.lits[0])<=original_bound)
+    if(c.size==1 && external_variable_of(c.lits[0])<=original_bound)
       units.push_back({c,id});
     if(exporting) exported.push_back({c,id});
     return true;
@@ -47,7 +47,7 @@ struct Sink {
   bool erase(const SmallClause &c) {
     // Keep every derived original-variable unit visible to both checker and
     // kernel. Only proof-only helper units may disappear from the stream.
-    if(c.size==1 && static_cast<uint32_t>(c.lits[0]<0?-c.lits[0]:c.lits[0])<=original_bound)return true;
+    if(c.size==1 && external_variable_of(c.lits[0])<=original_bound)return true;
     std::vector<External> key(c.lits.begin(),c.lits.begin()+c.size);std::sort(key.begin(),key.end());
     auto found=active_ids.find(key);if(found==active_ids.end()||found->second.empty())return false;
     const uint64_t deleted=found->second.back();found->second.pop_back();if(found->second.empty())active_ids.erase(found);

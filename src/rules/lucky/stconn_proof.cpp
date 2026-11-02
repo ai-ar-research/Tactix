@@ -473,8 +473,10 @@ class StConnProof {
         return false;
     }
 
-    vector<int> neg_decisions(const vector<int8_t>& decisions, const vector<int>& old_vars) const {
-        vector<int> out;
+    // The target clause followed by the negated branch decisions.
+    vector<int> decision_clause(const vector<int>& target_clause, const vector<int8_t>& decisions,
+                                const vector<int>& old_vars) const {
+        vector<int> out = target_clause;
         for (int i = 0; i < (int)decisions.size(); ++i) {
             if (decisions[i] > 0) out.push_back(-old_vars[i]);
             else if (decisions[i] < 0) out.push_back(old_vars[i]);
@@ -486,10 +488,7 @@ class StConnProof {
                     vector<int8_t>& decisions, const vector<int>& target_clause) {
         vector<int8_t> ass;
         if (unit_conflict(red, decisions, ass)) {
-            vector<int> c = target_clause;
-            vector<int> tail = neg_decisions(decisions, old_vars);
-            c.insert(c.end(), tail.begin(), tail.end());
-            return emit_clause(std::move(c));
+            return emit_clause(decision_clause(target_clause, decisions, old_vars));
         }
         int branch = -1;
         for (int i = 0; i < (int)old_vars.size(); ++i) {
@@ -504,10 +503,7 @@ class StConnProof {
         decisions[branch] = -1;
         if (!prove_tree(red, old_vars, decisions, target_clause)) return false;
         decisions[branch] = 0;
-        vector<int> c = target_clause;
-        vector<int> tail = neg_decisions(decisions, old_vars);
-        c.insert(c.end(), tail.begin(), tail.end());
-        return emit_clause(std::move(c));
+        return emit_clause(decision_clause(target_clause, decisions, old_vars));
     }
 
     bool prove_transition(const PathState& prev, const PathState& next) {

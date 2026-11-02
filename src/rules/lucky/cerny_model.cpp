@@ -49,8 +49,7 @@ bool recover_transitions(Kernel &k, Automaton &automaton) {
       bool ambiguous = false;
       for (const Lit literal : *clause) {
         const int external = kernel_externalize(k, literal);
-        const uint32_t variable = static_cast<uint32_t>(
-            external < 0 ? -int64_t(external) : int64_t(external));
+        const uint32_t variable = external_variable_of(external);
         if (external < 0 && variable <= automaton.state_variables) {
           ambiguous |= source_variable != 0;
           source_variable = variable;

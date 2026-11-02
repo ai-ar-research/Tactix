@@ -85,10 +85,8 @@ bool recover_permutation(Kernel &k, Simon &simon) {
       const int a = kernel_externalize(k, first);
       const int b = kernel_externalize(k, watch.other());
       const auto consider = [&](int high_lit, int low_lit) {
-        const uint32_t high = static_cast<uint32_t>(
-            high_lit < 0 ? -int64_t(high_lit) : int64_t(high_lit));
-        const uint32_t low = static_cast<uint32_t>(
-            low_lit < 0 ? -int64_t(low_lit) : int64_t(low_lit));
+        const uint32_t high = external_variable_of(high_lit);
+        const uint32_t low = external_variable_of(low_lit);
         if (high < 33 || high > 64 || !low || low > 32 ||
             (high_lit > 0) == (low_lit > 0))
           return true;
