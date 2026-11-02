@@ -126,15 +126,12 @@ bool snapshot_formula(const Kernel &kernel,
       if (watch.binary() && literal < watch.other())
         clauses.push_back({literal, watch.other()});
     }
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (!clause->garbage()) {
       if (!charge(kernel, parameters, stop, result, clause->size))
         return false;
       clauses.emplace_back(clause->begin(), clause->end());
     }
-    ref += words;
   }
   for (Var var = 0; var < kernel.nvars; ++var) {
     if (!charge(kernel, parameters, stop, result, 1))

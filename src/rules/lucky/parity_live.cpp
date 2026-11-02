@@ -105,8 +105,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
     journal.clause("snapshot-premise",result.clauses,external,size);
     return collector.add(result.clauses,external,size);
   };
-  for(Ref ref=0;ref<k.arena.size();) {
-    const Clause *c=clause_at(k.arena,ref);ref+=clause_actual_words(c);
+  for(const auto [ref,c]:arena_records(k.arena)) {
     if(!c->garbage()&&!take(c->lits,c->size))return result;
   }
   for(Lit a=0;a<2*k.nvars;++a)for(const WatchEntry w:k.watches.entries(a)) {
@@ -127,8 +126,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
     bool present=false;
     if(c.size==1)present=k.value(lits[0])>0;
     else if(c.size==2)present=kernel_binary_live(k,lits[0],lits[1]);
-    else if(c.size>2)for(Ref ref=0;ref<k.arena.size();) {
-      const Clause *existing=clause_at(k.arena,ref);ref+=clause_actual_words(existing);
+    else if(c.size>2)for(const auto [ref,existing]:arena_records(k.arena)) {
       if(existing->garbage()||existing->size!=c.size)continue;
       bool same=true;for(uint32_t i=0;i<c.size;++i)same &= std::find(existing->lits,existing->lits+existing->size,lits[i])!=existing->lits+existing->size;
       if(same){present=true;break;}

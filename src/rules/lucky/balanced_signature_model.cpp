@@ -113,13 +113,10 @@ bool detect_forced_ttf(Kernel &k, Shape &shape) {
           kernel_rule_interrupt(k, k.stats.balanced_signature_interrupted))
         return false;
     }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && !clause->redundant())
       mark_forced_ttf_clause(k, shape, clause->begin(), clause->end(),
                              forced);
-    ref += words;
     if (!(++visited & ((uint64_t{1} << 20) - 1)) &&
         kernel_rule_interrupt(k, k.stats.balanced_signature_interrupted))
       return false;

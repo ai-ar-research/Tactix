@@ -74,8 +74,7 @@ bool recognize(Kernel &k,
   triples.reserve(static_cast<size_t>(k.input_nonunit_clause_count * 2 + 1));
   uint64_t clauses = 0;
 
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const tactix::Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && !clause->redundant()) {
       if (clause->size != 3)
         return false;
@@ -108,7 +107,6 @@ bool recognize(Kernel &k,
       dsu.unite(first, third);
       ++clauses;
     }
-    ref += clause_actual_words(clause);
     if (kernel_rule_interrupt(k,
                               k.stats.signed_cardinality_proof_interrupted))
       return false;

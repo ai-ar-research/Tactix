@@ -633,9 +633,7 @@ bool collect_formula(Kernel &k, Formula &formula) {
           {kernel_externalize(k, first),
            kernel_externalize(k, watch.other())});
     }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       vector<int> external;
       external.reserve(clause->size);
@@ -643,7 +641,6 @@ bool collect_formula(Kernel &k, Formula &formula) {
         external.push_back(kernel_externalize(k, literal));
       formula.clauses.push_back(std::move(external));
     }
-    ref += words;
   }
   return formula.clauses.size() == k.input_nonunit_clause_count;
 }

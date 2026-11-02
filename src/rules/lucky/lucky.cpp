@@ -115,8 +115,7 @@ static bool lucky_active(const Kernel &k, Var v) {
 // irredundant clause, i.e. none of them needs a `want_negated` literal (kissat
 // no_all_negative_clauses / no_all_positive_clauses).
 static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && !c->redundant()) {
       bool ok = false;
       for (const Lit l : *c)
@@ -127,7 +126,6 @@ static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
       if (!ok)
         return false; // this clause needs the other polarity
     }
-    ref += clause_actual_words(c);
   }
   // binaries live only in watch lists: scan each variable's
   // `want_negated`-polarity literal for a partner of the same polarity. Both

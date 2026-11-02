@@ -34,8 +34,7 @@ bool recognize(const Kernel &k, uint32_t maximum_vertices,
   const uint64_t external_variables = k.external_to_internal.size();
   // A cheap first pass selects a possible dimension from an indexed column.
   // Full coverage and distinct rows are checked before the result is exposed.
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!charge(1)) return false;
     const uint32_t width = clause->size;
     if (!clause->garbage() && !clause->redundant() && width >= 3 &&
@@ -55,7 +54,6 @@ bool recognize(const Kernel &k, uint32_t maximum_vertices,
       }
       if (plausible) n = width;
     }
-    ref += clause_actual_words(clause);
   }
   if (!n) return false;
   const uint64_t square = uint64_t(n) * n;
@@ -68,8 +66,7 @@ bool recognize(const Kernel &k, uint32_t maximum_vertices,
   shape.primary.assign(static_cast<size_t>(square), INVALID_LIT);
   std::vector<uint8_t> columns(n, 0), rows(n, 0);
   std::vector<Lit> recovered(n);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!charge(1)) return false;
     if (!clause->garbage() && !clause->redundant() &&
         clause->size >= 3 && clause->size <= n) {
@@ -119,7 +116,6 @@ bool recognize(const Kernel &k, uint32_t maximum_vertices,
         columns[column] = 1;
       }
     }
-    ref += clause_actual_words(clause);
   }
   for (uint8_t present : columns) {
     if (!charge(1) || !present) return false;

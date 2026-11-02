@@ -93,8 +93,7 @@ ApplyResult parity_model_apply(Kernel &k) {
       std::min<uint64_t>({k.live_irredundant_large, k.nvars,
                           parameters.maximum_groups})));
   uint64_t constraints = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() &&
         ++constraints > parameters.maximum_constraints)
       return ApplyResult::NoOp;
@@ -122,7 +121,6 @@ ApplyResult parity_model_apply(Kernel &k) {
         }
       }
     }
-    ref += clause_actual_words(clause);
     if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
       return ApplyResult::NoOp;
   }

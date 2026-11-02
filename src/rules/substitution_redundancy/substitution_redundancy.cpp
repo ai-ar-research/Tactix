@@ -137,16 +137,13 @@ bool kernel_contains_clause(const Kernel &k, const std::vector<Lit> &clause) {
 
   std::vector<Lit> wanted = clause;
   std::sort(wanted.begin(), wanted.end());
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *stored = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(stored);
+  for (const auto [ref, stored] : arena_records(k.arena)) {
     if (!stored->garbage() && stored->size == wanted.size()) {
       std::vector<Lit> present(stored->begin(), stored->end());
       std::sort(present.begin(), present.end());
       if (present == wanted)
         return true;
     }
-    ref += words;
   }
   return false;
 }
@@ -189,9 +186,7 @@ bool authenticate_unique_literal_amo(const Kernel &k,
       ++occurrences;
     }
 
-    for (Ref reference = 0; reference < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, reference);
-      reference += clause_actual_words(clause);
+    for (const auto [reference, clause] : arena_records(k.arena)) {
       if (clause->garbage() ||
           std::find(clause->begin(), clause->end(), positive) == clause->end())
         continue;
@@ -236,12 +231,11 @@ public:
         if (!available())
           break;
       }
-    for (Ref ref = 0; ref < k.arena.size() && available();) {
-      const Clause *clause = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(clause);
+    for (const auto [ref, clause] : arena_records(k.arena)) {
+      if (!available())
+        break;
       if (!clause->garbage())
         add(clause->begin(), clause->size);
-      ref += words;
     }
   }
 
@@ -431,15 +425,12 @@ ValidationResult validate_semantics(
       if (checked != ValidationStatus::Valid)
         return {checked, formula.ticks()};
     }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       const ValidationStatus checked = check(clause->begin(), clause->size);
       if (checked != ValidationStatus::Valid)
         return {checked, formula.ticks()};
     }
-    ref += words;
   }
   return {ValidationStatus::Valid, formula.ticks()};
 }

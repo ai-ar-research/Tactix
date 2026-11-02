@@ -71,9 +71,7 @@ StableCoreResult reduce_stable_extension_core(
 
   std::vector<Ref> covers, guarded;
   uint64_t visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && !clause->redundant()) {
       uint32_t negative = 0;
       for (const Lit literal : *clause)
@@ -85,7 +83,6 @@ StableCoreResult reduce_stable_extension_core(
       else
         return StableCoreResult::NoStructure;
     }
-    ref += words;
     if (!(++visited & ((uint64_t{1} << 16) - 1)) &&
         kernel_rule_interrupt(k, k.stats.independent_set_model_interrupted))
       return StableCoreResult::Interrupted;
@@ -213,11 +210,9 @@ bool recognize(Kernel &k, const strategy::IndependentSetModelParameters &p,
   const uint64_t variables = k.external_to_internal.size();
   uint32_t largest = 0;
   uint64_t visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage())
       largest = std::max(largest, clause->size);
-    ref += clause_actual_words(clause);
     if (!(++visited & ((uint64_t{1} << 18) - 1)) &&
         kernel_rule_interrupt(k, k.stats.independent_set_model_interrupted))
       return false;

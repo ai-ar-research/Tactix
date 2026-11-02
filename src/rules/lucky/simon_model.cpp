@@ -116,9 +116,7 @@ bool recover_permutation(Kernel &k, Simon &simon) {
 
 bool recover_round_keys(Kernel &k, Simon &simon) {
   uint64_t visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && clause->size == 3) {
       std::array<uint32_t, 3> external{};
       for (uint32_t i = 0; i < 3; ++i) {
@@ -144,7 +142,6 @@ bool recover_round_keys(Kernel &k, Simon &simon) {
         simon.key_half[round] = half;
       }
     }
-    ref += words;
     if (!(++visited & ((uint64_t{1} << 18) - 1)) &&
         kernel_rule_interrupt(k, k.stats.simon_model_interrupted))
       return false;

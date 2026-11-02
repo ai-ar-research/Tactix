@@ -444,9 +444,7 @@ bool screen_formula(const Kernel &kernel,
         ++screen.occurrences[literal];
         ++screen.occurrences[other];
       }
-    for (Ref ref = 0; ref < kernel.arena.size();) {
-      const Clause *clause = clause_at(kernel.arena, ref);
-      const uint32_t words = clause_actual_words(clause);
+    for (const auto [ref, clause] : arena_records(kernel.arena)) {
       if (!clause->garbage()) {
         if (!charge(kernel, stop, parameters, result, clause->size))
           return false;
@@ -454,7 +452,6 @@ bool screen_formula(const Kernel &kernel,
         for (const Lit literal : *clause)
           ++screen.occurrences[literal];
       }
-      ref += words;
     }
   }
   screen.ulc_occurrences = screen.occurrences;
@@ -563,9 +560,7 @@ bool full_snapshot(const Kernel &kernel,
         result.clauses.push_back(std::move(clause));
     }
   }
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (!clause->garbage()) {
       if (!charge(kernel, stop, parameters, enumeration, clause->size))
         return false;
@@ -573,7 +568,6 @@ bool full_snapshot(const Kernel &kernel,
       if (index_clause(result, snapshot))
         result.clauses.push_back(std::move(snapshot));
     }
-    ref += words;
   }
   for (Var var = 0; var < kernel.nvars; ++var) {
     if (!charge(kernel, stop, parameters, enumeration, 1))

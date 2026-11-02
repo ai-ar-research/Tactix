@@ -117,9 +117,7 @@ bool reconstruct(Kernel &k, Circuit &circuit) {
       return false;
 
   uint64_t nonunit = 0, visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t actual_words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       if (clause->size != k.input_uniform_nonunit_width ||
           nonunit >= k.input_nonunit_clause_count)
@@ -175,7 +173,6 @@ bool reconstruct(Kernel &k, Circuit &circuit) {
           uint64_t{1} << (output % 64);
       ++nonunit;
     }
-    ref += actual_words;
     if (!(++visited & ((uint64_t{1} << 18) - 1)) &&
         kernel_rule_interrupt(k, k.stats.lookup_circuit_model_interrupted))
       return false;

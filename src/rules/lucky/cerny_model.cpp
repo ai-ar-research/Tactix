@@ -42,9 +42,7 @@ bool cheap_shape(const Kernel &k, Automaton &automaton) {
 
 bool recover_transitions(Kernel &k, Automaton &automaton) {
   uint64_t visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && clause->size == 3) {
       uint32_t source_variable = 0, destination_variable = 0;
       uint32_t selector_variable = 0;
@@ -90,7 +88,6 @@ bool recover_transitions(Kernel &k, Automaton &automaton) {
           return false;
       }
     }
-    ref += words;
     if (!(++visited & ((uint64_t{1} << 18) - 1)) &&
         kernel_rule_interrupt(k, k.stats.cerny_model_interrupted))
       return false;

@@ -79,11 +79,8 @@ ApplyResult affine_model_apply(Kernel &k) {
     for(size_t i=1;i<clause.size();++i)if(clause[i]==negate(clause[i-1]))return true;
     clauses.push_back(std::move(clause));return true;
   };
-  for(Ref ref=0;ref<k.arena.size();) {
-    const Clause*c=clause_at(k.arena,ref);
+  for(const auto [ref,c]:arena_records(k.arena))
     if(!c->garbage()&&!append(std::vector<Lit>(c->begin(),c->end())))return finish("import-budget");
-    ref+=clause_actual_words(c);
-  }
   for(Lit lit=0;lit<2*k.nvars;++lit) {
     if(!charge(1))return finish("import-budget");
     for(const WatchEntry w:k.watches.entries(lit))

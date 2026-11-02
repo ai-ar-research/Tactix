@@ -163,8 +163,7 @@ bool recognize_direct_csp(const Kernel &k, DirectCsp &csp,
     return false;
   uint64_t constraints = 0;
   std::vector<std::vector<Lit>> domains;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && ++constraints > maximum_constraints)
       return false;
     if (!clause->garbage() && !clause->redundant() && clause->size > 2) {
@@ -178,7 +177,6 @@ bool recognize_direct_csp(const Kernel &k, DirectCsp &csp,
       csp.width = static_cast<uint32_t>(domain.size());
       domains.push_back(std::move(domain));
     }
-    ref += clause_actual_words(clause);
   }
   if (domains.size() < 2 || csp.width < 2)
     return false;
@@ -685,8 +683,7 @@ ApplyResult onehot_model_apply(Kernel &k) {
   std::vector<Domain> candidates;
   std::vector<std::vector<Var>> negative_clauses;
   uint64_t constraints = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && ++constraints > parameters.maximum_constraints)
       return ApplyResult::NoOp;
     if (!clause->garbage() && !clause->redundant() && clause->size == 3 &&
@@ -707,7 +704,6 @@ ApplyResult onehot_model_apply(Kernel &k) {
         vars.push_back(var_of(lit));
       negative_clauses.push_back(std::move(vars));
     }
-    ref += clause_actual_words(clause);
     if (kernel_rule_interrupt(k, k.stats.onehot_model_interrupted))
       return ApplyResult::NoOp;
   }

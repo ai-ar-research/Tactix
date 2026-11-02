@@ -137,8 +137,7 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
   // A startup marker does not substitute for equality with the actual live
   // database. Detect unclosed direct-kernel edits as well as stale snapshots.
   std::multiset<ramsey_recovery::Clause> remaining(original.begin(),original.end());
-  for(Ref ref=0;ref<k.arena.size();) {
-    const Clause *c=clause_at(k.arena,ref);ref+=clause_actual_words(c);
+  for(const auto [ref,c]:arena_records(k.arena)) {
     if(kernel_terminating(k)){result.interrupted=true;return result;}
     if(snapshot_work==request.recognition.work){result.exhausted=true;return result;}
     ++snapshot_work;result.recognition_work=snapshot_work;

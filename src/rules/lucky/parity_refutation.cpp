@@ -136,13 +136,10 @@ bool collect_equations(Kernel &k,
     return false;
   Recognizer recognizer(k, parameters);
   uint64_t polled = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() &&
         !recognizer.add(clause->lits, clause->size))
       return false;
-    ref += words;
     if (!(++polled & 4095) &&
         kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
       return false;
