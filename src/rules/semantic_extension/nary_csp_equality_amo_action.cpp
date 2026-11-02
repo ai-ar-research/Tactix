@@ -17,6 +17,8 @@
 namespace tactix {
 
 using semantic_extension::append_bounded;
+using semantic_extension::join_integers;
+using semantic_extension::join_rendered;
 
 struct NaryCspEqualityAmoSessionAccess {
   static void commit(NaryCspEqualityAmoSession &session, const Kernel &kernel,
@@ -68,32 +70,24 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &external) {
   std::sort(wanted.begin(), wanted.end());
   if (wanted.size() == 2)
     return kernel_binary_live(kernel, wanted[0], wanted[1]);
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (!clause->garbage() && clause->size == wanted.size()) {
       std::vector<Lit> current(clause->lits, clause->lits + clause->size);
       std::sort(current.begin(), current.end());
       if (current == wanted) return true;
     }
-    ref += words;
   }
   return false;
 }
 
 std::string domains_json(
     const std::vector<std::vector<int32_t>> &domains) {
-  std::string result = "[";
-  for (size_t d = 0; d < domains.size(); ++d) {
-    if (d) result += ',';
-    result += '[';
-    for (size_t i = 0; i < domains[d].size(); ++i) {
-      if (i) result += ',';
-      result += std::to_string(domains[d][i]);
-    }
-    result += ']';
-  }
-  return result + ']';
+  return "[" +
+         join_rendered(domains,
+                       [](const std::vector<int32_t> &domain) {
+                         return "[" + join_integers(domain) + "]";
+                       }) +
+         "]";
 }
 
 uint32_t shared_domain(const NaryCspEqualityRecord &first,

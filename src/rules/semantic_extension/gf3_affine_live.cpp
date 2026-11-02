@@ -25,7 +25,7 @@ using ClauseKey = std::vector<int32_t>;
 using Meter = InterruptibleWork;
 using gf3_certificate_common::canonical;
 using gf3_live_common::owner_guard;
-using gf3_live_common::root_guard;
+using gf3_live_common::root_ready;
 
 bool recognition_limits_valid(const Gf3AffineLiveRequest &request) {
   return request.maximum_recognition_work &&
@@ -389,7 +389,7 @@ Gf3AffineOwnerCaptureResult gf3_affine_live_capture_owner(
     Gf3AffineOwnerSnapshot &output) {
   Gf3AffineOwnerCaptureResult result;
   if (!recognition_limits_valid(request) ||
-      !root_admitted(kernel, root_guard, result.status))
+      !root_admitted(kernel, root_ready, result.status))
     return result;
   Meter meter{kernel, request.maximum_recognition_work};
   Capture capture;
@@ -543,7 +543,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
     Kernel &kernel, const Gf3AffineLiveRequest &request) {
   Gf3AffineLiveResult result;
   if (!apply_limits_valid(request) ||
-      !live_admitted(kernel, root_guard, result.status))
+      !live_admitted(kernel, root_ready, result.status))
     return result;
   if (kernel.external_to_internal.size() > request.maximum_external_extent) {
     result.status = Gf3AffineLiveStatus::ResourceExhausted;
@@ -647,11 +647,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
     if (id != preflight.published_clause_ids[index]) std::abort();
     if (kernel.proof)
       kernel.proof->add_rup(id, literals.data(), literals.size(), nullptr, 0);
-    if (literals.size() == 2)
-      kernel_add_binary_clause(kernel, literals[0], literals[1], id);
-    else
-      kernel_add_large_clause(kernel, literals.data(), literals.size(), true,
-                              literals.size(), id);
+    install_redundant_clause(kernel, literals, id);
     result.published_clause_ids.push_back(id);
   }
   semantic_extension::write_journal_or_abort(request.records,

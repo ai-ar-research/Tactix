@@ -326,9 +326,7 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &wanted,
                  Meter &meter) {
   ClauseKey key;
   if (!metered_key(wanted, meter, key)) return false;
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
+  for (const auto [reference, clause] : arena_records(kernel.arena)) {
     if (!meter.charge(1)) return false;
     if (clause->garbage() || clause->size != key.size()) continue;
     ClauseKey external;

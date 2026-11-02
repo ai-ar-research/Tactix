@@ -84,7 +84,7 @@ NaryCspRelationCaptureRequest capture_request(const NaryCspEqualityKey &key,
  auto r=nary_csp_ternary_capture_request(key.domains,l);
  r.maximum_source_clauses=clauses;r.maximum_source_literals=literals;r.maximum_recognition_work=work;return r;
 }
-std::string clause_json(const ExternalClause &c){std::string s="[";for(auto l:c){if(s.size()>1)s+=',';s+=std::to_string(l);}return s+"]";}
+std::string clause_json(const ExternalClause &c){return "["+semantic_extension::join_integers(c)+"]";}
 }
 bool NaryCspEqualityTransitivityLimits::valid()const{
  return maximum_source_clauses&&maximum_source_literals&&maximum_recognition_work&&maximum_planning_work&&

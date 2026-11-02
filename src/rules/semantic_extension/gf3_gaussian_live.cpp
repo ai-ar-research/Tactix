@@ -152,7 +152,7 @@ bool admitted(const Kernel &kernel, bool atomic, Status &status) {
     status = Status::UnsupportedProof;
   else if (kernel.proof && !atomic)
     status = Status::UnsupportedProofSplit;
-  else if (!gf3_live_common::root_guard(kernel))
+  else if (!gf3_live_common::root_ready(kernel))
     status = terminating_status(kernel, Status::Inapplicable);
   else
     return true;

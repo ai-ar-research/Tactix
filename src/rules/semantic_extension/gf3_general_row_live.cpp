@@ -22,6 +22,7 @@ using ClauseKey = std::vector<int32_t>;
 using Meter = InterruptibleWork;
 
 using gf3_certificate_common::canonical;
+using gf3_live_common::append_reference;
 using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
@@ -62,12 +63,6 @@ Gf3GeneralRowLiveStatus planner_status(gf3_general_row::Status status) {
   case S::Uncertifiable: return Gf3GeneralRowLiveStatus::Invalid;
   }
   std::abort();
-}
-
-bool append_reference(std::string &bytes,
-                      const gf3_affine::SourceReference &reference,
-                      const Gf3AffineOwnerSnapshot &owner) {
-  return gf3_live_common::append_reference(bytes, reference, owner);
 }
 
 bool count_reference(uint64_t maximum, uint64_t &total,
@@ -138,7 +133,7 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
     return output;
   if (!live_admitted(kernel,
                      request.retained_owner ? gf3_live_common::owner_guard
-                                            : gf3_live_common::root_guard,
+                                            : gf3_live_common::root_ready,
                      result.status))
     return output;
   if (kernel.external_to_internal.size() >
@@ -431,11 +426,7 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
       }
       relevant_to_trail = !satisfied && unassigned <= 1;
     }
-    if (internal.size() == 2)
-      kernel_add_binary_clause(kernel, internal[0], internal[1], id);
-    else
-      kernel_add_large_clause(kernel, internal.data(), internal.size(), true,
-                              internal.size(), id);
+    install_redundant_clause(kernel, internal, id);
     if (relevant_to_trail)
       kernel_rearm_theory_clause(kernel, internal.data(), internal.size());
     result.installed_clause_id = id;
