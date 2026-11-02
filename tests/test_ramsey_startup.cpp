@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "rules/lucky/ramsey_startup.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "policies/restart_controller.hpp"
@@ -26,13 +27,9 @@ static std::string fixture() {
     for(int sign:{1,-1})s<<sign*edge[a][b]<<' '<<sign*edge[a][c]<<' '<<sign*edge[a][d]<<' '<<sign*edge[b][c]<<' '<<sign*edge[b][d]<<' '<<sign*edge[c][d]<<" 0\n";
   return s.str();
 }
-static void parse(Kernel &k,const std::string &cnf) {
-  FILE *in=std::tmpfile();assert(in);assert(std::fwrite(cnf.data(),1,cnf.size(),in)==cnf.size());std::rewind(in);
-  assert(!parse_dimacs(in,k));std::fclose(in);
-}
 static RamseyStartupRequest profile(FILE *out) {return {{10000,200,40000,10000000},10000000,100000,1000000,200000,41,out};}
 static void controls(const std::string &cnf) {
-  Kernel k;parse(k,cnf);FILE *out=std::tmpfile();assert(out);auto r=profile(out);
+  Kernel k;parse_dimacs_text(cnf,k);FILE *out=std::tmpfile();assert(out);auto r=profile(out);
   const auto map=k.external_to_internal;const auto raw=k.startup_input;const auto ids=k.next_clause_id;const auto n=k.nvars;const auto arena=k.arena.size();
   const auto no_change=[&](){assert(k.external_to_internal==map&&k.startup_input==raw&&k.next_clause_id==ids&&k.nvars==n&&k.arena.size()==arena&&!k.inconsistent&&k.startup_certificate_open&&std::ftell(out)==0);};
   k.work_budget_bounded=true;k.work_budget=0;
@@ -67,7 +64,7 @@ struct Outcome {RamseyStartupResult result;std::vector<Var> map;uint64_t id;};
 static Outcome run(const std::string &cnf,const std::string &prefix,bool with_proof,bool public_action=false) {
   Proof proof;Kernel k;
   if(with_proof){assert(proof.open((prefix+".dsr").c_str(),ProofFormat::DsrAscii));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);k.proof=&proof;}
-  parse(k,cnf);const auto nvars=k.nvars;const auto extent=k.external_to_internal.size();const auto old_map=k.external_to_internal;
+  parse_dimacs_text(cnf,k);const auto nvars=k.nvars;const auto extent=k.external_to_internal.size();const auto old_map=k.external_to_internal;
   FILE *out=prefix.empty()?std::tmpfile():std::fopen((prefix+".records.jsonl").c_str(),"w+");assert(out);
   RamseyStartupResult r;
   if(public_action) {

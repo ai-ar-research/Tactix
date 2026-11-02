@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/opportunities.hpp"
@@ -135,15 +136,7 @@ static Kernel fixture(bool corrupt = false) {
       dimacs << literal << ' ';
     dimacs << "0\n";
   }
-  FILE *input = std::tmpfile();
-  assert(input);
-  const std::string text = dimacs.str();
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel k;
-  assert(parse_dimacs(input, k) == nullptr);
-  std::fclose(input);
-  return k;
+  return parse_dimacs_text(dimacs.str());
 }
 
 int main() {
