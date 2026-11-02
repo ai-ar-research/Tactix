@@ -45,8 +45,7 @@ void substitute_stage_trace(const Kernel &k, const char *stage,
   FILE *out = trace.stream("TACTIX_SUBSTITUTE_MEMORY_TRACE");
   if (!out)
     return;
-  memory_stage_fields(out, k, stage, first, second, third);
-  std::fputc('\n', out);
+  memory_stage_line(out, k, stage, first, second, third);
 }
 
 // The live binary {a, b} under `tag`, with its proof id and live copy count.

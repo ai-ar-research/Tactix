@@ -112,8 +112,7 @@ void congruence_stage_trace(const Kernel &k, const char *stage,
   FILE *out = trace.stream("TACTIX_CONGRUENCE_MEMORY_TRACE");
   if (!out)
     return;
-  memory_stage_fields(out, k, stage, first, second, third);
-  std::fprintf(out, "\tfourth=%zu\n", fourth);
+  memory_stage_line(out, k, stage, first, second, third, &fourth);
 }
 
 // Exact, low-level representation ledger for paired Congruence diagnostics.
@@ -1371,10 +1370,12 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
 
 bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 
-// A ladder lemma: RUP-checkable, cited by the level below it, dead once the
-// conclusion is in, and kept so the round can `del` it. LRAT deletes by id;
-// DSR/DRAT need the literals. Proof-only clauses must not survive their use:
-// a later SR witness is validated against the live kernel, not these ladders.
+// Ladder lemmas are TransientLemma records (rules/instance_helpers.hpp):
+// RUP-checkable, cited by the level below them, dead once the conclusion is
+// in, and kept so the round can `del` them. LRAT deletes by id; DSR/DRAT need
+// the literals. Proof-only clauses must not survive their use: a later SR
+// witness is validated against the live kernel, not these ladders.
+
 // What canonicalizing a gate under the current representatives yielded. A
 // degenerate gate is not a dead end: each degeneracy is itself an inference
 // over F (`docs/dev/calculus.md` V6).

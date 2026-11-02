@@ -24,7 +24,6 @@ struct Gf3GeneralRowActionSessionAccess {
 
 namespace {
 
-
 uint64_t saturated(uint64_t first, uint64_t second) {
   return second > UINT64_MAX - first ? UINT64_MAX : first + second;
 }

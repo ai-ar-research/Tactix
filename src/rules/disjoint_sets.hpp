@@ -8,8 +8,11 @@
 
 namespace tactix {
 
-// Union-find with path halving over dense indices. Callers depend only on the
-// partition and on unite's merged flag, never on which member is the root.
+// Union-find with path halving over dense indices. unite() always makes the
+// smaller root the parent, so find() returns the minimum index of each set.
+// Orbitopal symmetry relies on this: it keys its orbit map by find() and
+// iterates in key order, so a size- or rank-based union would change its
+// scheduling and proofs.
 class DisjointSets {
   std::vector<uint32_t> parent_;
 

@@ -28,7 +28,6 @@ struct Gf3AffineActionSessionAccess {
 
 namespace {
 
-
 Gf3AffineActionKey canonical_key(uint32_t first, uint32_t second) {
   if (second < first) std::swap(first, second);
   return {first, second};

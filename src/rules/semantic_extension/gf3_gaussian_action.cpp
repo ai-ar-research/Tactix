@@ -15,7 +15,6 @@ struct Gf3GaussianActionSessionAccess {};
 
 namespace {
 
-
 gf3_gaussian_live::Request request(const Kernel &kernel,
                                    const Gf3GaussianActionLimits &limits,
                                    uint64_t action_id,
