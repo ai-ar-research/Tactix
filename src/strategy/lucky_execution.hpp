@@ -102,14 +102,4 @@ inline ApplyResult execute_action(Kernel &k, const LuckyProbeRequest &request) {
   return lucky_apply_probe(k, request.probe);
 }
 
-// An explicit native onehot proof opportunity, also used inside the complete
-// Onehot action. It is not a new registered Lucky payload or public rule ID.
-struct ExactOneRefutationRequest {
-  strategy::OnehotModelParameters parameters;
-};
-inline ApplyResult execute_action(Kernel &k,
-                                  const ExactOneRefutationRequest &request) {
-  return exact_one_refutation_apply(k, request.parameters);
-}
-
 } // namespace tactix::execution

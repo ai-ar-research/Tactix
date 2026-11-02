@@ -10,19 +10,12 @@
 
 namespace tactix::execution {
 
-struct ReorderRequest { uint64_t target = INSTANCE_CANONICAL; };
-struct RephaseRequest { uint64_t type = REPHASE_BEST; };
-struct SwitchModeRequest {};
 struct CompactRandomOrderRequest {};
 struct FactorSelectionInstallationRequest {
   FactorSelection &selection;
   std::optional<uint32_t> bound;
 };
 struct ClearFactorSelectionRequest {};
-struct LocalSearchRotationRequest {
-  const std::vector<strategy::LocalSearchKind> &rotation;
-  uint64_t &cursor;
-};
 struct WalkRequest {
   uint64_t allowance;
   uint64_t seed;
@@ -44,16 +37,6 @@ struct WalkRequest {
   bool aspiration = true;
 };
 
-inline ApplyResult execute_action(Kernel &k, const ReorderRequest &request) {
-  return request.target == INSTANCE_CANONICAL
-             ? reorder_apply(k) : reorder_apply_target(k, request.target);
-}
-inline ApplyResult execute_action(Kernel &k, const RephaseRequest &request) {
-  return rephase_apply_type(k, request.type);
-}
-inline ApplyResult execute_action(Kernel &k, SwitchModeRequest) {
-  return switchmode_apply(k);
-}
 inline void execute_action(Kernel &k, CompactRandomOrderRequest) {
   heuristics_compact_random_order_fixed(k);
 }
@@ -63,10 +46,6 @@ inline void execute_action(Kernel &k, const FactorSelectionInstallationRequest &
 }
 inline void execute_action(Kernel &k, ClearFactorSelectionRequest) {
   k.factor_selection = nullptr;
-}
-inline ApplyResult execute_action(Kernel &k,
-                                  const LocalSearchRotationRequest &request) {
-  return local_search_guidance_apply_next(k, request.rotation, request.cursor);
 }
 // `apply` runs the canonical Walk under the scoped profile: walk_apply, or a
 // caller's registry dispatch of the same canonical instance.
