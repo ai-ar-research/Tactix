@@ -2,6 +2,7 @@
 // cadical declines, the subsumption deletion, the instance surface, and
 // entailment of the emitted binary.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/hyperbinary/hyperbinary.hpp"
@@ -17,10 +18,6 @@ using namespace tactix;
 
 static void bin(Kernel &k, int a, int b) {
   kernel_add_binary_clause(k, internalize(a), internalize(b), 0);
-}
-static void add3(Kernel &k, int a, int b, int c) {
-  const Lit l[3] = {internalize(a), internalize(b), internalize(c)};
-  kernel_add_large_clause(k, l, 3, /*redundant=*/false, 0);
 }
 static bool has_bin(const Kernel &k, int a, int b) {
   return kernel_binary_live(k, internalize(a), internalize(b));

@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -61,24 +62,6 @@ static Kernel sweep_fixture() {
       kernel_add_large_clause(k, reverse, 4, false, 0);
     }
   return k;
-}
-
-static void add3(Kernel &k, int a, int b, int c) {
-  const Lit clause[] = {internalize(a), internalize(b), internalize(c)};
-  kernel_add_large_clause(k, clause, 3, false, 0);
-}
-
-static void and_gate(Kernel &k, int output, int first, int second) {
-  kernel_add_binary_clause(k, internalize(-output), internalize(first));
-  kernel_add_binary_clause(k, internalize(-output), internalize(second));
-  add3(k, output, -first, -second);
-}
-
-static void xor_gate(Kernel &k, int output, int first, int second) {
-  add3(k, -output, first, second);
-  add3(k, output, -first, second);
-  add3(k, output, first, -second);
-  add3(k, -output, -first, -second);
 }
 
 static void validation_is_transactional() {

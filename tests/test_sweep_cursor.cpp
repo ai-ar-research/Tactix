@@ -1,5 +1,6 @@
 // Fixed bookkeeping transitions, linked against actual old and new objects.
 #undef NDEBUG
+#include "fnv_digest.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/substitute/substitute.hpp"
 
@@ -9,14 +10,6 @@
 #include <vector>
 
 using namespace tactix;
-static uint64_t digest = UINT64_C(1469598103934665603);
-static void hash(uint64_t x) {
-  digest = (digest ^ x) * UINT64_C(1099511628211);
-}
-template <class T> static void hash_vector(const T &v) {
-  hash(v.size());
-  for (auto x : v) hash(x);
-}
 
 static void check(unsigned size, unsigned shape, bool redundant,
                   unsigned dense_mode, bool transaction) {

@@ -7,6 +7,7 @@
 // comparator mirror, with no import record, reversal or replacement. Each mode
 // runs in its own process; the frozen-parent control compares its full digest.
 #undef NDEBUG
+#include "fnv_digest.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/vivify/vivify.hpp"
@@ -17,12 +18,8 @@
 #include <unistd.h>
 using namespace tactix;
 
-static uint64_t digest = UINT64_C(1469598103934665603);
 static uint64_t proof_bytes = 0, flushed = 0;
 static bool count_cache = false;
-static void hash(uint64_t value) {
-  digest = (digest ^ value) * UINT64_C(1099511628211);
-}
 static bool truth(Lit lit, unsigned mask) {
   return bool(mask & (1u << var_of(lit))) != negated(lit);
 }

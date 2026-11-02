@@ -2,6 +2,7 @@
 // unmaterialized: exhaustive original/final models, all literal signs,
 // both import orders, direct/public action surfaces; no DefaultPolicy solve.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
@@ -11,11 +12,6 @@
 #include <cstring>
 #include <vector>
 using namespace tactix;
-
-static bool value(unsigned bits, int lit) {
-  const bool positive = (bits >> (std::abs(lit) - 1)) & 1;
-  return lit > 0 ? positive : !positive;
-}
 
 int main() {
   unsigned closed = 0;

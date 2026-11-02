@@ -2,6 +2,7 @@
 // the instance surface, and model reconstruction through ρ. A binary (¬p ∨ q)
 // is the implication p → q. See the rule calculus §V3.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"
 #include "proof/proof.hpp"
@@ -217,14 +218,6 @@ static bool lit_in_any_clause(const Kernel &k, Lit l) {
     ref += clause_actual_words(c);
   }
   return false;
-}
-
-static std::vector<Lit> binary_watch_others(const Kernel &k, Lit lit) {
-  std::vector<Lit> result;
-  for (const WatchEntry watch : k.watches.entries(lit))
-    if (watch.binary())
-      result.push_back(watch.other());
-  return result;
 }
 
 // A consistent x1 ≡ x2 is substituted: the non-rep x2 vanishes everywhere.
@@ -1134,11 +1127,11 @@ static void test_substitution_preserves_unrelated_binary_watch_order() {
   kernel_add_binary_clause(k, pivot, internalize(-4));
   kernel_add_binary_clause(k, pivot, internalize(7));
   kernel_add_binary_clause(k, pivot, internalize(5));
-  const std::vector<Lit> before = binary_watch_others(k, pivot);
+  const std::vector<Lit> before = binary_partners(k, pivot);
   assert(before.size() == 4);
 
   assert(substitute_apply(k) == ApplyResult::Ok);
-  assert(binary_watch_others(k, pivot) == before);
+  assert(binary_partners(k, pivot) == before);
 }
 
 // The DRAT/no-proof streaming path keeps clause multiplicity. Two connected
@@ -1319,7 +1312,7 @@ static void test_substitution_rewrites_stable_watch_in_place() {
   assert(substitute_apply(k) == ApplyResult::Ok);
   const std::vector<Lit> expected = {internalize(4), internalize(1),
                                      internalize(1), internalize(5)};
-  assert(binary_watch_others(k, stable) == expected);
+  assert(binary_partners(k, stable) == expected);
 }
 
 // Kissat moves a retired literal's binary watches to its representative in
@@ -1341,7 +1334,7 @@ static void test_substitution_appends_moved_watches_in_source_order() {
 
   assert(substitute_apply(k) == ApplyResult::Ok);
   const std::vector<Lit> watches =
-      binary_watch_others(k, representative);
+      binary_partners(k, representative);
   const auto four = std::find(watches.begin(), watches.end(), internalize(4));
   const auto two = std::find(watches.begin(), watches.end(), internalize(2));
   assert(four != watches.end());
@@ -1368,7 +1361,7 @@ static void test_substitution_moves_both_directions_independently() {
 
   assert(substitute_apply(k) == ApplyResult::Ok);
   const std::vector<Lit> watches =
-      binary_watch_others(k, internalize(1));
+      binary_partners(k, internalize(1));
   const auto two = std::find(watches.begin(), watches.end(), internalize(2));
   const auto three =
       std::find(watches.begin(), watches.end(), internalize(3));
