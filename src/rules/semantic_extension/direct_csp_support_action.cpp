@@ -3,6 +3,7 @@
 #include "rules/structural_action_guard.hpp"
 
 #include "rules/semantic_extension/csp_domain_identity.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include "proof/proof.hpp"
 
@@ -40,12 +41,6 @@ const DirectCspSupportOwnerSnapshot *DirectCspSupportActionSession::snapshot(
 }
 
 namespace {
-
-bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
 
 enum class KeyStatus : uint8_t { Novel, Present, Invalid, Exhausted };
 
@@ -152,14 +147,14 @@ bool owner_within_limits(const DirectCspSupportOwnerSnapshot &owner,
 
 bool charge_owner(const DirectCspSupportOwnerSnapshot &owner,
                   uint64_t maximum, uint64_t &work) {
-  return add_work(1, maximum, work) &&
-         add_work(owner.relation.left.values.size(), maximum, work) &&
-         add_work(owner.relation.right.values.size(), maximum, work) &&
-         add_work(owner.source.size(), maximum, work) &&
-         add_work(owner.source_literals, maximum, work) &&
-         add_work(owner.relation.left.at_most_one.size(), maximum, work) &&
-         add_work(owner.relation.right.at_most_one.size(), maximum, work) &&
-         add_work(owner.relation.forbidden.size(), maximum, work);
+  return add_bounded(1, maximum, work) &&
+         add_bounded(owner.relation.left.values.size(), maximum, work) &&
+         add_bounded(owner.relation.right.values.size(), maximum, work) &&
+         add_bounded(owner.source.size(), maximum, work) &&
+         add_bounded(owner.source_literals, maximum, work) &&
+         add_bounded(owner.relation.left.at_most_one.size(), maximum, work) &&
+         add_bounded(owner.relation.right.at_most_one.size(), maximum, work) &&
+         add_bounded(owner.relation.forbidden.size(), maximum, work);
 }
 
 enum class SessionStatus : uint8_t { Valid, Invalid, Exhausted };
@@ -182,10 +177,10 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
   const auto &keys = session.keys();
   for (size_t index = 0; index < keys.size(); ++index) {
     const auto &key = keys[index];
-    if (!add_work(uint64_t{1} + key.left_values.size() +
-                      key.right_values.size(),
-                  limits.maximum_session_work, work) ||
-        !add_work(owners.size(), limits.maximum_session_work, work))
+    if (!add_bounded(uint64_t{1} + key.left_values.size() +
+                         key.right_values.size(),
+                     limits.maximum_session_work, work) ||
+        !add_bounded(owners.size(), limits.maximum_session_work, work))
       return SessionStatus::Exhausted;
     if (!key_valid(key) ||
         (index && !(keys[index - 1] < key)) ||
@@ -196,7 +191,7 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
       return SessionStatus::Invalid;
   }
   for (const DirectCspSupportOwnerSnapshot &owner : owners) {
-    if (!add_work(keys.size(), limits.maximum_session_work, work))
+    if (!add_bounded(keys.size(), limits.maximum_session_work, work))
       return SessionStatus::Exhausted;
     if (std::none_of(keys.begin(), keys.end(),
                      [&](const DirectCspSupportActionKey &key) {
@@ -224,9 +219,9 @@ KeyStatus prepare_keys(const DirectCspSupportActionSession &session,
                        const DirectCspSupportActionLimits &limits,
                        uint64_t &work,
                        std::vector<DirectCspSupportActionKey> &merged) {
-  if (!add_work(uint64_t{1} + key.left_values.size() +
-                    key.right_values.size(),
-                limits.maximum_session_work, work))
+  if (!add_bounded(uint64_t{1} + key.left_values.size() +
+                       key.right_values.size(),
+                   limits.maximum_session_work, work))
     return KeyStatus::Exhausted;
   if (!key_valid(key)) return KeyStatus::Invalid;
   const SessionStatus session_status =
@@ -244,14 +239,14 @@ KeyStatus prepare_keys(const DirectCspSupportActionSession &session,
 
   // Allocate the complete post-commit state before the live publisher crosses
   // its irreversible mutation boundary.
-  if (!add_work(uint64_t{1} + key.left_values.size() +
-                    key.right_values.size(),
-                limits.maximum_session_work, work))
+  if (!add_bounded(uint64_t{1} + key.left_values.size() +
+                       key.right_values.size(),
+                   limits.maximum_session_work, work))
     return KeyStatus::Exhausted;
   for (const DirectCspSupportActionKey &retained : old)
-    if (!add_work(uint64_t{1} + retained.left_values.size() +
-                      retained.right_values.size(),
-                  limits.maximum_session_work, work))
+    if (!add_bounded(uint64_t{1} + retained.left_values.size() +
+                         retained.right_values.size(),
+                     limits.maximum_session_work, work))
       return KeyStatus::Exhausted;
   merged.reserve(old.size() + 1);
   merged.insert(merged.end(), old.begin(), position);
@@ -417,8 +412,8 @@ DirectCspSupportActionResult direct_csp_support_action_apply(
     output.live.status = DirectCspSupportLiveStatus::ResourceExhausted;
     return output;
   }
-  if (!add_work(session.retained_owners(), limits.maximum_session_work,
-                output.effort.session_work)) {
+  if (!add_bounded(session.retained_owners(), limits.maximum_session_work,
+                   output.effort.session_work)) {
     output.status = DirectCspSupportActionStatus::ResourceExhausted;
     output.live.status = DirectCspSupportLiveStatus::ResourceExhausted;
     return output;

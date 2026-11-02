@@ -51,7 +51,7 @@ Plan plan_equality(const std::vector<Premise> &source,
         !csp_exact_theory::valid_values(domain.values))
       return decline(Status::InvalidRequest);
     for (int32_t literal : domain.values)
-      if (!domain_variables.insert(csp_exact_theory::variable(literal)).second)
+      if (!domain_variables.insert(external_variable_of(literal)).second)
         return decline(Status::InvalidRequest);
   }
 

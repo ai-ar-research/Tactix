@@ -22,7 +22,6 @@ using ClauseKey = std::vector<int32_t>;
 using Meter = InterruptibleWork;
 
 using gf3_certificate_common::canonical;
-using gf3_live_common::add_work;
 using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
@@ -78,7 +77,7 @@ bool count_reference(uint64_t maximum, uint64_t &total,
     return false;
   const auto &clause = owner.sources[reference.occurrence - 1].clause;
   return clause.size() <= (UINT64_MAX - 24) / 4 &&
-         add_work(24 + 4 * clause.size(), maximum, total);
+         add_bounded(24 + 4 * clause.size(), maximum, total);
 }
 
 bool subsumed(const std::vector<ClauseKey> &live, const ClauseKey &candidate) {
@@ -331,19 +330,19 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &owner,
   if (maximum_bytes < 5) return false;
   const uint64_t maximum_raw = (maximum_bytes - 5) / 2;
   uint64_t required = 0;
-  if (!add_work(4 + 8 + 4 + 1 + 8, maximum_raw, required) ||
+  if (!add_bounded(4 + 8 + 4 + 1 + 8, maximum_raw, required) ||
       row.row.size() > (UINT64_MAX - required) / 5 ||
-      !add_work(5 * row.row.size(), maximum_raw, required) ||
-      !add_work(8, maximum_raw, required))
+      !add_bounded(5 * row.row.size(), maximum_raw, required) ||
+      !add_bounded(8, maximum_raw, required))
     return false;
   for (const auto &source : row.provenance) {
     if (!source.source_id ||
         source.source_id > owner.bridge.authentication.size() ||
-        !add_work(8 + 1 + 4 + 8, maximum_raw, required))
+        !add_bounded(8 + 1 + 4 + 8, maximum_raw, required))
       return false;
     const auto &auth = owner.bridge.authentication[source.source_id - 1];
     for (const auto &domain : auth.domains) {
-      if (!add_work(4, maximum_raw, required) ||
+      if (!add_bounded(4, maximum_raw, required) ||
           !count_reference(maximum_raw, required, domain.at_least_one,
                            owner.affine))
         return false;
@@ -351,9 +350,9 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &owner,
         if (!count_reference(maximum_raw, required, amo, owner.affine))
           return false;
     }
-    if (!add_work(8, maximum_raw, required)) return false;
+    if (!add_bounded(8, maximum_raw, required)) return false;
     for (const auto &tuple : auth.forbidden_tuples)
-      if (!add_work(8, maximum_raw, required) ||
+      if (!add_bounded(8, maximum_raw, required) ||
           !count_reference(maximum_raw, required, tuple.premise,
                            owner.affine))
         return false;

@@ -2,6 +2,7 @@
 
 #include "kernel/watch.hpp"
 #include "rules/semantic_extension/gf3_affine_live.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -12,12 +13,6 @@
 #include <vector>
 
 namespace tactix::gf3_live_common {
-
-inline bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
 
 inline bool owner_guard(const Kernel &kernel) {
   return !kernel.inconsistent && !kernel.conflict_valid &&

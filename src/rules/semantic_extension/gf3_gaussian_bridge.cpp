@@ -23,10 +23,6 @@ using Meter =
     gf3_certificate_common::Meter<Limits, Charge, Statistics, LimitKind>;
 using Outcome = gf3_certificate_common::Outcome<Result>;
 
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
 struct Context : Meter {
   using Meter::Meter;
 
@@ -87,7 +83,8 @@ bool authenticate(const gf3_affine::Theory &theory, Context &context,
       return false;
     ++context.stats.source_clauses;
     for (const int32_t literal : premise.literals)
-      maximum_variable = std::max(maximum_variable, variable(literal));
+      maximum_variable =
+          std::max(maximum_variable, external_variable_of(literal));
   }
   if (maximum_variable != theory.maximum_variable) return false;
 
@@ -102,7 +99,7 @@ bool authenticate(const gf3_affine::Theory &theory, Context &context,
       return false;
     for (const int32_t literal : domain.values)
       if (!literal || literal == INT32_MIN ||
-          !selection_variables.insert(variable(literal)).second)
+          !selection_variables.insert(external_variable_of(literal)).second)
         return false;
     const auto alo = premises.find(domain.at_least_one);
     if (alo == premises.end() ||

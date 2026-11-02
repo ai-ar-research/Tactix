@@ -6,6 +6,14 @@
 
 namespace tactix {
 
+// Admits `amount` into `work` within `maximum`. A refused admission, including
+// one whose `work` already exceeds `maximum`, leaves `work` unchanged.
+inline bool add_bounded(uint64_t amount, uint64_t maximum, uint64_t &work) {
+  if (work > maximum || amount > maximum - work) return false;
+  work += amount;
+  return true;
+}
+
 // Shared bounded-work accounting for semantic-extension recognition and
 // validation.  Charging observes termination before the allowance, while
 // absorb deliberately accounts already-performed child work without another

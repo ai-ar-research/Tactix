@@ -28,7 +28,6 @@ struct Gf3AffineActionSessionAccess {
 
 namespace {
 
-using gf3_live_common::add_work;
 
 Gf3AffineActionKey canonical_key(uint32_t first, uint32_t second) {
   if (second < first) std::swap(first, second);
@@ -52,7 +51,7 @@ OwnerLimitStatus retained_owner_limit_status(
   for (const auto &equation : owner.theory.equations) {
     // Reading the three vector extents is constant work.  Their contents are
     // charged only on the exceptional deep-validation path below.
-    if (!add_work(1, limits.maximum_session_work, work))
+    if (!add_bounded(1, limits.maximum_session_work, work))
       return OwnerLimitStatus::Exhausted;
     if (equation.domains.size() > UINT32_MAX)
       return OwnerLimitStatus::Invalid;
@@ -85,8 +84,8 @@ OwnerLimitStatus retained_owner_limit_status(
   uint64_t source_literals = 0;
   for (size_t index = 0; index < owner.sources.size(); ++index) {
     const Gf3AffineLiveSource &source = owner.sources[index];
-    if (!add_work(uint64_t{1} + source.clause.size(),
-                  limits.maximum_session_work, work))
+    if (!add_bounded(uint64_t{1} + source.clause.size(),
+                     limits.maximum_session_work, work))
       return OwnerLimitStatus::Exhausted;
     const bool invalid_identity =
         source.kind == Gf3AffineSourceKind::Large
@@ -117,7 +116,7 @@ OwnerLimitStatus retained_owner_limit_status(
   relaxed.maximum_equation_arity = maximum_arity;
   relaxed.maximum_tuples_per_equation = maximum_tuples;
   const auto charge = [&](uint64_t amount) {
-    return add_work(amount, limits.maximum_session_work, work);
+    return add_bounded(amount, limits.maximum_session_work, work);
   };
   const gf3_affine::RecognitionResult recognized =
       gf3_affine::recognize(premises, relaxed, charge);
@@ -136,7 +135,7 @@ KeyStatus prepare_keys(const Gf3AffineActionSession &session,
                        std::vector<Gf3AffineActionKey> &merged) {
   const auto &old = session.keys();
   for (size_t index = 0; index < old.size(); ++index) {
-    if (!add_work(1, limits.maximum_session_work, work))
+    if (!add_bounded(1, limits.maximum_session_work, work))
       return KeyStatus::Exhausted;
     if (old[index].first_equation >= old[index].second_equation ||
         (index && !(old[index - 1] < old[index])))
@@ -154,8 +153,8 @@ KeyStatus prepare_keys(const Gf3AffineActionSession &session,
   merged.insert(merged.end(), old.begin(), position);
   merged.push_back(key);
   merged.insert(merged.end(), position, old.end());
-  if (!add_work(uint64_t{1} + merged.size(), limits.maximum_session_work,
-                work))
+  if (!add_bounded(uint64_t{1} + merged.size(), limits.maximum_session_work,
+                   work))
     return KeyStatus::Exhausted;
   return KeyStatus::Novel;
 }

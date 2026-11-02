@@ -46,12 +46,6 @@ ClauseKey canonical(ClauseKey clause) {
   return clause;
 }
 
-bool charge(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
-
 bool collect_sources(const Kernel &kernel, uint64_t maximum,
                      uint64_t &work, std::map<ClauseKey, Source> &sources,
                      std::set<ClauseKey> *all_live = nullptr) {
@@ -61,7 +55,7 @@ bool collect_sources(const Kernel &kernel, uint64_t maximum,
     const uint32_t words = clause_actual_words(clause);
     if (!words || words > kernel.arena.size() - ref) return false;
     ref += words;
-    if (!charge(uint64_t{1} + clause->size, maximum, work)) return false;
+    if (!add_bounded(uint64_t{1} + clause->size, maximum, work)) return false;
     if (clause->garbage()) continue;
     ClauseKey key;
     key.reserve(clause->size);
@@ -77,7 +71,7 @@ bool collect_sources(const Kernel &kernel, uint64_t maximum,
   }
   for (Lit first = 0; first < 2 * kernel.nvars; ++first)
     for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!charge(1, maximum, work)) return false;
+      if (!add_bounded(1, maximum, work)) return false;
       if (!watch.binary() || first >= watch.other()) continue;
       const Lit second = watch.other();
       if (kernel_var_retired(kernel, var_of(first)) ||
@@ -94,7 +88,7 @@ bool collect_sources(const Kernel &kernel, uint64_t maximum,
   // Root units are physical solver premises even when the current decision
   // trail extends them. Require an exact native proof ID for this first path.
   for (Var var = 0; var < kernel.nvars; ++var) {
-    if (!charge(1, maximum, work)) return false;
+    if (!add_bounded(1, maximum, work)) return false;
     if (!kernel.unit_ids[var] || kernel_var_retired(kernel, var) ||
         !kernel.values[2 * var])
       continue;

@@ -24,7 +24,6 @@ struct Gf3GeneralRowActionSessionAccess {
 
 namespace {
 
-using gf3_live_common::add_work;
 
 uint64_t saturated(uint64_t first, uint64_t second) {
   return second > UINT64_MAX - first ? UINT64_MAX : first + second;
@@ -61,8 +60,8 @@ bool retainable(const Gf3GeneralRowActionSelection &selection,
                 const Gf3GeneralRowActionLimits &limits,
                 uint64_t &work) {
   return selection.identity.size() <= limits.maximum_session_identity_bytes &&
-         add_work(selection.identity.size() + 1,
-                  limits.maximum_session_work, work);
+         add_bounded(selection.identity.size() + 1,
+                     limits.maximum_session_work, work);
 }
 
 Gf3GeneralRowLiveRequest request(
@@ -140,8 +139,8 @@ Gf3GeneralRowActionResult gf3_general_row_action_apply(
   }
   uint64_t retained_bytes = selection.identity.size();
   for (const auto &key : session.keys()) {
-    if (!add_work(key.identity.size() + 1, limits.maximum_session_work,
-                  output.session_work) ||
+    if (!add_bounded(key.identity.size() + 1, limits.maximum_session_work,
+                     output.session_work) ||
         key.identity.size() >
             limits.maximum_session_identity_bytes - retained_bytes) {
       output.status = Gf3GeneralRowActionStatus::ResourceExhausted;
@@ -216,8 +215,8 @@ Gf3GeneralRowActionOfferResult gf3_general_row_action_offer(
        outcome < selected_owner->bridge.gaussian.outcomes.size(); ++outcome) {
     for (uint64_t tuple = 0;; ++tuple) {
       if (output.candidates == window.maximum_candidates ||
-          !add_work(1, window.maximum_enumeration_work,
-                    output.enumeration_work)) {
+          !add_bounded(1, window.maximum_enumeration_work,
+                       output.enumeration_work)) {
         output.status = Gf3GeneralRowActionStatus::ResourceExhausted;
         output.offers.clear();
         return output;
