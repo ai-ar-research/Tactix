@@ -19,13 +19,6 @@
 
 namespace tactix {
 
-// Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ +
-// bound. `Kernel::bve_bound` is the one channel for it — no in-rule env pin
-// may override a policy's write — and DefaultPolicy ramps it cheap-first, so
-// the eliminations that do not grow the formula happen first (kissat
-// eliminate.c set_next_elimination_bound).
-static uint32_t bve_bound(const Kernel &k) { return k.bve_bound; }
-
 RuleEligibility bve_guard(const Kernel &k) { return root_level_guard(k); }
 
 void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
@@ -253,8 +246,7 @@ struct SparseBinaryIndex {
 
 // Reusable candidate state, owned by `bve_eliminate`'s caller: a round creates
 // one and every candidate reuses it, so no per-attempt O(nvars) fill-init
-// happens inside a per-variable loop. A null pointer retains the standalone
-// fallback used by direct rule consumers.
+// happens inside a per-variable loop.
 struct BveDefScratch {
   SubSolver solver;
   // Candidate materialization is one reusable append-only image.  MClause and
@@ -396,14 +388,6 @@ int bve_find_sig(const SigIndex &idx, const GateSig &s) {
   if (it == idx.end() || s < it->first)
     return -1;
   return static_cast<int>(it->second);
-}
-
-inline GateSig bve_sig2(Lit a, Lit b) {
-  GateSig s;
-  s.n = 2;
-  s.l[0] = std::min(a, b);
-  s.l[1] = std::max(a, b);
-  return s;
 }
 
 // General definition x ↔ φ, the one type that is not a shape match. Hand the
@@ -667,12 +651,11 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
                          const std::vector<MClause> &neg,
                          std::vector<uint8_t> &pos_gate,
                          std::vector<uint8_t> &neg_gate, bool &resolve_gate,
-                         BveDefScratch *def) {
+                         BveDefScratch &def) {
   resolve_gate = false;
   // binary partner lookup: side_bin[lit] = index of a binary {pivot, lit}, or -1.
-  SparseBinaryIndex local_pos_bin, local_neg_bin;
-  SparseBinaryIndex &pos_bin = def ? def->pos_bin : local_pos_bin;
-  SparseBinaryIndex &neg_bin = def ? def->neg_bin : local_neg_bin;
+  SparseBinaryIndex &pos_bin = def.pos_bin;
+  SparseBinaryIndex &neg_bin = def.neg_bin;
   pos_bin.begin(2 * static_cast<size_t>(k.nvars));
   neg_bin.begin(2 * static_cast<size_t>(k.nvars));
   for (size_t i = 0; i < pos.size(); ++i)
@@ -773,10 +756,10 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   // the general definition is the LAST resort (kissat gates.c's own order): it
   // costs a sub-solve, where every shape above costs a scan.
   const auto definition = [&]() -> uint32_t {
-    if (!def || !(k.bve_gate_mask & BVE_GATE_DEFINITION))
+    if (!(k.bve_gate_mask & BVE_GATE_DEFINITION))
       return 0;
     const uint32_t kind =
-        bve_find_definition(k, px, pos, neg, pos_gate, neg_gate, *def);
+        bve_find_definition(k, px, pos, neg, pos_gate, neg_gate, def);
     // the ONLY place `resolve_gate` is set; see the argument above
     resolve_gate = kind != 0;
     return kind;
@@ -1289,8 +1272,7 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
 // root-satisfied antecedents and installs unit resolvents as it meets them,
 // before the candidate's growth decision, and those effects survive a decline.
 // `bve_eliminate` turns that into the registry's result.
-ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
-  assert(def && "BVE candidate scratch is required by every registered entry");
+ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   const bool lrat = k.proof && k.proof->lrat();
   Lit px = make_lit(x, false), nx = make_lit(x, true);
   // Candidate contract, owed by every registered entry: the pivot is
@@ -1305,17 +1287,17 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   // eliminate.c eliminate_variable, same position).
   k.bve_retry[x] = 0;
 
-  std::vector<MClause> &pos = def->pos; // live irredundant: resolved + witnessed
-  std::vector<MClause> &neg = def->neg;
+  std::vector<MClause> &pos = def.pos; // live irredundant: resolved + witnessed
+  std::vector<MClause> &neg = def.neg;
   pos.clear();
   neg.clear();
-  def->clause_lits.clear();
-  def->clause_absorbed.clear();
-  def->resolvents.clear();
-  def->resolvent_lits.clear();
-  def->resolvent_chains.clear();
-  std::vector<Ref> &del_large = def->del_large; // redundant/satisfied/taut → delete-only
-  std::vector<std::pair<Lit, Lit>> &del_bin = def->del_bin; // satisfied binaries → delete-only
+  def.clause_lits.clear();
+  def.clause_absorbed.clear();
+  def.resolvents.clear();
+  def.resolvent_lits.clear();
+  def.resolvent_chains.clear();
+  std::vector<Ref> &del_large = def.del_large; // redundant/satisfied/taut → delete-only
+  std::vector<std::pair<Lit, Lit>> &del_bin = def.del_bin; // satisfied binaries → delete-only
   del_large.clear();
   del_bin.clear();
   bool antecedent_oversized = false;
@@ -1466,9 +1448,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   // binary created during the phase is appended after the arena occurrences
   // already connected at dense entry; hoisting it back into a binary prefix
   // preserves the formula but changes resolvent and later propagation order.
-  std::vector<uint8_t> local_literal_marks;
-  std::vector<uint8_t> &literal_marks =
-      def ? def->literal_marks : local_literal_marks;
+  std::vector<uint8_t> &literal_marks = def.literal_marks;
   if (literal_marks.size() < 2 * static_cast<size_t>(k.nvars))
     literal_marks.resize(2 * static_cast<size_t>(k.nvars), 0);
   auto gather_bin = [&](Lit lit, Lit o, std::vector<MClause> &live) {
@@ -1482,12 +1462,12 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
       m.ba = lit;
       m.bb = o;
       m.id = kernel_binary_id(k, lit, o);
-      const size_t begin = def->clause_lits.size();
-      def->clause_lits.push_back(lit);
-      def->clause_lits.push_back(o);
-      m.active = pool_slice(def->clause_lits, begin);
-      m.absorbed = pool_slice(def->clause_absorbed,
-                              def->clause_absorbed.size());
+      const size_t begin = def.clause_lits.size();
+      def.clause_lits.push_back(lit);
+      def.clause_lits.push_back(o);
+      m.active = pool_slice(def.clause_lits, begin);
+      m.absorbed = pool_slice(def.clause_absorbed,
+                              def.clause_absorbed.size());
       live.push_back(std::move(m));
   };
 
@@ -1514,8 +1494,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
     MClause m;
     m.id = c->id();
     m.ref = ref;
-    const size_t active_begin = def->clause_lits.size();
-    const size_t absorbed_begin = def->clause_absorbed.size();
+    const size_t active_begin = def.clause_lits.size();
+    const size_t absorbed_begin = def.clause_absorbed.size();
     bool satisfied = false;
     for (const Lit l : *c) {
       const int8_t v = k.value(l);
@@ -1525,18 +1505,18 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
       }
       if (v < 0) { // root-false → drop (cite its unit)
         if (lrat)
-          def->clause_absorbed.push_back(k.unit_ids[var_of(l)]);
+          def.clause_absorbed.push_back(k.unit_ids[var_of(l)]);
         continue;
       }
-      def->clause_lits.push_back(l);
+      def.clause_lits.push_back(l);
     }
     if (satisfied) {
-      def->clause_lits.resize(active_begin);
-      def->clause_absorbed.resize(absorbed_begin);
+      def.clause_lits.resize(active_begin);
+      def.clause_absorbed.resize(absorbed_begin);
       del_large.push_back(ref);
     } else {
-      m.active = pool_slice(def->clause_lits, active_begin);
-      m.absorbed = pool_slice(def->clause_absorbed, absorbed_begin);
+      m.active = pool_slice(def.clause_lits, active_begin);
+      m.absorbed = pool_slice(def.clause_absorbed, absorbed_begin);
       (has_px ? pos : neg).push_back(std::move(m));
     }
   };
@@ -1682,30 +1662,28 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   const bool pure = pos.empty() || neg.empty();
 
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
-  std::vector<uint8_t> &pos_gate = def->pos_gate;
-  std::vector<uint8_t> &neg_gate = def->neg_gate;
+  std::vector<uint8_t> &pos_gate = def.pos_gate;
+  std::vector<uint8_t> &neg_gate = def.neg_gate;
   pos_gate.assign(pos.size(), 0);
   neg_gate.assign(neg.size(), 0);
   bool resolve_gate = false;
-  if (def) {
-    def->checked = false;
-    def->exhausted = false;
-    def->ticks = 0;
-    def->unit = INVALID_LIT;
-  }
+  def.checked = false;
+  def.exhausted = false;
+  def.ticks = 0;
+  def.unit = INVALID_LIT;
   const uint32_t gate_kind =
       pure ? 0 : bve_detect_gate(k, px, nx, pos, neg, pos_gate, neg_gate,
                                  resolve_gate, def);
   const bool gate = gate_kind != 0;
-  if (def && def->checked) {
+  if (def.checked) {
     k.stats.bve_definitions_checked++;
-    k.stats.bve_definition_ticks += def->ticks;
-    k.stats.bve_definition_budget += def->exhausted ? 1 : 0;
+    k.stats.bve_definition_ticks += def.ticks;
+    k.stats.bve_definition_budget += def.exhausted ? 1 : 0;
   }
-  if (def && def->unit != INVALID_LIT) {
+  if (def.unit != INVALID_LIT) {
     assert(gate_kind == BVE_GATE_DEFINITION);
     k.stats.bve_gates_definition++;
-    bve_emit_definition_unit(k, def->unit, pos, neg, *def);
+    bve_emit_definition_unit(k, def.unit, pos, neg, def);
     return ApplyResult::Ok;
   }
   // (★) needs every pair holding a gate clause. A syntactic shape may drop the
@@ -1749,10 +1727,10 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   // and resolve.c consumes those lists in three distinct stages.  Flattening
   // this plan into a filtered Cartesian product preserves the resolvent set but
   // changes clause insertion and dynamic elimination-heap update order.
-  std::vector<uint32_t> &pos_gate_order = def->pos_gate_order;
-  std::vector<uint32_t> &neg_gate_order = def->neg_gate_order;
-  std::vector<uint32_t> &pos_antecedent_order = def->pos_antecedent_order;
-  std::vector<uint32_t> &neg_antecedent_order = def->neg_antecedent_order;
+  std::vector<uint32_t> &pos_gate_order = def.pos_gate_order;
+  std::vector<uint32_t> &neg_gate_order = def.neg_gate_order;
+  std::vector<uint32_t> &pos_antecedent_order = def.pos_antecedent_order;
+  std::vector<uint32_t> &neg_antecedent_order = def.neg_antecedent_order;
   pos_gate_order.clear();
   neg_gate_order.clear();
   pos_antecedent_order.clear();
@@ -1795,9 +1773,14 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   split(neg, nx, neg_gate, neg_gate_order, neg_antecedent_order);
 
   // ---- generate resolvents (ordered gate stages or full cross product) + bound ----
-  std::vector<BveResolvent> &resolvents = def->resolvents;
+  std::vector<BveResolvent> &resolvents = def.resolvents;
   const size_t base = pos.size() + neg.size();
-  const size_t commit_limit = base + bve_bound(k); // eliminate iff ≤ this
+  // Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ +
+  // bound. `Kernel::bve_bound` is the one channel for it — no in-rule env pin
+  // may override a policy's write — and DefaultPolicy ramps it cheap-first, so
+  // the eliminations that do not grow the formula happen first (kissat
+  // eliminate.c set_next_elimination_bound).
+  const size_t commit_limit = base + k.bve_bound; // eliminate iff ≤ this
   // Kissat aborts at the FIRST non-tautological resolvent beyond the current
   // bound.  Do not resolve ahead to a later ramp ceiling: those extra attempts
   // spend shared effort now and alter the dynamic heap trajectory.  The first
@@ -1926,17 +1909,17 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
 
   const auto append_resolution_chain = [&](const MClause &c, Lit c_pivot,
                                            const MClause &d, Lit d_pivot) {
-    const size_t begin = def->resolvent_chains.size();
+    const size_t begin = def.resolvent_chains.size();
     if (lrat) {
       // A root-false literal can occur on both resolution parents. Its named
       // unit is a propagation hint exactly once, even when both parents need
       // it before they become unit/conflicting (AM358-v2 H3).
       const auto add_root_hint = [&](uint64_t id) {
         assert(id != 0);
-        if (std::find(def->resolvent_chains.begin() + begin,
-                      def->resolvent_chains.end(), id) ==
-            def->resolvent_chains.end())
-          def->resolvent_chains.push_back(id);
+        if (std::find(def.resolvent_chains.begin() + begin,
+                      def.resolvent_chains.end(), id) ==
+            def.resolvent_chains.end())
+          def.resolvent_chains.push_back(id);
       };
       for (const uint64_t id : c.absorbed)
         add_root_hint(id);
@@ -1950,8 +1933,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
       for (const Lit l : d.active)
         if (l != d_pivot && k.value(l) < 0)
           add_root_hint(k.unit_ids[var_of(l)]);
-      def->resolvent_chains.push_back(c.id);
-      def->resolvent_chains.push_back(d.id);
+      def.resolvent_chains.push_back(c.id);
+      def.resolvent_chains.push_back(d.id);
     }
     return begin;
   };
@@ -1992,7 +1975,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                                c.ref, c.id, d.active.data(), d.active.size(),
                                d.ref, d.id, outcome);
         };
-        const size_t lits_begin = def->resolvent_lits.size();
+        const size_t lits_begin = def.resolvent_lits.size();
         bool satisfied_or_tautological = false;
         bool mixed_shared_literal = false;
         // Ordinary Kissat resolve.c copies the second antecedent then the
@@ -2020,11 +2003,11 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             satisfied_or_tautological = true;
             break;
           }
-          def->resolvent_lits.push_back(l);
+          def.resolvent_lits.push_back(l);
         }
-        const size_t second_size = def->resolvent_lits.size() - lits_begin;
+        const size_t second_size = def.resolvent_lits.size() - lits_begin;
         if (satisfied_or_tautological) {
-          def->resolvent_lits.resize(lits_begin);
+          def.resolvent_lits.resize(lits_begin);
           trace_pair("satisfied-or-tautology");
           continue;
         }
@@ -2035,7 +2018,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         // Defer that traversal's count until after the checked strengthening
         // below (fastel.c::can_fast_resolve_large_large).
         if (!deferred_resolvent_count && ++resolved > gen_limit) {
-          def->resolvent_lits.resize(lits_begin);
+          def.resolvent_lits.resize(lits_begin);
           trace_pair("bound");
           over_gen = true;
           break;
@@ -2046,23 +2029,23 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           const int8_t value = k.value(l);
           assert(value <= 0);
           if (!value)
-            def->resolvent_lits.push_back(l);
+            def.resolvent_lits.push_back(l);
         }
         if (k.bve_fastel_traversal) {
           const bool first_binary = c.ref == INVALID_REF;
           const bool second_binary = d.ref == INVALID_REF;
           const bool first_then_second = first_binary || !second_binary;
           if (first_then_second && second_size) {
-            auto begin = def->resolvent_lits.begin() + lits_begin;
+            auto begin = def.resolvent_lits.begin() + lits_begin;
             std::rotate(begin, begin + second_size,
-                        def->resolvent_lits.end());
+                        def.resolvent_lits.end());
           }
         }
-        const size_t lits_size = def->resolvent_lits.size() - lits_begin;
+        const size_t lits_size = def.resolvent_lits.size() - lits_begin;
         const size_t chain_begin =
             append_resolution_chain(c, first_pivot, d, second_pivot);
         const uint32_t chain_size = static_cast<uint32_t>(
-            def->resolvent_chains.size() - chain_begin);
+            def.resolvent_chains.size() - chain_begin);
         // Emit a self-subsuming resolvent's proof step, prune tentative
         // resolvents of each replaced parent, and add the resolvent as a new
         // irredundant clause.  A pending resolvent whose parent is replaced is
@@ -2074,9 +2057,9 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         const auto publish_strengthened = [&](bool c_subsumed,
                                               bool d_subsumed) {
           const uint64_t id = ++k.next_clause_id;
-          const Lit *const lits = def->resolvent_lits.data() + lits_begin;
+          const Lit *const lits = def.resolvent_lits.data() + lits_begin;
           emit_rup_lemma(k, id, lits, static_cast<uint32_t>(lits_size),
-                         def->resolvent_chains.data() + chain_begin,
+                         def.resolvent_chains.data() + chain_begin,
                          chain_size);
           prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
                                    d_subsumed ? d.ref : INVALID_REF);
@@ -2114,19 +2097,19 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         };
         if (!lits_size) {
           trace_pair("empty-immediate");
-          learn_empty(def->resolvent_chains.data() + chain_begin, chain_size);
+          learn_empty(def.resolvent_chains.data() + chain_begin, chain_size);
           finish_collapsed_strengthening();
           immediate_unsat = true;
           break;
         }
         if (lits_size == 1) {
-          const Lit unit = def->resolvent_lits[lits_begin];
+          const Lit unit = def.resolvent_lits[lits_begin];
           trace_pair("unit-immediate");
-          learn_unit(unit, def->resolvent_chains.data() + chain_begin,
+          learn_unit(unit, def.resolvent_chains.data() + chain_begin,
                      chain_size);
           finish_collapsed_strengthening();
-          def->resolvent_lits.resize(lits_begin);
-          def->resolvent_chains.resize(chain_begin);
+          def.resolvent_lits.resize(lits_begin);
+          def.resolvent_chains.resize(chain_begin);
           if (seen[unit]) {
             first_satisfied = true;
             break;
@@ -2140,8 +2123,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           // it as that antecedent without the pivot and do not count this pair
           // as an elimination resolvent.  Root-false literals are absent from
           // both CaDiCaL's effective antecedent size and the new clause.
-          for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
-            seen[def->resolvent_lits[i]] |= 2;
+          for (size_t i = lits_begin; i < def.resolvent_lits.size(); ++i)
+            seen[def.resolvent_lits[i]] |= 2;
           const auto subsumes_parent = [&](const MClause &parent) {
             if (parent.ref == INVALID_REF)
               return false;
@@ -2160,8 +2143,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           };
           const bool c_subsumed = subsumes_parent(c);
           const bool d_subsumed = subsumes_parent(d);
-          for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
-            seen[def->resolvent_lits[i]] &= 1;
+          for (size_t i = lits_begin; i < def.resolvent_lits.size(); ++i)
+            seen[def.resolvent_lits[i]] &= 1;
           if (c_subsumed || d_subsumed) {
             trace_pair("otf-strengthened");
 
@@ -2170,11 +2153,11 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             // `c` and subsumes `d` with the same new clause.
             const MClause &victim = c_subsumed ? c : d;
             const Lit victim_pivot = c_subsumed ? first_pivot : second_pivot;
-            def->resolvent_lits.resize(lits_begin);
+            def.resolvent_lits.resize(lits_begin);
             for (const Lit l : victim.active)
               if (l != victim_pivot && k.value(l) == 0)
-                def->resolvent_lits.push_back(l);
-            assert(def->resolvent_lits.size() - lits_begin == lits_size);
+                def.resolvent_lits.push_back(l);
+            assert(def.resolvent_lits.size() - lits_begin == lits_size);
 
             publish_strengthened(c_subsumed, d_subsumed);
             if (c_subsumed)
@@ -2185,8 +2168,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             k.stats.bve_otf_strengthened++;
             if (c_subsumed && d_subsumed)
               k.stats.bve_otf_subsumed++;
-            def->resolvent_lits.resize(lits_begin);
-            def->resolvent_chains.resize(chain_begin);
+            def.resolvent_lits.resize(lits_begin);
+            def.resolvent_chains.resize(chain_begin);
             if (c_subsumed) {
               first_satisfied = true;
               break;
@@ -2200,8 +2183,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           // resolvent.  This keeps containment linear in the two parents and
           // resolvent (the same work covered by this resolution tick), rather
           // than performing an uncharged quadratic membership search.
-          for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
-            seen[def->resolvent_lits[i]] |= 2;
+          for (size_t i = lits_begin; i < def.resolvent_lits.size(); ++i)
+            seen[def.resolvent_lits[i]] |= 2;
           const auto subsumes_parent = [&](const MClause &parent) {
             if (parent.ref == INVALID_REF)
               return false;
@@ -2215,8 +2198,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           };
           const bool c_subsumed = subsumes_parent(c);
           const bool d_subsumed = subsumes_parent(d);
-          for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
-            seen[def->resolvent_lits[i]] &= 1;
+          for (size_t i = lits_begin; i < def.resolvent_lits.size(); ++i)
+            seen[def.resolvent_lits[i]] &= 1;
           if (c_subsumed || d_subsumed) {
             trace_pair("fastel-strengthened");
             // A mixed pair's self-subsuming resolvent is the large antecedent
@@ -2227,11 +2210,11 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
               const bool large_first = c.ref != INVALID_REF;
               const MClause &large = large_first ? c : d;
               const Lit large_pivot = large_first ? first_pivot : second_pivot;
-              def->resolvent_lits.resize(lits_begin);
+              def.resolvent_lits.resize(lits_begin);
               for (const Lit l : large.active)
                 if (l != large_pivot && k.value(l) == 0)
-                  def->resolvent_lits.push_back(l);
-              assert(def->resolvent_lits.size() - lits_begin == lits_size);
+                  def.resolvent_lits.push_back(l);
+              assert(def.resolvent_lits.size() - lits_begin == lits_size);
             }
             // fastel.c publishes the self-subsuming resolvent as a NEW
             // irredundant clause (end of the arena and of every occurrence
@@ -2250,8 +2233,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                 kernel_delete_clause(k, clause, true, "fastel-strengthen");
             }
             k.stats.strengthened++;
-            def->resolvent_lits.resize(lits_begin);
-            def->resolvent_chains.resize(chain_begin);
+            def.resolvent_lits.resize(lits_begin);
+            def.resolvent_chains.resize(chain_begin);
             // Replacing the outer antecedent ends its row.  The next outer
             // entry observes the compacted connected stream; replacing only
             // the inner antecedent continues with the next live entry.
@@ -2263,22 +2246,22 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           }
         }
         if (deferred_resolvent_count && ++resolved > gen_limit) {
-          def->resolvent_lits.resize(lits_begin);
-          def->resolvent_chains.resize(chain_begin);
+          def.resolvent_lits.resize(lits_begin);
+          def.resolvent_chains.resize(chain_begin);
           trace_pair("bound");
           over_gen = true;
           break;
         }
         if (lits_size > k.bve_resolvent_size_limit) {
-          def->resolvent_lits.resize(lits_begin);
-          def->resolvent_chains.resize(chain_begin);
+          def.resolvent_lits.resize(lits_begin);
+          def.resolvent_chains.resize(chain_begin);
           trace_pair("oversized");
           oversized = true;
           break;
         }
         BveResolvent r;
-        r.lits = pool_slice(def->resolvent_lits, lits_begin);
-        r.chain = pool_slice(def->resolvent_chains, chain_begin);
+        r.lits = pool_slice(def.resolvent_lits, lits_begin);
+        r.chain = pool_slice(def.resolvent_chains, chain_begin);
         r.first_parent = c.ref;
         r.second_parent = d.ref;
         resolvents.push_back(r);
@@ -2292,8 +2275,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
     }
   };
 
-  std::vector<uint32_t> &pos_all = def->pos_all;
-  std::vector<uint32_t> &neg_all = def->neg_all;
+  std::vector<uint32_t> &pos_all = def.pos_all;
+  std::vector<uint32_t> &neg_all = def.neg_all;
   pos_all.clear();
   neg_all.clear();
   if (gate) {
@@ -2322,11 +2305,11 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   }
 
   // ---- commit: add resolvents (RUP, add-before-delete), witnesses, delete ---
-  std::vector<Ref> &fresh = def->fresh; // large resolvents, the backward pass's subsumers
-  std::vector<std::pair<Lit, Lit>> &fresh_bin = def->fresh_bin; // size-2 resolvents, ditto
-  std::vector<Lit> &connected_lits = def->connected_lits;
-  std::vector<uint64_t> &connected_chain = def->connected_chain;
-  std::vector<uint64_t> &connected_extra_units = def->connected_extra_units;
+  std::vector<Ref> &fresh = def.fresh; // large resolvents, the backward pass's subsumers
+  std::vector<std::pair<Lit, Lit>> &fresh_bin = def.fresh_bin; // size-2 resolvents, ditto
+  std::vector<Lit> &connected_lits = def.connected_lits;
+  std::vector<uint64_t> &connected_chain = def.connected_chain;
+  std::vector<uint64_t> &connected_extra_units = def.connected_extra_units;
   fresh.clear();
   fresh_bin.clear();
   connected_lits.clear();
@@ -2494,7 +2477,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
 // reported by each mutation in the attempt, so a kept pivot whose attempt
 // retired an antecedent or learned a unit is `Ok` by construction.  Whether
 // the pivot was eliminated is read from retirement and `bve_eliminated`.
-ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
+ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch &def) {
   const KernelChangeMark before = kernel_change_mark(k);
   const ApplyResult result = bve_attempt(k, x, def);
   return result == ApplyResult::NoOp && kernel_change_mark(k) != before
@@ -2515,7 +2498,7 @@ ApplyResult bve_apply(Kernel &k) {
   bve_schedule(k, cand);
   BveDefScratch def; // one per ROUND: every candidate reuses its allocations
   for (const Var x : cand) {
-    const ApplyResult r = bve_eliminate(k, x, &def);
+    const ApplyResult r = bve_eliminate(k, x, def);
     if (r == ApplyResult::Unsat)
       return ApplyResult::Unsat;
     // The schedule and the root closure describe the state at round entry, so
@@ -2569,7 +2552,7 @@ static ApplyResult bve_apply_instance(Kernel &k, uint64_t inst) {
   // scratch used by Instantiate, Congruence, and TransitiveReduce. BVE is not
   // re-entrant; thread-local storage keeps independent solver threads apart.
   static thread_local BveDefScratch def;
-  return bve_eliminate(k, var_of(l), &def);
+  return bve_eliminate(k, var_of(l), def);
 }
 
 TACTIX_REGISTER_RULE(BVE, RuleTier::Inprocess, bve_guard, bve_apply,
