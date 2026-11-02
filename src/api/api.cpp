@@ -229,6 +229,35 @@ void apply_setting(int mode, bool &target) {
     target = mode == TACTIX_ONLINE_SETTING_ENABLE;
 }
 
+// A choice tag other than INHERIT (0) replaces the converted default with the
+// enumerator one below it.
+template <class Choice> void apply_choice(int tag, Choice &target) {
+  if (tag)
+    target = static_cast<Choice>(tag - 1);
+}
+
+// A nonzero C value replaces the converted default; zero keeps it.
+template <class Target, class Source>
+void assign_if_nonzero(Target &target, Source source) {
+  if (source)
+    target = source;
+}
+
+// The refutation limits the ParityModel and OnehotModel C mirrors share.
+template <class Converted, class Source>
+void assign_refutation_limits(Converted &converted, const Source &p) {
+  assign_if_nonzero(converted.refutation_maximum_variables,
+                    p.refutation_maximum_variables);
+  assign_if_nonzero(converted.refutation_maximum_groups,
+                    p.refutation_maximum_groups);
+  assign_if_nonzero(converted.refutation_maximum_constraints,
+                    p.refutation_maximum_constraints);
+  assign_if_nonzero(converted.refutation_maximum_arity,
+                    p.refutation_maximum_arity);
+  assign_if_nonzero(converted.refutation_maximum_proof_additions,
+                    p.refutation_maximum_proof_additions);
+}
+
 // A converted family is installed only when its typed limits are valid.
 template <class Parameters>
 bool accept_valid(strategy::InprocessParameters &target,
@@ -298,8 +327,7 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
       p.symmetry_structured_scope < TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_INHERIT ||
       p.symmetry_structured_scope > TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_AXIS_ANCHORS)
     return false;
-  if (p.symmetry_structured_scope != TACTIX_ONLINE_SYMMETRY_STRUCTURED_SCOPE_INHERIT)
-    graph.structured_scope = static_cast<SymmetryStructuredScope>(p.symmetry_structured_scope - 1);
+  apply_choice(p.symmetry_structured_scope, graph.structured_scope);
   graph.maximum_graph_vertices = p.maximum_graph_vertices;
   graph.maximum_graph_edges = p.maximum_graph_edges;
   graph.maximum_generators = p.maximum_symmetry_generators;
@@ -312,11 +340,10 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
       p.maximum_symmetry_generator_instances_per_pass;
   graph.maximum_group_ticks = p.maximum_symmetry_group_ticks;
   graph.chain_planning_tick_limit = p.symmetry_chain_planning_tick_limit;
-  if (p.symmetry_schreier_domain_limit)
-    graph.schreier_domain_limit = p.symmetry_schreier_domain_limit;
+  assign_if_nonzero(graph.schreier_domain_limit,
+                    p.symmetry_schreier_domain_limit);
   graph.seed = p.symmetry_seed;
-  if (p.symmetry_error_bound)
-    graph.error_bound = p.symmetry_error_bound;
+  assign_if_nonzero(graph.error_bound, p.symmetry_error_bound);
   graph.fixing_mode = static_cast<SymmetryFixingMode>(p.symmetry_fixing_mode);
   graph.generator_order =
       static_cast<SymmetryTraversalOrder>(p.symmetry_generator_order);
@@ -330,28 +357,14 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
           : SymmetryClauseScope::UniqueLiteralsOnly;
   graph.pair_orientation =
       static_cast<SymmetryPairOrientation>(p.symmetry_pair_orientation);
-  if (p.symmetry_binary_graph_mode !=
-      TACTIX_ONLINE_SYMMETRY_BINARY_GRAPH_INHERIT)
-    graph.binary_graph_mode = static_cast<SymmetryBinaryGraphMode>(
-        p.symmetry_binary_graph_mode - 1);
-  if (p.symmetry_binary_graph_density_permille)
-    graph.binary_graph_density_permille =
-        p.symmetry_binary_graph_density_permille;
-  if (p.symmetry_clause_selection !=
-      TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_INHERIT)
-    graph.clause_selection = static_cast<SymmetryClauseSelection>(
-        p.symmetry_clause_selection - 1);
-  if (p.symmetry_chain_mode != TACTIX_ONLINE_SYMMETRY_CHAIN_INHERIT)
-    graph.chain_mode =
-        static_cast<SymmetryChainMode>(p.symmetry_chain_mode - 1);
-  if (p.symmetry_nonforcing_cut_admission !=
-      TACTIX_ONLINE_SYMMETRY_CUT_ADMISSION_INHERIT)
-    graph.nonforcing_cut_admission =
-        static_cast<SymmetryNonforcingCutAdmission>(
-            p.symmetry_nonforcing_cut_admission - 1);
-  if (p.symmetry_base_selection != TACTIX_ONLINE_SYMMETRY_BASE_INHERIT)
-    graph.base_selection =
-        static_cast<SymmetryBaseSelection>(p.symmetry_base_selection - 1);
+  apply_choice(p.symmetry_binary_graph_mode, graph.binary_graph_mode);
+  assign_if_nonzero(graph.binary_graph_density_permille,
+                    p.symmetry_binary_graph_density_permille);
+  apply_choice(p.symmetry_clause_selection, graph.clause_selection);
+  apply_choice(p.symmetry_chain_mode, graph.chain_mode);
+  apply_choice(p.symmetry_nonforcing_cut_admission,
+               graph.nonforcing_cut_admission);
+  apply_choice(p.symmetry_base_selection, graph.base_selection);
   apply_setting(p.symmetry_direct_generator_involutions_mode,
                 graph.direct_generator_involutions_only);
   apply_setting(p.symmetry_decompose_mode, graph.decompose);
@@ -368,8 +381,7 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
                 graph.preserve_detector_order);
   apply_setting(p.symmetry_pointwise_root_stabilizer_mode,
                 graph.pointwise_root_stabilizer);
-  if (p.symmetry_cut_point != TACTIX_ONLINE_SYMMETRY_CUT_POINT_INHERIT)
-    graph.cut_point = static_cast<SymmetryCutPoint>(p.symmetry_cut_point - 1);
+  apply_choice(p.symmetry_cut_point, graph.cut_point);
   apply_setting(p.symmetry_negation_fixing_first_mode,
                 graph.negation_fixing_first);
   apply_setting(p.symmetry_first_literal_fix_anchor_mode,
@@ -418,10 +430,8 @@ bool online_orbitopal_parameters(const tactix_online_sr_parameters &p,
   sr.minimum_orbitopal_columns = p.minimum_orbitopal_columns;
   sr.maximum_orbitopal_matrices = p.maximum_orbitopal_matrices;
   sr.maximum_orbitopal_instances = p.maximum_orbitopal_instances;
-  sr.minimum_orbitopal_clique_columns =
-      p.minimum_orbitopal_clique_columns
-          ? p.minimum_orbitopal_clique_columns
-          : sr.minimum_orbitopal_clique_columns;
+  assign_if_nonzero(sr.minimum_orbitopal_clique_columns,
+                    p.minimum_orbitopal_clique_columns);
   sr.maximum_orbitopal_clique_vertices =
       p.maximum_orbitopal_clique_vertices;
   sr.maximum_orbitopal_clique_ticks = p.maximum_orbitopal_clique_ticks;
@@ -440,10 +450,8 @@ bool online_orbitopal_parameters(const tactix_online_sr_parameters &p,
                 sr.orbitopal_progress_feedback);
   apply_setting(p.orbitopal_base_probe_filter_mode,
                 sr.orbitopal_base_probe_filter);
-  sr.orbitopal_base_probe_factor =
-      p.orbitopal_base_probe_factor
-          ? p.orbitopal_base_probe_factor
-          : sr.orbitopal_base_probe_factor;
+  assign_if_nonzero(sr.orbitopal_base_probe_factor,
+                    p.orbitopal_base_probe_factor);
   return true;
 }
 
@@ -678,26 +686,19 @@ bool online_parameters(const tactix_online_parameters &source,
     walk.initialization =
         static_cast<strategy::WalkParameters::Initialization>(
             source_walk.initialization);
-    if (source_walk.maximum_tries)
-      walk.maximum_tries = source_walk.maximum_tries;
-    if (source_walk.flips_per_try)
-      walk.flips_per_try = source_walk.flips_per_try;
-    if (source_walk.weight_smoothing_threshold)
-      walk.weight_smoothing_threshold =
-          source_walk.weight_smoothing_threshold;
+    assign_if_nonzero(walk.maximum_tries, source_walk.maximum_tries);
+    assign_if_nonzero(walk.flips_per_try, source_walk.flips_per_try);
+    assign_if_nonzero(walk.weight_smoothing_threshold,
+                      source_walk.weight_smoothing_threshold);
     if (source_walk.smoothing_denominator) {
       walk.smoothing_old_numerator = source_walk.smoothing_old_numerator;
       walk.smoothing_denominator = source_walk.smoothing_denominator;
     }
-    if (source_walk.aspiration_mode != TACTIX_ONLINE_SETTING_INHERIT) {
-      if (source_walk.aspiration_mode < TACTIX_ONLINE_SETTING_DISABLE ||
-          source_walk.aspiration_mode > TACTIX_ONLINE_SETTING_ENABLE)
-        return false;
-      walk.aspiration =
-          source_walk.aspiration_mode == TACTIX_ONLINE_SETTING_ENABLE;
-    }
-    if (source_walk.even_break_base_milli)
-      walk.even_break_base_milli = source_walk.even_break_base_milli;
+    if (!setting_mode(source_walk.aspiration_mode))
+      return false;
+    apply_setting(source_walk.aspiration_mode, walk.aspiration);
+    assign_if_nonzero(walk.even_break_base_milli,
+                      source_walk.even_break_base_milli);
     if (source_walk.score_curve_count) {
       walk.score_curve.clear();
       walk.score_curve.reserve(
@@ -715,13 +716,12 @@ bool online_parameters(const tactix_online_parameters &source,
         source.value.reorder;
     strategy::ReorderParameters reorder;
     reorder.maximum_clause_size = source_reorder.maximum_clause_size;
-    if (source_reorder.clause_decay_milli)
-      reorder.clause_decay_milli = source_reorder.clause_decay_milli;
-    if (source_reorder.binary_weight_milli)
-      reorder.binary_weight_milli = source_reorder.binary_weight_milli;
-    if (source_reorder.balanced_polarity_milli)
-      reorder.balanced_polarity_milli =
-          source_reorder.balanced_polarity_milli;
+    assign_if_nonzero(reorder.clause_decay_milli,
+                      source_reorder.clause_decay_milli);
+    assign_if_nonzero(reorder.binary_weight_milli,
+                      source_reorder.binary_weight_milli);
+    assign_if_nonzero(reorder.balanced_polarity_milli,
+                      source_reorder.balanced_polarity_milli);
     target = reorder;
     return true;
   }
@@ -736,23 +736,11 @@ bool online_parameters(const tactix_online_parameters &source,
     converted.minimum_equations = p.minimum_equations;
     converted.maximum_free_variables = p.maximum_free_variables;
     converted.candidate_budget = p.candidate_budget;
-    if (p.refutation_maximum_variables)
-      converted.refutation_maximum_variables = p.refutation_maximum_variables;
-    if (p.refutation_maximum_groups)
-      converted.refutation_maximum_groups = p.refutation_maximum_groups;
-    if (p.refutation_maximum_constraints)
-      converted.refutation_maximum_constraints =
-          p.refutation_maximum_constraints;
-    if (p.refutation_maximum_arity)
-      converted.refutation_maximum_arity = p.refutation_maximum_arity;
-    if (p.refutation_probe_constraints)
-      converted.refutation_probe_constraints = p.refutation_probe_constraints;
-    if (p.refutation_minimum_probe_repeats)
-      converted.refutation_minimum_probe_repeats =
-          p.refutation_minimum_probe_repeats;
-    if (p.refutation_maximum_proof_additions)
-      converted.refutation_maximum_proof_additions =
-          p.refutation_maximum_proof_additions;
+    assign_refutation_limits(converted, p);
+    assign_if_nonzero(converted.refutation_probe_constraints,
+                      p.refutation_probe_constraints);
+    assign_if_nonzero(converted.refutation_minimum_probe_repeats,
+                      p.refutation_minimum_probe_repeats);
     target = converted;
     return true;
   }
@@ -763,18 +751,7 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_variables, p.maximum_domains, p.maximum_constraints,
         p.maximum_equation_arity, p.minimum_domains, p.minimum_equations,
         p.maximum_free_domains, p.candidate_budget};
-    if (p.refutation_maximum_variables)
-      converted.refutation_maximum_variables = p.refutation_maximum_variables;
-    if (p.refutation_maximum_groups)
-      converted.refutation_maximum_groups = p.refutation_maximum_groups;
-    if (p.refutation_maximum_constraints)
-      converted.refutation_maximum_constraints =
-          p.refutation_maximum_constraints;
-    if (p.refutation_maximum_arity)
-      converted.refutation_maximum_arity = p.refutation_maximum_arity;
-    if (p.refutation_maximum_proof_additions)
-      converted.refutation_maximum_proof_additions =
-          p.refutation_maximum_proof_additions;
+    assign_refutation_limits(converted, p);
     target = converted;
     return true;
   }
