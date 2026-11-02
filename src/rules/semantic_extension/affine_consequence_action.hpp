@@ -41,6 +41,5 @@ AffineConsequenceActionResult affine_consequence_action_apply(
     Kernel &, AffineBasisActionSession &);
 AffineConsequenceActionResult affine_consequence_action_apply(
     Kernel &, AffineBasisActionSession &, const AffineBasisRowSelection &);
-ApplyResult affine_consequence_rule_apply(Kernel &);
 
 } // namespace tactix

@@ -105,7 +105,6 @@ struct BasisPlan {
   uint64_t elimination_work = 0;
   uint64_t planning_work = 0;
   uint64_t input_rows = 0;
-  bool original_variables_unchanged = true;
 };
 
 enum class BasisPlanStatus : uint8_t {

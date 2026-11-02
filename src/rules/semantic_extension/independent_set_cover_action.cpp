@@ -125,6 +125,8 @@ RuleEligibility independent_set_cover_action_guard(const Kernel &kernel) {
       .finish();
 }
 
+// The action has no canonical cover choice; registry canonical dispatch is a
+// deliberate NoOp while the structured v4/direct surfaces supply a vector.
 ApplyResult independent_set_cover_rule_apply(Kernel &kernel) {
   (void)kernel;
   return ApplyResult::NoOp;

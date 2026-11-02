@@ -48,7 +48,6 @@ CardinalitySearchActionResult cardinality_search_action_apply(
   for (const CardinalitySearchBound &bound : bounds) {
     auto constructed = cardinality_search::construct(
         bound.literals, bound.lower, bound.upper, limits.inspection);
-    output.construction_work += constructed.work;
     if (constructed.status ==
         cardinality_search::ConstructStatus::ResourceExhausted) {
       output.status = CardinalitySearchActionStatus::ResourceExhausted;

@@ -29,7 +29,6 @@ struct CardinalitySearchActionResult {
   ApplyResult result = ApplyResult::NoOp;
   uint64_t proposed_action_id = 0;
   uint64_t committed_action_id = 0;
-  uint64_t construction_work = 0;
   CardinalitySearchLiveResult live;
 };
 

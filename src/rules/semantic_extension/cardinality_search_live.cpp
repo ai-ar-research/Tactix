@@ -191,7 +191,6 @@ Prepared preflight(Kernel &kernel,
     external_trail.push_back(kernel_externalize(kernel, literal));
   auto inspected = cardinality_search::inspect(
       request.constraints, external_trail, request.inspection);
-  result.inspection_work = inspected.work;
   if (inspected.status == cardinality_search::Status::Invalid) return output;
   if (inspected.status == cardinality_search::Status::ResourceExhausted) {
     result.status = CardinalitySearchLiveStatus::ResourceExhausted;
@@ -218,7 +217,6 @@ Prepared preflight(Kernel &kernel,
   }
   output.plan = cardinality_search::plan_resolution(
       request.constraints, result.reason, request.resolution);
-  result.resolution_work = output.plan.work;
   result.added_literals = output.plan.added_literals;
   if (output.plan.status == cardinality_search::Status::ResourceExhausted) {
     result.status = CardinalitySearchLiveStatus::ResourceExhausted;
