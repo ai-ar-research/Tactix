@@ -1078,42 +1078,8 @@ struct Kernel {
       strategy::WalkParameters::EVEN_BREAK_BASE_DEFAULT;
   std::vector<strategy::WalkParameters::ScorePoint> walk_score_curve =
       strategy::WalkParameters::reference_score_curve();
-  uint32_t reorder_maximum_clause_size =
-      strategy::ReorderParameters::MAXIMUM_CLAUSE_SIZE_DEFAULT;
-  uint32_t reorder_clause_decay_milli =
-      strategy::ReorderParameters::CLAUSE_DECAY_DEFAULT;
-  uint32_t reorder_binary_weight_milli =
-      strategy::ReorderParameters::BINARY_WEIGHT_DEFAULT;
-  uint32_t reorder_balanced_polarity_milli =
-      strategy::ReorderParameters::BALANCED_POLARITY_DEFAULT;
-  uint32_t parity_model_maximum_variables =
-      strategy::ParityModelParameters::MAXIMUM_VARIABLES_DEFAULT;
-  uint32_t parity_model_maximum_groups =
-      strategy::ParityModelParameters::MAXIMUM_GROUPS_DEFAULT;
-  uint32_t parity_model_maximum_constraints =
-      strategy::ParityModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
-  uint32_t parity_model_minimum_group_clauses =
-      strategy::ParityModelParameters::MINIMUM_GROUP_CLAUSES_DEFAULT;
-  uint32_t parity_model_minimum_equations =
-      strategy::ParityModelParameters::MINIMUM_EQUATIONS_DEFAULT;
-  uint32_t parity_model_maximum_free_variables =
-      strategy::ParityModelParameters::MAXIMUM_FREE_VARIABLES_DEFAULT;
-  uint64_t parity_model_candidate_budget =
-      strategy::ParityModelParameters::CANDIDATE_BUDGET_DEFAULT;
-  uint32_t parity_refutation_maximum_variables =
-      strategy::ParityModelParameters::REFUTATION_MAXIMUM_VARIABLES_DEFAULT;
-  uint32_t parity_refutation_maximum_groups =
-      strategy::ParityModelParameters::REFUTATION_MAXIMUM_GROUPS_DEFAULT;
-  uint32_t parity_refutation_maximum_constraints =
-      strategy::ParityModelParameters::REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT;
-  uint32_t parity_refutation_maximum_arity =
-      strategy::ParityModelParameters::REFUTATION_MAXIMUM_ARITY_DEFAULT;
-  uint32_t parity_refutation_probe_constraints =
-      strategy::ParityModelParameters::REFUTATION_PROBE_CONSTRAINTS_DEFAULT;
-  uint32_t parity_refutation_minimum_probe_repeats =
-      strategy::ParityModelParameters::REFUTATION_MINIMUM_PROBE_REPEATS_DEFAULT;
-  uint64_t parity_refutation_maximum_proof_additions =
-      strategy::ParityModelParameters::REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT;
+  strategy::ReorderParameters reorder_parameters;
+  strategy::ParityModelParameters parity_model_parameters;
   strategy::AffineModelParameters affine_model_parameters;
   strategy::BalancedSignatureModelParameters
       balanced_signature_model_parameters;
@@ -1126,32 +1092,7 @@ struct Kernel {
   strategy::RamseyStartupParameters ramsey_startup_parameters;
   strategy::StconnProofParameters stconn_proof_parameters;
   strategy::SignedCardinalityProofParameters signed_cardinality_proof_parameters;
-  uint32_t onehot_model_maximum_variables =
-      strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT;
-  uint32_t onehot_model_maximum_domains =
-      strategy::OnehotModelParameters::MAXIMUM_DOMAINS_DEFAULT;
-  uint32_t onehot_model_maximum_constraints =
-      strategy::OnehotModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
-  uint32_t onehot_model_maximum_equation_arity =
-      strategy::OnehotModelParameters::MAXIMUM_EQUATION_ARITY_DEFAULT;
-  uint32_t onehot_model_minimum_domains =
-      strategy::OnehotModelParameters::MINIMUM_DOMAINS_DEFAULT;
-  uint32_t onehot_model_minimum_equations =
-      strategy::OnehotModelParameters::MINIMUM_EQUATIONS_DEFAULT;
-  uint32_t onehot_model_maximum_free_domains =
-      strategy::OnehotModelParameters::MAXIMUM_FREE_DOMAINS_DEFAULT;
-  uint64_t onehot_model_candidate_budget =
-      strategy::OnehotModelParameters::CANDIDATE_BUDGET_DEFAULT;
-  uint32_t exact_one_refutation_maximum_variables =
-      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_VARIABLES_DEFAULT;
-  uint32_t exact_one_refutation_maximum_groups =
-      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_GROUPS_DEFAULT;
-  uint32_t exact_one_refutation_maximum_constraints =
-      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT;
-  uint32_t exact_one_refutation_maximum_arity =
-      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_ARITY_DEFAULT;
-  uint64_t exact_one_refutation_maximum_proof_additions =
-      strategy::OnehotModelParameters::REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT;
+  strategy::OnehotModelParameters onehot_model_parameters;
   // The retier schedule a public session installed; registry ConflictAnalysis
   // applies it when enabled. Native requests carry their own.
   RetierSchedule retier_schedule;

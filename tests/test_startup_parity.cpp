@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
     if (stop)
       k.stop = &interrupted;
     else
-      k.parity_refutation_maximum_proof_additions = 1;
+      k.parity_model_parameters.refutation_maximum_proof_additions = 1;
     const auto before = k.arena.size();
     assert(startup_parity_apply(k) == ApplyResult::NoOp);
     assert(k.startup_certificate_open && !k.inconsistent);

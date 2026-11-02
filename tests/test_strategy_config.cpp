@@ -1044,10 +1044,10 @@ int main() {
          std::string::npos);
   assert(policy.solve(k) == 10);
   assert(k.walk_even_break_base_milli == 3100 &&
-         k.reorder_maximum_clause_size == 17 &&
-         k.reorder_clause_decay_milli == 400 &&
-         k.reorder_binary_weight_milli == 900 &&
-         k.reorder_balanced_polarity_milli == 1700 &&
+         k.reorder_parameters.maximum_clause_size == 17 &&
+         k.reorder_parameters.clause_decay_milli == 400 &&
+         k.reorder_parameters.binary_weight_milli == 900 &&
+         k.reorder_parameters.balanced_polarity_milli == 1700 &&
          k.reduce_victim_numerator == 2 &&
          k.reduce_victim_denominator == 5 && !k.reduce_protect_tiers &&
          k.reduce_compact_collection);

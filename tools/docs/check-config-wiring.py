@@ -148,40 +148,6 @@ PROFILE_FAMILIES = [
     ("config().vivify_parameters", "src/strategy/vivify_parameters.cpp", {
         "vivify_scope": "scope", "vivify_reuse": "reuse", "vivify_flush": "flush",
         "vivify_irredundant_sort_ratio": "irredundant_sort_ratio"}),
-    ("config_.reorder.parameters", RULE_PARAMETERS, {
-        "reorder_maximum_clause_size": "maximum_clause_size",
-        "reorder_clause_decay_milli": "clause_decay_milli",
-        "reorder_binary_weight_milli": "binary_weight_milli",
-        "reorder_balanced_polarity_milli": "balanced_polarity_milli"}),
-    ("config_.parity_model.parameters", RULE_PARAMETERS, {
-        "parity_model_maximum_variables": "maximum_variables",
-        "parity_model_maximum_groups": "maximum_groups",
-        "parity_model_maximum_constraints": "maximum_constraints",
-        "parity_model_minimum_group_clauses": "minimum_group_clauses",
-        "parity_model_minimum_equations": "minimum_equations",
-        "parity_model_maximum_free_variables": "maximum_free_variables",
-        "parity_model_candidate_budget": "candidate_budget",
-        "parity_refutation_maximum_variables": "refutation_maximum_variables",
-        "parity_refutation_maximum_groups": "refutation_maximum_groups",
-        "parity_refutation_maximum_constraints": "refutation_maximum_constraints",
-        "parity_refutation_maximum_arity": "refutation_maximum_arity",
-        "parity_refutation_probe_constraints": "refutation_probe_constraints",
-        "parity_refutation_minimum_probe_repeats": "refutation_minimum_probe_repeats",
-        "parity_refutation_maximum_proof_additions": "refutation_maximum_proof_additions"}),
-    ("config_.onehot_model.parameters", RULE_PARAMETERS, {
-        "onehot_model_maximum_variables": "maximum_variables",
-        "onehot_model_maximum_domains": "maximum_domains",
-        "onehot_model_maximum_constraints": "maximum_constraints",
-        "onehot_model_maximum_equation_arity": "maximum_equation_arity",
-        "onehot_model_minimum_domains": "minimum_domains",
-        "onehot_model_minimum_equations": "minimum_equations",
-        "onehot_model_maximum_free_domains": "maximum_free_domains",
-        "onehot_model_candidate_budget": "candidate_budget",
-        "exact_one_refutation_maximum_variables": "refutation_maximum_variables",
-        "exact_one_refutation_maximum_groups": "refutation_maximum_groups",
-        "exact_one_refutation_maximum_constraints": "refutation_maximum_constraints",
-        "exact_one_refutation_maximum_arity": "refutation_maximum_arity",
-        "exact_one_refutation_maximum_proof_additions": "refutation_maximum_proof_additions"}),
 ]
 for profile, installer, fields in PROFILE_FAMILIES:
     request = (POLICY[0], r"execution::ParameterInstallationRequest\{\s*" + re.escape(profile))
@@ -189,6 +155,18 @@ for profile, installer, fields in PROFILE_FAMILIES:
         POLICY_ADAPTERS.setdefault(field, []).append(installer)
         POLICY_BINDINGS[field] = [request, PARAMETER_INSTALL,
                                  (installer, r"k\." + field + r"\s*=\s*(?:p|parameters)\." + member)]
+# Families stored whole in the Kernel have no scalar fields to classify; bind
+# each one to its policy request, the installer, and its stored copy instead.
+for member, profile, family in [
+        ("reorder_parameters", "config_.reorder.parameters", "ReorderParameters"),
+        ("parity_model_parameters", "config_.parity_model.parameters",
+         "ParityModelParameters"),
+        ("onehot_model_parameters", "config_.onehot_model.parameters",
+         "OnehotModelParameters")]:
+    POLICY_BINDINGS[member] = [
+        (POLICY[0], r"execution::ParameterInstallationRequest\{\s*" + re.escape(profile)),
+        PARAMETER_INSTALL,
+        (RULE_PARAMETERS, r"STORED_PARAMETERS\(" + family + r",\s*" + member + r"\)")]
 
 # Partial scalar profiles inherit unowned fields from the kernel, then pose
 # selected values. Explicit constants retain the old scheduler's profile.
@@ -480,69 +458,6 @@ TABLE = {
                                           "can scope or set it explicitly"),
     "walk_even_break_base_milli":
                                 ("POLICY", "typed Walk ProbSAT break-score base"),
-    "reorder_maximum_clause_size":
-                                ("POLICY", "typed Reorder scan cutoff; online calls "
-                                           "can scope it explicitly"),
-    "reorder_clause_decay_milli":
-                                ("POLICY", "typed Reorder clause-size decay"),
-    "reorder_binary_weight_milli":
-                                ("POLICY", "typed Reorder binary-clause weight"),
-    "reorder_balanced_polarity_milli":
-                                ("POLICY", "typed Reorder both-polarity multiplier"),
-    "parity_model_maximum_variables":
-                                ("POLICY", "typed Lucky structural admission bound"),
-    "parity_model_maximum_groups":
-                                ("POLICY", "typed Lucky structural memory bound"),
-    "parity_model_maximum_constraints":
-                                ("POLICY", "typed Lucky formula-work bound"),
-    "parity_model_minimum_group_clauses":
-                                ("POLICY", "typed Lucky equation admission"),
-    "parity_model_minimum_equations":
-                                ("POLICY", "typed Lucky equation admission"),
-    "parity_model_maximum_free_variables":
-                                ("POLICY", "typed Lucky affine search bound"),
-    "parity_model_candidate_budget":
-                                ("POLICY", "typed Lucky candidate budget"),
-    "parity_refutation_maximum_variables":
-                                ("POLICY", "typed Lucky XOR-refutation variable bound"),
-    "parity_refutation_maximum_groups":
-                                ("POLICY", "typed Lucky XOR-refutation memory bound"),
-    "parity_refutation_maximum_constraints":
-                                ("POLICY", "typed Lucky XOR-refutation scan bound"),
-    "parity_refutation_maximum_arity":
-                                ("POLICY", "typed Lucky XOR-refutation arity bound"),
-    "parity_refutation_probe_constraints":
-                                ("POLICY", "typed Lucky XOR feedback checkpoint"),
-    "parity_refutation_minimum_probe_repeats":
-                                ("POLICY", "typed Lucky XOR feedback threshold"),
-    "parity_refutation_maximum_proof_additions":
-                                ("POLICY", "typed Lucky XOR certificate bound"),
-    "onehot_model_maximum_variables":
-                                ("POLICY", "typed Lucky one-hot admission bound"),
-    "onehot_model_maximum_domains":
-                                ("POLICY", "typed Lucky one-hot memory bound"),
-    "onehot_model_maximum_constraints":
-                                ("POLICY", "typed Lucky one-hot formula-work bound"),
-    "onehot_model_maximum_equation_arity":
-                                ("POLICY", "typed Lucky GF(3) recognition bound"),
-    "onehot_model_minimum_domains":
-                                ("POLICY", "typed Lucky one-hot admission"),
-    "onehot_model_minimum_equations":
-                                ("POLICY", "typed Lucky GF(3) admission"),
-    "onehot_model_maximum_free_domains":
-                                ("POLICY", "typed Lucky GF(3) search bound"),
-    "onehot_model_candidate_budget":
-                                ("POLICY", "typed Lucky GF(3) candidate budget"),
-    "exact_one_refutation_maximum_variables":
-                                ("POLICY", "typed Lucky exact-one variable bound"),
-    "exact_one_refutation_maximum_groups":
-                                ("POLICY", "typed Lucky exact-one memory bound"),
-    "exact_one_refutation_maximum_constraints":
-                                ("POLICY", "typed Lucky exact-one scan bound"),
-    "exact_one_refutation_maximum_arity":
-                                ("POLICY", "typed Lucky exact-one arity bound"),
-    "exact_one_refutation_maximum_proof_additions":
-                                ("POLICY", "typed Lucky exact-one certificate bound"),
     "reduce_victim_numerator": ("POLICY", "typed canonical Reduce victim fraction"),
     "reduce_victim_denominator":
                                 ("POLICY", "typed canonical Reduce victim fraction"),

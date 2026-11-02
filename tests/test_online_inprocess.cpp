@@ -1375,17 +1375,17 @@ static void rule_parameters_are_scoped_per_call() {
          (k.walk_score_curve ==
           std::vector<WalkParameters::ScorePoint>{{0, 101}, {1000, 202}}));
 
-  k.reorder_maximum_clause_size = 84;
-  k.reorder_clause_decay_milli = 85;
-  k.reorder_binary_weight_milli = 86;
-  k.reorder_balanced_polarity_milli = 87;
+  k.reorder_parameters.maximum_clause_size = 84;
+  k.reorder_parameters.clause_decay_milli = 85;
+  k.reorder_parameters.binary_weight_milli = 86;
+  k.reorder_parameters.balanced_polarity_milli = 87;
   assert(apply_parameterized(k, "Reorder",
                              ReorderParameters{3, 400, 900, 1700}, 109)
              .applications == 1);
-  assert(k.reorder_maximum_clause_size == 84 &&
-         k.reorder_clause_decay_milli == 85 &&
-         k.reorder_binary_weight_milli == 86 &&
-         k.reorder_balanced_polarity_milli == 87);
+  assert(k.reorder_parameters.maximum_clause_size == 84 &&
+         k.reorder_parameters.clause_decay_milli == 85 &&
+         k.reorder_parameters.binary_weight_milli == 86 &&
+         k.reorder_parameters.balanced_polarity_milli == 87);
   kernel_check_invariants(k);
 
   Kernel a;
