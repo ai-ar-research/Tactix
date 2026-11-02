@@ -1,3 +1,6 @@
+// Compact aligned-domain equality abstraction for ternary diagonal nogoods:
+// the pure planner/model projection here, and every RAT/RUP lemma through the
+// pinned native DSR checker route (nary_csp_equality_proof.sh).
 #undef NDEBUG
 #include "rules/semantic_extension/nary_csp_equality.hpp"
 

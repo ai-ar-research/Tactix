@@ -3,8 +3,9 @@
 // `inprocess_slot` is used verbatim and collects telemetry; a disabled entry is
 // reached, declines as disabled at every occasion, and leaves its rule's own
 // counter at 0 while the enabled arm's moves; and the order and per-entry
-// setters land on the entry the policy walks. The `reject()` abort paths are
-// not covered — they need a subprocess to observe.
+// setters (the TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs) land on the entry the
+// policy walks. The `reject()` abort paths are not covered — they need a
+// subprocess to observe.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"

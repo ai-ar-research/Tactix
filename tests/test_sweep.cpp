@@ -3,7 +3,8 @@
 // test each: it finds equivalences RUP cannot, every claim it makes holds in
 // every model of the original formula, the environment is made of F's own
 // clauses (same literals, same proof id), and the limits bind without
-// truncating a clause.
+// truncating a clause. A numeric argument raises the brute-force oracle's
+// soak size (default 20000 rounds).
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
