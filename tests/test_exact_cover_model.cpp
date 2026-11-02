@@ -1,6 +1,6 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
-#include "rules/lucky/exact_cover_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/model.hpp"
 #include "strategy/rule_parameters.hpp"
 

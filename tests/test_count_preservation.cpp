@@ -1,7 +1,7 @@
 #undef NDEBUG
 #include "temporary_file.hpp"
 #include "frontend/parse.hpp"
-#include "rules/lucky/count_preservation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
 #define tactix tactix_handle
 #include "tactix.h"

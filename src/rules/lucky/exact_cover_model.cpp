@@ -1,4 +1,4 @@
-#include "rules/lucky/exact_cover_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "kernel/splitmix64.hpp"
 #include "rules/lucky/disjoint_sets.hpp"

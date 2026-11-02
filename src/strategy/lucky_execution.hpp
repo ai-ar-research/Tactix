@@ -1,23 +1,9 @@
 #pragma once
 
-#include "rules/lucky/affine_model.hpp"
-#include "rules/lucky/balanced_signature_model.hpp"
-#include "rules/lucky/cerny_model.hpp"
-#include "rules/lucky/count_preservation.hpp"
-#include "rules/lucky/exact_cover_model.hpp"
-#include "rules/lucky/exact_one_refutation.hpp"
-#include "rules/lucky/fermat_model.hpp"
-#include "rules/lucky/independent_set_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
-#include "rules/lucky/lookup_circuit_model.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "rules/lucky/onehot_model.hpp"
-#include "rules/lucky/parity_model.hpp"
-#include "rules/lucky/parity_refutation.hpp"
 #include "rules/lucky/ramsey_startup.hpp"
-#include "rules/lucky/signed_cardinality_proof.hpp"
-#include "rules/lucky/simon_model.hpp"
-#include "rules/lucky/stconn_proof.hpp"
 
 namespace tactix::execution {
 

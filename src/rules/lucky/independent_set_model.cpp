@@ -1,4 +1,4 @@
-#include "rules/lucky/independent_set_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "kernel/splitmix64.hpp"
 #include "rules/lucky/model.hpp"

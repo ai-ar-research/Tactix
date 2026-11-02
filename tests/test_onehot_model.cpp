@@ -1,8 +1,7 @@
 #undef NDEBUG
 #include "proof/proof.hpp"
-#include "rules/lucky/exact_one_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "rules/lucky/onehot_model.hpp"
 
 #include <array>
 #include <cassert>

@@ -1,4 +1,4 @@
-#include "rules/lucky/simon_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "kernel/types.hpp"
 #include "rules/lucky/model.hpp"

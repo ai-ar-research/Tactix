@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "rules/lucky/affine_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/bve/bve.hpp"

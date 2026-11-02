@@ -1,6 +1,6 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
-#include "rules/lucky/affine_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/online_inprocess.hpp"
 

@@ -1,4 +1,4 @@
-#include "rules/lucky/parity_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
 

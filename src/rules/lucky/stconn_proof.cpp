@@ -1,4 +1,4 @@
-#include "rules/lucky/stconn_proof.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"

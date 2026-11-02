@@ -1,6 +1,6 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
-#include "rules/lucky/independent_set_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <algorithm>

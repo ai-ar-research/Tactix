@@ -1,6 +1,6 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
-#include "rules/lucky/lookup_circuit_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
 
 #include <cassert>

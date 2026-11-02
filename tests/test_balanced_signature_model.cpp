@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "rules/lucky/balanced_signature_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
 

@@ -1,7 +1,6 @@
-#include "rules/lucky/affine_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/model.hpp"
 #include "engine/affine/projection.hpp"
-#include "rules/lucky/parity_model.hpp"
 #include <map>
 #include <set>
 #include <random>

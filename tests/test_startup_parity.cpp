@@ -1,7 +1,7 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "rules/lucky/parity_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #define tactix tactix_handle
 #include "tactix.h"
 #undef tactix

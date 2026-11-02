@@ -1,6 +1,6 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
-#include "rules/lucky/signed_cardinality_proof.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <array>

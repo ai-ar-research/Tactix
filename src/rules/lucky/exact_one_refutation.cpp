@@ -1,4 +1,4 @@
-#include "rules/lucky/exact_one_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/local_rup_deriver.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
 

@@ -1,6 +1,6 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
-#include "rules/lucky/simon_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
 
 #include <cassert>

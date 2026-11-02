@@ -1,4 +1,4 @@
-#include "rules/lucky/count_preservation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/startup_pb_writer.hpp"
 
 #include "kernel/types.hpp"

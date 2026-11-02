@@ -1,7 +1,7 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "rules/lucky/stconn_proof.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include <cassert>
 #include <cstdio>

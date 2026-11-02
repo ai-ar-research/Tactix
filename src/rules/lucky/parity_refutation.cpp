@@ -1,4 +1,4 @@
-#include "rules/lucky/parity_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
 #include "rules/lucky/startup_pb_writer.hpp"

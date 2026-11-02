@@ -1,4 +1,4 @@
-#include "rules/lucky/signed_cardinality_proof.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "kernel/types.hpp"
 #include "proof/cardinality_certificate.hpp"

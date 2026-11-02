@@ -1,8 +1,7 @@
 #undef NDEBUG
 #include "policies/default_policy.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "rules/lucky/parity_model.hpp"
-#include "rules/lucky/parity_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "proof/proof.hpp"
 

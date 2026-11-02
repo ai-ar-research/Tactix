@@ -1,4 +1,4 @@
-#include "rules/lucky/balanced_signature_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
