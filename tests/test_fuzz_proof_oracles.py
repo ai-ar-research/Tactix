@@ -490,7 +490,7 @@ class FuzzProofOracles(unittest.TestCase):
                                    cake_pb=pins/'cake-pb-cnf')[0])
 
     def fixture(self, cnf_text, proof_text, lrat=True, checker_response=None,
-                convert=False, dsr=False, pbp=False):
+                convert=False, dsr=False, pbp=False, auto_route=None):
         with tempfile.TemporaryDirectory(prefix='fuzz-oracle-fixed-') as directory:
             work = Path(directory); cnf = work/'input.cnf'; cnf.write_text(cnf_text)
             actual = fuzz.run_limited_cmd
@@ -503,11 +503,15 @@ class FuzzProofOracles(unittest.TestCase):
             def run(command, timeout, memory_mib, **kwargs):
                 if command[0] == 'fixed-proof-emitter':
                     Path(command[-1]).write_text(proof_text)
-                    return record((20, 's UNSATISFIABLE\n', ''), memory_mib)
+                    declared = (f'c proof-route {auto_route}\n'
+                                if auto_route else '')
+                    return record((20, declared + 's UNSATISFIABLE\n', ''),
+                                  memory_mib)
                 if checker_response is not None:
                     return record(checker_response, memory_mib)
                 return actual(command, timeout, memory_mib, **kwargs)
             solver = ['fixed-proof-emitter'] + (
+                ['--auto-proof'] if auto_route else
                 ['--pbp'] if pbp else ['--dsr', '--no-binary'] if dsr else
                 (['--lrat'] if lrat else ['--drat']))
             with patch.object(fuzz, 'run_limited_cmd', side_effect=run):
@@ -517,7 +521,8 @@ class FuzzProofOracles(unittest.TestCase):
             if result.failures:
                 bundle = Path(fuzz.save_bundle(str(work/'failures'), 0, 0, 'fixed-checker-control',
                                               str(cnf), result, solver, None, 10, convert, False))
-                proof_name = ('proof.pbp' if pbp else 'proof.dsr' if dsr else
+                proof_name = ('proof.auto' if auto_route else
+                              'proof.pbp' if pbp else 'proof.dsr' if dsr else
                               ('proof.lrat' if lrat else 'proof.drat'))
                 self.assertEqual((bundle/proof_name).read_text(), proof_text)
                 self.assertEqual(json.loads((bundle/'meta.json').read_text())['checker_runs'], result.checker_runs)
@@ -538,6 +543,25 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertFalse(rejected.checker_runs)
         self.assertTrue(self.fixture('p cnf 1 1\n1 0\n', proof, pbp=True).failures)
         self.assertTrue(self.fixture(cnf, proof.split('conclusion')[0], pbp=True).failures)
+
+    def test_fuzz_automatic_route_matches_content(self):
+        pbp = ('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
+               'output NONE ;\nconclusion UNSAT : -1 ;\n'
+               'end pseudo-Boolean proof ;\n')
+        cnf = 'p cnf 1 2\n1 0\n-1 0\n'
+        accepted = self.fixture(cnf, pbp, auto_route='pbp')
+        self.assertFalse(accepted.failures, accepted.failures)
+        self.assertEqual([Path(run['command'][0]).name for run in accepted.checker_runs],
+                         ['veripb', 'cake-pb-cnf'])
+        # A witness-free DSR certificate: DRAT/drat-trim, then CakeLPR.
+        dsr = self.fixture(cnf, '0\n', auto_route='dsr-cake_lpr')
+        self.assertFalse(dsr.failures, dsr.failures)
+        for route, proof in (('dsr-cake_lpr', pbp), ('pbp', '0\n'),
+                             ('dsr-trestle', '0\n')):
+            mismatched = self.fixture(cnf, proof, auto_route=route)
+            self.assertTrue(any('automatic proof-route' in detail
+                                for _, detail in mismatched.failures),
+                            (route, mismatched.failures))
 
     def test_native_nonconflicting_empty_lemma_rejected(self):
         r = self.fixture('p cnf 1 1\n1 0\n', '2 0 1 0\n')

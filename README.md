@@ -23,10 +23,13 @@ See [docs/cli.md](docs/cli.md) for requirements and checking answers, and
 To generate an UNSAT proof, supply an output file:
 
 ```sh
-build/release/tactix formula.cnf proof.pbp
+build/release/tactix formula.cnf proof
 ```
 
-Tactix generates pseudo-Boolean proofs by default on Linux and macOS.
+Tactix chooses the proof format per run, on Linux and macOS: a
+pseudo-Boolean proof when the run uses reasoning that only that format spells
+compactly (startup parity or counting refutations, GF(2) Gaussian reasons),
+and a DSR proof otherwise. `--pbp` always writes a pseudo-Boolean proof.
 Building Tactix, solving formulas, and generating proofs do not require external
 proof checkers.
 
@@ -35,7 +38,7 @@ proof checkers.
 
 ```sh
 tools/checkers/setup.sh                     # install the external checker toolchain
-python3 tools/bench/proof_oracle.py check formula.cnf proof.pbp
+python3 tools/bench/proof_oracle.py check formula.cnf proof
 ```
 
 The current setup script targets Linux x86-64 for the complete checker

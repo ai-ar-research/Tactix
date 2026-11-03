@@ -70,7 +70,12 @@ typedef struct tactix_solver tactix;
 #define TACTIX_PROOF_DSR_BINARY 3 /* canonical DSR stream */
 #define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
 /* Proof-format value 5 is retired and rejected. */
-#define TACTIX_PROOF_PBP 6 /* whole-run PBP; the command-line default */
+#define TACTIX_PROOF_PBP 6 /* whole-run PBP */
+/* Automatic selection, the command-line default: the solver runs exactly as
+   under TACTIX_PROOF_PBP; the file is whole-run PBP when a PB-native step
+   (startup PB refutation, compact GF(2) reason) fires and binary DSR
+   otherwise. tactix_proof_route reports the result. */
+#define TACTIX_PROOF_AUTO 7
 
 /* read-only statistics ids; the list grows additively */
 #define TACTIX_STAT_CONFLICTS 0
@@ -188,6 +193,12 @@ int tactix_read_dimacs(tactix *, FILE *);
  * TACTIX_PROOF_* selects the format. Returns 0, or -1 for a late/duplicate
  * attachment, an unwritable path, or an unsupported format. */
 int tactix_proof(tactix *, const char *path, int format);
+
+/* The verification route of the attached proof as written so far: "pbp",
+   "dsr-trestle" (witnessed DSR), "dsr-cake_lpr" (witness-free DSR), "lrat" or
+   "drat"; NULL without a proof. An automatic proof reports its final route
+   once the solver has derived the empty clause. */
+const char *tactix_proof_route(tactix *);
 
 /* BVE gate-type selection (additive): bitmask of the gate types BVE may
  * recognize; default (unset) is all. A performance knob only — every mask is

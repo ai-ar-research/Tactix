@@ -43,10 +43,16 @@ Give a second file name to write an UNSAT proof. Proof generation works on
 Linux and macOS and requires no external checker installation:
 
 ```sh
-build/release/tactix formula.cnf proof.pbp
+build/release/tactix formula.cnf proof
 ```
 
-Tactix writes a pseudo-Boolean proof by default.
+By default Tactix selects the proof format per run. It writes a
+pseudo-Boolean (PBP) proof when the run uses reasoning that only PBP spells
+compactly (a startup parity or counting refutation, or GF(2) Gaussian
+reasons), and a binary DSR proof otherwise. The solver itself runs the same
+way in both cases. On UNSAT it prints the route it chose, for example
+`c proof-route dsr-cake_lpr`. Use `--pbp` to always write PBP, `--dsr` to
+always write DSR, and `--no-binary` for a text DSR spelling.
 
 ## Optional proof checking
 
@@ -54,7 +60,7 @@ Independent checking is a separate step. It requires Python 3.9 or newer and
 the external checkers for the generated proof format.
 
 The complete toolchain installed by `tools/checkers/setup.sh` currently targets
-Linux x86-64: the default proof route uses VeriPB and CakePB, and the script
+Linux x86-64: the PBP route uses VeriPB and CakePB, and the script
 pins a Linux x86-64 VeriPB binary and requires x86-64 for CakePB. Some individual
 checkers support other platforms, but the script does not provide a complete
 native macOS installation. To check a proof generated on macOS, transfer the
@@ -70,11 +76,12 @@ tools/checkers/setup.sh
 Then check the proof against the original formula:
 
 ```sh
-python3 tools/bench/proof_oracle.py check formula.cnf proof.pbp
+python3 tools/bench/proof_oracle.py check formula.cnf proof
 ```
 
 The checker prints `s VERIFIED UNSAT` when it accepts the proof. The script
-recognizes the proof's format and runs the matching checkers.
+recognizes the proof's format and runs the matching checkers: VeriPB and
+CakePB for PBP; drat-trim and CakeLPR, or dsr-trim and Trestle, for DSR.
 
 For DSR-to-DRAT conversion, the optional native `dsr-transport` helper is built
 only on Linux; other platforms use the Python conversion fallback. Conversion

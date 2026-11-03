@@ -346,7 +346,8 @@ static void test_instance_surface(void) {
   tactix_release(s);
   const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
                          TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
-                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP};
+                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP,
+                         TACTIX_PROOF_AUTO};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     s = tactix_init();
     assert(tactix_proof(s, proof_path, formats[i]) == 0);
@@ -438,7 +439,8 @@ static void test_stepwise_unsat(void) {
 static void test_late_input_proof(void) {
   const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
                          TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
-                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP};
+                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP,
+                         TACTIX_PROOF_AUTO};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     char proof_path[96];
     snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-late-%ld-%u.proof",
@@ -862,8 +864,43 @@ static void test_read_dimacs(void) {
   tactix_release(s);
 }
 
+/* TACTIX_PROOF_AUTO keeps the native-DSR copy when no PB-native step fires
+ * and reports the route actually written; explicit PBP stays PBP. */
+static void test_automatic_proof_route(void) {
+  char proof_path[96];
+  snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-auto-%ld.proof",
+           (long)getpid());
+  for (int automatic = 0; automatic < 2; ++automatic) {
+    tactix *s = tactix_init();
+    assert(tactix_proof_route(s) == NULL);
+    assert(tactix_proof(s, proof_path,
+                        automatic ? TACTIX_PROOF_AUTO : TACTIX_PROOF_PBP) == 0);
+    add_clause(s, (const int[]){1, 2, 0});
+    add_clause(s, (const int[]){-1, 2, 0});
+    add_clause(s, (const int[]){1, -2, 0});
+    add_clause(s, (const int[]){-1, -2, 0});
+    assert(tactix_solve(s) == 20);
+    const char *route = tactix_proof_route(s);
+    assert(route);
+    char head[32] = {0};
+    FILE *file = fopen(proof_path, "rb");
+    assert(file);
+    const size_t read = fread(head, 1, sizeof head - 1, file);
+    assert(read > 0 && fclose(file) == 0);
+    const int pbp = strncmp(head, "pseudo-Boolean proof", 20) == 0;
+    if (automatic)
+      assert((!strcmp(route, "dsr-cake_lpr") || !strcmp(route, "dsr-trestle")) &&
+             !pbp);
+    else
+      assert(!strcmp(route, "pbp") && pbp);
+    tactix_release(s);
+    assert(remove(proof_path) == 0);
+  }
+}
+
 int main(void) {
   test_probe_large_clause_instance();
+  test_automatic_proof_route();
   test_condition_cube_api();
   test_condition_cube_with_retired_external_variable();
   test_solve_sat();

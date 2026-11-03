@@ -740,6 +740,7 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; ++i) {
     const char *arg = argv[i];
     if (!std::strcmp(arg, "--pbp")) proof_format = TACTIX_PROOF_PBP;
+    else if (!std::strcmp(arg, "--auto-proof")) proof_format = TACTIX_PROOF_AUTO;
     else if (!std::strcmp(arg, "--dsr")) proof_format = TACTIX_PROOF_DSR_BINARY;
     else if (!std::strcmp(arg, "--drat")) proof_format = TACTIX_PROOF_DRAT_BINARY;
     else if (!std::strcmp(arg, "--lrat")) proof_format = TACTIX_PROOF_LRAT;
@@ -817,13 +818,16 @@ int main(int argc, char **argv) {
     print_model(solver, variables);
   } else if (result == 20) {
     if (proof_path) {
-      const char *route = proof_format == TACTIX_PROOF_PBP ? "pbp" :
-                          proof_format == TACTIX_PROOF_LRAT ? "lrat" :
-                          proof_format == TACTIX_PROOF_DSR_BINARY ||
+      // Only an automatic proof chooses its route while solving.
+      const char *route = proof_format == TACTIX_PROOF_AUTO
+                              ? tactix_proof_route(solver)
+                          : proof_format == TACTIX_PROOF_PBP ? "pbp"
+                          : proof_format == TACTIX_PROOF_LRAT ? "lrat"
+                          : proof_format == TACTIX_PROOF_DSR_BINARY ||
                                   proof_format == TACTIX_PROOF_DSR_ASCII
                               ? "dsr-trestle"
                               : "drat";
-      std::printf("c proof-route %s\n", route);
+      std::printf("c proof-route %s\n", route ? route : "none");
     }
     std::puts("s UNSATISFIABLE");
   } else {

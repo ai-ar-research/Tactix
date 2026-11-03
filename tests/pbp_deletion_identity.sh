@@ -68,7 +68,7 @@ for name in restated-php root-conflict random3; do
   cnf="$tmp/$name.cnf"
   proof="$tmp/$name.pbp"
   set +e
-  "$solver" "$cnf" "$proof" > "$tmp/$name.out" 2>&1
+  "$solver" --pbp "$cnf" "$proof" > "$tmp/$name.out" 2>&1
   status=$?
   set -e
   [[ $status -eq 20 ]] || { echo "FAIL: $name exit $status"; exit 1; }
@@ -141,13 +141,13 @@ open(f"{out}/ramsey18.cnf", "w").write(f"p cnf {len(edge)} {len(ramsey)}\n" +
     "".join(" ".join(map(str, c)) + " 0\n" for c in ramsey))
 PY
 set +e
-"$solver" "$tmp/headerless.cnf" "$tmp/headerless.pbp" > "$tmp/headerless.out" 2>&1
+"$solver" --pbp "$tmp/headerless.cnf" "$tmp/headerless.pbp" > "$tmp/headerless.out" 2>&1
 status=$?
 set -e
 [[ $status -eq 20 ]] || { echo "FAIL: headerless exit $status"; exit 1; }
 check headerless "$tmp/headerless-checker.cnf" "$tmp/headerless.pbp"
 set +e
-"$solver" "$tmp/ramsey18.cnf" "$tmp/ramsey18.pbp" > "$tmp/ramsey18.out" 2>&1
+"$solver" --pbp "$tmp/ramsey18.cnf" "$tmp/ramsey18.pbp" > "$tmp/ramsey18.out" 2>&1
 status=$?
 set -e
 [[ $status -eq 20 ]] || { echo "FAIL: ramsey18 exit $status"; exit 1; }

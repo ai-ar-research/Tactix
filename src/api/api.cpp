@@ -1980,12 +1980,14 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   case 5:
     return -1; // retired proof-format value; public values are never reused
   case 6:
+  case 7: // automatic selection runs the solver on the streaming-PBP stream
     f = ProofFormat::PbpStreaming;
     break;
   default:
     return -1;
   }
-  if (!s->proof.open(path, f))
+  if (!(format == 7 ? s->proof.open_automatic(path, true)
+                    : s->proof.open(path, f)))
     return -1;
   // Native LRAT cannot derive root units until all checker input ids exist.
   // Import eagerly in the live kernel, then replay its exact raw clauses at
@@ -2004,6 +2006,12 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   s->proof.bind_external_variable_map(&s->kernel.external_to_internal);
   external_state_change(s);
   return 0;
+}
+
+const char *tactix_proof_route(tactix_solver *s) {
+  if (!s || (!s->kernel.proof && !s->pending_input_proof))
+    return nullptr;
+  return s->proof.verification_route();
 }
 
 int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {

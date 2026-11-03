@@ -13,6 +13,7 @@
 #include <functional>
 #include <map>
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -101,11 +102,43 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
                                 const DsrLiteralMapping *mappings,
                                 uint32_t nmappings);
 
+// Automatic proof selection (plan §5). Whole-run streaming PBP owns every
+// kernel-visible decision, so the solver trajectory equals `--pbp`; a native
+// DSR copy of the same proof events is written to a private stage. The first
+// PB-native event (a startup PB refutation, a compact GF(2) reason) or an
+// event the copy cannot follow discards the copy and keeps PBP; otherwise the
+// empty clause replaces the PBP destination with the DSR copy.
+enum class AutomaticProofReason : uint8_t {
+  Pending,              // the DSR copy is still live
+  DsrSelected,          // the empty clause kept the DSR copy
+  StartupPbRefutation,  // Lucky parity / count-preservation terminal PB
+  ParityReason,         // compact GF(2) reason (affine root closure, search)
+  SrWithAffineSupport,  // a witnessed SR step while affine support is leased
+  CopyDeclined,         // the DSR copy rejected an event PBP accepted
+  CopyWriteFailed,      // the DSR stage could not be written
+  DestinationUnsupported, // not a regular file: no copy was opened
+  StageUnavailable,     // no stage file could be created
+};
+const char *automatic_proof_reason_name(AutomaticProofReason) noexcept;
+
 class Proof {
 public:
   ~Proof();
 
   bool open(const char *path, ProofFormat format);
+  // Automatic selection: streaming PBP at `path` plus a binary (or ASCII) DSR
+  // copy. `stage_path`, when given, names the copy's caller-owned stage file;
+  // otherwise a sibling of `path` (renamed into place) or an anonymous file
+  // (copied into place) is used. Returns false only when `path` cannot be
+  // opened; without a usable stage the run is whole-run PBP.
+  bool open_automatic(const char *path, bool binary_dsr,
+                      const char *stage_path = nullptr);
+  bool automatic() const noexcept { return automatic_; }
+  AutomaticProofReason automatic_reason() const noexcept {
+    return automatic_reason_;
+  }
+  // The selection is final once the copy is discarded or kept.
+  bool automatic_dsr_live() const noexcept { return dsr_copy_ != nullptr; }
   uint64_t stream_identity() const noexcept { return stream_identity_; }
   // Whole-run PBP privately stages input normalization. At the original-input
   // action boundary the caller may commit a complete native PB refutation.
@@ -143,6 +176,8 @@ public:
   // Published proof feature, used only to choose an independent final checker.
   // The runner also scans the finished certificate and rejects disagreement.
   const char *verification_route() const {
+    if (automatic_selected_dsr_)
+      return automatic_dsr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
     if (pb()) return "pbp";
     if (dsr()) return has_sr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
     if (lrat()) return "lrat";
@@ -152,9 +187,15 @@ public:
     return format_ == ProofFormat::DsrBinary ||
            format_ == ProofFormat::DratBinary;
   }
-  void bind_variable_map(const std::vector<Var> *map) { variable_map_ = map; }
+  void bind_variable_map(const std::vector<Var> *map) {
+    variable_map_ = map;
+    if (dsr_copy_)
+      dsr_copy_->bind_variable_map(map);
+  }
   void bind_external_variable_map(const std::vector<Var> *map) {
     external_variable_map_ = map;
+    if (dsr_copy_)
+      dsr_copy_->bind_external_variable_map(map);
   }
   void bind_population_observer(PopulationObserver *) noexcept;
   // Settle only a route whose bytes already have a committed destination.
@@ -330,7 +371,11 @@ public:
   // literals for DRAT, IDs for LRAT. The frontend seeds and arms the oracle only
   // after it has registered the complete input and its restatements. See
   // benchmarks/reports/2026-08-05-input-clause-normalization-n2.md.
-  void arm_population_shadow() { armed_ = true; }
+  void arm_population_shadow() {
+    armed_ = true;
+    if (dsr_copy_)
+      dsr_copy_->arm_population_shadow();
+  }
   bool population_shadow_available() const { return true; }
   bool population_contains(uint64_t id, const Lit *lits, uint32_t size) const;
   uint64_t unbacked_deletions() const { return unbacked_deletions_; }
@@ -346,6 +391,55 @@ public:
 #endif
 
 private:
+  // Event bodies. The public methods run these and then feed the automatic
+  // DSR copy; internal calls use the bodies so the copy sees each event once.
+  void add_rup_impl(uint64_t id, const Lit *lits, uint32_t size,
+                    const uint64_t *chain, uint32_t nchain);
+  void add_rat_impl(uint64_t id, const Lit *lits, uint32_t size,
+                    const int64_t *hints, uint32_t nhints);
+  bool add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
+                   const Lit *true_lits, uint32_t ntrue,
+                   const DsrLiteralMapping *mappings, uint32_t nmappings,
+                   uint32_t external_variables, bool propagates);
+  void add_empty_impl(uint64_t id, const uint64_t *chain, uint32_t nchain);
+  void add_derived_unit_impl(uint64_t id, Lit unit, const uint64_t *chain,
+                             uint32_t nchain);
+  void del_impl(uint64_t line_id, uint64_t del_id, const Lit *lits,
+                uint32_t size);
+  bool add_external_rup_impl(uint64_t id, const int32_t *lits, uint32_t size);
+  bool add_external_rat_impl(uint64_t id, const int32_t *lits, uint32_t size);
+  bool del_external_impl(uint64_t line_id, uint64_t del_id,
+                         const int32_t *lits, uint32_t size);
+  bool retain_external_impl(uint64_t id, const int32_t *lits, uint32_t size);
+  bool retain_premise_groups_impl(const std::vector<PremiseGroup> &,
+      uint64_t maximum_groups, uint64_t maximum_literals,
+      uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,
+      std::vector<uint64_t> &handles, DeferredDeletionLimits limits);
+  void release_premise_groups_impl(const std::vector<uint64_t> &,
+                                   uint64_t line_id);
+  void seed_population_impl(uint64_t id, const Lit *lits, uint32_t size);
+  void finish_input_transaction_impl();
+  void flush_impl();
+  FILE *begin_pb_impl();
+  bool open_stream(FILE *file, ProofFormat format);
+
+  // Automatic selection state (see AutomaticProofReason). The copy is a
+  // native-DSR Proof fed every event the PBP stream accepted.
+  std::unique_ptr<Proof> dsr_copy_;
+  bool automatic_ = false;
+  bool automatic_selected_dsr_ = false;
+  bool automatic_dsr_witness_ = false;
+  AutomaticProofReason automatic_reason_ = AutomaticProofReason::Pending;
+  std::string automatic_path_;       // the destination, for the final rename
+  std::string automatic_stage_name_; // a named sibling stage, else empty
+  // In the copy: a failed write disables it instead of aborting the solver.
+  bool copy_role_ = false;
+  bool copy_failed_ = false;
+  void drop_dsr_copy(AutomaticProofReason) noexcept;
+  void select_dsr_copy();
+  // After forwarding: discard a failed copy, keep the copy at the empty clause.
+  void settle_dsr_copy();
+
   // Consecutive RUP units and their following deletion block form one split
   // transaction. Two RUP helpers per unit use a shared fresh variable; each
   // prior pair supplies its unit under either assumption on that variable.

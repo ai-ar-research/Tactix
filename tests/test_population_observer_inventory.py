@@ -90,37 +90,56 @@ for (path, token), expected in exact_mutation_counts.items():
 
 # Checker-population authority. The wrapper-only derived-unit/empty endpoints
 # must scope the role and funnel through add_rup; every serializer endpoint
-# emits its own typed event.
+# emits its own typed event. The serializer bodies are the `_impl` methods;
+# each public event method runs its body and then feeds the automatic DSR
+# copy, which has no observer of its own.
 for signature in (
     "void Proof::flush_pending_dsr_units()",
-    "void Proof::add_rup(",
-    "void Proof::add_rat(",
-    "bool Proof::add_sr(",
-    "void Proof::del(",
-    "bool Proof::add_external_rup(",
-    "bool Proof::del_external(",
-    "FILE *Proof::begin_pb()",
-    "bool Proof::open(",
+    "void Proof::add_rup_impl(",
+    "void Proof::add_rat_impl(",
+    "bool Proof::add_sr_impl(",
+    "void Proof::del_impl(",
+    "bool Proof::add_external_rup_impl(",
+    "bool Proof::del_external_impl(",
+    "FILE *Proof::begin_pb_impl()",
+    "bool Proof::open_stream(",
 ):
     require(proof_cpp, signature, "observe_checker(")
 require(proof_cpp, "bool Proof::settle_population_observer()",
         "streaming_pbp() && pbp_output_", "flush()")
-require(proof_cpp, "bool Proof::open(",
+require(proof_cpp, "bool Proof::open_stream(",
         "CheckerPopulationEventKind::RouteOpened")
 require(proof_cpp, "void Proof::bind_population_observer(",
         "ObserverUnboundIncomplete", "population_observer_->observe")
-require(proof_cpp, "void Proof::del(",
+require(proof_cpp, "void Proof::del_impl(",
         "CheckerPopulationEventKind::Delete",
         "CheckerPopulationEventKind::DeleteRequested",
         "CheckerPopulationEventKind::StageDeleteRequested")
-require(proof_cpp, "bool Proof::del_external(",
+require(proof_cpp, "bool Proof::del_external_impl(",
         "CheckerPopulationEventKind::DeleteRequested",
         "CheckerPopulationEventKind::StageDeleteRequested")
-for signature in ("void Proof::add_empty(", "void Proof::add_derived_unit("):
-    require(proof_cpp, signature, "population_role_", "add_rup(")
-require(proof_cpp, "bool Proof::add_external_rat(", "population_role_",
-        "add_external_rup(")
-require(proof_cpp, "void Proof::seed_population(", "observe_checker(")
+for signature in ("void Proof::add_empty_impl(",
+                  "void Proof::add_derived_unit_impl("):
+    require(proof_cpp, signature, "population_role_", "add_rup_impl(")
+require(proof_cpp, "bool Proof::add_external_rat_impl(", "population_role_",
+        "add_external_rup_impl(")
+require(proof_cpp, "void Proof::seed_population_impl(", "observe_checker(")
+for name, signature in (
+    ("add_rup", "void Proof::add_rup("), ("add_rat", "void Proof::add_rat("),
+    ("add_sr", "bool Proof::add_sr("), ("add_empty", "void Proof::add_empty("),
+    ("add_derived_unit", "void Proof::add_derived_unit("),
+    ("del", "void Proof::del("),
+    ("add_external_rup", "bool Proof::add_external_rup("),
+    ("add_external_rat", "bool Proof::add_external_rat("),
+    ("del_external", "bool Proof::del_external("),
+    ("retain_external", "bool Proof::retain_external("),
+    ("retain_premise_groups", "bool Proof::retain_premise_groups("),
+    ("release_premise_groups", "void Proof::release_premise_groups("),
+    ("seed_population", "void Proof::seed_population("),
+    ("finish_input_transaction", "void Proof::finish_input_transaction()"),
+    ("flush", "void Proof::flush()"),
+):
+    require(proof_cpp, signature, f"{name}_impl(", "dsr_copy_")
 
 # Solver-population authority. Physical mirror publication, arena collection,
 # watch pose, and variable compaction are intentionally absent: they do not
