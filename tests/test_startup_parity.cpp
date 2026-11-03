@@ -1,7 +1,8 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "rules/lucky/parity_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #define tactix tactix_handle
 #include "tactix.h"
 #undef tactix
@@ -64,15 +65,6 @@ static std::string graph_formula(unsigned vertices, bool odd, bool renamed) {
   return cnf;
 }
 
-static void parse(const std::string &cnf, Kernel &k) {
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(cnf.data(), 1, cnf.size(), input) == cnf.size());
-  std::rewind(input);
-  assert(!parse_dimacs(input, k));
-  std::fclose(input);
-}
-
 int main(int argc, char **argv) {
   for (unsigned vertices : {3, 4, 5})
     for (bool renamed : {false, true}) {
@@ -91,7 +83,7 @@ int main(int argc, char **argv) {
         proof.bind_variable_map(&k.internal_to_external);
         k.proof = &proof;
       }
-      parse(cnf, k);
+      parse_dimacs_text(cnf, k);
       assert(!k.proof || k.proof->startup_pb_available());
       assert(startup_parity_guard(k));
       const auto &lucky = tactix_rules()[tactix_rule_id("Lucky")];
@@ -104,18 +96,18 @@ int main(int argc, char **argv) {
       assert(!k.proof || k.proof->pb());
       assert(!startup_parity_guard(k));
       Kernel sat;
-      parse(graph_formula(vertices, false, renamed), sat);
+      parse_dimacs_text(graph_formula(vertices, false, renamed), sat);
       assert(startup_parity_apply(sat) == ApplyResult::NoOp);
       assert(!sat.inconsistent);
     }
   for (bool stop : {false, true}) {
     Kernel k;
-    parse(graph_formula(4, true, false), k);
+    parse_dimacs_text(graph_formula(4, true, false), k);
     volatile sig_atomic_t interrupted = 1;
     if (stop)
       k.stop = &interrupted;
     else
-      k.parity_refutation_maximum_proof_additions = 1;
+      k.parity_model_parameters.refutation_maximum_proof_additions = 1;
     const auto before = k.arena.size();
     assert(startup_parity_apply(k) == ApplyResult::NoOp);
     assert(k.startup_certificate_open && !k.inconsistent);
@@ -169,7 +161,7 @@ int main(int argc, char **argv) {
     tactix_release(proofless);
   }
   Kernel closed;
-  parse(graph_formula(4, true, false), closed);
+  parse_dimacs_text(graph_formula(4, true, false), closed);
   apply_rule(tactix_rules()[tactix_rule_id("Propagate")], closed);
   assert(!startup_parity_guard(closed));
   // An explicit clausal writer closes the PB boundary, but it must not

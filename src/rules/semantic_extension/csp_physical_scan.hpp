@@ -80,9 +80,7 @@ inline bool root_ready(const Kernel &kernel) {
 // reports kernel_binary_id even when the table does not track proof IDs.
 template <bool RawBinaryIds = false, class Meter, class Observe>
 Status run(const Kernel &kernel, Meter &meter, Observe &observe) {
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
+  for (const auto [reference, clause] : arena_records(kernel.arena)) {
     if (!meter.charge(1)) return Status::Stopped;
     if (!clause->garbage() &&
         !observe(clause->lits, clause->size, clause->id()))

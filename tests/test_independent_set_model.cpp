@@ -1,6 +1,7 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
-#include "rules/lucky/independent_set_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <algorithm>
@@ -12,17 +13,6 @@
 #include <vector>
 
 using namespace tactix;
-
-static Kernel parse(const std::string &text) {
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  return kernel;
-}
 
 // The owner's encoding: N graph variables, then a layered exact-count
 // automaton with min(i, K) + 1 states after reading vertex i, requiring at
@@ -100,7 +90,7 @@ static std::string stable_extension(bool corrupt_resolvent = false) {
 int main() {
   {
     // A 6-cycle plus one chord has an independent set of size 3.
-    Kernel kernel = parse(independent_set(
+    Kernel kernel = parse_dimacs_text(independent_set(
         6, 3, {{1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 1}, {1, 4}}));
     assert(independent_set_model_guard(kernel));
     const ApplyResult result = independent_set_model_apply(kernel);
@@ -115,19 +105,19 @@ int main() {
   {
     // A triangle has no independent set of size 2: the search fails and the
     // kernel is untouched.
-    Kernel kernel = parse(independent_set(3, 2, {{1, 2}, {2, 3}, {3, 1}}));
+    Kernel kernel = parse_dimacs_text(independent_set(3, 2, {{1, 2}, {2, 3}, {3, 1}}));
     assert(independent_set_model_apply(kernel) == ApplyResult::NoOp);
     assert(kernel.stats.independent_set_model_recognized == 1);
     assert(kernel.trail.empty());
   }
   {
     // Not the shape: no clause wider than two.
-    Kernel kernel = parse("p cnf 3 3\n-1 -2 0\n-2 -3 0\n1 3 0\n");
+    Kernel kernel = parse_dimacs_text("p cnf 3 3\n-1 -2 0\n-2 -3 0\n1 3 0\n");
     assert(independent_set_model_apply(kernel) == ApplyResult::NoOp);
     assert(!kernel.stats.independent_set_model_recognized);
   }
   {
-    Kernel kernel = parse(stable_extension());
+    Kernel kernel = parse_dimacs_text(stable_extension());
     const uint64_t before = kernel.live_irredundant_large;
     assert(independent_set_model_apply(kernel) == ApplyResult::Sat);
     assert(kernel.stats.independent_set_model_recognized == 1);
@@ -140,7 +130,7 @@ int main() {
   {
     // A single unauthenticated guarded clause makes the whole recognition
     // transactional: no subset is deleted.
-    Kernel kernel = parse(stable_extension(true));
+    Kernel kernel = parse_dimacs_text(stable_extension(true));
     const uint64_t before = kernel.live_irredundant_large;
     assert(independent_set_model_apply(kernel) == ApplyResult::NoOp);
     assert(!kernel.stats.independent_set_model_recognized);

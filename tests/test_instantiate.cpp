@@ -293,7 +293,7 @@ static void test_semantic_pair_surface() {
     for (uint32_t i = 0; i < count; ++i) {
       Ref ref;
       Lit literal;
-      instantiate_pair_of_instance(semantic[i], &ref, &literal);
+      clause_literal_of_instance(semantic[i], &ref, &literal);
       if (kernel_externalize(k, literal) == selected) {
         assert(ref == find_ref(k, 4));
         chosen = semantic[i];

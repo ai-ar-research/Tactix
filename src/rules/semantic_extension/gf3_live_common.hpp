@@ -1,7 +1,9 @@
 #pragma once
 
 #include "kernel/watch.hpp"
+#include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/gf3_affine_live.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -13,12 +15,6 @@
 
 namespace tactix::gf3_live_common {
 
-inline bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
-
 inline bool owner_guard(const Kernel &kernel) {
   return !kernel.inconsistent && !kernel.conflict_valid &&
          !kernel.pending.valid && !kernel.dense &&
@@ -28,9 +24,8 @@ inline bool owner_guard(const Kernel &kernel) {
          kernel.external_to_internal.size() <= INT32_MAX;
 }
 
-inline bool root_guard(const Kernel &kernel) {
-  return !kernel.level && kernel.trail.empty() && owner_guard(kernel);
-}
+// owner_guard at an assignment-free root (csp_physical_scan::root_ready).
+using csp_physical_scan::root_ready;
 
 // The affine owner capture/revalidation request carried by GF3 limits.
 template <class Limits>

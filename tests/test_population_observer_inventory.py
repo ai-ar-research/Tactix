@@ -177,7 +177,7 @@ require(substitute_cpp, "ApplyResult do_substitution(",
         "BinaryPopulationEffect::RepresentationOnly")
 
 # Substitute is the sole rule allowed to mutate binary watches directly. Its
-# two bulk-compaction sites and one single-pass head resize are covered by the
+# bulk-compaction site and one single-pass head resize are covered by the
 # explicit source-retirement events above. Any new rule-side mutation must
 # either use a kernel primitive or extend this audited classification.
 rule_binary_mutations = []
@@ -191,7 +191,7 @@ for path in (src / "rules").rglob("*"):
     ))
     if count:
         rule_binary_mutations.append((path, count))
-if rule_binary_mutations != [(substitute_cpp, 3)]:
+if rule_binary_mutations != [(substitute_cpp, 2)]:
     fail(
         "unclassified rule-side binary membership mutation: "
         f"{[(str(p.relative_to(root)), n) for p, n in rule_binary_mutations]}"

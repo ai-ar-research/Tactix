@@ -1,6 +1,7 @@
 // SubsumeForward: guard, root-modulo semantics, redundant exclusion, reason
 // safety, the instance surface, enumeration purity, and the proof deltas.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/registry.hpp"
@@ -439,21 +440,6 @@ static void test_proof_deltas() {
   fclose(f);
   remove(path);
   assert(saw_delete); // exactly the subsumed clause was deleted
-}
-
-static bool has_binary(const Kernel &k, Lit a, Lit b) {
-  const WatchHead &h = k.watches.heads[a];
-  for (uint32_t i = 0; i < h.size;) {
-    const Watch w{k.watches.arena[h.offset + i]};
-    if (!w.binary()) {
-      i += 2;
-      continue;
-    }
-    if (w.other() == b)
-      return true;
-    i += 1;
-  }
-  return false;
 }
 
 // SubsumeForward -> Substitute. A clause deleted on a binary's strength carries

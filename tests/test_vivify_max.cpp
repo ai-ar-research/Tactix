@@ -1,5 +1,6 @@
 // Fixed actual-scheduler comparisons: maximum-count ranking and fallback scopes.
 #undef NDEBUG
+#include "fnv_digest.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/vivify/vivify.hpp"
 
@@ -11,10 +12,6 @@
 
 using namespace tactix;
 
-static uint64_t digest = UINT64_C(1469598103934665603);
-static void hash(uint64_t value) {
-  digest = (digest ^ value) * UINT64_C(1099511628211);
-}
 
 static void check(unsigned population, unsigned scope, bool reuse, bool flush,
                   unsigned priority) {

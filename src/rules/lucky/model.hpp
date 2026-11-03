@@ -23,8 +23,7 @@ bool lucky_model_valid(const Kernel &k, const std::vector<uint8_t> &assignment,
     const int value = k.value(make_lit(v, false));
     if (value && (value > 0) != bool(assignment[v])) return false;
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!charge(1)) return false;
     if (!clause->garbage()) {
       bool sat = false;
@@ -34,7 +33,6 @@ bool lucky_model_valid(const Kernel &k, const std::vector<uint8_t> &assignment,
       }
       if (!sat) return false;
     }
-    ref += clause_actual_words(clause);
   }
   for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
     if (!charge(1)) return false;
@@ -106,15 +104,13 @@ inline bool lucky_complete_by_propagation(Kernel &k, uint64_t rounds,
             kernel_rule_interrupt(k, interrupted_counter))
           return false;
       }
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, ref);
+    for (const auto [ref, clause] : arena_records(k.arena)) {
       if (!clause->garbage()) {
         const int result =
             lucky_propagate_clause(assignment, clause->begin(), clause->end());
         if (result < 0) return false;
         changed |= result > 0;
       }
-      ref += clause_actual_words(clause);
     }
     if (!changed) return true;
   }

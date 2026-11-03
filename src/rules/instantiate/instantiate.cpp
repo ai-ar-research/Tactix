@@ -128,13 +128,9 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
   if ((!selected && !is_candidate(k, c)) ||
       (selected && c->garbage()))
     return ApplyResult::NoOp;
-  if (selected) {
-    bool present = false;
-    for (const Lit lit : *c)
-      present |= lit == *selected;
-    if (!present || k.value(*selected) != 0)
-      return ApplyResult::NoOp;
-  }
+  if (selected &&
+      (!clause_contains(c, *selected) || k.value(*selected) != 0))
+    return ApplyResult::NoOp;
   const bool lrat = k.proof && k.proof->lrat();
   // Persistent walk scratch (the per-call linear-scratch fix, shared in shape
   // with C3 Vivify's copy): grown on demand, restored all-zero in O(marked) at
@@ -332,17 +328,16 @@ ApplyResult instantiate_try_literal(Kernel &k, Ref candidate, Lit literal) {
 static uint32_t instantiate_semantic_instances(Kernel &k, uint64_t *out,
                                                uint32_t cap) {
   uint32_t count = 0;
-  for (Ref ref = 0; ref < k.arena.size() && count < cap;) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
+    if (count == cap)
+      break;
     if (!c->garbage())
       for (const Lit literal : *c) {
         if (k.value(literal) == 0)
-          out[count++] = instantiate_pair_instance(ref, literal);
+          out[count++] = clause_literal_instance(ref, literal);
         if (count == cap)
           break;
       }
-    ref += words;
   }
   return count;
 }
@@ -355,7 +350,7 @@ static ApplyResult instantiate_apply_semantic_instance(Kernel &k,
     return instantiate_apply(k);
   Ref selected_ref;
   Lit selected_literal;
-  instantiate_pair_of_instance(instance, &selected_ref, &selected_literal);
+  clause_literal_of_instance(instance, &selected_ref, &selected_literal);
   if (selected_ref == INVALID_REF || selected_literal >= 2 * k.nvars)
     return ApplyResult::NoOp;
   const Ref ref = arena_clause_instance(k, selected_ref);

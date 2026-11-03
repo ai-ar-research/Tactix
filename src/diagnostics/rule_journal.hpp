@@ -44,7 +44,6 @@ using RuleJournalMeter = uint64_t (*)(const Kernel &);
 void rule_journal_set_effort_meter(RuleJournalMeter);
 uint64_t rule_journal_effort(const Kernel &);
 int rule_journal_selected_literal();
-uint64_t rule_journal_selected_clause_id();
 void rule_journal_emit(const Kernel &, const RuleJournalRecord &);
 // Journal spelling of a rule application result.
 const char *rule_journal_outcome(ApplyResult);

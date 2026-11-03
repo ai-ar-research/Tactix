@@ -64,8 +64,6 @@ public:
   }
 
 private:
-  friend Result discover(const tseitin_cycle_live::Snapshot &, const Limits &,
-                         Plan &);
   friend Result enumerate(const tseitin_cycle_live::Snapshot &, const Limits &,
                           std::vector<Plan> &);
   friend Result select(const tseitin_cycle_live::Snapshot &, const Limits &,
@@ -90,13 +88,9 @@ struct Result {
   bool discovered() const { return status == Status::Discovered; }
 };
 
-// Derive one exact plan from a previously captured complete snapshot.  Every
-// clause is classified; unsupported clauses remain residual and therefore
-// exclude any candidate edge they touch.
-Result discover(const tseitin_cycle_live::Snapshot &, const Limits &, Plan &);
-
 // Enumerate every independently legal connected component in deterministic
-// group order.  Each returned plan freezes the complete formula snapshot, so
+// group order.  Every clause is classified; unsupported clauses remain
+// residual and therefore exclude any candidate edge they touch.  Each returned plan freezes the complete formula snapshot, so
 // an apply can exact-match the selected component after a fresh recapture.
 Result enumerate(const tseitin_cycle_live::Snapshot &, const Limits &,
                  std::vector<Plan> &);
@@ -106,11 +100,6 @@ Result enumerate(const tseitin_cycle_live::Snapshot &, const Limits &,
 // before visitation; unrelated components are never copied into the result.
 Result select(const tseitin_cycle_live::Snapshot &, const Limits &,
               ComponentSelector, void *, Plan &);
-
-// Capture the complete current population and then discover.  Both phases are
-// bounded and interruptible.  The output is replaced only on success.
-Result capture(Kernel &, const tseitin_cycle_live::SnapshotLimits &,
-               const Limits &, Plan &);
 
 // Hand the frozen plan to the existing live adapter.  That adapter re-captures
 // and independently authenticates the exact groups before producing an

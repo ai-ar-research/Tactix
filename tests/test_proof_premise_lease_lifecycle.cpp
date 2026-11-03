@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "proof/proof.hpp"
 #include <cassert>
 #include <cstdio>
@@ -15,11 +16,6 @@ struct Observer final:PopulationObserver {
    if(event.kind==CheckerPopulationEventKind::Add){++adds;last_add_role=event.role;}
   }
 };
-std::string contents(const std::string &path){
- FILE *f=std::fopen(path.c_str(),"rb");assert(f);std::string bytes;char buffer[256];
- while(size_t n=std::fread(buffer,1,sizeof(buffer),f))bytes.append(buffer,n);
- assert(!std::ferror(f));std::fclose(f);return bytes;
-}
 void shared_copies(ProofFormat format){
  const std::string path="/tmp/tactix-lease-copies-"+std::to_string(getpid())+"-"+std::to_string(unsigned(format));
  Proof p;assert(p.open(path.c_str(),format));Observer observer;p.bind_population_observer(&observer);
@@ -29,9 +25,9 @@ void shared_copies(ProofFormat format){
  std::vector<uint64_t> handles;
  assert(p.retain_premise_groups({{{1,-2,3}},{{3,1,-2}}},8,100,100000,[](uint64_t){return true;},handles));
  assert(handles.size()==2 && p.premise_literals()==6);
- p.flush();const auto initial=contents(path);const auto events=observer.events;
+ p.flush();const auto initial=read_file(path);const auto events=observer.events;
  p.del(3,1,native,3);assert(p.del_external(3,2,external,3));p.flush();
- assert(contents(path)==initial && observer.events==events && (!p.population_shadow_available() || p.population_contains(1,native,3)));
+ assert(read_file(path)==initial && observer.events==events && (!p.population_shadow_available() || p.population_contains(1,native,3)));
  assert(p.premise_deletions_deferred()==2 && p.premise_maintenance_work()>0);
  const auto bytes=p.premise_bytes(),epoch=p.premise_epoch();
  std::vector<uint64_t> untouched{999};
@@ -41,13 +37,13 @@ void shared_copies(ProofFormat format){
  assert(!p.retain_premise_groups({{{4,5,6}}},8,100,100000,[](uint64_t){return false;},untouched));
  assert(p.premise_bytes()==bytes && p.premise_literals()==6 && observer.events==events);
  p.release_premise_groups({handles[0]},4);p.flush();
- assert(contents(path)==initial && p.premise_group_active(handles[1]));
+ assert(read_file(path)==initial && p.premise_group_active(handles[1]));
  assert(p.premise_literals()==3 && (!p.population_shadow_available() || p.population_contains(1,native,3)));
  p.release_premise_groups({handles[1]},5);p.flush();
  assert(!p.premise_bytes() && !p.premise_literals() && (!p.population_shadow_available() || !p.population_contains(1,native,3)));
  assert(p.premise_deletions_deferred()==2 && !p.unbacked_deletions());
- assert(observer.events>events && contents(path)!=initial);
- const auto final=contents(path);p.release_premise_groups(handles,6);p.flush();assert(contents(path)==final);
+ assert(observer.events>events && read_file(path)!=initial);
+ const auto final=read_file(path);p.release_premise_groups(handles,6);p.flush();assert(read_file(path)==final);
  p.bind_population_observer(nullptr);std::remove(path.c_str());
 }
 void pivot_retirement(ProofFormat format,bool external_rat){
@@ -68,7 +64,7 @@ void pivot_retirement(ProofFormat format,bool external_rat){
  assert((!p.population_shadow_available() || !p.population_contains(1,source,2)) && (!p.population_shadow_available() || p.population_contains(2,unrelated,3)));
  p.release_premise_groups(handles,5);p.flush();assert(!p.premise_bytes() && !p.unbacked_deletions());
  if(format==ProofFormat::DsrAscii || format==ProofFormat::DratAscii){
-  const auto stream=contents(path);const auto deletion=stream.find("d -1 2 0\n");
+  const auto stream=read_file(path);const auto deletion=stream.find("d -1 2 0\n");
   const auto addition=stream.find("1 0\n",deletion+9);
   assert(deletion!=std::string::npos && addition!=std::string::npos && deletion<addition);
  }

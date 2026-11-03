@@ -109,42 +109,6 @@ WalkParameters WalkParameters::from_kernel(const Kernel &k) {
   result.aspiration = k.walk_aspiration;
   return result;
 }
-ReorderParameters ReorderParameters::from_kernel(const Kernel &k) {
-  return {k.reorder_maximum_clause_size, k.reorder_clause_decay_milli,
-          k.reorder_binary_weight_milli,
-          k.reorder_balanced_polarity_milli};
-}
-ParityModelParameters ParityModelParameters::from_kernel(const Kernel &k) {
-  return {k.parity_model_maximum_variables,
-          k.parity_model_maximum_groups,
-          k.parity_model_maximum_constraints,
-          k.parity_model_minimum_group_clauses,
-          k.parity_model_minimum_equations,
-          k.parity_model_maximum_free_variables,
-          k.parity_model_candidate_budget,
-          k.parity_refutation_maximum_variables,
-          k.parity_refutation_maximum_groups,
-          k.parity_refutation_maximum_constraints,
-          k.parity_refutation_maximum_arity,
-          k.parity_refutation_probe_constraints,
-          k.parity_refutation_minimum_probe_repeats,
-          k.parity_refutation_maximum_proof_additions};
-}
-OnehotModelParameters OnehotModelParameters::from_kernel(const Kernel &k) {
-  return {k.onehot_model_maximum_variables,
-          k.onehot_model_maximum_domains,
-          k.onehot_model_maximum_constraints,
-          k.onehot_model_maximum_equation_arity,
-          k.onehot_model_minimum_domains,
-          k.onehot_model_minimum_equations,
-          k.onehot_model_maximum_free_domains,
-          k.onehot_model_candidate_budget,
-          k.exact_one_refutation_maximum_variables,
-          k.exact_one_refutation_maximum_groups,
-          k.exact_one_refutation_maximum_constraints,
-          k.exact_one_refutation_maximum_arity,
-          k.exact_one_refutation_maximum_proof_additions};
-}
 #define STORED_PARAMETERS(Type, member)                                       \
   Type Type::from_kernel(const Kernel &kernel) { return kernel.member; }       \
   void install_rule_parameters(Kernel &kernel, const Type &parameters) {      \
@@ -172,6 +136,9 @@ STORED_PARAMETERS(BackboneParameters, backbone_parameters)
 STORED_PARAMETERS(CongruenceParameters, congruence_parameters)
 STORED_PARAMETERS(SubsumeForwardParameters, subsume_forward_parameters)
 STORED_PARAMETERS(StrengthenParameters, strengthen_parameters)
+STORED_PARAMETERS(ReorderParameters, reorder_parameters)
+STORED_PARAMETERS(ParityModelParameters, parity_model_parameters)
+STORED_PARAMETERS(OnehotModelParameters, onehot_model_parameters)
 
 #undef STORED_PARAMETERS
 
@@ -278,48 +245,4 @@ ScopedWalkParameters::ScopedWalkParameters(
     : bounded_(kernel), parameters_(kernel, parameters) {}
 
 ScopedWalkParameters::~ScopedWalkParameters() = default;
-
-void install_rule_parameters(Kernel &k, const ReorderParameters &p) {
-  k.reorder_maximum_clause_size = p.maximum_clause_size;
-  k.reorder_clause_decay_milli = p.clause_decay_milli;
-  k.reorder_binary_weight_milli = p.binary_weight_milli;
-  k.reorder_balanced_polarity_milli = p.balanced_polarity_milli;
-}
-
-void install_rule_parameters(Kernel &k, const ParityModelParameters &p) {
-  k.parity_model_maximum_variables = p.maximum_variables;
-  k.parity_model_maximum_groups = p.maximum_groups;
-  k.parity_model_maximum_constraints = p.maximum_constraints;
-  k.parity_model_minimum_group_clauses = p.minimum_group_clauses;
-  k.parity_model_minimum_equations = p.minimum_equations;
-  k.parity_model_maximum_free_variables = p.maximum_free_variables;
-  k.parity_model_candidate_budget = p.candidate_budget;
-  k.parity_refutation_maximum_variables = p.refutation_maximum_variables;
-  k.parity_refutation_maximum_groups = p.refutation_maximum_groups;
-  k.parity_refutation_maximum_constraints = p.refutation_maximum_constraints;
-  k.parity_refutation_maximum_arity = p.refutation_maximum_arity;
-  k.parity_refutation_probe_constraints = p.refutation_probe_constraints;
-  k.parity_refutation_minimum_probe_repeats =
-      p.refutation_minimum_probe_repeats;
-  k.parity_refutation_maximum_proof_additions =
-      p.refutation_maximum_proof_additions;
-}
-
-void install_rule_parameters(Kernel &k, const OnehotModelParameters &p) {
-  k.onehot_model_maximum_variables = p.maximum_variables;
-  k.onehot_model_maximum_domains = p.maximum_domains;
-  k.onehot_model_maximum_constraints = p.maximum_constraints;
-  k.onehot_model_maximum_equation_arity = p.maximum_equation_arity;
-  k.onehot_model_minimum_domains = p.minimum_domains;
-  k.onehot_model_minimum_equations = p.minimum_equations;
-  k.onehot_model_maximum_free_domains = p.maximum_free_domains;
-  k.onehot_model_candidate_budget = p.candidate_budget;
-  k.exact_one_refutation_maximum_variables = p.refutation_maximum_variables;
-  k.exact_one_refutation_maximum_groups = p.refutation_maximum_groups;
-  k.exact_one_refutation_maximum_constraints =
-      p.refutation_maximum_constraints;
-  k.exact_one_refutation_maximum_arity = p.refutation_maximum_arity;
-  k.exact_one_refutation_maximum_proof_additions =
-      p.refutation_maximum_proof_additions;
-}
 } // namespace tactix::strategy

@@ -506,15 +506,15 @@ int main() {
     assert(reference_order.serialize().find("inprocess.structured_root_before_lucky=0") != std::string::npos);
   }
   assert(defaults.reduction.initial_interval ==
-         DefaultPolicy::REDUCE_INTERVAL_INIT);
-  assert(defaults.mode.interval == DefaultPolicy::MODE_INTERVAL);
+         DefaultStrategyConfig::REDUCE_INTERVAL_DEFAULT);
+  assert(defaults.mode.interval == DefaultStrategyConfig::MODE_INTERVAL_DEFAULT);
   assert(defaults.inprocess.eliminate_interval ==
-         DefaultInprocessScheduler::SUBSUME_INTERVAL);
+         DefaultStrategyConfig::INPROCESS_ELIMINATE_INTERVAL_DEFAULT);
   assert(defaults.inprocess.substitute_rounds ==
          DefaultStrategyConfig::SUBSTITUTE_ROUNDS_DEFAULT);
   assert(defaults.inprocess.substitute_search_rounds == 1);
   assert(defaults.analysis.bump_reason_rate ==
-         DefaultPolicy::BUMP_REASONS_RATE);
+         DefaultStrategyConfig::BUMP_REASON_RATE_DEFAULT);
   assert(defaults.reduction.tier1_default == TIER1_STATIC);
   assert(defaults.reduction.tier2_default == TIER2_STATIC);
   assert(defaults.reduction.victim_numerator == 3);
@@ -1044,10 +1044,10 @@ int main() {
          std::string::npos);
   assert(policy.solve(k) == 10);
   assert(k.walk_even_break_base_milli == 3100 &&
-         k.reorder_maximum_clause_size == 17 &&
-         k.reorder_clause_decay_milli == 400 &&
-         k.reorder_binary_weight_milli == 900 &&
-         k.reorder_balanced_polarity_milli == 1700 &&
+         k.reorder_parameters.maximum_clause_size == 17 &&
+         k.reorder_parameters.clause_decay_milli == 400 &&
+         k.reorder_parameters.binary_weight_milli == 900 &&
+         k.reorder_parameters.balanced_polarity_milli == 1700 &&
          k.reduce_victim_numerator == 2 &&
          k.reduce_victim_denominator == 5 && !k.reduce_protect_tiers &&
          k.reduce_compact_collection);

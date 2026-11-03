@@ -7,6 +7,7 @@
 #include "rules/semantic_extension/affine_root_image.hpp"
 #include "strategy/theory_action_parameters.hpp"
 
+#include <cstdlib>
 #include <string>
 #include <optional>
 #include <utility>
@@ -431,6 +432,26 @@ AffineMatrixServiceResult affine_matrix_search_step_lazy_minimal(
     Kernel &, AffineMatrixSearchSession &);
 AffineMatrixServiceResult affine_matrix_materialize_reason(
     Kernel &, AffineMatrixSearchSession &);
+// The seven entries above as one public service operation (SearchStep through
+// LazyMinimalSearchStep, and MaterializeReasons); any other operation aborts.
+inline AffineMatrixServiceResult affine_matrix_search_service(
+    Kernel &k, AffineMatrixSearchSession &session,
+    strategy::AffineMatrixInitializeParameters::Operation operation) {
+  using Operation = strategy::AffineMatrixInitializeParameters::Operation;
+  switch (operation) {
+  case Operation::SearchStep: return affine_matrix_search_step(k, session);
+  case Operation::DeferredSearchStep: return affine_matrix_search_step_deferred(k, session);
+  case Operation::DetachedMinimalSearchStep:
+    return affine_matrix_search_step_detached_minimal(k, session);
+  case Operation::DetachedSourceSearchStep:
+    return affine_matrix_search_step_detached_source(k, session);
+  case Operation::LazySourceSearchStep: return affine_matrix_search_step_lazy_source(k, session);
+  case Operation::LazyMinimalSearchStep: return affine_matrix_search_step_lazy_minimal(k, session);
+  case Operation::MaterializeReasons: return affine_matrix_materialize_reason(k, session);
+  default: break;
+  }
+  std::abort();
+}
 // Mandatory single-handle correctness primitive. Public MaterializeReasons
 // discharges the oldest live handle; ConflictAnalysis repeats the same public
 // semantics for the handles in its conflict-reason ancestry.

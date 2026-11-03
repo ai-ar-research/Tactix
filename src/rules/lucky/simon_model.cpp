@@ -1,4 +1,4 @@
-#include "rules/lucky/simon_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "kernel/types.hpp"
 #include "rules/lucky/model.hpp"
@@ -85,10 +85,8 @@ bool recover_permutation(Kernel &k, Simon &simon) {
       const int a = kernel_externalize(k, first);
       const int b = kernel_externalize(k, watch.other());
       const auto consider = [&](int high_lit, int low_lit) {
-        const uint32_t high = static_cast<uint32_t>(
-            high_lit < 0 ? -int64_t(high_lit) : int64_t(high_lit));
-        const uint32_t low = static_cast<uint32_t>(
-            low_lit < 0 ? -int64_t(low_lit) : int64_t(low_lit));
+        const uint32_t high = external_variable_of(high_lit);
+        const uint32_t low = external_variable_of(low_lit);
         if (high < 33 || high > 64 || !low || low > 32 ||
             (high_lit > 0) == (low_lit > 0))
           return true;
@@ -116,9 +114,7 @@ bool recover_permutation(Kernel &k, Simon &simon) {
 
 bool recover_round_keys(Kernel &k, Simon &simon) {
   uint64_t visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && clause->size == 3) {
       std::array<uint32_t, 3> external{};
       for (uint32_t i = 0; i < 3; ++i) {
@@ -144,7 +140,6 @@ bool recover_round_keys(Kernel &k, Simon &simon) {
         simon.key_half[round] = half;
       }
     }
-    ref += words;
     if (!(++visited & ((uint64_t{1} << 18) - 1)) &&
         kernel_rule_interrupt(k, k.stats.simon_model_interrupted))
       return false;

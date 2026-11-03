@@ -2,6 +2,8 @@
 
 #include "engine/subsolver.hpp"
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
+#include "rules/substitution_redundancy/detection_support.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
@@ -11,6 +13,9 @@
 
 namespace tactix {
 namespace {
+
+using sr_detail::finish;
+using sr_detail::stop_requested;
 
 enum class ValidationStatus : uint8_t {
   Valid,
@@ -136,16 +141,13 @@ bool kernel_contains_clause(const Kernel &k, const std::vector<Lit> &clause) {
 
   std::vector<Lit> wanted = clause;
   std::sort(wanted.begin(), wanted.end());
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *stored = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(stored);
+  for (const auto [ref, stored] : arena_records(k.arena)) {
     if (!stored->garbage() && stored->size == wanted.size()) {
       std::vector<Lit> present(stored->begin(), stored->end());
       std::sort(present.begin(), present.end());
       if (present == wanted)
         return true;
     }
-    ref += words;
   }
   return false;
 }
@@ -188,9 +190,7 @@ bool authenticate_unique_literal_amo(const Kernel &k,
       ++occurrences;
     }
 
-    for (Ref reference = 0; reference < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, reference);
-      reference += clause_actual_words(clause);
+    for (const auto [reference, clause] : arena_records(k.arena)) {
       if (clause->garbage() ||
           std::find(clause->begin(), clause->end(), positive) == clause->end())
         continue;
@@ -235,12 +235,11 @@ public:
         if (!available())
           break;
       }
-    for (Ref ref = 0; ref < k.arena.size() && available();) {
-      const Clause *clause = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(clause);
+    for (const auto [ref, clause] : arena_records(k.arena)) {
+      if (!available())
+        break;
       if (!clause->garbage())
         add(clause->begin(), clause->size);
-      ref += words;
     }
   }
 
@@ -430,33 +429,14 @@ ValidationResult validate_semantics(
       if (checked != ValidationStatus::Valid)
         return {checked, formula.ticks()};
     }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       const ValidationStatus checked = check(clause->begin(), clause->size);
       if (checked != ValidationStatus::Valid)
         return {checked, formula.ticks()};
     }
-    ref += words;
   }
   return {ValidationStatus::Valid, formula.ticks()};
-}
-
-// Record `status` in an application outcome and return that outcome.
-SubstitutionRedundancyApplicationResult
-finish(SubstitutionRedundancyApplicationResult &outcome,
-       SubstitutionRedundancyApplicationStatus status) {
-  outcome.status = status;
-  return outcome;
-}
-
-// Record `status` in a general-discovery result and return that result.
-SubstitutionRedundancyGeneralResult
-finish(SubstitutionRedundancyGeneralResult &result,
-       SubstitutionRedundancyGeneralStatus status) {
-  result.status = status;
-  return result;
 }
 
 bool increment_digits(std::vector<uint32_t> &digits, uint32_t base) {
@@ -547,7 +527,7 @@ SubstitutionRedundancyGeneralResult substitution_redundancy_next_general(
       cursor.touch_epoch != k.touch_epoch)
     reset_general_cursor(k, cursor);
   while (!cursor.complete) {
-    if ((stop && *stop) || (k.stop && *k.stop))
+    if (stop_requested(k, stop))
       return finish(result, SubstitutionRedundancyGeneralStatus::Interrupted);
     if (result.candidates == parameters.maximum_general_candidates_per_advance)
       return finish(result, SubstitutionRedundancyGeneralStatus::LimitReached);
@@ -577,9 +557,7 @@ SubstitutionRedundancyGeneralResult substitution_redundancy_next_general(
 }
 
 RuleEligibility substitution_redundancy_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root-level", k.level == 0);
+  return root_level_guard(k);
 }
 
 ApplyResult substitution_redundancy_apply(Kernel &) {
@@ -627,7 +605,7 @@ substitution_redundancy_apply_detailed_impl(
                   SubstitutionRedundancyApplicationStatus::Inapplicable);
 
   ++k.stats.sr_applications;
-  if ((stop && *stop) || (k.stop && *k.stop))
+  if (stop_requested(k, stop))
     return finish(outcome,
                   SubstitutionRedundancyApplicationStatus::Interrupted);
   if (inprocess_reach_root(k)) {
@@ -795,14 +773,6 @@ substitution_redundancy_apply_orbitopal_prefix(
     volatile sig_atomic_t *stop) {
   return substitution_redundancy_apply_detailed_impl(k, instance, parameters,
                                                       stop, true);
-}
-
-ApplyResult substitution_redundancy_apply(
-    Kernel &k, const SubstitutionRedundancyInstance &instance,
-    const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop) {
-  return substitution_redundancy_apply_detailed(k, instance, parameters, stop)
-      .rule_result;
 }
 
 TACTIX_REGISTER_RULE(SubstitutionRedundancy, RuleTier::Inprocess,

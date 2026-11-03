@@ -89,28 +89,6 @@ struct Gf3AffineOwnerValidationResult {
   uint64_t revalidation_work = 0;
 };
 
-enum class Gf3AffinePreflightStatus : uint8_t {
-  Invalid,
-  Ready,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-};
-
-struct Gf3AffinePreflightResult {
-  Gf3AffinePreflightStatus status = Gf3AffinePreflightStatus::Invalid;
-  uint64_t duplicate_scan_work = 0;
-  uint64_t duplicate_additions = 0;
-  uint64_t proof_work = 0;
-  uint64_t proof_literal_occurrences = 0;
-  uint64_t arena_words = 0;
-  uint64_t journal_work = 0;
-  bool duplicate_scan_exhausted = false;
-  std::vector<size_t> missing_additions;
-  std::vector<uint64_t> published_clause_ids;
-  std::string journal;
-};
-
 struct Gf3AffineLiveResult {
   Gf3AffineLiveStatus status = Gf3AffineLiveStatus::Invalid;
   ApplyResult result = ApplyResult::NoOp;
@@ -152,14 +130,6 @@ Gf3AffineOwnerCaptureResult gf3_affine_live_capture_owner(
 // bounded action producers; it never refreshes or replaces the owner.
 Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
     Kernel &, const Gf3AffineLiveRequest &, const Gf3AffineOwnerSnapshot &);
-
-// Complete the mutation-free half of one action: compare the plan with the
-// live clause population and preflight every proof, arena, namespace, and
-// journal limit.  Apply uses this same result before its final source
-// revalidation and atomic commit, so an offer cannot omit an apply-only cap.
-Gf3AffinePreflightResult gf3_affine_live_preflight(
-    Kernel &, const Gf3AffineLiveRequest &, const Gf3AffineOwnerSnapshot &,
-    const gf3_affine::PairEliminationPlan &);
 
 // Plan and atomically publish one caller-selected pair elimination.  DSR,
 // DRAT, and no-proof modes are supported.  Propagation is deliberately left to

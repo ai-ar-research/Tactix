@@ -82,15 +82,6 @@ uint64_t local_search_guidance_select_next(
   return 0;
 }
 
-ApplyResult local_search_guidance_apply_next(
-    Kernel &k, const std::vector<strategy::LocalSearchKind> &rotation,
-    uint64_t &cursor) {
-  assert(local_search_guidance_guard(k));
-  const uint64_t candidate = local_search_guidance_select_next(k, rotation, cursor);
-  return candidate ? local_search_guidance_apply_candidate(k, candidate)
-                   : ApplyResult::NoOp;
-}
-
 ApplyResult local_search_guidance_apply(Kernel &k) {
   assert(local_search_guidance_guard(k));
   for (size_t i = 0; i < strategy::LOCAL_SEARCH_KIND_COUNT; ++i)

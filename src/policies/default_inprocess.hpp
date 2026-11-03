@@ -146,15 +146,6 @@ public:
     }
   };
 
-  // Compatibility aliases for tests and external design probes.  The numbers
-  // themselves have one home in DefaultStrategyConfig.
-  static constexpr uint64_t SUBSUME_INTERVAL =
-      DefaultStrategyConfig::INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
-  static constexpr uint64_t MIN_EFFORT_TICKS =
-      DefaultStrategyConfig::INPROCESS_MINIMUM_EFFORT_DEFAULT;
-  static constexpr uint64_t FACTOR_INIT_TICKS =
-      DefaultStrategyConfig::FACTOR_INITIAL_EFFORT_DEFAULT;
-
   DefaultInprocessScheduler() = default;
   explicit DefaultInprocessScheduler(
       const DefaultStrategyConfig::Inprocess *config)
@@ -344,7 +335,7 @@ private:
   bool factor_large_formula_ = false;
   uint64_t factor_marked_watermark_ = 0;
   bool closure_delay_ = true;
-  uint64_t factor_init_ticks_ = FACTOR_INIT_TICKS;
+  uint64_t factor_init_ticks_ = DefaultStrategyConfig::FACTOR_INITIAL_EFFORT_DEFAULT;
   uint32_t bve_level_ = 0;
   uint32_t bve_level_idx_ = 0;
   bool bve_ran_this_phase_ = false;

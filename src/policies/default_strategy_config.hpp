@@ -85,7 +85,6 @@ struct DefaultStrategyConfig {
   // from `proberounds`, which repeats the complete probing pipeline.
   static constexpr uint32_t SUBSTITUTE_ROUNDS_DEFAULT = 2;
   static constexpr uint64_t FACTOR_INITIAL_EFFORT_DEFAULT = 700000000ull;
-  static constexpr uint32_t TIER_RELATIVE_SCALE = 1000;
   static constexpr uint64_t SMALL_CLAUSE_LIMIT_DEFAULT = 100000;
   static constexpr uint32_t BIG_BINARY_FRACTION_PERMILLE_DEFAULT = 990;
   // Satsuma 1.3's submitted symmetry profile admits graph components through

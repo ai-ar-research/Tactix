@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "strategy/semantic_variable_advice.hpp"
@@ -34,17 +35,7 @@ static std::string exact_cover_cnf() {
   return out.str();
 }
 
-static Kernel parse() {
-  const std::string text = exact_cover_cnf();
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  return kernel;
-}
+static Kernel parse() { return parse_dimacs_text(exact_cover_cnf()); }
 
 static strategy::ExactCoverExtensionParameters parameters() {
   strategy::ExactCoverExtensionParameters result;

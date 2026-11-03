@@ -1213,16 +1213,13 @@ static ApplyResult walk_apply_split(Kernel &k, uint64_t search_allowance) {
   for (Var variable = 0; variable < k.nvars; ++variable)
     if (!k.value(make_lit(variable, false)) && !kernel_var_retired(k, variable))
       k.h->saved[variable] = w.best_values[variable];
-  heuristics_supersede_all_target_guidance(k, TargetGuidanceOverwrite::Walk);
-  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
-  k.h->target_assigned = 0;
-  ++k.stats.rephased;
+  heuristics_reset_targets_from_saved(k, TargetGuidanceOverwrite::Walk);
   ++k.stats.walk_improved;
   ++k.stats.walk_seed_exported;
   return ApplyResult::Ok;
 }
 
-static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
+ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
   assert(walk_guard(k));
   if (k.walk_objective == uint32_t(strategy::WalkParameters::Objective::FullCurrentCnf))
     return walk_apply_split(k, steps);
@@ -1307,21 +1304,14 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
   // The rephase tail every type runs (kissat reset_phases): the fresh saved
   // phases become the target ones. `best` is not consumed here — kissat resets
   // its watermark only on type Best.
-  heuristics_supersede_all_target_guidance(k, TargetGuidanceOverwrite::Walk);
-  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
-  k.h->target_assigned = 0;
-  k.stats.rephased++;
+  heuristics_reset_targets_from_saved(k, TargetGuidanceOverwrite::Walk);
   return improved ? ApplyResult::Ok : ApplyResult::NoOp;
-}
-
-ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
-  return walk_apply_exact_steps(k, steps);
 }
 
 ApplyResult walk_apply(Kernel &k) {
   const uint64_t steps = kernel_has_work_budget(k) ? k.work_budget
       : strategy::WalkParameters::STEP_BUDGET_DEFAULT;
-  return walk_apply_exact_steps(k, steps);
+  return walk_apply_steps(k, steps);
 }
 
 // Instance surface (plan §5.1): the payload is the step budget, so the §5.6

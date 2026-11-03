@@ -13,6 +13,7 @@
 #include <memory>
 #include <new>
 #include <string>
+#include <type_traits>
 #include <vector>
 #include <unordered_map>
 
@@ -431,18 +432,18 @@ public:
       : ticks(ticks), maximum(maximum), stop(stop), context(context),
         exhausted(exhausted), interrupted(interrupted) {}
 
+  // Charge a worklist color by its representative's degree. A pointer
+  // coloring is captured by reference, so refine_rows' swaps stay visible.
+  template <class Coloring>
   std::function<dejavu::ir::type_worklist_color_hook>
-  worklist_hook(dejavu::sgraph *graph, dejavu::ds::coloring &coloring) {
+  worklist_hook(dejavu::sgraph *graph, Coloring &coloring) {
     return [this, graph, &coloring](int color, int size) {
-      return charge(static_cast<uint64_t>(graph->d[coloring.lab[color]]),
-                    static_cast<uint64_t>(size));
-    };
-  }
-
-  std::function<dejavu::ir::type_worklist_color_hook>
-  worklist_hook(dejavu::sgraph *graph, dejavu::ds::coloring *&coloring) {
-    return [this, graph, &coloring](int color, int size) {
-      return charge(static_cast<uint64_t>(graph->d[coloring->lab[color]]),
+      int representative;
+      if constexpr (std::is_pointer_v<Coloring>)
+        representative = coloring->lab[color];
+      else
+        representative = coloring.lab[color];
+      return charge(static_cast<uint64_t>(graph->d[representative]),
                     static_cast<uint64_t>(size));
     };
   }
@@ -492,6 +493,33 @@ private:
   bool &interrupted;
 };
 
+// Record each prefix vertex's cell representative and, when `sizes` is given,
+// its cell size, counting distinct cells in `seen`. False on a color or
+// representative outside the vertex range or, with sizes, an empty cell.
+static bool fill_cells(const dejavu::ds::coloring &coloring,
+                       uint32_t vertex_count, uint32_t prefix,
+                       std::vector<uint8_t> &seen, uint32_t *cells,
+                       uint32_t *sizes, uint32_t &cell_count) {
+  for (uint32_t vertex = 0; vertex < prefix; ++vertex) {
+    const int color = coloring.vertex_to_col[vertex];
+    if (color < 0 || color >= static_cast<int>(vertex_count))
+      return false;
+    const int size = sizes ? coloring.ptn[color] + 1 : 1;
+    const int representative = size > 0 ? coloring.lab[color] : -1;
+    if (representative < 0 ||
+        representative >= static_cast<int>(vertex_count))
+      return false;
+    cells[vertex] = static_cast<uint32_t>(representative);
+    if (sizes)
+      sizes[vertex] = static_cast<uint32_t>(size);
+    if (!seen[color]) {
+      seen[color] = 1;
+      ++cell_count;
+    }
+  }
+  return true;
+}
+
 Status materialize_partition(dejavu::ds::coloring &coloring,
                              uint32_t vertex_count,
                              uint32_t returned_prefix_size,
@@ -503,22 +531,9 @@ Status materialize_partition(dejavu::ds::coloring &coloring,
   if (returned_prefix_size && (!result.cells || !result.sizes))
     return fail(result, Status::ResourceExhausted);
   std::vector<uint8_t> seen(vertex_count, 0);
-  for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
-    const int color = coloring.vertex_to_col[vertex];
-    const int size = color >= 0 && color < static_cast<int>(vertex_count)
-                         ? coloring.ptn[color] + 1
-                         : 0;
-    const int representative = size > 0 ? coloring.lab[color] : -1;
-    if (representative < 0 ||
-        representative >= static_cast<int>(vertex_count))
-      return fail(result, Status::Failed);
-    result.cells[vertex] = static_cast<uint32_t>(representative);
-    result.sizes[vertex] = static_cast<uint32_t>(size);
-    if (!seen[color]) {
-      seen[color] = 1;
-      ++result.cell_count;
-    }
-  }
+  if (!fill_cells(coloring, vertex_count, returned_prefix_size, seen,
+                  result.cells, result.sizes, result.cell_count))
+    return fail(result, Status::Failed);
   result.domain_size = returned_prefix_size;
   return finish(result, Status::Complete);
 }
@@ -589,20 +604,9 @@ Status root_partition(RefinementSession &session,
       return finish(result, Status::ResourceExhausted);
   }
   std::vector<uint8_t> seen(session.vertex_count, 0);
-  for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
-    const int color = session.root.vertex_to_col[vertex];
-    if (color < 0 || color >= static_cast<int>(session.vertex_count))
-      return fail(result, Status::Failed);
-    const int representative = session.root.lab[color];
-    if (representative < 0 ||
-        representative >= static_cast<int>(session.vertex_count))
-      return fail(result, Status::Failed);
-    result.cells[vertex] = static_cast<uint32_t>(representative);
-    if (!seen[color]) {
-      seen[color] = 1;
-      ++result.cell_count;
-    }
-  }
+  if (!fill_cells(session.root, session.vertex_count, returned_prefix_size,
+                  seen, result.cells, nullptr, result.cell_count))
+    return fail(result, Status::Failed);
   result.domain_size = returned_prefix_size;
   return finish(result, Status::Complete);
 }

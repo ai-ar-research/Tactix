@@ -161,8 +161,8 @@ struct SweepSubstitutionSession final {
   // the binaries are already in the watch lists by then.
   void sync_new_binaries(
       Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
-  // Pose-only experiment: after synchronization, move the last extant copy
-  // of each freshly emitted directed bridge to this pair's commit boundary.
+  // Pose-only: after synchronization, move the last extant copy of each
+  // freshly emitted directed bridge to this pair's commit boundary.
   // No membership or proof identity changes; absent images remain absent.
   void repose_emitted_equivalence(const Kernel &, Lit a, Lit b);
   // `map` is the sparse requested literal-to-representative map. The rewrite
@@ -216,9 +216,6 @@ private:
   DenseOccurrence *find_large(const Kernel &, Lit, Ref);
   void erase_large(const Kernel &, Lit, Ref);
   void purge_stale_binaries(Lit);
-  // Multiset scratch for `sync_new_binaries`, epoch-stamped and reused: a
-  // hash map built per touched literal made that reconciliation allocate once
-  // per literal on a high-degree graph.
   // Neighbour scratch for the binary-image pre-pass, epoch-stamped and reused
   // for the same reason as `sync_epoch`: the rewrite runs once per productive
   // Sweep environment, so a per-call table over all literals is a fill cost
@@ -236,6 +233,9 @@ public:
                                   std::vector<uint8_t> &out);
 
 private:
+  // Multiset scratch for `sync_new_binaries`, epoch-stamped and reused: a
+  // hash map built per touched literal made that reconciliation allocate once
+  // per literal on a high-degree graph.
   std::vector<uint32_t> sync_epoch;  // by lit
   std::vector<size_t> sync_count;    // by lit, valid when the epoch matches
   std::vector<Lit> sync_touched;

@@ -1,4 +1,4 @@
-#include "rules/lucky/parity_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
 
@@ -93,8 +93,7 @@ ApplyResult parity_model_apply(Kernel &k) {
       std::min<uint64_t>({k.live_irredundant_large, k.nvars,
                           parameters.maximum_groups})));
   uint64_t constraints = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() &&
         ++constraints > parameters.maximum_constraints)
       return ApplyResult::NoOp;
@@ -122,7 +121,6 @@ ApplyResult parity_model_apply(Kernel &k) {
         }
       }
     }
-    ref += clause_actual_words(clause);
     if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
       return ApplyResult::NoOp;
   }
@@ -239,13 +237,8 @@ ApplyResult parity_model_apply(Kernel &k) {
         else if (present[var]) guidance[var] = assignment[var] ? 1 : -1;
       }
     }
-    if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted)) {
-      kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Parity,
-                                     guidance, UINT64_MAX, false,
-                                     {k.stats.parity_model_candidates - candidates_before,
-                                      strategy::LocalSearchEffortUnit::CandidateChecks});
-      return ApplyResult::NoOp;
-    }
+    if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
+      break;
   }
   if (!guidance.empty())
     kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Parity,

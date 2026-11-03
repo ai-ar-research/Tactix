@@ -142,9 +142,7 @@ bool affine_live_clause_covered(const Kernel &k,
     return kernel_binary_live(k, kernel_internalize(k, clause[0]),
                               kernel_internalize(k, clause[1]));
   const auto wanted = sorted_clause(clause);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *candidate = clause_at(k.arena, ref);
-    ref += clause_actual_words(candidate);
+  for (const auto [ref, candidate] : arena_records(k.arena)) {
     if (candidate->garbage() || candidate->size != clause.size()) continue;
     std::vector<int32_t> current;
     current.reserve(candidate->size);
@@ -346,10 +344,7 @@ CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
     result.sources.push_back(std::move(source));
     return true;
   };
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Ref current = ref;
-    const Clause *clause = clause_at(k.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [current, clause] : arena_records(k.arena)) {
     if (!charge(1)) return finish(failure);
     bool eligible=true;
     if(request.discovered_through_clause_id && clause->id()<=request.discovered_through_clause_id) {
@@ -751,11 +746,8 @@ AffineLiveResult derive_affine_live(Kernel &k,
         k.unit_ids[var_of(literals[0])] = id;
         kernel_assign_unit(k, literals[0]);
       }
-    } else if (literals.size() == 2) {
-      kernel_add_binary_clause(k, literals[0], literals[1], id);
     } else {
-      kernel_add_large_clause(k, literals.data(), literals.size(), true,
-                              literals.size(), id);
+      install_redundant_clause(k, literals, id);
     }
   }
   if (result.contradiction) k.inconsistent = true;

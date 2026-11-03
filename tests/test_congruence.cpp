@@ -1,6 +1,7 @@
 // V6 Congruence: two gates of the same kind over the same inputs have
 // equivalent outputs; congruence_apply adds (¬a∨b),(a∨¬b). the rule calculus.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "temporary_file.hpp"
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
@@ -16,21 +17,6 @@
 #include <unistd.h>
 
 using namespace tactix;
-
-static bool has_binary(const Kernel &k, Lit a, Lit b) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  for (uint32_t i = 0; i < k.watches.heads[a].size;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == b)
-        return true;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
-  return false;
-}
 
 // the two equivalence binaries between vars ea,eb (external DIMACS) are present
 static bool equivalence_added(const Kernel &k, int ea, int eb) {
@@ -50,14 +36,6 @@ static uint64_t congruence_unit_payload(int unit) {
   return (static_cast<uint64_t>(literal) << 32) | literal;
 }
 
-static std::vector<Lit> binary_partners(const Kernel &k, Lit lit) {
-  std::vector<Lit> result;
-  for (const WatchEntry watch : k.watches.entries(lit))
-    if (watch.binary())
-      result.push_back(watch.other());
-  return result;
-}
-
 static size_t garbage_clauses(const Kernel &k) {
   size_t result = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -75,26 +53,6 @@ static void assert_large_watches_are_live(const Kernel &k) {
         assert(watch.ref() < k.arena.size());
         assert(!clause_at(k.arena, watch.ref())->garbage());
       }
-}
-
-static void add3(Kernel &k, int a, int b, int c) {
-  Lit lits[3] = {internalize(a), internalize(b), internalize(c)};
-  kernel_add_large_clause(k, lits, 3, /*redundant=*/false, /*glue=*/0);
-}
-
-// out = AND(x1,x2): binaries (¬out∨x1),(¬out∨x2) + base (out∨¬x1∨¬x2)
-static void and_gate(Kernel &k, int out, int x1, int x2) {
-  kernel_add_binary_clause(k, internalize(-out), internalize(x1));
-  kernel_add_binary_clause(k, internalize(-out), internalize(x2));
-  add3(k, out, -x1, -x2);
-}
-
-// out = XOR(x1,x2): the 4 odd-parity clauses over {out,x1,x2}
-static void xor_gate(Kernel &k, int out, int x1, int x2) {
-  add3(k, -out, x1, x2);
-  add3(k, out, -x1, x2);
-  add3(k, out, x1, -x2);
-  add3(k, -out, -x1, -x2);
 }
 
 // out = c ? t : e : the 4 defining ITE ternaries

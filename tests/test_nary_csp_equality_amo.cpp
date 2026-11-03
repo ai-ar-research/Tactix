@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 
 #define tactix tactix_c_handle
 #include "tactix.h"
@@ -44,24 +45,11 @@ std::string dimacs(bool unsat = false) {
   if (unsat)
     clauses.insert(clauses.end(),
                    {{20, 21}, {20, -21}, {-20, 21}, {-20, -21}});
-  std::ostringstream out;
-  out << "p cnf " << (unsat ? 21 : 9) << ' ' << clauses.size() << '\n';
-  for (const auto &clause : clauses) {
-    for (int32_t literal : clause) out << literal << ' ';
-    out << "0\n";
-  }
-  return out.str();
+  return dimacs_text(unsat ? 21 : 9, clauses);
 }
 
 void parse_into(Kernel &kernel, bool unsat = false) {
-  const std::string text = dimacs(unsat);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(!kernel.inconsistent && kernel_propagation_fixpoint(kernel));
+  parse_dimacs_text(dimacs(unsat), kernel, ParsedRoot::Consistent);
 }
 
 

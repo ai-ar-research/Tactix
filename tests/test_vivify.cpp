@@ -1,6 +1,7 @@
 // Vivify unit tests: the three probe outcomes, root-satisfied deletion, tier
 // scope, the instance surface, and exact state restoration.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
@@ -16,32 +17,6 @@
 #include <vector>
 
 using namespace tactix;
-
-static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
-                           uint32_t n = 0) {
-  uint32_t count = 0;
-  bool found = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage()) {
-      count++;
-      if (lits && c->size == n) {
-        bool all = true;
-        for (uint32_t i = 0; i < n; i++) {
-          bool has = false;
-          for (const Lit l : *c)
-            has |= (l == lits[i]);
-          all &= has;
-        }
-        found |= all;
-      }
-    }
-    ref += clause_actual_words(c);
-  }
-  if (lits)
-    assert(found);
-  return count;
-}
 
 static void test_implied_literal_strengthens() {
   // assuming ¬1 propagates 2, so C distills to a fresh binary (1 2)

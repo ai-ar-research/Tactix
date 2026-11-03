@@ -39,8 +39,6 @@ struct CardinalitySearchLiveResult {
   std::vector<uint64_t> source_ids;
   std::vector<uint64_t> proof_ids;
   uint64_t source_scan_work = 0;
-  uint64_t inspection_work = 0;
-  uint64_t resolution_work = 0;
   uint64_t added_literals = 0;
   uint64_t installed_clause_id = 0;
   bool propagation_pending = false;

@@ -1,10 +1,11 @@
 #undef NDEBUG
+#include "clause_oracle.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <map>
+#include <span>
 
 using namespace tactix::affine_semantic_extension;
 using tactix::parity_certificate::SmallClause;
@@ -41,39 +42,9 @@ static bool same(const SmallClause &a, const SmallClause &b) {
 
 static bool rup(const std::vector<SmallClause> &database,
                 const SmallClause &candidate) {
-  std::map<External, int> assignment;
-  for (uint32_t i = 0; i < candidate.size; ++i) {
-    const External literal = candidate.lits[i];
-    const External variable = literal < 0 ? -literal : literal;
-    const int value = literal > 0 ? -1 : 1;
-    if (assignment[variable] && assignment[variable] != value) return true;
-    assignment[variable] = value;
-  }
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (const SmallClause &clause : database) {
-      bool sat = false;
-      uint32_t open = 0;
-      External unit = 0;
-      for (uint32_t i = 0; i < clause.size; ++i) {
-        const External literal = clause.lits[i];
-        const External variable = literal < 0 ? -literal : literal;
-        const int value = assignment[variable];
-        if (value && (value > 0) == (literal > 0)) { sat = true; break; }
-        if (!value) { ++open; unit = literal; }
-      }
-      if (sat) continue;
-      if (!open) return true;
-      if (open == 1) {
-        const External variable = unit < 0 ? -unit : unit;
-        const int value = unit > 0 ? 1 : -1;
-        if (assignment[variable] && assignment[variable] != value) return true;
-        if (!assignment[variable]) { assignment[variable] = value; changed = true; }
-      }
-    }
-  }
-  return false;
+  return rup_implied(database, candidate, [](const SmallClause &clause) {
+    return std::span<const External>(clause.lits.data(), clause.size);
+  });
 }
 
 static SmallClause small(const std::vector<External> &clause) {

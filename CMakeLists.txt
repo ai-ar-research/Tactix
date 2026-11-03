@@ -27,19 +27,13 @@ option(TACTIX_ENABLE_PROOF_SHADOW "Compile the proof-population oracle" OFF)
 # boundaries: the pinned graph backend and optional embedded-proof export.
 add_compile_options(-Wall -Wextra -fno-exceptions $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 
-# DejaVu is a pinned graph-automorphism backend whose public implementation
-# uses exceptions and RTTI.  Keep it in a separate translation unit with a
-# narrow, noexcept boundary; the solver core retains its C-style build flags.
 # Tests and examples are built when Tactix is the top-level project; a parent
 # project that adds it with add_subdirectory gets only the solver and library.
 option(TACTIX_BUILD_TESTS "Build the tests and example strategies" ${PROJECT_IS_TOP_LEVEL})
 
-# Bounded certificate transport requires Linux O_TMPFILE and /proc/self/fd.
-# The Python proof oracle remains available on other platforms.
-if(TACTIX_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  add_executable(dsr-transport tools/bench/dsr_transport.cpp)
-endif()
-
+# DejaVu is a pinned graph-automorphism backend whose public implementation
+# uses exceptions and RTTI.  Keep it in a separate translation unit with a
+# narrow, noexcept boundary; the solver core retains its C-style build flags.
 add_library(tactix_symmetry_backend STATIC
   src/symmetry_backend/dejavu_backend.cpp)
 target_include_directories(tactix_symmetry_backend PRIVATE src)
@@ -163,7 +157,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tactix.pc
 
 if(TACTIX_BUILD_TESTS)
   enable_testing()
-  if(TARGET dsr-transport)
+  # Bounded certificate transport requires Linux O_TMPFILE and /proc/self/fd.
+  # The Python proof oracle remains available on other platforms.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(dsr-transport tools/bench/dsr_transport.cpp)
     add_test(NAME dsr_transport COMMAND python3
       ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/test_dsr_transport.py $<TARGET_FILE:dsr-transport>)
   endif()

@@ -78,12 +78,10 @@ CompletionStatus complete_model(const Kernel &k, const std::vector<int8_t> &part
     clauses.push_back({start, static_cast<uint32_t>(size), static_cast<uint32_t>(size), false});
     return true;
   };
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!work(1)) return CompletionStatus::Limited;
     if (!clause->garbage() && !append(clause->begin(), clause->end()))
       return limited ? CompletionStatus::Limited : CompletionStatus::NoModel;
-    ref += clause_actual_words(clause);
   }
   for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
     if (!work(1)) return CompletionStatus::Limited;

@@ -22,7 +22,7 @@ using ClauseKey = std::vector<int32_t>;
 using Meter = InterruptibleWork;
 
 using gf3_certificate_common::canonical;
-using gf3_live_common::add_work;
+using gf3_live_common::append_reference;
 using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
@@ -65,12 +65,6 @@ Gf3GeneralRowLiveStatus planner_status(gf3_general_row::Status status) {
   std::abort();
 }
 
-bool append_reference(std::string &bytes,
-                      const gf3_affine::SourceReference &reference,
-                      const Gf3AffineOwnerSnapshot &owner) {
-  return gf3_live_common::append_reference(bytes, reference, owner);
-}
-
 bool count_reference(uint64_t maximum, uint64_t &total,
                      const gf3_affine::SourceReference &reference,
                      const Gf3AffineOwnerSnapshot &owner) {
@@ -78,7 +72,7 @@ bool count_reference(uint64_t maximum, uint64_t &total,
     return false;
   const auto &clause = owner.sources[reference.occurrence - 1].clause;
   return clause.size() <= (UINT64_MAX - 24) / 4 &&
-         add_work(24 + 4 * clause.size(), maximum, total);
+         add_bounded(24 + 4 * clause.size(), maximum, total);
 }
 
 bool subsumed(const std::vector<ClauseKey> &live, const ClauseKey &candidate) {
@@ -139,7 +133,7 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
     return output;
   if (!live_admitted(kernel,
                      request.retained_owner ? gf3_live_common::owner_guard
-                                            : gf3_live_common::root_guard,
+                                            : gf3_live_common::root_ready,
                      result.status))
     return output;
   if (kernel.external_to_internal.size() >
@@ -331,19 +325,19 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &owner,
   if (maximum_bytes < 5) return false;
   const uint64_t maximum_raw = (maximum_bytes - 5) / 2;
   uint64_t required = 0;
-  if (!add_work(4 + 8 + 4 + 1 + 8, maximum_raw, required) ||
+  if (!add_bounded(4 + 8 + 4 + 1 + 8, maximum_raw, required) ||
       row.row.size() > (UINT64_MAX - required) / 5 ||
-      !add_work(5 * row.row.size(), maximum_raw, required) ||
-      !add_work(8, maximum_raw, required))
+      !add_bounded(5 * row.row.size(), maximum_raw, required) ||
+      !add_bounded(8, maximum_raw, required))
     return false;
   for (const auto &source : row.provenance) {
     if (!source.source_id ||
         source.source_id > owner.bridge.authentication.size() ||
-        !add_work(8 + 1 + 4 + 8, maximum_raw, required))
+        !add_bounded(8 + 1 + 4 + 8, maximum_raw, required))
       return false;
     const auto &auth = owner.bridge.authentication[source.source_id - 1];
     for (const auto &domain : auth.domains) {
-      if (!add_work(4, maximum_raw, required) ||
+      if (!add_bounded(4, maximum_raw, required) ||
           !count_reference(maximum_raw, required, domain.at_least_one,
                            owner.affine))
         return false;
@@ -351,9 +345,9 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &owner,
         if (!count_reference(maximum_raw, required, amo, owner.affine))
           return false;
     }
-    if (!add_work(8, maximum_raw, required)) return false;
+    if (!add_bounded(8, maximum_raw, required)) return false;
     for (const auto &tuple : auth.forbidden_tuples)
-      if (!add_work(8, maximum_raw, required) ||
+      if (!add_bounded(8, maximum_raw, required) ||
           !count_reference(maximum_raw, required, tuple.premise,
                            owner.affine))
         return false;
@@ -432,11 +426,7 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
       }
       relevant_to_trail = !satisfied && unassigned <= 1;
     }
-    if (internal.size() == 2)
-      kernel_add_binary_clause(kernel, internal[0], internal[1], id);
-    else
-      kernel_add_large_clause(kernel, internal.data(), internal.size(), true,
-                              internal.size(), id);
+    install_redundant_clause(kernel, internal, id);
     if (relevant_to_trail)
       kernel_rearm_theory_clause(kernel, internal.data(), internal.size());
     result.installed_clause_id = id;

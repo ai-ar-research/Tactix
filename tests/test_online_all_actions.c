@@ -2,71 +2,13 @@
  * registry id must configure and execute through it, including search rules
  * and H-only policy operations. */
 #undef NDEBUG
-#include "tactix.h"
+#include "api_test_support.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
 #define NINST 128
-
-static int rule_id(const char *name) {
-  int i;
-  for (i = 0; i < tactix_rule_count(); ++i)
-    if (!strcmp(tactix_rule_name(i), name))
-      return i;
-  return -1;
-}
-
-static void add_clause(tactix *solver, const int *literals) {
-  while (*literals)
-    tactix_add(solver, *literals++);
-  tactix_add(solver, 0);
-}
-
-static void fixture(tactix *solver) {
-  add_clause(solver, (const int[]){-10, 1, 0});
-  add_clause(solver, (const int[]){-10, 2, 0});
-  add_clause(solver, (const int[]){10, -1, -2, 0});
-  add_clause(solver, (const int[]){-11, 1, 0});
-  add_clause(solver, (const int[]){-11, 2, 0});
-  add_clause(solver, (const int[]){11, -1, -2, 0});
-  add_clause(solver, (const int[]){-5, 6, 0});
-  add_clause(solver, (const int[]){-6, 7, 0});
-  add_clause(solver, (const int[]){-5, 7, 0});
-  add_clause(solver, (const int[]){12, 14, 0});
-  add_clause(solver, (const int[]){12, 15, 0});
-  add_clause(solver, (const int[]){12, 16, 0});
-  add_clause(solver, (const int[]){13, 14, 0});
-  add_clause(solver, (const int[]){13, 15, 0});
-  add_clause(solver, (const int[]){13, 16, 0});
-  add_clause(solver, (const int[]){17, 18, 19, 20, 0});
-  add_clause(solver, (const int[]){17, 18, 19, 0});
-  add_clause(solver, (const int[]){21, 22, 23, 0});
-  add_clause(solver, (const int[]){21, 22, -23, 0});
-  add_clause(solver, (const int[]){24, 25, 26, 0});
-  add_clause(solver, (const int[]){24, -25, 0});
-}
-
-static void exact_cover_fixture(tactix *solver) {
-  int block, first, second, position, diagonal;
-  for (block = 0; block < 3; ++block)
-    for (first = 0; first < 3; ++first)
-      for (second = first + 1; second < 3; ++second)
-        add_clause(solver, (const int[]){-(3 * block + first + 1),
-                                         -(3 * block + second + 1), 0});
-  for (position = 0; position < 3; ++position) {
-    int clause[] = {position + 1, position + 4, position + 7, 0};
-    add_clause(solver, clause);
-  }
-  for (diagonal = 0; diagonal < 3; ++diagonal) {
-    int clause[4];
-    for (block = 0; block < 3; ++block)
-      clause[block] = 3 * block + (block + diagonal) % 3 + 1;
-    clause[3] = 0;
-    add_clause(solver, clause);
-  }
-}
 
 static void independent_set_fixture(tactix *solver) {
   static const int clauses[][4] = {
@@ -113,10 +55,7 @@ static tactix *prepare(int id) {
     producer.rule_id = rule_id("ExactCoverExtension");
     configure_parameters("ExactCoverExtension", &producer.parameters);
     producer.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-    producer.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-    producer.repeat_limit = 1;
-    producer.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-    producer.budget_unlimited = 1;
+    step_once(&producer);
     program = (tactix_online_program){
         &producer, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
     assert(tactix_online_configure(solver, &program, 1000,
@@ -377,10 +316,7 @@ static void invalid_reduce_parameters_are_transactional(void) {
   step.parameters.value.reduce.tier1 = 7;
   step.parameters.value.reduce.tier2 = 2;
   step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 20,
@@ -440,10 +376,7 @@ static void invalid_parity_parameters_are_transactional(void) {
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   step.instances = &parity_instance;
   step.instance_count = 1;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 24,
@@ -543,10 +476,7 @@ static void theory_action_v5_payloads_are_deep_copied(void) {
     configure_parameters("Gf3AffineConsequence",
                          &step.base.base.base.base.parameters);
     step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-    step.base.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-    step.base.base.base.base.repeat_limit = 1;
-    step.base.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-    step.base.base.base.base.budget_unlimited = 1;
+    step_once(&step.base.base.base.base);
     step.gf3_affine_instances = &pair;
     step.gf3_affine_instance_count = 1;
     program = (tactix_online_program_v5){
@@ -576,10 +506,7 @@ static void theory_action_v5_payloads_are_deep_copied(void) {
     configure_parameters("DirectCspSupport",
                          &step.base.base.base.base.parameters);
     step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-    step.base.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-    step.base.base.base.base.repeat_limit = 1;
-    step.base.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-    step.base.base.base.base.budget_unlimited = 1;
+    step_once(&step.base.base.base.base);
     step.direct_csp_support_instances = &support;
     step.direct_csp_support_instance_count = 1;
     program = (tactix_online_program_v5){
@@ -609,10 +536,7 @@ static void invalid_theory_v5_inputs_are_transactional(void) {
   configure_parameters("Gf3AffineConsequence",
                        &step.base.base.base.base.parameters);
   step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.base.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.base.base.base.base.repeat_limit = 1;
-  step.base.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.base.base.base.base.budget_unlimited = 1;
+  step_once(&step.base.base.base.base);
   step.gf3_affine_instances = &pair;
   step.gf3_affine_instance_count = 1;
   program = (tactix_online_program_v5){
@@ -710,10 +634,7 @@ static void lucky_sat_constructors_are_public(void) {
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   step.instances = &selected;
   step.instance_count = 1;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 26,
@@ -733,10 +654,7 @@ static void aba_transition_invalidates_a_pending_batch(void) {
   step.granularity = TACTIX_ONLINE_GRANULARITY_BATCH;
   step.instances = decisions;
   step.instance_count = 2;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 20,

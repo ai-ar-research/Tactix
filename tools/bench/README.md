@@ -28,10 +28,9 @@ were written for a single diagnostic pass or a completed campaign.
 ## Reusable and frozen runners
 
 `run.py`, `fetch.py`, `gen_tier_a.py`, the frozen-baseline tools,
-`freeze_sc24_26.py`, `subset_score.py`, `tactix_tierd.py`, `p4_cvg.py`, and
-`public_theory_targets.py` support the published and reproducible benchmark
-workflows. Frozen tier definitions live under `tiers/`; fixed gate inputs live
-under `manifests/`.
+`freeze_sc24_26.py`, `subset_score.py`, `tactix_tierd.py`, and `p4_cvg.py`
+support the published and reproducible benchmark workflows. Frozen tier
+definitions live under `tiers/`; fixed gate inputs live under `manifests/`.
 
 Focused tests are kept beside the Python modules they exercise. Repository-wide
 integration tests remain under `tests/`.

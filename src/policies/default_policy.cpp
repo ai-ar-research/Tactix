@@ -38,21 +38,6 @@
 #include "policies/ops/rephase/rephase.hpp"
 #include "policies/ops/reorder/reorder.hpp"
 #include "policies/ops/local_search/local_search.hpp"
-#include "rules/lucky/parity_model.hpp"
-#include "rules/lucky/parity_refutation.hpp"
-#include "rules/lucky/count_preservation.hpp"
-#include "rules/lucky/onehot_model.hpp"
-#include "rules/lucky/affine_model.hpp"
-#include "rules/lucky/exact_one_refutation.hpp"
-#include "rules/lucky/balanced_signature_model.hpp"
-#include "rules/lucky/fermat_model.hpp"
-#include "rules/lucky/cerny_model.hpp"
-#include "rules/lucky/lookup_circuit_model.hpp"
-#include "rules/lucky/simon_model.hpp"
-#include "rules/lucky/stconn_proof.hpp"
-#include "rules/lucky/signed_cardinality_proof.hpp"
-#include "rules/lucky/exact_cover_model.hpp"
-#include "rules/lucky/independent_set_model.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
@@ -492,8 +477,9 @@ ApplyResult default_affine_root_closure(
               selected->basis_maximum_work);
         },
         [&] {
-          return port::affine_matrix_search_step(
-              kernel, *kernel.affine_matrix_search_session);
+          return port::affine_matrix_search_service(
+              kernel, *kernel.affine_matrix_search_session,
+              strategy::AffineMatrixInitializeParameters::Operation::SearchStep);
         },
         execution::affine_matrix_service_feedback);
     if (service.status == AffineMatrixServiceStatus::Applied) {
@@ -549,17 +535,24 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
 // `trace(event, payload)` forwards to the caller's EventTrace::macro. Taking a
 // callable rather than an EventTrace keeps that diagnostic type out of this
 // helper's out-of-line -O0 symbols (event_trace_zero_overhead).
+// The result is the finish code of the reached terminal (Sat 10, Unsat 20),
+// otherwise 0.
 template <LuckyOpportunity Opportunity, typename TraceMacro>
-bool default_traced_lucky_terminal(
+int default_traced_lucky_terminal(
     Kernel &k, const TraceMacro &trace, const char *candidate,
     const char *begin_event, const char *end_event, ApplyResult terminal,
-    const char *terminal_name, PolicyCompletion *completion = nullptr) {
+    PolicyCompletion *completion = nullptr) {
+  assert(terminal == ApplyResult::Sat || terminal == ApplyResult::Unsat);
   trace(begin_event, "-");
   const ApplyResult result =
       default_lucky_opportunity<Opportunity>(k, candidate, completion);
-  const bool reached_terminal = result == terminal;
-  trace(end_event, reached_terminal ? terminal_name : "unknown");
-  return reached_terminal;
+  const bool sat = terminal == ApplyResult::Sat;
+  if (result != terminal) {
+    trace(end_event, "unknown");
+    return 0;
+  }
+  trace(end_event, sat ? "sat" : "unsat");
+  return sat ? 10 : 20;
 }
 
 ApplyResult default_lucky(Kernel &k, const char *candidate,
@@ -865,7 +858,6 @@ static uint64_t scale_permille(uint64_t reference, uint32_t permille) {
 }
 constexpr uint64_t PERCENT_SCALE = 100;
 constexpr uint32_t MODES_PER_CYCLE = 2;
-constexpr uint32_t REORDER_STABLE_ONLY = 2;
 
 // The posed tier boundaries are ReduceParameters' tier1/tier2, which Reduce
 // ranking, Vivify's tier bands and the likely-kept material filter read. A
@@ -2038,13 +2030,6 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   inprocess_.reset(k);
 }
 
-static uint64_t active_variables(const Kernel &k) {
-  // Kissat's `solver->active` is live state.  Cumulative retirement counters
-  // cannot reconstruct it after compaction and also miss Factor's fresh
-  // activation, which is precisely what makes `proberounds` enter round two.
-  return kernel_active_variables(k);
-}
-
 // Formula rules publish events without depending on decision heuristics.
 // Consume each Substitute round before a later round or watch reconnection
 // derives more roots: native substitute_round retires its representatives at
@@ -2077,15 +2062,6 @@ using execution::metered_rule_apply;
 
 using InprocessScope =
     execution::ExecutionScope<execution::ExecutionContext::Inprocessing>;
-
-// Kissat's `search_ticks` is charged only by the ordinary CDCL search
-// propagator.  Startup propagation, both Lucky trials, sparse root collection,
-// and `probe_initially` all run before search and therefore must not seed mode
-// or inprocessing effort references.  This scope suppresses only that tick
-// currency; unlike `InprocessScope` it deliberately leaves assignment-time
-// phase saving unchanged outside the actual Probe pipeline.
-using PreSearchTickScope =
-    execution::ExecutionScope<execution::ExecutionContext::Startup>;
 
 // An execution context held across a span of actions. Entry and an explicit
 // leave are the public ENTER_CONTEXT / LEAVE_CONTEXT supports; an early exit
@@ -2175,8 +2151,11 @@ struct DelaySpec {
   bool denom_delta;
 };
 constexpr DelaySpec DELAY_SPECS[] = {
+    // Kissat's `solver->active` is live state.  Cumulative retirement counters
+    // cannot reconstruct it after compaction and also miss Factor's fresh
+    // activation, which is precisely what makes `proberounds` enter round two.
     {"Congruence", [](const Kernel &k) { return k.stats.congruence_merges; },
-     active_variables,
+     kernel_active_variables,
      &DefaultStrategyConfig::Inprocess::congruence_productivity_permille,
      false},
     // kissat `sweep.c`: `if (kissat_average (eliminated, swept) < 0.001)
@@ -2338,42 +2317,31 @@ const SlotOrderRow *default_slot_order(size_t *count) {
 }
 
 
+namespace {
+constexpr struct {
+  const char *name;
+  CandidateOrder order;
+} CANDIDATE_ORDER_NAMES[] = {
+    {"native", CandidateOrder::Native},
+    {"reverse", CandidateOrder::Reverse},
+    {"random", CandidateOrder::Random},
+    {"occ-asc", CandidateOrder::OccAsc},
+    {"occ-desc", CandidateOrder::OccDesc},
+    {"negocc-desc", CandidateOrder::NegOccDesc},
+    {"heuristic", CandidateOrder::Heuristic},
+};
+} // namespace
+
 const char *candidate_order_name(CandidateOrder o) {
-  switch (o) {
-  case CandidateOrder::Native:
-    return "native";
-  case CandidateOrder::Reverse:
-    return "reverse";
-  case CandidateOrder::Random:
-    return "random";
-  case CandidateOrder::OccAsc:
-    return "occ-asc";
-  case CandidateOrder::OccDesc:
-    return "occ-desc";
-  case CandidateOrder::NegOccDesc:
-    return "negocc-desc";
-  case CandidateOrder::Heuristic:
-    return "heuristic";
-  }
+  for (const auto &row : CANDIDATE_ORDER_NAMES)
+    if (row.order == o) return row.name;
   return "native";
 }
 
 bool parse_candidate_order(const char *s, CandidateOrder *out) {
-  static const struct {
-    const char *n;
-    CandidateOrder o;
-  } table[] = {
-      {"native", CandidateOrder::Native},
-      {"reverse", CandidateOrder::Reverse},
-      {"random", CandidateOrder::Random},
-      {"occ-asc", CandidateOrder::OccAsc},
-      {"occ-desc", CandidateOrder::OccDesc},
-      {"negocc-desc", CandidateOrder::NegOccDesc},
-      {"heuristic", CandidateOrder::Heuristic},
-  };
-  for (const auto &row : table)
-    if (!std::strcmp(s, row.n)) {
-      *out = row.o;
+  for (const auto &row : CANDIDATE_ORDER_NAMES)
+    if (!std::strcmp(s, row.name)) {
+      *out = row.order;
       return true;
     }
   return false;
@@ -2391,10 +2359,6 @@ uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
   for (const WatchEntry w : k.watches.entries(l))
     n += w.binary() ? 1u : (binary_only ? 0u : 1u);
   return n;
-}
-
-double transitive_activity(const Kernel &k, Var v) {
-  return k.h->scores.score[v];
 }
 
 uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst,
@@ -2551,8 +2515,8 @@ bool rank_transitive_reference(const Kernel &k, uint64_t *insts,
     const Var i = a >> 1, j = b >> 1; // transitive.c's second IDX
     const Var iv = k.compact_import_order[i], jv = k.compact_import_order[j];
     if (k.h->stable) {
-      const double s = transitive_activity(k, iv);
-      const double t = transitive_activity(k, jv);
+      const double s = k.h->scores.score[iv];
+      const double t = k.h->scores.score[jv];
       if (s < t)
         return true;
       if (s > t)
@@ -3664,8 +3628,6 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
       affine_completed_census_.reset();
   }
   if(result.unchanged)++affine_search_diagnostics_.unchanged_refreshes;
-  affine_search_diagnostics_.root_unit_work+=result.root_unit_work;
-  affine_search_diagnostics_.root_unit_additions+=result.root_unit_additions;
   if (!refresh || recognize) {
     affine_refresh_ticks_=search_ticks(kernel);
     affine_refresh_work_=0;
@@ -3716,24 +3678,20 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
             root ? "default-persistent-restart-root" : "default-persistent-search",
             affine_service_allowance_);
       },[&] {
-        AffineMatrixServiceResult serviced;
         using ReasonMode = DefaultStrategyConfig::AffineSearch::ReasonMode;
+        using Operation = strategy::AffineMatrixInitializeParameters::Operation;
         // A restart-root service always takes the eager source-support step.
-        const ReasonMode mode =
-            root ? ReasonMode::EagerSourceSupport : config_.affine_search.reason_mode;
-        auto &session = *kernel.affine_matrix_search_session;
-        if (mode == ReasonMode::Deferred)
-          serviced = port::affine_matrix_search_step_deferred(kernel, session);
-        else if (mode == ReasonMode::DetachedMinimal)
-          serviced = port::affine_matrix_search_step_detached_minimal(kernel, session);
-        else if (mode == ReasonMode::DetachedSource)
-          serviced = port::affine_matrix_search_step_detached_source(kernel, session);
-        else if (mode == ReasonMode::LazySource)
-          serviced = port::affine_matrix_search_step_lazy_source(kernel, session);
-        else if (mode == ReasonMode::LazyMinimal)
-          serviced = port::affine_matrix_search_step_lazy_minimal(kernel, session);
-        else
-          serviced = port::affine_matrix_search_step(kernel, session);
+        Operation operation = Operation::SearchStep;
+        if (!root) switch (config_.affine_search.reason_mode) {
+          case ReasonMode::Deferred: operation = Operation::DeferredSearchStep; break;
+          case ReasonMode::DetachedMinimal: operation = Operation::DetachedMinimalSearchStep; break;
+          case ReasonMode::DetachedSource: operation = Operation::DetachedSourceSearchStep; break;
+          case ReasonMode::LazySource: operation = Operation::LazySourceSearchStep; break;
+          case ReasonMode::LazyMinimal: operation = Operation::LazyMinimalSearchStep; break;
+          default: break;
+        }
+        AffineMatrixServiceResult serviced = port::affine_matrix_search_service(
+            kernel, *kernel.affine_matrix_search_session, operation);
         uint64_t work=0;
         for (uint64_t amount : {serviced.trail_capture_work,serviced.synchronization_work,
              serviced.session_work,serviced.live.planner_work,serviced.live.revalidation_work,
@@ -3770,8 +3728,9 @@ AffineMatrixServiceResult DefaultPolicy::materialize_affine_reason(
         spec.description.have_affine_matrix_event = true;
         return spec;
       }, [&] {
-        return port::affine_matrix_materialize_reason(
-            kernel, *kernel.affine_matrix_search_session);
+        return port::affine_matrix_search_service(
+            kernel, *kernel.affine_matrix_search_session,
+            strategy::AffineMatrixInitializeParameters::Operation::MaterializeReasons);
       }, execution::affine_matrix_service_feedback);
   ++affine_search_diagnostics_.materialization_attempts;
   if (result.status == AffineMatrixServiceStatus::Inapplicable)
@@ -3889,17 +3848,10 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   affine_search_diagnostics_.cached_event_calls+=result.synchronized && result.cached_event;
   affine_search_diagnostics_.capture_delta_literals=saturated_sum(
       affine_search_diagnostics_.capture_delta_literals,result.capture_delta_literals);
-  affine_search_diagnostics_.lifecycle_work+=result.lifecycle_work;
-  affine_search_diagnostics_.trail_capture_work+=result.trail_capture_work;
-  affine_search_diagnostics_.synchronization_work+=result.synchronization_work;
   affine_search_diagnostics_.synchronization_nanos+=result.synchronization_nanos;
   affine_search_diagnostics_.publication_nanos+=result.publication_nanos;
-  affine_search_diagnostics_.conditioned_rows+=result.synchronization_conditioned;
   affine_search_diagnostics_.retired_sources+=result.retired_source_groups;
   affine_search_diagnostics_.projected_variables+=result.projected_variables;
-  if(result.synchronized && result.cached_event)++affine_search_diagnostics_.unchanged_reductions;
-  if(result.status==AffineMatrixServiceStatus::NoEvent)++affine_search_diagnostics_.no_event;
-  if(result.status==AffineMatrixServiceStatus::Duplicate)++affine_search_diagnostics_.duplicates;
   if(result.status==AffineMatrixServiceStatus::ResourceExhausted)++affine_search_diagnostics_.resource_declines;
   affine_search_diagnostics_.reasons_deferred += result.reason_deferred;
   affine_search_diagnostics_.reasons_materialized += result.reason_materialized;
@@ -4110,12 +4062,6 @@ ApplyResult DefaultPolicy::affine_restart_service(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-void DefaultPolicy::reset_graph_labeling_schedule(const Kernel &kernel) {
-  (void)kernel;
-  graph_labeling_diagnostics_ = {};
-  graph_labeling_schedule_ = {};
-}
-
 bool DefaultPolicy::graph_labeling_due(const Kernel &kernel) {
   // Due at Kissat's Eliminate conflict limit, after the fruitlessness delay.
   if (!config_.graph_labeling_model.enabled ||
@@ -4314,11 +4260,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   complementary_ternary_permille_ =
       complementary_census ? walk_complementary_ternary_fraction_permille(k)
                            : 0;
-  complementary_ternary_walk_ =
+  configuration_checking_walk_ =
       complementary_census &&
       complementary_ternary_permille_ >=
           config_.rephase.complementary_ternary_minimum_permille;
-  configuration_checking_walk_ = complementary_ternary_walk_;
   configuration_checking_preprocessing_deferred_ =
       configuration_checking_walk_;
   configuration_checking_walk_applications_ = 0;
@@ -4341,7 +4286,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                           "per-solve",
                           execution::ResetGraphLabelingSessionRequest{},
                           ApplyResult::Ok);
-  reset_graph_labeling_schedule(k);
+  graph_labeling_diagnostics_ = {};
+  graph_labeling_schedule_ = {};
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.chronological_levels = chrono_levels;
   analysis.minimize_depth_limit = config_.analysis.minimize_depth_limit;
@@ -4435,6 +4381,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     return verdict;
   };
 
+  // Kissat's `search_ticks` is charged only by the ordinary CDCL search
+  // propagator.  Startup propagation, both Lucky trials, sparse root collection,
+  // and `probe_initially` all run before search and therefore must not seed mode
+  // or inprocessing effort references.  This Startup context suppresses only
+  // that tick currency; unlike `InprocessScope` it deliberately leaves
+  // assignment-time phase saving unchanged outside the actual Probe pipeline.
   std::optional<RecordedExecutionContext<execution::ExecutionContext::Startup>>
       presearch_ticks;
   presearch_ticks.emplace(k, completion_);
@@ -4476,15 +4428,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       affine_root == ApplyResult::Conflict)
     return finish(20);
   if (config_.signed_cardinality_proof.enabled &&
-      signed_cardinality_proof_guard(k)) {
-    if (default_traced_lucky_terminal<
+      signed_cardinality_proof_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<
             LuckyOpportunity::SignedCardinality>(
             k, lucky_trace, "signed-cardinality-proof",
             "signed_cardinality_proof_begin",
-            "signed_cardinality_proof_end", ApplyResult::Unsat, "unsat",
+            "signed_cardinality_proof_end", ApplyResult::Unsat,
             completion_))
-      return finish(20);
-  }
+      return finish(verdict);
   // Signed at-most-one block exact cover (the sgen owner): exact recognition
   // on the live clause set, then bounded search and whole-formula model check.
   if (config_.exact_cover_model.enabled && exact_cover_model_guard(k)) {
@@ -4504,66 +4455,58 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (independent == ApplyResult::Sat)
       return finish(10);
   }
-  if (config_.stconn_proof.enabled && stconn_proof_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::Stconn>(
+  if (config_.stconn_proof.enabled && stconn_proof_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Stconn>(
             k, lucky_trace, "stconn-proof", "stconn_proof_begin",
-            "stconn_proof_end", ApplyResult::Unsat, "unsat", completion_))
-      return finish(20);
-  }
+            "stconn_proof_end", ApplyResult::Unsat, completion_))
+      return finish(verdict);
   // The LymphoSAT Oddball owner constructs balanced ternary signatures at the
   // untouched imported root. A complete candidate is checked against the
   // entire live CNF before publication; an incomplete search
   // publishes only its partial assignment as later Walk/CDCL guidance.
   if (config_.balanced_signature_model.enabled &&
-      balanced_signature_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::BalancedSignature>(
+      balanced_signature_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::BalancedSignature>(
             k, lucky_trace, "balanced-signature-model",
             "balanced_signature_model_begin", "balanced_signature_model_end",
-            ApplyResult::Sat, "sat", completion_))
-      return finish(10);
-  }
+            ApplyResult::Sat, completion_))
+      return finish(verdict);
   // SAT-only LymphoSAT owners retain their bounded theory-specific model
   // constructors. Every completed assignment is checked against the whole live
   // CNF before publication; exhaustion remains unknown.
-  if (config_.fermat_model.enabled && fermat_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::Fermat>(
+  if (config_.fermat_model.enabled && fermat_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Fermat>(
             k, lucky_trace, "fermat-model", "fermat_model_begin",
-            "fermat_model_end", ApplyResult::Sat, "sat", completion_))
-      return finish(10);
-  }
-  if (config_.cerny_model.enabled && cerny_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::Cerny>(
+            "fermat_model_end", ApplyResult::Sat, completion_))
+      return finish(verdict);
+  if (config_.cerny_model.enabled && cerny_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Cerny>(
             k, lucky_trace, "cerny-model", "cerny_model_begin",
-            "cerny_model_end", ApplyResult::Sat, "sat", completion_))
-      return finish(10);
-  }
-  if (config_.lookup_circuit_model.enabled && lookup_circuit_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::LookupCircuit>(
+            "cerny_model_end", ApplyResult::Sat, completion_))
+      return finish(verdict);
+  if (config_.lookup_circuit_model.enabled && lookup_circuit_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::LookupCircuit>(
             k, lucky_trace, "lookup-circuit-model",
             "lookup_circuit_model_begin", "lookup_circuit_model_end",
-            ApplyResult::Sat, "sat", completion_))
-      return finish(10);
-  }
-  if (config_.simon_model.enabled && simon_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::Simon>(
+            ApplyResult::Sat, completion_))
+      return finish(verdict);
+  if (config_.simon_model.enabled && simon_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Simon>(
             k, lucky_trace, "simon-model", "simon_model_begin",
-            "simon_model_end", ApplyResult::Sat, "sat", completion_))
-      return finish(10);
-  }
+            "simon_model_end", ApplyResult::Sat, completion_))
+      return finish(verdict);
   // The proof-only parity action keeps the constructor's exact recognizer and
   // certificate path without entering its private assignment search.
-  if (parity_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::ParityProof>(
+  if (parity_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::ParityProof>(
             k, lucky_trace, "parity-proof", "parity_proof_begin",
-            "parity_proof_end", ApplyResult::Unsat, "unsat", completion_))
-      return finish(20);
-  }
-  if (config_.parity_model.enabled && parity_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::Parity>(
+            "parity_proof_end", ApplyResult::Unsat, completion_))
+      return finish(verdict);
+  if (config_.parity_model.enabled && parity_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Parity>(
             k, lucky_trace, "parity-model", "parity_model_begin",
-            "parity_model_end", ApplyResult::Sat, "sat", completion_))
-      return finish(10);
-  }
+            "parity_model_end", ApplyResult::Sat, completion_))
+      return finish(verdict);
   // The exact-one proof compares a complete live incidence system with the
   // parser's stable binary order. Run it while both still describe the same
   // imported formula, before structured-root rules may add helpers or retire
@@ -4662,12 +4605,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return finish(0);
     }
   }
-  if (config_.onehot_model.enabled && onehot_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::DirectCsp>(
+  if (config_.onehot_model.enabled && onehot_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::DirectCsp>(
             k, lucky_trace, "direct-csp-model", "direct_csp_model_begin",
-            "direct_csp_model_end", ApplyResult::Sat, "sat", completion_))
-      return finish(10);
-  }
+            "direct_csp_model_end", ApplyResult::Sat, completion_))
+      return finish(verdict);
   if (k.input_binary_order_captured)
     default_support_request(k, completion_, "ReleaseInputBinaryOrder",
                             "after-original-input-opportunities",
@@ -4694,12 +4636,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                          "lucky_early_end",
                                          k.stats.lucky_early_calls, nullptr))
       return finish(verdict);
-  if (config_.onehot_model.enabled && onehot_model_guard(k)) {
-    if (default_traced_lucky_terminal<LuckyOpportunity::Onehot>(
+  if (config_.onehot_model.enabled && onehot_model_guard(k))
+    if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Onehot>(
             k, lucky_trace, "onehot-model", "onehot_model_begin",
-            "onehot_model_end", ApplyResult::Sat, "sat", completion_))
-      return finish(10);
-  }
+            "onehot_model_end", ApplyResult::Sat, completion_))
+      return finish(verdict);
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer
   // boundary: materialize before sparse collection and every authored rule.
@@ -5597,7 +5538,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
   const bool level_mode = bve_entry && ramp;
   const uint32_t passes = level_mode ? 1 : ramp ? ramp->num_passes() : 1;
-  uint64_t elim_at_last_pass = k.stats.bve_eliminated;
   const bool use_retry = bve_entry && !ramp;
   bool engaged = false; // a pass got past the budget break and ran instances
   for (uint32_t pass = 0; pass < passes && !ctx.phase_unsat; pass++) {
@@ -5613,7 +5553,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       port::execute_action(k, execution::ParameterInstallationRequest{bound},
                                 ctx.completion, "BVE");
     }
-    elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
     // Pose and validate BVE's typed invocation once per pass.  Keeping this
     // session outside the hot candidate loop preserves the legacy default
     // schedule without paying parameter save/restore and rule validation for
@@ -5636,7 +5575,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // owner's radix order is known. Charge that mandatory lower bound to
       // the same typed startup dose as resolution. If it cannot fit, decline
       // before allocating or mutating a partial owner domain.
-      const uint64_t active = active_variables(k);
+      const uint64_t active = kernel_active_variables(k);
       ++k.stats.fastel_rounds;
       k.stats.fastel_active += active;
       const uint64_t resolution_remaining = ledger_remaining(e, k, e.limit);
@@ -5739,7 +5678,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // rounds (fastel.c) gather the re-armed variables unconditionally.
       if (!initial_fast_elimination_admitted_ &&
           !default_should_run_initial_fast_elimination(candidates.size(),
-                                                       active_variables(k))) {
+                                                       kernel_active_variables(k))) {
         ++k.stats.fastel_declined;
         candidates.clear();
       } else {
@@ -5975,7 +5914,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
   }
   if (level_mode && engaged && !ctx.phase_unsat)
     bve_ran_this_phase_ = true;
-  (void)elim_at_last_pass;
   if (bve_entry && ctx.outer == 0 && !initial_fast_bve)
     bve_rounds_run_++;
   if (bve_entry && !initial_fast_bve && !ctx.phase_unsat) {
@@ -6009,7 +5947,7 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
     e.tm.dec_profile++;
     return true;
   }
-  const uint64_t active = active_variables(k);
+  const uint64_t active = kernel_active_variables(k);
   // A nonzero ceiling is an explicit diagnostic arm. Production leaves it at
   // zero and follows Kissat's factordelay predicate below for every formula.
   if (cfg.factor_active_ceiling && active >= cfg.factor_active_ceiling)
@@ -6873,7 +6811,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   SlotPhaseCtx ctx{group, stop, completion};
   ctx.phase_unsat = structured_unsat;
   const std::vector<RuleVTable> &rules = tactix_rules();
-  uint64_t active_before = active_variables(k);
+  uint64_t active_before = kernel_active_variables(k);
   size_t sweep_retired_begin = SIZE_MAX;
   size_t sweep_substituted_begin = SIZE_MAX;
   const int rounds = initial_fast_elimination_active_
@@ -7097,7 +7035,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         (!k.subsume_complete || !k.strengthen_complete);
     if (!ctx.round_changed && subsume_pending)
       k.stats.subsume_holds++;
-    const uint64_t active_now = active_variables(k);
+    const uint64_t active_now = kernel_active_variables(k);
     if (active_now == active_before && !subsume_pending)
       break; // outer fixpoint: the round retired and created nothing
     active_before = active_now;

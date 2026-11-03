@@ -3,7 +3,7 @@
  * (clause,cube) tuple necessarily uses tactix_apply_condition. A rule without
  * a uint64 payload rejects an arbitrary payload (-1). */
 #undef NDEBUG
-#include "tactix.h"
+#include "api_test_support.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -66,20 +66,6 @@ static int in_list(const char *const *list, size_t n, const char *name) {
   in_list(NO_SURFACE, sizeof NO_SURFACE / sizeof NO_SURFACE[0], (nm))
 #define CANONICAL_ONLY_P(nm) \
   in_list(CANONICAL_ONLY, sizeof CANONICAL_ONLY / sizeof CANONICAL_ONLY[0], (nm))
-
-static int rule_id(const char *name) {
-  int i;
-  for (i = 0; i < tactix_rule_count(); i++)
-    if (!strcmp(tactix_rule_name(i), name))
-      return i;
-  return -1;
-}
-
-static void add_clause(tactix *s, const int *lits) {
-  for (; *lits; lits++)
-    tactix_add(s, *lits);
-  tactix_add(s, 0);
-}
 
 static void cardinality_fixture(tactix *s) {
   add_clause(s, (const int[]){1, 2, 0});
@@ -153,10 +139,7 @@ static void affine_v9_exact_row_boundary(void) {
           TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2,
           10000000, 32, 32, 10000, 10000, 3, 100000, 10000, 1000000};
   base->granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  base->repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base->repeat_limit = 1;
-  base->work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base->budget_unlimited = 1;
+  step_once(base);
   step.affine_basis_instances = &instance;
   step.affine_basis_instance_count = 1;
   program = (tactix_online_program_v9){
@@ -177,54 +160,6 @@ static void affine_v9_exact_row_boundary(void) {
 
 /* A level-0 formula with material for every inprocessing family, satisfiable
  * so no rule can refute it out from under the walk. */
-static void fixture(tactix *s) {
-  /* the same AND gate twice, so a congruence has something to merge */
-  add_clause(s, (const int[]){-10, 1, 0});
-  add_clause(s, (const int[]){-10, 2, 0});
-  add_clause(s, (const int[]){10, -1, -2, 0});
-  add_clause(s, (const int[]){-11, 1, 0});
-  add_clause(s, (const int[]){-11, 2, 0});
-  add_clause(s, (const int[]){11, -1, -2, 0});
-  /* implication chain 5 -> 6 -> 7 with the transitive shortcut 5 -> 7 */
-  add_clause(s, (const int[]){-5, 6, 0});
-  add_clause(s, (const int[]){-6, 7, 0});
-  add_clause(s, (const int[]){-5, 7, 0});
-  /* 2x3 grid over factors {12,13} and remainders {14,15,16} */
-  add_clause(s, (const int[]){12, 14, 0});
-  add_clause(s, (const int[]){12, 15, 0});
-  add_clause(s, (const int[]){12, 16, 0});
-  add_clause(s, (const int[]){13, 14, 0});
-  add_clause(s, (const int[]){13, 15, 0});
-  add_clause(s, (const int[]){13, 16, 0});
-  /* (17 18 19) subsumes; (21 22 23) and (21 22 -23) strengthen to (21 22) */
-  add_clause(s, (const int[]){17, 18, 19, 20, 0});
-  add_clause(s, (const int[]){17, 18, 19, 0});
-  add_clause(s, (const int[]){21, 22, 23, 0});
-  add_clause(s, (const int[]){21, 22, -23, 0});
-  /* 24 occurs positively only: every clause holding it is blocked */
-  add_clause(s, (const int[]){24, 25, 26, 0});
-  add_clause(s, (const int[]){24, -25, 0});
-}
-
-static void exact_cover_fixture(tactix *s) {
-  int block, first, second, position, diagonal;
-  for (block = 0; block < 3; ++block)
-    for (first = 0; first < 3; ++first)
-      for (second = first + 1; second < 3; ++second)
-        add_clause(s, (const int[]){-(3 * block + first + 1),
-                                    -(3 * block + second + 1), 0});
-  for (position = 0; position < 3; ++position)
-    add_clause(s, (const int[]){position + 1, position + 4,
-                                position + 7, 0});
-  for (diagonal = 0; diagonal < 3; ++diagonal) {
-    int clause[4];
-    for (block = 0; block < 3; ++block)
-      clause[block] = 3 * block + (block + diagonal) % 3 + 1;
-    clause[3] = 0;
-    add_clause(s, clause);
-  }
-}
-
 /* A fresh solver where `id`'s guard holds; search-state entries need more
  * than a quiescent root. */
 static FILE *structural_records;
@@ -275,10 +210,7 @@ static tactix *prepare(int id) {
     producer.parameters.value.exact_cover_extension.maximum_external_extent = 1000;
     producer.parameters.value.exact_cover_extension.maximum_journal_bytes = 100000;
     producer.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-    producer.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-    producer.repeat_limit = 1;
-    producer.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-    producer.budget_unlimited = 1;
+    step_once(&producer);
     program = (tactix_online_program){
         &producer, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
     assert(tactix_online_configure(s, &program, 1000,
@@ -332,10 +264,7 @@ static void drive_theory_v5(tactix *s, int id, const char *name) {
   step.base.base.base.base.step_id = 2000 + (uint64_t)id;
   step.base.base.base.base.rule_id = id;
   step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.base.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.base.base.base.base.repeat_limit = 1;
-  step.base.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.base.base.base.base.budget_unlimited = 1;
+  step_once(&step.base.base.base.base);
   if (!strcmp(name, "Gf3AffineConsequence")) {
     step.base.base.base.base.parameters.kind =
         TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE;

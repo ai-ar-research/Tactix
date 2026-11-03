@@ -459,10 +459,7 @@ ApplyResult apply_instance(Kernel &kernel, uint64_t instance) {
 } // namespace
 
 RuleEligibility graph_interval_equivalence_guard(const Kernel &kernel) {
-  return StructuralActionGuard(kernel)
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", kernel.level == 0)
-      .quiescent()
+  return root_action_guard(kernel, false)
       .identity()
       .fact("clausal-proof", !kernel.proof || !kernel.proof->terminal_pbp())
       .finish();

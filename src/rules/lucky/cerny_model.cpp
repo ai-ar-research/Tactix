@@ -1,4 +1,4 @@
-#include "rules/lucky/cerny_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
@@ -42,17 +42,14 @@ bool cheap_shape(const Kernel &k, Automaton &automaton) {
 
 bool recover_transitions(Kernel &k, Automaton &automaton) {
   uint64_t visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && clause->size == 3) {
       uint32_t source_variable = 0, destination_variable = 0;
       uint32_t selector_variable = 0;
       bool ambiguous = false;
       for (const Lit literal : *clause) {
         const int external = kernel_externalize(k, literal);
-        const uint32_t variable = static_cast<uint32_t>(
-            external < 0 ? -int64_t(external) : int64_t(external));
+        const uint32_t variable = external_variable_of(external);
         if (external < 0 && variable <= automaton.state_variables) {
           ambiguous |= source_variable != 0;
           source_variable = variable;
@@ -90,7 +87,6 @@ bool recover_transitions(Kernel &k, Automaton &automaton) {
           return false;
       }
     }
-    ref += words;
     if (!(++visited & ((uint64_t{1} << 18) - 1)) &&
         kernel_rule_interrupt(k, k.stats.cerny_model_interrupted))
       return false;

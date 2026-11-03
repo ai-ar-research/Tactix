@@ -1,4 +1,5 @@
-#include "rules/lucky/parity_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
+#include "rules/lucky/root_guard.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
 #include "rules/lucky/startup_pb_writer.hpp"
@@ -136,13 +137,10 @@ bool collect_equations(Kernel &k,
     return false;
   Recognizer recognizer(k, parameters);
   uint64_t polled = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() &&
         !recognizer.add(clause->lits, clause->size))
       return false;
-    ref += words;
     if (!(++polled & 4095) &&
         kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
       return false;
@@ -304,10 +302,7 @@ public:
 } // namespace
 
 RuleEligibility startup_parity_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("root", k.level == 0 && !k.conflict_valid)
-      .fact("original-input-boundary", k.startup_certificate_open);
+  return lucky_startup_eligibility(k);
 }
 
 ApplyResult startup_parity_apply(Kernel &k) {

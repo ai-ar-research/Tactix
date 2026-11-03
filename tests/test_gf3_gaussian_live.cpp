@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "test_io.hpp"
+#include "clause_oracle.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/gf3_gaussian_live.hpp"
 
@@ -143,12 +145,6 @@ Image image(const Kernel &kernel) {
           kernel.unit_ids};
 }
 
-long position(FILE *file) {
-  const long result = std::ftell(file);
-  assert(result >= 0);
-  return result;
-}
-
 std::string contents(FILE *file) {
   const long end = position(file);
   std::rewind(file);
@@ -158,51 +154,10 @@ std::string contents(FILE *file) {
   return result;
 }
 
-uint32_t variable(int32_t literal) {
-  return literal < 0 ? uint32_t(-int64_t(literal)) : uint32_t(literal);
-}
-
-bool assign(std::vector<int8_t> &assignment, int32_t literal) {
-  const uint32_t atom = variable(literal);
-  const int8_t value = literal > 0 ? 1 : -1;
-  if (assignment[atom] == -value) return false;
-  assignment[atom] = value;
-  return true;
-}
-
+// The fixture ranges over variables 1..9.
 bool rup(const std::vector<std::vector<int32_t>> &active,
          const std::vector<int32_t> &candidate) {
-  std::vector<int8_t> assignment(10, 0);
-  for (int32_t literal : candidate)
-    if (!assign(assignment, -literal)) return true;
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (const auto &clause : active) {
-      bool satisfied = false;
-      unsigned open = 0;
-      int32_t last = 0;
-      for (int32_t literal : clause) {
-        const int8_t value = assignment[variable(literal)];
-        if (value && (literal > 0) == (value > 0)) {
-          satisfied = true;
-          break;
-        }
-        if (!value) {
-          ++open;
-          last = literal;
-        }
-      }
-      if (satisfied) continue;
-      if (!open) return true;
-      if (open == 1) {
-        const int8_t before = assignment[variable(last)];
-        if (!assign(assignment, last)) return true;
-        changed |= !before;
-      }
-    }
-  }
-  return false;
+  return rup_implied(active, candidate, ClauseLiterals{}, 9);
 }
 
 void independently_replay(const live::Prepared &prepared) {

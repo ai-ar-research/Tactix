@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/action_epilogue.hpp"
 
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
@@ -124,6 +125,8 @@ RuleEligibility independent_set_cover_action_guard(const Kernel &kernel) {
       .finish();
 }
 
+// The action has no canonical cover choice; registry canonical dispatch is a
+// deliberate NoOp while the structured v4/direct surfaces supply a vector.
 ApplyResult independent_set_cover_rule_apply(Kernel &kernel) {
   (void)kernel;
   return ApplyResult::NoOp;
@@ -187,19 +190,9 @@ IndependentSetCoverActionResult independent_set_cover_action_apply(
   output.owner_retained = true;
   output.action_id = output.semantic_id = action_id;
   if (live.result == ApplyResult::Ok) {
-    std::vector<strategy::SemanticVariable> variables;
-    variables.reserve(live.advice_vertex_literals.size());
-    for (const int32_t literal : live.advice_vertex_literals) {
-      if (literal <= 0)
-        std::abort();
-      variables.push_back(
-          {static_cast<uint32_t>(literal),
-           strategy::SemanticVariableRole::ExistingTheory, 1});
-    }
-    if (!strategy::stage_semantic_variable_candidate(
-            kernel, strategy::SemanticVariableProducer::IndependentSet,
-            action_id, variables))
-      std::abort();
+    stage_theory_variables_or_abort(
+        kernel, strategy::SemanticVariableProducer::IndependentSet, action_id,
+        live.advice_vertex_literals, {});
     output.candidate_staged = true;
   }
   kernel.structural_action_sequence = action_id;

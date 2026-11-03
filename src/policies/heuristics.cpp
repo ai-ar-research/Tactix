@@ -536,9 +536,7 @@ uint32_t heuristics_restart_reuse_level_for(Kernel &k, Var next) {
 uint32_t heuristics_restart_reuse_level(Kernel &k) {
   if (k.unassigned == 0 || !k.h)
     return 0;
-  const Var next = k.h->stable ? heuristics_heap_next_unassigned(k)
-                               : heuristics_queue_next_unassigned(k);
-  return heuristics_restart_reuse_level_for(k, next);
+  return heuristics_restart_reuse_level_for(k, heuristics_next_decision_var(k));
 }
 
 // --- VMTF -------------------------------------------------------------------

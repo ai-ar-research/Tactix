@@ -11,17 +11,9 @@
 
 namespace tactix {
 
-struct Gf3GaussianActionSessionAccess {
-  static void commit(Gf3GaussianActionSession &session, const Kernel &kernel,
-                     std::vector<std::string> keys) {
-    session.owner_ = &kernel;
-    session.keys_.swap(keys);
-  }
-};
+struct Gf3GaussianActionSessionAccess {};
 
 namespace {
-
-using gf3_live_common::add_work;
 
 gf3_gaussian_live::Request request(const Kernel &kernel,
                                    const Gf3GaussianActionLimits &limits,
@@ -116,14 +108,14 @@ Gf3GaussianActionOfferResult gf3_gaussian_action_offer(
   const std::string &identity = prepared.batch_identity();
   output.candidates = 1;
   if (identity.size() > limits.maximum_session_identity_bytes ||
-      !add_work(identity.size() + 1, limits.maximum_session_work,
-                output.session_work)) {
+      !add_bounded(identity.size() + 1, limits.maximum_session_work,
+                   output.session_work)) {
     output.status = Gf3GaussianActionStatus::ResourceExhausted;
     return output;
   }
   for (const auto &key : session.keys())
-    if (!add_work(key.size() + 1, limits.maximum_session_work,
-                  output.session_work)) {
+    if (!add_bounded(key.size() + 1, limits.maximum_session_work,
+                     output.session_work)) {
       output.status = Gf3GaussianActionStatus::ResourceExhausted;
       return output;
     }
@@ -168,14 +160,14 @@ Gf3GaussianActionResult gf3_gaussian_action_apply(
     return output;
   }
   if (session.keys().size() == limits.maximum_session_keys ||
-      !add_work(identity.size() + 1, limits.maximum_session_work,
-                output.session_work)) {
+      !add_bounded(identity.size() + 1, limits.maximum_session_work,
+                   output.session_work)) {
     output.status = Gf3GaussianActionStatus::ResourceExhausted;
     return output;
   }
   for (const auto &key : session.keys())
-    if (!add_work(key.size() + 1, limits.maximum_session_work,
-                  output.session_work)) {
+    if (!add_bounded(key.size() + 1, limits.maximum_session_work,
+                     output.session_work)) {
       output.status = Gf3GaussianActionStatus::ResourceExhausted;
       return output;
     }
@@ -202,7 +194,7 @@ Gf3GaussianActionResult gf3_gaussian_action_apply(
   output.result = output.live.result;
   if (output.status != Gf3GaussianActionStatus::Applied) return output;
 
-  Gf3GaussianActionSessionAccess::commit(session, kernel, std::move(merged));
+  session.commit({}, kernel, std::move(merged));
   kernel.structural_action_sequence = output.proposed_action_id;
   output.committed_action_id = output.proposed_action_id;
   return output;

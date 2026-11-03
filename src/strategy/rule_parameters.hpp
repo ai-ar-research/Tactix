@@ -556,17 +556,6 @@ void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &)
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
 
 using ScopedReduceParameters = ScopedRuleParameters<ReduceParameters>;
-using ScopedParityModelParameters = ScopedRuleParameters<ParityModelParameters>;
-using ScopedOnehotModelParameters = ScopedRuleParameters<OnehotModelParameters>;
-using ScopedBalancedSignatureModelParameters =
-    ScopedRuleParameters<BalancedSignatureModelParameters>;
-using ScopedFermatModelParameters = ScopedRuleParameters<FermatModelParameters>;
-using ScopedLookupCircuitModelParameters =
-    ScopedRuleParameters<LookupCircuitModelParameters>;
-using ScopedSimonModelParameters = ScopedRuleParameters<SimonModelParameters>;
-using ScopedStconnProofParameters = ScopedRuleParameters<StconnProofParameters>;
-using ScopedSignedCardinalityProofParameters =
-    ScopedRuleParameters<SignedCardinalityProofParameters>;
 
 // Installing a Walk profile also marks the work budget bounded. Restore that
 // mark after the profile, which is restored like every other family's.

@@ -84,8 +84,7 @@ static bool sweep_stopping(Kernel &k) {
   return true;
 }
 
-ApplyResult sweep_emit_round(Kernel &, SweepRound &, uint32_t,
-                             const SweepLimits &);
+ApplyResult sweep_emit_round(Kernel &, SweepRound &, const SweepLimits &);
 ApplyResult sweep_emit_pending_units(Kernel &, SweepRound &,
                                      const SweepLimits &);
 
@@ -98,14 +97,6 @@ constexpr uint64_t KEY_UNIT = 1ull << 62;
 // At a quiescent root (the guard) an assigned variable is a fixed one.
 bool root_fixed(const Kernel &k, Var v) {
   return k.values[make_lit(v, false)] != 0;
-}
-
-// Is (a ∨ b) live in the watch lists? Not `kernel_binary_id != 0`: `binary_ids`
-// is size-monotone, so the id map would report a binary TransitiveReduce has
-// already deleted. The pair is mirrored, so scan the shorter list.
-bool binary_live(const Kernel &k, Lit a, Lit b) {
-  const Lit scan = k.watches.size(a) <= k.watches.size(b) ? a : b;
-  return kernel_binary_live(k, scan, scan == a ? b : a);
 }
 
 // --- the round's representative map (kissat sweep.c `sweep_repr`) -----------
@@ -573,50 +564,39 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
       const Lit l = make_lit(v, pol != 0);
       ticks += k.watches.size(l);
       const auto process_binary = [&](Lit o) {
+        // Trace builds number every attempt (the other endpoint's depth, -1
+        // outside the environment); production compiles this away.
+        const auto trace = [&](uint32_t other_sub, const char *label) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-        if (repr_find(r, l) != l) {
           event_trace_sweep_binary_attempt(
-              k, seed, binary_attempt_ordinal++, l, o,
-              static_cast<int32_t>(d), -1, "skip-lit-repr");
+              k, seed, binary_attempt_ordinal++, l, o, static_cast<int32_t>(d),
+              other_sub == SWEEP_NO_SUB_VAR
+                  ? -1
+                  : static_cast<int32_t>(e.depth[other_sub]),
+              label);
+#else
+          (void)other_sub;
+          (void)label;
+#endif
+        };
+        if (repr_find(r, l) != l) {
+          trace(SWEEP_NO_SUB_VAR, "skip-lit-repr");
           return;
         }
         if (repr_find(r, o) != o) {
-          event_trace_sweep_binary_attempt(
-              k, seed, binary_attempt_ordinal++, l, o,
-              static_cast<int32_t>(d), -1, "skip-other-repr");
+          trace(SWEEP_NO_SUB_VAR, "skip-other-repr");
           return;
         }
-#else
-        if (repr_find(r, l) != l || repr_find(r, o) != o)
-          return;
-#endif
         const uint32_t other_sub = e.sub_of_var[var_of(o)];
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        const int32_t other_depth =
-            other_sub == SWEEP_NO_SUB_VAR ? -1
-                                          : static_cast<int32_t>(e.depth[other_sub]);
-#endif
         if (k.values[l] > 0 || k.values[o] > 0) {
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-          event_trace_sweep_binary_attempt(
-              k, seed, binary_attempt_ordinal++, l, o,
-              static_cast<int32_t>(d), other_depth, "skip-satisfied");
-#endif
+          trace(other_sub, "skip-satisfied");
           return;
         }
         if (other_sub != SWEEP_NO_SUB_VAR && e.depth[other_sub] < d) {
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-          event_trace_sweep_binary_attempt(
-              k, seed, binary_attempt_ordinal++, l, o,
-              static_cast<int32_t>(d), other_depth, "skip-shallower");
-#endif
+          trace(other_sub, "skip-shallower");
           return;
         }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        event_trace_sweep_binary_attempt(
-            k, seed, binary_attempt_ordinal++, l, o,
-            static_cast<int32_t>(d), other_depth, "add");
-#endif
+        trace(other_sub, "add");
         const Lit pair[2] = {l, o};
         env_add_clause(k, e, pair, 2, kernel_binary_key(l, o),
                        kernel_binary_id(k, l, o), d + 1, lim, &ticks, false);
@@ -1417,7 +1397,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     // observable.  Substituting after every pair forced Tactix's variable-width
     // arena bridge to collect and rebuild the whole formula hundreds of times.
     if (commit_inline)
-      (void)sweep_emit_round(k, r, found, lim);
+      (void)sweep_emit_round(k, r, lim);
     return found;
   }
 
@@ -1455,8 +1435,10 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
       r.candidates.pop_back();
       continue;
     }
-    if (binary_live(k, negate(seed_lit), y) &&
-        binary_live(k, seed_lit, negate(y))) {
+    // Not `kernel_binary_id != 0`: `binary_ids` is size-monotone, so the id
+    // map would report a binary TransitiveReduce has already deleted.
+    if (kernel_binary_live(k, negate(seed_lit), y) &&
+        kernel_binary_live(k, seed_lit, negate(y))) {
       // the formula already states this equivalence: nothing for Sweep to add
       k.stats.sweep_known++;
       repr_unite(k, r, seed_lit, y);
@@ -1527,13 +1509,39 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
   k.stats.sweep_ticks += e.solver.kitten_ticks();
   k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
   if (commit_inline)
-    (void)sweep_emit_round(k, r, found, lim);
+    (void)sweep_emit_round(k, r, lim);
   return found;
 }
 
 uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
                            SweepRound &r) {
   return sweep_process_seed(k, seed, lim, r, false);
+}
+
+// A round's seed loop stops on an interrupt, the seed cap, or once its tick
+// budget is overspent, tested in that order.
+static bool sweep_round_exhausted(Kernel &k, const SweepLimits &lim,
+                                  uint64_t start, uint32_t seeds) {
+  if (sweep_stopping(k))
+    return true;
+  if (lim.max_seeds && seeds >= lim.max_seeds)
+    return true;
+  return lim.round_ticks && sweep_semantic_effort(k) - start > lim.round_ticks;
+}
+
+// One seed's limits: its environment never outspends the round's remaining
+// ticks (at least one).
+static SweepLimits sweep_seed_limits(const Kernel &k, const SweepLimits &lim,
+                                     uint64_t start) {
+  SweepLimits seed_lim = lim;
+  if (lim.round_ticks) {
+    const uint64_t spent = sweep_semantic_effort(k) - start;
+    const uint64_t remaining =
+        spent < lim.round_ticks ? lim.round_ticks - spent : 1;
+    if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
+      seed_lim.env_ticks = remaining;
+  }
+  return seed_lim;
 }
 
 uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
@@ -1545,12 +1553,7 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   const uint64_t start = sweep_semantic_effort(k);
   uint32_t found = 0, seeds = 0;
   for (const Var v : r.seeds) {
-    if (sweep_stopping(k))
-      break;
-    if (lim.max_seeds && seeds >= lim.max_seeds)
-      break;
-    if (lim.round_ticks &&
-        sweep_semantic_effort(k) - start > lim.round_ticks)
+    if (sweep_round_exhausted(k, lim, start, seeds))
       break;
     seeds++;
     k.stats.sweep_swept++;
@@ -1560,14 +1563,7 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
     const uint32_t external = static_cast<uint32_t>(
         kernel_externalize(k, make_lit(v, false)));
 #endif
-    SweepLimits seed_lim = lim;
-    if (lim.round_ticks) {
-      const uint64_t spent = sweep_semantic_effort(k) - start;
-      const uint64_t remaining =
-          spent < lim.round_ticks ? lim.round_ticks - spent : 1;
-      if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
-        seed_lim.env_ticks = remaining;
-    }
+    const SweepLimits seed_lim = sweep_seed_limits(k, lim, start);
     found += sweep_detect_seed(k, v, seed_lim, r);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t spent = sweep_semantic_effort(k) - before;
@@ -1846,12 +1842,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   uint32_t seeds = 0;
   ApplyResult result = ApplyResult::NoOp;
   while (k.sweep_live > 0) {
-    if (sweep_stopping(k))
-      break;
-    if (lim.max_seeds && seeds >= lim.max_seeds)
-      break;
-    if (lim.round_ticks &&
-        sweep_semantic_effort(k) - start > lim.round_ticks)
+    if (sweep_round_exhausted(k, lim, start, seeds))
       break;
     bool resumed = false;
     const Var external =
@@ -1873,14 +1864,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     const uint64_t before = sweep_semantic_effort(k);
     const uint64_t solves_before = k.stats.sweep_solves;
 #endif
-    SweepLimits seed_lim = lim;
-    if (lim.round_ticks) {
-      const uint64_t spent = sweep_semantic_effort(k) - start;
-      const uint64_t remaining =
-          spent < lim.round_ticks ? lim.round_ticks - spent : 1;
-      if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
-        seed_lim.env_ticks = remaining;
-    }
+    const SweepLimits seed_lim = sweep_seed_limits(k, lim, start);
     const uint64_t emissions_before = r.emission_batches;
     (void)sweep_process_seed(k, v, seed_lim, r, true);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -2567,7 +2551,7 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
     // depend on a proof, so a run's search never depends on proof logging.
     bool emitted = false;
     bool interrupted = false;
-    if (!emitted) {
+    {
       const SweepGeneralPlan plan =
           sweep_plan_general(k, unit.proof, unit.unit, INVALID_LIT);
       interrupted = plan.decline == SweepGeneralDecline::Interrupted;
@@ -2611,9 +2595,8 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
 
 // Emission, shared by the canonical round and the per-seed instance so the two
 // cannot drift in what they are willing to write.
-ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
+ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
                              const SweepLimits &lim) {
-  (void)found;
   // A resumable round substitutes after each emitted environment. Those
   // rewrites can append binaries, so the next environment must replay the
   // small set of proof-only units across the changed BIG. Plans within this
@@ -2761,11 +2744,9 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
     const SweepPairSelection selection = sweep_select_pair(round, idx, e.a, e.b);
     bool emitted = false;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-    if (!emitted) {
-      journal_sweep_pair_selection(k, e.a, e.b, selection);
-    }
+    journal_sweep_pair_selection(k, e.a, e.b, selection);
 #endif
-    if (!emitted && selection.unit_consequences) {
+    if (selection.unit_consequences) {
       const SweepGeneralPlan first = sweep_plan_general(
           k, *selection.forward, selection.forward->t0, INVALID_LIT);
       const SweepGeneralPlan second = sweep_plan_general(
@@ -2809,7 +2790,7 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found,
         continue;
       }
     }
-    if (!emitted && selection.eligible() && !selection.unit_consequences) {
+    if (selection.eligible() && !selection.unit_consequences) {
       const SweepGeneralPlan fwd =
           sweep_plan_general(k, *selection.forward, selection.forward->t0,
                              selection.forward->t1);
@@ -2984,8 +2965,8 @@ void sweep_capture_core_units_for_test(Kernel &k, SweepDirProof &proof,
 }
 
 ApplyResult sweep_emit_round_for_test(Kernel &k, SweepRound &round,
-                                      uint32_t found, const SweepLimits &lim) {
-  return sweep_emit_round(k, round, found, lim);
+                                      uint32_t, const SweepLimits &lim) {
+  return sweep_emit_round(k, round, lim);
 }
 
 void sweep_order_retirement_suffix(Kernel &k, size_t retired_begin,
@@ -3009,7 +2990,7 @@ void sweep_order_retirement_suffix(Kernel &k, size_t retired_begin,
             k.substituted_events.end(), imported_before);
 }
 
-static ApplyResult sweep_apply_configured(Kernel &k, const SweepLimits &base) {
+ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   // Diagnostic disabling belongs to the caller's schedule. An explicit
   // public V5 application must remain effective regardless of that choice.
   if (!sweep_guard(k))
@@ -3037,8 +3018,8 @@ static ApplyResult sweep_apply_configured(Kernel &k, const SweepLimits &base) {
   if (lim.resume) {
     result = sweep_apply_resumable(k, lim, round);
   } else {
-    const uint32_t found = sweep_detect_round(k, lim, round);
-    result = sweep_emit_round(k, round, found, lim);
+    sweep_detect_round(k, lim, round);
+    result = sweep_emit_round(k, round, lim);
     if (result != ApplyResult::Unsat)
       k.stats.sweep_ticks_repr += round.substitution.collect(k);
   }
@@ -3047,19 +3028,9 @@ static ApplyResult sweep_apply_configured(Kernel &k, const SweepLimits &base) {
   return result;
 }
 
-ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
-  return sweep_apply_configured(k, base);
-}
-
-ApplyResult sweep_apply_exact_limits(Kernel &k, const SweepLimits &limits) {
-  return sweep_apply_configured(k, limits);
-}
-
 ApplyResult sweep_apply(Kernel &k) {
   return sweep_apply_with_limits(k, SweepLimits{});
 }
-
-
 
 // One seed, the per-instance surface. Same guard, same root closure, same
 // emission as the canonical round; only the detection scope differs.

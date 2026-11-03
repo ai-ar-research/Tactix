@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
+source "$(dirname "${BASH_SOURCE[0]}")/proof_checks.sh"
 binary=$1
-root=$2
-trim=${DSR_TRIM:-$root/tools/checkers/bin/dsr-trim}
-compress=${DSR_COMPRESS:-$root/tools/checkers/bin/dsr-compress}
-checker=${SR_CHECK:-$root/tools/checkers/bin/srcheck}
-if [[ ! -x "$trim" || ! -x "$compress" || ! -x "$checker" ]]; then
-  exit 77
-fi
-tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
+checker_paths "$2"
+require_tools "" "$DSR_TRIM" "$DSR_COMPRESS" "$SR_CHECK"
+make_scratch tmp
 "$binary" "$tmp"
 for case in implication conflict implication-resolution conflict-resolution; do
-  python3 "$root/tools/bench/proof_oracle.py" check-dsr \
-    "$tmp/$case.cnf" "$tmp/$case.dsr" \
-    --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
-    --every-lemma
+  check_dsr "$tmp/$case.cnf" "$tmp/$case.dsr"
 done

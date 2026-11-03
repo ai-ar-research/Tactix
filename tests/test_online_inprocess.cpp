@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -61,24 +62,6 @@ static Kernel sweep_fixture() {
       kernel_add_large_clause(k, reverse, 4, false, 0);
     }
   return k;
-}
-
-static void add3(Kernel &k, int a, int b, int c) {
-  const Lit clause[] = {internalize(a), internalize(b), internalize(c)};
-  kernel_add_large_clause(k, clause, 3, false, 0);
-}
-
-static void and_gate(Kernel &k, int output, int first, int second) {
-  kernel_add_binary_clause(k, internalize(-output), internalize(first));
-  kernel_add_binary_clause(k, internalize(-output), internalize(second));
-  add3(k, output, -first, -second);
-}
-
-static void xor_gate(Kernel &k, int output, int first, int second) {
-  add3(k, -output, first, second);
-  add3(k, output, -first, second);
-  add3(k, output, first, -second);
-  add3(k, -output, -first, -second);
 }
 
 static void validation_is_transactional() {
@@ -354,7 +337,7 @@ static void budget_survives_compatible_online_reconfiguration() {
   strengthen_candidates(k, candidates, true);
   assert(candidates.size() == 1);
   const uint64_t selection =
-      strengthen_literal_instance(candidates[0], INVALID_LIT);
+      clause_literal_instance(candidates[0], INVALID_LIT);
 
   OnlineInprocessProgram program;
   program.sequence.push_back({
@@ -459,7 +442,7 @@ static void selected_strengthening_preserves_pending_offsets() {
     std::reverse(victims.begin(), victims.end());
     std::vector<uint64_t> selections;
     for (const uint64_t victim : victims)
-      selections.push_back(strengthen_literal_instance(
+      selections.push_back(clause_literal_instance(
           static_cast<Ref>(victim), internalize(1)));
     OnlineInvocation step;
     step.id = 32;
@@ -557,7 +540,7 @@ static void pending_selection_rechecks_guard_and_kernel_stop() {
   std::vector<Ref> candidates;
   strengthen_candidates(k, candidates, true);
   const uint64_t selection =
-      strengthen_literal_instance(candidates[0], INVALID_LIT);
+      clause_literal_instance(candidates[0], INVALID_LIT);
   OnlineInvocation step;
   step.id = 72;
   step.rule = "Strengthen";
@@ -592,7 +575,7 @@ static void pending_selection_rejects_collection_and_external_mutation() {
     strengthen_candidates(k, candidates, true);
     assert(candidates.size() == 1);
     const uint64_t selection =
-        strengthen_literal_instance(candidates[0], INVALID_LIT);
+        clause_literal_instance(candidates[0], INVALID_LIT);
     OnlineInvocation step;
     step.id = 71;
     step.rule = "Strengthen";
@@ -647,7 +630,7 @@ static void semantic_instances_and_parameters_compose() {
   for (uint64_t instance : instances) {
     Ref ref;
     Lit literal;
-    instantiate_pair_of_instance(instance, &ref, &literal);
+    clause_literal_of_instance(instance, &ref, &literal);
     if (kernel_externalize(k, literal) == 2)
       selected = instance;
   }
@@ -1375,17 +1358,17 @@ static void rule_parameters_are_scoped_per_call() {
          (k.walk_score_curve ==
           std::vector<WalkParameters::ScorePoint>{{0, 101}, {1000, 202}}));
 
-  k.reorder_maximum_clause_size = 84;
-  k.reorder_clause_decay_milli = 85;
-  k.reorder_binary_weight_milli = 86;
-  k.reorder_balanced_polarity_milli = 87;
+  k.reorder_parameters.maximum_clause_size = 84;
+  k.reorder_parameters.clause_decay_milli = 85;
+  k.reorder_parameters.binary_weight_milli = 86;
+  k.reorder_parameters.balanced_polarity_milli = 87;
   assert(apply_parameterized(k, "Reorder",
                              ReorderParameters{3, 400, 900, 1700}, 109)
              .applications == 1);
-  assert(k.reorder_maximum_clause_size == 84 &&
-         k.reorder_clause_decay_milli == 85 &&
-         k.reorder_binary_weight_milli == 86 &&
-         k.reorder_balanced_polarity_milli == 87);
+  assert(k.reorder_parameters.maximum_clause_size == 84 &&
+         k.reorder_parameters.clause_decay_milli == 85 &&
+         k.reorder_parameters.binary_weight_milli == 86 &&
+         k.reorder_parameters.balanced_polarity_milli == 87);
   kernel_check_invariants(k);
 
   Kernel a;

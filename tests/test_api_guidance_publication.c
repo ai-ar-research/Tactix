@@ -8,7 +8,7 @@
  * eliminated/substituted variables queued and the fresh Factor variable at
  * its activation score. */
 #undef NDEBUG
-#include "tactix.h"
+#include "api_test_support.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -18,38 +18,24 @@
 #define VARIABLES 17
 #define CAP 64
 
-static int rule(const char *name) {
-  for (int id = 0; id < tactix_rule_count(); ++id)
-    if (!strcmp(tactix_rule_name(id), name))
-      return id;
-  assert(0);
-  return -1;
-}
-
-static void clause(tactix *s, const int *literals) {
-  while (*literals)
-    tactix_add(s, *literals++);
-  tactix_add(s, 0);
-}
-
 /* 1<->2 is a Substitute equivalence; 5 and 16 are BVE candidates (16's two
  * occurrences resolve to the root unit 17); 8..13 form a 3x3 Factor grid. */
 static tactix *load(void) {
   tactix *s = tactix_init();
-  clause(s, (const int[]){-1, 2, 0});
-  clause(s, (const int[]){1, -2, 0});
-  clause(s, (const int[]){1, 3, 4, 0});
-  clause(s, (const int[]){-2, -3, 4, 0});
-  clause(s, (const int[]){5, 6, 0});
-  clause(s, (const int[]){-5, 7, 0});
-  clause(s, (const int[]){6, 7, 14, 0});
-  clause(s, (const int[]){16, 17, 0});
-  clause(s, (const int[]){-16, 17, 0});
-  clause(s, (const int[]){-17, 15, 3, 0});
+  add_clause(s, (const int[]){-1, 2, 0});
+  add_clause(s, (const int[]){1, -2, 0});
+  add_clause(s, (const int[]){1, 3, 4, 0});
+  add_clause(s, (const int[]){-2, -3, 4, 0});
+  add_clause(s, (const int[]){5, 6, 0});
+  add_clause(s, (const int[]){-5, 7, 0});
+  add_clause(s, (const int[]){6, 7, 14, 0});
+  add_clause(s, (const int[]){16, 17, 0});
+  add_clause(s, (const int[]){-16, 17, 0});
+  add_clause(s, (const int[]){-17, 15, 3, 0});
   for (int a = 8; a <= 10; ++a)
     for (int b = 11; b <= 13; ++b)
-      clause(s, (const int[]){a, b, 0});
-  clause(s, (const int[]){-8, -11, 14, 0});
+      add_clause(s, (const int[]){a, b, 0});
+  add_clause(s, (const int[]){-8, -11, 14, 0});
   assert(tactix_status(s) == 0);
   return s;
 }

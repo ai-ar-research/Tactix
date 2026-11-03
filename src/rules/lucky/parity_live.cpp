@@ -1,5 +1,6 @@
 #include "rules/lucky/parity_live.hpp"
 #include "proof/proof.hpp"
+#include "rules/lucky/root_guard.hpp"
 #include <cstdlib>
 
 namespace tactix {
@@ -39,7 +40,7 @@ struct Sink {
       journal.clause(rat?"define-xor-rat":"derive-xor-rup",id,c.lits.data(),c.size);
     }
     std::vector<External> key(c.lits.begin(),c.lits.begin()+c.size);std::sort(key.begin(),key.end());active_ids[key].push_back(id);
-    if(c.size==1 && static_cast<uint32_t>(c.lits[0]<0?-c.lits[0]:c.lits[0])<=original_bound)
+    if(c.size==1 && external_variable_of(c.lits[0])<=original_bound)
       units.push_back({c,id});
     if(exporting) exported.push_back({c,id});
     return true;
@@ -47,7 +48,7 @@ struct Sink {
   bool erase(const SmallClause &c) {
     // Keep every derived original-variable unit visible to both checker and
     // kernel. Only proof-only helper units may disappear from the stream.
-    if(c.size==1 && static_cast<uint32_t>(c.lits[0]<0?-c.lits[0]:c.lits[0])<=original_bound)return true;
+    if(c.size==1 && external_variable_of(c.lits[0])<=original_bound)return true;
     std::vector<External> key(c.lits.begin(),c.lits.begin()+c.size);std::sort(key.begin(),key.end());
     auto found=active_ids.find(key);if(found==active_ids.end()||found->second.empty())return false;
     const uint64_t deleted=found->second.back();found->second.pop_back();if(found->second.empty())active_ids.erase(found);
@@ -90,9 +91,7 @@ bool derive(Sink &sink,const std::vector<Equation> &equations,uint32_t width) {
 ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
   ParityLiveResult result;
   if(!request.records||!request.action_id||request.selection.output_width>4||
-     k.inconsistent||k.level||k.conflict_valid||k.pending.valid||k.dense||
-     k.probing.recording||!k.large_watches_connected||
-     !kernel_propagation_fixpoint(k)||
+     !lucky_root_eligibility(k,true)||
      (k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())))return result;
   Journal journal{request.records,request.action_id};
   std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"begin\",\"clauses_limit\":%llu,\"groups_limit\":%llu,\"selection_work\":%llu,\"intermediate_width\":%u,\"source_limit\":%u,\"output_width\":%u,\"descending\":%s,\"proof_limit\":%llu,\"consequence\":%zu}\n",(unsigned long long)request.action_id,(unsigned long long)request.premises.clauses,(unsigned long long)request.premises.groups,(unsigned long long)request.selection.work,request.selection.intermediate_width,request.selection.source_count,request.selection.output_width,request.descending?"true":"false",(unsigned long long)request.maximum_proof_additions,request.consequence);
@@ -105,8 +104,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
     journal.clause("snapshot-premise",result.clauses,external,size);
     return collector.add(result.clauses,external,size);
   };
-  for(Ref ref=0;ref<k.arena.size();) {
-    const Clause *c=clause_at(k.arena,ref);ref+=clause_actual_words(c);
+  for(const auto [ref,c]:arena_records(k.arena)) {
     if(!c->garbage()&&!take(c->lits,c->size))return result;
   }
   for(Lit a=0;a<2*k.nvars;++a)for(const WatchEntry w:k.watches.entries(a)) {
@@ -127,8 +125,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
     bool present=false;
     if(c.size==1)present=k.value(lits[0])>0;
     else if(c.size==2)present=kernel_binary_live(k,lits[0],lits[1]);
-    else if(c.size>2)for(Ref ref=0;ref<k.arena.size();) {
-      const Clause *existing=clause_at(k.arena,ref);ref+=clause_actual_words(existing);
+    else if(c.size>2)for(const auto [ref,existing]:arena_records(k.arena)) {
       if(existing->garbage()||existing->size!=c.size)continue;
       bool same=true;for(uint32_t i=0;i<c.size;++i)same &= std::find(existing->lits,existing->lits+existing->size,lits[i])!=existing->lits+existing->size;
       if(same){present=true;break;}

@@ -11,6 +11,7 @@
 #include "diagnostics/rule_journal.hpp"
 #include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/support/stage_trace.hpp"
 
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
@@ -44,15 +45,7 @@ void substitute_stage_trace(const Kernel &k, const char *stage,
   FILE *out = trace.stream("TACTIX_SUBSTITUTE_MEMORY_TRACE");
   if (!out)
     return;
-  const long peak_rss_kib = diagnostics::peak_resident_kib();
-  const unsigned long virtual_kib = diagnostics::virtual_memory_kib();
-  std::fprintf(out,
-               "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\tarena_words=%zu\t"
-               "watch_words=%zu\twatch_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
-               "third=%zu\n",
-               stage, peak_rss_kib, virtual_kib, k.nvars, k.arena.size(),
-               k.watches.arena.size(), k.watches.arena.capacity(), first,
-               second, third);
+  memory_stage_line(out, k, stage, first, second, third);
 }
 
 // The live binary {a, b} under `tag`, with its proof id and live copy count.
@@ -599,7 +592,7 @@ SweepSubstitutionSession::occurrences(const Kernel &k, Lit lit) {
       }
       const Clause *clause = clause_at(k.arena, occurrence.payload);
       if (clause->garbage() || clause->redundant() ||
-          std::find(clause->begin(), clause->end(), lit) == clause->end())
+          !clause_contains(clause, lit))
         continue;
       ordered.push_back({false, occurrence.payload});
     }
@@ -1199,7 +1192,7 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
   const auto rewritten_in_place = [&](Lit lit, bool append) {
     if (append || !indexed)
       return false;
-    return std::find(old->begin(), old->end(), lit) != old->end();
+    return clause_contains(old, lit);
   };
   if (!rewritten_in_place(a, append_a))
     push_move(k, *old, a, source, {true, b});
@@ -2174,7 +2167,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // a non-representative literal.  Unconnected binaries cannot change.  Keep
   // them in place instead of copying the complete binary formula into
   // BinaryImage/set/map structures and rebuilding every watch list.
-  const bool connected_only = true;
   const auto snapshot_undirected = [&](Lit lit) {
       // The owner's import rank is constant across its whole watch list.
       const uint64_t lit_order = kernel_import_lit_order(k, lit);
@@ -2214,7 +2206,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
               lit_order >= kernel_import_lit_order(k, w.other()))
             continue;
           const Lit other = w.other();
-          if (connected_only && !mapped(lit) && !mapped(other))
+          if (!mapped(lit) && !mapped(other))
             continue;
           images.push_back({lit, other});
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -2683,38 +2675,31 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   substitute_stage_trace(k, "rewrite-directed-images", images.size(), 0,
                          sizeof(BinaryImage));
 
-  if (connected_only) {
-    // Every snapshotted image is exactly one binary with at least one marked
-    // endpoint. Remove moved/retired directions in one pass over each watch
-    // list. A stable direction rewritten above now has representative
-    // endpoints and stays at its original position.
-    const auto compact_owner = [&](Lit lit) {
-        k.watches.compact(lit, [&](WatchEntry watch) {
-          if (!watch.binary())
-            return true;
-          // Same first-N consumption order as the snapshot above: the lists
-          // are untouched between the two passes, so identical counters
-          // protect identical entries.
-          if (session &&
-              bridge_keep_take(bridge_keep_compact, lit, watch.other()))
-            return true;
-          return !mapped(lit) && !mapped(watch.other());
-        });
-    };
-    if (session)
-      for (const Lit lit : affected_binary_owners)
-        compact_owner(lit);
-    else
-      for (const Var variable : variable_order)
-        for (uint32_t sign = 0; sign < 2; sign++)
-          if (canonical_binary_affected[make_lit(variable, sign != 0)])
-            compact_owner(make_lit(variable, sign != 0));
-  } else {
+  // Every snapshotted image is exactly one binary with at least one marked
+  // endpoint. Remove moved/retired directions in one pass over each watch
+  // list. A stable direction rewritten above now has representative
+  // endpoints and stays at its original position.
+  const auto compact_owner = [&](Lit lit) {
+    k.watches.compact(lit, [&](WatchEntry watch) {
+      if (!watch.binary())
+        return true;
+      // Same first-N consumption order as the snapshot above: the lists
+      // are untouched between the two passes, so identical counters
+      // protect identical entries.
+      if (session &&
+          bridge_keep_take(bridge_keep_compact, lit, watch.other()))
+        return true;
+      return !mapped(lit) && !mapped(watch.other());
+    });
+  };
+  if (session)
+    for (const Lit lit : affected_binary_owners)
+      compact_owner(lit);
+  else
     for (const Var variable : variable_order)
       for (uint32_t sign = 0; sign < 2; sign++)
-        k.watches.compact(make_lit(variable, sign != 0),
-                          [](WatchEntry w) { return !w.binary(); });
-  }
+        if (canonical_binary_affected[make_lit(variable, sign != 0)])
+          compact_owner(make_lit(variable, sign != 0));
   substitute_stage_trace(k, "rewrite-binary-compact", k.watches.arena.size(),
                          k.watches.holes);
   std::vector<Var>().swap(variable_order);
@@ -2929,19 +2914,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     // witness must be created together, because a retired variable with no
     // witness is never decided and never reconstructed — a wrong SAT answer
     // rather than a crash (`docs/design/variable-retirement-design-v2.md` §3).
-    if (k.var_status.size() < k.nvars)
-      k.var_status.resize(k.nvars, VarStatus::Active);
-    if (k.var_status[v] == VarStatus::Active &&
-        k.values[make_lit(v, false)] == 0) {
-      assert(k.unassigned_active > 0); // it leaves the active pool
-      k.unassigned_active--;
-    }
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-    rule_journal_note_variable_status(k, v, "substituted");
-#endif
-    kernel_affine_note_namespace_change(k);
-    k.var_status[v] = VarStatus::Substituted;
-    k.retired_events.push_back(v);
+    retire_variable(k, v, VarStatus::Substituted, "substituted");
     k.substituted_events.push_back(v);
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
     const Lit rest_b[1] = {negate(s)};
@@ -3081,12 +3054,17 @@ ApplyResult substitute_apply_sweep_equivalences(
   // after Sweep.  This is complete for the requested rewrite and preserves the
   // same minimum-import-order representative as substitute_find_sccs.
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
+  // A pair is admitted iff both endpoints are in range, open and distinct
+  // variables.
+  const auto admitted = [&](Lit a, Lit b) {
+    return a < nlits && b < nlits && a != b && a != negate(b) &&
+           k.value(a) == 0 && k.value(b) == 0;
+  };
   std::vector<Lit> members;
   members.reserve(4 * equivalences.size());
   for (const auto &eq : equivalences) {
     const Lit a = eq.first, b = eq.second;
-    if (a >= nlits || b >= nlits || a == b || a == negate(b) ||
-        k.value(a) != 0 || k.value(b) != 0)
+    if (!admitted(a, b))
       continue;
     members.insert(members.end(), {a, b, negate(a), negate(b)});
   }
@@ -3142,8 +3120,7 @@ ApplyResult substitute_apply_sweep_equivalences(
   productive.reserve(equivalences.size());
   for (const auto &eq : equivalences) {
     const Lit a = eq.first, b = eq.second;
-    if (a >= nlits || b >= nlits || a == b || a == negate(b) ||
-        k.value(a) != 0 || k.value(b) != 0)
+    if (!admitted(a, b))
       continue;
     const int losing_side = unite(a, b);
     const int mirror_losing_side = unite(negate(a), negate(b));

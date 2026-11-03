@@ -1876,11 +1876,11 @@ ApplyResult vivify_try(Kernel &k, Ref candidate) {
 static uint32_t vivify_semantic_instances(Kernel &k, uint64_t *out,
                                           uint32_t cap) {
   uint32_t count = 0;
-  for (Ref ref = 0; ref < k.arena.size() && count < cap;) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
+    if (count == cap)
+      break;
     if (!c->garbage() && c->size >= 3)
       out[count++] = ref;
-    ref += clause_actual_words(c);
   }
   return count;
 }

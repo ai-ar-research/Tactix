@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
@@ -46,27 +47,11 @@ std::vector<std::vector<int32_t>> clauses(bool unsat = false) {
 }
 
 std::string dimacs(bool unsat = false) {
-  const auto formula = clauses(unsat);
-  std::ostringstream out;
-  out << "p cnf " << (unsat ? 11 : 9) << ' ' << formula.size() << '\n';
-  for (const auto &clause : formula) {
-    for (const int32_t literal : clause) out << literal << ' ';
-    out << "0\n";
-  }
-  return out.str();
+  return dimacs_text(unsat ? 11 : 9, clauses(unsat));
 }
 
 Kernel parse(bool unsat = false) {
-  const std::string text = dimacs(unsat);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(!kernel.inconsistent && kernel_propagation_fixpoint(kernel));
-  return kernel;
+  return parse_dimacs_text(dimacs(unsat), ParsedRoot::Consistent);
 }
 
 

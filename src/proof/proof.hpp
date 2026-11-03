@@ -351,6 +351,11 @@ private:
   struct LeasedPremise {
     uint64_t users = 0, deferred = 0;
   };
+  // Retained bytes charged per leased premise clause; release refunds them.
+  static constexpr uint64_t premise_storage_bytes(size_t size) {
+    return (4 * sizeof(PremiseGroup) + 16 * sizeof(void *) +
+            sizeof(LeasedPremise)) + 2 * uint64_t(size) * sizeof(int32_t);
+  }
   std::map<std::vector<int32_t>, LeasedPremise> leased_premises_;
   std::map<uint64_t, PremiseGroup> premise_groups_;
   uint64_t next_premise_group_ = 0, premise_epoch_ = 0;

@@ -1,4 +1,5 @@
 #pragma once
+#include "rules/semantic_extension/action_epilogue.hpp"
 #include "rules/semantic_extension/nary_csp_action_limits.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
@@ -13,16 +14,8 @@ struct NaryCspEqualityTransitivitySelection {
   auto operator<=>(const NaryCspEqualityTransitivitySelection &) const = default;
 };
 using NaryCspEqualityTransitivityKey=NaryCspEqualityTransitivitySelection;
-class NaryCspEqualityTransitivitySession {
-public:
-  bool retained() const{return owner_!=nullptr;}
-  bool belongs_to(const Kernel &k)const{return owner_==&k;}
-  const auto &keys()const{return keys_;}
-private:
-  friend struct NaryCspEqualityTransitivitySessionAccess;
-  const Kernel *owner_=nullptr;
-  std::vector<NaryCspEqualityTransitivityKey> keys_;
-};
+struct NaryCspEqualityTransitivitySessionAccess;
+class NaryCspEqualityTransitivitySession:public KernelKeyedSession<NaryCspEqualityTransitivityKey,NaryCspEqualityTransitivitySessionAccess>{};
 enum class NaryCspEqualityTransitivityStatus:uint8_t {
   Invalid,Inapplicable,MissingEquality,Stale,Duplicate,ResourceExhausted,
   Interrupted,UnsupportedProof,Applied,Ready

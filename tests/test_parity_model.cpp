@@ -1,8 +1,7 @@
 #undef NDEBUG
 #include "policies/default_policy.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "rules/lucky/parity_model.hpp"
-#include "rules/lucky/parity_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "proof/proof.hpp"
 
@@ -130,7 +129,7 @@ int main() {
     }
     strategy::ParityModelParameters parameters;
     parameters.maximum_groups = 1;
-    strategy::ScopedParityModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::ParityModelParameters> posed(k, parameters);
     assert(parity_model_apply(k) == ApplyResult::NoOp);
     assert(k.trail.empty());
   }
@@ -161,7 +160,7 @@ int main() {
     Kernel k = xor_fixture(true);
     strategy::ParityModelParameters parameters;
     parameters.candidate_budget = 0;
-    strategy::ScopedParityModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::ParityModelParameters> posed(k, parameters);
     assert(parity_model_apply(k) == ApplyResult::NoOp);
     assert(k.trail.empty());
   }
@@ -171,7 +170,7 @@ int main() {
     kernel_add_binary_clause(k, make_lit(3, false), make_lit(4, false));
     strategy::ParityModelParameters parameters;
     parameters.candidate_budget = 1;
-    strategy::ScopedParityModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::ParityModelParameters> posed(k, parameters);
     assert(parity_model_apply(k) == ApplyResult::NoOp);
     const auto &hint = k.local_search_hints[
         static_cast<size_t>(strategy::LocalSearchKind::Parity)];
@@ -183,7 +182,7 @@ int main() {
     Kernel k = xor_fixture(true);
     strategy::ParityModelParameters parameters;
     parameters.maximum_constraints = 4;
-    strategy::ScopedParityModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::ParityModelParameters> posed(k, parameters);
     assert(parity_model_apply(k) == ApplyResult::NoOp);
     assert(k.trail.empty());
   }

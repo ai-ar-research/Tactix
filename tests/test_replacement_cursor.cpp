@@ -1,5 +1,6 @@
 // Fixed public-transition comparisons against immutable predecessor objects.
 #undef NDEBUG
+#include "fnv_digest.hpp"
 #include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"
 #include "rules/bve/bve.hpp"
@@ -10,12 +11,6 @@
 #include <vector>
 
 using namespace tactix;
-static uint64_t digest = UINT64_C(1469598103934665603);
-static void hash(uint64_t x) { digest = (digest ^ x) * UINT64_C(1099511628211); }
-template <class T> static void hash_vector(const T &values) {
-  hash(values.size());
-  for (auto x : values) hash(x);
-}
 static void score_event(Kernel &, void *state, Var v, bool removed) {
   static_cast<std::vector<uint64_t> *>(state)->push_back(2 * uint64_t(v) + removed);
 }

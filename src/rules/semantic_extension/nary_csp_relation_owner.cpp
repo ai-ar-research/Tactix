@@ -54,15 +54,6 @@ bool session_work(
   return true;
 }
 
-bool same_authenticated_image(const NaryCspRelationOwnerSnapshot &first,
-                              const NaryCspRelationOwnerSnapshot &second) {
-  // external_extent and capture_work describe when/how each observation was
-  // made. Extension growth and unrelated clauses do not invalidate identical
-  // retained physical premises.
-  return first.source_literals == second.source_literals &&
-         first.source == second.source && first.relation == second.relation;
-}
-
 } // namespace
 
 const NaryCspRelationOwnerSnapshot *NaryCspRelationOwnerSession::snapshot(

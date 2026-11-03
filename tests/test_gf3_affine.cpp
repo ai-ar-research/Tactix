@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "clause_oracle.hpp"
 #include "rules/semantic_extension/gf3_affine.hpp"
 
 #include <algorithm>
@@ -12,10 +13,6 @@
 using namespace tactix::gf3_affine;
 
 namespace {
-
-uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
-}
 
 struct Fixture {
   std::vector<Premise> source;
@@ -73,57 +70,8 @@ RecognitionResult recognize(const Fixture &fixture) {
       fixture.source, recognition_bounds(), [](uint64_t) { return true; });
 }
 
-bool literal_value(int32_t literal, uint64_t assignment) {
-  const bool value = assignment & (uint64_t{1} << (variable(literal) - 1));
-  return literal > 0 ? value : !value;
-}
-
-bool clause_value(const std::vector<int32_t> &clause, uint64_t assignment) {
-  for (int32_t literal : clause)
-    if (literal_value(literal, assignment)) return true;
-  return false;
-}
-
 // Deliberately independent from the planner: replay reverse unit propagation
 // over ordinary clauses, with no use of equation metadata.
-bool rup(const std::vector<std::vector<int32_t>> &formula,
-         const std::vector<int32_t> &addition) {
-  std::map<uint32_t, bool> assigned;
-  auto assign = [&](int32_t literal) {
-    const auto [where, inserted] =
-        assigned.emplace(variable(literal), literal > 0);
-    return inserted || where->second == (literal > 0);
-  };
-  for (int32_t literal : addition)
-    if (!assign(-literal)) return true;
-  for (;;) {
-    bool changed = false;
-    for (const auto &clause : formula) {
-      bool satisfied = false;
-      int32_t unit = 0;
-      uint32_t open = 0;
-      for (int32_t literal : clause) {
-        const auto found = assigned.find(variable(literal));
-        if (found == assigned.end()) {
-          unit = literal;
-          ++open;
-        } else if (found->second == (literal > 0)) {
-          satisfied = true;
-          break;
-        }
-      }
-      if (satisfied) continue;
-      if (!open) return true;
-      if (open == 1) {
-        const size_t before = assigned.size();
-        if (!assign(unit)) return true;
-        changed |= assigned.size() != before;
-      }
-    }
-    if (!changed) return false;
-  }
-}
-
 std::vector<std::vector<int32_t>> clauses(const Fixture &fixture) {
   std::vector<std::vector<int32_t>> result;
   for (const Premise &premise : fixture.source)
@@ -199,8 +147,8 @@ void test_exact_recognition_and_pair_elimination() {
       assert(unique.insert(reference.occurrence).second);
       local_proof_formula.push_back(by_occurrence.at(reference.occurrence));
     }
-    assert(rup(local_proof_formula, addition.clause));
-    assert(rup(source_formula, addition.clause));
+    assert(rup_implied(local_proof_formula, addition.clause));
+    assert(rup_implied(source_formula, addition.clause));
   }
 
   // Exhaustively check Boolean entailment over the nine original variables.
@@ -223,7 +171,7 @@ void test_signed_selection_literals() {
       [](uint64_t) { return true; });
   assert(plan.status == PlanStatus::Planned);
   for (const Addition &addition : plan.additions)
-    assert(rup(clauses(fixture), addition.clause));
+    assert(rup_implied(clauses(fixture), addition.clause));
 }
 
 void test_target_arity_shape_and_complete_rup_replay() {
@@ -245,7 +193,7 @@ void test_target_arity_shape_and_complete_rup_replay() {
   assert(plan.additions.size() == 486);
   const auto source_formula = clauses(fixture);
   for (const Addition &addition : plan.additions)
-    assert(rup(source_formula, addition.clause));
+    assert(rup_implied(source_formula, addition.clause));
 }
 
 void test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources() {

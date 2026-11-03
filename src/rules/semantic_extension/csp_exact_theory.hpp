@@ -13,17 +13,14 @@
 
 namespace tactix::csp_exact_theory {
 
-inline uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
 inline bool valid_values(const std::vector<int32_t> &values) {
   if (values.empty()) return false;
   for (int32_t literal : values)
     if (!literal || literal == INT32_MIN) return false;
   for (size_t i = 1; i < values.size(); ++i) {
     if (!external_literal_less(values[i - 1], values[i]) ||
-        variable(values[i - 1]) == variable(values[i]))
+        external_variable_of(values[i - 1]) ==
+            external_variable_of(values[i]))
       return false;
   }
   return true;
@@ -87,9 +84,10 @@ template <class Premise> struct Snapshot {
       std::set<uint32_t> clause_variables;
       for (int32_t literal : premise.literals) {
         if (!literal || literal == INT32_MIN ||
-            !clause_variables.insert(variable(literal)).second)
+            !clause_variables.insert(external_variable_of(literal)).second)
           return PlanStatus::IncompleteTheory;
-        maximum_variable = std::max(maximum_variable, variable(literal));
+        maximum_variable =
+            std::max(maximum_variable, external_variable_of(literal));
       }
     }
     return PlanStatus::Planned;

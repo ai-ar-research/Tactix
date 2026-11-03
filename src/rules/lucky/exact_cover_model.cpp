@@ -1,7 +1,7 @@
-#include "rules/lucky/exact_cover_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "kernel/splitmix64.hpp"
-#include "rules/lucky/disjoint_sets.hpp"
+#include "rules/disjoint_sets.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
 #include "strategy/rule_parameters.hpp"
@@ -47,8 +47,7 @@ bool recognize(Kernel &k, const strategy::ExactCoverModelParameters &p,
     return false;
   std::vector<std::vector<Lit>> covering;
   uint64_t visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       if (clause->size != arity)
         return false;
@@ -58,7 +57,6 @@ bool recognize(Kernel &k, const strategy::ExactCoverModelParameters &p,
         return false;
       covering.push_back(std::move(literals));
     }
-    ref += clause_actual_words(clause);
     if (!(++visited & ((uint64_t{1} << 18) - 1)) &&
         kernel_rule_interrupt(k, k.stats.exact_cover_model_interrupted))
       return false;

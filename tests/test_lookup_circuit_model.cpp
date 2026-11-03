@@ -1,6 +1,7 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
-#include "rules/lucky/lookup_circuit_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
 
 #include <cassert>
@@ -26,15 +27,7 @@ static Kernel fixture(bool mixed_width = false) {
   if (mixed_width)
     dimacs << "1 2 0\n";
 
-  FILE *input = std::tmpfile();
-  assert(input);
-  const std::string text = dimacs.str();
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel k;
-  assert(parse_dimacs(input, k) == nullptr);
-  std::fclose(input);
-  return k;
+  return parse_dimacs_text(dimacs.str());
 }
 
 static Kernel wide_fixture() {
@@ -53,15 +46,7 @@ static Kernel wide_fixture() {
   }
   dimacs << "9 0\n";
 
-  FILE *input = std::tmpfile();
-  assert(input);
-  const std::string text = dimacs.str();
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel k;
-  assert(parse_dimacs(input, k) == nullptr);
-  std::fclose(input);
-  return k;
+  return parse_dimacs_text(dimacs.str());
 }
 
 int main() {
@@ -111,7 +96,7 @@ int main() {
     Kernel k = fixture();
     strategy::LookupCircuitModelParameters parameters;
     parameters.maximum_fanin = 1;
-    strategy::ScopedLookupCircuitModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::LookupCircuitModelParameters> posed(k, parameters);
     assert(lookup_circuit_model_apply(k) == ApplyResult::NoOp);
   }
   {

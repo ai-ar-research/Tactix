@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -14,14 +15,6 @@
 
 using namespace tactix;
 using namespace tactix::execution;
-
-static std::string read_file(const std::string &path) {
-  std::ifstream input(path, std::ios::binary);
-  assert(input);
-  std::ostringstream output;
-  output << input.rdbuf();
-  return output.str();
-}
 
 static void parse(Kernel &k, const char *cnf) {
   FILE *input = std::tmpfile();

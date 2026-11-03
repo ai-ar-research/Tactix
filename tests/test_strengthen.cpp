@@ -1,6 +1,7 @@
 // C2 Strengthen: fused one-action-per-candidate rounds, unit-producing
 // strengthen, instance surface, and the registry-driven inprocessing slot.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -25,40 +26,6 @@ static constexpr uint32_t TEST_STRENGTHEN_OCCLIM =
 static_assert(TEST_STRENGTHEN_OCCLIM == 1000 &&
               strategy::SubsumeForwardParameters::BINARY_OCCURRENCE_DEFAULT ==
                   10000);
-
-// count live large clauses; if `lits`/`n` given, require one matching
-static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
-                           uint32_t n = 0) {
-  uint32_t count = 0;
-  bool found = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage()) {
-      count++;
-      if (lits && c->size == n) {
-        bool all = true;
-        for (uint32_t i = 0; i < n; i++) {
-          bool has = false;
-          for (const Lit l : *c)
-            has |= (l == lits[i]);
-          all &= has;
-        }
-        found |= all;
-      }
-    }
-    ref += clause_actual_words(c);
-  }
-  if (lits)
-    assert(found);
-  return count;
-}
-
-static bool has_binary(const Kernel &k, Lit a, Lit b) {
-  for (const WatchEntry watch : k.watches.entries(a))
-    if (watch.binary() && watch.other() == b)
-      return true;
-  return false;
-}
 
 static void test_round_entry_deduplicates_binaries() {
   Kernel k;
@@ -472,7 +439,7 @@ static void test_semantic_outcomes_include_every_removed_literal() {
 
     uint64_t instances[16];
     const uint32_t count = rule.semantic_instances(k, instances, 16);
-    const uint64_t wanted = strengthen_literal_instance(
+    const uint64_t wanted = clause_literal_instance(
         candidate, internalize(removed));
     assert(std::find(instances, instances + count, wanted) !=
            instances + count);
@@ -729,7 +696,7 @@ static int semantic_proof_witness(const char *input, const char *output,
   assert(candidate != INVALID_REF && partner != INVALID_REF);
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("Strengthen")];
   assert(rule.apply_semantic_instance(
-             k, strengthen_literal_instance(candidate, three)) ==
+             k, clause_literal_instance(candidate, three)) ==
          ApplyResult::Ok);
   DefaultPolicy policy;
   const int result = policy.solve(k, nullptr);

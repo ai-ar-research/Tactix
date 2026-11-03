@@ -1,6 +1,7 @@
 // Actual scheduler contract at the ordinary/skip-sort population boundary.
 // No alternative sorter or solver implementation is supplied by this test.
 #undef NDEBUG
+#include "fnv_digest.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/vivify/vivify.hpp"
 
@@ -12,10 +13,6 @@
 #include <vector>
 
 using namespace tactix;
-static uint64_t digest = UINT64_C(1469598103934665603);
-static void hash(uint64_t value) {
-  digest = (digest ^ value) * UINT64_C(1099511628211);
-}
 
 static std::vector<unsigned> models(const Kernel &k) {
   std::vector<unsigned> result;

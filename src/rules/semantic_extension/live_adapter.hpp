@@ -71,4 +71,16 @@ inline std::vector<Lit> internal_clause_or_abort(
   return literals;
 }
 
+// Installs a published redundant clause of at least two literals: binary, or
+// large with glue equal to its size.
+inline void install_redundant_clause(Kernel &kernel,
+                                     const std::vector<Lit> &literals,
+                                     uint64_t id) {
+  if (literals.size() == 2)
+    kernel_add_binary_clause(kernel, literals[0], literals[1], id);
+  else
+    kernel_add_large_clause(kernel, literals.data(), literals.size(), true,
+                            literals.size(), id);
+}
+
 } // namespace tactix

@@ -2,6 +2,7 @@
 // serializers checked byte for byte. N2 rests on the encoding, which an
 // end-to-end checker cannot distinguish from a wrong lemma.
 #undef NDEBUG
+#include "test_io.hpp"
 #include "proof/proof.hpp"
 
 #include <cassert>
@@ -32,18 +33,6 @@ std::string tmp_path(const char *tag) {
   return p;
 }
 
-std::string read_all(const std::string &path) {
-  FILE *f = fopen(path.c_str(), "rb");
-  assert(f);
-  std::string out;
-  char buf[4096];
-  size_t n;
-  while ((n = fread(buf, 1, sizeof buf, f)) > 0)
-    out.append(buf, n);
-  fclose(f);
-  return out;
-}
-
 // Each case emits, closes the file, and compares the whole byte stream.
 template <class Emit>
 std::string emitted(const char *tag, ProofFormat fmt, Emit emit) {
@@ -53,7 +42,7 @@ std::string emitted(const char *tag, ProofFormat fmt, Emit emit) {
     assert(p.open(path.c_str(), fmt));
     emit(p);
   }
-  std::string bytes = read_all(path);
+  std::string bytes = read_file(path);
   remove(path.c_str());
   return bytes;
 }
@@ -658,7 +647,7 @@ void test_startup_pbp_certificate_boundary() {
     assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
     assert(!p.startup_pb_available());
     p.add_rup(1, &unit, 1, nullptr, 0);
-    assert(read_all(path).empty()); // input prefix is private
+    assert(read_file(path).empty()); // input prefix is private
     p.finish_input_transaction();
     assert(p.startup_pb_available());
     FILE *out = p.begin_pb();
@@ -668,7 +657,7 @@ void test_startup_pbp_certificate_boundary() {
     assert(!p.commit_clause_stream());
     assert(!p.begin_pb());
   }
-  expect(read_all(path), "pseudo-Boolean proof version 3.0\n", "atomic PB selection");
+  expect(read_file(path), "pseudo-Boolean proof version 3.0\n", "atomic PB selection");
   std::remove(path.c_str());
   Proof strict;
   assert(strict.open(path.c_str(), ProofFormat::DsrAscii));
@@ -724,7 +713,7 @@ void test_streaming_pbp() {
     p.add_empty(8, nullptr, 0);
     p.flush();
   }
-  expect(read_all(path),
+  expect(read_file(path),
          "pseudo-Boolean proof version 3.0\n"
          "f 2;\n"
          "rup 1 x2 >= 1 ;\n"
@@ -765,7 +754,7 @@ void test_streaming_pbp_does_not_archive_divergent_binary_ids() {
     proof.add_empty(105, nullptr, 0);
     proof.flush();
   }
-  expect(read_all(path),
+  expect(read_file(path),
          "pseudo-Boolean proof version 3.0\n"
          "f 2;\n"
          "del spec 1 x10 1 ~x11 >= 1 ;\n"
@@ -798,7 +787,7 @@ void test_streaming_pbp_parity_text_buffer_boundary() {
     assert(proof.add_prevalidated_pbp_parity_reason(
         1, {equation}, reason, 2, cache, first));
     proof.flush();
-    const std::string prefix = read_all(path);
+    const std::string prefix = read_file(path);
 
     constexpr size_t repetitions = 10001;
     const std::vector<PbpParityEquation> equations(repetitions, equation);
@@ -819,7 +808,7 @@ void test_streaming_pbp_parity_text_buffer_boundary() {
       expected += " 16 +";
     expected += " x2 + 2 d ;\npol 20 21 + ;\n";
     assert(expected.size() > 65536);
-    const std::string complete = read_all(path);
+    const std::string complete = read_file(path);
     expect(complete.substr(prefix.size()), expected,
            "streaming PBP parity text crosses the bounded flush boundary");
   }

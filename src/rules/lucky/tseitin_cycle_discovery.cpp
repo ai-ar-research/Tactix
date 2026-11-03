@@ -112,19 +112,6 @@ bool same_scope(const parity_premises::CertifiedEquation &left,
   return true;
 }
 
-struct CapturePoll {
-  tseitin_cycle::InterruptPoll first = nullptr;
-  void *first_state = nullptr;
-  tseitin_cycle::InterruptPoll second = nullptr;
-  void *second_state = nullptr;
-};
-
-bool capture_interrupted(void *opaque) {
-  auto &poll = *static_cast<CapturePoll *>(opaque);
-  return (poll.first && poll.first(poll.first_state)) ||
-         (poll.second && poll.second(poll.second_state));
-}
-
 } // namespace
 
 Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
@@ -398,56 +385,6 @@ Result select(const tseitin_cycle_live::Snapshot &snapshot,
   }
   return enumerate_impl(snapshot, limits, nullptr, selector, selector_state,
                         &output);
-}
-
-Result discover(const tseitin_cycle_live::Snapshot &snapshot,
-                const Limits &limits, Plan &output) {
-  output = {};
-  std::vector<Plan> components;
-  Result result = enumerate(snapshot, limits, components);
-  if (!result.discovered()) return result;
-  if (components.size() != 1) {
-    result.status = Status::Declined;
-    result.reason = Reason::Disconnected;
-    result.selected_groups = 0;
-    return result;
-  }
-  output = std::move(components.front());
-  return result;
-}
-
-Result capture(Kernel &kernel,
-               const tseitin_cycle_live::SnapshotLimits &snapshot_limits,
-               const Limits &limits, Plan &output) {
-  output = {};
-  CapturePoll poll{snapshot_limits.interrupted,
-                   snapshot_limits.interrupt_state,
-                   limits.interrupted,
-                   limits.interrupt_state};
-  auto bounded_snapshot = snapshot_limits;
-  bounded_snapshot.interrupted = capture_interrupted;
-  bounded_snapshot.interrupt_state = &poll;
-  tseitin_cycle_live::Snapshot snapshot;
-  const tseitin_cycle_live::Result captured =
-      tseitin_cycle_live::capture(kernel, bounded_snapshot, snapshot);
-  if (captured.status != tseitin_cycle_live::Status::Captured) {
-    Result result;
-    result.status = captured.status == tseitin_cycle_live::Status::Interrupted
-                        ? Status::Interrupted
-                    : captured.status ==
-                              tseitin_cycle_live::Status::ResourceExhausted
-                        ? Status::ResourceExhausted
-                        : Status::InvalidInput;
-    result.reason = captured.status == tseitin_cycle_live::Status::Interrupted
-                        ? Reason::Interrupted
-                    : captured.status ==
-                              tseitin_cycle_live::Status::ResourceExhausted
-                        ? Reason::WorkLimit
-                        : Reason::InvalidSnapshot;
-    result.clauses = captured.snapshot_clauses;
-    return result;
-  }
-  return discover(snapshot, limits, output);
 }
 
 tseitin_cycle_live::Result

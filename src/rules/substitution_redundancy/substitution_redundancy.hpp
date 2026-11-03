@@ -514,9 +514,5 @@ SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
     Kernel &, const SubstitutionRedundancyInstance &,
     const SubstitutionRedundancyParameters & = {},
     volatile sig_atomic_t *stop = nullptr);
-ApplyResult substitution_redundancy_apply(
-    Kernel &, const SubstitutionRedundancyInstance &,
-    const SubstitutionRedundancyParameters & = {},
-    volatile sig_atomic_t *stop = nullptr);
 
 } // namespace tactix

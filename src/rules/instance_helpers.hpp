@@ -24,6 +24,21 @@ inline bool root_literal_open(const Kernel &kernel, Lit literal) {
   return kernel.values[literal] == 0;
 }
 
+// Every root-open literal in index order: the BCE/CCE canonical schedule.
+inline void root_open_literals(const Kernel &kernel, std::vector<Lit> &out) {
+  out.clear();
+  for (Lit l = 0; l < 2 * kernel.nvars; l++)
+    if (root_literal_open(kernel, l))
+      out.push_back(l);
+}
+
+inline bool clause_contains(const Clause *clause, Lit target) {
+  for (const Lit literal : *clause)
+    if (literal == target)
+      return true;
+  return false;
+}
+
 // A wholly unassigned live irredundant clause is no root reason: a reason is
 // unit, so all but one of its literals are assigned. This is the shared BCE/CCE
 // deletion-candidate predicate at a drained root.
@@ -70,6 +85,24 @@ inline void emit_rup_lemma(Kernel &kernel, uint64_t id,
                            const std::vector<uint64_t> &chain) {
   emit_rup_lemma(kernel, id, lits.data(), static_cast<uint32_t>(lits.size()),
                  chain);
+}
+
+// A proof-only RUP lemma, deleted once the derivation it supports is done.
+// `id` is already the deletion id: the LRAT clause id, 0 in other formats.
+struct TransientLemma {
+  uint64_t id;
+  std::vector<Lit> lits;
+};
+
+// Delete the transient lemmas, newest first, and forget them.
+inline void delete_transients(Kernel &kernel,
+                              std::vector<TransientLemma> &transients) {
+  if (kernel.proof)
+    for (size_t i = transients.size(); i-- > 0;)
+      kernel.proof->del(kernel.next_clause_id, transients[i].id,
+                        transients[i].lits.data(),
+                        static_cast<uint32_t>(transients[i].lits.size()));
+  transients.clear();
 }
 
 // A hot-loop work scalar, published to its Stats counter when the scope ends:
@@ -128,6 +161,29 @@ inline void probe_unwind(Kernel &kernel, bool end_scope = true) {
     kernel_backtrack(kernel, 0, /*update_phases=*/false);
   if (end_scope)
     kernel_probing_end(kernel);
+}
+
+// Retire `variable` with `status` (Eliminated, Substituted): it leaves the
+// active pool if it was an unassigned active variable, the journal records
+// `journal_status`, and the policy learns of it from `retired_events`. The
+// caller pushes the reconstruction witness that must accompany it.
+inline void retire_variable(Kernel &kernel, Var variable, VarStatus status,
+                            const char *journal_status) {
+  if (kernel.var_status.size() < kernel.nvars)
+    kernel.var_status.resize(kernel.nvars, VarStatus::Active);
+  if (kernel.var_status[variable] == VarStatus::Active &&
+      kernel.values[make_lit(variable, false)] == 0) {
+    assert(kernel.unassigned_active > 0); // it leaves the active pool
+    kernel.unassigned_active--;
+  }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_variable_status(kernel, variable, journal_status);
+#else
+  (void)journal_status;
+#endif
+  kernel_affine_note_namespace_change(kernel);
+  kernel.var_status[variable] = status;
+  kernel.retired_events.push_back(variable);
 }
 
 template <class Value, class Project = std::identity>

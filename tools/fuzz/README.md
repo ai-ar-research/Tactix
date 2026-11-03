@@ -9,8 +9,8 @@ options to `aggregate.py` together with `--regrade-reason`. It prints the old
 and revised thresholds, preserves the saved summaries, and still checks every
 other requirement. Retain the regrade output alongside the original result.
 
-- `run.sh --quick --solver 'build/release/tactix-public --pbp'` runs the regression corpus plus 10,000 seeded cases through DefaultPolicy's public-interface twin; `--nightly` selects 200,000.
-- `run.sh --public-random --quick --solver 'build/release/tactix-public-random --pbp --random-policy={seed}'` runs the same generated cases through the sole random qualification strategy. It samples the grammar below one public action at a time, re-observes the solver after every action, and varies root work, CDCL intervals, full/partial restarts, application forms and eligible algebraic actions. Each case receives its own reproducible policy seed.
+- `run.sh --quick --solver 'build/release/tests/tactix-public --pbp'` runs the regression corpus plus 10,000 seeded cases through DefaultPolicy's public-interface twin; `--nightly` selects 200,000.
+- `run.sh --public-random --quick --solver 'build/release/tests/tactix-public-random --pbp --random-policy={seed}'` runs the same generated cases through the sole random qualification strategy. It samples the grammar below one public action at a time, re-observes the solver after every action, and varies root work, CDCL intervals, full/partial restarts, application forms and eligible algebraic actions. Each case receives its own reproducible policy seed.
 - Both legs use whole-run PBP. Every UNSAT result must pass VeriPB and CakePB against the original CNF; every SAT model is independently checked. Historical production random/stress/controller frontends and their one-off campaign scripts are retired.
 - `slurm.sh` reserves 50 physical cores by default on the cluster's SMT-2 nodes: 100 logical CPUs, 400,000 MiB, and 50 fuzz workers. `--physical-cores P` changes all three coherently. A worker count is parallelism within one fuzz campaign, not repeated fuzzing. At submission it creates a read-only `build/pin-fuzz-harness-*` snapshot of the runner, corpus and pinned VeriPB/CakePB binaries. The batch job executes only that snapshot and logs its aggregate SHA-256; it removes the snapshot after success and retains it after failure for Claude-owned diagnosis. A small deduplicated copy under `failures/harnesses/<sha256>/` keeps successful-leg timeout controls replayable after the transient snapshot is gone. Never make a fuzz job execute a live repository script.
 - `slurm.sh --cpu-q-wide` maps one campaign over 512 array tasks. Each task requests one physical core and runs one single-threaded worker on one shard; workers are never packed into a larger allocation. Every shard is eligible immediately, and Slurm shares partition capacity among independently submitted campaigns. Shards own disjoint global indices, while shard zero alone runs the corpus and fixed controls. Isolated artifacts and an `afterany` aggregate finalizer retain the shared immutable pin on any failed, canceled or missing shard.
@@ -58,7 +58,6 @@ other requirement. Retain the regrade output alongside the original result.
   audits on retained fixtures (`controls/every-lemma/PROVENANCE.md`). They
   require the configured `dsr-trim` to elaborate the F2/F2w proofs forward
   correctly, so they fail with the historical root-clone build 02824056.
-- `retention.py` — reports which tracked per-job artifact is still cited as evidence (job id, id range, or name, never the basename), for this directory's `slurm-*.log` and `benchmarks/probes/*.out`. Report-only unless `--delete`; uncited job logs belong in `$CLAUDE_JOB_DIR/tmp`, not in git.
 
 ## Public-random strategy grammar
 

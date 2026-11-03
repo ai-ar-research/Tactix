@@ -2,6 +2,7 @@
 // and its bound, the gate reductions, and model reconstruction through the
 // witness stack. Rule semantics live in the rule calculus.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"
 #include "proof/proof.hpp"
@@ -524,20 +525,6 @@ static void test_antecedent_clause_size_limit() {
   assert(!kernel_var_retired(k, var_of(internalize(1))));
   assert(k.stats.bve_definitions_checked == 0);
   kernel_dense_disconnect(k);
-}
-
-static bool has_binary(const Kernel &k, Lit a, Lit b) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  for (uint32_t i = 0; i < k.watches.heads[a].size;) {
-    if (Watch{ws[i]}.binary()) {
-      if (Watch{ws[i]}.other() == b)
-        return true;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
-  return false;
 }
 
 // (1∨2),(¬1∨3) resolve to (2∨3): var 1 vanishes, witnesses are pushed.

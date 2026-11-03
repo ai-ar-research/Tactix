@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_affine.hpp"
 
 #include "kernel/types.hpp"
+#include "rules/semantic_extension/csp_exact_theory.hpp"
 #include "rules/semantic_extension/gf3_certificate_common.hpp"
 
 #include <algorithm>
@@ -14,20 +15,11 @@
 namespace tactix::gf3_affine {
 namespace {
 
+using csp_exact_theory::add_count;
 using gf3_certificate_common::canonical;
 using gf3_certificate_common::multiply_checked;
 using gf3_certificate_common::power3;
 using gf3_certificate_common::valid_clause;
-
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
-bool add_count(uint64_t amount, uint64_t &total) {
-  if (amount > UINT64_MAX - total) return false;
-  total += amount;
-  return true;
-}
 
 uint8_t inverse(uint8_t value) { return value == 1 ? 1 : 2; }
 
@@ -125,8 +117,8 @@ RecognitionResult recognize(const std::vector<Premise> &source,
         result.consumed_source_literals > bounds.maximum_source_literals)
       return decline(RecognitionStatus::BoundExceeded);
     for (int32_t literal : premise.literals)
-      result.theory.maximum_variable =
-          std::max(result.theory.maximum_variable, variable(literal));
+      result.theory.maximum_variable = std::max(
+          result.theory.maximum_variable, external_variable_of(literal));
   }
 
   std::vector<Domain> candidates;
@@ -169,7 +161,7 @@ RecognitionResult recognize(const std::vector<Premise> &source,
     if (!used.insert(domain.at_least_one).second)
       return decline(RecognitionStatus::IncompleteTheory);
     for (uint8_t value = 0; value < 3; ++value) {
-      if (!value_index.emplace(variable(domain.values[value]),
+      if (!value_index.emplace(external_variable_of(domain.values[value]),
                                std::pair(index, value)).second)
         return decline(RecognitionStatus::IncompleteTheory);
       for (uint8_t other = value + 1; other < 3; ++other)
@@ -188,7 +180,7 @@ RecognitionResult recognize(const std::vector<Premise> &source,
       return decline(RecognitionStatus::IncompleteTheory);
     std::vector<std::tuple<uint32_t, uint8_t>> entries;
     for (int32_t literal : premise.literals) {
-      const auto found = value_index.find(variable(literal));
+      const auto found = value_index.find(external_variable_of(literal));
       if (found == value_index.end())
         return decline(RecognitionStatus::IncompleteTheory);
       const Domain &domain = candidates[found->second.first];
@@ -341,7 +333,7 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
     std::set<uint32_t> variables;
     for (int32_t literal : domain.values)
       if (!literal || literal == INT32_MIN ||
-          !variables.insert(variable(literal)).second)
+          !variables.insert(external_variable_of(literal)).second)
         return decline(PlanStatus::IncompleteTheory);
     const Premise *alo = find_occurrence(theory, domain.at_least_one);
     if (!alo || canonical(alo->literals) != canonical(domain.values))

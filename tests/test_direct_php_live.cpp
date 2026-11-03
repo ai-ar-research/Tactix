@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "proof/direct_php_live.hpp"
 
 #include <cassert>
@@ -54,18 +55,6 @@ std::string temporary_path() {
   assert(fd >= 0);
   close(fd);
   return pattern;
-}
-
-std::string read_file(const std::string &path) {
-  FILE *file = std::fopen(path.c_str(), "rb");
-  assert(file);
-  std::string result;
-  char buffer[4096];
-  while (const size_t count = std::fread(buffer, 1, sizeof buffer, file))
-    result.append(buffer, count);
-  assert(!std::ferror(file));
-  assert(!std::fclose(file));
-  return result;
 }
 
 void exact_admission_and_replay() {

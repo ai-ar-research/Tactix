@@ -273,129 +273,45 @@ struct PublicPort {
         [&] { return StaticPort::affine_matrix_search_refresh(k, session, parameters, limits,
                                                               recognize); });
   }
-  static AffineMatrixServiceResult affine_matrix_search_step(Kernel &k,
-                                                             AffineMatrixSearchSession &session) {
-    AffineProfile profile;
-    profile.basis = session.parameters();
-    profile.admission = session.persistent() ? AffineProfile::Admission::AuthenticatedSubimage
-                                             : AffineProfile::Admission::CompleteSnapshot;
-    profile.operation = AffineProfile::Operation::SearchStep;
-    const auto &limits = session.persistence_limits();
-    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
-    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
-    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
-    return affine_operation(k, profile, "step", [&] { return *session.last_service(); },
-        [&] { return StaticPort::affine_matrix_search_step(k, session); });
+  static const char *affine_service_label(AffineProfile::Operation operation) {
+    using Operation = AffineProfile::Operation;
+    switch (operation) {
+    case Operation::SearchStep: return "step";
+    case Operation::DeferredSearchStep: return "deferred-step";
+    case Operation::DetachedMinimalSearchStep: return "detached-minimal-step";
+    case Operation::DetachedSourceSearchStep: return "detached-source-step";
+    case Operation::LazySourceSearchStep: return "lazy-source-step";
+    case Operation::LazyMinimalSearchStep: return "lazy-minimal-step";
+    case Operation::MaterializeReasons: return "materialize";
+    default: std::abort();
+    }
   }
-  static AffineMatrixServiceResult affine_matrix_search_step_deferred(
-      Kernel &k, AffineMatrixSearchSession &session) {
+  static AffineMatrixServiceResult affine_matrix_search_service(
+      Kernel &k, AffineMatrixSearchSession &session, AffineProfile::Operation operation) {
+    using Operation = AffineProfile::Operation;
     AffineProfile profile;
     profile.basis = session.parameters();
-    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
-    profile.operation = AffineProfile::Operation::DeferredSearchStep;
+    profile.admission = operation == Operation::SearchStep && !session.persistent()
+                            ? AffineProfile::Admission::CompleteSnapshot
+                            : AffineProfile::Admission::AuthenticatedSubimage;
+    profile.operation = operation;
     const auto &limits = session.persistence_limits();
     profile.maximum_retained_bytes = limits.maximum_retained_bytes;
     profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
     profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
-    return affine_operation(k, profile, "deferred-step",
+    const auto result = affine_operation(k, profile, affine_service_label(operation),
         [&] { return *session.last_service(); },
-        [&] { return StaticPort::affine_matrix_search_step_deferred(k, session); });
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    AffineProfile profile;
-    profile.basis = session.parameters();
-    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
-    profile.operation = AffineProfile::Operation::DetachedMinimalSearchStep;
-    const auto &limits = session.persistence_limits();
-    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
-    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
-    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
-    const auto result = affine_operation(k, profile, "detached-minimal-step",
-        [&] { return *session.last_service(); },
-        [&] {
-          return StaticPort::affine_matrix_search_step_detached_minimal(k,
-                                                                        session);
-        });
-    if (tactix_c_handle *s = bound(k)) {
-      tactix_affine_matrix_result observed{};
-      if (tactix_read_affine_matrix_result(s, &observed) != 0 ||
-          observed.reason_detached != result.live.detached_reason)
-        std::abort();
+        [&] { return StaticPort::affine_matrix_search_service(k, session, operation); });
+    if (operation == Operation::DetachedMinimalSearchStep ||
+        operation == Operation::DetachedSourceSearchStep) {
+      if (tactix_c_handle *s = bound(k)) {
+        tactix_affine_matrix_result observed{};
+        if (tactix_read_affine_matrix_result(s, &observed) != 0 ||
+            observed.reason_detached != result.live.detached_reason)
+          std::abort();
+      }
     }
     return result;
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_detached_source(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    AffineProfile profile;
-    profile.basis = session.parameters();
-    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
-    profile.operation = AffineProfile::Operation::DetachedSourceSearchStep;
-    const auto &limits = session.persistence_limits();
-    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
-    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
-    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
-    const auto result = affine_operation(k, profile, "detached-source-step",
-        [&] { return *session.last_service(); },
-        [&] {
-          return StaticPort::affine_matrix_search_step_detached_source(k,
-                                                                       session);
-        });
-    if (tactix_c_handle *s = bound(k)) {
-      tactix_affine_matrix_result observed{};
-      if (tactix_read_affine_matrix_result(s, &observed) != 0 ||
-          observed.reason_detached != result.live.detached_reason)
-        std::abort();
-    }
-    return result;
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    AffineProfile profile;
-    profile.basis = session.parameters();
-    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
-    profile.operation = AffineProfile::Operation::LazySourceSearchStep;
-    const auto &limits = session.persistence_limits();
-    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
-    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
-    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
-    return affine_operation(k, profile, "lazy-source-step",
-        [&] { return *session.last_service(); },
-        [&] {
-          return StaticPort::affine_matrix_search_step_lazy_source(k,
-                                                                   session);
-        });
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_lazy_minimal(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    AffineProfile profile;
-    profile.basis = session.parameters();
-    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
-    profile.operation = AffineProfile::Operation::LazyMinimalSearchStep;
-    const auto &limits = session.persistence_limits();
-    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
-    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
-    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
-    return affine_operation(k, profile, "lazy-minimal-step",
-        [&] { return *session.last_service(); },
-        [&] {
-          return StaticPort::affine_matrix_search_step_lazy_minimal(k,
-                                                                    session);
-        });
-  }
-  static AffineMatrixServiceResult affine_matrix_materialize_reason(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    AffineProfile profile;
-    profile.basis = session.parameters();
-    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
-    profile.operation = AffineProfile::Operation::MaterializeReasons;
-    const auto &limits = session.persistence_limits();
-    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
-    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
-    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
-    return affine_operation(k, profile, "materialize",
-        [&] { return *session.last_service(); },
-        [&] { return StaticPort::affine_matrix_materialize_reason(k, session); });
   }
   static void affine_matrix_search_release(AffineMatrixSearchSession &affine) {
     release_affine(affine, nullptr);

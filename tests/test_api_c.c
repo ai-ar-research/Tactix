@@ -1,7 +1,7 @@
 /* C-language API test: compiles tactix.h as C (a header/ABI sync check) and
  * exercises N1 — an external client choosing every branching literal. */
 #undef NDEBUG
-#include "tactix.h"
+#include "api_test_support.h"
 
 #include <assert.h>
 #include <signal.h>
@@ -15,19 +15,6 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
-static int rule_id(const char *name) {
-  for (int i = 0; i < tactix_rule_count(); i++)
-    if (!strcmp(tactix_rule_name(i), name))
-      return i;
-  return -1;
-}
-
-static void add_clause(tactix *s, const int *lits) {
-  for (; *lits; lits++)
-    tactix_add(s, *lits);
-  tactix_add(s, 0);
-}
 
 static void test_solve_sat(void) {
   tactix *s = tactix_init();

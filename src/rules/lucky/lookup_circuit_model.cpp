@@ -1,4 +1,4 @@
-#include "rules/lucky/lookup_circuit_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
@@ -92,13 +92,8 @@ bool choose_shape(const Kernel &k,
 }
 
 bool external_variable(const Kernel &k, Lit literal, uint32_t &result) {
-  const int external = kernel_externalize(k, literal);
-  const int64_t magnitude = external < 0 ? -int64_t(external)
-                                         : int64_t(external);
-  if (!magnitude || magnitude > UINT32_MAX)
-    return false;
-  result = static_cast<uint32_t>(magnitude);
-  return result <= k.external_to_internal.size();
+  result = external_variable_of(kernel_externalize(k, literal));
+  return result && result <= k.external_to_internal.size();
 }
 
 bool reconstruct(Kernel &k, Circuit &circuit) {
@@ -117,9 +112,7 @@ bool reconstruct(Kernel &k, Circuit &circuit) {
       return false;
 
   uint64_t nonunit = 0, visited = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t actual_words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       if (clause->size != k.input_uniform_nonunit_width ||
           nonunit >= k.input_nonunit_clause_count)
@@ -175,7 +168,6 @@ bool reconstruct(Kernel &k, Circuit &circuit) {
           uint64_t{1} << (output % 64);
       ++nonunit;
     }
-    ref += actual_words;
     if (!(++visited & ((uint64_t{1} << 18) - 1)) &&
         kernel_rule_interrupt(k, k.stats.lookup_circuit_model_interrupted))
       return false;
@@ -268,26 +260,50 @@ struct alignas(32) GateTableVectors256 {
   __m256i part[16];
 };
 
+// Admission shared by the vector bodies, whose batches cover 2^lane_bits
+// support assignments: the support size and the batch count within budget,
+// then the support's primary variables in input order. Zero declines.
+uint64_t vector_batches(
+    const Circuit &circuit, uint64_t support, uint32_t support_count,
+    const strategy::LookupCircuitModelParameters &parameters,
+    uint32_t lane_bits, std::vector<uint32_t> &support_variables) {
+  if (!support_count || support_count > parameters.maximum_support)
+    return 0;
+  const uint64_t batches = support_count <= lane_bits
+                               ? 1
+                               : uint64_t{1} << (support_count - lane_bits);
+  if (circuit.gates.size() &&
+      batches > parameters.maximum_vector_gate_evaluations /
+                    circuit.gates.size())
+    return 0;
+  for (uint32_t i = 0; i < circuit.primary_inputs; ++i)
+    if (support & (uint64_t{1} << i))
+      support_variables.push_back(circuit.primary_variables[i]);
+  return batches;
+}
+
+// The full assignment of a satisfying lane's support index.
+void decode_lane(const Circuit &circuit,
+                 const std::vector<uint32_t> &support_variables,
+                 uint32_t support_count, uint64_t index,
+                 std::vector<uint8_t> &assignment) {
+  assignment.assign(circuit.variables, 0);
+  for (uint32_t bit = 0; bit < support_count; ++bit)
+    assignment[support_variables[bit]] = (index >> bit) & 1;
+  forward_fill(circuit, assignment);
+}
+
 __attribute__((target("avx512f,avx512bw,avx512vbmi,avx512vl")))
 EnumerationResult enumerate_avx512(
     Kernel &k, const Circuit &circuit, uint64_t support,
     const strategy::LookupCircuitModelParameters &parameters,
     std::vector<uint8_t> &assignment) {
   const uint32_t support_count = static_cast<uint32_t>(__builtin_popcountll(support));
-  if (!support_count || support_count > parameters.maximum_support)
-    return EnumerationResult::Unavailable;
-  const uint64_t batches = support_count <= 6
-                               ? 1
-                               : uint64_t{1} << (support_count - 6);
-  if (circuit.gates.size() &&
-      batches > parameters.maximum_vector_gate_evaluations /
-                    circuit.gates.size())
-    return EnumerationResult::Unavailable;
-
   std::vector<uint32_t> support_variables;
-  for (uint32_t i = 0; i < circuit.primary_inputs; ++i)
-    if (support & (uint64_t{1} << i))
-      support_variables.push_back(circuit.primary_variables[i]);
+  const uint64_t batches = vector_batches(circuit, support, support_count,
+                                          parameters, 6, support_variables);
+  if (!batches)
+    return EnumerationResult::Unavailable;
 
   const uint32_t segments = uint32_t{1} << (circuit.fanin > 6
                                                 ? circuit.fanin - 6
@@ -386,11 +402,8 @@ EnumerationResult enumerate_avx512(
       continue;
     const uint32_t lane = static_cast<uint32_t>(
         __builtin_ctzll(static_cast<uint64_t>(good)));
-    const uint64_t index = batch * 64 + lane;
-    assignment.assign(circuit.variables, 0);
-    for (uint32_t bit = 0; bit < support_count; ++bit)
-      assignment[support_variables[bit]] = (index >> bit) & 1;
-    forward_fill(circuit, assignment);
+    decode_lane(circuit, support_variables, support_count, batch * 64 + lane,
+                assignment);
     return EnumerationResult::Found;
   }
   return EnumerationResult::Exhausted;
@@ -403,20 +416,11 @@ EnumerationResult enumerate_avx2(
     std::vector<uint8_t> &assignment) {
   const uint32_t support_count =
       static_cast<uint32_t>(__builtin_popcountll(support));
-  if (!support_count || support_count > parameters.maximum_support)
-    return EnumerationResult::Unavailable;
-  const uint64_t batches = support_count <= 5
-                               ? 1
-                               : uint64_t{1} << (support_count - 5);
-  if (circuit.gates.size() &&
-      batches > parameters.maximum_vector_gate_evaluations /
-                    circuit.gates.size())
-    return EnumerationResult::Unavailable;
-
   std::vector<uint32_t> support_variables;
-  for (uint32_t i = 0; i < circuit.primary_inputs; ++i)
-    if (support & (uint64_t{1} << i))
-      support_variables.push_back(circuit.primary_variables[i]);
+  const uint64_t batches = vector_batches(circuit, support, support_count,
+                                          parameters, 5, support_variables);
+  if (!batches)
+    return EnumerationResult::Unavailable;
 
   // AVX2 byte shuffles address sixteen bytes independently in each 128-bit
   // half.  Duplicate each sixteen-entry table segment in both halves, then
@@ -516,11 +520,8 @@ EnumerationResult enumerate_avx2(
     if (!good)
       continue;
     const uint32_t lane = static_cast<uint32_t>(__builtin_ctz(good));
-    const uint64_t assignment_index = batch * 32 + lane;
-    assignment.assign(circuit.variables, 0);
-    for (uint32_t bit = 0; bit < support_count; ++bit)
-      assignment[support_variables[bit]] = (assignment_index >> bit) & 1;
-    forward_fill(circuit, assignment);
+    decode_lane(circuit, support_variables, support_count, batch * 32 + lane,
+                assignment);
     return EnumerationResult::Found;
   }
   return EnumerationResult::Exhausted;

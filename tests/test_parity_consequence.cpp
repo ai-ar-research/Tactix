@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "test_io.hpp"
 #include "rules/parity_consequence/parity_consequence.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 #include "policies/restart_controller.hpp"
@@ -39,11 +40,6 @@ static void input(Kernel &k) {
     Lit lits[4]; for(unsigned i=0;i<c.size;++i)lits[i]=internalize(c.lits[i]);
     kernel_add_large_clause(k,lits,c.size,false,0,++k.next_clause_id);
   }
-}
-static std::string contents(FILE *file) {
-  std::fflush(file);std::rewind(file);std::string out;char buffer[4096];
-  while(size_t n=std::fread(buffer,1,sizeof buffer,file))out.append(buffer,n);
-  assert(!std::ferror(file));return out;
 }
 struct Capture final:FeedbackReceiver {
   std::vector<ActionFeedback> actions;
@@ -122,7 +118,7 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
     reader.session_end(controller.observe(),0,StopReason::Detached);
     assert(reader.terminal()&&reader.error().empty());
   }
-  const auto journal=contents(records);
+  const auto journal=stream_contents(records);
   assert(journal.find("\"kind\":\"action-complete\"")!=std::string::npos);
   assert(journal.find("\"kind\":\"publish-xor-consequence\"")!=std::string::npos);
   assert(k.nvars==7&&kernel_num_output_vars(k)==7);

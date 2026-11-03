@@ -193,9 +193,7 @@ CoverLiveness cover_live(const Kernel &kernel,
                : CoverLiveness::Absent;
   std::vector<int32_t> wanted = external;
   std::sort(wanted.begin(), wanted.end());
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
+  for (const auto [reference, clause] : arena_records(kernel.arena)) {
     if (!meter.charge(1))
       return CoverLiveness::Stopped;
     if (clause->garbage() || clause->size != wanted.size())

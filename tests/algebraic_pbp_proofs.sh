@@ -1,19 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/proof_checks.sh"
 
 affine=$1
 gf3=$2
 cardinality=$3
-root=$4
-veripb=${VERIPB:-$root/tools/checkers/bin/veripb}
-cakepb=${CAKE_PB_CNF:-$root/tools/checkers/bin/cake-pb-cnf}
+checker_paths "$4"
+require_tools "" "$VERIPB" "$CAKE_PB_CNF"
 
-if [[ ! -x "$veripb" || ! -x "$cakepb" ]]; then
-  exit 77
-fi
-
-tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
+make_scratch tmp
 mkdir -p "$tmp/cardinality"
 
 "$affine" --proof-pbp "$tmp/gf2.cnf" "$tmp/gf2.pbp"
@@ -23,10 +18,10 @@ mkdir -p "$tmp/cardinality"
 check() {
   local name=$1 cnf=$2 proof=$3
   local kernel="$tmp/$name.kernel.pbp"
-  "$veripb" -u --cnf --elaborate "$kernel" "$cnf" "$proof" \
+  "$VERIPB" -u --cnf --elaborate "$kernel" "$cnf" "$proof" \
     > "$tmp/$name.veripb" 2>&1
   grep -q 'VERIFIED' "$tmp/$name.veripb"
-  "$cakepb" "$cnf" "$kernel" > "$tmp/$name.cakepb" 2>&1
+  "$CAKE_PB_CNF" "$cnf" "$kernel" > "$tmp/$name.cakepb" 2>&1
   grep -q 'VERIFIED UNSAT' "$tmp/$name.cakepb"
 }
 

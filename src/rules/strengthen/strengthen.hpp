@@ -37,18 +37,8 @@ void strengthen_candidates(const Kernel &, std::vector<Ref> &out,
 ApplyResult strengthen_try(Kernel &, Ref candidate);
 
 // Additive semantic surface: each payload selects one distinct fused result
-// (victim plus literal to remove, or INVALID_LIT for C1 deletion). This is the
-// same snapshot encoding
-// used by Instantiate: arena Ref in the high word, internal literal in the low
-// word. Any state mutation invalidates it.
-inline uint64_t strengthen_literal_instance(Ref candidate, Lit gone) {
-  return (static_cast<uint64_t>(candidate) << 32) | gone;
-}
-inline void strengthen_literal_of_instance(uint64_t instance, Ref *candidate,
-                                           Lit *gone) {
-  *candidate = static_cast<Ref>(instance >> 32);
-  *gone = static_cast<Lit>(instance);
-}
+// (victim plus literal to remove, or INVALID_LIT for C1 deletion), in the
+// `clause_literal_instance` snapshot encoding shared with Instantiate.
 
 // Canonical: the full round, FUSED — it takes C1's inference whenever the check
 // finds one, so the default slot schedules this rule instead of SubsumeForward

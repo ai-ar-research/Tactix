@@ -1,36 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/proof_checks.sh"
 binary=$1
-root=$2
-trim=${DSR_TRIM:-$root/tools/checkers/bin/dsr-trim}
-trestle=${SR_CHECK:-$root/tools/checkers/bin/srcheck}
-drat=${DRAT_TRIM:-$root/tools/checkers/bin/drat-trim}
-model=$root/tools/fuzz/checkmodel
-for checker in "$trim" "$trestle" "$drat" "$model"; do
-  [[ -x "$checker" ]] || exit 77
-done
-temporary=$(mktemp -d)
-trap 'rm -rf "$temporary"' EXIT
+checker_paths "$2"
+require_tools "" "$DSR_TRIM" "$SR_CHECK" "$DRAT_TRIM" "$CHECKMODEL"
+make_scratch temporary
 "$binary" "$temporary/normalized"
 shopt -s nullglob
 inputs=("$temporary"/normalized*.cnf)
 [[ ${#inputs[@]} -gt 0 ]]
 for input in "${inputs[@]}"; do
   stem=${input%.cnf}
-  "$model" "$input" "$stem.model"
+  "$CHECKMODEL" "$input" "$stem.model"
   if [[ -f "$stem.dsr" ]]; then
     # Native matrix reasons may introduce fresh XOR definitions by checked RAT.
-    "$trim" -f -c "$input" "$stem.dsr" "$stem.lsr" > "$stem.trim.log" 2>&1
-    grep -q '^s VALID$' "$stem.trim.log"
-    "$trestle" "$input" "$stem.lsr" c > "$stem.trestle.log" 2>&1
-    grep -q '^s VALID$' "$stem.trestle.log"
+    dsr_valid "$input" "$stem.dsr" "$stem.lsr" "$stem.trim.log" "$stem.trestle.log"
   fi
   if [[ -f "$stem.drat" ]]; then
-    status=0
-    "$drat" "$input" "$stem.drat" -f > "$stem.drat.log" 2>&1 || status=$?
-    [[ $status -eq 1 ]]
-    tr -d '\r' < "$stem.drat.log" | grep -q '^s DERIVATION$'
-    grep -q 'VERIFIED derivation: all lemmas preserve satisfiability' "$stem.drat.log"
+    drat_derivation "$stem.drat.log" "$input" "$stem.drat" -f
   fi
   # Challenge each original input with a unit opposite its checked model.  The
   # forty-row fixture sets x1 false; the once-only maintenance fixture sets it
@@ -41,10 +28,8 @@ for input in "${inputs[@]}"; do
   else
     printf '%s\n' '1 0' > "$stem.unsupported"
   fi
-  if "$trim" -f -c -U "$input" "$stem.unsupported" "$stem.bad.lsr" > "$stem.bad.log" 2>&1; then
-    echo 'Unsupported unconditional normalization unit was accepted'
-    exit 1
-  fi
+  reject "$stem.bad.log" 'Unsupported unconditional normalization unit was accepted' \
+    "$DSR_TRIM" -f -c -U "$input" "$stem.unsupported" "$stem.bad.lsr"
   grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR|is not RUP' "$stem.bad.log"
 done
 echo 'affine_root_normalization_proof_model OK'

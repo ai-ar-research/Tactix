@@ -13,7 +13,7 @@ struct SweepRequest {
 
 inline ApplyResult execute_action(Kernel &k, const SweepRequest &request) {
   return request.seed == INSTANCE_CANONICAL
-             ? sweep_apply_exact_limits(k, request.parameters)
+             ? sweep_apply_with_limits(k, request.parameters)
              : sweep_try_with_limits(k, static_cast<Var>(request.seed),
                                      request.parameters);
 }

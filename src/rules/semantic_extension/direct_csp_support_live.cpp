@@ -22,10 +22,6 @@ namespace support = direct_csp_support;
 
 using Meter = InterruptibleWork;
 
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
 std::vector<int32_t> normalized(std::vector<int32_t> clause) {
   std::sort(clause.begin(), clause.end());
   return clause;
@@ -81,11 +77,11 @@ bool build_expected(const std::vector<int32_t> &left,
   std::set<uint32_t> variables;
   for (int32_t literal : left)
     if (!literal || literal == INT32_MIN ||
-        !variables.insert(variable(literal)).second)
+        !variables.insert(external_variable_of(literal)).second)
       return false;
   for (int32_t literal : right)
     if (!literal || literal == INT32_MIN ||
-        !variables.insert(variable(literal)).second)
+        !variables.insert(external_variable_of(literal)).second)
       return false;
   for (size_t i = 0; i < left.size(); ++i)
     for (size_t j = i + 1; j < left.size(); ++j)
@@ -330,9 +326,7 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &wanted,
                  Meter &meter) {
   ClauseKey key;
   if (!metered_key(wanted, meter, key)) return false;
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
+  for (const auto [reference, clause] : arena_records(kernel.arena)) {
     if (!meter.charge(1)) return false;
     if (clause->garbage() || clause->size != key.size()) continue;
     ClauseKey external;

@@ -17,14 +17,10 @@
 namespace tactix {
 
 using semantic_extension::append_bounded;
+using semantic_extension::join_integers;
+using semantic_extension::join_rendered;
 
-struct NaryCspEqualityAmoSessionAccess {
-  static void commit(NaryCspEqualityAmoSession &session, const Kernel &kernel,
-                     std::vector<NaryCspEqualityAmoKey> keys) {
-    session.owner_ = &kernel;
-    session.keys_ = std::move(keys);
-  }
-};
+struct NaryCspEqualityAmoSessionAccess {};
 
 namespace {
 
@@ -68,32 +64,24 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &external) {
   std::sort(wanted.begin(), wanted.end());
   if (wanted.size() == 2)
     return kernel_binary_live(kernel, wanted[0], wanted[1]);
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (!clause->garbage() && clause->size == wanted.size()) {
       std::vector<Lit> current(clause->lits, clause->lits + clause->size);
       std::sort(current.begin(), current.end());
       if (current == wanted) return true;
     }
-    ref += words;
   }
   return false;
 }
 
 std::string domains_json(
     const std::vector<std::vector<int32_t>> &domains) {
-  std::string result = "[";
-  for (size_t d = 0; d < domains.size(); ++d) {
-    if (d) result += ',';
-    result += '[';
-    for (size_t i = 0; i < domains[d].size(); ++i) {
-      if (i) result += ',';
-      result += std::to_string(domains[d][i]);
-    }
-    result += ']';
-  }
-  return result + ']';
+  return "[" +
+         join_rendered(domains,
+                       [](const std::vector<int32_t> &domain) {
+                         return "[" + join_integers(domain) + "]";
+                       }) +
+         "]";
 }
 
 uint32_t shared_domain(const NaryCspEqualityRecord &first,
@@ -206,17 +194,12 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
       current);
   result.recognition_work = captured.recognition_work;
   if (captured.status != NaryCspRelationCaptureStatus::Applied) {
-    result.status = captured.status == NaryCspRelationCaptureStatus::Interrupted
-                        ? NaryCspEqualityAmoStatus::Interrupted
-                    : captured.status ==
-                              NaryCspRelationCaptureStatus::ResourceExhausted
-                        ? NaryCspEqualityAmoStatus::ResourceExhausted
-                        : NaryCspEqualityAmoStatus::Stale;
+    result.status =
+        nary_csp_owner_recapture_status<NaryCspEqualityAmoStatus>(
+            captured.status);
     return result;
   }
-  current.capture_work = owner->capture_work;
-  current.external_extent = owner->external_extent;
-  if (current != *owner) {
+  if (!same_authenticated_image(current, *owner)) {
     result.status = NaryCspEqualityAmoStatus::Stale;
     return result;
   }
@@ -305,7 +288,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
   semantic_extension::write_journal_or_abort(records, journal);
   std::vector<NaryCspEqualityAmoKey> keys = session.keys();
   keys.insert(std::lower_bound(keys.begin(), keys.end(), key), key);
-  NaryCspEqualityAmoSessionAccess::commit(session, kernel, std::move(keys));
+  session.commit({}, kernel, std::move(keys));
   kernel.structural_action_sequence = action_id;
   result.committed_action_id = action_id;
   result.propagation_pending = !kernel_propagation_fixpoint(kernel);

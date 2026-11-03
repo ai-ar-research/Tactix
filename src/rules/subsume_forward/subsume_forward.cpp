@@ -502,10 +502,7 @@ bool subsume_forward_compact_fastel_prefix(Kernel &k, Lit lit, size_t prefix) {
       return k.value(other) > 0 || !kernel_var_retired(k, var_of(other));
     }
     const Clause *clause = clause_at(k.arena, entry.payload);
-    if (clause->garbage()) return false;
-    for (const Lit other : *clause)
-      if (other == lit) return true;
-    return false;
+    return !clause->garbage() && clause_contains(clause, lit);
   };
   size_t at = 0;
   bool dead = false;

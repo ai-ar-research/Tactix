@@ -6,20 +6,6 @@
 #include "rules/lucky/lucky.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/lucky_execution.hpp"
-#include "rules/lucky/parity_model.hpp"
-#include "rules/lucky/parity_refutation.hpp"
-#include "rules/lucky/count_preservation.hpp"
-#include "rules/lucky/onehot_model.hpp"
-#include "rules/lucky/affine_model.hpp"
-#include "rules/lucky/balanced_signature_model.hpp"
-#include "rules/lucky/fermat_model.hpp"
-#include "rules/lucky/cerny_model.hpp"
-#include "rules/lucky/lookup_circuit_model.hpp"
-#include "rules/lucky/simon_model.hpp"
-#include "rules/lucky/stconn_proof.hpp"
-#include "rules/lucky/exact_cover_model.hpp"
-#include "rules/lucky/independent_set_model.hpp"
-#include "rules/lucky/signed_cardinality_proof.hpp"
 
 #include "rules/propagate/propagate.hpp"
 
@@ -129,8 +115,7 @@ static bool lucky_active(const Kernel &k, Var v) {
 // irredundant clause, i.e. none of them needs a `want_negated` literal (kissat
 // no_all_negative_clauses / no_all_positive_clauses).
 static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && !c->redundant()) {
       bool ok = false;
       for (const Lit l : *c)
@@ -141,7 +126,6 @@ static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
       if (!ok)
         return false; // this clause needs the other polarity
     }
-    ref += clause_actual_words(c);
   }
   // binaries live only in watch lists: scan each variable's
   // `want_negated`-polarity literal for a partner of the same polarity. Both

@@ -1,24 +1,11 @@
 /* Fixed public-API X5 proof witness for external original-CNF checkers. */
 #undef NDEBUG
-#include "tactix.h"
+#include "api_test_support.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-static void add(tactix *solver, const int *clause) {
-  for (const int *p = clause; *p; ++p)
-    tactix_add(solver, *p);
-  tactix_add(solver, 0);
-}
-
-static int rule_id(const char *name) {
-  for (int id = 0; id < tactix_rule_count(); ++id)
-    if (!strcmp(tactix_rule_name(id), name))
-      return id;
-  return -1;
-}
 
 int main(int argc, char **argv) {
   if ((argc != 4 && argc != 5) ||
@@ -81,20 +68,20 @@ int main(int argc, char **argv) {
   tactix *solver = tactix_init();
   if (!sat)
     assert(tactix_proof(solver, proof, atoi(argv[2])) == 0);
-  add(solver, candidate);
-  add(solver, candidate);
-  add(solver, d);
-  add(solver, e);
+  add_clause(solver, candidate);
+  add_clause(solver, candidate);
+  add_clause(solver, d);
+  add_clause(solver, e);
   if (root) {
     for (size_t i = 0; i < 2; ++i)
-      add(solver, force_two[i]);
+      add_clause(solver, force_two[i]);
     if (large)
       for (size_t i = 0; i < 2; ++i)
-        add(solver, force_seven[i]);
+        add_clause(solver, force_seven[i]);
   }
   if (!sat)
     for (size_t i = 0; i < 4; ++i)
-      add(solver, core[i]);
+      add_clause(solver, core[i]);
   if (root) {
     const int probe = rule_id("Probe");
     assert(probe >= 0);
@@ -123,10 +110,7 @@ int main(int argc, char **argv) {
     step.base.base.step_id = 375;
     step.base.base.rule_id = rule_id("Condition");
     step.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-    step.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-    step.base.base.repeat_limit = 1;
-    step.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-    step.base.base.budget_unlimited = 1;
+    step_once(&step.base.base);
     step.condition_instances = &exact;
     step.condition_instance_count = 1;
     const tactix_online_program_v3 program = {

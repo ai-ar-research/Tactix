@@ -44,9 +44,9 @@ Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
 
   std::set<uint32_t> domain_variables;
   for (int32_t literal : relation.left.values)
-    domain_variables.insert(csp_exact_theory::variable(literal));
+    domain_variables.insert(external_variable_of(literal));
   for (int32_t literal : relation.right.values)
-    if (!domain_variables.insert(csp_exact_theory::variable(literal)).second)
+    if (!domain_variables.insert(external_variable_of(literal)).second)
       return decline(Status::InvalidRequest);
 
   csp_exact_theory::Snapshot<Premise> snapshot;

@@ -85,8 +85,10 @@ RuleEligibility direct_php_registry_guard(const Kernel &kernel) {
                 kernel.direct_php_refutation_parameters).valid());
 }
 
-RuleEligibility nary_csp_equality_registry_guard(const Kernel &kernel) {
-  RuleEligibility result = nary_csp_equality_action_guard(kernel);
+// The relation and equality session facts that open every nary-CSP equality
+// registry guard's own conjuncts.
+RuleEligibility &nary_csp_sessions_bound(RuleEligibility &result,
+                                         const Kernel &kernel) {
   return result
       .fact("relation-session-bound",
             kernel.nary_csp_relation_owner_session != nullptr)
@@ -94,19 +96,23 @@ RuleEligibility nary_csp_equality_registry_guard(const Kernel &kernel) {
             kernel.nary_csp_equality_session != nullptr);
 }
 
+RuleEligibility nary_csp_equality_registry_guard(const Kernel &kernel) {
+  RuleEligibility result = nary_csp_equality_action_guard(kernel);
+  return nary_csp_sessions_bound(result, kernel);
+}
+
 RuleEligibility nary_csp_equality_amo_registry_guard(const Kernel &kernel) {
   RuleEligibility result = nary_csp_equality_amo_guard(kernel);
-  return result
-      .fact("relation-session-bound",
-            kernel.nary_csp_relation_owner_session != nullptr)
-      .fact("equality-session-bound",
-            kernel.nary_csp_equality_session != nullptr)
+  return nary_csp_sessions_bound(result, kernel)
       .fact("amo-session-bound",
             kernel.nary_csp_equality_amo_session != nullptr);
 }
 
 RuleEligibility nary_csp_equality_transitivity_registry_guard(const Kernel &k) {
- return nary_csp_equality_transitivity_guard(k).fact("relation-session-bound", k.nary_csp_relation_owner_session != nullptr).fact("equality-session-bound", k.nary_csp_equality_session != nullptr).fact("transitivity-session-bound", k.nary_csp_equality_transitivity_session != nullptr);
+  RuleEligibility result = nary_csp_equality_transitivity_guard(k);
+  return nary_csp_sessions_bound(result, k)
+      .fact("transitivity-session-bound",
+            k.nary_csp_equality_transitivity_session != nullptr);
 }
 
 TACTIX_REGISTER_RULE(Gf3AffineConsequence, RuleTier::Inprocess,
@@ -253,16 +259,14 @@ const std::vector<RuleVTable> &tactix_rules() {
         rules.push_back(retired);
         continue;
       }
-      const auto match = std::find_if(
-          registered.begin(), registered.end(),
-          [name](const RuleVTable &rule) {
-            return std::strcmp(rule.name, name) == 0;
-          });
+      const auto named = [name](const RuleVTable &rule) {
+        return std::strcmp(rule.name, name) == 0;
+      };
+      const auto match =
+          std::find_if(registered.begin(), registered.end(), named);
       if (match == registered.end() ||
-          std::find_if(match + 1, registered.end(),
-                       [name](const RuleVTable &rule) {
-                         return std::strcmp(rule.name, name) == 0;
-                       }) != registered.end()) {
+          std::find_if(match + 1, registered.end(), named) !=
+              registered.end()) {
         std::fprintf(stderr,
                      "c ERROR: registry action '%s' missing or duplicated\n",
                      name);

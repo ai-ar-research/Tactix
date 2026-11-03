@@ -4,6 +4,7 @@
 #include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "strategy/action_status_mapping.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -151,7 +152,7 @@ bool admitted(const Kernel &kernel, bool atomic, Status &status) {
     status = Status::UnsupportedProof;
   else if (kernel.proof && !atomic)
     status = Status::UnsupportedProofSplit;
-  else if (!gf3_live_common::root_guard(kernel))
+  else if (!gf3_live_common::root_ready(kernel))
     status = terminating_status(kernel, Status::Inapplicable);
   else
     return true;
@@ -174,21 +175,16 @@ bool valid(const Request &request) {
 }
 
 Status owner_status(Gf3AffineLiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<Status>(status))
+    return *failure;
   switch (status) {
   case Gf3AffineLiveStatus::Applied: return Status::Prepared;
-  case Gf3AffineLiveStatus::Inapplicable: return Status::Inapplicable;
   case Gf3AffineLiveStatus::NoStructure: return Status::NoStructure;
-  case Gf3AffineLiveStatus::ResourceExhausted:
-    return Status::ResourceExhausted;
-  case Gf3AffineLiveStatus::Interrupted: return Status::Interrupted;
-  case Gf3AffineLiveStatus::Stale: return Status::Stale;
-  case Gf3AffineLiveStatus::UnsupportedProof:
-    return Status::UnsupportedProof;
-  case Gf3AffineLiveStatus::Invalid:
   case Gf3AffineLiveStatus::NoConsequence:
   case Gf3AffineLiveStatus::Duplicate: return Status::Invalid;
+  default: std::abort();
   }
-  std::abort();
 }
 
 Status bridge_status(gf3_gaussian_bridge::Status status) {

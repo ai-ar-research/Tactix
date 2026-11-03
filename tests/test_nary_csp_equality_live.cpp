@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 
 #include "frontend/parse.hpp"
@@ -39,28 +40,11 @@ std::vector<std::vector<int32_t>> clauses(bool unsat_core = false) {
 }
 
 std::string dimacs(bool unsat_core = false) {
-  const auto formula = clauses(unsat_core);
-  std::ostringstream output;
-  output << "p cnf " << (unsat_core ? 11 : 9) << ' ' << formula.size()
-         << '\n';
-  for (const auto &clause : formula) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
-  return output.str();
+  return dimacs_text(unsat_core ? 11 : 9, clauses(unsat_core));
 }
 
 Kernel parse(bool unsat_core = false) {
-  const std::string text = dimacs(unsat_core);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(!kernel.inconsistent && kernel_propagation_fixpoint(kernel));
-  return kernel;
+  return parse_dimacs_text(dimacs(unsat_core), ParsedRoot::Consistent);
 }
 
 NaryCspRelationCaptureRequest capture_request() {

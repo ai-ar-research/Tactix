@@ -8,12 +8,7 @@
 #include <cstdlib>
 #include <string>
 namespace tactix {
-struct NaryCspEqualityTransitivitySessionAccess {
- static void commit(NaryCspEqualityTransitivitySession &s,const Kernel &k,
-                    std::vector<NaryCspEqualityTransitivityKey> keys) {
-   s.owner_=&k;s.keys_=std::move(keys);
- }
-};
+struct NaryCspEqualityTransitivitySessionAccess{};
 namespace {
 using Selection=NaryCspEqualityTransitivitySelection;
 using Status=NaryCspEqualityTransitivityStatus;
@@ -84,7 +79,7 @@ NaryCspRelationCaptureRequest capture_request(const NaryCspEqualityKey &key,
  auto r=nary_csp_ternary_capture_request(key.domains,l);
  r.maximum_source_clauses=clauses;r.maximum_source_literals=literals;r.maximum_recognition_work=work;return r;
 }
-std::string clause_json(const ExternalClause &c){std::string s="[";for(auto l:c){if(s.size()>1)s+=',';s+=std::to_string(l);}return s+"]";}
+std::string clause_json(const ExternalClause &c){return "["+semantic_extension::join_integers(c)+"]";}
 }
 bool NaryCspEqualityTransitivityLimits::valid()const{
  return maximum_source_clauses&&maximum_source_literals&&maximum_recognition_work&&maximum_planning_work&&
@@ -170,10 +165,8 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
    const auto captured=nary_csp_relation_capture_owner(k,capture_request(r->key,limits,meter.remaining(),
      limits.maximum_source_clauses-out.source_clauses,limits.maximum_source_literals-out.source_literals),fresh);
    if(!meter.charge(captured.recognition_work)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
-   if(captured.status!=NaryCspRelationCaptureStatus::Applied){out.status=captured.status==NaryCspRelationCaptureStatus::Interrupted?Status::Interrupted:
-     captured.status==NaryCspRelationCaptureStatus::ResourceExhausted?Status::ResourceExhausted:Status::Stale;out.recognition_work=meter.used;return finish();}
-   fresh.capture_work=saved->capture_work;fresh.external_extent=saved->external_extent;
-   if(fresh!=*saved){out.status=Status::Stale;return finish();}
+   if(captured.status!=NaryCspRelationCaptureStatus::Applied){out.status=nary_csp_owner_recapture_status<Status>(captured.status);out.recognition_work=meter.used;return finish();}
+   if(!same_authenticated_image(fresh,*saved)){out.status=Status::Stale;return finish();}
    for(const auto &p:fresh.source)if(!source(p.literals,p.native_proof_id,true)){out.status=meter.exhausted||meter.interrupted?stopped_status(meter,Status::ResourceExhausted):
       source_resource?Status::ResourceExhausted:Status::Stale;return finish();}
    const auto n=selected.domains[0].size();
@@ -254,7 +247,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
      if(!k.proof)++k.next_clause_id;}
  }
  semantic_extension::write_journal_or_abort(records,journal);
- NaryCspEqualityTransitivitySessionAccess::commit(session,k,std::move(keys));k.structural_action_sequence=out.proposed_action_id;
+ session.commit({},k,std::move(keys));k.structural_action_sequence=out.proposed_action_id;
  out.published_consequences=std::move(consequences);
  out.committed_action_id=out.proposed_action_id;out.status=Status::Applied;out.result=ApplyResult::Ok;
  out.proof_work=plan.publication_work;out.proof_additions=plan.additions;out.proof_deletions=plan.deletions;

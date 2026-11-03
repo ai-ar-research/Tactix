@@ -48,7 +48,6 @@ CardinalitySearchActionResult cardinality_search_action_apply(
   for (const CardinalitySearchBound &bound : bounds) {
     auto constructed = cardinality_search::construct(
         bound.literals, bound.lower, bound.upper, limits.inspection);
-    output.construction_work += constructed.work;
     if (constructed.status ==
         cardinality_search::ConstructStatus::ResourceExhausted) {
       output.status = CardinalitySearchActionStatus::ResourceExhausted;
@@ -62,34 +61,11 @@ CardinalitySearchActionResult cardinality_search_action_apply(
   output.proposed_action_id = request.action_id;
   output.live = cardinality_search_live_apply(kernel, request);
   output.result = output.live.result;
-  switch (output.live.status) {
-  case CardinalitySearchLiveStatus::Invalid:
-    output.status = CardinalitySearchActionStatus::Invalid;
-    break;
-  case CardinalitySearchLiveStatus::Inapplicable:
-    output.status = CardinalitySearchActionStatus::Inapplicable;
-    break;
-  case CardinalitySearchLiveStatus::UnsupportedProof:
-    output.status = CardinalitySearchActionStatus::UnsupportedProof;
-    break;
-  case CardinalitySearchLiveStatus::NoSource:
-    output.status = CardinalitySearchActionStatus::NoSource;
-    break;
-  case CardinalitySearchLiveStatus::NoEvent:
-    output.status = CardinalitySearchActionStatus::NoEvent;
-    break;
-  case CardinalitySearchLiveStatus::ResourceExhausted:
-    output.status = CardinalitySearchActionStatus::ResourceExhausted;
-    break;
-  case CardinalitySearchLiveStatus::Interrupted:
-    output.status = CardinalitySearchActionStatus::Interrupted;
-    break;
-  case CardinalitySearchLiveStatus::Applied:
-    output.status = CardinalitySearchActionStatus::Applied;
+  output.status = output.live.status;
+  if (output.status == CardinalitySearchActionStatus::Applied) {
     ++kernel.stats.cardinality_search_applied;
     kernel.structural_action_sequence = request.action_id;
     output.committed_action_id = request.action_id;
-    break;
   }
   return output;
 }

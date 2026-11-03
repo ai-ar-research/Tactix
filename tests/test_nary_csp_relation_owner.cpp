@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 
 #include "frontend/parse.hpp"
@@ -48,27 +49,8 @@ Clauses relation_clauses(int32_t first, bool omit_amo = false,
   return result;
 }
 
-std::string dimacs(const Clauses &clauses, uint32_t variables) {
-  std::ostringstream output;
-  output << "p cnf " << variables << ' ' << clauses.size() << '\n';
-  for (const auto &clause : clauses) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
-  return output.str();
-}
-
 Kernel parse(const Clauses &clauses, uint32_t variables) {
-  const std::string text = dimacs(clauses, variables);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(!kernel.inconsistent && kernel_propagation_fixpoint(kernel));
-  return kernel;
+  return parse_dimacs_text(dimacs_text(variables, clauses), ParsedRoot::Consistent);
 }
 
 NaryCspRelationCaptureRequest request(int32_t first = 1) {

@@ -1,6 +1,7 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
-#include "rules/lucky/signed_cardinality_proof.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <array>
@@ -27,15 +28,7 @@ static Kernel fixture(bool omit_last = false) {
           dimacs << group[i] << ' ' << group[j] << ' ' << group[k] << " 0\n";
         }
 
-  FILE *input = std::tmpfile();
-  assert(input);
-  const std::string text = dimacs.str();
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  return kernel;
+  return parse_dimacs_text(dimacs.str());
 }
 
 int main() {
@@ -61,7 +54,8 @@ int main() {
     Kernel kernel = fixture();
     strategy::SignedCardinalityProofParameters parameters;
     parameters.maximum_proof_additions = 1;
-    strategy::ScopedSignedCardinalityProofParameters posed(kernel, parameters);
+    strategy::ScopedRuleParameters<strategy::SignedCardinalityProofParameters> posed(
+        kernel, parameters);
     assert(signed_cardinality_proof_apply(kernel) == ApplyResult::NoOp);
     assert(!kernel.inconsistent);
     assert(kernel.stats.signed_cardinality_proof_budget_exhausted == 1);

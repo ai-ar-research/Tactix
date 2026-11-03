@@ -4,7 +4,8 @@
 // configuration and action port; plan §5.6, §8.4). default_policy.cpp leaves
 // its translation unit only through `port::` funnels: execute_action,
 // complete_action, apply_rule*, propagate_apply, InprocessPhase,
-// affine_matrix_search_*, subsume_forward_try_fastel, bve_apply_one,
+// affine_matrix_search_{initialize,refresh,service,release},
+// subsume_forward_try_fastel, bve_apply_one,
 // execute_substitute_rounds, and the scopes it holds around requests
 // (TickSinkScope, WorkSettingsScope, ScopedRuleWorkBudget, VivifyDoseScope,
 // ScopedReduceParameters, BveInvocationSession). Production binds them to the registered functions
@@ -61,33 +62,10 @@ struct StaticPort {
       const AffineMatrixPersistenceLimits &limits, bool recognize) {
     return ::tactix::affine_matrix_search_refresh(k, session, parameters, limits, recognize);
   }
-  static AffineMatrixServiceResult affine_matrix_search_step(Kernel &k,
-                                                             AffineMatrixSearchSession &session) {
-    return ::tactix::affine_matrix_search_step(k, session);
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_deferred(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    return ::tactix::affine_matrix_search_step_deferred(k, session);
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    return ::tactix::affine_matrix_search_step_detached_minimal(k, session);
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_detached_source(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    return ::tactix::affine_matrix_search_step_detached_source(k, session);
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    return ::tactix::affine_matrix_search_step_lazy_source(k, session);
-  }
-  static AffineMatrixServiceResult affine_matrix_search_step_lazy_minimal(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    return ::tactix::affine_matrix_search_step_lazy_minimal(k, session);
-  }
-  static AffineMatrixServiceResult affine_matrix_materialize_reason(
-      Kernel &k, AffineMatrixSearchSession &session) {
-    return ::tactix::affine_matrix_materialize_reason(k, session);
+  static AffineMatrixServiceResult affine_matrix_search_service(
+      Kernel &k, AffineMatrixSearchSession &session,
+      strategy::AffineMatrixInitializeParameters::Operation operation) {
+    return ::tactix::affine_matrix_search_service(k, session, operation);
   }
   static void affine_matrix_search_release(AffineMatrixSearchSession &session) {
     session.disable();
@@ -213,42 +191,8 @@ decltype(auto) affine_matrix_search_refresh(Kernel &k, Args &&...args) {
   return P::affine_matrix_search_refresh(k, std::forward<Args>(args)...);
 }
 template <class P = SelectedPort, class... Args>
-decltype(auto) affine_matrix_search_step(Kernel &k, Args &&...args) {
-  return P::affine_matrix_search_step(k, std::forward<Args>(args)...);
-}
-template <class P = SelectedPort, class... Args>
-decltype(auto) affine_matrix_search_step_deferred(Kernel &k, Args &&...args) {
-  return P::affine_matrix_search_step_deferred(k,
-                                                std::forward<Args>(args)...);
-}
-template <class P = SelectedPort, class... Args>
-decltype(auto) affine_matrix_search_step_detached_minimal(Kernel &k,
-                                                          Args &&...args) {
-  return P::affine_matrix_search_step_detached_minimal(
-      k, std::forward<Args>(args)...);
-}
-template <class P = SelectedPort, class... Args>
-decltype(auto) affine_matrix_search_step_detached_source(Kernel &k,
-                                                         Args &&...args) {
-  return P::affine_matrix_search_step_detached_source(
-      k, std::forward<Args>(args)...);
-}
-template <class P = SelectedPort, class... Args>
-decltype(auto) affine_matrix_search_step_lazy_source(Kernel &k,
-                                                      Args &&...args) {
-  return P::affine_matrix_search_step_lazy_source(
-      k, std::forward<Args>(args)...);
-}
-template <class P = SelectedPort, class... Args>
-decltype(auto) affine_matrix_search_step_lazy_minimal(Kernel &k,
-                                                       Args &&...args) {
-  return P::affine_matrix_search_step_lazy_minimal(
-      k, std::forward<Args>(args)...);
-}
-template <class P = SelectedPort, class... Args>
-decltype(auto) affine_matrix_materialize_reason(Kernel &k, Args &&...args) {
-  return P::affine_matrix_materialize_reason(k,
-                                              std::forward<Args>(args)...);
+decltype(auto) affine_matrix_search_service(Kernel &k, Args &&...args) {
+  return P::affine_matrix_search_service(k, std::forward<Args>(args)...);
 }
 template <class P = SelectedPort, class... Args>
 void affine_matrix_search_release(AffineMatrixSearchSession &session, Args &&...args) {
@@ -292,13 +236,7 @@ using ::tactix::apply_rule_structured;
 using ::tactix::propagate_apply;
 using ::tactix::affine_matrix_search_initialize;
 using ::tactix::affine_matrix_search_refresh;
-using ::tactix::affine_matrix_search_step;
-using ::tactix::affine_matrix_search_step_deferred;
-using ::tactix::affine_matrix_search_step_detached_minimal;
-using ::tactix::affine_matrix_search_step_detached_source;
-using ::tactix::affine_matrix_search_step_lazy_source;
-using ::tactix::affine_matrix_search_step_lazy_minimal;
-using ::tactix::affine_matrix_materialize_reason;
+using ::tactix::affine_matrix_search_service;
 using ::tactix::subsume_forward_try_fastel;
 using execution::execute_substitute_rounds;
 inline strategy::InvocationResult bve_apply_one(strategy::BveInvocationSession &session,

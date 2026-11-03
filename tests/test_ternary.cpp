@@ -1,6 +1,7 @@
 // HyperTernaryRes unit tests: the two collapsing shapes, the three rejections
 // cadical's `hyper_ternary_resolve` makes, and the instance surface.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -13,11 +14,6 @@
 #include <vector>
 
 using namespace tactix;
-
-static void add3(Kernel &k, int a, int b, int c) {
-  const Lit l[3] = {internalize(a), internalize(b), internalize(c)};
-  kernel_add_large_clause(k, l, 3, /*redundant=*/false, 0);
-}
 
 // One shared non-pivot literal collapses the resolvent to a ternary.
 static void test_ternary_resolvent() {

@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "tactix.h"
+#include "api_test_support.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -7,21 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-static int rule(const char *name) {
-  int i;
-  for (i = 0; i < tactix_rule_count(); ++i)
-    if (!strcmp(tactix_rule_name(i), name))
-      return i;
-  assert(0);
-  return -1;
-}
-
-static void clause(tactix *solver, const int *literals) {
-  while (*literals)
-    tactix_add(solver, *literals++);
-  tactix_add(solver, 0);
-}
 
 static int configure_version(tactix *solver, int version,
                              const tactix_online_step *step,
@@ -66,17 +51,14 @@ static void rejected_configuration_keeps_input_open(void) {
                  (long)getpid(), version, proof_mode);
       if (proof_mode == 1)
         assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
-      clause(solver, (const int[]){1, 0});
+      add_clause(solver, (const int[]){1, 0});
       assert(tactix_add_checked(solver, 2) == 0); /* unfinished clause */
       tactix_online_step step;
       memset(&step, 0, sizeof step);
       step.rule_id = -1; /* converter rejection */
       step.step_id = 1;
       step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-      step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-      step.repeat_limit = 1;
-      step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-      step.budget_unlimited = 1;
+      step_once(&step);
       assert(configure_version(solver, version, &step, 0, 1) == -1);
       assert(tactix_online_complete(solver) == -1);
       assert(tactix_add_checked(solver, 0) == 0);
@@ -88,16 +70,16 @@ static void rejected_configuration_keeps_input_open(void) {
       step.step_id = 0; /* executor rejection after successful conversion */
       assert(configure_version(solver, version, &step, 0, 2) == -1);
       assert(tactix_online_complete(solver) == -1);
-      clause(solver, (const int[]){3, 0});
+      add_clause(solver, (const int[]){3, 0});
 
       step.step_id = 1;
       if (version != 1) {
         assert(configure_version(solver, version, &step, 1, 3) == -1);
         assert(tactix_online_complete(solver) == -1);
-        clause(solver, (const int[]){4, 0});
+        add_clause(solver, (const int[]){4, 0});
       }
       if (proof_mode)
-        clause(solver, (const int[]){-1, 0});
+        add_clause(solver, (const int[]){-1, 0});
       assert(configure_version(solver, version, &step, 0, 4) == 0);
       assert(tactix_add_checked(solver, 5) == -1);
       assert(tactix_solve(solver) == (proof_mode ? 20 : 10));
@@ -113,10 +95,10 @@ static void rejected_configuration_keeps_input_open(void) {
 
 static void condition_cube_v3_is_atomic_and_copied(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
-  clause(solver, (const int[]){1, 2, 0});
-  clause(solver, (const int[]){-1, 3, 0});
-  clause(solver, (const int[]){-3, 4, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){-1, 3, 0});
+  add_clause(solver, (const int[]){-3, 4, 0});
   int candidate[] = {1, 2};
   int witness[] = {1, 3, 4};
   tactix_online_condition_instance cubes[] = {
@@ -126,10 +108,7 @@ static void condition_cube_v3_is_atomic_and_copied(void) {
   step.base.base.step_id = 375;
   step.base.base.rule_id = rule("Condition");
   step.base.base.granularity = TACTIX_ONLINE_GRANULARITY_BATCH;
-  step.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.base.base.repeat_limit = 1;
-  step.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.base.base.budget_unlimited = 1;
+  step_once(&step.base.base);
   step.condition_instances = cubes;
   step.condition_instance_count = 2;
   tactix_online_program_v3 program = {
@@ -227,7 +206,7 @@ static void canonical_bve_reaches_a_real_fixpoint(void) {
     const int a = (signs & 1) ? -1 : 1;
     const int b = (signs & 2) ? -2 : 2;
     const int input[] = {b, a, 0};
-    clause(solver, input);
+    add_clause(solver, input);
     int progress = 0, result;
     while ((result = tactix_apply(solver, rule("BVE"))) == 0) {
       assert(++progress <= 2);
@@ -250,8 +229,8 @@ static void canonical_bve_reaches_a_real_fixpoint(void) {
 
 static void bve_otf_strengthening_is_public_and_observable(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 3, 0});
-  clause(solver, (const int[]){-1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 3, 0});
+  add_clause(solver, (const int[]){-1, 2, 0});
 
   tactix_online_step step;
   memset(&step, 0, sizeof step);
@@ -299,7 +278,7 @@ static void status_reconstructs_bve_models_and_refreshes_after_restart(void) {
     const int a = (signs & 1) ? -1 : 1;
     const int b = (signs & 2) ? -2 : 2;
     const int input[] = {b, a, 0};
-    clause(solver, input);
+    add_clause(solver, input);
     tactix_online_step step;
     memset(&step, 0, sizeof step);
     step.step_id = 101;
@@ -333,7 +312,7 @@ static void status_reconstructs_bve_models_and_refreshes_after_restart(void) {
 
   tactix *solver = tactix_init();
   const int input[] = {1, 2, 0};
-  clause(solver, input);
+  add_clause(solver, input);
   assert(tactix_decide(solver, 1) == 0);
   assert(tactix_apply(solver, rule("Propagate")) >= 0);
   assert(tactix_decide(solver, -2) == 0);
@@ -353,8 +332,8 @@ static void pure_bve_scope_is_public_and_validated(void) {
   tactix *solver = tactix_init();
   const int first[] = {1, 2, 0};
   const int second[] = {-2, 3, 0};
-  clause(solver, first);
-  clause(solver, second);
+  add_clause(solver, first);
+  add_clause(solver, second);
 
   tactix_online_step step;
   memset(&step, 0, sizeof step);
@@ -415,7 +394,7 @@ static void exact_factor_grid_is_copied_and_applied(void) {
     for (column = 0; column < 3; ++column) {
       const int binary[] = {factor_literals[row],
                             column_literals[column][0], 0};
-      clause(solver, binary);
+      add_clause(solver, binary);
     }
   for (column = 0; column < 3; ++column) {
     columns[column].literals = column_literals[column];
@@ -432,10 +411,7 @@ static void exact_factor_grid_is_copied_and_applied(void) {
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   step.factor_grids = &grid;
   step.factor_grid_count = 1;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   program.steps = &step;
   program.step_count = 1;
   program.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
@@ -460,7 +436,7 @@ static void complete_factor_grid_is_discovered_and_applied(void) {
   for (factor = 1; factor <= 2; ++factor)
     for (remainder = 3; remainder <= 5; ++remainder) {
       const int binary[] = {factor, remainder, 0};
-      clause(solver, binary);
+      add_clause(solver, binary);
     }
 
   tactix_online_step step;
@@ -469,10 +445,7 @@ static void complete_factor_grid_is_discovered_and_applied(void) {
   step.rule_id = rule("Factor");
   step.parameters.kind = TACTIX_ONLINE_PARAMETERS_INHERIT;
   step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 14,
@@ -498,7 +471,7 @@ static void exact_sr_instance_v2_is_copied_and_applied(void) {
                             {-1, -3, 0}, {-2, -4, 0}};
   int i;
   for (i = 0; i < 4; ++i)
-    clause(solver, clauses[i]);
+    add_clause(solver, clauses[i]);
 
   int sr_clause[] = {-1};
   int witness[] = {-1, 3};
@@ -516,10 +489,7 @@ static void exact_sr_instance_v2_is_copied_and_applied(void) {
   step.base.parameters.value.substitution_redundancy.maximum_validation_ticks =
       UINT64_MAX;
   step.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.base.repeat_limit = 1;
-  step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.base.budget_unlimited = 1;
+  step_once(&step.base);
   step.base.post_application = TACTIX_ONLINE_POST_PROPAGATE;
   step.sr_instances = &instance;
   step.sr_instance_count = 1;
@@ -546,7 +516,7 @@ static void general_sr_producer_is_available_through_v1(void) {
   tactix *solver = tactix_init();
   /* A discarded tautology no longer keeps an unassigned identity active.
      Use a live clause so the public producer has a real variable domain. */
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   tactix_online_program program;
   tactix_online_result result;
@@ -583,7 +553,7 @@ static void graph_sr_producer_is_typed_through_v1(void) {
   tactix_online_result result;
   size_t i;
   for (i = 0; i < sizeof clauses / sizeof clauses[0]; ++i)
-    clause(solver, clauses[i]);
+    add_clause(solver, clauses[i]);
   memset(&step, 0, sizeof step);
   step.step_id = 77;
   step.rule_id = rule("SubstitutionRedundancy");
@@ -611,10 +581,7 @@ static void graph_sr_producer_is_typed_through_v1(void) {
   step.parameters.value.substitution_redundancy
       .maximum_symmetry_group_ticks = 100000;
   step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   program = (tactix_online_program){&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 19,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
@@ -632,7 +599,7 @@ static void invalid_graph_sr_settings_are_transactional(void) {
   tactix_online_result result;
   size_t i;
   for (i = 0; i < sizeof clauses / sizeof clauses[0]; ++i)
-    clause(solver, clauses[i]);
+    add_clause(solver, clauses[i]);
   memset(&step, 0, sizeof step);
   step.step_id = 78;
   step.rule_id = rule("SubstitutionRedundancy");
@@ -660,10 +627,7 @@ static void invalid_graph_sr_settings_are_transactional(void) {
   step.parameters.value.substitution_redundancy
       .maximum_symmetry_group_ticks = 100000;
   step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 20,
@@ -1051,7 +1015,7 @@ static void invalid_graph_sr_settings_are_transactional(void) {
 static void walk_scoring_is_validated_and_copied(void) {
   tactix *solver = tactix_init();
   const int binary[] = {1, 2, 0};
-  clause(solver, binary);
+  add_clause(solver, binary);
   tactix_online_walk_score_point curve[3] = {
       {0, 1500}, {3000, 2700}, {8000, 6900}};
   tactix_online_step step;
@@ -1131,9 +1095,9 @@ static void affine_model_parameters_require_instance_eight(void) {
     unsigned parity=0;for(unsigned i=0;i<4;++i)parity^=(mask>>i)&1;
     if(parity)continue;
     int lits[5];for(unsigned i=0;i<4;++i)lits[i]=(mask&(1u<<i))?-(int)(i+1):(int)(i+1);
-    lits[4]=0;clause(solver,lits);
+    lits[4]=0;add_clause(solver,lits);
   }
-  for(int i=1;i<4;++i){const int pair[]={-i,-(i+1),0};clause(solver,pair);}
+  for(int i=1;i<4;++i){const int pair[]={-i,-(i+1),0};add_clause(solver,pair);}
   tactix_online_step step;memset(&step,0,sizeof step);
   step.step_id=908;step.rule_id=rule("Lucky");
   step.parameters.kind=TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL;
@@ -1163,7 +1127,7 @@ static void affine_model_parameters_require_instance_eight(void) {
 
 static void balanced_signature_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 909;
@@ -1182,10 +1146,7 @@ static void balanced_signature_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
@@ -1202,7 +1163,7 @@ static void balanced_signature_parameters_are_public_and_validated(void) {
 
 static void fermat_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 910;
@@ -1218,10 +1179,7 @@ static void fermat_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
@@ -1240,7 +1198,7 @@ static void fermat_parameters_are_public_and_validated(void) {
 
 static void lookup_circuit_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 911;
@@ -1257,10 +1215,7 @@ static void lookup_circuit_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
@@ -1279,7 +1234,7 @@ static void lookup_circuit_parameters_are_public_and_validated(void) {
 
 static void simon_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 912;
@@ -1292,10 +1247,7 @@ static void simon_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
@@ -1314,7 +1266,7 @@ static void simon_parameters_are_public_and_validated(void) {
 
 static void stconn_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 913;
@@ -1329,10 +1281,7 @@ static void stconn_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
@@ -1349,7 +1298,7 @@ static void stconn_parameters_are_public_and_validated(void) {
 
 static void signed_cardinality_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 914;
@@ -1367,10 +1316,7 @@ static void signed_cardinality_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(
@@ -1387,7 +1333,7 @@ static void signed_cardinality_parameters_are_public_and_validated(void) {
 
 static void exact_cover_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 915;
@@ -1404,10 +1350,7 @@ static void exact_cover_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   uint64_t wrong = 18;
@@ -1425,7 +1368,7 @@ static void exact_cover_parameters_are_public_and_validated(void) {
 
 static void independent_set_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){1, 2, 0});
+  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 916;
@@ -1441,10 +1384,7 @@ static void independent_set_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   uint64_t wrong = 17;
@@ -1462,20 +1402,20 @@ static void independent_set_parameters_are_public_and_validated(void) {
 
 static void graph_labeling_parameters_are_public_and_validated(void) {
   tactix *solver = tactix_init();
-  clause(solver, (const int[]){-4, 0}); /* parser-shortened final column */
+  add_clause(solver, (const int[]){-4, 0}); /* parser-shortened final column */
   for (int column = 0; column < 4; ++column) {
     int cover[5];
     for (int row = 0; row < 4; ++row) cover[row] = 4 * row + column + 1;
     cover[4] = 0;
-    clause(solver, cover);
+    add_clause(solver, cover);
   }
   for (int row = 0; row < 4; ++row)
     for (int a = 0; a < 4; ++a)
       for (int b = a + 1; b < 4; ++b)
-        clause(solver, (const int[]){-(4 * row + a + 1), -(4 * row + b + 1), 0});
+        add_clause(solver, (const int[]){-(4 * row + a + 1), -(4 * row + b + 1), 0});
   for (int a = 0; a < 4; ++a)
     for (int b = a + 1; b < 4; ++b)
-      clause(solver, (const int[]){-(4 * a + 1), -(4 * b + 1), 0});
+      add_clause(solver, (const int[]){-(4 * a + 1), -(4 * b + 1), 0});
   tactix_online_step step;
   memset(&step, 0, sizeof step);
   step.step_id = 21;
@@ -1496,10 +1436,7 @@ static void graph_labeling_parameters_are_public_and_validated(void) {
   step.instances = &instance;
   step.instance_count = 1;
   step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
-  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
+  step_once(&step);
   tactix_online_program program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   uint64_t wrong = 18;
   step.instances = &wrong;
@@ -1545,8 +1482,8 @@ int main(void) {
   tactix *solver = tactix_init();
   const int binary[] = {1, 2, 0};
   const int victim[] = {1, 2, 3, 0};
-  clause(solver, binary);
-  clause(solver, victim);
+  add_clause(solver, binary);
+  add_clause(solver, victim);
 
   uint64_t instance[4];
   const int strengthen = rule("Strengthen");

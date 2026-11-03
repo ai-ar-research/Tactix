@@ -1,7 +1,8 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "temporary_file.hpp"
 #include "frontend/parse.hpp"
-#include "rules/lucky/count_preservation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
 #define tactix tactix_handle
 #include "tactix.h"
@@ -62,13 +63,6 @@ static std::string formula(unsigned width, bool unsat, bool rename) {
   }
   return text;
 }
-static void parse(const std::string &text, Kernel &k) {
-  FILE *f = std::tmpfile();
-  assert(f && std::fwrite(text.data(), 1, text.size(), f) == text.size());
-  std::rewind(f);
-  assert(!parse_dimacs(f, k));
-  std::fclose(f);
-}
 int main(int argc, char **argv) {
   for (unsigned width : {3, 4})
     for (bool renamed : {false, true}) {
@@ -85,7 +79,7 @@ int main(int argc, char **argv) {
         proof.bind_variable_map(&k.internal_to_external);
         k.proof = &proof;
       }
-      parse(text, k);
+      parse_dimacs_text(text, k);
       assert(!k.inconsistent);
       assert(count_preservation_guard(k));
       const auto &lucky = tactix_rules()[tactix_rule_id("Lucky")];
@@ -97,14 +91,14 @@ int main(int argc, char **argv) {
       assert(k.inconsistent && k.stats.counting_unsat == 1);
       assert(k.startup_input.empty() && !k.startup_certificate_open);
       Kernel sat;
-      parse(formula(width, false, renamed), sat);
+      parse_dimacs_text(formula(width, false, renamed), sat);
       assert(count_preservation_apply(sat) == ApplyResult::NoOp);
       assert(!sat.inconsistent);
     }
   const auto cnf = formula(3, true, true);
   for (bool stop : {false, true}) {
     Kernel k;
-    parse(cnf, k);
+    parse_dimacs_text(cnf, k);
     const auto original = k.startup_input;
     const auto arena_size = k.arena.size();
     volatile sig_atomic_t interrupted = 1;
@@ -124,7 +118,7 @@ int main(int argc, char **argv) {
     assert(proof.open(proof_file.path.c_str(), format));
     proof.bind_variable_map(&k.internal_to_external);
     k.proof = &proof;
-    parse(cnf, k);
+    parse_dimacs_text(cnf, k);
     assert(count_preservation_apply(k) == ApplyResult::NoOp);
     assert(!k.inconsistent && !proof.pb());
   }
@@ -144,7 +138,7 @@ int main(int argc, char **argv) {
     tactix_release(solver);
   }
   Kernel closed;
-  parse(cnf, closed);
+  parse_dimacs_text(cnf, closed);
   apply_rule(tactix_rules()[tactix_rule_id("Propagate")], closed);
   assert(!count_preservation_guard(closed) && closed.startup_input.empty());
   std::puts("count preservation: signed/permuted two-layer networks and SAT controls OK");

@@ -1,6 +1,7 @@
 // Factor (BVA) unit tests. Extension variables are assigned by search but
 // projected out of the model: the v-line ranges over original variables only.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/factor/factor.hpp"
@@ -10,28 +11,6 @@
 #include <cstdio>
 
 using namespace tactix;
-
-static bool has_binary(const Kernel &k, Lit a, Lit b) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  for (uint32_t i = 0; i < k.watches.heads[a].size;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == b)
-        return true;
-      i += 1;
-    } else
-      i += 2;
-  }
-  return false;
-}
-
-static std::vector<Lit> binary_watch_partners(const Kernel &k, Lit lit) {
-  std::vector<Lit> result;
-  for (const WatchEntry watch : k.watches.entries(lit))
-    if (watch.binary())
-      result.push_back(watch.other());
-  return result;
-}
 
 static void add_large(Kernel &k, std::initializer_list<Lit> lits) {
   const std::vector<Lit> clause(lits);
@@ -125,8 +104,8 @@ static void test_factoring_2x3() {
   assert(has_binary(k, x, a) && has_binary(k, x, b)); // dividers
   // Kissat applies the selected quotient chain backwards: the last selected
   // factor is the first divider in the fresh literal's watch list.
-  assert((binary_watch_partners(k, x) == std::vector<Lit>{b, a}));
-  assert((binary_watch_partners(k, nx) == std::vector<Lit>{p, q, r}));
+  assert((binary_partners(k, x) == std::vector<Lit>{b, a}));
+  assert((binary_partners(k, nx) == std::vector<Lit>{p, q, r}));
   for (const Lit rr : R)
     assert(has_binary(k, nx, rr)); // quotients
   for (const Lit f : {a, b})       // every original deleted
@@ -409,7 +388,7 @@ static void test_binary_quotients_preserve_sparse_watch_order() {
 
   assert(factor_apply(k) == ApplyResult::Ok);
   const Lit nx = make_lit(5, true);
-  assert((binary_watch_partners(k, nx) == std::vector<Lit>{p, q, r}));
+  assert((binary_partners(k, nx) == std::vector<Lit>{p, q, r}));
 }
 
 // Binaries created while Factor is dense append after the already connected

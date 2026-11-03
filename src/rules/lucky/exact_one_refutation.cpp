@@ -1,4 +1,4 @@
-#include "rules/lucky/exact_one_refutation.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/local_rup_deriver.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
 
@@ -47,8 +47,7 @@ bool recognize(Kernel &k, const strategy::OnehotModelParameters &parameters,
         parameters.refutation_maximum_groups,
         k.input_nonunit_clause_count)));
   uint64_t large = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && !clause->redundant()) {
       ++large;
       if ((!captured &&
@@ -69,7 +68,6 @@ bool recognize(Kernel &k, const strategy::OnehotModelParameters &parameters,
         return false;
       groups.push_back(std::move(group));
     }
-    ref += clause_actual_words(clause);
     if (kernel_rule_interrupt(k, k.stats.exact_one_refutation_interrupted))
       return false;
   }

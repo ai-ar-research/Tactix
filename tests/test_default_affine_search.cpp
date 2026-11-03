@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
@@ -32,22 +33,25 @@ struct DefaultAffineSearchTestAccess {
 };
 }
 
+// Parse text into kernel, attach session and a fresh structural-provenance
+// stream, and return that stream.
+FILE *load(Kernel &kernel, const std::string &text,
+           AffineMatrixSearchSession &session) {
+  parse_dimacs_text(text, kernel);
+  kernel.affine_matrix_search_session = &session;
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  return records;
+}
+
 // A completed empty census survives root-only retries; a newly admitted source
 // must invalidate it. This exercises the same Default scheduling entrypoint,
 // without making recognition work depend on a machine-speed threshold.
 void empty_census_retry() {
   Kernel kernel;
-  FILE *input = std::tmpfile();
-  assert(input);
-  std::fputs("p cnf 6 2\n1 2 3 0\n4 5 6 0\n", input);
-  std::rewind(input);
-  assert(!parse_dimacs(input, kernel));
-  std::fclose(input);
   AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
+  FILE *records = load(kernel, "p cnf 6 2\n1 2 3 0\n4 5 6 0\n", session);
   Proof proof;
   assert(proof.open("/tmp/tactix-default-empty-census.dsr", ProofFormat::DsrAscii));
   proof.bind_variable_map(&kernel.internal_to_external);
@@ -129,6 +133,18 @@ std::string cnf(const Fixture &f) {
   for(auto &c:f.clauses){for(int32_t x:c)out<<x<<' ';out<<"0\n";}
   return out.str();
 }
+
+// x1+x3+x4 = 0 and x2+x3+x4+x5 = 0 over six variables, as clauses.
+Fixture two_equations() {
+  Fixture f{6, {}};
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+    for (const auto &clause :
+         affine_semantic_extension::clausal_form(variables, rhs))
+      f.clauses.push_back(clause);
+  return f;
+}
 DefaultStrategyConfig config(bool enabled) {
   DefaultStrategyConfig c;c.affine_search.enabled=enabled;
   c.affine_root_closure.enabled=false;
@@ -153,26 +169,10 @@ DefaultStrategyConfig config(bool enabled) {
 // lower-level affine service test.  The original CNF used by the external
 // checker includes the two decisions and the contradictory consequence.
 void deferred_policy_boundary(const std::string &stem = "") {
-  Fixture f{6, {}};
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
-    for (const auto &clause :
-         affine_semantic_extension::clausal_form(variables, rhs))
-      f.clauses.push_back(clause);
+  const Fixture f = two_equations();
   Kernel kernel;
-  const auto text = cnf(f);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  assert(!parse_dimacs(input, kernel));
-  std::fclose(input);
   AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
+  FILE *records = load(kernel, cnf(f), session);
   // Reserve the original-CNF identities for -1, -2, and 5 before emitting a
   // derived certificate.  They are checker inputs, not solver root facts.
   kernel.next_clause_id += 3;
@@ -236,26 +236,10 @@ void deferred_policy_boundary(const std::string &stem = "") {
 // action port as the shipped eager arm.  Its implication reason is proof
 // visible and analyzable, but absent from ordinary watched propagation.
 void detached_policy_boundary(bool minimal) {
-  Fixture f{6, {}};
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
-    for (const auto &clause :
-         affine_semantic_extension::clausal_form(variables, rhs))
-      f.clauses.push_back(clause);
+  const Fixture f = two_equations();
   Kernel kernel;
-  const auto text = cnf(f);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  assert(!parse_dimacs(input, kernel));
-  std::fclose(input);
   AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
+  FILE *records = load(kernel, cnf(f), session);
   Proof proof;
   const char *path = minimal ? "/tmp/tactix-default-detached-minimal-policy.dsr"
                              : "/tmp/tactix-default-detached-source-policy.dsr";
@@ -298,26 +282,10 @@ void detached_policy_boundary(bool minimal) {
 }
 
 void lazy_policy_boundary(bool minimal) {
-  Fixture f{6, {}};
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
-    for (const auto &clause :
-         affine_semantic_extension::clausal_form(variables, rhs))
-      f.clauses.push_back(clause);
+  const Fixture f = two_equations();
   Kernel kernel;
-  const auto text = cnf(f);
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  assert(!parse_dimacs(input, kernel));
-  std::fclose(input);
   AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
+  FILE *records = load(kernel, cnf(f), session);
   Proof proof;
   const char *path = minimal
       ? "/tmp/tactix-default-lazy-minimal-policy.dsr"
@@ -361,11 +329,8 @@ void lazy_policy_boundary(bool minimal) {
 }
 
 void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="",ProofFormat format=ProofFormat::DsrAscii) {
-  Kernel kernel;auto text=cnf(f);FILE *input=std::tmpfile();assert(input);
-  assert(std::fwrite(text.data(),1,text.size(),input)==text.size());std::rewind(input);
-  assert(!parse_dimacs(input,kernel));std::fclose(input);
-  AffineMatrixSearchSession session;kernel.affine_matrix_search_session=&session;
-  FILE *records=std::tmpfile();assert(records);kernel.structural_provenance=records;
+  Kernel kernel;auto text=cnf(f);AffineMatrixSearchSession session;
+  FILE *records=load(kernel,text,session);
   const std::string suffix=format==ProofFormat::DsrAscii ? ".dsr" : ".drat";
   std::string proof_path=stem.empty()?"/tmp/tactix-default-affine-fixed"+suffix:stem+suffix;
   Proof proof;
@@ -421,18 +386,8 @@ void paused_owner_retry(const std::string &stem = "",
     for (const auto &clause : affine_semantic_extension::clausal_form(variables, false))
       f.clauses.push_back(clause);
   Kernel kernel;
-  FILE *input = std::tmpfile();
-  assert(input);
-  const auto text = cnf(f);
-  std::fwrite(text.data(), 1, text.size(), input);
-  std::rewind(input);
-  assert(!parse_dimacs(input, kernel));
-  std::fclose(input);
   AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
+  FILE *records = load(kernel, cnf(f), session);
   Proof proof;
   const bool dsr = format == ProofFormat::DsrAscii || format == ProofFormat::DsrBinary;
   const std::string path = stem.empty() ? "/tmp/tactix-default-paused-owner" +

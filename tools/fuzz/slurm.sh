@@ -16,7 +16,7 @@
 # Examples (default: 50 physical cores, 100 logical CPUs, 50 workers):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
 #   slurm.sh --cpu-q-wide --name public-random -- --public-random --nightly \
-#     --solver "build/release/tactix-public-random --pbp --random-policy={seed}"
+#     --solver "build/release/tests/tactix-public-random --pbp --random-policy={seed}"
 #
 # The job cd's to the repo root, so solver paths may be repo-relative.
 # --checkers DIR freezes the core clausal checkers: DIR holds exactly

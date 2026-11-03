@@ -4,7 +4,7 @@ pair, and every id returns the counter its name claims.
 
 WHY THIS EXISTS. `tactix_stat` is the learned policy's ONLY reward channel
 (plan §5.6: pull-based, the learner reads counters and nothing else), and it is
-a hand-maintained switch of integer cases in `src/api/api.cpp` against a
+a hand-maintained switch over those macros in `src/api/api.cpp` against a
 hand-numbered list of macros in `include/tactix.h`. Two independent failure
 modes, neither of which any test could see:
 
@@ -20,7 +20,7 @@ modes, neither of which any test could see:
 So this checker does three things a unit test cannot:
 
   ORDER     header numbering is dense, unique, and identical to api.cpp's case
-            order, and every case carries the macro name it implements.
+            order; every case is labeled with the macro it implements.
   NAMING    the expression a case returns must mention every significant token
             of its macro's name. That is what catches the 26/27 swap:
             `TACTIX_STAT_BCE_DELETED` returning `k.stats.bce_ticks` has no
@@ -115,19 +115,23 @@ def header_ids():
     return out
 
 
-def api_cases():
-    """id -> (returned expression, trailing comment, declaration index)."""
+def api_cases(ids):
+    """id -> (returned expression, case label macro, declaration index), plus
+    the labels no header macro defines."""
     s = read(API_REL)
     i = s.index("uint64_t tactix_stat(")
     body = s[i:s.index("\n}\n", i)]
-    out, order = {}, 0
-    pat = re.compile(r"case (\d+):\s*(?://([^\n]*)\n(?:\s*//[^\n]*\n)*)?"
-                     r"\s*return ([^;]+);", re.M)
+    out, unknown, order = {}, [], 0
+    pat = re.compile(r"case (TACTIX_STAT_\w+):\s*(?://[^\n]*\n\s*)*"
+                     r"return ([^;]+);", re.M)
     for m in pat.finditer(body):
-        out[int(m.group(1))] = (re.sub(r"\s+", " ", m.group(3)).strip(),
-                                (m.group(2) or "").strip(), order)
+        if m.group(1) not in ids:
+            unknown.append(m.group(1))
+        else:
+            out[ids[m.group(1)][0]] = (re.sub(r"\s+", " ", m.group(2)).strip(),
+                                       m.group(1), order)
         order += 1
-    return out, ("default:\n    return UINT64_MAX;" in body)
+    return out, unknown, ("default:\n    return UINT64_MAX;" in body)
 
 
 def brace_body(s, open_at):
@@ -174,7 +178,7 @@ def tokens(macro):
 def main():
     fails = []
     ids = header_ids()
-    cases, has_default = api_cases()
+    cases, unknown_labels, has_default = api_cases(ids)
     meters, meter_fns = effort_meters()
 
     if not ids:
@@ -182,7 +186,7 @@ def main():
                      f"header's shape changed and this checker is measuring "
                      f"nothing. Fix the parser before trusting a green run.")
     if not cases:
-        fails.append(f"no `case N: return ...;` rows parsed out of "
+        fails.append(f"no `case TACTIX_STAT_X: return ...;` rows parsed out of "
                      f"{API_REL}'s tactix_stat — same problem.")
     if not meters:
         fails.append(f"no EFFORT_SPECS meters parsed out of {POLICY_REL} — same "
@@ -219,15 +223,14 @@ def main():
                          f"NO case in {API_REL} — it returns the unknown-id "
                          f"sentinel, so the reward channel for it is dead.")
             continue
-        expr, comment, order = cases[i]
+        expr, label, order = cases[i]
         if order != i:
             fails.append(f"{API_REL}: `case {i}:` is the {order}-th case. Case "
                          f"order must match id order — a reader (and the next "
                          f"editor) relies on the sequence to spot a swap.")
-        if macro not in comment:
-            fails.append(f"{API_REL}: `case {i}:` does not name `{macro}` in its "
-                         f"comment (found: '{comment}'). The name at the case is "
-                         f"the only local evidence the case is the right one.")
+        if label != macro:
+            fails.append(f"{API_REL}: id {i} is cased as `{label}` but the "
+                         f"header names it `{macro}`.")
         alias = ALIAS.get(macro)
         if alias:
             if expr != alias[0]:
@@ -245,6 +248,9 @@ def main():
                              f"quantity and returns another. Add an ALIAS row with "
                              f"a reason if the counter genuinely has another name.")
 
+    for label in unknown_labels:
+        fails.append(f"{API_REL}: `case {label}:` names no TACTIX_STAT_* macro "
+                     f"{HEADER_REL} defines.")
     for i in sorted(cases):
         if i not in by_id:
             fails.append(f"{API_REL}: `case {i}:` returns a counter no "

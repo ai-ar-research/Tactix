@@ -301,9 +301,7 @@ namespace tactix {
         return true;
       };
 
-      for(Ref ref=0;ref<k.arena.size();){
-        const Clause*c=clause_at(k.arena,ref);
-        ref+=clause_actual_words(c);
+      for(const auto [ref,c]:arena_records(k.arena)){
         if(!m.charge(1)){
           finish(Status::Invalid);
           return;

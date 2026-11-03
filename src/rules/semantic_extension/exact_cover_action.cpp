@@ -120,6 +120,8 @@ ExactCoverExtensionActionResult exact_cover_extension_action_apply(
   return result;
 }
 
+// Registry body. The owning solver/controller attaches the session to Kernel;
+// canonical dispatch uses that same durable cache.
 ApplyResult exact_cover_extension_rule_apply(Kernel &kernel) {
   if (!exact_cover_extension_action_guard(kernel)) return ApplyResult::NoOp;
   return exact_cover_extension_action_apply(

@@ -34,9 +34,7 @@ inline uint64_t cce_large_instance(Ref ref) {
   return CCE_LARGE_TAG | ref;
 }
 inline uint64_t cce_binary_instance(Lit first, Lit second) {
-  if (second < first)
-    std::swap(first, second);
-  return (static_cast<uint64_t>(first) << 32) | second;
+  return kernel_binary_key(first, second);
 }
 
 // One literal: attempt CCE on every candidate clause containing it, witnessing

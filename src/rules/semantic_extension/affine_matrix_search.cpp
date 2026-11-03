@@ -26,12 +26,6 @@ namespace {
 
 using namespace affine_semantic_extension;
 
-bool add(uint64_t amount, uint64_t maximum, uint64_t &work) {
-  if (work > maximum || amount > maximum - work) return false;
-  work += amount;
-  return true;
-}
-
 // A work charge that polls termination first and then admits `amount`
 // against the live `maximum`; a refused admission sets `*exhausted`.
 template <class Maximum>
@@ -39,7 +33,7 @@ auto metered_charge(const Kernel &kernel, const Maximum &maximum,
                     uint64_t &work, bool *exhausted = nullptr) {
   return [&kernel, &maximum, &work, exhausted](uint64_t amount) {
     if (kernel_terminating(kernel)) return false;
-    if (add(amount, maximum, work)) return true;
+    if (add_bounded(amount, maximum, work)) return true;
     if (exhausted) *exhausted = true;
     return false;
   };
@@ -115,7 +109,7 @@ TrailStatus exact_trail(const Kernel &kernel,
   out.reserve(support.size());
   for (const External variable : support) {
     if (kernel_terminating(kernel)) return TrailStatus::Interrupted;
-    if (!add(1, maximum, work)) return TrailStatus::Exhausted;
+    if (!add_bounded(1, maximum, work)) return TrailStatus::Exhausted;
     if (variable <= 0 || variable == INT32_MIN)
       return TrailStatus::Invalid;
     const int8_t value = kernel_external_value(kernel, internalize(variable));
@@ -619,7 +613,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   const auto postvalidation_charge=[&](uint64_t amount) {
     const bool stopped=kernel_terminating(kernel);
     if(!context_current()) {postvalidation_stale=true;return false;}
-    return !stopped&&add(amount,parameters.maximum_session_work,result.premise_retention_work);
+    return !stopped&&add_bounded(amount,parameters.maximum_session_work,result.premise_retention_work);
   };
   if (!capture_affine_live_snapshot(kernel, capture, owner)) {
     result.status =
@@ -964,7 +958,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       const auto &equation = session.image_.equations[i];
       uint64_t work = 1 + equation.variables.size() + equation.premises.size();
       for (const auto &clause : equation.premise_clauses) work += 1 + clause.size();
-      if (!add(work, parameters.maximum_session_work, result.premise_retention_work)) {
+      if (!add_bounded(work, parameters.maximum_session_work, result.premise_retention_work)) {
         return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
       }
       if (kernel.proof->premise_group_active(session.premise_leases_[i])) {
@@ -976,7 +970,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     // Retained occurrence IDs remain stable. Newly captured IDs are remapped
     // once into the same durable source namespace.
     for(const auto &source:session.source_owner_.sources)
-      if(!add(1+2*source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+      if(!add_bounded(1+2*source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
     AffineLiveSnapshot combined_owner = session.source_owner_;
@@ -986,14 +980,15 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         if(clause.size()>UINT64_MAX-copy_work-1) {copy_work=UINT64_MAX;break;}
         copy_work+=1+clause.size();
       }
-      if(!add(copy_work,parameters.maximum_session_work,result.premise_retention_work)) {
+      if(!add_bounded(copy_work,parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       auto equation=captured_equation;
       bool duplicate = false;
       for (const auto &existing : combined.equations) {
-        if (!add(1 + existing.variables.size(), parameters.maximum_session_work,
-                 result.premise_retention_work)) {
+        if (!add_bounded(1 + existing.variables.size(),
+                         parameters.maximum_session_work,
+                         result.premise_retention_work)) {
           return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
         }
         if (existing.variables == equation.variables && existing.rhs == equation.rhs)
@@ -1001,7 +996,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       }
       if (duplicate) continue;
       for (auto &occurrence : equation.premises) {
-        if(!add(1+2*owner.sources[occurrence-1].clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+        if(!add_bounded(1+2*owner.sources[occurrence-1].clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
           return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
         }
         auto source = owner.sources[occurrence - 1];
@@ -1026,7 +1021,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   uint64_t planned_clause_id = kernel.next_clause_id;
   if(persistence.maximum_retained_bytes) for(size_t i=retained_equations;i<image.equations.size();++i)
     for(uint64_t occurrence:image.equations[i].premises) {
-      if (!add(1,parameters.maximum_session_work,result.premise_retention_work) ||
+      if (!add_bounded(1,parameters.maximum_session_work,result.premise_retention_work) ||
           !occurrence || occurrence>owner.sources.size()) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
@@ -1122,20 +1117,20 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     __uint128_t journal_reserve=512+__uint128_t(root_facts.size())*12+
         __uint128_t(proof_copies.size())*21;
     for(const auto &row:matrix.rows()) {
-      if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
+      if(!add_bounded(1,parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       journal_reserve+=512+__uint128_t(row.variables.size())*12+__uint128_t(row.source_equations.size())*21;
     }
     for(const auto &equation:image.equations) {
-      if(!add(1+equation.premises.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+      if(!add_bounded(1+equation.premises.size(),parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       journal_reserve+=512+__uint128_t(equation.variables.size())*12;
       for(const auto &clause:equation.premise_clauses)journal_reserve+=512+__uint128_t(clause.size())*12;
     }
     if(!proof_copies.empty())for(const auto &source:full_owner.sources) {
-      if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
+      if(!add_bounded(1,parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       journal_reserve+=512+__uint128_t(source.clause.size())*12;
@@ -1156,8 +1151,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
   if (persistence.maximum_retained_bytes) {
     const auto append = [&](const std::string &part) {
-      return add(part.size(), parameters.maximum_session_work,
-                 result.premise_retention_work) &&
+      return add_bounded(part.size(), parameters.maximum_session_work,
+                         result.premise_retention_work) &&
              semantic_extension::append_bounded(
                  initialization_journal, parameters.maximum_journal_bytes,
                  part);
@@ -1243,7 +1238,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         rechecked.sources.size()==full_owner.sources.size();
     for(size_t i=0;same&&i<full_owner.sources.size();++i) {
       const auto &before=full_owner.sources[i];const auto &after=rechecked.sources[i];
-      if(!add(2+before.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+      if(!add_bounded(2+before.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       same=before.kind==after.kind&&before.ref==after.ref&&before.first==after.first&&
@@ -1252,7 +1247,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
           before.recognition_candidate==after.recognition_candidate&&before.clause==after.clause;
     }
     for(External external:root_facts) {
-      if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
+      if(!add_bounded(1,parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       const Lit literal=kernel_internalize(kernel,external);
@@ -1264,7 +1259,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     Proof::PremiseGroup copies;
     for(size_t occurrence:proof_copies) {
       const auto &source=owner.sources[occurrence];
-      if(!add(1+source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+      if(!add_bounded(1+source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
       }
       copies.push_back(source.clause);
@@ -1294,8 +1289,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         if(body.size()>UINT64_MAX-group_work-1) {group_work=UINT64_MAX;break;}
         group_work+=1+body.size();
       }
-      if (!add(group_work, parameters.maximum_session_work,
-               result.premise_retention_work)) {
+      if (!add_bounded(group_work, parameters.maximum_session_work,
+                       result.premise_retention_work)) {
         return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
       }
       groups.push_back(equation.premise_clauses);
@@ -1401,19 +1396,7 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
     case Operation::MaterializeReasons:
       if (!session.matches_profile(profile.basis, limits))
         return ApplyResult::NoOp;
-      session.last_service_ = profile.operation == Operation::SearchStep
-          ? affine_matrix_search_step(kernel, session)
-          : profile.operation == Operation::DeferredSearchStep
-              ? affine_matrix_search_step_deferred(kernel, session)
-          : profile.operation == Operation::DetachedMinimalSearchStep
-              ? affine_matrix_search_step_detached_minimal(kernel, session)
-          : profile.operation == Operation::DetachedSourceSearchStep
-              ? affine_matrix_search_step_detached_source(kernel, session)
-          : profile.operation == Operation::LazySourceSearchStep
-              ? affine_matrix_search_step_lazy_source(kernel, session)
-          : profile.operation == Operation::LazyMinimalSearchStep
-              ? affine_matrix_search_step_lazy_minimal(kernel, session)
-              : affine_matrix_materialize_reason(kernel, session);
+      session.last_service_ = affine_matrix_search_service(kernel, session, profile.operation);
       return session.last_service_->result;
   }
   return ApplyResult::NoOp;
@@ -2228,14 +2211,16 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   const auto duplicate=
       std::lower_bound(session.published_.begin(), session.published_.end(),
                        result.event_identity);
-  if (!add(session.published_work_, session.parameters_.maximum_session_work,
-           result.session_work)) {
+  if (!add_bounded(session.published_work_,
+                   session.parameters_.maximum_session_work,
+                   result.session_work)) {
     // Preserve the exact historical partial charge on the one terminal
     // exhaustion path without retaining the quadratic successful scan.
     result.session_work = 0;
     for (const auto &key : session.published_) {
-      if (!add(key.size() + 1, session.parameters_.maximum_session_work,
-               result.session_work))
+      if (!add_bounded(key.size() + 1,
+                       session.parameters_.maximum_session_work,
+                       result.session_work))
         break;
     }
     return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
@@ -2246,8 +2231,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   }
   if (session.published_.size()+session.lazy_reasons_.size() >=
           session.parameters_.maximum_session_keys ||
-      !add(result.event_identity.size()+1,
-           session.parameters_.maximum_session_work, result.session_work)) {
+      !add_bounded(result.event_identity.size()+1,
+                   session.parameters_.maximum_session_work, result.session_work)) {
     return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
   }
 
@@ -2493,9 +2478,9 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
                      *duplicate!=at->event_identity;
   if((new_key&&session.published_.size()==
                    session.parameters_.maximum_session_keys)||
-     !add(session.published_work_,session.parameters_.maximum_session_work,
-          result.session_work)||
-     (new_key&&!add(at->event_identity.size()+1,
+     !add_bounded(session.published_work_,session.parameters_.maximum_session_work,
+                  result.session_work)||
+     (new_key&&!add_bounded(at->event_identity.size()+1,
                    session.parameters_.maximum_session_work,
                    result.session_work))){
     return finish_service(kernel,result,AffineMatrixServiceStatus::ResourceExhausted);

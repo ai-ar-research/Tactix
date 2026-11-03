@@ -44,7 +44,7 @@ static void test_mode_growth_key_matches_kissat(void) {
   k.stats.conflicts = 500;
   p.update_mode_limits(k);
   const uint64_t first = p.mode.conflicts_limit - k.stats.conflicts;
-  assert(first == DefaultPolicy::MODE_INTERVAL &&
+  assert(first == DefaultStrategyConfig::MODE_INTERVAL_DEFAULT &&
          "kissat's FIRST focused interval is exactly modeint (key 1, "
          "log10(10)^4 == 1). A larger value means the growth key is ahead.");
 
@@ -56,7 +56,7 @@ static void test_mode_growth_key_matches_kissat(void) {
     const double key = static_cast<double>(c / 2);
     const double l = std::log10(key + 9);
     const uint64_t want = static_cast<uint64_t>(
-        DefaultPolicy::MODE_INTERVAL * key * l * l * l * l);
+        DefaultStrategyConfig::MODE_INTERVAL_DEFAULT * key * l * l * l * l);
     const uint64_t got = p.mode.conflicts_limit - k.stats.conflicts;
     assert(got == want && "focused interval must be modeint * nlogpown(c/2, 4)");
   }
@@ -89,7 +89,7 @@ static void test_reason_bump_delay_lives_at_final_clause_gate(void) {
 }
 
 static void test_bump_reasons_rate_defaults_to_kissat(void) {
-  assert(DefaultPolicy::BUMP_REASONS_RATE == 10.0 &&
+  assert(DefaultStrategyConfig::BUMP_REASON_RATE_DEFAULT == 10.0 &&
          "Kissat's bumpreasonsrate=10 is the conflicting-default tie-break");
   std::printf("  bump reasons rate: Kissat default\n");
 }
@@ -1378,7 +1378,7 @@ static void test_initial_elimination_deadline_matches_kissat(void) {
       std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 10) - 5;
   const uint64_t delta = static_cast<uint64_t>(
       (4.5 * f * f + 25) *
-      static_cast<double>(DefaultInprocessScheduler::SUBSUME_INTERVAL));
+      static_cast<double>(DefaultStrategyConfig::INPROCESS_ELIMINATE_INTERVAL_DEFAULT));
   assert(p.inprocess().probe_clock.next_conflicts == 0 &&
          "the probe clock must admit initial preprocessing");
   assert(p.inprocess().elim_clock.next_conflicts == delta &&
@@ -1623,7 +1623,7 @@ static void test_effort_limit_is_kissats(void) {
   e.group = SlotGroup::Eliminate;
   e.meter = [](const Kernel &) -> uint64_t { return 0; };
 
-  // During search, the reference floors at MIN_EFFORT_TICKS, so the delta is
+  // During search, the reference floors at INPROCESS_MINIMUM_EFFORT_DEFAULT, so the delta is
   // 1e7/1000*100 == 1e6. A large formula must NOT lift it — the active floor
   // that used to do so was cadical's and is gone.
   k.stats.conflicts = 1;
@@ -2395,7 +2395,7 @@ static void test_reorder_ships_in_both_modes(void) {
   kernel_reserve_vars(k, 4);
   ScopedHeuristics h(k);
   DefaultPolicy p;
-  k.stats.conflicts = DefaultPolicy::REORDER_INTERVAL_INIT;
+  k.stats.conflicts = DefaultStrategyConfig::REORDER_INITIAL_INTERVAL_DEFAULT;
   assert(p.want_reorder(k) &&
          "Kissat's shipped reorder=2 default must admit focused mode");
   k.h->stable = true;

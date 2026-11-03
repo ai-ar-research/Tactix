@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "rules/lucky/balanced_signature_model.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
 
@@ -96,7 +96,7 @@ int main() {
     parameters.restarts = 2;
     parameters.steps_per_restart = 3;
     parameters.samples_per_step = 1;
-    strategy::ScopedBalancedSignatureModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::BalancedSignatureModelParameters> posed(k, parameters);
     const ApplyResult result = balanced_signature_model_apply(k);
     assert(result == ApplyResult::NoOp || result == ApplyResult::Sat);
     assert(k.stats.balanced_signature_restarts <= 2);
@@ -141,7 +141,7 @@ int main() {
     Kernel k = balance_fixture();
     strategy::BalancedSignatureModelParameters parameters;
     parameters.steps_per_restart = 0;
-    strategy::ScopedBalancedSignatureModelParameters posed(k, parameters);
+    strategy::ScopedRuleParameters<strategy::BalancedSignatureModelParameters> posed(k, parameters);
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
     assert(k.trail.size() == 7);
   }

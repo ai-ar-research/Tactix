@@ -1,7 +1,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "diagnostics/rule_journal.hpp"
-#include "rules/lucky/signed_cardinality_proof.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/registry.hpp"
 
 #include <cassert>

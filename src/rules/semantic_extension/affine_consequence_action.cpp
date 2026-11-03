@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/action_epilogue.hpp"
 
 #include "proof/proof.hpp"
 #include "strategy/action_status_mapping.hpp"
@@ -41,21 +42,6 @@ AffineConsequenceActionStatus status(AffineLiveStatus value) {
   case AffineLiveStatus::NoStructure:
     return AffineConsequenceActionStatus::NoStructure;
   case AffineLiveStatus::Applied:
-    return AffineConsequenceActionStatus::Applied;
-  default: std::abort();
-  }
-}
-
-AffineConsequenceActionStatus status(AffineBasisActionStatus value) {
-  if (const auto failure = strategy::map_standard_action_failure<
-          AffineConsequenceActionStatus>(value))
-    return *failure;
-  switch (value) {
-  case AffineBasisActionStatus::NoStructure:
-    return AffineConsequenceActionStatus::NoStructure;
-  case AffineBasisActionStatus::AlreadyPublished:
-    return AffineConsequenceActionStatus::AlreadyPublished;
-  case AffineBasisActionStatus::Applied:
     return AffineConsequenceActionStatus::Applied;
   default: std::abort();
   }
@@ -174,8 +160,9 @@ AffineConsequenceActionResult apply_selected_consequence(Kernel &kernel) {
   if (output.live.result == ApplyResult::Ok) {
     if (!output.live.published || output.live.semantic_variables.empty())
       std::abort();
-    stage_affine_theory_variables(kernel, output.proposed_action_id,
-                                  output.live.semantic_variables, {});
+    stage_theory_variables_or_abort(
+        kernel, strategy::SemanticVariableProducer::Affine,
+        output.proposed_action_id, output.live.semantic_variables, {});
     output.candidate_staged = true;
   }
 
@@ -199,7 +186,7 @@ void apply_basis(Kernel &kernel, AffineBasisActionSession *session,
   output.basis = selection
       ? affine_basis_action_apply(kernel, *session, limits, *selection)
       : affine_basis_action_apply(kernel, *session, limits);
-  output.status = status(output.basis.status);
+  output.status = output.basis.status;
   output.result = output.basis.result;
   output.proposed_action_id = output.basis.proposed_action_id;
   output.committed_action_id = output.basis.committed_action_id;

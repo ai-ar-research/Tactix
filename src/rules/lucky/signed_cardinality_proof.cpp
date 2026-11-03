@@ -1,9 +1,9 @@
-#include "rules/lucky/signed_cardinality_proof.hpp"
+#include "rules/lucky/opportunities.hpp"
 
 #include "kernel/types.hpp"
 #include "proof/cardinality_certificate.hpp"
 #include "proof/proof.hpp"
-#include "rules/lucky/disjoint_sets.hpp"
+#include "rules/disjoint_sets.hpp"
 #include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
@@ -74,8 +74,7 @@ bool recognize(Kernel &k,
   triples.reserve(static_cast<size_t>(k.input_nonunit_clause_count * 2 + 1));
   uint64_t clauses = 0;
 
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const tactix::Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && !clause->redundant()) {
       if (clause->size != 3)
         return false;
@@ -108,7 +107,6 @@ bool recognize(Kernel &k,
       dsu.unite(first, third);
       ++clauses;
     }
-    ref += clause_actual_words(clause);
     if (kernel_rule_interrupt(k,
                               k.stats.signed_cardinality_proof_interrupted))
       return false;
@@ -378,8 +376,7 @@ bool derive(const System &system, Sink &sink) {
 } // namespace
 
 RuleEligibility signed_cardinality_proof_guard(const Kernel &k) {
-  RuleEligibility result = lucky_root_eligibility(k);
-  return result.fact("proof-format", !k.proof || !k.proof->lrat());
+  return lucky_clausal_root_eligibility(k);
 }
 
 ApplyResult signed_cardinality_proof_apply(Kernel &k) {

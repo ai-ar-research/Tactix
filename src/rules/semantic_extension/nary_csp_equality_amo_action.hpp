@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rules/semantic_extension/action_epilogue.hpp"
 #include "rules/semantic_extension/nary_csp_action_limits.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
@@ -19,17 +20,10 @@ struct NaryCspEqualityAmoSelection {
   bool operator==(const NaryCspEqualityAmoSelection &) const = default;
 };
 
-class NaryCspEqualityAmoSession {
-public:
-  bool retained() const { return owner_ != nullptr; }
-  bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
-  const std::vector<NaryCspEqualityAmoKey> &keys() const { return keys_; }
-
-private:
-  friend struct NaryCspEqualityAmoSessionAccess;
-  const Kernel *owner_ = nullptr;
-  std::vector<NaryCspEqualityAmoKey> keys_;
-};
+struct NaryCspEqualityAmoSessionAccess;
+class NaryCspEqualityAmoSession
+    : public KernelKeyedSession<NaryCspEqualityAmoKey,
+                                NaryCspEqualityAmoSessionAccess> {};
 
 enum class NaryCspEqualityAmoStatus : uint8_t {
   Invalid,

@@ -17,7 +17,6 @@ using tactix::Clause;
 using tactix::INVALID_LIT;
 using tactix::Kernel;
 using tactix::Lit;
-using tactix::Ref;
 using tactix::csp_exact_theory::add_count;
 using tactix::exact_cover_semantic::Premise;
 
@@ -42,9 +41,7 @@ bool retained_source_is_live(const Kernel &k,
   }
 
   std::map<std::vector<int32_t>, uint64_t> live;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = tactix::clause_at(k.arena, ref);
-    ref += tactix::clause_actual_words(clause);
+  for (const auto [ref, clause] : tactix::arena_records(k.arena)) {
     if (clause->garbage()) continue;
     if (!live.emplace(normalized_external(k, clause->lits, clause->size),
                       clause->id()).second)

@@ -25,7 +25,7 @@ using ClauseKey = std::vector<int32_t>;
 using Meter = InterruptibleWork;
 using gf3_certificate_common::canonical;
 using gf3_live_common::owner_guard;
-using gf3_live_common::root_guard;
+using gf3_live_common::root_ready;
 
 bool recognition_limits_valid(const Gf3AffineLiveRequest &request) {
   return request.maximum_recognition_work &&
@@ -362,9 +362,7 @@ bool render_journal(const Gf3AffineLiveRequest &request,
 Gf3AffineLiveStatus plan_failure(const Meter &meter,
                                  const gf3::PairEliminationPlan &plan) {
   if (meter.interrupted) return Gf3AffineLiveStatus::Interrupted;
-  if (meter.exhausted || plan.status == gf3::PlanStatus::BoundExceeded ||
-      plan.status == gf3::PlanStatus::EffortExhausted)
-    return Gf3AffineLiveStatus::ResourceExhausted;
+  if (meter.exhausted) return Gf3AffineLiveStatus::ResourceExhausted;
   switch (plan.status) {
   case gf3::PlanStatus::NoConsequence:
     return Gf3AffineLiveStatus::NoConsequence;
@@ -389,7 +387,7 @@ Gf3AffineOwnerCaptureResult gf3_affine_live_capture_owner(
     Gf3AffineOwnerSnapshot &output) {
   Gf3AffineOwnerCaptureResult result;
   if (!recognition_limits_valid(request) ||
-      !root_admitted(kernel, root_guard, result.status))
+      !root_admitted(kernel, root_ready, result.status))
     return result;
   Meter meter{kernel, request.maximum_recognition_work};
   Capture capture;
@@ -443,6 +441,33 @@ Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
   return result;
 }
 
+namespace {
+
+enum class Gf3AffinePreflightStatus : uint8_t {
+  Invalid,
+  Ready,
+  Duplicate,
+  ResourceExhausted,
+  Interrupted,
+};
+
+struct Gf3AffinePreflightResult {
+  Gf3AffinePreflightStatus status = Gf3AffinePreflightStatus::Invalid;
+  uint64_t duplicate_scan_work = 0;
+  uint64_t duplicate_additions = 0;
+  uint64_t proof_work = 0;
+  uint64_t proof_literal_occurrences = 0;
+  uint64_t arena_words = 0;
+  uint64_t journal_work = 0;
+  std::vector<size_t> missing_additions;
+  std::vector<uint64_t> published_clause_ids;
+  std::string journal;
+};
+
+// Complete the mutation-free half of one action: compare the plan with the
+// live clause population and preflight every proof, arena, namespace, and
+// journal limit. Apply uses this result before its final source revalidation
+// and atomic commit.
 Gf3AffinePreflightResult gf3_affine_live_preflight(
     Kernel &kernel, const Gf3AffineLiveRequest &request,
     const Gf3AffineOwnerSnapshot &owner,
@@ -460,7 +485,6 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
   Meter meter{kernel, request.maximum_duplicate_scan_work};
   const auto stopped = [&] {
     result.duplicate_scan_work = meter.used;
-    result.duplicate_scan_exhausted = meter.exhausted;
     result.status = meter.interrupted
                         ? Gf3AffinePreflightStatus::Interrupted
                         : Gf3AffinePreflightStatus::ResourceExhausted;
@@ -539,11 +563,13 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
   return result;
 }
 
+} // namespace
+
 Gf3AffineLiveResult gf3_affine_live_apply(
     Kernel &kernel, const Gf3AffineLiveRequest &request) {
   Gf3AffineLiveResult result;
   if (!apply_limits_valid(request) ||
-      !live_admitted(kernel, root_guard, result.status))
+      !live_admitted(kernel, root_ready, result.status))
     return result;
   if (kernel.external_to_internal.size() > request.maximum_external_extent) {
     result.status = Gf3AffineLiveStatus::ResourceExhausted;
@@ -647,11 +673,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
     if (id != preflight.published_clause_ids[index]) std::abort();
     if (kernel.proof)
       kernel.proof->add_rup(id, literals.data(), literals.size(), nullptr, 0);
-    if (literals.size() == 2)
-      kernel_add_binary_clause(kernel, literals[0], literals[1], id);
-    else
-      kernel_add_large_clause(kernel, literals.data(), literals.size(), true,
-                              literals.size(), id);
+    install_redundant_clause(kernel, literals, id);
     result.published_clause_ids.push_back(id);
   }
   semantic_extension::write_journal_or_abort(request.records,
