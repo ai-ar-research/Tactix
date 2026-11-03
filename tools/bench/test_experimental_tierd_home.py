@@ -405,7 +405,8 @@ class CertificateNone(unittest.TestCase):
     def test_solver_gets_no_proof_path_or_flag(self):
         self.assertEqual(et.solver_arguments('none', []), [])
         self.assertEqual(et.solver_arguments('dsr', []), ['--dsr'])
-        self.assertEqual(et.solver_arguments('pbp', ['--x']), ['--x'])
+        self.assertEqual(et.solver_arguments('pbp', ['--x']), ['--pbp', '--x'])
+        self.assertEqual(et.solver_arguments('auto', []), ['--auto-proof'])
         arm = dict(arguments=[], certificate='none')
         self.assertEqual(runtime_task.solver_command('b', arm, 'f.cnf', 'p'), ['b', 'f.cnf'])
         arm = dict(arguments=['--dsr'], certificate='dsr')

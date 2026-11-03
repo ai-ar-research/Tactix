@@ -134,9 +134,11 @@ def substituted_results(campaign, recheck=None):
     require(list(manifest.get("arms", {})) == ["tactix"],
             "campaign must contain exactly the tactix arm")
     arm = manifest["arms"]["tactix"]
-    require(arm.get("arguments") == [] and
-            arm.get("certificate") == "pbp",
-            "candidate whole-run PBP contract changed")
+    # Whole-run PBP (flagless before the automatic default, `--pbp` after it)
+    # or the automatic selection of the paper baseline and of later defaults.
+    require((arm.get("arguments"), arm.get("certificate")) in
+            (([], "pbp"), (["--pbp"], "pbp"), (["--auto-proof"], "auto")),
+            "candidate proof contract changed")
     matrix = read_matrix(campaign)
     require(len(matrix) == 1166, "full Tier D must contain 1,166 rows")
     require([int(row["task"]) for row in matrix] == list(range(1166)),

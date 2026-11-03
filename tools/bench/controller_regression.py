@@ -79,12 +79,16 @@ def proof_cost_comparison(candidate, baseline):
 
 
 def candidate_arguments(arguments=()):
-    """Keep this Default-policy gate on the current default PBP contract.
+    """Keep this Default-policy gate on the whole-run PBP contract.
 
     Extensions are deliberately enumerated: arbitrary CLI policy/proof flags
-    would silently change what the historical comparisons qualify.
+    would silently change what the historical comparisons qualify. Since the
+    command-line default became automatic selection, campaigns spell a leading
+    `--pbp`; historical campaigns recorded none (their binaries' default).
     """
     values = list(arguments)
+    proof = values[:1] if values[:1] == ['--pbp'] else []
+    values = values[len(proof):]
     allowed = {
         '--default-affine-search=on', '--default-affine-search=off',
         '--default-graph-labeling=on', '--default-graph-labeling=off',
@@ -94,11 +98,13 @@ def candidate_arguments(arguments=()):
     families = [value.split('=', 1)[0] for value in values]
     require(len(families) == len(set(families)),
             'duplicate or conflicting qualified Default argument')
-    return values
+    return proof + values
 
 
 def prepare(prefix, release, solver_arguments=(), dsr_transport=None):
     arguments = candidate_arguments(solver_arguments)
+    if arguments[:1] != ['--pbp']:
+        arguments = ['--pbp', *arguments]
     require(release.is_relative_to(ROOT), 'candidate must be in repository')
     pin = json.loads((release.parent / 'PIN.json').read_text())
     require(pin['build_type'] == 'Release', 'production Release required')
