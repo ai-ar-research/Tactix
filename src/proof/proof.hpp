@@ -129,7 +129,6 @@ public:
   // Streaming PBP can delete binary constraints by specification while still
   // deleting non-binary constraints by their exact tracked identity.
   bool needs_clause_ids() const { return lrat(); }
-  void declare_exact_binary_ids() { pbp_exact_binary_ids_ = true; }
   // Delete by specification for the rest of the run: a proof attached after
   // replayed input cannot name the live kernel's clauses by their ids (see
   // attach_replayed_input_proof).
@@ -496,7 +495,6 @@ private:
   bool pbp_input_deleted(uint64_t constraint) const;
   void mark_pbp_input_deleted(uint64_t constraint);
   bool pbp_id_deletions_enabled_ = true;
-  bool pbp_exact_binary_ids_ = false;
   // Anonymous (id-0) derived constraints of an exact-identity width, keyed by
   // their sorted checker literals and compared exactly. Each key holds a stack
   // of proof constraint IDs (high bit: transaction-relative ordinal). Every ID

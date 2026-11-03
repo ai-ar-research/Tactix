@@ -1952,9 +1952,6 @@ static void input_complete(tactix_solver *s) {
     attach_replayed_input_proof(s->kernel, s->proof);
     s->pending_input_proof = false;
   }
-  if (s->kernel.proof && s->kernel.proof->streaming_pbp() &&
-      s->kernel.binary_ids.tracks_values())
-    s->kernel.proof->declare_exact_binary_ids();
   finish_input(s->kernel);
   s->input_completed = true;
 }

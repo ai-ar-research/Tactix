@@ -96,4 +96,69 @@ mkdir "$tmp/writeback"
 "$unit_test" "$tmp/writeback"
 check writeback "$tmp/writeback/writeback.cnf" "$tmp/writeback/writeback.pbp"
 
-printf 'PBP exact deletion: restatement rebinds, dropped and written-back root units and search deletions verified by VeriPB+CakePB\n'
+# Headerless DIMACS keeps the binary-id archive through input; finish_input
+# discards it, so a binary deleted later must not be deleted by an id (its
+# sentinel would name input clause 1). Solved headerless, checked against the
+# same clauses with a header. Then the Ramsey startup certificate on the
+# default route: it erases original clauses, which must be deleted by id.
+python3 - "$tmp" <<'PY'
+import sys
+out = sys.argv[1]
+def ternaries(variables, count, state):
+    mask, clauses = (1 << 64) - 1, []
+    for _ in range(count):
+        clause = []
+        for _ in range(3):
+            while True:
+                state = (state * 6364136223846793005 + 1442695040888963407) & mask
+                literal = 1 + ((state >> 33) % variables)
+                if all(abs(x) != literal for x in clause):
+                    break
+            clause.append(literal if (state >> 32) & 1 else -literal)
+        clauses.append(clause)
+    return clauses
+clauses = ternaries(120, 600, 77)
+v = 121
+for _ in range(12):  # binaries that elimination or root simplification deletes
+    clauses += [[v, v + 1], [v, -(v + 1)], [-v, v + 2], [v, v + 2]]
+    v += 3
+clauses += [[-1, 2], [1]]
+body = "".join(" ".join(map(str, c)) + " 0\n" for c in clauses)
+open(f"{out}/headerless.cnf", "w").write(body)
+open(f"{out}/headerless-checker.cnf", "w").write(f"p cnf {v - 1} {len(clauses)}\n" + body)
+n, edge = 18, {}
+for a in range(n):
+    for b in range(a + 1, n):
+        edge[a, b] = len(edge) + 1
+ramsey = []
+for a in range(n):
+    for b in range(a + 1, n):
+        for c in range(b + 1, n):
+            for d in range(c + 1, n):
+                k = [edge[a, b], edge[a, c], edge[a, d], edge[b, c], edge[b, d], edge[c, d]]
+                ramsey += [k, [-x for x in k]]
+open(f"{out}/ramsey18.cnf", "w").write(f"p cnf {len(edge)} {len(ramsey)}\n" +
+    "".join(" ".join(map(str, c)) + " 0\n" for c in ramsey))
+PY
+set +e
+"$solver" "$tmp/headerless.cnf" "$tmp/headerless.pbp" > "$tmp/headerless.out" 2>&1
+status=$?
+set -e
+[[ $status -eq 20 ]] || { echo "FAIL: headerless exit $status"; exit 1; }
+check headerless "$tmp/headerless-checker.cnf" "$tmp/headerless.pbp"
+set +e
+"$solver" "$tmp/ramsey18.cnf" "$tmp/ramsey18.pbp" > "$tmp/ramsey18.out" 2>&1
+status=$?
+set -e
+[[ $status -eq 20 ]] || { echo "FAIL: ramsey18 exit $status"; exit 1; }
+grep -E '^c ramsey.*1 recognized.*1 UNSAT' "$tmp/ramsey18.out" > /dev/null \
+  || { echo "FAIL: the Ramsey startup certificate did not refute ramsey18"; exit 1; }
+check ramsey18 "$tmp/ramsey18.cnf" "$tmp/ramsey18.pbp"
+grep -q '^del id ' "$tmp/ramsey18.pbp" \
+  || { echo "FAIL: ramsey18 deleted nothing by id"; exit 1; }
+if grep -Eq '^del spec( 1 ~?x[0-9]+| 1 ~?x[0-9]+( 1 ~?x[0-9]+){2,}) >= 1 ;$' \
+    "$tmp/ramsey18.pbp"; then
+  echo "FAIL: ramsey18 deleted an original clause by specification"; exit 1
+fi
+
+printf 'PBP exact deletion: restatement rebinds, dropped and written-back root units, search deletions, headerless input and the Ramsey certificate verified by VeriPB+CakePB\n'

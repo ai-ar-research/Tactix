@@ -1017,9 +1017,6 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
   if (!scratch.empty()) // tolerate a missing final 0
     ingest_clause(k, scratch);
   memory_trace.emit(k, "finish-begin");
-  if (k.proof && k.proof->streaming_pbp() &&
-      k.binary_ids.tracks_values())
-    k.proof->declare_exact_binary_ids();
   finish_input(k);
   if (deferred_lrat)
     attach_replayed_input_proof(k, *deferred_lrat);

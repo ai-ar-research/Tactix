@@ -333,7 +333,6 @@ bool Proof::open(const char *path, ProofFormat format) {
   pbp_identity_prefix_ = 0;
   pbp_input_ids_diverged_ = false;
   pbp_id_deletions_enabled_ = true;
-  pbp_exact_binary_ids_ = false;
   pbp_anonymous_constraints_.clear();
   pbp_last_input_id_ = pbp_last_input_constraint_ = 0;
   pbp_last_input_live_ = false;
@@ -650,7 +649,7 @@ void Proof::track_pbp_original_constraint(uint64_t id, uint32_t clause_size,
   // by specification, which keeps the binary archive out of the solver's hot
   // state. A binary that repeats its literal is the exception: it
   // canonicalizes to a unit, whose deletion is exact.
-  if (clause_size == 2 && !pbp_exact_binary_ids_ && !repeated_literal) {
+  if (clause_size == 2 && !repeated_literal) {
     if (constraint >= pbp_input_by_spec_.size())
       pbp_input_by_spec_.resize(
           std::max<uint64_t>(constraint + 1, 2 * pbp_input_by_spec_.size()));
@@ -662,9 +661,9 @@ void Proof::track_pbp_derived_constraint(uint64_t id, uint32_t clause_size) {
   // The ordinary PBP route deliberately does not retain binary proof IDs in
   // the solver. Avoid rebuilding the same large archive here: binary
   // deletions use `del spec`, while constraints of every other width continue
-  // to use exact IDs. A late-attached API proof may already own exact binary
-  // IDs and can retain the compact deletion too.
-  if (clause_size == 2 && !pbp_exact_binary_ids_)
+  // to use exact IDs. finish_input discards the binary-ID archive on every
+  // streaming-PBP route, so no binary identity is ever exact.
+  if (clause_size == 2)
     return;
   if (!id || !pbp_id_deletions_enabled_)
     return;
@@ -749,8 +748,7 @@ bool pbp_literal_key(const int32_t *lits, uint32_t size,
 
 // Remember an anonymous constraint just counted as the newest derived one.
 void Proof::register_pbp_anonymous(const int32_t *lits, uint32_t size) {
-  if (!size || !lits || !pbp_id_deletions_enabled_ ||
-      (size == 2 && !pbp_exact_binary_ids_))
+  if (!size || !lits || !pbp_id_deletions_enabled_ || size == 2)
     return;
   uint64_t constraint = 0;
   if (!pbp_current_ordinal(constraint) ||
@@ -772,8 +770,7 @@ void Proof::note_pbp_derived(uint64_t id, uint32_t clause_size,
 #endif
   if (id)
     track_pbp_derived_constraint(id, clause_size);
-  else if (clause_size && pbp_id_deletions_enabled_ &&
-           (clause_size != 2 || pbp_exact_binary_ids_))
+  else if (clause_size && clause_size != 2 && pbp_id_deletions_enabled_)
     register_pbp_anonymous(external(), clause_size);
 }
 
@@ -909,7 +906,7 @@ bool Proof::put_pbp_deletion(uint64_t del_id, uint32_t size,
     return put_pbp_rebind_deletion() && audited();
   if (del_id && del_id == pbp_last_input_id_)
     pbp_last_input_live_ = false;
-  bool exact_identity = size != 2 || pbp_exact_binary_ids_;
+  bool exact_identity = size != 2;
   if (!exact_identity) {
     if (!lits)
       lits = external();
@@ -1998,7 +1995,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
 #endif
   if (kernel_clause_id)
     track_pbp_derived_constraint(kernel_clause_id, reason_size);
-  else if (reason_size != 2 || pbp_exact_binary_ids_)
+  else if (reason_size != 2)
     register_pbp_anonymous(reason, reason_size);
   proof_external_max_ = std::max(proof_external_max_, fresh);
   population_external(true, kernel_clause_id, reason, reason_size);

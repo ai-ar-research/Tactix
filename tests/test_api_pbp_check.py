@@ -41,6 +41,18 @@ def main():
                                       route="pbp")
         assert not rejected[0] and rejected[2] == runner.CHK_REJECTED, rejected
 
+        # Early attachment, before the first clause: a binary deleted after
+        # input must not be deleted by the archive's sentinel id.
+        cnf = directory / "early.cnf"
+        proof = directory / "early.pbp"
+        generated = subprocess.run([fixture, cnf, proof, "early"],
+                                   text=True, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT)
+        assert generated.returncode == 0, generated.stdout
+        checked = runner.check_proof("pbp", str(cnf), str(proof), 30,
+                                     route="pbp")
+        assert checked[:3] == (True, "VERIFIED", runner.CHK_VERIFIED), checked
+
         # Late attachment after a root unit: the replay's ids drift from the
         # live kernel's, so its deletions must not name live ids.
         cnf = directory / "divergent.cnf"
@@ -54,8 +66,8 @@ def main():
                                      route="pbp")
         assert checked[:3] == (True, "VERIFIED", runner.CHK_VERIFIED), checked
 
-    print("C API PBP: VeriPB+CakePB pass, including a divergent late "
-          "attachment; route and corruption controls reject")
+    print("C API PBP: VeriPB+CakePB pass, including early and divergent "
+          "late attachment; route and corruption controls reject")
 
 
 if __name__ == "__main__":

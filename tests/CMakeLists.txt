@@ -167,7 +167,11 @@ target_link_libraries(test_api_pbp_fixture PRIVATE tactix_lib)
 tactix_skip77_test(api_pbp_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_SOURCE_DIR}/tests/test_api_pbp_check.py
                    $<TARGET_FILE:test_api_pbp_fixture> ${CMAKE_SOURCE_DIR})
-# Checker-free: Debug builds audit every `del id` of a divergent late PBP.
+# Checker-free: Debug builds audit every `del id` of an early and of a
+# divergent late PBP attachment.
+add_test(NAME api_pbp_early
+         COMMAND test_api_pbp_fixture api-pbp-early.cnf api-pbp-early.pbp
+                 early)
 add_test(NAME api_pbp_late_divergent
          COMMAND test_api_pbp_fixture api-pbp-late-divergent.cnf
                  api-pbp-late-divergent.pbp divergent)

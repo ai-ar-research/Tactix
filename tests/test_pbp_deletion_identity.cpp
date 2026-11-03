@@ -406,6 +406,103 @@ void test_repeated_binary_after_divergence() {
          "repeated binary after divergence");
 }
 
+// Two input-time derivations split the input ids into two runs after the
+// identity prefix; each run names its inputs exactly, and a divergent ordinary
+// binary is still deleted by specification.
+void test_divergent_input_runs() {
+  TemporaryFile file;
+  {
+    Proof p;
+    assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
+    const auto first = clause({9}), a = clause({1, 2, 3}), b = clause({4, 5}),
+               c = clause({1, -2, 6});
+    p.seed_population(1, first.data(), 1);            // prefix: constraint 1
+    p.add_derived_unit(2, internalize(8), nullptr, 0); // splits the ids
+    p.seed_population(3, a.data(), 3);                 // run {3, 2}
+    p.seed_population(4, b.data(), 2);                 //   ... {4, 3}
+    p.add_derived_unit(5, internalize(7), nullptr, 0); // second split
+    p.seed_population(6, c.data(), 3);                 // run {6, 4}
+    p.finish_input_transaction();
+    p.del(10, 3, a.data(), 3);
+    p.del(11, 6, c.data(), 3);
+    p.del(12, 4, b.data(), 2);
+    const auto &counters = p.pbp_deletion_counters();
+    assert(counters.by_id == 2 && counters.spec_binary == 1 &&
+           !counters.abandon_reason);
+    p.add_empty(0, nullptr, 0);
+  }
+  expect(read_all(file.path),
+         std::string("pseudo-Boolean proof version 3.0\n"
+                     "f 4;\n"
+                     "rup 1 x8 >= 1 ;\n"
+                     "rup 1 x7 >= 1 ;\n"
+                     "del id 2 ;\n"
+                     "del id 4 ;\n"
+                     "del spec 1 x4 1 x5 >= 1 ;\n") +
+             UNSAT_TAIL,
+         "divergent input runs");
+}
+
+// Two input-time splits leave the prefix and two runs of divergent input ids.
+// Each run's first and last input, the split ids between runs and the first id
+// past the last run resolve exactly; an ordinary binary of a later run stays
+// by specification; a deleted input's id may be reused by a derived constraint.
+void test_multiple_input_runs() {
+  TemporaryFile file;
+  {
+    Proof p;
+    assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
+    const auto prefix = clause({1, 2, 3});
+    const auto a1 = clause({4, 5, 6}), a2 = clause({7, 8, 9});
+    const auto b1 = clause({10, 11, 12}), b2 = clause({13, -14}),
+               b3 = clause({15, 16, 17});
+    const auto learned = clause({1, 4, 10}), reused = clause({4});
+    p.seed_population(1, prefix.data(), 3);             // 1: the prefix
+    p.add_derived_unit(2, internalize(20), nullptr, 0); // split: f + 1
+    p.seed_population(3, a1.data(), 3);                 // run A: 2
+    p.seed_population(4, a2.data(), 3);                 //        3
+    p.add_derived_unit(5, internalize(21), nullptr, 0); // split: f + 2
+    p.seed_population(6, b1.data(), 3);                 // run B: 4
+    p.seed_population(7, b2.data(), 2);                 //        5 (by spec)
+    p.seed_population(8, b3.data(), 3);                 //        6
+    p.finish_input_transaction();
+    p.add_rup(9, learned.data(), 3, nullptr, 0); // just past run B: f + 3
+    p.del(10, 3, a1.data(), 3);                  // 2
+    p.del(11, 4, a2.data(), 3);                  // 3
+    p.del(12, 6, b1.data(), 3);                  // 4
+    p.del(13, 8, b3.data(), 3);                  // 6
+    p.del(14, 7, b2.data(), 2);                  // binary: spec
+    p.add_rup(3, reused.data(), 1, nullptr, 0);  // reuses deleted 3: f + 4
+    p.del(15, 3, reused.data(), 1);              // f + 4
+    p.del(16, 5, clause({21}).data(), 1);        // f + 2
+    p.del(17, 2, clause({20}).data(), 1);        // f + 1
+    p.del(18, 9, learned.data(), 3);             // f + 3
+    p.del(19, 1, prefix.data(), 3);              // 1
+    const auto &c = p.pbp_deletion_counters();
+    assert(c.by_id == 9 && c.spec_binary == 1 && !c.abandon_reason);
+    p.add_empty(0, nullptr, 0);
+  }
+  expect(read_all(file.path),
+         std::string("pseudo-Boolean proof version 3.0\n"
+                     "f 6;\n"
+                     "rup 1 x20 >= 1 ;\n"
+                     "rup 1 x21 >= 1 ;\n"
+                     "rup 1 x1 1 x4 1 x10 >= 1 ;\n"
+                     "del id 2 ;\n"
+                     "del id 3 ;\n"
+                     "del id 4 ;\n"
+                     "del id 6 ;\n"
+                     "del spec 1 x13 1 ~x14 >= 1 ;\n"
+                     "rup 1 x4 >= 1 ;\n"
+                     "del id 10 ;\n"
+                     "del id 8 ;\n"
+                     "del id 7 ;\n"
+                     "del id 9 ;\n"
+                     "del id 1 ;\n") +
+             UNSAT_TAIL,
+         "multiple input runs");
+}
+
 // A stream whose ID deletion is disabled (a proof attached after replayed
 // input) deletes even tracked and input identities by specification.
 void test_disabled_id_deletions() {
@@ -624,6 +721,8 @@ int main(int argc, char **argv) {
   test_deferred_root_units();
   test_repeated_binary_is_exact();
   test_repeated_binary_after_divergence();
+  test_divergent_input_runs();
+  test_multiple_input_runs();
   test_disabled_id_deletions();
   test_refutation_sink_erases_by_id();
   test_root_conflict_publishes_no_units();
