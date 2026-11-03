@@ -517,6 +517,8 @@ void Proof::put_external_lit(Lit l) {
 
 void Proof::put_external_dimacs(int32_t e) {
   assert(e && e != INT32_MIN);
+  if (census_on_)
+    ++census_line_literals_;
   if (binary()) {
     const uint32_t magnitude = external_variable_of(e);
     uint32_t u = (magnitude << 1) | (e < 0);
@@ -1048,9 +1050,18 @@ void Proof::end_line() {
     put_byte(0);
   else
     fputs("0\n", file_);
+  if (census_on_) {
+    census_.line(census_line_deletion_, census_line_literals_);
+    census_line_deletion_ = false;
+    census_line_literals_ = 0;
+  }
 }
 
 void Proof::put_line_tag(bool deletion) {
+  if (census_on_) {
+    census_line_deletion_ = deletion;
+    census_line_literals_ = 0;
+  }
   if (format_ == ProofFormat::DsrBinary)
     put_byte(deletion ? 2 : 1);
   else if (format_ == ProofFormat::DratBinary)
@@ -1318,6 +1329,8 @@ void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size,
     // DSR/DRAT: a witnessless addition with the pivot ordered first. The
     // checker first tries RUP and then infers first-literal RAT. DRAT output
     // is unchanged.
+    if (census_on_)
+      census_.non_rup_line(false);
     put_clausal_line(false, lits, size);
   }
   population_add(id, lits, size);
@@ -1400,6 +1413,8 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                     CheckerClauseRole::SubstitutionRedundancy, id, id,
                     internal_view(lits, size));
     has_sr_witness_ = true;
+    if (census_on_)
+      census_.non_rup_line(true);
     return true;
   }
   if (!dsr())
@@ -1477,6 +1492,8 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                     negative_helper, true);
     population_add(id, lits, size);
     has_sr_witness_ = true;
+    if (census_on_)
+      census_.non_rup_line(true);
     return true;
   }
   const Lit emitted_pivot = lits[plan.pivot];
@@ -1528,8 +1545,11 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                   plan.form == DsrWitnessForm::Rup ? CheckerClauseRole::Rup :
                                                    CheckerClauseRole::SubstitutionRedundancy,
                   id, id, emitted_clause);
-  if (plan.form != DsrWitnessForm::Rup)
+  if (plan.form != DsrWitnessForm::Rup) {
     has_sr_witness_ = true;
+    if (census_on_)
+      census_.non_rup_line(true);
+  }
   if (plan.form == DsrWitnessForm::Lemma) {
     put_emitted(true, true);
     end_line();
@@ -1754,6 +1774,8 @@ bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
   }
   // DSR/DRAT infer RAT from the first literal after RUP fails, so their byte
   // stream is identical to an external RUP addition.
+  if (census_on_ && size && lits && file_)
+    census_.non_rup_line(false);
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::ExternalRat;
   const bool result = add_external_rup_impl(id, lits, size);
@@ -2459,6 +2481,8 @@ void Proof::population_external(bool add, uint64_t id, const int32_t *lits,
 
 void Proof::seed_population_impl(uint64_t id, const Lit *lits, uint32_t size) {
   population_add(id, lits, size);
+  if (census_on_)
+    census_.line(false, size); // an input clause of the checker's formula
   if (!file_)
     return;
   // VeriPB's `f` statement names the number of constraints in the original
@@ -2503,6 +2527,7 @@ const char *automatic_proof_reason_name(AutomaticProofReason reason) noexcept {
   case AutomaticProofReason::DestinationUnsupported:
     return "destination-unsupported";
   case AutomaticProofReason::StageUnavailable: return "stage-unavailable";
+  case AutomaticProofReason::PbpPredictedFaster: return "pbp-predicted-faster";
   }
   return "unknown";
 }
@@ -2544,6 +2569,7 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   automatic_ = true;
   automatic_selected_dsr_ = false;
   automatic_dsr_witness_ = false;
+  automatic_estimated_ = false;
   automatic_reason_ = AutomaticProofReason::Pending;
   // Absolute, so a later change of directory cannot redirect the placement.
   std::error_code absolute_error;
@@ -2604,6 +2630,7 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   }
   auto copy = std::make_unique<Proof>();
   copy->copy_role_ = true;
+  copy->census_on_ = true;
   if (!copy->open_stream(stage, binary_dsr ? ProofFormat::DsrBinary
                                            : ProofFormat::DsrAscii)) {
     if (!automatic_stage_name_.empty())
@@ -2651,9 +2678,28 @@ void Proof::settle_dsr_copy() {
     drop_dsr_copy(AutomaticProofReason::CopyWriteFailed);
     return;
   }
-  // The empty clause completed both streams: keep the native DSR copy.
-  if (streaming_pbp_finished_)
+  // The empty clause completed both streams: keep the route predicted to
+  // check faster (check_cost.hpp). Positions include buffered bytes.
+  if (streaming_pbp_finished_) {
+    Proof &copy = *dsr_copy_;
+    const auto position = [](FILE *file) -> uint64_t {
+      if (!file)
+        return 0;
+      const off_t at = ftello(file);
+      return at > 0 ? static_cast<uint64_t>(at) : 0;
+    };
+    const uint64_t dsr_bytes = position(copy.file_) + copy.binary_buffer_size_;
+    const uint64_t pbp_bytes = position(file_ ? file_ : pbp_output_);
+    automatic_estimate_ = estimate_automatic_checks(
+        copy.census_, copy.has_sr_witness_, copy.external_variable_bound(),
+        dsr_bytes, pbp_bytes);
+    automatic_estimated_ = true;
+    if (automatic_estimate_.pbp_faster()) {
+      drop_dsr_copy(AutomaticProofReason::PbpPredictedFaster);
+      return;
+    }
     select_dsr_copy();
+  }
 }
 
 // Replace the destination's PBP bytes with the complete DSR copy: rename a

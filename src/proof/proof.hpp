@@ -7,6 +7,7 @@
 
 #include "kernel/types.hpp"
 #include "population/population_observer.hpp"
+#include "proof/check_cost.hpp"
 
 #include <array>
 #include <compare>
@@ -106,8 +107,10 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
 // kernel-visible decision, so the solver trajectory equals `--pbp`; a native
 // DSR copy of the same proof events is written to a private stage. The first
 // PB-native event (a startup PB refutation, a compact GF(2) reason) or an
-// event the copy cannot follow discards the copy and keeps PBP; otherwise the
-// empty clause replaces the PBP destination with the DSR copy.
+// event the copy cannot follow discards the copy and keeps PBP. At the empty
+// clause both proofs are complete: PBP stays when its predicted checking time
+// is below the DSR route's (check_cost.hpp), otherwise the DSR copy replaces
+// the PBP destination.
 enum class AutomaticProofReason : uint8_t {
   Pending,              // the DSR copy is still live
   DsrSelected,          // the empty clause kept the DSR copy
@@ -118,6 +121,7 @@ enum class AutomaticProofReason : uint8_t {
   CopyWriteFailed,      // the DSR stage could not be written
   DestinationUnsupported, // not a regular file: no copy was opened
   StageUnavailable,     // no stage file could be created
+  PbpPredictedFaster,   // the empty clause: PBP is predicted to check faster
 };
 const char *automatic_proof_reason_name(AutomaticProofReason) noexcept;
 
@@ -139,6 +143,10 @@ public:
   }
   // The selection is final once the copy is discarded or kept.
   bool automatic_dsr_live() const noexcept { return dsr_copy_ != nullptr; }
+  // The checking-time estimate compared at the empty clause, if one was made.
+  const AutomaticCheckEstimate *automatic_estimate() const noexcept {
+    return automatic_estimated_ ? &automatic_estimate_ : nullptr;
+  }
   uint64_t stream_identity() const noexcept { return stream_identity_; }
   // Whole-run PBP privately stages input normalization. At the original-input
   // action boundary the caller may commit a complete native PB refutation.
@@ -435,6 +443,14 @@ private:
   // In the copy: a failed write disables it instead of aborting the solver.
   bool copy_role_ = false;
   bool copy_failed_ = false;
+  // In the copy: the checker-work census of every line written (see
+  // DsrCheckCensus); line literals are counted as they are serialized.
+  bool census_on_ = false;
+  bool census_line_deletion_ = false;
+  uint32_t census_line_literals_ = 0;
+  DsrCheckCensus census_;
+  AutomaticCheckEstimate automatic_estimate_;
+  bool automatic_estimated_ = false;
   void drop_dsr_copy(AutomaticProofReason) noexcept;
   void select_dsr_copy();
   // After forwarding: discard a failed copy, keep the copy at the empty clause.
