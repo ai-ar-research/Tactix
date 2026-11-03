@@ -8,6 +8,12 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Changed
 
+- Whole-run PBP proofs delete constraints by id (`del id`) instead of
+  restating them (`del spec`), and omit the root units that only precede the
+  empty clause. Binary clauses are still deleted by specification. Searches,
+  verdicts, models and DSR, DRAT and LRAT bytes are unchanged; on the four
+  fixed regression sets the PBP certificates are 37% smaller.
+
 - Bounded variable elimination can perform CaDiCaL-style, clause-size-ordered
   generation-time self-subsuming resolution before charging a pair against
   the resolvent bound; the mechanism remains opt-in after its Common-set
