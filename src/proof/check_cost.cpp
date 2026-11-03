@@ -16,19 +16,14 @@ namespace {
 // is taken.
 constexpr double kDratTrimSlotNs = 2.4;
 constexpr double kDratTrimScanUnitNs = 1.65;
-// Trestle SR.checkLine, per non-RUP line: every committed slot (a deleted
-// slot is one flag test) and every live clause (reduced literal by literal).
-// Micro-benchmark on a compute node (randomly laid out formulas, so an upper
-// bound for real proofs).
-constexpr double kTrestleDeletedSlotNs = 2.5;
-constexpr double kTrestleLiveLiteralNs = 16.0;
-// Whole-route wall time per certificate byte: medians over the fixed
-// regression sets' verified rows (B28+C5, Rank1-50, WV100, WV2-89) at the
-// current writers. Witness-free DSR: DSR-as-DRAT, drat-trim, CakeLPR (27
-// rows). Witnessed DSR: dsr-trim, dsr-compress, Trestle (99 rows). PBP:
-// VeriPB then CakePB (135 rows, deletion by id).
-constexpr double kWitnessFreeRouteNsPerByte = 1316.0;
-constexpr double kWitnessedRouteNsPerByte = 5716.0;
+// Trestle SR.checkLine, per non-RUP line: at least one flag test per deleted
+// slot (live clauses cost more, so counting deleted slots alone is a lower
+// bound). Micro-benchmark of the pinned srcheck on a compute node: 2.7 ns per
+// deleted slot, a sequential scan that does not depend on the proof's layout.
+constexpr double kTrestleDeletedSlotNs = 2.7;
+// PBP route wall time per certificate byte: the median over the fixed
+// regression sets' verified rows (B28+C5, Rank1-50, WV100, WV2-89; 135 rows,
+// deletion by id), VeriPB then CakePB.
 constexpr double kPbpRouteNsPerByte = 3667.0;
 
 constexpr double kNs = 1e-9;
@@ -46,25 +41,18 @@ AutomaticCheckEstimate estimate_automatic_checks(const DsrCheckCensus &census,
   estimate.dsr_bytes = dsr_bytes;
   estimate.pbp_bytes = pbp_bytes;
   estimate.census = census;
-  const double non_rup =
-      static_cast<double>(census.rat_lines) + static_cast<double>(census.sr_lines);
   if (witnessed) {
     estimate.dsr_scan_seconds =
-        kNs * (kTrestleDeletedSlotNs * static_cast<double>(census.deleted_slot_scan) +
-               kTrestleLiveLiteralNs * static_cast<double>(census.live_literal_scan));
-    estimate.dsr_seconds = kNs * kWitnessedRouteNsPerByte *
-                               static_cast<double>(dsr_bytes) +
-                           estimate.dsr_scan_seconds;
+        kNs * kTrestleDeletedSlotNs * static_cast<double>(census.deleted_slot_scan);
   } else {
+    const double non_rup =
+        static_cast<double>(census.rat_lines) + static_cast<double>(census.sr_lines);
     const double slots = 2.0 * static_cast<double>(max_variable) + 1.0;
     estimate.dsr_scan_seconds =
         kNs * (kDratTrimSlotNs * non_rup * slots +
                kDratTrimScanUnitNs *
                    (static_cast<double>(census.watch_scan) +
                     static_cast<double>(census.watched_literal_scan)));
-    estimate.dsr_seconds = kNs * kWitnessFreeRouteNsPerByte *
-                               static_cast<double>(dsr_bytes) +
-                           estimate.dsr_scan_seconds;
   }
   estimate.pbp_seconds =
       kNs * kPbpRouteNsPerByte * static_cast<double>(pbp_bytes);

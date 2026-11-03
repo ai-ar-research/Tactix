@@ -1,6 +1,7 @@
 // Automatic proof selection (plan §5): the PBP stream owns every decision and
 // a native-DSR copy receives the same events. The empty clause keeps the copy
-// unless a PB-native step (or an event the copy cannot follow) discarded it.
+// unless a PB-native step (or an event the copy cannot follow) discarded it,
+// or PBP is predicted to check faster (check_cost.hpp).
 // Every case compares the destination with a single-format writer fed the
 // same events, so selection changes which bytes survive, never the bytes.
 #undef NDEBUG
@@ -157,6 +158,8 @@ void no_trigger_selects_dsr() {
       events(p);
       assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
       assert(!p.automatic_dsr_live());
+      const AutomaticCheckEstimate *e = p.automatic_estimate();
+      assert(e && e->census.rat_lines == 0 && !e->pbp_faster());
       route = p.verification_route();
       assert(directory.entries() == std::vector<std::string>{"proof"});
     }
@@ -379,8 +382,69 @@ void device_destination_is_pbp_only() {
 
 } // namespace
 
+// The census charges each non-RUP line against the database it is added to:
+// non-unit clauses for drat-trim's watches, every clause for Trestle, and
+// slots that stay allocated after deletion. Unit deletions are ignored.
+void census_counts_the_checker_database() {
+  DsrCheckCensus c;
+  c.line(false, 3);
+  c.line(false, 2);
+  c.line(false, 1);
+  c.non_rup_line(false);
+  assert(c.rat_lines == 1 && c.sr_lines == 0);
+  assert(c.watch_scan == 4 && c.watched_literal_scan == 5);
+  assert(c.live_scan == 3 && c.live_literal_scan == 6);
+  assert(c.deleted_slot_scan == 0);
+  c.line(true, 2);
+  c.line(true, 1); // ignored, as both DSR elaborators ignore unit deletions
+  c.line(false, 0); // the empty clause
+  c.non_rup_line(true);
+  assert(c.sr_lines == 1 && c.committed == 3 && c.live == 2);
+  assert(c.watch_scan == 4 + 2 && c.watched_literal_scan == 5 + 3);
+  assert(c.deleted_slot_scan == 1 && c.live_scan == 3 + 2);
+}
+
+// Factor-shaped RAT lines over a large database: the reference DSR checker
+// would scan the whole formula for each, so the empty clause keeps the
+// complete PBP stream, byte for byte as --pbp wrote it.
+void rat_scan_keeps_pbp() {
+  constexpr int inputs = 100000, rats = 1000;
+  const Events events = [](Proof &p) {
+    for (int i = 0; i < inputs; ++i) {
+      const auto c = clause({i + 1, -(i + 2)});
+      p.seed_population(i + 1, c.data(), 2);
+    }
+    p.finish_input_transaction();
+    for (int k = 0; k < rats; ++k) {
+      const int fresh = inputs + 2 + 2 * k;
+      const auto r = clause({fresh, fresh + 1});
+      p.add_rat(inputs + 1 + k, r.data(), 2, nullptr, 0);
+    }
+    p.add_empty(inputs + rats + 1, nullptr, 0);
+  };
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  std::string route;
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true));
+    events(p);
+    assert(p.automatic_reason() == AutomaticProofReason::PbpPredictedFaster);
+    const AutomaticCheckEstimate *e = p.automatic_estimate();
+    assert(e && !e->witnessed && e->census.rat_lines == rats);
+    assert(e->pbp_faster() && e->dsr_scan_seconds > e->pbp_seconds);
+    route = p.verification_route();
+    assert(directory.entries() == std::vector<std::string>{"proof"});
+  }
+  assert(route == "pbp");
+  expect_equal(read_all(path), single(ProofFormat::PbpStreaming, events),
+               "predicted-faster PBP equals --pbp");
+}
+
 int main() {
+  census_counts_the_checker_database();
   no_trigger_selects_dsr();
+  rat_scan_keeps_pbp();
   startup_pb_keeps_pbp();
   sr_with_support_keeps_pbp();
   witnessed_sr_selects_trestle_route();
@@ -391,8 +455,8 @@ int main() {
   unusable_stage_is_pbp_only();
   unfinished_run_keeps_pbp();
   device_destination_is_pbp_only();
-  std::puts("automatic proof selection: DSR kept unless a PB-native step or "
-            "an unfollowable event discarded it; bytes equal single-format "
-            "writers");
+  std::puts("automatic proof selection: DSR kept unless a PB-native step, an "
+            "unfollowable event, or a faster predicted PBP check discarded "
+            "it; bytes equal single-format writers");
   return 0;
 }

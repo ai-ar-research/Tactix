@@ -11,10 +11,14 @@ semantic versioning; the public C API remains source-compatible within the
 - The command-line default proof is selected per run. The solver runs exactly
   as with `--pbp` and writes a native-DSR copy of the same proof alongside.
   A step with no clausal spelling (a startup parity or count-preservation
-  refutation, or a compact GF(2) reason) keeps the whole-run PBP proof;
-  otherwise the DSR copy replaces it when the empty clause is derived. The
-  `c proof-route` line names the route actually written, and the statistics
-  report the reason as `c auto-proof`. `--pbp` keeps whole-run PBP for every
+  refutation, or a compact GF(2) reason) keeps the whole-run PBP proof. So
+  does a proof whose RAT and substitution lines would cost the DSR route's
+  checkers more than checking PBP: drat-trim and Trestle scan the whole
+  formula for every such line, and at the empty clause the solver keeps PBP
+  when the predicted scans alone exceed the predicted PBP check (reported as
+  `c auto-proof-cost`). Otherwise the DSR copy replaces the PBP proof when the
+  empty clause is derived. The `c proof-route` line names the route actually
+  written, and the statistics report the reason as `c auto-proof`. `--pbp` keeps whole-run PBP for every
   run; `--no-binary` spells the DSR copy as text. The competition wrapper
   `tools/compete/run.sh` passes `--pbp`.
 - `tactix-public` defaults to automatic selection as well.

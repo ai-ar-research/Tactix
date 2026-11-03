@@ -5,11 +5,12 @@
 // every non-RUP line: drat-trim's checkRAT walks every literal slot
 // (-maxVar..maxVar), every watch entry and every live clause body before it
 // looks at a candidate (drat-trim.c:555-573), and Trestle's SR.checkLine visits
-// every clause slot ever committed and reduces every live clause
+// every clause slot ever committed, deleted ones included
 // (SRChecker.lean:286-341). VeriPB and CakePB find a `red` step's goals through
 // occurrence lists, so the same lines cost them no formula scan. The census
-// below counts that scan work while the DSR copy is written; the estimate adds
-// it to each route's per-byte cost. Evidence and the measurements behind the
+// below counts that scan work while the DSR copy is written. The DSR route
+// costs at least its scans, so PBP is kept when the predicted scans alone
+// exceed the predicted PBP check. Evidence and the measurements behind the
 // constants: Tactix-dev/benchmark-reports/2026-11-03-dsr-route-rat-scan.
 
 #include <cstdint>
@@ -79,10 +80,10 @@ struct AutomaticCheckEstimate {
   uint32_t max_variable = 0;   // drat-trim's maxVar
   uint64_t dsr_bytes = 0, pbp_bytes = 0;
   DsrCheckCensus census;
-  double dsr_scan_seconds = 0; // formula scans for non-RUP lines
-  double dsr_seconds = 0;      // the whole DSR route
-  double pbp_seconds = 0;      // VeriPB then CakePB
-  bool pbp_faster() const noexcept { return pbp_seconds < dsr_seconds; }
+  double dsr_scan_seconds = 0; // the DSR checker's formula scans alone
+  double pbp_seconds = 0;      // the whole PBP route: VeriPB then CakePB
+  // The DSR route costs at least its scans.
+  bool pbp_faster() const noexcept { return dsr_scan_seconds > pbp_seconds; }
 };
 
 AutomaticCheckEstimate estimate_automatic_checks(const DsrCheckCensus &,

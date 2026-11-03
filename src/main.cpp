@@ -1604,15 +1604,15 @@ int main(int argc, char **argv) {
              automatic_proof_reason_name(proof.automatic_reason()));
       if (const tactix::AutomaticCheckEstimate *e = proof.automatic_estimate()) {
         const tactix::DsrCheckCensus &c = e->census;
-        printf("c auto-proof-cost dsr %.0f s (scan %.0f s) pbp %.0f s; %s "
-               "%" PRIu64 " bytes, pbp %" PRIu64 " bytes; rat %" PRIu64
-               " sr %" PRIu64 " maxvar %" PRIu32 " watch %" PRIu64
-               " body %" PRIu64 " dead %" PRIu64 " live-literal %" PRIu64 "\n",
-               e->dsr_seconds, e->dsr_scan_seconds, e->pbp_seconds,
+        printf("c auto-proof-cost dsr-scan %.0f s pbp %.0f s; %s %" PRIu64
+               " bytes, pbp %" PRIu64 " bytes; rat %" PRIu64 " sr %" PRIu64
+               " maxvar %" PRIu32 " watch %" PRIu64 " body %" PRIu64
+               " dead %" PRIu64 " live %" PRIu64 " live-literal %" PRIu64 "\n",
+               e->dsr_scan_seconds, e->pbp_seconds,
                e->witnessed ? "dsr-trestle" : "dsr-cake_lpr", e->dsr_bytes,
                e->pbp_bytes, c.rat_lines, c.sr_lines, e->max_variable,
                c.watch_scan, c.watched_literal_scan, c.deleted_slot_scan,
-               c.live_literal_scan);
+               c.live_scan, c.live_literal_scan);
       }
     }
   }
