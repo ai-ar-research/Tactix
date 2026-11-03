@@ -9,11 +9,14 @@ SR_CHECK="${SR_CHECK:-$ROOT/tools/checkers/bin/srcheck}"
 DSR_COMPRESS="${DSR_COMPRESS:-$ROOT/tools/checkers/bin/dsr-compress}"
 VERIPB="${VERIPB:-$ROOT/tools/checkers/bin/veripb}"
 CAKE_PB="${CAKE_PB:-$ROOT/tools/checkers/bin/cake-pb-cnf}"
+DRAT_TRIM="${DRAT_TRIM:-$ROOT/tools/checkers/bin/drat-trim}"
+CAKE_LPR="${CAKE_LPR:-$ROOT/tools/checkers/bin/cake_lpr}"
 # proof_oracle owns the default PBP pipeline and retained DSR routes.
 check_proof() {
   python3 "$ROOT/tools/bench/proof_oracle.py" check "$1" "$2" \
     --dsr-trim "$DSR_TRIM" --dsr-compress "$DSR_COMPRESS" \
     --srcheck "$SR_CHECK" --veripb "$VERIPB" --cake-pb "$CAKE_PB" \
+    --drat-trim "$DRAT_TRIM" --cake-lpr "$CAKE_LPR" \
     > "$T/proof-check" 2>&1
 }
 CHECKMODEL="${CHECKMODEL:-$ROOT/tools/fuzz/checkmodel}"

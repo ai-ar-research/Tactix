@@ -696,21 +696,25 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                      + str(out.checker_runs[-1].get("runner_error")))
         else:
             out.fail("proof", detail)
-    native_lrat = "--lrat" in solver
-    explicit_dsr = "--dsr" in solver
     basename_tactix = os.path.basename(solver[0]) == "tactix"
     is_tactix = (basename_tactix or "--pbp" in solver or
                  "--auto-proof" in solver)
-    # The last proof flag wins, as on the Tactix command line.
     proof_flags = [flag for flag in solver if flag in (
         "--pbp", "--auto-proof", "--dsr", "--drat", "--lrat")]
-    automatic = is_tactix and (proof_flags[-1:] == ["--auto-proof"] or
-                               (basename_tactix and not proof_flags))
-    default_pbp = proof_flags[-1:] == ["--pbp"]
+    if is_tactix:
+        # The last proof flag wins, as on the Tactix command line.
+        last = proof_flags[-1] if proof_flags else None
+        native_lrat, explicit_dsr = last == "--lrat", last == "--dsr"
+        automatic = last == "--auto-proof" or (basename_tactix and not last)
+        default_pbp = last == "--pbp"
+    else:
+        native_lrat, explicit_dsr = "--lrat" in solver, "--dsr" in solver
+        automatic = default_pbp = False
     # Competition reference solvers still default to DRAT. Tactix's no-flag
     # route is automatic selection; --dsr retains the native clausal controls.
-    explicit_drat = ("--drat" in solver or
-                     (not native_lrat and not explicit_dsr and not is_tactix))
+    explicit_drat = (proof_flags[-1:] == ["--drat"] if is_tactix else
+                     ("--drat" in solver or
+                      (not native_lrat and not explicit_dsr)))
     native_dsr = not native_lrat and not explicit_drat
     proof = os.path.join(
         workdir, "proof.lrat" if native_lrat else

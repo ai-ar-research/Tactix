@@ -382,6 +382,9 @@ int main(int argc, char **argv) {
       }
     }
   }
+  if (proof_stage_path && (!proof_path ||
+                           proof_family != CliProofFamily::Automatic))
+    return fail_unknown("tactix: --proof-stage needs an automatic proof\n");
   if (proof_stage_path) {
     // The stage is truncated when opened: it must not name another artifact.
     for (const char *other : {cnf_path, proof_path, feedback_path,
@@ -505,9 +508,6 @@ int main(int argc, char **argv) {
       proof_format == ProofFormat::PbpStreaming ||
       proof_format == ProofFormat::DsrBinary ||
       proof_format == ProofFormat::DsrAscii;
-  if (proof_stage_path && (!proof_path ||
-                           proof_family != CliProofFamily::Automatic))
-    return fail_unknown("tactix: --proof-stage needs an automatic proof\n");
   if (proof_path) {
     const bool opened =
         proof_family == CliProofFamily::Automatic

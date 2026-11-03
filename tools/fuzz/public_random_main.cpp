@@ -818,15 +818,9 @@ int main(int argc, char **argv) {
     print_model(solver, variables);
   } else if (result == 20) {
     if (proof_path) {
-      // Only an automatic proof chooses its route while solving.
-      const char *route = proof_format == TACTIX_PROOF_AUTO
-                              ? tactix_proof_route(solver)
-                          : proof_format == TACTIX_PROOF_PBP ? "pbp"
-                          : proof_format == TACTIX_PROOF_LRAT ? "lrat"
-                          : proof_format == TACTIX_PROOF_DSR_BINARY ||
-                                  proof_format == TACTIX_PROOF_DSR_ASCII
-                              ? "dsr-trestle"
-                              : "drat";
+      // The route actually written: an automatic proof chooses it while
+      // solving, and native DSR is witnessed only when an SR step occurred.
+      const char *route = tactix_proof_route(solver);
       std::printf("c proof-route %s\n", route ? route : "none");
     }
     std::puts("s UNSATISFIABLE");

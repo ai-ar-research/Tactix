@@ -15,7 +15,10 @@
 #include <set>
 #include <string_view>
 
+#if defined(__GLIBC__) || defined(__linux__)
 #include <stdio_ext.h>
+#endif
+#include <filesystem>
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
@@ -77,18 +80,16 @@ void put_pbp_literal(PbpTextWriter &text, int32_t literal) {
   text.put(" ");
 }
 
-// Append every remaining byte of `source` to `target`.
-void copy_stream(FILE *source, FILE *target) {
+// Append every remaining byte of `source` to `target`; false on a failed
+// read or write.
+bool copy_stream(FILE *source, FILE *target) {
   std::array<unsigned char, 65536> bytes{};
   for (;;) {
     const size_t count = std::fread(bytes.data(), 1, bytes.size(), source);
     if (count && std::fwrite(bytes.data(), 1, count, target) != count)
-      std::abort();
-    if (count < bytes.size()) {
-      if (std::ferror(source))
-        std::abort();
-      break;
-    }
+      return false;
+    if (count < bytes.size())
+      return !std::ferror(source);
   }
 }
 
@@ -442,7 +443,8 @@ void Proof::publish_streaming_pbp_header() {
                    "pseudo-Boolean proof version 3.0\nf %" PRIu64 ";\n",
                    pbp_original_constraints_) < 0)
     std::abort();
-  copy_stream(file_, pbp_output_);
+  if (!copy_stream(file_, pbp_output_))
+    std::abort();
   std::fclose(file_);
   file_ = pbp_output_;
   pbp_output_ = nullptr;
@@ -463,6 +465,11 @@ void Proof::put_byte(unsigned char byte) {
 }
 
 void Proof::flush_binary() {
+  if (copy_failed_) { // a failed automatic copy writes nothing further
+    binary_buffer_size_ = 0;
+    pending_deletion_bytes_.clear();
+    return;
+  }
   if (!file_ || !binary_buffer_size_)
     return;
   if (spooling_deletions_ && !pending_deletions_ &&
@@ -479,9 +486,12 @@ void Proof::flush_binary() {
         std::fwrite(pending_deletion_bytes_.data(), 1,
                     pending_deletion_bytes_.size(), pending_deletions_) !=
             pending_deletion_bytes_.size()) {
-      if (!copy_role_ || !pending_deletions_)
+      if (!copy_role_)
         std::abort();
       copy_failed_ = true;
+      binary_buffer_size_ = 0;
+      pending_deletion_bytes_.clear();
+      return;
     }
     pending_deletion_bytes_.clear();
   }
@@ -1071,6 +1081,17 @@ uint32_t Proof::external_variable_bound() const {
 }
 
 void Proof::flush_pending_dsr_units() {
+  if (copy_failed_) { // the owner discards this copy; drop its staged batch
+    pending_units_.clear();
+    pending_unit_literals_.clear();
+    pending_unit_ids_.clear();
+    pending_deletion_bytes_.clear();
+    spooling_deletions_ = false;
+    if (pending_deletions_)
+      std::fclose(pending_deletions_);
+    pending_deletions_ = nullptr;
+    return;
+  }
   if (pending_units_.empty())
     return;
   assert(file_ && dsr());
@@ -1130,13 +1151,16 @@ void Proof::flush_pending_dsr_units() {
     pending_deletion_bytes_.clear();
     if (pending_deletions_) {
       flush_binary();
-      if (std::fflush(pending_deletions_) ||
-          std::fseek(pending_deletions_, 0, SEEK_SET))
-        std::abort();
-      copy_stream(pending_deletions_, file_);
-      if (std::fclose(pending_deletions_))
-        std::abort();
+      const bool copied = !std::fflush(pending_deletions_) &&
+                          !std::fseek(pending_deletions_, 0, SEEK_SET) &&
+                          copy_stream(pending_deletions_, file_);
+      const bool closed = !std::fclose(pending_deletions_);
       pending_deletions_ = nullptr;
+      if (!copied || !closed) {
+        if (!copy_role_)
+          std::abort();
+        copy_failed_ = true; // the owner discards this copy (settle_dsr_copy)
+      }
     }
     observe_checker(CheckerPopulationEventKind::PendingDeletesCommit,
                     CheckerClauseRole::None, 0, 0, {}, false, 0,
@@ -1151,9 +1175,16 @@ void Proof::flush_pending_dsr_units() {
   observe_checker(CheckerPopulationEventKind::PendingCommitEnd,
                   CheckerClauseRole::None, 0, 0, {}, false, 0,
                   pending_population_transaction_);
+  // Erase exactly this batch's keys: clear() zeroes the whole bucket array,
+  // which keeps the size of the largest batch ever staged (input units), and
+  // made every later small flush pay for it.
+  for (const PendingDsrUnit &unit : pending_units_) {
+    pending_unit_literals_.erase(unit.external);
+    if (unit.id)
+      pending_unit_ids_.erase(unit.id);
+  }
+  assert(pending_unit_literals_.empty() && pending_unit_ids_.empty());
   pending_units_.clear();
-  pending_unit_literals_.clear();
-  pending_unit_ids_.clear();
   pending_max_external_ = 0;
   pending_population_transaction_ = 0;
 }
@@ -1551,8 +1582,12 @@ FILE *Proof::begin_pending_deletion() {
     spooling_deletions_ = true;
     return nullptr;
   }
-  if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile()))
-    std::abort();
+  if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile())) {
+    if (!copy_role_)
+      std::abort();
+    copy_failed_ = true; // keep the main stream; the copy is discarded
+    return file_;
+  }
   FILE *const main_file = file_;
   file_ = pending_deletions_;
   return main_file;
@@ -2474,6 +2509,20 @@ const char *automatic_proof_reason_name(AutomaticProofReason reason) noexcept {
 
 namespace {
 
+// Drop a stream's buffered, unwritten bytes (they are being discarded), so
+// closing it cannot fail on them. Without a purge primitive the bytes are
+// written and any error is ignored.
+void discard_buffered(FILE *file) {
+#if defined(__GLIBC__) || defined(__linux__)
+  __fpurge(file);
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__NetBSD__)
+  fpurge(file);
+#else
+  (void)file;
+#endif
+}
+
 // `<dir>/.<name>.dsr-XXXXXX` next to `path`, so the final rename stays on
 // the destination's filesystem.
 std::string sibling_stage_template(const char *path) {
@@ -2496,7 +2545,11 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   automatic_selected_dsr_ = false;
   automatic_dsr_witness_ = false;
   automatic_reason_ = AutomaticProofReason::Pending;
-  automatic_path_ = path;
+  // Absolute, so a later change of directory cannot redirect the placement.
+  std::error_code absolute_error;
+  automatic_path_ = std::filesystem::absolute(path, absolute_error).string();
+  if (absolute_error)
+    automatic_path_ = path;
   automatic_stage_name_.clear();
   // The empty clause rewrites the destination in place, so it must be a
   // regular file (a proc-fd path to an anonymous file qualifies).
@@ -2515,9 +2568,20 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
                           link_stat.st_dev == destination_stat.st_dev &&
                           link_stat.st_ino == destination_stat.st_ino;
   if (stage_path) {
+    // A caller stage is copied from at the empty clause: it must be a
+    // regular file other than the destination, or the copy could not be
+    // read back.
     stage = std::fopen(stage_path, "w+b");
+    struct stat stage_stat;
+    if (stage && (fstat(fileno(stage), &stage_stat) ||
+                  !S_ISREG(stage_stat.st_mode) ||
+                  (stage_stat.st_dev == destination_stat.st_dev &&
+                   stage_stat.st_ino == destination_stat.st_ino))) {
+      std::fclose(stage);
+      stage = nullptr;
+    }
   } else if (renameable) {
-    std::string name = sibling_stage_template(path);
+    std::string name = sibling_stage_template(automatic_path_.c_str());
     const int descriptor = mkstemp(name.data());
     if (descriptor >= 0) {
       struct stat stage_stat;
@@ -2568,7 +2632,7 @@ void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
   copy.binary_buffer_size_ = 0;
   copy.copy_failed_ = true;
   if (copy.file_) {
-    __fpurge(copy.file_);
+    discard_buffered(copy.file_);
     (void)ftruncate(fileno(copy.file_), 0);
     std::fclose(copy.file_);
     copy.file_ = nullptr;
@@ -2594,8 +2658,10 @@ void Proof::settle_dsr_copy() {
 
 // Replace the destination's PBP bytes with the complete DSR copy: rename a
 // sibling stage over the destination, else rewrite the destination in place.
-// The discarded PBP bytes are dropped unwritten, so only the DSR bytes can
-// fail to land; a failed placement aborts before any UNSAT verdict.
+// Until the destination changes, any copy-side failure keeps the complete PBP
+// stream. Afterwards the discarded PBP bytes are dropped unwritten, so only
+// the DSR bytes can fail to land; a failed placement aborts before any UNSAT
+// verdict.
 void Proof::select_dsr_copy() {
   Proof &copy = *dsr_copy_;
   copy.flush_impl();
@@ -2603,39 +2669,43 @@ void Proof::select_dsr_copy() {
     drop_dsr_copy(AutomaticProofReason::CopyWriteFailed);
     return;
   }
-  FILE *destination = pbp_output_ ? pbp_output_ : file_;
   FILE *stage = copy.file_;
   copy.file_ = nullptr;
+  bool placed = false;
+  if (!automatic_stage_name_.empty()) {
+    // The rename is atomic: the path names either the PBP or the DSR file.
+    const bool closed = !std::fclose(stage);
+    stage = nullptr;
+    placed = closed && !std::rename(automatic_stage_name_.c_str(),
+                                    automatic_path_.c_str());
+    if (!placed && (!closed ||
+                    !(stage = std::fopen(automatic_stage_name_.c_str(), "rb")))) {
+      unlink(automatic_stage_name_.c_str());
+      automatic_stage_name_.clear();
+      dsr_copy_.reset();
+      automatic_reason_ = AutomaticProofReason::CopyWriteFailed;
+      return; // the PBP destination is untouched and complete
+    }
+  }
+  FILE *destination = pbp_output_ ? pbp_output_ : file_;
   // The PBP stream accepts nothing further. A still-private PBP prefix and
   // any buffered PBP bytes are discarded.
   if (pbp_output_ && file_ && file_ != pbp_output_) {
-    __fpurge(file_);
+    discard_buffered(file_);
     std::fclose(file_);
   }
   file_ = nullptr;
   pbp_output_ = nullptr;
   binary_buffer_size_ = 0;
-  __fpurge(destination);
-  bool placed = false;
-  if (!automatic_stage_name_.empty()) {
-    if (std::fclose(stage))
-      std::abort();
-    stage = nullptr;
-    std::fclose(destination);
+  discard_buffered(destination);
+  if (placed) {
+    std::fclose(destination); // the renamed-over PBP file is unlinked
     destination = nullptr;
-    placed = !std::rename(automatic_stage_name_.c_str(),
-                          automatic_path_.c_str());
-    if (!placed &&
-        (!(stage = std::fopen(automatic_stage_name_.c_str(), "rb")) ||
-         !(destination = std::fopen(automatic_path_.c_str(), "wb"))))
-      std::abort();
-  }
-  if (!placed) {
+  } else {
     if (ftruncate(fileno(destination), 0) ||
-        std::fseek(destination, 0, SEEK_SET) || std::fseek(stage, 0, SEEK_SET))
-      std::abort();
-    copy_stream(stage, destination);
-    if (std::fflush(destination) || std::ferror(destination))
+        std::fseek(destination, 0, SEEK_SET) || std::fseek(stage, 0, SEEK_SET) ||
+        !copy_stream(stage, destination) || std::fflush(destination) ||
+        std::ferror(destination))
       std::abort();
     // The copied stage's bytes are no longer needed (a caller-owned stage
     // stays, emptied).

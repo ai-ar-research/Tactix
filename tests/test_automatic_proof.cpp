@@ -7,10 +7,12 @@
 #include "proof/proof.hpp"
 
 #include <cassert>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <dirent.h>
+#include <fcntl.h>
 #include <functional>
 #include <string>
 #include <sys/stat.h>
@@ -74,6 +76,35 @@ struct TemporaryDirectory {
     rmdir(path.c_str());
   }
 };
+
+// Make every later write to the open file `path` fail with ENOSPC: point its
+// descriptor at /dev/full. A regular caller stage stays a regular file when
+// opened, so this exercises copy write failures without a full filesystem.
+bool fail_writes_to(const std::string &path) {
+  char resolved[PATH_MAX];
+  if (!realpath(path.c_str(), resolved) || access("/dev/full", W_OK))
+    return false;
+  DIR *fds = opendir("/proc/self/fd");
+  if (!fds)
+    return false;
+  bool redirected = false;
+  while (const dirent *entry = readdir(fds)) {
+    char target[PATH_MAX];
+    const std::string link = std::string("/proc/self/fd/") + entry->d_name;
+    const ssize_t length = readlink(link.c_str(), target, sizeof target - 1);
+    if (length <= 0)
+      continue;
+    target[length] = 0;
+    if (std::strcmp(target, resolved))
+      continue;
+    const int full = open("/dev/full", O_WRONLY);
+    redirected = full >= 0 && dup2(full, std::atoi(entry->d_name)) >= 0;
+    if (full >= 0)
+      close(full);
+  }
+  closedir(fds);
+  return redirected;
+}
 
 using Events = std::function<void(Proof &)>;
 
@@ -252,20 +283,66 @@ void caller_stage_is_copied() {
 
 // A copy that cannot be written is discarded; the PBP stream is unaffected.
 void failed_copy_keeps_pbp() {
-  if (access("/dev/full", W_OK))
-    return;
   const Events events = [](Proof &p) { inputs(p); refutation(p); };
   TemporaryDirectory directory;
-  const std::string path = directory / "proof";
+  const std::string path = directory / "proof", stage = directory / "stage";
   {
     Proof p;
-    assert(p.open_automatic(path.c_str(), true, "/dev/full"));
+    assert(p.open_automatic(path.c_str(), true, stage.c_str()));
+    if (!fail_writes_to(stage))
+      return; // no /proc or /dev/full: nothing to inject
     events(p);
     assert(p.automatic_reason() == AutomaticProofReason::CopyWriteFailed);
     assert(std::string(p.verification_route()) == "pbp");
   }
   expect_equal(read_all(path), single(ProofFormat::PbpStreaming, events),
                "PBP after a failed copy");
+}
+
+// A deletion block spilled behind a pending root unit is copied into the stage
+// when the batch flushes; a failed copy there also only discards the copy.
+void failed_spill_keeps_pbp() {
+  const Events events = [](Proof &p) {
+    inputs(p);
+    p.add_rup(7, clause({3}).data(), 1, nullptr, 0); // a pending DSR unit
+    for (int i = 0; i < 14000; ++i) {                // > 64 KiB of deletions
+      const int a = 1 + i % 29, b = 1 + (i / 29) % 29;
+      if (a == b)
+        continue;
+      p.del(8 + i, 100000 + i, clause({a, -b, 30}).data(), 3);
+    }
+    p.add_rup(30000, clause({1, 2, 4}).data(), 3, nullptr, 0); // flushes it
+    refutation(p);
+  };
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof", stage = directory / "stage";
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true, stage.c_str()));
+    if (!fail_writes_to(stage))
+      return;
+    events(p);
+    assert(p.automatic_reason() == AutomaticProofReason::CopyWriteFailed);
+    assert(std::string(p.verification_route()) == "pbp");
+  }
+  expect_equal(read_all(path), single(ProofFormat::PbpStreaming, events),
+               "PBP after a failed spilled copy");
+}
+
+// A caller stage must be a regular file other than the destination: a device
+// would read back nothing (or forever) when the copy is installed.
+void unusable_stage_is_pbp_only() {
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  for (const std::string &stage : {std::string("/dev/null"), path}) {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true, stage.c_str()));
+    assert(p.automatic_reason() == AutomaticProofReason::StageUnavailable);
+    assert(!p.automatic_dsr_live());
+    inputs(p);
+    refutation(p);
+    assert(std::string(p.verification_route()) == "pbp");
+  }
 }
 
 // Without the empty clause the destination keeps its PBP prefix.
@@ -310,6 +387,8 @@ int main() {
   symlink_destination_is_copied();
   caller_stage_is_copied();
   failed_copy_keeps_pbp();
+  failed_spill_keeps_pbp();
+  unusable_stage_is_pbp_only();
   unfinished_run_keeps_pbp();
   device_destination_is_pbp_only();
   std::puts("automatic proof selection: DSR kept unless a PB-native step or "

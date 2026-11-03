@@ -86,7 +86,7 @@ class FixedRuntimeTests(unittest.TestCase):
                 rt.validate_runtime_pin_contract(campaign, manifest)
                 self.assertEqual(manifest['schema'], 'tactix-fixed-reference-runtime-v7')
                 self.assertEqual(manifest['arms']['tactix-pbp']['certificate'], 'pbp')
-                self.assertEqual(manifest['arms']['tactix-pbp']['arguments'], [])
+                self.assertEqual(manifest['arms']['tactix-pbp']['arguments'], ['--pbp'])
                 self.assertEqual(manifest['checker_authority']['sha256'],
                                  checker_hashes)
                 (root / 'checker-pins/dsr-trim').write_bytes(b'changed')

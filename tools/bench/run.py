@@ -60,6 +60,7 @@ import argparse
 import concurrent.futures
 import datetime
 import hashlib
+import glob
 import json
 import os
 import re
@@ -678,6 +679,12 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                         res["solved"] = False
     if check_proofs and os.path.exists(proof):
         os.unlink(proof)
+    if check_proofs:
+        # A killed automatic-proof run (timeout) cannot remove the hidden
+        # sibling stage of its DSR copy (`.<proof>.dsr-XXXXXX`).
+        directory, name = os.path.split(proof)
+        for stale in glob.glob(os.path.join(directory or ".", "." + glob.escape(name) + ".dsr-*")):
+            os.unlink(stale)
     return res
 
 
