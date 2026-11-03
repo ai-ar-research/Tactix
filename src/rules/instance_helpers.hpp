@@ -61,17 +61,17 @@ inline bool root_clause_relevant(const Kernel &kernel, const Clause *clause) {
 }
 
 // One RUP lemma: LRAT names `id` and cites `chain` in checker-propagation
-// order; every other format writes id 0 without hints. The id-0 spelling is
-// load-bearing beyond LRAT, since DSR unit staging and the PBP derived-
-// constraint tracker observe the id they are handed.
+// order. Streaming PBP also hands the tracker `id` (the clause's own id), so a
+// later deletion can name the constraint exactly. Every other format writes
+// id 0 without hints: the id-0 spelling is load-bearing for DSR unit staging.
 inline void emit_rup_lemma(Kernel &kernel, uint64_t id, const Lit *lits,
                            uint32_t size, const uint64_t *chain,
                            uint32_t nchain) {
   if (!kernel.proof)
     return;
   const bool lrat = kernel.proof->lrat();
-  kernel.proof->add_rup(lrat ? id : 0, lits, size, lrat ? chain : nullptr,
-                        lrat ? nchain : 0);
+  kernel.proof->add_rup(lrat || kernel.proof->streaming_pbp() ? id : 0, lits,
+                        size, lrat ? chain : nullptr, lrat ? nchain : 0);
 }
 
 inline void emit_rup_lemma(Kernel &kernel, uint64_t id, const Lit *lits,
@@ -88,7 +88,9 @@ inline void emit_rup_lemma(Kernel &kernel, uint64_t id,
 }
 
 // A proof-only RUP lemma, deleted once the derivation it supports is done.
-// `id` is already the deletion id: the LRAT clause id, 0 in other formats.
+// `id` is already the deletion id the caller chose: the clause id where the
+// proof tracks it (LRAT, and streaming PBP for ids handed to emit_rup_lemma),
+// 0 otherwise.
 struct TransientLemma {
   uint64_t id;
   std::vector<Lit> lits;

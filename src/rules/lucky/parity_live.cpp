@@ -54,7 +54,8 @@ struct Sink {
     const uint64_t deleted=found->second.back();found->second.pop_back();if(found->second.empty())active_ids.erase(found);
     ++deletions;
     if(writing) {
-      if(k.proof&&!k.proof->del_external(k.next_clause_id,0,c.lits.data(),c.size))return false;
+      // Streaming PBP tracked the helper under the id it was added with.
+      if(k.proof&&!k.proof->del_external(k.next_clause_id,k.proof->streaming_pbp()?deleted:0,c.lits.data(),c.size))return false;
       journal.clause("delete-xor-helper",deleted,c.lits.data(),c.size);
     }
     return true;

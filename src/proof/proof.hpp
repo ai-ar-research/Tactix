@@ -129,7 +129,10 @@ public:
   // Streaming PBP can delete binary constraints by specification while still
   // deleting non-binary constraints by their exact tracked identity.
   bool needs_clause_ids() const { return lrat(); }
-  void declare_exact_binary_ids() { pbp_exact_binary_ids_ = true; }
+  // Delete by specification for the rest of the run: a proof attached after
+  // replayed input cannot name the live kernel's clauses by their ids (see
+  // attach_replayed_input_proof).
+  void disable_pbp_id_deletions() { abandon_pbp_id_deletions(7, 0); }
   bool lrat() const { return format_ == ProofFormat::Lrat; }
   ProofFormat format() const { return format_; }
   bool dsr() const {
@@ -277,6 +280,33 @@ public:
 
   void flush(); // signal-safe enough: fflush on the buffered stream
 
+  // Streaming PBP: root units forced by a propagation that ended in a root
+  // conflict are staged instead of written. The staged batch is dropped when
+  // the very next proof event is the empty clause: each unit is RUP over the
+  // same database, which VeriPB propagates while checking that clause. Any
+  // other event first writes the batch exactly as it would have been written.
+  // Solver state (unit ids, root tables) is unaffected either way.
+  void begin_deferred_root_units() noexcept;
+  void end_deferred_root_units() noexcept;
+
+  // Streaming-PBP deletion accounting for tests (no proof effect).
+  struct PbpDeletionCounters {
+    uint64_t by_id = 0;        // every `del id` line
+    uint64_t by_anonymous = 0; // ... resolved by the id-0 literal registry
+    uint64_t by_rebind = 0;    // ... restated-input originals
+    uint64_t spec_unit = 0, spec_binary = 0, spec_wide = 0;
+    uint64_t anonymous_registered = 0;
+    uint64_t rebinds_recorded = 0;
+    uint64_t deferred_batches = 0, deferred_units = 0;
+    uint64_t dropped_batches = 0, dropped_units = 0;
+    uint32_t abandon_reason = 0; // first reason; 0 = never abandoned
+    uint32_t abandon_width = 0;
+    uint64_t abandon_line = 0; // derived-constraint count at abandonment
+  };
+  const PbpDeletionCounters &pbp_deletion_counters() const noexcept {
+    return pbp_counters_;
+  }
+
   // A tautological (or duplicate-carrying) lemma is CHECKER-DIVERGENT: DRAT
   // accepts it for free (negating it self-conflicts, so RUP passes without
   // touching the formula) while every LRAT checker walks the hint chain,
@@ -405,7 +435,16 @@ private:
   void end_pending_deletion(FILE *main_file);
   template <class External>
   bool put_pbp_deletion(uint64_t del_id, uint32_t size, External external);
-  void note_pbp_derived(uint64_t id, uint32_t clause_size);
+  // `external()` yields the constraint's checker literals; it runs only for
+  // an anonymous (id-0) constraint that may later need its exact identity.
+  template <class External>
+  void note_pbp_derived(uint64_t id, uint32_t clause_size, External external);
+  void register_pbp_anonymous(const int32_t *lits, uint32_t size);
+  bool put_pbp_anonymous_deletion(const int32_t *canonical, uint32_t size);
+  bool put_pbp_rebind_deletion();
+  bool pbp_current_ordinal(uint64_t &constraint) const;
+  bool pbp_absolute_constraint(uint64_t stored, uint64_t &constraint) const;
+  void settle_pbp_deferred_units(bool drop);
   void put_byte(unsigned char byte);
   void flush_binary();
   void put_lit(Lit l);
@@ -415,12 +454,14 @@ private:
   void put_line_tag(bool deletion);
   void put_clausal_line(bool deletion, const Lit *lits, uint32_t size);
   void put_pbp_clause(const char *rule, const Lit *lits, uint32_t size);
+  const int32_t *pbp_checker_literals(const Lit *lits, uint32_t size);
   void put_pbp_external_clause(const char *rule, const int32_t *lits,
                                uint32_t size);
-  void track_pbp_original_constraint(uint64_t id, uint32_t clause_size);
+  void track_pbp_original_constraint(uint64_t id, uint32_t clause_size,
+                                     bool repeated_literal);
   void track_pbp_derived_constraint(uint64_t id, uint32_t clause_size);
   bool put_pbp_deletion_id(uint64_t id);
-  void abandon_pbp_id_deletions();
+  void abandon_pbp_id_deletions(uint32_t reason = 0, uint32_t width = 0);
   void finish_streaming_pbp_unsat();
   void publish_streaming_pbp_header();
   void put_u64(uint64_t v);
@@ -433,15 +474,70 @@ private:
   uint64_t pbp_original_constraints_ = 0;
   uint64_t pbp_derived_constraints_ = 0;
   // Constraint IDs match Tactix IDs through the ordinary raw-input prefix.
-  // After an input-time derivation splits the namespaces, record only the
-  // exceptional live IDs.  The high bit marks a derived ordinal whose final
-  // absolute ID becomes known when input parsing finishes; zero is a tombstone
-  // for an already-deleted implicit-prefix ID.
+  // After an input-time derivation splits the namespaces, later raw inputs
+  // keep strictly increasing Tactix ids: runs of consecutive ids name their
+  // input constraints, so the input side costs one run per split plus two
+  // bits per input (deleted by specification; already deleted), never one
+  // map entry per clause. `pbp_constraint_ids_` names derived constraints
+  // only; the high bit marks a derived ordinal whose final absolute ID
+  // becomes known when input parsing finishes.
+  struct PbpInputRun {
+    uint64_t first_id, first_constraint, count;
+  };
+  std::vector<PbpInputRun> pbp_input_runs_;
+  std::vector<bool> pbp_input_by_spec_; // by input constraint
+  std::vector<bool> pbp_input_deleted_; // by input constraint
   std::unordered_map<uint64_t, uint64_t> pbp_constraint_ids_;
   uint64_t pbp_identity_prefix_ = 0;
   bool pbp_input_ids_diverged_ = false;
+  bool pbp_input_constraint(uint64_t id, uint64_t &constraint,
+                            bool &exact) const;
+  bool pbp_input_deleted(uint64_t constraint) const;
+  void mark_pbp_input_deleted(uint64_t constraint);
   bool pbp_id_deletions_enabled_ = true;
-  bool pbp_exact_binary_ids_ = false;
+  // Anonymous (id-0) derived constraints of an exact-identity width, keyed by
+  // their sorted checker literals and compared exactly. Each key holds a stack
+  // of proof constraint IDs (high bit: transaction-relative ordinal). Every ID
+  // lives in exactly one of this registry and `pbp_constraint_ids_`, so a
+  // registry deletion names an anonymous constraint whose literals equal the
+  // requested clause and that no other deletion can still name.
+  struct PbpLiteralKeyHash {
+    size_t operator()(const std::vector<int32_t> &key) const noexcept;
+  };
+  std::unordered_map<std::vector<int32_t>, std::vector<uint64_t>,
+                     PbpLiteralKeyHash>
+      pbp_anonymous_constraints_;
+  std::vector<int32_t> pbp_key_scratch_;
+  // Input restatement keeps the input's Tactix id. The most recent raw input
+  // and, at most, one replacement awaiting deletion of that raw original.
+  uint64_t pbp_last_input_id_ = 0;
+  uint64_t pbp_last_input_constraint_ = 0;
+  bool pbp_last_input_live_ = false;
+  struct PbpPendingRebind {
+    uint64_t id = 0, original = 0, replacement = 0;
+  };
+  PbpPendingRebind pbp_pending_rebind_;
+  // Lazily published root units of a conflicting root propagation.
+  struct PbpDeferredUnit {
+    uint64_t id;
+    Lit lit;
+  };
+  std::vector<PbpDeferredUnit> pbp_deferred_units_;
+  bool pbp_deferring_units_ = false;
+  bool pbp_replaying_leased_ = false;
+  uint64_t pbp_last_deleted_ = 0; // constraint named by the last `del id`
+  // Assertion-build audit of exact deletion (proof.cpp compiled without
+  // NDEBUG; the members exist in every build so the layout never depends on
+  // a translation unit's NDEBUG): the sorted canonical literals of every
+  // derived constraint and input, by proof ID. Each `del id` must name a live
+  // constraint whose literals equal the request's.
+  std::unordered_map<uint64_t, std::vector<int32_t>> pbp_audit_input_;
+  std::unordered_map<uint64_t, std::vector<int32_t>> pbp_audit_derived_;
+  void pbp_audit_record(bool input, uint64_t index, const int32_t *lits,
+                        uint32_t size);
+  void pbp_audit_deletion(uint64_t constraint, const int32_t *lits,
+                          uint32_t size);
+  PbpDeletionCounters pbp_counters_;
   std::vector<int32_t> pbp_external_scratch_;
   std::vector<int32_t> pbp_canonical_scratch_;
   std::vector<uint32_t> pbp_canonical_order_;

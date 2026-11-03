@@ -673,9 +673,9 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     if (lrat_active(k)) // entries so far justify the resolvent (the
       chain_emit(k, id, lits.data(), static_cast<uint32_t>(lits.size()),
                  conflict_chain_id); // resolved reasons incl. t's)
-    else
-      k.proof->add_rup(0, lits.data(), static_cast<uint32_t>(lits.size()),
-                       nullptr, 0);
+    else // streaming PBP tracks the resolvent's id for `del id`
+      k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, lits.data(),
+                       static_cast<uint32_t>(lits.size()), nullptr, 0);
   }
   k.stats.otfs_strengthened++;
 
@@ -1708,8 +1708,9 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
     if (lrat)
       chain_emit(k, learned_id, learned.data(),
                  static_cast<uint32_t>(learned.size()), conflict_chain_id);
-    else
-      k.proof->add_rup(0, learned.data(),
+    else // streaming PBP tracks the learned id for `del id`
+      k.proof->add_rup(k.proof->streaming_pbp() ? learned_id : 0,
+                       learned.data(),
                        static_cast<uint32_t>(learned.size()), nullptr, 0);
   }
   k.stats.learned++;

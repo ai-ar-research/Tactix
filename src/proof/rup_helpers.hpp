@@ -15,7 +15,9 @@ inline void emit(Kernel &kernel, uint64_t lrat_id, uint64_t non_lrat_id,
                  uint64_t closing_id) {
   if (!kernel.proof) return;
   if (!kernel.proof->lrat()) {
-    kernel.proof->add_rup(non_lrat_id, literals, size, nullptr, 0);
+    // streaming PBP tracks the clause's own id for `del id`
+    kernel.proof->add_rup(kernel.proof->streaming_pbp() ? lrat_id : non_lrat_id,
+                          literals, size, nullptr, 0);
     return;
   }
   kernel_build_lrat_chain(entries, closing_id, kernel.lrat_chain);

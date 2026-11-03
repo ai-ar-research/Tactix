@@ -1,4 +1,5 @@
 #include "rules/lucky/ramsey_startup.hpp"
+#include "proof/pbp_added_ids.hpp"
 #include "proof/proof.hpp"
 #include "proof/ramsey_certificate.hpp"
 #include <cstdlib>
@@ -17,6 +18,8 @@ struct NativeSink {
   uint64_t fingerprint=1469598103934665603ULL,logical_id;
   tactix::Proof *proof=nullptr;
   uint64_t *kernel_id=nullptr;
+  // Streaming PBP erases each clause by the id it was added with.
+  tactix::PbpAddedIds pbp_ids;
   FILE *records=nullptr;
   tactix::ramsey_certificate::Phase current=tactix::ramsey_certificate::Phase::StarOrder;
   uint32_t context=0;
@@ -55,6 +58,7 @@ struct NativeSink {
     if(proof) {
       *kernel_id=logical_id;
       if(!(rat?proof->add_external_rat(logical_id,clause.data(),clause.size()):proof->add_external_rup(logical_id,clause.data(),clause.size()))){stopped=true;return false;}
+      if(proof->streaming_pbp())pbp_ids.add(clause.data(),clause.size(),logical_id);
     }
     return io_ok();
   }
@@ -62,7 +66,7 @@ struct NativeSink {
     if(!charge_work(clause.size()+1) || !reserve(0,1,0))return false;
     ++logical_id;mix(6);mix(clause.size());for(auto l:clause)mix(l);
     event("delete",clause);
-    if(proof){*kernel_id=logical_id;if(!proof->del_external(logical_id,0,clause.data(),clause.size())){stopped=true;return false;}}
+    if(proof){*kernel_id=logical_id;const uint64_t del_id=proof->streaming_pbp()?pbp_ids.take(clause.data(),clause.size()):0;if(!proof->del_external(logical_id,del_id,clause.data(),clause.size())){stopped=true;return false;}}
     return io_ok();
   }
   bool symmetry(const Clause &clause,const std::vector<std::pair<int32_t,int32_t>> &mapping,bool propagates) {
@@ -80,7 +84,7 @@ struct NativeSink {
     mix(mapping.size());for(const auto &[from,to]:mapping){mix(from);mix(to);}mix(propagates);mix(unsigned(plan.form));mix(before);
     event("sr",clause);
     if(records){std::fprintf(records,"{\"action\":%llu,\"kind\":\"witness\",\"mapping\":[",(unsigned long long)action_id);for(size_t i=0;i<mapping.size();++i)std::fprintf(records,"%s[%d,%d]",i?",":"",mapping[i].first,mapping[i].second);std::fputs("]}\n",records);}
-    if(proof){*kernel_id=logical_id;if(!proof->add_sr(logical_id,lits.data(),lits.size(),nullptr,0,witness.data(),witness.size(),before,propagates)){stopped=true;return false;}}
+    if(proof){*kernel_id=logical_id;if(!proof->add_sr(logical_id,lits.data(),lits.size(),nullptr,0,witness.data(),witness.size(),before,propagates)){stopped=true;return false;}if(proof->streaming_pbp())pbp_ids.add(clause.data(),clause.size(),logical_id);}
     return io_ok();
   }
   bool inequality(const std::vector<std::pair<int32_t,int64_t>> &terms,int64_t bound,int64_t root,bool accumulated) {
@@ -137,6 +141,10 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
   // A startup marker does not substitute for equality with the actual live
   // database. Detect unclosed direct-kernel edits as well as stale snapshots.
   std::multiset<ramsey_recovery::Clause> remaining(original.begin(),original.end());
+  // Streaming PBP deletes by identity: the certificate erases original
+  // clauses by their literals, so keep each live original's proof id.
+  const bool keep_ids=k.proof && k.proof->streaming_pbp();
+  std::vector<std::pair<ramsey_recovery::Clause,uint64_t>> original_ids;
   for(const auto [ref,c]:arena_records(k.arena)) {
     if(kernel_terminating(k)){result.interrupted=true;return result;}
     if(snapshot_work==request.recognition.work){result.exhausted=true;return result;}
@@ -148,6 +156,7 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
     std::sort(live.begin(),live.end());const auto found=remaining.find(live);
     if(found==remaining.end())return result;
     remaining.erase(found);
+    if(keep_ids)original_ids.emplace_back(std::move(live),c->id());
   }
   if(!remaining.empty())return result;
   for(Lit lit=0;lit<2*k.nvars;++lit) {
@@ -206,6 +215,7 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
   emitted.writing=true;emitted.proof=k.proof;emitted.kernel_id=&k.next_clause_id;emitted.records=out;
   emitted.work_limit=planned.work;emitted.node_limit=planned.nodes;
   emitted.addition_limit=planned.additions;emitted.namespace_limit=planned.fresh;
+  for(const auto &[lits,id]:original_ids)emitted.pbp_ids.add(lits.data(),static_cast<uint32_t>(lits.size()),id);
   if(!ramsey_certificate::derive(recovered.edges,original,extent,emitted) || !emitted.same(planned))std::abort();
   // Advance logical IDs identically without a proof object as with one.
   k.next_clause_id=emitted.logical_id;

@@ -61,6 +61,13 @@ tactix_skip77_test(cli_pbp_proof ${TACTIX_SKIP_UNLESS_PBP}
 tactix_skip77_test(pbp_fuzz ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_SOURCE_DIR}/tests/test_pbp_fuzz.py
                    $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
+# Streaming-PBP exact deletion through the CLI (the unit cases are the
+# conventional test_pbp_deletion_identity, which also writes the written-back
+# root-unit fixture this script checks).
+tactix_skip77_test(pbp_deletion_identity_cli ${TACTIX_SKIP_UNLESS_PBP}
+                   ${CMAKE_SOURCE_DIR}/tests/pbp_deletion_identity.sh
+                   $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR}
+                   $<TARGET_FILE:test_pbp_deletion_identity>)
 
 add_executable(test_subsolver_export_resource test_subsolver_export_resource.cpp
                failing_new.cpp)
@@ -160,6 +167,14 @@ target_link_libraries(test_api_pbp_fixture PRIVATE tactix_lib)
 tactix_skip77_test(api_pbp_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_SOURCE_DIR}/tests/test_api_pbp_check.py
                    $<TARGET_FILE:test_api_pbp_fixture> ${CMAKE_SOURCE_DIR})
+# Checker-free: Debug builds audit every `del id` of an early and of a
+# divergent late PBP attachment.
+add_test(NAME api_pbp_early
+         COMMAND test_api_pbp_fixture api-pbp-early.cnf api-pbp-early.pbp
+                 early)
+add_test(NAME api_pbp_late_divergent
+         COMMAND test_api_pbp_fixture api-pbp-late-divergent.cnf
+                 api-pbp-late-divergent.pbp divergent)
 
 # External certificate-oracle fixture: invoked only by a pinned SLURM proof
 # job because it writes a proof and requires independent checker binaries.
