@@ -440,6 +440,13 @@ private:
   AutomaticProofReason automatic_reason_ = AutomaticProofReason::Pending;
   std::string automatic_path_;       // the destination, for the final rename
   std::string automatic_stage_name_; // a named sibling stage, else empty
+  // The proof file the automatic selection finally rewrites (non-owning: an
+  // alias of pbp_output_ or, after publication, file_). Every fstat,
+  // truncation and copy-in of the destination goes through it.
+  FILE *automatic_destination_ = nullptr;
+  // PBP bytes written so far, header included once published, buffered bytes
+  // included: what the destination would hold if PBP were kept.
+  uint64_t pbp_logical_bytes() const;
   // In the copy: a failed write disables it instead of aborting the solver.
   bool copy_role_ = false;
   bool copy_failed_ = false;

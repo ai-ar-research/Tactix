@@ -2580,6 +2580,7 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   // The empty clause rewrites the destination in place, so it must be a
   // regular file (a proc-fd path to an anonymous file qualifies).
   FILE *const destination = pbp_output_ ? pbp_output_ : file_;
+  automatic_destination_ = destination;
   struct stat destination_stat;
   if (fstat(fileno(destination), &destination_stat) ||
       !S_ISREG(destination_stat.st_mode)) {
@@ -2671,6 +2672,16 @@ void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
   automatic_reason_ = reason;
 }
 
+uint64_t Proof::pbp_logical_bytes() const {
+  // Before publication file_ is the private prefix and the header is unwritten;
+  // afterwards file_ is the destination itself.
+  FILE *const stream = file_ ? file_ : pbp_output_;
+  if (!stream)
+    return 0;
+  const off_t at = ftello(stream);
+  return at > 0 ? static_cast<uint64_t>(at) : 0;
+}
+
 void Proof::settle_dsr_copy() {
   if (!dsr_copy_)
     return;
@@ -2689,7 +2700,7 @@ void Proof::settle_dsr_copy() {
       return at > 0 ? static_cast<uint64_t>(at) : 0;
     };
     const uint64_t dsr_bytes = position(copy.file_) + copy.binary_buffer_size_;
-    const uint64_t pbp_bytes = position(file_ ? file_ : pbp_output_);
+    const uint64_t pbp_bytes = pbp_logical_bytes();
     automatic_estimate_ = estimate_automatic_checks(
         copy.census_, copy.has_sr_witness_, copy.external_variable_bound(),
         dsr_bytes, pbp_bytes);
@@ -2733,15 +2744,16 @@ void Proof::select_dsr_copy() {
       return; // the PBP destination is untouched and complete
     }
   }
-  FILE *destination = pbp_output_ ? pbp_output_ : file_;
+  FILE *destination = automatic_destination_;
   // The PBP stream accepts nothing further. A still-private PBP prefix and
   // any buffered PBP bytes are discarded.
-  if (pbp_output_ && file_ && file_ != pbp_output_) {
+  if (file_ && file_ != destination) {
     discard_buffered(file_);
     std::fclose(file_);
   }
   file_ = nullptr;
   pbp_output_ = nullptr;
+  automatic_destination_ = nullptr;
   binary_buffer_size_ = 0;
   discard_buffered(destination);
   if (placed) {
