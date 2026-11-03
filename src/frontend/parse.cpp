@@ -802,6 +802,12 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
     current.input_refuted = false;
     current.input_refutation_units.clear();
   }
+  // Streaming PBP numbers the replayed input by the replay's clause ids.
+  // Unlike the proofless live import, the replay materializes root units
+  // under fresh ids, so a live id can name another constraint; only LRAT
+  // re-points ids above. Delete by specification instead.
+  if (proof.streaming_pbp())
+    proof.disable_pbp_id_deletions();
   current.proof = &proof;
   proof.bind_variable_map(&current.internal_to_external);
   proof.bind_external_variable_map(&current.external_to_internal);

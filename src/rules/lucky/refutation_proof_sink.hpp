@@ -1,6 +1,7 @@
 #pragma once
 
 #include "kernel/kernel.hpp"
+#include "proof/pbp_added_ids.hpp"
 #include "proof/proof.hpp"
 
 #include <climits>
@@ -17,6 +18,8 @@ template <class Clause> class RefutationProofSink {
   bool writing_;
   uint64_t maximum_additions_;
   uint64_t &interrupted_counter_;
+  // Streaming PBP erases each clause by the id it was added with.
+  PbpAddedIds pbp_ids_;
 
   static const int32_t *data(const Clause &clause) {
     if constexpr (requires { clause.data(); })
@@ -64,6 +67,8 @@ public:
                               id, data(clause), size(clause))
                         : kernel_.proof->add_external_rup(
                               id, data(clause), size(clause));
+    if (ok && kernel_.proof->streaming_pbp())
+      pbp_ids_.add(data(clause), size(clause), id);
     stopped |= !ok;
     return ok;
   }
@@ -72,8 +77,11 @@ public:
     ++deletions;
     if (!writing_ || !kernel_.proof)
       return true;
+    const uint64_t del_id = kernel_.proof->streaming_pbp()
+                                ? pbp_ids_.take(data(clause), size(clause))
+                                : 0;
     const bool ok = kernel_.proof->del_external(
-        kernel_.next_clause_id, 0, data(clause), size(clause));
+        kernel_.next_clause_id, del_id, data(clause), size(clause));
     stopped |= !ok;
     return ok;
   }

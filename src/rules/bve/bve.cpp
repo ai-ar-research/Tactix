@@ -602,6 +602,9 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
   std::vector<Lit> lifted;
   std::vector<uint64_t> chain;
   std::vector<TransientLemma> transients;
+  // Streaming PBP tracks each transient under its id (emit_rup_lemma), so it
+  // deletes them by that id, as LRAT does.
+  const bool named = lrat || (k.proof && k.proof->streaming_pbp());
   uint64_t last_id = 0;
   for (size_t si = 0; si < s.deriv.steps.size(); si++) {
     const SubStep &step = s.deriv.steps[si];
@@ -626,7 +629,7 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
     id_of[step.id] = id;
     last_id = id;
     if (k.proof && si + 1 != s.deriv.steps.size())
-      transients.push_back({lrat ? id : 0, lifted});
+      transients.push_back({named ? id : 0, lifted});
   }
   assert(last_id);
   k.unit_ids[var_of(unit)] = last_id;

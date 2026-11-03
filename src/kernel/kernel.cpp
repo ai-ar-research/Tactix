@@ -1586,9 +1586,9 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
       chain.push_back(original_id);
       k.proof->add_rup(id, kept.data(), static_cast<uint32_t>(kept.size()),
                        chain.data(), static_cast<uint32_t>(chain.size()));
-    } else {
-      k.proof->add_rup(0, kept.data(), static_cast<uint32_t>(kept.size()),
-                       nullptr, 0);
+    } else { // streaming PBP tracks the replacement's id for `del id`
+      k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, kept.data(),
+                       static_cast<uint32_t>(kept.size()), nullptr, 0);
     }
   }
   k.stats.flushed++;
@@ -2055,9 +2055,19 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // elaborated LSR loses that hint group.  Not gated on `k.level`: a forced
   // literal is stamped at its true level, and `kernel_emit_root_units` applies
   // the per-literal test.
+  // A root conflict normally ends the run: the empty clause that follows is
+  // RUP from the same formula, so streaming PBP stages these units and drops
+  // them if that clause is next (VeriPB need not re-justify one conflict
+  // chain per unit). Unit ids and root tables advance exactly as before.
   if (k.proof &&
-      (k.proof->lrat() || k.proof->dsr() || k.proof->streaming_pbp()))
+      (k.proof->lrat() || k.proof->dsr() || k.proof->streaming_pbp())) {
+    const bool stage = conflict && k.level == 0 && k.proof->streaming_pbp();
+    if (stage)
+      k.proof->begin_deferred_root_units();
     kernel_emit_root_units(k, assigned_before);
+    if (stage)
+      k.proof->end_deferred_root_units();
+  }
   return conflict;
 }
 

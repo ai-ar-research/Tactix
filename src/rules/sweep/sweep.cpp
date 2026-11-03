@@ -2295,6 +2295,8 @@ static bool sweep_apply_general_plan(Kernel &k,
   std::vector<uint64_t> chain;
   std::vector<Lit> lifted;
   const bool delete_transient_rup = k.proof != nullptr;
+  // Streaming PBP tracked each lemma under its id (emit_rup_lemma).
+  const bool named = lrat || (k.proof && k.proof->streaming_pbp());
   // The emitted prefix is named by `id_of`. Reconstruct its conditioned
   // literals from the immutable capture for reverse deletion; retaining a
   // second full vector of every temporary clause makes large proof cores grow
@@ -2329,7 +2331,7 @@ static bool sweep_apply_general_plan(Kernel &k,
       const bool conditioned = condition_intermediate(lifted);
       assert(conditioned);
       (void)conditioned;
-      k.proof->del(k.next_clause_id, lrat ? id : 0, lifted.data(),
+      k.proof->del(k.next_clause_id, named ? id : 0, lifted.data(),
                    static_cast<uint32_t>(lifted.size()));
     }
   };
