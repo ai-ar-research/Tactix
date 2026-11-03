@@ -56,12 +56,13 @@ static int divergent(const char *cnf_path, const char *proof_path) {
  * attaches directly with no replay. Seeded random 2+3-SAT whose first clause
  * is ternary; root simplification deletes binaries after input. A binary must
  * never be deleted by an id: finish_input discards the binary-id archive, and
- * its sentinel id would name input clause 1. */
+ * its sentinel id would name input clause 1. With seed 27, 5b49680f1 deletes
+ * a binary as `del id 1`, which VeriPB rejects and the Debug audit aborts. */
 static int early(const char *cnf_path, const char *proof_path) {
   enum { VARS = 50, BINARIES = 60, TERNARIES = 170, TOTAL = 1 + 60 + 170 };
   static int clauses[TOTAL][4];
   int width[TOTAL];
-  uint64_t state = 2 * 0x9e3779b97f4a7c15ull + 7;
+  uint64_t state = 27 * 0x9e3779b97f4a7c15ull + 7;
 #define NEXT() (state = state * 6364136223846793005ull + 1442695040888963407ull, \
                 (uint32_t)(state >> 33))
   width[0] = 3;
