@@ -10,4 +10,6 @@ instance=$1
 output_dir=$2
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 mkdir -p "$output_dir"
-exec "$root/build/release/tactix" "$instance" "$output_dir/proof.out"
+# The competition's proof checkers take VeriPB: request whole-run PBP
+# explicitly (the command-line default selects DSR or PBP per run).
+exec "$root/build/release/tactix" --pbp "$instance" "$output_dir/proof.out"

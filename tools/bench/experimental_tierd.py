@@ -57,8 +57,9 @@ FIXED_LONG_DSR_PROVENANCE={
             FIXED_LONG_DSR_HASHES['dsr-compress'],
     },
 }
-PROOF_ARGUMENTS={'--pbp','--dsr','--drat','--lrat'}
-RETIRED_PROOF_ARGUMENTS={'--auto-proof'}
+PROOF_ARGUMENTS={'--pbp','--auto-proof','--dsr','--drat','--lrat'}
+# Proof flags of retired modes; `--auto-proof` names automatic selection again.
+RETIRED_PROOF_ARGUMENTS=set()
 GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
                          '--controller-gf2-affine-profile')
 CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS=('--feedback','--feedback-replay',
@@ -171,14 +172,16 @@ def dsr_checker_provenance(dsr_profile):
     return json.loads(json.dumps(FIXED_LONG_DSR_PROVENANCE))
 
 def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
-    if certificate not in ('pbp','dsr','none'):
+    # 'auto': the solver selects whole-run PBP or native DSR per run, so the
+    # campaign pins both checker families.
+    if certificate not in ('pbp','dsr','auto','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
-    if certificate == 'dsr' and dsr_profile not in ('frozen','long64','long64-fixed'):
+    if certificate in ('dsr','auto') and dsr_profile not in ('frozen','long64','long64-fixed'):
         raise ValueError('unsupported DSR checker profile: '+dsr_profile)
     names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py'}
-    if certificate == 'dsr':
+    if certificate in ('dsr','auto'):
         names.update({'drat-trim':'drat-trim','cake_lpr':'cake-lpr'})
-    if certificate == 'pbp':
+    if certificate in ('pbp','auto'):
         names.update({'veripb':'veripb','cake-pb-cnf':'cake-pb-cnf'})
     if certificate=='none':
         names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py'}
@@ -213,9 +216,10 @@ def slurm_time(seconds):
 
 def solver_arguments(certificate, extra, gf2_telemetry=False,
                      causal_preflight=False):
-    if certificate not in ('pbp','dsr','none'):
+    if certificate not in ('pbp','dsr','auto','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
-    proof={'pbp':[],'dsr':['--dsr'],'none':[]}[certificate]
+    # Spell every proof mode: the command-line default is automatic selection.
+    proof={'pbp':['--pbp'],'auto':['--auto-proof'],'dsr':['--dsr'],'none':[]}[certificate]
     if any(not value or value in PROOF_ARGUMENTS or
            value in RETIRED_PROOF_ARGUMENTS for value in extra):
         raise ValueError('extra solver arguments must be nonempty and may not override the certificate mode')
@@ -482,10 +486,10 @@ def prepare(a):
     manifest=json.loads((ref/'manifest.json').read_text())
     assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
     dsr_profile=(getattr(a,'dsr_checker_profile','frozen')
-                 if a.certificate=='dsr' else None)
+                 if a.certificate in ('dsr','auto') else None)
     checkers=checker_sources(ref,manifest,a.certificate,dsr_profile)
     checker_provenance=(dsr_checker_provenance(dsr_profile)
-                        if a.certificate=='dsr' else None)
+                        if a.certificate in ('dsr','auto') else None)
     assert sha(ref/'cache.sha256')==manifest['cache_manifest_sha256']
     inputs=dict((rel,digest) for digest,rel in (line.split() for line in (ref/'cache.sha256').read_text().splitlines()))
     source_rows=[dict(rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
@@ -636,8 +640,10 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
                if capacity_profile else {})),
         proof_contract=('No certificate: the solver gets no proof path and runs proof-free; UNSAT verdicts are unchecked and never valid; SAT models are checked against the original CNF.'
                         if a.certificate=='none' else
-                        'Default whole-run PBP, elaborated by pinned VeriPB and independently checked by CakePB against the original CNF.'
+                        'Explicit whole-run PBP, elaborated by pinned VeriPB and independently checked by CakePB against the original CNF.'
                         if a.certificate=='pbp' else
+                        'Automatic selection: whole-run PBP after a PB-native step, elaborated by pinned VeriPB and checked by CakePB; otherwise native DSR, by pinned no-option dsr-trim→Trestle for witnessed SR or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR; the declared route must match the content, against the original CNF.'
+                        if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat=('If the entire job dies, its result may be missing; never interpret missing as timeout or checked. A declared scratch admission, contention, ENOSPC, or file/handle limit is incomplete infrastructure evidence, never a proof rejection, timeout, or closure.'
@@ -782,8 +788,9 @@ if __name__=='__main__':
     p.add_argument('--governor-jobs',type=Path,
                    help='with --submit: append the array job id to this quota-governor jobs.json')
     p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
-    p.add_argument('--certificate',choices=['pbp','dsr','none'],default='pbp',
-                   help='none: no proof path, UNSAT unchecked and never valid; SAT models checked')
+    p.add_argument('--certificate',choices=['pbp','dsr','auto','none'],default='pbp',
+                   help='auto: the solver selects PBP or DSR per run; none: no proof path, '
+                        'UNSAT unchecked and never valid; SAT models checked')
     p.add_argument('--verified-certificate-reference',type=Path,action='append',default=[],
                    help='repeatable campaign directory; an UNSAT certificate byte-identical to one it '
                         'verified for the same instance is recorded as verified by identity, unchecked')

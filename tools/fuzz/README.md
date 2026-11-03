@@ -76,9 +76,11 @@ actions before applying them.
 
 The solver under test must speak the competition CLI: `solver CNF [PROOF]`, `s`/`v` lines on stdout, exit 10/20. Every case is reproducible from the recorded seed and each invocation gets a private artifact namespace. Cluster submissions use `failures/runs/slurm-<job-id>/<leg-name>/`; direct invocations use `failures/runs/local-<pid>/{seeded,public-random}/`. This prevents concurrent default and public-random legs with identical indices/seeds from replacing bundles or `nonterminating.json`.
 When the pinned Tactix executable is renamed so its basename is not `tactix`,
-include `--pbp` in the `--solver` command. The harness otherwise assumes an
-unknown executable emits DRAT; `--pbp` selects Tactix's default whole-run PBP
-mode and its VeriPB/CakePB oracle route. Use `--dsr` only for an explicit
-native-DSR campaign.
+include a proof flag in the `--solver` command. The harness otherwise assumes an
+unknown executable emits DRAT. `--pbp` selects whole-run PBP and its
+VeriPB/CakePB oracle route; `--auto-proof` (the command-line default) selects
+automatic proofs, checked by their content route, whose one declared
+`c proof-route` must agree with the content. Use `--dsr` only for an explicit
+native-DSR campaign. The last proof flag wins, as on the command line.
 Set `TACTIX_FUZZ_RUN_ID` and `TACTIX_FUZZ_LEG_ID` for a stable custom namespace, or pass `--outdir`; identifiers permit letters, digits, `.`, `_` and `-`.
 Failure bundles land in that private directory (untracked) and are promoted to the corpus manually once diagnosed. Immutable checker and replay-harness stores remain shared under `failures/checkers/` and `failures/harnesses/` because their directory names are content hashes.

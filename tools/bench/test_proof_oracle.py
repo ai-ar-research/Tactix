@@ -220,9 +220,24 @@ class ProofOracleTests(unittest.TestCase):
                 with patch.object(runner, 'solve_once', side_effect=fake_solve):
                     result = runner.run_instance(['tactix'], 'tiny.cnf', str(cnf),
                                                  'UNSAT', 30, True, str(work))
+                # A flagless tactix arm is automatic: its declared route and
+                # content select the checker, PBP included.
+                self.assertTrue(result['proof_ok'], result)
+                self.assertEqual(result['proof_format'], 'auto')
+                self.assertEqual(result['proof_route'], 'pbp')
+                def fake_dsr_solve(argv, timeout, *extra):
+                    Path(argv[-1]).write_text('0\n')
+                    return 'UNSAT', .01, {}, 'c proof-route dsr-cake_lpr\ns UNSATISFIABLE\n'
+                with patch.object(runner, 'solve_once', side_effect=fake_dsr_solve):
+                    result = runner.run_instance(['tactix'], 'tiny.cnf', str(cnf),
+                                                 'UNSAT', 30, True, str(work))
+                self.assertTrue(result['proof_ok'], result)
+                self.assertEqual(result['proof_route'], 'dsr-cake_lpr')
+                with patch.object(runner, 'solve_once', side_effect=fake_solve):
+                    result = runner.run_instance(['tactix', '--pbp'], 'tiny.cnf', str(cnf),
+                                                 'UNSAT', 30, True, str(work))
                 self.assertTrue(result['proof_ok'], result)
                 self.assertEqual(result['proof_format'], 'pbp')
-                self.assertEqual(result['proof_route'], 'pbp')
                 proof.write_text('0\n')
                 self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60,
                                                     route='dsr-cake_lpr')[:3],

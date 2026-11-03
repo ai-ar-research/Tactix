@@ -146,7 +146,8 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
     arm = dict(path='pins/tactix', sha256=sha(release), source_commit=a['production'],
         source_build=str(release.parent.relative_to(ROOT)), arguments=[],
         source_patch='pins/candidate-source.patch', source_patch_sha256=sha(authority / 'cumulative.patch'))
-    arms = {'tactix-pbp': dict(arm, arguments=[], certificate='pbp')}
+    # The command-line default is automatic selection: spell whole-run PBP.
+    arms = {'tactix-pbp': dict(arm, arguments=['--pbp'], certificate='pbp')}
     if include_drat:
         arms['tactix-drat'] = dict(arm, arguments=['--drat'], certificate='drat')
     proof_mode = ('whole-run PBP plus same-source DRAT' if include_drat
@@ -353,9 +354,12 @@ def score(campaign, comparison_reference=None, runtime_target_seconds=None):
                     'canonical DSR gate requirement missing')
         require(m.get('scratch_policy') == 'anonymous-local-files-v1',
                 'scratch policy mismatch')
+        # Whole-run PBP was flagless before the automatic default and is
+        # spelled `--pbp` since.
         require(m['arms'][main_arm].get('certificate') == ('pbp' if pbp else 'auto' if automatic else 'dsr') and
-                m['arms'][main_arm].get('arguments') ==
-                (['--auto-proof'] if automatic else []), 'main proof arm mismatch')
+                m['arms'][main_arm].get('arguments') in
+                ((['--auto-proof'],) if automatic else ([], ['--pbp']) if pbp else ([],)),
+                'main proof arm mismatch')
         if len(expected_arms) == 2:
             require(m['arms']['tactix-drat'].get('certificate') == 'drat' and
                     m['arms']['tactix-drat'].get('arguments') == ['--drat'],

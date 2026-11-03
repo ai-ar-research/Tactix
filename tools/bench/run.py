@@ -60,6 +60,7 @@ import argparse
 import concurrent.futures
 import datetime
 import hashlib
+import glob
 import json
 import os
 import re
@@ -240,18 +241,17 @@ def parse_verdict(exitcode, stdout):
 def proof_format(cmd):
     """Which certificate this arm emits — the solver's own flag decides.
 
-    Tactix defaults to whole-run PBP. Explicit flags select its retained
-    automatic or compatibility formats; external solvers retain their usual
-    DRAT default."""
-    if "--lrat" in cmd:
-        return "lrat"
-    if "--pbp" in cmd:
-        return "pbp"
-    if "--dsr" in cmd:
-        return "dsr"
-    if "--drat" in cmd:
-        return "drat"
-    return "pbp" if os.path.basename(cmd[0]) == "tactix" else "drat"
+    Tactix defaults to automatic selection ("auto": whole-run PBP when a
+    PB-native step fired, else native DSR; its `c proof-route` line and the
+    certificate's content decide the checker). Explicit flags select a single
+    format; external solvers retain their usual DRAT default. The last proof
+    flag wins, as in the Tactix command line."""
+    flags = [a for a in cmd if a in ("--lrat", "--pbp", "--dsr", "--drat",
+                                     "--auto-proof")]
+    if flags:
+        return {"--lrat": "lrat", "--pbp": "pbp", "--dsr": "dsr",
+                "--drat": "drat", "--auto-proof": "auto"}[flags[-1]]
+    return "auto" if os.path.basename(cmd[0]) == "tactix" else "drat"
 
 
 def checker_budget(timeout):
@@ -281,6 +281,10 @@ def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
         except DSRFormatError as error:
             return False, f"rejected: {error}", CHK_REJECTED, []
         return check_pbp_proof(cnf, proof, budget)
+    if fmt == "auto":
+        # The declared route and the content select the checker; PBP is
+        # one of the automatic outcomes.
+        fmt, allow_pbp = "dsr", True
     if fmt == "dsr":
         if route not in REPORTED_DSR_ROUTES:
             return False, "rejected: missing solver proof-route", CHK_REJECTED, []
@@ -640,7 +644,7 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
             else:
                 # size is free from a stat and is tracked for every arm
                 res["proof_bytes"] = os.path.getsize(proof)
-                if fmt == "dsr":
+                if fmt in ("dsr", "auto"):
                     res["proof_route"] = solver_reported_route_text(stdout)
                 else:
                     res["proof_route"] = fmt
@@ -675,6 +679,12 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                         res["solved"] = False
     if check_proofs and os.path.exists(proof):
         os.unlink(proof)
+    if check_proofs:
+        # A killed automatic-proof run (timeout) cannot remove the hidden
+        # sibling stage of its DSR copy (`.<proof>.dsr-XXXXXX`).
+        directory, name = os.path.split(proof)
+        for stale in glob.glob(os.path.join(directory or ".", "." + glob.escape(name) + ".dsr-*")):
+            os.unlink(stale)
     return res
 
 

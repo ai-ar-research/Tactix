@@ -199,9 +199,12 @@ int main(int argc, char **argv) {
   const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
-  enum class CliProofFamily { Dsr, Drat, Lrat, Pbp };
-  // Whole-run PBP is the public default.
-  CliProofFamily proof_family = CliProofFamily::Pbp;
+  enum class CliProofFamily { Dsr, Drat, Lrat, Pbp, Automatic };
+  // Automatic selection is the public default: the solver runs exactly as
+  // under --pbp and keeps whole-run PBP only when a PB-native step fires;
+  // otherwise its native-DSR copy becomes the proof (plan §5).
+  CliProofFamily proof_family = CliProofFamily::Automatic;
+  const char *proof_stage_path = nullptr;
   bool binary_proof = true;
   bool quiet = false;
   std::optional<bool> default_affine_search;
@@ -235,6 +238,10 @@ int main(int argc, char **argv) {
       proof_family = CliProofFamily::Lrat; // native LRAT compatibility
     } else if (!strcmp(a, "--pbp")) {
       proof_family = CliProofFamily::Pbp;
+    } else if (!strcmp(a, "--auto-proof")) {
+      proof_family = CliProofFamily::Automatic;
+    } else if (!strncmp(a, "--proof-stage=", 14) && a[14]) {
+      proof_stage_path = a + 14;
     } else if (!strncmp(a, "--default-affine-search=", 24)) {
       if (!strcmp(a + 24, "on")) default_affine_search = true;
       else if (!strcmp(a + 24, "off")) default_affine_search = false;
@@ -314,7 +321,8 @@ int main(int argc, char **argv) {
         }
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q|-v] [--dsr|--drat|--lrat|--pbp] [--no-binary] "
+      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--drat|--lrat|--pbp] "
+             "[--no-binary] [--proof-stage=FILE] "
              "[--default-affine-search=on|off] "
              "[--default-affine-reasons=eager|deferred|detached-minimal|detached-source|lazy-source|lazy-minimal] "
              "[--default-graph-labeling=on|off] "
@@ -335,8 +343,10 @@ int main(int argc, char **argv) {
     }
   }
 
+  // Automatic selection drives the solver through the streaming-PBP stream.
   const ProofFormat proof_format =
-      proof_family == CliProofFamily::Pbp
+      proof_family == CliProofFamily::Pbp ||
+              proof_family == CliProofFamily::Automatic
           ? ProofFormat::PbpStreaming
           : proof_family == CliProofFamily::Lrat
           ? ProofFormat::Lrat
@@ -370,6 +380,22 @@ int main(int argc, char **argv) {
         fprintf(stderr, "tactix: structural provenance aliases another artifact\n");
         return 1;
       }
+    }
+  }
+  if (proof_stage_path && (!proof_path ||
+                           proof_family != CliProofFamily::Automatic))
+    return fail_unknown("tactix: --proof-stage needs an automatic proof\n");
+  if (proof_stage_path) {
+    // The stage is truncated when opened: it must not name another artifact.
+    for (const char *other : {cnf_path, proof_path, feedback_path,
+                              feedback_replay_path,
+                              structural_provenance_path}) {
+      if (!other) continue;
+      std::error_code a, b, c;
+      if ((std::filesystem::weakly_canonical(proof_stage_path, a) ==
+           std::filesystem::weakly_canonical(other, b) && !a && !b) ||
+          std::filesystem::equivalent(proof_stage_path, other, c))
+        return fail_unknown("tactix: proof stage aliases another artifact\n");
     }
   }
   if (feedback_path || feedback_replay_path) {
@@ -476,13 +502,18 @@ int main(int argc, char **argv) {
     kernel.structural_provenance = structural_records.get();
   }
   Proof proof;
-  // Whole-run streaming PBP is textual, so --no-binary has no effect on it.
+  // Whole-run streaming PBP is textual, so --no-binary has no effect on it;
+  // under automatic selection it spells the native-DSR copy in ASCII.
   kernel.startup_certificate_open =
       proof_format == ProofFormat::PbpStreaming ||
       proof_format == ProofFormat::DsrBinary ||
       proof_format == ProofFormat::DsrAscii;
   if (proof_path) {
-    if (!proof.open(proof_path, proof_format))
+    const bool opened =
+        proof_family == CliProofFamily::Automatic
+            ? proof.open_automatic(proof_path, binary_proof, proof_stage_path)
+            : proof.open(proof_path, proof_format);
+    if (!opened)
       return fail_unknown("tactix: cannot write proof to '%s'\n", proof_path);
     kernel.proof = &proof;
     proof.bind_variable_map(&kernel.internal_to_external);
@@ -1563,6 +1594,11 @@ int main(int argc, char **argv) {
       if (std::getenv("TACTIX_SLOT_STATS"))
         default_policy.inprocess().report(kernel);
     }
+    // Why the automatic proof is (or is still) its format: `dsr-selected`
+    // after the empty clause, `pending` without one, else the PBP trigger.
+    if (proof_path && proof.automatic())
+      printf("c auto-proof    %s\n",
+             automatic_proof_reason_name(proof.automatic_reason()));
   }
   if (res == 10) {
     const uint64_t extend_t0 = frontend_time ? tactix::now_nanos() : 0;

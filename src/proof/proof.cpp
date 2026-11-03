@@ -14,6 +14,13 @@
 #include <limits>
 #include <set>
 #include <string_view>
+
+#if defined(__GLIBC__) || defined(__linux__)
+#include <stdio_ext.h>
+#endif
+#include <filesystem>
+#include <sys/stat.h>
+#include <unistd.h>
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
 #include <execinfo.h>
 #endif
@@ -73,18 +80,16 @@ void put_pbp_literal(PbpTextWriter &text, int32_t literal) {
   text.put(" ");
 }
 
-// Append every remaining byte of `source` to `target`.
-void copy_stream(FILE *source, FILE *target) {
+// Append every remaining byte of `source` to `target`; false on a failed
+// read or write.
+bool copy_stream(FILE *source, FILE *target) {
   std::array<unsigned char, 65536> bytes{};
   for (;;) {
     const size_t count = std::fread(bytes.data(), 1, bytes.size(), source);
     if (count && std::fwrite(bytes.data(), 1, count, target) != count)
-      std::abort();
-    if (count < bytes.size()) {
-      if (std::ferror(source))
-        std::abort();
-      break;
-    }
+      return false;
+    if (count < bytes.size())
+      return !std::ferror(source);
   }
 }
 
@@ -215,7 +220,7 @@ void Proof::observe_checker_id_rebind(uint64_t predecessor_id,
                   internal_view(lits, size), false, predecessor_id);
 }
 
-void Proof::finish_input_transaction() {
+void Proof::finish_input_transaction_impl() {
   observe_checker(CheckerPopulationEventKind::InputFinished,
                   CheckerClauseRole::Input, 0, 0, {});
   // A restated input whose raw original was never deleted leaves both
@@ -293,15 +298,20 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
 }
 
 Proof::~Proof() {
+  // A run that never reached the empty clause keeps its PBP prefix.
+  if (dsr_copy_)
+    drop_dsr_copy(automatic_reason_);
   // An unfinished stream keeps every staged root unit (see add_rup).
   if (file_ && streaming_pbp() && !streaming_pbp_finished_)
     settle_pbp_deferred_units(false);
   flush();
   bind_population_observer(nullptr);
-  if (file_ && std::fclose(file_))
+  if (file_ && std::fclose(file_) && !copy_role_)
     std::abort();
   if (pbp_output_ && std::fclose(pbp_output_))
     std::abort();
+  if (pending_deletions_)
+    std::fclose(pending_deletions_);
   stream_identity_=0;
 }
 
@@ -318,9 +328,20 @@ uint64_t next_proof_stream_identity() noexcept {
 }
 bool Proof::open(const char *path, ProofFormat format) {
   stream_identity_=0; // Failed opens cannot lend cached-unit authority.
-  if (file_ || pbp_output_ || format == ProofFormat::Pbp)
+  if (file_ || pbp_output_ || format == ProofFormat::Pbp || dsr_copy_)
     return false;
-  file_ = fopen(path, "wb");
+  FILE *const file = fopen(path, "wb");
+  return file && open_stream(file, format);
+}
+
+bool Proof::open_stream(FILE *file, ProofFormat format) {
+  stream_identity_=0;
+  if (file_ || pbp_output_ || format == ProofFormat::Pbp || !file) {
+    if (file)
+      std::fclose(file);
+    return false;
+  }
+  file_ = file;
   format_ = format;
   has_sr_witness_ = false;
   streaming_pbp_finished_ = false;
@@ -380,7 +401,7 @@ bool Proof::commit_clause_stream() {
   return streaming_pbp() || !pb();
 }
 
-FILE *Proof::begin_pb() {
+FILE *Proof::begin_pb_impl() {
   if (!startup_pb_available())
     return nullptr;
   // The staged input transaction was never published. Its facts are justified
@@ -422,7 +443,8 @@ void Proof::publish_streaming_pbp_header() {
                    "pseudo-Boolean proof version 3.0\nf %" PRIu64 ";\n",
                    pbp_original_constraints_) < 0)
     std::abort();
-  copy_stream(file_, pbp_output_);
+  if (!copy_stream(file_, pbp_output_))
+    std::abort();
   std::fclose(file_);
   file_ = pbp_output_;
   pbp_output_ = nullptr;
@@ -443,6 +465,11 @@ void Proof::put_byte(unsigned char byte) {
 }
 
 void Proof::flush_binary() {
+  if (copy_failed_) { // a failed automatic copy writes nothing further
+    binary_buffer_size_ = 0;
+    pending_deletion_bytes_.clear();
+    return;
+  }
   if (!file_ || !binary_buffer_size_)
     return;
   if (spooling_deletions_ && !pending_deletions_ &&
@@ -458,15 +485,24 @@ void Proof::flush_binary() {
     if (!pending_deletions_ ||
         std::fwrite(pending_deletion_bytes_.data(), 1,
                     pending_deletion_bytes_.size(), pending_deletions_) !=
-            pending_deletion_bytes_.size())
-      std::abort();
+            pending_deletion_bytes_.size()) {
+      if (!copy_role_)
+        std::abort();
+      copy_failed_ = true;
+      binary_buffer_size_ = 0;
+      pending_deletion_bytes_.clear();
+      return;
+    }
     pending_deletion_bytes_.clear();
   }
   FILE *destination = spooling_deletions_ ? pending_deletions_ : file_;
   const size_t written =
       fwrite(binary_buffer_.data(), 1, binary_buffer_size_, destination);
-  if (written != binary_buffer_size_)
-    std::abort();
+  if (written != binary_buffer_size_) {
+    if (!copy_role_)
+      std::abort();
+    copy_failed_ = true; // the owner discards this copy (settle_dsr_copy)
+  }
   binary_buffer_size_ = 0;
 }
 
@@ -1001,7 +1037,7 @@ void Proof::settle_pbp_deferred_units(bool drop) {
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::DerivedUnit;
   for (const PbpDeferredUnit &unit : units)
-    add_rup(unit.id, &unit.lit, 1, nullptr, 0);
+    add_rup_impl(unit.id, &unit.lit, 1, nullptr, 0);
   population_role_ = saved;
 }
 
@@ -1045,6 +1081,17 @@ uint32_t Proof::external_variable_bound() const {
 }
 
 void Proof::flush_pending_dsr_units() {
+  if (copy_failed_) { // the owner discards this copy; drop its staged batch
+    pending_units_.clear();
+    pending_unit_literals_.clear();
+    pending_unit_ids_.clear();
+    pending_deletion_bytes_.clear();
+    spooling_deletions_ = false;
+    if (pending_deletions_)
+      std::fclose(pending_deletions_);
+    pending_deletions_ = nullptr;
+    return;
+  }
   if (pending_units_.empty())
     return;
   assert(file_ && dsr());
@@ -1104,13 +1151,16 @@ void Proof::flush_pending_dsr_units() {
     pending_deletion_bytes_.clear();
     if (pending_deletions_) {
       flush_binary();
-      if (std::fflush(pending_deletions_) ||
-          std::fseek(pending_deletions_, 0, SEEK_SET))
-        std::abort();
-      copy_stream(pending_deletions_, file_);
-      if (std::fclose(pending_deletions_))
-        std::abort();
+      const bool copied = !std::fflush(pending_deletions_) &&
+                          !std::fseek(pending_deletions_, 0, SEEK_SET) &&
+                          copy_stream(pending_deletions_, file_);
+      const bool closed = !std::fclose(pending_deletions_);
       pending_deletions_ = nullptr;
+      if (!copied || !closed) {
+        if (!copy_role_)
+          std::abort();
+        copy_failed_ = true; // the owner discards this copy (settle_dsr_copy)
+      }
     }
     observe_checker(CheckerPopulationEventKind::PendingDeletesCommit,
                     CheckerClauseRole::None, 0, 0, {}, false, 0,
@@ -1125,9 +1175,16 @@ void Proof::flush_pending_dsr_units() {
   observe_checker(CheckerPopulationEventKind::PendingCommitEnd,
                   CheckerClauseRole::None, 0, 0, {}, false, 0,
                   pending_population_transaction_);
+  // Erase exactly this batch's keys: clear() zeroes the whole bucket array,
+  // which keeps the size of the largest batch ever staged (input units), and
+  // made every later small flush pay for it.
+  for (const PendingDsrUnit &unit : pending_units_) {
+    pending_unit_literals_.erase(unit.external);
+    if (unit.id)
+      pending_unit_ids_.erase(unit.id);
+  }
+  assert(pending_unit_literals_.empty() && pending_unit_ids_.empty());
   pending_units_.clear();
-  pending_unit_literals_.clear();
-  pending_unit_ids_.clear();
   pending_max_external_ = 0;
   pending_population_transaction_ = 0;
 }
@@ -1142,8 +1199,8 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
   return false;
 }
 
-void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
-                    const uint64_t *chain, uint32_t nchain) {
+void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size,
+                         const uint64_t *chain, uint32_t nchain) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(!size && streaming_pbp());
   const CheckerClauseRole role = population_role_;
@@ -1155,7 +1212,8 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
       !pending_deletion_bytes_.empty())
     flush_pending_dsr_units();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-  rule_journal_note_rup(id, chain, nchain);
+  if (!copy_role_) // the automatic DSR copy repeats an already noted event
+    rule_journal_note_rup(id, chain, nchain);
 #endif
   assert(!tautological(lits, size)); // see Proof::tautological
   // Under LRAT a non-empty clause with NO antecedents is uncheckable: the
@@ -1216,8 +1274,8 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
     finish_streaming_pbp_unsat();
 }
 
-void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
-                    const int64_t *hints, uint32_t nhints) {
+void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size,
+                         const int64_t *hints, uint32_t nhints) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(false);
   if (size && !premise_groups_.empty()) {
@@ -1228,7 +1286,8 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
     std::abort();
   flush_pending_dsr_units();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-  rule_journal_note_rat(id, hints, nhints);
+  if (!copy_role_)
+    rule_journal_note_rat(id, hints, nhints);
 #endif
   assert(!tautological(lits, size)); // see Proof::tautological
 #ifndef NDEBUG
@@ -1266,10 +1325,11 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                   id, id, internal_view(lits, size));
 }
 
-bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
-                   const Lit *true_lits, uint32_t ntrue,
-                   const DsrLiteralMapping *mappings, uint32_t nmappings,
-                   uint32_t external_variables, bool propagates) {
+bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
+                        const Lit *true_lits, uint32_t ntrue,
+                        const DsrLiteralMapping *mappings,
+                        uint32_t nmappings, uint32_t external_variables,
+                        bool propagates) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(false);
   if (!input_transaction_ && !commit_clause_stream())
@@ -1483,15 +1543,16 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   return true;
 }
 
-void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
+void Proof::add_empty_impl(uint64_t id, const uint64_t *chain,
+                           uint32_t nchain) {
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::Empty;
-  add_rup(id, nullptr, 0, chain, nchain);
+  add_rup_impl(id, nullptr, 0, chain, nchain);
   population_role_ = saved;
 }
 
-void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
-                             uint32_t nchain) {
+void Proof::add_derived_unit_impl(uint64_t id, Lit unit,
+                                  const uint64_t *chain, uint32_t nchain) {
   if (!file_)
     return;
   // LRAT and streaming PBP cite the unit's chain. Native DSR keeps root units
@@ -1508,7 +1569,7 @@ void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
   }
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::DerivedUnit;
-  add_rup(id, &unit, 1, chained ? chain : nullptr, chained ? nchain : 0);
+  add_rup_impl(id, &unit, 1, chained ? chain : nullptr, chained ? nchain : 0);
   population_role_ = saved;
 }
 
@@ -1521,8 +1582,12 @@ FILE *Proof::begin_pending_deletion() {
     spooling_deletions_ = true;
     return nullptr;
   }
-  if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile()))
-    std::abort();
+  if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile())) {
+    if (!copy_role_)
+      std::abort();
+    copy_failed_ = true; // keep the main stream; the copy is discarded
+    return file_;
+  }
   FILE *const main_file = file_;
   file_ = pending_deletions_;
   return main_file;
@@ -1536,8 +1601,8 @@ void Proof::end_pending_deletion(FILE *main_file) {
     file_ = main_file;
 }
 
-void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
-                uint32_t size) {
+void Proof::del_impl(uint64_t line_id, uint64_t del_id, const Lit *lits,
+                     uint32_t size) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(false);
   if (!leased_premises_.empty() && size <= premise_maximum_width_) {
@@ -1619,8 +1684,8 @@ bool external_tautological(const int32_t *lits, uint32_t size) {
 
 } // namespace
 
-bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
-                             uint32_t size) {
+bool Proof::add_external_rup_impl(uint64_t id, const int32_t *lits,
+                                  uint32_t size) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(!size && streaming_pbp());
   const CheckerClauseRole role =
@@ -1660,8 +1725,8 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
   return true;
 }
 
-bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
-                             uint32_t size) {
+bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
+                                  uint32_t size) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(false);
   if (size && !premise_groups_.empty()) {
@@ -1691,7 +1756,7 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
   // stream is identical to an external RUP addition.
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::ExternalRat;
-  const bool result = add_external_rup(id, lits, size);
+  const bool result = add_external_rup_impl(id, lits, size);
   population_role_ = saved;
   return result;
 }
@@ -1807,6 +1872,9 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       pbp_original_constraints_ >
           UINT64_MAX - (pbp_derived_constraints_ + plan.proof_constraints))
     return false;
+  // Cutting-planes lines have no clausal spelling: keep whole-run PBP.
+  if (dsr_copy_)
+    drop_dsr_copy(AutomaticProofReason::ParityReason);
 
   if (cache.stream_identity_ != stream_identity_) {
     cache.entries_.clear();
@@ -2044,7 +2112,7 @@ bool Proof::can_defer_premise_group_deletions(
   return true;
 }
 
-bool Proof::retain_premise_groups(const std::vector<PremiseGroup> &groups,
+bool Proof::retain_premise_groups_impl(const std::vector<PremiseGroup> &groups,
     uint64_t maximum_groups, uint64_t maximum_literals,
     uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,
     std::vector<uint64_t> &handles, DeferredDeletionLimits limits) {
@@ -2134,7 +2202,7 @@ bool Proof::defer_leased_deletion(const int32_t *lits, uint32_t size) {
     std::vector<uint64_t> affected;
     for (const auto &[handle, group] : premise_groups_)
       if (std::find(group.begin(), group.end(), found->first) != group.end()) affected.push_back(handle);
-    release_premise_groups(affected, 0);
+    release_premise_groups_impl(affected, 0);
     return false;
   }
   ++premise_pending_deletions_; premise_pending_literal_work_ += cost;
@@ -2144,8 +2212,8 @@ bool Proof::defer_leased_deletion(const int32_t *lits, uint32_t size) {
   return true;
 }
 
-void Proof::release_premise_groups(const std::vector<uint64_t> &handles,
-                                  uint64_t line_id) {
+void Proof::release_premise_groups_impl(const std::vector<uint64_t> &handles,
+                                       uint64_t line_id) {
   bool changed = false;
   for (uint64_t handle : handles) {
     auto group = premise_groups_.find(handle);
@@ -2172,7 +2240,7 @@ void Proof::release_premise_groups(const std::vector<uint64_t> &handles,
       // must not resolve to an anonymous constraint (see put_pbp_deletion).
       pbp_replaying_leased_ = true;
       for (uint64_t i = 0; i < deferred; ++i)
-        if (!del_external(line_id, 0, clause.data(), clause.size())) std::abort();
+        if (!del_external_impl(line_id, 0, clause.data(), clause.size())) std::abort();
       pbp_replaying_leased_ = false;
     }
   }
@@ -2206,7 +2274,7 @@ void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
                                       external_variable_of(literal));
     if (touched) retire.push_back(handle);
   }
-  release_premise_groups(retire, line_id);
+  release_premise_groups_impl(retire, line_id);
 }
 
 uint64_t Proof::persistent_external_bytes() const {
@@ -2216,7 +2284,8 @@ uint64_t Proof::persistent_external_bytes() const {
   return bytes;
 }
 
-bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
+bool Proof::retain_external_impl(uint64_t id, const int32_t *lits,
+                                 uint32_t size) {
   if (!id || !size || !lits ||
       external_tautological(lits, size) || lrat() || terminal_pbp())
     return false;
@@ -2242,14 +2311,14 @@ void Proof::flush_persistent_external(uint64_t line_id) {
       std::move(persistent_external_);
   persistent_external_.clear();
   for (auto clause = clauses.rbegin(); clause != clauses.rend(); ++clause)
-    if (!del_external(line_id, clause->id, clause->lits.data(),
+    if (!del_external_impl(line_id, clause->id, clause->lits.data(),
                       clause->lits.size()))
       std::abort();
   ++persistent_external_epoch_;
 }
 
-bool Proof::del_external(uint64_t line_id, uint64_t del_id,
-                         const int32_t *lits, uint32_t size) {
+bool Proof::del_external_impl(uint64_t line_id, uint64_t del_id,
+                              const int32_t *lits, uint32_t size) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(false);
   if (defer_leased_deletion(lits, size)) return true;
@@ -2296,7 +2365,7 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   return true;
 }
 
-void Proof::flush() {
+void Proof::flush_impl() {
   if (streaming_pbp() && pbp_output_)
     publish_streaming_pbp_header();
   flush_pending_dsr_units();
@@ -2304,8 +2373,11 @@ void Proof::flush() {
     flush_binary();
     // Text serializers use stdio buffering. Both a previous short write and
     // this publication flush must succeed before a caller may report UNSAT.
-    if (std::ferror(file_) || std::fflush(file_))
-      std::abort();
+    if (std::ferror(file_) || std::fflush(file_)) {
+      if (!copy_role_)
+        std::abort();
+      copy_failed_ = true;
+    }
   }
 }
 
@@ -2385,7 +2457,7 @@ void Proof::population_external(bool add, uint64_t id, const int32_t *lits,
 
 #endif
 
-void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
+void Proof::seed_population_impl(uint64_t id, const Lit *lits, uint32_t size) {
   population_add(id, lits, size);
   if (!file_)
     return;
@@ -2408,6 +2480,428 @@ void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
   }
   observe_checker(CheckerPopulationEventKind::InputSeed,
                   CheckerClauseRole::Input, id, id, internal_view(lits, size));
+}
+
+} // namespace tactix
+
+// --- automatic selection (plan §5) -----------------------------------------
+// The public event methods run the PBP body, then feed the same event to the
+// native-DSR copy. Kernel queries see only the PBP stream, so the copy never
+// steers the solver. An event the copy cannot follow ends it before writing.
+
+namespace tactix {
+
+const char *automatic_proof_reason_name(AutomaticProofReason reason) noexcept {
+  switch (reason) {
+  case AutomaticProofReason::Pending: return "pending";
+  case AutomaticProofReason::DsrSelected: return "dsr-selected";
+  case AutomaticProofReason::StartupPbRefutation: return "startup-pb-refutation";
+  case AutomaticProofReason::ParityReason: return "gf2-parity-reason";
+  case AutomaticProofReason::SrWithAffineSupport: return "sr-with-affine-support";
+  case AutomaticProofReason::CopyDeclined: return "dsr-copy-declined";
+  case AutomaticProofReason::CopyWriteFailed: return "dsr-copy-write-failed";
+  case AutomaticProofReason::DestinationUnsupported:
+    return "destination-unsupported";
+  case AutomaticProofReason::StageUnavailable: return "stage-unavailable";
+  }
+  return "unknown";
+}
+
+namespace {
+
+// Drop a stream's buffered, unwritten bytes (they are being discarded), so
+// closing it cannot fail on them. Without a purge primitive the bytes are
+// written and any error is ignored.
+void discard_buffered(FILE *file) {
+#if defined(__GLIBC__) || defined(__linux__)
+  __fpurge(file);
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__NetBSD__)
+  fpurge(file);
+#else
+  (void)file;
+#endif
+}
+
+// `<dir>/.<name>.dsr-XXXXXX` next to `path`, so the final rename stays on
+// the destination's filesystem.
+std::string sibling_stage_template(const char *path) {
+  const std::string full(path);
+  const size_t slash = full.rfind('/');
+  const std::string directory =
+      slash == std::string::npos ? std::string() : full.substr(0, slash + 1);
+  const std::string name =
+      slash == std::string::npos ? full : full.substr(slash + 1);
+  return directory + "." + name + ".dsr-XXXXXX";
+}
+
+} // namespace
+
+bool Proof::open_automatic(const char *path, bool binary_dsr,
+                           const char *stage_path) {
+  if (!open(path, ProofFormat::PbpStreaming))
+    return false;
+  automatic_ = true;
+  automatic_selected_dsr_ = false;
+  automatic_dsr_witness_ = false;
+  automatic_reason_ = AutomaticProofReason::Pending;
+  // Absolute, so a later change of directory cannot redirect the placement.
+  std::error_code absolute_error;
+  automatic_path_ = std::filesystem::absolute(path, absolute_error).string();
+  if (absolute_error)
+    automatic_path_ = path;
+  automatic_stage_name_.clear();
+  // The empty clause rewrites the destination in place, so it must be a
+  // regular file (a proc-fd path to an anonymous file qualifies).
+  FILE *const destination = pbp_output_ ? pbp_output_ : file_;
+  struct stat destination_stat;
+  if (fstat(fileno(destination), &destination_stat) ||
+      !S_ISREG(destination_stat.st_mode)) {
+    automatic_reason_ = AutomaticProofReason::DestinationUnsupported;
+    return true;
+  }
+  FILE *stage = nullptr;
+  struct stat link_stat;
+  const bool renameable = !lstat(path, &link_stat) &&
+                          S_ISREG(link_stat.st_mode) &&
+                          link_stat.st_nlink == 1 &&
+                          link_stat.st_dev == destination_stat.st_dev &&
+                          link_stat.st_ino == destination_stat.st_ino;
+  if (stage_path) {
+    // A caller stage is copied from at the empty clause: it must be a
+    // regular file other than the destination, or the copy could not be
+    // read back.
+    stage = std::fopen(stage_path, "w+b");
+    struct stat stage_stat;
+    if (stage && (fstat(fileno(stage), &stage_stat) ||
+                  !S_ISREG(stage_stat.st_mode) ||
+                  (stage_stat.st_dev == destination_stat.st_dev &&
+                   stage_stat.st_ino == destination_stat.st_ino))) {
+      std::fclose(stage);
+      stage = nullptr;
+    }
+  } else if (renameable) {
+    std::string name = sibling_stage_template(automatic_path_.c_str());
+    const int descriptor = mkstemp(name.data());
+    if (descriptor >= 0) {
+      struct stat stage_stat;
+      if (!fstat(descriptor, &stage_stat) &&
+          stage_stat.st_dev == destination_stat.st_dev &&
+          !fchmod(descriptor, destination_stat.st_mode & 07777) &&
+          (stage = fdopen(descriptor, "w+b"))) {
+        automatic_stage_name_ = name;
+      } else {
+        close(descriptor);
+        unlink(name.c_str());
+      }
+    }
+  }
+  if (!stage && !stage_path)
+    stage = std::tmpfile();
+  if (!stage) {
+    automatic_reason_ = AutomaticProofReason::StageUnavailable;
+    return true;
+  }
+  auto copy = std::make_unique<Proof>();
+  copy->copy_role_ = true;
+  if (!copy->open_stream(stage, binary_dsr ? ProofFormat::DsrBinary
+                                           : ProofFormat::DsrAscii)) {
+    if (!automatic_stage_name_.empty())
+      unlink(automatic_stage_name_.c_str());
+    automatic_stage_name_.clear();
+    automatic_reason_ = AutomaticProofReason::StageUnavailable;
+    return true;
+  }
+  copy->bind_variable_map(variable_map_);
+  copy->bind_external_variable_map(external_variable_map_);
+  dsr_copy_ = std::move(copy);
+  return true;
+}
+
+void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
+  if (!dsr_copy_)
+    return;
+  // Discard the copy's staged and buffered bytes instead of writing them,
+  // and release the stage's space at once (a caller-owned stage stays).
+  Proof &copy = *dsr_copy_;
+  copy.pending_units_.clear();
+  copy.pending_unit_literals_.clear();
+  copy.pending_unit_ids_.clear();
+  copy.pending_deletion_bytes_.clear();
+  copy.spooling_deletions_ = false;
+  copy.binary_buffer_size_ = 0;
+  copy.copy_failed_ = true;
+  if (copy.file_) {
+    discard_buffered(copy.file_);
+    (void)ftruncate(fileno(copy.file_), 0);
+    std::fclose(copy.file_);
+    copy.file_ = nullptr;
+  }
+  dsr_copy_.reset();
+  if (!automatic_stage_name_.empty())
+    unlink(automatic_stage_name_.c_str());
+  automatic_stage_name_.clear();
+  automatic_reason_ = reason;
+}
+
+void Proof::settle_dsr_copy() {
+  if (!dsr_copy_)
+    return;
+  if (dsr_copy_->copy_failed_) {
+    drop_dsr_copy(AutomaticProofReason::CopyWriteFailed);
+    return;
+  }
+  // The empty clause completed both streams: keep the native DSR copy.
+  if (streaming_pbp_finished_)
+    select_dsr_copy();
+}
+
+// Replace the destination's PBP bytes with the complete DSR copy: rename a
+// sibling stage over the destination, else rewrite the destination in place.
+// Until the destination changes, any copy-side failure keeps the complete PBP
+// stream. Afterwards the discarded PBP bytes are dropped unwritten, so only
+// the DSR bytes can fail to land; a failed placement aborts before any UNSAT
+// verdict.
+void Proof::select_dsr_copy() {
+  Proof &copy = *dsr_copy_;
+  copy.flush_impl();
+  if (copy.copy_failed_) {
+    drop_dsr_copy(AutomaticProofReason::CopyWriteFailed);
+    return;
+  }
+  FILE *stage = copy.file_;
+  copy.file_ = nullptr;
+  bool placed = false;
+  if (!automatic_stage_name_.empty()) {
+    // The rename is atomic: the path names either the PBP or the DSR file.
+    const bool closed = !std::fclose(stage);
+    stage = nullptr;
+    placed = closed && !std::rename(automatic_stage_name_.c_str(),
+                                    automatic_path_.c_str());
+    if (!placed && (!closed ||
+                    !(stage = std::fopen(automatic_stage_name_.c_str(), "rb")))) {
+      unlink(automatic_stage_name_.c_str());
+      automatic_stage_name_.clear();
+      dsr_copy_.reset();
+      automatic_reason_ = AutomaticProofReason::CopyWriteFailed;
+      return; // the PBP destination is untouched and complete
+    }
+  }
+  FILE *destination = pbp_output_ ? pbp_output_ : file_;
+  // The PBP stream accepts nothing further. A still-private PBP prefix and
+  // any buffered PBP bytes are discarded.
+  if (pbp_output_ && file_ && file_ != pbp_output_) {
+    discard_buffered(file_);
+    std::fclose(file_);
+  }
+  file_ = nullptr;
+  pbp_output_ = nullptr;
+  binary_buffer_size_ = 0;
+  discard_buffered(destination);
+  if (placed) {
+    std::fclose(destination); // the renamed-over PBP file is unlinked
+    destination = nullptr;
+  } else {
+    if (ftruncate(fileno(destination), 0) ||
+        std::fseek(destination, 0, SEEK_SET) || std::fseek(stage, 0, SEEK_SET) ||
+        !copy_stream(stage, destination) || std::fflush(destination) ||
+        std::ferror(destination))
+      std::abort();
+    // The copied stage's bytes are no longer needed (a caller-owned stage
+    // stays, emptied).
+    (void)ftruncate(fileno(stage), 0);
+    if (std::fclose(stage))
+      std::abort();
+    if (!automatic_stage_name_.empty())
+      unlink(automatic_stage_name_.c_str());
+  }
+  automatic_stage_name_.clear();
+  if (destination && std::fclose(destination))
+    std::abort();
+  automatic_selected_dsr_ = true;
+  automatic_dsr_witness_ = copy.has_sr_witness_;
+  automatic_reason_ = AutomaticProofReason::DsrSelected;
+  dsr_copy_.reset();
+}
+
+void Proof::finish_input_transaction() {
+  finish_input_transaction_impl();
+  if (dsr_copy_) {
+    dsr_copy_->finish_input_transaction();
+    settle_dsr_copy();
+  }
+}
+
+FILE *Proof::begin_pb() {
+  FILE *const terminal = begin_pb_impl();
+  // A complete native PB refutation has no clausal spelling.
+  if (terminal)
+    drop_dsr_copy(AutomaticProofReason::StartupPbRefutation);
+  return terminal;
+}
+
+void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
+                    const uint64_t *chain, uint32_t nchain) {
+  add_rup_impl(id, lits, size, chain, nchain);
+  if (dsr_copy_) {
+    dsr_copy_->add_rup(id, lits, size, chain, nchain);
+    settle_dsr_copy();
+  }
+}
+
+void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
+                    const int64_t *hints, uint32_t nhints) {
+  add_rat_impl(id, lits, size, hints, nhints);
+  if (dsr_copy_) {
+    dsr_copy_->add_rat(id, lits, size, hints, nhints);
+    settle_dsr_copy();
+  }
+}
+
+bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
+                   const Lit *true_lits, uint32_t ntrue,
+                   const DsrLiteralMapping *mappings, uint32_t nmappings,
+                   uint32_t external_variables, bool propagates) {
+  const bool written = add_sr_impl(id, lits, size, true_lits, ntrue, mappings,
+                                   nmappings, external_variables, propagates);
+  if (!written || !dsr_copy_)
+    return written;
+  // Native DSR retires leased affine premises and retained proof-only
+  // support before a witnessed line; PBP keeps both, and later clausal
+  // affine steps may cite them. The copy cannot follow that state.
+  if (!dsr_copy_->premise_groups_.empty() ||
+      !dsr_copy_->persistent_external_.empty()) {
+    drop_dsr_copy(AutomaticProofReason::SrWithAffineSupport);
+    return written;
+  }
+  if (!dsr_copy_->add_sr(id, lits, size, true_lits, ntrue, mappings, nmappings,
+                         external_variables, propagates))
+    drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+  else
+    settle_dsr_copy();
+  return written;
+}
+
+void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
+  add_empty_impl(id, chain, nchain);
+  if (dsr_copy_) {
+    dsr_copy_->add_empty(id, chain, nchain);
+    settle_dsr_copy();
+  }
+}
+
+void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
+                             uint32_t nchain) {
+  add_derived_unit_impl(id, unit, chain, nchain);
+  if (dsr_copy_) {
+    dsr_copy_->add_derived_unit(id, unit, chain, nchain);
+    settle_dsr_copy();
+  }
+}
+
+void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
+                uint32_t size) {
+  del_impl(line_id, del_id, lits, size);
+  if (dsr_copy_) {
+    dsr_copy_->del(line_id, del_id, lits, size);
+    settle_dsr_copy();
+  }
+}
+
+bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
+                             uint32_t size) {
+  const bool written = add_external_rup_impl(id, lits, size);
+  if (written && dsr_copy_) {
+    if (!dsr_copy_->add_external_rup(id, lits, size))
+      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+    else
+      settle_dsr_copy();
+  }
+  return written;
+}
+
+bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
+                             uint32_t size) {
+  const bool written = add_external_rat_impl(id, lits, size);
+  if (written && dsr_copy_) {
+    if (!dsr_copy_->add_external_rat(id, lits, size))
+      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+    else
+      settle_dsr_copy();
+  }
+  return written;
+}
+
+bool Proof::del_external(uint64_t line_id, uint64_t del_id,
+                         const int32_t *lits, uint32_t size) {
+  const bool written = del_external_impl(line_id, del_id, lits, size);
+  if (written && dsr_copy_) {
+    if (!dsr_copy_->del_external(line_id, del_id, lits, size))
+      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+    else
+      settle_dsr_copy();
+  }
+  return written;
+}
+
+bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
+  const bool retained = retain_external_impl(id, lits, size);
+  if (retained && dsr_copy_) {
+    if (!dsr_copy_->retain_external(id, lits, size))
+      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+    else
+      settle_dsr_copy();
+  }
+  return retained;
+}
+
+bool Proof::retain_premise_groups(const std::vector<PremiseGroup> &groups,
+    uint64_t maximum_groups, uint64_t maximum_literals,
+    uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,
+    std::vector<uint64_t> &handles, DeferredDeletionLimits limits) {
+  const bool retained = retain_premise_groups_impl(
+      groups, maximum_groups, maximum_literals, maximum_bytes, charge, handles,
+      limits);
+  if (retained && dsr_copy_) {
+    // The kernel's work meter is charged once, by the PBP stream.
+    const std::function<bool(uint64_t)> free_charge = [](uint64_t) {
+      return true;
+    };
+    std::vector<uint64_t> copy_handles;
+    if (!dsr_copy_->retain_premise_groups(groups, maximum_groups,
+                                          maximum_literals, maximum_bytes,
+                                          free_charge, copy_handles, limits) ||
+        copy_handles != handles)
+      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+    else
+      settle_dsr_copy();
+  }
+  return retained;
+}
+
+void Proof::release_premise_groups(const std::vector<uint64_t> &handles,
+                                  uint64_t line_id) {
+  release_premise_groups_impl(handles, line_id);
+  if (dsr_copy_) {
+    dsr_copy_->release_premise_groups(handles, line_id);
+    settle_dsr_copy();
+  }
+}
+
+void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
+  seed_population_impl(id, lits, size);
+  if (dsr_copy_) {
+    dsr_copy_->seed_population(id, lits, size);
+    settle_dsr_copy();
+  }
+}
+
+void Proof::flush() {
+  flush_impl();
+  if (dsr_copy_) {
+    dsr_copy_->flush();
+    settle_dsr_copy();
+  }
 }
 
 } // namespace tactix

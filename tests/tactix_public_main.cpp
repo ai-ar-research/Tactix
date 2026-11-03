@@ -72,10 +72,15 @@ void print_census() {
 
 int main(int argc, char **argv) {
   const char *cnf_path = nullptr, *proof_path = nullptr;
-  int proof_format = TACTIX_PROOF_PBP;
+  // Same default as `tactix`: automatic selection.
+  int proof_format = TACTIX_PROOF_AUTO;
   for (int i = 1; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--pbp")) {
       proof_format = TACTIX_PROOF_PBP;
+      continue;
+    }
+    if (!std::strcmp(argv[i], "--auto-proof")) {
+      proof_format = TACTIX_PROOF_AUTO;
       continue;
     }
     if (argv[i][0] == '-' && argv[i][1]) {
@@ -86,12 +91,12 @@ int main(int argc, char **argv) {
     if (!cnf_path) cnf_path = argv[i];
     else if (!proof_path) proof_path = argv[i];
     else {
-      fprintf(stderr, "usage: tactix-public [--pbp] <cnf> [proof]\n");
+      fprintf(stderr, "usage: tactix-public [--auto-proof|--pbp] <cnf> [proof]\n");
       return 1;
     }
   }
   if (!cnf_path) {
-    fprintf(stderr, "usage: tactix-public [--pbp] <cnf> [proof]\n");
+    fprintf(stderr, "usage: tactix-public [--auto-proof|--pbp] <cnf> [proof]\n");
     printf("s UNKNOWN\n");
     return 1;
   }

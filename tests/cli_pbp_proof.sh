@@ -40,7 +40,7 @@ p cnf 6 24
 EOF
 
 set +e
-"$solver" "$tmp/input.cnf" "$tmp/proof.pbp" \
+"$solver" --pbp "$tmp/input.cnf" "$tmp/proof.pbp" \
   > "$tmp/solver.out" 2>&1
 status=$?
 set -e
@@ -53,21 +53,25 @@ if grep -q '^red ' "$tmp/proof.pbp"; then
   exit 1
 fi
 
-# The retained explicit spelling must select the same deterministic stream as
-# the no-flag default.
+# The automatic default runs the same solver on the same stream: this
+# ordinary fixture fires no PB-native step, so it keeps the DSR copy.
 set +e
-"$solver" --pbp "$tmp/input.cnf" "$tmp/explicit.pbp" \
-  > "$tmp/explicit.out" 2>&1
-explicit_status=$?
+"$solver" "$tmp/input.cnf" "$tmp/automatic.proof" \
+  > "$tmp/automatic.out" 2>&1
+automatic_status=$?
 set -e
-[[ $explicit_status -eq 20 ]]
-grep -q '^c proof-route pbp$' "$tmp/explicit.out"
-cmp "$tmp/proof.pbp" "$tmp/explicit.pbp"
+[[ $automatic_status -eq 20 ]]
+grep -q '^c proof-route dsr-cake_lpr$' "$tmp/automatic.out"
+grep -q '^c auto-proof    dsr-selected$' "$tmp/automatic.out"
+if head -c 20 "$tmp/automatic.proof" | grep -q 'pseudo-Boolean'; then
+  echo 'automatic default kept PBP without a PB-native step'
+  exit 1
+fi
 
-# PBP is textual already: the legacy transport modifier must not silently
-# switch a no-flag run back to the former DSR default.
+# PBP is textual already: the legacy transport modifier must not change an
+# explicit --pbp stream.
 set +e
-"$solver" --no-binary "$tmp/input.cnf" "$tmp/no-binary.pbp" \
+"$solver" --pbp --no-binary "$tmp/input.cnf" "$tmp/no-binary.pbp" \
   > "$tmp/no-binary.out" 2>&1
 no_binary_status=$?
 set -e
@@ -110,4 +114,4 @@ if "$veripb" -u --cnf "$tmp/input.cnf" "$tmp/corrupt.pbp" \
   exit 1
 fi
 
-printf 'CLI default whole-run PBP: no-flag, --pbp and --no-binary streams match; proof passed pinned VeriPB+CakePB; source and kernel corruptions rejected\n'
+printf 'CLI whole-run PBP: --pbp and --pbp --no-binary streams match; the automatic default keeps DSR here; proof passed pinned VeriPB+CakePB; source and kernel corruptions rejected\n'

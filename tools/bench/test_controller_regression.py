@@ -21,6 +21,7 @@ def proof(elapsed, timeout=False):
 class CandidateArgumentTests(unittest.TestCase):
     def test_default_pbp_command_and_profile_are_exact(self):
         self.assertEqual(candidate_arguments(), [])
+        self.assertEqual(candidate_arguments(['--pbp']), ['--pbp'])
         for family in ('affine-search', 'graph-labeling'):
             for mode in ('on', 'off'):
                 argument = '--default-' + family + '=' + mode
@@ -88,7 +89,7 @@ class CandidateArgumentTests(unittest.TestCase):
                     campaigns = regression.prepare(prefix, release, arguments)
                     manifest = json.loads((Path(campaigns[0]) / 'manifest.json').read_text())
                     self.assertEqual(manifest['arms']['tactix']['arguments'],
-                                     arguments)
+                                     ['--pbp', *arguments])
                     self.assertEqual(manifest['resource_contract']['throttle'], None)
                     self.assertEqual(manifest['baseline']['sha256'], regression.sha(baseline))
                 self.assertEqual(verified.call_count, 2)

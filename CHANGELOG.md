@@ -8,12 +8,21 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Changed
 
+- The command-line default proof is selected per run. The solver runs exactly
+  as with `--pbp` and writes a native-DSR copy of the same proof alongside.
+  A step with no clausal spelling (a startup parity or count-preservation
+  refutation, or a compact GF(2) reason) keeps the whole-run PBP proof;
+  otherwise the DSR copy replaces it when the empty clause is derived. The
+  `c proof-route` line names the route actually written, and the statistics
+  report the reason as `c auto-proof`. `--pbp` keeps whole-run PBP for every
+  run; `--no-binary` spells the DSR copy as text. The competition wrapper
+  `tools/compete/run.sh` passes `--pbp`.
+- `tactix-public` defaults to automatic selection as well.
 - Whole-run PBP proofs delete constraints by id (`del id`) instead of
   restating them (`del spec`), and omit the root units that only precede the
   empty clause. Binary clauses are still deleted by specification. Searches,
   verdicts, models and DSR, DRAT and LRAT bytes are unchanged; on the four
   fixed regression sets the PBP certificates are 37% smaller.
-
 - Bounded variable elimination can perform CaDiCaL-style, clause-size-ordered
   generation-time self-subsuming resolution before charging a pair against
   the resolvent bound; the mechanism remains opt-in after its Common-set
@@ -31,6 +40,12 @@ semantic versioning; the public C API remains source-compatible within the
   symmetry keep normal FastEl application.
 
 ### Added
+
+- `--auto-proof` names the automatic default explicitly; `--proof-stage=FILE`
+  places its DSR copy in a caller-owned file.
+- The C API proof format `TACTIX_PROOF_AUTO` (7) selects automatic proofs,
+  and `tactix_proof_route` reports the route of the attached proof.
+- `tactix-public-random` accepts `--auto-proof` and reports the route written.
 
 - The public BVE parameter surface exposes generation-time strengthening, and
   public statistics report its strengthening and double-subsumption counts.

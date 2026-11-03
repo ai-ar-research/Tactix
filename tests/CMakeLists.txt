@@ -58,6 +58,10 @@ tactix_skip77_test(algebraic_pbp_proofs ${TACTIX_SKIP_UNLESS_PBP}
 tactix_skip77_test(cli_pbp_proof ${TACTIX_SKIP_UNLESS_PBP}
                    ${CMAKE_SOURCE_DIR}/tests/cli_pbp_proof.sh
                    $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
+# The automatic default: its route, trigger and checked certificate per
+# fixture, and trajectory identity with --pbp (skips without the checkers).
+tactix_skip77_test(cli_auto_proof ${CMAKE_SOURCE_DIR}/tests/cli_auto_proof.sh
+                   $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
 tactix_skip77_test(pbp_fuzz ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_SOURCE_DIR}/tests/test_pbp_fuzz.py
                    $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})

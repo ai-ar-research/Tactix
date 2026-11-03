@@ -79,8 +79,9 @@ if [ "$PUBLIC_RANDOM" -eq 1 ]; then
     esac
 fi
 
-# This adds the LRAT cross-check only when the selected solver arm emits DRAT;
-# Tactix's default PBP arm continues through VeriPB and CakePB.
+# This adds the LRAT cross-check only when the selected solver arm emits DRAT.
+# A Tactix --pbp arm goes through VeriPB and CakePB; the automatic default arm
+# is checked by its content route (PBP, or one of the native-DSR routes).
 if [ "$NIGHTLY" -eq 1 ]; then
     EXTRA+=(--lrat)
     # Defaults precede explicit EXTRA arguments so deliberate overrides win.

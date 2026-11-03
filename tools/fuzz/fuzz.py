@@ -629,8 +629,11 @@ def resource_summary(run):
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
-    Tactix defaults to whole-run PBP. Explicit --dsr, --drat, or --lrat selects
-    the corresponding compatibility oracle. Native LRAT is checked directly
+    Tactix defaults to automatic selection (whole-run PBP after a PB-native
+    step, native DSR otherwise); its certificate is checked by content and
+    must match its one declared `c proof-route`. Explicit --pbp selects
+    whole-run PBP; --dsr, --drat, or --lrat selects the corresponding
+    compatibility oracle. Native LRAT is checked directly
     with cake_lpr; legacy lrat-check is not an acceptance oracle because it
     accepts a non-conflicting empty-lemma chain on a SAT input."""
     solver = substitute_workdir(solver, workdir)
@@ -693,21 +696,31 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                      + str(out.checker_runs[-1].get("runner_error")))
         else:
             out.fail("proof", detail)
-    native_lrat = "--lrat" in solver
-    explicit_dsr = "--dsr" in solver
     basename_tactix = os.path.basename(solver[0]) == "tactix"
-    is_tactix = basename_tactix or "--pbp" in solver
-    default_pbp = (basename_tactix and not any(
-        flag in solver for flag in ("--dsr", "--drat", "--lrat")))
+    is_tactix = (basename_tactix or "--pbp" in solver or
+                 "--auto-proof" in solver)
+    proof_flags = [flag for flag in solver if flag in (
+        "--pbp", "--auto-proof", "--dsr", "--drat", "--lrat")]
+    if is_tactix:
+        # The last proof flag wins, as on the Tactix command line.
+        last = proof_flags[-1] if proof_flags else None
+        native_lrat, explicit_dsr = last == "--lrat", last == "--dsr"
+        automatic = last == "--auto-proof" or (basename_tactix and not last)
+        default_pbp = last == "--pbp"
+    else:
+        native_lrat, explicit_dsr = "--lrat" in solver, "--dsr" in solver
+        automatic = default_pbp = False
     # Competition reference solvers still default to DRAT. Tactix's no-flag
-    # route is whole-run PBP; --dsr retains the native clausal controls.
-    explicit_drat = ("--drat" in solver or
-                     (not native_lrat and not explicit_dsr and not is_tactix))
+    # route is automatic selection; --dsr retains the native clausal controls.
+    explicit_drat = (proof_flags[-1:] == ["--drat"] if is_tactix else
+                     ("--drat" in solver or
+                      (not native_lrat and not explicit_dsr)))
     native_dsr = not native_lrat and not explicit_drat
     proof = os.path.join(
         workdir, "proof.lrat" if native_lrat else
         ("proof.drat" if explicit_drat else
-         ("proof.pbp" if "--pbp" in solver or default_pbp else "proof.dsr")))
+         ("proof.auto" if automatic else
+          ("proof.pbp" if default_pbp else "proof.dsr"))))
     out.proof_artifacts.append(proof)
     if os.path.exists(proof):
         os.unlink(proof)
@@ -765,6 +778,20 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             # empty clause; drat-trim handles that, so only flag absence
             if not os.path.exists(proof):
                 out.fail("proof", "no proof file produced")
+        if automatic and os.path.exists(proof):
+            # The selection is visible only in the declared route.
+            declared = [line.removeprefix("c proof-route ").strip()
+                        for line in stdout.splitlines()
+                        if line.startswith("c proof-route ")]
+            try:
+                content = certificate_route(proof)
+            except DSRFormatError:
+                content = None
+            expected = {"pbp": "pbp", "dsr-trestle": "dsr",
+                        "dsr-cake_lpr": "drat"}
+            if len(declared) != 1 or expected.get(declared[0]) != content:
+                out.fail("proof", "automatic proof-route "
+                         f"{declared} disagrees with content route {content}")
         if os.path.exists(proof) and pb_proof_has_header(proof):
             if native_lrat or explicit_drat or explicit_dsr:
                 out.fail("proof", "PBP emitted in an explicit clausal format mode")

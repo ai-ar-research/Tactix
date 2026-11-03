@@ -87,12 +87,20 @@ def main():
         assert retired.returncode == 1
         assert "unknown option '--random-policy=5'" in retired.stderr
 
-        retired = run(production, "--auto-proof", sat)
-        assert retired.returncode == 1
-        assert "unknown option '--auto-proof'" in retired.stderr
-        retired = run(public_random, "--auto-proof", sat)
-        assert retired.returncode == 1
-        assert "unsupported option '--auto-proof'" in retired.stderr
+        # Automatic selection is the production default; both frontends
+        # accept its explicit spelling and report the route actually written.
+        automatic = run(production, "--auto-proof", sat)
+        assert automatic.returncode == 10, (automatic.stdout, automatic.stderr)
+        selected = work / "unsat.auto"
+        result = run(public_random, "--random-policy=1", "--auto-proof",
+                     unsat, selected)
+        assert result.returncode == 20, (result.stdout, result.stderr)
+        assert selected.is_file() and selected.stat().st_size
+        route = re.search(r"^c proof-route (\S+)$", result.stdout, re.M)
+        assert route and route.group(1) in (
+            "pbp", "dsr-trestle", "dsr-cake_lpr"), result.stdout
+        pbp = selected.read_bytes().startswith(b"pseudo-Boolean proof")
+        assert pbp == (route.group(1) == "pbp"), (route.group(1), pbp)
 
     print("public random frontend profiles/forms and production-policy purge PASS")
 

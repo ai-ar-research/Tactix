@@ -27,6 +27,8 @@ assert set(dsr) == {
     "checkmodel", "modelcheck.py", "drat-trim", "cake_lpr",
     "dsr-trim", "dsr-compress", "srcheck",
 }
+auto = TIERD.checker_sources(REFERENCE, baseline, "auto", "long64-fixed")
+assert set(auto) == set(pbp) | set(dsr)
 try:
     TIERD.checker_sources(REFERENCE, baseline, "drat")
     raise AssertionError("unsupported certificate mode was accepted")
@@ -49,7 +51,10 @@ assert TIERD.solver_arguments("dsr", [
     "--controller-native-producers=tseitin-cycle",
     "--controller-families=TseitinCycleBreaking",
 ]
-assert TIERD.solver_arguments("pbp", []) == []
+# The command-line default is automatic, so every mode is spelled.
+assert TIERD.solver_arguments("pbp", []) == ["--pbp"]
+assert TIERD.solver_arguments("auto", []) == ["--auto-proof"]
+assert TIERD.solver_arguments("none", []) == []
 assert TIERD.solver_arguments("dsr", [
     "--controller-policy=2",
     "--controller-families=NaryCspPrefix",
