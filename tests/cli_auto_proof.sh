@@ -168,4 +168,34 @@ grep -qx 'c auto-proof    pending' "$tmp/hard.out"
 not_pbp "$tmp/hard.auto"
 no_stage_left
 
-printf 'CLI automatic proof: DSR for plain CDCL and Ramsey SR, PBP for startup parity and GF(2) reasons; statistics equal --pbp; conversions forced mid-run; every route checked\n'
+# SIGTERM after a switch: the run leaves PBP, the converted prefix joined to the
+# live stream, without a conclusion. VeriPB accepts every derivation in it.
+set +e
+TACTIX_AUTO_PROOF_SWITCH_AT=50 timeout --preserve-status -s TERM 2 \
+  "$solver" "$tmp/hard.cnf" "$tmp/hard.switched" > "$tmp/hard-switched.out" 2>&1
+status=$?
+set -e
+[[ $status -eq 0 ]] || { echo "hard switched: exit $status"; cat "$tmp/hard-switched.out"; exit 1; }
+grep -qx 's UNKNOWN' "$tmp/hard-switched.out" || { echo 'hard switched: finished within the limit'; exit 1; }
+grep -qx 'c auto-proof    forced-switch' "$tmp/hard-switched.out"
+switch=$(grep '^c auto-proof-switch converted' "$tmp/hard-switched.out")
+read -r converted_dsr converted_pbp < <(sed -E 's/.*dsr-bytes ([0-9]+) pbp-bytes ([0-9]+).*/\1 \2/' <<<"$switch")
+[[ $converted_dsr -gt 0 ]] || { echo 'hard switched: empty prefix converted'; exit 1; }
+# The live stream wrote past the converted prefix.
+[[ $(wc -c < "$tmp/hard.switched") -gt $converted_pbp ]] || { echo 'hard switched: no PBP after the switch'; exit 1; }
+head -c 14 "$tmp/hard.switched" | grep -q 'pseudo-Boolean'
+if grep -q '^conclusion' "$tmp/hard.switched"; then
+  echo 'hard switched: an unfinished run claimed a conclusion'
+  exit 1
+fi
+no_stage_left
+cat "$tmp/hard.switched" - > "$tmp/hard.closed" <<'TRAILER'
+output NONE ;
+conclusion NONE ;
+end pseudo-Boolean proof ;
+TRAILER
+"$bin/veripb" -u --cnf "$tmp/hard.cnf" "$tmp/hard.closed" > "$tmp/hard.veripb" 2>&1 ||
+  { echo 'hard switched: VeriPB rejected the prefix'; tail -5 "$tmp/hard.veripb"; exit 1; }
+grep -qx 's VERIFIED NO CONCLUSION' "$tmp/hard.veripb"
+
+printf 'CLI automatic proof: DSR for plain CDCL and Ramsey SR, PBP for startup parity and GF(2) reasons; statistics equal --pbp; conversions forced mid-run; every route checked; SIGTERM leaves the current stream\n'
