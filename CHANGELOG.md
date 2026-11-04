@@ -21,7 +21,7 @@ semantic versioning; the public C API remains source-compatible within the
   GF(2) reason takes its clausal certificate, the end-of-run conversion is
   skipped, and a startup refutation or a witnessed step that DSR cannot follow
   declines (`c auto-proof-switch dsr-limit`). An event with no clausal spelling
-  still converts. A run without an empty clause leaves the proof it was writing. A converted proof deletes clauses by
+  still converts. The DSR proof is written directly to the proof file, and a conversion replaces it by a rename once the PBP prefix is complete, so a run killed at any point, by SIGKILL too, leaves what it had flushed. A symlink, a hard-linked file or a `/proc/<pid>/fd/<n>` path still holds the DSR in a temporary file until the run ends. A run without an empty clause leaves the proof it was writing. A converted proof deletes clauses by
   specification, so it is larger than the `--pbp` proof. If the DSR proof cannot
   be written, the run aborts, as `--dsr` does. The `c proof-route` line names the
   route written; the statistics report the reason as `c auto-proof` and the
