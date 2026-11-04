@@ -1,5 +1,6 @@
 #include "proof/proof.hpp"
 #include "kernel/types.hpp"
+#include "proof/dsr_to_pbp.hpp"
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 #include "diagnostics/rule_journal.hpp"
 #endif
@@ -11,6 +12,7 @@
 #include <charconv>
 #include <cinttypes>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <set>
 #include <string_view>
@@ -18,6 +20,8 @@
 #if defined(__GLIBC__) || defined(__linux__)
 #include <stdio_ext.h>
 #endif
+#include <chrono>
+#include <fcntl.h>
 #include <filesystem>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -82,6 +86,23 @@ void put_pbp_literal(PbpTextWriter &text, int32_t literal) {
 
 // Append every remaining byte of `source` to `target`; false on a failed
 // read or write.
+// The streaming-PBP header; publication and lazy materialization share it so
+// both spell the same bytes.
+int write_pbp_header(FILE *file, uint64_t constraints) {
+  return std::fprintf(file, "pseudo-Boolean proof version 3.0\nf %" PRIu64 ";\n",
+                      constraints);
+}
+
+constexpr const char *kPbpConclusion =
+    "output NONE ;\nconclusion UNSAT : -1 ;\nend pseudo-Boolean proof ;\n";
+
+uint64_t pbp_header_length(uint64_t constraints) {
+  const int length = std::snprintf(
+      nullptr, 0, "pseudo-Boolean proof version 3.0\nf %" PRIu64 ";\n",
+      constraints);
+  return length > 0 ? static_cast<uint64_t>(length) : 0;
+}
+
 bool copy_stream(FILE *source, FILE *target) {
   std::array<unsigned char, 65536> bytes{};
   for (;;) {
@@ -94,6 +115,33 @@ bool copy_stream(FILE *source, FILE *target) {
 }
 
 } // namespace
+
+namespace {
+// What the writer's in-process stream does with its bytes.
+struct LazySinkTarget {
+  uint64_t bytes = 0; // PBP text the writer has produced
+  // An event the DSR copy may decline after the writer accepted it: its text
+  // is kept until the copy answers, since a switch must write it after the
+  // converted prefix (see Proof::hold_lazy_event).
+  bool holding = false;
+  std::string held;
+  size_t accept(const char *data, size_t size) {
+    bytes += size;
+    if (holding)
+      held.append(data, size);
+    return size;
+  }
+};
+} // namespace
+
+// Lazy PBP holder (see Proof::lazy_); the destructor is defined with the
+// automatic-selection code.
+struct Proof::LazyPbp : LazySinkTarget {
+  FILE *sink = nullptr;  // the writer's file_: counts its bytes, stores none
+  uint64_t derived_at_hold = 0;
+  int stage_fd = -1;     // reads the copy's stage for the conversion
+  ~LazyPbp();
+};
 
 uint64_t PbpParityBoundsCache::empty_retained_bytes() noexcept {
   return uint64_t{2} * sizeof(uint64_t) +
@@ -297,10 +345,21 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
   return plan;
 }
 
+Proof::Proof() = default;
+
 Proof::~Proof() {
-  // A run that never reached the empty clause keeps its PBP prefix.
+  // A run that never reached the empty clause never converts to PBP: it
+  // leaves the DSR copy's prefix (an unfinished run has no certificate). If
+  // the prefix cannot be placed, a held destination is closed empty here, so
+  // no later flush tries to publish a header for a stream that no longer
+  // exists.
+  const bool held = lazy_ != nullptr;
   if (dsr_copy_)
-    drop_dsr_copy(automatic_reason_);
+    select_dsr_copy(false);
+  if (held && pbp_output_) {
+    (void)std::fclose(pbp_output_);
+    pbp_output_ = nullptr;
+  }
   // An unfinished stream keeps every staged root unit (see add_rup).
   if (file_ && streaming_pbp() && !streaming_pbp_finished_)
     settle_pbp_deferred_units(false);
@@ -309,6 +368,9 @@ Proof::~Proof() {
   if (file_ && std::fclose(file_) && !copy_role_)
     std::abort();
   if (pbp_output_ && std::fclose(pbp_output_))
+    std::abort();
+  // An unfinished run never aborts over a proof no verdict rests on.
+  if (lazy_destination_ && std::fclose(lazy_destination_) && !held)
     std::abort();
   if (pending_deletions_)
     std::fclose(pending_deletions_);
@@ -420,7 +482,14 @@ FILE *Proof::begin_pb_impl() {
   // Staged root units belong to the discarded clausal stream.
   pbp_deferred_units_.clear();
   pbp_deferring_units_ = false;
-  std::fclose(file_);
+  if (lazy_) {
+    // The private prefix was never written: the refutation starts from the CNF.
+    discard_lazy_pbp();
+    dsr_is_the_proof_ = false;
+    lazy_report_.state = "startup-pb";
+  } else {
+    std::fclose(file_);
+  }
   binary_buffer_size_ = 0;
   file_ = pbp_output_;
   pbp_output_ = nullptr;
@@ -435,13 +504,19 @@ bool Proof::finish_pb() {
 }
 
 void Proof::publish_streaming_pbp_header() {
-  if (!streaming_pbp() || !pbp_output_)
+  if (!streaming_pbp() || !pbp_output_ || !file_)
     return;
+  if (lazy_) {
+    // The header is written at the switch, with the f fixed now.
+    lazy_f_ = pbp_original_constraints_;
+    lazy_published_ = true;
+    lazy_destination_ = pbp_output_;
+    pbp_output_ = nullptr;
+    return;
+  }
   if (std::fflush(file_) || std::fseek(file_, 0, SEEK_SET))
     std::abort();
-  if (std::fprintf(pbp_output_,
-                   "pseudo-Boolean proof version 3.0\nf %" PRIu64 ";\n",
-                   pbp_original_constraints_) < 0)
+  if (write_pbp_header(pbp_output_, pbp_original_constraints_) < 0)
     std::abort();
   if (!copy_stream(file_, pbp_output_))
     std::abort();
@@ -453,8 +528,7 @@ void Proof::publish_streaming_pbp_header() {
 void Proof::finish_streaming_pbp_unsat() {
   if (!streaming_pbp() || streaming_pbp_finished_)
     return;
-  std::fputs("output NONE ;\nconclusion UNSAT : -1 ;\n"
-             "end pseudo-Boolean proof ;\n", file_);
+  std::fputs(kPbpConclusion, file_);
   streaming_pbp_finished_ = true;
 }
 
@@ -1058,6 +1132,15 @@ void Proof::end_line() {
 }
 
 void Proof::put_line_tag(bool deletion) {
+  // In the copy: the ordinals of witness-free RAT additions, which the DSR
+  // text does not distinguish from RUP.
+  if (census_on_ && !deletion) {
+    if (next_addition_rat_) {
+      rat_additions_.push_back(additions_);
+      next_addition_rat_ = false;
+    }
+    ++additions_;
+  }
   if (census_on_) {
     census_line_deletion_ = deletion;
     census_line_literals_ = 0;
@@ -1329,8 +1412,10 @@ void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size,
     // DSR/DRAT: a witnessless addition with the pivot ordered first. The
     // checker first tries RUP and then infers first-literal RAT. DRAT output
     // is unchanged.
-    if (census_on_)
+    if (census_on_) {
       census_.non_rup_line(false);
+      next_addition_rat_ = true;
+    }
     put_clausal_line(false, lits, size);
   }
   population_add(id, lits, size);
@@ -1448,6 +1533,7 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
     // The first clause is RAT on a fresh variable. Under the negation of
     // the second clause, the original X7 obligations hold; the first clause's
     // image is exactly the already-validated candidate image C|sigma.
+    next_addition_rat_ = census_on_;
     temporary(false, true);
     end_line();
     PopulationClauseView negative_helper = internal_view(lits, size);
@@ -1729,6 +1815,8 @@ bool Proof::add_external_rup_impl(uint64_t id, const int32_t *lits,
     std::fputs(" ;\n", file_);
     note_pbp_derived(id, size, [lits] { return lits; });
   } else {
+    next_addition_rat_ =
+        census_on_ && population_role_ == CheckerClauseRole::ExternalRat;
     put_line_tag(false);
     for (uint32_t i = 0; i < size; ++i) {
       proof_external_max_ =
@@ -2528,6 +2616,7 @@ const char *automatic_proof_reason_name(AutomaticProofReason reason) noexcept {
     return "destination-unsupported";
   case AutomaticProofReason::StageUnavailable: return "stage-unavailable";
   case AutomaticProofReason::PbpPredictedFaster: return "pbp-predicted-faster";
+  case AutomaticProofReason::ForcedSwitch: return "forced-switch";
   }
   return "unknown";
 }
@@ -2548,6 +2637,39 @@ void discard_buffered(FILE *file) {
 #endif
 }
 
+// A stdio stream that counts the writer's PBP bytes and stores only an event
+// held for the DSR copy's answer.
+#if defined(__GLIBC__)
+ssize_t pbp_sink_write(void *state, const char *data, size_t size) {
+  return static_cast<ssize_t>(
+      static_cast<LazySinkTarget *>(state)->accept(data, size));
+}
+int pbp_sink_close(void *) { return 0; }
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__NetBSD__)
+int pbp_sink_write(void *state, const char *data, int size) {
+  return size < 0 ? -1
+                  : static_cast<int>(static_cast<LazySinkTarget *>(state)->accept(
+                        data, static_cast<size_t>(size)));
+}
+int pbp_sink_close(void *) { return 0; }
+#endif
+
+FILE *open_pbp_sink(LazySinkTarget *state) {
+#if defined(__GLIBC__)
+  cookie_io_functions_t io{};
+  io.write = pbp_sink_write;
+  io.close = pbp_sink_close;
+  return fopencookie(state, "w", io);
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__NetBSD__)
+  return funopen(state, nullptr, pbp_sink_write, nullptr, pbp_sink_close);
+#else
+  (void)state;
+  return nullptr; // no custom streams: automatic mode stays eager
+#endif
+}
+
 // `<dir>/.<name>.dsr-XXXXXX` next to `path`, so the final rename stays on
 // the destination's filesystem.
 std::string sibling_stage_template(const char *path) {
@@ -2561,6 +2683,171 @@ std::string sibling_stage_template(const char *path) {
 }
 
 } // namespace
+
+Proof::LazyPbp::~LazyPbp() {
+  if (sink) { // buffered bytes are dropped unwritten
+    discard_buffered(sink);
+    std::fclose(sink);
+  }
+  if (stage_fd >= 0)
+    close(stage_fd);
+}
+
+namespace {
+// A descriptor that reads the stage open on `fd`: a fresh read-only open file
+// description where /proc allows it (it reads the bytes written so far even if
+// the copy's own descriptor fails), else a duplicate of a readable `fd`.
+int open_stage_reader(int fd) {
+#ifdef __linux__
+  char link[64];
+  std::snprintf(link, sizeof link, "/proc/self/fd/%d", fd);
+  const int reader = ::open(link, O_RDONLY | O_CLOEXEC);
+  if (reader >= 0)
+    return reader;
+#endif
+  const int flags = fcntl(fd, F_GETFL);
+  if (flags < 0 || (flags & O_ACCMODE) == O_WRONLY)
+    return -1;
+  return dup(fd);
+}
+} // namespace
+
+// Replace the empty private input-transaction file of a freshly opened
+// automatic stream with a counting sink. Without one (no custom streams, no
+// readable stage) the run stays eager and writes both streams.
+void Proof::start_lazy_pbp() {
+  if (!streaming_pbp() || !file_ || !pbp_output_ || !input_transaction_ ||
+      ftello(file_) != 0 || !dsr_copy_ || !dsr_copy_->file_)
+    return;
+  auto lazy = std::make_unique<LazyPbp>();
+  lazy->stage_fd = open_stage_reader(fileno(dsr_copy_->file_));
+  if (lazy->stage_fd < 0) {
+    lazy_report_.state = "off-no-reader";
+    return;
+  }
+  lazy->sink = open_pbp_sink(lazy.get());
+  if (!lazy->sink) {
+    lazy_report_.state = "off-no-stream";
+    return;
+  }
+  // The solver's text output stays buffered as under --pbp.
+  setvbuf(lazy->sink, nullptr, _IOFBF, 1 << 20);
+  std::fclose(file_);
+  file_ = lazy->sink;
+  lazy_ = std::move(lazy);
+  lazy_published_ = false;
+  dsr_is_the_proof_ = true;
+  lazy_report_.state = "dsr";
+  // Validation runs convert at a chosen point, so the conversion and the join
+  // with the PBP suffix are checked on runs no trigger would switch.
+  if (const char *at = std::getenv("TACTIX_AUTO_PROOF_SWITCH_AT"))
+    forced_switch_at_ = !std::strcmp(at, "end")
+                            ? UINT64_MAX
+                            : std::strtoull(at, nullptr, 10);
+}
+
+// Keep the text of the event about to be written, until the copy has answered.
+void Proof::hold_lazy_event() {
+  if (!lazy_ || file_ != lazy_->sink)
+    return;
+  if (std::fflush(file_))
+    std::abort();
+  lazy_->holding = true;
+  lazy_->held.clear();
+  lazy_->derived_at_hold = pbp_derived_constraints_;
+}
+
+void Proof::release_lazy_event() noexcept {
+  if (lazy_) {
+    lazy_->holding = false;
+    lazy_->held.clear();
+  }
+}
+
+// The switch (plan §5): convert the complete DSR stage to PBP in the destination
+// and continue on it. The numbering restarts from the converted lines, so every
+// later deletion is by specification and no line cites a prefix constraint.
+bool Proof::convert_lazy_pbp() {
+  LazyPbp &lazy = *lazy_;
+  Proof &copy = *dsr_copy_;
+  const auto started = std::chrono::steady_clock::now();
+  copy.flush_impl();
+  if (copy.copy_failed_ || std::fflush(file_))
+    return false;
+  FILE *target = lazy_published_ ? lazy_destination_ : std::tmpfile();
+  if (!target)
+    return false;
+  if (!lazy_published_)
+    setvbuf(target, nullptr, _IOFBF, 1 << 20);
+  DsrToPbpResult converted;
+  bool ok = !lazy_published_ || write_pbp_header(target, lazy_f_) >= 0;
+  if (ok) {
+    converted = convert_dsr_to_pbp(lazy.stage_fd, copy.binary(),
+                                   copy.rat_additions_, target);
+    ok = converted.ok;
+  }
+  // Held text uses the writer's numbering, which ends here: an id deletion in
+  // it would name the wrong constraint.
+  if (ok && lazy.held.find("del id ") != std::string::npos)
+    ok = false;
+  if (ok && !lazy.held.empty())
+    ok = std::fwrite(lazy.held.data(), 1, lazy.held.size(), target) ==
+         lazy.held.size();
+  // A held event wrote its own conclusion; otherwise the stage ends with the
+  // empty clause and the conclusion follows it.
+  if (ok && streaming_pbp_finished_ && !lazy.holding)
+    ok = std::fputs(kPbpConclusion, target) >= 0;
+  ok = ok && !std::fflush(target) && !std::ferror(target);
+  if (!ok) {
+    if (!lazy_published_) {
+      std::fclose(target);
+    } else {
+      // The destination is free again for the complete DSR copy.
+      discard_buffered(target);
+      std::clearerr(target);
+      if (ftruncate(fileno(target), 0) || std::fseek(target, 0, SEEK_SET))
+        std::clearerr(target); // the placement reports its own failure
+    }
+    return false;
+  }
+  const uint64_t in_flight = lazy.holding ? pbp_derived_constraints_ - lazy.derived_at_hold : 0;
+  // Deletion by id cannot survive: the writer's identities name its own
+  // numbering, and `del spec` may select any copy of a duplicate.
+  abandon_pbp_id_deletions(6, 0);
+  pbp_constraint_ids_.clear();
+  pbp_anonymous_constraints_.clear();
+  pbp_pending_rebind_ = {};
+  pbp_last_input_live_ = false;
+  pbp_derived_constraints_ = converted.derived + in_flight;
+#ifndef NDEBUG
+  pbp_audit_input_.clear();
+  pbp_audit_derived_.clear();
+#endif
+  lazy_report_.dsr_bytes = converted.dsr_bytes;
+  lazy_report_.pbp_bytes = converted.pbp_bytes;
+  file_ = target; // the stream continues on the real file
+  if (lazy_published_)
+    lazy_destination_ = nullptr; // now owned through file_
+  lazy_.reset();
+  dsr_is_the_proof_ = false;
+  automatic_destination_ = file_;
+  lazy_report_.state = "converted";
+  lazy_report_.nanos = static_cast<uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count());
+  return true;
+}
+
+// Stop counting PBP text (DSR selected, startup PB refutation, unfinished
+// run). The destination stays as the caller leaves it.
+void Proof::discard_lazy_pbp() noexcept {
+  if (!lazy_)
+    return;
+  if (file_ == lazy_->sink)
+    file_ = nullptr;
+  lazy_.reset();
+}
 
 bool Proof::open_automatic(const char *path, bool binary_dsr,
                            const char *stage_path) {
@@ -2643,12 +2930,17 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   copy->bind_variable_map(variable_map_);
   copy->bind_external_variable_map(external_variable_map_);
   dsr_copy_ = std::move(copy);
+  start_lazy_pbp();
   return true;
 }
 
 void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
   if (!dsr_copy_)
     return;
+  // PBP becomes the proof: pay the conversion. Without a converted prefix no
+  // UNSAT claim may follow: fail closed.
+  if (lazy_ && !convert_lazy_pbp())
+    std::abort();
   // Discard the copy's staged and buffered bytes instead of writing them,
   // and release the stage's space at once (a caller-owned stage stays).
   Proof &copy = *dsr_copy_;
@@ -2672,7 +2964,13 @@ void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
   automatic_reason_ = reason;
 }
 
-uint64_t Proof::pbp_logical_bytes() const {
+uint64_t Proof::pbp_logical_bytes() {
+  if (lazy_) {
+    // The writer's buffered bytes reach the count first.
+    if (std::fflush(file_))
+      std::abort();
+    return (lazy_published_ ? pbp_header_length(lazy_f_) : 0) + lazy_->bytes;
+  }
   // Before publication file_ is the private prefix and the header is unwritten;
   // afterwards file_ is the destination itself.
   FILE *const stream = file_ ? file_ : pbp_output_;
@@ -2685,8 +2983,19 @@ uint64_t Proof::pbp_logical_bytes() const {
 void Proof::settle_dsr_copy() {
   if (!dsr_copy_)
     return;
+  // The copy holds the event: a switch from here must not write it again.
+  release_lazy_event();
+  // The only proof could not be written: there is nothing left to convert.
   if (dsr_copy_->copy_failed_) {
+    if (dsr_is_the_proof_)
+      std::abort();
     drop_dsr_copy(AutomaticProofReason::CopyWriteFailed);
+    return;
+  }
+  if (lazy_ && forced_switch_at_ && !streaming_pbp_finished_ &&
+      forced_switch_at_ != UINT64_MAX &&
+      dsr_copy_->additions_ >= forced_switch_at_) {
+    drop_dsr_copy(AutomaticProofReason::ForcedSwitch);
     return;
   }
   // The empty clause completed both streams: keep the route predicted to
@@ -2705,24 +3014,39 @@ void Proof::settle_dsr_copy() {
         copy.census_, copy.has_sr_witness_, copy.external_variable_bound(),
         dsr_bytes, pbp_bytes);
     automatic_estimated_ = true;
-    if (automatic_estimate_.pbp_faster()) {
-      drop_dsr_copy(AutomaticProofReason::PbpPredictedFaster);
-      return;
+    const bool forced = lazy_ && forced_switch_at_ == UINT64_MAX;
+    if (forced || automatic_estimate_.pbp_faster()) {
+      // A lazy stream pays the conversion first; if that fails, the complete
+      // DSR copy remains a valid certificate and is kept instead.
+      if (!lazy_ || convert_lazy_pbp()) {
+        drop_dsr_copy(forced ? AutomaticProofReason::ForcedSwitch
+                             : AutomaticProofReason::PbpPredictedFaster);
+        return;
+      }
+      discard_lazy_pbp();
+      lazy_report_.state = "fallback";
     }
     select_dsr_copy();
   }
 }
 
-// Replace the destination's PBP bytes with the complete DSR copy: rename a
-// sibling stage over the destination, else rewrite the destination in place.
-// Until the destination changes, any copy-side failure keeps the complete PBP
-// stream. Afterwards the discarded PBP bytes are dropped unwritten, so only
-// the DSR bytes can fail to land; a failed placement aborts before any UNSAT
-// verdict.
-void Proof::select_dsr_copy() {
+// Replace the destination's PBP bytes with the DSR copy: rename a sibling stage
+// over the destination, else rewrite the destination in place. Until the
+// destination changes, any copy-side failure keeps the complete PBP stream.
+// Afterwards the discarded PBP bytes are dropped unwritten, so only the DSR
+// bytes can fail to land; a failed placement aborts before any UNSAT verdict.
+// An unfinished run (`finished` false: no empty clause, so no verdict rests on
+// the proof, and the verdict may be SAT) installs the copy's prefix the same
+// way, but a failure only loses that prefix: it never aborts and never
+// converts to PBP.
+void Proof::select_dsr_copy(bool finished) {
   Proof &copy = *dsr_copy_;
   copy.flush_impl();
   if (copy.copy_failed_) {
+    if (!finished)
+      discard_lazy_pbp();
+    else if (dsr_is_the_proof_)
+      std::abort(); // the only proof could not be written
     drop_dsr_copy(AutomaticProofReason::CopyWriteFailed);
     return;
   }
@@ -2741,12 +3065,25 @@ void Proof::select_dsr_copy() {
       automatic_stage_name_.clear();
       dsr_copy_.reset();
       automatic_reason_ = AutomaticProofReason::CopyWriteFailed;
+      if (!finished) {
+        discard_lazy_pbp();
+        return;
+      }
+      // The stage is gone: only an eager PBP stream can still be the proof.
+      if (dsr_is_the_proof_)
+        std::abort();
       return; // the PBP destination is untouched and complete
     }
   }
   FILE *destination = automatic_destination_;
-  // The PBP stream accepts nothing further. A still-private PBP prefix and
-  // any buffered PBP bytes are discarded.
+  // The PBP stream accepts nothing further. A still-private PBP prefix and any
+  // buffered PBP bytes are discarded unwritten.
+  if (lazy_) {
+    if (finished)
+      lazy_report_.pbp_bytes = pbp_logical_bytes();
+    discard_lazy_pbp();
+    lazy_report_.state = "dsr-kept";
+  }
   if (file_ && file_ != destination) {
     discard_buffered(file_);
     std::fclose(file_);
@@ -2754,27 +3091,29 @@ void Proof::select_dsr_copy() {
   file_ = nullptr;
   pbp_output_ = nullptr;
   automatic_destination_ = nullptr;
+  lazy_destination_ = nullptr; // closed below with the destination
   binary_buffer_size_ = 0;
   discard_buffered(destination);
   if (placed) {
     std::fclose(destination); // the renamed-over PBP file is unlinked
     destination = nullptr;
   } else {
-    if (ftruncate(fileno(destination), 0) ||
-        std::fseek(destination, 0, SEEK_SET) || std::fseek(stage, 0, SEEK_SET) ||
-        !copy_stream(stage, destination) || std::fflush(destination) ||
-        std::ferror(destination))
+    if ((ftruncate(fileno(destination), 0) ||
+         std::fseek(destination, 0, SEEK_SET) ||
+         std::fseek(stage, 0, SEEK_SET) || !copy_stream(stage, destination) ||
+         std::fflush(destination) || std::ferror(destination)) &&
+        finished)
       std::abort();
     // The copied stage's bytes are no longer needed (a caller-owned stage
     // stays, emptied).
     (void)ftruncate(fileno(stage), 0);
-    if (std::fclose(stage))
+    if (std::fclose(stage) && finished)
       std::abort();
     if (!automatic_stage_name_.empty())
       unlink(automatic_stage_name_.c_str());
   }
   automatic_stage_name_.clear();
-  if (destination && std::fclose(destination))
+  if (destination && std::fclose(destination) && finished)
     std::abort();
   automatic_selected_dsr_ = true;
   automatic_dsr_witness_ = copy.has_sr_witness_;
@@ -2789,6 +3128,13 @@ void Proof::finish_input_transaction() {
     settle_dsr_copy();
   }
 }
+
+namespace {
+struct ReleaseLazyEvent {
+  Proof *proof;
+  ~ReleaseLazyEvent() { proof->release_lazy_event(); }
+};
+} // namespace
 
 FILE *Proof::begin_pb() {
   FILE *const terminal = begin_pb_impl();
@@ -2820,8 +3166,11 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates) {
+  if (dsr_copy_)
+    hold_lazy_event();
   const bool written = add_sr_impl(id, lits, size, true_lits, ntrue, mappings,
                                    nmappings, external_variables, propagates);
+  const ReleaseLazyEvent release{this};
   if (!written || !dsr_copy_)
     return written;
   // Native DSR retires leased affine premises and retained proof-only
@@ -2868,7 +3217,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
 
 bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
                              uint32_t size) {
+  if (dsr_copy_)
+    hold_lazy_event();
   const bool written = add_external_rup_impl(id, lits, size);
+  const ReleaseLazyEvent release{this};
   if (written && dsr_copy_) {
     if (!dsr_copy_->add_external_rup(id, lits, size))
       drop_dsr_copy(AutomaticProofReason::CopyDeclined);
@@ -2880,7 +3232,14 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
 
 bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
                              uint32_t size) {
+  // DSR rejects a tautology only after retiring leased premises, so its text
+  // and the writer's would overlap: convert before either stream runs.
+  if (dsr_copy_ && size && lits && external_tautological(lits, size))
+    drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+  if (dsr_copy_)
+    hold_lazy_event();
   const bool written = add_external_rat_impl(id, lits, size);
+  const ReleaseLazyEvent release{this};
   if (written && dsr_copy_) {
     if (!dsr_copy_->add_external_rat(id, lits, size))
       drop_dsr_copy(AutomaticProofReason::CopyDeclined);
@@ -2892,7 +3251,10 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
 
 bool Proof::del_external(uint64_t line_id, uint64_t del_id,
                          const int32_t *lits, uint32_t size) {
+  if (dsr_copy_)
+    hold_lazy_event();
   const bool written = del_external_impl(line_id, del_id, lits, size);
+  const ReleaseLazyEvent release{this};
   if (written && dsr_copy_) {
     if (!dsr_copy_->del_external(line_id, del_id, lits, size))
       drop_dsr_copy(AutomaticProofReason::CopyDeclined);
@@ -2903,7 +3265,10 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
 }
 
 bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
+  if (dsr_copy_)
+    hold_lazy_event();
   const bool retained = retain_external_impl(id, lits, size);
+  const ReleaseLazyEvent release{this};
   if (retained && dsr_copy_) {
     if (!dsr_copy_->retain_external(id, lits, size))
       drop_dsr_copy(AutomaticProofReason::CopyDeclined);
@@ -2917,9 +3282,12 @@ bool Proof::retain_premise_groups(const std::vector<PremiseGroup> &groups,
     uint64_t maximum_groups, uint64_t maximum_literals,
     uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,
     std::vector<uint64_t> &handles, DeferredDeletionLimits limits) {
+  if (dsr_copy_)
+    hold_lazy_event();
   const bool retained = retain_premise_groups_impl(
       groups, maximum_groups, maximum_literals, maximum_bytes, charge, handles,
       limits);
+  const ReleaseLazyEvent release{this};
   if (retained && dsr_copy_) {
     // The kernel's work meter is charged once, by the PBP stream.
     const std::function<bool(uint64_t)> free_charge = [](uint64_t) {

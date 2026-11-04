@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Automatic proof selection, the CLI default (plan §5): the solver runs exactly
-# as under --pbp; the certificate is whole-run PBP when a PB-native step fires
-# and the native-DSR copy otherwise. Each fixture pins its route and trigger,
-# its statistics equal the --pbp run's, a kept PBP stream equals --pbp byte
-# for byte, and every certificate passes the checker its content selects.
+# The automatic proof, the CLI default (plan §5): the solver runs exactly as
+# under --pbp but writes one proof at a time: native DSR, converted to PBP once
+# a PB-native step fires. Each fixture pins its route and trigger, its statistics
+# equal the --pbp run's, and every certificate passes the checker its content
+# selects, including conversions forced mid-run.
 set -euo pipefail
 
 solver=$1
@@ -54,6 +54,10 @@ write("ramsey", v, ramsey)
 r = random.Random(7)
 write("sat", 60, [[x * r.choice([1, -1]) for x in r.sample(range(1, 61), 3)]
                   for _ in range(180)])
+# Random 3-SAT at the threshold, far beyond a two-second search.
+r = random.Random(11)
+write("hard", 700, [[x * r.choice([1, -1]) for x in r.sample(range(1, 701), 3)]
+                    for _ in range(2982)])
 PY
 
 mask() {
@@ -84,7 +88,8 @@ while read -r name route reason content; do
   grep -qx "c auto-proof    $reason" "$tmp/$name-auto.out" || { echo "$name: reason"; exit 1; }
   # The copy never steers the solver.
   diff <(mask "$tmp/$name-auto.out") <(mask "$tmp/$name-pbp.out")
-  if [[ $route == pbp ]]; then
+  # A startup refutation has no prefix to convert: it equals --pbp.
+  if [[ $reason == startup-pb-refutation ]]; then
     cmp "$tmp/$name.auto" "$tmp/$name.pbp"
   fi
   check "$cnf" "$tmp/$name.auto" "$content"
@@ -101,19 +106,66 @@ grep -qx 'c proof-route dsr-cake_lpr' "$tmp/plain-ascii.out"
 grep -qE '^-?[0-9]+( -?[0-9]+)* 0$' "$tmp/plain.ascii"
 check "$tmp/plain.cnf" "$tmp/plain.ascii" drat
 
+# A switch forced anywhere joins the converted prefix to live PBP, including
+# Ramsey's SR witnesses and helpers, and the search does not change.
+while read -r name at; do
+  TACTIX_AUTO_PROOF_SWITCH_AT=$at run "$name-at-$at" 20 "$tmp/$name.cnf" "$tmp/$name.at"
+  grep -qx 'c auto-proof    forced-switch' "$tmp/$name-at-$at.out" || { echo "$name at $at: reason"; cat "$tmp/$name-at-$at.out"; exit 1; }
+  grep -q '^c auto-proof-switch converted' "$tmp/$name-at-$at.out"
+  grep -qx 'c proof-route pbp' "$tmp/$name-at-$at.out"
+  diff <(mask "$tmp/$name-at-$at.out") <(mask "$tmp/$name-pbp.out")
+  check "$tmp/$name.cnf" "$tmp/$name.at" pbp
+done <<'SWITCHES'
+plain 1
+plain 5
+plain end
+ramsey 1
+ramsey 20
+ramsey 40000
+ramsey end
+SWITCHES
+
+# Explicit formats write only that format.
+run plain-dsr 20 --dsr "$tmp/plain.cnf" "$tmp/plain.dsr"
+grep -qx 'c proof-route dsr-cake_lpr' "$tmp/plain-dsr.out"
+run xor-dsr 20 --dsr "$tmp/xor.cnf" "$tmp/xor.dsr"
+check "$tmp/xor.cnf" "$tmp/xor.dsr" drat
+
 # A caller-named stage is rewritten into the destination and emptied.
 run plain-stage 20 --proof-stage="$tmp/stage" "$tmp/plain.cnf" "$tmp/plain.staged"
 cmp "$tmp/plain.auto" "$tmp/plain.staged"
 [[ ! -s "$tmp/stage" ]]
 
-# Without the empty clause nothing is selected and no stage remains.
+# Without the empty clause nothing is selected and no PBP is materialized: the
+# destination holds the DSR copy's prefix and no stage or journal remains.
+no_stage_left() {
+  if ls -A "$tmp" | grep -q '\.dsr-'; then
+    echo 'a DSR stage was left behind'
+    ls -A "$tmp"
+    exit 1
+  fi
+}
+not_pbp() { # A PBP stream begins with its text header.
+  if head -c 14 "$1" | grep -q 'pseudo-Boolean'; then
+    echo "$1: an unfinished run left PBP"
+    exit 1
+  fi
+}
 run sat 10 "$tmp/sat.cnf" "$tmp/sat.auto"
 grep -qx 'c auto-proof    pending' "$tmp/sat.out"
-head -c 32 "$tmp/sat.auto" | grep -q '^pseudo-Boolean proof'
-if ls -A "$tmp" | grep -q '\.dsr-'; then
-  echo 'a DSR stage was left behind'
-  ls -A "$tmp"
-  exit 1
-fi
+not_pbp "$tmp/sat.auto"
+no_stage_left
 
-printf 'CLI automatic proof: DSR for plain CDCL and Ramsey SR, PBP for startup parity and GF(2) reasons; statistics equal --pbp; kept PBP equals --pbp; every route checked\n'
+# SIGTERM mid-search: the run ends without a verdict and leaves its prefix.
+set +e
+timeout --preserve-status -s TERM 2 "$solver" "$tmp/hard.cnf" "$tmp/hard.auto" > "$tmp/hard.out" 2>&1
+status=$?
+set -e
+[[ $status -eq 0 ]] || { echo "hard: exit $status"; cat "$tmp/hard.out"; exit 1; }
+grep -qx 's UNKNOWN' "$tmp/hard.out" || { echo 'hard: finished within the limit'; exit 1; }
+grep -qx 'c auto-proof    pending' "$tmp/hard.out"
+[[ -s "$tmp/hard.auto" ]] || { echo 'hard: empty prefix'; exit 1; }
+not_pbp "$tmp/hard.auto"
+no_stage_left
+
+printf 'CLI automatic proof: DSR for plain CDCL and Ramsey SR, PBP for startup parity and GF(2) reasons; statistics equal --pbp; conversions forced mid-run; every route checked\n'

@@ -1602,6 +1602,11 @@ int main(int argc, char **argv) {
     if (proof_path && proof.automatic()) {
       printf("c auto-proof    %s\n",
              automatic_proof_reason_name(proof.automatic_reason()));
+      // One proof at a time: whether the run paid the conversion to PBP.
+      const tactix::LazyPbpReport &lazy = proof.lazy_pbp_report();
+      printf("c auto-proof-switch %s dsr-bytes %" PRIu64 " pbp-bytes %" PRIu64
+             " nanos=%" PRIu64 "\n",
+             lazy.state, lazy.dsr_bytes, lazy.pbp_bytes, lazy.nanos);
       if (const tactix::AutomaticCheckEstimate *e = proof.automatic_estimate()) {
         const tactix::DsrCheckCensus &c = e->census;
         printf("c auto-proof-cost dsr-scan %.0f s pbp %.0f s; %s %" PRIu64

@@ -60,6 +60,7 @@ add_library(tactix_lib OBJECT
   src/population/population_observer.cpp
   src/proof/proof.cpp
   src/proof/check_cost.cpp
+  src/proof/dsr_to_pbp.cpp
   src/proof/direct_php_recognition.cpp
   src/rules/registry.cpp
   ${TACTIX_RULE_SOURCES}
