@@ -591,8 +591,11 @@ void Proof::put_external_lit(Lit l) {
 
 void Proof::put_external_dimacs(int32_t e) {
   assert(e && e != INT32_MIN);
-  if (census_on_)
+  if (census_on_) {
     ++census_line_literals_;
+    for (uint32_t u = (external_variable_of(e) << 1) | (e < 0); ++census_dsr_bytes_, u >= 128;)
+      u >>= 7;
+  }
   if (binary()) {
     const uint32_t magnitude = external_variable_of(e);
     uint32_t u = (magnitude << 1) | (e < 0);
@@ -1125,6 +1128,7 @@ void Proof::end_line() {
   else
     fputs("0\n", file_);
   if (census_on_) {
+    ++census_dsr_bytes_;
     census_.line(census_line_deletion_, census_line_literals_);
     census_line_deletion_ = false;
     census_line_literals_ = 0;
@@ -1142,6 +1146,7 @@ void Proof::put_line_tag(bool deletion) {
     ++additions_;
   }
   if (census_on_) {
+    ++census_dsr_bytes_;
     census_line_deletion_ = deletion;
     census_line_literals_ = 0;
   }
@@ -1876,6 +1881,9 @@ bool Proof::plan_pbp_parity_reason(
     uint32_t reason_size, uint32_t starting_external_extent,
     const PbpParityBoundsCache &cache, PbpParityReasonPlan &output) const {
   PbpParityReasonPlan plan;
+  // Past the DSR limit the reason takes its clausal certificate instead.
+  if (conversion_barred())
+    return false;
   if (!streaming_pbp() || !file_ || input_transaction_ || pbp_output_ ||
       streaming_pbp_finished_ || equations.empty() ||
       (!reason && reason_size) ||
@@ -2744,6 +2752,12 @@ void Proof::start_lazy_pbp() {
     forced_switch_at_ = !std::strcmp(at, "end")
                             ? UINT64_MAX
                             : std::strtoull(at, nullptr, 10);
+  if (const char *limit = std::getenv("TACTIX_AUTO_PROOF_DSR_LIMIT"))
+    dsr_limit_ = std::strtoull(limit, nullptr, 10);
+}
+
+bool Proof::conversion_barred() const noexcept {
+  return lazy_ && dsr_copy_ && dsr_copy_->census_dsr_bytes_ >= dsr_limit_;
 }
 
 // Keep the text of the event about to be written, until the copy has answered.
@@ -3015,7 +3029,7 @@ void Proof::settle_dsr_copy() {
         dsr_bytes, pbp_bytes);
     automatic_estimated_ = true;
     const bool forced = lazy_ && forced_switch_at_ == UINT64_MAX;
-    if (forced || automatic_estimate_.pbp_faster()) {
+    if (forced || (automatic_estimate_.pbp_faster() && !conversion_barred())) {
       // A lazy stream pays the conversion first; if that fails, the complete
       // DSR copy remains a valid certificate and is kept instead.
       if (!lazy_ || convert_lazy_pbp()) {
@@ -3079,10 +3093,13 @@ void Proof::select_dsr_copy(bool finished) {
   // The PBP stream accepts nothing further. A still-private PBP prefix and any
   // buffered PBP bytes are discarded unwritten.
   if (lazy_) {
+    const bool barred = conversion_barred();
     if (finished)
       lazy_report_.pbp_bytes = pbp_logical_bytes();
     discard_lazy_pbp();
-    lazy_report_.state = "dsr-kept";
+    lazy_report_.state = barred ? "dsr-limit" : "dsr-kept";
+    if (barred)
+      lazy_report_.dsr_bytes = copy.census_dsr_bytes_;
   }
   if (file_ && file_ != destination) {
     discard_buffered(file_);
@@ -3137,6 +3154,8 @@ struct ReleaseLazyEvent {
 } // namespace
 
 FILE *Proof::begin_pb() {
+  if (conversion_barred())
+    return nullptr; // past the DSR limit: the rule declines
   FILE *const terminal = begin_pb_impl();
   // A complete native PB refutation has no clausal spelling.
   if (terminal)
@@ -3166,6 +3185,11 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates) {
+  // Past the DSR limit a witnessed step the copy could not follow declines
+  // before either stream changes, instead of converting.
+  if (conversion_barred() && (!dsr_copy_->premise_groups_.empty() ||
+                              !dsr_copy_->persistent_external_.empty()))
+    return false;
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_sr_impl(id, lits, size, true_lits, ntrue, mappings,

@@ -16,8 +16,12 @@ semantic versioning; the public C API remains source-compatible within the
   conversion runs at the empty clause when the proof's RAT and substitution
   lines would cost the DSR route's checkers more than checking PBP: drat-trim
   and Trestle scan the whole formula for every such line (reported as
-  `c auto-proof-cost`). Otherwise the proof stays DSR. A run without an empty
-  clause leaves the proof it was writing. A converted proof deletes clauses by
+  `c auto-proof-cost`). Otherwise the proof stays DSR. After 3 GB of DSR the run
+  stops converting where it has a choice, so a large proof is not reread: a
+  GF(2) reason takes its clausal certificate, the end-of-run conversion is
+  skipped, and a startup refutation or a witnessed step that DSR cannot follow
+  declines (`c auto-proof-switch dsr-limit`). An event with no clausal spelling
+  still converts. A run without an empty clause leaves the proof it was writing. A converted proof deletes clauses by
   specification, so it is larger than the `--pbp` proof. If the DSR proof cannot
   be written, the run aborts, as `--dsr` does. The `c proof-route` line names the
   route written; the statistics report the reason as `c auto-proof` and the

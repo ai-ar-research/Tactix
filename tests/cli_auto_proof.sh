@@ -79,6 +79,20 @@ check() { # cnf proof expected-content-route
   grep -qx "c route $3" "$tmp/check.out" || { echo "$2: content route"; cat "$tmp/check.out"; exit 1; }
 }
 
+no_stage_left() {
+  if ls -A "$tmp" | grep -q '\.dsr-'; then
+    echo 'a DSR stage was left behind'
+    ls -A "$tmp"
+    exit 1
+  fi
+}
+not_pbp() { # A PBP stream begins with its text header.
+  if head -c 14 "$1" | grep -q 'pseudo-Boolean'; then
+    echo "$1: an unfinished run left PBP"
+    exit 1
+  fi
+}
+
 # fixture  declared-route  trigger  content-route
 while read -r name route reason content; do
   cnf=$tmp/$name.cnf
@@ -125,6 +139,26 @@ ramsey 40000
 ramsey end
 SWITCHES
 
+# Past the DSR limit a run stays on DSR: GF(2) reasons take their clausal
+# certificate, the startup refutation declines, and the end-of-run rule keeps DSR.
+for name in plain tseitin xor ramsey; do
+  TACTIX_AUTO_PROOF_DSR_LIMIT=0 run "$name-limit" 20 "$tmp/$name.cnf" "$tmp/$name.limit"
+  grep -qx 'c auto-proof    dsr-selected' "$tmp/$name-limit.out" || { echo "$name limit: reason"; cat "$tmp/$name-limit.out"; exit 1; }
+  grep -q '^c auto-proof-switch dsr-limit' "$tmp/$name-limit.out" || { echo "$name limit: state"; cat "$tmp/$name-limit.out"; exit 1; }
+  not_pbp "$tmp/$name.limit"
+  # The limit counts the bytes of binary DSR.
+  [[ $(sed -nE 's/^c auto-proof-switch dsr-limit dsr-bytes ([0-9]+) .*/\1/p' "$tmp/$name-limit.out") -eq $(wc -c < "$tmp/$name.limit") ]] ||
+    { echo "$name limit: counted bytes"; grep '^c auto-proof-switch' "$tmp/$name-limit.out"; wc -c "$tmp/$name.limit"; exit 1; }
+  check "$tmp/$name.cnf" "$tmp/$name.limit" "$(sed -n 's/^c proof-route dsr-cake_lpr$/drat/p; s/^c proof-route dsr-trestle$/dsr/p' "$tmp/$name-limit.out")"
+done
+# Text and binary runs reach the limit at the same event: one search.
+TACTIX_AUTO_PROOF_DSR_LIMIT=2000 run xor-limit-binary 20 "$tmp/xor.cnf" "$tmp/xor.limit-binary"
+TACTIX_AUTO_PROOF_DSR_LIMIT=2000 run xor-limit-text 20 --no-binary "$tmp/xor.cnf" "$tmp/xor.limit-text"
+diff <(mask "$tmp/xor-limit-binary.out") <(mask "$tmp/xor-limit-text.out")
+# The default limit is out of reach here, so the search still equals --pbp.
+TACTIX_AUTO_PROOF_DSR_LIMIT=3000000000 run xor-limit-default 20 "$tmp/xor.cnf" "$tmp/xor.limit-default"
+diff <(mask "$tmp/xor-limit-default.out") <(mask "$tmp/xor-pbp.out")
+
 # Explicit formats write only that format.
 run plain-dsr 20 --dsr "$tmp/plain.cnf" "$tmp/plain.dsr"
 grep -qx 'c proof-route dsr-cake_lpr' "$tmp/plain-dsr.out"
@@ -138,19 +172,6 @@ cmp "$tmp/plain.auto" "$tmp/plain.staged"
 
 # Without the empty clause nothing is selected and no PBP is materialized: the
 # destination holds the DSR copy's prefix and no stage or journal remains.
-no_stage_left() {
-  if ls -A "$tmp" | grep -q '\.dsr-'; then
-    echo 'a DSR stage was left behind'
-    ls -A "$tmp"
-    exit 1
-  fi
-}
-not_pbp() { # A PBP stream begins with its text header.
-  if head -c 14 "$1" | grep -q 'pseudo-Boolean'; then
-    echo "$1: an unfinished run left PBP"
-    exit 1
-  fi
-}
 run sat 10 "$tmp/sat.cnf" "$tmp/sat.auto"
 grep -qx 'c auto-proof    pending' "$tmp/sat.out"
 not_pbp "$tmp/sat.auto"

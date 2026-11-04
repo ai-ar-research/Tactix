@@ -418,6 +418,65 @@ void tautological_rat_converts_first() {
   assert(count_lines(text, "red ") == 1);
 }
 
+// Past the DSR limit the run stays on DSR wherever it has a choice: a witnessed
+// step the copy cannot follow, a compact parity reason and a terminal PB
+// refutation all decline. An event with no clausal spelling still converts.
+void dsr_limit_stays_on_dsr() {
+  const PbpParityEquation equation{{1, 2}, false};
+  const int32_t reason[] = {-1, 2};
+  const auto sr = clause({6, 1});
+  const DsrLiteralMapping mapping[] = {{internalize(6), internalize(-6)}};
+  const int32_t support[] = {1, 2};
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  setenv("TACTIX_AUTO_PROOF_DSR_LIMIT", "0", 1);
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true));
+    inputs(p);
+    assert(p.retain_external(20, support, 2));
+    assert(!p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, 7));
+    assert(p.automatic_reason() == AutomaticProofReason::Pending);
+    assert(p.commit_clause_stream());
+    PbpParityBoundsCache cache;
+    PbpParityReasonPlan plan;
+    assert(!p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
+    assert(!p.begin_pb());
+    assert(p.automatic_reason() == AutomaticProofReason::Pending);
+    refutation(p);
+    assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
+    assert(std::string(p.verification_route()) != "pbp");
+    assert(std::string(p.lazy_pbp_report().state) == "dsr-limit");
+    assert(directory.entries() == std::vector<std::string>{"proof"});
+  }
+  assert(read_all(path).rfind("pseudo-Boolean", 0) != 0);
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true));
+    inputs(p);
+    const int32_t tautology[] = {7, 1, -1};
+    assert(p.add_external_rat(8, tautology, 3));
+    assert(p.automatic_reason() == AutomaticProofReason::CopyDeclined);
+    refutation(p);
+    assert(std::string(p.lazy_pbp_report().state) == "converted");
+  }
+  expect_complete_pbp(read_all(path), "no clausal spelling past the limit");
+  // Under the limit the same plan is available.
+  setenv("TACTIX_AUTO_PROOF_DSR_LIMIT", "1000000", 1);
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true));
+    inputs(p);
+    assert(p.commit_clause_stream());
+    PbpParityBoundsCache cache;
+    PbpParityReasonPlan plan;
+    assert(p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
+    refutation(p);
+    assert(std::string(p.lazy_pbp_report().state) == "dsr-kept");
+  }
+  unsetenv("TACTIX_AUTO_PROOF_DSR_LIMIT");
+}
+
 // A deletion block spilled behind a pending root unit is copied into the stage
 // when the batch flushes; a failure there is a failure of the only proof.
 void failed_spill_aborts() {
@@ -593,6 +652,19 @@ void rat_scan_keeps_pbp() {
     assert(directory.entries() == std::vector<std::string>{"proof"});
   }
   assert(route == "pbp");
+  // Past the DSR limit the same run keeps DSR.
+  setenv("TACTIX_AUTO_PROOF_DSR_LIMIT", "0", 1);
+  {
+    TemporaryDirectory limited;
+    const std::string kept = limited / "proof";
+    Proof p;
+    assert(p.open_automatic(kept.c_str(), true));
+    events(p);
+    assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
+    assert(p.automatic_estimate() && p.automatic_estimate()->pbp_faster());
+    assert(std::string(p.lazy_pbp_report().state) == "dsr-limit");
+  }
+  unsetenv("TACTIX_AUTO_PROOF_DSR_LIMIT");
   // Only RAT lines and the empty clause: the conversion spells --pbp's lines.
   expect_equal(read_all(path), single(ProofFormat::PbpStreaming, events),
                "converted RAT lines equal --pbp");
@@ -769,6 +841,7 @@ int main() {
   failed_stage_at_the_switch_aborts();
   failed_conversion_keeps_dsr();
   tautological_rat_converts_first();
+  dsr_limit_stays_on_dsr();
   conversion_at_every_point();
   long_conversion_marks_every_rat_line();
   unusable_stage_is_pbp_only();

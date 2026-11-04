@@ -483,6 +483,15 @@ private:
   // Validation: switch after this many DSR additions (never by default); the
   // maximum means at the empty clause.
   uint64_t forced_switch_at_ = 0;
+  // A conversion rereads every DSR byte, so past this much DSR the run stops
+  // converting where it has a choice: an event DSR can spell or a PB step it
+  // can decline stays on DSR. An event with no clausal spelling still converts.
+  // Validation runs lower it with TACTIX_AUTO_PROOF_DSR_LIMIT.
+  uint64_t dsr_limit_ = 3000000000;
+  // In the copy: lines written, counted as binary DSR in either spelling, so
+  // text and binary runs reach the limit at the same event.
+  uint64_t census_dsr_bytes_ = 0;
+  bool conversion_barred() const noexcept;
   void start_lazy_pbp();
   void hold_lazy_event();
   bool convert_lazy_pbp();
