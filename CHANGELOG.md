@@ -8,14 +8,25 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Changed
 
-- The command-line default proof is selected per run. The solver runs exactly
-  as with `--pbp` and writes a native-DSR copy of the same proof alongside.
-  A step with no clausal spelling (a startup parity or count-preservation
-  refutation, or a compact GF(2) reason) keeps the whole-run PBP proof;
-  otherwise the DSR copy replaces it when the empty clause is derived. The
-  `c proof-route` line names the route actually written, and the statistics
-  report the reason as `c auto-proof`. `--pbp` keeps whole-run PBP for every
-  run; `--no-binary` spells the DSR copy as text. The competition wrapper
+- The command-line default proof writes one proof at a time. The solver runs
+  exactly as with `--pbp` but writes only native DSR. A step with no clausal
+  spelling (a compact GF(2) reason) converts the DSR proof so far to PBP once,
+  and the run continues as PBP; a startup parity or count-preservation
+  refutation has nothing to convert and is PBP from the start. The same
+  conversion runs at the empty clause when the proof's RAT and substitution
+  lines would cost the DSR route's checkers more than checking PBP: drat-trim
+  and Trestle scan the whole formula for every such line (reported as
+  `c auto-proof-cost`). Otherwise the proof stays DSR. After 3 GB of DSR the run
+  stops converting where it has a choice, so a large proof is not reread: a
+  GF(2) reason takes its clausal certificate, the end-of-run conversion is
+  skipped, and a startup refutation or a witnessed step that DSR cannot follow
+  declines (`c auto-proof-switch dsr-limit`). An event with no clausal spelling
+  still converts. A run without an empty clause leaves the proof it was writing. A converted proof deletes clauses by
+  specification, so it is larger than the `--pbp` proof. If the DSR proof cannot
+  be written, the run aborts, as `--dsr` does. The `c proof-route` line names the
+  route written; the statistics report the reason as `c auto-proof` and the
+  conversion as `c auto-proof-switch`. `--dsr` and `--pbp` write only that format
+  and never convert; `--no-binary` spells DSR as text. The competition wrapper
   `tools/compete/run.sh` passes `--pbp`.
 - `tactix-public` defaults to automatic selection as well.
 - Whole-run PBP proofs delete constraints by id (`del id`) instead of
@@ -42,7 +53,7 @@ semantic versioning; the public C API remains source-compatible within the
 ### Added
 
 - `--auto-proof` names the automatic default explicitly; `--proof-stage=FILE`
-  places its DSR copy in a caller-owned file.
+  places its DSR proof in a caller-owned file until the run ends.
 - The C API proof format `TACTIX_PROOF_AUTO` (7) selects automatic proofs,
   and `tactix_proof_route` reports the route of the attached proof.
 - `tactix-public-random` accepts `--auto-proof` and reports the route written.

@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include <cinttypes>
 #include <csignal>
 #include <cstdarg>
 #include <cstdio>
@@ -1595,10 +1596,30 @@ int main(int argc, char **argv) {
         default_policy.inprocess().report(kernel);
     }
     // Why the automatic proof is (or is still) its format: `dsr-selected`
-    // after the empty clause, `pending` without one, else the PBP trigger.
-    if (proof_path && proof.automatic())
+    // or `pbp-predicted-faster` after the empty clause, `pending` without
+    // one, else the PBP trigger. The cost line gives the compared estimates
+    // and the DSR copy's checker-work census (check_cost.hpp).
+    if (proof_path && proof.automatic()) {
       printf("c auto-proof    %s\n",
              automatic_proof_reason_name(proof.automatic_reason()));
+      // One proof at a time: whether the run paid the conversion to PBP.
+      const tactix::LazyPbpReport &lazy = proof.lazy_pbp_report();
+      printf("c auto-proof-switch %s dsr-bytes %" PRIu64 " pbp-bytes %" PRIu64
+             " nanos=%" PRIu64 "\n",
+             lazy.state, lazy.dsr_bytes, lazy.pbp_bytes, lazy.nanos);
+      if (const tactix::AutomaticCheckEstimate *e = proof.automatic_estimate()) {
+        const tactix::DsrCheckCensus &c = e->census;
+        printf("c auto-proof-cost dsr-scan %.0f s pbp %.0f s; %s %" PRIu64
+               " bytes, pbp %" PRIu64 " bytes; rat %" PRIu64 " sr %" PRIu64
+               " maxvar %" PRIu32 " watch %" PRIu64 " body %" PRIu64
+               " dead %" PRIu64 " live %" PRIu64 " live-literal %" PRIu64 "\n",
+               e->dsr_scan_seconds, e->pbp_seconds,
+               e->witnessed ? "dsr-trestle" : "dsr-cake_lpr", e->dsr_bytes,
+               e->pbp_bytes, c.rat_lines, c.sr_lines, e->max_variable,
+               c.watch_scan, c.watched_literal_scan, c.deleted_slot_scan,
+               c.live_scan, c.live_literal_scan);
+      }
+    }
   }
   if (res == 10) {
     const uint64_t extend_t0 = frontend_time ? tactix::now_nanos() : 0;

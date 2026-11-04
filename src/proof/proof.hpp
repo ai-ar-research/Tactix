@@ -7,6 +7,7 @@
 
 #include "kernel/types.hpp"
 #include "population/population_observer.hpp"
+#include "proof/check_cost.hpp"
 
 #include <array>
 #include <compare>
@@ -106,8 +107,10 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
 // kernel-visible decision, so the solver trajectory equals `--pbp`; a native
 // DSR copy of the same proof events is written to a private stage. The first
 // PB-native event (a startup PB refutation, a compact GF(2) reason) or an
-// event the copy cannot follow discards the copy and keeps PBP; otherwise the
-// empty clause replaces the PBP destination with the DSR copy.
+// event the copy cannot follow discards the copy and keeps PBP. At the empty
+// clause both proofs are complete: PBP stays when its predicted checking time
+// is below the DSR route's (check_cost.hpp), otherwise the DSR copy replaces
+// the PBP destination.
 enum class AutomaticProofReason : uint8_t {
   Pending,              // the DSR copy is still live
   DsrSelected,          // the empty clause kept the DSR copy
@@ -118,11 +121,23 @@ enum class AutomaticProofReason : uint8_t {
   CopyWriteFailed,      // the DSR stage could not be written
   DestinationUnsupported, // not a regular file: no copy was opened
   StageUnavailable,     // no stage file could be created
+  PbpPredictedFaster,   // the empty clause: PBP is predicted to check faster
+  ForcedSwitch,         // TACTIX_AUTO_PROOF_SWITCH_AT (validation only)
 };
 const char *automatic_proof_reason_name(AutomaticProofReason) noexcept;
 
+struct LazyPbpReport {
+  // off, dsr (still DSR), converted, dsr-kept, startup-pb, fallback, or why the
+  // run stayed eager (off-*).
+  const char *state = "off";
+  uint64_t dsr_bytes = 0; // DSR bytes converted at the switch
+  uint64_t pbp_bytes = 0; // PBP text the conversion wrote, or that DSR replaced
+  uint64_t nanos = 0;     // time spent converting
+};
+
 class Proof {
 public:
+  Proof(); // defined out of line: LazyPbp is complete only in proof.cpp
   ~Proof();
 
   bool open(const char *path, ProofFormat format);
@@ -139,6 +154,13 @@ public:
   }
   // The selection is final once the copy is discarded or kept.
   bool automatic_dsr_live() const noexcept { return dsr_copy_ != nullptr; }
+  // The checking-time estimate compared at the empty clause, if one was made.
+  const AutomaticCheckEstimate *automatic_estimate() const noexcept {
+    return automatic_estimated_ ? &automatic_estimate_ : nullptr;
+  }
+  // Whether the run paid the DSR-to-PBP conversion (see LazyPbpReport).
+  void release_lazy_event() noexcept;
+  const LazyPbpReport &lazy_pbp_report() const noexcept { return lazy_report_; }
   uint64_t stream_identity() const noexcept { return stream_identity_; }
   // Whole-run PBP privately stages input normalization. At the original-input
   // action boundary the caller may commit a complete native PB refutation.
@@ -432,11 +454,61 @@ private:
   AutomaticProofReason automatic_reason_ = AutomaticProofReason::Pending;
   std::string automatic_path_;       // the destination, for the final rename
   std::string automatic_stage_name_; // a named sibling stage, else empty
+  // The proof file the automatic selection finally rewrites (non-owning: an
+  // alias of pbp_output_ or, after publication, file_ or lazy_destination_).
+  // Every fstat, truncation and copy-in of the destination goes through it.
+  FILE *automatic_destination_ = nullptr;
+  // PBP bytes written so far, header included once published, buffered bytes
+  // included: what the destination would hold if PBP were kept.
+  uint64_t pbp_logical_bytes();
+
+  // One proof at a time (plan §5). In automatic mode, until a trigger, file_ is
+  // an in-process stream that only counts PBP text, and the DSR copy is the
+  // proof. A trigger converts the copy's stage to PBP in the destination and
+  // the writer continues on the real file. The writer's state and every answer
+  // it gives the kernel are those of --pbp until the switch.
+  struct LazyPbp;
+  std::unique_ptr<LazyPbp> lazy_;     // null when the stream is real
+  bool lazy_published_ = false;       // the header's f is recorded, unwritten
+  uint64_t lazy_f_ = 0;
+  FILE *lazy_destination_ = nullptr;  // owned destination after lazy publish
+  LazyPbpReport lazy_report_;
+  // The copy is the only proof (held across a failed conversion, when lazy_ is
+  // gone): losing its bytes must abort before any UNSAT claim.
+  bool dsr_is_the_proof_ = false;
+  // In the copy: which additions are witness-free RAT lines (dsr_to_pbp.hpp).
+  std::vector<uint64_t> rat_additions_;
+  uint64_t additions_ = 0;
+  bool next_addition_rat_ = false;
+  // Validation: switch after this many DSR additions (never by default); the
+  // maximum means at the empty clause.
+  uint64_t forced_switch_at_ = 0;
+  // A conversion rereads every DSR byte, so past this much DSR the run stops
+  // converting where it has a choice: an event DSR can spell or a PB step it
+  // can decline stays on DSR. An event with no clausal spelling still converts.
+  // Validation runs lower it with TACTIX_AUTO_PROOF_DSR_LIMIT.
+  uint64_t dsr_limit_ = 3000000000;
+  // In the copy: lines written, counted as binary DSR in either spelling, so
+  // text and binary runs reach the limit at the same event.
+  uint64_t census_dsr_bytes_ = 0;
+  bool conversion_barred() const noexcept;
+  void start_lazy_pbp();
+  void hold_lazy_event();
+  bool convert_lazy_pbp();
+  void discard_lazy_pbp() noexcept;
   // In the copy: a failed write disables it instead of aborting the solver.
   bool copy_role_ = false;
   bool copy_failed_ = false;
+  // In the copy: the checker-work census of every line written (see
+  // DsrCheckCensus); line literals are counted as they are serialized.
+  bool census_on_ = false;
+  bool census_line_deletion_ = false;
+  uint32_t census_line_literals_ = 0;
+  DsrCheckCensus census_;
+  AutomaticCheckEstimate automatic_estimate_;
+  bool automatic_estimated_ = false;
   void drop_dsr_copy(AutomaticProofReason) noexcept;
-  void select_dsr_copy();
+  void select_dsr_copy(bool finished = true);
   // After forwarding: discard a failed copy, keep the copy at the empty clause.
   void settle_dsr_copy();
 
