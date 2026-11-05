@@ -43,7 +43,10 @@ private:
 
 class Writer {
 public:
-  explicit Writer(FILE *out) : out_(out) { text_.reserve(capacity + 256); }
+  Writer(FILE *out, const std::vector<DsrHelperNames> &helpers)
+      : out_(out), helpers_(helpers) {
+    text_.reserve(capacity + 256);
+  }
   void put(const char *text) { text_ += text; }
   void put_number(uint64_t value) {
     char digits[24];
@@ -53,7 +56,7 @@ public:
   // One clause term: `1 x7 ` or `1 ~x7 `.
   void term(uint64_t code) {
     put(code & 1 ? "1 ~x" : "1 x");
-    put_number(code >> 1);
+    put_number(pbp_variable(code >> 1));
     text_ += ' ';
   }
   void clause(const uint64_t *codes, size_t count) {
@@ -64,7 +67,7 @@ public:
   // ` x7 -> 1`: the literal is mapped true.
   void constant(uint64_t code) {
     put(" x");
-    put_number(code >> 1);
+    put_number(pbp_variable(code >> 1));
     put(code & 1 ? " -> 0" : " -> 1");
   }
   bool end_line() {
@@ -75,9 +78,9 @@ public:
     if (from & 1) // a negated source: its variable maps to the negated image
       to ^= 1;
     put(" x");
-    put_number(from >> 1);
+    put_number(pbp_variable(from >> 1));
     put(to & 1 ? " -> ~x" : " -> x");
-    put_number(to >> 1);
+    put_number(pbp_variable(to >> 1));
   }
   bool flush() {
     written_ += text_.size();
@@ -89,6 +92,20 @@ public:
 
 private:
   static constexpr size_t capacity = size_t{1} << 20;
+  // A DSR name back to the solver's variable, or a helper to a name above them.
+  uint64_t pbp_variable(uint64_t name) const {
+    const auto at = std::lower_bound(
+        helpers_.begin(), helpers_.end(), name,
+        [](const DsrHelperNames &entry, uint64_t value) {
+          return uint64_t{entry.extent} + entry.helpers < value;
+        });
+    if (at == helpers_.end())
+      return name - (helpers_.empty() ? 0 : helpers_.back().helpers);
+    const uint64_t before = at == helpers_.begin() ? 0 : std::prev(at)->helpers;
+    return name > uint64_t{at->extent} + before ? name + (uint64_t{1} << 31)
+                                                : name - before;
+  }
+  const std::vector<DsrHelperNames> &helpers_;
   FILE *out_;
   std::string text_;
   uint64_t written_ = 0;
@@ -182,10 +199,11 @@ bool canonical(std::vector<uint64_t> &codes, std::vector<uint64_t> &sorted) {
 
 DsrToPbpResult convert_dsr_to_pbp(int fd, bool binary,
                                   const std::vector<uint64_t> &rat_additions,
+                                  const std::vector<DsrHelperNames> &helpers,
                                   FILE *out) {
   DsrToPbpResult result;
   Reader in(fd);
-  Writer text(out);
+  Writer text(out, helpers);
   std::vector<uint64_t> codes, scratch;
   size_t next_rat = 0;
   for (;;) {

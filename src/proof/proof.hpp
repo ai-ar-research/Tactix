@@ -5,6 +5,7 @@
 #pragma once
 
 #include "kernel/types.hpp"
+#include "proof/dsr_to_pbp.hpp"
 #include "population/population_observer.hpp"
 
 #include <array>
@@ -62,6 +63,9 @@ struct PbpParityBounds {
   uint64_t lower = 0;
   uint64_t upper = 0;
   std::vector<int32_t> carries;
+  // Which numbering wrote lower and upper: a conversion restarts the numbering,
+  // and bounds written before it exist only in the discarded counting stream.
+  uint64_t numbering = 0;
 };
 
 class PbpParityBoundsCache {
@@ -423,11 +427,14 @@ private:
   // In the DSR copy: proof-only variables that spell parity reasons. The solver
   // never sees them, so a variable it creates later takes a higher checker name.
   // Each entry: at solver extent `extent`, `helpers` helpers exist in total.
-  struct HelperNames {
-    uint32_t extent = 0;
-    uint32_t helpers = 0;
-  };
-  std::vector<HelperNames> helper_names_;
+  std::vector<DsrHelperNames> helper_names_;
+  uint64_t pbp_numbering_ = 0; // bumped by a conversion (PbpParityBounds)
+  // In the copy: bytes spent spelling parity reasons. --auto-proof converts once
+  // they reach parity_bytes_limit_: measured on Tier D, a run with rare parity
+  // reasons spends at most about 1 MB on them in total, and a parity-heavy run
+  // passes this within its first 64 reasons, while the converted prefix is small.
+  uint64_t parity_bytes_ = 0;
+  uint64_t parity_bytes_limit_ = 10000000;
   uint32_t new_helper();
   uint32_t checker_variable(uint32_t solver_variable) const;
   struct ParityWriter;

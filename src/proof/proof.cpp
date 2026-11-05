@@ -1809,7 +1809,7 @@ uint32_t Proof::checker_variable(uint32_t solver_variable) const {
     return solver_variable;
   const auto after = std::lower_bound(
       helper_names_.begin(), helper_names_.end(), solver_variable,
-      [](const HelperNames &entry, uint32_t variable) {
+      [](const DsrHelperNames &entry, uint32_t variable) {
         return entry.extent < variable;
       });
   return solver_variable + std::prev(after)->helpers;
@@ -2027,10 +2027,14 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     return false;
   // The copy spells in clauses what this writer states in a few constraints.
   if (dsr_copy_) {
-    if (dsr_only_ || conversion_barred())
+    if (dsr_only_ || conversion_barred() ||
+        dsr_copy_->parity_bytes_ < parity_bytes_limit_) {
+      const uint64_t before = dsr_copy_->dsr_bytes_written_;
       dsr_copy_->write_parity_reason(equations, reason, reason_size);
-    else
+      dsr_copy_->parity_bytes_ += dsr_copy_->dsr_bytes_written_ - before;
+    } else {
       drop_dsr_copy(AutomaticProofReason::ParityReason);
+    }
   }
 
   if (cache.stream_identity_ != stream_identity_) {
@@ -2094,9 +2098,56 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     return constraint();
   };
 
+  // Carry definitions and both bounds of one row. Its carry names were reserved
+  // when the row was first seen, so a rewrite after a conversion reuses them.
+  const auto write_bounds = [&](const PbpParityEquation &equation,
+                                PbpParityBounds &bounds) {
+    uint32_t threshold = 2;
+    for (const int32_t carry : bounds.carries) {
+      text.put("red ");
+      for (const int32_t variable : equation.variables) term(1, variable);
+      term(threshold, -carry);
+      text.put(">= ");
+      text.put_uint(threshold);
+      text.put(" : x");
+      text.put_uint(static_cast<uint32_t>(carry));
+      text.put(" -> 0 ;\n");
+      const uint64_t first = constraint();
+
+      const uint32_t complement = equation.variables.size() - threshold + 1;
+      text.put("red ");
+      for (const int32_t variable : equation.variables) term(1, -variable);
+      term(complement, carry);
+      text.put(">= ");
+      text.put_uint(complement);
+      text.put(" : x");
+      text.put_uint(static_cast<uint32_t>(carry));
+      text.put(" -> 1 : subproof\n");
+      const uint64_t negated_second = constraint();
+      text.put("proofgoal #1\nqed ;\n");
+      (void)constraint();
+      text.put("proofgoal ");
+      text.put_uint(first);
+      text.put("\n");
+      const uint64_t negated_first = constraint();
+      text.put("pol ");
+      text.put_uint(negated_second);
+      text.put(" ");
+      text.put_uint(negated_first);
+      text.put(" + ;\nqed : -1 ;\nqed ;\n");
+      (void)constraint();
+      (void)constraint();
+      threshold += 2;
+    }
+    bounds.lower = emit_bound(equation, bounds.carries, true);
+    bounds.upper = emit_bound(equation, bounds.carries, false);
+    bounds.numbering = pbp_numbering_;
+  };
+
   std::vector<uint64_t> lower, upper;
   lower.reserve(equations.size());
   upper.reserve(equations.size());
+  uint64_t rewritten = 0; // constraints the plan does not count
   for (const PbpParityEquation &equation : equations) {
     auto found = cache.entries_.find(equation);
     if (found == cache.entries_.end()) {
@@ -2105,45 +2156,9 @@ bool Proof::add_prevalidated_pbp_parity_reason(
            threshold <= equation.variables.size(); threshold += 2) {
         if (fresh == static_cast<uint32_t>(INT32_MAX))
           std::abort();
-        const int32_t carry = static_cast<int32_t>(++fresh);
-        bounds.carries.push_back(carry);
-        text.put("red ");
-        for (const int32_t variable : equation.variables) term(1, variable);
-        term(threshold, -carry);
-        text.put(">= ");
-        text.put_uint(threshold);
-        text.put(" : x");
-        text.put_uint(static_cast<uint32_t>(carry));
-        text.put(" -> 0 ;\n");
-        const uint64_t first = constraint();
-
-        const uint32_t complement =
-            equation.variables.size() - threshold + 1;
-        text.put("red ");
-        for (const int32_t variable : equation.variables) term(1, -variable);
-        term(complement, carry);
-        text.put(">= ");
-        text.put_uint(complement);
-        text.put(" : x");
-        text.put_uint(static_cast<uint32_t>(carry));
-        text.put(" -> 1 : subproof\n");
-        const uint64_t negated_second = constraint();
-        text.put("proofgoal #1\nqed ;\n");
-        (void)constraint();
-        text.put("proofgoal ");
-        text.put_uint(first);
-        text.put("\n");
-        const uint64_t negated_first = constraint();
-        text.put("pol ");
-        text.put_uint(negated_second);
-        text.put(" ");
-        text.put_uint(negated_first);
-        text.put(" + ;\nqed : -1 ;\nqed ;\n");
-        (void)constraint();
-        (void)constraint();
+        bounds.carries.push_back(static_cast<int32_t>(++fresh));
       }
-      bounds.lower = emit_bound(equation, bounds.carries, true);
-      bounds.upper = emit_bound(equation, bounds.carries, false);
+      write_bounds(equation, bounds);
       found = cache.entries_.emplace(equation, std::move(bounds)).first;
       uint64_t retained = cache.retained_bytes_;
       if (!retained)
@@ -2157,6 +2172,10 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       if (cache.generation_ == UINT64_MAX)
         std::abort();
       ++cache.generation_;
+    } else if (found->second.numbering != pbp_numbering_) {
+      const uint64_t before = pbp_derived_constraints_;
+      write_bounds(equation, found->second);
+      rewritten += pbp_derived_constraints_ - before;
     }
     lower.push_back(found->second.lower);
     upper.push_back(found->second.upper);
@@ -2212,7 +2231,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   text.flush();
 
   if (fresh != plan.starting_external_extent + plan.helper_variables ||
-      pbp_derived_constraints_ - derived_before != plan.proof_constraints ||
+      pbp_derived_constraints_ - derived_before != plan.proof_constraints + rewritten ||
       cache.retained_bytes() > plan.retained_bytes || std::ferror(file_))
     std::abort();
 #ifndef NDEBUG
@@ -2844,6 +2863,8 @@ void Proof::start_lazy_pbp() {
                             : std::strtoull(at, nullptr, 10);
   if (const char *limit = std::getenv("TACTIX_AUTO_PROOF_DSR_LIMIT"))
     dsr_limit_ = std::strtoull(limit, nullptr, 10);
+  if (const char *limit = std::getenv("TACTIX_AUTO_PROOF_PARITY_BYTES"))
+    parity_bytes_limit_ = std::strtoull(limit, nullptr, 10);
 }
 
 bool Proof::conversion_barred() const noexcept {
@@ -2913,7 +2934,7 @@ bool Proof::convert_lazy_pbp() {
   bool ok = !lazy_published_ || write_pbp_header(target, lazy_f_) >= 0;
   if (ok) {
     converted = convert_dsr_to_pbp(lazy.stage_fd, copy.binary(),
-                                   copy.rat_additions_, target);
+                                   copy.rat_additions_, copy.helper_names_, target);
     ok = converted.ok;
   }
   // Held text uses the writer's numbering, which ends here: an id deletion in
@@ -2959,6 +2980,7 @@ bool Proof::convert_lazy_pbp() {
   pbp_audit_input_.clear();
   pbp_audit_derived_.clear();
 #endif
+  ++pbp_numbering_;
   lazy_report_.dsr_bytes = converted.dsr_bytes;
   lazy_report_.pbp_bytes = converted.pbp_bytes;
   file_ = target; // the stream continues on the real file
