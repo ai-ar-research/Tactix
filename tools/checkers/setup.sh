@@ -166,13 +166,16 @@ fi
 
 echo "== self-test: RAT on a proof-introduced variable -> drat-trim -> CakeLPR =="
 F3="$ROOT/tools/checkers/tests/drat-trim-rat-occurrences"
-"$BIN/drat-trim" "$F3/valid.cnf" "$F3/valid.drat" -L "$T/rat.lrat" > "$T/rat.out"
+"$BIN/drat-trim" "$F3/core.cnf" "$F3/core.drat" -L "$T/rat.lrat" > "$T/rat.out"
 grep -q 's VERIFIED' "$T/rat.out"
 grep -q ' [1-9][0-9]* RAT lemmas in core' "$T/rat.out"
-"$BIN/cake_lpr" "$F3/valid.cnf" "$T/rat.lrat" > "$T/rat-cake.out"
+"$BIN/cake_lpr" "$F3/core.cnf" "$T/rat.lrat" > "$T/rat-cake.out"
 grep -q 's VERIFIED UNSAT' "$T/rat-cake.out"
-# Its second lemma is not RAT on its pivot, and the formula is satisfiable.
-"$BIN/drat-trim" "$F3/invalid.cnf" "$F3/invalid.drat" > "$T/rat-bad.out" || true
+# Forward mode checks each lemma against the candidates the index finds: the second
+# lemma's resolvent with `8 1` is implied in one proof and not in the other.
+"$BIN/drat-trim" "$F3/forward.cnf" "$F3/forward-valid.drat" -f > "$T/rat-good.out"
+grep -q 's VERIFIED' "$T/rat-good.out"
+"$BIN/drat-trim" "$F3/forward.cnf" "$F3/forward-invalid.drat" -f > "$T/rat-bad.out" || true
 grep -q 's NOT VERIFIED' "$T/rat-bad.out"
 echo "RAT self-test OK"
 

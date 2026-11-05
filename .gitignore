@@ -50,6 +50,7 @@ tools/fuzz/nightly-rev*.log
 *.drat
 *.lrat
 *.proof
+!tools/checkers/tests/**/*.drat
 *.model
 # ...except each window's two SUMMARY files. Note the shape: excluding the
 # DIRECTORY makes git skip descending into it, so a negation under it never
