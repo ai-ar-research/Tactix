@@ -398,19 +398,14 @@ void budgets_interruptions_and_formats() {
            image(kernel) == before && position(records) == 0);
     std::fclose(records);
   }
-  for (const auto &[format, path] :
-       {std::pair{ProofFormat::Lrat, "/tmp/gf3-gaussian-live.lrat"},
-        std::pair{ProofFormat::Pbp, "/tmp/gf3-gaussian-live.pbp"}}) {
+  {
+    const char *const path = "/tmp/gf3-gaussian-live.pbp";
     Kernel kernel = install(chained_units());
     Proof proof;
     std::remove(path);
-    if (format == ProofFormat::Pbp) {
-      assert(proof.open(path, ProofFormat::PbpStreaming));
-      proof.finish_input_transaction();
-      assert(proof.begin_pb());
-    } else {
-      assert(proof.open(path, format));
-    }
+    assert(proof.open(path, ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -434,7 +429,8 @@ std::string temporary_path() {
 }
 
 void proof_modes_and_conflict() {
-  for (ProofFormat format : {ProofFormat::DsrAscii, ProofFormat::DratAscii}) {
+  {
+    const ProofFormat format = ProofFormat::DsrAscii;
     const std::string path = temporary_path();
     Kernel kernel = install(conflict());
     Proof proof;

@@ -10,7 +10,7 @@
 
 namespace tactix {
 
-// Common two-pass DRAT sink for proof-producing Lucky refutations. Clause
+// Common two-pass clausal sink for proof-producing Lucky refutations. Clause
 // containers may either expose vector-style data()/size() or the bounded
 // parity-certificate lits/size fields.
 template <class Clause> class RefutationProofSink {

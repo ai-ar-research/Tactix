@@ -52,15 +52,14 @@ enum class SubSearchMode {
   Kitten, // Kissat's imported-variable VMTF queue and randomized phases
 };
 
-// One derived clause: `lits` follows from `chain` in the LRAT sense — assume
+// One derived clause: `lits` follows from `chain` by unit propagation — assume
 // every literal of `lits` false, then propagate `chain` in order, each entry
 // unit or (the last) conflicting. An empty `lits` is the empty clause.
 //
 // `antecedents` is a second, generally smaller list: the clauses Kitten records
 // on the lemma (`kitten.c:965`), which is what its clausal core walks. Kitten's
 // failing-assumption analysis stops at a root reason instead of expanding it
-// (`kitten.c:1461-1477`), so that set is not the transitive cone an LRAT chain
-// needs. Empty means the two coincide, which holds everywhere but there.
+// (`kitten.c:1461-1477`), so that set is not the transitive cone. Empty means the two coincide, which holds everywhere but there.
 struct SubStep {
   uint32_t id = 0;
   std::vector<SubLit> lits;
@@ -151,7 +150,7 @@ public:
   // The refutation behind the last `Unsat`. False when there is none: no
   // refutation yet, or the assumptions were directly contradictory, so nothing
   // was derived and the target clause would be a tautology — which only
-  // `Proof::add_rup`'s assert catches, DRAT accepting it for free.
+  // `Proof::add_rup`'s assert catches.
   // `with_core` additionally fills `out.core_clauses` with Kitten's clausal
   // core; it costs one arena walk, so only the caller that consumes the core
   // asks for it. False with `out.resource_exhausted` means optional export

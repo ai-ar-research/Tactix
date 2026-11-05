@@ -319,7 +319,7 @@ private:
   uint64_t retained_source_provenance_owner_ = 0;
   Proof *proof_ = nullptr;
   uint64_t proof_stream_identity_ = 0;
-  ProofFormat proof_format_ = ProofFormat::DratAscii;
+  ProofFormat proof_format_ = ProofFormat::DsrBinary;
   FILE *records_ = nullptr;
   strategy::AffineConsequenceParameters parameters_;
   AffineLiveSnapshot source_owner_;

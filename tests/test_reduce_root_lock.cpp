@@ -65,15 +65,13 @@ static void root_reason(bool elevated, bool compact, bool unsat,
     } else kernel_add_large_clause(k, lits.data(), lits.size(), false, 0, id);
   }
   const Lit learned[] = {internalize(1),internalize(2),internalize(3)};
-  const uint64_t chain[] = {1,2};
   const auto learned_id = ++k.next_clause_id;
-  proof.add_rup(learned_id, learned, 3, chain, 2);
+  proof.add_rup(learned_id, learned, 3);
   const Ref ref = kernel_add_large_clause(k, learned, 3, true, 3, learned_id);
   clause_at(k.arena, ref)->set_used(3);
   assert(propagate_apply(k) == ApplyResult::Ok);
   assert(k.assigned[2].level == 0 && !k.assigned[2].binary && k.assigned[2].reason == ref);
   assert(k.value(internalize(3)) > 0 && !k.unflushed_root);
-  if (format == ProofFormat::Lrat) assert(k.unit_ids[2] > learned_id);
   if (elevated) {
     kernel_assign_decision(k, internalize(7));
     assert(propagate_apply(k) == ApplyResult::Ok);
@@ -106,8 +104,8 @@ static void root_reason(bool elevated, bool compact, bool unsat,
       cnf << "0\n";
     }
   } else std::remove(path.c_str());
-  std::printf("root elevated=%d compact=%d unsat=%d lrat=%d candidates=%zu deleted=%llu PASS\n",
-              elevated, compact, unsat, format == ProofFormat::Lrat, candidates.size(),
+  std::printf("root elevated=%d compact=%d unsat=%d candidates=%zu deleted=%llu PASS\n",
+              elevated, compact, unsat, candidates.size(),
               (unsigned long long)k.stats.deleted);
 }
 
@@ -152,11 +150,10 @@ int main(int argc, char **argv) {
   protected_reasons(false);
   protected_reasons(true);
   for (bool elevated : {false,true}) for (bool compact : {false,true})
-    for (bool unsat : {false,true}) for (auto format : {ProofFormat::DratAscii,ProofFormat::Lrat}) {
+    for (bool unsat : {false,true}) {
       const std::string tag = "root-" + std::to_string(elevated) + "-" +
-          std::to_string(compact) + "-" + std::to_string(unsat) +
-          (format == ProofFormat::Lrat ? "-lrat" : "-drat");
-      root_reason(elevated, compact, unsat, format,
+          std::to_string(compact) + "-" + std::to_string(unsat);
+      root_reason(elevated, compact, unsat, ProofFormat::DsrAscii,
                   argc > 1 && unsat ? std::string(argv[1]) + "/" + tag : "");
     }
   puts("PASS: root admission, pure public surface, protected/stale reasons, models and proofs");

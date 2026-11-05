@@ -110,8 +110,7 @@ bool resolve(const Tern &c, const Tern &d, Lit pivot, std::vector<Lit> &res) {
   return true;
 }
 
-bool add_resolvent(Kernel &k, const Tern &positive, const Tern &negative,
-                   const std::vector<Lit> &res) {
+bool add_resolvent(Kernel &k, const std::vector<Lit> &res) {
   if (res.size() == 2) {
     if (kernel_binary_live(k, res[0], res[1]))
       return false;
@@ -122,9 +121,7 @@ bool add_resolvent(Kernel &k, const Tern &positive, const Tern &negative,
   // resolvent falsifies every literal of `positive` but the pivot, so it forces
   // the pivot and `negative` is then falsified (the E1 resolvent argument).
   const uint64_t id = ++k.next_clause_id;
-  const uint64_t chain[2] = {positive.id, negative.id};
-  emit_rup_lemma(k, id, res.data(), static_cast<uint32_t>(res.size()), chain,
-                 2);
+  emit_rup_lemma(k, id, res.data(), static_cast<uint32_t>(res.size()));
   if (res.size() == 2) {
     kernel_add_binary_clause(k, res[0], res[1], id);
     ++k.stats.ternary_binaries;
@@ -243,7 +240,7 @@ ApplyResult ternary_try(Kernel &k, Lit pivot) {
       k.stats.ternary_ticks++;
       if (!resolve(c, d, pivot, res))
         continue;
-      added |= add_resolvent(k, c, d, res);
+      added |= add_resolvent(k, res);
     }
   }
   return added ? ApplyResult::Ok : ApplyResult::NoOp;
@@ -352,8 +349,7 @@ static ApplyResult ternary_apply_semantic_instance(Kernel &k, uint64_t inst) {
   for (const TernaryChoice &choice : choices) {
     if (ternary_choice_instance(choice) != inst)
       continue;
-    return add_resolvent(k, choice.positive, choice.negative,
-                         choice.resolvent)
+    return add_resolvent(k, choice.resolvent)
                ? ApplyResult::Ok
                : ApplyResult::NoOp;
   }

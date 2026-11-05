@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
   for (unsigned signs = 0; signs != 4; ++signs)
   for (bool clash : {false, true})
   for (bool canonical : {false, true})
-  for (unsigned mode = 0; mode != 4; ++mode) {
+  for (unsigned mode = 0; mode != 2; ++mode) {
     std::vector<Row> rows;
     const bool first_cancel = shape != 1, second_cancel = shape != 0;
     const int first_sign = first_cancel && (signs & 1) ? -1 : 1;
@@ -112,10 +112,8 @@ int main(int argc, char **argv) {
     assert(input && output);
     std::fprintf(input, "p cnf 8 %zu\n", rows.size());
     std::map<Row, unsigned> population;
-    std::map<uint64_t, Row> ids;
     for (const Row &row : rows) {
       ++population[sorted(row)];
-      ids[ids.size() + 1] = sorted(row);
       for (int lit : row) std::fprintf(input, "%d ", lit);
       std::fputs("0\n", input);
     }
@@ -123,9 +121,7 @@ int main(int argc, char **argv) {
     Kernel k;
     Proof proof;
     if (mode) {
-      const auto format = mode == 1 ? ProofFormat::DsrAscii :
-                          mode == 2 ? ProofFormat::DratAscii : ProofFormat::Lrat;
-      assert(proof.open(proof_file.path.c_str(), format));
+      assert(proof.open(proof_file.path.c_str(), ProofFormat::DsrAscii));
       proof.bind_variable_map(&k.internal_to_external);
       k.proof = &proof;
     }
@@ -157,7 +153,7 @@ int main(int argc, char **argv) {
         text.append(buffer, n);
       if (argc == 2 && clash) {
         const std::string stem = std::string(argv[1]) + "/case-" + std::to_string(cases);
-        std::ofstream cnf(stem + ".cnf"), certificate(stem + (mode == 3 ? ".lrat" : ".dsr"));
+        std::ofstream cnf(stem + ".cnf"), certificate(stem + ".dsr");
         assert(cnf && certificate);
         cnf << "p cnf 8 " << rows.size() << '\n';
         for (const Row &row : rows) {
@@ -171,20 +167,9 @@ int main(int argc, char **argv) {
       unsigned additions = 0;
       while (std::getline(lines, line)) {
         std::istringstream fields(line);
-        uint64_t id = 0;
-        if (mode == 3) fields >> id;
         fields >> std::ws;
         const bool deletion = fields.peek() == 'd';
         if (deletion) fields.get();
-        if (mode == 3 && deletion) {
-          while (fields >> id && id) {
-            assert(ids.count(id));
-            assert(population[ids[id]]);
-            --population[ids[id]];
-            ids.erase(id);
-          }
-          continue;
-        }
         Row row;
         int literal;
         while (fields >> literal && literal) row.push_back(literal);
@@ -199,7 +184,6 @@ int main(int argc, char **argv) {
             assert(false && "XOR matching lemma lacks cancelled-input cases");
           }
           ++population[row];
-          if (mode == 3) ids[id] = row;
           ++additions;
         }
       }

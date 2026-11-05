@@ -1,7 +1,6 @@
 // Proof backend (plan §5.2): rules emit typed logical events. Native DSR is
 // the canonical stream; witnessless DSR additions cover the existing RUP/RAT
-// vocabulary and direct SR additions carry a substitution witness. DRAT and
-// native LRAT remain compatibility serializers for the pre-existing events.
+// vocabulary and direct SR additions carry a substitution witness.
 // Streaming + buffered: never held in memory (§6).
 #pragma once
 
@@ -22,8 +21,7 @@
 
 namespace tactix {
 
-enum class ProofFormat { DsrBinary, DsrAscii, DratBinary, DratAscii, Lrat,
-                         Pbp, PbpStreaming };
+enum class ProofFormat { DsrBinary, DsrAscii, Pbp, PbpStreaming };
 
 struct DsrLiteralMapping {
   Lit from = INVALID_LIT;
@@ -180,35 +178,24 @@ public:
   // accept subsequent typed clause events.  Explicit streaming PBP can.
   bool terminal_pbp() const { return format_ == ProofFormat::Pbp; }
   bool streaming_pbp() const { return format_ == ProofFormat::PbpStreaming; }
-  // Only LRAT needs every binary clause identity in the hot solver state.
-  // Streaming PBP can delete binary constraints by specification while still
-  // deleting non-binary constraints by their exact tracked identity.
-  bool needs_clause_ids() const { return lrat(); }
   // Delete by specification for the rest of the run: a proof attached after
   // replayed input cannot name the live kernel's clauses by their ids (see
   // attach_replayed_input_proof).
   void disable_pbp_id_deletions() { abandon_pbp_id_deletions(7, 0); }
-  bool lrat() const { return format_ == ProofFormat::Lrat; }
   ProofFormat format() const { return format_; }
   bool dsr() const {
     return format_ == ProofFormat::DsrBinary ||
            format_ == ProofFormat::DsrAscii;
   }
-  bool supports_sr() const { return dsr() || streaming_pbp(); }
   // Published proof feature, used only to choose an independent final checker.
   // The runner also scans the finished certificate and rejects disagreement.
   const char *verification_route() const {
     if (automatic_selected_dsr_)
       return automatic_dsr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
     if (pb()) return "pbp";
-    if (dsr()) return has_sr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
-    if (lrat()) return "lrat";
-    return "drat";
+    return has_sr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
   }
-  bool binary() const {
-    return format_ == ProofFormat::DsrBinary ||
-           format_ == ProofFormat::DratBinary;
-  }
+  bool binary() const { return format_ == ProofFormat::DsrBinary; }
   void bind_variable_map(const std::vector<Var> *map) {
     variable_map_ = map;
     if (dsr_copy_)
@@ -227,37 +214,22 @@ public:
   PopulationObserver *population_observer() const noexcept {
     return population_observer_;
   }
-  // Frontend-only lineage event: a live solver clause starts citing a new
-  // checker ID after LRAT restatement/replay.  Both checker clauses remain in
-  // the population; this must not be represented as add/delete.
-  void observe_checker_id_rebind(uint64_t predecessor_id,
-                                 uint64_t checker_id, const Lit *lits,
-                                 uint32_t size) noexcept;
-
   // --- proof-delta vocabulary (subset live in phase 2) ---
-  // add-RUP: LRAT uses `id` and `chain` (ids in checker-propagation order).
-  // Native DSR stages consecutive RUP units so a following deletion block can
+  // add-RUP. Native DSR stages consecutive RUP units so a following deletion block can
   // be ordered before the batch with a shared proof-only split.
-  void add_rup(uint64_t id, const Lit *lits, uint32_t size,
-               const uint64_t *chain, uint32_t nchain);
-  // add-RAT: `lits` MUST be pivot-first (the RAT pivot is the first literal, both
-  // for LRAT and for the checker's first-literal inference on DRAT). LRAT writes
-  // `<id> <lits> 0 <hints> 0` where `hints` is the flat SIGNED antecedent stream:
-  // optional leading positive RUP antecedents, then for each resolution partner D
-  // (a clause containing ¬pivot) a negative `-cid(D)` followed by the positive RUP
-  // hints discharging the resolvent. DRAT writes `a <lits> 0` (identical to a
-  // plain add — the RAT-ness is inferred by the checker from the first literal).
-  // Factor is the first RAT-emitting rule (plan §5.2 add-RAT primitive).
-  void add_rat(uint64_t id, const Lit *lits, uint32_t size,
-               const int64_t *hints, uint32_t nhints);
+  void add_rup(uint64_t id, const Lit *lits, uint32_t size);
+  // add-RAT: `lits` MUST be pivot-first (the checker infers RAT on the first
+  // literal). Factor is the first RAT-emitting rule (plan §5.2 add-RAT
+  // primitive).
+  void add_rat(uint64_t id, const Lit *lits, uint32_t size);
   // Add a substitution-redundant clause. `lits[0]` is the DSR pivot,
   // `true_lits` are mapped to true, and each mapping maps its source literal
   // to its target literal. `external_variables` bounds every external variable
   // in the proof-visible formula, including retired variables. The general
   // encoding temporarily uses the next external variable and deletes every
   // clause containing it before returning, so later solver extensions may use
-  // that identity. Returns false for compatibility formats or exhaustion of
-  // the external literal representation, before emitting any clause.
+  // that identity. Returns false for terminal PBP or exhaustion of the external
+  // literal representation, before emitting any clause.
   // `propagates`: the clause is unit at the root. No witnessed line may
   // propagate when read, so it takes the general encoding and enters by RUP
   // (docs/dev/implementation-notes.md, native DSR checking).
@@ -265,20 +237,17 @@ public:
               const Lit *true_lits, uint32_t ntrue,
               const DsrLiteralMapping *mappings, uint32_t nmappings,
               uint32_t external_variables, bool propagates = false);
-  void add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain);
-  // root-level propagation-derived unit: explicit in LRAT (each level-0
-  // assignment needs an id for later chains), implied/omitted in DSR/DRAT
-  void add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
-                        uint32_t nchain);
-  // delete: DRAT writes the literals; LRAT the clause id
+  void add_empty(uint64_t id);
+  // root-level propagation-derived unit: explicit in DSR and streaming PBP
+  void add_derived_unit(uint64_t id, Lit unit);
+  // delete: DSR writes the literals; streaming PBP names the constraint
   void del(uint64_t line_id, uint64_t del_id, const Lit *lits,
            uint32_t size);
 
   // Proof-only extension clauses use DIMACS literals whose variables need not
   // exist in the solver kernel.  This keeps terminal extended-resolution
   // certificates streaming without allocating millions of inactive kernel
-  // variables.  Native LRAT has no witnessless extension vocabulary, so these
-  // operations decline it before writing any bytes.
+  // variables.
   bool add_external_rup(uint64_t id, const int32_t *lits, uint32_t size);
   bool add_external_rat(uint64_t id, const int32_t *lits, uint32_t size);
   // Compact live GF(2) consequence for streaming PBP.  Planning is pure and
@@ -301,8 +270,7 @@ public:
   // Keep an already-emitted proof-only clause available for later RUP steps.
   // The registry is a checker-population boundary.  On DSR routes add_sr
   // deletes every registered clause before emitting a witnessed line, then
-  // advances the epoch so clients cannot reuse stale support.  DRAT has no
-  // witnessed entry: retained clauses remain legal until the proof ends.
+  // advances the epoch so clients cannot reuse stale support.
   bool retain_external(uint64_t id, const int32_t *lits, uint32_t size);
   uint64_t persistent_external_epoch() const {
     return persistent_external_epoch_;
@@ -370,10 +338,8 @@ public:
     return pbp_counters_;
   }
 
-  // A tautological (or duplicate-carrying) lemma is CHECKER-DIVERGENT: DRAT
-  // accepts it for free (negating it self-conflicts, so RUP passes without
-  // touching the formula) while every LRAT checker walks the hint chain,
-  // finds the hints already satisfied, and REJECTS the proof. Rules must
+  // A tautological (or duplicate-carrying) lemma says nothing a checker can
+  // use, and a RUP check of it passes without touching the formula. Rules must
   // therefore never hand one to the proof;
   // the emission sites test this and skip the inference instead (the
   // D-CONG-SKIP discipline: losing an inference is sound, emitting an
@@ -389,8 +355,8 @@ public:
 
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   // Diagnostic N2 oracle; production pins compile none of this. A deletion
-  // must be backed by one checker-visible copy under the format's naming rule:
-  // literals for DRAT, IDs for LRAT. The frontend seeds and arms the oracle only
+  // must be backed by one checker-visible copy, named by its literals. The
+  // frontend seeds and arms the oracle only
   // after it has registered the complete input and its restatements. See
   // benchmarks/reports/2026-08-05-input-clause-normalization-n2.md.
   void arm_population_shadow() {
@@ -415,17 +381,14 @@ public:
 private:
   // Event bodies. The public methods run these and then feed the automatic
   // DSR copy; internal calls use the bodies so the copy sees each event once.
-  void add_rup_impl(uint64_t id, const Lit *lits, uint32_t size,
-                    const uint64_t *chain, uint32_t nchain);
-  void add_rat_impl(uint64_t id, const Lit *lits, uint32_t size,
-                    const int64_t *hints, uint32_t nhints);
+  void add_rup_impl(uint64_t id, const Lit *lits, uint32_t size);
+  void add_rat_impl(uint64_t id, const Lit *lits, uint32_t size);
   bool add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates);
-  void add_empty_impl(uint64_t id, const uint64_t *chain, uint32_t nchain);
-  void add_derived_unit_impl(uint64_t id, Lit unit, const uint64_t *chain,
-                             uint32_t nchain);
+  void add_empty_impl(uint64_t id);
+  void add_derived_unit_impl(uint64_t id, Lit unit);
   void del_impl(uint64_t line_id, uint64_t del_id, const Lit *lits,
                 uint32_t size);
   bool add_external_rup_impl(uint64_t id, const int32_t *lits, uint32_t size);
@@ -525,7 +488,6 @@ private:
   void observe_checker(CheckerPopulationEventKind, CheckerClauseRole,
                        uint64_t line_id, uint64_t checker_id,
                        PopulationClauseView, bool proof_only = false,
-                       uint64_t predecessor_id = 0,
                        uint64_t transaction_id = 0,
                        PopulationSourceClassification =
                            PopulationSourceClassification::Ineligible) noexcept;
@@ -622,7 +584,7 @@ private:
   void put_lit(Lit l);
   void put_external_lit(Lit l);
   void put_external_dimacs(int32_t literal);
-  // A DSR/DRAT line: binary formats tag every line, text ones a deletion.
+  // A DSR line: binary formats tag every line, text ones a deletion.
   void put_line_tag(bool deletion);
   void put_clausal_line(bool deletion, const Lit *lits, uint32_t size);
   void put_pbp_clause(const char *rule, const Lit *lits, uint32_t size);
@@ -636,7 +598,6 @@ private:
   void abandon_pbp_id_deletions(uint32_t reason = 0, uint32_t width = 0);
   void finish_streaming_pbp_unsat();
   void publish_streaming_pbp_header();
-  void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;
   FILE *pbp_output_ = nullptr;

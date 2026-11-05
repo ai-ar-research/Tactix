@@ -402,9 +402,9 @@ void emit_public_fixture(const std::string &cnf_path,
   }
   const Lit positive = internalize(13);
   const Lit negative = internalize(-13);
-  proof.add_rup(++kernel.next_clause_id, &positive, 1, nullptr, 0);
-  proof.add_rup(++kernel.next_clause_id, &negative, 1, nullptr, 0);
-  proof.add_rup(++kernel.next_clause_id, nullptr, 0, nullptr, 0);
+  proof.add_rup(++kernel.next_clause_id, &positive, 1);
+  proof.add_rup(++kernel.next_clause_id, &negative, 1);
+  proof.add_rup(++kernel.next_clause_id, nullptr, 0);
   proof.flush();
   kernel.proof = nullptr;
   std::fclose(records);

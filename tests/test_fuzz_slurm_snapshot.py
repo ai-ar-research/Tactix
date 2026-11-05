@@ -76,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-sbatch-") as tmp:
         [
             str(SLURM), "--name", "snapshot-test", "--physical-cores", "3",
             "--time", "00:05:00", "--", "--quick", "--solver",
-            "build/debug/tactix --lrat",
+            "build/debug/tactix --dsr",
         ],
         cwd=ROOT,
         env=env,

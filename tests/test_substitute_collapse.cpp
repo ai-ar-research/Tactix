@@ -18,7 +18,7 @@ static bool check(unsigned copies, bool redundant, bool large, int mode,
   const int fd=mkstemp(path); assert(fd>=0); close(fd);
   Proof proof;
   if (mode) {
-    assert(proof.open(path,mode==1 ? ProofFormat::DratAscii : ProofFormat::Lrat));
+    assert(proof.open(path,ProofFormat::DsrAscii));
     k.proof=&proof;
     proof.bind_variable_map(&k.internal_to_external);
   }
@@ -68,10 +68,10 @@ static bool check(unsigned copies, bool redundant, bool large, int mode,
 int main(int argc,char **argv) {
   unsigned missing=0;
   for(unsigned copies:{1u,2u,5u}) for(bool red:{false,true})
-    for(bool large:{false,true}) for(int mode:{0,1,2})
+    for(bool large:{false,true}) for(int mode:{0,1})
       for(bool explicit_action:{false,true})
         missing+=!check(copies,red,large,mode,explicit_action);
   if(argc==2 && std::string(argv[1])=="--expect-old-missing")assert(missing==18);
   else assert(!missing);
-  std::printf("PASS: 72 collapse/large/redundancy/public/proof/model fixtures; missing=%u\n",missing);
+  std::printf("PASS: 48 collapse/large/redundancy/public/proof/model fixtures; missing=%u\n",missing);
 }

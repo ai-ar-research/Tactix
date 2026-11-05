@@ -1,8 +1,8 @@
 // C2 Strengthen (plan §5.2, "SubsumeBackward + strengthening"): self-subsuming
 // resolution — when a smaller clause d matches a candidate c on every literal
 // except exactly one in opposite phase (f), resolving on f yields c ∖ {f},
-// which replaces c. Proof delta: add-RUP of the shortened clause, LRAT chain
-// [absorbed units..., d, c], plus delete of the original.
+// which replaces c. Proof delta: add-RUP of the shortened clause, plus delete of
+// the original.
 // Precondition, effect, soundness: `docs/dev/calculus.md` §C2. The fused
 // subsume-or-strengthen check is cadical `subsume.cpp subsume_check`
 // transliterated: candidate literals are marked phase-aware, a partner with

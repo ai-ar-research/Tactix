@@ -27,7 +27,7 @@ enum class SourceIdentityKind : uint8_t { NativeProof, CaptureLocal };
 struct Source {
   uint64_t occurrence = 0;
   // CaptureLocal values are exact replay tokens, never checker line ids.
-  // They occur only after non-LRAT input finalization releases binary ids.
+  // They occur only after input finalization releases binary ids.
   uint64_t native_proof_id = 0;
   SourceIdentityKind identity_kind = SourceIdentityKind::NativeProof;
   SourceKind kind = SourceKind::Large;
@@ -218,12 +218,11 @@ inline CaptureStatus capture(Kernel &k, const SnapshotLimits &limits,
   };
   const auto take = [&](SourceKind kind, Ref ref, Lit first, Lit second,
                         uint64_t id, const Lit *literals, uint32_t size) {
-    // Proofless/DRAT/DSR input finalization deliberately releases binary
-    // clause ids: those formats delete by literal multiset and no other
-    // kernel consumer needs the values.  Direct-PHP still needs a stable,
+    // Input finalization deliberately releases binary clause ids: deletion is
+    // by literal multiset and no other kernel consumer needs the values.  Direct-PHP still needs a stable,
     // unique identity for exact recognition/replay.  Admit an absent binary
     // id here and assign a capture-local identity below; large clauses always
-    // retain their native id, while LRAT/PB were rejected before capture.
+    // retain their native id, while terminal PB was rejected before capture.
     if (!id && (kind != SourceKind::Binary || k.binary_ids.tracks_values())) {
       failure = CaptureStatus::Invalid;
       return false;
@@ -372,7 +371,7 @@ inline bool exact_source(const Snapshot &snapshot,
 // a supported proof route, an applicable root state and, when `poll_stop`,
 // no pending interrupt.
 inline bool gate(const Kernel &k, bool poll_stop, Result &result) {
-  if (k.proof && (k.proof->lrat() || k.proof->terminal_pbp()))
+  if (k.proof && k.proof->terminal_pbp())
     result.status = Status::UnsupportedProof;
   else if (!applicable(k))
     result.status = Status::Inapplicable;
@@ -591,8 +590,7 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
         if (event.source_occurrence) {
           // Original AMOs are live kernel clauses, so retain their ordinary
           // checker-population classification. Capture-local replay tokens
-          // are erased here: DSR/DRAT delete by literal multiset, while LRAT
-          // was rejected before admission.
+          // are erased here: DSR deletes by literal multiset.
           std::vector<Lit> internal;
           internal.reserve(event.clause.size());
           for (int32_t external : event.clause) {

@@ -11,7 +11,6 @@
 
 #include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
-#include "proof/rup_helpers.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -81,20 +80,14 @@ static void assume(Kernel &k, Lit lit) {
 static ApplyResult commit_failed_literal(Kernel &k, Lit assumed) {
   assert(k.level == 1 && k.conflict_valid);
   const Lit unit = negate(assumed);
-  const bool lrat = k.proof && k.proof->lrat();
-  uint64_t closing = 0;
-  std::vector<std::pair<uint32_t, uint64_t>> entries;
-  if (lrat) {
-    std::vector<uint8_t> seen(k.nvars, 0);
-    closing = kernel_conflict_reason_walk(k, seen, entries);
-  }
 
   k.conflict_valid = false;
   k.conflict_ref = INVALID_REF;
   kernel_backtrack(k, 0, /*update_phases=*/false);
 
   const uint64_t id = ++k.next_clause_id;
-  rup_helpers::emit(k, id, 0, &unit, 1, entries, closing);
+  if (k.proof)
+    k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, &unit, 1);
   k.unit_ids[var_of(unit)] = id;
   kernel_assign_unit(k, unit);
   return propagate_service(k);

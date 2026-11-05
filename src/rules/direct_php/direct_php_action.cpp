@@ -273,7 +273,7 @@ DirectPhpActionResult DirectPhpPreparedActionAccess::prepare_impl(
   // for proofless kernels.  apply/replay set proof_atomic and publish in the
   // same exclusive call.
   if (!proof_atomic && kernel.proof) {
-    const auto status = kernel.proof->lrat() || kernel.proof->terminal_pbp()
+    const auto status = kernel.proof->terminal_pbp()
                             ? DirectPhpActionStatus::UnsupportedProof
                             : DirectPhpActionStatus::UnsupportedProofSplit;
     return stopped_result(status, request, effort);

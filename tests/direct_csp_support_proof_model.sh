@@ -8,7 +8,7 @@ require_tools "DirectCSP proof/model checker pipeline not built — skipping" \
 make_scratch temporary
 "$ACTION_TEST" \
   "$temporary/unsat.cnf" "$temporary/proof.dsr" \
-  "$temporary/proof.drat" "$temporary/sat.cnf" "$temporary/model.out"
+  "$temporary/sat.cnf" "$temporary/model.out"
 check_dsr "$temporary/unsat.cnf" "$temporary/proof.dsr"
 "$CHECKMODEL" "$temporary/sat.cnf" "$temporary/model.out"
 echo "direct_csp_support_proof_model OK"

@@ -149,7 +149,7 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
       request.selection.residual_domain};
   std::sort(coordinates.begin(), coordinates.end());
   if (coordinates != std::array<uint32_t, 3>{0, 1, 2}) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
+  if (kernel.proof && kernel.proof->terminal_pbp()) {
     result.status = NaryCspEqualityLiveStatus::UnsupportedProof;
     return result;
   }
@@ -294,9 +294,9 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
     const uint64_t id = ++kernel.next_clause_id;
     if (kernel.proof) {
       if (addition.proof == equality::ProofStep::Rup)
-        kernel.proof->add_rup(id, literals.data(), literals.size(), nullptr, 0);
+        kernel.proof->add_rup(id, literals.data(), literals.size());
       else
-        kernel.proof->add_rat(id, literals.data(), literals.size(), nullptr, 0);
+        kernel.proof->add_rat(id, literals.data(), literals.size());
     }
     ids.push_back(id);
     kernel_add_large_clause(kernel, literals.data(), literals.size(),

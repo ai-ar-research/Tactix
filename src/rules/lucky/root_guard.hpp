@@ -23,12 +23,6 @@ inline RuleEligibility lucky_root_eligibility(const Kernel &kernel,
       .fact("large-watches-connected", kernel.large_watches_connected);
 }
 
-// The quiescent root of a clausal (non-LRAT) Lucky refutation.
-inline RuleEligibility lucky_clausal_root_eligibility(const Kernel &kernel) {
-  RuleEligibility result = lucky_root_eligibility(kernel);
-  return result.fact("proof-format", !kernel.proof || !kernel.proof->lrat());
-}
-
 // The startup boundary of the original-input Lucky refutations.
 inline RuleEligibility lucky_startup_eligibility(const Kernel &kernel) {
   RuleEligibility result;

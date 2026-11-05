@@ -517,23 +517,23 @@ int main(int argc, char **argv) {
         fprintf(stderr, "unknown random3sat profile '%s'\n", argv[arg] + 10);
         return 1;
       }
-    } else if (!strcmp(argv[arg], "--drat")) {
-      /* The runner selects this compatibility certificate explicitly. */
+    } else if (!strcmp(argv[arg], "--dsr")) {
+      /* Declares the proof format to tools/bench/run.py. */
     } else if (!cnf) cnf = argv[arg];
     else if (!proof) proof = argv[arg];
     else {
-      fprintf(stderr, "usage: %s [--profile=NAME] [--drat] CNF [PROOF]\n",
+      fprintf(stderr, "usage: %s [--profile=NAME] [--dsr] CNF [PROOF]\n",
               argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=NAME] [--drat] CNF [PROOF]\n",
+    fprintf(stderr, "usage: %s [--profile=NAME] [--dsr] CNF [PROOF]\n",
             argv[0]);
     return 1;
   }
   solver = tactix_init();
-  if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DRAT_BINARY)) {
+  if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DSR_BINARY)) {
     fprintf(stderr, "tactix-random3sat-policy: cannot create proof '%s'\n",
             proof);
     tactix_release(solver);

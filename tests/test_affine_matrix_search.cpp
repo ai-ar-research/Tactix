@@ -1526,7 +1526,6 @@ int main(int argc,char **argv){
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-unit"))return root_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-empty"))return root_proof_fixture(argv[2],argv[3],false);
   if(argc==4&&!std::strcmp(argv[1],"--proof"))return root_proof_fixture(argv[2],argv[3],true);
-  if(argc==4&&!std::strcmp(argv[1],"--proof-drat"))return root_proof_fixture(argv[2],argv[3],true,ProofFormat::DratAscii);
   if(argc==4&&!std::strcmp(argv[1],"--proof-pbp"))return root_proof_fixture(argv[2],argv[3],true,ProofFormat::PbpStreaming);
   if(argc==4&&!std::strcmp(argv[1],"--proof-search"))return search_proof_fixture(argv[2],argv[3]);
   if(argc==5&&!std::strcmp(argv[1],"--proof-search-seed"))

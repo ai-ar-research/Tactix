@@ -165,9 +165,9 @@ inline void direct_csp_support_action_absorb_live_effort(
 RuleEligibility direct_csp_support_action_guard(const Kernel &);
 
 // Deterministically apply one selected support row at an assignment-free
-// propagated root. Publication and propagation are separate actions. DSR,
-// DRAT, and no-proof modes are supported by the live publisher; LRAT and PBP
-// decline before mutation. Every recoverable decline preserves the kernel,
+// propagated root. Publication and propagation are separate actions. DSR and
+// no-proof modes are supported by the live publisher; PBP declines before
+// mutation. Every recoverable decline preserves the kernel,
 // session, provenance stream, and global action sequence.
 DirectCspSupportActionResult direct_csp_support_action_apply(
     Kernel &, DirectCspSupportActionSession &,

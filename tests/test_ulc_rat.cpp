@@ -141,22 +141,24 @@ void unsupported_and_ambiguous_are_atomic() {
          !kernel_binary_live(hinted, kernel_internalize(hinted, -1),
                              kernel_internalize(hinted, -2)));
 
-  Kernel lrat;
-  kernel_reserve_vars(lrat, 3);
-  add(lrat, {1, 2, 3});
+  Kernel terminal;
+  kernel_reserve_vars(terminal, 3);
+  add(terminal, {1, 2, 3});
   Proof proof;
-  assert(proof.open("/tmp/tactix-ulc-rat-declined.lrat", ProofFormat::Lrat));
-  proof.bind_variable_map(&lrat.internal_to_external);
-  lrat.proof = &proof;
-  const uint64_t before = lrat.next_clause_id;
+  assert(proof.open("/tmp/tactix-ulc-rat-declined.pbp", ProofFormat::PbpStreaming));
+  proof.finish_input_transaction();
+  assert(proof.begin_pb());
+  proof.bind_variable_map(&terminal.internal_to_external);
+  terminal.proof = &proof;
+  const uint64_t before = terminal.next_clause_id;
   const auto unsupported = substitution_redundancy_apply_orbitopal_prefix(
-      lrat, pair(lrat, 1, 2), SubstitutionRedundancyParameters{}, nullptr);
+      terminal, pair(terminal, 1, 2), SubstitutionRedundancyParameters{}, nullptr);
   assert(unsupported.status ==
              SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat &&
-         lrat.next_clause_id == before &&
-         !kernel_binary_live(lrat, kernel_internalize(lrat, -1),
-                             kernel_internalize(lrat, -2)));
-  lrat.proof = nullptr;
+         terminal.next_clause_id == before &&
+         !kernel_binary_live(terminal, kernel_internalize(terminal, -1),
+                             kernel_internalize(terminal, -2)));
+  terminal.proof = nullptr;
 }
 
 void certificate(const char *cnf_path, const char *proof_path,
@@ -193,9 +195,8 @@ int main(int argc, char **argv) {
   exhaustive_private_repair();
   nol_scale_ulc_census();
   unsupported_and_ambiguous_are_atomic();
-  if (argc == 4) {
+  if (argc == 3) {
     certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-    certificate(argv[1], argv[3], ProofFormat::DratAscii);
   } else {
     assert(argc == 1);
     Kernel kernel;

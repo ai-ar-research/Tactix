@@ -145,7 +145,7 @@ static void successful_basis(bool with_proof, const char *proof_path) {
   Kernel kernel = cancellation_fixture();
   Proof proof;
   if (with_proof) {
-    assert(proof.open(proof_path, ProofFormat::DratAscii));
+    assert(proof.open(proof_path, ProofFormat::DsrAscii));
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -346,7 +346,7 @@ static void exact_owned_wide_row_selection(const char *proof_path) {
   add_equation(kernel, first, false);
   add_equation(kernel, second, true);
   Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DratAscii));
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
@@ -437,7 +437,7 @@ static void contradiction(const char *proof_path) {
   add_equation(kernel, {1, 2, 3, 4, 5}, false);
   add_equation(kernel, {1, 2, 3, 4, 5}, true);
   Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DratAscii));
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
@@ -458,9 +458,9 @@ static void contradiction(const char *proof_path) {
 }
 
 int main(int argc, char **argv) {
-  const char *sat_proof = argc > 1 ? argv[1] : "/tmp/affine-basis-sat.drat";
-  const char *unsat_proof = argc > 2 ? argv[2] : "/tmp/affine-basis-unsat.drat";
-  const char *wide_proof = argc > 3 ? argv[3] : "/tmp/affine-basis-wide.drat";
+  const char *sat_proof = argc > 1 ? argv[1] : "/tmp/affine-basis-sat.dsr";
+  const char *unsat_proof = argc > 2 ? argv[2] : "/tmp/affine-basis-unsat.dsr";
+  const char *wide_proof = argc > 3 ? argv[3] : "/tmp/affine-basis-wide.dsr";
   successful_basis(false, sat_proof);
   successful_basis(true, sat_proof);
   independent_proof_microcheck();

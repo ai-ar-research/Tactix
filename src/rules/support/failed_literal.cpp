@@ -2,7 +2,6 @@
 
 #include "diagnostics/event_trace.hpp"
 #include "proof/proof.hpp"
-#include "proof/rup_helpers.hpp"
 #include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
@@ -98,7 +97,6 @@ void failed_literal_candidates(const Kernel &k, std::vector<Lit> &out) {
 static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
                       FailedLiteralPropagation propagation,
                       const FailedLiteralStats &stats) {
-  const bool lrat = k.proof && k.proof->lrat();
   k.stats.*stats.probed += 1;
   if (propagation == FailedLiteralPropagation::Full)
     kernel_probing_begin(k);
@@ -112,15 +110,10 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
   }
   k.stats.*stats.failed += 1;
   const Lit unit = negate(p);
-  uint64_t last = 0;
-  std::vector<std::pair<uint32_t, uint64_t>> entries;
-  if (lrat) {
-    std::vector<uint8_t> seen(k.nvars, 0);
-    last = kernel_conflict_reason_walk(k, seen, entries);
-  }
   probe_unwind(k, propagation == FailedLiteralPropagation::Full);
   const uint64_t id = ++k.next_clause_id;
-  rup_helpers::emit(k, id, id, &unit, 1, entries, last);
+  if (k.proof)
+    k.proof->add_rup(id, &unit, 1);
   k.unit_ids[var_of(unit)] = id;
   *unit_out = unit;
   return true;
@@ -131,17 +124,12 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
 // reason in `Assigned::reason`.  Walking the trail backwards and stopping when
 // that predecessor has already been reached is therefore the Kissat/CaDiCaL
 // binary-UIP algorithm; the repeated false endpoint itself is the derived
-// unit.  The reversed clause-id list is an LRAT RUP chain for that unit.
-static Lit chained_binary_uip(Kernel &k, size_t speculative_begin,
-                              std::vector<uint64_t> &chain) {
+// unit.
+static Lit chained_binary_uip(Kernel &k, size_t speculative_begin) {
   assert(k.conflict_valid && k.conflict_ref == INVALID_REF);
   std::vector<uint8_t> seen(k.nvars, 0);
   seen[var_of(k.conflict_bin[0])] = 1;
   seen[var_of(k.conflict_bin[1])] = 1;
-  chain.clear();
-  if (k.proof && k.proof->lrat())
-    chain.push_back(
-        kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1]));
 
   for (size_t i = k.trail.size(); i-- > speculative_begin;) {
     const Lit lit = k.trail[i];
@@ -156,14 +144,11 @@ static Lit chained_binary_uip(Kernel &k, size_t speculative_begin,
         a.reason == UNIT_REASON)
       return INVALID_LIT;
     const Lit predecessor = a.reason;
-    if (k.proof && k.proof->lrat())
-      chain.push_back(kernel_binary_id(k, lit, predecessor));
     const Var pv = var_of(predecessor);
     if (!seen[pv]) {
       seen[pv] = 1;
       continue;
     }
-    std::reverse(chain.begin(), chain.end());
     return predecessor;
   }
   return INVALID_LIT;
@@ -205,7 +190,6 @@ ApplyResult failed_literal_apply_chained_binary(
       std::min<uint64_t>(grown, parameters.maximum_rounds));
   const uint64_t meter_begin = k.stats.backbone_ticks;
   bool changed = false;
-  std::vector<uint64_t> lrat_chain;
   std::vector<Var> candidate_order;
   kernel_vars_in_import_order(k, candidate_order);
 
@@ -335,7 +319,7 @@ ApplyResult failed_literal_apply_chained_binary(
         continue;
 
       retained.pop_back();
-      const Lit unit = chained_binary_uip(k, speculative_begin, lrat_chain);
+      const Lit unit = chained_binary_uip(k, speculative_begin);
       k.conflict_valid = false;
       k.conflict_ref = INVALID_REF;
       kernel_backtrack(k, saved_level, /*update_phases=*/false);
@@ -347,7 +331,7 @@ ApplyResult failed_literal_apply_chained_binary(
 
       k.stats.*stats.failed += 1;
       const uint64_t id = ++k.next_clause_id;
-      emit_rup_lemma(k, id, &unit, 1, lrat_chain);
+      emit_rup_lemma(k, id, &unit, 1);
       units.emplace_back(unit, id);
 
       // The derived unit is sound, but remains part of the speculative
@@ -356,10 +340,7 @@ ApplyResult failed_literal_apply_chained_binary(
       // in Kissat; committing at root early changes candidate retention.
       //
       // At saved level zero the stamp IS a root assertion, so the id belongs
-      // here by the same assert-time rule: the binary closure propagated below
-      // is then root-level too, and `kernel_emit_root_units` names this literal
-      // as its antecedent.  A root literal whose id is still 0 would truncate
-      // that chain.  Above the root the literal is not a root value and the id
+      // here by the same assert-time rule.  Above the root the literal is not a root value and the id
       // stays with the batch until the replay commits it.
       if (!saved_level)
         k.unit_ids[var_of(unit)] = id;
@@ -412,9 +393,8 @@ ApplyResult failed_literal_apply_chained_binary(
         if (value < 0) {
           // The batch contradicts the root. Refuting here without the lemma
           // the two units resolve to leaves an UNSATISFIABLE answer whose
-          // proof never derives the empty clause (corpus 023).  Read the
-          // opposite literal's id BEFORE overwriting the entry.
-          kernel_emit_empty_from_pair(k, proved.second, k.unit_ids[v]);
+          // proof never derives the empty clause (corpus 023).
+          kernel_emit_empty(k);
           k.unit_ids[v] = proved.second;
           return ApplyResult::Unsat;
         }

@@ -36,7 +36,7 @@ def main():
         unsat.write_text('p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2 0\n')
 
         def run(cnf=sat, options=(), env=None, proof=None):
-            args = [str(binary), '-q', '--drat', '--no-binary', *options, str(cnf)]
+            args = [str(binary), '-q', '--dsr', '--no-binary', *options, str(cnf)]
             if proof is not None:
                 args.append(str(proof))
             started = time.monotonic()
@@ -85,14 +85,14 @@ def main():
             name = 'default-' + cnf.stem
             options = []
             records = work / f'{name}.jsonl'
-            before = run(cnf, options, proof=work / f'{name}-off.drat')
-            recorded = run(cnf, [*options, f'--feedback={records}'], proof=work / f'{name}-on.drat')
-            replayed = run(cnf, [*options, f'--feedback-replay={records}'], proof=work / f'{name}-replay.drat')
+            before = run(cnf, options, proof=work / f'{name}-off.dsr')
+            recorded = run(cnf, [*options, f'--feedback={records}'], proof=work / f'{name}-on.dsr')
+            replayed = run(cnf, [*options, f'--feedback-replay={records}'], proof=work / f'{name}-replay.dsr')
             assert before.returncode == recorded.returncode == replayed.returncode == expected, (
                 name, before.returncode, recorded.returncode, replayed.returncode,
                 before.stderr, recorded.stderr, replayed.stderr)
             assert before.stdout == recorded.stdout == replayed.stdout
-            certificates = [(work / f'{name}-{arm}.drat').read_bytes() for arm in ('off', 'on', 'replay')]
+            certificates = [(work / f'{name}-{arm}.dsr').read_bytes() for arm in ('off', 'on', 'replay')]
             assert certificates[0] == certificates[1] == certificates[2]
             summary = inspector.inspect(records)
             assert summary['terminal']['verdict'] == expected
@@ -100,7 +100,7 @@ def main():
             assert fields['build-sha256'] == hashlib.sha256(binary.read_bytes()).hexdigest()
             assert fields['input-sha256'] == hashlib.sha256(cnf.read_bytes()).hexdigest()
             assert fields['policy'] == 'default'
-            oracle(recorded, cnf, work / f'{name}-on.drat', name)
+            oracle(recorded, cnf, work / f'{name}-on.dsr', name)
             if cnf == sat:
                 saved = records.read_text()
                 saved_solver_output = recorded.stdout
@@ -113,20 +113,20 @@ def main():
         assert 'feedback verification' in mismatch.stderr  # Proof enablement is provenance.
         changed_env = dict(environment, TACTIX_FORCE_MODE='stable')
         assert run(options=[f'--feedback-replay={records}'], env=changed_env,
-                   proof=work / 'different-config.drat').returncode == 1
+                   proof=work / 'different-config.dsr').returncode == 1
         for malformed in (saved.rsplit('\n', 2)[0] + '\n', saved + '{}\n'):
             records.write_text(malformed)
-            outcome = run(options=[f'--feedback-replay={records}'], proof=work / 'negative.drat')
+            outcome = run(options=[f'--feedback-replay={records}'], proof=work / 'negative.dsr')
             assert outcome.returncode == 1 and outcome.stdout == saved_solver_output
-            assert (work / 'negative.drat').read_bytes() == saved_certificate
+            assert (work / 'negative.dsr').read_bytes() == saved_certificate
             assert 'feedback verification' in outcome.stderr  # No solver abort/fallback.
         rows = saved.splitlines(keepends=True)
         first_action = next(i for i, row in enumerate(rows) if '"type":"action"' in row)
         rows[first_action] = rows[first_action].replace('"sequence":1', '"sequence":2', 1)
         records.write_text(''.join(rows))
-        outcome = run(options=[f'--feedback-replay={records}'], proof=work / 'divergence.drat')
+        outcome = run(options=[f'--feedback-replay={records}'], proof=work / 'divergence.dsr')
         assert outcome.returncode == 1 and outcome.stdout == saved_solver_output
-        assert (work / 'divergence.drat').read_bytes() == saved_certificate
+        assert (work / 'divergence.dsr').read_bytes() == saved_certificate
         assert 'divergence' in outcome.stderr
         # Only timing records change; all deterministic fields remain identical.
         rows = saved.splitlines(keepends=True)
@@ -135,14 +135,14 @@ def main():
                 value = json.loads(row)['value'] + 999
                 rows[index] = '{"type":"elapsed_nanos","value":' + str(value) + '}\n'
         records.write_text(''.join(rows))
-        assert run(options=[f'--feedback-replay={records}'], proof=work / 'timing.drat').returncode == 10
+        assert run(options=[f'--feedback-replay={records}'], proof=work / 'timing.dsr').returncode == 10
         relocated = work / 'relocated.cnf'
         relocated.write_bytes(sat.read_bytes())
-        assert run(relocated, [f'--feedback-replay={records}'], proof=work / 'relocated.drat').returncode == 10
+        assert run(relocated, [f'--feedback-replay={records}'], proof=work / 'relocated.dsr').returncode == 10
         records.write_text(saved)
         changed = work / 'changed.cnf'
         changed.write_text(sat.read_text() + 'c content changed\n')
-        assert run(changed, [f'--feedback-replay={records}'], proof=work / 'changed.drat').returncode == 1
+        assert run(changed, [f'--feedback-replay={records}'], proof=work / 'changed.dsr').returncode == 1
         for extension, compress in [('gz', lambda raw: gzip.compress(raw, mtime=0)), ('xz', lzma.compress)]:
             cnf = work / f'sat.cnf.{extension}'
             cnf.write_bytes(compress(sat.read_bytes()))

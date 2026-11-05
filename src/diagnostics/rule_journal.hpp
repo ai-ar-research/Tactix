@@ -73,10 +73,8 @@ void rule_journal_note_cube_reconstruction(const Kernel &, const uint32_t *claus
                                            uint32_t nclause,
                                            const uint32_t *witness,
                                            uint32_t nwitness);
-void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
-                           uint32_t nchain);
-void rule_journal_note_rat(uint64_t id, const int64_t *hints,
-                           uint32_t nhints);
+void rule_journal_note_rup(uint64_t id);
+void rule_journal_note_rat(uint64_t id);
 std::string rule_journal_transaction_deltas();
 std::string rule_journal_transaction_antecedents();
 std::string rule_journal_transaction_witnesses();

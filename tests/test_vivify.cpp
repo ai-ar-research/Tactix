@@ -502,7 +502,7 @@ static void test_schedule_prefix_flush() {
   assert(fd >= 0);
   close(fd);
   Proof proof;
-  assert(proof.open(path, ProofFormat::DratAscii));
+  assert(proof.open(path, ProofFormat::DsrAscii));
   k.proof = &proof;
   std::vector<Ref> cands;
   vivify_candidates(k, cands);

@@ -4542,7 +4542,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (!configuration_checking_preprocessing_deferred_ &&
       config_.inprocess.structured_root_before_lucky &&
       !config_.inprocess.structured_root_stages.empty() &&
-      (!k.proof || k.proof->supports_sr())) {
+      (!k.proof || !k.proof->terminal_pbp())) {
     port::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
     const uint64_t amo_binaries_before =
         k.stats.sr_unique_literal_amo_binaries;
@@ -6462,7 +6462,7 @@ int DefaultInprocessScheduler::run_structured_root(
                 : config().structured_root_stages;
   if (stages.empty())
     return 0;
-  if (k.proof && !k.proof->supports_sr()) {
+  if (k.proof && k.proof->terminal_pbp()) {
     ++structured_root.proof_format_declines;
     structured_root.terminal = InvocationStatus::Inapplicable;
     return 0;

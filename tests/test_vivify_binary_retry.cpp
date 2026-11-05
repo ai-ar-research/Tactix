@@ -25,7 +25,7 @@ static bool fixture(bool redundant, bool instantiate, bool reuse, bool preset, i
   int fd = mkstemp(path); assert(fd >= 0); close(fd);
   Proof proof;
   if (mode) {
-    assert(proof.open(path, mode == 1 ? ProofFormat::DratAscii : ProofFormat::Lrat));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     k.proof = &proof;
   }
   const auto &rule = tactix_rules()[tactix_rule_id("Vivify")];
@@ -50,7 +50,7 @@ static bool fixture(bool redundant, bool instantiate, bool reuse, bool preset, i
 int main(int argc, char **argv) {
   unsigned missing = 0;
   for (bool redundant : {false, true}) for (bool instantiate : {false, true})
-    for (bool reuse : {false, true}) for (bool preset : {false, true}) for (int mode : {0, 1, 2})
+    for (bool reuse : {false, true}) for (bool preset : {false, true}) for (int mode : {0, 1})
       missing += !fixture(redundant, instantiate, reuse, preset, mode);
   if (argc == 2 && std::string(argv[1]) == "--expect-old-missing") {
     assert(missing == 24); std::puts("PASS: actual parent misses advice in all24 irredundant cases");

@@ -597,8 +597,7 @@ bool install_clause(Kernel &kernel, const Event &event) {
     kernel.inconsistent = true;
   } else if (clause.size() == 1) {
     if (kernel.value(clause[0]) < 0) {
-      kernel_emit_empty_from_pair(
-          kernel, event.id, kernel.unit_ids[var_of(clause[0])]);
+      kernel_emit_empty(kernel);
       return true;
     }
     if (!kernel.value(clause[0])) {

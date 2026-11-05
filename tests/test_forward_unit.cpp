@@ -230,14 +230,12 @@ int main(int argc, char **argv) {
     connected_large_chain(dense);
     quota_after_unit(dense);
     quota_equality_admits_tail(dense);
-    for (unsigned chain = 0; chain != 4; ++chain)
-      for (ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
-        const std::string stem = argc > 1 ? std::string(argv[1]) + "/forward-" +
-            std::to_string(dense) + "-" + std::to_string(chain) +
-            (format == ProofFormat::Lrat ? "-lrat" : "-drat") : "";
-        proof_case(dense, chain, format, stem);
-      }
+    for (unsigned chain = 0; chain != 4; ++chain) {
+      const std::string stem = argc > 1 ? std::string(argv[1]) + "/forward-" +
+          std::to_string(dense) + "-" + std::to_string(chain) : "";
+      proof_case(dense, chain, ProofFormat::DsrAscii, stem);
+    }
   }
   explicit_instance_stays_single_action();
-  std::puts("PASS forward units: 17 state/model cases and16 proof cases");
+  std::puts("PASS forward units: 17 state/model cases and 8 proof cases");
 }

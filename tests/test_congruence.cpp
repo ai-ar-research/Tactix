@@ -122,7 +122,7 @@ static void test_root_satisfied_binary_deleted_at_entry() {
 // fresh proof identities and re-arm both Factor polarities.  The old liveness
 // shortcut skipped that complete lifecycle and lost Rank-27 candidates.
 static void test_existing_representative_pair_is_republished() {
-  for (const ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
+  {
     Kernel k;
     kernel_reserve_vars(k, 4); // x1=1 x2=2 a=3 b=4
     and_gate(k, 3, 1, 2);
@@ -137,10 +137,9 @@ static void test_existing_representative_pair_is_republished() {
     const uint64_t deleted_before = k.stats.binaries_deleted;
 
     const std::string path = "/tmp/tactix-congruence-republish-" +
-                             std::to_string(static_cast<long>(getpid())) +
-                             (format == ProofFormat::Lrat ? ".lrat" : ".drat");
+                             std::to_string(static_cast<long>(getpid())) + ".dsr";
     Proof proof;
-    assert(proof.open(path.c_str(), format));
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
     proof.bind_variable_map(&k.internal_to_external);
     k.proof = &proof;
     assert(congruence_apply(k) == ApplyResult::Ok);
@@ -335,13 +334,13 @@ static void test_xor_cancel_learns_unit() {
 
 // A root-valued input and an independently cancelled pair still require the
 // XOR degeneracy ladder. The old value-derived branch tried the conclusion as
-// one direct LRAT lemma, found it non-RUP, and silently lost the sound unit.
+// one direct lemma, found it non-RUP, and silently lost the sound unit.
 static void test_xor_value_plus_cancel_uses_ladder() {
   const std::string path = "/tmp/tactix-congruence-valued-xor-" +
                            std::to_string(static_cast<long>(getpid())) +
-                           ".lrat";
+                           ".dsr";
   Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   Kernel k;
   kernel_reserve_vars(k, 6); // a=1 out=2 x=3 y=4 p=5 q=6
   proof.bind_variable_map(&k.internal_to_external);
@@ -386,12 +385,10 @@ static void test_xor_value_plus_cancel_uses_ladder() {
 // unassigned — so Canon::InputUnit must run the same cancellation ladder as
 // Canon::Unit. The output owns the smallest variable so its gate pops first
 // and the InputUnit channel, not the sibling Unit gate, draws the inference.
-// Pre-repair, native LRAT declined the sound unit (congruence_unjustified)
-// while DRAT emitted it without the justifying rungs.
 static void test_xor_input_unit_with_cancel_uses_ladder() {
-  const auto run = [](ProofFormat format, const std::string &path) {
+  const auto run = [](const std::string &path) {
     Proof proof;
-    assert(proof.open(path.c_str(), format));
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
     Kernel k;
     kernel_reserve_vars(k, 6); // out=1 a=2 x=3 y=4 p=5 q=6
     proof.bind_variable_map(&k.internal_to_external);
@@ -433,17 +430,14 @@ static void test_xor_input_unit_with_cancel_uses_ladder() {
 
   const std::string base = "/tmp/tactix-congruence-input-unit-" +
                            std::to_string(static_cast<long>(getpid()));
-  const std::string lrat_path = base + ".lrat";
-  run(ProofFormat::Lrat, lrat_path);
-  std::remove(lrat_path.c_str());
 
-  // DRAT admission: the unit line must be preceded by both top-level ladder
+  // The unit line must be preceded by both top-level ladder
   // rungs over the cancelled representative (x ≡ y, so either variable), or
   // the certificate states an unsupported unit and the checker rejects it.
-  const std::string drat_path = base + ".drat";
-  run(ProofFormat::DratAscii, drat_path);
+  const std::string proof_path = base + ".dsr";
+  run(proof_path);
   {
-    FILE *f = std::fopen(drat_path.c_str(), "r");
+    FILE *f = std::fopen(proof_path.c_str(), "r");
     assert(f);
     char buf[256];
     bool rung_pos = false, rung_neg = false, unit_line = false;
@@ -459,11 +453,11 @@ static void test_xor_input_unit_with_cancel_uses_ladder() {
         rung_neg = true;
     }
     std::fclose(f);
-    assert(unit_line && "the unit must be in the DRAT proof");
+    assert(unit_line && "the unit must be in the proof");
     assert(rung_pos && rung_neg &&
            "both ladder rungs must justify the unit before it is added");
   }
-  std::remove(drat_path.c_str());
+  std::remove(proof_path.c_str());
 }
 
 // A late unit must revisit an already-consumed gate that mentions it, without
@@ -1077,48 +1071,14 @@ static void test_canonical_literal_form_xor_ite_refutations() {
          !ite_kernel.stats.congruence_unjustified);
 }
 
-// A root unit already supplied by the negated lemma is not a unit hint:
-// under ~(1 v -2), literal 2 is an assumption, not a propagation. The
-// remaining two clauses still give a complete ordered LRAT refutation.
-static void test_lrat_replay_omits_root_unit_in_initial_cube() {
-  TemporaryFile proof_file;
-  FILE *input = std::tmpfile(), *sink = proof_file.stream;
-  assert(input && sink);
-  // Put the unit last: input normalization must not strip -2 from the
-  // earlier ternary, or its root reason never enters the replay walk.
-  std::fputs("p cnf 3 3\n-2 1 3 0\n1 -3 0\n2 0\n", input);
-  std::rewind(input);
-  Kernel k;
-  Proof proof;
-  assert(proof.open(proof_file.path.c_str(),
-                    ProofFormat::Lrat));
-  proof.bind_variable_map(&k.internal_to_external);
-  k.proof = &proof;
-  assert(!parse_dimacs(input, k));
-  const Lit root = kernel_internalize(k, 2);
-  const uint64_t root_id = k.unit_ids[var_of(root)];
-  assert(root_id);
-  const Lit lemma[] = {kernel_internalize(k, 1), kernel_internalize(k, -2)};
-  std::vector<uint64_t> chain;
-  assert(congruence_replay_rup(k, lemma, 2, chain));
-  assert(std::find(chain.begin(), chain.end(), root_id) == chain.end());
-  // Under the complete cube {-1, 2}, clause 1 propagates 3 and clause 2
-  // closes the refutation. The order is part of the LRAT hint contract.
-  assert((chain == std::vector<uint64_t>{1, 2}));
-  k.proof = nullptr;
-  std::fclose(input);
-}
-
 static int semantic_proof_witness(const char *input_path,
                                   const char *proof_path,
                                   const char *mode,
                                   const char *wanted_kind) {
   Kernel k;
   Proof proof;
-  const ProofFormat format = std::string(mode) == "lrat"
-                                 ? ProofFormat::Lrat
-                                 : ProofFormat::DratAscii;
-  assert(proof.open(proof_path, format));
+  assert(std::string(mode) == "dsr");
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
   k.proof = &proof;
   proof.bind_variable_map(&k.internal_to_external);
   FILE *input = std::fopen(input_path, "r");
@@ -1228,7 +1188,6 @@ int main(int argc, char **argv) {
   test_individual_literal_form_xor_refutation();
   test_individual_literal_form_ite_refutation();
   test_canonical_literal_form_xor_ite_refutations();
-  test_lrat_replay_omits_root_unit_in_initial_cube();
   std::printf("test_congruence: all passed\n");
   return 0;
 }

@@ -8,7 +8,7 @@
 //          | bit8 vivify | bit9 shrunken | bits10-11 Factor scratch
 //          | bit12 detached reason | bits13.. glue
 //   word2  searched (index of last replacement-scan position, >= 2)
-//   word3  id_lo   (proof clause id, low word — native LRAT hints;
+//   word3  id_lo   (proof clause id, low word;
 //   word4  id_hi    CaDiCaL stores int64 ids the same way)
 //   word5+ literals
 #pragma once

@@ -207,31 +207,14 @@ static void mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
       marks[l] = on;
 }
 
-// partner found by a scan: NONE / SUBSUMED / STRENGTHEN with the flipped
-// literal plus what the LRAT chain needs (partner id + its absorbed units)
+// partner found by a scan: NONE / SUBSUMED / STRENGTHEN with the flipped literal
 struct Partner {
   CheckResult res;
-  uint64_t id = 0;
-  std::vector<uint64_t> absorbed; // unit ids of root-falsified partner lits
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   Ref trace_ref = INVALID_REF;
   Lit trace_a = INVALID_LIT, trace_b = INVALID_LIT;
 #endif
 };
-
-// Record large partner `d` with its check result; LRAT also needs the partner
-// id and the units of its root-falsified literals.
-static void capture_large_partner(const Kernel &k, bool lrat, Partner &p,
-                                  const CheckResult &r, const Clause *d) {
-  p.res = r;
-  p.absorbed.clear();
-  if (lrat) {
-    p.id = d->id();
-    for (const Lit m : *d)
-      if (k.value(m) < 0)
-        p.absorbed.push_back(k.unit_ids[var_of(m)]);
-  }
-}
 
 // Kissat's forward-subsumption index is one mixed watch stream per literal.
 // Dense-mode entry first flushes every large reference, leaving the binary
@@ -313,12 +296,11 @@ static void trace_forward_result(const Kernel &k, const Clause *candidate,
   }
   std::fprintf(out,
                "result\tindex=%zu\tid=%llu\taction=%d\tflipped=%d\t"
-               "partner_id=%llu\tpartner=",
+               "partner_id=0\tpartner=",
                index, (unsigned long long)candidate->id(), partner.res.kind,
                partner.res.flipped == INVALID_LIT
                    ? 0
-                   : kernel_externalize(k, partner.res.flipped),
-               (unsigned long long)partner.id);
+                   : kernel_externalize(k, partner.res.flipped));
   if (partner.trace_ref != INVALID_REF) {
     const Clause *source = clause_at(k.arena, partner.trace_ref);
     std::fputs("large:", out);
@@ -358,10 +340,10 @@ static void forward_assign_root(Kernel &k, Lit unit, uint32_t reason,
   const size_t from = k.trail.size();
   kernel_assign(k, unit, 0, reason, binary);
   if (k.proof) {
-    if (k.proof->lrat() || k.proof->dsr())
+    if (k.proof->dsr())
       kernel_emit_root_units(k, from);
     else
-      k.proof->add_rup(0, &unit, 1, nullptr, 0);
+      k.proof->add_rup(0, &unit, 1);
   }
   Assigned &assigned = k.assigned[var_of(unit)];
   assigned.reason = UNIT_REASON;
@@ -369,10 +351,8 @@ static void forward_assign_root(Kernel &k, Lit unit, uint32_t reason,
   assigned.jumped = false;
 }
 
-static void forward_refute(Kernel &k, const Clause *clause,
-                           Lit first = INVALID_LIT, Lit second = INVALID_LIT) {
-  emit_falsified_refutation(k, clause, first, second);
-  k.inconsistent = true;
+static void forward_refute(Kernel &k) {
+  kernel_emit_empty(k);
   k.conflict_valid = false;
 }
 
@@ -393,7 +373,7 @@ static bool forward_propagate_units(Kernel &k, const Streams &watches,
         if (k.value(other) > 0)
           continue;
         if (k.value(other) < 0) {
-          forward_refute(k, nullptr, false_lit, other);
+          forward_refute(k);
           return false; // native does not charge the conflicting scan
         }
         if (!kernel_var_retired(k, var_of(other)))
@@ -423,7 +403,7 @@ static bool forward_propagate_units(Kernel &k, const Streams &watches,
       if (satisfied)
         continue;
       if (!non_false) {
-        forward_refute(k, clause);
+        forward_refute(k);
         return false;
       }
       if (non_false == 1)
@@ -520,7 +500,6 @@ static Partner find_forward_partner(
     std::vector<std::vector<ForwardWatch>> &watches, uint64_t &steps,
     uint64_t &changed) {
   Partner p;
-  const bool lrat = k.proof && k.proof->lrat();
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
@@ -587,21 +566,16 @@ static Partner find_forward_partner(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
             trace_forward_match(k, selected, p, INVALID_REF, probe, other, 0);
 #endif
-            if (lrat)
-              p.id = kernel_binary_id(k, probe, other);
             stop_stream = true;
             break;
           }
           if (marks[negate(other)]) {
             p.res.kind = CheckResult::STRENGTHEN;
             p.res.flipped = other;
-            p.absorbed.clear();
 #ifdef TACTIX_ENABLE_EVENT_TRACE
             trace_forward_match(k, selected, p, INVALID_REF, probe, other,
                                 kernel_externalize(k, p.res.flipped));
 #endif
-            if (lrat)
-              p.id = kernel_binary_id(k, probe, other);
             // A binary strengthener terminates this physical watch walk.
             // The opposite-phase walk for the same candidate literal still
             // follows, just as the second forward_literal call in Kissat.
@@ -626,7 +600,7 @@ static Partner find_forward_partner(
         }
         if (r.kind == CheckResult::NONE)
           continue;
-        capture_large_partner(k, lrat, p, r, d);
+        p.res = r;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         trace_forward_match(k, selected, p, watch.ref(), INVALID_LIT,
                             INVALID_LIT,
@@ -661,14 +635,9 @@ static Partner find_forward_partner(
 // copies. Returns the number of retired copies, or UINT64_MAX on refutation.
 static uint64_t sweep_forward_binaries(Kernel &k, uint64_t watermark,
                                        bool filtered) {
-  struct UnitWitness {
-    Lit unit;
-    uint64_t first, second;
-  };
-  std::vector<UnitWitness> units;
+  std::vector<Lit> units;
   std::vector<std::pair<Lit, Lit>> duplicates;
   std::vector<uint8_t> marks(2 * static_cast<size_t>(k.nvars), 0);
-  std::vector<uint64_t> ids(2 * static_cast<size_t>(k.nvars), 0);
   for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
     const Var v = var_of(lit);
     if (kernel_var_retired(k, v) || k.value(lit) != 0 ||
@@ -694,16 +663,12 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t watermark,
         continue; // a later physical duplicate; compacted below
       }
       if (marks[negate(other)])
-        units.push_back(
-            {lit, ids[negate(other)], kernel_binary_id(k, lit, other)});
+        units.push_back(lit);
       marks[other] = 1;
-      ids[other] = kernel_binary_id(k, lit, other);
       touched.push_back(other);
     }
-    for (const Lit other : touched) {
+    for (const Lit other : touched)
       marks[other] = 0;
-      ids[other] = 0;
-    }
   }
   uint64_t removed = 0;
   std::sort(duplicates.begin(), duplicates.end());
@@ -712,19 +677,18 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t watermark,
   for (const auto &[a, b] : duplicates)
     removed += kernel_remove_duplicate_binary_copies(k, a, b);
 
-  for (const UnitWitness &w : units) {
-    const int8_t value = k.value(w.unit);
+  for (const Lit unit : units) {
+    const int8_t value = k.value(unit);
     if (value > 0)
       continue;
     const uint64_t id = ++k.next_clause_id;
-    const uint64_t chain[2] = {w.first, w.second};
-    emit_rup_lemma(k, id, &w.unit, 1, chain, 2);
+    emit_rup_lemma(k, id, &unit, 1);
     if (value < 0) {
-      kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(w.unit)]);
+      kernel_emit_empty(k);
       return UINT64_MAX;
     }
-    k.unit_ids[var_of(w.unit)] = id;
-    kernel_assign_unit(k, w.unit);
+    k.unit_ids[var_of(unit)] = id;
+    kernel_assign_unit(k, unit);
     removed++;
   }
   if (!units.empty() && inprocess_reach_root(k))
@@ -738,7 +702,6 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t watermark,
 static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
                             const Clause *c, Ref self, uint64_t &visits) {
   Partner p;
-  const bool lrat = k.proof && k.proof->lrat();
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
@@ -760,16 +723,11 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       // argument in subsume_forward.hpp covers this
       if (marks[o]) { // (l ∨ o), both in candidate: subsumes
         p.res.kind = CheckResult::SUBSUMED;
-        if (lrat)
-          p.id = kernel_binary_id(k, l, o);
         return p;
       }
       if (marks[negate(o)]) { // (l ∨ o), candidate has ¬o: drop ¬o
         p.res.kind = CheckResult::STRENGTHEN;
         p.res.flipped = o;
-        p.absorbed.clear();
-        if (lrat)
-          p.id = kernel_binary_id(k, l, o);
         // Kissat breaks this one `forward_literal` watch walk, but
         // carries `remove` into the remaining candidate literals where
         // a later strengthener may overwrite it.
@@ -798,7 +756,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         const CheckResult r = check_marked(k, marks, d);
         if (r.kind == CheckResult::NONE)
           continue;
-        capture_large_partner(k, lrat, p, r, d);
+        p.res = r;
         if (r.kind == CheckResult::SUBSUMED)
           return p;
         // Large strengtheners do not break `forward_literal`; the last valid
@@ -868,7 +826,6 @@ static bool find_semantic_strengthener(Kernel &k,
                                        const std::vector<uint8_t> &marks,
                                        const Clause *candidate, Ref self,
                                        Lit gone, Partner &out) {
-  const bool lrat = k.proof && k.proof->lrat();
   for (const Lit l : *candidate) {
     if (k.value(l) != 0)
       continue;
@@ -887,9 +844,6 @@ static bool find_semantic_strengthener(Kernel &k,
         out.res.kind = CheckResult::STRENGTHEN;
         out.res.flipped = other;
       }
-      out.absorbed.clear();
-      if (lrat)
-        out.id = kernel_binary_id(k, l, other);
       return true;
     }
   }
@@ -902,7 +856,7 @@ static bool find_semantic_strengthener(Kernel &k,
               : result.kind == CheckResult::STRENGTHEN &&
                     negate(result.flipped) == gone;
       if (selected) {
-        capture_large_partner(k, lrat, out, result, d);
+        out.res = result;
         return true;
       }
     }
@@ -934,18 +888,13 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
   }
   // Strengthen: rebuild from free literals minus the resolved one.
   const Lit gone = negate(p.res.flipped);
-  const bool lrat = k.proof && k.proof->lrat();
   std::vector<Lit> lits;
-  std::vector<uint64_t> chain;
   lits.reserve(c->size);
   for (const Lit l : *c) {
     if (l == gone)
       continue;
-    if (k.value(l) < 0) { // stripped; its unit absorbs it for the checker
-      if (lrat)
-        chain.push_back(k.unit_ids[var_of(l)]);
+    if (k.value(l) < 0) // stripped; its unit absorbs it for the checker
       continue;
-    }
     lits.push_back(l);
   }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -962,24 +911,7 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
   }
 #endif
   const uint64_t id = ++k.next_clause_id;
-  if (lrat) {
-    chain.insert(chain.end(), p.absorbed.begin(), p.absorbed.end());
-    // The victim and partner may contain the same root-false literal. Its
-    // unit is needed only once; a second citation is not a propagation in
-    // the checker's LRAT replay (AM358-v2 H3).
-    size_t kept = 0;
-    for (const uint64_t hint : chain) {
-      bool duplicate = false;
-      for (size_t i = 0; i < kept && !duplicate; i++)
-        duplicate = chain[i] == hint;
-      if (!duplicate)
-        chain[kept++] = hint;
-    }
-    chain.resize(kept);
-    chain.push_back(p.id);    // partner propagates the flipped literal
-    chain.push_back(c->id()); // then the original conflicts
-  }
-  emit_rup_lemma(k, id, lits, chain);
+  emit_rup_lemma(k, id, lits);
   k.stats.strengthened++;
   (*changed)++;
   // Rewrites preserve redundancy; read before the replacement garbages `c`.
@@ -1222,7 +1154,7 @@ ApplyResult strengthen_apply(Kernel &k) {
       continue;
     }
     if (!non_false) {
-      forward_refute(k, c);
+      forward_refute(k);
       return ApplyResult::Unsat;
     }
     if (non_false == 1) {

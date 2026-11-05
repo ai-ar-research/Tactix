@@ -64,9 +64,7 @@ typedef struct tactix_solver tactix;
 #define TACTIX_LIT_INSTANCE(elit) ((uint64_t)(uint32_t)(int32_t)(elit))
 
 /* proof formats */
-#define TACTIX_PROOF_DRAT_BINARY 0
-#define TACTIX_PROOF_DRAT_ASCII 1
-#define TACTIX_PROOF_LRAT 2 /* native LRAT: antecedent hints */
+/* Proof-format values 0 to 2 are retired and rejected. */
 #define TACTIX_PROOF_DSR_BINARY 3 /* canonical DSR stream */
 #define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
 /* Proof-format value 5 is retired and rejected. */
@@ -196,8 +194,8 @@ int tactix_read_dimacs(tactix *, FILE *);
 int tactix_proof(tactix *, const char *path, int format);
 
 /* The verification route of the attached proof as written so far: "pbp",
-   "dsr-trestle" (witnessed DSR), "dsr-cake_lpr" (witness-free DSR), "lrat" or
-   "drat"; NULL without a proof. An automatic proof reports its final route
+   "dsr-trestle" (witnessed DSR) or "dsr-cake_lpr" (witness-free DSR); NULL
+   without a proof. An automatic proof reports its final route
    once the solver has derived the empty clause. */
 const char *tactix_proof_route(tactix *);
 

@@ -289,7 +289,6 @@ bool discover(Kernel &kernel, uint64_t maximum_work, Discovery &result) {
 struct PlannedClause {
   Lit first = INVALID_LIT;
   Lit second = INVALID_LIT;
-  std::vector<uint64_t> chain;
 };
 
 ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
@@ -334,10 +333,9 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
         ++kernel.stats.graph_interval_equivalence_duplicates;
         continue;
       }
-      PlannedClause plan{clause.first, clause.second, {}};
+      PlannedClause plan{clause.first, clause.second};
       const Lit literals[2] = {plan.first, plan.second};
-      if (!congruence_replay_rup(kernel, literals, 2, plan.chain,
-                                 RupReplay::Decide)) {
+      if (!congruence_replay_rup(kernel, literals, 2)) {
         ++kernel.stats.graph_interval_equivalence_rup_rejected;
         return ApplyResult::NoOp;
       }
@@ -407,14 +405,14 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
   for (const PlannedClause &plan : planned) {
     const uint64_t id = ++kernel.next_clause_id;
     const Lit literals[2] = {plan.first, plan.second};
-    emit_rup_lemma(kernel, id, literals, 2, plan.chain);
+    emit_rup_lemma(kernel, id, literals, 2);
     kernel_add_binary_clause(kernel, plan.first, plan.second, id);
     std::fprintf(out,
         "{\"action\":%llu,\"kind\":\"publish-interval-equivalence\","
-        "\"id\":%llu,\"clause\":[%d,%d],\"rup_hints\":%zu}\n",
+        "\"id\":%llu,\"clause\":[%d,%d],\"rup_hints\":0}\n",
         (unsigned long long)action, (unsigned long long)id,
         kernel_externalize(kernel, plan.first),
-        kernel_externalize(kernel, plan.second), plan.chain.size());
+        kernel_externalize(kernel, plan.second));
   }
   kernel.structural_action_sequence = action;
   kernel.stats.graph_interval_equivalence_selected += selected.size();

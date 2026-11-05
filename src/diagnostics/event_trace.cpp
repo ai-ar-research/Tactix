@@ -365,17 +365,12 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
       capacity_bytes(k.otfs_scratch) + capacity_bytes(k.otfs_retired) +
       capacity_bytes(k.radix_scratch) + capacity_bytes(k.marked_levels) +
       capacity_bytes(k.touched_levels) + capacity_bytes(k.eager_marks) +
-      capacity_bytes(k.reason_walk_stack) + capacity_bytes(k.jump_pending) +
       capacity_bytes(k.sweep_tail) + capacity_bytes(k.sweep_front) +
       capacity_bytes(k.sweep_slot) + capacity_bytes(k.sweep_marked);
   const size_t input_bytes =
-      capacity_bytes(k.input_restatements) +
-      capacity_bytes(k.input_restate_lits) +
-      capacity_bytes(k.input_restate_units) +
       capacity_bytes(k.input_activation_order) +
       capacity_bytes(k.input_activated) +
-      capacity_bytes(k.input_marks) +
-      capacity_bytes(k.input_refutation_units);
+      capacity_bytes(k.input_marks);
   const size_t touch_bytes =
       capacity_bytes(k.bve_retry) + capacity_bytes(k.factor_marks) +
       capacity_bytes(k.subsume_material) +
@@ -389,8 +384,7 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
       capacity_bytes(k.probing.stamp) + capacity_bytes(k.probing.clauses);
   const size_t proof_index_bytes =
       capacity_bytes(k.unit_ids) + capacity_bytes(k.dsr_root_values) +
-      k.binary_ids.diagnostic_storage_bytes() +
-      capacity_bytes(k.lrat_entries) + capacity_bytes(k.lrat_chain);
+      k.binary_ids.diagnostic_storage_bytes();
   size_t heuristics_bytes = 0;
   if (k.h) {
     heuristics_bytes =

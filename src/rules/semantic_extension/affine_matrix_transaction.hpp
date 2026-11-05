@@ -70,12 +70,11 @@ struct MatrixProofCacheEntry {
 };
 
 // Proof-only RAT definitions and their derived root unit may remain in a
-// DSR/DRAT checker population across service calls.  Entries are owned by one
+// DSR checker population across service calls.  Entries are owned by one
 // affine search session, whose existing proof/owner checks delimit their
 // lifetime.  Entry IDs are never reused when an epoch retires DSR support, so
 // journal references remain unambiguous.  DSR retires support at the next
-// witnessed add_sr boundary; DRAT has no witnessed boundary and retains them
-// to proof end.  The variables are namespace-only holes and never become
+// witnessed add_sr boundary.  The variables are namespace-only holes and never become
 // branchable kernel variables.
 class AffineMatrixProofCache {
 public:

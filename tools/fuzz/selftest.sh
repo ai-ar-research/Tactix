@@ -100,8 +100,6 @@ echo "== and the NATIVE-LRAT oracle must still fire                          =="
 # so the cross-check must skip visibly and counted rather than blame the
 # solver. Evidence:
 # benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md.
-# The native-LRAT oracle reads ids the emitter here wrote and must keep
-# checking these cases: it is the oracle covering the frontend restatement.
 printf 'p cnf 3 5\n1 1 0\n-1 2 0\n-1 3 0\n-2 -3 0\n2 3 0\n' > "$TMP/dup.cnf"
 # (a) the conversion cross-check stands down, and says so
 $FUZZ check-one --solver "$KISSAT" --timeout 10 --lrat "$TMP/dup.cnf" \
@@ -123,22 +121,5 @@ grep -q "NOT VERIFIED" "$TMP/dup-raw.log" \
          echo "  GONE (checkers upgraded?) -- re-enable the cross-check"; \
          cat "$TMP/dup-raw.log"; exit 1; }
 echo "conversion cross-check skipped, and the disagreement it dodges is real — OK"
-# (c) the native-LRAT oracle still runs and passes on the same CNF
-# TACTIX_FUZZ_SELFTEST_TACTIX names the pinned candidate build to use here.
-TACTIX="${TACTIX_FUZZ_SELFTEST_TACTIX:-$ROOT/build/debug/tactix}"
-if [ ! -x "$TACTIX" ]; then
-    echo "native-LRAT control NOT RUN: no executable $TACTIX"
-else
-    $FUZZ check-one --solver "$TACTIX --lrat" --timeout 10 "$TMP/dup.cnf" \
-        > "$TMP/dup-native.log" 2>&1 || true
-    grep -q "failures=\[\]" "$TMP/dup-native.log" \
-        || { echo "SELFTEST FAILED: native-LRAT oracle rejects a"; \
-             echo "  duplicate-literal CNF"; cat "$TMP/dup-native.log"; exit 1; }
-    grep -q "skipped=" "$TMP/dup-native.log" \
-        && { echo "SELFTEST FAILED: native-LRAT oracle stood down; it must"; \
-             echo "  NOT be gated by the duplicate-literal condition"; \
-             cat "$TMP/dup-native.log"; exit 1; }
-    echo "native-LRAT oracle still fires and passes — OK"
-fi
 
 echo "SELFTEST OK"

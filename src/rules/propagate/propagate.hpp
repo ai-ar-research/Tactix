@@ -1,6 +1,6 @@
 // Propagate (plan §5.2): unit propagation with blocking literals.
 // Canonical instance: propagate the trail to fixpoint or first conflict.
-// Proof delta: none (reasons recorded for Analyze's LRAT hints).
+// Proof delta: none.
 #pragma once
 
 #include "rules/registry.hpp"
@@ -11,12 +11,10 @@ RuleEligibility propagate_guard(const Kernel &);
 ApplyResult propagate_apply(Kernel &);
 
 // The propagation service (a primitive, not a rule): propagate to a fixpoint
-// or first conflict; emit each derived root unit's LRAT id and, on a root
-// conflict, refute. The Propagate rule's `apply` is exactly this. Exposed so
+// or first conflict; emit each derived root unit and, on a root conflict,
+// refute. The Propagate rule's `apply` is exactly this. Exposed so
 // inprocessing rules can reach the root closure `U` at entry — a shared
-// primitive like `kernel_propagate`, not a rule calling a rule. The root-unit
-// emission is load-bearing for them: a drained unit needs `unit_ids[v]` set
-// before any LRAT chain can cite it.
+// primitive like `kernel_propagate`, not a rule calling a rule.
 ApplyResult propagate_service(Kernel &);
 
 // Guard-purification helper (D-LEVEL): an inprocessing rule whose guard does

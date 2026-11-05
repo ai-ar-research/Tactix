@@ -125,11 +125,10 @@ private:
 
 // Split preparation is proofless by construction: Proof's private stream
 // cannot be authenticated across a caller-visible gap.  Atomic apply supports
-// DSR, DRAT, no-proof and streaming PBP modes. LRAT and terminal-PBP decline
-// before mutation.
+// DSR, no-proof and streaming PBP modes. Terminal-PBP declines before mutation.
 Result prepare(Kernel &, const Request &, Prepared &);
 // Mutation-free atomic preflight.  Unlike split prepare(), inspection is also
-// available with DSR/DRAT because no proof stream is retained or written.
+// available with DSR because no proof stream is retained or written.
 Result inspect(Kernel &, const Request &, Prepared &);
 Result apply(Kernel &, const Request &, Prepared &);
 Result apply(Kernel &, const Request &);

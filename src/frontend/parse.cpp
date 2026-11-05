@@ -184,15 +184,13 @@ static void capture_raw_input_shape(Kernel &k,
 }
 
 // N2 input identity: the checker numbers raw file clauses by position, so any
-// normalization can diverge from the stored clause. Add each exact narrowed
-// clause after input: LRAT cites root units then the file id; DRAT searches for
-// the same RUP justification. This includes duplicate removal because a later
-// DRAT deletion matches a literal multiset, not set semantics. Mid-input
-// refutation is likewise deferred so LRAT's input namespace is never crossed.
-// Cases and checker evidence:
+// normalization can diverge from the stored clause. A DSR deletion matches a
+// literal multiset, not set semantics, and a retained raw clause can make a
+// later deletion retire the wrong copy or change a RAT/SR obligation. So publish
+// the exact narrowed clause and retire its raw predecessor immediately. Cases
+// and checker evidence:
 // benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2.
 static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
-                          const std::vector<Lit> &units, Ref ref,
                           const std::vector<Lit> &original) {
   // Record that the checker's clause `id` is not the clause just stored. The
   // count is unconditional, being the reachability probe for this path; the
@@ -201,47 +199,22 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
   k.stats.input_restated++;
   if (!k.proof)
     return;
-  // DSR and DRAT both delete by literals. A retained raw clause can make a
-  // later deletion retire the wrong copy or change a RAT/SR obligation. Both
-  // formats can publish the exact replacement and retire its raw predecessor
-  // immediately; only LRAT must wait for the complete input id namespace.
-  if (!k.proof->lrat()) {
-    assert(!original.empty());
-    k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
-                     nullptr, 0);
-    k.proof->del(k.next_clause_id, id, original.data(),
-                 static_cast<uint32_t>(original.size()));
-    return;
-  }
-  Kernel::InputRestatement r;
-  r.id = id;
-  r.begin = static_cast<uint32_t>(k.input_restate_lits.size());
-  r.size = static_cast<uint32_t>(lits.size());
-  r.unit_begin = static_cast<uint32_t>(k.input_restate_units.size());
-  r.unit_size = static_cast<uint32_t>(units.size());
-  r.ref = ref;
-  k.input_restate_lits.insert(k.input_restate_lits.end(), lits.begin(),
-                              lits.end());
-  k.input_restate_units.insert(k.input_restate_units.end(), units.begin(),
-                               units.end());
-  k.input_restatements.push_back(r);
+  assert(!original.empty());
+  k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()));
+  k.proof->del(k.next_clause_id, id, original.data(),
+               static_cast<uint32_t>(original.size()));
 }
 
 // Kissat closes every new input unit immediately through
 // `kissat_search_propagate` (internal.c:363), so later clauses are added
 // against the resulting root assignment and the scan contributes to both
-// `ticks` and `search_ticks`. Do the same for the proof-less and DRAT paths.
-// Native LRAT must defer this closure until all original input ids have been
-// consumed: propagation-derived units need fresh ids, and a derived id may not
-// precede a later original id in the LRAT namespace.
+// `ticks` and `search_ticks`.
 static void propagate_input_unit(Kernel &k) {
-  if (k.proof && k.proof->lrat())
-    return;
   const bool conflict = kernel_propagate(k);
   if (!conflict)
     return;
   if (k.proof)
-    k.proof->add_empty(0, nullptr, 0); // DRAT needs no antecedent ids
+    k.proof->add_empty(0);
   k.inconsistent = true;
 }
 
@@ -266,8 +239,7 @@ activate_input_literals(Kernel &k, const Lits &lits) {
 // Store the normalized input binary (a, b) unless the pair is already live;
 // returns whether it was stored. A duplicate binary consumes its input id but
 // is not stored or proved; `raw` is that input clause's checker copy.
-// No deletion occurs during import. Native LRAT's BinaryIdMap is therefore
-// the exact live-set image. DRAT/proofless import first asks its compact
+// File import first asks its compact
 // no-false-negative filter, then confirms possible hits against mirrored
 // watches, which remain the exact identity authority after input.
 // Evidence: benchmarks/reports/2026-08-27-sat-factor-marks-search-localization.md.
@@ -283,7 +255,7 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
     observation.note(RawDropped | RawDuplicate);
     // Each raw duplicate still exists in the checker. Keep exactly the
     // one copy represented by the kernel so a later deletion removes it.
-    if (k.proof && !k.proof->lrat())
+    if (k.proof)
       k.proof->del(k.next_clause_id, id, raw.data(),
                    static_cast<uint32_t>(raw.size()));
     return false;
@@ -304,7 +276,7 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
 [[gnu::noinline]] static void ingest_clause_generic(Kernel &k,
                                                     std::vector<Lit> &scratch) {
   // Every input clause consumes one proof id in input order, including
-  // tautologies and duplicates that are never stored (LRAT input numbering).
+  // tautologies and duplicates that are never stored.
   const uint64_t id = ++k.next_clause_id;
   // Headerless C API input has no earlier identity-map reservation. Diagnostic
   // proof shadowing translates raw literals through that map, so grow it before
@@ -327,7 +299,7 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   // Seed the diagnostic proof shadow from the checker's ACTUAL starting
   // population, before normalization changes or drops this clause. The checker
   // reads every file clause, including tautologies and duplicate copies; a
-  // snapshot of only the solver's later live formula cannot model DRAT
+  // snapshot of only the solver's later live formula cannot model
   // deletion-by-literal-multiset.
   if (k.proof)
     k.proof->seed_population(id, scratch.data(),
@@ -343,11 +315,11 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   // rewrite. Unchanged input carries no extra allocation or literal copy.
   std::vector<Lit> original;
   const auto retain_original = [&] {
-    if (k.proof && !k.proof->lrat() && original.empty())
+    if (k.proof && original.empty())
       original = scratch;
   };
   const auto retire_unstored = [&] {
-    if (!k.proof || k.proof->lrat())
+    if (!k.proof)
       return;
     retain_original();
     const auto &raw = original.empty() ? scratch : original;
@@ -403,12 +375,8 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   }
   // Kissat internal.c:kissat_add normalizes every input clause against units
   // already fixed while parsing.  A root-true literal satisfies the clause;
-  // a root-false literal is removed, with its true complement retained as the
-  // LRAT antecedent for the deferred restatement below.  The normal and DRAT
-  // paths propagate new units immediately, matching Kissat; native LRAT alone
-  // defers derived units because their ids cannot precede later input ids.
-  const bool native_lrat = k.proof && k.proof->lrat();
-  std::vector<Lit> root_units;
+  // a root-false literal is removed.  New units propagate immediately, matching
+  // Kissat.
   auto out = scratch.begin();
   for (const Lit lit : scratch) {
     const int8_t value = k.values[lit];
@@ -420,18 +388,14 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
     if (value < 0) {
       observation.note(RawRootShortened);
       retain_original();
-      if (native_lrat)
-        root_units.push_back(negate(lit));
-    }
-    else
+    } else
       *out++ = lit;
   }
   scratch.erase(out, scratch.end());
   observation.normalized_available();
 
   // N2: the checker holds the file clause under `id`, repeats and all, so a
-  // shrunk clause may not keep it. Add the exact stored clause at finish_input,
-  // but only when it is actually stored — a dropped clause is never deleted or
+  // shrunk clause may not keep it. Add the exact stored clause, but only when it is actually stored — a dropped clause is never deleted or
   // used as the solver-side premise of a later inference.
   const bool shrunk = scratch.size() < file_size;
 
@@ -457,9 +421,7 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
     observation.note(RawAdmitted | RawEmpty |
                      (file_size ? RawRootShortened : RawNone));
     k.inconsistent = true;
-    k.input_refuted = true; // the input empty clause is the whole chain
-    k.input_refutation_id = id;
-    k.input_refutation_units = root_units;
+    k.input_refuted = true;
   } else if (scratch.size() == 1) {
     observation.note(RawUnit);
     const Lit u = scratch[0];
@@ -472,14 +434,12 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
       observation.note(RawAdmitted | RawContradiction);
       k.inconsistent = true;
       k.input_refuted = true;
-      k.input_refutation_id = id;
-      k.input_refutation_units = {negate(u)};
       return;
     }
     k.unit_ids[var_of(u)] = id;
     observation.note(RawAdmitted);
     if (shrunk)
-      restate_input(k, id, scratch, root_units, 0, original);
+      restate_input(k, id, scratch, original);
     kernel_assign_unit(k, u);
     propagate_input_unit(k);
   } else if (scratch.size() == 2) {
@@ -488,14 +448,14 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
                             original.empty() ? scratch : original,
                             observation) &&
         shrunk)
-      restate_input(k, id, scratch, root_units, 0, original);
+      restate_input(k, id, scratch, original);
   } else {
     observation.note(RawAdmitted | RawLarge);
-    const Ref ref = kernel_add_large_clause(
-        k, scratch.data(), static_cast<uint32_t>(scratch.size()), false, 0, id);
+    kernel_add_large_clause(k, scratch.data(),
+                            static_cast<uint32_t>(scratch.size()), false, 0, id);
     k.watches.defrag_if_needed();
     if (shrunk)
-      restate_input(k, id, scratch, root_units, ref, original);
+      restate_input(k, id, scratch, original);
   }
 }
 
@@ -540,10 +500,8 @@ void finish_input(Kernel &k) {
   // Input ids are now settled: next_clause_id equals the number of input
   // clauses, exactly the checker's numbering, because ingest_clause consumes
   // one id per clause and nothing else consumed any. Derived ids start here.
-  // Restatements are non-empty only when a proof was attached during import.
   // The C API's later attachment first replays the exact raw input into a
-  // proof-bearing kernel, then remaps the existing session's live identities.
-  assert(k.input_restatements.empty() || k.proof);
+  // proof-bearing kernel.
   // An unassigned variable absent from every surviving normalized clause is
   // outside Kissat's active/search population, even when a tautological or
   // root-satisfied raw clause mentioned it. Retire that kernel identity
@@ -570,60 +528,10 @@ void finish_input(Kernel &k) {
     }
     kernel_record_import(k, v);
   }
-  std::vector<uint64_t> chain;
-  for (const Kernel::InputRestatement &r : k.input_restatements) {
-    const Lit *lits = k.input_restate_lits.data() + r.begin;
-    // DRAT additions carry no ids, so retain the solver's input id and do not
-    // perturb its proofless trajectory. LRAT must allocate and publish the
-    // fresh checker id used by every later hint and deletion.
-    const bool native_lrat = k.proof->lrat();
-    const uint64_t nid = native_lrat ? ++k.next_clause_id : r.id;
-    chain.clear();
-    if (native_lrat) {
-      for (uint32_t i = 0; i < r.unit_size; i++) {
-        const Lit unit = k.input_restate_units[r.unit_begin + i];
-        assert(k.values[unit] > 0);
-        const uint64_t uid = k.unit_ids[var_of(unit)];
-        assert(uid);
-        chain.push_back(uid);
-      }
-      // Root units first remove every root-false literal; the original file
-      // clause then conflicts under the negated normalized clause. Duplicate-
-      // only normalization has no units and retains the old one-hint proof.
-      chain.push_back(r.id);
-    }
-    k.proof->add_rup(nid, lits, r.size,
-                     chain.empty() ? nullptr : chain.data(),
-                     static_cast<uint32_t>(chain.size()));
-    if (!native_lrat)
-      continue;
-    k.proof->observe_checker_id_rebind(r.id, nid, lits, r.size);
-    if (r.size == 1) {
-      assert(k.unit_ids[var_of(lits[0])] == r.id);
-      k.unit_ids[var_of(lits[0])] = nid;
-    } else if (r.size == 2) {
-      const uint64_t key = kernel_binary_key(lits[0], lits[1]);
-      assert(k.binary_ids.at(key) == r.id);
-      k.binary_ids.insert_or_assign_known(key, nid, false);
-    } else {
-      Clause *c = clause_at(k.arena, r.ref);
-      assert(c->id() == r.id);
-      // LRAT restatement changes only the proof identity. The clause stays in
-      // its existing arena record, so no packed-replacement position alias is
-      // needed.
-      c->set_id(nid);
-    }
-  }
-  k.input_restatements.clear();
-  k.input_restate_lits.clear();
-  k.input_restate_units.clear();
-  // Native LRAT and streaming PBP need an exact live proof id for every
-  // binary pair. DRAT names clauses by literals and proofless solving has no
-  // clause identities, so their key archive has no consumer after import
-  // deduplication. Release it for every such input, independent of formula
-  // size or shape; size_ remains the monotone material watermark.
-  if ((!k.proof || !k.proof->needs_clause_ids()) && !k.replay_lrat_input)
-    k.binary_ids.discard_storage();
+  // Binary clauses are named by their literals after import, so the key archive
+  // has no consumer after deduplication. Release it for every input, independent
+  // of formula size or shape; size_ remains the monotone material watermark.
+  k.binary_ids.discard_storage();
   if (k.proof && k.proof->population_shadow_available())
     k.proof->arm_population_shadow();
   // The decision order is `H` state.  If `H` is already attached, publish the
@@ -642,22 +550,8 @@ void finish_input(Kernel &k) {
   k.input_marks.shrink_to_fit();
   if (k.input_refuted) {
     k.input_refuted = false;
-    if (k.proof) {
-      chain.clear();
-      if (k.proof->lrat()) {
-        for (const Lit unit : k.input_refutation_units) {
-          assert(k.values[unit] > 0);
-          const uint64_t uid = k.unit_ids[var_of(unit)];
-          assert(uid);
-          chain.push_back(uid);
-        }
-        chain.push_back(k.input_refutation_id);
-      }
-      k.proof->add_empty(++k.next_clause_id,
-                         chain.empty() ? nullptr : chain.data(),
-                         static_cast<uint32_t>(chain.size()));
-    }
-    k.input_refutation_units.clear();
+    if (k.proof)
+      k.proof->add_empty(++k.next_clause_id);
   }
   if (k.proof)
     k.proof->finish_input_transaction();
@@ -677,16 +571,15 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   // A proof attached after proofless input cannot reconstruct the discarded
   // binary-ID archive. Streaming PBP remains sound by falling back to
   // deletion-by-specification when it encounters that sentinel.
-  assert(!proof.lrat() || current.binary_ids.tracks_values());
   // Replay the checker's exact input, not the clauses left after eager
   // proofless unit propagation. The C API may keep adding original clauses
-  // after proof selection, so LRAT-derived ids must follow all input ids.
+  // after proof selection, so derived ids must follow all input ids.
   Kernel replay;
   replay.proof = &proof;
   replay.population_observer = current.population_observer;
   // The replay reconstructs checker identities for input already observed by
   // the live kernel.  It must not claim a second raw stream or a second solver
-  // population; Proof events and the explicit rebinds below remain visible.
+  // population; Proof events remain visible.
   replay.population_observe_raw_input = false;
   replay.population_observe_solver = false;
   proof.bind_variable_map(&replay.internal_to_external);
@@ -703,96 +596,8 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   }
   assert(clause.empty());
   finish_input(replay);
-  if (proof.lrat() && !replay.inconsistent)
-    propagate_service(replay);
-
-  if (proof.lrat() && !replay.inconsistent) {
-    // The eager import may have stored a smaller image than native LRAT's
-    // deferred import.  Original clause ids remain in the checker, so prove
-    // each live image from its raw clause and the replay's named root units.
-    // Re-point only proof identities; watches, assignments, reasons and H
-    // remain those of the existing solver session.
-    struct Live {
-      uint64_t key;
-      Ref ref;
-      std::vector<Lit> lits;
-    };
-    std::unordered_map<uint64_t, Live> live;
-    live.reserve(current.binary_ids.size() +
-                 current.live_irredundant_large);
-    current.binary_ids.for_each([&](uint64_t key, uint64_t id) {
-      live.emplace(id, Live{key, INVALID_REF,
-                            {static_cast<Lit>(key >> 32),
-                             static_cast<Lit>(key)}});
-    });
-    for (const auto [ref, c] : arena_records(current.arena))
-      if (!c->garbage())
-        live.emplace(c->id(), Live{0, ref,
-                                   std::vector<Lit>(c->begin(), c->end())});
-    uint64_t raw_id = 0;
-    std::vector<Lit> raw;
-    std::vector<uint64_t> chain;
-    for (const int32_t external : current.startup_input) {
-      if (external) {
-        raw.push_back(internalize(external));
-        continue;
-      }
-      const auto found = live.find(++raw_id);
-      if (found != live.end()) {
-        Live &entry = found->second;
-        auto normalized = entry.lits;
-        auto original = raw;
-        std::sort(normalized.begin(), normalized.end());
-        std::sort(original.begin(), original.end());
-        if (normalized != original) {
-          chain.clear();
-          for (const Lit lit : raw) {
-            if (std::find(entry.lits.begin(), entry.lits.end(), lit) !=
-                entry.lits.end())
-              continue;
-            const Lit unit = negate(lit);
-            assert(replay.values[unit] > 0);
-            const uint64_t uid = replay.unit_ids[var_of(unit)];
-            assert(uid);
-            if (std::find(chain.begin(), chain.end(), uid) == chain.end())
-              chain.push_back(uid);
-          }
-          chain.push_back(raw_id);
-          const uint64_t replacement = ++replay.next_clause_id;
-          proof.add_rup(replacement, entry.lits.data(),
-                        static_cast<uint32_t>(entry.lits.size()), chain.data(),
-                        static_cast<uint32_t>(chain.size()));
-          proof.observe_checker_id_rebind(raw_id, replacement,
-                                          entry.lits.data(),
-                                          static_cast<uint32_t>(
-                                              entry.lits.size()));
-          if (entry.ref != INVALID_REF)
-            clause_at(current.arena, entry.ref)->set_id(replacement);
-          else
-            current.binary_ids.insert_or_assign_known(entry.key,
-                                                       replacement, false);
-        }
-      }
-      raw.clear();
-    }
-    assert(raw.empty() && raw_id == current.next_clause_id);
-    for (Var v = 0; v < current.nvars; v++) {
-      if (current.values[make_lit(v, false)] == 0)
-        continue;
-      assert(replay.values[make_lit(v, false)] ==
-             current.values[make_lit(v, false)]);
-      const uint64_t predecessor = current.unit_ids[v];
-      current.unit_ids[v] = replay.unit_ids[v];
-      assert(current.unit_ids[v]);
-      if (predecessor != current.unit_ids[v]) {
-        const Lit unit = make_lit(v, current.values[make_lit(v, false)] < 0);
-        proof.observe_checker_id_rebind(predecessor, current.unit_ids[v],
-                                        &unit, 1);
-      }
-    }
-  } else if (proof.dsr()) {
+  if (proof.dsr())
     current.dsr_root_values = replay.dsr_root_values;
-  }
   current.next_clause_id = std::max(current.next_clause_id,
                                     replay.next_clause_id);
   if (replay.inconsistent) {
@@ -800,12 +605,11 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
     // let the ordinary finalizer publish it a second time with stale ids.
     current.inconsistent = true;
     current.input_refuted = false;
-    current.input_refutation_units.clear();
   }
   // Streaming PBP numbers the replayed input by the replay's clause ids.
   // Unlike the proofless live import, the replay materializes root units
-  // under fresh ids, so a live id can name another constraint; only LRAT
-  // re-points ids above. Delete by specification instead.
+  // under fresh ids, so a live id can name another constraint. Delete by
+  // specification instead.
   if (proof.streaming_pbp())
     proof.disable_pbp_id_deletions();
   current.proof = &proof;
@@ -814,25 +618,10 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   kernel_sync_population_observer(current);
   if (!proof.startup_pb_available())
     current.close_startup_certificate();
-  current.replay_lrat_input = false;
 }
 
 const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
   assert(block_bytes > 0);
-  Proof *deferred_lrat = k.proof && k.proof->lrat() ? k.proof : nullptr;
-  if (deferred_lrat) {
-    assert(k.next_clause_id == 0 && k.startup_input.empty());
-    k.proof = nullptr;
-    k.replay_lrat_input = true;
-    k.startup_certificate_open = true;
-  }
-  const auto parse_error = [&](const char *reason) {
-    if (deferred_lrat) {
-      k.proof = deferred_lrat;
-      k.replay_lrat_input = false;
-    }
-    return reason;
-  };
   std::vector<Lit> scratch;
   ParseMemoryTrace memory_trace;
   memory_trace.emit(k, "begin");
@@ -938,7 +727,7 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
       if (p != e && is_digit(*p)) {
         uint64_t n = 0;
         if (!read_digits(n, true))
-          return parse_error("variable count out of range");
+          return "variable count out of range";
         kernel_reserve_vars(k, static_cast<uint32_t>(n));
         for (;;) {
           while (p != e && (*p == ' ' || *p == '\t' || *p == '\r'))
@@ -970,20 +759,13 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         if (k.input_binary_order_captured)
           k.input_binary_order.reserve(static_cast<size_t>(clauses));
         k.input_clause_tail.reserve(Kernel::INPUT_CLAUSE_TAIL_CAPACITY);
-        // Native LRAT retains exact binary proof identities. Streaming PBP,
-        // DRAT and proofless solving instead use a compact no-false-negative
-        // filter backed by exact mirrored-watch confirmation during input.
-        // PBP deletes binaries by specification and retains exact identities
-        // only for non-binary clauses. The filter grows by load, never by
-        // formula identity or a size gate.
-        if ((!k.proof || !k.proof->needs_clause_ids()) &&
-            !k.replay_lrat_input) {
-          k.binary_ids.discard_storage();
-          input_liveness.arm(static_cast<size_t>(predicted_binaries),
-                             2 * k.nvars, clauses);
-        } else {
-          k.binary_ids.reserve(static_cast<size_t>(predicted_binaries));
-        }
+        // Import uses a compact no-false-negative filter backed by exact
+        // mirrored-watch confirmation. PBP deletes binaries by specification
+        // and retains exact identities only for non-binary clauses. The filter
+        // grows by load, never by formula identity or a size gate.
+        k.binary_ids.discard_storage();
+        input_liveness.arm(static_cast<size_t>(predicted_binaries),
+                           2 * k.nvars, clauses);
         memory_trace.emit(k, "header");
         skip_line();
       }
@@ -995,15 +777,15 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
       neg = true;
       ++p;
       if (p == e && !refill())
-        return parse_error("expected literal");
+        return "expected literal";
     }
     if (!is_digit(*p))
-      return parse_error("expected literal");
+      return "expected literal";
     uint64_t n = 0;
     if (!read_digits(n, true))
-      return parse_error("literal out of range");
+      return "literal out of range";
     if (p != e && !is_space(*p))
-      return parse_error("unexpected character after literal");
+      return "unexpected character after literal";
     if (n == 0) {
       ingest_clause(k, scratch);
       scratch.clear();
@@ -1018,8 +800,6 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
     ingest_clause(k, scratch);
   memory_trace.emit(k, "finish-begin");
   finish_input(k);
-  if (deferred_lrat)
-    attach_replayed_input_proof(k, *deferred_lrat);
   memory_trace.emit(k, "finish-end");
   return nullptr;
 }

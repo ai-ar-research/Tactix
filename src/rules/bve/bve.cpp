@@ -194,12 +194,10 @@ PoolSlice<T> pool_slice(const std::vector<T> &pool, size_t begin) {
                       static_cast<uint32_t>(pool.size() - begin)};
 }
 
-// A materialized clause on the pivot: its active literals (root-false dropped,
-// their unit ids kept in `absorbed` for LRAT), its proof id, and a delete
-// handle. `active` includes the pivot.
+// A materialized clause on the pivot: its active literals (root-false dropped),
+// its proof id, and a delete handle. `active` includes the pivot.
 struct MClause {
   PoolSlice<Lit> active;
-  PoolSlice<uint64_t> absorbed;
   uint64_t id = 0;
   Ref ref = INVALID_REF; // INVALID_REF => binary
   Lit ba = INVALID_LIT, bb = INVALID_LIT;
@@ -207,9 +205,7 @@ struct MClause {
 
 struct BveResolvent {
   PoolSlice<Lit> lits;
-  PoolSlice<uint64_t> chain;
-  // Logical source identity is needed even when no LRAT hint chain is built:
-  // FastEliminate can replace either parent during its feasibility scan and
+  // Logical source identity: FastEliminate can replace either parent during its feasibility scan and
   // must discard any earlier tentative image of that now-stale pair in every
   // proof mode.
   Ref first_parent = INVALID_REF;
@@ -254,10 +250,8 @@ struct BveDefScratch {
   // antecedent/resolvent without changing any observable order.
   std::vector<MClause> pos, neg;
   std::vector<Lit> clause_lits;
-  std::vector<uint64_t> clause_absorbed;
   std::vector<BveResolvent> resolvents;
   std::vector<Lit> resolvent_lits;
-  std::vector<uint64_t> resolvent_chains;
   // Distinct non-pivot variables in first clause/literal occurrence order.
   // SubSolver's Kitten mode imports by that same first occurrence, so this is
   // both the direct reversible proof map and the source search identity.
@@ -283,8 +277,6 @@ struct BveDefScratch {
   std::vector<Ref> fresh;
   std::vector<std::pair<Lit, Lit>> fresh_bin;
   std::vector<Lit> connected_lits;
-  std::vector<uint64_t> connected_chain;
-  std::vector<uint64_t> connected_extra_units;
   std::vector<uint8_t> literal_marks;
   uint64_t ticks = 0;    // ticks the last attempt spent (0 if none was made)
   Lit unit = INVALID_LIT; // one-sided core's failed pivot literal, if any
@@ -568,43 +560,25 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
 }
 
 // Lift the embedded refutation of one reduced pivot side into the main proof.
-// Each sub-lemma L becomes (unit v L). Original sub-clause ids map to the
-// corresponding live pivot clauses; LRAT additionally cites root units whose
-// false literals were stripped on import. The final empty sub-lemma becomes
-// the failed-literal unit. These proof-only lemmas are retired after the unit
-// is installed. LRAT uses exact ids; DSR/DRAT remove one literal-multiset copy
-// per emitted intermediate. Identical clauses are interchangeable in the
-// latter formats, while retaining an extra copy would make a later direct-SR
-// validator observe fewer clauses than the checker.
+// Each sub-lemma L becomes (unit v L). The final empty sub-lemma becomes the
+// failed-literal unit. These proof-only lemmas are retired after the unit is
+// installed: DSR removes one literal-multiset copy per emitted intermediate.
+// Identical clauses are interchangeable, while retaining an extra copy would
+// make a later direct-SR validator observe fewer clauses than the checker.
 static void bve_emit_definition_unit(Kernel &k, Lit unit,
-                                     const std::vector<MClause> &pos,
-                                     const std::vector<MClause> &neg,
                                      BveDefScratch &s) {
   assert(unit != INVALID_LIT && k.value(unit) == 0);
   assert(!s.deriv.steps.empty() && s.deriv.steps.back().lits.empty());
-  const bool lrat = k.proof && k.proof->lrat();
-  const uint32_t np = static_cast<uint32_t>(pos.size());
-  const uint32_t originals = np + static_cast<uint32_t>(neg.size());
-  uint32_t max_sub_id = originals;
-  for (const SubStep &step : s.deriv.steps)
-    max_sub_id = std::max(max_sub_id, step.id);
-  std::vector<uint64_t> id_of(static_cast<size_t>(max_sub_id) + 1, 0);
-  for (uint32_t i = 0; i < np; i++)
-    id_of[i + 1] = pos[i].id;
-  for (uint32_t i = 0; i < neg.size(); i++)
-    id_of[np + i + 1] = neg[i].id;
-
   const auto kernel_lit = [&](SubLit sl) {
     assert(sub_var_of(sl) < s.vars.size());
     return make_lit(s.vars[sub_var_of(sl)], (sl & 1u) != 0);
   };
 
   std::vector<Lit> lifted;
-  std::vector<uint64_t> chain;
   std::vector<TransientLemma> transients;
   // Streaming PBP tracks each transient under its id (emit_rup_lemma), so it
-  // deletes them by that id, as LRAT does.
-  const bool named = lrat || (k.proof && k.proof->streaming_pbp());
+  // deletes them by that id.
+  const bool named = k.proof && k.proof->streaming_pbp();
   uint64_t last_id = 0;
   for (size_t si = 0; si < s.deriv.steps.size(); si++) {
     const SubStep &step = s.deriv.steps[si];
@@ -614,19 +588,8 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
       lifted.push_back(kernel_lit(sl));
     assert(!Proof::tautological(lifted.data(),
                                static_cast<uint32_t>(lifted.size())));
-    chain.clear();
-    if (lrat)
-      for (const uint32_t antecedent : step.chain) {
-        assert(antecedent < id_of.size() && id_of[antecedent]);
-        // Definition Kitten imports the physical clause, including root-false
-        // literals. Do not cite the root units that resolution would use to
-        // derive its stripped active image: the lifted sub-lemma retains those
-        // literals and starts directly from the physical original.
-        chain.push_back(id_of[antecedent]);
-      }
     const uint64_t id = ++k.next_clause_id;
-    emit_rup_lemma(k, id, lifted, chain);
-    id_of[step.id] = id;
+    emit_rup_lemma(k, id, lifted);
     last_id = id;
     if (k.proof && si + 1 != s.deriv.steps.size())
       transients.push_back({named ? id : 0, lifted});
@@ -965,7 +928,6 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
   dlits.clear();
   victims.clear();
   bin_victims.clear();
-  const bool lrat = k.proof && k.proof->lrat();
   // Least-occurring-literal count, cadical's occs parity: dense->large is
   // large-only, so the binary share comes from the watch list. Counting stops
   // one past the configured limit — a count beyond it can only disqualify,
@@ -980,10 +942,10 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
         break;
     return n;
   };
-  // One subsumer pass over `clits` (the snapshot; its proof id is `cid`).
+  // One subsumer pass over `clits` (the snapshot).
   // `cref` names the arena copy of a large subsumer and is INVALID_REF for a
   // binary one, whose identity is the pair {clits[0], clits[1]}.
-  auto backward_one = [&](uint64_t cid, Ref cref) {
+  auto backward_one = [&](Ref cref) {
     uint32_t size = 0;
     Lit best = INVALID_LIT;
     size_t len = 0;
@@ -1062,40 +1024,15 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
       // not-a-reason argument above survives the rewrite (cadical asserts the
       // same thing at backward.cpp:201).
       dlits.clear();
-      std::vector<uint64_t> chain;
       for (const Lit l : *d) {
         if (l == negated)
           continue;
-        if (k.value(l) < 0) {
-          if (lrat)
-            chain.push_back(k.unit_ids[var_of(l)]);
+        if (k.value(l) < 0)
           continue;
-        }
         dlits.push_back(l);
       }
-      if (lrat) {
-        // The SUBSUMER's root-false literals need their unit ids too, or `c`
-        // is not unit under the RUP assumption and the line is unverifiable —
-        // a fresh resolvent can carry a literal falsified by a sibling unit
-        // resolvent asserted before this drain (cadical collects units over
-        // {c\d} ∪ {d\c}, backward.cpp:149-182). Dedup against d's, which are
-        // already in the chain.
-        for (const Lit l : clits)
-          if (k.value(l) < 0) {
-            const uint64_t uid = k.unit_ids[var_of(l)];
-            bool dup = false;
-            for (const uint64_t have : chain)
-              dup |= (have == uid);
-            if (!dup)
-              chain.push_back(uid);
-          }
-      }
       const uint64_t id = ++k.next_clause_id;
-      if (lrat) {
-        chain.push_back(cid);      // the subsumer propagates `negated` false
-        chain.push_back(d->id());  // then the victim conflicts
-      }
-      emit_rup_lemma(k, id, dlits, chain);
+      emit_rup_lemma(k, id, dlits);
       k.stats.bve_bwd_strengthened++;
       Ref nref = INVALID_REF;
       switch (kernel_replace_clause(k, d, id, dlits.data(),
@@ -1194,23 +1131,9 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
         // Self-subsuming resolution on `o`: {best, o} strengthens to the
         // unit {best}. `neg_lit != best` as above — a stored pair never
         // carries both polarities of one variable.
-        const uint64_t vid = kernel_binary_id(k, best, o);
-        std::vector<uint64_t> chain;
-        if (lrat) {
-          // Both victim literals are unassigned here (value-checked above),
-          // so only the subsumer contributes absorbed-literal unit ids; its
-          // variables are distinct, so the ids need no dedup.
-          for (const Lit l : clits)
-            if (k.value(l) < 0)
-              chain.push_back(k.unit_ids[var_of(l)]);
-        }
         const uint64_t id = ++k.next_clause_id;
         Lit unit = best;
-        if (lrat) {
-          chain.push_back(cid); // the subsumer propagates `o` false
-          chain.push_back(vid); // then the victim pair conflicts
-        }
-        emit_rup_lemma(k, id, &unit, 1, chain);
+        emit_rup_lemma(k, id, &unit, 1);
         // Add-before-delete: the unit's add precedes the victim's del.
         const bool ok = kernel_delete_binary(k, best, o);
         assert(ok);
@@ -1246,14 +1169,14 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
         // so a Clause* held across the victim walk would dangle.
         clits.assign(c->begin(), c->end());
       }
-      backward_one(clause_at(k.arena, cref)->id(), cref);
+      backward_one(cref);
     }
     for (; bi < fresh_bin.size() && !k.inconsistent; ++bi) {
       const auto [a, b] = fresh_bin[bi]; // copy: the pass may grow the vector
       if (!kernel_binary_live(k, a, b))
         continue; // deleted since it was queued (subsumed or strengthened)
       clits.assign({a, b});
-      backward_one(kernel_binary_id(k, a, b), INVALID_REF);
+      backward_one(INVALID_REF);
     }
   }
 }
@@ -1268,7 +1191,6 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
 // before the candidate's growth decision, and those effects survive a decline.
 // `bve_eliminate` turns that into the registry's result.
 ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
-  const bool lrat = k.proof && k.proof->lrat();
   Lit px = make_lit(x, false), nx = make_lit(x, true);
   // Candidate contract, owed by every registered entry: the pivot is
   // unassigned and the root closure is complete.  Antecedent gathering reads
@@ -1287,10 +1209,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   pos.clear();
   neg.clear();
   def.clause_lits.clear();
-  def.clause_absorbed.clear();
   def.resolvents.clear();
   def.resolvent_lits.clear();
-  def.resolvent_chains.clear();
   std::vector<Ref> &del_large = def.del_large; // redundant/satisfied/taut → delete-only
   std::vector<std::pair<Lit, Lit>> &del_bin = def.del_bin; // satisfied binaries → delete-only
   del_large.clear();
@@ -1461,8 +1381,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
       def.clause_lits.push_back(lit);
       def.clause_lits.push_back(o);
       m.active = pool_slice(def.clause_lits, begin);
-      m.absorbed = pool_slice(def.clause_absorbed,
-                              def.clause_absorbed.size());
       live.push_back(std::move(m));
   };
 
@@ -1490,7 +1408,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
     m.id = c->id();
     m.ref = ref;
     const size_t active_begin = def.clause_lits.size();
-    const size_t absorbed_begin = def.clause_absorbed.size();
     bool satisfied = false;
     for (const Lit l : *c) {
       const int8_t v = k.value(l);
@@ -1498,20 +1415,15 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
         satisfied = true;
         break;
       }
-      if (v < 0) { // root-false → drop (cite its unit)
-        if (lrat)
-          def.clause_absorbed.push_back(k.unit_ids[var_of(l)]);
+      if (v < 0) // root-false → drop
         continue;
-      }
       def.clause_lits.push_back(l);
     }
     if (satisfied) {
       def.clause_lits.resize(active_begin);
-      def.clause_absorbed.resize(absorbed_begin);
       del_large.push_back(ref);
     } else {
       m.active = pool_slice(def.clause_lits, active_begin);
-      m.absorbed = pool_slice(def.clause_absorbed, absorbed_begin);
       (has_px ? pos : neg).push_back(std::move(m));
     }
   };
@@ -1678,7 +1590,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   if (def.unit != INVALID_LIT) {
     assert(gate_kind == BVE_GATE_DEFINITION);
     k.stats.bve_gates_definition++;
-    bve_emit_definition_unit(k, def.unit, pos, neg, def);
+    bve_emit_definition_unit(k, def.unit, def);
     return ApplyResult::Ok;
   }
   // (★) needs every pair holding a gate clause. A syntactic shape may drop the
@@ -1812,8 +1724,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   // The feasibility pass mutates its connected clause population.  Any
   // tentative resolvent using a replaced or deleted parent belongs to the
   // pre-mutation image and must not survive into the final publication pass.
-  // Keep this source identity independent of proof hints: DRAT/DSR and
-  // proofless runs do not populate `chain`.
   const auto prune_parent_resolvents = [&](Ref first, Ref second) {
     resolvents.erase(
         std::remove_if(
@@ -1831,21 +1741,17 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   // known.  Kissat installs those units immediately and never puts them in the
   // tentative resolvent stack, so they survive a later bound failure.  The
   // proof id becomes the root reason at the same point.
-  const auto learn_unit = [&](Lit unit, const uint64_t *chain,
-                              uint32_t chain_size) {
+  const auto learn_unit = [&](Lit unit) {
     assert(k.value(unit) == 0);
     const uint64_t id = ++k.next_clause_id;
-    emit_rup_lemma(k, id, &unit, 1, chain, chain_size);
-    if (lrat)
-      k.unit_ids[var_of(unit)] = id;
+    emit_rup_lemma(k, id, &unit, 1);
     kernel_assign_unit(k, unit);
   };
-  const auto learn_empty = [&](const uint64_t *chain, uint32_t chain_size) {
+  const auto learn_empty = [&]() {
     assert(!k.inconsistent);
-    const uint64_t id = ++k.next_clause_id;
+    ++k.next_clause_id;
     if (k.proof)
-      k.proof->add_empty(lrat ? id : 0, lrat ? chain : nullptr,
-                         lrat ? chain_size : 0);
+      k.proof->add_empty(0);
     k.inconsistent = true;
   };
 
@@ -1900,38 +1806,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
       kernel_removed_var(k, var_of(l));
       kernel_notify_bve_score(k, var_of(l), true);
     }
-  };
-
-  const auto append_resolution_chain = [&](const MClause &c, Lit c_pivot,
-                                           const MClause &d, Lit d_pivot) {
-    const size_t begin = def.resolvent_chains.size();
-    if (lrat) {
-      // A root-false literal can occur on both resolution parents. Its named
-      // unit is a propagation hint exactly once, even when both parents need
-      // it before they become unit/conflicting (AM358-v2 H3).
-      const auto add_root_hint = [&](uint64_t id) {
-        assert(id != 0);
-        if (std::find(def.resolvent_chains.begin() + begin,
-                      def.resolvent_chains.end(), id) ==
-            def.resolvent_chains.end())
-          def.resolvent_chains.push_back(id);
-      };
-      for (const uint64_t id : c.absorbed)
-        add_root_hint(id);
-      for (const uint64_t id : d.absorbed)
-        add_root_hint(id);
-      // These literals were unassigned when the antecedents were gathered but
-      // became root-false through an earlier immediate resolvent unit.
-      for (const Lit l : c.active)
-        if (l != c_pivot && k.value(l) < 0)
-          add_root_hint(k.unit_ids[var_of(l)]);
-      for (const Lit l : d.active)
-        if (l != d_pivot && k.value(l) < 0)
-          add_root_hint(k.unit_ids[var_of(l)]);
-      def.resolvent_chains.push_back(c.id);
-      def.resolvent_chains.push_back(d.id);
-    }
-    return begin;
   };
 
   const auto generate_pairs = [&](const std::vector<MClause> &first,
@@ -2037,25 +1911,18 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
           }
         }
         const size_t lits_size = def.resolvent_lits.size() - lits_begin;
-        const size_t chain_begin =
-            append_resolution_chain(c, first_pivot, d, second_pivot);
-        const uint32_t chain_size = static_cast<uint32_t>(
-            def.resolvent_chains.size() - chain_begin);
         // Emit a self-subsuming resolvent's proof step, prune tentative
         // resolvents of each replaced parent, and add the resolvent as a new
         // irredundant clause.  A pending resolvent whose parent is replaced is
         // still entailed, but native fastel recomputes the final resolvents
         // after the feasibility pass and therefore does not publish that stale
-        // image.  It is removed by its retained two-parent identity (the same
-        // pair is the LRAT chain tail when present) while retaining the
-        // append-only pools backing every surviving slice.
+        // image.  It is removed by its retained two-parent identity while
+        // retaining the append-only pools backing every surviving slice.
         const auto publish_strengthened = [&](bool c_subsumed,
                                               bool d_subsumed) {
           const uint64_t id = ++k.next_clause_id;
           const Lit *const lits = def.resolvent_lits.data() + lits_begin;
-          emit_rup_lemma(k, id, lits, static_cast<uint32_t>(lits_size),
-                         def.resolvent_chains.data() + chain_begin,
-                         chain_size);
+          emit_rup_lemma(k, id, lits, static_cast<uint32_t>(lits_size));
           prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
                                    d_subsumed ? d.ref : INVALID_REF);
           assert(lits_size >= 2);
@@ -2092,7 +1959,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
         };
         if (!lits_size) {
           trace_pair("empty-immediate");
-          learn_empty(def.resolvent_chains.data() + chain_begin, chain_size);
+          learn_empty();
           finish_collapsed_strengthening();
           immediate_unsat = true;
           break;
@@ -2100,11 +1967,9 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
         if (lits_size == 1) {
           const Lit unit = def.resolvent_lits[lits_begin];
           trace_pair("unit-immediate");
-          learn_unit(unit, def.resolvent_chains.data() + chain_begin,
-                     chain_size);
+          learn_unit(unit);
           finish_collapsed_strengthening();
           def.resolvent_lits.resize(lits_begin);
-          def.resolvent_chains.resize(chain_begin);
           if (seen[unit]) {
             first_satisfied = true;
             break;
@@ -2164,7 +2029,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
             if (c_subsumed && d_subsumed)
               k.stats.bve_otf_subsumed++;
             def.resolvent_lits.resize(lits_begin);
-            def.resolvent_chains.resize(chain_begin);
             if (c_subsumed) {
               first_satisfied = true;
               break;
@@ -2229,7 +2093,6 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
             }
             k.stats.strengthened++;
             def.resolvent_lits.resize(lits_begin);
-            def.resolvent_chains.resize(chain_begin);
             // Replacing the outer antecedent ends its row.  The next outer
             // entry observes the compacted connected stream; replacing only
             // the inner antecedent continues with the next live entry.
@@ -2242,21 +2105,18 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
         }
         if (deferred_resolvent_count && ++resolved > gen_limit) {
           def.resolvent_lits.resize(lits_begin);
-          def.resolvent_chains.resize(chain_begin);
           trace_pair("bound");
           over_gen = true;
           break;
         }
         if (lits_size > k.bve_resolvent_size_limit) {
           def.resolvent_lits.resize(lits_begin);
-          def.resolvent_chains.resize(chain_begin);
           trace_pair("oversized");
           oversized = true;
           break;
         }
         BveResolvent r;
         r.lits = pool_slice(def.resolvent_lits, lits_begin);
-        r.chain = pool_slice(def.resolvent_chains, chain_begin);
         r.first_parent = c.ref;
         r.second_parent = d.ref;
         resolvents.push_back(r);
@@ -2303,63 +2163,36 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   std::vector<Ref> &fresh = def.fresh; // large resolvents, the backward pass's subsumers
   std::vector<std::pair<Lit, Lit>> &fresh_bin = def.fresh_bin; // size-2 resolvents, ditto
   std::vector<Lit> &connected_lits = def.connected_lits;
-  std::vector<uint64_t> &connected_chain = def.connected_chain;
-  std::vector<uint64_t> &connected_extra_units = def.connected_extra_units;
   fresh.clear();
   fresh_bin.clear();
   connected_lits.clear();
-  connected_chain.clear();
 
   for (const BveResolvent &r : resolvents) {
     connected_lits.clear();
     bool satisfied = false;
     // A literal unassigned when the resolvent was generated can be root-false
-    // now, falsified by a sibling immediate unit resolved after it. Its unit
-    // id must join the chain BEFORE the two resolution antecedents, not after:
-    // the RUP replay reaches those clauses only once every literal they carry
-    // is false, so a unit cited past them leaves the clause non-unit and the
-    // line unverifiable (report 3.69). `append_resolution_chain` ends r.chain
-    // with exactly `c.id, d.id`, so the units belong ahead of that pair.
-    connected_extra_units.clear();
+    // now, falsified by a sibling immediate unit resolved after it.
     for (const Lit l : r.lits) {
       const int8_t value = k.value(l);
       if (value > 0) {
         satisfied = true;
         break;
       }
-      if (value < 0) {
-        if (lrat)
-          connected_extra_units.push_back(k.unit_ids[var_of(l)]);
-      } else {
+      if (value == 0)
         connected_lits.push_back(l);
-      }
     }
     if (satisfied)
       continue;
-    connected_chain.clear();
-    if (lrat) {
-      assert(r.chain.size() >= 2 &&
-             "append_resolution_chain always ends with c.id, d.id");
-      const size_t clause_tail = r.chain.size() - 2;
-      connected_chain.assign(r.chain.begin(), r.chain.begin() + clause_tail);
-      connected_chain.insert(connected_chain.end(),
-                             connected_extra_units.begin(),
-                             connected_extra_units.end());
-      connected_chain.push_back(r.chain[clause_tail]);
-      connected_chain.push_back(r.chain[clause_tail + 1]);
-    }
     if (connected_lits.empty()) {
-      learn_empty(connected_chain.data(),
-                  static_cast<uint32_t>(connected_chain.size()));
+      learn_empty();
       return ApplyResult::Unsat;
     }
     if (connected_lits.size() == 1) {
-      learn_unit(connected_lits[0], connected_chain.data(),
-                 static_cast<uint32_t>(connected_chain.size()));
+      learn_unit(connected_lits[0]);
       continue;
     }
     const uint64_t id = ++k.next_clause_id;
-    emit_rup_lemma(k, id, connected_lits, connected_chain);
+    emit_rup_lemma(k, id, connected_lits);
     if (connected_lits.size() == 2) {
       kernel_add_binary_clause(k, connected_lits[0], connected_lits[1], id);
       kernel_defrag_vectors(k);
@@ -2425,8 +2258,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
         del_large_ref(m.ref);
       } else {
         // One connected occurrence removes one physical copy.  This preserves
-        // Kissat's per-copy score-update sequence while the kernel helper
-        // withholds an ambiguous LRAT deletion until the final copy.
+        // Kissat's per-copy score-update sequence.
         const bool ok = kernel_delete_binary_one_copy(k, m.ba, m.bb);
         assert(ok);
         (void)ok;

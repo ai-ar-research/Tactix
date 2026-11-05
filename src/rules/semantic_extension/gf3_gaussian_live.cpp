@@ -148,7 +148,7 @@ bool outcome_identity_bytes(
 
 // Proof-mode and root admission shared by prepare and publish.
 bool admitted(const Kernel &kernel, bool atomic, Status &status) {
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp()))
+  if (kernel.proof && kernel.proof->terminal_pbp())
     status = Status::UnsupportedProof;
   else if (kernel.proof && !atomic)
     status = Status::UnsupportedProofSplit;

@@ -132,12 +132,12 @@ const auto inputs = [](Proof &p) {
 // A small CDCL-shaped refutation: learned clauses, a deletion, root units.
 const auto refutation = [](Proof &p) {
   const auto l1 = clause({-3, 4}), l2 = clause({-3}), u = clause({3});
-  p.add_rup(7, l1.data(), 2, nullptr, 0);
+  p.add_rup(7, l1.data(), 2);
   p.del(8, 4, clause({-3, 4, 5}).data(), 3);
-  p.add_rup(9, l2.data(), 1, nullptr, 0);
-  p.add_derived_unit(10, internalize(-3), nullptr, 0);
-  p.add_rup(11, clause({2}).data(), 1, nullptr, 0);
-  p.add_empty(12, nullptr, 0);
+  p.add_rup(9, l2.data(), 1);
+  p.add_derived_unit(10, internalize(-3));
+  p.add_rup(11, clause({2}).data(), 1);
+  p.add_empty(12);
   (void)u;
 };
 
@@ -407,7 +407,7 @@ void failed_conversion_keeps_dsr() {
 void killed_run_leaves_dsr_prefix() {
   const Events events = [](Proof &p) {
     inputs(p);
-    p.add_rup(7, clause({-3, 4}).data(), 2, nullptr, 0);
+    p.add_rup(7, clause({-3, 4}).data(), 2);
     p.flush();
   };
   TemporaryDirectory directory;
@@ -505,7 +505,7 @@ void tautological_rat_converts_first() {
     Proof p;
     assert(p.open_automatic(path.c_str(), true));
     inputs(p);
-    p.add_rup(7, clause({-3, 4}).data(), 2, nullptr, 0);
+    p.add_rup(7, clause({-3, 4}).data(), 2);
     const int32_t tautology[] = {7, 1, -1};
     assert(p.add_external_rat(8, tautology, 3));
     assert(p.automatic_reason() == AutomaticProofReason::CopyDeclined);
@@ -588,13 +588,13 @@ void failed_spill_aborts() {
     assert(p.open_automatic(path.c_str(), true, stage.c_str()));
     assert(fail_writes_to(stage));
     inputs(p);
-    p.add_rup(7, clause({3}).data(), 1, nullptr, 0); // a pending DSR unit
+    p.add_rup(7, clause({3}).data(), 1); // a pending DSR unit
     for (int i = 0; i < 14000; ++i) {                // > 64 KiB of deletions
       const int a = 1 + i % 29, b = 1 + (i / 29) % 29;
       if (a != b)
         p.del(8 + i, 100000 + i, clause({a, -b, 30}).data(), 3);
     }
-    p.add_rup(30000, clause({1, 2, 4}).data(), 3, nullptr, 0); // flushes it
+    p.add_rup(30000, clause({1, 2, 4}).data(), 3); // flushes it
     refutation(p);
     p.flush();
   });
@@ -623,7 +623,7 @@ void unusable_stage_is_pbp_only() {
 void unfinished_run_leaves_dsr_prefix() {
   const Events events = [](Proof &p) {
     inputs(p);
-    p.add_rup(7, clause({-3, 4}).data(), 2, nullptr, 0);
+    p.add_rup(7, clause({-3, 4}).data(), 2);
     p.flush();
   };
   enum Placement { Rename, Rewrite, CallerStage };
@@ -684,7 +684,7 @@ void unfinished_run_with_a_failed_stage_stays_empty() {
     Proof p;
     assert(p.open_automatic(path.c_str(), true, stage.c_str()));
     inputs(p);
-    p.add_rup(7, clause({-3, 4}).data(), 2, nullptr, 0);
+    p.add_rup(7, clause({-3, 4}).data(), 2);
     assert(fail_writes_to(stage));
   }
   expect_equal(read_all(path), "", "unfinished run after a stage failure");
@@ -739,9 +739,9 @@ void rat_scan_keeps_pbp() {
     for (int k = 0; k < rats; ++k) {
       const int fresh = inputs + 2 + 2 * k;
       const auto r = clause({fresh, fresh + 1});
-      p.add_rat(inputs + 1 + k, r.data(), 2, nullptr, 0);
+      p.add_rat(inputs + 1 + k, r.data(), 2);
     }
-    p.add_empty(inputs + rats + 1, nullptr, 0);
+    p.add_empty(inputs + rats + 1);
   };
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
@@ -804,16 +804,16 @@ void scripted_run(Proof &p, int total) {
     const uint64_t kind = next(100);
     if (kind < 15) { // a RUP unit
       const int u = literal();
-      p.add_rup(id++, clause({u}).data(), 1, nullptr, 0);
+      p.add_rup(id++, clause({u}).data(), 1);
     } else if (kind < 60) { // a RUP clause
       const int a = literal(), b = literal();
       if (a == b || a == -b)
         continue;
-      p.add_rup(id++, clause({a, b}).data(), 2, nullptr, 0);
+      p.add_rup(id++, clause({a, b}).data(), 2);
       live.push_back({a, b});
     } else if (kind < 70) { // a RAT clause on a fresh variable
       const int fresh = vars + 1 + i, b = literal();
-      p.add_rat(id++, clause({fresh, b}).data(), 2, nullptr, 0);
+      p.add_rat(id++, clause({fresh, b}).data(), 2);
     } else if (!live.empty()) { // a deletion
       const size_t at = next(live.size());
       const std::vector<int> c = live[at];
@@ -821,7 +821,7 @@ void scripted_run(Proof &p, int total) {
       p.del(id++, 0, clause({c[0], c[1]}).data(), 2);
     }
   }
-  p.add_empty(id, nullptr, 0);
+  p.add_empty(id);
 }
 
 // RUP, RAT and external lines well past the copy's 1 MiB binary buffer, and
@@ -847,10 +847,10 @@ size_t long_script(Proof &p) {
         lits.push_back(internalize(e));
       const uint64_t kind = next(10);
       if (kind < 7) {
-        p.add_rup(id++, lits.data(), 8, nullptr, 0);
+        p.add_rup(id++, lits.data(), 8);
       } else if (kind < 8) {
         lits[0] = internalize(100000 + round * 40000 + i); // a fresh pivot
-        p.add_rat(id++, lits.data(), 8, nullptr, 0);
+        p.add_rat(id++, lits.data(), 8);
         ++rats;
       } else if (kind < 9) {
         c[0] = 100000 + round * 40000 + i;
@@ -860,7 +860,7 @@ size_t long_script(Proof &p) {
         assert(p.add_external_rup(id++, c.data(), 8));
       }
     }
-    p.add_rup(id++, clause({1 + round}).data(), 1, nullptr, 0); // pending unit
+    p.add_rup(id++, clause({1 + round}).data(), 1); // pending unit
     for (int i = 0; i < 14000; ++i) { // a spilled deletion block
       const int a = 1 + i % 29, b = 1 + (i / 29) % 29;
       if (a != b)

@@ -28,12 +28,11 @@ static constexpr uint8_t SEEN = 1;      // literal is in the learned clause
 static constexpr uint8_t REMOVABLE = 2; // proven redundant
 static constexpr uint8_t POISONED = 4;  // proven not redundant
 static constexpr uint8_t SHRINKABLE = 8; // in the current block-shrink walk
-static constexpr uint8_t CHAINED = 16;   // antecedent recorded (LRAT)
 static constexpr uint8_t REASON_BUMP = 32; // marked by reason-side bumping
 
 // The bump set = SEEN ∪ REASON_BUMP. kissat keeps exactly this set on its
-// `analyzed` stack; `k.analyzed` here also holds minimization scratch and LRAT
-// antecedents, so membership is a flag test and the size is counted apart.
+// `analyzed` stack; `k.analyzed` here also holds minimization scratch, so
+// membership is a flag test and the size is counted apart.
 static constexpr uint8_t BUMPED = SEEN | REASON_BUMP;
 
 // Kissat's conflict unwind is deliberately two-stage: first remove the
@@ -50,15 +49,6 @@ static void unwind_after_conflict(Kernel &k, uint32_t target) {
     kernel_backtrack(k, target);
 }
 
-// --- native LRAT antecedent capture. CaDiCaL's id scheme with a simpler
-// ordering: entries carry the trail position of the literal their antecedent
-// propagated, and the chain is emitted ascending with the conflict last, so it
-// unit-propagates for the checker by construction. LRAT-gated throughout.
-
-static bool lrat_active(const Kernel &k) {
-  return k.proof && k.proof->lrat();
-}
-
 // Native affine handles are not clauses in the proof or Boolean formula.
 // Analyze's formula-mutating proof planner must run before the hot analysis
 // walk takes any persistent conflict/reason pointer. Thereafter every reason
@@ -69,78 +59,6 @@ static Clause *analysis_reason_clause(Kernel &k, Var v) {
          a.reason != UNIT_REASON);
   Clause *reason = clause_at(k.arena, a.reason);
   return reason;
-}
-
-// record var v's reason as an antecedent: the checker re-propagates v
-static void chain_record(Kernel &k, Var v) {
-  if (k.seen[v] & CHAINED)
-    return;
-  const Assigned &a = k.assigned[v];
-  assert(!a.affine);
-  assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
-  uint64_t id;
-  if (a.binary) {
-    const Lit assigned_lit = make_lit(v, k.values[make_lit(v, true)] > 0);
-    // A jumped reason names a virtual resolvent: cite the real first
-    // antecedent and defer the resolved-away literal to
-    // `chain_expand_jumped`, since whether it needs an antecedent depends on
-    // the final clause — if it lands in it, the checker has it assigned and
-    // its reason would be a satisfied, illegal hint. Its trail position is
-    // smaller, so a deferred entry sorts ahead of this one.
-    if (a.jumped) {
-      // never a root literal: the jump is taken only when the resolved-away
-      // literal sits above level 0 (kernel_assign_binary)
-      assert(k.var_level(var_of(k.jumped_over[v])) != 0);
-      k.jump_pending.push_back(var_of(k.jumped_over[v]));
-      id = kernel_binary_id(k, assigned_lit, k.jumped_over[v]);
-    } else {
-      id = kernel_binary_id(k, assigned_lit, a.reason);
-    }
-  } else {
-    id = analysis_reason_clause(k, v)->id();
-  }
-  if (!k.seen[v])
-    k.analyzed.push_back(v); // ensure flag cleanup
-  k.seen[v] |= CHAINED;
-  k.lrat_entries.emplace_back(a.trail, id);
-}
-
-// record a root-assigned var's UNIT clause as an antecedent
-static void chain_record_root(Kernel &k, Var v) {
-  if (k.seen[v] & CHAINED)
-    return;
-  if (!k.seen[v])
-    k.analyzed.push_back(v);
-  k.seen[v] |= CHAINED;
-  k.lrat_entries.emplace_back(k.assigned[v].trail, k.unit_ids[v]);
-}
-
-// Close out the literals reason jumping resolved past, against the final
-// clause: one that is in it is already assigned for the checker, so its reason
-// would be a satisfied hint; one that is not gets chained, possibly deferring
-// further (jump chains).
-static void chain_expand_jumped(Kernel &k, const Lit *lits, uint32_t size) {
-  while (!k.jump_pending.empty()) {
-    const Var v = k.jump_pending.back();
-    k.jump_pending.pop_back();
-    if (k.seen[v] & CHAINED)
-      continue;
-    bool in_clause = false;
-    for (uint32_t i = 0; i < size && !in_clause; i++)
-      in_clause = var_of(lits[i]) == v;
-    if (!in_clause)
-      chain_record(k, v);
-  }
-}
-
-// emit order: kernel_lrat_chain (ascending trail position, conflict last)
-static void chain_emit(Kernel &k, uint64_t id, const Lit *lits,
-                       uint32_t size, uint64_t conflict_id) {
-  if (!k.jump_pending.empty())
-    chain_expand_jumped(k, lits, size);
-  kernel_lrat_chain(k, conflict_id);
-  k.proof->add_rup(id, lits, size, k.lrat_chain.data(),
-                   static_cast<uint32_t>(k.lrat_chain.size()));
 }
 
 // glue (LBD): distinct decision levels among lits[0..n), capped at `limit`
@@ -314,8 +232,6 @@ static bool binary_chain_redundant(Kernel &k, Lit next, unsigned depth) {
     const Var v = var_of(next);
     const Assigned &a = k.assigned[v];
     if (a.level == 0) {
-      if (lrat_active(k))
-        chain_record_root(k, v);
       ok = true;
       break;
     }
@@ -348,11 +264,8 @@ static bool binary_chain_redundant(Kernel &k, Lit next, unsigned depth) {
       if (m == assigned_lit)
         continue;
       const Var mv = var_of(m);
-      if (k.var_level(mv) == 0) {
-        if (lrat_active(k))
-          chain_record_root(k, mv);
+      if (k.var_level(mv) == 0)
         continue;
-      }
       if (k.seen[mv] & SEEN)
         continue;
       if (!literal_redundant(k, m, depth + 2)) {
@@ -364,15 +277,13 @@ static bool binary_chain_redundant(Kernel &k, Lit next, unsigned depth) {
   }
 
   // Recursive Tactix used to mark these while unwinding, so retain the same
-  // deepest-first order for cleanup and native-LRAT antecedent capture.
+  // deepest-first order for cleanup.
   for (size_t i = k.minimize_scratch.size(); i > saved; i--) {
     const Var v = k.minimize_scratch[i - 1];
     const uint8_t before = k.seen[v];
     k.seen[v] |= ok ? REMOVABLE : POISONED;
     if (!before)
       k.analyzed.push_back(v);
-    if (ok && lrat_active(k))
-      chain_record(k, v);
   }
   k.minimize_scratch.resize(saved);
   return ok;
@@ -411,11 +322,8 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
       if (m == assigned_lit)
         continue;
       const Var mv = var_of(m);
-      if (k.var_level(mv) == 0) {
-        if (lrat_active(k))
-          chain_record_root(k, mv);
+      if (k.var_level(mv) == 0)
         continue;
-      }
       if (k.seen[mv] & SEEN)
         continue;
       if (!literal_redundant(k, m, depth + 1)) {
@@ -428,8 +336,6 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   k.seen[v] |= ok ? REMOVABLE : POISONED;
   if (!before)
     k.analyzed.push_back(v); // newly touched: schedule flag cleanup
-  if (ok && lrat_active(k))
-    chain_record(k, v); // the checker re-propagates the removed literal
   return ok;
 }
 
@@ -566,7 +472,7 @@ static bool mark_reason_side(Kernel &k, Lit m) {
   if (k.seen[v] & BUMPED)
     return false; // already in the bump set (kissat `a->analyzed`)
   // Not `if (k.seen[v])`: a var may sit in k.analyzed carrying only
-  // REMOVABLE/POISONED/CHAINED, which kissat keeps on separate stacks and its
+  // REMOVABLE/POISONED, which kissat keeps on separate stacks and its
   // `!a->analyzed` test admits. Testing the whole byte bumps a smaller set.
   if (!k.seen[v])
     k.analyzed.push_back(v);
@@ -647,8 +553,7 @@ static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
 // conflict is deleted immediately because it cannot be a trail reason.
 // Evidence: benchmarks/reports/2026-08-09-tier-a-otfs-watch-repair.md.
 static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
-                            Ref subsumed_ref /* INVALID_REF if none */,
-                            uint64_t conflict_chain_id) {
+                            Ref subsumed_ref /* INVALID_REF if none */) {
   const Clause *reason = clause_at(k.arena, reason_ref);
   const bool reason_irredundant = !reason->redundant();
   std::vector<Lit> &lits = k.otfs_scratch; // no per-event alloc
@@ -692,14 +597,9 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   // if it replaces an irredundant conflict (kissat otfs_subsume_clause)
   const bool redundant = reason->redundant() && !subsumed_irredundant;
 
-  if (k.proof) {
-    if (lrat_active(k)) // entries so far justify the resolvent (the
-      chain_emit(k, id, lits.data(), static_cast<uint32_t>(lits.size()),
-                 conflict_chain_id); // resolved reasons incl. t's)
-    else // streaming PBP tracks the resolvent's id for `del id`
-      k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, lits.data(),
-                       static_cast<uint32_t>(lits.size()), nullptr, 0);
-  }
+  if (k.proof) // streaming PBP tracks the resolvent's id for `del id`
+    k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, lits.data(),
+                     static_cast<uint32_t>(lits.size()));
   k.stats.otfs_strengthened++;
 
   // kissat_on_the_fly_strengthen marks only the resolved literal removed; the
@@ -837,11 +737,8 @@ void analyze_retire_otfs_reasons(Kernel &k) {
 static int shrink_literal(Kernel &k, Lit l, uint32_t blevel) {
   const Var v = var_of(l);
   const Assigned &a = k.assigned[v];
-  if (a.level == 0) {
-    if (lrat_active(k))
-      chain_record_root(k, v);
+  if (a.level == 0)
     return 0;
-  }
   if (k.seen[v] & SHRINKABLE)
     return 0;
   if (a.level < blevel) {
@@ -944,14 +841,9 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
   k.seen[uv] |= SEEN; // new clause literal: bump + minimization anchor
   // walked literals resolve to ¬uip, now in the clause: mark removable so
   // lower blocks' chains may bottom out in them
-  const bool lrat = lrat_active(k);
   for (const Var v : k.shrinkable) {
     k.seen[v] &= static_cast<uint8_t>(~SHRINKABLE);
     k.seen[v] |= REMOVABLE;
-    // the walked literals' reasons justify the collapse; the UIP stays out of
-    // the chain, its literal joining the clause and so being a satisfied hint
-    if (lrat && v != uv)
-      chain_record(k, v);
   }
   k.shrinkable.clear();
   return true;
@@ -1017,8 +909,7 @@ static uint32_t conflict_reuse_target(Kernel &k, uint32_t jump) {
 // sub-step of M3; see docs/dev/implementation-notes.md §15.
 
 // Is `c` the reason of a trail literal? Kissat does not ask; this kernel must,
-// or a garbage reason dangles for kernel_collect_garbage and a deleted id
-// enters the next LRAT chain (N2). Reachable only under a chronological
+// or a garbage reason dangles for kernel_collect_garbage (N2). Reachable only under a chronological
 // backjump target, which DefaultPolicy never picks, so the branch is pinned by
 // tests/test_analyze.cpp test_eager_subsume case (c).
 static bool eager_is_reason(const Kernel &k, Ref ref, const Clause *c) {
@@ -1144,9 +1035,7 @@ void analyze_eager_subsume(Kernel &k) {
 // that focused VMTF bumps after the root assignments have deactivated their
 // variables.  The order is therefore part of N4, not a proof-only shortcut.
 static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
-                                            uint32_t csize,
-                                            uint64_t conflict_chain_id,
-                                            bool lrat) {
+                                            uint32_t csize) {
   assert(k.level == 1);
   assert(k.frames.size() == 2);
   assert(k.frames[1] < k.trail.size());
@@ -1162,11 +1051,8 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   auto mark = [&](Lit lit) {
     const Var v = var_of(lit);
     const uint32_t level = k.var_level(v);
-    if (!level) {
-      if (lrat)
-        chain_record_root(k, v);
+    if (!level)
       return;
-    }
     assert(level == 1);
     if (k.seen[v] & SEEN)
       return;
@@ -1185,23 +1071,10 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
     mark(clits[i]);
   }
 
-  auto emit_unit = [&](Lit unit, bool full_conflict_walk) {
+  auto emit_unit = [&](Lit unit) {
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof) {
-      if (lrat) {
-        if (full_conflict_walk) {
-          std::vector<uint8_t> proof_seen(k.nvars);
-          k.lrat_entries.clear();
-          const uint64_t closing = kernel_conflict_reason_walk(
-              k, proof_seen, k.lrat_entries);
-          assert(closing == conflict_chain_id);
-          (void)closing;
-        }
-        chain_emit(k, id, &unit, 1, conflict_chain_id);
-      } else {
-        k.proof->add_rup(0, &unit, 1, nullptr, 0);
-      }
-    }
+    if (k.proof)
+      k.proof->add_rup(0, &unit, 1);
     units.emplace_back(unit, id);
   };
 
@@ -1217,15 +1090,13 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
 
       // The remaining frontier is just this true literal.  Assuming it
       // replays the already-resolved suffix to the conflict, so its negation
-      // is a root unit.  Do not add its own reason to that unit's LRAT chain.
+      // is a root unit.
       if (unresolved == 1)
-        emit_unit(negate(lit), /*full_conflict_walk=*/false);
+        emit_unit(negate(lit));
 
       const Var v = var_of(lit);
       const Assigned &a = k.assigned[v];
       assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
-      if (lrat)
-        chain_record(k, v);
 
       if (a.binary) {
         const Lit other = a.reason;
@@ -1251,11 +1122,7 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
     }
   }
 
-  // The full reason walk is deliberately rebuilt for the final decision
-  // unit.  The failed-literal traversal can stop as soon as one reason names
-  // `not_failed`, while LRAT still needs every other conflict branch in
-  // propagation order.  DRAT infers the same RUP chain itself.
-  emit_unit(not_failed, /*full_conflict_walk=*/lrat);
+  emit_unit(not_failed);
 
   // Kissat learns the whole failed-literal batch as one size-one/glue-zero
   // conflict result, even when the backward traversal found extra units.
@@ -1276,7 +1143,7 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   for (const auto &[unit, id] : units) {
     const int8_t value = k.value(unit);
     if (value < 0) {
-      kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(unit)]);
+      kernel_emit_empty(k);
       bump_and_reset_analyzed(k);
       return ApplyResult::Unsat;
     }
@@ -1290,8 +1157,6 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   // are inactive by this point and therefore cannot be moved back into either
   // decision structure by the analyzed-variable transaction.
   bump_and_reset_analyzed(k);
-  k.lrat_entries.clear();
-  k.jump_pending.clear();
   return ApplyResult::Ok;
 }
 
@@ -1313,21 +1178,11 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
   assert(k.analyzed.empty());
   assert(k.bump_order.empty());
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
-  const bool lrat = lrat_active(k);
-  uint64_t conflict_chain_id = 0; // the round's conflict, emitted last
   Lit uip = INVALID_LIT;
   bool otfs_round = false;
   for (;;) { // one round per conflict; OTFS restarts with a stronger one
     uint32_t csize;
     const Lit *clits = conflict_lits(k, &csize);
-    if (lrat) {
-      k.lrat_entries.clear();
-      k.jump_pending.clear(); // paired with lrat_entries: same round scope
-      conflict_chain_id =
-          k.conflict_ref == INVALID_REF
-              ? kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1])
-              : clause_at(k.arena, k.conflict_ref)->id();
-    }
     uint32_t alevel = 0;         // analysis level: max over conflict literals
     uint32_t conflict_nonroot = 0; // OTFS-subsume compares against this
     for (uint32_t i = 0; i < csize; i++) {
@@ -1338,15 +1193,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
     if (alevel == 0) { // conflict entirely at the root: refutation done
       k.inconsistent = true;
       k.conflict_valid = false;
-      if (k.proof) {
-        if (lrat) { // chain: the conflict lits' root units + the conflict
-          for (uint32_t i = 0; i < csize; i++)
-            chain_record_root(k, var_of(clits[i]));
-          chain_emit(k, ++k.next_clause_id, nullptr, 0, conflict_chain_id);
-        } else {
-          k.proof->add_empty(0, nullptr, 0);
-        }
-      }
+      if (k.proof)
+        k.proof->add_empty(0);
       return ApplyResult::Unsat;
     }
     // Backtrack to the conflict level (kissat analyze.c
@@ -1412,19 +1260,10 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
         if (!jump2) {
           // A reused root implication is propagation, not a learned-clause
           // transaction. Kissat inlineassign.h publishes its unit and fixes
-          // the variable without entering Deduce or advancing EVSIDS. Name
-          // the same root fact in LRAT using the other literals' unit ids.
+          // the variable without entering Deduce or advancing EVSIDS.
           const uint64_t id = ++k.next_clause_id;
-          if (k.proof) {
-            if (lrat) {
-              for (uint32_t i = 0; i < csize; ++i)
-                if (clits[i] != forced)
-                  chain_record_root(k, var_of(clits[i]));
-              chain_emit(k, id, &forced, 1, conflict_chain_id);
-            } else {
-              k.proof->add_rup(id, &forced, 1, nullptr, 0);
-            }
-          }
+          if (k.proof)
+            k.proof->add_rup(id, &forced, 1);
           k.unit_ids[var_of(forced)] = id;
           kernel_assign_unit(k, forced);
           heuristics_deactivate_var(k, var_of(forced));
@@ -1454,8 +1293,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
       for (uint32_t i = 0; i < csize; i++)
         on_level_one += k.var_level(var_of(clits[i])) == 1;
       if (on_level_one > 1)
-        return analyze_failed_level_one(k, clits, csize, conflict_chain_id,
-                                        lrat);
+        return analyze_failed_level_one(k, clits, csize);
     }
 
     // Kissat marks the conflict as used inside
@@ -1476,11 +1314,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
     auto mark = [&](Lit l) {
       const Var v = var_of(l);
       const uint32_t lv = k.var_level(v);
-      if (lv == 0) { // root literals resolve away for free — but the
-        if (lrat)    // checker needs their unit ids in the chain
-          chain_record_root(k, v);
+      if (lv == 0) // root literals resolve away for free
         return;
-      }
       if (k.seen[v])
         return;
       k.seen[v] = SEEN;
@@ -1519,8 +1354,6 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
       }
       open--;
       resolved++;
-      if (lrat)
-        chain_record(k, var_of(t)); // the checker re-propagates t
       const Assigned &a = k.assigned[var_of(t)];
       event_trace_detail(k, "analysis_resolve", kernel_externalize(k, t));
       if (a.binary) {
@@ -1564,8 +1397,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
                                          conflict_ref0 != INVALID_REF &&
                                          resolvent_size < conflict_nonroot;
           otfs_strengthen(k, reason_ref, t,
-                          subsumes_conflict ? conflict_ref0 : INVALID_REF,
-                          conflict_chain_id);
+                          subsumes_conflict ? conflict_ref0 : INVALID_REF);
           restart_analysis = true;
           break;
         }
@@ -1730,15 +1562,9 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
 
   // proof delta first (add-RUP), then the clause joins R
   const uint64_t learned_id = ++k.next_clause_id;
-  if (k.proof) {
-    if (lrat)
-      chain_emit(k, learned_id, learned.data(),
-                 static_cast<uint32_t>(learned.size()), conflict_chain_id);
-    else // streaming PBP tracks the learned id for `del id`
-      k.proof->add_rup(k.proof->streaming_pbp() ? learned_id : 0,
-                       learned.data(),
-                       static_cast<uint32_t>(learned.size()), nullptr, 0);
-  }
+  if (k.proof) // streaming PBP tracks the learned id for `del id`
+    k.proof->add_rup(k.proof->streaming_pbp() ? learned_id : 0, learned.data(),
+                     static_cast<uint32_t>(learned.size()));
   k.stats.learned++;
   k.stats.learned_lits += learned.size();
   k.stats.learned_glue_sum += glue;

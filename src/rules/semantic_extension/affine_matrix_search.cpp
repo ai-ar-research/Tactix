@@ -517,7 +517,7 @@ RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
       .provenance()
       .fact("clausal-proof",
             !kernel.proof ||
-                (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()))
+                !kernel.proof->terminal_pbp())
       .finish();
 }
 
@@ -1416,7 +1416,7 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
     const AffineMatrixPersistenceLimits &persistence, bool allow_additional_recognition) {
 #ifndef NDEBUG
   // A refresh certifies every root fact against the proof-visible view. An
-  // asserted root unit without an LRAT id must therefore be in the DSR root
+  // asserted root unit without a unit id must therefore be in the DSR root
   // table, even after Substitute or BVE removed the clauses that implied it;
   // other root facts keep a propagation reason until retirement publishes them.
   if (kernel_root_unit_table_stream(kernel) &&
@@ -2600,7 +2600,7 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                   .fact("sparse", !kernel.dense && kernel.large_watches_connected)
                                   .fact("no-probe-transaction", !kernel.probing.recording)
                                   .fact("profile-valid", profile.valid())
-                                  .fact("clausal-proof", kernel.proof && !kernel.proof->lrat() && !kernel.proof->terminal_pbp())
+                                  .fact("clausal-proof", kernel.proof && !kernel.proof->terminal_pbp())
                                   .fact("no-extended-model", !kernel.model_extended)
                                   .fact("session-profile",
                                         profile_session() && !session->has_deferred_reason());

@@ -93,7 +93,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
   ParityLiveResult result;
   if(!request.records||!request.action_id||request.selection.output_width>4||
      !lucky_root_eligibility(k,true)||
-     (k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())))return result;
+     (k.proof&&k.proof->terminal_pbp()))return result;
   Journal journal{request.records,request.action_id};
   std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"begin\",\"clauses_limit\":%llu,\"groups_limit\":%llu,\"selection_work\":%llu,\"intermediate_width\":%u,\"source_limit\":%u,\"output_width\":%u,\"descending\":%s,\"proof_limit\":%llu,\"consequence\":%zu}\n",(unsigned long long)request.action_id,(unsigned long long)request.premises.clauses,(unsigned long long)request.premises.groups,(unsigned long long)request.selection.work,request.selection.intermediate_width,request.selection.source_count,request.selection.output_width,request.descending?"true":"false",(unsigned long long)request.maximum_proof_additions,request.consequence);
   parity_premises::Collector collector(request.premises);
@@ -176,7 +176,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
       if(k.value(lits[0])<0) {
         if(!terminal_root_conflict||result.additions==request.maximum_proof_additions)std::abort();
         k.inconsistent=true;const uint64_t empty_id=++k.next_clause_id;
-        if(k.proof)k.proof->add_empty(empty_id,nullptr,0);
+        if(k.proof)k.proof->add_empty(empty_id);
         ++result.additions;journal.clause("root-conflict",empty_id,nullptr,0);return;
       }
       if(!k.value(lits[0])) {k.unit_ids[var_of(lits[0])]=item.id;kernel_assign_unit(k,lits[0]);++result.published;}

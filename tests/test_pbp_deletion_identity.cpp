@@ -101,10 +101,10 @@ void test_anonymous_registry() {
     const auto a_permuted = clause({3, 1, 2});
     const auto unit = clause({4});
     const auto tracked = clause({5, 6, 7});
-    p.add_rup(0, a.data(), 3, nullptr, 0);         // 2
-    p.add_rup(0, a_permuted.data(), 3, nullptr, 0); // 3
-    p.add_rup(0, unit.data(), 1, nullptr, 0);      // 4
-    p.add_rup(40, tracked.data(), 3, nullptr, 0);  // 5
+    p.add_rup(0, a.data(), 3);         // 2
+    p.add_rup(0, a_permuted.data(), 3); // 3
+    p.add_rup(0, unit.data(), 1);      // 4
+    p.add_rup(40, tracked.data(), 3);  // 5
     p.del(50, 0, a.data(), 3);                     // newest copy: 3
     p.del(51, 77, a_permuted.data(), 3);           // untracked id: 2
     p.del(52, 0, unit.data(), 1);                  // 4
@@ -113,7 +113,7 @@ void test_anonymous_registry() {
     const auto &c = p.pbp_deletion_counters();
     assert(c.by_id == 5 && c.by_anonymous == 3 && !c.abandon_reason);
     assert(c.anonymous_registered == 3);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -142,15 +142,15 @@ void test_anonymous_registry_miss_abandons() {
     const auto a = clause({1, 2, 3});
     const auto b = clause({1, 2, 4});
     const auto tracked = clause({5, 6, 7});
-    p.add_rup(0, a.data(), 3, nullptr, 0);        // 1
-    p.add_rup(30, tracked.data(), 3, nullptr, 0); // 2
+    p.add_rup(0, a.data(), 3);        // 1
+    p.add_rup(30, tracked.data(), 3); // 2
     p.del(40, 0, b.data(), 3);                    // never added: spec
     p.del(41, 30, tracked.data(), 3);             // abandoned: spec
     p.del(42, 0, a.data(), 3);
     const auto &c = p.pbp_deletion_counters();
     assert(c.by_id == 0 && c.spec_wide == 3 && c.abandon_reason == 1 &&
            c.abandon_width == 3);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -179,10 +179,10 @@ void test_restatement_rebinds_identity() {
     const auto unit = clause({4});
     const auto later = clause({5, 6, 7});
     p.seed_population(1, raw_wide.data(), 4);
-    p.add_rup(1, wide.data(), 3, nullptr, 0);
+    p.add_rup(1, wide.data(), 3);
     p.del(2, 1, raw_wide.data(), 4);
     p.seed_population(2, raw_binary.data(), 2);
-    p.add_rup(2, unit.data(), 1, nullptr, 0);
+    p.add_rup(2, unit.data(), 1);
     p.del(3, 2, raw_binary.data(), 2);
     p.seed_population(3, later.data(), 3);
     p.finish_input_transaction();
@@ -192,7 +192,7 @@ void test_restatement_rebinds_identity() {
     const auto &c = p.pbp_deletion_counters();
     assert(c.rebinds_recorded == 2 && c.by_rebind == 2 && c.by_id == 5 &&
            !c.abandon_reason && !c.spec_unit && !c.spec_wide);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -220,16 +220,16 @@ void test_restatement_rebinds_divergent_identity() {
     const auto raw = clause({1, -2, 3, 3});
     const auto replacement = clause({1, -2, 3});
     p.seed_population(1, first.data(), 1);
-    p.add_derived_unit(2, derived[0], nullptr, 0);
+    p.add_derived_unit(2, derived[0]);
     p.seed_population(3, raw.data(), 4);
-    p.add_rup(3, replacement.data(), 3, nullptr, 0);
+    p.add_rup(3, replacement.data(), 3);
     p.del(4, 3, raw.data(), 4);
     p.finish_input_transaction();
     p.del(10, 3, replacement.data(), 3); // f + 2
     p.del(11, 2, derived.data(), 1);     // f + 1
     const auto &c = p.pbp_deletion_counters();
     assert(c.by_rebind == 1 && c.by_id == 3 && !c.abandon_reason);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -252,11 +252,11 @@ void test_unresolved_restatement_abandons() {
     const auto raw = clause({1, 1, 2, 3});
     const auto replacement = clause({1, 2, 3});
     p.seed_population(1, raw.data(), 4);
-    p.add_rup(1, replacement.data(), 3, nullptr, 0);
+    p.add_rup(1, replacement.data(), 3);
     p.finish_input_transaction();
     assert(p.pbp_deletion_counters().abandon_reason == 5);
     p.del(5, 1, replacement.data(), 3);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -277,10 +277,10 @@ void test_deferred_root_units() {
       assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
       p.finish_input_transaction();
       p.begin_deferred_root_units();
-      p.add_derived_unit(1, internalize(2), nullptr, 0);
-      p.add_derived_unit(2, internalize(-3), nullptr, 0);
+      p.add_derived_unit(1, internalize(2));
+      p.add_derived_unit(2, internalize(-3));
       p.end_deferred_root_units();
-      p.add_empty(3, nullptr, 0);
+      p.add_empty(3);
       const auto &c = p.pbp_deletion_counters();
       assert(c.deferred_units == 2 && c.dropped_units == 2 &&
              c.dropped_batches == 1);
@@ -297,14 +297,14 @@ void test_deferred_root_units() {
       assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
       p.finish_input_transaction();
       const auto lemma = clause({4, 5, 6});
-      p.add_rup(7, lemma.data(), 3, nullptr, 0);
+      p.add_rup(7, lemma.data(), 3);
       p.begin_deferred_root_units();
-      p.add_derived_unit(8, internalize(2), nullptr, 0);
-      p.add_derived_unit(9, internalize(-3), nullptr, 0);
+      p.add_derived_unit(8, internalize(2));
+      p.add_derived_unit(9, internalize(-3));
       p.end_deferred_root_units();
       p.del(10, 7, lemma.data(), 3);
       p.del(11, 9, clause({-3}).data(), 1);
-      p.add_empty(12, nullptr, 0);
+      p.add_empty(12);
       assert(!p.pbp_deletion_counters().dropped_units);
     }
     expect(read_all(file.path),
@@ -324,16 +324,16 @@ void test_deferred_root_units() {
       assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
       p.finish_input_transaction();
       p.begin_deferred_root_units();
-      p.add_derived_unit(1, internalize(2), nullptr, 0);
+      p.add_derived_unit(1, internalize(2));
       p.end_deferred_root_units();
     }
     expect(read_all(file.path),
            "pseudo-Boolean proof version 3.0\nf 0;\nrup 1 x2 >= 1 ;\n",
            "unfinished stream keeps root units");
   }
-  // Other formats ignore the staging calls byte for byte.
-  for (const ProofFormat format :
-       {ProofFormat::DsrAscii, ProofFormat::DratAscii, ProofFormat::Lrat}) {
+  // DSR ignores the staging calls byte for byte.
+  {
+    const ProofFormat format = ProofFormat::DsrAscii;
     std::string bytes[2];
     for (int staged = 0; staged < 2; ++staged) {
       TemporaryFile file;
@@ -341,14 +341,12 @@ void test_deferred_root_units() {
         Proof p;
         assert(p.open(file.path.c_str(), format));
         p.finish_input_transaction();
-        const uint64_t hint = 1;
         if (staged)
           p.begin_deferred_root_units();
-        p.add_derived_unit(2, internalize(2), &hint, 1);
+        p.add_derived_unit(2, internalize(2));
         if (staged)
           p.end_deferred_root_units();
-        const uint64_t chain[] = {2, 1};
-        p.add_empty(3, chain, 2);
+        p.add_empty(3);
       }
       bytes[staged] = read_all(file.path);
     }
@@ -369,7 +367,7 @@ void test_repeated_binary_is_exact() {
     p.finish_input_transaction();
     p.del(2, 1, raw.data(), 2);
     assert(p.pbp_deletion_counters().by_id == 1);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\nf 1;\n"
@@ -389,13 +387,13 @@ void test_repeated_binary_after_divergence() {
     const auto derived = clause({8});
     const auto raw = clause({3, 3});
     p.seed_population(1, first.data(), 1);
-    p.add_derived_unit(2, derived[0], nullptr, 0); // splits the namespaces
+    p.add_derived_unit(2, derived[0]); // splits the namespaces
     p.seed_population(3, raw.data(), 2);
     p.finish_input_transaction();
     p.del(4, 3, raw.data(), 2);
     const auto &c = p.pbp_deletion_counters();
     assert(c.by_id == 1 && !c.spec_unit && !c.abandon_reason);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -417,10 +415,10 @@ void test_divergent_input_runs() {
     const auto first = clause({9}), a = clause({1, 2, 3}), b = clause({4, 5}),
                c = clause({1, -2, 6});
     p.seed_population(1, first.data(), 1);            // prefix: constraint 1
-    p.add_derived_unit(2, internalize(8), nullptr, 0); // splits the ids
+    p.add_derived_unit(2, internalize(8)); // splits the ids
     p.seed_population(3, a.data(), 3);                 // run {3, 2}
     p.seed_population(4, b.data(), 2);                 //   ... {4, 3}
-    p.add_derived_unit(5, internalize(7), nullptr, 0); // second split
+    p.add_derived_unit(5, internalize(7)); // second split
     p.seed_population(6, c.data(), 3);                 // run {6, 4}
     p.finish_input_transaction();
     p.del(10, 3, a.data(), 3);
@@ -429,7 +427,7 @@ void test_divergent_input_runs() {
     const auto &counters = p.pbp_deletion_counters();
     assert(counters.by_id == 2 && counters.spec_binary == 1 &&
            !counters.abandon_reason);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -458,21 +456,21 @@ void test_multiple_input_runs() {
                b3 = clause({15, 16, 17});
     const auto learned = clause({1, 4, 10}), reused = clause({4});
     p.seed_population(1, prefix.data(), 3);             // 1: the prefix
-    p.add_derived_unit(2, internalize(20), nullptr, 0); // split: f + 1
+    p.add_derived_unit(2, internalize(20)); // split: f + 1
     p.seed_population(3, a1.data(), 3);                 // run A: 2
     p.seed_population(4, a2.data(), 3);                 //        3
-    p.add_derived_unit(5, internalize(21), nullptr, 0); // split: f + 2
+    p.add_derived_unit(5, internalize(21)); // split: f + 2
     p.seed_population(6, b1.data(), 3);                 // run B: 4
     p.seed_population(7, b2.data(), 2);                 //        5 (by spec)
     p.seed_population(8, b3.data(), 3);                 //        6
     p.finish_input_transaction();
-    p.add_rup(9, learned.data(), 3, nullptr, 0); // just past run B: f + 3
+    p.add_rup(9, learned.data(), 3); // just past run B: f + 3
     p.del(10, 3, a1.data(), 3);                  // 2
     p.del(11, 4, a2.data(), 3);                  // 3
     p.del(12, 6, b1.data(), 3);                  // 4
     p.del(13, 8, b3.data(), 3);                  // 6
     p.del(14, 7, b2.data(), 2);                  // binary: spec
-    p.add_rup(3, reused.data(), 1, nullptr, 0);  // reuses deleted 3: f + 4
+    p.add_rup(3, reused.data(), 1);  // reuses deleted 3: f + 4
     p.del(15, 3, reused.data(), 1);              // f + 4
     p.del(16, 5, clause({21}).data(), 1);        // f + 2
     p.del(17, 2, clause({20}).data(), 1);        // f + 1
@@ -480,7 +478,7 @@ void test_multiple_input_runs() {
     p.del(19, 1, prefix.data(), 3);              // 1
     const auto &c = p.pbp_deletion_counters();
     assert(c.by_id == 9 && c.spec_binary == 1 && !c.abandon_reason);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -515,12 +513,12 @@ void test_disabled_id_deletions() {
     p.finish_input_transaction();
     p.disable_pbp_id_deletions();
     const auto lemma = clause({4, 5, 6});
-    p.add_rup(5, lemma.data(), 3, nullptr, 0);
+    p.add_rup(5, lemma.data(), 3);
     p.del(6, 5, lemma.data(), 3);
     p.del(7, 1, input.data(), 3);
     const auto &c = p.pbp_deletion_counters();
     assert(!c.by_id && c.spec_wide == 2 && c.abandon_reason == 7);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
   }
   expect(read_all(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -551,7 +549,7 @@ void test_refutation_sink_erases_by_id() {
     assert(sink.erase({-1, 2, 3}));
     const auto &c = p.pbp_deletion_counters();
     assert(c.by_id == 2 && !c.spec_wide && !c.abandon_reason);
-    p.add_empty(0, nullptr, 0);
+    p.add_empty(0);
     k.proof = nullptr;
   }
   expect(read_all(file.path),
@@ -583,11 +581,11 @@ void write_written_back_units(const std::string &directory) {
       p.seed_population(i + 1, input[i].data(), 2);
     p.finish_input_transaction();
     p.begin_deferred_root_units();
-    p.add_derived_unit(5, internalize(1), nullptr, 0);
-    p.add_derived_unit(6, internalize(3), nullptr, 0);
+    p.add_derived_unit(5, internalize(1));
+    p.add_derived_unit(6, internalize(3));
     p.end_deferred_root_units();
     p.del(7, 2, input[1].data(), 2); // writes the held units first
-    p.add_empty(8, nullptr, 0);
+    p.add_empty(8);
     assert(!p.pbp_deletion_counters().dropped_units);
   }
   expect(read_all(directory + "/writeback.pbp"),

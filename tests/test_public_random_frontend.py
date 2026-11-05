@@ -77,11 +77,11 @@ def main():
         assert result.returncode == 10, (result.stdout, result.stderr)
         assert "s SATISFIABLE" in result.stdout and re.search(r"^v .* 0$", result.stdout, re.M)
 
-        lrat = work / "unsat.lrat"
-        result = run(public_random, "--random-policy=1", "--lrat", unsat, lrat)
+        dsr = work / "unsat.dsr"
+        result = run(public_random, "--random-policy=1", "--dsr", unsat, dsr)
         assert result.returncode == 20, (result.stdout, result.stderr)
-        assert lrat.is_file() and lrat.stat().st_size
-        assert "c proof-route lrat" in result.stdout
+        assert dsr.is_file() and dsr.stat().st_size
+        assert "c proof-route dsr-" in result.stdout
 
         retired = run(production, "--random-policy=5", sat)
         assert retired.returncode == 1

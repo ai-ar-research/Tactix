@@ -742,11 +742,8 @@ int main(int argc, char **argv) {
     if (!std::strcmp(arg, "--pbp")) proof_format = TACTIX_PROOF_PBP;
     else if (!std::strcmp(arg, "--auto-proof")) proof_format = TACTIX_PROOF_AUTO;
     else if (!std::strcmp(arg, "--dsr")) proof_format = TACTIX_PROOF_DSR_BINARY;
-    else if (!std::strcmp(arg, "--drat")) proof_format = TACTIX_PROOF_DRAT_BINARY;
-    else if (!std::strcmp(arg, "--lrat")) proof_format = TACTIX_PROOF_LRAT;
     else if (!std::strcmp(arg, "--no-binary")) {
       if (proof_format == TACTIX_PROOF_DSR_BINARY) proof_format = TACTIX_PROOF_DSR_ASCII;
-      if (proof_format == TACTIX_PROOF_DRAT_BINARY) proof_format = TACTIX_PROOF_DRAT_ASCII;
     } else if (!std::strncmp(arg, "--random-policy", 15)) {
       if (arg[15] == '=') {
         const char *begin = arg + 16, *end = begin + std::strlen(begin);
@@ -767,7 +764,7 @@ int main(int argc, char **argv) {
     else if (!proof_path) proof_path = arg;
     else {
       std::fprintf(stderr, "usage: tactix-public-random [--random-policy=SEED] "
-                           "[--pbp|--dsr|--drat|--lrat] CNF [PROOF]\n");
+                           "[--pbp|--auto-proof|--dsr] CNF [PROOF]\n");
       return 1;
     }
   }

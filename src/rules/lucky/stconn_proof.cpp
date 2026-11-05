@@ -249,8 +249,7 @@ public:
     if (kernel_.proof) {
       const uint64_t id = ++kernel_.next_clause_id;
       kernel_.proof->add_rup(id, internal_.data(),
-                             static_cast<uint32_t>(internal_.size()),
-                             nullptr, 0);
+                             static_cast<uint32_t>(internal_.size()));
     }
     ++kernel_.stats.stconn_proof_rup_clauses;
     return true;
@@ -644,7 +643,7 @@ bool collect_formula(Kernel &k, Formula &formula) {
 } // namespace
 
 RuleEligibility stconn_proof_guard(const Kernel &k) {
-  return lucky_clausal_root_eligibility(k);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult stconn_proof_apply(Kernel &k) {

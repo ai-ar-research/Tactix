@@ -234,7 +234,9 @@ void controller_decline_feedback() {
     kernel.nary_csp_equality_amo_session = &session;
     Proof proof;
     if (cause == Unsupported) {
-      assert(proof.open("/dev/null", ProofFormat::Lrat));
+      assert(proof.open("/dev/null", ProofFormat::PbpStreaming));
+      proof.finish_input_transaction();
+      assert(proof.begin_pb());
       kernel.proof = &proof;
     }
     if (cause == Stale) {

@@ -400,7 +400,6 @@ TACTIX_STATS_U64(sweep_env_lits)      // literal occurrences encoded
 TACTIX_STATS_U64(sweep_env_false)     // of those, root-FALSE occurrences
 TACTIX_STATS_U64(sweep_env_freefalse) // of those, with no unit id => free var
 TACTIX_STATS_U64(sweep_env_stripped)  // root-false occurrences REMOVED
-TACTIX_STATS_U64(sweep_strip_cited)   // ... with their root units cited in an
 TACTIX_STATS_U64(sweep_env_units)     // unit clauses added alongside (off arm)
 TACTIX_STATS_U64(sweep_ticks_dedup)   // the environment's clause-key scan
 TACTIX_STATS_U64(sweep_ticks_sub)     // Sweep's scheduled effort currency

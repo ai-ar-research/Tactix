@@ -131,8 +131,8 @@ Gf3AffineOwnerCaptureResult gf3_affine_live_capture_owner(
 Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
     Kernel &, const Gf3AffineLiveRequest &, const Gf3AffineOwnerSnapshot &);
 
-// Plan and atomically publish one caller-selected pair elimination.  DSR,
-// DRAT, and no-proof modes are supported.  Propagation is deliberately left to
+// Plan and atomically publish one caller-selected pair elimination.  DSR and
+// no-proof modes are supported.  Propagation is deliberately left to
 // the controller's next action.  Every recoverable decline is mutation-free.
 Gf3AffineLiveResult gf3_affine_live_apply(Kernel &,
                                           const Gf3AffineLiveRequest &);

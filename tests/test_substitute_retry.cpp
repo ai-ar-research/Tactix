@@ -20,7 +20,7 @@ static bool fixture(unsigned copies, int mode, bool single, bool reverse) {
   const int fd = mkstemp(path); assert(fd >= 0); close(fd);
   Proof proof;
   if (mode) {
-    assert(proof.open(path, mode == 1 ? ProofFormat::DratAscii : ProofFormat::Lrat));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     k.proof = &proof;
     proof.bind_variable_map(&k.internal_to_external);
   }
@@ -75,7 +75,7 @@ static bool fixture(unsigned copies, int mode, bool single, bool reverse) {
 int main(int argc, char **argv) {
   bool ok = true;
   for (unsigned copies : {1u, 2u, 5u})
-    for (int mode : {0, 1, 2})
+    for (int mode : {0, 1})
       for (bool single : {false, true})
         for (bool reverse : {false, true})
           ok = fixture(copies, mode, single, reverse) && ok;
@@ -85,5 +85,5 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(ok);
-  std::puts("PASS: 36 canonical/public DRAT/LRAT retry fixtures");
+  std::puts("PASS: canonical/public retry fixtures");
 }

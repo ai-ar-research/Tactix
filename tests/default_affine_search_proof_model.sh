@@ -22,12 +22,11 @@ printf '1 0\n' > "$temporary/bad.dsr"
 reject "$temporary/bad.log" 'Unsupported unconditional unit was accepted' \
   "$DSR_TRIM" -f -c -U "$temporary/sat.cnf" "$temporary/bad.dsr" "$temporary/bad.lsr"
 grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR|is not RUP' "$temporary/bad.log"
-check_dsr_full "$temporary/unsat-drat.cnf" "$temporary/unsat-drat.drat"
+# The witness-free route: drat-trim reads the same DSR text as a derivation.
 drat_derivation "$temporary/sat-drat.log" \
-  "$temporary/sat-drat.cnf" "$temporary/sat-drat.drat" -f
-"$CHECKMODEL" "$temporary/sat-drat.cnf" "$temporary/sat-drat.model"
+  "$temporary/sat.cnf" "$temporary/sat.dsr" -f
 reject "$temporary/bad-drat.log" 'Unsupported unconditional DRAT unit was accepted' \
-  "$DRAT_TRIM" "$temporary/sat-drat.cnf" "$temporary/bad.dsr" -f -U
+  "$DRAT_TRIM" "$temporary/sat.cnf" "$temporary/bad.dsr" -f -U
 grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR' "$temporary/bad-drat.log"
 # Paused-owner resumption uses the exact union of staged original inputs.
 # This is SAT, so the root consequence cannot pass vacuously via an empty line.
@@ -39,13 +38,5 @@ for stem in paused paused-dsr-binary; do
   reject "$temporary/$stem-bad.log" 'Unsupported paused-owner unit was accepted' \
     "$DSR_TRIM" -f -c -U "$temporary/$stem.cnf" "$temporary/paused-bad.dsr" "$temporary/$stem-bad.lsr"
   grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR|is not RUP' "$temporary/$stem-bad.log"
-done
-for stem in paused-drat paused-drat-binary; do
-  drat_derivation "$temporary/$stem-check.log" \
-    "$temporary/$stem.cnf" "$temporary/$stem.drat" -f
-  "$CHECKMODEL" "$temporary/$stem.cnf" "$temporary/$stem.model"
-  reject "$temporary/$stem-bad.log" 'Unsupported paused-owner DRAT unit was accepted' \
-    "$DRAT_TRIM" "$temporary/$stem.cnf" "$temporary/paused-bad.dsr" -f -U
-  grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR' "$temporary/$stem-bad.log"
 done
 echo 'default_affine_search_proof_model OK'

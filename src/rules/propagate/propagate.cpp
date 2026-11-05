@@ -32,12 +32,7 @@ ApplyResult propagate_service(Kernel &k) {
     if (k.level == 0) { // root conflict: the formula is refuted
       k.inconsistent = true;
       k.conflict_valid = false;
-      // LRAT chain: the falsified clause's literals' units, then itself.
-      emit_falsified_refutation(
-          k,
-          k.conflict_ref == INVALID_REF ? nullptr
-                                        : clause_at(k.arena, k.conflict_ref),
-          k.conflict_bin[0], k.conflict_bin[1]);
+      kernel_emit_empty(k);
       return ApplyResult::Unsat;
     }
     return ApplyResult::Conflict;

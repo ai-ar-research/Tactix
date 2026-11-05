@@ -4,8 +4,7 @@
 // handling) used by both the file parser and the IPASIR-style C API.
 //
 // A missing final newline is valid DIMACS. A missing final zero is not: no
-// checker accepts such a file (lrat-check drops the trailing clause, cake_lpr
-// refuses), so a proof citing its id cannot verify. Tolerating it is an
+// checker accepts such a file (cake_lpr refuses it), so a proof citing its id cannot verify. Tolerating it is an
 // input-validation choice, never something an emitted proof may rely on. See
 // benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2.1.
 #pragma once
@@ -39,10 +38,8 @@ void ingest_clause(Kernel &, std::vector<Lit> &scratch);
 void finish_input(Kernel &);
 
 // Attach a proof after eager import by replaying the exact original clauses
-// into a temporary proof kernel. Native LRAT needs this for proof-independent
-// input normalization: its derived ids may only follow all original ids.
-// The existing solver's assignments, watches, reasons and policy state stay
-// untouched; only their proof identities are mapped to the replay stream.
+// into a temporary proof kernel. The existing solver's assignments, watches,
+// reasons and policy state stay untouched.
 void attach_replayed_input_proof(Kernel &, Proof &);
 
 } // namespace tactix

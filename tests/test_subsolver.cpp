@@ -1,7 +1,7 @@
 // Sweep's embedded sub-solver and its refutation derivation. The solver is
 // checked against brute force over all 2^n assignments, with and without the
 // assumptions Sweep always uses. A derivation is checked three independent
-// ways: `lrat_replay` replays every chain, `check_target_is_entailed` checks
+// ways: `chain_replay` replays every chain, `check_target_is_entailed` checks
 // entailment by enumeration, and the core may not under-report what the chains
 // cite. `--emit <dir>` writes the cases out for `sweep_proofs.sh`.
 #undef NDEBUG
@@ -457,9 +457,10 @@ void test_kitten_against_brute_force(uint32_t iterations) {
 
 // --- the refutation derivation ---------------------------------------------
 
-// A complete LRAT replay, so every derivation is checked the way cake_lpr would
-// check it. `clauses` maps id -> literals and grows as steps are accepted.
-bool lrat_replay(std::map<uint32_t, std::vector<SubLit>> &clauses,
+// A complete antecedent replay, so every derivation is checked by unit
+// propagation in chain order. `clauses` maps id -> literals and grows as steps
+// are accepted.
+bool chain_replay(std::map<uint32_t, std::vector<SubLit>> &clauses,
                  const SubStep &step) {
   std::map<SubLit, int8_t> value;
   const auto val = [&](SubLit l) {
@@ -519,7 +520,7 @@ void check_target_is_entailed(const Formula &f, const std::vector<SubLit> &assum
   }
 }
 
-// The derivation oracle: random refutations, each replayed as LRAT, checked for
+// The derivation oracle: random refutations, each replayed by propagation, checked for
 // entailment by enumeration, and checked for core discipline — every chain
 // entry is a core original or an earlier lemma, so the order replays.
 void test_derivations(uint32_t iterations,
@@ -580,7 +581,7 @@ void test_derivations(uint32_t iterations,
           assert(std::find(d.core.begin(), d.core.end(), a) != d.core.end() &&
                  "a chain cites an original outside the reported core");
       }
-      assert(lrat_replay(clauses, step) && "a derivation step does not check");
+      assert(chain_replay(clauses, step) && "a derivation step does not check");
       clauses[step.id] = step.lits;
     }
     // the last step is the target
@@ -665,7 +666,7 @@ void test_derivation_edge_cases() {
       {1, {sub_lit(2, false), sub_lit(0, false)}},
       {2, {sub_lit(2, true), sub_lit(1, false)}}};
   for (const SubStep &step : d.steps) {
-    assert(lrat_replay(clauses, step));
+    assert(chain_replay(clauses, step));
     clauses[step.id] = step.lits;
   }
   s.randomize_phases();
@@ -675,9 +676,9 @@ void test_derivation_edge_cases() {
   assert(s.derivation(d));
 }
 
-// Write the cases the external-checker script feeds to drat-trim and
-// lrat-check: a DIMACS file (originals, then a unit per used assumption) plus
-// matching LRAT and DRAT proofs, lemma ids shifted past the assumption units.
+// Write the cases the external-checker script feeds to drat-trim and the DSR
+// pipeline: a DIMACS file (originals, then a unit per used assumption) plus a
+// witness-free DSR proof.
 void emit_cases(const char *dir) {
   std::mt19937 rng(4242);
   SubSolver s;
@@ -726,32 +727,17 @@ void emit_cases(const char *dir) {
       fprintf(cnf, "%d 0\n", dimacs(sub_negate(t)));
     fclose(cnf);
 
-    snprintf(path, sizeof path, "%s/case%02u.lrat", dir, written);
-    FILE *lrat = fopen(path, "w");
-    snprintf(path, sizeof path, "%s/case%02u.drat", dir, written);
-    FILE *drat = fopen(path, "w");
-    assert(lrat && drat);
+    snprintf(path, sizeof path, "%s/case%02u.dsr", dir, written);
+    FILE *dsr = fopen(path, "w");
+    assert(dsr);
     for (const SubStep &step : d.steps) {
-      fprintf(lrat, "%u ", shift(step.id));
-      for (const SubLit l : step.lits) {
-        fprintf(lrat, "%d ", dimacs(l));
-        fprintf(drat, "%d ", dimacs(l));
-      }
-      fprintf(lrat, "0 ");
-      for (const uint32_t a : step.chain)
-        fprintf(lrat, "%u ", shift(a));
-      fprintf(lrat, "0\n");
-      fprintf(drat, "0\n");
+      for (const SubLit l : step.lits)
+        fprintf(dsr, "%d ", dimacs(l));
+      fprintf(dsr, "0\n");
     }
-    if (k) { // close with the empty clause, using the assumption units
-      fprintf(lrat, "%u 0 ", shift(d.steps.back().id) + 1);
-      for (uint32_t i = 0; i < k; i++)
-        fprintf(lrat, "%u ", n + 1 + i);
-      fprintf(lrat, "%u 0\n", shift(d.steps.back().id));
-      fprintf(drat, "0\n");
-    }
-    fclose(lrat);
-    fclose(drat);
+    if (k) // close with the empty clause, using the assumption units
+      fprintf(dsr, "0\n");
+    fclose(dsr);
     if (d.steps.size() > 1)
       multi_step++;
     if (d.steps.size() > max_steps)

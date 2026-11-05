@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     assert(k.startup_input == original && k.arena.size() == arena_size);
     assert(!k.stats.counting_unsat);
   }
-  for (ProofFormat format : {ProofFormat::DsrBinary, ProofFormat::DratBinary, ProofFormat::Lrat}) {
+  for (ProofFormat format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii}) {
     Kernel k;
     TemporaryFile proof_file;
     Proof proof;

@@ -343,11 +343,13 @@ static void test_instance_surface(void) {
            (long)getpid());
   s = tactix_init();
   assert(tactix_proof(s, proof_path, 99) == -1);
+  /* Retired format values stay rejected and are never reused. */
+  for (int retired = 0; retired <= 2; ++retired)
+    assert(tactix_proof(s, proof_path, retired) == -1);
+  assert(tactix_proof(s, proof_path, 5) == -1);
   tactix_release(s);
-  const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
-                         TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
-                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP,
-                         TACTIX_PROOF_AUTO};
+  const int formats[] = {TACTIX_PROOF_DSR_BINARY, TACTIX_PROOF_DSR_ASCII,
+                         TACTIX_PROOF_PBP, TACTIX_PROOF_AUTO};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     s = tactix_init();
     assert(tactix_proof(s, proof_path, formats[i]) == 0);
@@ -386,9 +388,9 @@ static void test_conflict_boundary_restart_and_reduce(void) {
 
 /* A public Propagate conflict may be the last action before handing control
  * to DefaultPolicy. Its root transition must retire the now-stale conflict
- * before any root inprocessor (including native-LRAT Congruence) runs. */
+ * before any root inprocessor runs. */
 static void test_solve_after_public_conflict(void) {
-  const int formats[] = {TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY};
+  const int formats[] = {TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_DSR_BINARY};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     char proof_path[96];
     snprintf(proof_path, sizeof proof_path,
@@ -437,10 +439,8 @@ static void test_stepwise_unsat(void) {
  * The proof must still reserve every raw clause id before publishing derived
  * ones; a root unit narrows a live binary before the attachment. */
 static void test_late_input_proof(void) {
-  const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
-                         TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
-                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP,
-                         TACTIX_PROOF_AUTO};
+  const int formats[] = {TACTIX_PROOF_DSR_BINARY, TACTIX_PROOF_DSR_ASCII,
+                         TACTIX_PROOF_PBP, TACTIX_PROOF_AUTO};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     char proof_path[96];
     snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-late-%ld-%u.proof",
@@ -490,18 +490,18 @@ static void test_late_input_proof(void) {
   }
 }
 
-/* Early and late native-LRAT selection must leave the same eager input image
- * as a proofless session. The third clause is already satisfied by a derived
- * root unit; X5 must not find it live merely because a proof was requested. */
-static void test_lrat_import_liveness_parity(void) {
-  const int formats[] = {-1, TACTIX_PROOF_LRAT, TACTIX_PROOF_LRAT};
+/* Early and late proof selection must leave the same eager input image as a
+ * proofless session. The third clause is already satisfied by a derived root
+ * unit; X5 must not find it live merely because a proof was requested. */
+static void test_import_liveness_parity(void) {
+  const int formats[] = {-1, TACTIX_PROOF_DSR_BINARY, TACTIX_PROOF_DSR_BINARY};
   const int clause[] = {2, 3};
   const int cube[] = {2};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     char proof_path[96];
     tactix *s = tactix_init();
     snprintf(proof_path, sizeof proof_path,
-             "/tmp/tactix-api-import-parity-%ld-%u.lrat", (long)getpid(), i);
+             "/tmp/tactix-api-import-parity-%ld-%u.dsr", (long)getpid(), i);
     if (i == 1)
       assert(tactix_proof(s, proof_path, formats[i]) == 0);
     add_clause(s, (const int[]){-1, 2, 0});
@@ -916,7 +916,7 @@ int main(void) {
   test_empty_solver_rule_application();
   test_stepwise_unsat();
   test_late_input_proof();
-  test_lrat_import_liveness_parity();
+  test_import_liveness_parity();
   test_bve_gate_selection();
   test_stats_and_config_surface();
   test_permanent_installs();

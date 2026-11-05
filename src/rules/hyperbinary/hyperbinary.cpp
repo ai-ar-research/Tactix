@@ -138,10 +138,10 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
   return true;
 }
 
-// Emit one banked resolvent at the clean root. The replay is both the RUP test
-// and the chain source (see hyperbinary.hpp), so a resolvent that unit
+// Emit one banked resolvent at the clean root. The replay is the RUP test (see
+// hyperbinary.hpp), so a resolvent that unit
 // propagation cannot re-derive is declined rather than emitted unchecked.
-bool emit(Kernel &k, const Resolvent &r, std::vector<uint64_t> &chain) {
+bool emit(Kernel &k, const Resolvent &r) {
   const Lit lits[2] = {negate(r.dom), r.forced};
   if (lits[0] == lits[1] || lits[0] == negate(lits[1]))
     return false; // degenerate or tautological: nothing to state
@@ -149,12 +149,12 @@ bool emit(Kernel &k, const Resolvent &r, std::vector<uint64_t> &chain) {
     return false; // root-fixed since the probe; the binary is not news
   if (kernel_binary_live(k, lits[0], lits[1]))
     return false; // already present
-  if (!congruence_replay_rup(k, lits, 2, chain, RupReplay::Decide)) {
+  if (!congruence_replay_rup(k, lits, 2)) {
     k.stats.hbr_declined++;
     return false;
   }
   const uint64_t id = ++k.next_clause_id;
-  emit_rup_lemma(k, id, lits, 2, chain);
+  emit_rup_lemma(k, id, lits, 2);
   kernel_add_binary_clause(k, lits[0], lits[1], id);
   k.stats.hbr_binaries++;
 
@@ -170,10 +170,9 @@ bool emit(Kernel &k, const Resolvent &r, std::vector<uint64_t> &chain) {
   return true;
 }
 
-ApplyResult emit_semantic(Kernel &k, const Resolvent &r,
-                          std::vector<uint64_t> &chain) {
+ApplyResult emit_semantic(Kernel &k, const Resolvent &r) {
   if (negate(r.dom) != r.forced)
-    return emit(k, r, chain) ? ApplyResult::Ok : ApplyResult::NoOp;
+    return emit(k, r) ? ApplyResult::Ok : ApplyResult::NoOp;
 
   // The binary resolvent (¬d ∨ l0) collapses to unit l0 when l0=¬d.
   // Canonical probing retains its historical division of work and still uses
@@ -182,15 +181,15 @@ ApplyResult emit_semantic(Kernel &k, const Resolvent &r,
   const int8_t value = k.value(unit);
   if (value > 0)
     return ApplyResult::NoOp;
-  if (!congruence_replay_rup(k, &unit, 1, chain, RupReplay::Decide)) {
+  if (!congruence_replay_rup(k, &unit, 1)) {
     ++k.stats.hbr_declined;
     return ApplyResult::NoOp;
   }
   const uint64_t id = ++k.next_clause_id;
-  emit_rup_lemma(k, id, &unit, 1, chain);
+  emit_rup_lemma(k, id, &unit, 1);
   ++k.stats.hbr_units;
   if (value < 0) {
-    kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(unit)]);
+    kernel_emit_empty(k);
     return ApplyResult::Unsat;
   }
   k.unit_ids[var_of(unit)] = id;
@@ -218,7 +217,6 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p) {
   k.stats.hbr_probes++;
   if (!collect(k, p, parent, found))
     return ApplyResult::NoOp; // a failed literal is V1 Probe's inference
-  std::vector<uint64_t> chain;
   bool any = false;
   // `k.work_budget` in this rule's own currency (hbr_ticks); bounded zero is
   // distinguished from the legacy zero-as-unlimited handoff.
@@ -234,7 +232,7 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p) {
       break;
     if (kernel_rule_interrupt(k, k.stats.hbr_interrupts))
       break;
-    any |= emit(k, r, chain);
+    any |= emit(k, r);
   }
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
@@ -249,7 +247,6 @@ ApplyResult hyperbinary_apply(Kernel &k) {
   hyperbinary_candidates(k, candidates);
   std::vector<Lit> parent(k.nvars, INVALID_LIT);
   std::vector<Resolvent> found;
-  std::vector<uint64_t> chain;
   bool any = false;
   for (const Lit p : candidates) {
     // A prior probe can retain newly discovered root facts when its
@@ -266,7 +263,7 @@ ApplyResult hyperbinary_apply(Kernel &k) {
     if (!collect(k, p, parent, found))
       continue;
     for (const Resolvent &r : found)
-      any |= emit(k, r, chain);
+      any |= emit(k, r);
   }
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
@@ -382,8 +379,7 @@ static ApplyResult hyperbinary_apply_semantic_instance(Kernel &k,
       return ApplyResult::NoOp;
   const Resolvent resolvent{dom, forced, reason,
                             clause_contains(clause, negate(dom))};
-  std::vector<uint64_t> chain;
-  return emit_semantic(k, resolvent, chain);
+  return emit_semantic(k, resolvent);
 }
 
 // instance surface: payload = the probe root, the shared lit_instance encoding

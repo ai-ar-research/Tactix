@@ -99,11 +99,11 @@ static void referenced_roots_stay_hot() {
   kernel_check_invariants(k);
 }
 
-static int proof_fixture(const char *input, const char *output, const char *format, bool fold) {
+static int proof_fixture(const char *input, const char *output, bool fold) {
   Kernel k;
   ScopedHeuristics owner(k);
   Proof proof;
-  assert(proof.open(output, !std::strcmp(format, "lrat") ? ProofFormat::Lrat : ProofFormat::DratAscii));
+  assert(proof.open(output, ProofFormat::DsrAscii));
   k.proof = &proof;
   proof.bind_variable_map(&k.internal_to_external);
   FILE *file = std::fopen(input, "r");
@@ -181,7 +181,7 @@ static void reconstruction_and_nonroot_reason() {
 }
 
 int main(int argc, char **argv) {
-  if (argc == 5) return proof_fixture(argv[1], argv[2], argv[3], !std::strcmp(argv[4], "fold"));
+  if (argc == 4) return proof_fixture(argv[1], argv[2], !std::strcmp(argv[3], "fold"));
   assert(argc == 1);
   for (bool reverse : {false, true})
     for (bool stable : {false, true})

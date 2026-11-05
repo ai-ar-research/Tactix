@@ -51,20 +51,6 @@ static bool rup(const std::map<Row, unsigned> &db, const Row &lemma) {
   } while (changed);
   return false;
 }
-static bool lrat(const std::map<uint64_t, Row> &ids, const Row &lemma,
-                 const std::vector<uint64_t> &chain) {
-  Values values{};
-  for (int lit : lemma) if (!assign(values, -lit)) return true;
-  for (const uint64_t id : chain) {
-    assert(ids.count(id));
-    int unit = 0;
-    const int open = reduce(ids.at(id), values, unit);
-    if (!open) return true;
-    if (open != 1) return false;
-    assert(assign(values, unit));
-  }
-  return false;
-}
 static uint64_t pair(int a, int b) {
   Lit x = internalize(a), y = internalize(b);
   if (y < x) std::swap(x, y);
@@ -79,7 +65,7 @@ int main(int argc, char **argv) {
   for (bool output_sign : {false, true})
   for (unsigned shape = 0; shape < 3; ++shape) // equivalence / literal / rep clash
   for (bool canonical : {false, true})
-  for (unsigned mode = 0; mode < 4; ++mode) {
+  for (unsigned mode = 0; mode < 2; ++mode) {
     std::vector<Row> rows;
     const int output = output_sign ? -6 : 6;
     for (unsigned mask = 0; mask < 16; ++mask) {
@@ -122,9 +108,8 @@ int main(int argc, char **argv) {
     assert(input && sink);
     std::fprintf(input, "p cnf 6 %zu\n", rows.size());
     std::map<Row, unsigned> population;
-    std::map<uint64_t, Row> ids;
     for (const Row &row : rows) {
-      ++population[sorted(row)]; ids[ids.size() + 1] = sorted(row);
+      ++population[sorted(row)];
       for (int lit : row) std::fprintf(input, "%d ", lit);
       std::fputs("0\n", input);
     }
@@ -132,9 +117,7 @@ int main(int argc, char **argv) {
     Kernel k;
     Proof proof;
     if (mode) {
-      const auto format = mode == 1 ? ProofFormat::DsrAscii :
-                          mode == 2 ? ProofFormat::DratAscii : ProofFormat::Lrat;
-      assert(proof.open(proof_file.path.c_str(), format));
+      assert(proof.open(proof_file.path.c_str(), ProofFormat::DsrAscii));
       proof.bind_variable_map(&k.internal_to_external); k.proof = &proof;
     }
     assert(!parse_dimacs(input, k));
@@ -170,7 +153,7 @@ int main(int argc, char **argv) {
       while (size_t n = std::fread(buffer, 1, sizeof buffer, sink)) text.append(buffer, n);
       if (argc == 2 && shape) {
         const std::string stem = std::string(argv[1]) + "/case-" + std::to_string(cases);
-        std::ofstream cnf(stem + ".cnf"), out(stem + (mode == 3 ? ".lrat" : ".dsr"));
+        std::ofstream cnf(stem + ".cnf"), out(stem + ".dsr");
         cnf << "p cnf 6 " << rows.size() << '\n';
         for (const Row &row : rows) {
           for (int lit : row) cnf << lit << ' ';
@@ -180,18 +163,10 @@ int main(int argc, char **argv) {
       }
       std::istringstream lines(text); std::string line;
       while (std::getline(lines, line)) {
-        std::istringstream fields(line); uint64_t id = 0;
-        if (mode == 3) fields >> id;
+        std::istringstream fields(line);
         fields >> std::ws;
         const bool deletion = fields.peek() == 'd';
         if (deletion) fields.get();
-        if (mode == 3 && deletion) {
-          while (fields >> id && id) {
-            assert(ids.count(id) && population[ids[id]]);
-            --population[ids[id]]; ids.erase(id);
-          }
-          continue;
-        }
         Row row; int lit;
         while (fields >> lit && lit) row.push_back(lit);
         row = sorted(row);
@@ -202,22 +177,11 @@ int main(int argc, char **argv) {
                          root, opposite_pair, output_sign, shape, canonical, mode, line.c_str());
             assert(false);
           }
-          if (mode == 3) {
-            std::vector<uint64_t> chain; uint64_t hint;
-            while (fields >> hint && hint) chain.push_back(hint);
-            if (!lrat(ids, row, chain)) {
-              std::fprintf(stderr, "invalid LRAT root=%d opposite=%d output=%d shape=%u canonical=%d: %s\n",
-                           root, opposite_pair, output_sign, shape, canonical, line.c_str());
-              std::fputs(text.c_str(), stderr);
-              assert(false);
-            }
-            ids[id] = row;
-          }
           ++population[row];
         }
       }
     }
     k.proof = nullptr; std::fclose(input); ++cases;
   }
-  std::printf("Unary XOR cancellation: %u fixed cases, every RUP/deletion/LRAT hint checked\n", cases);
+  std::printf("Unary XOR cancellation: %u fixed cases, every RUP/deletion checked\n", cases);
 }

@@ -105,7 +105,7 @@ RuleEligibility ramsey_startup_guard(const Kernel &k) {
     .fact("original-input-boundary",k.startup_certificate_open)
     .fact("quiescent-original-root",!k.level && !k.conflict_valid && !k.pending.valid &&
         k.trail.empty() && !k.dense && !k.probing.recording && k.large_watches_connected)
-    .fact("witness-format",!k.proof || k.proof->supports_sr());
+    .fact("witness-format",!k.proof || !k.proof->terminal_pbp());
 }
 RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &requested) {
   RamseyStartupRequest request=requested;
@@ -120,7 +120,7 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
       k.input_unit_clause_count || k.input_binary_clause_count ||
       !k.input_nonunit_uniform || k.input_uniform_nonunit_width!=6 ||
       k.input_nonunit_clause_count>request.recognition.clauses ||
-      k.startup_input.empty() || !k.input_restatements.empty())return result;
+      k.startup_input.empty())return result;
   if(kernel_has_work_budget(k)) {
     request.recognition.work=std::min(request.recognition.work,k.work_budget);
     if(!request.recognition.work){result.exhausted=true;return result;}

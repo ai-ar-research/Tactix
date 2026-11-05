@@ -369,8 +369,8 @@ static void test_reduce_deletes_and_logs() {
   // another is counting deletion lines in.
   const std::string path = "/tmp/tactix-reduce-test-" +
                            std::to_string(static_cast<long>(getpid())) +
-                           ".drat";
-  assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+                           ".dsr";
+  assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   k.proof = &proof;
   kernel_reserve_vars(k, 12);
   for (int i = 0; i < 4; i++) { // four high-glue candidates, plus one keeper
@@ -703,9 +703,9 @@ static void test_restart_apply_to() {
   assert(k.stats.restarts_reused == 1);
 }
 
-static void emit_restart_root_conflict_lrat(const char *path) {
+static void emit_restart_root_conflict_proof(const char *path) {
   Proof proof;
-  assert(proof.open(path, ProofFormat::Lrat));
+  assert(proof.open(path, ProofFormat::DsrAscii));
   Kernel k;
   ScopedHeuristics h(k);
   k.proof = &proof;
@@ -727,7 +727,7 @@ static void emit_restart_root_conflict_lrat(const char *path) {
 
 int main(int argc, char **argv) {
   if (argc == 2) {
-    emit_restart_root_conflict_lrat(argv[1]);
+    emit_restart_root_conflict_proof(argv[1]);
     return 0;
   }
   assert(argc == 1);

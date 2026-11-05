@@ -563,8 +563,7 @@ bool SubSolver::propagate_units() {
 // --- proof plumbing ---------------------------------------------------------
 // The kernel's construction, transplanted: antecedents are collected as (trail
 // position, clause id) pairs and emitted ascending with the conflicting clause
-// last, the order a checker's own propagation visits them
-// (`kernel_lrat_chain`). Every lemma follows from the environment alone —
+// last, the order a checker's own propagation visits them. Every lemma follows from the environment alone —
 // assumptions enter as decisions and leave as literals of the learned clause,
 // never as premises — so lemmas stay valid across assumption sets and restarts.
 
@@ -634,7 +633,7 @@ void SubSolver::refute_empty(SubRef conflict) {
 
 // `inconsistent` (`kitten.c:1622-1645`) records the antecedents of the empty
 // clause by breadth: the conflict, then the reason of each root literal in the
-// order the walk marks it. The LRAT cone reaches the same clauses depth-first,
+// order the walk marks it. The reason cone reaches the same clauses depth-first,
 // which is a different list and so a different core post-order.
 std::vector<uint32_t> SubSolver::refute_antecedents(SubRef conflict) {
   std::vector<uint32_t> ante;
@@ -676,7 +675,7 @@ bool SubSolver::analyze() {
   chain_clear();
 
   // Kitten's `resolved` (`kitten.c:1303`): the conflict, then each reason as
-  // the reverse-trail walk resolves on it. The LRAT chain sorts the same
+  // the reverse-trail walk resolves on it. The chain sorts the same
   // clauses ascending by trail position with the conflict last, and the core
   // DFS pushes antecedents in list order, so the two give different
   // post-orders.
@@ -836,8 +835,7 @@ void SubSolver::fail_assumptions(
 
   // This is Kitten's reverse-trail DFS, including its separate FIFO pass over
   // root variables.  A breadth-first reason-cone walk produces a valid-looking
-  // core but a different clause/order and is explicitly rejected by Kitten for
-  // LRAT.  Keep the traversal as one semantic unit with failing-core reuse.
+  // core but a different clause/order.  Keep the traversal as one semantic unit with failing-core reuse.
   size_t pos = trail_.size();
   uint32_t open = 1;
   while (open) {
@@ -880,7 +878,7 @@ void SubSolver::fail_assumptions(
   assert(!resolved.empty());
 
   // Clause construction and incremental reuse must follow Kitten's traversal
-  // exactly.  LRAT antecedents have a separate ordering contract: replay the
+  // exactly.  Chain antecedents have a separate ordering contract: replay the
   // same complete cone in trail order, as conflict analysis above does.  The
   // two orders name the same resolution DAG, but only the latter is a RUP
   // propagation sequence for the checker.

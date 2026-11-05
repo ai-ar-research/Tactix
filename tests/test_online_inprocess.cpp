@@ -1113,7 +1113,7 @@ static void sweep_parameters_are_exact_per_invocation() {
   assert(result.applications == 1 && result.step_id == 61);
   // The unrestricted invocation does what the restricted one could not:
   // builds the environment, proves the equivalence and commits it.  The
-  // fixture's clauses carry no proof ids, which only LRAT would need.
+  // fixture's clauses carry no proof ids.
   assert(selected.stats.sweep_equivalences > 0);
   assert(selected.stats.sweep_not_rup == 0);
   assert(result.made_rule_progress);
@@ -4186,8 +4186,7 @@ static void repeated_nonunit_sr_is_a_semantic_noop() {
 }
 
 static void root_simplified_sr_noop_is_format_independent() {
-  for (const auto format : {ProofFormat::DsrAscii, ProofFormat::Lrat,
-                            ProofFormat::DratAscii}) {
+  for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DsrBinary}) {
     Kernel k;
     kernel_reserve_vars(k, 3);
     k.unit_ids[2] = ++k.next_clause_id;
@@ -4363,13 +4362,15 @@ static void unsupported_sr_proof_format_is_transactional() {
   add_binary(-1, -3);
   add_binary(-2, -4);
 
-  char path[] = "/tmp/tactix-sr-drat-XXXXXX";
+  char path[] = "/tmp/tactix-sr-terminal-XXXXXX";
   const int descriptor = mkstemp(path);
   assert(descriptor >= 0);
   close(descriptor);
   {
     Proof proof;
-    assert(proof.open(path, ProofFormat::DratAscii));
+    assert(proof.open(path, ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     k.proof = &proof;
     proof.bind_variable_map(&k.internal_to_external);
 
@@ -4516,9 +4517,8 @@ static int proof_witness(const char *input, const char *output,
   Kernel k;
   Proof proof;
   const std::string proof_format = format;
-  assert(proof.open(output, proof_format == "lrat" ? ProofFormat::Lrat
-                            : proof_format == "dsr" ? ProofFormat::DsrAscii
-                                                    : ProofFormat::DratAscii));
+  assert(proof_format == "dsr");
+  assert(proof.open(output, ProofFormat::DsrAscii));
   k.proof = &proof;
   proof.bind_variable_map(&k.internal_to_external);
   FILE *cnf = fopen(input, "r");

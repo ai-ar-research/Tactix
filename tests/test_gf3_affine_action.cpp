@@ -338,19 +338,14 @@ void retained_owner_is_revalidated_before_a_novel_pair() {
   std::fclose(records);
 }
 void proof_modes_and_guard() {
-  for (const auto &[format, path] :
-       {std::pair{ProofFormat::Lrat, "/tmp/gf3-action-decline.lrat"},
-        std::pair{ProofFormat::Pbp, "/tmp/gf3-action-decline.pbp"}}) {
+  {
+    const char *const path = "/tmp/gf3-action-decline.pbp";
     Kernel kernel = parse();
     Proof proof;
     std::remove(path);
-    if (format == ProofFormat::Pbp) {
-      assert(proof.open(path, ProofFormat::PbpStreaming));
-      proof.finish_input_transaction();
-      assert(proof.begin_pb());
-    } else {
-      assert(proof.open(path, format));
-    }
+    assert(proof.open(path, ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -391,9 +386,7 @@ int main(int argc, char **argv) {
   declines_are_atomic_and_sessions_are_kernel_local();
   retained_owner_is_revalidated_before_a_novel_pair();
   proof_modes_and_guard();
-  if (argc == 4) {
+  if (argc == 3)
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-    write_certificate(argv[1], argv[3], ProofFormat::DratAscii);
-  }
   std::puts("test_gf3_affine_action: passed");
 }

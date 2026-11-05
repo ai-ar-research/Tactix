@@ -57,9 +57,9 @@ FIXED_LONG_DSR_PROVENANCE={
             FIXED_LONG_DSR_HASHES['dsr-compress'],
     },
 }
-PROOF_ARGUMENTS={'--pbp','--auto-proof','--dsr','--drat','--lrat'}
+PROOF_ARGUMENTS={'--pbp','--auto-proof','--dsr'}
 # Proof flags of retired modes; `--auto-proof` names automatic selection again.
-RETIRED_PROOF_ARGUMENTS=set()
+RETIRED_PROOF_ARGUMENTS={'--drat','--lrat'}
 GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
                          '--controller-gf2-affine-profile')
 CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS=('--feedback','--feedback-replay',

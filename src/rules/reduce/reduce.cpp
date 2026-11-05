@@ -132,7 +132,6 @@ static void lock_reasons(Kernel &k, bool lock) {
     const Assigned &a = k.assigned[var_of(lit)];
     // Kissat's reduction trail contains only non-root assignments after its
     // root flush. Retained root identities do not need clause-reason locks:
-    // LRAT propagation has named the implied unit, and
     // collection retires a deleted root reason to UNIT_REASON. Keep pending
     // learned clauses protected independently above, even at the root.
     if (!a.level)

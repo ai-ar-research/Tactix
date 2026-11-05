@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
     fixture.load(k);
     Proof proof;
     if (fixture.clausal_proof) {
-      assert(proof.open("/dev/null", ProofFormat::DratAscii));
+      assert(proof.open("/dev/null", ProofFormat::DsrAscii));
       proof.bind_variable_map(&k.internal_to_external);
       k.proof = &proof;
     }

@@ -220,7 +220,7 @@ int main(int argc, char **argv) {
     tactix_release(solver);
     return 1;
   }
-  if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DRAT_BINARY)) {
+  if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DSR_BINARY)) {
     fprintf(stderr, "tactix-cruxmiter-policy: cannot create proof '%s'\n", proof);
     tactix_release(solver);
     return 1;

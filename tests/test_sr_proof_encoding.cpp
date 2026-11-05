@@ -77,15 +77,15 @@ static void fixture(Proof *proof, FILE *cnf, bool negative, bool compact) {
   for (const auto &clause : definitions) {
     const uint64_t id = ++k.next_clause_id;
     if (proof)
-      proof->add_rat(id, clause, 2, nullptr, 0);
+      proof->add_rat(id, clause, 2);
     kernel_add_binary_clause(k, clause[0], clause[1], id);
   }
   apply(8, 9); // The next temporary must now use external variable 11.
   assert(k.stats.sr_applied == 3);
   if (proof) {
     // Original binary pairs make (4) RUP, then make the empty clause RUP.
-    proof->add_rup(++k.next_clause_id, &a, 1, nullptr, 0);
-    proof->add_empty(++k.next_clause_id, nullptr, 0);
+    proof->add_rup(++k.next_clause_id, &a, 1);
+    proof->add_empty(++k.next_clause_id);
     assert(!proof->unbacked_deletions());
     proof->flush();
   }

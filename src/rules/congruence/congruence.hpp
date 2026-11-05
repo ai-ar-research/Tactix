@@ -127,47 +127,16 @@ private:
 
 // Extracted gate, output = f(inputs) per kind (`docs/dev/calculus.md` V6 gives each
 // kind's defining clauses). Storage conventions the closure relies on:
-//   And: `inputs` sorted, `input_bin_ids` the (¬output ∨ inputᵢ) ids, parallel.
+//   And: `inputs` sorted.
 //   Xor: `inputs` sorted and all-positive — the clause parity is absorbed into
-//        `output`'s sign; `base_id` is the all-positive base.
+//        `output`'s sign.
 //   Ite: `inputs` = [cond, then, else] in that fixed order, not sorted;
 //        `normalize_ite` puts cond and then positive, absorbing any flip into
 //        the output sign.
 struct CongGate {
-  struct ProofData {
-    uint64_t base_id = 0;
-    std::vector<uint64_t> input_bin_ids;
-  };
   GateKind kind = GateKind::And;
   Lit output = 0;
   CompactVector<Lit> inputs;           // canonical (sorted) — structural key
-  std::unique_ptr<ProofData> proof_data;
-
-  void set_base_id(uint64_t id) { mutable_proof_data().base_id = id; }
-  uint64_t base_id() const { return proof_data ? proof_data->base_id : 0; }
-  void reserve_input_bin_ids(size_t size) {
-    mutable_proof_data().input_bin_ids.reserve(size);
-  }
-  void push_input_bin_id(uint64_t id) {
-    mutable_proof_data().input_bin_ids.push_back(id);
-  }
-  uint64_t &input_bin_id(size_t index) {
-    return proof_data->input_bin_ids[index];
-  }
-  const std::vector<uint64_t> &input_bin_ids() const {
-    return proof_data ? proof_data->input_bin_ids : empty_input_bin_ids();
-  }
-
-private:
-  ProofData &mutable_proof_data() {
-    if (!proof_data)
-      proof_data.reset(new ProofData);
-    return *proof_data;
-  }
-  static const std::vector<uint64_t> &empty_input_bin_ids() {
-    static const std::vector<uint64_t> empty;
-    return empty;
-  }
 };
 
 // Extract AND/OR gates from the irredundant large clauses (bounded arity). Rule-
@@ -188,27 +157,14 @@ RuleEligibility congruence_guard(const Kernel &); // quiescent-root precondition
 // congruence closure, adding equivalence binaries (+ proof). Exposed for tests.
 ApplyResult congruence_apply(Kernel &);
 
-// What a caller wants the replay for; reading one as the other silently removes
-// an admission gate (`benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`,
+// Replay-based RUP test: assume the negation of `lits` at a probing scope and
+// propagate. This is the caller's admission test: Sweep and
+// HyperBinaryResolution hold a semantic certificate and ask the separate
+// question of whether a checker can re-derive the line by unit propagation.
+// Same answer in every proof format, so it runs in all of them. Returns false
+// when the lemma is not RUP over the current DB, in which case the caller must
+// emit nothing (`benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`,
 // pinned by `tests/test_sweep.cpp::test_rup_admission_is_format_independent`).
-//
-//  - `ChainOnly` — the lemma is RUP by construction (Congruence's own
-//    families), so the replay only reads its antecedent chain and may be
-//    skipped whenever no chain is written; kissat likewise emits these lines
-//    directly (`learn_congruence_unit`, `add_binary_clause`).
-//  - `Decide` — the replay is the caller's admission test: Sweep and
-//    HyperBinaryResolution hold a semantic certificate and ask the separate
-//    question of whether a checker can re-derive the line by unit propagation.
-//    Same answer in every proof format, so it must run in all of them.
-enum class RupReplay : uint8_t { ChainOnly, Decide };
-
-// Replay-based RUP chain builder: assume the negation of `lits` at a probing
-// scope, propagate, and read the antecedents off the conflict's reason walk, so
-// the chain comes out in the checker's own propagation order by construction.
-// Returns false when the lemma is not RUP over the current DB, in which case
-// the caller must emit nothing. Shared with Sweep's RUP fast path.
-bool congruence_replay_rup(Kernel &, const Lit *lits, uint32_t n,
-                           std::vector<uint64_t> &chain,
-                           RupReplay purpose = RupReplay::ChainOnly);
+bool congruence_replay_rup(Kernel &, const Lit *lits, uint32_t n);
 
 } // namespace tactix

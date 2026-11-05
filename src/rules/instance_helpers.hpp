@@ -60,37 +60,24 @@ inline bool root_clause_relevant(const Kernel &kernel, const Clause *clause) {
   return true;
 }
 
-// One RUP lemma: LRAT names `id` and cites `chain` in checker-propagation
-// order. Streaming PBP also hands the tracker `id` (the clause's own id), so a
-// later deletion can name the constraint exactly. Every other format writes
-// id 0 without hints: the id-0 spelling is load-bearing for DSR unit staging.
+// One RUP lemma. Streaming PBP hands the tracker `id` (the clause's own id), so
+// a later deletion can name the constraint exactly. DSR writes id 0: the id-0
+// spelling is load-bearing for DSR unit staging.
 inline void emit_rup_lemma(Kernel &kernel, uint64_t id, const Lit *lits,
-                           uint32_t size, const uint64_t *chain,
-                           uint32_t nchain) {
+                           uint32_t size) {
   if (!kernel.proof)
     return;
-  const bool lrat = kernel.proof->lrat();
-  kernel.proof->add_rup(lrat || kernel.proof->streaming_pbp() ? id : 0, lits,
-                        size, lrat ? chain : nullptr, lrat ? nchain : 0);
-}
-
-inline void emit_rup_lemma(Kernel &kernel, uint64_t id, const Lit *lits,
-                           uint32_t size, const std::vector<uint64_t> &chain) {
-  emit_rup_lemma(kernel, id, lits, size, chain.data(),
-                 static_cast<uint32_t>(chain.size()));
+  kernel.proof->add_rup(kernel.proof->streaming_pbp() ? id : 0, lits, size);
 }
 
 inline void emit_rup_lemma(Kernel &kernel, uint64_t id,
-                           const std::vector<Lit> &lits,
-                           const std::vector<uint64_t> &chain) {
-  emit_rup_lemma(kernel, id, lits.data(), static_cast<uint32_t>(lits.size()),
-                 chain);
+                           const std::vector<Lit> &lits) {
+  emit_rup_lemma(kernel, id, lits.data(), static_cast<uint32_t>(lits.size()));
 }
 
 // A proof-only RUP lemma, deleted once the derivation it supports is done.
 // `id` is already the deletion id the caller chose: the clause id where the
-// proof tracks it (LRAT, and streaming PBP for ids handed to emit_rup_lemma),
-// 0 otherwise.
+// proof tracks it (streaming PBP, for ids handed to emit_rup_lemma), 0 otherwise.
 struct TransientLemma {
   uint64_t id;
   std::vector<Lit> lits;
@@ -118,38 +105,6 @@ struct PublishedCounter {
       : published(counter), value(counter) {}
   ~PublishedCounter() { published = value; }
 };
-
-// Root refutation by a clause every literal of which is root-false (`clause`,
-// or the binary {first, second} when it is null). LRAT cites each literal's
-// root unit and closes with the clause itself; the other formats add the bare
-// empty clause. Only the proof is written: the caller owns the state change.
-inline void emit_falsified_refutation(Kernel &kernel, const Clause *clause,
-                                      Lit first, Lit second) {
-  if (!kernel.proof)
-    return;
-  if (!kernel.proof->lrat()) {
-    kernel.proof->add_empty(0, nullptr, 0);
-    return;
-  }
-  kernel.lrat_entries.clear();
-  const auto add = [&](Lit lit) {
-    assert(kernel.value(lit) < 0);
-    const Var v = var_of(lit);
-    kernel.lrat_entries.emplace_back(kernel.assigned[v].trail,
-                                     kernel.unit_ids[v]);
-  };
-  if (clause)
-    for (const Lit lit : *clause)
-      add(lit);
-  else {
-    add(first);
-    add(second);
-  }
-  kernel_lrat_chain(kernel, clause ? clause->id()
-                                   : kernel_binary_id(kernel, first, second));
-  kernel.proof->add_empty(++kernel.next_clause_id, kernel.lrat_chain.data(),
-                          static_cast<uint32_t>(kernel.lrat_chain.size()));
-}
 
 // Abandon a decision-free probe (the assumptions of `kernel_assign_decision`):
 // drop its conflict and return to the root without saving phases. Ending the

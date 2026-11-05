@@ -31,8 +31,8 @@ static ApplyResult refresh_recorded_conflict(Kernel &k) {
   if (recorded_conflict_still_holds(k)) {
     // Chronological backtracking can retain root-level implications above a
     // decision frame. If every conflict literal survives a full restart, the
-    // root formula is refuted. Discharge it immediately through Analyze's
-    // native DRAT/LRAT path; otherwise a root rewrite could retire the live
+    // root formula is refuted. Discharge it immediately through Analyze;
+    // otherwise a root rewrite could retire the live
     // conflict antecedent before the caller explicitly selected Analyze.
     if (k.level == 0)
       return analyze_apply(k);

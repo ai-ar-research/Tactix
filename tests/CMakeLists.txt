@@ -286,20 +286,19 @@ tactix_script_test(cardinality_search_live_proof
                    test_cardinality_search_live)
 
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim
-# for the lemmas, lrat-check for the chains), in sub-solver space and again
-# after the sub-solver -> kernel translation. Skips 77 without a checker.
+# and the DSR pipeline), in sub-solver space and again after the sub-solver ->
+# kernel translation. Skips 77 without a checker.
 tactix_skip77_test(sweep_proofs ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh
                    ${CMAKE_SOURCE_DIR}
                    $<TARGET_FILE:tactix-public-random>
                    $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
 
-# A satisfiable Sweep replay must still emit a checkable LRAT prefix. CakeLPR
-# must reach only the expected absent-empty end; see
+# A satisfiable Sweep replay must still emit a checkable proof prefix; see
 # benchmarks/reports/2026-09-25-am455-latest-source-fuzz-consolidation.md.
-tactix_skip77_test(sweep_retarget_lrat
+tactix_skip77_test(sweep_retarget
                    ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake_lpr --
-                   ${CMAKE_SOURCE_DIR}/tests/sweep_retarget_lrat.sh
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/drat-trim --
+                   ${CMAKE_SOURCE_DIR}/tests/sweep_retarget.sh
                    ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix-public-random>)
 
 # V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,

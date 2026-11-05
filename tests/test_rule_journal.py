@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix="tactix-rule-journal-") as tmp:
     assert "retire-var(var=2;status=substituted)" in text
     assert "reconstruct(witness=1;rest=-2)" in text
     assert "reconstruct-cube(clause=1;witness=1,-2)" in text
-    assert "rup(id=17;chain=3,5,8)" in text
+    assert "rup(id=17)" in text
 
     filtered = pathlib.Path(tmp) / "filtered.tsv"
     env = os.environ.copy()

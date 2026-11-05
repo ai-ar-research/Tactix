@@ -51,7 +51,7 @@ static void test_quaternary_rejected() {
 }
 
 // A shared literal in opposite polarity makes the resolvent tautological: it
-// is rejected, since a tautological LRAT line is uncheckable.
+// is rejected, since a tautological line is uncheckable.
 static void test_tautological_rejected() {
   Kernel k;
   kernel_reserve_vars(k, 4);

@@ -9,8 +9,8 @@
 namespace tactix::direct_csp_support {
 
 // Clause identity is local to the immutable source snapshot supplied to the
-// planner.  native_proof_id is optional because DSR/DRAT modes can name a
-// premise by its literals while an LRAT integration needs the retained id.
+// planner.  native_proof_id is optional because DSR can name a premise by its
+// literals.
 struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;

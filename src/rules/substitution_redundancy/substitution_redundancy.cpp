@@ -669,12 +669,7 @@ substitution_redundancy_apply_detailed_impl(
   // A fully validated tuple can be a no-op after root simplification. That
   // requires no SR line in any proof format, so classify it before refusing a
   // format that cannot serialize a formula-changing direct SR step.
-  if (k.proof && !certified_unique_literal_amo &&
-      !k.proof->supports_sr())
-    return finish(outcome,
-                  SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat);
-  if (k.proof && certified_unique_literal_amo &&
-      (k.proof->lrat() || k.proof->terminal_pbp()))
+  if (k.proof && k.proof->terminal_pbp())
     return finish(outcome,
                   SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat);
   const uint64_t required_ids = kept.size() == candidate.size() ? 1 : 2;
@@ -685,7 +680,7 @@ substitution_redundancy_apply_detailed_impl(
   const uint64_t sr_id = ++k.next_clause_id;
   if (k.proof) {
     if (certified_unique_literal_amo) {
-      k.proof->add_rat(sr_id, candidate.data(), candidate.size(), nullptr, 0);
+      k.proof->add_rat(sr_id, candidate.data(), candidate.size());
     } else if (!k.proof->add_sr(
                    sr_id, candidate.data(), candidate.size(),
                    witness.emitted_true.data(), witness.emitted_true.size(),
@@ -709,7 +704,7 @@ substitution_redundancy_apply_detailed_impl(
   if (kept.size() != candidate.size()) {
     committed_id = ++k.next_clause_id;
     if (k.proof) {
-      k.proof->add_rup(committed_id, kept.data(), kept.size(), nullptr, 0);
+      k.proof->add_rup(committed_id, kept.data(), kept.size());
       k.proof->del(k.next_clause_id, sr_id, candidate.data(), candidate.size());
     }
   }

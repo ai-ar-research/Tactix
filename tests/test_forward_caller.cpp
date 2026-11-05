@@ -174,11 +174,10 @@ static void conflict_proof(unsigned kind, ProofFormat format,
 int main(int argc, char **argv) {
   scheduler_chain();
   direct_chain_and_empty_suffix();
-  for (unsigned kind = 0; kind < 3; ++kind)
-    for (ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
-      const std::string stem = argc > 1 ? std::string(argv[1]) + "/caller-" +
-          std::to_string(kind) + (format == ProofFormat::Lrat ? "-lrat" : "-drat") : "";
-      conflict_proof(kind, format, stem);
-    }
-  std::puts("PASS: actual next-slot closure, dense chain, empty suffix, six conflict proof cases");
+  for (unsigned kind = 0; kind < 3; ++kind) {
+    const std::string stem = argc > 1 ? std::string(argv[1]) + "/caller-" +
+        std::to_string(kind) : "";
+    conflict_proof(kind, ProofFormat::DsrAscii, stem);
+  }
+  std::puts("PASS: actual next-slot closure, dense chain, empty suffix, three conflict proof cases");
 }

@@ -1905,13 +1905,6 @@ int tactix_read_dimacs(tactix_solver *s, FILE *in) {
       s->kernel.nvars || s->kernel.next_clause_id)
     return -1;
   const char *err = parse_dimacs(in, s->kernel);
-  // LRAT selected before file ingestion is deliberately deferred until all
-  // original clause ids exist. parse_dimacs has now crossed that boundary, so
-  // attach the replay before marking this API session complete.
-  if (!err && s->pending_input_proof) {
-    attach_replayed_input_proof(s->kernel, s->proof);
-    s->pending_input_proof = false;
-  }
   s->input_completed = true;
   external_state_change(s);
   return err ? -1 : 0;
@@ -1962,39 +1955,25 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   // Public values are append-only; see TACTIX_PROOF_* in tactix.h.
   ProofFormat f;
   switch (format) {
-  case 0:
-    f = ProofFormat::DratBinary;
-    break;
-  case 1:
-    f = ProofFormat::DratAscii;
-    break;
-  case 2:
-    f = ProofFormat::Lrat;
-    break;
   case 3:
     f = ProofFormat::DsrBinary;
     break;
   case 4:
     f = ProofFormat::DsrAscii;
     break;
-  case 5:
-    return -1; // retired proof-format value; public values are never reused
   case 6:
   case 7: // automatic selection runs the solver on the streaming-PBP stream
     f = ProofFormat::PbpStreaming;
     break;
   default:
-    return -1;
+    return -1; // includes the retired values; public values are never reused
   }
   if (!(format == 7 ? s->proof.open_automatic(path, true)
                     : s->proof.open(path, f)))
     return -1;
-  // Native LRAT cannot derive root units until all checker input ids exist.
-  // Import eagerly in the live kernel, then replay its exact raw clauses at
-  // the first reasoning boundary, whether proof was requested early or late.
-  if (s->kernel.next_clause_id || f == ProofFormat::Lrat) {
-    if (f == ProofFormat::Lrat)
-      s->kernel.replay_lrat_input = true;
+  // Input already imported without a proof: replay its exact raw clauses at the
+  // first reasoning boundary.
+  if (s->kernel.next_clause_id) {
     s->pending_input_proof = true;
     external_state_change(s);
     return 0;

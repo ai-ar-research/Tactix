@@ -7,7 +7,6 @@
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
-#include "proof/rup_helpers.hpp"
 
 #include <algorithm>
 #include <unordered_map>
@@ -1011,14 +1010,11 @@ void vivify_trim_replacement_prefix(Kernel &k, Lit implied,
     kernel_backtrack(k, retained, /*update_phases=*/false);
 }
 
-// Replace `c` (at cref) by `lits`, proof add before delete; `entries`+`last`
-// form the LRAT chain. The replacement keeps the candidate's redundancy and
+// Replace `c` (at cref) by `lits`, proof add before delete. The replacement keeps the candidate's redundancy and
 // takes the shared post-shrink glue (kernel_shrunken_glue). No
 // partner-redundancy question arises: the strengthener is the propagation
 // itself, so the rewrite is implied by F ∪ R and subsumes the original.
 static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
-                           std::vector<std::pair<uint32_t, uint64_t>> &entries,
-                           uint64_t last,
                            [[maybe_unused]] uint64_t candidate_ordinal,
                            bool instantiated = false) {
   Clause *c = clause_at(k.arena, cref);
@@ -1044,7 +1040,7 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
   const uint32_t glue = kernel_shrunken_glue(
       k, c->glue(), static_cast<uint32_t>(lits.size()));
   const uint64_t id = ++k.next_clause_id;
-  rup_helpers::emit(k, id, 0, lits, entries, last);
+  emit_rup_lemma(k, id, lits);
   k.stats.vivified++;
   // Kissat overwrites a large candidate inside its existing arena allocation.
   // This is search-visible: retaining only a logical-position alias still
@@ -1375,31 +1371,22 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
   k.stats.vivify_checked++;
   if (c->redundant() && c->glue() > k.tier2)
     k.stats.vivify_tier3++; // 0 here means the tier3 band is inert
-  const bool lrat = k.proof && k.proof->lrat();
   // probe literals in the round's global literal order (design §2.2) — the
   // order is what makes a prefix shared with the next candidate, so it is not
   // separable from the reuse loop below
   std::vector<Lit> probes;
-  std::vector<uint64_t> absorbed; // unit ids of root-falsified lits (LRAT)
   probes.reserve(c->size);
   probe_list(k, c, vivify_order(), probes, reuse);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (vivify_journal_active)
     vivify_journal_facts.probes = vivify_journal_literals(k, probes);
 #endif
-  if (lrat)
-    for (const Lit l : *c)
-      if (kernel_root_value(k, l) < 0)
-        absorbed.push_back(k.unit_ids[var_of(l)]);
   if (probes.size() <= 2)
     return ApplyResult::NoOp; // effectively binary: C2 territory
-  const uint64_t cid = c->id();
   if (reuse && k.level > 0) {
     // (a) The candidate may be the reason of a retained trail literal, the
     // prefix having been propagated ignoring the previous candidate (kissat
-    // vivify.c:995-1005). Not only a quality question: in the implied-negation
-    // case the candidate's id is the closing hint, so a reason walk reaching
-    // it too would emit that id twice in one chain (design §3.2).
+    // vivify.c:995-1005).
     for (const Lit l : *c) {
       const Var v = var_of(l);
       if (k.value(l) > 0 && k.var_level(v) > 0) {
@@ -1417,15 +1404,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
       kernel_backtrack(k, static_cast<uint32_t>(probes.size()),
                        /*update_phases=*/false);
   }
-  std::vector<std::pair<uint32_t, uint64_t>> entries;
-  // Persistent proof-walk and deduction scratch, restored in O(touched).
-  static thread_local std::vector<uint8_t> seen;
-  static thread_local std::vector<Var> seen_touched;
-  if (lrat) {
-    if (seen.size() < k.nvars)
-      seen.resize(k.nvars, 0);
-    seen_touched.clear();
-  }
+  // Persistent deduction scratch, restored in O(touched).
   // Marks on the probe literals (kissat vivify_mark_sorted_literals), so a
   // propagation can be scanned for an implied clause literal at once.
   // Mandatory under a count-based probe order, which can put the implied
@@ -1558,23 +1537,6 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
 #endif
     if (can_shrink) {
       vivify_journal_terminal("shrunken");
-    uint64_t last = 0;
-    if (lrat) {
-      if (implied != INVALID_LIT)
-        kernel_reason_walk(k, var_of(implied), seen, entries, &seen_touched);
-      else if (conflict)
-        last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
-      else {
-        for (const Lit l : probes) {
-          const Assigned &a = k.assigned[var_of(l)];
-          if (k.value(l) < 0 && a.reason != DECISION_REASON)
-            kernel_reason_walk(k, var_of(l), seen, entries, &seen_touched);
-        }
-        last = cid;
-      }
-      for (const uint64_t u : absorbed)
-        entries.emplace_back(0, u);
-    }
     // Units and binaries force a root-level database transition in Kissat.
     // A large learned clause instead retains the valid assumption prefix. If
     // there is no implied literal, Kissat always trims that prefix to
@@ -1591,7 +1553,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
       vivify_pose_replacement_watches(k, replacement);
       vivify_journal_replacement(k, replacement);
     }
-    res = rewrite(k, cref, replacement, entries, last, candidate_ordinal);
+    res = rewrite(k, cref, replacement, candidate_ordinal);
     k.stats.vivify_shrunken++;
     } else if (implied != INVALID_LIT && c->redundant()) {
       vivify_journal_terminal("implied-delete");
@@ -1634,16 +1596,6 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
       for (const Lit l : *c)
         if (l != remove && kernel_root_value(k, l) >= 0)
           shorter.push_back(l);
-      // The chain is walked before any backtrack: it reads the conflict and
-      // the trail positions this propagation produced.
-      uint64_t last = 0;
-      if (lrat) {
-        last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
-        if (seen[var_of(remove)])
-          entries.emplace_back(k.assigned[var_of(remove)].trail, cid);
-        for (const uint64_t u : absorbed)
-          entries.emplace_back(0, u);
-      }
       // Kissat splits the instantiation result on the assumption level
       // (vivify_strengthen_after_instantiation): at level 3 the surviving
       // non-root literals are exactly two and
@@ -1662,7 +1614,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
         reset_to_root(k);
       }
       vivify_journal_replacement(k, shorter);
-      res = rewrite(k, cref, shorter, entries, last, candidate_ordinal, true);
+      res = rewrite(k, cref, shorter, candidate_ordinal, true);
       k.stats.vivify_instantiated++;
     } else {
       vivify_journal_terminal("instantiation-decline");
@@ -1697,8 +1649,6 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
     k.conflict_valid = false;
     k.conflict_ref = INVALID_REF;
   }
-  for (const Var tv : seen_touched) // restore the persistent scratch all-zero
-    seen[tv] = 0;
   return res;
 }
 

@@ -1291,7 +1291,7 @@ static void test_root_sparse_collection_retains_pending_prefix_replacement() {
 }
 
 // A retired clause must be retired exactly ONCE on the proof channel too. A
-// checker retires one clause per `d` line and, under DRAT, selects it by the
+// checker retires one clause per `d` line and selects it by the
 // literals, so a second deletion of an already-garbage record silently retires
 // the live duplicate the solver keeps — after which the next lemma resolving
 // through it is not RUP. Regression for the certificate rejected on
@@ -1302,8 +1302,8 @@ static void test_repeated_clause_deletion_emits_one_proof_line() {
   Proof proof;
   const std::string path = "/tmp/tactix-delete-idempotence-" +
                            std::to_string(static_cast<long>(getpid())) +
-                           ".drat";
-  assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+                           ".dsr";
+  assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   k.proof = &proof;
   kernel_reserve_vars(k, 4);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
@@ -2390,10 +2390,9 @@ static void test_pending_units_borrow_and_restore_literal_marks() {
   {
     PendingUnits pending;
     pending.init(k);
-    assert(pending.ids.empty()); // proof-less/DRAT batches stay sparse
-    assert(pending.record(k, a, 11) == PendingUnits::Outcome::Recorded);
-    assert(pending.record(k, a, 12) == PendingUnits::Outcome::Duplicate);
-    assert(pending.record(k, b, 13) == PendingUnits::Outcome::Recorded);
+    assert(pending.record(k, a) == PendingUnits::Outcome::Recorded);
+    assert(pending.record(k, a) == PendingUnits::Outcome::Duplicate);
+    assert(pending.record(k, b) == PendingUnits::Outcome::Recorded);
     assert(k.eager_marks[a] && k.eager_marks[b]);
     pending.init(k); // resetting a batch restores every borrowed byte
     assert(!k.eager_marks[a] && !k.eager_marks[b]);
@@ -2403,8 +2402,8 @@ static void test_pending_units_borrow_and_restore_literal_marks() {
 
   PendingUnits opposite;
   opposite.init(k);
-  assert(opposite.record(k, a, 21) == PendingUnits::Outcome::Recorded);
-  assert(opposite.record(k, negate(a), 22) ==
+  assert(opposite.record(k, a) == PendingUnits::Outcome::Recorded);
+  assert(opposite.record(k, negate(a)) ==
          PendingUnits::Outcome::Refuted);
   assert(k.inconsistent);
 }

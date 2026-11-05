@@ -224,9 +224,10 @@ int main(int argc, char **argv) {
               for (bool reuse : {false, true}) {
                 if (!reuse && !otfs) continue;
                 for (unsigned d = 0; d < DispatchCount; ++d)
-                  for (auto format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
+                  {
+                    const ProofFormat format = ProofFormat::DsrAscii;
                     const std::string stem = directory.empty() ? "" : directory + "/" +
-                        std::to_string(count) + (format == ProofFormat::Lrat ? "-lrat" : "-drat");
+                        std::to_string(count);
                     fixture(otfs, size, jump, depth, mode, extra, reuse,
                             static_cast<Dispatch>(d), format, previous, stem);
                     ++count;
@@ -234,7 +235,7 @@ int main(int argc, char **argv) {
               }
       }
     }
-  assert(count == 2400);
+  assert(count == 1200);
   std::printf("PASS: %u reuse target fixtures; %s public targets\n", count,
               previous ? "previous ignored" : "honored");
 }

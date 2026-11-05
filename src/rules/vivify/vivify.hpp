@@ -2,8 +2,7 @@
 // Assume the negations of a candidate's literals one level at a time; an
 // implied literal, an implied negation or a probe conflict proves a strictly
 // stronger clause, which replaces the candidate. Proof delta: add-RUP (the
-// distilled clause, LRAT chain from a reason walk of the probe trail) + delete
-// (the original); a root-satisfied candidate is deleted. Scope: irredundant
+// distilled clause) + delete (the original); a root-satisfied candidate is deleted. Scope: irredundant
 // plus the redundant tiers tier1/tier2/tier3, selected by
 // Kernel::vivify_scope, each with its own budget share (kissat vivify.c,
 // CaDiCaL vivify.cpp, MIT). Instance payload = candidate arena Ref; canonical

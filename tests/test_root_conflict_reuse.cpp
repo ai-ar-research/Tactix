@@ -18,7 +18,7 @@ using namespace tactix;
 // The recorded conflict has one nonroot literal and otherwise root-false
 // literals. Root assignments may follow decisions on the chronological trail.
 // The two final binary inputs make the resulting root implication refute F,
-// providing complete DRAT/LRAT micro-proofs for an independent checker.
+// providing complete DSR micro-proofs for an independent checker.
 static void fixture(unsigned size, unsigned depth, unsigned mode, bool late,
                     bool enabled, bool explicit_target, ProofFormat format,
                     bool legacy, const std::string &stem) {
@@ -50,7 +50,6 @@ static void fixture(unsigned size, unsigned depth, unsigned mode, bool late,
   kernel_add_binary_clause(k, negate(forced), negate(side), size + 2);
   k.next_clause_id = size + 2;
   auto roots = [&] {
-    // Reverse order ensures LRAT hints follow the actual trail, not clause order.
     for (unsigned v = size - 1; v; --v) {
       k.unit_ids[v - 1] = v;
       kernel_assign_unit(k, internalize(-static_cast<int>(v)));
@@ -105,14 +104,9 @@ static void fixture(unsigned size, unsigned depth, unsigned mode, bool late,
   std::string first;
   assert(static_cast<bool>(std::getline(input, first)));
   std::ostringstream expected;
-  if (format == ProofFormat::Lrat) expected << size + 3 << ' ';
   expected << size << " 0";
-  if (format == ProofFormat::Lrat) {
-    for (unsigned v = size - 1; v; --v) expected << ' ' << v;
-    expected << ' ' << size << " 0";
-  }
   assert(first == expected.str());
-  if (enabled && !explicit_target && mode != 2 && format == ProofFormat::DratAscii)
+  if (enabled && !explicit_target && mode != 2)
     std::printf("PARITY %u %u %u %u %u %d %u %u %u %u %u %.17g %llu %llu\n",
         size, depth, mode, late, k.level, k.value(forced), a.level,
         a.reason == UNIT_REASON, a.binary, heuristics_var_active(k, var_of(forced)),
@@ -145,13 +139,13 @@ int main(int argc, char **argv) {
         for (bool late : {false, true})
           for (bool enabled : {false, true})
             for (bool explicit_target : {false, true})
-              for (ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
+              {
                 const std::string stem = directory.empty() ? "" : directory + "/" +
-                    std::to_string(count) + (format == ProofFormat::Lrat ? "-lrat" : "-drat");
-                fixture(size, depth, mode, late, enabled, explicit_target, format, legacy, stem);
+                    std::to_string(count);
+                fixture(size, depth, mode, late, enabled, explicit_target, ProofFormat::DsrAscii, legacy, stem);
                 ++count;
               }
-  assert(count == 288);
+  assert(count == 144);
   std::printf("PASS: %u root-conflict fixtures; %s reuse transition\n", count,
               legacy ? "legacy learned-unit" : "reference zero-jump");
 }

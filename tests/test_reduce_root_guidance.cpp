@@ -136,8 +136,7 @@ int main(int argc, char **argv) {
   retained_chain(false); // Public Reduce stays independent of decision policy.
   no_root_work();
   for (unsigned kind = 0; kind < 3; ++kind)
-    for (ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat})
-      refutation(kind, format, argc > 1 ? std::string(argv[1]) + "/reduce-root-" +
-          std::to_string(kind) + (format == ProofFormat::Lrat ? "-lrat" : "-drat") : "");
-  std::puts("PASS: Reduce root guidance, truncated suffix, policy neutrality, no-op and six proof cases");
+    refutation(kind, ProofFormat::DsrAscii, argc > 1 ? std::string(argv[1]) + "/reduce-root-" +
+        std::to_string(kind) : "");
+  std::puts("PASS: Reduce root guidance, truncated suffix, policy neutrality, no-op and three proof cases");
 }

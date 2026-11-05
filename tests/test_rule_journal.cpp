@@ -30,8 +30,9 @@ int main() {
   assert(proof_rules == 40);
   // Subrules may have more guard facts than the old fixed eight-entry buffer.
   const RuleEligibility cardinality = signed_cardinality_proof_guard(k);
-  assert(cardinality.facts.size() == 9);
-  assert(std::string(cardinality.facts.back().name) == "proof-format");
+  assert(cardinality.facts.size() == 8);
+  assert(std::string(cardinality.facts.back().name) ==
+         "large-watches-connected");
 #endif
   // A zero clause ID without an explicit selector is not a request for an
   // unbracketed whole-formula diagnostic.
@@ -66,8 +67,7 @@ int main() {
       kernel_push_cube_witness(k, cube_clause, 1, cube_witness, 2);
       rule_journal_note_variable_status(k, var_of(internalize(2)),
                                        "substituted");
-      const uint64_t chain[] = {3, 5, 8};
-      rule_journal_note_rup(17, chain, 3);
+      rule_journal_note_rup(17);
 #ifdef TACTIX_TEST_STANDALONE_JOURNAL
       // In a production configuration tactix_lib deliberately has no journal
       // hooks.  This executable links the protocol implementation privately,

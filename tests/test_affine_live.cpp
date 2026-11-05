@@ -497,24 +497,6 @@ static void proof_run(const char *proof_path, const char *cnf_path,
   std::fclose(records);
 }
 
-static void unsupported_format() {
-  Kernel k;
-  install(k, affine_formula());
-  Proof proof;
-  assert(proof.open("/tmp/tactix-affine-live-declined.lrat", ProofFormat::Lrat));
-  proof.bind_variable_map(&k.internal_to_external);
-  proof.bind_external_variable_map(&k.external_to_internal);
-  k.proof = &proof;
-  FILE *records = std::tmpfile(); assert(records);
-  const auto id = k.next_clause_id;
-  const auto result = derive_affine_live(k, request(records));
-  assert(result.status == AffineLiveStatus::UnsupportedProof &&
-         result.result == ApplyResult::NoOp && !result.journal_bytes);
-  assert(k.next_clause_id == id && position(records) == 0);
-  k.proof = nullptr;
-  std::fclose(records);
-}
-
 int main(int argc, char **argv) {
   positive_and_continuing();
   clean_declines();
@@ -524,10 +506,9 @@ int main(int argc, char **argv) {
   uninstalled_target_cleanup_and_deferred_propagation();
   contradiction_and_false_unit();
   status_and_decline_effort();
-  unsupported_format();
   proof_run("/tmp/tactix-affine-live.dsr", nullptr, ProofFormat::DsrAscii,
             true);
   if (argc == 3)
-    proof_run(argv[2], argv[1], ProofFormat::DratAscii, true);
+    proof_run(argv[2], argv[1], ProofFormat::DsrAscii, true);
   std::puts("affine live adapter: atomic recognition, proof, liveness, and continuing CDCL PASS");
 }

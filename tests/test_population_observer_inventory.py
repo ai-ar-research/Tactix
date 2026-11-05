@@ -50,11 +50,11 @@ proof_cpp = src / "proof" / "proof.cpp"
 parse_cpp = src / "frontend" / "parse.cpp"
 
 # Clause semantic storage can only be created/replaced/retired at the audited
-# kernel primitives. LRAT input replay may only rebind the proof identity.
+# kernel primitives.
 mutation_patterns = {
     re.compile(r"->flags\s*\|=\s*Clause::GARBAGE"): {kernel_hpp},
     re.compile(r"->size\s*=(?!=)"): {kernel_cpp},
-    re.compile(r"->set_id\s*\("): {kernel_cpp, parse_cpp},
+    re.compile(r"->set_id\s*\("): {kernel_cpp},
 }
 for pattern, allowed in mutation_patterns.items():
     hits = set()
@@ -78,7 +78,6 @@ exact_mutation_counts = {
     # Ordinary large clauses, detached proof reasons, and in-place
     # replacements are the kernel-owned proof-identity assignments.
     (kernel_cpp, "->set_id("): 3,
-    (parse_cpp, "->set_id("): 2,
 }
 for (path, token), expected in exact_mutation_counts.items():
     observed = path.read_text().count(token)
@@ -112,7 +111,6 @@ require(proof_cpp, "bool Proof::open_stream(",
 require(proof_cpp, "void Proof::bind_population_observer(",
         "ObserverUnboundIncomplete", "population_observer_->observe")
 require(proof_cpp, "void Proof::del_impl(",
-        "CheckerPopulationEventKind::Delete",
         "CheckerPopulationEventKind::DeleteRequested",
         "CheckerPopulationEventKind::StageDeleteRequested")
 require(proof_cpp, "bool Proof::del_external_impl(",
@@ -238,7 +236,7 @@ require(parse_cpp, "class RawInputObservation",
         "PopulationSourceClassification::Ineligible")
 require(parse_cpp, "void finish_input(", "RawInputEventKind::Finished")
 require(parse_cpp, "void attach_replayed_input_proof(",
-        "observe_checker_id_rebind", "kernel_sync_population_observer")
+        "kernel_sync_population_observer")
 
 # Substitute owns one explicit logical transaction around either physical
 # binary-rewrite implementation. Every logical delta is staged and every
@@ -247,7 +245,7 @@ require(substitute_cpp, "ApplyResult do_substitution(",
         "kernel_begin_solver_population_transaction",
         "SolverPopulationEventKind::StageAdd",
         "SolverPopulationEventKind::StageDelete",
-        "const bool kissat_single_pass = !session && !lrat",
+        "const bool kissat_single_pass = !session",
         "deferred_single_pass_deltas",
         "deferred_population_adds",
         "kernel_commit_solver_population_transaction")

@@ -16,7 +16,7 @@ int main() {
   for (unsigned signs = 0; signs < 64; ++signs)
   for (bool truth : {false, true})
   for (bool reverse : {false, true})
-  for (int mode = 0; mode < 4; ++mode) {
+  for (int mode = 0; mode < 3; ++mode) {
     std::vector<std::vector<int>> rows;
     for (int output : {3, 4, 5}) {
       rows.push_back({-output, 1});
@@ -54,8 +54,7 @@ int main() {
     Kernel k;
     Proof proof;
     if (mode) {
-      const auto format = mode == 1 ? ProofFormat::DratBinary :
-                          mode == 2 ? ProofFormat::DratAscii : ProofFormat::Lrat;
+      const auto format = mode == 1 ? ProofFormat::DsrBinary : ProofFormat::DsrAscii;
       assert(proof.open("/dev/null", format));
       k.proof = &proof;
       proof.bind_variable_map(&k.internal_to_external);
@@ -80,6 +79,6 @@ int main() {
     kernel_check_invariants(k);
     ++checked;
   }
-  assert(checked == 1024);
+  assert(checked == 768);
   std::printf("ITE unit proof: %u signed/order/mode cases with exhaustive models\n", checked);
 }

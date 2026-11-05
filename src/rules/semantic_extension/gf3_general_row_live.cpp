@@ -412,7 +412,7 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
     const uint64_t id = ++kernel.next_clause_id;
     if (id != prepared.ids[index]) std::abort();
     if (kernel.proof)
-      kernel.proof->add_rup(id, internal.data(), internal.size(), nullptr, 0);
+      kernel.proof->add_rup(id, internal.data(), internal.size());
     result.proof_clause_ids.push_back(id);
     if (index + 1 != result.plan.events.size()) continue;
     bool relevant_to_trail = false;

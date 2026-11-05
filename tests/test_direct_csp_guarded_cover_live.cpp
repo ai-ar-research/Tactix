@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
   assert(second.status==DirectCspSupportActionStatus::Applied);
   assert(session.committed_keys()==2 && session.retained_owners()==1);
   kernel.structural_provenance = nullptr; std::fclose(records);
-  if (argc == 9) {
+  if (argc == 7) {
     // Original input carries the tuple assumptions. The native adapter sees
     // only its original subset, then emits two nonempty theory lemmas before
     // the ordinary clausal refutation consumes the first one.
@@ -104,14 +104,14 @@ int main(int argc, char **argv) {
     auto original_text = original.str();
     assert(std::fwrite(original_text.data(),1,original_text.size(),cnf)==original_text.size());
     std::fclose(cnf);
-    for (unsigned format = 0; format != 4; ++format) {
+    for (const bool refute : {true, false}) {
       FILE *subset = std::tmpfile(); assert(subset);
       assert(std::fwrite(text.data(),1,text.size(),subset)==text.size());
       std::rewind(subset); Kernel proof_kernel;
       assert(!parse_dimacs(subset,proof_kernel)); std::fclose(subset);
       proof_kernel.next_clause_id = expected.clauses.size()+3;
       Proof proof;
-      assert(proof.open(argv[format < 2 ? 2+format : 4+format], (format & 1) ? ProofFormat::DratAscii : ProofFormat::DsrAscii));
+      assert(proof.open(refute ? argv[2] : argv[5], ProofFormat::DsrAscii));
       proof.bind_variable_map(&proof_kernel.internal_to_external);
       proof.bind_external_variable_map(&proof_kernel.external_to_internal);
       proof_kernel.proof = &proof;
@@ -124,17 +124,17 @@ int main(int argc, char **argv) {
       selection.selected_values[0] = 1;
       auto next = direct_csp_guarded_cover_action_apply(proof_kernel,proof_session,limits,selection);
       assert(next.status == DirectCspSupportActionStatus::Applied);
-      if (format < 2) assert(proof.add_external_rup(++proof_kernel.next_clause_id,nullptr,0));
+      if (refute) assert(proof.add_external_rup(++proof_kernel.next_clause_id,nullptr,0));
       proof.flush(); proof_kernel.proof=nullptr;
       proof_kernel.structural_provenance=nullptr; std::fclose(journal);
     }
-    FILE *sat = std::fopen(argv[4], "w"); assert(sat);
+    FILE *sat = std::fopen(argv[3], "w"); assert(sat);
     assert(std::fwrite(text.data(),1,text.size(),sat)==text.size()); std::fclose(sat);
     // A checked original-CNF model with key 2, value 4 false, q false, b9.
-    FILE *model = std::fopen(argv[5], "w"); assert(model);
+    FILE *model = std::fopen(argv[4], "w"); assert(model);
     std::fputs("s SATISFIABLE\nv -1 2 -3 -4 5 -6 -7 -8 9 -10 11 -12 0\n",model);
     std::fclose(model);
-    FILE *bad = std::fopen(argv[8], "w"); assert(bad);
+    FILE *bad = std::fopen(argv[6], "w"); assert(bad);
     std::fputs("-11 -5 -1 0\n",bad); std::fclose(bad);
   }
 }

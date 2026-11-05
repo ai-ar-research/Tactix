@@ -272,11 +272,6 @@ struct Walk {
   std::vector<uint32_t> seen;   // per-walk source-copy ordinal by destination
   std::vector<Lit> seen_list;   // touched entries of `seen`
   std::vector<Lit> cands;       // physical source-watch candidate order
-  // LRAT propagation order for the current BFS.  Each newly reached literal
-  // contributes the binary which forced it; when the opposite polarity was
-  // already reached, the last binary is the falsified closing clause.  The
-  // chain therefore proves the failed-source unit without re-running Probe.
-  std::vector<uint64_t> proof_chain;
   uint64_t ticks = 0;           // cache lines scanned; reduce_source flushes
                                 // into stats.transitive_ticks (const-walk
                                 // helpers charge here instead of the kernel)
@@ -296,7 +291,6 @@ struct Walk {
     dead_list.clear();
     seen_list.clear();
     cands.clear();
-    proof_chain.clear();
   }
 };
 
@@ -318,8 +312,8 @@ uint64_t transitive_watch_ticks(const Kernel &k, Lit lit,
 // direction — that is what keeps a candidate out of its own justifying path.
 // Read-only. Returns true iff dst is reached; sets *failed when some literal is
 // reached with its negation, i.e. ¬src is a failed literal.  Pinned Kissat
-// commits {src} immediately; the BFS records the same binary propagation as an
-// LRAT chain so the caller can apply that unit without crossing into V1 Probe.
+// commits {src} immediately; the caller can apply that unit without crossing
+// into V1 Probe.
 bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
   *failed = false;
   for (const Lit l : w.touched)
@@ -329,7 +323,6 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
   for (const Lit lit : w.seen_list)
     w.seen[lit] = 0;
   w.seen_list.clear();
-  w.proof_chain.clear();
 
   const Lit root = negate(src);
   w.reached[root] = 1;
@@ -380,11 +373,6 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
         continue;
       if (w.reached[q])
         continue;
-      if (k.proof && k.proof->lrat()) {
-        const uint64_t reason = kernel_binary_id(k, nl, q);
-        assert(reason && "TransitiveReduce walk edge has no proof id");
-        w.proof_chain.push_back(reason);
-      }
       w.reached[q] = 1;
       w.touched.push_back(q);
       if (w.reached[negate(q)]) {
@@ -543,7 +531,7 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
   w.ticks = 0;
   if (failed_source) {
     const uint64_t id = ++k.next_clause_id;
-    emit_rup_lemma(k, id, &src, 1, w.proof_chain);
+    emit_rup_lemma(k, id, &src, 1);
     k.unit_ids[var_of(src)] = id;
     kernel_assign_unit(k, src);
     res = ApplyResult::Ok;

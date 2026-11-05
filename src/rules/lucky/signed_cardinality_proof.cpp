@@ -376,7 +376,7 @@ bool derive(const System &system, Sink &sink) {
 } // namespace
 
 RuleEligibility signed_cardinality_proof_guard(const Kernel &k) {
-  return lucky_clausal_root_eligibility(k);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult signed_cardinality_proof_apply(Kernel &k) {

@@ -180,28 +180,6 @@ static void test_block_boundaries_do_not_change_the_import() {
     assert(parse_with_block(odd, block) == odd_reference);
 }
 
-static void test_native_lrat_retains_binary_ids() {
-  Kernel k;
-  const std::string path = "/tmp/tactix-test-parse-lrat-" +
-                           std::to_string(static_cast<long>(getpid())) +
-                           ".proof";
-  {
-    Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::Lrat));
-    k.proof = &proof;
-    FILE *file = dimacs_file("p cnf 2 2\n1 -2 0\n1 -2 0\n");
-    assert(parse_dimacs(file, k) == nullptr);
-    std::fclose(file);
-    assert(k.binary_ids.tracks_keys());
-    assert(k.binary_ids.tracks_values());
-    assert(k.binary_ids.size() == 1);
-    assert(k.binary_ids.at(
-               kernel_binary_key(internalize(1), internalize(-2))) == 1);
-    k.proof = nullptr;
-  }
-  assert(std::remove(path.c_str()) == 0);
-}
-
 static void test_streaming_pbp_uses_compact_binary_filter() {
   Kernel k;
   const std::string path = "/tmp/tactix-test-parse-pbp-" +
@@ -239,11 +217,10 @@ static void test_literal_proof_import_retires_raw_replacements() {
     std::sort(clause.begin(), clause.end());
     ++initial_population[clause];
   }
-  for (const ProofFormat format : {ProofFormat::DsrAscii,
-                                   ProofFormat::DratAscii}) {
+  {
+    const ProofFormat format = ProofFormat::DsrAscii;
     const std::string path = "test-parse-population-" +
-                             std::to_string(getpid()) +
-                             (format == ProofFormat::DsrAscii ? ".dsr" : ".drat");
+                             std::to_string(getpid()) + ".dsr";
     std::string proved_state;
     {
       Kernel k;
@@ -312,7 +289,7 @@ static void test_tumble_preserves_file_literal_order() {
   std::fclose(file);
   assert(!k.binary_ids.tracks_keys());
   assert(!k.binary_ids.tracks_values() &&
-         "proofless/DRAT must release the import-only binary archive");
+         "proofless import must release the binary archive");
   assert(k.binary_ids.size() == 2 &&
          "dropping storage must preserve the exact material watermark");
 
@@ -448,10 +425,9 @@ static void test_proof_mode_preserves_import_liveness() {
       assert(std::remove(path.c_str()) == 0);
     return fingerprint;
   };
-  const std::string baseline = import(ProofFormat::DratAscii, false);
-  assert(import(ProofFormat::DratAscii, true) == baseline);
+  const std::string baseline = import(ProofFormat::DsrAscii, false);
   assert(import(ProofFormat::DsrAscii, true) == baseline);
-  assert(import(ProofFormat::Lrat, true) == baseline);
+  assert(import(ProofFormat::DsrBinary, true) == baseline);
 }
 
 static void test_header_only_variables_are_not_search_variables() {
@@ -522,7 +498,6 @@ static void test_discarded_only_variables_are_not_search_variables() {
 
 int main() {
   test_compact_input_filter_grows_and_deduplicates_exactly();
-  test_native_lrat_retains_binary_ids();
   test_streaming_pbp_uses_compact_binary_filter();
   test_literal_proof_import_retires_raw_replacements();
   test_tumble_preserves_file_literal_order();
