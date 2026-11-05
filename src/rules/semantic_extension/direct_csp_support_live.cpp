@@ -723,8 +723,6 @@ DirectCspSupportLiveResult direct_csp_support_live_apply(
         plan.projection.extension_variable)
       std::abort();
   }
-  std::vector<uint64_t> ids;
-  ids.reserve(plan.additions.size());
   for (size_t index = 0; index < plan.additions.size(); ++index) {
     const support::Addition &addition = plan.additions[index];
     const auto literals = internal_clause_or_abort(kernel, addition.clause);
@@ -732,22 +730,11 @@ DirectCspSupportLiveResult direct_csp_support_live_apply(
     if (id != first_id + index) std::abort();
     if (kernel.proof) {
       if (addition.proof == support::ProofStep::Rup) {
-        kernel.proof->add_rup(id, literals.data(), literals.size(), nullptr, 0);
+        kernel.proof->add_rup(id, literals.data(), literals.size());
       } else {
-        std::vector<int64_t> hints;
-        if (addition.proof == support::ProofStep::DefinitionReverseRat)
-          for (const support::Reference &reference : addition.antecedents) {
-            if (reference.kind != support::ReferenceKind::PlannedAddition ||
-                reference.id >= ids.size())
-              std::abort();
-            hints.push_back(-static_cast<int64_t>(ids[reference.id]));
-          }
-        kernel.proof->add_rat(id, literals.data(), literals.size(),
-                              hints.empty() ? nullptr : hints.data(),
-                              hints.size());
+        kernel.proof->add_rat(id, literals.data(), literals.size());
       }
     }
-    ids.push_back(id);
     if (literals.size() == 1) {
       if (kernel.value(literals[0])) std::abort();
       kernel.unit_ids[var_of(literals[0])] = id;
@@ -767,7 +754,7 @@ DirectCspSupportLiveResult direct_csp_support_live_apply(
   result.result = ApplyResult::Ok;
   result.emitted_additions = plan.additions.size();
   result.journal_bytes = journal.bytes.size();
-  result.published_clause_id = ids.back();
+  result.published_clause_id = first_id + plan.additions.size() - 1;
   result.published_support = conclusion;
   result.propagation_pending = !kernel_propagation_fixpoint(kernel);
   return result;

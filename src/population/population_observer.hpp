@@ -167,7 +167,6 @@ struct CheckerPopulationEvent {
   CheckerNaming naming = CheckerNaming::None;
   uint64_t line_id = 0;
   uint64_t checker_id = 0;
-  uint64_t predecessor_id = 0;
   uint64_t transaction_id = 0;
   bool proof_only = false;
   PopulationSourceClassification source_classification =

@@ -65,9 +65,8 @@ static void root_reason(bool elevated, bool compact, bool unsat,
     } else kernel_add_large_clause(k, lits.data(), lits.size(), false, 0, id);
   }
   const Lit learned[] = {internalize(1),internalize(2),internalize(3)};
-  const uint64_t chain[] = {1,2};
   const auto learned_id = ++k.next_clause_id;
-  proof.add_rup(learned_id, learned, 3, chain, 2);
+  proof.add_rup(learned_id, learned, 3);
   const Ref ref = kernel_add_large_clause(k, learned, 3, true, 3, learned_id);
   clause_at(k.arena, ref)->set_used(3);
   assert(propagate_apply(k) == ApplyResult::Ok);

@@ -539,35 +539,17 @@ void rule_journal_note_cube_reconstruction(const Kernel &k,
                                     external_witness + ')');
 }
 
-// Records `kind(id=<id>;<field>=<values>)` as an antecedent of the active
-// transaction; an empty list is spelled "implicit".
-template <class Value>
-static void note_antecedent(const char *kind, const char *field, uint64_t id,
-                            const Value *values, uint32_t size) {
+// Records `kind(id=<id>)` as an antecedent of the active transaction.
+static void note_antecedent(const char *kind, uint64_t id) {
   if (!transaction.active)
     return;
-  std::string item =
-      std::string(kind) + "(id=" + std::to_string(id) + ";" + field + "=";
-  if (!size)
-    item += "implicit";
-  for (uint32_t i = 0; i < size; i++) {
-    if (i)
-      item.push_back(',');
-    item += std::to_string(values[i]);
-  }
-  item.push_back(')');
-  transaction.antecedents.push_back(std::move(item));
+  transaction.antecedents.push_back(std::string(kind) + "(id=" +
+                                    std::to_string(id) + ')');
 }
 
-void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
-                           uint32_t nchain) {
-  note_antecedent("rup", "chain", id, chain, nchain);
-}
+void rule_journal_note_rup(uint64_t id) { note_antecedent("rup", id); }
 
-void rule_journal_note_rat(uint64_t id, const int64_t *hints,
-                           uint32_t nhints) {
-  note_antecedent("rat", "hints", id, hints, nhints);
-}
+void rule_journal_note_rat(uint64_t id) { note_antecedent("rat", id); }
 
 // The `|`-joined items of the active transaction, or "none".
 static std::string transaction_items(const std::vector<std::string> &items) {

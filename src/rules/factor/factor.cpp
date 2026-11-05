@@ -674,7 +674,7 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {px, f}; // pivot (x) first
     if (k.proof)
-      k.proof->add_rat(id, lits, 2, nullptr, 0);
+      k.proof->add_rat(id, lits, 2);
     kernel_add_binary_clause(k, px, f, id);
     append_binary_watch(px, f, id);
   }
@@ -709,8 +709,7 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     }
     const uint64_t id = ++k.next_clause_id;
     if (k.proof)
-      k.proof->add_rat(id, qlits.data(), static_cast<uint32_t>(qlits.size()),
-                       nullptr, 0);
+      k.proof->add_rat(id, qlits.data(), static_cast<uint32_t>(qlits.size()));
     if (rn == 1) {
       kernel_add_binary_clause(k, nx, rl[0], id);
       append_binary_watch(nx, rl[0], id);

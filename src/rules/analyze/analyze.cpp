@@ -599,7 +599,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
 
   if (k.proof) // streaming PBP tracks the resolvent's id for `del id`
     k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, lits.data(),
-                     static_cast<uint32_t>(lits.size()), nullptr, 0);
+                     static_cast<uint32_t>(lits.size()));
   k.stats.otfs_strengthened++;
 
   // kissat_on_the_fly_strengthen marks only the resolved literal removed; the
@@ -1074,7 +1074,7 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   auto emit_unit = [&](Lit unit) {
     const uint64_t id = ++k.next_clause_id;
     if (k.proof)
-      k.proof->add_rup(0, &unit, 1, nullptr, 0);
+      k.proof->add_rup(0, &unit, 1);
     units.emplace_back(unit, id);
   };
 
@@ -1194,7 +1194,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
       k.inconsistent = true;
       k.conflict_valid = false;
       if (k.proof)
-        k.proof->add_empty(0, nullptr, 0);
+        k.proof->add_empty(0);
       return ApplyResult::Unsat;
     }
     // Backtrack to the conflict level (kissat analyze.c
@@ -1263,7 +1263,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
           // the variable without entering Deduce or advancing EVSIDS.
           const uint64_t id = ++k.next_clause_id;
           if (k.proof)
-            k.proof->add_rup(id, &forced, 1, nullptr, 0);
+            k.proof->add_rup(id, &forced, 1);
           k.unit_ids[var_of(forced)] = id;
           kernel_assign_unit(k, forced);
           heuristics_deactivate_var(k, var_of(forced));
@@ -1564,7 +1564,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
   const uint64_t learned_id = ++k.next_clause_id;
   if (k.proof) // streaming PBP tracks the learned id for `del id`
     k.proof->add_rup(k.proof->streaming_pbp() ? learned_id : 0, learned.data(),
-                     static_cast<uint32_t>(learned.size()), nullptr, 0);
+                     static_cast<uint32_t>(learned.size()));
   k.stats.learned++;
   k.stats.learned_lits += learned.size();
   k.stats.learned_glue_sum += glue;

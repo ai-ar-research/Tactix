@@ -253,9 +253,9 @@ void emit_unsat(Kernel &k, Lit x) {
   const uint64_t id_x = ++k.next_clause_id;
   const uint64_t id_e = ++k.next_clause_id;
   if (k.proof) {
-    k.proof->add_rup(id_nx, &nx, 1, nullptr, 0);
-    k.proof->add_rup(id_x, &x, 1, nullptr, 0);
-    k.proof->add_empty(id_e, nullptr, 0);
+    k.proof->add_rup(id_nx, &nx, 1);
+    k.proof->add_rup(id_x, &x, 1);
+    k.proof->add_empty(id_e);
   }
   k.inconsistent = true;
 }
@@ -1904,7 +1904,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
               touched_units.push_back(repr_lit);
               ++k.next_clause_id;
               if (k.proof)
-                k.proof->add_rup(0, &repr_lit, 1, nullptr, 0);
+                k.proof->add_rup(0, &repr_lit, 1);
               if (record_unit(repr_lit))
                 refuted = true;
             }
@@ -1921,7 +1921,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           changed = true;
           if (is_owner && k.proof && !pbp_proof_finished()) {
             const Lit lits2[2] = {repr_lit, repr_other};
-            k.proof->add_rup(0, lits2, 2, nullptr, 0);
+            k.proof->add_rup(0, lits2, 2);
           }
           retire_source();
           if (lit == repr_lit) { // stable owner: rewrite in place, survives
@@ -2078,7 +2078,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           continue;
         ++k.next_clause_id;
         if (k.proof)
-          k.proof->add_rup(0, &image.target_a, 1, nullptr, 0);
+          k.proof->add_rup(0, &image.target_a, 1);
         if (record_unit(image.target_a))
           refuted = true;
         continue;
@@ -2086,7 +2086,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
 
       if (changed_image && k.proof && !pbp_proof_finished()) {
         const Lit lits2[2] = {image.target_a, image.target_b};
-        k.proof->add_rup(0, lits2, 2, nullptr, 0);
+        k.proof->add_rup(0, lits2, 2);
       }
     }
 

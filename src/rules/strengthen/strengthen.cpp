@@ -343,7 +343,7 @@ static void forward_assign_root(Kernel &k, Lit unit, uint32_t reason,
     if (k.proof->dsr())
       kernel_emit_root_units(k, from);
     else
-      k.proof->add_rup(0, &unit, 1, nullptr, 0);
+      k.proof->add_rup(0, &unit, 1);
   }
   Assigned &assigned = k.assigned[var_of(unit)];
   assigned.reason = UNIT_REASON;

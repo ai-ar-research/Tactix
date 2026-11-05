@@ -1167,7 +1167,7 @@ static void test_sessionless_substitution_keeps_binaries_whole(void) {
 // substitution correctly deletes.
 static void emit_se_case(const char *dir) {
   const std::vector<std::vector<int>> env = non_rup_formula(); // clauses 1..8
-  const uint64_t ID_XY = 9, ID_NXNY = 10;
+  const uint64_t ID_NXNY = 10;
 
   char path[512];
   snprintf(path, sizeof path, "%s/se.cnf", dir);
@@ -1201,8 +1201,7 @@ static void emit_se_case(const char *dir) {
     assert(r == ApplyResult::Ok && k.stats.sweep_general >= 1 &&
            "S-e must have emitted, or this case checks nothing");
 
-    const uint64_t empty_chain[2] = {ID_XY, ID_NXNY};
-    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.add_empty(++k.next_clause_id);
     proof.flush();
   }
   printf("emitted the S-e case to %s\n", dir);
@@ -1227,8 +1226,7 @@ static void emit_unit_case(const char *dir) {
     assert(sweep_apply(k) == ApplyResult::Ok && k.stats.sweep_units == 1);
     const uint64_t unit_id = k.unit_ids[var_of(internalize(1))];
     assert(unit_id > 3 && k.value(internalize(1)) > 0);
-    const uint64_t empty_chain[2] = {unit_id, 3};
-    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.add_empty(++k.next_clause_id);
     proof.flush();
   }
   printf("emitted the Sweep-unit case to %s\n", dir);
@@ -1263,8 +1261,7 @@ static void emit_original_core_unit_case(const char *dir) {
     assert(sweep_emit_round_for_test(k, round, 0, limits) == ApplyResult::Ok);
     const uint64_t unit_id = k.unit_ids[var_of(internalize(-1))];
     assert(unit_id > 5 && k.value(internalize(-1)) > 0);
-    const uint64_t empty_chain[2] = {unit_id, 5};
-    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.add_empty(++k.next_clause_id);
     proof.flush();
   }
   printf("emitted the original-core-unit case to %s\n", dir);
@@ -1282,7 +1279,7 @@ static void emit_bridge_chain_case(const char *dir) {
       {-3, 2}, {3, -2},                    // pair x3 = x2
       {-4, 1}, {4, -1},                    // pair x4 = x1
   };
-  const uint64_t ID_P5 = 11, ID_NP5 = 12; // checker-only contradictory units
+  const uint64_t ID_NP5 = 12; // checker-only contradictory units
 
   char path[512];
   snprintf(path, sizeof path, "%s/bridge-chain.cnf", dir);
@@ -1323,8 +1320,7 @@ static void emit_bridge_chain_case(const char *dir) {
     (void)session.collect(k);
     kernel_dense_disconnect(k);
 
-    const uint64_t empty_chain[2] = {ID_P5, ID_NP5};
-    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.add_empty(++k.next_clause_id);
     proof.flush();
   }
   printf("emitted the bridge-chain case to %s\n", dir);
@@ -1341,7 +1337,7 @@ static void emit_bridge_two_hint_case(const char *dir) {
       {-3, 4}, {3, -4},                    // pair x3 = x4
       {-4, 6}, {4, -6},                    // pair x4 = x6
   };
-  const uint64_t ID_P8 = 11, ID_NP8 = 12; // checker-only contradictory units
+  const uint64_t ID_NP8 = 12; // checker-only contradictory units
 
   char path[512];
   snprintf(path, sizeof path, "%s/bridge-two-hint.cnf", dir);
@@ -1385,8 +1381,7 @@ static void emit_bridge_two_hint_case(const char *dir) {
     (void)session.collect(k);
     kernel_dense_disconnect(k);
 
-    const uint64_t empty_chain[2] = {ID_P8, ID_NP8};
-    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.add_empty(++k.next_clause_id);
     proof.flush();
   }
   printf("emitted the bridge two-hint case to %s\n", dir);

@@ -499,7 +499,7 @@ namespace tactix {
     uint64_t id=++k.next_clause_id;
     if(id!=p.id)std::abort();
 
-    if(k.proof)k.proof->add_rup(id,p.literals.data(),p.literals.size(),nullptr,0);
+    if(k.proof)k.proof->add_rup(id,p.literals.data(),p.literals.size());
 
     if(p.literals.size()==1){
       k.unit_ids[var_of(p.literals[0])]=id;

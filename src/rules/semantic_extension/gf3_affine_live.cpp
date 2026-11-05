@@ -672,7 +672,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
     const uint64_t id = ++kernel.next_clause_id;
     if (id != preflight.published_clause_ids[index]) std::abort();
     if (kernel.proof)
-      kernel.proof->add_rup(id, literals.data(), literals.size(), nullptr, 0);
+      kernel.proof->add_rup(id, literals.data(), literals.size());
     install_redundant_clause(kernel, literals, id);
     result.published_clause_ids.push_back(id);
   }

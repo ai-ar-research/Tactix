@@ -217,13 +217,11 @@ public:
   // --- proof-delta vocabulary (subset live in phase 2) ---
   // add-RUP. Native DSR stages consecutive RUP units so a following deletion block can
   // be ordered before the batch with a shared proof-only split.
-  void add_rup(uint64_t id, const Lit *lits, uint32_t size,
-               const uint64_t *chain, uint32_t nchain);
+  void add_rup(uint64_t id, const Lit *lits, uint32_t size);
   // add-RAT: `lits` MUST be pivot-first (the checker infers RAT on the first
   // literal). Factor is the first RAT-emitting rule (plan §5.2 add-RAT
   // primitive).
-  void add_rat(uint64_t id, const Lit *lits, uint32_t size,
-               const int64_t *hints, uint32_t nhints);
+  void add_rat(uint64_t id, const Lit *lits, uint32_t size);
   // Add a substitution-redundant clause. `lits[0]` is the DSR pivot,
   // `true_lits` are mapped to true, and each mapping maps its source literal
   // to its target literal. `external_variables` bounds every external variable
@@ -239,10 +237,9 @@ public:
               const Lit *true_lits, uint32_t ntrue,
               const DsrLiteralMapping *mappings, uint32_t nmappings,
               uint32_t external_variables, bool propagates = false);
-  void add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain);
+  void add_empty(uint64_t id);
   // root-level propagation-derived unit: explicit in DSR and streaming PBP
-  void add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
-                        uint32_t nchain);
+  void add_derived_unit(uint64_t id, Lit unit);
   // delete: DSR writes the literals; streaming PBP names the constraint
   void del(uint64_t line_id, uint64_t del_id, const Lit *lits,
            uint32_t size);
@@ -384,17 +381,14 @@ public:
 private:
   // Event bodies. The public methods run these and then feed the automatic
   // DSR copy; internal calls use the bodies so the copy sees each event once.
-  void add_rup_impl(uint64_t id, const Lit *lits, uint32_t size,
-                    const uint64_t *chain, uint32_t nchain);
-  void add_rat_impl(uint64_t id, const Lit *lits, uint32_t size,
-                    const int64_t *hints, uint32_t nhints);
+  void add_rup_impl(uint64_t id, const Lit *lits, uint32_t size);
+  void add_rat_impl(uint64_t id, const Lit *lits, uint32_t size);
   bool add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates);
-  void add_empty_impl(uint64_t id, const uint64_t *chain, uint32_t nchain);
-  void add_derived_unit_impl(uint64_t id, Lit unit, const uint64_t *chain,
-                             uint32_t nchain);
+  void add_empty_impl(uint64_t id);
+  void add_derived_unit_impl(uint64_t id, Lit unit);
   void del_impl(uint64_t line_id, uint64_t del_id, const Lit *lits,
                 uint32_t size);
   bool add_external_rup_impl(uint64_t id, const int32_t *lits, uint32_t size);
@@ -494,7 +488,6 @@ private:
   void observe_checker(CheckerPopulationEventKind, CheckerClauseRole,
                        uint64_t line_id, uint64_t checker_id,
                        PopulationClauseView, bool proof_only = false,
-                       uint64_t predecessor_id = 0,
                        uint64_t transaction_id = 0,
                        PopulationSourceClassification =
                            PopulationSourceClassification::Ineligible) noexcept;

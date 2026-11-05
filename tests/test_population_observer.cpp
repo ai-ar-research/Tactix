@@ -61,7 +61,6 @@ struct CheckerRecord {
   CheckerNaming naming{};
   uint64_t line_id = 0;
   uint64_t checker_id = 0;
-  uint64_t predecessor_id = 0;
   uint64_t transaction_id = 0;
   bool proof_only = false;
   PopulationSourceClassification source_classification =
@@ -115,7 +114,6 @@ public:
     record.naming = event.naming;
     record.line_id = event.line_id;
     record.checker_id = event.checker_id;
-    record.predecessor_id = event.predecessor_id;
     record.transaction_id = event.transaction_id;
     record.proof_only = event.proof_only;
     record.source_classification = event.source_classification;
@@ -459,7 +457,7 @@ void test_explicit_route_rebind_settles_the_original_observer() {
     kernel.proof = &proof;
     kernel_bind_population_observer(kernel, &first);
     const Lit one = lit(1);
-    proof.add_derived_unit(1, one, nullptr, 0);
+    proof.add_derived_unit(1, one);
 
     // Replacing a binding must finish the transaction with the observer that
     // saw its staged record.  The replacement starts from a clean boundary.
@@ -478,7 +476,7 @@ void test_explicit_route_rebind_settles_the_original_observer() {
                CheckerPopulationEventKind::PendingCommitBegin) == 0);
 
     const Lit two = lit(2);
-    proof.add_derived_unit(2, two, nullptr, 0);
+    proof.add_derived_unit(2, two);
     kernel_bind_population_observer(kernel, nullptr);
     assert(second.checker_count(CheckerPopulationEventKind::StageAdd) == 1);
     assert(second.checker_count(
@@ -503,18 +501,18 @@ void test_nested_scoped_rebind_settles_each_observer() {
     {
       ScopedPopulationObserverBinding outer_binding(kernel, outer);
       const Lit one = lit(1);
-      proof.add_derived_unit(1, one, nullptr, 0);
+      proof.add_derived_unit(1, one);
       {
         ScopedPopulationObserverBinding inner_binding(kernel, inner);
         assert(outer.checker_count(
                    CheckerPopulationEventKind::PendingCommitEnd) == 1);
         const Lit two = lit(2);
-        proof.add_derived_unit(2, two, nullptr, 0);
+        proof.add_derived_unit(2, two);
       }
       assert(inner.checker_count(
                  CheckerPopulationEventKind::PendingCommitEnd) == 1);
       const Lit three = lit(3);
-      proof.add_derived_unit(3, three, nullptr, 0);
+      proof.add_derived_unit(3, three);
     }
     kernel.proof = nullptr;
   }
@@ -552,7 +550,7 @@ void test_dsr_checker_transactions_and_exact_clauses() {
     const Lit deleted[2] = {lit(2), lit(-3)};
     proof.seed_population(7, deleted, 2);
     proof.arm_population_shadow();
-    proof.add_derived_unit(10, unit, nullptr, 0);
+    proof.add_derived_unit(10, unit);
     proof.del(11, 7, deleted, 2);
     proof.flush();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
@@ -561,8 +559,8 @@ void test_dsr_checker_transactions_and_exact_clauses() {
 #endif
 
     const Lit ordinary[2] = {lit(4), lit(5)};
-    proof.add_empty(12, nullptr, 0);
-    proof.add_rup(13, ordinary, 2, nullptr, 0);
+    proof.add_empty(12);
+    proof.add_rup(13, ordinary, 2);
 
     const Lit auxiliary_case[2] = {lit(1), lit(2)};
     assert(proof.add_sr(20, auxiliary_case, 2, nullptr, 0, nullptr, 0, 2,
@@ -1118,7 +1116,7 @@ void test_scope_flushes_before_unbinding() {
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);
       const Lit unit = lit(1);
-      proof.add_derived_unit(1, unit, nullptr, 0);
+      proof.add_derived_unit(1, unit);
     }
     assert(proof.population_observer() == nullptr);
     kernel.proof = nullptr;

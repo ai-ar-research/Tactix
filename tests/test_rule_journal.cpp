@@ -66,8 +66,7 @@ int main() {
       kernel_push_cube_witness(k, cube_clause, 1, cube_witness, 2);
       rule_journal_note_variable_status(k, var_of(internalize(2)),
                                        "substituted");
-      const uint64_t chain[] = {3, 5, 8};
-      rule_journal_note_rup(17, chain, 3);
+      rule_journal_note_rup(17);
 #ifdef TACTIX_TEST_STANDALONE_JOURNAL
       // In a production configuration tactix_lib deliberately has no journal
       // hooks.  This executable links the protocol implementation privately,

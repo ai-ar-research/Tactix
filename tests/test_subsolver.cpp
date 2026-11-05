@@ -520,7 +520,7 @@ void check_target_is_entailed(const Formula &f, const std::vector<SubLit> &assum
   }
 }
 
-// The derivation oracle: random refutations, each replayed as LRAT, checked for
+// The derivation oracle: random refutations, each replayed by propagation, checked for
 // entailment by enumeration, and checked for core discipline — every chain
 // entry is a core original or an earlier lemma, so the order replays.
 void test_derivations(uint32_t iterations,

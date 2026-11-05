@@ -186,7 +186,6 @@ void Proof::observe_checker(CheckerPopulationEventKind kind,
                             CheckerClauseRole role, uint64_t line_id,
                             uint64_t checker_id,
                             PopulationClauseView clause, bool proof_only,
-                            uint64_t predecessor_id,
                             uint64_t transaction_id,
                             PopulationSourceClassification
                                 source_classification) noexcept {
@@ -199,7 +198,6 @@ void Proof::observe_checker(CheckerPopulationEventKind kind,
   event.naming = population_naming();
   event.line_id = line_id;
   event.checker_id = checker_id;
-  event.predecessor_id = predecessor_id;
   event.transaction_id = transaction_id;
   event.proof_only = proof_only;
   if (kind == CheckerPopulationEventKind::InputSeed)
@@ -1100,7 +1098,7 @@ void Proof::settle_pbp_deferred_units(bool drop) {
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::DerivedUnit;
   for (const PbpDeferredUnit &unit : units)
-    add_rup_impl(unit.id, &unit.lit, 1, nullptr, 0);
+    add_rup_impl(unit.id, &unit.lit, 1);
   population_role_ = saved;
 }
 
@@ -1178,7 +1176,7 @@ void Proof::flush_pending_dsr_units() {
   if (!pending_population_transaction_)
     pending_population_transaction_ = ++next_population_transaction_;
   observe_checker(CheckerPopulationEventKind::PendingCommitBegin,
-                  CheckerClauseRole::None, 0, 0, {}, false, 0,
+                  CheckerClauseRole::None, 0, 0, {}, false,
                   pending_population_transaction_);
   const bool split = (pending_deletions_ || !pending_deletion_bytes_.empty()) &&
                      external_variable_bound() < static_cast<uint32_t>(INT32_MAX);
@@ -1199,8 +1197,7 @@ void Proof::flush_pending_dsr_units() {
       observe_checker(deletion ? CheckerPopulationEventKind::DeleteRequested
                                : CheckerPopulationEventKind::Add,
                       CheckerClauseRole::DsrSplitHelper, 0, 0,
-                      PopulationClauseView::external_lits(helper, 2), true,
-                      0, pending_population_transaction_);
+                      PopulationClauseView::external_lits(helper, 2), true, pending_population_transaction_);
     }
   };
   const auto direct_unit = [&](const PendingDsrUnit &unit) {
@@ -1208,7 +1205,7 @@ void Proof::flush_pending_dsr_units() {
     observe_checker(CheckerPopulationEventKind::Add, unit.role, unit.id,
                     unit.id,
                     PopulationClauseView::external_lits(&unit.external, 1),
-                    false, 0, pending_population_transaction_);
+                    false, pending_population_transaction_);
   };
   if (split) {
     // Under either assumption on the shared auxiliary, every earlier pair
@@ -1243,7 +1240,7 @@ void Proof::flush_pending_dsr_units() {
       }
     }
     observe_checker(CheckerPopulationEventKind::PendingDeletesCommit,
-                    CheckerClauseRole::None, 0, 0, {}, false, 0,
+                    CheckerClauseRole::None, 0, 0, {}, false,
                     pending_population_transaction_);
   }
   if (split) {
@@ -1253,7 +1250,7 @@ void Proof::flush_pending_dsr_units() {
       split_helpers(unit, true);
   }
   observe_checker(CheckerPopulationEventKind::PendingCommitEnd,
-                  CheckerClauseRole::None, 0, 0, {}, false, 0,
+                  CheckerClauseRole::None, 0, 0, {}, false,
                   pending_population_transaction_);
   // Erase exactly this batch's keys: clear() zeroes the whole bucket array,
   // which keeps the size of the largest batch ever staged (input units), and
@@ -1279,8 +1276,7 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
   return false;
 }
 
-void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size,
-                         const uint64_t *chain, uint32_t nchain) {
+void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(!size && streaming_pbp());
   const CheckerClauseRole role = population_role_;
@@ -1293,7 +1289,7 @@ void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size,
     flush_pending_dsr_units();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (!copy_role_) // the automatic DSR copy repeats an already noted event
-    rule_journal_note_rup(id, chain, nchain);
+    rule_journal_note_rup(id);
 #endif
   assert(!tautological(lits, size)); // see Proof::tautological
   if (!file_)
@@ -1324,14 +1320,13 @@ void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size,
     put_clausal_line(false, lits, size);
   }
   population_add(id, lits, size);
-  observe_checker(kind, role, id, id, internal_view(lits, size), false, 0,
+  observe_checker(kind, role, id, id, internal_view(lits, size), false,
                   transaction);
   if (streaming_pbp() && !size)
     finish_streaming_pbp_unsat();
 }
 
-void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size,
-                         const int64_t *hints, uint32_t nhints) {
+void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(false);
   if (size && !premise_groups_.empty()) {
@@ -1343,7 +1338,7 @@ void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size,
   flush_pending_dsr_units();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (!copy_role_)
-    rule_journal_note_rat(id, hints, nhints);
+    rule_journal_note_rat(id);
 #endif
   assert(!tautological(lits, size)); // see Proof::tautological
   if (!file_)
@@ -1597,23 +1592,20 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
   return true;
 }
 
-void Proof::add_empty_impl(uint64_t id, const uint64_t *chain,
-                           uint32_t nchain) {
+void Proof::add_empty_impl(uint64_t id) {
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::Empty;
-  add_rup_impl(id, nullptr, 0, chain, nchain);
+  add_rup_impl(id, nullptr, 0);
   population_role_ = saved;
 }
 
-void Proof::add_derived_unit_impl(uint64_t id, Lit unit,
-                                  const uint64_t *chain, uint32_t nchain) {
+void Proof::add_derived_unit_impl(uint64_t id, Lit unit) {
   if (!file_)
     return;
   // Native DSR keeps root units explicit so they remain available after a
   // reason clause is deleted and later direct-SR checks see the same root
   // formula as dsr-trim/Trestle.
-  const bool chained = streaming_pbp();
-  if (!chained && !dsr())
+  if (terminal_pbp())
     return;
   if (pbp_deferring_units_ && streaming_pbp()) {
     pbp_deferred_units_.push_back({id, unit});
@@ -1622,7 +1614,7 @@ void Proof::add_derived_unit_impl(uint64_t id, Lit unit,
   }
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::DerivedUnit;
-  add_rup_impl(id, &unit, 1, chained ? chain : nullptr, chained ? nchain : 0);
+  add_rup_impl(id, &unit, 1);
   population_role_ = saved;
 }
 
@@ -1706,7 +1698,7 @@ void Proof::del_impl(uint64_t line_id, uint64_t del_id, const Lit *lits,
             : CheckerPopulationEventKind::DeleteRequested;
   observe_checker(deletion_kind,
                   CheckerClauseRole::None, line_id, del_id,
-                  internal_view(lits, size), false, 0,
+                  internal_view(lits, size), false,
                   defer ? pending_population_transaction_ : 0);
 }
 
@@ -2438,7 +2430,7 @@ bool Proof::del_external_impl(uint64_t line_id, uint64_t del_id,
   observe_checker(defer ? CheckerPopulationEventKind::StageDeleteRequested
                          : CheckerPopulationEventKind::DeleteRequested,
                   CheckerClauseRole::None, line_id, del_id,
-                  PopulationClauseView::external_lits(lits, size), true, 0,
+                  PopulationClauseView::external_lits(lits, size), true,
                   defer ? pending_population_transaction_ : 0);
   return true;
 }
@@ -3219,20 +3211,18 @@ FILE *Proof::begin_pb() {
   return terminal;
 }
 
-void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
-                    const uint64_t *chain, uint32_t nchain) {
-  add_rup_impl(id, lits, size, chain, nchain);
+void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size) {
+  add_rup_impl(id, lits, size);
   if (dsr_copy_) {
-    dsr_copy_->add_rup(id, lits, size, chain, nchain);
+    dsr_copy_->add_rup(id, lits, size);
     settle_dsr_copy();
   }
 }
 
-void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
-                    const int64_t *hints, uint32_t nhints) {
-  add_rat_impl(id, lits, size, hints, nhints);
+void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size) {
+  add_rat_impl(id, lits, size);
   if (dsr_copy_) {
-    dsr_copy_->add_rat(id, lits, size, hints, nhints);
+    dsr_copy_->add_rat(id, lits, size);
     settle_dsr_copy();
   }
 }
@@ -3269,19 +3259,18 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   return written;
 }
 
-void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
-  add_empty_impl(id, chain, nchain);
+void Proof::add_empty(uint64_t id) {
+  add_empty_impl(id);
   if (dsr_copy_) {
-    dsr_copy_->add_empty(id, chain, nchain);
+    dsr_copy_->add_empty(id);
     settle_dsr_copy();
   }
 }
 
-void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
-                             uint32_t nchain) {
-  add_derived_unit_impl(id, unit, chain, nchain);
+void Proof::add_derived_unit(uint64_t id, Lit unit) {
+  add_derived_unit_impl(id, unit);
   if (dsr_copy_) {
-    dsr_copy_->add_derived_unit(id, unit, chain, nchain);
+    dsr_copy_->add_derived_unit(id, unit);
     settle_dsr_copy();
   }
 }

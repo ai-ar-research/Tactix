@@ -1670,8 +1670,7 @@ bool add_xor_degeneracy_chain(
   assert(cancelled.size() <= cancelled_limit && "ladder would blow up");
   const int top = static_cast<int>(cancelled.size());
   std::vector<Lit> lemma;
-  // No cancelled variables ⇒ the conclusion stands on its own.
-  for (int size = top; size >= 1; size--) {
+  for (int size = top; size >= 1; size--) { // top == 0: the conclusion stands alone
     const uint32_t combos = 1u << size;
     for (uint32_t m = 0; m < combos; m++)
       for (size_t c = 0; c < nc; c++) {
@@ -1687,7 +1686,7 @@ bool add_xor_degeneracy_chain(
           return false;
         if (k.proof) {
           k.proof->add_rup(0, lemma.data(),
-                           static_cast<uint32_t>(lemma.size()), nullptr, 0);
+                           static_cast<uint32_t>(lemma.size()));
           transient.push_back({0, lemma});
         }
       }
@@ -1958,7 +1957,7 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
       return false;
     if (k.proof) {
       k.proof->add_rup(0, lemma.data(),
-                       static_cast<uint32_t>(lemma.size()), nullptr, 0);
+                       static_cast<uint32_t>(lemma.size()));
       transient.push_back({0, lemma});
     }
     return true;

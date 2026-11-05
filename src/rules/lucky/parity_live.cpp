@@ -176,7 +176,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
       if(k.value(lits[0])<0) {
         if(!terminal_root_conflict||result.additions==request.maximum_proof_additions)std::abort();
         k.inconsistent=true;const uint64_t empty_id=++k.next_clause_id;
-        if(k.proof)k.proof->add_empty(empty_id,nullptr,0);
+        if(k.proof)k.proof->add_empty(empty_id);
         ++result.additions;journal.clause("root-conflict",empty_id,nullptr,0);return;
       }
       if(!k.value(lits[0])) {k.unit_ids[var_of(lits[0])]=item.id;kernel_assign_unit(k,lits[0]);++result.published;}

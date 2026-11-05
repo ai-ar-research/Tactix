@@ -249,8 +249,7 @@ public:
     if (kernel_.proof) {
       const uint64_t id = ++kernel_.next_clause_id;
       kernel_.proof->add_rup(id, internal_.data(),
-                             static_cast<uint32_t>(internal_.size()),
-                             nullptr, 0);
+                             static_cast<uint32_t>(internal_.size()));
     }
     ++kernel_.stats.stconn_proof_rup_clauses;
     return true;

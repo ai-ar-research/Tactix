@@ -306,14 +306,12 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     const PlannedDefinition &definition = plan.definitions_[slot];
     const Lit output = make_lit(first + slot, false);
     if (kernel_externalize(k, output) != definition.output) std::abort();
-    std::vector<int64_t> hints(plan.arity_);
     for (uint32_t i = 0; i < plan.arity_; ++i) {
       const Lit input = kernel_internalize(k, definition.inputs[i]);
       const Lit clause[] = {output, negate(input)};
       const uint64_t id = ++k.next_clause_id;
-      if (k.proof) k.proof->add_rat(id, clause, 2, nullptr, 0);
+      if (k.proof) k.proof->add_rat(id, clause, 2);
       kernel_add_binary_clause(k, clause[0], clause[1], id);
-      hints[i] = -static_cast<int64_t>(id);
     }
     std::vector<Lit> reverse(plan.arity_ + 1);
     reverse[0] = negate(output);
@@ -321,8 +319,7 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
       reverse[i + 1] = kernel_internalize(k, definition.inputs[i]);
     const uint64_t id = ++k.next_clause_id;
     if (k.proof)
-      k.proof->add_rat(id, reverse.data(), reverse.size(), hints.data(),
-                       hints.size());
+      k.proof->add_rat(id, reverse.data(), reverse.size());
     kernel_add_large_clause(k, reverse.data(), reverse.size(), false, 0, id);
   }
   if (k.next_clause_id != journal_id) std::abort();

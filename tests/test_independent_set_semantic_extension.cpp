@@ -343,7 +343,7 @@ void write_clause(FILE *file, const std::vector<int32_t> &clause) {
 }
 
 // A machine-checkable microcontrol: the triangle has no independent set of
-// size two.  The generated DRAT first derives all three size-two cardinality
+// size two.  The generated proof first derives all three size-two cardinality
 // covers through the production certificate planner, then closes the small
 // graph contradiction with ordinary RUP resolution.
 void emit_unsat_microproof(const char *cnf_path, const char *proof_path) {

@@ -113,7 +113,7 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
   probe_unwind(k, propagation == FailedLiteralPropagation::Full);
   const uint64_t id = ++k.next_clause_id;
   if (k.proof)
-    k.proof->add_rup(id, &unit, 1, nullptr, 0);
+    k.proof->add_rup(id, &unit, 1);
   k.unit_ids[var_of(unit)] = id;
   *unit_out = unit;
   return true;

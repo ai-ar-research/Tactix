@@ -294,9 +294,9 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
     const uint64_t id = ++kernel.next_clause_id;
     if (kernel.proof) {
       if (addition.proof == equality::ProofStep::Rup)
-        kernel.proof->add_rup(id, literals.data(), literals.size(), nullptr, 0);
+        kernel.proof->add_rup(id, literals.data(), literals.size());
       else
-        kernel.proof->add_rat(id, literals.data(), literals.size(), nullptr, 0);
+        kernel.proof->add_rat(id, literals.data(), literals.size());
     }
     ids.push_back(id);
     kernel_add_large_clause(kernel, literals.data(), literals.size(),

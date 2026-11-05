@@ -376,9 +376,9 @@ void proof_fixture(const std::string &cnf_path,
     assert(kernel.value(internalize(1)) > 0);
     const Lit positive = internalize(6);
     const Lit negative = internalize(-6);
-    proof.add_rup(++kernel.next_clause_id, &positive, 1, nullptr, 0);
-    proof.add_rup(++kernel.next_clause_id, &negative, 1, nullptr, 0);
-    proof.add_rup(++kernel.next_clause_id, nullptr, 0, nullptr, 0);
+    proof.add_rup(++kernel.next_clause_id, &positive, 1);
+    proof.add_rup(++kernel.next_clause_id, &negative, 1);
+    proof.add_rup(++kernel.next_clause_id, nullptr, 0);
   }
   proof.flush();
   kernel.proof = nullptr;

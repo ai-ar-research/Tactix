@@ -1751,7 +1751,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
     assert(!k.inconsistent);
     ++k.next_clause_id;
     if (k.proof)
-      k.proof->add_empty(0, nullptr, 0);
+      k.proof->add_empty(0);
     k.inconsistent = true;
   };
 

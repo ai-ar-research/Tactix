@@ -200,8 +200,7 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
   if (!k.proof)
     return;
   assert(!original.empty());
-  k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
-                   nullptr, 0);
+  k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()));
   k.proof->del(k.next_clause_id, id, original.data(),
                static_cast<uint32_t>(original.size()));
 }
@@ -215,7 +214,7 @@ static void propagate_input_unit(Kernel &k) {
   if (!conflict)
     return;
   if (k.proof)
-    k.proof->add_empty(0, nullptr, 0);
+    k.proof->add_empty(0);
   k.inconsistent = true;
 }
 
@@ -552,7 +551,7 @@ void finish_input(Kernel &k) {
   if (k.input_refuted) {
     k.input_refuted = false;
     if (k.proof)
-      k.proof->add_empty(++k.next_clause_id, nullptr, 0);
+      k.proof->add_empty(++k.next_clause_id);
   }
   if (k.proof)
     k.proof->finish_input_transaction();

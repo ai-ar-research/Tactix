@@ -1161,7 +1161,7 @@ void kernel_unwind_speculation(Kernel &k, uint32_t position) {
 // --- shared proof idioms (decls in kernel.hpp) ------------------------------
 void kernel_emit_empty(Kernel &k) {
   if (k.proof)
-    k.proof->add_empty(0, nullptr, 0);
+    k.proof->add_empty(0);
   k.inconsistent = true;
 }
 
@@ -1536,7 +1536,7 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   const uint64_t id = ++k.next_clause_id;
   if (k.proof) // streaming PBP tracks the replacement's id for `del id`
     k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, kept.data(),
-                     static_cast<uint32_t>(kept.size()), nullptr, 0);
+                     static_cast<uint32_t>(kept.size()));
   k.stats.flushed++;
   if (changed)
     (*changed)++;
@@ -3875,7 +3875,7 @@ void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
   if (k.dsr_root_values[v] == polarity)
     return;
   const uint64_t id = ++k.next_clause_id;
-  k.proof->add_derived_unit(id, lit, nullptr, 0);
+  k.proof->add_derived_unit(id, lit);
   k.dsr_root_values[v] = polarity;
   kernel_observe_solver_clause(k,
                                SolverPopulationEventKind::UnitMaterialized,

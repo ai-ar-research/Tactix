@@ -680,7 +680,7 @@ substitution_redundancy_apply_detailed_impl(
   const uint64_t sr_id = ++k.next_clause_id;
   if (k.proof) {
     if (certified_unique_literal_amo) {
-      k.proof->add_rat(sr_id, candidate.data(), candidate.size(), nullptr, 0);
+      k.proof->add_rat(sr_id, candidate.data(), candidate.size());
     } else if (!k.proof->add_sr(
                    sr_id, candidate.data(), candidate.size(),
                    witness.emitted_true.data(), witness.emitted_true.size(),
@@ -704,7 +704,7 @@ substitution_redundancy_apply_detailed_impl(
   if (kept.size() != candidate.size()) {
     committed_id = ++k.next_clause_id;
     if (k.proof) {
-      k.proof->add_rup(committed_id, kept.data(), kept.size(), nullptr, 0);
+      k.proof->add_rup(committed_id, kept.data(), kept.size());
       k.proof->del(k.next_clause_id, sr_id, candidate.data(), candidate.size());
     }
   }
