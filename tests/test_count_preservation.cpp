@@ -11,7 +11,7 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
-#include <iterator>
+#include <sstream>
 #include <string>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -92,8 +92,9 @@ static void dsr_stops_with_the_error(const std::string &cnf) {
     assert(waitpid(child, &status, 0) == child);
     assert(WIFEXITED(status) && WEXITSTATUS(status) == 1);
     std::ifstream text(message.path);
-    const std::string said((std::istreambuf_iterator<char>(text)), {});
-    assert(said.find("counting refutation") != std::string::npos);
+    std::ostringstream said;
+    said << text.rdbuf();
+    assert(said.str().find("counting refutation") != std::string::npos);
   }
 }
 
