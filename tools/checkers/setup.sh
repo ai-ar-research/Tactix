@@ -12,7 +12,8 @@
 # into tools/checkers/bin/.
 #
 # Pinned commits — bump deliberately, never implicitly:
-#   drat-trim  2e3b2dc0ecf938addbd779d42877b6ed69d9a985
+#   drat-trim  2e3b2dc0ecf938addbd779d42877b6ed69d9a985 plus the
+#              repository-pinned RAT occurrence lookup (same LRAT output)
 #   cake_lpr   a4323b203cc9ecd584ba7da9e3fff08135a09d5f
 #   dsr-trim   0b8cc0ef4d228c059994923cbc66abeb9a42ea14 plus the
 #              repository-pinned forward-elaboration and bitmask-growth repairs
@@ -42,6 +43,7 @@ CAKE_LPR_COMMIT=a4323b203cc9ecd584ba7da9e3fff08135a09d5f
 DSR_TRIM_COMMIT=0b8cc0ef4d228c059994923cbc66abeb9a42ea14
 TRESTLE_COMMIT=03ac9418bc23d345fe0111533c198e8903362ed6
 CAKEPB_COMMIT=6edb2f3585f1c3e1b925964c4f33e133f7279d02
+DRAT_TRIM_PATCH="$ROOT/tools/checkers/patches/drat-trim-2e3b2dc-rat-occurrences.patch"
 DSR_TRIM_PATCH="$ROOT/tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch"
 TRESTLE_PATCH="$ROOT/tools/checkers/patches/trestle-03ac9418-binary-lsr.patch"
 
@@ -85,10 +87,9 @@ clone_patched_at_commit () { # dir url commit patch
 }
 
 echo "== drat-trim + lrat-check =="
-clone_at_commit drat-trim https://github.com/marijnheule/drat-trim.git "$DRAT_TRIM_COMMIT"
-if [ ! -x "$ROOT/drat-trim/drat-trim" ] || [ ! -x "$ROOT/drat-trim/lrat-check" ]; then
-    (cd "$ROOT/drat-trim" && make)
-fi
+clone_patched_at_commit drat-trim https://github.com/marijnheule/drat-trim.git \
+    "$DRAT_TRIM_COMMIT" "$DRAT_TRIM_PATCH"
+(cd "$ROOT/drat-trim" && make)
 ln -sf "$ROOT/drat-trim/drat-trim"  "$BIN/drat-trim"
 ln -sf "$ROOT/drat-trim/lrat-check" "$BIN/lrat-check"
 
@@ -162,6 +163,18 @@ if [ -x "$KISSAT" ]; then
 else
     echo "self-test skipped (run tools/solvers/setup.sh first)"
 fi
+
+echo "== self-test: RAT on a proof-introduced variable -> drat-trim -> CakeLPR =="
+F3="$ROOT/tools/checkers/tests/drat-trim-rat-occurrences"
+"$BIN/drat-trim" "$F3/valid.cnf" "$F3/valid.drat" -L "$T/rat.lrat" > "$T/rat.out"
+grep -q 's VERIFIED' "$T/rat.out"
+grep -q ' [1-9][0-9]* RAT lemmas in core' "$T/rat.out"
+"$BIN/cake_lpr" "$F3/valid.cnf" "$T/rat.lrat" > "$T/rat-cake.out"
+grep -q 's VERIFIED UNSAT' "$T/rat-cake.out"
+# Its second lemma is not RAT on its pivot, and the formula is satisfiable.
+"$BIN/drat-trim" "$F3/invalid.cnf" "$F3/invalid.drat" > "$T/rat-bad.out" || true
+grep -q 's NOT VERIFIED' "$T/rat-bad.out"
+echo "RAT self-test OK"
 
 echo "== self-test: PBP -> VeriPB -> CakePB =="
 printf 'p cnf 1 2\n1 0\n-1 0\n' > "$T/pb.cnf"

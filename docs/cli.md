@@ -85,6 +85,9 @@ python3 tools/bench/proof_oracle.py check formula.cnf proof
 The checker prints `s VERIFIED UNSAT` when it accepts the proof. The script
 recognizes the proof's format and runs the matching checkers: VeriPB and
 CakePB for PBP; drat-trim and CakeLPR, or dsr-trim and Trestle, for DSR.
+`tools/checkers/setup.sh` builds each checker at a pinned commit with the patches in
+`tools/checkers/patches/`. The drat-trim patch finds RAT candidates by occurrence and
+produces the same LRAT as upstream.
 
 For DSR-to-DRAT conversion, the optional native `dsr-transport` helper is built
 only on Linux; other platforms use the Python conversion fallback. Conversion
