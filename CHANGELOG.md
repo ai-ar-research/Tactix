@@ -18,27 +18,30 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Changed
 
-- The proof no longer steers the search in three cases. A command-line run without a proof file takes the same search as `--pbp`; it used to run with parity search off. Parity search no longer stops after a million proof helper variables, so `--dsr` follows it to the end. A parity reason that cannot be spelled because a budget ran out is withdrawn instead of aborting the run.
-- The command-line default proof writes one proof at a time. The solver runs
-  exactly as with `--pbp` but writes only native DSR. A step with no clausal
-  spelling (a compact GF(2) reason) converts the DSR proof so far to PBP once,
-  and the run continues as PBP; a startup parity or count-preservation
-  refutation has nothing to convert and is PBP from the start. The same
-  conversion runs at the empty clause when the proof's RAT and substitution
-  lines would cost the DSR route's checkers more than checking PBP: drat-trim
-  and Trestle scan the whole formula for every such line (reported as
-  `c auto-proof-cost`). Otherwise the proof stays DSR. After 3 GB of DSR the run
-  stops converting where it has a choice, so a large proof is not reread: a
-  GF(2) reason takes its clausal certificate, the end-of-run conversion is
-  skipped, and a startup refutation or a witnessed step that DSR cannot follow
-  declines (`c auto-proof-switch dsr-limit`). An event with no clausal spelling
-  still converts. The DSR proof is written directly to the proof file, and a conversion replaces it by a rename once the PBP prefix is complete, so a run killed at any point, by SIGKILL too, leaves what it had flushed. A symlink, a hard-linked file or a `/proc/<pid>/fd/<n>` path still holds the DSR in a temporary file until the run ends. A run without an empty clause leaves the proof it was writing. A converted proof deletes clauses by
-  specification, so it is larger than the `--pbp` proof. If the DSR proof cannot
-  be written, the run aborts, as `--dsr` does. The `c proof-route` line names the
-  route written; the statistics report the reason as `c auto-proof` and the
-  conversion as `c auto-proof-switch`. `--dsr` and `--pbp` write only that format
-  and never convert; `--no-binary` spells DSR as text. The competition wrapper
-  `tools/compete/run.sh` passes `--pbp`.
+- The proof no longer steers the search. No proof, `--pbp`, `--dsr` and the
+  default take the same conflicts, decisions and propagations, and so does the C
+  API with no proof and with every `TACTIX_PROOF_*` format, attached before or
+  after the input. `--dsr` now writes every algebraic reason in clauses.
+  A persistent matrix step that used to be refused without a proof now runs.
+- The default proof is DSR. It is written directly to the proof file, and
+  converts to PBP once, continuing as PBP, in three cases: a startup parity or
+  counting refutation, which has nothing to convert; once GF(2) reasons have cost
+  10 MB of DSR, which keeps occasional reasons in clauses; or at a step DSR cannot
+  follow. The end-of-run comparison of predicted checking times is gone, along
+  with `c auto-proof-cost`. After 3 GB of DSR the run stops converting where it has
+  a choice, and a GF(2) reason stays in clauses (`c auto-proof-switch dsr-limit`);
+  this does not change the search. A conversion replaces the DSR proof by a
+  rename once the PBP prefix is complete, so a run killed at any point, by SIGKILL
+  too, leaves what it had flushed. A symlink, a hard-linked file or a
+  `/proc/<pid>/fd/<n>` path still holds the DSR in a temporary file until the run
+  ends. A run without an empty clause leaves the proof it was writing. A converted
+  proof deletes by specification, so it is larger than the `--pbp` proof. If the
+  DSR proof cannot be written, the run aborts. The `c proof-route` line names the route written; the statistics
+  report the reason as `c auto-proof` and the conversion as `c auto-proof-switch`.
+  `--dsr` and `--pbp` write only that format and never convert; `--no-binary`
+  spells DSR as text. `--dsr` stops with an error on a startup counting
+  refutation, which has no practical clausal spelling: use the default or `--pbp`
+  there. The competition wrapper `tools/compete/run.sh` passes `--pbp`.
 - `tactix-public` defaults to automatic selection as well.
 - Whole-run PBP proofs delete constraints by id (`del id`) instead of
   restating them (`del spec`), and omit the root units that only precede the
