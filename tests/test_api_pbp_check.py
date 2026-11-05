@@ -41,8 +41,7 @@ def main():
                                       route="pbp")
         assert not rejected[0] and rejected[2] == runner.CHK_REJECTED, rejected
 
-        # Early attachment, before the first clause: a binary deleted after
-        # input must not be deleted by the archive's sentinel id.
+        # Early attachment, before the first clause, with binaries deleted after input.
         cnf = directory / "early.cnf"
         proof = directory / "early.pbp"
         generated = subprocess.run([fixture, cnf, proof, "early"],

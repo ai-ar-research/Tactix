@@ -313,6 +313,44 @@ void sr_under_affine_support() {
   }
 }
 
+// A line DSR cannot spell, for want of an auxiliary variable, converts before either
+// stream deletes anything for it, so the support is deleted once.
+void sr_beyond_the_auxiliary_limit() {
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true));
+    inputs(p);
+    const int32_t support[] = {1, 2};
+    assert(p.retain_external(20, support, 2));
+    const auto sr = clause({1, 6});
+    const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
+    assert(p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, INT32_MAX, true));
+    assert(p.automatic_reason() == AutomaticProofReason::CopyDeclined);
+    assert(p.persistent_external_epoch() == 1);
+    refutation(p);
+    assert(std::string(p.verification_route()) == "pbp");
+  }
+  const std::string text = read_all(path);
+  expect_complete_pbp(text, "PBP after a line DSR cannot spell");
+  assert(count_lines(text, "red ") == 1);
+}
+
+// A RAT line deletes retained support even with no lease left.
+void rat_line_deletes_retained_support() {
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  Proof p;
+  assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
+  inputs(p);
+  const int32_t support[] = {1, 2};
+  assert(p.retain_external(20, support, 2));
+  const auto line = clause({1, 6});
+  p.add_rat(21, line.data(), 2);
+  assert(p.persistent_external_epoch() == 1);
+}
+
 void witnessed_sr_selects_trestle_route() {
   const Events events = [](Proof &p) {
     inputs(p);
@@ -927,6 +965,8 @@ int main() {
   no_trigger_selects_dsr();
   startup_pb_keeps_pbp();
   sr_under_affine_support();
+  sr_beyond_the_auxiliary_limit();
+  rat_line_deletes_retained_support();
   witnessed_sr_selects_trestle_route();
   symlink_destination_is_copied();
   caller_stage_is_copied();

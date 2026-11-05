@@ -1362,9 +1362,10 @@ void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size) {
 void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size) {
   if (!pbp_deferred_units_.empty())
     settle_pbp_deferred_units(false);
-  if (size && !premise_groups_.empty()) {
+  if (size) {
     invalidate_premises_for_sr(id, lits, 1, nullptr, 0, nullptr, 0);
     flush_persistent_external(id);
+    retire_pbp_parity_constraints(lits, 1, nullptr, 0, nullptr, 0);
   }
   if (!input_transaction_ && !commit_clause_stream())
     std::abort();
@@ -1432,18 +1433,21 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
 
   if (!file_)
     return true;
+  if (streaming_pbp() ? streaming_pbp_finished_
+                      : sr_needs_missing_auxiliary(lits, size, true_lits, ntrue, mappings,
+                                                   nmappings, external_variables, propagates))
+    return false;
   const DsrWitnessPlan plan =
       plan_dsr_witness(lits, size, true_lits, ntrue, mappings, nmappings);
   // A witness must hold against every clause the checker has, so the leases it
-  // changes and all retained support go first. A witness-free line transforms
-  // nothing, and retained constraints only strengthen RUP.
+  // changes, all retained support and the parity constraints it touches go first. A
+  // witness-free line transforms nothing, and retained constraints only strengthen RUP.
   if (plan.form != DsrWitnessForm::Rup) {
     invalidate_premises_for_sr(id, lits, size, true_lits, ntrue, mappings, nmappings);
     flush_persistent_external(id);
+    retire_pbp_parity_constraints(lits, size, true_lits, ntrue, mappings, nmappings);
   }
   if (streaming_pbp()) {
-    if (streaming_pbp_finished_)
-      return false;
     put_pbp_clause("red", lits, size);
     put_pbp_text(" :");
     const auto external_lit = [&](Lit literal) {
@@ -1488,9 +1492,6 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
   const bool default_pivot = plan.form == DsrWitnessForm::Direct;
   const bool needs_auxiliary = plan.form == DsrWitnessForm::Extension ||
                                (propagates && plan.form != DsrWitnessForm::Rup);
-  if (needs_auxiliary &&
-      external_variables >= static_cast<uint32_t>(INT32_MAX))
-    return false;
   flush_pending_dsr_units();
   if (needs_auxiliary) {
     const Lit auxiliary = make_lit(external_variables, false);
@@ -2151,6 +2152,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       text.put_uint(static_cast<uint32_t>(carry));
       text.put(" -> 0 ;\n");
       const uint64_t first = constraint();
+      pbp_parity_constraints_.push_back(first);
 
       const uint32_t complement = equation.variables.size() - threshold + 1;
       text.put("red ");
@@ -2174,12 +2176,17 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       text.put_uint(negated_first);
       text.put(" + ;\nqed : -1 ;\nqed ;\n");
       (void)constraint();
-      (void)constraint();
+      pbp_parity_constraints_.push_back(constraint());
+      pbp_parity_variables_.insert(static_cast<uint32_t>(carry));
       threshold += 2;
     }
     bounds.lower = emit_bound(equation, bounds.carries, true);
     bounds.upper = emit_bound(equation, bounds.carries, false);
     bounds.numbering = pbp_numbering_;
+    pbp_parity_constraints_.push_back(bounds.lower);
+    pbp_parity_constraints_.push_back(bounds.upper);
+    for (const int32_t variable : equation.variables)
+      pbp_parity_variables_.insert(static_cast<uint32_t>(variable));
   };
 
   std::vector<uint64_t> lower, upper;
@@ -2257,6 +2264,10 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   };
   const uint64_t lo = sum_and_round(lower, true);
   const uint64_t hi = sum_and_round(upper, false);
+  pbp_parity_constraints_.push_back(lo);
+  pbp_parity_constraints_.push_back(hi);
+  for (uint32_t i = 0; i < reason_size; ++i)
+    pbp_parity_variables_.insert(external_variable_of(reason[i]));
   text.put("pol ");
   text.put_uint(lo);
   text.put(" ");
@@ -2477,6 +2488,41 @@ void Proof::count_premise_variables(const PremiseGroup &group, bool add) {
         std::abort();
       add ? ++uses : --uses;
     }
+}
+
+bool Proof::sr_needs_missing_auxiliary(const Lit *lits, uint32_t size,
+                                       const Lit *true_lits, uint32_t ntrue,
+                                       const DsrLiteralMapping *mappings,
+                                       uint32_t nmappings, uint32_t external_variables,
+                                       bool propagates) const {
+  const DsrWitnessForm form =
+      plan_dsr_witness(lits, size, true_lits, ntrue, mappings, nmappings).form;
+  return (form == DsrWitnessForm::Extension ||
+          (propagates && form != DsrWitnessForm::Rup)) &&
+         external_variables >= static_cast<uint32_t>(INT32_MAX);
+}
+
+void Proof::retire_pbp_parity_constraints(const Lit *lits, uint32_t size,
+                                          const Lit *true_lits, uint32_t ntrue,
+                                          const DsrLiteralMapping *mappings,
+                                          uint32_t nmappings) {
+  if (pbp_parity_constraints_.empty())
+    return;
+  const auto touched = [&](Lit lit) {
+    return pbp_parity_variables_.count(var_of(checker_lit(lit)) + 1) != 0;
+  };
+  bool touches = size && touched(lits[0]);
+  for (uint32_t i = 0; i < ntrue && !touches; ++i)
+    touches = touched(true_lits[i]);
+  for (uint32_t i = 0; i < nmappings && !touches; ++i)
+    touches = touched(mappings[i].from);
+  if (!touches)
+    return;
+  for (auto id = pbp_parity_constraints_.rbegin(); id != pbp_parity_constraints_.rend(); ++id)
+    put_pbp_text("del id %" PRIu64 " ;\n", *id);
+  pbp_parity_constraints_.clear();
+  pbp_parity_variables_.clear();
+  ++pbp_numbering_;
 }
 
 void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
@@ -3015,6 +3061,8 @@ bool Proof::convert_lazy_pbp() {
   pbp_audit_derived_.clear();
 #endif
   ++pbp_numbering_;
+  pbp_parity_constraints_.clear();
+  pbp_parity_variables_.clear();
   lazy_report_.dsr_bytes = converted.dsr_bytes;
   lazy_report_.pbp_bytes = converted.pbp_bytes;
   file_ = target; // the stream continues on the real file
@@ -3394,6 +3442,11 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates) {
+  // A line the copy cannot write converts first, before either stream retires
+  // anything for it.
+  if (dsr_copy_ && dsr_copy_->sr_needs_missing_auxiliary(lits, size, true_lits, ntrue, mappings,
+                                                         nmappings, external_variables, propagates))
+    drop_dsr_copy(AutomaticProofReason::CopyDeclined);
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_sr_impl(id, lits, size, true_lits, ntrue, mappings,

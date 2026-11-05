@@ -147,16 +147,20 @@ void witnessless_rup(ProofFormat format,const char *prefix){
  p.bind_population_observer(nullptr);
  if(!prefix){std::remove(path.c_str());std::remove(cnf.c_str());}
 }
-// An XOR group is leased and natively deleted, and a witnessed SR line then flips
-// one of its variables. The line holds only without those clauses, so the proof
-// has to delete them first. An unrelated core refutes the formula, so a checker
-// reads every line of the proof. Route 0 is PBP, 1 the default, 2 DSR.
+// An XOR group has a parity reason, is leased and natively deleted, and a witnessed
+// SR line then flips one of its variables. The line holds only without those clauses
+// and the reason's proof-only constraints, so the proof has to delete them first. A
+// second XOR's reason repeats after the line, so its constraints are written again. An
+// unrelated core refutes the formula, so a checker reads every line of the proof.
+// Route 0 is PBP, 1 the default, 2 DSR.
+constexpr int32_t plan_carries_for_three=1; // thresholds 2 of a 3-variable equation
 void witnessed_sr_after_native_deletion(const std::string &stem,unsigned route){
  const std::vector<std::vector<int32_t>> xors={{1,2,3},{1,-2,-3},{-1,2,-3},{-1,-2,3}},
+     others={{8,9,10},{8,-9,-10},{-8,9,-10},{-8,-9,10}},
      core={{5,6},{5,-6},{-5,6},{-5,-6}};
  FILE *input=std::fopen((stem+".cnf").c_str(),"wb");assert(input);
- assert(std::fprintf(input,"p cnf 7 8\n")>0);
- for(const auto &group:{xors,core})for(const auto &clause:group){
+ assert(std::fprintf(input,"p cnf 10 12\n")>0);
+ for(const auto &group:{xors,others,core})for(const auto &clause:group){
   for(const int32_t literal:clause)assert(std::fprintf(input,"%d ",literal)>0);
   assert(std::fputs("0\n",input)>=0);
  }
@@ -169,18 +173,32 @@ void witnessed_sr_after_native_deletion(const std::string &stem,unsigned route){
   std::vector<Lit> lits;for(const int32_t literal:clause)lits.push_back(internalize(literal));return lits;
  };
  uint64_t id=0;
- for(const auto &group:{xors,core})for(const auto &clause:group){
+ for(const auto &group:{xors,others,core})for(const auto &clause:group){
   const auto lits=body(clause);p.seed_population(++id,lits.data(),lits.size());
  }
  p.arm_population_shadow();p.finish_input_transaction();
+ assert(p.commit_clause_stream());
+ PbpParityBoundsCache cache;
+ const auto reason=[&](const std::vector<int32_t> &variables,int32_t extent){
+  const PbpParityEquation equation{variables,true};
+  const std::vector<int32_t> lits=variables;
+  PbpParityReasonPlan plan;
+  assert(p.plan_pbp_parity_reason({equation},lits.data(),lits.size(),extent,cache,plan));
+  const uint64_t clause=++id;
+  assert(p.add_prevalidated_pbp_parity_reason(clause,{equation},lits.data(),lits.size(),cache,plan));
+  assert(p.del_external(clause+1,clause,lits.data(),lits.size()));
+ };
+ reason({1,2,3},10);
+ reason({8,9,10},10+plan_carries_for_three);
  std::vector<uint64_t> handles;
  assert(p.retain_premise_groups({xors},8,100,100000,[](uint64_t){return true;},handles,{8,100}));
  for(size_t i=0;i<xors.size();++i){const auto lits=body(xors[i]);p.del(id+1,i+1,lits.data(),lits.size());}
  assert(p.premise_group_active(handles[0]));
  const auto sr=body({2,7});
  const DsrLiteralMapping flip{internalize(2),internalize(-2)};
- assert(p.add_sr(++id,sr.data(),sr.size(),nullptr,0,&flip,1,8));
+ assert(p.add_sr(++id,sr.data(),sr.size(),nullptr,0,&flip,1,10+2*plan_carries_for_three));
  assert(!p.premise_group_active(handles[0]) && !p.premise_bytes());
+ reason({8,9,10},10+2*plan_carries_for_three);
  const Lit unit=internalize(5);
  p.add_rup(++id,&unit,1);
  p.add_empty(++id);

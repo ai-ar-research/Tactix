@@ -436,6 +436,8 @@ private:
   // Each entry: at solver extent `extent`, `helpers` helpers exist in total.
   std::vector<DsrHelperNames> helper_names_;
   uint64_t pbp_numbering_ = 0; // bumped by a conversion (PbpParityBounds)
+  std::vector<uint64_t> pbp_parity_constraints_;
+  std::unordered_set<uint32_t> pbp_parity_variables_;
   bool nowhere_ = false;
   bool pbp_text_wanted() const noexcept;
   __attribute__((format(printf, 2, 3))) void put_pbp_text(const char *format, ...);
@@ -552,6 +554,15 @@ private:
   std::vector<uint32_t> premise_variable_uses_;
   void count_premise_variables(const PremiseGroup &, bool add);
   bool defer_leased_deletion(const int32_t *, uint32_t);
+  // Delete the proof-only constraints of parity reasons that mention a variable the
+  // line's witness changes: a witness must hold against every checker constraint.
+  // Each cached row is written again before its next use.
+  void retire_pbp_parity_constraints(const Lit *, uint32_t, const Lit *, uint32_t,
+                                     const DsrLiteralMapping *, uint32_t);
+  // The DSR writer cannot spell this line, for want of an auxiliary variable.
+  bool sr_needs_missing_auxiliary(const Lit *, uint32_t, const Lit *, uint32_t,
+                                  const DsrLiteralMapping *, uint32_t, uint32_t,
+                                  bool) const;
   void invalidate_premises_for_sr(uint64_t, const Lit *, uint32_t,
       const Lit *, uint32_t, const DsrLiteralMapping *, uint32_t);
   // Binary deletion blocks are usually only a few bytes. Keep them in a

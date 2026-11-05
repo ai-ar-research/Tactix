@@ -565,13 +565,10 @@ void finish_input(Kernel &k) {
 
 void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   assert(!current.proof && current.startup_certificate_open);
-  // A proof attached after proofless input cannot reconstruct the discarded
-  // binary-ID archive. Streaming PBP remains sound by falling back to
-  // deletion-by-specification when it encounters that sentinel.
-  // Replay the checker's exact input, not the clauses left after eager
-  // proofless unit propagation. The C API may keep adding original clauses
-  // after proof selection, so derived ids must follow all input ids.
+  // Replay the checker's exact input, not the clauses left after eager proofless
+  // unit propagation.
   Kernel replay;
+  replay.startup_certificate_open = false; // current holds the raw input
   replay.proof = &proof;
   replay.population_observer = current.population_observer;
   // The replay reconstructs checker identities for input already observed by

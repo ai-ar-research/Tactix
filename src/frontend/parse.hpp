@@ -28,10 +28,9 @@ const char *parse_dimacs_with_block(FILE *, Kernel &, size_t block_bytes);
 // dedupes, drops tautologies, assigns units, records empty clauses.
 void ingest_clause(Kernel &, std::vector<Lit> &scratch);
 
-// End of input. Emits the deferred input-normalization lemmas and any refutation found during input, and is a
-// no-op once nothing is pending. Must be called after the last ingest_clause
-// and before any rule runs; parse_dimacs does it for the file path, api.cpp for
-// the C API.
+// End of input. Retires variables absent from the input and emits any refutation
+// found during it. Runs exactly once, after the last ingest_clause and before any
+// rule: parse_dimacs does it for the file path, api.cpp for the C API.
 void finish_input(Kernel &);
 
 // Attach a proof after eager import by replaying the exact original clauses

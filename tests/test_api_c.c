@@ -862,6 +862,28 @@ static void test_read_dimacs(void) {
   assert(tactix_read_dimacs(s, f) == -1);
   fclose(f);
   tactix_release(s);
+
+  /* A malformed stream whose partial formula is refuted still closes its proof. */
+  char path[] = "/tmp/tactix-read-refuted-XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+  s = tactix_init();
+  assert(!tactix_proof(s, path, TACTIX_PROOF_PBP));
+  f = stream("p cnf 1 2\n1 0\n-1 0\nx\n");
+  assert(tactix_read_dimacs(s, f) == -1);
+  fclose(f);
+  assert(tactix_status(s) == 20);
+  tactix_release(s);
+  f = fopen(path, "r");
+  assert(f);
+  char line[256];
+  int concluded = 0;
+  while (fgets(line, sizeof line, f))
+    concluded |= strstr(line, "conclusion UNSAT") != NULL;
+  fclose(f);
+  assert(concluded);
+  unlink(path);
 }
 
 /* TACTIX_PROOF_AUTO keeps the native-DSR copy when no PB-native step fires

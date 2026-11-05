@@ -1916,6 +1916,10 @@ int tactix_read_dimacs(tactix_solver *s, FILE *in) {
   s->pending_input_proof = false;
   attach_proof(s);
   const char *err = parse_dimacs(in, s->kernel);
+  // A malformed stream stops before the input closes, and its partial formula can
+  // already be refuted: the proof needs that empty clause.
+  if (err)
+    finish_input(s->kernel);
   s->input_completed = true;
   external_state_change(s);
   return err ? -1 : 0;
@@ -1943,9 +1947,8 @@ void tactix_add(tactix_solver *s, int lit) {
 }
 
 // The C API has no end of file, so "the input is complete" is the first call
-// that reasons about it. finish_input settles the proof id space (see
-// frontend/parse.hpp), so every entry point below that could consume a derived
-// id goes through here first. Idempotent, and free once nothing is pending.
+// that reasons about it, so every entry point below that could consume a derived
+// id goes through here first. Idempotent.
 // Adding clauses after this point is outside the v1 contract: retired
 // variables are no longer in the active search population, and with a proof
 // attached their ids would also land above already-derived ones.
