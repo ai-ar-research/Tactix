@@ -12,7 +12,6 @@
 #include <limits>
 #include <map>
 #include <set>
-#include <string>
 #include <utility>
 
 namespace tactix {
@@ -353,12 +352,9 @@ bool render_journal(const DirectCspSupportLiveRequest &request,
                     const DirectCspSupportOwnerSnapshot &owner,
                     const support::Plan &plan, uint64_t first_id,
                     uint64_t proof_work, Journal &journal) {
-  if (!journal.append("{\"kind\":\"direct-csp-support-begin\",\"action\":" +
-                      std::to_string(request.action_id) +
-                      ",\"semantic\":" +
-                      std::to_string(request.semantic_id) +
-                      ",\"selected_left_value\":" +
-                      std::to_string(request.selected_left_value) +
+  if (!journal.append("{\"kind\":\"direct-csp-support-begin\",\"action\":",
+                      request.action_id, ",\"semantic\":", request.semantic_id,
+                      ",\"selected_left_value\":", request.selected_left_value,
                       ",\"recognition\":\"exact-retained-two-domain-slice\"}\n"))
     return false;
   if (!semantic_extension::append_source_premises(
@@ -366,8 +362,8 @@ bool render_journal(const DirectCspSupportLiveRequest &request,
           owner.source))
     return false;
   if (!journal.append(
-          "{\"kind\":\"direct-csp-support-theory\",\"action\":" +
-          std::to_string(request.action_id) +
+          "{\"kind\":\"direct-csp-support-theory\",\"action\":",
+          request.action_id,
           ",\"meaning\":\"complete exactly-one domains with binary "
           "forbidden pairs\",\"left\":[") ||
       !journal.integers(owner.relation.left.values) ||
@@ -382,12 +378,10 @@ bool render_journal(const DirectCspSupportLiveRequest &request,
   for (size_t index = 0; index < plan.additions.size(); ++index) {
     const auto &addition = plan.additions[index];
     if (!journal.append(
-            "{\"kind\":\"direct-csp-support-addition\",\"action\":" +
-            std::to_string(request.action_id) + ",\"id\":" +
-            std::to_string(first_id + index) + ",\"proof\":" +
-            std::to_string(static_cast<unsigned>(addition.proof)) +
-            ",\"pivot\":" + std::to_string(addition.pivot) +
-            ",\"clause\":[") ||
+            "{\"kind\":\"direct-csp-support-addition\",\"action\":",
+            request.action_id, ",\"id\":", first_id + index, ",\"proof\":",
+            static_cast<unsigned>(addition.proof), ",\"pivot\":",
+            addition.pivot, ",\"clause\":[") ||
         !journal.integers(addition.clause) ||
         !journal.append("],\"antecedents\":["))
       return false;
@@ -395,38 +389,31 @@ bool render_journal(const DirectCspSupportLiveRequest &request,
          ++antecedent) {
       const auto &reference = addition.antecedents[antecedent];
       if (!journal.append(
-              (antecedent ? "," : "") + std::string("{\"kind\":\"") +
-              (reference.kind == support::ReferenceKind::SourceOccurrence
-                   ? "source"
-                   : "planned-addition") +
-              "\",\"id\":" + std::to_string(reference.id) +
-              ",\"native_proof_id\":" +
-              std::to_string(reference.native_proof_id) + "}"))
+              antecedent ? "," : "", "{\"kind\":\"",
+              reference.kind == support::ReferenceKind::SourceOccurrence
+                  ? "source"
+                  : "planned-addition",
+              "\",\"id\":", reference.id, ",\"native_proof_id\":",
+              reference.native_proof_id, "}"))
         return false;
     }
     if (!journal.append("]}\n")) return false;
   }
-  if (!journal.append(
-          "{\"kind\":\"direct-csp-support-complete\",\"action\":" +
-          std::to_string(request.action_id) + ",\"additions\":" +
-          std::to_string(plan.additions.size()) +
-          ",\"proof_work\":" + std::to_string(proof_work) +
-          ",\"projection\":\"" +
-          (plan.projection.extension_variable ? "omit-exact-or-extension"
-                                              : "original-variables-only") +
-          "\",\"extension_variable\":" +
-          std::to_string(plan.projection.extension_variable) +
-          ",\"definition_inputs\":[") ||
-      !journal.integers(plan.projection.disjuncts) ||
-      !journal.append(
-          "],\"reconstruction_witness_required\":" +
-          std::string(plan.projection.reconstruction_witness_required
-                          ? "true"
-                          : "false") +
-          ",\"published_clause_id\":" +
-          std::to_string(first_id + plan.additions.size() - 1) + "}\n"))
-    return false;
-  return true;
+  return journal.append(
+             "{\"kind\":\"direct-csp-support-complete\",\"action\":",
+             request.action_id, ",\"additions\":", plan.additions.size(),
+             ",\"proof_work\":", proof_work, ",\"projection\":\"",
+             plan.projection.extension_variable ? "omit-exact-or-extension"
+                                                : "original-variables-only",
+             "\",\"extension_variable\":", plan.projection.extension_variable,
+             ",\"definition_inputs\":[") &&
+         journal.integers(plan.projection.disjuncts) &&
+         journal.append(
+             "],\"reconstruction_witness_required\":",
+             plan.projection.reconstruction_witness_required ? "true"
+                                                             : "false",
+             ",\"published_clause_id\":", first_id + plan.additions.size() - 1,
+             "}\n");
 }
 
 DirectCspSupportLiveStatus planning_status(const support::Plan &plan,
@@ -568,7 +555,8 @@ void prepare_live_action(Kernel &kernel,
     return;
   }
 
-  prepared.journal = Journal{request.maximum_journal_bytes};
+  prepared.journal =
+      Journal{request.maximum_journal_bytes, JournalText(request.records)};
   prepared.first_id = kernel.next_clause_id + 1;
   if (!render_journal(request, *prepared.owner, prepared.plan,
                       prepared.first_id, proof_work, prepared.journal)) {
@@ -577,7 +565,7 @@ void prepare_live_action(Kernel &kernel,
     return;
   }
   result.journal_work = prepared.journal.work;
-  result.journal_bytes = prepared.journal.bytes.size();
+  result.journal_bytes = prepared.journal.text.size();
 
   const uint64_t revalidation_begin = meter.used;
   DirectCspSupportOwnerSnapshot current;
@@ -748,12 +736,12 @@ DirectCspSupportLiveResult direct_csp_support_live_apply(
                               redundant ? literals.size() : 0, id);
     }
   }
-  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
+  journal.text.write(request.records);
 
   result.status = DirectCspSupportLiveStatus::Applied;
   result.result = ApplyResult::Ok;
   result.emitted_additions = plan.additions.size();
-  result.journal_bytes = journal.bytes.size();
+  result.journal_bytes = journal.text.size();
   result.published_clause_id = first_id + plan.additions.size() - 1;
   result.published_support = conclusion;
   result.propagation_pending = !kernel_propagation_fixpoint(kernel);

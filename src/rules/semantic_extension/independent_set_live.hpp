@@ -3,7 +3,6 @@
 #include "rules/registry.hpp"
 
 #include <cstdint>
-#include <cstdio>
 #include <vector>
 
 namespace tactix {
@@ -62,7 +61,7 @@ struct IndependentSetLiveRequest {
   uint32_t maximum_target = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
   // Optional exact owner source captured before earlier consequences or
   // unrelated clauses joined the formula. Every retained clause is found and
   // revalidated in the current live formula before a commit.

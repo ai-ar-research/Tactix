@@ -365,7 +365,7 @@ void detach_shadow(Kernel &shadow) {
   shadow.retier_schedule = {};
   shadow.bve_score_update_hook = nullptr;
   shadow.bve_score_update_state = nullptr;
-  shadow.structural_provenance = nullptr;
+  shadow.structural_provenance = {};
 }
 
 Result semantic_preflight(Kernel &kernel,

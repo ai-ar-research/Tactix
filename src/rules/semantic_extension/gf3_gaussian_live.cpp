@@ -1,7 +1,6 @@
 #include "rules/semantic_extension/gf3_gaussian_live.hpp"
 
 #include "proof/proof.hpp"
-#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 #include "strategy/action_status_mapping.hpp"
@@ -28,7 +27,7 @@ struct PreparedAccess {
   static std::vector<uint8_t> &install(Prepared &prepared) {
     return prepared.install_;
   }
-  static std::string &journal(Prepared &prepared) {
+  static JournalText &journal(Prepared &prepared) {
     return prepared.journal_;
   }
   static Result &result(Prepared &prepared) { return prepared.prepared_; }
@@ -40,9 +39,6 @@ using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
 using gf3_live_common::owner_request;
-using semantic_extension::append_bounded;
-using semantic_extension::join_integers;
-using semantic_extension::join_rendered;
 
 bool add(uint64_t &value, uint64_t amount) {
   if (amount > std::numeric_limits<uint64_t>::max() - value) return false;
@@ -218,79 +214,70 @@ Status certificate_status(gf3_gaussian_certificate::Status status) {
   std::abort();
 }
 
-std::string row_terms(const std::vector<gf3_gaussian::Term> &row) {
-  return join_rendered(row, [](const gf3_gaussian::Term &term) {
-    return "{\"variable\":" + std::to_string(term.variable) +
-           ",\"coefficient\":" + std::to_string(term.coefficient) + "}";
+auto row_terms(const std::vector<gf3_gaussian::Term> &row) {
+  return journal_list(row, [](auto &out, const gf3_gaussian::Term &term) {
+    out("{\"variable\":", term.variable, ",\"coefficient\":",
+        +term.coefficient, "}");
   });
 }
 
-std::string source_terms(
+auto source_terms(
     const std::vector<gf3_gaussian_certificate::AuthenticatedSource> &sources) {
-  return join_rendered(sources, [](const auto &source) {
-    return "{\"source_id\":" + std::to_string(source.combination.source_id) +
-           ",\"coefficient\":" +
-           std::to_string(source.combination.coefficient) +
-           ",\"authentication_index\":" +
-           std::to_string(source.authentication_index) + "}";
+  return journal_list(sources, [](auto &out, const auto &source) {
+    out("{\"source_id\":", source.combination.source_id,
+        ",\"coefficient\":", +source.combination.coefficient,
+        ",\"authentication_index\":", source.authentication_index, "}");
   });
 }
 
-std::string domain_authentications(
+auto domain_authentications(
     const std::vector<gf3_gaussian_bridge::DomainAuthentication> &domains) {
-  return join_rendered(domains, [](const auto &domain) {
-    return "{\"domain\":" + std::to_string(domain.domain) +
-           ",\"at_least_one\":" +
-           std::to_string(domain.at_least_one.occurrence) +
-           ",\"at_most_one\":[" +
-           join_rendered(domain.at_most_one, [](const auto &reference) {
-             return std::to_string(reference.occurrence);
-           }) +
-           "]}";
+  return journal_list(domains, [](auto &out, const auto &domain) {
+    out("{\"domain\":", domain.domain, ",\"at_least_one\":",
+        domain.at_least_one.occurrence, ",\"at_most_one\":[",
+        journal_list(domain.at_most_one,
+                     [](auto &each, const auto &reference) {
+                       each(reference.occurrence);
+                     }),
+        "]}");
   });
 }
 
-std::string tuple_authentications(
+auto tuple_authentications(
     const std::vector<gf3_gaussian_bridge::TupleAuthentication> &tuples) {
-  return join_rendered(tuples, [](const auto &tuple) {
-    return "{\"tuple\":" + std::to_string(tuple.tuple) + ",\"occurrence\":" +
-           std::to_string(tuple.premise.occurrence) + "}";
+  return journal_list(tuples, [](auto &out, const auto &tuple) {
+    out("{\"tuple\":", tuple.tuple, ",\"occurrence\":",
+        tuple.premise.occurrence, "}");
   });
 }
 
 bool make_journal(const Request &request, Prepared &prepared) {
-  std::string journal;
-  const std::string identity =
-      "\"action\":" + std::to_string(request.action_id) +
-      ",\"semantic\":" + std::to_string(request.semantic_id);
-  if (!append_bounded(journal, request.maximum_journal_bytes,
-              "{" + identity +
-                  ",\"kind\":\"gf3-gaussian-begin\",\"proof\":\"rup\","
-                  "\"publication\":\"unit-or-conflict-only\","
-                  "\"selection\":\"" + request.selected_identity + "\"}\n"))
+  JournalText journal(request.records);
+  const uint64_t maximum = request.maximum_journal_bytes;
+  const auto identity = [&](auto &out) {
+    out("\"action\":", request.action_id, ",\"semantic\":",
+        request.semantic_id);
+  };
+  if (!journal.append(maximum, "{", identity,
+              ",\"kind\":\"gf3-gaussian-begin\",\"proof\":\"rup\","
+              "\"publication\":\"unit-or-conflict-only\","
+              "\"selection\":\"", request.selected_identity, "\"}\n"))
     return false;
   for (const auto &source : PreparedAccess::owner(prepared).sources)
-    if (!append_bounded(journal, request.maximum_journal_bytes,
-                "{" + identity +
-                    ",\"kind\":\"gf3-gaussian-source\",\"occurrence\":" +
-                    std::to_string(source.occurrence) +
-                    ",\"native_proof_id\":" +
-                    std::to_string(source.native_proof_id) +
-                    ",\"clause\":[" + join_integers(source.clause) + "]}\n"))
+    if (!journal.append(maximum, "{", identity,
+                ",\"kind\":\"gf3-gaussian-source\",\"occurrence\":",
+                source.occurrence, ",\"native_proof_id\":",
+                source.native_proof_id, ",\"clause\":[",
+                journal_list(source.clause), "]}\n"))
       return false;
   for (const auto &authentication : prepared.bridge().authentication)
-    if (!append_bounded(
-            journal, request.maximum_journal_bytes,
-            "{" + identity +
-                ",\"kind\":\"gf3-gaussian-authentication\",\"source_id\":" +
-                std::to_string(authentication.source_id) +
-                ",\"equation_index\":" +
-                std::to_string(authentication.equation_index) +
-                ",\"domains\":[" +
-                domain_authentications(authentication.domains) +
-                "],\"forbidden_tuples\":[" +
-                tuple_authentications(authentication.forbidden_tuples) +
-                "]}\n"))
+    if (!journal.append(maximum, "{", identity,
+            ",\"kind\":\"gf3-gaussian-authentication\",\"source_id\":",
+            authentication.source_id, ",\"equation_index\":",
+            authentication.equation_index, ",\"domains\":[",
+            domain_authentications(authentication.domains),
+            "],\"forbidden_tuples\":[",
+            tuple_authentications(authentication.forbidden_tuples), "]}\n"))
       return false;
   auto &certificate = PreparedAccess::certificate(prepared);
   auto &event_ids = PreparedAccess::event_ids(prepared);
@@ -303,16 +290,13 @@ bool make_journal(const Request &request, Prepared &prepared) {
                 gf3_gaussian_certificate::ConsequenceKind::Conflict
             ? "conflict"
             : "unit-equation";
-    if (!append_bounded(journal, request.maximum_journal_bytes,
-                "{" + identity +
-                    ",\"kind\":\"gf3-gaussian-consequence\",\"index\":" +
-                    std::to_string(index) + ",\"outcome\":\"" + kind +
-                    "\",\"derivation\":" +
-                    std::to_string(consequence.derivation) +
-                    ",\"row\":[" + row_terms(consequence.row) +
-                    "],\"rhs\":" + std::to_string(consequence.rhs) +
-                    ",\"source_combination\":[" +
-                    source_terms(consequence.sources) + "]}\n"))
+    if (!journal.append(maximum, "{", identity,
+                ",\"kind\":\"gf3-gaussian-consequence\",\"index\":", index,
+                ",\"outcome\":\"", kind, "\",\"derivation\":",
+                consequence.derivation, ",\"row\":[",
+                row_terms(consequence.row), "],\"rhs\":", +consequence.rhs,
+                ",\"source_combination\":[", source_terms(consequence.sources),
+                "]}\n"))
       return false;
   }
   for (size_t index = 0; index < certificate.events.size(); ++index) {
@@ -323,29 +307,19 @@ bool make_journal(const Request &request, Prepared &prepared) {
         : event.role == gf3_gaussian_certificate::EventRole::Consequence
             ? "consequence"
             : "conflict";
-    if (!append_bounded(journal, request.maximum_journal_bytes,
-                "{" + identity +
-                    ",\"kind\":\"gf3-gaussian-rup\",\"event\":" +
-                    std::to_string(index) + ",\"clause_id\":" +
-                    std::to_string(event_ids[index]) +
-                    ",\"consequence\":" +
-                    std::to_string(event.consequence) +
-                    ",\"role\":\"" + role + "\",\"install\":" +
-                    (install[index] ? "true" : "false") +
-                    ",\"clause\":[" + join_integers(event.clause) + "]}\n"))
+    if (!journal.append(maximum, "{", identity,
+                ",\"kind\":\"gf3-gaussian-rup\",\"event\":", index,
+                ",\"clause_id\":", event_ids[index], ",\"consequence\":",
+                event.consequence, ",\"role\":\"", role, "\",\"install\":",
+                install[index] ? "true" : "false", ",\"clause\":[",
+                journal_list(event.clause), "]}\n"))
       return false;
   }
-  if (!append_bounded(journal, request.maximum_journal_bytes,
-              "{" + identity +
-                  ",\"kind\":\"gf3-gaussian-complete\",\"events\":" +
-                  std::to_string(certificate.events.size()) +
-                  ",\"installed\":" +
-                  std::to_string(
-                      prepared_result.effort.installed_clauses) +
-                  ",\"duplicates\":" +
-                  std::to_string(
-                      prepared_result.effort.duplicate_clauses) +
-                  "}\n"))
+  if (!journal.append(maximum, "{", identity,
+              ",\"kind\":\"gf3-gaussian-complete\",\"events\":",
+              certificate.events.size(), ",\"installed\":",
+              prepared_result.effort.installed_clauses, ",\"duplicates\":",
+              prepared_result.effort.duplicate_clauses, "}\n"))
     return false;
   PreparedAccess::journal(prepared) = std::move(journal);
   return true;
@@ -628,8 +602,7 @@ Result publish_internal(Kernel &kernel, const Request &request,
     kernel_assign_unit(kernel, unit);
     result.published_units.push_back(event.clause.front());
   }
-  semantic_extension::write_journal_or_abort(request.records,
-                                             prepared.journal_);
+  prepared.journal_.write(request.records);
   prepared.spent_ = true;
   result.status = Status::Applied;
   result.result = result.contradiction ? ApplyResult::Unsat : ApplyResult::Ok;

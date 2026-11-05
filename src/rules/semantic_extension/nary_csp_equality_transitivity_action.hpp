@@ -44,5 +44,5 @@ bool nary_csp_equality_transitivity_selection_valid(const NaryCspEqualityTransit
 NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
     Kernel &,const NaryCspRelationOwnerSession &,const NaryCspEqualitySession &,
     NaryCspEqualityTransitivitySession &,const NaryCspEqualityTransitivityLimits &,
-    const NaryCspEqualityTransitivitySelection &,FILE *records);
+    const NaryCspEqualityTransitivitySelection &,StructuralJournal records);
 } // namespace tactix

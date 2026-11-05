@@ -7,13 +7,13 @@ namespace tactix {
 namespace {
 using namespace parity_certificate;
 struct Journal {
-  FILE *out;
+  StructuralJournal out;
   uint64_t action;
   void clause(const char *kind,uint64_t id,const External *lits,uint32_t size) {
-    std::fprintf(out,"{\"action\":%llu,\"kind\":\"%s\",\"id\":%llu,\"clause\":[",(unsigned long long)action,kind,(unsigned long long)id);
-    for(uint32_t i=0;i<size;++i)std::fprintf(out,"%s%d",i?",":"",lits[i]);
-    std::fprintf(out,"]}\n");
-    if(std::ferror(out))std::abort();
+    out.print("{\"action\":%llu,\"kind\":\"%s\",\"id\":%llu,\"clause\":[",(unsigned long long)action,kind,(unsigned long long)id);
+    for(uint32_t i=0;i<size;++i)out.print("%s%d",i?",":"",lits[i]);
+    out.put("]}\n");
+    if(out.failed())std::abort();
   }
 };
 struct Sink {
@@ -95,7 +95,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
      !lucky_root_eligibility(k,true)||
      (k.proof&&k.proof->startup_pb_written()))return result;
   Journal journal{request.records,request.action_id};
-  std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"begin\",\"clauses_limit\":%llu,\"groups_limit\":%llu,\"selection_work\":%llu,\"intermediate_width\":%u,\"source_limit\":%u,\"output_width\":%u,\"descending\":%s,\"proof_limit\":%llu,\"consequence\":%zu}\n",(unsigned long long)request.action_id,(unsigned long long)request.premises.clauses,(unsigned long long)request.premises.groups,(unsigned long long)request.selection.work,request.selection.intermediate_width,request.selection.source_count,request.selection.output_width,request.descending?"true":"false",(unsigned long long)request.maximum_proof_additions,request.consequence);
+  request.records.print("{\"action\":%llu,\"kind\":\"begin\",\"clauses_limit\":%llu,\"groups_limit\":%llu,\"selection_work\":%llu,\"intermediate_width\":%u,\"source_limit\":%u,\"output_width\":%u,\"descending\":%s,\"proof_limit\":%llu,\"consequence\":%zu}\n",(unsigned long long)request.action_id,(unsigned long long)request.premises.clauses,(unsigned long long)request.premises.groups,(unsigned long long)request.selection.work,request.selection.intermediate_width,request.selection.source_count,request.selection.output_width,request.descending?"true":"false",(unsigned long long)request.maximum_proof_additions,request.consequence);
   parity_premises::Collector collector(request.premises);
   auto take=[&](const Lit *lits,uint32_t size) {
     if(kernel_terminating(k))return false;
@@ -137,14 +137,14 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
   std::vector<Equation> equations;
   for(size_t index:selected.consequences[request.consequence].sources) {
     equations.push_back(certified[index].equation);
-    std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"selected-equation\",\"index\":%zu,\"rhs\":%s,\"premises\":[",(unsigned long long)request.action_id,index,certified[index].equation.rhs?"true":"false");
-    for(size_t i=0;i<certified[index].premises.size();++i)std::fprintf(request.records,"%s%llu",i?",":"",(unsigned long long)certified[index].premises[i]);
-    std::fprintf(request.records,"]}\n");
+    request.records.print("{\"action\":%llu,\"kind\":\"selected-equation\",\"index\":%zu,\"rhs\":%s,\"premises\":[",(unsigned long long)request.action_id,index,certified[index].equation.rhs?"true":"false");
+    for(size_t i=0;i<certified[index].premises.size();++i)request.records.print("%s%llu",i?",":"",(unsigned long long)certified[index].premises[i]);
+    request.records.put("]}\n");
   }
   uint32_t tree_variables=0;
   for(const auto &e:equations)for(uint32_t i=0;i<e.size;++i)tree_variables=std::max(tree_variables,static_cast<uint32_t>(e.variables[i]));
   if(tree_variables>request.maximum_tree_variables)return result;
-  std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"tree-bound\",\"variables\":%u,\"limit\":%u}\n",(unsigned long long)request.action_id,tree_variables,request.maximum_tree_variables);
+  request.records.print("{\"action\":%llu,\"kind\":\"tree-bound\",\"variables\":%u,\"limit\":%u}\n",(unsigned long long)request.action_id,tree_variables,request.maximum_tree_variables);
   const uint32_t original=static_cast<uint32_t>(k.external_to_internal.size());
   Sink preflight{k,journal,false,original,request.maximum_proof_additions};
   const bool ready=derive(preflight,equations,request.selection.output_width);
@@ -190,7 +190,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
   for(const auto &item:committed.exported) {if(k.inconsistent)break;publish(item);}
   if(k.inconsistent)result.result=ApplyResult::Unsat;
   else result.result=result.published?ApplyResult::Ok:ApplyResult::NoOp;
-  std::fflush(request.records);if(std::ferror(request.records))std::abort();
+  request.records.flush();
   return result;
 }
 } // namespace tactix

@@ -34,6 +34,9 @@ semantic versioning; the public C API remains source-compatible within the
   replaying it at the input boundary.
 - A run with no proof formats no startup refutation text, which is most of the run time on
   formulas refuted at startup.
+- Without `--structural-provenance` the CLI creates no journal file and formats no journal
+  text. Under `--default-affine-reasons=deferred` a retained reason's journal counts its byte
+  size against the retained-reason memory bound.
 - `tactix-public` defaults to automatic selection, and `tools/compete/run.sh` passes
   `--pbp`.
 - The pinned drat-trim finds RAT candidates on proof-introduced variables by occurrence,

@@ -1,7 +1,6 @@
 #include "rules/semantic_extension/affine_basis_live.hpp"
 
 #include "proof/proof.hpp"
-#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
@@ -9,7 +8,6 @@
 #include <cstdlib>
 #include <map>
 #include <set>
-#include <string>
 
 namespace tactix {
 namespace {
@@ -19,8 +17,6 @@ using Event = AffineBasisLiveTransaction::Event;
 using SmallClause = parity_certificate::SmallClause;
 using affine::sorted_clause;
 using affine::to_small_clause;
-using semantic_extension::append_bounded;
-using semantic_extension::join_integers;
 
 bool valid_request(const AffineBasisLiveRequest &request) {
   return request.records && request.action_id && request.semantic_id &&
@@ -462,41 +458,36 @@ bool make_affine_basis_journal(
     const AffineBasisLiveRequest &request, const affine::Image &image,
     const affine::BasisPlan &plan,
     AffineBasisLiveTransaction &transaction) {
-  std::string journal;
-  const std::string identity = "\"action\":" +
-      std::to_string(request.action_id) + ",\"semantic\":" +
-      std::to_string(request.semantic_id) + ",\"owner\":" +
-      std::to_string(request.owner_version);
-  if (!append_bounded(journal, request.maximum_journal_bytes,
-          "{" + identity +
-          ",\"kind\":\"affine-basis-begin\",\"equations\":" +
-          std::to_string(image.equations.size()) + ",\"rows\":" +
-          std::to_string(plan.rows.size()) + ",\"definitions\":" +
-          std::to_string(transaction.projection_.size()) +
+  JournalText journal(request.records);
+  const uint64_t maximum = request.maximum_journal_bytes;
+  const auto identity = [&](auto &out) {
+    out("\"action\":", request.action_id, ",\"semantic\":",
+        request.semantic_id, ",\"owner\":", request.owner_version);
+  };
+  if (!journal.append(maximum, "{", identity,
+          ",\"kind\":\"affine-basis-begin\",\"equations\":",
+          image.equations.size(), ",\"rows\":", plan.rows.size(),
+          ",\"definitions\":", transaction.projection_.size(),
           ",\"propagation\":\"deferred-controller\"}\n"))
     return false;
   for (uint64_t occurrence : transaction.source_occurrences_) {
     if (!occurrence || occurrence > transaction.snapshot_.sources.size())
       return false;
     const auto &source = transaction.snapshot_.sources[occurrence - 1];
-    if (!append_bounded(journal, request.maximum_journal_bytes,
-            "{" + identity +
-            ",\"kind\":\"affine-basis-source\",\"occurrence\":" +
-            std::to_string(occurrence) + ",\"source_id\":" +
-            std::to_string(source.clause_id) + ",\"clause\":[" +
-            join_integers(source.clause) + "]}\n"))
+    if (!journal.append(maximum, "{", identity,
+            ",\"kind\":\"affine-basis-source\",\"occurrence\":", occurrence,
+            ",\"source_id\":", source.clause_id, ",\"clause\":[",
+            journal_list(source.clause), "]}\n"))
       return false;
   }
   for (size_t row = 0; row < plan.rows.size(); ++row) {
     const auto &planned = plan.rows[row];
-    if (!append_bounded(journal, request.maximum_journal_bytes,
-            "{" + identity +
-            ",\"kind\":\"affine-basis-row\",\"row\":" +
-            std::to_string(row) + ",\"rhs\":" +
-            (planned.rhs ? "true" : "false") + ",\"variables\":[" +
-            join_integers(planned.variables) + "],\"sources\":[" +
-            join_integers(planned.source_equations) +
-            "],\"premises\":[" + join_integers(planned.premises) + "]}\n"))
+    if (!journal.append(maximum, "{", identity,
+            ",\"kind\":\"affine-basis-row\",\"row\":", row, ",\"rhs\":",
+            planned.rhs ? "true" : "false", ",\"variables\":[",
+            journal_list(planned.variables), "],\"sources\":[",
+            journal_list(planned.source_equations), "],\"premises\":[",
+            journal_list(planned.premises), "]}\n"))
       return false;
   }
   for (const auto &event : transaction.events_) {
@@ -508,13 +499,11 @@ bool make_affine_basis_journal(
                    : "affine-basis-proof-rat")
         : event.kind == Event::Kind::Rup ? "affine-basis-proof-rup"
                                         : "affine-basis-proof-delete";
-    if (!append_bounded(journal, request.maximum_journal_bytes,
-            "{" + identity + ",\"kind\":\"" + kind +
-            "\",\"id\":" +
-            std::to_string(event.kind == Event::Kind::Delete
-                               ? event.deleted_id : event.id) +
-            ",\"install\":" + (event.install ? "true" : "false") +
-            ",\"clause\":[" + join_integers(event.clause) + "]}\n"))
+    if (!journal.append(maximum, "{", identity, ",\"kind\":\"", kind,
+            "\",\"id\":",
+            event.kind == Event::Kind::Delete ? event.deleted_id : event.id,
+            ",\"install\":", event.install ? "true" : "false",
+            ",\"clause\":[", journal_list(event.clause), "]}\n"))
       return false;
   }
   if (transaction.introduced_.size() != transaction.projection_.size() ||
@@ -526,14 +515,11 @@ bool make_affine_basis_journal(
     const auto &projection = transaction.projection_[i];
     if (projection.output != transaction.introduced_[i] ||
         !projection.output || !projection.first || !projection.second ||
-        !append_bounded(
-            journal, request.maximum_journal_bytes,
-            "{" + identity +
-            ",\"kind\":\"affine-basis-theory-variable\",\"output\":" +
-            std::to_string(projection.output) +
-            ",\"meaning\":\"output iff first XOR second\",\"first\":" +
-            std::to_string(projection.first) + ",\"second\":" +
-            std::to_string(projection.second) +
+        !journal.append(maximum, "{", identity,
+            ",\"kind\":\"affine-basis-theory-variable\",\"output\":",
+            projection.output,
+            ",\"meaning\":\"output iff first XOR second\",\"first\":",
+            projection.first, ",\"second\":", projection.second,
             ",\"projection\":\"omit-extension\","
             "\"reconstruction\":\"evaluate-operand-xor\"}\n"))
       return false;
@@ -555,26 +541,20 @@ bool make_affine_basis_journal(
         std::binary_search(transaction.introduced_.begin(),
                            transaction.introduced_.end(), helper) ||
         !installed_literal ||
-        !append_bounded(
-            journal, request.maximum_journal_bytes,
-            "{" + identity +
-            ",\"kind\":\"affine-basis-proof-helper\",\"output\":" +
-            std::to_string(helper) +
-            ",\"meaning\":\"retired transition identity fixed " +
-            (installed_literal > 0 ? "true" : "false") + "\","
+        !journal.append(maximum, "{", identity,
+            ",\"kind\":\"affine-basis-proof-helper\",\"output\":", helper,
+            ",\"meaning\":\"retired transition identity fixed ",
+            installed_literal > 0 ? "true" : "false", "\","
             "\"projection\":\"omit-extension\","
-            "\"reconstruction\":\"assign-" +
-            (installed_literal > 0 ? "true" : "false") + "\"}\n"))
+            "\"reconstruction\":\"assign-",
+            installed_literal > 0 ? "true" : "false", "\"}\n"))
       return false;
   }
-  if (!append_bounded(journal, request.maximum_journal_bytes,
-          "{" + identity +
-          ",\"kind\":\"affine-basis-complete\",\"additions\":" +
-          std::to_string(transaction.additions_) + ",\"deletions\":" +
-          std::to_string(transaction.deletions_) +
-          ",\"published\":" + std::to_string(transaction.published_) +
-          ",\"extent_growth\":" +
-          std::to_string(transaction.extent_growth_) + "}\n"))
+  if (!journal.append(maximum, "{", identity,
+          ",\"kind\":\"affine-basis-complete\",\"additions\":",
+          transaction.additions_, ",\"deletions\":", transaction.deletions_,
+          ",\"published\":", transaction.published_, ",\"extent_growth\":",
+          transaction.extent_growth_, "}\n"))
     return false;
   transaction.journal_ = std::move(journal);
   return true;
@@ -1363,8 +1343,7 @@ AffineBasisLiveResult publish_affine_basis_live(
         !install_clause(kernel, event))
       std::abort();
   }
-  semantic_extension::write_journal_or_abort(request.records,
-                                             transaction.journal_);
+  transaction.journal_.write(request.records);
   result.status = AffineBasisLiveStatus::Applied;
   result.contradiction = transaction.contradiction_ || kernel.inconsistent;
   result.result = kernel.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;

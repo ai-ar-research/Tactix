@@ -71,7 +71,7 @@ DirectCspSupportLiveRequest request(FILE *records, uint32_t selected = 1) {
 DirectCspSupportLiveResult decline_unchanged(
     Kernel &kernel, const DirectCspSupportLiveRequest &candidate) {
   const Image before = image(kernel);
-  const long journal = std::ftell(candidate.records);
+  const long journal = candidate.records.tell();
   assert(journal >= 0);
   const auto result = direct_csp_support_live_apply(kernel, candidate);
   assert(result.result == ApplyResult::NoOp);
@@ -79,7 +79,7 @@ DirectCspSupportLiveResult decline_unchanged(
   assert(!result.emitted_additions && !result.published_clause_id &&
          result.published_support.empty() && result.semantic_variables.empty());
   assert(image(kernel) == before);
-  assert(std::ftell(candidate.records) == journal);
+  assert(candidate.records.tell() == journal);
   return result;
 }
 

@@ -9,7 +9,6 @@
 #include <limits>
 #include <map>
 #include <set>
-#include <string>
 
 namespace {
 
@@ -207,16 +206,13 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     return result;
   }
 
-  Journal journal{request.maximum_journal_bytes};
+  Journal journal{request.maximum_journal_bytes, JournalText(request.records)};
   if (!journal.append(
-          "{\"kind\":\"exact-cover-batch\",\"action\":" +
-          std::to_string(request.action_id) + ",\"arity\":" +
-          std::to_string(plan.arity_) + ",\"definitions\":" +
-          std::to_string(plan.definitions_.size()) + ",\"additions\":" +
-          std::to_string(plan.proof_additions_) +
-          ",\"literal_occurrences\":" +
-          std::to_string(plan.literal_occurrences_) +
-          ",\"extent_growth\":" + std::to_string(plan.extent_growth_) +
+          "{\"kind\":\"exact-cover-batch\",\"action\":", request.action_id,
+          ",\"arity\":", plan.arity_, ",\"definitions\":",
+          plan.definitions_.size(), ",\"additions\":", plan.proof_additions_,
+          ",\"literal_occurrences\":", plan.literal_occurrences_,
+          ",\"extent_growth\":", plan.extent_growth_,
           ",\"recognition\":\"single-retained-source-image\"}\n")) {
     result.status = BatchPublicationStatus::ResourceExhausted;
     return result;
@@ -230,14 +226,11 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
   uint64_t journal_id = k.next_clause_id;
   for (const PlannedDefinition &definition : plan.definitions_) {
     if (!journal.append(
-            "{\"kind\":\"exact-cover-theory-variable\",\"action\":" +
-            std::to_string(request.action_id) +
-            ",\"semantic_action\":" +
-            std::to_string(definition.semantic.action) +
-            ",\"semantic_slot\":" +
-            std::to_string(definition.semantic.slot) + ",\"block\":" +
-            std::to_string(definition.block) + ",\"output\":" +
-            std::to_string(definition.output) +
+            "{\"kind\":\"exact-cover-theory-variable\",\"action\":",
+            request.action_id, ",\"semantic_action\":",
+            definition.semantic.action, ",\"semantic_slot\":",
+            definition.semantic.slot, ",\"block\":", definition.block,
+            ",\"output\":", definition.output,
             ",\"role\":\"block-occupancy\",\"meaning\":\"output iff "
             "OR(inputs)\",\"projection\":\"omit-fresh-output\","
             "\"lifetime\":\"ordinary-live-clauses\",\"inputs\":[") ||
@@ -246,40 +239,33 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
         !journal.integers(definition.source_premises) ||
         !journal.append("],\"duplicate_key\":[") ||
         !journal.integers(definition.duplicate_key.disjunction) ||
-        !journal.append("],\"proof_additions\":" +
-                        std::to_string(definition.proof_additions) +
-                        ",\"literal_occurrences\":" +
-                        std::to_string(definition.literal_occurrences) +
-                        ",\"extent_growth\":" +
-                        std::to_string(definition.extent_growth) + "}\n")) {
+        !journal.append("],\"proof_additions\":", definition.proof_additions,
+                        ",\"literal_occurrences\":",
+                        definition.literal_occurrences, ",\"extent_growth\":",
+                        definition.extent_growth, "}\n")) {
       result.status = BatchPublicationStatus::ResourceExhausted;
       return result;
     }
     for (uint32_t i = 0; i < plan.arity_; ++i) {
       ++journal_id;
       if (!journal.append(
-              "{\"kind\":\"exact-cover-definition-rat\",\"action\":" +
-              std::to_string(request.action_id) +
-              ",\"semantic_action\":" +
-              std::to_string(definition.semantic.action) +
-              ",\"semantic_slot\":" +
-              std::to_string(definition.semantic.slot) + ",\"id\":" +
-              std::to_string(journal_id) + ",\"clause\":[" +
-              std::to_string(definition.output) + "," +
-              std::to_string(-definition.inputs[i]) + "]}\n")) {
+              "{\"kind\":\"exact-cover-definition-rat\",\"action\":",
+              request.action_id, ",\"semantic_action\":",
+              definition.semantic.action, ",\"semantic_slot\":",
+              definition.semantic.slot, ",\"id\":", journal_id,
+              ",\"clause\":[", definition.output, ",", -definition.inputs[i],
+              "]}\n")) {
         result.status = BatchPublicationStatus::ResourceExhausted;
         return result;
       }
     }
     ++journal_id;
     if (!journal.append(
-            "{\"kind\":\"exact-cover-definition-rat\",\"action\":" +
-            std::to_string(request.action_id) +
-            ",\"semantic_action\":" +
-            std::to_string(definition.semantic.action) +
-            ",\"semantic_slot\":" +
-            std::to_string(definition.semantic.slot) + ",\"id\":" +
-            std::to_string(journal_id) + ",\"clause\":[") ||
+            "{\"kind\":\"exact-cover-definition-rat\",\"action\":",
+            request.action_id, ",\"semantic_action\":",
+            definition.semantic.action, ",\"semantic_slot\":",
+            definition.semantic.slot, ",\"id\":", journal_id,
+            ",\"clause\":[") ||
         !journal.integers(definition.formula.back()) ||
         !journal.append("]}\n")) {
       result.status = BatchPublicationStatus::ResourceExhausted;
@@ -323,14 +309,14 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     kernel_add_large_clause(k, reverse.data(), reverse.size(), false, 0, id);
   }
   if (k.next_clause_id != journal_id) std::abort();
-  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
+  journal.text.write(request.records);
   result.status = BatchPublicationStatus::Published;
   result.result = ApplyResult::Ok;
   result.definitions = plan.definitions_.size();
   result.additions = plan.proof_additions_;
   result.literal_occurrences = plan.literal_occurrences_;
   result.extent_growth = plan.extent_growth_;
-  result.journal_bytes = journal.bytes.size();
+  result.journal_bytes = journal.text.size();
   return result;
 }
 

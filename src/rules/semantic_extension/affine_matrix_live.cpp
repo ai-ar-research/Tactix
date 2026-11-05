@@ -1,7 +1,7 @@
 #include "rules/semantic_extension/affine_matrix_live.hpp"
 
-#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/structural_text.hpp"
 
 #include "kernel/clause.hpp"
 
@@ -29,7 +29,7 @@ uint64_t AffineMatrixLivePrepared::retained_bytes() const {
   for (const auto &equation : pbp_equations_)
     bytes += __uint128_t(equation.variables.capacity()) * sizeof(int32_t);
   bytes += __uint128_t(pbp_plan_.odd_variables.capacity()) * sizeof(int32_t);
-  bytes += journal_.capacity();
+  bytes += prepared_.preflight_journal_bytes;
   // Generic two-phase callers retain a copied source owner.  The explicit
   // deferred path is debt-guarded and borrows the session's immutable owner,
   // so this population is empty there.
@@ -268,53 +268,49 @@ bool make_journal(const MatrixLiveRequest &request,
                   const std::vector<uint64_t> &occurrences,
                   const std::vector<uint64_t> &source_clause_ids,
                   uint32_t level, uint32_t starting_extent,
-                  std::string &journal,
+                  JournalText &journal,
                   uint64_t &journal_work) {
   if (transaction.source_identity().empty() &&
       !transaction.source_equations().empty() &&
       (!transaction.compact_pbp() || !request.retained_source_provenance))
     return false;
-  journal.clear();
   journal_work = 0;
-  const auto append = [&](const std::string &text) {
-    if (text.size() > UINT64_MAX - journal_work)
-      journal_work = UINT64_MAX;
-    else
-      journal_work += text.size();
-    return tactix::semantic_extension::append_bounded(
-        journal, request.maximum_journal_bytes, text);
+  const auto append = [&](auto &&...pieces) {
+    return journal.append_if(
+        request.maximum_journal_bytes,
+        [&](uint64_t size) {
+          journal_work = size > UINT64_MAX - journal_work ? UINT64_MAX
+                                                          : journal_work + size;
+          return true;
+        },
+        std::forward<decltype(pieces)>(pieces)...);
   };
   const auto list = [&](const auto &values) {
     if (!append("[")) return false;
     for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i]))) return false;
+      if (!append(i ? "," : "", values[i])) return false;
     return append("]");
   };
-  if (!append("{\"kind\":\"affine-matrix-reason\",\"action_id\":" +
-              std::to_string(request.action_id) + ",\"semantic_id\":" +
-              std::to_string(request.semantic_id) + ",\"owner\":" +
-              std::to_string(request.owner_identity) + ",\"event\":\"" +
-              (event.kind == MatrixEventKind::Implication ? "implication"
-                                                          : "conflict") +
-              "\",\"level\":" + std::to_string(level) +
-              ",\"detached_reason\":" +
-              std::to_string(request.detached_reason) +
-              ",\"reason\":"))
+  if (!append("{\"kind\":\"affine-matrix-reason\",\"action_id\":",
+              request.action_id, ",\"semantic_id\":", request.semantic_id,
+              ",\"owner\":", request.owner_identity, ",\"event\":\"",
+              event.kind == MatrixEventKind::Implication ? "implication"
+                                                         : "conflict",
+              "\",\"level\":", level, ",\"detached_reason\":",
+              request.detached_reason, ",\"reason\":"))
     return false;
   if (!list(event.reason)) return false;
   if (transaction.proof_cache_hit()) {
-    if (!append(",\"sources_ref\":{\"cache_entry\":" +
-                std::to_string(transaction.proof_cache_entry().entry_id) +
-                ",\"proof_epoch\":" +
-                std::to_string(transaction.proof_cache_entry().proof_epoch) +
-                "}"))
+    if (!append(",\"sources_ref\":{\"cache_entry\":",
+                transaction.proof_cache_entry().entry_id, ",\"proof_epoch\":",
+                transaction.proof_cache_entry().proof_epoch, "}"))
       return false;
   } else if (transaction.compact_pbp() &&
              request.retained_source_provenance) {
     if (!append(",\"source_ordinals\":") ||
         !list(transaction.source_equations()) ||
-        !append(",\"sources_ref\":{\"retained_owner\":" +
-                std::to_string(request.owner_identity) + "}"))
+        !append(",\"sources_ref\":{\"retained_owner\":",
+                request.owner_identity, "}"))
       return false;
   } else {
     if (!append(",\"source_ordinals\":") ||
@@ -324,22 +320,17 @@ bool make_journal(const MatrixLiveRequest &request,
     for (size_t source_at = 0;
          source_at < transaction.source_identity().size(); ++source_at) {
       const Equation &source = transaction.source_identity()[source_at];
-      if (!append((source_at ? "," : "") +
-                  std::string("{\"ordinal\":") +
-                  std::to_string(transaction.source_equations()[source_at]) +
+      if (!append(source_at ? "," : "", "{\"ordinal\":",
+                  transaction.source_equations()[source_at],
                   ",\"variables\":") ||
           !list(source.variables) ||
-          !append(",\"rhs\":" + std::to_string(source.rhs) +
-                  ",\"premises\":["))
+          !append(",\"rhs\":", source.rhs, ",\"premises\":["))
         return false;
       for (size_t i = 0; i < source.premises.size(); ++i, ++premise_at) {
         if (premise_at >= occurrences.size() ||
             premise_at >= source_clause_ids.size() ||
-            !append((i ? "," : "") +
-                    std::string("{\"occurrence\":") +
-                    std::to_string(occurrences[premise_at]) +
-                    ",\"clause_id\":" +
-                    std::to_string(source_clause_ids[premise_at]) +
+            !append(i ? "," : "", "{\"occurrence\":", occurrences[premise_at],
+                    ",\"clause_id\":", source_clause_ids[premise_at],
                     ",\"clause\":") ||
             !list(source.premise_clauses[i]) || !append("}"))
           return false;
@@ -359,20 +350,17 @@ bool make_journal(const MatrixLiveRequest &request,
       const char *kind = proof.kind == MatrixProofEvent::Kind::Rat ? "rat"
                          : proof.kind == MatrixProofEvent::Kind::Rup ? "rup"
                                                                     : "delete";
-      if (!append((i ? "," : "") + std::string("{\"kind\":\"") + kind +
-                  "\",\"id\":" + std::to_string(proof.id) +
-                  ",\"deleted_id\":" + std::to_string(proof.deleted_id) +
-                  ",\"install\":" + std::to_string(proof.install) +
-                  ",\"clause\":") ||
+      if (!append(i ? "," : "", "{\"kind\":\"", kind, "\",\"id\":", proof.id,
+                  ",\"deleted_id\":", proof.deleted_id, ",\"install\":",
+                  proof.install, ",\"clause\":") ||
           !list(proof.clause) || !append("}"))
         return false;
     }
     if (!append("]")) return false;
   }
-  if (!append(",\"proof_mode\":\"" +
-              std::string(transaction.compact_pbp()
-                              ? "pbp-polynomial"
-                              : "clausal-parity-tree") +
+  if (!append(",\"proof_mode\":\"",
+              transaction.compact_pbp() ? "pbp-polynomial"
+                                        : "clausal-parity-tree",
               "\""))
     return false;
   const char *cache_status = transaction.proof_cache_hit()
@@ -382,15 +370,12 @@ bool make_journal(const MatrixLiveRequest &request,
                                         ? "resume-insert" : "resume-unretained")
                              : transaction.proof_cache_insert() ? "insert"
                                                                 : "disabled";
-  if (!append(",\"proof_cache\":{\"status\":\"" +
-              std::string(cache_status) + "\",\"entry_id\":" +
-              std::to_string(transaction.proof_cache_entry().entry_id) +
-              ",\"generation\":" +
-              std::to_string(transaction.proof_cache_generation()) +
-              ",\"proof_epoch\":" +
-              std::to_string(transaction.proof_cache_entry().proof_epoch) +
-              ",\"parent_entry\":" +
-              std::to_string(transaction.proof_cache_entry().parent_entry_id)) ||
+  if (!append(",\"proof_cache\":{\"status\":\"", cache_status,
+              "\",\"entry_id\":", transaction.proof_cache_entry().entry_id,
+              ",\"generation\":", transaction.proof_cache_generation(),
+              ",\"proof_epoch\":", transaction.proof_cache_entry().proof_epoch,
+              ",\"parent_entry\":",
+              transaction.proof_cache_entry().parent_entry_id) ||
       (!transaction.proof_cache_hit() &&
        (!append(",\"support_ids\":") ||
         !list(transaction.proof_cache_entry().support_ids))) ||
@@ -403,27 +388,19 @@ bool make_journal(const MatrixLiveRequest &request,
                                    ? uint64_t{starting_extent} +
                                          transaction.helper_extent()
                                    : 0;
-  if (!append("{\"first\":" +
-              std::to_string(helper_first) + ",\"last\":" +
-              std::to_string(helper_last) + ",\"count\":" +
-              std::to_string(transaction.helper_extent()) +
-              ",\"meaning\":\"" +
-              std::string(transaction.compact_pbp()
-                              ? "proof-only PB threshold carries; "
-                              : "proof-only balanced-XOR identities; ") +
-              (transaction.proof_cache_insert()
-                   ? std::string("persistent cache support, never branchable")
-                   : std::string("retired or previously cached, never branchable")) +
-              "\"},"
-              "\"proof_additions\":" +
-              std::to_string(transaction.additions()) +
-              ",\"proof_deletions\":" +
-              std::to_string(transaction.deletions()) +
-              ",\"helper_extent\":" +
-              std::to_string(transaction.helper_extent()) +
-              ",\"planner_work\":" + std::to_string(transaction.work()) +
-              ",\"arena_words\":" +
-              std::to_string(transaction.arena_words()) + "}\n"))
+  if (!append("{\"first\":", helper_first, ",\"last\":", helper_last,
+              ",\"count\":", transaction.helper_extent(), ",\"meaning\":\"",
+              transaction.compact_pbp()
+                  ? "proof-only PB threshold carries; "
+                  : "proof-only balanced-XOR identities; ",
+              transaction.proof_cache_insert()
+                  ? "persistent cache support, never branchable"
+                  : "retired or previously cached, never branchable",
+              "\"},\"proof_additions\":", transaction.additions(),
+              ",\"proof_deletions\":", transaction.deletions(),
+              ",\"helper_extent\":", transaction.helper_extent(),
+              ",\"planner_work\":", transaction.work(), ",\"arena_words\":",
+              transaction.arena_words(), "}\n"))
     return false;
   return true;
 }
@@ -551,7 +528,7 @@ MatrixLiveResult prepare_affine_matrix_live(
   candidate.starting_extent_ = kernel.external_to_internal.size();
   candidate.starting_level_ = kernel.level;
   candidate.proof_ = kernel.proof;
-  candidate.records_position_ = std::ftell(request.records);
+  candidate.records_position_ = request.records.tell();
   std::vector<MatrixAssignment> support_trail;
   if (candidate.records_position_ < 0 ||
       !snapshot_trail(kernel, candidate.trail_,
@@ -700,14 +677,16 @@ MatrixLiveResult prepare_affine_matrix_live(
     result.status = MatrixLiveStatus::ResourceExhausted;
     return result;
   }
+  JournalText journal(request.records);
   if (!make_journal(request, candidate.transaction_, candidate.event_,
                     candidate.source_occurrences_, candidate.source_clause_ids_,
                     candidate.starting_level_, candidate.starting_extent_,
-                    candidate.journal_,
-                    result.journal_work)) {
+                    journal, result.journal_work)) {
     result.status = MatrixLiveStatus::ResourceExhausted;
     return result;
   }
+  candidate.prepared_.preflight_journal_bytes = journal.size();
+  candidate.journal_ = std::move(journal).take();
   if (request.retained_publication && request.maximum_persistent_bytes &&
       candidate.retained_bytes() > request.maximum_persistent_bytes) {
     result.status = MatrixLiveStatus::ResourceExhausted;
@@ -728,7 +707,7 @@ MatrixLiveResult prepare_affine_matrix_live(
   result.arena_words = candidate.transaction_.arena_words();
   result.implication = candidate.event_.kind == MatrixEventKind::Implication;
   result.conflict = candidate.event_.kind == MatrixEventKind::Conflict;
-  result.preflight_journal_bytes = candidate.journal_.size();
+  result.preflight_journal_bytes = candidate.prepared_.preflight_journal_bytes;
   result.proof_cache_hit = candidate.transaction_.proof_cache_hit();
   result.proof_cache_insert = candidate.transaction_.proof_cache_insert();
   result.proof_cache_resume = candidate.transaction_.proof_cache_resume();
@@ -784,7 +763,7 @@ MatrixLiveResult publish_affine_matrix_live(
         (kernel.proof &&
          kernel.proof->persistent_external_epoch() !=
              prepared.transaction_.proof_cache_entry().proof_epoch))) ||
-      std::ftell(request.records) != prepared.records_position_) {
+      request.records.tell() != prepared.records_position_) {
     result.audit_stage = MatrixLiveResult::AuditStage::KernelSnapshot;
     result.status = MatrixLiveStatus::Stale;
     return result;
@@ -1003,8 +982,8 @@ MatrixLiveResult publish_affine_matrix_live(
   result.implication_consumed = implication_consumed;
   result.detached_reason = request.detached_reason && implication_consumed &&
                            prepared.physical_reason_.size() >= 3;
-  semantic_extension::write_journal_or_abort(request.records,
-                                             prepared.journal_);
+  request.records.write(prepared.journal_,
+                        prepared.prepared_.preflight_journal_bytes);
   if (prepared.transaction_.proof_cache_insert() &&
       (!request.proof_cache ||
        !request.proof_cache->commit(
@@ -1017,7 +996,7 @@ MatrixLiveResult publish_affine_matrix_live(
   result.result = kernel.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
   result.additions = prepared.transaction_.additions();
   result.deletions = prepared.transaction_.deletions();
-  result.journal_bytes = prepared.journal_.size();
+  result.journal_bytes = prepared.prepared_.preflight_journal_bytes;
   result.propagation_pending =
       !kernel.inconsistent && !kernel_propagation_fixpoint(kernel);
   return result;

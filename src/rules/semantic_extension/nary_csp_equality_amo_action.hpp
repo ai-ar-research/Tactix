@@ -67,7 +67,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
     Kernel &, const NaryCspRelationOwnerSession &,
     const NaryCspEqualitySession &, NaryCspEqualityAmoSession &,
     const NaryCspEqualityAmoLimits &, const NaryCspEqualityAmoSelection &,
-    FILE *records);
+    StructuralJournal records);
 
 struct NaryCspEqualityAmoOfferWindow {
   uint64_t maximum_owner_candidates = 0;

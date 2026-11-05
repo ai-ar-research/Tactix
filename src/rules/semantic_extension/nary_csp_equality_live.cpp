@@ -8,7 +8,6 @@
 #include <array>
 #include <climits>
 #include <cstdlib>
-#include <string>
 
 namespace tactix {
 struct NaryCspEqualitySessionAccess {
@@ -80,49 +79,42 @@ bool render_journal(const NaryCspEqualityRequest &request,
                     const NaryCspRelationOwnerSnapshot &owner,
                     const equality::Plan &plan, uint64_t first_id,
                     Journal &journal) {
-  if (!journal.append("{\"kind\":\"nary-csp-equality-begin\",\"action\":" +
-                      std::to_string(request.action_id) +
-                      ",\"semantic\":" +
-                      std::to_string(request.semantic_id) +
-                      ",\"left_domain\":" +
-                      std::to_string(plan.selection.left_domain) +
-                      ",\"right_domain\":" +
-                      std::to_string(plan.selection.right_domain) +
-                      ",\"residual_domain\":" +
-                      std::to_string(plan.selection.residual_domain) + "}\n"))
+  if (!journal.append("{\"kind\":\"nary-csp-equality-begin\",\"action\":",
+                      request.action_id, ",\"semantic\":", request.semantic_id,
+                      ",\"left_domain\":", plan.selection.left_domain,
+                      ",\"right_domain\":", plan.selection.right_domain,
+                      ",\"residual_domain\":", plan.selection.residual_domain,
+                      "}\n"))
     return false;
   if (!semantic_extension::append_source_premises(
           journal, "nary-csp-equality-source", request.action_id,
           owner.source))
     return false;
   for (size_t domain = 0; domain < owner.relation.domains.size(); ++domain) {
-    if (!journal.append("{\"kind\":\"nary-csp-equality-domain\",\"action\":" +
-                        std::to_string(request.action_id) +
-                        ",\"domain\":" + std::to_string(domain) +
+    if (!journal.append("{\"kind\":\"nary-csp-equality-domain\",\"action\":",
+                        request.action_id, ",\"domain\":", domain,
                         ",\"values\":[") ||
         !journal.integers(owner.relation.domains[domain].values) ||
         !journal.append("]}\n"))
       return false;
   }
   for (size_t index = 0; index < plan.additions.size(); ++index) {
-    if (!journal.append("{\"kind\":\"nary-csp-equality-addition\",\"action\":" +
-                        std::to_string(request.action_id) +
-                        ",\"clause_id\":" +
-                        std::to_string(first_id + index) +
-                        ",\"proof\":\"" +
-                        (plan.additions[index].proof == equality::ProofStep::Rup
-                             ? "rup"
-                             : "rat") +
+    if (!journal.append("{\"kind\":\"nary-csp-equality-addition\",\"action\":",
+                        request.action_id, ",\"clause_id\":", first_id + index,
+                        ",\"proof\":\"",
+                        plan.additions[index].proof == equality::ProofStep::Rup
+                            ? "rup"
+                            : "rat",
                         "\",\"clause\":[") ||
         !journal.integers(plan.additions[index].clause) ||
         !journal.append("]}\n"))
       return false;
   }
   return journal.append(
-      "{\"kind\":\"nary-csp-equality-complete\",\"action\":" +
-      std::to_string(request.action_id) +
-      ",\"projection\":\"omit-exact-aligned-equality\",\"extension\":" +
-      std::to_string(plan.projection.extension_variable) + "}\n");
+      "{\"kind\":\"nary-csp-equality-complete\",\"action\":",
+      request.action_id,
+      ",\"projection\":\"omit-exact-aligned-equality\",\"extension\":",
+      plan.projection.extension_variable, "}\n");
 }
 
 } // namespace
@@ -255,12 +247,13 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
   }
 
   const uint64_t first_id = kernel.next_clause_id + 1;
-  Journal journal{request.limits.maximum_journal_bytes};
+  Journal journal{request.limits.maximum_journal_bytes,
+                  JournalText(request.records)};
   if (!render_journal(request, current, plan, first_id, journal)) {
     result.status = NaryCspEqualityLiveStatus::ResourceExhausted;
     return result;
   }
-  result.journal_bytes = journal.bytes.size();
+  result.journal_bytes = journal.text.size();
   std::vector<NaryCspEqualityKey> keys = session.keys();
   keys.insert(std::lower_bound(keys.begin(), keys.end(), result.key),
               result.key);
@@ -306,7 +299,7 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
                                 : 0,
                             id);
   }
-  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
+  journal.text.write(request.records);
   NaryCspEqualitySessionAccess::commit(session, kernel, std::move(keys),
                                        std::move(records));
 

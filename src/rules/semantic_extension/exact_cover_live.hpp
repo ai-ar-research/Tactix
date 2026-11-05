@@ -4,7 +4,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <vector>
 
 namespace tactix {
@@ -44,7 +43,7 @@ struct ExactCoverLiveRequest {
   uint32_t maximum_extent_growth = 0;
   uint32_t maximum_external_extent = 0;
   uint64_t action_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
   ExactCoverLiveSession *session = nullptr;
 };
 

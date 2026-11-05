@@ -42,7 +42,7 @@ struct DirectCspGuardedCoverLiveRequest {
   uint32_t maximum_external_extent = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
 };
 
 DirectCspSupportOwnerCaptureResult direct_csp_guarded_cover_live_capture_owner(

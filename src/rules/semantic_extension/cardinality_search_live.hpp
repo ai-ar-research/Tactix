@@ -4,7 +4,6 @@
 #include "rules/registry.hpp"
 #include "rules/semantic_extension/cardinality_search.hpp"
 
-#include <cstdio>
 #include <vector>
 
 namespace tactix {
@@ -18,7 +17,7 @@ struct CardinalitySearchLiveRequest {
   uint64_t maximum_journal_bytes = 100000;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
 };
 
 enum class CardinalitySearchLiveStatus : uint8_t {

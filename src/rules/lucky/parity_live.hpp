@@ -2,7 +2,6 @@
 #pragma once
 #include "rules/lucky/parity_selection.hpp"
 #include "rules/registry.hpp"
-#include <cstdio>
 namespace tactix {
 struct ParityLiveRequest {
   parity_premises::Limits premises;
@@ -12,7 +11,7 @@ struct ParityLiveRequest {
   uint32_t maximum_tree_variables;
   size_t consequence;
   uint64_t action_id;
-  FILE *records; // Caller-owned streamed semantic/proof provenance, mandatory.
+  StructuralJournal records; // Borrowed semantic/proof provenance; mandatory.
 };
 struct ParityLiveResult {
   ApplyResult result = ApplyResult::NoOp;

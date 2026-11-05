@@ -20,7 +20,7 @@ struct NativeSink {
   uint64_t *kernel_id=nullptr;
   // Streaming PBP erases each clause by the id it was added with.
   tactix::PbpAddedIds pbp_ids;
-  FILE *records=nullptr;
+  StructuralJournal records;
   tactix::ramsey_certificate::Phase current=tactix::ramsey_certificate::Phase::StarOrder;
   uint32_t context=0;
   explicit NativeSink(Kernel &state,uint32_t extent,uint64_t initial_id,uint64_t action):fresh(extent),kernel(state),action_id(action),logical_id(initial_id){}
@@ -30,12 +30,12 @@ struct NativeSink {
     if(stopped || logical_id==UINT64_MAX || additions>addition_limit || adds>addition_limit-additions || fresh>namespace_limit || helpers>namespace_limit-fresh){stopped=true;return false;}
     additions+=adds;deletions+=dels;fresh+=helpers;return true;
   }
-  bool io_ok(){if(records && std::ferror(records)){stopped=true;return false;}return true;}
+  bool io_ok(){if(records.failed()){stopped=true;return false;}return true;}
   void event(const char *kind,const Clause &clause,bool rat=false) {
     if(!records)return;
-    std::fprintf(records,"{\"action\":%llu,\"kind\":\"%s\",\"phase\":%u,\"context\":%u,\"logical_id\":%llu,\"proof_additions_through\":%llu,\"proof_deletions_through\":%llu,\"rat\":%s,\"clause\":[",(unsigned long long)action_id,kind,unsigned(current),context,(unsigned long long)logical_id,(unsigned long long)additions,(unsigned long long)deletions,rat?"true":"false");
-    for(size_t i=0;i<clause.size();++i)std::fprintf(records,"%s%d",i?",":"",clause[i]);
-    std::fputs("]}\n",records);
+    records.print("{\"action\":%llu,\"kind\":\"%s\",\"phase\":%u,\"context\":%u,\"logical_id\":%llu,\"proof_additions_through\":%llu,\"proof_deletions_through\":%llu,\"rat\":%s,\"clause\":[",(unsigned long long)action_id,kind,unsigned(current),context,(unsigned long long)logical_id,(unsigned long long)additions,(unsigned long long)deletions,rat?"true":"false");
+    for(size_t i=0;i<clause.size();++i)records.print("%s%d",i?",":"",clause[i]);
+    records.put("]}\n");
   }
   bool phase(tactix::ramsey_certificate::Phase p,uint32_t detail) {
     if(!charge_work(1)){stopped=true;return false;}
@@ -48,7 +48,7 @@ struct NativeSink {
   bool record_definition(int32_t auxiliary,int32_t condition,int64_t high,int64_t low) {
     if(!charge_work(1))return false;
     ++definitions;mix(3);mix(auxiliary);mix(condition);mix(high);mix(low);
-    if(records)std::fprintf(records,"{\"action\":%llu,\"kind\":\"define-ite\",\"phase\":%u,\"context\":%u,\"auxiliary\":%d,\"condition\":%d,\"high\":%lld,\"low\":%lld}\n",(unsigned long long)action_id,unsigned(current),context,auxiliary,condition,(long long)high,(long long)low);
+    if(records)records.print("{\"action\":%llu,\"kind\":\"define-ite\",\"phase\":%u,\"context\":%u,\"auxiliary\":%d,\"condition\":%d,\"high\":%lld,\"low\":%lld}\n",(unsigned long long)action_id,unsigned(current),context,auxiliary,condition,(long long)high,(long long)low);
     return io_ok();
   }
   bool add(const Clause &clause,bool rat) {
@@ -83,14 +83,14 @@ struct NativeSink {
     ++logical_id;++sr;mix(7);mix(clause.size());for(auto l:clause)mix(l);
     mix(mapping.size());for(const auto &[from,to]:mapping){mix(from);mix(to);}mix(propagates);mix(unsigned(plan.form));mix(before);
     event("sr",clause);
-    if(records){std::fprintf(records,"{\"action\":%llu,\"kind\":\"witness\",\"mapping\":[",(unsigned long long)action_id);for(size_t i=0;i<mapping.size();++i)std::fprintf(records,"%s[%d,%d]",i?",":"",mapping[i].first,mapping[i].second);std::fputs("]}\n",records);}
+    if(records){records.print("{\"action\":%llu,\"kind\":\"witness\",\"mapping\":[",(unsigned long long)action_id);for(size_t i=0;i<mapping.size();++i)records.print("%s[%d,%d]",i?",":"",mapping[i].first,mapping[i].second);records.put("]}\n");}
     if(proof){*kernel_id=logical_id;if(!proof->add_sr(logical_id,lits.data(),lits.size(),nullptr,0,witness.data(),witness.size(),before,propagates)){stopped=true;return false;}pbp_ids.add(clause.data(),clause.size(),logical_id);}
     return io_ok();
   }
   bool inequality(const std::vector<std::pair<int32_t,int64_t>> &terms,int64_t bound,int64_t root,bool accumulated) {
     if(!charge_work(terms.size()+1))return false;
     ++inequalities;mix(8);mix(bound);mix(root);mix(accumulated);mix(terms.size());for(auto [v,c]:terms){mix(v);mix(c);}
-    if(records){std::fprintf(records,"{\"action\":%llu,\"kind\":\"inequality\",\"phase\":%u,\"context\":%u,\"accumulated\":%s,\"bound\":%lld,\"root\":%lld,\"terms\":[",(unsigned long long)action_id,unsigned(current),context,accumulated?"true":"false",(long long)bound,(long long)root);for(size_t i=0;i<terms.size();++i)std::fprintf(records,"%s[%d,%lld]",i?",":"",terms[i].first,(long long)terms[i].second);std::fputs("]}\n",records);}
+    if(records){records.print("{\"action\":%llu,\"kind\":\"inequality\",\"phase\":%u,\"context\":%u,\"accumulated\":%s,\"bound\":%lld,\"root\":%lld,\"terms\":[",(unsigned long long)action_id,unsigned(current),context,accumulated?"true":"false",(long long)bound,(long long)root);for(size_t i=0;i<terms.size();++i)records.print("%s[%d,%lld]",i?",":"",terms[i].first,(long long)terms[i].second);records.put("]}\n");}
     return io_ok();
   }
   bool same(const NativeSink &other)const {
@@ -193,24 +193,24 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
   Var first;
   if(!kernel_reserve_proof_variables(k,helpers,first))return result;
   if(first!=extent)std::abort();
-  FILE *out=request.records;
-  std::fprintf(out,"{\"action\":%llu,\"kind\":\"begin-ramsey-startup\",\"vertices\":%u,\"original_extent\":%u,\"fresh_begin\":%u,\"fresh_end\":%u,\"recognition_work\":%llu,\"certificate_work_limit\":%llu,\"node_limit\":%llu,\"addition_limit\":%llu,\"external_extent_limit\":%u,\"reconstruction\":\"terminal-unsat-no-model\"}\n",
+  const StructuralJournal out=request.records;
+  out.print("{\"action\":%llu,\"kind\":\"begin-ramsey-startup\",\"vertices\":%u,\"original_extent\":%u,\"fresh_begin\":%u,\"fresh_end\":%u,\"recognition_work\":%llu,\"certificate_work_limit\":%llu,\"node_limit\":%llu,\"addition_limit\":%llu,\"external_extent_limit\":%u,\"reconstruction\":\"terminal-unsat-no-model\"}\n",
     (unsigned long long)request.action_id,result.vertices,extent,extent+1,planned.fresh,
     (unsigned long long)result.recognition_work,(unsigned long long)request.certificate_work,
     (unsigned long long)request.maximum_nodes,(unsigned long long)request.maximum_additions,request.maximum_external_extent);
-  std::fprintf(out,"{\"action\":%llu,\"kind\":\"recognition-parameters\",\"clauses\":%llu,\"variables\":%llu,\"pair_cells\":%llu,\"work\":%llu}\n",(unsigned long long)request.action_id,(unsigned long long)request.recognition.clauses,(unsigned long long)request.recognition.variables,(unsigned long long)request.recognition.pair_cells,(unsigned long long)request.recognition.work);
+  out.print("{\"action\":%llu,\"kind\":\"recognition-parameters\",\"clauses\":%llu,\"variables\":%llu,\"pair_cells\":%llu,\"work\":%llu}\n",(unsigned long long)request.action_id,(unsigned long long)request.recognition.clauses,(unsigned long long)request.recognition.variables,(unsigned long long)request.recognition.pair_cells,(unsigned long long)request.recognition.work);
   for(size_t i=0;i<original.size();++i) {
-    std::fprintf(out,"{\"action\":%llu,\"kind\":\"original-premise\",\"occurrence\":%zu,\"clause\":[",(unsigned long long)request.action_id,i+1);
-    for(size_t j=0;j<original[i].size();++j)std::fprintf(out,"%s%d",j?",":"",original[i][j]);
-    std::fputs("]}\n",out);
+    out.print("{\"action\":%llu,\"kind\":\"original-premise\",\"occurrence\":%zu,\"clause\":[",(unsigned long long)request.action_id,i+1);
+    for(size_t j=0;j<original[i].size();++j)out.print("%s%d",j?",":"",original[i][j]);
+    out.put("]}\n");
   }
   for(const auto &source:recovered.sources)
-    std::fprintf(out,"{\"action\":%llu,\"kind\":\"k4-source\",\"vertices\":[%u,%u,%u,%u],\"positive_occurrence\":%llu,\"negative_occurrence\":%llu}\n",
+    out.print("{\"action\":%llu,\"kind\":\"k4-source\",\"vertices\":[%u,%u,%u,%u],\"positive_occurrence\":%llu,\"negative_occurrence\":%llu}\n",
       (unsigned long long)request.action_id,source.vertices[0],source.vertices[1],source.vertices[2],source.vertices[3],
       (unsigned long long)(source.positive_clause+1),(unsigned long long)(source.negative_clause+1));
   for(uint32_t a=0;a<result.vertices;++a)for(uint32_t b=a+1;b<result.vertices;++b)
-    std::fprintf(out,"{\"action\":%llu,\"kind\":\"edge-map\",\"vertices\":[%u,%u],\"literal\":%d}\n",(unsigned long long)request.action_id,a,b,recovered.edges[a][b]);
-  if(std::ferror(out))std::abort();
+    out.print("{\"action\":%llu,\"kind\":\"edge-map\",\"vertices\":[%u,%u],\"literal\":%d}\n",(unsigned long long)request.action_id,a,b,recovered.edges[a][b]);
+  if(out.failed())std::abort();
   NativeSink emitted(k,extent,k.next_clause_id,request.action_id);
   emitted.writing=true;emitted.proof=k.proof;emitted.kernel_id=&k.next_clause_id;emitted.records=out;
   emitted.work_limit=planned.work;emitted.node_limit=planned.nodes;
@@ -219,8 +219,8 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
   if(!ramsey_certificate::derive(recovered.edges,original,extent,emitted) || !emitted.same(planned))std::abort();
   // Advance logical IDs identically without a proof object as with one.
   k.next_clause_id=emitted.logical_id;
-  std::fprintf(out,"{\"action\":%llu,\"kind\":\"complete-ramsey-startup\",\"work\":%llu,\"additions\":%llu,\"deletions\":%llu,\"helpers\":%u}\n",(unsigned long long)request.action_id,(unsigned long long)emitted.work,(unsigned long long)emitted.additions,(unsigned long long)emitted.deletions,helpers);
-  if(std::fflush(out) || std::ferror(out))std::abort();
+  out.print("{\"action\":%llu,\"kind\":\"complete-ramsey-startup\",\"work\":%llu,\"additions\":%llu,\"deletions\":%llu,\"helpers\":%u}\n",(unsigned long long)request.action_id,(unsigned long long)emitted.work,(unsigned long long)emitted.additions,(unsigned long long)emitted.deletions,helpers);
+  out.flush();
   if(k.proof)k.proof->flush();
   k.close_startup_certificate();k.inconsistent=true;
   result.helpers=helpers;result.additions=emitted.additions;result.deletions=emitted.deletions;
@@ -233,19 +233,19 @@ ApplyResult ramsey_startup_action(Kernel &k) {
   if (!ramsey_startup_guard(k) || !p.valid() || !k.structural_provenance ||
       k.structural_action_sequence == UINT64_MAX) return ApplyResult::NoOp;
   const uint64_t action = ++k.structural_action_sequence;
-  FILE *out = k.structural_provenance;
-  std::fprintf(out, "{\"action\":%llu,\"kind\":\"action-context\",\"version\":1,\"rule\":\"Lucky\",\"instance\":22,\"strategy_epoch\":%llu,\"arena_generation\":%llu,\"touch_epoch\":%llu,\"proof_id_before\":%llu,\"external_extent\":%zu,\"original_variables\":%u,\"reconstruction\":\"terminal-unsat;proof-only-helpers\"}\n",
+  const StructuralJournal out = k.structural_provenance;
+  out.print("{\"action\":%llu,\"kind\":\"action-context\",\"version\":1,\"rule\":\"Lucky\",\"instance\":22,\"strategy_epoch\":%llu,\"arena_generation\":%llu,\"touch_epoch\":%llu,\"proof_id_before\":%llu,\"external_extent\":%zu,\"original_variables\":%u,\"reconstruction\":\"terminal-unsat;proof-only-helpers\"}\n",
       (unsigned long long)action, (unsigned long long)k.strategy_epoch,
       (unsigned long long)k.arena_generation, (unsigned long long)k.touch_epoch,
       (unsigned long long)k.next_clause_id, k.external_to_internal.size(),
       kernel_num_output_vars(k));
-  std::fprintf(out, "{\"action\":%llu,\"kind\":\"action-parameters\",\"recognition_clauses\":%llu,\"recognition_variables\":%llu,\"recognition_pair_cells\":%llu,\"recognition_work\":%llu,\"certificate_work\":%llu,\"maximum_nodes\":%llu,\"maximum_additions\":%llu,\"maximum_external_extent\":%u}\n",
+  out.print("{\"action\":%llu,\"kind\":\"action-parameters\",\"recognition_clauses\":%llu,\"recognition_variables\":%llu,\"recognition_pair_cells\":%llu,\"recognition_work\":%llu,\"certificate_work\":%llu,\"maximum_nodes\":%llu,\"maximum_additions\":%llu,\"maximum_external_extent\":%u}\n",
       (unsigned long long)action, (unsigned long long)p.recognition_clauses,
       (unsigned long long)p.recognition_variables, (unsigned long long)p.recognition_pair_cells,
       (unsigned long long)p.recognition_work, (unsigned long long)p.certificate_work,
       (unsigned long long)p.maximum_nodes, (unsigned long long)p.maximum_additions,
       p.maximum_external_extent);
-  if (std::ferror(out)) std::abort();
+  if (out.failed()) std::abort();
   const auto result = ramsey_startup_apply(k, {{p.recognition_clauses,
       p.recognition_variables, p.recognition_pair_cells, p.recognition_work},
       p.certificate_work, p.maximum_nodes, p.maximum_additions,
@@ -261,14 +261,14 @@ ApplyResult ramsey_startup_action(Kernel &k) {
   k.stats.ramsey_startup_interrupted += result.interrupted;
   k.stats.ramsey_startup_exhausted += result.exhausted;
   k.stats.ramsey_startup_unsat += result.result == ApplyResult::Unsat;
-  std::fprintf(out, "{\"action\":%llu,\"kind\":\"action-complete\",\"result\":%u,\"recognized\":%u,\"recognition_work\":%llu,\"certificate_work\":%llu,\"nodes\":%llu,\"additions\":%llu,\"deletions\":%llu,\"helpers\":%u,\"interrupted\":%u,\"exhausted\":%u,\"proof_id_after\":%llu}\n",
+  out.print("{\"action\":%llu,\"kind\":\"action-complete\",\"result\":%u,\"recognized\":%u,\"recognition_work\":%llu,\"certificate_work\":%llu,\"nodes\":%llu,\"additions\":%llu,\"deletions\":%llu,\"helpers\":%u,\"interrupted\":%u,\"exhausted\":%u,\"proof_id_after\":%llu}\n",
       (unsigned long long)action, static_cast<unsigned>(result.result),
       unsigned(result.recognized), (unsigned long long)result.recognition_work,
       (unsigned long long)result.certificate_work, (unsigned long long)result.nodes,
       (unsigned long long)result.additions, (unsigned long long)result.deletions,
       result.helpers, unsigned(result.interrupted), unsigned(result.exhausted),
       (unsigned long long)k.next_clause_id);
-  if (std::fflush(out) || std::ferror(out)) std::abort();
+  out.flush();
   return result.result;
 }
 } // namespace tactix

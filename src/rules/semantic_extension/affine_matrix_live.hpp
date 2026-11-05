@@ -5,7 +5,6 @@
 #include "rules/semantic_extension/affine_matrix_transaction.hpp"
 #include "proof/proof.hpp"
 
-#include <cstdio>
 #include <string>
 
 namespace tactix::affine_semantic_extension {
@@ -35,7 +34,7 @@ struct MatrixLiveRequest {
   uint32_t maximum_external_extent = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
   bool compact_provenance = false;
   bool retained_source_provenance = false;
   // Pure certificate preflight for an implication/conflict retained from an
@@ -137,7 +136,6 @@ public:
   bool ready() const { return ready_; }
   bool spent() const { return spent_; }
   const AffineMatrixTransaction &transaction() const { return transaction_; }
-  const std::string &journal() const { return journal_; }
   const std::vector<Lit> &physical_reason() const { return physical_reason_; }
   uint64_t retained_bytes() const;
 
@@ -178,7 +176,7 @@ private:
   std::vector<PbpParityEquation> pbp_equations_;
   PbpParityReasonPlan pbp_plan_;
   AffineMatrixTransaction transaction_;
-  std::string journal_;
+  std::string journal_; // spelled only for a stream; prepared_ holds its size
   MatrixLiveResult prepared_;
 };
 

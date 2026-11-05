@@ -2,9 +2,9 @@
 
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 #include "rules/semantic_extension/gf3_gaussian_certificate.hpp"
+#include "rules/structural_text.hpp"
 
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -39,7 +39,7 @@ struct Request {
   uint32_t maximum_external_extent = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
   // Empty retains the private batch API.  Public controller actions always
   // provide the exact canonical complete-batch identity returned by inspect().
   std::string selected_identity;
@@ -105,9 +105,9 @@ private:
   bool ready_ = false;
   bool spent_ = false;
   // A prepared transaction is bound to every semantic/resource parameter and
-  // to the exact FILE sink whose bytes were precomputed.  Publication rejects
-  // even a looser limit or a different sink rather than silently changing the
-  // action contract across the caller-visible gap.
+  // to the exact journal its record was prepared for. Publication rejects even
+  // a looser limit or a different journal, so the action contract cannot
+  // change across the caller-visible gap.
   Request request_;
   uint64_t starting_clause_id_ = 0;
   uint64_t arena_generation_ = 0;
@@ -119,7 +119,7 @@ private:
   std::vector<uint64_t> event_ids_;
   std::vector<uint8_t> install_;
   std::string batch_identity_;
-  std::string journal_;
+  JournalText journal_;
   Result prepared_;
 };
 

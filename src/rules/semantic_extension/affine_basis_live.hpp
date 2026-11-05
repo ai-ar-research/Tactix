@@ -3,9 +3,8 @@
 
 #include "rules/semantic_extension/affine_basis_plan.hpp"
 #include "rules/semantic_extension/affine_live.hpp"
+#include "rules/structural_text.hpp"
 
-#include <cstdio>
-#include <string>
 
 namespace tactix {
 
@@ -84,7 +83,7 @@ struct AffineBasisLiveRequest {
   uint32_t maximum_external_extent = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
   // A session-owned immutable pre-publication source view.  When supplied,
   // preparation replays recognition from this view and revalidates only the
   // exact selected row's sources against the live kernel.
@@ -190,7 +189,7 @@ private:
   AffineLiveSnapshot snapshot_;
   std::vector<uint64_t> source_occurrences_;
   std::vector<Event> events_;
-  std::string journal_;
+  JournalText journal_;
   std::vector<int32_t> existing_;
   std::vector<int32_t> introduced_;
   std::vector<AffineBasisProjectionRecord> projection_;

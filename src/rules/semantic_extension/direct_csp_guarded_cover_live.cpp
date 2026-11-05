@@ -1,18 +1,17 @@
 #include "rules/semantic_extension/direct_csp_guarded_cover_live.hpp"
 #include "proof/proof.hpp"
 
-#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_work.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 #include "rules/semantic_extension/live_adapter.hpp"
+#include "rules/structural_text.hpp"
 
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
 #include <map>
 #include <set>
-#include <sstream>
 
 namespace tactix {
 
@@ -167,13 +166,15 @@ namespace tactix {
 
     struct Prepared {
 
+      explicit Prepared(const StructuralJournal&records):journal(records){}
+
       DirectCspSupportLiveResult result;
 
       DirectCspGuardedCoverOwnerSnapshot owner;
 
       gc::Plan plan;
 
-      std::string journal;
+      JournalText journal;
 
       std::vector<Lit> literals;
 
@@ -349,37 +350,10 @@ namespace tactix {
         return;
       }
 
-      std::ostringstream journal;
-      journal<<"{\"kind\":\"direct-csp-guarded-cover-v2\",\"action_id\":"<<r.action_id<<",\"semantic_id\":"<<r.semantic_id<<",\"source\":[";
-
-      for(size_t i=0;i<p.owner.source.size();++i){
-        const auto&s=p.owner.source[i];
-        if(i)journal<<',';
-
-        journal<<"{\"occurrence\":"<<s.occurrence<<",\"native_id\":"<<s.native_proof_id<<",\"literals\":[";
-
-        for(size_t j=0;j<s.literals.size();++j){
-          if(j)journal<<',';
-          journal<<s.literals[j];
-        }
-        journal<<"]}";
-      }
-
-      journal<<"],\"clause_id\":"<<p.id<<",\"clause\":[";
-
-      for(size_t i=0;i<addition.clause.size();++i){
-        if(i)journal<<',';
-        journal<<addition.clause[i];
-      }
-
-      journal<<"],\"antecedents\":[";
-      for(size_t i=0;i<addition.antecedents.size();++i){
-        if(i)journal<<',';
-        journal<<addition.antecedents[i].id;
-      }
-
-      journal<<"],\"extent_growth\":0}\n";
-      p.journal=journal.str();
+      p.journal.put("{\"kind\":\"direct-csp-guarded-cover-v2\",\"action_id\":",r.action_id,",\"semantic_id\":",r.semantic_id,",\"source\":[",
+        journal_list(p.owner.source,[](auto&o,const auto&s){o("{\"occurrence\":",s.occurrence,",\"native_id\":",s.native_proof_id,",\"literals\":[",journal_list(s.literals),"]}");}),
+        "],\"clause_id\":",p.id,",\"clause\":[",journal_list(addition.clause),
+        "],\"antecedents\":[",journal_list(addition.antecedents,[](auto&o,const auto&a){o(a.id);}),"],\"extent_growth\":0}\n");
       out.journal_work=p.journal.size();
 
       if(p.journal.size()>r.maximum_journal_bytes){
@@ -483,14 +457,14 @@ namespace tactix {
   }
 
   DirectCspSupportLiveResult direct_csp_guarded_cover_live_preflight(Kernel&k,const DirectCspGuardedCoverLiveRequest&r){
-    Prepared p;
+    Prepared p(r.records);
     prepare(k,r,p);
     return p.result;
   }
 
   DirectCspSupportLiveResult direct_csp_guarded_cover_live_apply(Kernel&k,const DirectCspGuardedCoverLiveRequest&r){
 
-    Prepared p;
+    Prepared p(r.records);
     prepare(k,r,p);
     auto out=std::move(p.result);
     if(out.status!=Status::Applied)return out;
@@ -510,7 +484,7 @@ namespace tactix {
 
     else kernel_add_large_clause(k,p.literals.data(),p.literals.size(),true,p.literals.size(),id);
 
-    semantic_extension::write_journal_or_abort(r.records,p.journal);
+    p.journal.write(r.records);
 
     out.result=ApplyResult::Ok;
     out.emitted_additions=1;

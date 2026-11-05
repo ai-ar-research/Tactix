@@ -7,7 +7,6 @@
 #include "strategy/semantic_variable.hpp"
 
 #include <cstdint>
-#include <cstdio>
 #include <vector>
 
 namespace tactix {
@@ -51,7 +50,7 @@ struct NaryCspEqualityRequest {
   NaryCspEqualityLimits limits;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
 };
 
 enum class NaryCspEqualityLiveStatus : uint8_t {

@@ -33,7 +33,7 @@ public:
   }
 
   StructuralActionGuard &provenance() {
-    return fact("provenance-bound", kernel_.structural_provenance != nullptr);
+    return fact("provenance-bound", bool(kernel_.structural_provenance));
   }
 
   StructuralActionGuard &identity() {

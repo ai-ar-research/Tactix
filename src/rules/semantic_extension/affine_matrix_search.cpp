@@ -5,8 +5,8 @@
 #include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
-#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/structural_text.hpp"
 
 #include "kernel/types.hpp"
 
@@ -15,7 +15,6 @@
 #include <climits>
 #include <chrono>
 #include <cstdlib>
-#include <cstdio>
 #include <iterator>
 #include <map>
 #include <sstream>
@@ -181,31 +180,27 @@ bool deferred_exact_event_identity(
 }
 
 bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
-                                 uint64_t maximum, std::string &journal) {
-  journal.clear();
-  const auto append = [&](const std::string &text) {
-    return semantic_extension::append_bounded(journal, maximum, text);
+                                 uint64_t maximum, JournalText &journal) {
+  const auto append = [&](auto &&...pieces) {
+    return journal.append(maximum, std::forward<decltype(pieces)>(pieces)...);
   };
   const auto list = [&](const auto &values) {
     if (!append("[")) return false;
     for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i]))) return false;
+      if (!append(i ? "," : "", values[i])) return false;
     return append("]");
   };
-  if (!append("{\"kind\":\"affine-matrix-session\",\"owner\":" +
-              std::to_string(owner) + ",\"admission\":\"" +
-              (matrix.complete_admission() ? "complete" : "partial") +
-              "\",\"work\":" + std::to_string(matrix.work()) +
-              ",\"admitted_sources\":"))
+  if (!append("{\"kind\":\"affine-matrix-session\",\"owner\":", owner,
+              ",\"admission\":\"",
+              matrix.complete_admission() ? "complete" : "partial",
+              "\",\"work\":", matrix.work(), ",\"admitted_sources\":"))
     return false;
   if (!list(matrix.admitted_sources()) || !append(",\"rows\":["))
     return false;
   for (size_t i = 0; i < matrix.admitted_rows().size(); ++i) {
     const MatrixRow &row = matrix.admitted_rows()[i];
-    if (!append((i ? "," : "") + std::string("{\"variables\":")) ||
-        !list(row.variables) ||
-        !append(",\"rhs\":" + std::to_string(row.rhs) +
-                ",\"sources\":") ||
+    if (!append(i ? "," : "", "{\"variables\":") || !list(row.variables) ||
+        !append(",\"rhs\":", row.rhs, ",\"sources\":") ||
         !list(row.source_equations) || !append("}"))
       return false;
   }
@@ -1150,7 +1145,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
     }
   }
-  std::string initialization_journal;
+  JournalText initialization_journal(kernel.structural_provenance);
   if (!make_initialization_journal(owner_version, matrix,
                                    parameters.maximum_journal_bytes,
                                    initialization_journal)) {
@@ -1159,67 +1154,63 @@ AffineMatrixInitResult affine_matrix_search_initialize(
                        AffineMatrixInitStatus::ResourceExhausted);
   }
   if (persistence.maximum_retained_bytes) {
-    const auto append = [&](const std::string &part) {
-      return add_bounded(part.size(), parameters.maximum_session_work,
-                         result.premise_retention_work) &&
-             semantic_extension::append_bounded(
-                 initialization_journal, parameters.maximum_journal_bytes,
-                 part);
+    const auto append = [&](auto &&...pieces) {
+      return initialization_journal.append_if(
+          parameters.maximum_journal_bytes,
+          [&](uint64_t size) {
+            return add_bounded(size, parameters.maximum_session_work,
+                               result.premise_retention_work);
+          },
+          std::forward<decltype(pieces)>(pieces)...);
     };
-    bool journal_fits = append("{\"kind\":\"affine-matrix-retained-sources\",\"owner\":" +
-        std::to_string(owner_version) + ",\"maximum_retained_bytes\":" +
-        std::to_string(persistence.maximum_retained_bytes) +
-        ",\"maximum_deferred_deletions\":" + std::to_string(persistence.maximum_deferred_deletions) +
-        ",\"maximum_deferred_literal_work\":" + std::to_string(persistence.maximum_deferred_literal_work) +
+    bool journal_fits = append("{\"kind\":\"affine-matrix-retained-sources\",\"owner\":",
+        owner_version, ",\"maximum_retained_bytes\":", persistence.maximum_retained_bytes,
+        ",\"maximum_deferred_deletions\":", persistence.maximum_deferred_deletions,
+        ",\"maximum_deferred_literal_work\":", persistence.maximum_deferred_literal_work,
         ",\"sources\":[");
     for (size_t i = 0; journal_fits && i < image.equations.size(); ++i) {
       const auto &equation = image.equations[i];
-      journal_fits = append((i ? "," : "") + std::string("{\"ordinal\":") +
-          std::to_string(i) + ",\"variables\":[");
+      journal_fits = append(i ? "," : "", "{\"ordinal\":", i, ",\"variables\":[");
       for(size_t j=0;journal_fits&&j<equation.variables.size();++j)
-        journal_fits &= append((j ? "," : "")+
-                               std::to_string(equation.variables[j]));
-      journal_fits &= append("],\"rhs\":" + std::to_string(equation.rhs) +
-                             ",\"premises\":[");
+        journal_fits &= append(j ? "," : "", equation.variables[j]);
+      journal_fits &= append("],\"rhs\":", equation.rhs, ",\"premises\":[");
       for (size_t j = 0; journal_fits && j < equation.premises.size(); ++j) {
         const auto &source = owner.sources[equation.premises[j] - 1];
-        journal_fits = append((j ? "," : "") + std::string("{\"occurrence\":") +
-            std::to_string(source.occurrence) + ",\"clause_id\":" +
-            std::to_string(source.clause_id) + ",\"proof_id_exact\":" +
-            std::to_string(source.proof_id_exact) + ",\"clause\":[");
+        journal_fits = append(j ? "," : "", "{\"occurrence\":", source.occurrence,
+            ",\"clause_id\":", source.clause_id, ",\"proof_id_exact\":",
+            source.proof_id_exact, ",\"clause\":[");
         for (size_t l = 0; journal_fits && l < source.clause.size(); ++l)
-          journal_fits = append((l ? "," : "") + std::to_string(source.clause[l]));
+          journal_fits = append(l ? "," : "", source.clause[l]);
         journal_fits &= append("]}");
       }
       journal_fits &= append("]}");
     }
     journal_fits &= append("]}\n");
     if(!proof_copies.empty()) {
-      journal_fits &= append("{\"kind\":\"affine-root-normalization\",\"owner\":"+
-          std::to_string(owner_version)+",\"root_facts\":[");
+      journal_fits &= append("{\"kind\":\"affine-root-normalization\",\"owner\":",
+          owner_version, ",\"root_facts\":[");
       for(size_t i=0;journal_fits&&i<root_facts.size();++i)
-        journal_fits &= append((i?",":"")+std::to_string(root_facts[i]));
+        journal_fits &= append(i?",":"", root_facts[i]);
       journal_fits &= append("],\"oracle_sources\":[");
       for(size_t i=0;journal_fits&&i<full_owner.sources.size();++i) {
         const auto &source=full_owner.sources[i];
-        journal_fits &= append((i?",":"")+std::string("{\"kind\":")+
-            std::to_string(unsigned(source.kind))+",\"clause_id\":"+
-            std::to_string(source.clause_id)+",\"proof_id_exact\":"+
-            std::to_string(source.proof_id_exact)+",\"clause\":[");
+        journal_fits &= append(i?",":"", "{\"kind\":", unsigned(source.kind),
+            ",\"clause_id\":", source.clause_id, ",\"proof_id_exact\":",
+            source.proof_id_exact, ",\"clause\":[");
         for(size_t j=0;journal_fits&&j<source.clause.size();++j)
-          journal_fits &= append((j?",":"")+std::to_string(source.clause[j]));
+          journal_fits &= append(j?",":"", source.clause[j]);
         journal_fits &= append("]}");
       }
       journal_fits &= append("],\"shortened_clause_ids\":[");
       for(size_t i=0;journal_fits&&i<proof_copies.size();++i)
-        journal_fits &= append((i?",":"")+std::to_string(owner.sources[proof_copies[i]].clause_id));
+        journal_fits &= append(i?",":"", owner.sources[proof_copies[i]].clause_id);
       journal_fits &= append("]}\n");
     }
     if (!journal_fits) {
       return finish_init(kernel, result, AffineMatrixInitStatus::ResourceExhausted);
     }
   }
-  const long journal_position = std::ftell(kernel.structural_provenance);
+  const long journal_position = kernel.structural_provenance.tell();
   if (journal_position < 0) {
     return finish_init(kernel, result, AffineMatrixInitStatus::Invalid);
   }
@@ -1344,12 +1335,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   candidate.source_owner_ = std::move(owner);
   candidate.image_ = std::move(image);
   candidate.matrix_ = std::move(matrix);
-  if (std::fwrite(initialization_journal.data(), 1,
-                  initialization_journal.size(),
-                  kernel.structural_provenance) !=
-          initialization_journal.size() ||
-      std::fflush(kernel.structural_provenance))
-    std::abort();
+  initialization_journal.write(kernel.structural_provenance);
   if (persistence.maximum_retained_bytes && session.persistent())
     session.premise_leases_.clear();
   session.disable(kernel);
@@ -1637,8 +1623,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   std::vector<Proof::PremiseGroup> groups;
   uint64_t retained_bytes = session.retained_bytes_;
   uint64_t next_id = kernel.next_clause_id;
-  std::ostringstream journal;
-  journal << "{\"kind\":\"affine-matrix-aliases\",\"owner\":" << session.owner_version_ << ",\"aliases\":[";
+  JournalText journal(session.records_);
+  journal.put("{\"kind\":\"affine-matrix-aliases\",\"owner\":", session.owner_version_, ",\"aliases\":[");
   for (auto [source, target] : selected) {
     if (!reachable(source, target) || !reachable(negate(source), negate(target))) {
       if (kernel_terminating(kernel) || allowance_exhausted)
@@ -1670,9 +1656,9 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
       owner.premises.push_back({premise.occurrence, clause});
       owner.sources.push_back(std::move(premise)); owner.literals += clause.size();
     }
-    if (!groups.empty()) journal << ',';
-    journal << "{\"source\":" << from << ",\"representative\":" << to
-            << ",\"first_clause_id\":" << next_id - 1 << '}';
+    if (!groups.empty()) journal.put(",");
+    journal.put("{\"source\":", from, ",\"representative\":", to,
+                ",\"first_clause_id\":", next_id - 1, "}");
     groups.push_back(equation.premise_clauses);
     image.equations.push_back(std::move(equation));
     const uint64_t bytes = 4 * (sizeof(Equation) + 2 * sizeof(External) +
@@ -1704,8 +1690,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     premise.clause = {literal}; equation.premises = {premise.occurrence};
     owner.premises.push_back({premise.occurrence, premise.clause});
     owner.sources.push_back(std::move(premise)); ++owner.literals;
-    if (!groups.empty()) journal << ',';
-    journal << "{\"root_unit\":" << literal << ",\"clause_id\":" << next_id << '}';
+    if (!groups.empty()) journal.put(",");
+    journal.put("{\"root_unit\":", literal, ",\"clause_id\":", next_id, "}");
     groups.push_back(equation.premise_clauses); image.equations.push_back(std::move(equation));
     const uint64_t bytes = 4 * (sizeof(Equation) + sizeof(External) + sizeof(uint64_t) +
         sizeof(std::vector<External>) + sizeof(External)) +
@@ -1737,9 +1723,9 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   if (row_growth > session.persistence_.maximum_retained_bytes -
       std::min(retained_bytes, session.persistence_.maximum_retained_bytes)) return exhausted();
   retained_bytes += row_growth;
-  journal << "]}\n";const auto record = journal.str();
-  if (!charge(record.size()) || record.size() > session.parameters_.maximum_journal_bytes ||
-      std::ftell(session.records_) < 0) return exhausted();
+  journal.put("]}\n");
+  if (!charge(journal.size()) || journal.size() > session.parameters_.maximum_journal_bytes ||
+      session.records_.tell() < 0) return exhausted();
   auto retained_handles = session.premise_leases_;
   retained_handles.reserve(retained_handles.size() + groups.size());
   if (session.matrix_index_bytes_ > session.persistence_.maximum_retained_bytes -
@@ -1779,8 +1765,7 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   if (kernel.proof->premise_epoch() != committed_premise_epoch) std::abort();
   for (uint64_t handle : handles)
     if (!kernel.proof->premise_group_active(handle)) std::abort();
-  if (std::fwrite(record.data(), 1, record.size(), session.records_) != record.size() ||
-      std::fflush(session.records_)) std::abort();
+  journal.write(session.records_);
   session.matrix_row_bytes_ = row_reserve;
   session.image_ = std::move(image); session.source_owner_ = std::move(owner);
   session.matrix_ = std::move(matrix); ++session.owner_version_;
@@ -1807,7 +1792,7 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   session.matrix_index_bytes_ = 0;
   result.proof_additions = 0; for (const auto &group : groups) result.proof_additions += group.size();
   result.retained_aliases = groups.size();
-  result.journal_bytes = record.size(); result.result = ApplyResult::Ok;
+  result.journal_bytes = journal.size(); result.result = ApplyResult::Ok;
   return finish(AffineMatrixServiceStatus::Applied);
 }
 

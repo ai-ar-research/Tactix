@@ -170,12 +170,14 @@ ramsey 40000
 ramsey end
 SWITCHES
 
-# One search: no proof and every format take the same search, whatever is written.
+# One search: no proof, every format and a named journal take the same search,
+# whatever is written.
 for name in plain tseitin xor parity ramsey; do
   run "$name-none" 20 "$tmp/$name.cnf"
+  run "$name-journal" 20 --structural-provenance="$tmp/$name.jsonl" "$tmp/$name.cnf"
   run "$name-only-dsr" 20 --dsr "$tmp/$name.cnf" "$tmp/$name.only-dsr"
   run "$name-only-text" 20 --dsr --no-binary "$tmp/$name.cnf" "$tmp/$name.only-text"
-  for other in none only-dsr only-text; do
+  for other in none journal only-dsr only-text; do
     diff <(mask "$tmp/$name-pbp.out") <(mask "$tmp/$name-$other.out")
   done
   not_pbp "$tmp/$name.only-dsr"
