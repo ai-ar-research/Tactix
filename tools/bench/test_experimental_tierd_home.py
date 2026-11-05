@@ -399,6 +399,52 @@ class RecheckPreparation(unittest.TestCase):
                               for r in filtered_rows], [('0', '2', 'timeout')])
 
 
+class PatchedDratTrim(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.clone = self.root / 'drat-trim'
+        self.clone.mkdir()
+        git = ['git', '-C', str(self.clone), '-c', 'user.name=t', '-c', 'user.email=t@t']
+        self.source = self.clone / 'drat-trim.c'
+        self.source.write_text('int main(void) { return 0; }\n')
+        subprocess.run([*git, 'init', '-q'], check=True)
+        subprocess.run([*git, 'add', 'drat-trim.c'], check=True)
+        subprocess.run([*git, 'commit', '-qm', 'upstream'], check=True)
+        self.commit = subprocess.run([*git, 'rev-parse', 'HEAD'], capture_output=True,
+                                     text=True, check=True).stdout.strip()
+        self.source.write_text('int main(void) { return 1; }\n')
+        self.patch = self.root / et.DRAT_TRIM_PATCH
+        self.patch.parent.mkdir(parents=True)
+        self.patch.write_bytes(subprocess.run(
+            [*git, 'diff', '--binary', '--unified=0', self.commit, '--'],
+            capture_output=True, check=True).stdout)
+        self.binary = self.clone / 'drat-trim'
+        self.binary.write_text('built\n')
+
+    def test_pins_the_checkout_that_carries_exactly_the_patch(self):
+        with mock.patch.object(et, 'DRAT_TRIM_COMMIT', self.commit):
+            binary, provenance = et.patched_drat_trim(self.root)
+        self.assertEqual(binary, self.binary)
+        self.assertEqual(provenance['upstream_commit'], self.commit)
+        self.assertEqual(provenance['patch_sha256'],
+                         hashlib.sha256(self.patch.read_bytes()).hexdigest())
+
+    def test_rejects_a_checkout_that_differs_from_the_patch(self):
+        self.source.write_text('int main(void) { return 2; }\n')
+        os.utime(self.binary)
+        with mock.patch.object(et, 'DRAT_TRIM_COMMIT', self.commit):
+            with self.assertRaisesRegex(ValueError, 'exactly the pinned patch'):
+                et.patched_drat_trim(self.root)
+
+    def test_rejects_a_binary_older_than_its_source(self):
+        os.utime(self.binary, (1, 1))
+        with mock.patch.object(et, 'DRAT_TRIM_COMMIT', self.commit):
+            with self.assertRaisesRegex(ValueError, 'older than its source'):
+                et.patched_drat_trim(self.root)
+
+
 class CertificateNone(unittest.TestCase):
     """certificate none: proof-free solving, models checked, no proof pins."""
 
