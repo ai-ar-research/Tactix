@@ -2280,6 +2280,8 @@ bool Proof::retain_premise_groups_impl(const std::vector<PremiseGroup> &groups,
   if (input_transaction_ || !commit_clause_stream()) return false;
   leased_premises_.swap(premises); premise_groups_.swap(retained);
   next_premise_group_ = next; premise_literals_ = literals; premise_bytes_ = bytes;
+  for (const uint64_t handle : candidate)
+    count_premise_variables(premise_groups_.at(handle), true);
   for (const auto &group : groups)
     for (const auto &clause : group)
       premise_maximum_width_ = std::max<uint32_t>(premise_maximum_width_, clause.size());
@@ -2340,6 +2342,7 @@ void Proof::release_premise_groups_impl(const std::vector<uint64_t> &handles,
     add_saturating(premise_maintenance_work_, maintenance);
     PremiseGroup clauses = std::move(group->second);
     premise_groups_.erase(group); changed = true;
+    count_premise_variables(clauses, false);
     for (const auto &clause : clauses) {
       auto found = leased_premises_.find(clause);
       if (found == leased_premises_.end() || !found->second.users) std::abort();
@@ -2365,15 +2368,24 @@ void Proof::release_premise_groups_impl(const std::vector<uint64_t> &handles,
   if (changed && ++premise_epoch_ == 0) std::abort();
 }
 
+void Proof::count_premise_variables(const PremiseGroup &group, bool add) {
+  for (const auto &clause : group)
+    for (const int32_t literal : clause) {
+      const uint32_t variable = external_variable_of(literal);
+      if (variable >= premise_variable_uses_.size())
+        premise_variable_uses_.resize(variable + 1, 0);
+      uint32_t &uses = premise_variable_uses_[variable];
+      if (add ? uses == UINT32_MAX : !uses)
+        std::abort();
+      add ? ++uses : --uses;
+    }
+}
+
 void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
     uint32_t size, const Lit *true_lits, uint32_t ntrue,
     const DsrLiteralMapping *mappings, uint32_t nmappings) {
   if (premise_groups_.empty()) return;
   const uint64_t changed_bound = 1 + uint64_t(ntrue) + nmappings;
-  const uint64_t work = 1 + premise_groups_.size() +
-      changed_bound * (2 * std::bit_width(changed_bound) + 2) +
-      premise_literals_ * (std::bit_width(changed_bound) + 1);
-  add_saturating(premise_maintenance_work_, work);
   std::vector<uint32_t> changed;
   const auto take = [&](Lit lit) {
     changed.push_back(var_of(checker_lit(lit)) + 1);
@@ -2383,6 +2395,26 @@ void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
   for (uint32_t i = 0; i < ntrue; ++i) take(true_lits[i]);
   for (uint32_t i = 0; i < nmappings; ++i) take(mappings[i].from);
   std::sort(changed.begin(), changed.end());
+  add_saturating(premise_maintenance_work_, changed_bound);
+  bool leased = false;
+  for (const uint32_t variable : changed)
+    leased |= variable < premise_variable_uses_.size() &&
+              premise_variable_uses_[variable];
+#ifndef NDEBUG
+  // The counts must agree with the scan they replace.
+  bool scanned = false;
+  for (const auto &entry : premise_groups_)
+    for (const auto &clause : entry.second)
+      for (const int32_t literal : clause)
+        scanned |= std::binary_search(changed.begin(), changed.end(),
+                                      external_variable_of(literal));
+  assert(leased == scanned);
+#endif
+  if (!leased) return; // Most RAT pivots here are fresh helper variables.
+  const uint64_t work = 1 + premise_groups_.size() +
+      changed_bound * (2 * std::bit_width(changed_bound) + 2) +
+      premise_literals_ * (std::bit_width(changed_bound) + 1);
+  add_saturating(premise_maintenance_work_, work);
   std::vector<uint64_t> retire;
   for (const auto &[handle, clauses] : premise_groups_) {
     bool touched = false;

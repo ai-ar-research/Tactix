@@ -563,6 +563,10 @@ private:
   uint64_t premise_pending_deletion_cap_ = UINT64_MAX, premise_pending_work_cap_ = UINT64_MAX;
   uint32_t premise_maximum_width_ = 0;
   uint64_t premise_maintenance_work_ = 0;
+  // Occurrences of each external variable in premise_groups_, so a line whose
+  // pivot and witness touch no lease need not scan them.
+  std::vector<uint32_t> premise_variable_uses_;
+  void count_premise_variables(const PremiseGroup &, bool add);
   bool defer_leased_deletion(const int32_t *, uint32_t);
   void invalidate_premises_for_sr(uint64_t, const Lit *, uint32_t,
       const Lit *, uint32_t, const DsrLiteralMapping *, uint32_t);
