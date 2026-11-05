@@ -139,10 +139,24 @@ ramsey 40000
 ramsey end
 SWITCHES
 
-# Past the DSR limit a run stays on DSR: GF(2) reasons take their clausal
-# certificate, the startup refutation declines, and the end-of-run rule keeps DSR.
+# One search: no proof and every format take the same search, whatever is written.
 for name in plain tseitin xor ramsey; do
+  run "$name-none" 20 "$tmp/$name.cnf"
+  run "$name-only-dsr" 20 --dsr "$tmp/$name.cnf" "$tmp/$name.only-dsr"
+  run "$name-only-text" 20 --dsr --no-binary "$tmp/$name.cnf" "$tmp/$name.only-text"
+  for other in none only-dsr only-text; do
+    diff <(mask "$tmp/$name-pbp.out") <(mask "$tmp/$name-$other.out")
+  done
+  not_pbp "$tmp/$name.only-dsr"
+  check "$tmp/$name.cnf" "$tmp/$name.only-dsr" "$(sed -n 's/^c proof-route dsr-cake_lpr$/drat/p; s/^c proof-route dsr-trestle$/dsr/p' "$tmp/$name-only-dsr.out")"
+  check "$tmp/$name.cnf" "$tmp/$name.only-text" "$(sed -n 's/^c proof-route dsr-cake_lpr$/drat/p; s/^c proof-route dsr-trestle$/dsr/p' "$tmp/$name-only-text.out")"
+done
+
+# Past the DSR limit a run stays on DSR with the same search: parity reasons are
+# spelled in clauses. A startup refutation still converts, having no prefix.
+for name in plain xor ramsey; do
   TACTIX_AUTO_PROOF_DSR_LIMIT=0 run "$name-limit" 20 "$tmp/$name.cnf" "$tmp/$name.limit"
+  diff <(mask "$tmp/$name-pbp.out") <(mask "$tmp/$name-limit.out")
   grep -qx 'c auto-proof    dsr-selected' "$tmp/$name-limit.out" || { echo "$name limit: reason"; cat "$tmp/$name-limit.out"; exit 1; }
   grep -q '^c auto-proof-switch dsr-limit' "$tmp/$name-limit.out" || { echo "$name limit: state"; cat "$tmp/$name-limit.out"; exit 1; }
   not_pbp "$tmp/$name.limit"

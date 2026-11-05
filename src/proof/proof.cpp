@@ -1,6 +1,7 @@
 #include "proof/proof.hpp"
 #include "kernel/types.hpp"
 #include "proof/dsr_to_pbp.hpp"
+#include "rules/lucky/parity_certificate.hpp"
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 #include "diagnostics/rule_journal.hpp"
 #endif
@@ -30,6 +31,15 @@
 #endif
 
 namespace tactix {
+
+namespace {
+// One route for a proof that cannot be written: say why and stop, with no verdict.
+[[noreturn]] void proof_error(const char *what) {
+  std::fflush(stdout);
+  std::fprintf(stderr, "tactix: proof error: %s\n", what);
+  std::_Exit(1);
+}
+} // namespace
 
 namespace {
 
@@ -573,11 +583,14 @@ void Proof::put_external_lit(Lit l) {
 
 void Proof::put_external_dimacs(int32_t e) {
   assert(e && e != INT32_MIN);
-  if (census_on_) {
-    ++census_line_literals_;
-    for (uint32_t u = (external_variable_of(e) << 1) | (e < 0); ++census_dsr_bytes_, u >= 128;)
+  const int32_t name = static_cast<int32_t>(checker_variable(external_variable_of(e)));
+  put_checker_literal(e < 0 ? -name : name);
+}
+
+void Proof::put_checker_literal(int32_t e) {
+  if (copy_role_)
+    for (uint32_t u = (external_variable_of(e) << 1) | (e < 0); ++dsr_bytes_written_, u >= 128;)
       u >>= 7;
-  }
   if (binary()) {
     const uint32_t magnitude = external_variable_of(e);
     uint32_t u = (magnitude << 1) | (e < 0);
@@ -1108,29 +1121,22 @@ void Proof::end_line() {
     put_byte(0);
   else
     fputs("0\n", file_);
-  if (census_on_) {
-    ++census_dsr_bytes_;
-    census_.line(census_line_deletion_, census_line_literals_);
-    census_line_deletion_ = false;
-    census_line_literals_ = 0;
-  }
+  if (copy_role_)
+    ++dsr_bytes_written_;
 }
 
 void Proof::put_line_tag(bool deletion) {
   // In the copy: the ordinals of witness-free RAT additions, which the DSR
   // text does not distinguish from RUP.
-  if (census_on_ && !deletion) {
+  if (copy_role_ && !deletion) {
     if (next_addition_rat_) {
       rat_additions_.push_back(additions_);
       next_addition_rat_ = false;
     }
     ++additions_;
   }
-  if (census_on_) {
-    ++census_dsr_bytes_;
-    census_line_deletion_ = deletion;
-    census_line_literals_ = 0;
-  }
+  if (copy_role_)
+    ++dsr_bytes_written_;
   if (format_ == ProofFormat::DsrBinary)
     put_byte(deletion ? 2 : 1);
   else if (deletion) {
@@ -1355,10 +1361,7 @@ void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size) {
   } else {
     // DSR: a witnessless addition with the pivot ordered first. The checker
     // first tries RUP and then infers first-literal RAT.
-    if (census_on_) {
-      census_.non_rup_line(false);
-      next_addition_rat_ = true;
-    }
+    next_addition_rat_ = copy_role_;
     put_clausal_line(false, lits, size);
   }
   population_add(id, lits, size);
@@ -1441,8 +1444,6 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                     CheckerClauseRole::SubstitutionRedundancy, id, id,
                     internal_view(lits, size));
     has_sr_witness_ = true;
-    if (census_on_)
-      census_.non_rup_line(true);
     return true;
   }
   if (!dsr())
@@ -1476,7 +1477,7 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
     // The first clause is RAT on a fresh variable. Under the negation of
     // the second clause, the original X7 obligations hold; the first clause's
     // image is exactly the already-validated candidate image C|sigma.
-    next_addition_rat_ = census_on_;
+    next_addition_rat_ = copy_role_;
     temporary(false, true);
     end_line();
     PopulationClauseView negative_helper = internal_view(lits, size);
@@ -1521,8 +1522,6 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                     negative_helper, true);
     population_add(id, lits, size);
     has_sr_witness_ = true;
-    if (census_on_)
-      census_.non_rup_line(true);
     return true;
   }
   const Lit emitted_pivot = lits[plan.pivot];
@@ -1576,8 +1575,6 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                   id, id, emitted_clause);
   if (plan.form != DsrWitnessForm::Rup) {
     has_sr_witness_ = true;
-    if (census_on_)
-      census_.non_rup_line(true);
   }
   if (plan.form == DsrWitnessForm::Lemma) {
     put_emitted(true, true);
@@ -1742,7 +1739,7 @@ bool Proof::add_external_rup_impl(uint64_t id, const int32_t *lits,
     note_pbp_derived(id, size, [lits] { return lits; });
   } else {
     next_addition_rat_ =
-        census_on_ && population_role_ == CheckerClauseRole::ExternalRat;
+        copy_role_ && population_role_ == CheckerClauseRole::ExternalRat;
     put_line_tag(false);
     for (uint32_t i = 0; i < size; ++i) {
       proof_external_max_ =
@@ -1788,8 +1785,6 @@ bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
   }
   // DSR infers RAT from the first literal after RUP fails, so its byte stream
   // is identical to an external RUP addition.
-  if (census_on_ && size && lits && file_)
-    census_.non_rup_line(false);
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::ExternalRat;
   const bool result = add_external_rup_impl(id, lits, size);
@@ -1797,14 +1792,133 @@ bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
   return result;
 }
 
+uint32_t Proof::new_helper() {
+  const uint32_t extent = external_variable_bound();
+  const uint32_t before = helper_names_.empty() ? 0 : helper_names_.back().helpers;
+  if (uint64_t{extent} + before + 1 > static_cast<uint64_t>(INT32_MAX))
+    proof_error("the DSR proof ran out of 32-bit variable names");
+  if (helper_names_.empty() || helper_names_.back().extent != extent)
+    helper_names_.push_back({extent, before + 1});
+  else
+    ++helper_names_.back().helpers;
+  return extent + before + 1;
+}
+
+uint32_t Proof::checker_variable(uint32_t solver_variable) const {
+  if (helper_names_.empty() || solver_variable <= helper_names_.front().extent)
+    return solver_variable;
+  const auto after = std::lower_bound(
+      helper_names_.begin(), helper_names_.end(), solver_variable,
+      [](const HelperNames &entry, uint32_t variable) {
+        return entry.extent < variable;
+      });
+  return solver_variable + std::prev(after)->helpers;
+}
+
+// Writes one parity certificate to the DSR copy. Dense variable i+1 is
+// variables[i]; dense variables beyond them are this certificate's helpers.
+struct Proof::ParityWriter {
+  Proof &proof;
+  const std::vector<int32_t> &variables;
+  std::vector<uint32_t> helpers;
+
+  int32_t checker_literal(int32_t dense) const {
+    const uint32_t at = external_variable_of(dense);
+    const uint32_t name = at <= variables.size()
+        ? proof.checker_variable(static_cast<uint32_t>(variables[at - 1]))
+        : helpers[at - variables.size() - 1];
+    return dense < 0 ? -static_cast<int32_t>(name) : static_cast<int32_t>(name);
+  }
+  void line(const int32_t *lits, uint32_t size, bool deletion, bool rat) {
+    if (!deletion)
+      proof.next_addition_rat_ = proof.copy_role_ && rat;
+    proof.put_line_tag(deletion);
+    for (uint32_t i = 0; i < size; ++i)
+      proof.put_checker_literal(checker_literal(lits[i]));
+    proof.end_line();
+  }
+  bool add(const parity_certificate::SmallClause &clause, bool rat) {
+    line(clause.lits.data(), clause.size, false, rat);
+    return true;
+  }
+  bool add(const std::vector<int32_t> &clause, bool rat) {
+    line(clause.data(), static_cast<uint32_t>(clause.size()), false, rat);
+    return true;
+  }
+  bool erase(const parity_certificate::SmallClause &clause) {
+    line(clause.lits.data(), clause.size, true, false);
+    return true;
+  }
+  bool new_variable(int32_t &variable) {
+    helpers.push_back(proof.new_helper());
+    variable = static_cast<int32_t>(variables.size() + helpers.size());
+    return true;
+  }
+};
+
+void Proof::write_parity_reason(const std::vector<PbpParityEquation> &equations,
+                                const int32_t *reason, uint32_t reason_size) {
+  flush_pending_dsr_units();
+  std::vector<int32_t> variables;
+  for (const PbpParityEquation &equation : equations)
+    variables.insert(variables.end(), equation.variables.begin(),
+                     equation.variables.end());
+  for (uint32_t i = 0; i < reason_size; ++i)
+    variables.push_back(static_cast<int32_t>(external_variable_of(reason[i])));
+  std::sort(variables.begin(), variables.end());
+  variables.erase(std::unique(variables.begin(), variables.end()), variables.end());
+  if (!variables.empty())
+    proof_external_max_ = std::max(proof_external_max_,
+                                   static_cast<uint32_t>(variables.back()));
+  const auto dense = [&](int32_t variable) {
+    return static_cast<int32_t>(
+        std::lower_bound(variables.begin(), variables.end(), variable) -
+        variables.begin() + 1);
+  };
+  std::vector<parity_certificate::Equation> dense_equations;
+  dense_equations.reserve(equations.size());
+  for (const PbpParityEquation &equation : equations) {
+    parity_certificate::Equation row;
+    if (equation.variables.size() > row.variables.size())
+      proof_error("a parity equation is wider than its certificate");
+    for (const int32_t variable : equation.variables)
+      row.variables[row.size++] = dense(variable);
+    row.rhs = equation.rhs;
+    dense_equations.push_back(row);
+  }
+  ParityWriter writer{*this, variables, {}};
+  parity_certificate::Certificate<ParityWriter> certificate(
+      writer, static_cast<uint32_t>(variables.size()), UINT32_MAX);
+  if (!certificate.accumulate(dense_equations))
+    proof_error("a parity reason has no clausal certificate");
+  if (!reason_size) {
+    if (!certificate.refuted())
+      proof_error("a parity refutation has no clausal certificate");
+    return;
+  }
+  std::vector<int32_t> dense_reason;
+  dense_reason.reserve(reason_size);
+  for (uint32_t i = 0; i < reason_size; ++i) {
+    const int32_t variable = dense(static_cast<int32_t>(external_variable_of(reason[i])));
+    dense_reason.push_back(reason[i] < 0 ? -variable : variable);
+  }
+  if (!certificate.export_reason(dense_reason) || !certificate.retire_helpers())
+    proof_error("a parity reason has no clausal certificate");
+}
+
+void Proof::write_parity_refutation(const std::vector<PbpParityEquation> &equations) {
+  dsr_copy_->write_parity_reason(equations, nullptr, 0);
+  if (!commit_clause_stream())
+    proof_error("cannot publish the proof stream");
+  finish_streaming_pbp_unsat();
+  settle_dsr_copy();
+}
+
 bool Proof::plan_pbp_parity_reason(
     const std::vector<PbpParityEquation> &equations, const int32_t *reason,
     uint32_t reason_size, uint32_t starting_external_extent,
     const PbpParityBoundsCache &cache, PbpParityReasonPlan &output) const {
   PbpParityReasonPlan plan;
-  // Past the DSR limit the reason takes its clausal certificate instead.
-  if (conversion_barred())
-    return false;
   if (!streaming_pbp() || !file_ || input_transaction_ || pbp_output_ ||
       streaming_pbp_finished_ || equations.empty() ||
       (!reason && reason_size) ||
@@ -1911,9 +2025,13 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       pbp_original_constraints_ >
           UINT64_MAX - (pbp_derived_constraints_ + plan.proof_constraints))
     return false;
-  // Cutting-planes lines have no clausal spelling: keep whole-run PBP.
-  if (dsr_copy_)
-    drop_dsr_copy(AutomaticProofReason::ParityReason);
+  // The copy spells in clauses what this writer states in a few constraints.
+  if (dsr_copy_) {
+    if (dsr_only_ || conversion_barred())
+      dsr_copy_->write_parity_reason(equations, reason, reason_size);
+    else
+      drop_dsr_copy(AutomaticProofReason::ParityReason);
+  }
 
   if (cache.stream_identity_ != stream_identity_) {
     cache.entries_.clear();
@@ -2113,6 +2231,8 @@ bool Proof::add_prevalidated_pbp_parity_reason(
                   true);
   if (!reason_size)
     finish_streaming_pbp_unsat();
+  if (dsr_copy_)
+    settle_dsr_copy();
   return true;
 }
 
@@ -2525,8 +2645,6 @@ void Proof::population_external(bool add, uint64_t id, const int32_t *lits,
 
 void Proof::seed_population_impl(uint64_t id, const Lit *lits, uint32_t size) {
   population_add(id, lits, size);
-  if (census_on_)
-    census_.line(false, size); // an input clause of the checker's formula
   if (!file_)
     return;
   // VeriPB's `f` statement names the number of constraints in the original
@@ -2571,7 +2689,6 @@ const char *automatic_proof_reason_name(AutomaticProofReason reason) noexcept {
   case AutomaticProofReason::DestinationUnsupported:
     return "destination-unsupported";
   case AutomaticProofReason::StageUnavailable: return "stage-unavailable";
-  case AutomaticProofReason::PbpPredictedFaster: return "pbp-predicted-faster";
   case AutomaticProofReason::ForcedSwitch: return "forced-switch";
   }
   return "unknown";
@@ -2700,8 +2817,9 @@ void Proof::start_lazy_pbp() {
       ftello(file_) != 0 || !dsr_copy_ || !dsr_copy_->file_)
     return;
   auto lazy = std::make_unique<LazyPbp>();
-  lazy->stage_fd = open_stage_reader(fileno(dsr_copy_->file_));
-  if (lazy->stage_fd < 0) {
+  if (!dsr_only_)
+    lazy->stage_fd = open_stage_reader(fileno(dsr_copy_->file_));
+  if (lazy->stage_fd < 0 && !dsr_only_) {
     lazy_report_.state = "off-no-reader";
     return;
   }
@@ -2729,7 +2847,7 @@ void Proof::start_lazy_pbp() {
 }
 
 bool Proof::conversion_barred() const noexcept {
-  return lazy_ && dsr_copy_ && dsr_copy_->census_dsr_bytes_ >= dsr_limit_;
+  return lazy_ && dsr_copy_ && dsr_copy_->dsr_bytes_written_ >= dsr_limit_;
 }
 
 // Keep the text of the event about to be written, until the copy has answered.
@@ -2877,13 +2995,13 @@ void Proof::discard_lazy_pbp() noexcept {
 }
 
 bool Proof::open_automatic(const char *path, bool binary_dsr,
-                           const char *stage_path) {
+                           const char *stage_path, bool dsr_only) {
   if (!open(path, ProofFormat::PbpStreaming))
     return false;
   automatic_ = true;
+  dsr_only_ = dsr_only;
   automatic_selected_dsr_ = false;
   automatic_dsr_witness_ = false;
-  automatic_estimated_ = false;
   automatic_reason_ = AutomaticProofReason::Pending;
   // Absolute, so a later change of directory cannot redirect the placement.
   std::error_code absolute_error;
@@ -2895,6 +3013,27 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   // regular file (a proc-fd path to an anonymous file qualifies).
   FILE *const destination = pbp_output_ ? pbp_output_ : file_;
   automatic_destination_ = destination;
+  // Never converted, so nothing replaces or rereads the file: any destination
+  // will do, a pipe included.
+  if (dsr_only) {
+    const int descriptor = dup(fileno(destination));
+    FILE *const direct = descriptor >= 0 ? fdopen(descriptor, "wb") : nullptr;
+    if (!direct)
+      proof_error("cannot write the DSR proof");
+    auto copy = std::make_unique<Proof>();
+    copy->copy_role_ = true;
+    if (!copy->open_stream(direct, binary_dsr ? ProofFormat::DsrBinary
+                                              : ProofFormat::DsrAscii))
+      proof_error("cannot write the DSR proof");
+    copy->bind_variable_map(variable_map_);
+    copy->bind_external_variable_map(external_variable_map_);
+    dsr_copy_ = std::move(copy);
+    dsr_in_destination_ = true;
+    start_lazy_pbp();
+    if (!lazy_)
+      proof_error("no counting stream for the DSR proof");
+    return true;
+  }
   struct stat destination_stat;
   if (fstat(fileno(destination), &destination_stat) ||
       !S_ISREG(destination_stat.st_mode)) {
@@ -2910,7 +3049,6 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   const auto attach_copy = [&](FILE *stage) {
     auto copy = std::make_unique<Proof>();
     copy->copy_role_ = true;
-    copy->census_on_ = true;
     if (!copy->open_stream(stage, binary_dsr ? ProofFormat::DsrBinary
                                              : ProofFormat::DsrAscii))
       return false;
@@ -2986,6 +3124,8 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
 void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
   if (!dsr_copy_)
     return;
+  if (dsr_only_)
+    proof_error(automatic_proof_reason_name(reason));
   // PBP becomes the proof: pay the conversion. Without a converted prefix no
   // UNSAT claim may follow: fail closed.
   if (lazy_ && !convert_lazy_pbp())
@@ -3014,22 +3154,6 @@ void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
   automatic_reason_ = reason;
 }
 
-uint64_t Proof::pbp_logical_bytes() {
-  if (lazy_) {
-    // The writer's buffered bytes reach the count first.
-    if (std::fflush(file_))
-      std::abort();
-    return (lazy_published_ ? pbp_header_length(lazy_f_) : 0) + lazy_->bytes;
-  }
-  // Before publication file_ is the private prefix and the header is unwritten;
-  // afterwards file_ is the destination itself.
-  FILE *const stream = file_ ? file_ : pbp_output_;
-  if (!stream)
-    return 0;
-  const off_t at = ftello(stream);
-  return at > 0 ? static_cast<uint64_t>(at) : 0;
-}
-
 void Proof::settle_dsr_copy() {
   if (!dsr_copy_)
     return;
@@ -3048,36 +3172,19 @@ void Proof::settle_dsr_copy() {
     drop_dsr_copy(AutomaticProofReason::ForcedSwitch);
     return;
   }
-  // The empty clause completed both streams: keep the route predicted to
-  // check faster (check_cost.hpp). Positions include buffered bytes.
-  if (streaming_pbp_finished_) {
-    Proof &copy = *dsr_copy_;
-    const auto position = [](FILE *file) -> uint64_t {
-      if (!file)
-        return 0;
-      const off_t at = ftello(file);
-      return at > 0 ? static_cast<uint64_t>(at) : 0;
-    };
-    const uint64_t dsr_bytes = position(copy.file_) + copy.binary_buffer_size_;
-    const uint64_t pbp_bytes = pbp_logical_bytes();
-    automatic_estimate_ = estimate_automatic_checks(
-        copy.census_, copy.has_sr_witness_, copy.external_variable_bound(),
-        dsr_bytes, pbp_bytes);
-    automatic_estimated_ = true;
-    const bool forced = lazy_ && forced_switch_at_ == UINT64_MAX;
-    if (forced || (automatic_estimate_.pbp_faster() && !conversion_barred())) {
-      // A lazy stream pays the conversion first; if that fails, the complete
-      // DSR copy remains a valid certificate and is kept instead.
-      if (!lazy_ || convert_lazy_pbp()) {
-        drop_dsr_copy(forced ? AutomaticProofReason::ForcedSwitch
-                             : AutomaticProofReason::PbpPredictedFaster);
-        return;
-      }
-      discard_lazy_pbp();
-      lazy_report_.state = "fallback";
+  if (!streaming_pbp_finished_)
+    return;
+  // Validation: a switch forced at the empty clause. If it fails, the complete
+  // DSR copy remains a valid certificate and is kept instead.
+  if (lazy_ && forced_switch_at_ == UINT64_MAX) {
+    if (convert_lazy_pbp()) {
+      drop_dsr_copy(AutomaticProofReason::ForcedSwitch);
+      return;
     }
-    select_dsr_copy();
+    discard_lazy_pbp();
+    lazy_report_.state = "fallback";
   }
+  select_dsr_copy();
 }
 
 // Make the DSR copy the proof: it is already in the destination, else rename a
@@ -3142,12 +3249,10 @@ void Proof::select_dsr_copy(bool finished) {
   // buffered PBP bytes are discarded unwritten.
   if (lazy_) {
     const bool barred = conversion_barred();
-    if (finished)
-      lazy_report_.pbp_bytes = pbp_logical_bytes();
     discard_lazy_pbp();
     lazy_report_.state = barred ? "dsr-limit" : "dsr-kept";
     if (barred)
-      lazy_report_.dsr_bytes = copy.census_dsr_bytes_;
+      lazy_report_.dsr_bytes = copy.dsr_bytes_written_;
   }
   if (file_ && file_ != destination) {
     discard_buffered(file_);
@@ -3202,8 +3307,10 @@ struct ReleaseLazyEvent {
 } // namespace
 
 FILE *Proof::begin_pb() {
-  if (conversion_barred())
-    return nullptr; // past the DSR limit: the rule declines
+  // Summing thousands of counting bounds in clauses is out of practical reach.
+  if (dsr_only_)
+    proof_error("a counting refutation found at startup cannot be written as "
+                "DSR; use --pbp or --auto-proof");
   FILE *const terminal = begin_pb_impl();
   // A complete native PB refutation has no clausal spelling.
   if (terminal)
@@ -3231,11 +3338,6 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates) {
-  // Past the DSR limit a witnessed step the copy could not follow declines
-  // before either stream changes, instead of converting.
-  if (conversion_barred() && (!dsr_copy_->premise_groups_.empty() ||
-                              !dsr_copy_->persistent_external_.empty()))
-    return false;
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_sr_impl(id, lits, size, true_lits, ntrue, mappings,
@@ -3303,13 +3405,14 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
                              uint32_t size) {
   // DSR rejects a tautology only after retiring leased premises, so its text
   // and the writer's would overlap: convert before either stream runs.
-  if (dsr_copy_ && size && lits && external_tautological(lits, size))
+  const bool tautology = dsr_copy_ && size && lits && external_tautological(lits, size);
+  if (tautology && !dsr_only_)
     drop_dsr_copy(AutomaticProofReason::CopyDeclined);
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_external_rat_impl(id, lits, size);
   const ReleaseLazyEvent release{this};
-  if (written && dsr_copy_) {
+  if (written && dsr_copy_ && !tautology) {
     if (!dsr_copy_->add_external_rat(id, lits, size))
       drop_dsr_copy(AutomaticProofReason::CopyDeclined);
     else

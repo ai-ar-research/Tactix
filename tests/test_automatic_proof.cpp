@@ -205,8 +205,6 @@ void no_trigger_selects_dsr() {
       events(p);
       assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
       assert(!p.automatic_dsr_live());
-      const AutomaticCheckEstimate *e = p.automatic_estimate();
-      assert(e && e->census.rat_lines == 0 && !e->pbp_faster());
       route = p.verification_route();
       assert(directory.entries() == std::vector<std::string>{"proof"});
     }
@@ -517,15 +515,11 @@ void tautological_rat_converts_first() {
   assert(count_lines(text, "red ") == 1);
 }
 
-// Past the DSR limit the run stays on DSR wherever it has a choice: a witnessed
-// step the copy cannot follow, a compact parity reason and a terminal PB
-// refutation all decline. An event with no clausal spelling still converts.
+// Past the DSR limit a run stays on DSR with the same answers: a parity reason is
+// spelled in clauses. Only an event DSR cannot follow still converts.
 void dsr_limit_stays_on_dsr() {
   const PbpParityEquation equation{{1, 2}, false};
   const int32_t reason[] = {-1, 2};
-  const auto sr = clause({6, 1});
-  const DsrLiteralMapping mapping[] = {{internalize(6), internalize(-6)}};
-  const int32_t support[] = {1, 2};
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
   setenv("TACTIX_AUTO_PROOF_DSR_LIMIT", "0", 1);
@@ -533,14 +527,11 @@ void dsr_limit_stays_on_dsr() {
     Proof p;
     assert(p.open_automatic(path.c_str(), true));
     inputs(p);
-    assert(p.retain_external(20, support, 2));
-    assert(!p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, 7));
-    assert(p.automatic_reason() == AutomaticProofReason::Pending);
     assert(p.commit_clause_stream());
     PbpParityBoundsCache cache;
     PbpParityReasonPlan plan;
-    assert(!p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
-    assert(!p.begin_pb());
+    assert(p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
+    assert(p.add_prevalidated_pbp_parity_reason(7, {equation}, reason, 2, cache, plan));
     assert(p.automatic_reason() == AutomaticProofReason::Pending);
     refutation(p);
     assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
@@ -560,20 +551,51 @@ void dsr_limit_stays_on_dsr() {
     assert(std::string(p.lazy_pbp_report().state) == "converted");
   }
   expect_complete_pbp(read_all(path), "no clausal spelling past the limit");
-  // Under the limit the same plan is available.
-  setenv("TACTIX_AUTO_PROOF_DSR_LIMIT", "1000000", 1);
+  unsetenv("TACTIX_AUTO_PROOF_DSR_LIMIT");
+}
+
+// --dsr answers the solver as --pbp does and writes only DSR, to any destination,
+// giving parity helpers names no later solver variable takes.
+void dsr_only_writes_dsr_with_the_same_answers() {
+  const PbpParityEquation equation{{1, 2}, false};
+  const int32_t reason[] = {-1, 2};
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  std::vector<Var> externals; // internal i is external i + 1
   {
     Proof p;
-    assert(p.open_automatic(path.c_str(), true));
+    assert(p.open_automatic(path.c_str(), false, nullptr, true));
+    assert(!p.automatic() && p.dsr_only());
     inputs(p);
     assert(p.commit_clause_stream());
     PbpParityBoundsCache cache;
     PbpParityReasonPlan plan;
     assert(p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
+    assert(p.add_prevalidated_pbp_parity_reason(7, {equation}, reason, 2, cache, plan));
     refutation(p);
-    assert(std::string(p.lazy_pbp_report().state) == "dsr-kept");
+    assert(std::string(p.verification_route()) == "dsr-cake_lpr");
+    assert(directory.entries() == std::vector<std::string>{"proof"});
   }
-  unsetenv("TACTIX_AUTO_PROOF_DSR_LIMIT");
+  const std::string text = read_all(path);
+  assert(text.rfind("pseudo-Boolean", 0) != 0);
+  assert(text.find("-1 2 0\n") != std::string::npos); // the parity reason
+  {
+    Proof p;
+    assert(p.open_automatic("/dev/null", true, nullptr, true));
+    inputs(p);
+    refutation(p);
+    assert(std::string(p.verification_route()) == "dsr-cake_lpr");
+  }
+  // Tautological RAT: nothing to spell, and nothing converts.
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true, nullptr, true));
+    inputs(p);
+    const int32_t tautology[] = {7, 1, -1};
+    assert(p.add_external_rat(8, tautology, 3));
+    refutation(p);
+  }
+  assert(read_all(path).rfind("pseudo-Boolean", 0) != 0);
 }
 
 // A deletion block spilled behind a pending root unit is copied into the stage
@@ -703,78 +725,6 @@ void device_destination_is_pbp_only() {
 
 } // namespace
 
-// The census charges each non-RUP line against the database it is added to:
-// non-unit clauses for drat-trim's watches, every clause for Trestle, and
-// slots that stay allocated after deletion. Unit deletions are ignored.
-void census_counts_the_checker_database() {
-  DsrCheckCensus c;
-  c.line(false, 3);
-  c.line(false, 2);
-  c.line(false, 1);
-  c.non_rup_line(false);
-  assert(c.rat_lines == 1 && c.sr_lines == 0);
-  assert(c.watch_scan == 4 && c.watched_literal_scan == 5);
-  assert(c.live_scan == 3 && c.live_literal_scan == 6);
-  assert(c.deleted_slot_scan == 0);
-  c.line(true, 2);
-  c.line(true, 1); // ignored, as both DSR elaborators ignore unit deletions
-  c.line(false, 0); // the empty clause
-  c.non_rup_line(true);
-  assert(c.sr_lines == 1 && c.committed == 3 && c.live == 2);
-  assert(c.watch_scan == 4 + 2 && c.watched_literal_scan == 5 + 3);
-  assert(c.deleted_slot_scan == 1 && c.live_scan == 3 + 2);
-}
-
-// Factor-shaped RAT lines over a large database: the reference DSR checker
-// would scan the whole formula for each, so the empty clause keeps the
-// complete PBP stream, byte for byte as --pbp wrote it.
-void rat_scan_keeps_pbp() {
-  constexpr int inputs = 100000, rats = 1000;
-  const Events events = [](Proof &p) {
-    for (int i = 0; i < inputs; ++i) {
-      const auto c = clause({i + 1, -(i + 2)});
-      p.seed_population(i + 1, c.data(), 2);
-    }
-    p.finish_input_transaction();
-    for (int k = 0; k < rats; ++k) {
-      const int fresh = inputs + 2 + 2 * k;
-      const auto r = clause({fresh, fresh + 1});
-      p.add_rat(inputs + 1 + k, r.data(), 2);
-    }
-    p.add_empty(inputs + rats + 1);
-  };
-  TemporaryDirectory directory;
-  const std::string path = directory / "proof";
-  std::string route;
-  {
-    Proof p;
-    assert(p.open_automatic(path.c_str(), true));
-    events(p);
-    assert(p.automatic_reason() == AutomaticProofReason::PbpPredictedFaster);
-    const AutomaticCheckEstimate *e = p.automatic_estimate();
-    assert(e && !e->witnessed && e->census.rat_lines == rats);
-    assert(e->pbp_faster() && e->dsr_scan_seconds > e->pbp_seconds);
-    route = p.verification_route();
-    assert(directory.entries() == std::vector<std::string>{"proof"});
-  }
-  assert(route == "pbp");
-  // Past the DSR limit the same run keeps DSR.
-  setenv("TACTIX_AUTO_PROOF_DSR_LIMIT", "0", 1);
-  {
-    TemporaryDirectory limited;
-    const std::string kept = limited / "proof";
-    Proof p;
-    assert(p.open_automatic(kept.c_str(), true));
-    events(p);
-    assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
-    assert(p.automatic_estimate() && p.automatic_estimate()->pbp_faster());
-    assert(std::string(p.lazy_pbp_report().state) == "dsr-limit");
-  }
-  unsetenv("TACTIX_AUTO_PROOF_DSR_LIMIT");
-  // Only RAT lines and the empty clause: the conversion spells --pbp's lines.
-  expect_equal(read_all(path), single(ProofFormat::PbpStreaming, events),
-               "converted RAT lines equal --pbp");
-}
 
 // A seeded script of input clauses, RUP units and clauses, RAT clauses and
 // deletions.
@@ -934,9 +884,7 @@ void conversion_at_every_point() {
 }
 
 int main() {
-  census_counts_the_checker_database();
   no_trigger_selects_dsr();
-  rat_scan_keeps_pbp();
   startup_pb_keeps_pbp();
   sr_with_support_keeps_pbp();
   witnessed_sr_selects_trestle_route();
@@ -948,6 +896,7 @@ int main() {
   failed_conversion_keeps_dsr();
   tautological_rat_converts_first();
   dsr_limit_stays_on_dsr();
+  dsr_only_writes_dsr_with_the_same_answers();
   conversion_at_every_point();
   long_conversion_marks_every_rat_line();
   unusable_stage_is_pbp_only();

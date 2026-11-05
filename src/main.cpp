@@ -502,6 +502,8 @@ int main(int argc, char **argv) {
       !proof_path ? proof.open("/dev/null", ProofFormat::PbpStreaming)
       : proof_family == CliProofFamily::Automatic
           ? proof.open_automatic(proof_path, binary_proof, proof_stage_path)
+      : proof_family == CliProofFamily::Dsr
+          ? proof.open_automatic(proof_path, binary_proof, nullptr, true)
           : proof.open(proof_path, proof_format);
   if (!opened)
     return fail_unknown("tactix: cannot write proof to '%s'\n",
@@ -1587,10 +1589,8 @@ int main(int argc, char **argv) {
       if (std::getenv("TACTIX_SLOT_STATS"))
         default_policy.inprocess().report(kernel);
     }
-    // Why the automatic proof is (or is still) its format: `dsr-selected`
-    // or `pbp-predicted-faster` after the empty clause, `pending` without
-    // one, else the PBP trigger. The cost line gives the compared estimates
-    // and the DSR copy's checker-work census (check_cost.hpp).
+    // Why the automatic proof is (or is still) its format: `dsr-selected` after
+    // the empty clause, `pending` without one, else the PBP trigger.
     if (proof_path && proof.automatic()) {
       printf("c auto-proof    %s\n",
              automatic_proof_reason_name(proof.automatic_reason()));
@@ -1599,18 +1599,6 @@ int main(int argc, char **argv) {
       printf("c auto-proof-switch %s dsr-bytes %" PRIu64 " pbp-bytes %" PRIu64
              " nanos=%" PRIu64 "\n",
              lazy.state, lazy.dsr_bytes, lazy.pbp_bytes, lazy.nanos);
-      if (const tactix::AutomaticCheckEstimate *e = proof.automatic_estimate()) {
-        const tactix::DsrCheckCensus &c = e->census;
-        printf("c auto-proof-cost dsr-scan %.0f s pbp %.0f s; %s %" PRIu64
-               " bytes, pbp %" PRIu64 " bytes; rat %" PRIu64 " sr %" PRIu64
-               " maxvar %" PRIu32 " watch %" PRIu64 " body %" PRIu64
-               " dead %" PRIu64 " live %" PRIu64 " live-literal %" PRIu64 "\n",
-               e->dsr_scan_seconds, e->pbp_seconds,
-               e->witnessed ? "dsr-trestle" : "dsr-cake_lpr", e->dsr_bytes,
-               e->pbp_bytes, c.rat_lines, c.sr_lines, e->max_variable,
-               c.watch_scan, c.watched_literal_scan, c.deleted_slot_scan,
-               c.live_scan, c.live_literal_scan);
-      }
     }
   }
   if (res == 10) {

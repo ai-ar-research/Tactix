@@ -6,7 +6,6 @@
 
 #include "kernel/types.hpp"
 #include "population/population_observer.hpp"
-#include "proof/check_cost.hpp"
 
 #include <array>
 #include <compare>
@@ -103,12 +102,9 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
 
 // Automatic proof selection (plan §5). Whole-run streaming PBP owns every
 // kernel-visible decision, so the solver trajectory equals `--pbp`; a native
-// DSR copy of the same proof events is written to a private stage. The first
-// PB-native event (a startup PB refutation, a compact GF(2) reason) or an
-// event the copy cannot follow discards the copy and keeps PBP. At the empty
-// clause both proofs are complete: PBP stays when its predicted checking time
-// is below the DSR route's (check_cost.hpp), otherwise the DSR copy replaces
-// the PBP destination.
+// DSR copy of the same proof events is the proof. A startup PB refutation,
+// frequent parity reasons, or an event the copy cannot follow converts it to
+// PBP. Otherwise the DSR copy is the proof at the empty clause.
 enum class AutomaticProofReason : uint8_t {
   Pending,              // the DSR copy is still live
   DsrSelected,          // the empty clause kept the DSR copy
@@ -119,7 +115,6 @@ enum class AutomaticProofReason : uint8_t {
   CopyWriteFailed,      // the DSR stage could not be written
   DestinationUnsupported, // not a regular file: no copy was opened
   StageUnavailable,     // no stage file could be created
-  PbpPredictedFaster,   // the empty clause: PBP is predicted to check faster
   ForcedSwitch,         // TACTIX_AUTO_PROOF_SWITCH_AT (validation only)
 };
 const char *automatic_proof_reason_name(AutomaticProofReason) noexcept;
@@ -144,18 +139,21 @@ public:
   // otherwise a sibling of `path` (renamed into place) or an anonymous file
   // (copied into place) is used. Returns false only when `path` cannot be
   // opened; without a usable stage the run is whole-run PBP.
+  // With `dsr_only`, the run writes DSR to `path` and never converts: the search
+  // and the kernel's view of the proof are those of every other run (N2).
   bool open_automatic(const char *path, bool binary_dsr,
-                      const char *stage_path = nullptr);
-  bool automatic() const noexcept { return automatic_; }
+                      const char *stage_path = nullptr,
+                      bool dsr_only = false);
+  bool automatic() const noexcept { return automatic_ && !dsr_only_; }
+  bool dsr_only() const noexcept { return dsr_only_; }
+  // A startup parity refutation, spelled in clauses; the run ends on it.
+  void write_parity_refutation(const std::vector<PbpParityEquation> &equations);
   AutomaticProofReason automatic_reason() const noexcept {
     return automatic_reason_;
   }
   // The selection is final once the copy is discarded or kept.
   bool automatic_dsr_live() const noexcept { return dsr_copy_ != nullptr; }
   // The checking-time estimate compared at the empty clause, if one was made.
-  const AutomaticCheckEstimate *automatic_estimate() const noexcept {
-    return automatic_estimated_ ? &automatic_estimate_ : nullptr;
-  }
   // Whether the run paid the DSR-to-PBP conversion (see LazyPbpReport).
   void release_lazy_event() noexcept;
   const LazyPbpReport &lazy_pbp_report() const noexcept { return lazy_report_; }
@@ -192,6 +190,8 @@ public:
   const char *verification_route() const {
     if (automatic_selected_dsr_)
       return automatic_dsr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
+    if (dsr_only_ && dsr_copy_)
+      return dsr_copy_->has_sr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
     if (pb()) return "pbp";
     return has_sr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
   }
@@ -419,13 +419,26 @@ private:
   std::string automatic_stage_name_; // a named sibling stage, else empty
   // The DSR copy writes to the destination itself, so a killed run leaves it.
   bool dsr_in_destination_ = false;
+  bool dsr_only_ = false; // explicit --dsr: DSR is the proof, whatever fires
+  // In the DSR copy: proof-only variables that spell parity reasons. The solver
+  // never sees them, so a variable it creates later takes a higher checker name.
+  // Each entry: at solver extent `extent`, `helpers` helpers exist in total.
+  struct HelperNames {
+    uint32_t extent = 0;
+    uint32_t helpers = 0;
+  };
+  std::vector<HelperNames> helper_names_;
+  uint32_t new_helper();
+  uint32_t checker_variable(uint32_t solver_variable) const;
+  struct ParityWriter;
+  friend struct ParityWriter;
+  void write_parity_reason(const std::vector<PbpParityEquation> &equations,
+                           const int32_t *reason, uint32_t reason_size);
+  void put_checker_literal(int32_t name);
   // The proof file the automatic selection finally rewrites (non-owning: an
   // alias of pbp_output_ or, after publication, file_ or lazy_destination_).
   // Every fstat, truncation and copy-in of the destination goes through it.
   FILE *automatic_destination_ = nullptr;
-  // PBP bytes written so far, header included once published, buffered bytes
-  // included: what the destination would hold if PBP were kept.
-  uint64_t pbp_logical_bytes();
 
   // One proof at a time (plan §5). In automatic mode, until a trigger, file_ is
   // an in-process stream that only counts PBP text, and the DSR copy is the
@@ -455,7 +468,7 @@ private:
   uint64_t dsr_limit_ = 3000000000;
   // In the copy: lines written, counted as binary DSR in either spelling, so
   // text and binary runs reach the limit at the same event.
-  uint64_t census_dsr_bytes_ = 0;
+  uint64_t dsr_bytes_written_ = 0;
   bool conversion_barred() const noexcept;
   void start_lazy_pbp();
   void hold_lazy_event();
@@ -464,14 +477,6 @@ private:
   // In the copy: a failed write disables it instead of aborting the solver.
   bool copy_role_ = false;
   bool copy_failed_ = false;
-  // In the copy: the checker-work census of every line written (see
-  // DsrCheckCensus); line literals are counted as they are serialized.
-  bool census_on_ = false;
-  bool census_line_deletion_ = false;
-  uint32_t census_line_literals_ = 0;
-  DsrCheckCensus census_;
-  AutomaticCheckEstimate automatic_estimate_;
-  bool automatic_estimated_ = false;
   void drop_dsr_copy(AutomaticProofReason) noexcept;
   void select_dsr_copy(bool finished = true);
   // After forwarding: discard a failed copy, keep the copy at the empty clause.
