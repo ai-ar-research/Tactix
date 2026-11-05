@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 /* Formulas go to the session, or to a DIMACS file through this. */
@@ -95,8 +96,22 @@ enum route { EARLY, LATE, READ };
 struct run {
   int answer;
   int64_t conflicts, decisions, propagations;
-  long records;
+  long records, matrix_reasons;
 };
+
+/* The journal's size, and how many reasons the affine matrix published in it. */
+static void read_journal(FILE *records, struct run *r) {
+  assert(!fseek(records, 0, SEEK_END));
+  r->records = ftell(records);
+  rewind(records);
+  char *text = malloc((size_t)r->records + 1);
+  assert(text && fread(text, 1, (size_t)r->records, records) == (size_t)r->records);
+  text[r->records] = 0;
+  r->matrix_reasons = 0;
+  for (const char *at = text; (at = strstr(at, "\"kind\":\"affine-matrix-reason\"")); ++at)
+    ++r->matrix_reasons;
+  free(text);
+}
 
 static FILE *as_dimacs(void (*formula)(tactix *)) {
   dimacs_variables = 0;
@@ -138,8 +153,7 @@ static struct run solve(void (*formula)(tactix *), int format, enum route route,
   if (format < 0)
     assert(tactix_proof(s, path, TACTIX_PROOF_PBP) == -1);
   tactix_release(s);
-  assert(!fseek(records, 0, SEEK_END));
-  r.records = ftell(records);
+  read_journal(records, &r);
   fclose(records);
   return r;
 }
@@ -147,29 +161,30 @@ static struct run solve(void (*formula)(tactix *), int format, enum route route,
 static void same(const char *name, int format, enum route route,
                  const struct run *r, const struct run *none) {
   if (r->answer == none->answer && r->conflicts == none->conflicts &&
-      r->decisions == none->decisions && r->propagations == none->propagations)
+      r->decisions == none->decisions && r->propagations == none->propagations &&
+      r->records == none->records && r->matrix_reasons == none->matrix_reasons)
     return;
   fprintf(stderr,
           "%s format %d route %d: answer %d conflicts %lld decisions %lld "
-          "propagations %lld; no proof: %d %lld %lld %lld\n",
+          "propagations %lld journal %ld; no proof: %d %lld %lld %lld %ld\n",
           name, format, (int)route, r->answer, (long long)r->conflicts,
-          (long long)r->decisions, (long long)r->propagations, none->answer,
-          (long long)none->conflicts, (long long)none->decisions,
-          (long long)none->propagations);
+          (long long)r->decisions, (long long)r->propagations, r->records,
+          none->answer, (long long)none->conflicts, (long long)none->decisions,
+          (long long)none->propagations, none->records);
   abort();
 }
 
 static void check(void (*formula)(tactix *), const char *name, const char *path,
-                  int64_t least_conflicts, long least_records) {
+                  int64_t least_conflicts, int64_t most_conflicts, long least_reasons) {
   /* Each way in has its own no-proof search to match. */
   const struct run none_added = solve(formula, -1, EARLY, path);
   const struct run none_read = solve(formula, -1, READ, path);
   assert(none_added.answer == 10 || none_added.answer == 20);
   assert(none_read.answer == none_added.answer);
-  assert(none_added.conflicts >= least_conflicts);
-  assert(none_read.conflicts >= least_conflicts);
-  assert(none_added.records >= least_records);
-  assert(none_read.records >= least_records);
+  assert(none_added.conflicts >= least_conflicts && none_added.conflicts <= most_conflicts);
+  assert(none_read.conflicts >= least_conflicts && none_read.conflicts <= most_conflicts);
+  assert(none_added.matrix_reasons >= least_reasons);
+  assert(none_read.matrix_reasons >= least_reasons);
   static const int formats[] = {TACTIX_PROOF_PBP, TACTIX_PROOF_AUTO,
                                 TACTIX_PROOF_DSR_BINARY, TACTIX_PROOF_DSR_ASCII};
   for (size_t f = 0; f < sizeof formats / sizeof *formats; ++f) {
@@ -190,9 +205,9 @@ int main(void) {
   const int fd = mkstemp(path);
   assert(fd >= 0);
   close(fd);
-  check(plain, "plain", path, 10, 0);
-  check(parity, "parity", path, 10, 1); /* the matrix must have run */
-  check(tseitin, "tseitin", path, 0, 0);
+  check(plain, "plain", path, 10, INT64_MAX, 0);
+  check(parity, "parity", path, 10, INT64_MAX, 1);
+  check(tseitin, "tseitin", path, 0, 0, 0); /* a startup refutation */
   unlink(path);
   return 0;
 }

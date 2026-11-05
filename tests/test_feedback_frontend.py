@@ -35,8 +35,8 @@ def main():
         unsat = work / 'unsat.cnf'
         unsat.write_text('p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2 0\n')
 
-        def run(cnf=sat, options=(), env=None, proof=None):
-            args = [str(binary), '-q', '--dsr', '--no-binary', *options, str(cnf)]
+        def run(cnf=sat, options=(), env=None, proof=None, mode=('--dsr', '--no-binary')):
+            args = [str(binary), '-q', *mode, *options, str(cnf)]
             if proof is not None:
                 args.append(str(proof))
             started = time.monotonic()
@@ -108,9 +108,12 @@ def main():
 
         records = work / 'negative.jsonl'
         records.write_text(saved)
-        # N2: the proof is no part of the search, so a trace replays without one.
+        # N2: the proof is no part of the search, so a trace replays in every mode.
         without_proof = run(options=[f'--feedback-replay={records}'])
         assert without_proof.returncode == 10 and without_proof.stdout == saved_solver_output
+        for mode in (['--pbp'], []):
+            assert run(options=[f'--feedback-replay={records}'], mode=mode,
+                       proof=work / 'other-mode.proof').returncode == 10
         changed_env = dict(environment, TACTIX_FORCE_MODE='stable')
         assert run(options=[f'--feedback-replay={records}'], env=changed_env,
                    proof=work / 'different-config.dsr').returncode == 1

@@ -48,7 +48,7 @@ bool valid(const Request &request) {
 }
 
 bool supported_proof(const Kernel &kernel) {
-  return !kernel.proof || !kernel.proof->closed_by_refutation();
+  return !kernel.proof || !kernel.proof->startup_pb_written();
 }
 
 // Records a terminal status and reason; the caller returns the result.

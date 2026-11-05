@@ -147,10 +147,48 @@ void witnessless_rup(ProofFormat format,const char *prefix){
  p.bind_population_observer(nullptr);
  if(!prefix){std::remove(path.c_str());std::remove(cnf.c_str());}
 }
+// An XOR group is leased and natively deleted, and a witnessed SR line then flips
+// one of its variables. The line holds only without those clauses, so the proof
+// has to delete them first. An unrelated core refutes the formula, so a checker
+// reads every line of the proof. Route 0 is PBP, 1 the default, 2 DSR.
+void witnessed_sr_after_native_deletion(const std::string &stem,unsigned route){
+ const std::vector<std::vector<int32_t>> xors={{1,2,3},{1,-2,-3},{-1,2,-3},{-1,-2,3}},
+     core={{5,6},{5,-6},{-5,6},{-5,-6}};
+ FILE *input=std::fopen((stem+".cnf").c_str(),"wb");assert(input);
+ assert(std::fprintf(input,"p cnf 7 8\n")>0);
+ for(const auto &group:{xors,core})for(const auto &clause:group){
+  for(const int32_t literal:clause)assert(std::fprintf(input,"%d ",literal)>0);
+  assert(std::fputs("0\n",input)>=0);
+ }
+ assert(!std::fclose(input));
+ const std::string path=stem+".proof";
+ Proof p;
+ assert(route==1?p.open_automatic(path.c_str(),true):
+        p.open(path.c_str(),route==0?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));
+ const auto body=[](const std::vector<int32_t> &clause){
+  std::vector<Lit> lits;for(const int32_t literal:clause)lits.push_back(internalize(literal));return lits;
+ };
+ uint64_t id=0;
+ for(const auto &group:{xors,core})for(const auto &clause:group){
+  const auto lits=body(clause);p.seed_population(++id,lits.data(),lits.size());
+ }
+ p.arm_population_shadow();p.finish_input_transaction();
+ std::vector<uint64_t> handles;
+ assert(p.retain_premise_groups({xors},8,100,100000,[](uint64_t){return true;},handles,{8,100}));
+ for(size_t i=0;i<xors.size();++i){const auto lits=body(xors[i]);p.del(id+1,i+1,lits.data(),lits.size());}
+ assert(p.premise_group_active(handles[0]));
+ const auto sr=body({2,7});
+ const DsrLiteralMapping flip{internalize(2),internalize(-2)};
+ assert(p.add_sr(++id,sr.data(),sr.size(),nullptr,0,&flip,1,8));
+ assert(!p.premise_group_active(handles[0]) && !p.premise_bytes());
+ const Lit unit=internalize(5);
+ p.add_rup(++id,&unit,1);
+ p.add_empty(++id);
+}
 void format_boundaries(){
  const std::string path="/tmp/tactix-lease-routes-"+std::to_string(getpid());
  {Proof p;assert(p.open(path.c_str(),ProofFormat::PbpStreaming));p.finish_input_transaction();
-  assert(p.begin_pb() && p.closed_by_refutation());std::vector<uint64_t> handles{77};
+  assert(p.begin_pb() && p.startup_pb_written());std::vector<uint64_t> handles{77};
   assert(!p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
   const int32_t source[]={1,2};assert(!p.del_external(1,0,source,2));
   assert(handles==std::vector<uint64_t>{77} && !p.premise_bytes());}
@@ -168,4 +206,10 @@ int main(int argc,char **argv){
   witnessless_rup(f,argc>1?argv[1]:nullptr);bounded_deletions(f);shared_copies(f);pivot_retirement(f,false);pivot_retirement(f,true);
  }
  format_boundaries();
+ const std::string stem=argc>1?argv[1]:"/tmp/tactix-lease-sr-"+std::to_string(getpid());
+ for(unsigned route=0;route<3;++route) {
+  const std::string name=stem+"-sr-"+std::to_string(route);
+  witnessed_sr_after_native_deletion(name,route);
+  if(argc<=1){std::remove((name+".cnf").c_str());std::remove((name+".proof").c_str());}
+ }
 }

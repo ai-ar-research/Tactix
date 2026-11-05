@@ -198,9 +198,8 @@ int main(int argc, char **argv) {
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
   enum class CliProofFamily { Dsr, Pbp, Automatic };
-  // Automatic selection is the public default: the solver runs exactly as
-  // under --pbp and keeps whole-run PBP only when a PB-native step fires;
-  // otherwise its native-DSR copy becomes the proof (plan §5).
+  // Automatic selection is the public default: DSR, converted once to PBP where a
+  // run needs it (see Proof::open_automatic).
   CliProofFamily proof_family = CliProofFamily::Automatic;
   const char *proof_stage_path = nullptr;
   bool binary_proof = true;

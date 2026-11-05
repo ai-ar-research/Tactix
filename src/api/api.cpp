@@ -1911,11 +1911,10 @@ int tactix_read_dimacs(tactix_solver *s, FILE *in) {
       s->kernel.nvars || s->kernel.next_clause_id)
     return -1;
   // N2: a session with no proof takes the search of a session with one.
-  if (!s->kernel.proof) {
-    if (!s->proof.open_nowhere())
-      std::abort();
-    attach_proof(s);
-  }
+  if (!s->pending_input_proof && !s->proof.open_nowhere())
+    return -1;
+  s->pending_input_proof = false;
+  attach_proof(s);
   const char *err = parse_dimacs(in, s->kernel);
   s->input_completed = true;
   external_state_change(s);
@@ -1953,22 +1952,18 @@ void tactix_add(tactix_solver *s, int lit) {
 static void input_complete(tactix_solver *s) {
   if (s->input_completed)
     return;
-  // N2: a session with no proof takes the search of a session with one.
-  if (!s->kernel.proof && !s->pending_input_proof) {
-    if (!s->proof.open_nowhere())
-      std::abort();
-    s->pending_input_proof = true;
-  }
-  if (s->pending_input_proof) {
-    attach_replayed_input_proof(s->kernel, s->proof);
-    s->pending_input_proof = false;
-  }
+  // N2: tactix_add imports with no writer in every session, and the proof attaches
+  // here by replaying the input, so no session's ids or root view depend on it.
+  if (!s->pending_input_proof && !s->proof.open_nowhere())
+    std::abort();
+  attach_replayed_input_proof(s->kernel, s->proof);
+  s->pending_input_proof = false;
   finish_input(s->kernel);
   s->input_completed = true;
 }
 
 int tactix_proof(tactix_solver *s, const char *path, int format) {
-  if (s->input_completed || s->kernel.proof || s->pending_input_proof)
+  if (s->input_completed || s->pending_input_proof)
     return -1;
   // Public values are append-only; see TACTIX_PROOF_* in tactix.h. Every format
   // takes the same search, on the streaming-PBP writer (N2).
@@ -1991,14 +1986,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   }
   if (!opened)
     return -1;
-  // Input already imported without a proof: replay its exact raw clauses at the
-  // first reasoning boundary.
-  if (s->kernel.next_clause_id) {
-    s->pending_input_proof = true;
-    external_state_change(s);
-    return 0;
-  }
-  attach_proof(s);
+  s->pending_input_proof = true;
   external_state_change(s);
   return 0;
 }

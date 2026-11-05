@@ -163,8 +163,8 @@ int main(int argc, char **argv) {
   parse_dimacs_text(graph_formula(4, true, false), closed);
   apply_rule(tactix_rules()[tactix_rule_id("Propagate")], closed);
   assert(!startup_parity_guard(closed));
-  // An explicit clausal writer closes the PB boundary, but it must not
-  // renumber the public Lucky action space seen by replay/random policies.
+  // A DSR proof must not renumber the public Lucky action space seen by
+  // replay/random policies.
   const auto &lucky = tactix_rules()[tactix_rule_id("Lucky")];
   uint64_t available[LUCKY_INSTANCE_COUNT];
   Kernel clausal;

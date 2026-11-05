@@ -497,11 +497,8 @@ void finish_input(Kernel &k) {
   // hot path does not carry vector growth and relocation into assignment.
   k.trail.reserve(k.nvars);
   k.frames.reserve(static_cast<size_t>(k.nvars) + 1);
-  // Input ids are now settled: next_clause_id equals the number of input
-  // clauses, exactly the checker's numbering, because ingest_clause consumes
-  // one id per clause and nothing else consumed any. Derived ids start here.
-  // The C API's later attachment first replays the exact raw input into a
-  // proof-bearing kernel.
+  // Input ids are settled. Root units derived during input also took ids, and the
+  // writer tracks that split between Tactix ids and the checker's numbering.
   // An unassigned variable absent from every surviving normalized clause is
   // outside Kissat's active/search population, even when a tautological or
   // root-satisfied raw clause mentioned it. Retire that kernel identity

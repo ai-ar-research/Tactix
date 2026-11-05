@@ -447,7 +447,7 @@ MatrixLiveStatus transaction_status(MatrixTransactionStatus status) {
 }
 
 bool proof_supported(const Kernel &kernel) {
-  return !kernel.proof || !kernel.proof->closed_by_refutation();
+  return !kernel.proof || !kernel.proof->startup_pb_written();
 }
 
 bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,

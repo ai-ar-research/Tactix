@@ -147,7 +147,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
     result.status = NaryCspEqualityAmoStatus::Inapplicable;
     return result;
   }
-  if (kernel.proof && kernel.proof->closed_by_refutation()) {
+  if (kernel.proof && kernel.proof->startup_pb_written()) {
     result.status = NaryCspEqualityAmoStatus::UnsupportedProof;
     return result;
   }

@@ -813,7 +813,7 @@ RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
                         }))
       .quiescent()
       .identity()
-      .fact("sr-proof", !kernel.proof || !kernel.proof->closed_by_refutation())
+      .fact("sr-proof", !kernel.proof || !kernel.proof->startup_pb_written())
       .finish();
 }
 
@@ -821,7 +821,7 @@ RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
 // order by offer and apply. Applied means the request may proceed.
 static TseitinCycleBreakingStatus admit_request(
     const Kernel &kernel, const TseitinCycleBreakingLimits &limits) {
-  if (kernel.proof && kernel.proof->closed_by_refutation())
+  if (kernel.proof && kernel.proof->startup_pb_written())
     return TseitinCycleBreakingStatus::UnsupportedProof;
   if (!tseitin_cycle_breaking_guard(kernel))
     return TseitinCycleBreakingStatus::Inapplicable;

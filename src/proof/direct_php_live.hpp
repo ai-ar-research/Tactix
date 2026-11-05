@@ -371,7 +371,7 @@ inline bool exact_source(const Snapshot &snapshot,
 // a supported proof route, an applicable root state and, when `poll_stop`,
 // no pending interrupt.
 inline bool gate(const Kernel &k, bool poll_stop, Result &result) {
-  if (k.proof && k.proof->closed_by_refutation())
+  if (k.proof && k.proof->startup_pb_written())
     result.status = Status::UnsupportedProof;
   else if (!applicable(k))
     result.status = Status::Inapplicable;

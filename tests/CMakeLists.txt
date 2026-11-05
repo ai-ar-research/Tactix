@@ -219,6 +219,9 @@ tactix_script_test(direct_csp_guarded_cover_proof_model
 tactix_script_test(direct_csp_guarded_cover_owner_refresh_proof_model
                    direct_csp_guarded_cover_owner_refresh_proof_model.sh
                    test_direct_csp_guarded_cover_owner_refresh)
+tactix_script_test(proof_premise_lease_proof
+                   proof_premise_lease_proof.sh
+                   test_proof_premise_lease_lifecycle)
 tactix_script_test(affine_matrix_persistent_lifecycle_proof_model
                    affine_matrix_persistent_lifecycle_proof_model.sh
                    test_affine_matrix_persistent_lifecycle)

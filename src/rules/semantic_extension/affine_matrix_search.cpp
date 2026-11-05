@@ -518,7 +518,7 @@ RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
       .provenance()
       .fact("clausal-proof",
             !kernel.proof ||
-                !kernel.proof->closed_by_refutation())
+                !kernel.proof->startup_pb_written())
       .finish();
 }
 
@@ -2600,7 +2600,7 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                   .fact("sparse", !kernel.dense && kernel.large_watches_connected)
                                   .fact("no-probe-transaction", !kernel.probing.recording)
                                   .fact("profile-valid", profile.valid())
-                                  .fact("clausal-proof", kernel.proof && !kernel.proof->closed_by_refutation())
+                                  .fact("clausal-proof", kernel.proof && !kernel.proof->startup_pb_written())
                                   .fact("no-extended-model", !kernel.model_extended)
                                   .fact("session-profile",
                                         profile_session() && !session->has_deferred_reason());

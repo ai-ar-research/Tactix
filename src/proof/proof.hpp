@@ -114,7 +114,6 @@ enum class AutomaticProofReason : uint8_t {
   DsrSelected,          // the empty clause kept the DSR copy
   StartupPbRefutation,  // Lucky parity / count-preservation terminal PB
   ParityReason,         // compact GF(2) reason (affine root closure, search)
-  SrWithAffineSupport,  // a witnessed SR step while affine support is leased
   CopyDeclined,         // the DSR copy rejected an event PBP accepted
   CopyWriteFailed,      // the DSR stage could not be written
   DestinationUnsupported, // not a regular file: no copy was opened
@@ -165,7 +164,6 @@ public:
   }
   // The selection is final once the copy is discarded or kept.
   bool automatic_dsr_live() const noexcept { return dsr_copy_ != nullptr; }
-  // The checking-time estimate compared at the empty clause, if one was made.
   // Whether the run paid the DSR-to-PBP conversion (see LazyPbpReport).
   void release_lazy_event() noexcept;
   const LazyPbpReport &lazy_pbp_report() const noexcept { return lazy_report_; }
@@ -180,9 +178,9 @@ public:
   bool commit_clause_stream();
   FILE *begin_pb();
   bool finish_pb();
-  // A complete startup refutation owns the stream, which takes no further
-  // clause events. No search follows it.
-  bool closed_by_refutation() const { return format_ == ProofFormat::Pbp; }
+  // A complete startup PB refutation owns the stream, which takes no further clause
+  // events. No search follows it.
+  bool startup_pb_written() const { return format_ == ProofFormat::Pbp; }
   // Delete by specification for the rest of the run: a proof attached after
   // replayed input cannot name the live kernel's clauses by their ids (see
   // attach_replayed_input_proof).
@@ -269,9 +267,9 @@ public:
   bool del_external(uint64_t line_id, uint64_t del_id,
                     const int32_t *lits, uint32_t size);
   // Keep an already-emitted proof-only clause available for later RUP steps.
-  // The registry is a checker-population boundary.  On DSR routes add_sr
-  // deletes every registered clause before emitting a witnessed line, then
-  // advances the epoch so clients cannot reuse stale support.
+  // The registry is a checker-population boundary. add_sr deletes every registered
+  // clause before a witnessed line, then advances the epoch so clients cannot
+  // reuse stale support.
   bool retain_external(uint64_t id, const int32_t *lits, uint32_t size);
   uint64_t persistent_external_epoch() const {
     return persistent_external_epoch_;

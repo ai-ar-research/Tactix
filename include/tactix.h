@@ -65,6 +65,8 @@ typedef struct tactix_solver tactix;
 
 /* proof formats */
 /* Proof-format values 0 to 2 are retired and rejected. */
+/* A DSR session exits the process with status 1 on a startup counting refutation,
+   which has no practical DSR spelling. */
 #define TACTIX_PROOF_DSR_BINARY 3 /* canonical DSR stream */
 #define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
 /* Proof-format value 5 is retired and rejected. */
@@ -183,8 +185,9 @@ void tactix_add(tactix *, int lit);
  * its use of the advisory `p cnf` header, and close the input as the first
  * status, rule or solve query does. Legal only on a session without input;
  * attach a proof first. Returns 0; -1 without reading for a session that
- * already has input; -1 for a malformed stream, after which the session holds
- * a partial formula and should be released. */
+ * already has input or when /dev/null cannot be opened; -1 for a malformed
+ * stream, after which the session holds a partial formula and should be
+ * released. */
 int tactix_read_dimacs(tactix *, FILE *);
 
 /* Proof logging: attach exactly once, before the first operation that

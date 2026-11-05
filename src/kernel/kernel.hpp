@@ -750,12 +750,11 @@ struct Kernel {
   // record is created, retired, reused in place, or flips redundancy.
   uint64_t live_irredundant_large = 0;
   std::vector<uint64_t> unit_ids; // by var
-  // DSR must publish propagation-derived root facts without turning them into
-  // solver-side asserted units.  Keep that proof-only deduplication state
-  // separate from `unit_ids`, whose presence is observable by simplification
-  // rules and therefore affects the search trajectory.
-  // Kernel root units already written to the native-DSR proof, by variable:
-  // emitted polarity, 0 if none.  Never a unit the kernel does not hold.
+  // The proof must hold propagation-derived root facts without turning them into
+  // solver-side asserted units. Keep that state separate from `unit_ids`, whose
+  // presence is observable by simplification rules and affects the search.
+  // Kernel root units already written to the proof, by variable: emitted polarity,
+  // 0 if none. Never a unit the kernel does not hold.
   std::vector<int8_t> dsr_root_values;
   const Proof *dsr_root_proof = nullptr;
   uint64_t dsr_root_stream_identity = 0;
@@ -1618,9 +1617,9 @@ void kernel_swap_large_watch_refs(Kernel &, Lit l, Ref first, Ref second,
 void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
                                 uint32_t from);
 
-// Publish a propagation-derived root fact before its reason disappears. DSR
-// checkers must see this unit while the reason clause is still available for
-// RUP; the proof-only polarity table makes repeated publication idempotent.
+// Publish a propagation-derived root fact before its reason disappears. Checkers
+// must see this unit while the reason clause is still available for RUP; the
+// polarity table makes repeated publication idempotent.
 void kernel_materialize_dsr_root_unit(Kernel &, Lit);
 // Record that an asserted root unit is already a clause of the proof stream
 // (a rule's own unit line or an input unit) without emitting it.
@@ -1628,8 +1627,8 @@ void kernel_note_dsr_root_unit(Kernel &, Lit);
 bool kernel_root_unit_table_stream(const Kernel &);
 
 // Retire any trail reason naming this clause, so a delete never leaves a
-// literal whose reason is a dropped clause. In DSR mode the reason is also the
-// RUP witness for a permanent unit, so publish that unit before retiring it.
+// literal whose reason is a dropped clause. The reason is also the RUP witness for
+// a permanent unit, so publish that unit before retiring it.
 inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
   for (const Lit lit : *c) {
     Assigned &a = k.assigned[var_of(lit)];

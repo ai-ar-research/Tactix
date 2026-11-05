@@ -744,7 +744,7 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   // clause imposes an extra substitution obligation after the last live copy
   // disappears. Both formats can retire one literal-named copy while leaving
   // the surviving reason.
-  if (k.proof && !k.proof->closed_by_refutation()) {
+  if (k.proof && !k.proof->startup_pb_written()) {
     const Lit clause[2] = {a, b};
     k.proof->del(k.next_clause_id, 0, clause, 2);
   }
@@ -2003,7 +2003,7 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // RUP from the same formula, so streaming PBP stages these units and drops
   // them if that clause is next (VeriPB need not re-justify one conflict
   // chain per unit). Unit ids and root tables advance exactly as before.
-  if (k.proof && !k.proof->closed_by_refutation()) {
+  if (k.proof && !k.proof->startup_pb_written()) {
     const bool stage = conflict && k.level == 0;
     if (stage)
       k.proof->begin_deferred_root_units();
@@ -2208,7 +2208,7 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   // does deliberately: it asserts each environment's units without propagating
   // and then replays the next equivalence.
   const size_t assigned_before = k.trail.size();
-  const bool named_root_units = k.proof && !k.proof->closed_by_refutation();
+  const bool named_root_units = k.proof && !k.proof->startup_pb_written();
   bool conflict = false;
   kernel_settle_binary_only_debt(k); // this scan is a full one
   if (!k.probing.recording) {
@@ -2255,7 +2255,7 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   if (k.propagate_head < k.binary_only_head)
     k.binary_only_head = k.propagate_head;
   const size_t assigned_before = k.trail.size();
-  const bool named_root_units = k.proof && !k.proof->closed_by_refutation();
+  const bool named_root_units = k.proof && !k.proof->startup_pb_written();
   bool conflict = false;
   const uint32_t saved_propagate = k.propagate_head;
   uint64_t ticks = 0;
@@ -3837,7 +3837,7 @@ void kernel_flush_retired_redundant(Kernel &k) {
         }
 }
 
-// The proof-only table belongs to one DSR stream; a new stream starts empty.
+// The table belongs to one proof stream; a new stream starts empty.
 // Binds it for the root-true `lit` and returns the variable indexing its slot.
 static Var bind_dsr_root_table(Kernel &k, Lit lit) {
   const Var v = var_of(lit);
@@ -3856,7 +3856,7 @@ static Var bind_dsr_root_table(Kernel &k, Lit lit) {
 }
 
 bool kernel_root_unit_table_stream(const Kernel &k) {
-  return k.proof && !k.proof->closed_by_refutation() && k.proof->stream_identity();
+  return k.proof && !k.proof->startup_pb_written() && k.proof->stream_identity();
 }
 
 void kernel_note_dsr_root_unit(Kernel &k, Lit lit) {
@@ -3867,7 +3867,7 @@ void kernel_note_dsr_root_unit(Kernel &k, Lit lit) {
 }
 
 void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
-  if (!k.proof || k.proof->closed_by_refutation())
+  if (!k.proof || k.proof->startup_pb_written())
     return;
   const Var v = bind_dsr_root_table(k, lit);
   const int8_t polarity = negated(lit) ? -1 : 1;
@@ -3937,8 +3937,8 @@ uint64_t kernel_irredundant_clauses(const Kernel &k) {
 #ifndef NDEBUG
 void kernel_check_invariants(const Kernel &k) {
   heuristics_check(k); // `H` sized to nvars (catches a missed Factor growth)
-  // The native-DSR proof never holds a root unit the kernel lacks: a DSR
-  // checker keeps every unit it derives, so a unit published for the proof
+  // The proof never holds a root unit the kernel lacks: a checker keeps every
+  // unit it derives, so a unit published for the proof
   // alone would let the checker's formula drift ahead of the solver's.  The
   // statement is about a kernel that keeps deriving: once it is inconsistent
   // the refutation is complete, and a speculative round that closed it (the

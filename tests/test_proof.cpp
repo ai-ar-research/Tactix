@@ -569,7 +569,7 @@ void test_startup_pbp_certificate_boundary() {
     p.finish_input_transaction();
     assert(p.startup_pb_available());
     FILE *out = p.begin_pb();
-    assert(out && p.closed_by_refutation() && !p.startup_pb_available());
+    assert(out && p.startup_pb_written() && !p.startup_pb_available());
     std::fputs("pseudo-Boolean proof version 3.0\n", out);
     assert(p.finish_pb());
     assert(!p.commit_clause_stream());

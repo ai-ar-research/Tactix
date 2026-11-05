@@ -28,10 +28,7 @@ const char *parse_dimacs_with_block(FILE *, Kernel &, size_t block_bytes);
 // dedupes, drops tautologies, assigns units, records empty clauses.
 void ingest_clause(Kernel &, std::vector<Lit> &scratch);
 
-// End of input: settle the proof id space (N2). Input clause `i` must carry
-// proof id `i`, because that is how the checker numbers the file, so no derived
-// id may be consumed until the last input clause is in. Emits the deferred
-// input-normalization lemmas and any refutation found during input, and is a
+// End of input. Emits the deferred input-normalization lemmas and any refutation found during input, and is a
 // no-op once nothing is pending. Must be called after the last ingest_clause
 // and before any rule runs; parse_dimacs does it for the file path, api.cpp for
 // the C API.

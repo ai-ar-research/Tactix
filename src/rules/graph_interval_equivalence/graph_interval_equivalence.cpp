@@ -459,7 +459,7 @@ ApplyResult apply_instance(Kernel &kernel, uint64_t instance) {
 RuleEligibility graph_interval_equivalence_guard(const Kernel &kernel) {
   return root_action_guard(kernel, false)
       .identity()
-      .fact("clausal-proof", !kernel.proof || !kernel.proof->closed_by_refutation())
+      .fact("clausal-proof", !kernel.proof || !kernel.proof->startup_pb_written())
       .finish();
 }
 

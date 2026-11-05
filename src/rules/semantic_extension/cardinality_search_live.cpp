@@ -151,7 +151,7 @@ Prepared preflight(Kernel &kernel,
       !request.maximum_source_scan_work || !request.maximum_arena_words ||
       !request.maximum_journal_bytes || request.constraints.empty())
     return output;
-  if (kernel.proof && kernel.proof->closed_by_refutation()) {
+  if (kernel.proof && kernel.proof->startup_pb_written()) {
     result.status = CardinalitySearchLiveStatus::UnsupportedProof;
     return output;
   }

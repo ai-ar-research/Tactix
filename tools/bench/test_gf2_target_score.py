@@ -23,8 +23,6 @@ def metadata(build_hash, input_hash):
         "input-sha256": input_hash,
         "policy": "random-controller",
         "bve-gates": "0",
-        "proof-format": "1",
-        "proof-enabled": "1",
         "configuration": "synthetic-gf2",
         "structural-provenance": "1",
     }
