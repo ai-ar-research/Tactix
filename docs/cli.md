@@ -51,8 +51,8 @@ pseudo-Boolean (PBP) once and continues in PBP only when a startup algebraic
 argument refutes the formula, once parity reasoning has cost 10 MB of DSR, or at
 a step DSR cannot follow. The output names the result, for example
 `c proof-route dsr-cake_lpr`. Use `--pbp` to always write PBP and `--dsr` to always
-write DSR. `--dsr` stops with an error on a startup counting refutation, which has
-no practical DSR spelling; the default and `--pbp` handle it.
+write DSR. A startup counting refutation has no practical DSR spelling, so `--dsr`
+stops there with an error.
 
 The search is the same with no proof and in every format, so the choice affects
 only what is written and how long it takes to check.
@@ -85,8 +85,8 @@ python3 tools/bench/proof_oracle.py check formula.cnf proof
 The checker prints `s VERIFIED UNSAT` when it accepts the proof. The script
 recognizes the proof's format and runs the matching checkers: VeriPB and
 CakePB for PBP; drat-trim and CakeLPR, or dsr-trim and Trestle, for DSR.
-`tools/checkers/setup.sh` builds each checker at a pinned commit with the patches in
-`tools/checkers/patches/`. The drat-trim patch finds RAT candidates by occurrence and
+`tools/checkers/setup.sh` installs each checker at a pinned version, with the patches
+in `tools/checkers/patches/`. The drat-trim patch finds RAT candidates by occurrence and
 produces the same LRAT as upstream.
 
 For DSR-to-DRAT conversion, the optional native `dsr-transport` helper is built
