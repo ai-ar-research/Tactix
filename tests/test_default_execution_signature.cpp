@@ -114,7 +114,9 @@ int main(int argc, char **argv) {
       proof.flush();
       std::ifstream input(path, std::ios::binary);
       assert(input);
-      const std::string bytes{std::istreambuf_iterator<char>(input), {}};
+      std::ostringstream buffer;
+      buffer << input.rdbuf();
+      const std::string bytes = buffer.str();
       uint64_t hash = UINT64_C(14695981039346656037);
       for (unsigned char byte : bytes) hash = (hash ^ byte) * UINT64_C(1099511628211);
       if (retain) {
