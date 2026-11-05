@@ -355,8 +355,9 @@ default_affine_search_parameters(const Kernel &kernel,
   result.basis_maximum_premises = static_cast<uint32_t>(clauses);
   result.basis_maximum_nodes = rows;
   result.basis_maximum_direct_width = result.maximum_arity;
-  result.maximum_external_extent = static_cast<uint32_t>(std::min<uint64_t>(
-      INT32_MAX, saturated_sum(kernel.external_to_internal.size(),result.maximum_proof_additions)));
+  // Helper variables exist only in the proof, so only the formats' signed 32-bit
+  // literals bound them: a smaller bound would let the proof end parity reasoning.
+  result.maximum_external_extent = INT32_MAX;
   result.maximum_session_keys = clauses;
   // The persistent service retains duplicate identities under `bytes`; its
   // session-work meter includes that lifetime key population.  Capping it at
@@ -3511,7 +3512,8 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
   // retained owner requires a live proof and provenance stream; asking the C
   // port to decline and then falling back statically would violate trajectory
   // identity even though both paths ultimately publish nothing.
-  if (!affine_matrix_initialize_guard(kernel) || !kernel.proof ||
+  if (kernel.affine_reasons_unaffordable ||
+      !affine_matrix_initialize_guard(kernel) || !kernel.proof ||
       kernel.model_extended) {
     result.status = AffineMatrixInitStatus::Inapplicable;
     return result;

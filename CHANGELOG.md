@@ -8,6 +8,7 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Changed
 
+- The proof no longer steers the search in three cases. A command-line run without a proof file takes the same search as `--pbp`; it used to run with parity search off. Parity search no longer stops after a million proof helper variables, so `--dsr` follows it to the end. A parity reason that cannot be spelled because a budget ran out is withdrawn instead of aborting the run.
 - The command-line default proof writes one proof at a time. The solver runs
   exactly as with `--pbp` but writes only native DSR. A step with no clausal
   spelling (a compact GF(2) reason) converts the DSR proof so far to PBP once,

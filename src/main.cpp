@@ -505,21 +505,23 @@ int main(int argc, char **argv) {
   Proof proof;
   // Whole-run streaming PBP is textual, so --no-binary has no effect on it;
   // under automatic selection it spells the native-DSR copy in ASCII.
+  // N2: the proof never steers the search. A run without a proof file takes the
+  // search of a --pbp run by writing the same stream to nowhere.
   kernel.startup_certificate_open =
-      proof_format == ProofFormat::PbpStreaming ||
+      !proof_path || proof_format == ProofFormat::PbpStreaming ||
       proof_format == ProofFormat::DsrBinary ||
       proof_format == ProofFormat::DsrAscii;
-  if (proof_path) {
-    const bool opened =
-        proof_family == CliProofFamily::Automatic
-            ? proof.open_automatic(proof_path, binary_proof, proof_stage_path)
-            : proof.open(proof_path, proof_format);
-    if (!opened)
-      return fail_unknown("tactix: cannot write proof to '%s'\n", proof_path);
-    kernel.proof = &proof;
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);
-  }
+  const bool opened =
+      !proof_path ? proof.open("/dev/null", ProofFormat::PbpStreaming)
+      : proof_family == CliProofFamily::Automatic
+          ? proof.open_automatic(proof_path, binary_proof, proof_stage_path)
+          : proof.open(proof_path, proof_format);
+  if (!opened)
+    return fail_unknown("tactix: cannot write proof to '%s'\n",
+                        proof_path ? proof_path : "/dev/null");
+  kernel.proof = &proof;
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
 
   bool piped = false;
   FILE *in = open_input(cnf_path, &piped);
@@ -759,6 +761,10 @@ int main(int argc, char **argv) {
                "5:cached-assignment,6:deferred-reason,7:source-identity\n");
         for (const auto &[name, value] : affine_tail)
           printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
+        // Rare, so a run without it keeps its statistics block unchanged.
+        if (kernel.stats.affine_matrix_analyze_retractions)
+          printf("c affine-search analyze_retractions=%llu\n",
+                 (unsigned long long)kernel.stats.affine_matrix_analyze_retractions);
       }
     }
     stat_line("c count-pb    ", {{kernel.stats.counting_calls, "calls"},
