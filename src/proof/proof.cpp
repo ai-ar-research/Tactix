@@ -2138,7 +2138,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   };
 
   // Carry definitions and both bounds of one row. Its carry names were reserved
-  // when the row was first seen, so a rewrite after a conversion reuses them.
+  // when the row was first seen, so a rewrite reuses them.
   const auto write_bounds = [&](const PbpParityEquation &equation,
                                 PbpParityBounds &bounds) {
     uint32_t threshold = 2;
@@ -2972,8 +2972,7 @@ void Proof::release_lazy_event() noexcept {
 // The switch (plan §5): convert the complete DSR proof to PBP and continue on it.
 // DSR written to the destination is replaced by a rename once the PBP prefix is
 // complete, so the path names one or the other, whatever kills the run. The
-// numbering restarts from the converted lines, so every later deletion is by
-// specification and no line cites a prefix constraint.
+// numbering restarts from the converted lines, so no line cites a prefix constraint.
 bool Proof::convert_lazy_pbp() {
   LazyPbp &lazy = *lazy_;
   Proof &copy = *dsr_copy_;

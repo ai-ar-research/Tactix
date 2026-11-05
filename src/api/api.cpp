@@ -1904,8 +1904,8 @@ static void attach_proof(tactix_solver *s) {
   s->proof.bind_external_variable_map(&s->kernel.external_to_internal);
 }
 
-// The CLI's ingestion into a fresh session. parse_dimacs calls finish_input,
-// which must run exactly once, so the session's own boundary is marked closed.
+// The CLI's ingestion into a fresh session. finish_input runs exactly once, in
+// parse_dimacs or below, so the session's own boundary is marked closed.
 int tactix_read_dimacs(tactix_solver *s, FILE *in) {
   if (!s || !in || s->input_completed || !s->scratch.empty() ||
       s->kernel.nvars || s->kernel.next_clause_id)

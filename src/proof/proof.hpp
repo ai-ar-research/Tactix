@@ -42,9 +42,8 @@ struct DsrWitnessPlan {
 };
 
 // One already-authenticated complete XOR encoding, named only by its semantic
-// equation.  Streaming PBP can turn the bounded CNF row into two persistent
-// cutting-planes bounds once, then combine cached bounds for later live
-// reasons.  Premise authentication and lifetime remain the caller's job.
+// equation.  Streaming PBP turns the bounded CNF row into two persistent
+// cutting-planes bounds, then combines cached bounds for later live reasons.  Premise authentication and lifetime remain the caller's job.
 struct PbpParityEquation {
   std::vector<int32_t> variables;
   bool rhs = false;
@@ -63,8 +62,9 @@ struct PbpParityBounds {
   uint64_t lower = 0;
   uint64_t upper = 0;
   std::vector<int32_t> carries;
-  // Which numbering wrote lower and upper: a conversion restarts the numbering,
-  // and bounds written before it exist only in the discarded counting stream.
+  // Which numbering wrote lower and upper. A conversion restarts the numbering and
+  // a witness deletes the rows it touches, so a row from another numbering is written
+  // again before its next use.
   uint64_t numbering = 0;
 };
 
@@ -435,7 +435,7 @@ private:
   // never sees them, so a variable it creates later takes a higher checker name.
   // Each entry: at solver extent `extent`, `helpers` helpers exist in total.
   std::vector<DsrHelperNames> helper_names_;
-  uint64_t pbp_numbering_ = 0; // bumped by a conversion (PbpParityBounds)
+  uint64_t pbp_numbering_ = 0; // bumped when written rows stop being usable
   std::vector<uint64_t> pbp_parity_constraints_;
   std::unordered_set<uint32_t> pbp_parity_variables_;
   bool nowhere_ = false;

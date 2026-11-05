@@ -16,8 +16,8 @@
 
 namespace tactix {
 
-// Returns nullptr on success, a static error string otherwise. Calls
-// finish_input before returning.
+// Returns nullptr after calling finish_input, or a static error string without
+// calling it.
 const char *parse_dimacs(FILE *, Kernel &);
 // The same parser with an explicit input block size. Production uses the
 // 1 MiB block above; smaller blocks exist so tests can put every token and
