@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include <set>
 #include <cassert>
 #include "strategy/online_inprocess.hpp"
 #include <cstdint>
@@ -414,8 +415,51 @@ static void c_search_step_nonroot() {
   std::remove(path);
 }
 
+// N2: a root implied by the input is known whichever way the proof arrived, so the
+// same limit gives the same outcome on every route. The first capture runs before
+// any collection, so these roots count against the clause limit.
+enum class ProofRoute { None, Early, Late };
+static int routed_status(ProofRoute route, uint64_t maximum_clauses) {
+  auto *s=capi::tactix_init();assert(s);FILE *records=std::tmpfile();assert(records);
+  assert(capi::tactix_bind_structural_provenance(s,records)==0);
+  char path[]="/tmp/tactix-persistent-route-XXXXXX";int fd=mkstemp(path);assert(fd>=0);close(fd);
+  if(route==ProofRoute::Early)assert(capi::tactix_proof(s,path,TACTIX_PROOF_AUTO)==0);
+  capi::tactix_add(s,-1);capi::tactix_add(s,2);capi::tactix_add(s,0);
+  capi::tactix_add(s,1);capi::tactix_add(s,0);
+  for(auto variables:{std::vector<int32_t>{3,4,5},std::vector<int32_t>{4,5,6}})
+    for(auto clause:affine_semantic_extension::clausal_form(variables,variables.front()==4)) {
+      for(auto lit:clause)capi::tactix_add(s,lit);
+      capi::tactix_add(s,0);
+    }
+  if(route==ProofRoute::Late)assert(capi::tactix_proof(s,path,TACTIX_PROOF_AUTO)==0);
+  auto p=profile();p.basis.maximum_clauses=maximum_clauses;capi::tactix_online_step_v16 step{};
+  auto &base=step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base;
+  base.step_id=941;base.rule_id=41;base.granularity=TACTIX_ONLINE_GRANULARITY_CANONICAL;
+  base.repeat_mode=TACTIX_ONLINE_REPEAT_ONCE;base.repeat_limit=1;
+  base.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;base.budget=1;
+  step.affine_matrix_profile=TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
+  step.affine_matrix={c_basis(p.basis),1,1,p.maximum_retained_bytes,p.maximum_deferred_deletions,p.maximum_deferred_literal_work};
+  capi::tactix_online_program_v16 program{&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
+  assert(capi::tactix_online_configure_v16(s,&program,941,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
+  capi::tactix_online_result result{};assert(capi::tactix_online_advance(s,&result)==0);
+  const auto status=result.status;
+  capi::tactix_release(s);std::fclose(records);std::remove(path);
+  return status;
+}
+static void every_route_counts_the_same_roots() {
+  std::set<int> outcomes;
+  for(uint64_t limit=1;limit<=16;++limit) {
+    const auto none=routed_status(ProofRoute::None,limit);
+    assert(routed_status(ProofRoute::Early,limit)==none);
+    assert(routed_status(ProofRoute::Late,limit)==none);
+    outcomes.insert(none);
+  }
+  assert(outcomes.size()>1); // the limit must have mattered
+}
+
 int main() {
   replay_and_scope();
+  every_route_counts_the_same_roots();
   c_surface(true);
   c_surface(false);
   c_service_continuation(false);

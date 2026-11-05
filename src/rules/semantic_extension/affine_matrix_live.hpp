@@ -158,8 +158,6 @@ private:
   uint32_t starting_nvars_ = 0;
   uint32_t starting_extent_ = 0;
   uint32_t starting_level_ = 0;
-  bool had_proof_ = false;
-  ProofFormat proof_format_ = ProofFormat::DsrBinary;
   Proof *proof_ = nullptr;
   long records_position_ = -1;
   std::vector<MatrixAssignment> trail_;

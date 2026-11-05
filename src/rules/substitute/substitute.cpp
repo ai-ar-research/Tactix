@@ -1758,12 +1758,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                                a == negate(b)};
   };
   bool refuted = false;
-  // Streaming PBP closes the proof as soon as the pending unit batch derives
+  // The writer closes the proof as soon as the pending unit batch derives
   // the empty clause.  The physical binary rewrite still has to finish its
   // transaction, but no later image in that batch may append another proof
   // addition.
   const auto pbp_proof_finished = [&] {
-    return refuted && k.proof && k.proof->streaming_pbp();
+    return refuted && k.proof;
   };
   // Canonical substitution edits watches directly rather than using the
   // binary-delete primitive. Retain each disappearing physical copy until

@@ -121,7 +121,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  if(selection_bytes>limits.maximum_preparation_bytes||!meter.charge(selection_bytes+18*values*values)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
  if(!nary_csp_equality_transitivity_selection_valid(selected))return finish();
  if(!relations.belongs_to(k)||!equalities.belongs_to(k)||(session.retained()&&!session.belongs_to(k))){out.status=Status::Inapplicable;return finish();}
- if(k.proof&&k.proof->terminal_pbp()){out.status=Status::UnsupportedProof;return finish();}
+ if(k.proof&&k.proof->closed_by_refutation()){out.status=Status::UnsupportedProof;return finish();}
  for(const auto &key:session.keys()){
    if(!meter.charge(key_bytes(key)+selection_bytes)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
    if(key==selected){out.status=Status::Duplicate;return finish();}

@@ -1898,12 +1898,24 @@ int tactix_bind_structural_provenance(tactix_solver *s, FILE *stream) {
   return 0;
 }
 
+static void attach_proof(tactix_solver *s) {
+  s->kernel.proof = &s->proof;
+  s->proof.bind_variable_map(&s->kernel.internal_to_external);
+  s->proof.bind_external_variable_map(&s->kernel.external_to_internal);
+}
+
 // The CLI's ingestion into a fresh session. parse_dimacs calls finish_input,
 // which must run exactly once, so the session's own boundary is marked closed.
 int tactix_read_dimacs(tactix_solver *s, FILE *in) {
   if (!s || !in || s->input_completed || !s->scratch.empty() ||
       s->kernel.nvars || s->kernel.next_clause_id)
     return -1;
+  // N2: a session with no proof takes the search of a session with one.
+  if (!s->kernel.proof) {
+    if (!s->proof.open_nowhere())
+      std::abort();
+    attach_proof(s);
+  }
   const char *err = parse_dimacs(in, s->kernel);
   s->input_completed = true;
   external_state_change(s);
@@ -1963,8 +1975,10 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   bool opened;
   switch (format) {
   case 3:
+    opened = s->proof.open(path, ProofFormat::DsrBinary);
+    break;
   case 4:
-    opened = s->proof.open_automatic(path, format == 3, nullptr, true);
+    opened = s->proof.open(path, ProofFormat::DsrAscii);
     break;
   case 6:
     opened = s->proof.open(path, ProofFormat::PbpStreaming);
@@ -1984,9 +1998,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
     external_state_change(s);
     return 0;
   }
-  s->kernel.proof = &s->proof;
-  s->proof.bind_variable_map(&s->kernel.internal_to_external);
-  s->proof.bind_external_variable_map(&s->kernel.external_to_internal);
+  attach_proof(s);
   external_state_change(s);
   return 0;
 }

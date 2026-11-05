@@ -182,6 +182,19 @@ static void explicit_instance_stays_single_action() {
   assert(f.finish(false) == 10);
 }
 
+// An asserted root unit with no id is known to later rules only through the root
+// table, as the affine refresh's own check requires.
+static void asserted_units_are_in_the_root_table(const Kernel &k) {
+  for (const Lit literal : k.trail) {
+    const Var v = var_of(literal);
+    if (k.assigned[v].level || k.unit_ids[v] ||
+        k.assigned[v].reason != UNIT_REASON)
+      continue;
+    assert(v < k.dsr_root_values.size() &&
+           k.dsr_root_values[v] == (negated(literal) ? -1 : 1));
+  }
+}
+
 // Complete, independently checkable proof fixtures. A guarded contradiction
 // has no initial unit or complementary binary pair; it becomes productive
 // only after the targeted SSR unit and optional connected propagation chain.
@@ -207,6 +220,7 @@ static void proof_case(bool dense, unsigned chain, ProofFormat format,
   f.enter(dense);
   const ApplyResult result = strengthen_apply(f.k);
   assert(f.k.stats.strengthened >= 1 && f.k.value(internalize(3)) > 0);
+  asserted_units_are_in_the_root_table(f.k);
   assert(result == ApplyResult::Unsat || f.finish(dense) == 20);
   assert(f.k.inconsistent);
   proof.flush();

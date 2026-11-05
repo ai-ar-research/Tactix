@@ -53,7 +53,7 @@ void alias_failure_atomicity() {
   Proof proof;assert(proof.open(path.c_str(),ProofFormat::DsrAscii));
   proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
   for(size_t i=0;i<original.size();++i){const auto body=physical(k,original[i]);proof.seed_population(i+1,body.data(),body.size());}
-  proof.arm_population_shadow();k.proof=&proof;
+  proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
   AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
   auto bounded=parameters();bounded.basis_maximum_work=10000;bounded.maximum_clauses=original.size();
   assert(affine_matrix_search_initialize(k,session,bounded,
@@ -134,7 +134,7 @@ void refresh_root_assignment_stamp(){
  uint64_t id=certified_four_id;
  for(const auto &c:parity){const auto body=physical(k,c);proof.seed_population(++id,body.data(),body.size());}
  const auto bridge=physical(k,{-3,4});proof.seed_population(++id,bridge.data(),bridge.size());proof.arm_population_shadow();
- k.proof=&proof;AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
+ proof.finish_input_transaction();k.proof=&proof;AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
  const auto p=parameters();const AffineMatrixPersistenceLimits limits{64*1024*1024,1000,100000};
  assert(affine_matrix_search_initialize(k,session,p,AffineMatrixAdmission::AuthenticatedSubimage,limits).status==AffineMatrixInitStatus::Applied);
  const auto census=affine_matrix_search_refresh(k,session,p,limits,true);
@@ -189,7 +189,7 @@ void exercise(bool signed_alias,bool sweep,ProofFormat format,const char *prefix
   Proof proof;assert(proof.open(proof_path.c_str(),format));
   proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
   for(size_t i=0;i<original.size();++i){const auto body=physical(k,original[i]);proof.seed_population(i+1,body.data(),body.size());}
-  proof.arm_population_shadow();k.proof=&proof;
+  proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
   AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
   const auto initialized=affine_matrix_search_initialize(k,session,parameters(),
       AffineMatrixAdmission::AuthenticatedSubimage,{64*1024*1024});
@@ -305,7 +305,7 @@ void root_maintenance_after_sweep_refutes(ProofFormat format,const char *prefix)
   Proof proof;assert(proof.open(proof_path.c_str(),format));
   proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
   for(size_t i=0;i<original.size();++i){const auto body=physical(k,original[i]);proof.seed_population(i+1,body.data(),body.size());}
-  proof.arm_population_shadow();k.proof=&proof;
+  proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
   AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
   const auto p=parameters();const AffineMatrixPersistenceLimits limits{64*1024*1024,1000,100000};
   const auto initialized=affine_matrix_search_initialize(k,session,p,
@@ -369,7 +369,7 @@ void refresh_after_root_unit_premises_removed(ProofFormat format,bool eliminate)
   Proof proof;assert(proof.open(proof_path.c_str(),format));
   proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
   for(size_t i=0;i<original.size();++i){const auto body=physical(k,original[i]);proof.seed_population(i+1,body.data(),body.size());}
-  proof.arm_population_shadow();k.proof=&proof;
+  proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
   AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
   const auto p=parameters();const AffineMatrixPersistenceLimits limits{64*1024*1024,1000,100000};
   const auto initialized=affine_matrix_search_initialize(k,session,p,

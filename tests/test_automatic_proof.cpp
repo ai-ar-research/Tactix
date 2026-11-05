@@ -146,7 +146,8 @@ std::string single(ProofFormat format, const Events &events) {
   const std::string path = directory / "single";
   {
     Proof p;
-    assert(p.open(path.c_str(), format));
+    assert(format == ProofFormat::PbpStreaming ? p.open(path.c_str(), format)
+                                               : p.open_dsr_writer(path.c_str(), format));
     events(p);
   }
   return read_all(path);
@@ -189,6 +190,81 @@ void expect_abort(const std::function<void()> &body) {
   int status = 0;
   assert(waitpid(child, &status, 0) == child);
   assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
+}
+
+// The only proof cannot follow: the run stops with the proof error, exit 1.
+void expect_proof_error(const std::function<void()> &body) {
+  const pid_t child = fork();
+  assert(child >= 0);
+  if (!child) {
+    (void)!freopen("/dev/null", "w", stderr);
+    body();
+    _exit(0);
+  }
+  int status = 0;
+  assert(waitpid(child, &status, 0) == child);
+  assert(WIFEXITED(status) && WEXITSTATUS(status) == 1);
+}
+
+// Native DSR retires leased premises and retained support before a witnessed
+// line, which the PBP stream keeps. A witness-free line retires nothing.
+void sr_under_affine_support() {
+  const auto lease = [](Proof &p) {
+    std::vector<uint64_t> handles;
+    assert(p.retain_premise_groups({{{1, 2}}}, 8, 100, 100000,
+                                   [](uint64_t) { return true; }, handles,
+                                   {4, 100}));
+  };
+  const auto retain = [](Proof &p) {
+    const int32_t support[] = {1, 2};
+    assert(p.retain_external(20, support, 2));
+  };
+  const auto free_of_witness = [](Proof &p) {
+    const auto body = clause({1, 2});
+    const DsrLiteralMapping identity{internalize(1), internalize(1)};
+    const Lit metadata = internalize(3);
+    assert(plan_dsr_witness(body.data(), 2, &metadata, 1, &identity, 1).form ==
+           DsrWitnessForm::Rup);
+    assert(p.add_sr(21, body.data(), 2, &metadata, 1, &identity, 1, 7));
+  };
+  const auto witnessed = [](Proof &p) {
+    const auto sr = clause({6, 1});
+    const DsrLiteralMapping mapping[] = {{internalize(6), internalize(-6)}};
+    assert(p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, 7));
+  };
+  for (const auto &support :
+       std::vector<std::function<void(Proof &)>>{lease, retain}) {
+    TemporaryDirectory directory;
+    const std::string path = directory / "proof";
+    {
+      Proof p;
+      assert(p.open_automatic(path.c_str(), true));
+      inputs(p);
+      support(p);
+      free_of_witness(p);
+      assert(p.automatic_dsr_live());
+      witnessed(p);
+      assert(!p.automatic_dsr_live());
+      assert(p.automatic_reason() == AutomaticProofReason::SrWithAffineSupport);
+      refutation(p);
+    }
+    {
+      Proof p;
+      assert(p.open(path.c_str(), ProofFormat::DsrAscii));
+      inputs(p);
+      support(p);
+      free_of_witness(p);
+      assert(p.automatic_dsr_live());
+      refutation(p);
+    }
+    expect_proof_error([&] {
+      Proof p;
+      assert(p.open(path.c_str(), ProofFormat::DsrAscii));
+      inputs(p);
+      support(p);
+      witnessed(p);
+    });
+  }
 }
 
 void no_trigger_selects_dsr() {
@@ -565,7 +641,7 @@ void dsr_only_writes_dsr_with_the_same_answers() {
   {
     Proof p;
     assert(p.open_automatic(path.c_str(), false, nullptr, true));
-    assert(!p.automatic() && p.dsr_only());
+    assert(!p.automatic());
     inputs(p);
     assert(p.commit_clause_stream());
     PbpParityBoundsCache cache;
@@ -887,6 +963,7 @@ int main() {
   no_trigger_selects_dsr();
   startup_pb_keeps_pbp();
   sr_with_support_keeps_pbp();
+  sr_under_affine_support();
   witnessed_sr_selects_trestle_route();
   symlink_destination_is_copied();
   caller_stage_is_copied();

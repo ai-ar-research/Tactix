@@ -38,7 +38,6 @@ struct Prepared {
   uint64_t arena_generation = 0;
   uint32_t level = 0;
   Proof *proof = nullptr;
-  ProofFormat proof_format = ProofFormat::DsrAscii;
 };
 
 ClauseKey canonical(ClauseKey clause) {
@@ -152,7 +151,7 @@ Prepared preflight(Kernel &kernel,
       !request.maximum_source_scan_work || !request.maximum_arena_words ||
       !request.maximum_journal_bytes || request.constraints.empty())
     return output;
-  if (kernel.proof && kernel.proof->terminal_pbp()) {
+  if (kernel.proof && kernel.proof->closed_by_refutation()) {
     result.status = CardinalitySearchLiveStatus::UnsupportedProof;
     return output;
   }
@@ -258,7 +257,6 @@ Prepared preflight(Kernel &kernel,
   output.arena_generation = kernel.arena_generation;
   output.level = kernel.level;
   output.proof = kernel.proof;
-  if (kernel.proof) output.proof_format = kernel.proof->format();
   result.status = CardinalitySearchLiveStatus::Applied;
   return output;
 }
@@ -269,7 +267,6 @@ bool unchanged(Kernel &kernel, const CardinalitySearchLiveRequest &request,
       kernel.arena_generation != prepared.arena_generation ||
       kernel.level != prepared.level ||
       kernel.proof != prepared.proof ||
-      (kernel.proof && kernel.proof->format() != prepared.proof_format) ||
       kernel.trail.size() != prepared.trail.size() ||
       !std::equal(kernel.trail.begin(), kernel.trail.end(),
                   prepared.trail.begin()) ||

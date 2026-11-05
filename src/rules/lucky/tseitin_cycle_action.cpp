@@ -608,12 +608,6 @@ bool make_journal(const Kernel &kernel, uint64_t action_id,
       !put("\"action_id\":") || !number(action_id) ||
       !put(",\"semantic_id\":") || !number(action_id) ||
       !put(",\"identity\":\"") || !put(offered.identity) ||
-      !put("\",\"proof_format\":\"") ||
-      !put(kernel.proof ? (kernel.proof->streaming_pbp()
-                               ? "pbp"
-                               : kernel.proof->binary() ? "dsr-binary"
-                                                        : "dsr-ascii")
-                        : "none") ||
       !put("\",\"parameters\":{") ||
       !bounds(true,
               {{"snapshot_clauses", limits.snapshot.maximum_clauses},
@@ -819,7 +813,7 @@ RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
                         }))
       .quiescent()
       .identity()
-      .fact("sr-proof", !kernel.proof || !kernel.proof->terminal_pbp())
+      .fact("sr-proof", !kernel.proof || !kernel.proof->closed_by_refutation())
       .finish();
 }
 
@@ -827,7 +821,7 @@ RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
 // order by offer and apply. Applied means the request may proceed.
 static TseitinCycleBreakingStatus admit_request(
     const Kernel &kernel, const TseitinCycleBreakingLimits &limits) {
-  if (kernel.proof && kernel.proof->terminal_pbp())
+  if (kernel.proof && kernel.proof->closed_by_refutation())
     return TseitinCycleBreakingStatus::UnsupportedProof;
   if (!tseitin_cycle_breaking_guard(kernel))
     return TseitinCycleBreakingStatus::Inapplicable;

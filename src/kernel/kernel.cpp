@@ -744,7 +744,7 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   // clause imposes an extra substitution obligation after the last live copy
   // disappears. Both formats can retire one literal-named copy while leaving
   // the surviving reason.
-  if (k.proof && !k.proof->terminal_pbp()) {
+  if (k.proof && !k.proof->closed_by_refutation()) {
     const Lit clause[2] = {a, b};
     k.proof->del(k.next_clause_id, 0, clause, 2);
   }
@@ -1534,9 +1534,8 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   if (kept.size() == 1 && k.level)
     kernel_backtrack(k, 0, /*search_backtrack=*/false);
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof) // streaming PBP tracks the replacement's id for `del id`
-    k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, kept.data(),
-                     static_cast<uint32_t>(kept.size()));
+  if (k.proof) // the writer tracks the replacement's id for `del id`
+    k.proof->add_rup(id, kept.data(), static_cast<uint32_t>(kept.size()));
   k.stats.flushed++;
   if (changed)
     (*changed)++;
@@ -2004,8 +2003,8 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // RUP from the same formula, so streaming PBP stages these units and drops
   // them if that clause is next (VeriPB need not re-justify one conflict
   // chain per unit). Unit ids and root tables advance exactly as before.
-  if (k.proof && !k.proof->terminal_pbp()) {
-    const bool stage = conflict && k.level == 0 && k.proof->streaming_pbp();
+  if (k.proof && !k.proof->closed_by_refutation()) {
+    const bool stage = conflict && k.level == 0;
     if (stage)
       k.proof->begin_deferred_root_units();
     kernel_emit_root_units(k, assigned_before);
@@ -2209,7 +2208,7 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   // does deliberately: it asserts each environment's units without propagating
   // and then replays the next equivalence.
   const size_t assigned_before = k.trail.size();
-  const bool named_root_units = k.proof && !k.proof->terminal_pbp();
+  const bool named_root_units = k.proof && !k.proof->closed_by_refutation();
   bool conflict = false;
   kernel_settle_binary_only_debt(k); // this scan is a full one
   if (!k.probing.recording) {
@@ -2256,7 +2255,7 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   if (k.propagate_head < k.binary_only_head)
     k.binary_only_head = k.propagate_head;
   const size_t assigned_before = k.trail.size();
-  const bool named_root_units = k.proof && !k.proof->terminal_pbp();
+  const bool named_root_units = k.proof && !k.proof->closed_by_refutation();
   bool conflict = false;
   const uint32_t saved_propagate = k.propagate_head;
   uint64_t ticks = 0;
@@ -3857,7 +3856,7 @@ static Var bind_dsr_root_table(Kernel &k, Lit lit) {
 }
 
 bool kernel_root_unit_table_stream(const Kernel &k) {
-  return k.proof && !k.proof->terminal_pbp() && k.proof->stream_identity();
+  return k.proof && !k.proof->closed_by_refutation() && k.proof->stream_identity();
 }
 
 void kernel_note_dsr_root_unit(Kernel &k, Lit lit) {
@@ -3868,7 +3867,7 @@ void kernel_note_dsr_root_unit(Kernel &k, Lit lit) {
 }
 
 void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
-  if (!k.proof || k.proof->terminal_pbp())
+  if (!k.proof || k.proof->closed_by_refutation())
     return;
   const Var v = bind_dsr_root_table(k, lit);
   const int8_t polarity = negated(lit) ? -1 : 1;

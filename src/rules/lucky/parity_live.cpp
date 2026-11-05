@@ -54,8 +54,8 @@ struct Sink {
     const uint64_t deleted=found->second.back();found->second.pop_back();if(found->second.empty())active_ids.erase(found);
     ++deletions;
     if(writing) {
-      // Streaming PBP tracked the helper under the id it was added with.
-      if(k.proof&&!k.proof->del_external(k.next_clause_id,k.proof->streaming_pbp()?deleted:0,c.lits.data(),c.size))return false;
+      // The writer tracked the helper under the id it was added with.
+      if(k.proof&&!k.proof->del_external(k.next_clause_id,deleted,c.lits.data(),c.size))return false;
       journal.clause("delete-xor-helper",deleted,c.lits.data(),c.size);
     }
     return true;
@@ -93,7 +93,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
   ParityLiveResult result;
   if(!request.records||!request.action_id||request.selection.output_width>4||
      !lucky_root_eligibility(k,true)||
-     (k.proof&&k.proof->terminal_pbp()))return result;
+     (k.proof&&k.proof->closed_by_refutation()))return result;
   Journal journal{request.records,request.action_id};
   std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"begin\",\"clauses_limit\":%llu,\"groups_limit\":%llu,\"selection_work\":%llu,\"intermediate_width\":%u,\"source_limit\":%u,\"output_width\":%u,\"descending\":%s,\"proof_limit\":%llu,\"consequence\":%zu}\n",(unsigned long long)request.action_id,(unsigned long long)request.premises.clauses,(unsigned long long)request.premises.groups,(unsigned long long)request.selection.work,request.selection.intermediate_width,request.selection.source_count,request.selection.output_width,request.descending?"true":"false",(unsigned long long)request.maximum_proof_additions,request.consequence);
   parity_premises::Collector collector(request.premises);

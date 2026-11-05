@@ -138,6 +138,9 @@ public:
   ~Proof();
 
   bool open(const char *path, ProofFormat format);
+  // The DSR writer alone, for its own tests. A production kernel never holds
+  // one: open() always gives the kernel the streaming-PBP writer.
+  bool open_dsr_writer(const char *path, ProofFormat format);
   // Automatic selection: streaming PBP at `path` plus a binary (or ASCII) DSR
   // copy. `stage_path`, when given, names the copy's caller-owned stage file;
   // otherwise a sibling of `path` (renamed into place) or an anonymous file
@@ -152,9 +155,11 @@ public:
   bool open_nowhere();
   bool nowhere() const noexcept { return nowhere_; }
   bool automatic() const noexcept { return automatic_ && !dsr_only_; }
-  bool dsr_only() const noexcept { return dsr_only_; }
-  // A startup parity refutation, spelled in clauses; the run ends on it.
-  void write_parity_refutation(const std::vector<PbpParityEquation> &equations);
+  // A startup parity refutation; the run ends on it. `write_pb` writes it to the
+  // PBP stream it is given, and a DSR-only proof spells it in clauses instead.
+  // False, with nothing written, when the stream is already published.
+  bool refute_parity(const std::vector<PbpParityEquation> &equations,
+                     const std::function<bool(FILE *)> &write_pb);
   AutomaticProofReason automatic_reason() const noexcept {
     return automatic_reason_;
   }
@@ -175,23 +180,13 @@ public:
   bool commit_clause_stream();
   FILE *begin_pb();
   bool finish_pb();
-  bool pb() const {
-    return format_ == ProofFormat::Pbp ||
-           format_ == ProofFormat::PbpStreaming;
-  }
-  // The startup-only terminal PBP route owns a complete refutation and cannot
-  // accept subsequent typed clause events.  Explicit streaming PBP can.
-  bool terminal_pbp() const { return format_ == ProofFormat::Pbp; }
-  bool streaming_pbp() const { return format_ == ProofFormat::PbpStreaming; }
+  // A complete startup refutation owns the stream, which takes no further
+  // clause events. No search follows it.
+  bool closed_by_refutation() const { return format_ == ProofFormat::Pbp; }
   // Delete by specification for the rest of the run: a proof attached after
   // replayed input cannot name the live kernel's clauses by their ids (see
   // attach_replayed_input_proof).
   void disable_pbp_id_deletions() { abandon_pbp_id_deletions(7, 0); }
-  ProofFormat format() const { return format_; }
-  bool dsr() const {
-    return format_ == ProofFormat::DsrBinary ||
-           format_ == ProofFormat::DsrAscii;
-  }
   // Published proof feature, used only to choose an independent final checker.
   // The runner also scans the finished certificate and rejects disagreement.
   const char *verification_route() const {
@@ -202,7 +197,6 @@ public:
     if (pb()) return "pbp";
     return has_sr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
   }
-  bool binary() const { return format_ == ProofFormat::DsrBinary; }
   void bind_variable_map(const std::vector<Var> *map) {
     variable_map_ = map;
     if (dsr_copy_)
@@ -386,6 +380,18 @@ public:
 #endif
 
 private:
+  // Which stream this object writes is the writer's own business: a rule that
+  // could ask could steer the search by it (N2).
+  bool pb() const {
+    return format_ == ProofFormat::Pbp ||
+           format_ == ProofFormat::PbpStreaming;
+  }
+  bool streaming_pbp() const { return format_ == ProofFormat::PbpStreaming; }
+  bool dsr() const {
+    return format_ == ProofFormat::DsrBinary ||
+           format_ == ProofFormat::DsrAscii;
+  }
+  bool binary() const { return format_ == ProofFormat::DsrBinary; }
   // Event bodies. The public methods run these and then feed the automatic
   // DSR copy; internal calls use the bodies so the copy sees each event once.
   void add_rup_impl(uint64_t id, const Lit *lits, uint32_t size);

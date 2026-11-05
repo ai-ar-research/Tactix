@@ -108,9 +108,9 @@ def main():
 
         records = work / 'negative.jsonl'
         records.write_text(saved)
-        mismatch = run(options=[f'--feedback-replay={records}'])
-        assert mismatch.returncode == 1 and mismatch.stdout == saved_solver_output
-        assert 'feedback verification' in mismatch.stderr  # Proof enablement is provenance.
+        # N2: the proof is no part of the search, so a trace replays without one.
+        without_proof = run(options=[f'--feedback-replay={records}'])
+        assert without_proof.returncode == 10 and without_proof.stdout == saved_solver_output
         changed_env = dict(environment, TACTIX_FORCE_MODE='stable')
         assert run(options=[f'--feedback-replay={records}'], env=changed_env,
                    proof=work / 'different-config.dsr').returncode == 1

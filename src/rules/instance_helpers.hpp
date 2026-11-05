@@ -67,7 +67,7 @@ inline void emit_rup_lemma(Kernel &kernel, uint64_t id, const Lit *lits,
                            uint32_t size) {
   if (!kernel.proof)
     return;
-  kernel.proof->add_rup(kernel.proof->streaming_pbp() ? id : 0, lits, size);
+  kernel.proof->add_rup(id, lits, size);
 }
 
 inline void emit_rup_lemma(Kernel &kernel, uint64_t id,

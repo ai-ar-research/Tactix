@@ -67,7 +67,7 @@ public:
                               id, data(clause), size(clause))
                         : kernel_.proof->add_external_rup(
                               id, data(clause), size(clause));
-    if (ok && kernel_.proof->streaming_pbp())
+    if (ok)
       pbp_ids_.add(data(clause), size(clause), id);
     stopped |= !ok;
     return ok;
@@ -77,9 +77,7 @@ public:
     ++deletions;
     if (!writing_ || !kernel_.proof)
       return true;
-    const uint64_t del_id = kernel_.proof->streaming_pbp()
-                                ? pbp_ids_.take(data(clause), size(clause))
-                                : 0;
+    const uint64_t del_id = pbp_ids_.take(data(clause), size(clause));
     const bool ok = kernel_.proof->del_external(
         kernel_.next_clause_id, del_id, data(clause), size(clause));
     stopped |= !ok;

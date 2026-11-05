@@ -447,14 +447,7 @@ MatrixLiveStatus transaction_status(MatrixTransactionStatus status) {
 }
 
 bool proof_supported(const Kernel &kernel) {
-  return !kernel.proof || !kernel.proof->terminal_pbp();
-}
-
-bool proof_unchanged(const Kernel &kernel, bool had_proof, Proof *proof,
-                     ProofFormat format) {
-  if ((kernel.proof != nullptr) != had_proof || kernel.proof != proof)
-    return false;
-  return !kernel.proof || kernel.proof->format() == format;
+  return !kernel.proof || !kernel.proof->closed_by_refutation();
 }
 
 bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
@@ -557,9 +550,7 @@ MatrixLiveResult prepare_affine_matrix_live(
   }
   candidate.starting_extent_ = kernel.external_to_internal.size();
   candidate.starting_level_ = kernel.level;
-  candidate.had_proof_ = kernel.proof;
   candidate.proof_ = kernel.proof;
-  if (kernel.proof) candidate.proof_format_ = kernel.proof->format();
   candidate.records_position_ = std::ftell(request.records);
   std::vector<MatrixAssignment> support_trail;
   if (candidate.records_position_ < 0 ||
@@ -593,8 +584,7 @@ MatrixLiveResult prepare_affine_matrix_live(
       same_stack_retained_sources ? request.matrix->authenticated_sources()
                                   : *request.exact_sources;
   const PbpParityReasonPlan *compact_plan = nullptr;
-  if (kernel.proof && kernel.proof->streaming_pbp() &&
-      request.pbp_parity_cache) {
+  if (kernel.proof && request.pbp_parity_cache) {
     bool complete = true;
     candidate.pbp_equations_.reserve(
         candidate.event_.row.source_equations.size());
@@ -787,8 +777,7 @@ MatrixLiveResult publish_affine_matrix_live(
       kernel.external_to_internal.size() != prepared.starting_extent_ ||
       (!(request.historical_event || request.retained_publication) &&
        kernel.level != prepared.starting_level_) ||
-      !proof_unchanged(kernel, prepared.had_proof_, prepared.proof_,
-                       prepared.proof_format_) ||
+      kernel.proof != prepared.proof_ ||
       (request.proof_cache && !prepared.transaction_.compact_pbp() &&
        (request.proof_cache->generation() !=
             prepared.transaction_.proof_cache_generation() ||

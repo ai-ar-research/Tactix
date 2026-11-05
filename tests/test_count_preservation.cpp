@@ -10,6 +10,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -63,6 +68,35 @@ static std::string formula(unsigned width, bool unsat, bool rename) {
   }
   return text;
 }
+// A counting refutation has no practical clausal spelling: --dsr stops with an
+// error, exit 1, where the other modes write it and report UNSAT.
+static void dsr_stops_with_the_error(const std::string &cnf) {
+  for (ProofFormat format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii}) {
+    TemporaryFile proof_file;
+    TemporaryFile message;
+    const pid_t child = fork();
+    assert(child >= 0);
+    if (!child) {
+      FILE *said = std::fopen(message.path.c_str(), "w");
+      assert(said && dup2(fileno(said), 2) == 2);
+      Kernel k;
+      Proof proof;
+      assert(proof.open(proof_file.path.c_str(), format));
+      proof.bind_variable_map(&k.internal_to_external);
+      k.proof = &proof;
+      parse_dimacs_text(cnf, k);
+      count_preservation_apply(k);
+      _exit(0);
+    }
+    int status = 0;
+    assert(waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 1);
+    std::ifstream text(message.path);
+    const std::string said((std::istreambuf_iterator<char>(text)), {});
+    assert(said.find("counting refutation") != std::string::npos);
+  }
+}
+
 int main(int argc, char **argv) {
   for (unsigned width : {3, 4})
     for (bool renamed : {false, true}) {
@@ -96,6 +130,7 @@ int main(int argc, char **argv) {
       assert(!sat.inconsistent);
     }
   const auto cnf = formula(3, true, true);
+  dsr_stops_with_the_error(cnf);
   for (bool stop : {false, true}) {
     Kernel k;
     parse_dimacs_text(cnf, k);
@@ -110,17 +145,6 @@ int main(int argc, char **argv) {
     assert(!k.inconsistent && k.startup_certificate_open);
     assert(k.startup_input == original && k.arena.size() == arena_size);
     assert(!k.stats.counting_unsat);
-  }
-  for (ProofFormat format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii}) {
-    Kernel k;
-    TemporaryFile proof_file;
-    Proof proof;
-    assert(proof.open(proof_file.path.c_str(), format));
-    proof.bind_variable_map(&k.internal_to_external);
-    k.proof = &proof;
-    parse_dimacs_text(cnf, k);
-    assert(count_preservation_apply(k) == ApplyResult::NoOp);
-    assert(!k.inconsistent && !proof.pb());
   }
   for (bool ordinary : {false, true}) {
     tactix_handle *solver = tactix_init();

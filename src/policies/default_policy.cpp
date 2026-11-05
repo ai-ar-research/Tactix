@@ -4541,8 +4541,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // Lucky fast path.
   if (!configuration_checking_preprocessing_deferred_ &&
       config_.inprocess.structured_root_before_lucky &&
-      !config_.inprocess.structured_root_stages.empty() &&
-      (!k.proof || !k.proof->terminal_pbp())) {
+      !config_.inprocess.structured_root_stages.empty()) {
     port::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
     const uint64_t amo_binaries_before =
         k.stats.sr_unique_literal_amo_binaries;
@@ -6462,11 +6461,6 @@ int DefaultInprocessScheduler::run_structured_root(
                 : config().structured_root_stages;
   if (stages.empty())
     return 0;
-  if (k.proof && k.proof->terminal_pbp()) {
-    ++structured_root.proof_format_declines;
-    structured_root.terminal = InvocationStatus::Inapplicable;
-    return 0;
-  }
   RecordedExecutionContext<execution::ExecutionContext::Inprocessing> scope(k, completion);
   struct LeaveOnReturn {
     RecordedExecutionContext<execution::ExecutionContext::Inprocessing> &scope;
@@ -7178,7 +7172,7 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
 void DefaultInprocessScheduler::report(const Kernel &k) const {
   std::printf("c structured-root runs %llu advances %llu applications %llu "
               "effective %llu passes %llu seconds %.6f terminal %u "
-              "proof-format-declines %llu sr-discovery-ticks %llu "
+              "sr-discovery-ticks %llu "
               "sr-discovery-window %llu renewals %llu "
               "sr-discovery-overflow %u\n",
               (unsigned long long)structured_root.runs,
@@ -7188,7 +7182,6 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
               (unsigned long long)structured_root.sequence_passes,
               structured_root.nanos / 1e9,
               static_cast<unsigned>(structured_root.terminal),
-              (unsigned long long)structured_root.proof_format_declines,
               (unsigned long long)structured_root.sr_discovery_ticks,
               (unsigned long long)structured_root.sr_discovery_progress_window,
               (unsigned long long)structured_root.sr_discovery_renewals,

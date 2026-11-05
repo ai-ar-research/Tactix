@@ -576,9 +576,8 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
 
   std::vector<Lit> lifted;
   std::vector<TransientLemma> transients;
-  // Streaming PBP tracks each transient under its id (emit_rup_lemma), so it
+  // The writer tracks each transient under its id (emit_rup_lemma), so it
   // deletes them by that id.
-  const bool named = k.proof && k.proof->streaming_pbp();
   uint64_t last_id = 0;
   for (size_t si = 0; si < s.deriv.steps.size(); si++) {
     const SubStep &step = s.deriv.steps[si];
@@ -592,7 +591,7 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
     emit_rup_lemma(k, id, lifted);
     last_id = id;
     if (k.proof && si + 1 != s.deriv.steps.size())
-      transients.push_back({named ? id : 0, lifted});
+      transients.push_back({id, lifted});
   }
   assert(last_id);
   k.unit_ids[var_of(unit)] = last_id;

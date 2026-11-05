@@ -53,9 +53,12 @@ void empty_census_retry() {
   AffineMatrixSearchSession session;
   FILE *records = load(kernel, "p cnf 6 2\n1 2 3 0\n4 5 6 0\n", session);
   Proof proof;
+  // These fixtures seed input after this point, which production never does.
+  // They never convert, so the PBP input count that would go wrong is never read.
   assert(proof.open("/tmp/tactix-default-empty-census.dsr", ProofFormat::DsrAscii));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   DefaultStrategyConfig settings;
   settings.affine_search.enabled = true;
@@ -181,6 +184,7 @@ void deferred_policy_boundary(const std::string &stem = "") {
   Proof proof;
   assert(proof.open(proof_path.c_str(), ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   auto settings = config(true);
   settings.affine_search.reason_mode =
@@ -245,6 +249,7 @@ void detached_policy_boundary(bool minimal) {
                              : "/tmp/tactix-default-detached-source-policy.dsr";
   assert(proof.open(path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
 
   auto settings = config(true);
@@ -292,6 +297,7 @@ void lazy_policy_boundary(bool minimal) {
       : "/tmp/tactix-default-lazy-source-policy.dsr";
   assert(proof.open(path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
 
   auto settings = config(true);
@@ -336,7 +342,7 @@ void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="
   if(with_proof) {
     assert(proof.open(proof_path.c_str(),format));
     proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);kernel.proof=&proof;
+    proof.bind_external_variable_map(&kernel.external_to_internal);proof.finish_input_transaction();kernel.proof=&proof;
   }
   DefaultPolicy policy(config(enabled));int status=policy.solve(kernel);
   const auto &stats=policy.affine_search_diagnostics();
@@ -392,6 +398,7 @@ void paused_owner_retry(const std::string &stem = "",
   assert(proof.open(path.c_str(), format));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   auto settings = config(true);
   settings.affine_search.autodisable_minimum_calls = 1;

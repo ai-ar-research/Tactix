@@ -596,8 +596,13 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   }
   assert(clause.empty());
   finish_input(replay);
-  if (proof.dsr())
-    current.dsr_root_values = replay.dsr_root_values;
+  // N2: the root units the replay wrote are the ones a proof attached before the
+  // input would have recorded, so the live kernel's root view must hold them too.
+  current.dsr_root_values = std::move(replay.dsr_root_values);
+  current.dsr_root_proof = replay.dsr_root_proof;
+  current.dsr_root_stream_identity = replay.dsr_root_stream_identity;
+  if (!current.dsr_root_values.empty())
+    current.dsr_root_values.resize(current.nvars, 0);
   current.next_clause_id = std::max(current.next_clause_id,
                                     replay.next_clause_id);
   if (replay.inconsistent) {
@@ -606,12 +611,11 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
     current.inconsistent = true;
     current.input_refuted = false;
   }
-  // Streaming PBP numbers the replayed input by the replay's clause ids.
-  // Unlike the proofless live import, the replay materializes root units
-  // under fresh ids, so a live id can name another constraint. Delete by
-  // specification instead.
-  if (proof.streaming_pbp())
-    proof.disable_pbp_id_deletions();
+  // The writer numbers the replayed input by the replay's clause ids. Unlike
+  // the proofless live import, the replay materializes root units under fresh
+  // ids, so a live id can name another constraint. Delete by specification
+  // instead.
+  proof.disable_pbp_id_deletions();
   current.proof = &proof;
   proof.bind_variable_map(&current.internal_to_external);
   proof.bind_external_variable_map(&current.external_to_internal);

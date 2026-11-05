@@ -320,23 +320,20 @@ ApplyResult startup_parity_apply(Kernel &k) {
                                 parameters.refutation_maximum_proof_additions);
   if (!preflight.run(equations))
     return ApplyResult::NoOp;
-  if (k.proof && k.proof->dsr_only()) {
+  if (k.proof) {
     std::vector<PbpParityEquation> rows;
     rows.reserve(equations.size());
     for (const Equation &equation : equations)
       rows.push_back({{equation.variables.begin(),
                        equation.variables.begin() + equation.size},
                       equation.rhs});
-    k.proof->write_parity_refutation(rows);
-  } else if (k.proof) {
-    FILE *out = k.proof->begin_pb();
-    if (!out)
+    const auto write_pb = [&](FILE *out) {
+      PbParityCertificate proof(k, out,
+                                parameters.refutation_maximum_proof_additions);
+      return proof.run(equations) && proof.additions() == preflight.additions();
+    };
+    if (!k.proof->refute_parity(rows, write_pb))
       return ApplyResult::NoOp;
-    PbParityCertificate proof(k, out,
-                              parameters.refutation_maximum_proof_additions);
-    if (!proof.run(equations) || proof.additions() != preflight.additions() ||
-        !k.proof->finish_pb())
-      std::abort(); // published but incomplete certificates never claim UNSAT
   }
   k.stats.parity_refutation_proof_additions += preflight.additions();
   ++k.stats.parity_refutation_unsat;
