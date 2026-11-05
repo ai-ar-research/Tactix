@@ -531,7 +531,7 @@ void Proof::publish_streaming_pbp_header() {
   }
   if (std::fflush(file_) || std::fseek(file_, 0, SEEK_SET))
     std::abort();
-  if (write_pbp_header(pbp_output_, pbp_original_constraints_) < 0)
+  if (!nowhere_ && write_pbp_header(pbp_output_, pbp_original_constraints_) < 0)
     std::abort();
   if (!copy_stream(file_, pbp_output_))
     std::abort();
@@ -543,7 +543,8 @@ void Proof::publish_streaming_pbp_header() {
 void Proof::finish_streaming_pbp_unsat() {
   if (!streaming_pbp() || streaming_pbp_finished_)
     return;
-  std::fputs(kPbpConclusion, file_);
+  if (!nowhere_)
+    std::fputs(kPbpConclusion, file_);
   streaming_pbp_finished_ = true;
 }
 
@@ -1946,9 +1947,15 @@ bool Proof::refute_parity(const std::vector<PbpParityEquation> &equations,
     settle_dsr_copy();
     return true;
   }
+  return write_startup_pb(write_pb);
+}
+
+bool Proof::write_startup_pb(const std::function<bool(FILE *)> &write_pb) {
   FILE *const out = begin_pb();
+  if (!out)
+    return false;
   // A published but incomplete certificate never claims UNSAT.
-  if (!out || !write_pb(out) || !finish_pb())
+  if ((!nowhere_ && !write_pb(out)) || !finish_pb())
     std::abort();
   return true;
 }
@@ -2105,6 +2112,17 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     text.put(" ");
   };
 
+  // Only a proof that reads these constraints has to delete them later.
+  const bool track_parity = pbp_text_wanted();
+  const auto track_parity_constraint = [&](uint64_t id) {
+    if (track_parity)
+      pbp_parity_constraints_.push_back(id);
+  };
+  const auto track_parity_variable = [&](auto variable) {
+    if (track_parity)
+      pbp_parity_variables_.insert(static_cast<uint32_t>(variable));
+  };
+
   const auto emit_bound = [&](const PbpParityEquation &equation,
                               const std::vector<int32_t> &carries,
                               bool lower) {
@@ -2152,7 +2170,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       text.put_uint(static_cast<uint32_t>(carry));
       text.put(" -> 0 ;\n");
       const uint64_t first = constraint();
-      pbp_parity_constraints_.push_back(first);
+      track_parity_constraint(first);
 
       const uint32_t complement = equation.variables.size() - threshold + 1;
       text.put("red ");
@@ -2176,17 +2194,17 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       text.put_uint(negated_first);
       text.put(" + ;\nqed : -1 ;\nqed ;\n");
       (void)constraint();
-      pbp_parity_constraints_.push_back(constraint());
-      pbp_parity_variables_.insert(static_cast<uint32_t>(carry));
+      track_parity_constraint(constraint());
+      track_parity_variable(carry);
       threshold += 2;
     }
     bounds.lower = emit_bound(equation, bounds.carries, true);
     bounds.upper = emit_bound(equation, bounds.carries, false);
     bounds.numbering = pbp_numbering_;
-    pbp_parity_constraints_.push_back(bounds.lower);
-    pbp_parity_constraints_.push_back(bounds.upper);
+    track_parity_constraint(bounds.lower);
+    track_parity_constraint(bounds.upper);
     for (const int32_t variable : equation.variables)
-      pbp_parity_variables_.insert(static_cast<uint32_t>(variable));
+      track_parity_variable(variable);
   };
 
   std::vector<uint64_t> lower, upper;
@@ -2264,10 +2282,10 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   };
   const uint64_t lo = sum_and_round(lower, true);
   const uint64_t hi = sum_and_round(upper, false);
-  pbp_parity_constraints_.push_back(lo);
-  pbp_parity_constraints_.push_back(hi);
+  track_parity_constraint(lo);
+  track_parity_constraint(hi);
   for (uint32_t i = 0; i < reason_size; ++i)
-    pbp_parity_variables_.insert(external_variable_of(reason[i]));
+    track_parity_variable(external_variable_of(reason[i]));
   text.put("pol ");
   text.put_uint(lo);
   text.put(" ");

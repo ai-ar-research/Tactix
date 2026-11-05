@@ -159,6 +159,11 @@ public:
   // False, with nothing written, when the stream is already published.
   bool refute_parity(const std::vector<PbpParityEquation> &equations,
                      const std::function<bool(FILE *)> &write_pb);
+  // A complete startup PB refutation; the run ends on it. `write_pb` writes it to the
+  // stream it is given, and is not called when no proof is being written. False, with
+  // nothing written, when the stream is already published. Stops with the proof error
+  // on a DSR-only proof.
+  bool write_startup_pb(const std::function<bool(FILE *)> &write_pb);
   AutomaticProofReason automatic_reason() const noexcept {
     return automatic_reason_;
   }

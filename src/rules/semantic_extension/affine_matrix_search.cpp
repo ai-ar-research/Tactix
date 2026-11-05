@@ -1556,6 +1556,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   if (kernel.level || kernel.inconsistent || kernel.conflict_valid || kernel.model_extended ||
       !kernel_propagation_fixpoint(kernel))
     return finish(AffineMatrixServiceStatus::Inapplicable);
+  // A lease retired before this step stays visible, so the next service prunes it.
+  const bool leases_current = session.premise_epoch_ == kernel.proof->premise_epoch();
   bool allowance_exhausted = false;
   const auto charge = metered_charge(kernel, session.parameters_.basis_maximum_work,
                                      result.work, &allowance_exhausted);
@@ -1784,7 +1786,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   session.matrix_ = std::move(matrix); ++session.owner_version_;
   retained_handles.insert(retained_handles.end(), handles.begin(), handles.end());
   session.premise_leases_ = std::move(retained_handles);
-  session.premise_epoch_ = kernel.proof->premise_epoch();
+  if (leases_current)
+    session.premise_epoch_ = kernel.proof->premise_epoch();
   const uint64_t registry_bytes_after = kernel.proof->premise_bytes();
   if (registry_bytes_after >= registry_bytes_before) {
     const uint64_t growth = registry_bytes_after - registry_bytes_before;
