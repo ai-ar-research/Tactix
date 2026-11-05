@@ -208,11 +208,12 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
 // form of CryptoMiniSat's on-demand get_reason boundary: it can prepare a
 // handle that minimization later skips, but never publishes an unrelated live
 // handle merely because both happen to be on the trail.
-static void materialize_affine_ancestors_before_analysis(Kernel &k) {
+// Returns false when the proof route's budget cannot pay for a handle's clauses.
+static bool materialize_affine_ancestors_before_analysis(Kernel &k) {
   AffineMatrixSearchSession *const session =
       k.affine_matrix_search_session;
   if (!session || !session->lazy_reason_count())
-    return;
+    return true;
 
   uint32_t conflict_size = 0;
   const Lit *const conflict = conflict_lits(k, &conflict_size);
@@ -257,6 +258,8 @@ static void materialize_affine_ancestors_before_analysis(Kernel &k) {
   for (const Var v : lazy) {
     const auto result =
         affine_matrix_materialize_lazy_reason(k, *session, v, false);
+    if (result.status == AffineMatrixServiceStatus::ResourceExhausted)
+      return false;
     if (result.status != AffineMatrixServiceStatus::Applied ||
         !result.reason_materialized)
       std::abort();
@@ -267,6 +270,26 @@ static void materialize_affine_ancestors_before_analysis(Kernel &k) {
           result.installed_reason.size();
     }
   }
+  return true;
+}
+
+// A handle implies a literal before anything in the proof justifies it, so it
+// can be withdrawn: backtrack below every handle and drop the conflict that used
+// them. Parity reasoning ends for the run, because the budget does not recover
+// and a new handle would only reach this conflict again. No clause is learned;
+// the caller sees a transition with nothing pending.
+static void retract_unaffordable_affine_reasons(Kernel &k) {
+  AffineMatrixSearchSession &session = *k.affine_matrix_search_session;
+  const uint32_t lowest = session.lowest_lazy_reason_level(k);
+  assert(lowest);
+  kernel_backtrack(k, lowest - 1);
+  k.conflict_valid = false;
+  k.conflict_ref = INVALID_REF;
+  k.pending.valid = false;
+  assert(!session.lazy_reason_count());
+  session.disable(k);
+  k.affine_reasons_unaffordable = true;
+  ++k.stats.affine_matrix_analyze_retractions;
 }
 
 // A learned literal l is redundant if every antecedent in its reason chain
@@ -1283,7 +1306,10 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
                                           RetierSchedule *retier,
                                           uint32_t *chosen) {
   assert(analyze_guard(k));
-  materialize_affine_ancestors_before_analysis(k);
+  if (!materialize_affine_ancestors_before_analysis(k)) {
+    retract_unaffordable_affine_reasons(k);
+    return ApplyResult::Ok;
+  }
   assert(k.analyzed.empty());
   assert(k.bump_order.empty());
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc

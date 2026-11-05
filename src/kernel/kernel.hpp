@@ -1167,6 +1167,7 @@ struct Kernel {
   Gf3GeneralRowActionSession *gf3_general_row_action_session = nullptr;
   TseitinCycleBreakingSession *tseitin_cycle_breaking_session = nullptr;
   AffineMatrixSearchSession *affine_matrix_search_session = nullptr;
+  bool affine_reasons_unaffordable = false; // the session's budget ran out in analysis
   // One retained graph trajectory shared by public and Default actions.
   GraphLabelingModelSession graph_labeling_session;
   uint64_t affine_trail_retraction_epoch = 1;

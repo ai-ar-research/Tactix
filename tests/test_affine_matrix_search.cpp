@@ -623,6 +623,72 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   std::fclose(journal);
 }
 
+// When no budget remains for a handle's clauses, ConflictAnalysis withdraws
+// every handle and ends parity reasoning instead of aborting the run. Nothing
+// is learned and the search continues from below the lowest handle.
+void unaffordable_lazy_reasons_are_withdrawn() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 10);
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
+           {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
+    add_equation(kernel, variables, rhs);
+  char proof_path[] = "/tmp/tactix-affine-lazy-withdrawn-XXXXXX";
+  reserve_path(proof_path);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  initialize_persistent(kernel, session);
+  for (const int decision : {-1, -2}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  assert(affine_matrix_search_step_lazy_minimal(kernel, session).reason_deferred);
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  const uint32_t lowest = kernel.assigned[4].level;
+  for (const int decision : {-6, -7}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  assert(affine_matrix_search_step_lazy_minimal(kernel, session).reason_deferred);
+  assert(session.lazy_reason_count() == 2 && lowest == 2);
+
+  const Lit conflict[2] = {kernel_internalize(kernel, 7),
+                           kernel_internalize(kernel, 10)};
+  kernel_add_binary_clause(kernel, conflict[0], conflict[1],
+                           ++kernel.next_clause_id);
+  kernel.conflict_ref = INVALID_REF;
+  kernel.conflict_bin[0] = conflict[0];
+  kernel.conflict_bin[1] = conflict[1];
+  kernel.conflict_valid = true;
+  const uint64_t action_sequence = kernel.structural_action_sequence;
+  kernel.structural_action_sequence = UINT64_MAX; // materialization is exhausted
+  const RuleVTable &analyze =
+      tactix_rules()[tactix_rule_id("ConflictAnalysis")];
+  assert(rule_guard(analyze, kernel));
+  assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
+  kernel.structural_action_sequence = action_sequence;
+  assert(kernel.stats.affine_matrix_analyze_retractions == 1 &&
+         kernel.affine_reasons_unaffordable && !session.enabled() &&
+         !session.lazy_reason_count() && kernel.level == lowest - 1 &&
+         !kernel.conflict_valid && !kernel.pending.valid &&
+         !kernel.value(kernel_internalize(kernel, 4)) &&
+         !kernel.value(kernel_internalize(kernel, 9)) &&
+         kernel.stats.learned == 0);
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  proof.flush();
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
 // Streaming PBP plans a compact reason without the matrix proof cache, and
 // its encoder accepts only source equations of 2..8 variables. Root
 // maintenance gives an archived root fact a 1-variable source equation, so
@@ -1475,6 +1541,7 @@ int main(int argc,char **argv){
   lazy_source_handles_are_multiple_public_and_consumed_on_demand();
   lazy_minimal_handle_is_public_and_consumed_on_demand();
   lazy_minimal_materializes_only_analyze_ancestor();
+  unaffordable_lazy_reasons_are_withdrawn();
   lazy_compact_pbp_reason_survives_matrix_cache_commit();
   lazy_source_backtrack_discards_without_publication();
   deferred_reason_materializes_at_later_conflict(false);

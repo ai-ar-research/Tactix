@@ -204,6 +204,7 @@ public:
     return deferred_reason_.has_value();
   }
   size_t lazy_reason_count() const noexcept { return lazy_reasons_.size(); }
+  uint32_t lowest_lazy_reason_level(const Kernel &kernel) const noexcept;
   // Every trail removal passes through kernel_unassign_literal. Retire the
   // corresponding compact affine handle there instead of polling the whole
   // live-handle vector at every matrix service.
