@@ -63,24 +63,25 @@ static void plain(tactix *s) {
 
 /* Consistent 4-XORs under random clauses: GF(2) reasons during the search. */
 static void parity(tactix *s) {
-  state = 2;
-  uint8_t solution[81];
-  for (int v = 1; v <= 80; ++v)
+  enum { variables = 44 };
+  state = 5;
+  uint8_t solution[variables + 1];
+  for (int v = 1; v <= variables; ++v)
     solution[v] = (uint8_t)below(2);
-  for (int i = 0; i < 40; ++i) {
+  for (int i = 0; i < 17; ++i) {
     int vars[4], rhs = 0;
     for (int k = 0; k < 4; ++k) {
-      vars[k] = 1 + (int)below(80);
+      vars[k] = 1 + (int)below(variables);
       for (int j = 0; j < k; ++j)
         if (vars[j] == vars[k]) {
-          vars[k] = 1 + (int)below(80);
+          vars[k] = 1 + (int)below(variables);
           j = -1;
         }
       rhs ^= solution[vars[k]];
     }
     add_xor(s, vars, 4, rhs);
   }
-  add_random_clauses(s, 80, 240);
+  add_random_clauses(s, variables, 96);
 }
 
 /* Tseitin on K4 with odd charge: a startup refutation. */
