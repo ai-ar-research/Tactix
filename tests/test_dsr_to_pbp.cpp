@@ -19,7 +19,8 @@ struct Converted {
 };
 
 Converted convert(const std::string &input, bool binary,
-                  const std::vector<uint64_t> &rats) {
+                  const std::vector<uint64_t> &rats,
+                  const std::vector<DsrHelperNames> &helpers = {}) {
   FILE *in = std::tmpfile();
   assert(in);
   assert(std::fwrite(input.data(), 1, input.size(), in) == input.size());
@@ -27,7 +28,7 @@ Converted convert(const std::string &input, bool binary,
   FILE *out = std::tmpfile();
   assert(out);
   Converted c;
-  c.result = convert_dsr_to_pbp(fileno(in), binary, rats, out);
+  c.result = convert_dsr_to_pbp(fileno(in), binary, rats, helpers, out);
   assert(!std::fflush(out));
   std::rewind(out);
   char buffer[4096];
@@ -93,7 +94,25 @@ const char *const kExpected =
 
 } // namespace
 
+// DSR shifts a solver variable above the helpers written before it. Converted, a
+// solver variable gets its own name back, the name live PBP goes on using, and a
+// helper moves above every solver name.
+void helper_names_map_back() {
+  // Extent 5 with helpers 6 and 7; solver 6 is then DSR 8, followed by helper 9.
+  const std::vector<DsrHelperNames> helpers{{5, 2}, {6, 3}};
+  const Converted c = convert("1 5 0\n6 7 0\n-7 8 0\n9 -8 0\n10 0\nd 1 5 0\n",
+                              false, {}, helpers);
+  assert(c.result.ok && c.result.derived == 5);
+  const std::string high = "2147483654"; // 6 + 2^31
+  assert(c.text.find("rup 1 x1 1 x5 >= 1 ;\n") != std::string::npos);
+  assert(c.text.find("rup 1 x" + high + " 1 x2147483655 >= 1 ;\n") != std::string::npos);
+  assert(c.text.find("rup 1 ~x2147483655 1 x6 >= 1 ;\n") != std::string::npos);
+  assert(c.text.find("rup 1 x2147483657 1 ~x6 >= 1 ;\n") != std::string::npos);
+  assert(c.text.find("rup 1 x7 >= 1 ;\n") != std::string::npos); // past every helper
+}
+
 int main() {
+  helper_names_map_back();
   std::string binary, ascii;
   for (const Line &line : kLines) {
     binary += binary_line(line.deletion ? 2 : 1, line.lits);

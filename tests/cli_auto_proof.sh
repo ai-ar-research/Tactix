@@ -41,6 +41,15 @@ write("tseitin", 6, [c for v in range(4)
 r = random.Random(1)
 eqs = [(sorted(r.sample(range(1, 25), 3)), r.randrange(2)) for _ in range(34)]
 write("xor", 24, [c for vs, rhs in eqs for c in xor(vs, rhs)])
+# Consistent 4-XORs under random clauses: many GF(2) reasons during the search.
+r = random.Random(2)
+solution = [r.random() < .5 for _ in range(81)]
+parity = []
+for _ in range(40):
+    vs = r.sample(range(1, 81), 4)
+    parity += xor(vs, sum(solution[v] for v in vs) % 2)
+parity += [[x * r.choice([1, -1]) for x in r.sample(range(1, 81), 3)] for _ in range(240)]
+write("parity", 80, parity)
 # R(4,4) > 17 on 18 vertices: the clausal SR (Ramsey) certificate.
 edge, v = {}, 0
 for a in range(18):
@@ -110,9 +119,31 @@ while read -r name route reason content; do
 done <<'EOF'
 plain dsr-cake_lpr dsr-selected drat
 tseitin pbp startup-pb-refutation pbp
-xor pbp gf2-parity-reason pbp
 ramsey dsr-trestle dsr-selected dsr
 EOF
+
+# Parity stays on DSR until it has cost the limit, whichever way the search goes.
+run xor-auto 20 "$tmp/xor.cnf" "$tmp/xor.auto"
+grep -qx 'c auto-proof    dsr-selected' "$tmp/xor-auto.out"
+run xor-pbp 20 --pbp "$tmp/xor.cnf" "$tmp/xor.pbp"
+diff <(mask "$tmp/xor-auto.out") <(mask "$tmp/xor-pbp.out")
+not_pbp "$tmp/xor.auto"
+check "$tmp/xor.cnf" "$tmp/xor.auto" "$(sed -n 's/^c proof-route dsr-cake_lpr$/drat/p; s/^c proof-route dsr-trestle$/dsr/p' "$tmp/xor-auto.out")"
+
+# Past the limit the run converts between two reasons: helper names written before
+# the conversion stay clear of solver names, and a row whose bounds were written
+# before it is written again in the new numbering.
+run parity-pbp 20 --pbp "$tmp/parity.cnf" "$tmp/parity.pbp"
+run parity-auto 20 "$tmp/parity.cnf" "$tmp/parity.auto"
+grep -qx 'c auto-proof    dsr-selected' "$tmp/parity-auto.out"
+diff <(mask "$tmp/parity-auto.out") <(mask "$tmp/parity-pbp.out")
+TACTIX_AUTO_PROOF_PARITY_BYTES=1 run parity-converted 20 "$tmp/parity.cnf" "$tmp/parity.converted"
+grep -qx 'c auto-proof    gf2-parity-reason' "$tmp/parity-converted.out"
+grep -q '^c auto-proof-switch converted' "$tmp/parity-converted.out"
+grep -qx 'c proof-route pbp' "$tmp/parity-converted.out"
+grep -aq ' x2147[0-9]* ' "$tmp/parity.converted" || { echo "parity: no helper names converted"; exit 1; }
+diff <(mask "$tmp/parity-converted.out") <(mask "$tmp/parity-pbp.out")
+check "$tmp/parity.cnf" "$tmp/parity.converted" pbp
 
 # --no-binary spells the selected DSR copy in ASCII.
 run plain-ascii 20 --no-binary "$tmp/plain.cnf" "$tmp/plain.ascii"
@@ -139,10 +170,24 @@ ramsey 40000
 ramsey end
 SWITCHES
 
-# Past the DSR limit a run stays on DSR: GF(2) reasons take their clausal
-# certificate, the startup refutation declines, and the end-of-run rule keeps DSR.
-for name in plain tseitin xor ramsey; do
+# One search: no proof and every format take the same search, whatever is written.
+for name in plain tseitin xor parity ramsey; do
+  run "$name-none" 20 "$tmp/$name.cnf"
+  run "$name-only-dsr" 20 --dsr "$tmp/$name.cnf" "$tmp/$name.only-dsr"
+  run "$name-only-text" 20 --dsr --no-binary "$tmp/$name.cnf" "$tmp/$name.only-text"
+  for other in none only-dsr only-text; do
+    diff <(mask "$tmp/$name-pbp.out") <(mask "$tmp/$name-$other.out")
+  done
+  not_pbp "$tmp/$name.only-dsr"
+  check "$tmp/$name.cnf" "$tmp/$name.only-dsr" "$(sed -n 's/^c proof-route dsr-cake_lpr$/drat/p; s/^c proof-route dsr-trestle$/dsr/p' "$tmp/$name-only-dsr.out")"
+  check "$tmp/$name.cnf" "$tmp/$name.only-text" "$(sed -n 's/^c proof-route dsr-cake_lpr$/drat/p; s/^c proof-route dsr-trestle$/dsr/p' "$tmp/$name-only-text.out")"
+done
+
+# Past the DSR limit a run stays on DSR with the same search: parity reasons are
+# spelled in clauses, whatever they have cost. A startup refutation still converts.
+for name in plain xor parity ramsey; do
   TACTIX_AUTO_PROOF_DSR_LIMIT=0 run "$name-limit" 20 "$tmp/$name.cnf" "$tmp/$name.limit"
+  diff <(mask "$tmp/$name-pbp.out") <(mask "$tmp/$name-limit.out")
   grep -qx 'c auto-proof    dsr-selected' "$tmp/$name-limit.out" || { echo "$name limit: reason"; cat "$tmp/$name-limit.out"; exit 1; }
   grep -q '^c auto-proof-switch dsr-limit' "$tmp/$name-limit.out" || { echo "$name limit: state"; cat "$tmp/$name-limit.out"; exit 1; }
   not_pbp "$tmp/$name.limit"
@@ -261,4 +306,4 @@ CUT
   { echo 'hard killed after the switch: VeriPB rejected the prefix'; tail -5 "$tmp/hard.veripb"; exit 1; }
 grep -qx 's VERIFIED NO CONCLUSION' "$tmp/hard.veripb"
 
-printf 'CLI automatic proof: DSR for plain CDCL and Ramsey SR, PBP for startup parity and GF(2) reasons; statistics equal --pbp; conversions forced mid-run; every route checked; SIGTERM and SIGKILL leave the current stream\n'
+printf 'CLI automatic proof: DSR by default, PBP for a startup refutation and for parity past its limit; statistics equal --pbp; conversions forced mid-run; every route checked; SIGTERM and SIGKILL leave the current stream\n'

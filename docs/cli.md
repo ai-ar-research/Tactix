@@ -46,13 +46,16 @@ Linux and macOS and requires no external checker installation:
 build/release/tactix formula.cnf proof
 ```
 
-By default Tactix selects the proof format per run. It writes a
-pseudo-Boolean (PBP) proof when the run uses reasoning that only PBP spells
-compactly (a startup parity or counting refutation, or GF(2) Gaussian
-reasons), and a binary DSR proof otherwise. The solver itself runs the same
-way in both cases. On UNSAT it prints the route it chose, for example
-`c proof-route dsr-cake_lpr`. Use `--pbp` to always write PBP, `--dsr` to
-always write DSR, and `--no-binary` for a text DSR spelling.
+By default Tactix writes a binary DSR proof. It converts that proof to
+pseudo-Boolean (PBP) once and continues in PBP only when a startup algebraic
+argument refutes the formula, once parity reasoning has cost 10 MB of DSR, or at
+a step DSR cannot follow. The output names the result, for example
+`c proof-route dsr-cake_lpr`. Use `--pbp` to always write PBP and `--dsr` to always
+write DSR. `--dsr` stops with an error on a startup counting refutation, which has
+no practical DSR spelling; the default and `--pbp` handle it.
+
+The search is the same with no proof and in every format, so the choice affects
+only what is written and how long it takes to check.
 
 ## Optional proof checking
 

@@ -15,7 +15,7 @@ make_scratch scratch
 "$binary" "$scratch/input.cnf" "$scratch/proof.dsr"
 "$drat" "$scratch/input.cnf" "$scratch/proof.dsr" -f \
   > "$scratch/drat-check.log" 2>&1
-rg -q 's VERIFIED' "$scratch/drat-check.log"
+grep -q 's VERIFIED' "$scratch/drat-check.log"
 python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   "$scratch/input.cnf" "$scratch/proof.dsr" \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$srcheck" \

@@ -27,10 +27,21 @@ struct DsrToPbpResult {
 
 // Reads the whole stream behind `fd` from offset 0 and appends its PBP lines
 // to `out`, which the caller flushes. `rat_additions` holds the increasing
+// Proof-only variables the DSR writer named: once the solver's variables reached
+// `extent`, `helpers` helpers existed in total. A solver variable created later
+// has a DSR name above them. The converted PBP gives solver variables back their
+// own names, because the PBP writer continues with those, and helpers names above
+// every solver variable.
+struct DsrHelperNames {
+  uint32_t extent = 0;
+  uint32_t helpers = 0;
+};
+
 // 0-based addition ordinals of witness-free RAT lines. Not ok on a read or
 // write failure or a malformed stream; `out` may then hold a partial prefix.
 DsrToPbpResult convert_dsr_to_pbp(int fd, bool binary,
                                   const std::vector<uint64_t> &rat_additions,
+                                  const std::vector<DsrHelperNames> &helpers,
                                   FILE *out);
 
 } // namespace tactix

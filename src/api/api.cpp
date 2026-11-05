@@ -1941,6 +1941,12 @@ void tactix_add(tactix_solver *s, int lit) {
 static void input_complete(tactix_solver *s) {
   if (s->input_completed)
     return;
+  // N2: a session with no proof takes the search of a session with one.
+  if (!s->kernel.proof && !s->pending_input_proof) {
+    if (!s->proof.open_nowhere())
+      std::abort();
+    s->pending_input_proof = true;
+  }
   if (s->pending_input_proof) {
     attach_replayed_input_proof(s->kernel, s->proof);
     s->pending_input_proof = false;
@@ -1952,24 +1958,24 @@ static void input_complete(tactix_solver *s) {
 int tactix_proof(tactix_solver *s, const char *path, int format) {
   if (s->input_completed || s->kernel.proof || s->pending_input_proof)
     return -1;
-  // Public values are append-only; see TACTIX_PROOF_* in tactix.h.
-  ProofFormat f;
+  // Public values are append-only; see TACTIX_PROOF_* in tactix.h. Every format
+  // takes the same search, on the streaming-PBP writer (N2).
+  bool opened;
   switch (format) {
   case 3:
-    f = ProofFormat::DsrBinary;
-    break;
   case 4:
-    f = ProofFormat::DsrAscii;
+    opened = s->proof.open_automatic(path, format == 3, nullptr, true);
     break;
   case 6:
-  case 7: // automatic selection runs the solver on the streaming-PBP stream
-    f = ProofFormat::PbpStreaming;
+    opened = s->proof.open(path, ProofFormat::PbpStreaming);
+    break;
+  case 7:
+    opened = s->proof.open_automatic(path, true);
     break;
   default:
     return -1; // includes the retired values; public values are never reused
   }
-  if (!(format == 7 ? s->proof.open_automatic(path, true)
-                    : s->proof.open(path, f)))
+  if (!opened)
     return -1;
   // Input already imported without a proof: replay its exact raw clauses at the
   // first reasoning boundary.
@@ -1979,8 +1985,6 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
     return 0;
   }
   s->kernel.proof = &s->proof;
-  if (f != ProofFormat::PbpStreaming)
-    s->kernel.close_startup_certificate();
   s->proof.bind_variable_map(&s->kernel.internal_to_external);
   s->proof.bind_external_variable_map(&s->kernel.external_to_internal);
   external_state_change(s);
@@ -1988,7 +1992,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
 }
 
 const char *tactix_proof_route(tactix_solver *s) {
-  if (!s || (!s->kernel.proof && !s->pending_input_proof))
+  if (!s || s->proof.nowhere() || (!s->kernel.proof && !s->pending_input_proof))
     return nullptr;
   return s->proof.verification_route();
 }

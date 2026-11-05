@@ -31,8 +31,9 @@ def main() -> int:
             raise RuntimeError(f"original-CNF model rejected: {checked}")
         if "v 1 -2 3 4 5 0" not in run.stdout:
             raise RuntimeError(f"compacted cube did not set every literal: {run.stdout}")
-        model.write_text(run.stdout.replace("v 1 ", "v -1 ", 1))
-        if check_files(cnf, model)[0]:
+        corrupted = Path(tmp) / "corrupted.out"
+        corrupted.write_text(run.stdout.replace("v 1 ", "v -1 ", 1))
+        if check_files(cnf, corrupted)[0]:
             raise RuntimeError("corrupted compacted model accepted")
     print("condition compacted external model: original CNF verified; bad model rejected")
     return 0

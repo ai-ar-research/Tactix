@@ -69,11 +69,11 @@ typedef struct tactix_solver tactix;
 #define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
 /* Proof-format value 5 is retired and rejected. */
 #define TACTIX_PROOF_PBP 6 /* whole-run PBP */
-/* Automatic selection, the command-line default: the solver runs exactly as
-   under TACTIX_PROOF_PBP and also writes a binary DSR copy. The file is
-   binary DSR unless a PB-native step (startup PB refutation, compact GF(2)
-   reason) fired or the copy could not follow or be written, in which case it
-   is whole-run PBP. tactix_proof_route reports which. */
+/* Automatic selection, the command-line default. The file is binary DSR, and
+   whole-run PBP after a startup PB refutation, once GF(2) reasons have cost
+   10 MB of DSR, or when the DSR could not follow or be written.
+   tactix_proof_route reports which. A session's search does not depend on its
+   proof: no proof and every format take the same one. */
 #define TACTIX_PROOF_AUTO 7
 
 /* read-only statistics ids; the list grows additively */

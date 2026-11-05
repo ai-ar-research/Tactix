@@ -320,7 +320,15 @@ ApplyResult startup_parity_apply(Kernel &k) {
                                 parameters.refutation_maximum_proof_additions);
   if (!preflight.run(equations))
     return ApplyResult::NoOp;
-  if (k.proof) {
+  if (k.proof && k.proof->dsr_only()) {
+    std::vector<PbpParityEquation> rows;
+    rows.reserve(equations.size());
+    for (const Equation &equation : equations)
+      rows.push_back({{equation.variables.begin(),
+                       equation.variables.begin() + equation.size},
+                      equation.rhs});
+    k.proof->write_parity_refutation(rows);
+  } else if (k.proof) {
     FILE *out = k.proof->begin_pb();
     if (!out)
       return ApplyResult::NoOp;
