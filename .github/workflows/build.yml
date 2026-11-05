@@ -81,10 +81,14 @@ jobs:
           cmake --build build/ci-release --parallel 8
           --target tactix tactix_archive
 
+      # Each test program links the whole solver, so full debug info can fill the
+      # runner's disk.
       - name: Configure unit tests
         run: >-
           cmake -S . -B build/ci-tests
           -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_FLAGS_DEBUG=-g1
+          -DCMAKE_CXX_FLAGS_DEBUG=-g1
           -DTACTIX_BUILD_TESTS=ON
 
       - name: Build unit tests
