@@ -5,11 +5,10 @@
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
-#include "proof/rup_helpers.hpp"
 #include "rules/instance_helpers.hpp"
 #include "rules/support/stage_trace.hpp"
 #include "rules/propagate/propagate.hpp"   // inprocess_reach_root
-#include "rules/substitute/substitute.hpp" // big_path_chain (bridged LRAT chains)
+#include "rules/substitute/substitute.hpp"
 
 #include <algorithm>
 #include <array>
@@ -278,43 +277,20 @@ RuleEligibility congruence_guard(const Kernel &k) {
 }
 
 void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
-  const bool lrat = k.proof && k.proof->lrat();
   std::vector<uint8_t> mark(2 * k.nvars, 0); // binary partners of ¬output
   // AND gate `out = AND(inputs)`: a long base clause holding `out` where every
   // other literal l has the binary (¬out ∨ ¬l), so input = ¬l; OR is the dual,
-  // found by trying every literal as the output. `pairs` is reused and the
-  // `reserve`s exact — one malloc per gate is a measurable share of the solve.
-  std::vector<std::pair<Lit, uint64_t>> pairs;
+  // found by trying every literal as the output. The `reserve` is exact — one
+  // malloc per gate is a measurable share of the solve.
   const auto emit = [&](const Clause *c, Lit outp) {
-    const Lit nout = negate(outp);
     CongGate g;
     g.output = outp;
-    if (lrat)
-      g.set_base_id(c->id());
     g.inputs.reserve(c->size - 1);
-    if (lrat)
-      g.reserve_input_bin_ids(c->size - 1);
     for (const Lit l : *c)
-      if (l != outp) {
-        const Lit inp = negate(l);
-        g.inputs.push_back(inp);
-        if (lrat)
-          g.push_input_bin_id(kernel_binary_id(k, nout, inp));
-      }
-    // canonicalize inputs (the structural key) — keep bin_ids parallel
-    if (lrat) {
-      pairs.clear();
-      pairs.resize(g.inputs.size());
-      for (size_t i = 0; i < g.inputs.size(); i++)
-        pairs[i] = {g.inputs[i], g.input_bin_id(i)};
-      std::sort(pairs.begin(), pairs.end());
-      for (size_t i = 0; i < pairs.size(); i++) {
-        g.inputs[i] = pairs[i].first;
-        g.input_bin_id(i) = pairs[i].second;
-      }
-    } else {
-      std::sort(g.inputs.begin(), g.inputs.end());
-    }
+      if (l != outp)
+        g.inputs.push_back(negate(l));
+    // canonicalize inputs (the structural key)
+    std::sort(g.inputs.begin(), g.inputs.end());
     out.push_back(std::move(g));
   };
   // Keep gates whose clauses contain root-assigned literals.  The clauses still
@@ -1372,8 +1348,7 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 
 // Ladder lemmas are TransientLemma records (rules/instance_helpers.hpp):
 // RUP-checkable, cited by the level below them, dead once the conclusion is
-// in, and kept so the round can `del` them. LRAT deletes by id; DSR/DRAT need
-// the literals. Proof-only clauses must not survive their use: a later SR
+// in, and kept so the round can `del` them by their literals. Proof-only clauses must not survive their use: a later SR
 // witness is validated against the live kernel, not these ladders.
 
 // What canonicalizing a gate under the current representatives yielded. A
@@ -1618,19 +1593,12 @@ Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
   return Canon::Ok;
 }
 
-// --- native-LRAT chains by RUP replay ---------------------------------------
-// V6's lemma families are each RUP over the current DB, but their antecedent
-// chains resist hand-derivation: canonicalization folds a sign layer on top of
-// the union-find bridging. Replay instead (the primitive V1 Probe and C3 Vivify
-// use) and the chain comes out in the checker's own propagation order by
-// construction — the one property a hand-built chain silently gets wrong.
-// Returns false when the lemma is not RUP; the caller then drops the inference
-// rather than write an unverifiable line.
-bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
-                          std::vector<uint64_t> &chain,
-                          RupReplay purpose = RupReplay::ChainOnly) {
+} // namespace
+
+// V6's lemma families are each RUP over the current DB; a caller holding only a
+// semantic certificate replays the lemma to ask whether a checker could.
+bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n) {
   assert(k.level == 0 && !k.conflict_valid);
-  chain.clear();
   // A replay assumption may satisfy a binary watched by an older pending root
   // literal.  If that assumption is then retracted, the cursor still stands
   // beyond the root literal and falsely reports a fixpoint.  Complete the root
@@ -1638,92 +1606,32 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   // only by the assumptions that the replay itself owns.
   if (inprocess_reach_root(k))
     return false;
-  const bool lrat = k.proof && k.proof->lrat();
-  // `ChainOnly` may skip the whole replay when no chain is wanted: its lemma is
-  // RUP by construction and the replay only reads antecedents off it. `Decide`
-  // may not — the replay is the caller's admission test, and skipping it turns
-  // that test into an unconditional yes, so the caller emits a line no checker
-  // can replay. See `RupReplay`.
-  if (!lrat && purpose == RupReplay::ChainOnly)
-    return true;
   kernel_probing_begin(k);
   bool conflict = false;
-  Var implied = UINT32_MAX; // a lemma literal already true at the root
-  std::vector<uint64_t> cube_root_units;
   for (uint32_t i = 0; i < n && !conflict; i++) {
     const Lit neg = negate(lits[i]);
     const int8_t v = k.value(neg);
     if (v < 0) {
       // A root-true lemma literal immediately contradicts the complete
-      // negated cube; its named root unit is the refutation.
-      implied = var_of(lits[i]);
+      // negated cube.
       conflict = true;
       break;
     }
-    if (v > 0) {
-      // This root fact is already an assumption of the checker's complete
-      // negated lemma cube. A later reason walk may visit it, but citing its
-      // unit line as a hint would cite a satisfied clause, not a propagation.
-      const Var variable = var_of(neg);
-      if (lrat && k.assigned[variable].level == 0) {
-        const uint64_t id = k.unit_ids[variable];
-        if (id) // an unnamed root fact cannot occur in the reason chain
-          cube_root_units.push_back(id);
-      }
+    if (v > 0)
       continue; // root fact or duplicate assumption — nothing to assign
-    }
     k.level++;
     k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
     kernel_assign(k, neg, k.level, DECISION_REASON, false);
   }
-  // LRAT starts with ALL negated lemma literals assigned. Propagating between
-  // assumptions can give a later assumption a reason; that reason is already
-  // satisfied in the checker's initial state and is not a legal unit hint.
-  // Install the complete cube first, then collect its propagation refutation.
+  // The checker starts with ALL negated lemma literals assigned. Install the
+  // complete cube first, then collect its propagation refutation.
   if (!conflict)
     conflict = kernel_propagate_probing(k);
-  uint64_t last = 0;
-  std::vector<std::pair<uint32_t, uint64_t>> entries;
-  // Only LRAT has a chain to read, and only LRAT can read one: the walk cites
-  // `unit_ids`, which no other format fills in, so walking there would put the
-  // format's line TERMINATOR into a chain (kernel_build_lrat_chain's assert).
-  if (conflict && lrat) {
-    // Persistent walk scratch: a fresh `seen(k.nvars, 0)` per replayed lemma
-    // dominates the native-LRAT path — never reintroduce it. Restored all-zero
-    // in O(marked), so it is clean on entry for any kernel this thread uses.
-    static thread_local std::vector<uint8_t> seen;
-    static thread_local std::vector<Var> touched;
-    if (seen.size() < k.nvars)
-      seen.resize(k.nvars, 0);
-    touched.clear();
-    if (implied != UINT32_MAX)
-      // the walk includes the implied literal's own reason, which sorting by
-      // trail position puts last, so it closes the chain
-      kernel_reason_walk(k, implied, seen, entries, &touched);
-    else
-      last = kernel_conflict_reason_walk(k, seen, entries, &touched);
-    for (const Var tv : touched)
-      seen[tv] = 0;
-  }
   probe_unwind(k);
-  if (!conflict)
-    return false;
-  if (!lrat)
-    return true; // the replay itself was the whole question
-  rup_helpers::remove_assumption_unit_hints(entries, cube_root_units);
-  // (trail position ascending, conflict last) — kernel.hpp's chain contract
-  kernel_build_lrat_chain(entries, last, chain);
-  // An empty chain is not a proof: a trivially true lemma conflicts against its
-  // own assumption, so the walk yields no antecedents and every LRAT checker
-  // rejects the line. Refusing here covers all three ladders at one choke
-  // point, at the cost of completeness where the line would cost N2. This is a
-  // rule about writing an LRAT line, not part of the RUP verdict — a DRAT `a`
-  // line for the same lemma carries no chain and the checker re-derives it — so
-  // it is the one place the two formats may legitimately answer differently.
-  if (chain.empty())
-    return false;
-  return true;
+  return conflict;
 }
+
+namespace {
 
 // Degeneracy proof chain for one XOR gate (kissat's
 // add_xor_shrinking_proof_chain; `docs/dev/calculus.md` V6). A collapsed canonical
@@ -1751,12 +1659,9 @@ bool normalize_proof_clause(std::vector<Lit> &clause) {
 bool add_xor_degeneracy_chain(
     Kernel &k, const std::vector<Lit> &cancelled,
     const std::vector<std::vector<Lit>> &concl,
-    std::vector<std::vector<uint64_t>> &concl_chains,
     std::vector<TransientLemma> &transient,
     [[maybe_unused]] size_t cancelled_limit = CONG_XOR_ARITY / 2 + 1) {
-  const bool lrat = k.proof && k.proof->lrat();
   const size_t nc = concl.size();
-  concl_chains.assign(nc, {});
   // Whether the ladder can be justified is decided the same way with or
   // without a proof; only the writes below depend on one, so a run's search
   // never depends on proof logging.
@@ -1765,20 +1670,9 @@ bool add_xor_degeneracy_chain(
   assert(cancelled.size() <= cancelled_limit && "ladder would blow up");
   const int top = static_cast<int>(cancelled.size());
   std::vector<Lit> lemma;
-  std::vector<uint64_t> prev, cur, chain;
-
-  if (top == 0) { // no cancelled variables ⇒ the conclusion stands on its own
-    for (size_t c = 0; c < nc; c++)
-      if (lrat && !congruence_rup_chain(k, concl[c].data(),
-                                        static_cast<uint32_t>(concl[c].size()),
-                                        concl_chains[c]))
-        return false;
-    return true;
-  }
-
+  // No cancelled variables ⇒ the conclusion stands on its own.
   for (int size = top; size >= 1; size--) {
     const uint32_t combos = 1u << size;
-    cur.assign(static_cast<size_t>(combos) * nc, 0);
     for (uint32_t m = 0; m < combos; m++)
       for (size_t c = 0; c < nc; c++) {
         lemma.clear();
@@ -1791,34 +1685,13 @@ bool add_xor_degeneracy_chain(
         // no checkable proof line.
         if (!normalize_proof_clause(lemma))
           return false;
-        if (!lrat) {
-          if (k.proof) {
-            k.proof->add_rup(0, lemma.data(),
-                             static_cast<uint32_t>(lemma.size()), nullptr, 0);
-            transient.push_back({0, lemma});
-          }
-          continue;
+        if (k.proof) {
+          k.proof->add_rup(0, lemma.data(),
+                           static_cast<uint32_t>(lemma.size()), nullptr, 0);
+          transient.push_back({0, lemma});
         }
-        if (size == top) {
-          if (!congruence_rup_chain(k, lemma.data(),
-                                    static_cast<uint32_t>(lemma.size()), chain))
-            return false; // not RUP — emit nothing, the caller skips the merge
-        } else {
-          const size_t hi = static_cast<size_t>(m | (1u << size));
-          chain.assign({prev[static_cast<size_t>(m) * nc + c],
-                        prev[hi * nc + c]});
-        }
-        const uint64_t id = ++k.next_clause_id;
-        k.proof->add_rup(id, lemma.data(), static_cast<uint32_t>(lemma.size()),
-                         chain.data(), static_cast<uint32_t>(chain.size()));
-        cur[static_cast<size_t>(m) * nc + c] = id;
-        transient.push_back({id, lemma}); // dropped after the merge
       }
-    prev.swap(cur);
   }
-  if (lrat)
-    for (size_t c = 0; c < nc; c++)
-      concl_chains[c] = {prev[c], prev[nc + c]}; // the two size-1 parents
   return true;
 }
 
@@ -1827,27 +1700,19 @@ bool add_xor_degeneracy_chain(
 bool justify_conclusion_pair(Kernel &k, bool direct,
                              const std::vector<Lit> &cancelled,
                              const std::vector<std::vector<Lit>> &concl,
-                             std::vector<std::vector<uint64_t>> &chains,
                              std::vector<TransientLemma> &transient) {
   if (!direct)
-    return add_xor_degeneracy_chain(k, cancelled, concl, chains, transient);
-  chains.resize(2);
-  return congruence_rup_chain(k, concl[0].data(),
-                              static_cast<uint32_t>(concl[0].size()),
-                              chains[0]) &&
-         congruence_rup_chain(k, concl[1].data(),
-                              static_cast<uint32_t>(concl[1].size()),
-                              chains[1]);
+    return add_xor_degeneracy_chain(k, cancelled, concl, transient);
+  return !inprocess_reach_root(k);
 }
 
 // The root unit of a gate collapsed to a constant (`effective_kind` is its
-// canonical kind). `direct` replays the unit into its one chain when only
-// root values removed inputs; otherwise a ladder justifies it.
+// canonical kind). `direct` decides the unit when only root values removed
+// inputs; otherwise a ladder justifies it.
 template <class Find, class Direct>
 bool justify_gate_unit(Kernel &k, const CongGate &gate, GateKind effective_kind,
                        const std::vector<Lit> &cancelled, bool value_derived,
                        Find &find, Lit unit,
-                       std::vector<std::vector<uint64_t>> &chains,
                        std::vector<TransientLemma> &transient,
                        Direct &&direct) {
   // A valued input does not make an independently cancelled XOR pair
@@ -1868,13 +1733,10 @@ bool justify_gate_unit(Kernel &k, const CongGate &gate, GateKind effective_kind,
                                effective_kind == GateKind::And &&
                                var_of(ite_condition) != var_of(unit);
   if (needs_ite_split)
-    return add_xor_degeneracy_chain(k, {ite_condition}, {{unit}}, chains,
-                                    transient);
-  if (value_derived && !needs_xor_ladder) {
-    chains.resize(1);
-    return direct(chains[0]);
-  }
-  return add_xor_degeneracy_chain(k, cancelled, {{unit}}, chains, transient);
+    return add_xor_degeneracy_chain(k, {ite_condition}, {{unit}}, transient);
+  if (value_derived && !needs_xor_ladder)
+    return direct();
+  return add_xor_degeneracy_chain(k, cancelled, {{unit}}, transient);
 }
 
 // XOR-match proof chain (kissat add_xor_matching_proof_chain): make the two
@@ -1889,12 +1751,8 @@ template <class Find>
 bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs,
                                   const std::vector<Lit> &cancelled_a,
                                   const std::vector<Lit> &cancelled_b,
-                                  Find &find, Lit a,
-                                  Lit b, std::vector<uint64_t> &chain_fwd,
-                                  std::vector<uint64_t> &chain_rev,
+                                  Find &find, Lit a, Lit b,
                                   std::vector<TransientLemma> &transient) {
-  chain_fwd.clear();
-  chain_rev.clear();
   const Var va = var_of(find(a)), vb = var_of(find(b));
   std::vector<Lit> split;
   for (Lit literal : rhs)
@@ -1910,17 +1768,10 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs,
   split.erase(std::unique(split.begin(), split.end()), split.end());
   // This is the degeneracy ladder over `split` with the two equivalence
   // binaries as its conclusions, decided alike without a proof. With nothing
-  // to eliminate the binaries stand on the gates alone, which under LRAT would
-  // mean empty hint chains, so each is replayed for its own chain instead; a
-  // failed replay skips the merge, which is sound. The split is bounded by the
-  // two extracted gate arities.
-  std::vector<std::vector<uint64_t>> chains;
-  if (!add_xor_degeneracy_chain(k, split, {{negate(a), b}, {a, negate(b)}},
-                                chains, transient, /*cancelled_limit=*/31))
-    return false;
-  chain_fwd = std::move(chains[0]); // the two size-1 parents, dir 0
-  chain_rev = std::move(chains[1]); // dir 1
-  return true;
+  // to eliminate the binaries stand on the gates alone. The split is bounded by
+  // the two extracted gate arities.
+  return add_xor_degeneracy_chain(k, split, {{negate(a), b}, {a, negate(b)}},
+                                  transient, /*cancelled_limit=*/31);
 }
 
 // Normalize an ITE triple [cond,then,else] in place to the canonical key form
@@ -2095,75 +1946,48 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
 }
 
 // ITE-match proof chain (kissat add_ite_matching_proof_chain): case-split on the
-// shared condition, emitting the four ternary lemmas that make the two
-// equivalence binaries RUP, each a resolvent of one cond-side clause of each
-// gate. Under LRAT each is replayed for its chain and the two binaries close on
-// their cond-sides. Returns false if any lemma fails to replay.
+// condition, so each ladder lemma is RUP from one branch of each gate, and the
+// two binaries close on their cond-sides. Returns false if a lemma is a
+// tautology.
 bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
-                                  std::vector<uint64_t> &chain_fwd,
-                                  std::vector<uint64_t> &chain_rev,
                                   std::vector<TransientLemma> &transient) {
-  chain_fwd.clear();
-  chain_rev.clear();
-  const bool lrat = k.proof && k.proof->lrat(); // decided alike without a proof
-  std::vector<uint64_t> ch;
   // (¬a∨b) closes on its two cond-sides; (a∨¬b) on the other two.
-  auto emit = [&](Lit x, Lit y, Lit z, std::vector<uint64_t> &into) -> bool {
+  auto emit = [&](Lit x, Lit y, Lit z) -> bool {
     std::vector<Lit> lemma = {x, y, z};
     if (!normalize_proof_clause(lemma))
       return false;
-    if (!lrat) {
-      if (k.proof) {
-        k.proof->add_rup(0, lemma.data(),
-                         static_cast<uint32_t>(lemma.size()), nullptr, 0);
-        transient.push_back({0, lemma});
-      }
-      return true;
+    if (k.proof) {
+      k.proof->add_rup(0, lemma.data(),
+                       static_cast<uint32_t>(lemma.size()), nullptr, 0);
+      transient.push_back({0, lemma});
     }
-    if (!congruence_rup_chain(k, lemma.data(),
-                              static_cast<uint32_t>(lemma.size()), ch))
-      return false;
-    const uint64_t id = ++k.next_clause_id;
-    k.proof->add_rup(id, lemma.data(), static_cast<uint32_t>(lemma.size()),
-                     ch.data(), static_cast<uint32_t>(ch.size()));
-    transient.push_back({id, lemma});
-    into.push_back(id);
     return true;
   };
-  return emit(negate(a), b, cond, chain_fwd) &&
-         emit(negate(a), b, negate(cond), chain_fwd) &&
-         emit(a, negate(b), cond, chain_rev) &&
-         emit(a, negate(b), negate(cond), chain_rev);
+  return emit(negate(a), b, cond) && emit(negate(a), b, negate(cond)) &&
+         emit(a, negate(b), cond) && emit(a, negate(b), negate(cond));
 }
 
 // The two conclusions of matching gates whose outputs a ≡ b share `key`. An
-// AND match replays them directly: the units ¬a and a for a literal clash
-// b = ¬a, otherwise (¬a∨b) and (a∨¬b) under `purpose`. XOR and ITE matches
-// take their matching ladders.
+// AND match decides them directly: the units ¬a and a for a literal clash
+// b = ¬a, otherwise (¬a∨b) and (a∨¬b), replayed when `replay` asks. XOR and ITE
+// matches take their matching ladders.
 template <class Find>
 bool justify_matching(Kernel &k, GateKind kind, const std::vector<Lit> &key,
                       const std::vector<Lit> &cancelled_a,
                       const std::vector<Lit> &cancelled_b, Find &find, Lit a,
-                      Lit b, bool literal_clash, RupReplay purpose,
-                      std::vector<uint64_t> &forward,
-                      std::vector<uint64_t> &reverse,
+                      Lit b, bool literal_clash, bool replay,
                       std::vector<TransientLemma> &transient) {
   if (kind == GateKind::And) {
-    if (literal_clash) {
-      const Lit negative = negate(a), positive = a;
-      return congruence_rup_chain(k, &negative, 1, forward) &&
-             congruence_rup_chain(k, &positive, 1, reverse);
-    }
+    if (literal_clash || !replay)
+      return !inprocess_reach_root(k);
     const Lit fwd[2] = {negate(a), b};
     const Lit rev[2] = {a, negate(b)};
-    return congruence_rup_chain(k, fwd, 2, forward, purpose) &&
-           congruence_rup_chain(k, rev, 2, reverse, purpose);
+    return congruence_replay_rup(k, fwd, 2) && congruence_replay_rup(k, rev, 2);
   }
   if (kind == GateKind::Xor)
     return add_xor_matching_proof_chain(k, key, cancelled_a, cancelled_b, find,
-                                        a, b, forward, reverse, transient);
-  return add_ite_matching_proof_chain(k, key[0], a, b, forward, reverse,
-                                      transient);
+                                        a, b, transient);
+  return add_ite_matching_proof_chain(k, key[0], a, b, transient);
 }
 
 struct AddedEquivalence {
@@ -2171,27 +1995,25 @@ struct AddedEquivalence {
   bool reverse = false;
 };
 
-// Publish the RUP root unit `u` (LRAT cites `chain`) and close the root.
+// Publish the RUP root unit `u` and close the root.
 // NoOp when `u` is already root-true; Unsat when it contradicts the trail
 // (the empty clause is emitted from the opposite unit) or its closure refutes.
 // A recorded unit bumps `counter` (and `extra`) and sets `*asserted` before
 // it is assigned; the contradiction path does neither. A non-null
 // `shadow_origin` names the unit to the proof-population oracle.
-ApplyResult publish_unit(Kernel &k, Lit u, const std::vector<uint64_t> &chain,
-                         uint64_t &counter, uint64_t *extra,
+ApplyResult publish_unit(Kernel &k, Lit u, uint64_t &counter, uint64_t *extra,
                          const char *shadow_origin, bool *asserted) {
   if (k.value(u) > 0)
     return ApplyResult::NoOp; // already true at the root — adds nothing
   const Var v = var_of(u);
-  const uint64_t trail_id = k.unit_ids[v];
   const bool contradicts_trail = k.value(u) < 0;
   const uint64_t id = ++k.next_clause_id;
   if (shadow_origin && k.proof && k.proof->population_shadow())
     std::fprintf(stderr, "PROOF SHADOW: Congruence unit %d origin=%s\n",
                  kernel_externalize(k, u), shadow_origin);
-  emit_rup_lemma(k, id, &u, 1, chain);
+  emit_rup_lemma(k, id, &u, 1);
   if (contradicts_trail) {
-    kernel_emit_empty_from_pair(k, id, trail_id);
+    kernel_emit_empty(k);
     return ApplyResult::Unsat;
   }
   if (extra)
@@ -2204,13 +2026,11 @@ ApplyResult publish_unit(Kernel &k, Lit u, const std::vector<uint64_t> &chain,
   return inprocess_reach_root(k) ? ApplyResult::Unsat : ApplyResult::Ok;
 }
 
-// Publish the RUP binary (x ∨ y) under the next clause id; only LRAT lines
-// carry `chain`.
-void add_rup_binary(Kernel &k, Lit x, Lit y,
-                    const std::vector<uint64_t> &chain, const char *site) {
+// Publish the RUP binary (x ∨ y) under the next clause id.
+void add_rup_binary(Kernel &k, Lit x, Lit y, const char *site) {
   const uint64_t id = ++k.next_clause_id;
   const Lit lits[2] = {x, y};
-  emit_rup_lemma(k, id, lits, 2, chain);
+  emit_rup_lemma(k, id, lits, 2);
   event_trace_binary_lifecycle(k, site, x, y, id,
                                kernel_binary_copies(k, x, y));
   kernel_add_binary_clause(k, x, y, id);
@@ -2225,119 +2045,26 @@ void trace_equivalence_sides(const Kernel &k, const char *site, Lit a, Lit b,
                                kernel_binary_copies(k, a, negate(b)), payload);
 }
 
-// Add the still-missing sides (¬a∨b),(a∨¬b) of a==b with their chains, and
-// report which of them are new.
-void publish_equivalence(Kernel &k, Lit a, Lit b,
-                         const std::vector<uint64_t> &chain_fwd,
-                         const std::vector<uint64_t> &chain_rev,
-                         AddedEquivalence *added, const char *site) {
-  auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
+// Add the still-missing sides (¬a∨b),(a∨¬b) of a==b, and report which of them
+// are new.
+void publish_equivalence(Kernel &k, Lit a, Lit b, AddedEquivalence *added,
+                         const char *site) {
+  auto add_bin = [&](Lit x, Lit y) {
     if (kernel_binary_live(k, x, y))
       return;
     // a degenerate pair (outputs equal or complementary) would make this
     // binary duplicate-carrying or tautological, neither emittable
     assert(x != y && x != negate(y));
-    add_rup_binary(k, x, y, ch, site);
+    add_rup_binary(k, x, y, site);
   };
   const bool had_fwd = kernel_binary_live(k, negate(a), b);
   const bool had_rev = kernel_binary_live(k, a, negate(b));
-  add_bin(negate(a), b, chain_fwd);
-  add_bin(a, negate(b), chain_rev);
+  add_bin(negate(a), b);
+  add_bin(a, negate(b));
   if (added) {
     added->forward = !had_fwd;
     added->reverse = !had_rev;
   }
-}
-
-// Add the equivalence a==b from two congruent AND gates as (¬a∨b),(a∨¬b). The
-// gates' inputs are equal only under the current representatives, so the LRAT
-// chain must thread the bridging binaries: a's input binaries force ga's
-// inputs, `big_path_chain` bridges each to the gb input in its class, and gb's
-// base conflicts. Returns false iff that chain fails — its only route can run
-// through a root-assigned literal — and the caller must then skip the merge
-// (N2). All-or-nothing: both binaries are justified before either is added.
-template <class Find>
-bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
-                     Find &find, AddedEquivalence *added = nullptr) {
-  const bool lrat = k.proof && k.proof->lrat();
-  const Lit a = ga.output, b = gb.output;
-  std::vector<uint64_t> chain, br;
-  // chain forcing conflict for (¬g_from.out ∨ g_to.out)
-  auto build = [&](const CongGate &g_from, const CongGate &g_to) -> bool {
-    chain.assign(g_from.input_bin_ids().begin(),
-                 g_from.input_bin_ids().end());
-    std::unordered_map<Lit, Lit> rep2from;
-    for (const Lit in : g_from.inputs)
-      rep2from[find(in)] = in;
-    for (const Lit to_in : g_to.inputs) {
-      const auto it = rep2from.find(find(to_in));
-      if (it == rep2from.end())
-        return false; // no matching input class (should not happen for a match)
-      const Lit from_in = it->second;
-      if (from_in == to_in)
-        continue;
-      if (!big_path_chain(k, from_in, to_in, br))
-        return false;
-      chain.insert(chain.end(), br.begin(), br.end());
-    }
-    chain.push_back(g_to.base_id());
-    // Two same-class inputs can thread bridge paths sharing binary ids, and a
-    // repeated hint is illegal LRAT. It propagates nothing at its second
-    // position, so dropping it leaves the propagation sequence intact.
-    {
-      std::unordered_set<uint64_t> seen_ids;
-      size_t w = 0;
-      for (const uint64_t idh : chain)
-        if (seen_ids.insert(idh).second)
-          chain[w++] = idh;
-      chain.resize(w);
-    }
-    return true;
-  };
-  // Justify first, mutate second: under LRAT each direction's chain is built
-  // and kept before anything is added, so a failure aborts the equivalence.
-  std::vector<uint64_t> chain_fwd, chain_rev;
-  if (lrat) {
-    const bool need_fwd = !kernel_binary_live(k, negate(a), b);
-    const bool need_rev = !kernel_binary_live(k, a, negate(b));
-    if (need_fwd) {
-      if (!build(ga, gb))
-        return false;
-      chain_fwd = chain;
-    }
-    if (need_rev) {
-      if (!build(gb, ga))
-        return false;
-      chain_rev = chain;
-    }
-  }
-  // chain_fwd: ga.out=1 → ga inputs → bridge → gb.base;
-  // chain_rev: gb.out=1 → gb inputs → bridge → ga.base.
-  publish_equivalence(k, a, b, chain_fwd, chain_rev, added,
-                      "congruence-gate-equivalence-site");
-  return true;
-}
-
-// Add the equivalence a==b as (¬a∨b),(a∨¬b): bare adds under DRAT, where the
-// preceding ladder lemmas already made them RUP, and under LRAT each binary
-// carries the chain its ladder returned, so no hint-less line is emitted.
-bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
-                             const std::vector<uint64_t> &chain_fwd,
-                             const std::vector<uint64_t> &chain_rev,
-                             AddedEquivalence *added = nullptr) {
-  const bool lrat = k.proof && k.proof->lrat();
-  // All-or-nothing, checked before either binary is added: under LRAT a binary
-  // that is still missing needs a non-empty chain or the line is uncheckable.
-  // Skipping is sound.
-  if (lrat) {
-    if (!kernel_binary_live(k, negate(a), b) && chain_fwd.empty())
-      return false;
-    if (!kernel_binary_live(k, a, negate(b)) && chain_rev.empty())
-      return false;
-  }
-  publish_equivalence(k, a, b, chain_fwd, chain_rev, added,
-                      "congruence-chained-equivalence-site");
-  return true;
 }
 
 // Kissat records every union-find merge with the two binary clauses connecting
@@ -2348,8 +2075,8 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
 // matching already has it.  Kissat nevertheless publishes both representative
 // clauses for every new union, even when an identical pair is already live:
 // the fresh physical copies re-arm added-material consumers before dense entry
-// removes the duplicates.  Every representative clause is RUP here, including
-// a duplicate (whose existing proof identity is itself a one-hint LRAT chain).
+// removes the duplicates.  Every representative clause is RUP here, including a
+// duplicate.
 bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
   assert(smaller != larger && smaller != negate(larger));
   const Lit forward[2] = {negate(larger), smaller};
@@ -2363,18 +2090,8 @@ bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
     congruence_stage_trace(k, "representative-binary-add-begin", smaller,
                            larger, !had_forward, !had_reverse);
 #endif
-  const bool lrat = k.proof && k.proof->lrat();
-  std::vector<uint64_t> forward_chain, reverse_chain;
-  if (lrat) {
-    if (!congruence_rup_chain(k, forward, 2, forward_chain))
-      return false;
-    if (!congruence_rup_chain(k, reverse, 2, reverse_chain))
-      return false;
-  }
-  add_rup_binary(k, forward[0], forward[1], forward_chain,
-                 "congruence-representative-site");
-  add_rup_binary(k, reverse[0], reverse[1], reverse_chain,
-                 "congruence-representative-site");
+  add_rup_binary(k, forward[0], forward[1], "congruence-representative-site");
+  add_rup_binary(k, reverse[0], reverse[1], "congruence-representative-site");
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (trace_sparse_add)
     congruence_stage_trace(k, "representative-binary-add-end",
@@ -2436,8 +2153,6 @@ static bool find_congruence_binary_candidates(
 static void install_congruence_binary_candidates(
     Kernel &k, const std::vector<std::pair<Lit, Lit>> &candidates,
     uint64_t &extracted) {
-  const bool lrat = k.proof && k.proof->lrat();
-  std::vector<uint64_t> chain;
   std::vector<std::pair<Lit, uint32_t>> touched_binary_lists;
   const auto note_prefix = [&](Lit lit) {
     const uint32_t *p = k.watches.begin(lit);
@@ -2453,15 +2168,9 @@ static void install_congruence_binary_candidates(
     // database now serves only to suppress later duplicate candidates.
     if (kernel_binary_live(k, x, y))
       continue;
-    const Lit binary[2] = {x, y};
-    chain.clear();
-    if (lrat && !congruence_rup_chain(k, binary, 2, chain)) {
-      k.stats.congruence_unjustified++;
-      continue;
-    }
     note_prefix(x);
     note_prefix(y);
-    add_rup_binary(k, x, y, chain, "congruence-extracted-site");
+    add_rup_binary(k, x, y, "congruence-extracted-site");
     extracted++;
   }
   // Kissat accumulates extracted pairs in a separate dense-mode suffix, radix
@@ -2781,8 +2490,6 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
   const size_t nlits = 2 * static_cast<size_t>(k.nvars);
   if (mark.size() < nlits)
     mark.resize(nlits, 0);
-  const bool lrat = k.proof && k.proof->lrat();
-  std::vector<uint64_t> chain;
   // Kissat's `all_variables` walks compact internal indices. Those indices are
   // allocated on first import and compaction preserves their relative order,
   // so this is a creation-order scan—not external-number order. Tactix keeps
@@ -2874,18 +2581,7 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
         }
       }
       k.stats.congruence_y1_found++;
-      // Replayed, never hand-built: a hand-built pair silently gets propagation
-      // order wrong. The replay charges real propagation, so meter it here.
-      const uint64_t t0 = k.stats.ticks;
-      const bool ok = !lrat || congruence_rup_chain(k, &l, 1, chain);
-      const uint64_t replay_ticks = k.stats.ticks - t0;
-      k.stats.congruence_y1_ticks += replay_ticks;
-      k.stats.congruence_ticks += replay_ticks;
-      if (!ok) {
-        k.stats.congruence_unjustified++;
-        continue; // sound: the inference is dropped, nothing is emitted
-      }
-      if (record(l, chain))
+      if (record(l))
         return true; // the batch refuted
     }
   }
@@ -2894,12 +2590,6 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
 
 
 } // namespace — public rule entry points (header-declared) below
-
-// External-linkage forwarder for the primitive Sweep shares.
-bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
-                           std::vector<uint64_t> &chain, RupReplay purpose) {
-  return congruence_rup_chain(k, lits, n, chain, purpose);
-}
 
 static void extract_gates(const Kernel &k, std::vector<CongGate> &out,
                           bool with_xor_ite, Kernel *cleanup) {
@@ -3003,7 +2693,6 @@ ApplyResult congruence_apply(Kernel &k) {
 
   // AND, XOR and ITE gates all participate in one union-find closure: an AND
   // input can be an XOR/ITE output.
-  const bool lrat = k.proof && k.proof->lrat();
 
   // Root units derived by this round are asserted and propagated immediately.
   // Congruence is a value-driven closure: each new root value can simplify a
@@ -3014,11 +2703,9 @@ ApplyResult congruence_apply(Kernel &k) {
   bool recorded_unit = false;
   bool recorded_implication = false;
   congruence_stage_trace(k, "unit-state-end");
-  auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain,
-                         const char *origin,
+  auto record_unit = [&](Lit u, const char *origin,
                          uint64_t *counter = nullptr) -> bool {
-    return publish_unit(k, u, uchain,
-                        counter ? *counter : k.stats.congruence_units,
+    return publish_unit(k, u, counter ? *counter : k.stats.congruence_units,
                         nullptr, origin, &recorded_unit) == ApplyResult::Unsat;
   };
   // Every recorded unit has already reached root closure.  Keep the common
@@ -3075,8 +2762,8 @@ ApplyResult congruence_apply(Kernel &k) {
 
   // The binary-resolution unit sweep follows binary and gate extraction; its
   // immediate root closure seeds value-driven gate simplification below.
-  if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
-        return record_unit(u, ch, "y1", &k.stats.congruence_y1_units);
+  if (find_binary_units(k, [&](Lit u) {
+        return record_unit(u, "y1", &k.stats.congruence_y1_units);
       }))
     return ApplyResult::Unsat;
   congruence_stage_trace(k, "binary-units-end", gates.size());
@@ -3171,26 +2858,14 @@ ApplyResult congruence_apply(Kernel &k) {
   // (a propagates b over the new binary and ¬a over the in-class bridge path).
   // `record_unit` pairs them into the empty clause; returns true iff refuted.
   auto refute_contradictory = [&](Lit a) -> bool {
-    const Lit u1 = negate(a), u2 = a;
-    std::vector<uint64_t> ch1, ch2;
-    if (lrat && !congruence_rup_chain(k, &u1, 1, ch1)) {
-      k.stats.congruence_unjustified++;
-      return false;
-    }
-    if (record_unit(u1, ch1, "contradictory-first"))
+    if (record_unit(negate(a), "contradictory-first"))
       return true;
-    if (lrat && !congruence_rup_chain(k, &u2, 1, ch2)) {
-      k.stats.congruence_unjustified++;
-      return false; // {¬a} stays pending — half the inference, still sound
-    }
-    return record_unit(u2, ch2, "contradictory-second");
+    return record_unit(a, "contradictory-second");
   };
-  auto record_chained_contradiction =
-      [&](Lit a, const std::vector<uint64_t> &negative_chain,
-          const std::vector<uint64_t> &positive_chain) -> bool {
-    if (record_unit(negate(a), negative_chain, "literal-clash-first"))
+  auto record_chained_contradiction = [&](Lit a) -> bool {
+    if (record_unit(negate(a), "literal-clash-first"))
       return true;
-    return record_unit(a, positive_chain, "literal-clash-second");
+    return record_unit(a, "literal-clash-second");
   };
 
   // Merge two provably-equivalent literals: unite their classes and reschedule
@@ -3284,21 +2959,15 @@ ApplyResult congruence_apply(Kernel &k) {
   auto settle_equivalence = [&](bool clash, Lit a, Lit b,
                                 const AddedEquivalence &added) -> bool {
     if (clash)
-      return refute_contradictory(a); // a failed replay drops the inference
+      return refute_contradictory(a);
     if (!merge_lits(a, b, &added))
       k.stats.congruence_unjustified++;
     return false;
   };
-  // Publish a ≡ b from its ladder chains, retire the ladder, then settle.
-  auto publish_chained = [&](bool clash, Lit a, Lit b,
-                             const std::vector<uint64_t> &chain_fwd,
-                             const std::vector<uint64_t> &chain_rev) -> bool {
+  // Publish a ≡ b from its ladder, retire the ladder, then settle.
+  auto publish_chained = [&](bool clash, Lit a, Lit b) -> bool {
     AddedEquivalence added;
-    if (!add_equivalence_chained(k, a, b, chain_fwd, chain_rev, &added)) {
-      k.stats.congruence_unjustified++;
-      delete_transients(k, transient);
-      return false; // an unjustifiable binary — drop the inference, keep N2
-    }
+    publish_equivalence(k, a, b, &added, "congruence-chained-equivalence-site");
     delete_transients(k, transient);
     return settle_equivalence(clash, a, b, added);
   };
@@ -3475,20 +3144,17 @@ ApplyResult congruence_apply(Kernel &k) {
           continue; // tautology, not a proof addition
         if (x != y && kernel_binary_live(k, x, y))
           continue;
-        const Lit clause[2] = {x, y};
-        const uint32_t size = x == y ? 1 : 2;
-        std::vector<uint64_t> chain;
-        if (!congruence_rup_chain(k, clause, size, chain)) {
+        if (inprocess_reach_root(k)) {
           k.stats.congruence_unjustified++;
           continue;
         }
-        if (size == 1) {
+        if (x == y) {
           assigned = k.value(x) == 0;
-          if (record_unit(x, chain, "ite-to-and-unit"))
+          if (record_unit(x, "ite-to-and-unit"))
             unsat = true;
           break; // any root closure invalidates this value snapshot
         }
-        add_rup_binary(k, x, y, chain, "congruence-ite-to-and-site");
+        add_rup_binary(k, x, y, "congruence-ite-to-and-site");
         recorded_implication = true;
       }
       if (unsat)
@@ -3502,12 +3168,10 @@ ApplyResult congruence_apply(Kernel &k) {
     if (ci == Canon::InputUnit || ci == Canon::Unit) {
       // Canon::Unit: value(out_lit) = 0, so ¬out_lit is a root unit. XOR
       // arrives with its cancelled set; an AND clash arrives with `cancelled`
-      // empty, its unit directly RUP, so the ladder's top==0 form just replays
-      // the chain.
+      // empty, its unit directly RUP.
       const bool input_unit = ci == Canon::InputUnit;
       const Lit unit = input_unit ? key[0] : negate(out_i);
       const bool newly_fixed = k.value(unit) == 0;
-      std::vector<std::vector<uint64_t>> cch;
       transient.clear();
       bool justified;
       if (input_unit) {
@@ -3517,29 +3181,26 @@ ApplyResult congruence_apply(Kernel &k) {
         // cancellation ladder, exactly like the Canon::Unit form
         // (`docs/dev/calculus.md` V6, `implementation-notes.md`
         // D-CONG-INPUT-UNIT). A direct input unit instead replays as its own
-        // admission test: admission must answer the same in DRAT, LRAT, and
-        // proofless runs, and only LRAT reads the chain.
+        // admission test: admission must answer the same in every proof format
+        // and in proofless runs.
         const bool needs_xor_ladder =
             gates[i].kind == GateKind::Xor && !cancelled.empty();
         if (needs_xor_ladder) {
           const std::vector<std::vector<Lit>> concl = {{unit}};
-          justified = add_xor_degeneracy_chain(k, cancelled, concl, cch,
-                                               transient);
+          justified = add_xor_degeneracy_chain(k, cancelled, concl, transient);
         } else {
-          cch.resize(1);
-          justified =
-              congruence_rup_chain(k, &unit, 1, cch[0], RupReplay::Decide);
+          justified = congruence_replay_rup(k, &unit, 1);
         }
       } else {
         justified = justify_gate_unit(
-            k, gates[i], kind_i, cancelled, value_derived_i, find, unit, cch,
-            transient, [&](std::vector<uint64_t> &chain) {
+            k, gates[i], kind_i, cancelled, value_derived_i, find, unit,
+            transient, [&]() {
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
               const bool shadow_replay =
-                  k.proof && k.proof->population_shadow() && !lrat;
-              const bool replayed = congruence_rup_chain(
-                  k, &unit, 1, chain,
-                  shadow_replay ? RupReplay::Decide : RupReplay::ChainOnly);
+                  k.proof && k.proof->population_shadow();
+              const bool replayed = shadow_replay
+                                        ? congruence_replay_rup(k, &unit, 1)
+                                        : !inprocess_reach_root(k);
               if (shadow_replay) {
                 static const char *kind_names[] = {"and", "xor", "ite"};
                 std::fprintf(stderr,
@@ -3575,7 +3236,7 @@ ApplyResult congruence_apply(Kernel &k) {
               }
               return replayed;
 #else
-              return congruence_rup_chain(k, &unit, 1, chain);
+              return !inprocess_reach_root(k);
 #endif
             });
       }
@@ -3584,7 +3245,7 @@ ApplyResult congruence_apply(Kernel &k) {
         delete_transients(k, transient);
         continue;
       }
-      const bool refuted = record_unit(unit, cch[0],
+      const bool refuted = record_unit(unit,
                                        input_unit        ? "input-unit"
                                        : value_derived_i ? "value-unit"
                                                          : "gate-degeneracy");
@@ -3612,13 +3273,12 @@ ApplyResult congruence_apply(Kernel &k) {
       if (clash && out_i == negate(other)) {
         const std::vector<std::vector<Lit>> units = {
             {negate(out_i)}, {out_i}};
-        std::vector<std::vector<uint64_t>> chains;
         transient.clear();
         const bool justified = justify_conclusion_pair(
-            k, value_derived_i && cancelled.empty(), cancelled, units, chains,
+            k, value_derived_i && cancelled.empty(), cancelled, units,
             transient);
         if (justified)
-          unsat = record_chained_contradiction(out_i, chains[0], chains[1]);
+          unsat = record_chained_contradiction(out_i);
         else
           k.stats.congruence_unjustified++;
         delete_transients(k, transient);
@@ -3628,14 +3288,12 @@ ApplyResult congruence_apply(Kernel &k) {
       }
       const std::vector<std::vector<Lit>> concl = {{negate(out_i), other},
                                                   {out_i, negate(other)}};
-      std::vector<std::vector<uint64_t>> cch;
       transient.clear();
       // Root values justify removing those inputs, not an independent
       // cancelled pair. Such a pair still needs the ladder before either
       // unary equivalence binary is RUP, just as for gate units.
       const bool justified = justify_conclusion_pair(
-          k, value_derived_i && cancelled.empty(), cancelled, concl, cch,
-          transient);
+          k, value_derived_i && cancelled.empty(), cancelled, concl, transient);
       if (!justified) {
         k.stats.congruence_unjustified++;
         delete_transients(k, transient);
@@ -3676,7 +3334,7 @@ ApplyResult congruence_apply(Kernel &k) {
 #endif
       trace_equivalence_sides(k, degeneracy_site, out_i, other,
                               degeneracy_payload);
-      if (publish_chained(clash, out_i, other, cch[0], cch[1])) {
+      if (publish_chained(clash, out_i, other)) {
         unsat = true;
         break;
       }
@@ -3710,15 +3368,12 @@ ApplyResult congruence_apply(Kernel &k) {
     // x ≡ ¬x: justify the congruence like any other match, then refute
     const bool clash = (oa == negate(ob));
     if (clash && out_i == negate(out_j)) {
-      std::vector<uint64_t> negative_chain, positive_chain;
       transient.clear();
       const bool justified = justify_matching(
           k, kind_i, key, cancelled_j, cancelled, find, out_j, out_i,
-          /*literal_clash=*/true, RupReplay::ChainOnly, negative_chain,
-          positive_chain, transient);
+          /*literal_clash=*/true, /*replay=*/false, transient);
       if (justified)
-        unsat = record_chained_contradiction(
-            out_j, negative_chain, positive_chain);
+        unsat = record_chained_contradiction(out_j);
       else
         k.stats.congruence_unjustified++;
       delete_transients(k, transient);
@@ -3730,7 +3385,6 @@ ApplyResult congruence_apply(Kernel &k) {
     // built is skipped rather than emitted unjustified: sound, and N2 holds.
     if (kind_i != GateKind::And || gates[i].kind != GateKind::And ||
         gates[j].kind != GateKind::And) {
-      std::vector<uint64_t> cf, cr;
       transient.clear();
       // An AND match here has at least one immutable ITE source gate. Its
       // published binary sides make these conclusions RUP; original AND
@@ -3738,7 +3392,7 @@ ApplyResult congruence_apply(Kernel &k) {
       // precede mutation.
       const bool ok = justify_matching(
           k, kind_i, key, cancelled_j, cancelled, find, out_j, out_i,
-          /*literal_clash=*/false, RupReplay::ChainOnly, cf, cr, transient);
+          /*literal_clash=*/false, /*replay=*/false, transient);
       if (!ok) {
         k.stats.congruence_unjustified++;
         delete_transients(k, transient);
@@ -3749,17 +3403,15 @@ ApplyResult congruence_apply(Kernel &k) {
           : kind_i == GateKind::Xor ? "congruence-xor-matching-call"
                                     : "congruence-ite-matching-call";
       trace_equivalence_sides(k, matching_site, out_j, out_i);
-      if (publish_chained(clash, out_j, out_i, cf, cr)) {
+      if (publish_chained(clash, out_j, out_i)) {
         unsat = true;
         break;
       }
       continue;
     } else {
       AddedEquivalence added;
-      if (!add_equivalence(k, gates[j], gates[i], find, &added)) {
-        k.stats.congruence_unjustified++;
-        continue; // no checkable chain — drop the inference, keep proof valid
-      }
+      publish_equivalence(k, gates[j].output, gates[i].output, &added,
+                          "congruence-gate-equivalence-site");
       if (settle_equivalence(clash, out_j, out_i, added)) {
         unsat = true;
         break;
@@ -4051,39 +3703,18 @@ uint32_t congruence_semantic_instances(Kernel &k, uint64_t *out,
   return count;
 }
 
-ApplyResult congruence_record_semantic_unit(
-    Kernel &k, Lit unit, const std::vector<uint64_t> &chain,
-    CongruenceSemanticKind origin) {
+ApplyResult congruence_record_semantic_unit(Kernel &k, Lit unit,
+                                            CongruenceSemanticKind origin) {
   const bool y1 = origin == CongruenceSemanticKind::BinaryResolutionUnit;
   return publish_unit(
-      k, unit, chain, y1 ? k.stats.congruence_y1_units : k.stats.congruence_units,
+      k, unit, y1 ? k.stats.congruence_y1_units : k.stats.congruence_units,
       y1 ? &k.stats.congruence_y1_found : nullptr, nullptr, nullptr);
 }
 
 ApplyResult congruence_refute_semantic_contradiction(Kernel &k, Lit literal) {
-  const bool lrat = k.proof && k.proof->lrat();
   for (const Lit unit : {negate(literal), literal}) {
-    std::vector<uint64_t> chain;
-    if (lrat && !congruence_rup_chain(k, &unit, 1, chain)) {
-      ++k.stats.congruence_unjustified;
-      return ApplyResult::NoOp;
-    }
     const ApplyResult recorded = congruence_record_semantic_unit(
-        k, unit, chain, CongruenceSemanticKind::GateUnit);
-    if (recorded == ApplyResult::Unsat)
-      return recorded;
-  }
-  return k.inconsistent ? ApplyResult::Unsat : ApplyResult::NoOp;
-}
-
-ApplyResult congruence_record_semantic_contradiction(
-    Kernel &k, Lit literal,
-    const std::vector<std::vector<uint64_t>> &chains) {
-  assert(chains.size() == 2);
-  const Lit units[2] = {negate(literal), literal};
-  for (unsigned i = 0; i != 2; ++i) {
-    const ApplyResult recorded = congruence_record_semantic_unit(
-        k, units[i], chains[i], CongruenceSemanticKind::GateUnit);
+        k, unit, CongruenceSemanticKind::GateUnit);
     if (recorded == ApplyResult::Unsat)
       return recorded;
   }
@@ -4102,32 +3733,25 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
         if (payload != instance)
           return true;
         if (match.action == CongruenceSemanticKind::BinaryResolutionUnit) {
-          std::vector<uint64_t> chain;
-          if (!congruence_rup_chain(k, &match.unit, 1, chain,
-                                    RupReplay::Decide)) {
+          if (!congruence_replay_rup(k, &match.unit, 1)) {
             ++k.stats.congruence_unjustified;
             return false;
           }
-          result = congruence_record_semantic_unit(
-              k, match.unit, chain, match.action);
+          result = congruence_record_semantic_unit(k, match.unit, match.action);
           return false;
         }
         if (match.action == CongruenceSemanticKind::GateUnit) {
-          std::vector<std::vector<uint64_t>> chains;
           std::vector<TransientLemma> transient;
           const bool justified = justify_gate_unit(
               k, *match.first, match.kind, match.cancelled,
-              match.value_derived, find, match.unit, chains, transient,
-              [&](std::vector<uint64_t> &chain) {
-                return congruence_rup_chain(k, &match.unit, 1, chain);
-              });
+              match.value_derived, find, match.unit, transient,
+              [&]() { return !inprocess_reach_root(k); });
           if (!justified) {
             ++k.stats.congruence_unjustified;
             delete_transients(k, transient);
             return false;
           }
-          result = congruence_record_semantic_unit(
-              k, match.unit, chains[0], match.action);
+          result = congruence_record_semantic_unit(k, match.unit, match.action);
           delete_transients(k, transient);
           return false;
         }
@@ -4156,14 +3780,13 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
               match.first_output == negate(match.second_output)) {
             const std::vector<std::vector<Lit>> units = {
                 {negate(match.first_output)}, {match.first_output}};
-            std::vector<std::vector<uint64_t>> chains;
             std::vector<TransientLemma> transient;
             const bool justified = justify_conclusion_pair(
                 k, match.value_derived && match.cancelled.empty(),
-                match.cancelled, units, chains, transient);
+                match.cancelled, units, transient);
             if (justified)
-              result = congruence_record_semantic_contradiction(
-                  k, match.first_output, chains);
+              result = congruence_refute_semantic_contradiction(
+                  k, match.first_output);
             else
               ++k.stats.congruence_unjustified;
             delete_transients(k, transient);
@@ -4172,16 +3795,14 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
           const std::vector<std::vector<Lit>> conclusions = {
               {negate(match.first_output), match.second_output},
               {match.first_output, negate(match.second_output)}};
-          std::vector<std::vector<uint64_t>> chains;
           std::vector<TransientLemma> transient;
-          bool justified = justify_conclusion_pair(
+          const bool justified = justify_conclusion_pair(
               k, match.value_derived && match.cancelled.empty(),
-              match.cancelled, conclusions, chains, transient);
+              match.cancelled, conclusions, transient);
           AddedEquivalence added;
           if (justified)
-            justified = add_equivalence_chained(
-                k, match.first_output, match.second_output, chains[0],
-                chains[1], &added);
+            publish_equivalence(k, match.first_output, match.second_output,
+                                &added, "congruence-chained-equivalence-site");
           delete_transients(k, transient);
           return conclude(justified, contradiction, added);
         }
@@ -4189,16 +3810,15 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
             match.action == CongruenceSemanticKind::MatchingContradiction;
         if (contradiction &&
             match.first_output == negate(match.second_output)) {
-          std::vector<uint64_t> forward, reverse;
           std::vector<TransientLemma> transient;
           const bool justified = justify_matching(
               k, match.kind, match.key, match.cancelled,
               match.second_cancelled, find, match.first_output,
-              match.second_output, /*literal_clash=*/true,
-              RupReplay::ChainOnly, forward, reverse, transient);
+              match.second_output, /*literal_clash=*/true, /*replay=*/false,
+              transient);
           if (justified)
-            result = congruence_record_semantic_contradiction(
-                k, match.first_output, {forward, reverse});
+            result = congruence_refute_semantic_contradiction(
+                k, match.first_output);
           else
             ++k.stats.congruence_unjustified;
           delete_transients(k, transient);
@@ -4209,22 +3829,21 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
         if (match.kind == GateKind::And &&
             match.first->kind == GateKind::And &&
             match.second->kind == GateKind::And) {
-          justified =
-              add_equivalence(k, *match.first, *match.second, find, &added);
+          publish_equivalence(k, match.first->output, match.second->output,
+                              &added, "congruence-gate-equivalence-site");
+          justified = true;
         } else {
-          std::vector<uint64_t> forward, reverse;
           std::vector<TransientLemma> transient;
           // A mixed ITE/AND semantic match has no proof ladder. Replay both
           // direct conclusions before either witnessless addition.
           justified = justify_matching(
               k, match.kind, match.key, match.cancelled,
               match.second_cancelled, find, match.first_output,
-              match.second_output, /*literal_clash=*/false, RupReplay::Decide,
-              forward, reverse, transient);
+              match.second_output, /*literal_clash=*/false, /*replay=*/true,
+              transient);
           if (justified)
-            justified = add_equivalence_chained(
-                k, match.first_output, match.second_output, forward, reverse,
-                &added);
+            publish_equivalence(k, match.first_output, match.second_output,
+                                &added, "congruence-chained-equivalence-site");
           delete_transients(k, transient);
         }
         return conclude(justified, contradiction, added);

@@ -339,7 +339,7 @@ ApplyResult startup_parity_apply(Kernel &k) {
 
 ApplyResult parity_refutation_apply(
     Kernel &k, const strategy::ParityModelParameters &parameters) {
-  if (!parameters.valid() || (k.proof && k.proof->lrat()))
+  if (!parameters.valid())
     return ApplyResult::NoOp;
   std::vector<Equation> equations;
   if (!collect_equations(k, parameters, equations))

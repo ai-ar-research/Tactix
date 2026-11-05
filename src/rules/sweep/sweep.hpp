@@ -8,8 +8,7 @@
 //
 // The invariant everything here serves: the environment is entailed by F, so
 // `env ⊨ x ≡ y` gives `F ⊨ x ≡ y`. Every environment clause is a clause the
-// kernel holds, cited by its own proof id, minus its root-false literals, whose
-// justifying root-unit ids travel with it in `SweepEnv::strip_ids`.
+// kernel holds, cited by its own proof id, minus its root-false literals.
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -71,15 +70,8 @@ struct SweepEnv {
   uint64_t key_mask = 0;
   std::vector<Lit> clause_lits;     // flat kernel literals
   std::vector<uint32_t> clause_off; // start of clause i in clause_lits (+end)
-  // Strip ledger: `strip_ids[strip_off[i] .. strip_off[i+1])` are the root-unit
-  // ids justifying the literals removed from environment clause i. A chain
-  // citing clause i must cite them, and the environment is gone by emission
-  // time — hence carried, not re-derived.
-  std::vector<uint64_t> strip_ids;
-  std::vector<uint32_t> strip_off; // size nclauses()+1
   // per-clause scratch, kept here so the BFS pays no allocation per clause
   std::vector<Lit> kept_scratch;
-  std::vector<uint64_t> strip_scratch;
   std::vector<uint32_t> deg_scratch; // by sub var: large-clause degree in env
 
   uint32_t nclauses() const {
@@ -100,22 +92,13 @@ struct SweepDirProof {
   std::vector<SubStep> steps;
   // A core can certify many units at different prefix lengths. Share the
   // immutable raw derivation instead of copying each (potentially huge)
-  // prefix. LRAT hint normalization depends on this proof's target; a core
-  // unit may need hints that the direction's target made redundant.
+  // prefix.
   std::shared_ptr<const std::vector<SubStep>> shared_steps;
   size_t shared_step_count = 0;
-  std::vector<std::vector<uint32_t>> normalized_chains;
   std::span<const SubStep> steps_view() const {
     if (shared_steps)
       return {shared_steps->data(), shared_step_count};
     return steps;
-  }
-  std::span<const uint32_t> chain_view(size_t step) const {
-    if (!normalized_chains.empty()) {
-      assert(normalized_chains.size() == steps_view().size());
-      return normalized_chains[step];
-    }
-    return steps_view()[step].chain;
   }
   void share_steps() {
     if (!shared_steps) {
@@ -125,13 +108,9 @@ struct SweepDirProof {
     }
   }
   // Saved at the query boundary; original eligibility does not change while
-  // a later core commits units. This is separate from the LRAT proof prefix.
+  // a later core commits units.
   std::vector<SubDerivation::CoreClause> core_clauses;
   std::vector<uint64_t> orig_ids;
-  // the environment's strip ledger, captured with `orig_ids`: an antecedent's
-  // chain is incomplete without the units justifying its stripped literals
-  std::vector<uint64_t> strip_ids;
-  std::vector<uint32_t> strip_off;
   std::vector<Var> vars;
   uint64_t formula_epoch = 0;
   bool ok = false;

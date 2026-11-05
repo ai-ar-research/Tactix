@@ -1,8 +1,8 @@
-// A pure event planner for the cubic DRAT proof of the direct pigeonhole
+// A pure event planner for the cubic clausal proof of the direct pigeonhole
 // principle due to Grosof, Zhang, and Heule (arXiv:2207.11284).
 //
 // This is deliberately independent of Kernel and Proof.  A future adapter can
-// replay AddRup and AddRat as witness-free native DSR/DRAT additions (the pivot
+// replay AddRup and AddRat as witness-free native DSR additions (the pivot
 // of every AddRat event is clause.front()) and Delete as an ordinary clausal
 // deletion.  Planning is atomic: exact count-only preflight, including the
 // permanent auxiliary namespace, succeeds before any event vector is built.

@@ -267,11 +267,4 @@ ApplyResult substitute_apply_sweep_equivalences(
     SweepSubstitutionSession &,
     std::vector<std::pair<Lit, Lit>> *applied_images = nullptr);
 
-// One directed binary-implication-graph path `from → … → to` as its edge
-// clause-ids in FORWARD order (LRAT antecedent chain; caller guards on lrat).
-// Edge p→q is the binary (¬p∨q). Returns false if no path exists. Reused by V6
-// Congruence to bridge two gate inputs proven equal via added equivalences.
-bool big_path_chain(const Kernel &k, Lit from, Lit to,
-                    std::vector<uint64_t> &chain);
-
 } // namespace tactix

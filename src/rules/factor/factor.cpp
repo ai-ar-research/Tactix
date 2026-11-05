@@ -645,7 +645,6 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
   const Var xv = kernel_new_extension_vars(k, 1);
   const Lit px = make_lit(xv, false); // x
   const Lit nx = make_lit(xv, true);  // ¬x
-  const bool lrat = k.proof && k.proof->lrat();
   const auto append_binary_watch = [&](Lit a, Lit b, uint64_t id) {
     (void)id;
     if (!idx.built)
@@ -665,8 +664,7 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
 
   // Dividers (x ∨ fᵢ): RAT on the fresh literal x. At add time no clause
   // contains ¬x (the quotients come after), so the RAT condition is vacuous —
-  // pivot-first, empty hints.
-  std::vector<uint64_t> divider_ids(F.size());
+  // pivot-first.
   // `best_F` is the first-factor -> last-factor quotient chain. Kissat applies
   // that chain from the best quotient back through `prev`, so its dividers
   // enter every binary watch list last-factor first. The formula is unchanged
@@ -679,14 +677,11 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       k.proof->add_rat(id, lits, 2, nullptr, 0);
     kernel_add_binary_clause(k, px, f, id);
     append_binary_watch(px, f, id);
-    divider_ids[rev] = id;
   }
 
   // Quotients (¬x ∨ rⱼ): RAT on ¬x. The only clauses containing x are the m
   // dividers, so there is one RAT group per divider, each resolvent (fᵢ∨rⱼ) a
-  // grid clause still live because the deletes come last. Hints are the flat
-  // stream [-dividerᵢ, orig(fᵢ,rⱼ)]ᵢ, read before deletion.
-  std::vector<int64_t> hints;
+  // grid clause still live because the deletes come last.
   std::vector<Lit> qlits;
   for (size_t column = 0; column < R.size(); column++) {
     const uint32_t rid = R[column];
@@ -697,8 +692,6 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     // last-factor clause (`q->clauses`) and preserves that clause's literal
     // pose after removing the factor.  Reusing the sorted key here changes the
     // quotient's initial watched pair and therefore later propagation order.
-    // The RAT-on-¬x argument is indifferent to |r|, so the hint stream stays
-    // per-divider at any factor size.
     qlits.assign(1, nx);
     if (rn == 1) {
       qlits.push_back(rl[0]);
@@ -715,20 +708,9 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
                                  rl + rn));
     }
     const uint64_t id = ++k.next_clause_id;
-    if (lrat) {
-      hints.clear();
-      for (size_t i = F.size(); i-- > 0;) {
-        const Ref gref = grid_refs[i][column];
-        const uint64_t gid = (gref == INVALID_REF)
-                                 ? kernel_binary_id(k, F[i], rl[0])
-                                 : clause_at(k.arena, gref)->id();
-        hints.push_back(-static_cast<int64_t>(divider_ids[i]));
-        hints.push_back(static_cast<int64_t>(gid));
-      }
-    }
     if (k.proof)
       k.proof->add_rat(id, qlits.data(), static_cast<uint32_t>(qlits.size()),
-                       hints.data(), static_cast<uint32_t>(hints.size()));
+                       nullptr, 0);
     if (rn == 1) {
       kernel_add_binary_clause(k, nx, rl[0], id);
       append_binary_watch(nx, rl[0], id);

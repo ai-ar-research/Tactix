@@ -92,9 +92,8 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     // learned unit contradicts a root assignment: refutation complete
     // (the unit is in the proof; the empty clause is RUP from it)
     p.valid = false;
-    // chain: the learned unit + its opposite (the shared kernel idiom;
-    // sets `inconsistent`)
-    kernel_emit_empty_from_pair(k, p.id, k.unit_ids[var_of(asserting)]);
+    // the shared kernel idiom; sets `inconsistent`
+    kernel_emit_empty(k);
     analyze_bump_after_backjump(k);
     return ApplyResult::Unsat;
   }

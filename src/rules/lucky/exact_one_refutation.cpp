@@ -425,7 +425,7 @@ public:
 ApplyResult exact_one_refutation_apply(
     Kernel &k, const strategy::OnehotModelParameters &parameters) {
   ++k.stats.exact_one_refutation_calls;
-  if (!parameters.valid() || (k.proof && k.proof->lrat()))
+  if (!parameters.valid())
     return ApplyResult::NoOp;
   ExactOneSystem system;
   if (!recognize(k, parameters, system))

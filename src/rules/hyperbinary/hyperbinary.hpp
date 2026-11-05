@@ -33,11 +33,9 @@ RuleEligibility hyperbinary_guard(const Kernel &k);
 ApplyResult hyperbinary_apply(Kernel &k);
 
 // One root literal: close it under binaries, resolve every long clause it makes
-// unit. NoOp when `p` is fixed, out of range, or yields nothing. Chains come
-// from the shared RUP replay, not a dominator-specific LRAT walk (cadical
-// `probe_dominator_lrat`): `d ∧ ¬l₀` is assumed at the clean root and replayed,
-// so the replay both tests RUP and builds the chain, and a replay that fails
-// DECLINES the resolvent — V5 Sweep's discipline. Every resolvent is a
+// unit. NoOp when `p` is fixed, out of range, or yields nothing. Justification
+// comes from the shared RUP replay: `d ∧ ¬l₀` is assumed at the clean root and
+// replayed, and a replay that fails DECLINES the resolvent — V5 Sweep's discipline. Every resolvent is a
 // permanent binary, since binaries carry no redundancy bit
 // (`docs/dev/implementation-notes.md` §14), the stricter side of cadical's split.
 ApplyResult hyperbinary_try(Kernel &k, Lit p);

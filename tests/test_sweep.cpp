@@ -8,7 +8,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
-#include "rules/congruence/congruence.hpp" // congruence_replay_rup, RupReplay
+#include "rules/congruence/congruence.hpp" // congruence_replay_rup
 #include "rules/propagate/propagate.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "rules/substitute/substitute.hpp"
@@ -30,6 +30,26 @@ void sweep_capture_core_units_for_test(Kernel &, SweepDirProof &, SweepRound &,
                                        const SweepLimits &);
 ApplyResult sweep_emit_round_for_test(Kernel &, SweepRound &, uint32_t,
                                       const SweepLimits &);
+}
+
+// Whether `from` reaches `to` over the binary implication graph; edge p -> q is
+// the clause (¬p ∨ q).
+static bool implies_through_binaries(const Kernel &k, Lit from, Lit to) {
+  std::vector<uint8_t> seen(2 * static_cast<size_t>(k.nvars), 0);
+  std::vector<Lit> stack{from};
+  seen[from] = 1;
+  while (!stack.empty()) {
+    const Lit p = stack.back();
+    stack.pop_back();
+    if (p == to)
+      return true;
+    for (const WatchEntry w : k.watches.entries(negate(p)))
+      if (w.binary() && !seen[w.other()]) {
+        seen[w.other()] = 1;
+        stack.push_back(w.other());
+      }
+  }
+  return false;
 }
 
 static void test_effort_prices_embedded_and_representation_ticks() {
@@ -400,7 +420,6 @@ static SweepDirProof original_core_unit_proof(const Kernel &k) {
   proof.ok = true;
   proof.vars = {0, 1, 2, 3};
   proof.orig_ids = {1};
-  proof.strip_off = {0, 0};
   proof.formula_epoch = k.touch_epoch;
   proof.core_clauses.push_back(
       {1, false, {sub_lit(0, true), sub_lit(1, false),
@@ -945,16 +964,14 @@ static void test_rup_admission_is_format_independent(void) {
       hard.proof = &proof;
     const Lit x = internalize(1), y = internalize(2);
     const Lit entailed[2] = {negate(x), y};
-    std::vector<uint64_t> chain;
-    assert(!congruence_replay_rup(hard, entailed, 2, chain,
-                                  RupReplay::Decide) &&
+    assert(!congruence_replay_rup(hard, entailed, 2) &&
            "an entailed but non-RUP lemma must be declined in every format");
     Kernel easy;
     build(easy, 2, rup);
     if (mode.proof)
       easy.proof = &proof;
     const Lit unit = internalize(1);
-    assert(congruence_replay_rup(easy, &unit, 1, chain, RupReplay::Decide) &&
+    assert(congruence_replay_rup(easy, &unit, 1) &&
            "a genuinely RUP lemma must be admitted in every format");
     printf("  admission: %s agrees (non-RUP declined, RUP admitted)\n",
            mode.name);
@@ -975,9 +992,7 @@ static void test_rup_replay_closes_inherited_root_debt() {
   kernel_assign_unit(k, root);
   assert(!kernel_propagation_fixpoint(k));
 
-  std::vector<uint64_t> chain;
-  assert(congruence_replay_rup(k, &implied, 1, chain,
-                               RupReplay::Decide));
+  assert(congruence_replay_rup(k, &implied, 1));
   assert(k.value(implied) > 0);
   assert(kernel_propagation_fixpoint(k));
   kernel_check_invariants(k);
@@ -1406,10 +1421,9 @@ static void test_sequential_equivalence_images() {
           // boundaries as well as the within-environment merge boundary.
           for (const Var seed : {2u, 1u, 0u, 2u}) {
             assert(sweep_try_with_limits(k, seed, lim) != ApplyResult::Unsat);
-            std::vector<uint64_t> chain;
             for (const Lit x : {a, b, c})
               for (const Lit y : {a, b, c})
-                if (x != y && !big_path_chain(k, x, y, chain)) {
+                if (x != y && !implies_through_binaries(k, x, y)) {
                   fprintf(stderr, "bridge lost: dense=%d partition=%d signs=%u order=%u,%u,%u seed=%u from=%u to=%u\n", dense, partition, signs, order[0], order[1], order[2], seed, x, y);
                   assert(false && "Sweep must preserve the complete equivalence");
                 }

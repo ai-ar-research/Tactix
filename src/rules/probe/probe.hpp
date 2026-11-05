@@ -2,10 +2,9 @@
 // canonical round schedules BIG heads; the public instance surface offers
 // every unassigned literal. Assume p at a fresh level and propagate fully; a
 // conflict proves p cannot hold, so {¬p} is a RUP unit.
-// Proof delta: add-RUP unit only, the LRAT chain being a reason walk of the
-// conflict. Derived units are asserted un-propagated at the root and the round
-// ends; M1 Propagate runs each unit's cascade, root-unit LRAT emission and any
-// refutation, as C2/C3 also leave a derived unit for the policy to propagate.
+// Proof delta: add-RUP unit only. Derived units are asserted un-propagated at
+// the root and the round ends; M1 Propagate runs each unit's cascade, root-unit
+// emission and any refutation, as C2/C3 also leave a derived unit for the policy to propagate.
 // Precondition, effect, soundness: `docs/dev/calculus.md` §V1. References and the
 // lineage split: `docs/design/independent-lineage-survey.md` (kissat keeps the
 // same loop in backbone.c/proprobe.c; cadical probe.cpp confirms the

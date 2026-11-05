@@ -5,7 +5,6 @@
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
-#include "proof/rup_helpers.hpp"
 
 #include <algorithm>
 
@@ -83,8 +82,7 @@ void instantiate_candidates(const Kernel &k, std::vector<Ref> &out) {
 
 // probe one (clause, literal) pair. Returns true when the assumption set
 // ¬D ∧ l propagated to a conflict, i.e. D is provable. On true the trail is
-// still loaded (the caller needs it for the chain) and the probing scope is
-// still open; on false everything is already unwound.
+// still loaded and the probing scope is still open; on false everything is already unwound.
 static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
   const Clause *c = clause_at(k.arena, cref);
   kernel_probing_begin(k);
@@ -131,19 +129,12 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
   if (selected &&
       (!clause_contains(c, *selected) || k.value(*selected) != 0))
     return ApplyResult::NoOp;
-  const bool lrat = k.proof && k.proof->lrat();
-  // Persistent walk scratch (the per-call linear-scratch fix, shared in shape
-  // with C3 Vivify's copy): grown on demand, restored all-zero in O(marked) at
-  // the exits below.
-  static thread_local std::vector<uint8_t> seen;
-  static thread_local std::vector<Var> seen_touched;
   std::vector<Lit> cand_lits(c->begin(), c->end());
   std::vector<Lit> next;
-  std::vector<std::pair<uint32_t, uint64_t>> entries;
   for (const Lit lit : cand_lits) {
     // §6 safe point by construction: a failed `probe_pair` has already unwound
-    // the trail and closed the probing scope, a successful one returns
-    // outright, and `seen` is all-zero here — so the clause is either fully
+    // the trail and closed the probing scope and a successful one returns
+    // outright — so the clause is either fully
     // rewritten or untouched, never half-instantiated.
     if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted))
       break;
@@ -155,51 +146,18 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
       return ApplyResult::Unsat;
     if (selected ? lit != *selected : !eligible(k, occ, lit))
       continue;
-    if (lrat) {
-      if (seen.size() < k.nvars)
-        seen.resize(k.nvars, 0);
-      seen_touched.clear();
-      entries.clear();
-    }
     if (!probe_pair(k, cref, lit))
       continue; // instantiation failed: the pair proves nothing
     // CONFLICT: F ⊨ ¬lit ∨ D, and with C = lit ∨ D that gives D.
-    uint64_t last = 0;
-    const uint64_t cid = clause_at(k.arena, cref)->id();
-    if (lrat) {
-      last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
-      // The checker reaches the probe state from ¬D alone by propagating `lit`
-      // out of C itself, so C is an antecedent at the trail position where
-      // `lit` entered. Cited only when the walk reached `lit` (cadical's
-      // `flags (lit).seen` guard); otherwise the conflict never used `lit`.
-      if (seen[var_of(lit)])
-        entries.emplace_back(k.assigned[var_of(lit)].trail, cid);
-    }
     next.clear();
     for (const Lit m : cand_lits)
       if (m != lit)
         next.push_back(m);
-    if (lrat) {
-      // The checker begins with the complete negated lemma cube. A root unit
-      // that already makes one of D's literals false is an assumption there,
-      // not a propagating hint, even if the probe's reason walk reached it.
-      std::vector<uint64_t> cube_root_units;
-      for (const Lit m : next)
-        if (k.value(m) < 0 && k.assigned[var_of(m)].level == 0) {
-          const uint64_t unit_id = k.unit_ids[var_of(m)];
-          if (unit_id)
-            cube_root_units.push_back(unit_id);
-        }
-      rup_helpers::remove_assumption_unit_hints(entries, cube_root_units);
-    }
     probe_unwind(k); // trail down + probing scope closed BEFORE the arena moves
-    for (const Var tv : seen_touched)
-      seen[tv] = 0;
-    seen_touched.clear();
     // rewrite: ADD the strengthened clause, then delete the original
     Clause *cc = clause_at(k.arena, cref);
     const uint64_t id = ++k.next_clause_id;
-    rup_helpers::emit(k, id, 0, next, entries, last);
+    emit_rup_lemma(k, id, next);
     k.stats.instantiated++;
     const bool redundant = cc->redundant();
     const uint32_t glue = redundant ? cc->glue() : 0;
@@ -220,9 +178,6 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
       return ApplyResult::Ok;
     }
   }
-  for (const Var tv : seen_touched) // no success: restore the scratch
-    seen[tv] = 0;
-  seen_touched.clear();
   return ApplyResult::NoOp;
 }
 

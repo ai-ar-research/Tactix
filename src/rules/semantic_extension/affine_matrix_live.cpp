@@ -447,7 +447,7 @@ MatrixLiveStatus transaction_status(MatrixTransactionStatus status) {
 }
 
 bool proof_supported(const Kernel &kernel) {
-  return !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp());
+  return !kernel.proof || !kernel.proof->terminal_pbp();
 }
 
 bool proof_unchanged(const Kernel &kernel, bool had_proof, Proof *proof,

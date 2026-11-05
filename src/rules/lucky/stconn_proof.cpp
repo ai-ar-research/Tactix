@@ -644,7 +644,7 @@ bool collect_formula(Kernel &k, Formula &formula) {
 } // namespace
 
 RuleEligibility stconn_proof_guard(const Kernel &k) {
-  return lucky_clausal_root_eligibility(k);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult stconn_proof_apply(Kernel &k) {

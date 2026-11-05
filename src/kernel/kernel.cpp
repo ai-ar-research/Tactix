@@ -541,8 +541,7 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
                             bool new_pair, bool mark_added_material) {
   // LAST id wins. The map must always name a clause the checker still holds,
   // and kernel_delete_binary can retire this pair's id, so a re-add must
-  // install its fresh one — otherwise every later LRAT chain through the pair
-  // cites a deleted clause. Among live duplicates either id is equally valid.
+  // install its fresh one. Among live duplicates either id is equally valid.
   const uint64_t key = kernel_binary_key(a, b);
   k.binary_ids.insert_or_assign_known(key, id, new_pair);
   if (k.binary_liveness)
@@ -744,10 +743,8 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   // DSR and streaming PBP must track every physical copy: a stale checker
   // clause imposes an extra substitution obligation after the last live copy
   // disappears. Both formats can retire one literal-named copy while leaving
-  // the surviving reason. DRAT/LRAT retain their optional-deletion behavior;
-  // without per-copy LRAT ids, deleting the current id could invalidate a
-  // later reason.
-  if (k.proof && (k.proof->dsr() || k.proof->streaming_pbp())) {
+  // the surviving reason.
+  if (k.proof && !k.proof->terminal_pbp()) {
     const Lit clause[2] = {a, b};
     k.proof->del(k.next_clause_id, 0, clause, 2);
   }
@@ -820,11 +817,9 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
   }
   kernel_bve_occurrence_remove(k, a, removed_copies);
   kernel_bve_occurrence_remove(k, b, removed_copies);
-  // DRAT names clauses by literals and can mirror Kissat's one deletion per
-  // retired copy. Native LRAT keeps only the newest id for an identical pair;
-  // deletions are optional, so retain those checker clauses and keep that id
-  // available to later reasons.
-  if (k.proof && !k.proof->lrat()) {
+  // Clauses are named by literals, mirroring Kissat's one deletion per retired
+  // copy.
+  if (k.proof) {
     const Lit lits2[2] = {a, b};
     for (uint32_t i = 0; i < removed_copies; ++i)
       k.proof->del(k.next_clause_id, 0, lits2, 2);
@@ -848,11 +843,8 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
   return removed_copies;
 }
 
-// Remove EVERY physical copy of the pair (a,b).  DRAT can retire each copy by
-// literal multiset.  Native LRAT stores only the latest id for a duplicated
-// pair, so deleting that id repeatedly would be invalid; when multiple copies
-// exist, retain their proof clauses in the checker (deletions are optional)
-// while removing the complete internal watch multiset.
+// Remove EVERY physical copy of the pair (a,b), retiring each copy by literal
+// multiset.
 static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
                                      uint32_t copies) {
   if (copies == 0)
@@ -900,7 +892,7 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
   kernel_bve_occurrence_remove(k, b, copies);
   if (k.binary_liveness)
     k.binary_liveness->remove(kernel_binary_key(a, b));
-  if (k.proof && (!k.proof->lrat() || copies == 1)) {
+  if (k.proof) {
     const Lit lits2[2] = {a, b};
     for (uint32_t i = 0; i < copies; i++)
       k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
@@ -1145,8 +1137,8 @@ static void kernel_unwind_speculation_impl(Kernel &k, uint32_t position) {
     kernel_unassign_literal<HasH>(k, lit);
     // A unit id caches the polarity of the assignment being retracted. A
     // later root replay can derive the opposite polarity before refuting F;
-    // retaining this id would suppress that derivation and cite the wrong
-    // unit in the empty-clause chain. The old proof line itself stays live.
+    // retaining this id would suppress that derivation. The old proof line
+    // itself stays live.
     k.unit_ids[var_of(lit)] = 0;
   }
   k.frames.resize(1);
@@ -1167,15 +1159,9 @@ void kernel_unwind_speculation(Kernel &k, uint32_t position) {
 }
 
 // --- shared proof idioms (decls in kernel.hpp) ------------------------------
-void kernel_emit_empty_from_pair(Kernel &k, uint64_t id_a, uint64_t id_b) {
-  if (k.proof) {
-    if (k.proof->lrat()) {
-      const uint64_t ch[2] = {id_a, id_b};
-      k.proof->add_empty(++k.next_clause_id, ch, 2);
-    } else {
-      k.proof->add_empty(0, nullptr, 0);
-    }
-  }
+void kernel_emit_empty(Kernel &k) {
+  if (k.proof)
+    k.proof->add_empty(0, nullptr, 0);
   k.inconsistent = true;
 }
 
@@ -1195,39 +1181,19 @@ void PendingUnits::init(Kernel &k) {
   for (const uint8_t mark : k.eager_marks)
     assert(!mark && "PendingUnits requires the shared marks to be clear");
 #endif
-  if (k.proof && k.proof->lrat())
-    ids.assign(k.nvars, 0);
-  else {
-    ids.clear();
-    ids.shrink_to_fit();
-  }
 }
 
-PendingUnits::Outcome PendingUnits::record(Kernel &k, Lit u, uint64_t id) {
+PendingUnits::Outcome PendingUnits::record(Kernel &k, Lit u) {
   assert(owner == &k);
-  const Var v = var_of(u);
   if (!k.eager_marks[u] && !k.eager_marks[negate(u)]) {
     k.eager_marks[u] = 1;
-    if (!ids.empty())
-      ids[v] = id;
     units.push_back(u);
     return Outcome::Recorded;
   }
   if (k.eager_marks[u])
     return Outcome::Duplicate; // same-sign duplicate: a redundant unit
-  kernel_emit_empty_from_pair(k, id, ids.empty() ? 0 : ids[v]);
+  kernel_emit_empty(k);
   return Outcome::Refuted;
-}
-
-void PendingUnits::commit(Kernel &k, Lit u) const {
-  const Var v = var_of(u);
-  if (!ids.empty() && ids[v])
-    k.unit_ids[v] = ids[v];
-}
-
-void PendingUnits::refute(Kernel &k, Lit u) const {
-  kernel_emit_empty_from_pair(
-      k, ids.empty() ? 0 : ids[var_of(u)], k.unit_ids[var_of(u)]);
 }
 
 // Rewrite images usually retain the source order (root stripping and
@@ -1255,9 +1221,7 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
                                      Ref *large_ref,
                                      bool mark_added_material) {
   // `id` is the REPLACEMENT's id, and every caller allocates it immediately
-  // before calling in — so it equals `next_clause_id`, which is what the shared
-  // primitive prefixes its LRAT deletion line with. That was an unstated,
-  // uncheckable invariant while this site passed `id` by hand; assert it.
+  // before calling in — so it equals `next_clause_id`.
   assert(id == k.next_clause_id);
   // Large redundant-clause rewrites model Kissat's in-place shrink operations
   // even though Tactix appends a packed replacement record.  Recency belongs
@@ -1514,21 +1478,10 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   // former eager vectors made that common case pay two heap allocations and a
   // full literal copy merely to discover `None`.
   std::vector<Lit> kept;
-  std::vector<uint64_t> chain;
   kept.reserve(c->size);
-  if (k.proof && k.proof->lrat())
-    chain.reserve(c->size + 1);
-  for (const Lit l : *c) {
-    if (kernel_root_value(k, l) < 0) {
-      if (k.proof && k.proof->lrat()) {
-        const uint64_t unit_id = k.unit_ids[var_of(l)];
-        assert(unit_id);
-        chain.push_back(unit_id);
-      }
-    } else {
+  for (const Lit l : *c)
+    if (kernel_root_value(k, l) >= 0)
       kept.push_back(l);
-    }
-  }
 
   // Locating a large reason is O(trail).  Most reason clauses encountered by
   // root collection are already satisfied and return above, so doing this
@@ -1549,7 +1502,6 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
       break;
     }
 
-  const uint64_t original_id = c->id();
   const bool redundant = c->redundant();
   // kissat's generic root flush (collect.c) drops root-false literals without
   // touching glue; Vivify's schedule-time root simplification clamps to
@@ -1560,6 +1512,7 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
                  : c->glue();
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (kept.size() == 2) {
+    const uint64_t original_id = c->id();
     std::string payload = "source_id=" + std::to_string(original_id) +
                           "|source=";
     bool first = true;
@@ -1581,16 +1534,9 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   if (kept.size() == 1 && k.level)
     kernel_backtrack(k, 0, /*search_backtrack=*/false);
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof) {
-    if (k.proof->lrat()) {
-      chain.push_back(original_id);
-      k.proof->add_rup(id, kept.data(), static_cast<uint32_t>(kept.size()),
-                       chain.data(), static_cast<uint32_t>(chain.size()));
-    } else { // streaming PBP tracks the replacement's id for `del id`
-      k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, kept.data(),
-                       static_cast<uint32_t>(kept.size()), nullptr, 0);
-    }
-  }
+  if (k.proof) // streaming PBP tracks the replacement's id for `del id`
+    k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, kept.data(),
+                     static_cast<uint32_t>(kept.size()), nullptr, 0);
   k.stats.flushed++;
   if (changed)
     (*changed)++;
@@ -1619,10 +1565,9 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   case ReplaceOutcome::Unit: {
     const Lit unit = kept[0];
     const int8_t value = k.value(unit);
-    const uint64_t opposite_id = k.unit_ids[var_of(unit)];
     k.unit_ids[var_of(unit)] = id;
     if (value < 0) {
-      kernel_emit_empty_from_pair(k, id, opposite_id);
+      kernel_emit_empty(k);
       return RootFlushOutcome::Refuted;
     }
     if (!value)
@@ -2059,8 +2004,7 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // RUP from the same formula, so streaming PBP stages these units and drops
   // them if that clause is next (VeriPB need not re-justify one conflict
   // chain per unit). Unit ids and root tables advance exactly as before.
-  if (k.proof &&
-      (k.proof->lrat() || k.proof->dsr() || k.proof->streaming_pbp())) {
+  if (k.proof && !k.proof->terminal_pbp()) {
     const bool stage = conflict && k.level == 0 && k.proof->streaming_pbp();
     if (stage)
       k.proof->begin_deferred_root_units();
@@ -2260,15 +2204,12 @@ void kernel_probing_end(Kernel &k) {
 bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   // A speculative propagation can force a literal at level 0 (D-LEVEL-2 stamps
   // a forced literal at its TRUE level), and the unwind leaves it assigned. It
-  // never passes through `propagate_service`, so without this it keeps
-  // `unit_ids[v] == 0` — LRAT's line terminator — and truncates the next chain
-  // that cites it. Reachable whenever the root is not drained at entry, which
-  // V5 Sweep does deliberately: it asserts each environment's units without
-  // propagating and then replays the next equivalence.
+  // never passes through `propagate_service`, so without this the proof never
+  // sees it. Reachable whenever the root is not drained at entry, which V5 Sweep
+  // does deliberately: it asserts each environment's units without propagating
+  // and then replays the next equivalence.
   const size_t assigned_before = k.trail.size();
-  const bool named_root_units =
-      k.proof && (k.proof->lrat() || k.proof->dsr() ||
-                  k.proof->streaming_pbp());
+  const bool named_root_units = k.proof && !k.proof->terminal_pbp();
   bool conflict = false;
   kernel_settle_binary_only_debt(k); // this scan is a full one
   if (!k.probing.recording) {
@@ -2311,14 +2252,11 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   // 2. Exactly as in `kernel_propagate_probing`, it can force a literal at
   //    level zero and the caller's unwind may leave that literal assigned. It
   //    never passes through `propagate_service`, so without its own unit line
-  //    the literal keeps `unit_ids[v] == 0` — LRAT's line terminator — and
-  //    truncates the next chain that cites it.
+  //    the proof never sees the literal.
   if (k.propagate_head < k.binary_only_head)
     k.binary_only_head = k.propagate_head;
   const size_t assigned_before = k.trail.size();
-  const bool named_root_units =
-      k.proof && (k.proof->lrat() || k.proof->dsr() ||
-                  k.proof->streaming_pbp());
+  const bool named_root_units = k.proof && !k.proof->terminal_pbp();
   bool conflict = false;
   const uint32_t saved_propagate = k.propagate_head;
   uint64_t ticks = 0;
@@ -2773,8 +2711,8 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
         // clauses (and a root reason IS root-satisfied) only at a quiescent
         // root, so no higher-level reason is ever garbage; Reduce protects
         // reasons. A root-fixed literal stays assigned and needs no reason —
-        // it is a root unit (emit_root_units already gave it an LRAT unit id
-        // when it was propagated). Forwarding a garbage clause would read a
+        // it is a root unit (emit_root_units already published it when it was
+        // propagated). Forwarding a garbage clause would read a
         // bogus `searched` and leave a dangling reason (corpus 003).
         assert(a.level == 0);
         a.reason = UNIT_REASON;
@@ -3473,16 +3411,6 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   const uint32_t old_nvars = k.nvars;
   std::vector<uint8_t> archive;
   if (fold_fixed) {
-    // LRAT roots must already have been named by their inference owner. Do not
-    // manufacture proof units or change a rule's preparation from compaction.
-    if (k.proof && k.proof->lrat())
-      for (Var v = 0; v < old_nvars; v++)
-        if (kernel_root_value(k, make_lit(v, false)) && !k.unit_ids[v]) {
-          fold_fixed = false;
-          break;
-        }
-  }
-  if (fold_fixed) {
     archive.assign(old_nvars, 0);
     Var representative = INVALID_VAR;
     for (Var v : k.compact_import_order)
@@ -3872,9 +3800,6 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   k.otfs_scratch.clear();
   k.otfs_retired.clear();
   k.radix_scratch.clear();
-  k.jump_pending.clear();
-  k.lrat_entries.clear();
-  k.lrat_chain.clear();
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   event_trace_detail(k, "eager_reset_compact", 0);
 #endif
@@ -3913,35 +3838,6 @@ void kernel_flush_retired_redundant(Kernel &k) {
         }
 }
 
-void kernel_build_lrat_chain(
-    std::vector<std::pair<uint32_t, uint64_t>> &entries,
-    uint64_t closing_id, std::vector<uint64_t> &chain) {
-  std::sort(entries.begin(), entries.end());
-  chain.clear();
-  chain.reserve(entries.size() + (closing_id != 0));
-  for (const auto &e : entries) {
-    // 0 is LRAT's line terminator, so a zero antecedent does not produce a
-    // wrong chain — it produces a TRUNCATED one, silently dropping every
-    // later antecedent. `unit_ids[v] == 0` means no proof unit exists yet, so
-    // citation sites must exclude it; root-level reason walks assert this when
-    // collapsing to the named unit. Cheap permanent guard, same family as
-    // Proof::add_rup's no-tautology and
-    // no-empty-chain asserts: those two are what make a whole class of
-    // certificate defects visible to the debug fuzz legs, since the permissive
-    // format hides them — a congruence bug emitting `<id> <lits> 0 0` sat
-    // behind a verified DRAT proof on every tier run and every fuzz leg until
-    // an LRAT checker walked the chain and rejected the hint-less line.
-    assert(e.second != 0 && "LRAT chain cites a literal with no unit id");
-    chain.push_back(e.second);
-  }
-  if (closing_id)
-    chain.push_back(closing_id);
-}
-
-void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
-  kernel_build_lrat_chain(k.lrat_entries, closing_id, k.lrat_chain);
-}
-
 // The proof-only table belongs to one DSR stream; a new stream starts empty.
 // Binds it for the root-true `lit` and returns the variable indexing its slot.
 static Var bind_dsr_root_table(Kernel &k, Lit lit) {
@@ -3961,9 +3857,7 @@ static Var bind_dsr_root_table(Kernel &k, Lit lit) {
 }
 
 bool kernel_root_unit_table_stream(const Kernel &k) {
-  return k.proof && !k.proof->lrat() &&
-         (!k.proof->pb() || k.proof->streaming_pbp()) &&
-         k.proof->stream_identity();
+  return k.proof && !k.proof->terminal_pbp() && k.proof->stream_identity();
 }
 
 void kernel_note_dsr_root_unit(Kernel &k, Lit lit) {
@@ -3974,7 +3868,7 @@ void kernel_note_dsr_root_unit(Kernel &k, Lit lit) {
 }
 
 void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
-  if (!k.proof || !(k.proof->dsr() || k.proof->streaming_pbp()))
+  if (!k.proof || k.proof->terminal_pbp())
     return;
   const Var v = bind_dsr_root_table(k, lit);
   const int8_t polarity = negated(lit) ? -1 : 1;
@@ -3988,15 +3882,12 @@ void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
                                SolverClauseKind::Unit, id, &lit, 1);
 }
 
-// LRAT, DSR, and streaming PBP: every root-level propagation-derived literal
-// becomes an
-// explicit unit clause so it remains available after its reason is deleted.
-// Emitting in trail order makes each LRAT chain nameable; native DSR lets its
-// checker reconstruct the same RUP chain and therefore avoids the reason walk;
-// streaming PBP has the same RUP property. DSR/PBP publication deliberately
-// does not populate `unit_ids`: that vector is solver-semantic state (several
-// rules distinguish asserted from implied root units), so using it only to
-// remember a proof line changes the default search.
+// DSR and streaming PBP: every root-level propagation-derived literal becomes an
+// explicit unit clause so it remains available after its reason is deleted. The
+// checker reconstructs the RUP chain, so there is no reason walk. Publication
+// deliberately does not populate `unit_ids`: that vector is solver-semantic state
+// (several rules distinguish asserted from implied root units), so using it only
+// to remember a proof line changes the default search.
 void kernel_emit_root_units(Kernel &k, size_t from) {
   for (size_t i = from; i < k.trail.size(); i++) {
     const Lit lit = k.trail[i];
@@ -4008,122 +3899,8 @@ void kernel_emit_root_units(Kernel &k, size_t from) {
       continue; // asserted units got their ids at the source
     if (k.unit_ids[v])
       continue; // an asserted/named unit is already present in the proof
-    if (k.proof->dsr() || k.proof->streaming_pbp()) {
-      kernel_materialize_dsr_root_unit(k, lit);
-      continue;
-    }
-    k.lrat_entries.clear();
-    uint64_t reason_id;
-    if (a.binary) {
-      // Reason jumping needs the resolved-away literal above level 0, so it
-      // cannot reach the root and the reason still names a real clause.
-      assert(!a.jumped);
-      reason_id = kernel_binary_id(k, lit, a.reason);
-      // Same terminator hazard as a zero antecedent, one step earlier: a
-      // closing id of 0 is DROPPED by `kernel_build_lrat_chain`, so the line
-      // goes out with a short chain the checker cannot replay. The pair is
-      // unnamed only when it is not a live clause of this formula — a reason
-      // that survived its clause, which is a state defect, not a proof one.
-      if (!reason_id) {
-        fprintf(stderr,
-                "INVARIANT: root literal %d has a binary reason (%d %d) with "
-                "no proof id; watched %u forward / %u mirrored\n",
-                externalize(lit), externalize(lit), externalize(a.reason),
-                kernel_binary_copies(k, lit, a.reason, 1),
-                kernel_binary_copies(k, a.reason, lit, 1));
-        assert(false && "root unit's binary reason has no clause id");
-      }
-      const Var ov = var_of(a.reason);
-      k.lrat_entries.emplace_back(k.assigned[ov].trail, k.unit_ids[ov]);
-    } else {
-      const Clause *c = clause_at(k.arena, a.reason);
-      reason_id = c->id();
-      for (const Lit l : *c)
-        if (l != lit) {
-          const Var ov = var_of(l);
-          k.lrat_entries.emplace_back(k.assigned[ov].trail,
-                                      k.unit_ids[ov]);
-        }
-    }
-    kernel_lrat_chain(k, reason_id);
-    const uint64_t id = ++k.next_clause_id;
-    k.unit_ids[v] = id;
-    k.proof->add_derived_unit(id, lit, k.lrat_chain.data(),
-                              static_cast<uint32_t>(k.lrat_chain.size()));
+    kernel_materialize_dsr_root_unit(k, lit);
   }
-}
-
-void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
-                        std::vector<std::pair<uint32_t, uint64_t>> &out,
-                        std::vector<Var> *touched) {
-  // Explicit solver-owned stack: trails can be arbitrarily deep, and native
-  // LRAT can invoke this walk many times for one rule application.
-  std::vector<Var> &todo = k.reason_walk_stack;
-  todo.clear();
-  todo.push_back(start);
-  while (!todo.empty()) {
-    const Var v = todo.back();
-    todo.pop_back();
-    if (seen[v])
-      continue;
-    seen[v] = 1;
-    if (touched)
-      touched->push_back(v);
-    const Assigned &a = k.assigned[v];
-    assert(!a.affine &&
-           "native affine reason reached a proof walk before materialization");
-    if (a.reason == DECISION_REASON)
-      continue; // probe assumption: the negation of the emitted clause
-    if (a.reason == UNIT_REASON || a.level == 0) {
-      // A root-fixed literal is a named unit clause in the proof by the time
-      // any rule walks reasons (every propagation wrapper runs
-      // kernel_emit_root_units before returning; asserted units get their ids
-      // at the source), so cite that unit and stop — the same scheme as
-      // analyze's chain_record_root. Re-walking the retained clause reason
-      // instead cites a clause a rule may have deleted since (a root-satisfied
-      // candidate is garbage the moment a unit satisfies it), which the
-      // checker rejects as a deleted hint.
-      assert(k.unit_ids[v] &&
-             "root-fixed literal walked before its unit id exists");
-      out.emplace_back(a.trail, k.unit_ids[v]);
-      continue;
-    }
-    if (a.binary) {
-      const Lit assigned_lit = make_lit(v, k.values[make_lit(v, true)] > 0);
-      // A jumped reason is a VIRTUAL resolvent: cite the real first antecedent
-      // (assigned_lit ∨ jumped_over) and continue through the literal it
-      // resolved away, whose own entry supplies the second. Walking to
-      // `a.reason` directly instead would skip that clause and leave the chain
-      // unpropagatable.
-      const Lit next = a.jumped ? k.jumped_over[v] : a.reason;
-      out.emplace_back(a.trail, kernel_binary_id(k, assigned_lit, next));
-      todo.push_back(var_of(next));
-      continue;
-    }
-    const Clause *reason = clause_at(k.arena, a.reason);
-    out.emplace_back(a.trail, reason->id());
-    for (const Lit m : *reason)
-      if (var_of(m) != v)
-        todo.push_back(var_of(m));
-  }
-}
-
-uint64_t kernel_conflict_reason_walk(
-    Kernel &k, std::vector<uint8_t> &seen,
-    std::vector<std::pair<uint32_t, uint64_t>> &entries,
-    std::vector<Var> *touched) {
-  if (k.conflict_ref == INVALID_REF) { // binary conflict
-    const uint64_t last =
-        kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1]);
-    kernel_reason_walk(k, var_of(k.conflict_bin[0]), seen, entries, touched);
-    kernel_reason_walk(k, var_of(k.conflict_bin[1]), seen, entries, touched);
-    return last;
-  }
-  const Clause *conf = clause_at(k.arena, k.conflict_ref);
-  const uint64_t last = conf->id();
-  for (const Lit m : *conf)
-    kernel_reason_walk(k, var_of(m), seen, entries, touched);
-  return last;
 }
 
 #ifndef NDEBUG
@@ -4161,7 +3938,7 @@ uint64_t kernel_irredundant_clauses(const Kernel &k) {
 #ifndef NDEBUG
 void kernel_check_invariants(const Kernel &k) {
   heuristics_check(k); // `H` sized to nvars (catches a missed Factor growth)
-  // The native-DSR proof never holds a root unit the kernel lacks: a DRAT/DSR
+  // The native-DSR proof never holds a root unit the kernel lacks: a DSR
   // checker keeps every unit it derives, so a unit published for the proof
   // alone would let the checker's formula drift ahead of the solver's.  The
   // statement is about a kernel that keeps deriving: once it is inconsistent
@@ -4201,7 +3978,6 @@ void kernel_check_invariants(const Kernel &k) {
     assert(value >= -1 && value <= 1);
     if (value) {
       assert(k.external_to_internal[external] == INVALID_VAR);
-      assert(!k.proof || !k.proof->lrat() || k.fixed_external_units[external]);
       fixed_external_count++;
     }
   }
@@ -4250,26 +4026,6 @@ void kernel_check_invariants(const Kernel &k) {
     // completeness checks below are what actually catch propagation bugs.)
     assert(a.level == 0 || i >= k.frames[a.level]);
   }
-  // Native LRAT: every root-fixed literal in a live derivation needs its unit
-  // line id. 0 is the format's line terminator, so a later chain citing it is
-  // truncated. Once an input replay has completed the refutation, however,
-  // its proof is closed and the proofless kernel may retain a different root
-  // trail. No later chain can cite those literals (as for DSR above).
-  if (k.proof && k.proof->lrat() && !k.inconsistent)
-    for (const Lit lit : k.trail) {
-      const Var v = var_of(lit);
-      if (k.assigned[v].level != 0 || k.unit_ids[v] != 0)
-        continue;
-      fprintf(stderr,
-              "INVARIANT: root literal %d has no LRAT unit id; trailpos %u "
-              "reason %s\n",
-              externalize(lit), k.assigned[v].trail,
-              k.assigned[v].reason == UNIT_REASON      ? "unit"
-              : k.assigned[v].reason == DECISION_REASON ? "decision"
-              : k.assigned[v].binary                    ? "binary"
-                                                        : "large");
-      assert(false && "root literal without an LRAT unit id");
-    }
   // every live large clause is watched on exactly lits[0] and lits[1]
   // (and, folded into the same walk, the eager-subsumption register holds only
   // real clause STARTS — a stale Ref left there by a collect would index the

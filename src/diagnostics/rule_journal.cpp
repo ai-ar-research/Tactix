@@ -252,7 +252,7 @@ uint64_t rule_journal_digest(const Kernel &k) {
       facts.push_back(mix(mix(UINT64_C(0xB1), key), id));
     });
   } else {
-    // DRAT production does not retain an exact-key proof archive. Keep this
+    // Production does not retain an exact-key proof archive. Keep this
     // compile-time diagnostic complete by deriving the same distinct pair set
     // from authoritative watches, without creating a production consumer.
     std::vector<uint64_t> binary_keys;

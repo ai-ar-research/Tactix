@@ -6,6 +6,16 @@ semantic versioning; the public C API remains source-compatible within the
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking:** Tactix no longer writes DRAT or LRAT proofs. `--drat`, `--lrat`,
+  `TACTIX_PROOF_DRAT_BINARY`, `TACTIX_PROOF_DRAT_ASCII` and `TACTIX_PROOF_LRAT`
+  are gone, and `tactix_proof` rejects their values 0, 1 and 2, which are not
+  reused; the other `TACTIX_PROOF_*` values are unchanged. DSR and PBP remain.
+  A witness-free DSR proof still reaches drat-trim and CakeLPR through its
+  lossless DRAT conversion, and `verification_route` still reports
+  `dsr-cake_lpr`, `dsr-trestle` or `pbp`.
+
 ### Changed
 
 - The proof no longer steers the search in three cases. A command-line run without a proof file takes the same search as `--pbp`; it used to run with parity search off. Parity search no longer stops after a million proof helper variables, so `--dsr` follows it to the end. A parity reason that cannot be spelled because a budget ran out is withdrawn instead of aborting the run.

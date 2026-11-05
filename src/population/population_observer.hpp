@@ -122,12 +122,10 @@ struct RawInputPopulationEvent {
 enum class CheckerRoute : uint8_t {
   None,
   Dsr,
-  Drat,
-  Lrat,
   Pbp,
 };
 
-enum class CheckerNaming : uint8_t { None, LiteralMultiset, Id };
+enum class CheckerNaming : uint8_t { None, LiteralMultiset };
 
 enum class CheckerPopulationEventKind : uint8_t {
   ObserverBound,
@@ -139,7 +137,6 @@ enum class CheckerPopulationEventKind : uint8_t {
   InputSeed,
   InputFinished,
   Add,
-  Delete,
   DeleteRequested,
   StageAdd,
   StageDelete,
@@ -147,7 +144,6 @@ enum class CheckerPopulationEventKind : uint8_t {
   PendingCommitBegin,
   PendingDeletesCommit,
   PendingCommitEnd,
-  IdRebind,
 };
 
 enum class CheckerClauseRole : uint8_t {

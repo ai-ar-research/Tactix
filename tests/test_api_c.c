@@ -343,6 +343,9 @@ static void test_instance_surface(void) {
            (long)getpid());
   s = tactix_init();
   assert(tactix_proof(s, proof_path, 99) == -1);
+  /* Retired format values stay rejected and are never reused. */
+  for (int retired = 0; retired <= 2; ++retired)
+    assert(tactix_proof(s, proof_path, retired) == -1);
   assert(tactix_proof(s, proof_path, 5) == -1);
   tactix_release(s);
   const int formats[] = {TACTIX_PROOF_DSR_BINARY, TACTIX_PROOF_DSR_ASCII,

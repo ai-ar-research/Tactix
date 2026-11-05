@@ -148,8 +148,6 @@ void env_reset(const Kernel &k, SweepEnv &e) {
   e.clause_ids.clear();
   e.clause_lits.clear();
   e.clause_off.assign(1, 0);
-  e.strip_ids.clear();
-  e.strip_off.assign(1, 0);
 }
 
 // Preserve the reference allocation for its ordinary clause cap, but do not
@@ -205,12 +203,10 @@ uint32_t env_var(SweepEnv &e, Var v, uint32_t depth) {
 
 // Add one clause of F to the environment. Kissat checks its structural caps at
 // variable-expansion boundaries, so the clause that crosses a cap lands whole;
-// declining or truncating that clause changes the local formula. `strip` (may
-// be null) are the proof ids justifying literals the caller already removed.
+// declining or truncating that clause changes the local formula.
 bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
              uint64_t id, uint32_t depth, const SweepLimits &,
-             uint64_t *ticks, const std::vector<uint64_t> *strip = nullptr,
-             bool deduplicate = true) {
+             uint64_t *ticks, bool deduplicate = true) {
   *ticks += 1;
   k.stats.sweep_ticks_dedup += 1;
   size_t slot = 0;
@@ -226,9 +222,6 @@ bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
     env_var(e, var_of(lits[i]), depth);
   }
   e.clause_off.push_back(static_cast<uint32_t>(e.clause_lits.size()));
-  if (strip)
-    e.strip_ids.insert(e.strip_ids.end(), strip->begin(), strip->end());
-  e.strip_off.push_back(static_cast<uint32_t>(e.strip_ids.size()));
   if (deduplicate)
     e.key_slots[slot] = key;
   e.clause_ids.push_back(id);
@@ -236,17 +229,13 @@ bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
 }
 
 // Add one clause of F with its root-false literals removed — justified, not
-// assumed: `C \ {l}` follows from `C` and the root unit `{¬l}`, whose id travels
-// in `SweepEnv::strip_ids` for emission to cite ahead of `C`. An unjustifiable
+// assumed: `C \ {l}` follows from `C` and the root unit `{¬l}`. An unjustifiable
 // removal is not made (`docs/dev/calculus.md` V5).
 void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
                     uint64_t key, uint64_t id, uint32_t depth,
                     const SweepLimits &lim, uint64_t *ticks,
                     bool deduplicate = true) {
-  // Chains are cited only under LRAT; DRAT and the no-proof mode need no id.
-  const bool cite = k.proof && k.proof->lrat();
   e.kept_scratch.clear();
-  e.strip_scratch.clear();
   for (uint32_t i = 0; i < n; i++) {
     const Lit l = lits[i];
     if (k.values[l] >= 0) {
@@ -254,15 +243,12 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
       continue;
     }
     k.stats.sweep_env_false++;
-    const uint64_t uid = k.unit_ids[var_of(l)];
-    if (!lim.strip_false || (cite && !uid)) {
-      if (!uid)
+    if (!lim.strip_false) {
+      if (!k.unit_ids[var_of(l)])
         k.stats.sweep_env_freefalse++;
-      e.kept_scratch.push_back(l); // unjustifiable removal (or the off arm)
+      e.kept_scratch.push_back(l); // the off arm
       continue;
     }
-    if (uid)
-      e.strip_scratch.push_back(uid);
     k.stats.sweep_env_stripped++;
   }
   // At a quiescent root a live clause has at least two non-false literals, but
@@ -272,7 +258,7 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
     return;
   if (!env_add(k, e, e.kept_scratch.data(),
                static_cast<uint32_t>(e.kept_scratch.size()), key, id, depth,
-               lim, ticks, &e.strip_scratch, deduplicate))
+               lim, ticks, deduplicate))
     return;
   k.stats.sweep_env_lits += e.kept_scratch.size();
   if (lim.strip_false)
@@ -401,8 +387,7 @@ static void sweep_completed_limits(Kernel &k, SweepLimits &lim) {
 }
 
 // Occurrence index over irredundant large clauses. Irredundant only, because
-// `Reduce` may delete a learned clause between detection and emission and a
-// chain citing a deleted id is a rejected proof. Outside a simplification
+// `Reduce` may delete a learned clause between detection and emission. Outside a simplification
 // phase a single arena pass builds the same thing, so the detector stays
 // usable at any state (N1).
 static void sweep_build_occurrences(Kernel &k, SweepRound &r) {
@@ -737,112 +722,6 @@ static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
   return make_lit(vars[sub_var_of(sl)], (sl & 1u) != 0);
 }
 
-// A general-path sub-lemma L is published as (L v target). Its LRAT check
-// starts with the complete negated lifted clause, not merely the sub-solver's
-// original ~L cube. Normalize the captured chain while the environment still
-// owns every original clause: a hint already satisfied by the extra target
-// assumptions (or by an earlier propagation) is redundant, not a legal hint.
-// A failed replay declines this proof direction before any kernel mutation.
-bool sweep_normalize_lrat_capture(const SweepEnv &e, SweepDirProof &proof) {
-  proof.normalized_chains.clear();
-  const std::span<const SubStep> steps = proof.steps_view();
-  uint32_t max_id = e.nclauses();
-  for (const SubStep &step : steps)
-    max_id = std::max(max_id, step.id);
-  std::vector<uint32_t> derived_at(static_cast<size_t>(max_id) + 1, 0);
-  std::vector<int8_t> values(e.vars.size(), 0);
-  std::vector<std::vector<uint32_t>> normalized_chains;
-  normalized_chains.reserve(steps.size());
-  const auto value = [&](SubLit lit) {
-    const int8_t v = values[sub_var_of(lit)];
-    return (lit & 1u) ? static_cast<int8_t>(-v) : v;
-  };
-  const auto assign = [&](SubLit lit) {
-    values[sub_var_of(lit)] = (lit & 1u) ? -1 : 1;
-  };
-  const auto target_sub = [&](Lit target) {
-    assert(target != INVALID_LIT);
-    const uint32_t v = e.sub_of_var[var_of(target)];
-    assert(v != SWEEP_NO_SUB_VAR);
-    return sub_lit(v, negated(target));
-  };
-  const SubLit targets[2] = {
-      target_sub(proof.t0),
-      proof.t1 == INVALID_LIT ? INVALID_LIT : target_sub(proof.t1)};
-  for (size_t si = 0; si < steps.size(); si++) {
-    const SubStep &step = steps[si];
-    if (step.id <= e.nclauses() || step.id >= derived_at.size() ||
-        derived_at[step.id])
-      return false;
-    std::fill(values.begin(), values.end(), 0);
-    bool omitted = false;
-    const auto assume = [&](SubLit lit) {
-      const int8_t v = value(lit);
-      if (v < 0)
-        return false;
-      if (!v)
-        assign(lit);
-      return true;
-    };
-    for (const SubLit lit : step.lits)
-      if (!assume(sub_negate(lit)))
-        return false; // the sub-solver itself exported a tautological lemma
-    for (const SubLit target : targets)
-      if (target != INVALID_LIT && !assume(sub_negate(target)))
-        omitted = true; // (L v target) is tautological and is not published
-    if (omitted) {
-      normalized_chains.emplace_back();
-      derived_at[step.id] = static_cast<uint32_t>(si) + 1;
-      continue;
-    }
-    std::vector<uint32_t> normalized;
-    bool closed = false;
-    for (const uint32_t hint : step.chain) {
-      if (!hint || hint >= derived_at.size() ||
-          (hint > e.nclauses() && !derived_at[hint]))
-        return false;
-      bool satisfied = false;
-      uint32_t open = 0;
-      SubLit open_lit = 0;
-      const auto inspect = [&](SubLit lit) {
-        const int8_t v = value(lit);
-        if (v > 0)
-          satisfied = true;
-        else if (!v) {
-          ++open;
-          open_lit = lit;
-        }
-      };
-      if (hint <= e.nclauses()) {
-        for (uint32_t i = e.clause_off[hint - 1]; i < e.clause_off[hint]; i++) {
-          const Lit lit = e.clause_lits[i];
-          inspect(sub_lit(e.sub_of_var[var_of(lit)], negated(lit)));
-        }
-      } else {
-        const SubStep &earlier = steps[derived_at[hint] - 1];
-        for (const SubLit lit : earlier.lits)
-          inspect(lit);
-      }
-      if (satisfied)
-        continue;
-      normalized.push_back(hint);
-      if (!open) {
-        closed = true;
-        break;
-      }
-      if (open != 1)
-        return false;
-      assign(open_lit);
-    }
-    if (!closed)
-      return false;
-    normalized_chains.push_back(std::move(normalized));
-    derived_at[step.id] = static_cast<uint32_t>(si) + 1;
-  }
-  proof.normalized_chains = std::move(normalized_chains);
-  return true;
-}
-
 // Copy one direction's refutation out with the translation tables it will need:
 // `steps` names sub-solver clause ids, and the environment giving them meaning
 // is rebuilt for the next seed. Failure just means no general-path proof. The
@@ -870,11 +749,6 @@ static bool sweep_capture_dir(const Kernel &host, const SweepEnv &e,
   out.t0 = sweep_kernel_lit(e.vars, tl[0]);
   out.t1 = tl.size() == 2 ? sweep_kernel_lit(e.vars, tl[1]) : INVALID_LIT;
   out.steps = std::move(d.steps);
-  if (host.proof && host.proof->lrat() &&
-      !sweep_normalize_lrat_capture(e, out)) {
-    out.steps.clear();
-    return true;
-  }
   for (auto &cc : d.core_clauses) {
     bool drop = false;
     uint32_t non_false = 0;
@@ -893,8 +767,6 @@ static bool sweep_capture_dir(const Kernel &host, const SweepEnv &e,
       out.core_clauses.push_back(std::move(cc));
   }
   out.orig_ids = e.clause_ids;
-  out.strip_ids = e.strip_ids;
-  out.strip_off = e.strip_off;
   out.vars = e.vars;
   out.formula_epoch = e.formula_epoch;
   out.ok = true;
@@ -908,8 +780,7 @@ static bool sweep_capture_dir(const Kernel &host, const SweepEnv &e,
 // literal before ever posing it as an equivalence candidate.  Keep the same
 // ordered semantic surface here: each unit gets the derivation prefix ending
 // at the lemma which proves it, rather than borrowing the final target's proof.
-static void sweep_capture_core_units(Kernel &k, const SweepEnv &e,
-                                     SweepDirProof &proof,
+static void sweep_capture_core_units(Kernel &k, SweepDirProof &proof,
                                      SweepRound &round,
                                      const SweepLimits &lim,
                                      bool commit_inline) {
@@ -956,8 +827,6 @@ static void sweep_capture_core_units(Kernel &k, const SweepEnv &e,
     captured.unit = unit;
     captured.proof.ok = true;
     captured.proof.orig_ids = proof.orig_ids;
-    captured.proof.strip_ids = proof.strip_ids;
-    captured.proof.strip_off = proof.strip_off;
     captured.proof.vars = proof.vars;
     captured.proof.formula_epoch = proof.formula_epoch;
     if (cc.learned) {
@@ -970,12 +839,6 @@ static void sweep_capture_core_units(Kernel &k, const SweepEnv &e,
     }
     captured.proof.t0 = unit;
     captured.proof.t1 = INVALID_LIT;
-    // A prefix reused for this unit has a different negated target cube from
-    // the direction's final clause. Replay its raw hints for this target;
-    // sharing the direction-normalized chains can silently omit antecedents.
-    if (k.proof && k.proof->lrat() &&
-        !sweep_normalize_lrat_capture(e, captured.proof))
-      continue;
     round.units.push_back(std::move(captured));
     if (commit_inline) {
       const ApplyResult result = sweep_emit_pending_units(k, round, lim);
@@ -1204,7 +1067,7 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
     SweepDirProof proof;
     if (!sweep_capture_dir(k, e, lim.max_proof_steps, proof))
       return found;
-    sweep_capture_core_units(k, e, proof, r, lim, commit_inline);
+    sweep_capture_core_units(k, proof, r, lim, commit_inline);
     if (k.inconsistent)
       return 0;
   }
@@ -1292,10 +1155,10 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
       continue;
     if (direction == Direction::Failed)
       return found;
-    sweep_capture_core_units(k, e, pair.fwd, r, lim, commit_inline);
+    sweep_capture_core_units(k, pair.fwd, r, lim, commit_inline);
     if (k.inconsistent)
       return found;
-    sweep_capture_core_units(k, e, pair.rev, r, lim, commit_inline);
+    sweep_capture_core_units(k, pair.rev, r, lim, commit_inline);
     if (k.inconsistent)
       return found;
     r.found.push_back({std::min(a, b), std::max(a, b)});
@@ -1925,26 +1788,24 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
 // question in the one form a checker accepts, via Congruence's replay
 // primitive. A non-RUP equivalence is declined (`sweep_not_rup`) and the
 // general path below covers it; both directions must replay or the pair is
-// skipped whole. The replay runs under DRAT too, where no chain is needed: it
-// is the RUP test itself, and an unchecked line breaches N2.
-static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
-                             std::vector<uint64_t> &chain_fwd,
-                             std::vector<uint64_t> &chain_rev) {
+// skipped whole. The replay is the RUP test itself, and an unchecked line
+// breaches N2.
+static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b) {
   if (a == b || a == negate(b))
     return false; // degenerate: nothing to state, and not emittable
   const Lit fwd[2] = {negate(a), b};
   const Lit rev[2] = {a, negate(b)};
-  if (!congruence_replay_rup(k, fwd, 2, chain_fwd, RupReplay::Decide))
+  if (!congruence_replay_rup(k, fwd, 2))
     return false;
-  if (!congruence_replay_rup(k, rev, 2, chain_rev, RupReplay::Decide))
+  if (!congruence_replay_rup(k, rev, 2))
     return false;
-  auto add = [&](const Lit *l, const std::vector<uint64_t> &ch) {
+  auto add = [&](const Lit *l) {
     const uint64_t id = ++k.next_clause_id;
-    emit_rup_lemma(k, id, l, 2, ch);
+    emit_rup_lemma(k, id, l, 2);
     kernel_add_binary_clause(k, l[0], l[1], id);
   };
-  add(fwd, chain_fwd);
-  add(rev, chain_rev);
+  add(fwd);
+  add(rev);
   k.stats.sweep_binaries += 2;
   return true;
 }
@@ -1960,13 +1821,11 @@ enum class SweepGeneralDecline : uint8_t {
   None,
   Interrupted,
   CaptureMissing,
-  StripShape,
   SubVariable,
   EmptyStep,
   TautologicalStep,
   AntecedentMissing,
   FixedTarget,
-  FixedUnitId,
   FinalShape,
   FinalTarget,
 };
@@ -2068,8 +1927,6 @@ static const char *sweep_pair_decline_name(SweepPairDecline decline) {
 struct SweepGeneralStepPlan {
   uint32_t sub_id = 0;
   std::vector<Lit> lits;
-  std::vector<uint64_t> strip_ids;
-  std::vector<uint32_t> antecedents;
 };
 
 struct SweepGeneralPlan {
@@ -2078,9 +1935,7 @@ struct SweepGeneralPlan {
   uint32_t fact = 0;
   Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
   // When a captured binary is simplified to a unit by a root-fixed endpoint,
-  // retain that endpoint in temporary lemmas. Its LRAT chains were normalized
-  // under the original binary cube, so omitting this false-at-root literal
-  // would publish lemmas whose normalized chains can be empty or incomplete.
+  // retain that endpoint in temporary lemmas.
   Lit intermediate_fixed_target = INVALID_LIT;
   uint64_t formula_epoch = 0;
   const SweepDirProof *capture = nullptr;
@@ -2096,27 +1951,13 @@ struct SweepGeneralPlan {
 };
 
 static SweepGeneralStepPlan sweep_translate_general_step(
-    const SweepDirProof &p, size_t step_index, const SubStep &step) {
+    const SweepDirProof &p, const SubStep &step) {
   SweepGeneralStepPlan translated;
   translated.sub_id = step.id;
   for (const SubLit sub_lit : step.lits) {
     assert(sub_var_of(sub_lit) < p.vars.size());
     translated.lits.push_back(sweep_kernel_lit(p.vars, sub_lit));
   }
-  const std::span<const uint32_t> antecedents = p.chain_view(step_index);
-  for (const uint32_t antecedent : antecedents) {
-    if (antecedent == 0 || antecedent > p.orig_ids.size())
-      continue;
-    for (uint32_t s = p.strip_off[antecedent - 1];
-         s < p.strip_off[antecedent]; s++) {
-      const uint64_t unit_id = p.strip_ids[s];
-      if (std::find(translated.strip_ids.begin(),
-                    translated.strip_ids.end(), unit_id) ==
-          translated.strip_ids.end())
-        translated.strip_ids.push_back(unit_id);
-    }
-  }
-  translated.antecedents.assign(antecedents.begin(), antecedents.end());
   return translated;
 }
 
@@ -2129,8 +1970,6 @@ static const char *sweep_general_decline_name(SweepGeneralDecline decline) {
     return "interrupted";
   case SweepGeneralDecline::CaptureMissing:
     return "capture-missing";
-  case SweepGeneralDecline::StripShape:
-    return "strip-shape";
   case SweepGeneralDecline::SubVariable:
     return "sub-variable-out-of-range";
   case SweepGeneralDecline::EmptyStep:
@@ -2141,8 +1980,6 @@ static const char *sweep_general_decline_name(SweepGeneralDecline decline) {
     return "antecedent-missing";
   case SweepGeneralDecline::FixedTarget:
     return "fixed-target-mismatch";
-  case SweepGeneralDecline::FixedUnitId:
-    return "fixed-unit-id-missing";
   case SweepGeneralDecline::FinalShape:
     return "final-shape";
   case SweepGeneralDecline::FinalTarget:
@@ -2180,18 +2017,14 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
   if (!p.ok || steps.empty())
     return decline(SweepGeneralDecline::CaptureMissing, 0,
                    static_cast<uint32_t>(steps.size()));
-  if (p.strip_off.size() != p.orig_ids.size() + 1)
-    return decline(SweepGeneralDecline::StripShape, 0,
-                   static_cast<uint32_t>(p.strip_off.size()));
-  const bool lrat = k.proof && k.proof->lrat();
   uint32_t max_id = static_cast<uint32_t>(p.orig_ids.size());
   for (const SubStep &step : steps)
     max_id = std::max(max_id, step.id);
   std::vector<uint8_t> named(static_cast<size_t>(max_id) + 1, 0);
-  // Only LRAT cites an antecedent by id; the other formats re-derive each
-  // lemma by propagation, so an original without a proof id is still usable.
+  // The checker re-derives each lemma by propagation, so an original without a
+  // proof id is still usable.
   for (size_t i = 0; i < p.orig_ids.size(); i++)
-    named[i + 1] = !lrat || p.orig_ids[i] != 0;
+    named[i + 1] = 1;
 
   for (size_t si = 0; si < steps.size(); si++) {
     if (kernel_terminating(k))
@@ -2204,7 +2037,7 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
                        static_cast<uint32_t>(si), sub_var_of(sub_lit));
     }
     SweepGeneralStepPlan translated =
-        sweep_translate_general_step(p, si, step);
+        sweep_translate_general_step(p, step);
     if (translated.lits.empty())
       return decline(SweepGeneralDecline::EmptyStep,
                      static_cast<uint32_t>(si));
@@ -2212,7 +2045,7 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
                            static_cast<uint32_t>(translated.lits.size())))
       return decline(SweepGeneralDecline::TautologicalStep,
                      static_cast<uint32_t>(si));
-    for (const uint32_t antecedent : p.chain_view(si)) {
+    for (const uint32_t antecedent : step.chain) {
       if (antecedent >= named.size() || !named[antecedent])
         return decline(SweepGeneralDecline::AntecedentMissing,
                        static_cast<uint32_t>(si), antecedent);
@@ -2221,7 +2054,6 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
       const bool unit = t1 == INVALID_LIT;
       if (unit) {
         std::vector<Lit> remaining;
-        std::vector<uint64_t> fixed_ids;
         bool satisfied = false, saw_fixed = fixed == INVALID_LIT;
         for (const Lit lit : translated.lits) {
           const int8_t value = k.value(lit);
@@ -2235,14 +2067,6 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
           }
           if (fixed != INVALID_LIT && lit == negate(fixed))
             saw_fixed = true;
-          const uint64_t unit_id = k.unit_ids[var_of(lit)];
-          if (lrat && unit_id == 0)
-            return decline(SweepGeneralDecline::FixedUnitId,
-                           static_cast<uint32_t>(si), var_of(lit));
-          if (lrat &&
-              std::find(fixed_ids.begin(), fixed_ids.end(), unit_id) ==
-                  fixed_ids.end())
-            fixed_ids.push_back(unit_id);
         }
         if (satisfied || !saw_fixed)
           return decline(SweepGeneralDecline::FixedTarget,
@@ -2254,8 +2078,6 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
         if (remaining[0] != t0)
           return decline(SweepGeneralDecline::FinalTarget,
                          static_cast<uint32_t>(si));
-        translated.strip_ids.insert(translated.strip_ids.begin(),
-                                    fixed_ids.begin(), fixed_ids.end());
         translated.lits.assign(1, t0);
       } else {
         if (fixed != INVALID_LIT || translated.lits.size() != 2)
@@ -2285,18 +2107,16 @@ static bool sweep_apply_general_plan(Kernel &k,
   const SweepDirProof &capture = *plan.capture;
   const std::span<const SubStep> steps = capture.steps_view();
   assert(plan.step_count == steps.size());
-  const bool lrat = k.proof && k.proof->lrat();
   uint32_t max_id = static_cast<uint32_t>(plan.source_ids.size());
   for (const SubStep &step : steps)
     max_id = std::max(max_id, step.id);
   std::vector<uint64_t> id_of(static_cast<size_t>(max_id) + 1, 0);
   for (size_t i = 0; i < plan.source_ids.size(); i++)
     id_of[i + 1] = plan.source_ids[i];
-  std::vector<uint64_t> chain;
   std::vector<Lit> lifted;
   const bool delete_transient_rup = k.proof != nullptr;
   // Streaming PBP tracked each lemma under its id (emit_rup_lemma).
-  const bool named = lrat || (k.proof && k.proof->streaming_pbp());
+  const bool named = k.proof && k.proof->streaming_pbp();
   // The emitted prefix is named by `id_of`. Reconstruct its conditioned
   // literals from the immutable capture for reverse deletion; retaining a
   // second full vector of every temporary clause makes large proof cores grow
@@ -2345,7 +2165,7 @@ static bool sweep_apply_general_plan(Kernel &k,
     if (si + 1 == plan.step_count)
       step = &plan.final_step;
     else {
-      translated = sweep_translate_general_step(capture, si, steps[si]);
+      translated = sweep_translate_general_step(capture, steps[si]);
       step = &translated;
     }
     // An interrupted plan has no kernel effect. Every format retires each
@@ -2358,7 +2178,7 @@ static bool sweep_apply_general_plan(Kernel &k,
     // BVE definition lifter writes (unit v L).  The weakening is sound and
     // stays RUP: each check assumes the target false, under which the earlier
     // conditioned lemmas act exactly as the originals.  Its purpose is the
-    // checker's root state.  A DRAT/DSR checker propagates every written
+    // checker's root state.  A DSR checker propagates every written
     // clause and keeps a unit even after its reason is deleted, so a bare
     // temporary lemma that is unit under the root closure would hand the
     // checker a unit the kernel never holds, and later deletions and witnessed
@@ -2372,28 +2192,8 @@ static bool sweep_apply_general_plan(Kernel &k,
     // target is assumed false, so no later conditioned check can use it.
     if (!final_step && !condition_intermediate(lifted))
       continue;
-    chain = step->strip_ids;
-    if (lrat)
-      for (const Lit lit : lifted)
-        if (k.value(lit) < 0 && k.assigned[var_of(lit)].level == 0) {
-          // The complete negated emitted lemma cube already assumes this
-          // root unit. Citing it from the environment strip ledger would be
-          // a satisfied hint, not a propagation (the same obligation as the
-          // captured sub-solver antecedents normalized above).
-          const uint64_t unit_id = k.unit_ids[var_of(lit)];
-          assert(unit_id);
-          chain.erase(std::remove(chain.begin(), chain.end(), unit_id),
-                      chain.end());
-        }
-    if (lrat)
-      k.stats.sweep_strip_cited += chain.size();
-    for (const uint32_t antecedent : step->antecedents) {
-      assert(antecedent < id_of.size());
-      if (id_of[antecedent]) // zero: an omitted tautological lemma
-        chain.push_back(id_of[antecedent]);
-    }
     const uint64_t id = ++k.next_clause_id;
-    emit_rup_lemma(k, id, lifted, chain);
+    emit_rup_lemma(k, id, lifted);
     if (step->sub_id < id_of.size())
       id_of[step->sub_id] = id;
     last_id = id;
@@ -2449,8 +2249,6 @@ static void journal_sweep_general(const Kernel &k,
   record.guards =
       "capture=" + std::to_string(plan.decline !=
                                   SweepGeneralDecline::CaptureMissing) +
-      ";strip_shape=" +
-      std::to_string(plan.decline != SweepGeneralDecline::StripShape) +
       ";step=" + std::to_string(plan.step) +
       ";fact=" + std::to_string(plan.fact) +
       ";steps=" + std::to_string(plan.step_count);
@@ -2521,14 +2319,13 @@ static bool sweep_emit_unit(Kernel &k, Lit unit) {
     if (propagate_service(k) == ApplyResult::Unsat || k.value(unit) != 0)
       return false;
   }
-  std::vector<uint64_t> chain;
   // Admission, exactly as in `sweep_emit_equiv`: Kitten's refutation is the
   // semantic certificate, and this asks the separate, format-independent
   // question of whether a checker can replay the line.
-  if (!congruence_replay_rup(k, &unit, 1, chain, RupReplay::Decide))
+  if (!congruence_replay_rup(k, &unit, 1))
     return false;
   const uint64_t id = ++k.next_clause_id;
-  emit_rup_lemma(k, id, &unit, 1, chain);
+  emit_rup_lemma(k, id, &unit, 1);
   k.unit_ids[var_of(unit)] = id;
   kernel_assign_unit(k, unit);
   k.stats.sweep_units++;
@@ -2614,7 +2411,6 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
   // The caller can route every proved equivalence through the captured general
   // proof path. This selects an application variant; it does not dose Sweep.
   const bool force_general = lim.force_general_proof;
-  std::vector<uint64_t> chain_fwd, chain_rev;
   std::vector<std::pair<Lit, Lit>> emitted_equivalences;
   std::vector<size_t> fresh_equivalences;
   bool any = sweep_emit_pending_units(k, round, lim) == ApplyResult::Ok;
@@ -2867,7 +2663,7 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
     // later consequence order even though it restores its speculative levels.
     // The captured Kitten derivation has no such main-formula side effect.
     if (!emitted && !force_general)
-      emitted = sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev);
+      emitted = sweep_emit_equiv(k, e.a, e.b);
     if (!emitted && !force_general)
       k.stats.sweep_not_rup++;
     if (emitted) {
@@ -2963,7 +2759,7 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
 void sweep_capture_core_units_for_test(Kernel &k, SweepDirProof &proof,
                                        SweepRound &round,
                                        const SweepLimits &lim) {
-  sweep_capture_core_units(k, round.env, proof, round, lim, false);
+  sweep_capture_core_units(k, proof, round, lim, false);
 }
 
 ApplyResult sweep_emit_round_for_test(Kernel &k, SweepRound &round,
@@ -3000,9 +2796,7 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   // The guard stays a pure precondition — demanding a root fixpoint would make
   // it depend on scheduling state and cost N1 — so the apply completes the root
   // closure itself. Required, not tidiness: a RUP replay off a non-fixpoint
-  // root forces level-0 literals that never pass through `propagate_service`,
-  // the only place `unit_ids[v]` is recorded, and the next LRAT chain citing
-  // one trips `kernel_lrat_chain`.
+  // root forces level-0 literals that never pass through `propagate_service`.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (k.level != 0 || k.conflict_valid)

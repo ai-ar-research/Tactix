@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
   const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
-  enum class CliProofFamily { Dsr, Drat, Lrat, Pbp, Automatic };
+  enum class CliProofFamily { Dsr, Pbp, Automatic };
   // Automatic selection is the public default: the solver runs exactly as
   // under --pbp and keeps whole-run PBP only when a PB-native step fires;
   // otherwise its native-DSR copy becomes the proof (plan §5).
@@ -233,10 +233,6 @@ int main(int argc, char **argv) {
       binary_proof = false;
     } else if (!strcmp(a, "--dsr")) {
       proof_family = CliProofFamily::Dsr;
-    } else if (!strcmp(a, "--drat")) {
-      proof_family = CliProofFamily::Drat;
-    } else if (!strcmp(a, "--lrat")) {
-      proof_family = CliProofFamily::Lrat; // native LRAT compatibility
     } else if (!strcmp(a, "--pbp")) {
       proof_family = CliProofFamily::Pbp;
     } else if (!strcmp(a, "--auto-proof")) {
@@ -322,7 +318,7 @@ int main(int argc, char **argv) {
         }
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--drat|--lrat|--pbp] "
+      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--pbp] "
              "[--no-binary] [--proof-stage=FILE] "
              "[--default-affine-search=on|off] "
              "[--default-affine-reasons=eager|deferred|detached-minimal|detached-source|lazy-source|lazy-minimal] "
@@ -349,13 +345,7 @@ int main(int argc, char **argv) {
       proof_family == CliProofFamily::Pbp ||
               proof_family == CliProofFamily::Automatic
           ? ProofFormat::PbpStreaming
-          : proof_family == CliProofFamily::Lrat
-          ? ProofFormat::Lrat
-          : proof_family == CliProofFamily::Drat
-                ? (binary_proof ? ProofFormat::DratBinary
-                                : ProofFormat::DratAscii)
-                : (binary_proof ? ProofFormat::DsrBinary
-                                : ProofFormat::DsrAscii);
+          : binary_proof ? ProofFormat::DsrBinary : ProofFormat::DsrAscii;
   if (!cnf_path)
     return fail_unknown("tactix: no input file\n");
 
@@ -507,10 +497,7 @@ int main(int argc, char **argv) {
   // under automatic selection it spells the native-DSR copy in ASCII.
   // N2: the proof never steers the search. A run without a proof file takes the
   // search of a --pbp run by writing the same stream to nowhere.
-  kernel.startup_certificate_open =
-      !proof_path || proof_format == ProofFormat::PbpStreaming ||
-      proof_format == ProofFormat::DsrBinary ||
-      proof_format == ProofFormat::DsrAscii;
+  kernel.startup_certificate_open = true;
   const bool opened =
       !proof_path ? proof.open("/dev/null", ProofFormat::PbpStreaming)
       : proof_family == CliProofFamily::Automatic
@@ -949,8 +936,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_vars_total);
     stat_line("c sweepemit   ", {{kernel.stats.sweep_binaries, "binaries"},
                                  {kernel.stats.sweep_not_rup, "not-rup"},
-                                 {kernel.stats.sweep_general, "general pairs"},
-                                 {kernel.stats.sweep_strip_cited, "strip units cited"}});
+                                 {kernel.stats.sweep_general, "general pairs"}});
     printf("c sweepsched  %llu scheduled, %llu rescheduled, %llu resumed, "
            "%llu completed, %zu tail; limits %u vars, %u clauses, depth %u\n",
            (unsigned long long)kernel.stats.sweep_scheduled,

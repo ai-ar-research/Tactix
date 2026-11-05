@@ -59,18 +59,16 @@ void rule_journal_note_variable_status(const Kernel &, uint32_t,
 
 // Binary clauses are numerous enough that std::unordered_map's one allocation
 // per entry is both a parse-time and a memory bottleneck.  This table has the
-// deliberately narrow interface the kernel needs.  Native LRAT retains exact
-// keys and latest proof ids; DRAT and ordinary PBP use the watch lists as the
-// exact membership authority and keep only the size-monotone addition count.
-// Open addressing in the identity-bearing mode also matches the dense
+// deliberately narrow interface the kernel needs.  After input the watch lists
+// are the exact membership authority and only the size-monotone addition count
+// remains.  Open addressing in the identity-bearing mode also matches the dense
 // representation used by the reference solver more closely than a node-based
 // container.
 class BinaryIdMap {
   static constexpr uint64_t EMPTY = UINT64_MAX;
-  // Keep keys and proof ids in separate arrays.  Native LRAT needs both;
-  // DRAT and ordinary PBP name binary deletions by literals and ignore binary
-  // antecedent ids, so file parsing can omit the value array while retaining
-  // the identical key table used for binary deduplication and membership.
+  // Keep keys and proof ids in separate arrays, so a kernel can omit the value
+  // array while retaining the identical key table used for binary deduplication
+  // and membership.
   std::vector<uint64_t> keys_;
   std::vector<uint64_t> values_;
   size_t size_ = 0;
@@ -117,8 +115,8 @@ public:
 
   void discard_storage() {
     // The exact pair count is a monotone scheduling watermark independent of
-    // the optional key/id archive. DRAT and ordinary PBP can therefore release
-    // the import-time deduplication table after input while preserving size_.
+    // the optional key/id archive, so the import-time deduplication table can
+    // be released after input while preserving size_.
     track_keys_ = false;
     track_values_ = false;
     keys_.clear();
@@ -137,7 +135,7 @@ public:
 
   // Linear probing remains well behaved for this one-shot archive at 7/8:
   // keys are never erased and the split key/value layout keeps probes to one
-  // cache stream in DRAT mode.  The former 0.7 target rounded common
+  // cache stream.  The former 0.7 target rounded common
   // hundred-million-key formulas up by an otherwise unnecessary power of two.
   void reserve(size_t entries) {
     if (!track_keys_)
@@ -438,7 +436,7 @@ struct PendingLearned {
   Ref ref = INVALID_REF; // arena ref for size >= 3, INVALID otherwise
   uint32_t glue = 0;
   uint32_t jump_level = 0;
-  uint64_t id = 0; // proof clause id (LRAT)
+  uint64_t id = 0; // proof clause id
 };
 
 struct OccIndex {
@@ -771,26 +769,7 @@ struct Kernel {
   const Proof *dsr_root_proof = nullptr;
   uint64_t dsr_root_stream_identity = 0;
   BinaryIdMap binary_ids;
-  // Eager input for later native-LRAT replay retains exact binary identities
-  // until the proof is attached; clause admission and root work remain eager.
-  bool replay_lrat_input = false;
   BinaryLivenessIndex *binary_liveness = nullptr; // scoped dense-rule index
-  std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
-  std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
-  std::vector<Var> reason_walk_stack; // reusable proof-reason DFS stack
-  std::vector<Var> jump_pending;
-
-  struct InputRestatement {
-    uint64_t id;    // the file-position id; final antecedent of the lemma
-    uint32_t begin; // slice of input_restate_lits (the normalized clause)
-    uint32_t size;
-    uint32_t unit_begin; // root-true units used to remove false literals
-    uint32_t unit_size;
-    Ref ref; // large clauses only: the header to re-point
-  };
-  std::vector<InputRestatement> input_restatements;
-  std::vector<Lit> input_restate_lits;
-  std::vector<Lit> input_restate_units;
   std::vector<Var> input_activation_order;
   // Bounded parse-order image for startup structural model recovery.  It is
   // populated only for small formulas within the direct-CSP admission limits,
@@ -846,8 +825,6 @@ struct Kernel {
   std::vector<Var> import_rank_to_external;
   uint32_t next_import_rank = 0;
   bool input_refuted = false;
-  uint64_t input_refutation_id = 0; // the refuting input clause
-  std::vector<Lit> input_refutation_units; // root-true antecedent units
 
   Proof *proof = nullptr;
   // Always-compiled, nullable Stage-0 population seam. The observer is
@@ -1377,34 +1354,24 @@ void kernel_extend_model(Kernel &, bool materialize_internal = true);
 bool kernel_compact_variables(Kernel &, bool fold_fixed = false);
 bool kernel_should_compact_variables(const Kernel &, uint32_t percent);
 
-void kernel_emit_empty_from_pair(Kernel &, uint64_t id_a, uint64_t id_b);
+void kernel_emit_empty(Kernel &);
 
 struct PendingUnits {
   std::vector<Lit> units;    // first-recorded order (assert after the round)
   // The kernel's literal mark bytes are all-zero between conflict analyses.
   // Inprocessing runs at the root, so a pending batch borrows those bytes and
-  // restores every one it touches. Only native LRAT needs the dense proof-id
-  // side table; DRAT and proof-less batches allocate no per-variable storage.
+  // restores every one it touches.
   Kernel *owner = nullptr;
-  std::vector<uint64_t> ids; // by var in LRAT mode; empty otherwise
   enum class Outcome { Recorded, Duplicate, Refuted };
   PendingUnits() = default;
   PendingUnits(const PendingUnits &) = delete;
   PendingUnits &operator=(const PendingUnits &) = delete;
   ~PendingUnits();
   void init(Kernel &);
-  Outcome record(Kernel &, Lit u, uint64_t id);
+  Outcome record(Kernel &, Lit u);
   // A recorded unit is not yet the root value: the batch is asserted later and
   // anything in between — a propagation inside the same round, another
-  // rule — can make the OPPOSITE literal root-true first. So the recorded id
-  // stays here and `Kernel::unit_ids` is installed only when the unit is
-  // actually asserted; `unit_ids[v]` must always name the clause for the
-  // literal that is true, because every later chain citing it assumes so.
-  void commit(Kernel &, Lit u) const;
-  // The assert-time opposite case: {u} was recorded, ¬u is already root-true,
-  // so the two resolve to the empty clause. Refuting without emitting it
-  // leaves the proof incomplete on a run that answers UNSATISFIABLE.
-  void refute(Kernel &, Lit u) const;
+  // rule — can make the OPPOSITE literal root-true first.
 };
 
 enum class ReplaceOutcome { Refuted, Unit, Binary, Large };
@@ -1599,8 +1566,7 @@ void kernel_publish_binary_clause(Kernel &, Lit a, Lit b, uint64_t id,
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // Remove exactly one physical copy. If another identical copy survives, its
 // proof clause remains a valid reason. Native DSR deletes one literal-named
-// copy; DRAT/LRAT omit this optional deletion to preserve the retained LRAT id.
-// The final copy delegates to the ordinary named-pair deletion.
+// copy. The final copy delegates to the ordinary named-pair deletion.
 bool kernel_delete_binary_one_copy(Kernel &, Lit a, Lit b);
 // Dense BVE is already compacting `pivot`'s connected stack while it removes
 // this satisfied occurrence.  Kissat updates/reinserts only the partner's
@@ -1666,9 +1632,7 @@ void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
 // RUP; the proof-only polarity table makes repeated publication idempotent.
 void kernel_materialize_dsr_root_unit(Kernel &, Lit);
 // Record that an asserted root unit is already a clause of the proof stream
-// (a rule's own unit line or an input unit) without emitting it. The table
-// serves every clausal stream whose checker keeps written units without LRAT
-// ids: native DSR and DRAT. LRAT names its units in `unit_ids`.
+// (a rule's own unit line or an input unit) without emitting it.
 void kernel_note_dsr_root_unit(Kernel &, Lit);
 bool kernel_root_unit_table_stream(const Kernel &);
 
@@ -1764,15 +1728,14 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
                                  const char *retry_source = "delete-clause",
                                  bool checker_visible = true) {
   // The proof delta belongs INSIDE the retirement transition, not in front of
-  // it. A deletion names one clause: DRAT by its literals, LRAT by its id, and
-  // in both formats the checker retires exactly one copy per `d` line. Emitting
-  // one for a record that is already garbage therefore does not "repeat" a
-  // no-op — it retires a SECOND clause. Under DRAT that is whatever live clause
-  // carries the same literals (a duplicate the solver keeps), leaving the
-  // solver with a clause the checker no longer holds, so the next lemma that
-  // resolves through it is not RUP. Under LRAT it retires one id twice, which
-  // every checker rejects outright. The mark and the bookkeeping below were
-  // already idempotent; this makes the whole retirement idempotent.
+  // it. A deletion names one clause by its literals, and the checker retires
+  // exactly one copy per `d` line. Emitting one for a record that is already
+  // garbage therefore does not "repeat" a no-op — it retires a SECOND clause:
+  // whatever live clause carries the same literals (a duplicate the solver
+  // keeps), leaving the solver with a clause the checker no longer holds, so
+  // the next lemma that resolves through it is not RUP. The mark and the
+  // bookkeeping below were already idempotent; this makes the whole retirement
+  // idempotent.
   if (c->garbage())
     return; // already retired
   const Ref ref = static_cast<Ref>(reinterpret_cast<const uint32_t *>(c) -
@@ -1918,7 +1881,7 @@ inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
                                                        Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
   // Every asserted root unit is a DSR clause (the asserting rule wrote it, or
-  // it is an input unit). Without an LRAT id it is known to proof-visible
+  // it is an input unit). Without a unit id it is known to proof-visible
   // consumers only through the DSR root table, which must therefore hold it.
   if (k.proof && !k.unit_ids[var_of(lit)])
     kernel_note_dsr_root_unit(k, lit);
@@ -2092,24 +2055,9 @@ inline bool kernel_has_root_assignment(const Kernel &k) {
   return false;
 }
 
-void kernel_lrat_chain(Kernel &, uint64_t closing_id);
-void kernel_build_lrat_chain(
-    std::vector<std::pair<uint32_t, uint64_t>> &entries,
-    uint64_t closing_id, std::vector<uint64_t> &chain);
-
-// Native LRAT only: name every root literal appended to the trail at or after
-// `from` that a propagation derived, so a later chain can cite it. Callers are
-// the propagation entry points, because "root-fixed implies it has a unit id"
-// is a kernel invariant (`kernel_check_invariants`), not a rule's obligation.
+// Publish every root literal appended to the trail at or after `from` that a
+// propagation derived. Callers are the propagation entry points.
 void kernel_emit_root_units(Kernel &, size_t from);
-
-void kernel_reason_walk(Kernel &, Var start, std::vector<uint8_t> &seen,
-                        std::vector<std::pair<uint32_t, uint64_t>> &entries,
-                        std::vector<Var> *touched = nullptr);
-uint64_t kernel_conflict_reason_walk(
-    Kernel &, std::vector<uint8_t> &seen,
-    std::vector<std::pair<uint32_t, uint64_t>> &entries,
-    std::vector<Var> *touched = nullptr);
 
 
 // `watch_start` is Kissat's sparse-collection watermark: watches below it keep

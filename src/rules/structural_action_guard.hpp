@@ -50,9 +50,7 @@ public:
 
   StructuralActionGuard &clausal_certificate() {
     return fact("clausal-certificate",
-                !kernel_.proof ||
-                    (!kernel_.proof->lrat() &&
-                     !kernel_.proof->terminal_pbp()));
+                !kernel_.proof || !kernel_.proof->terminal_pbp());
   }
 
   RuleEligibility finish() { return std::move(result_); }

@@ -30,7 +30,7 @@
 namespace tactix {
 
 // Single in-place binary-substitution pass (Kissat substitute_binaries port)
-// for the non-session DRAT path, replacing the former image-array pipeline.
+// for the non-session path, replacing the former image-array pipeline.
 
 namespace {
 
@@ -240,169 +240,52 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
   return res;
 }
 
-// One directed implication chain `from -> ... -> to` as clause ids in forward
-// order (LRAT only; the caller guards on k.proof->lrat()). An edge p -> q is
-// the clause (¬p ∨ q). A root-true intermediate is entered through its proved
-// unit id instead of an edge; this keeps Congruence bridges total after root
-// propagation has removed that literal from the active BIG. Root-false nodes
-// cannot extend a propagation chain. Returns false if no chain exists, which
-// never happens for two active members of one SCC but keeps direct calls total.
-//
-// Chain order is load-bearing: for the RUP unit {to} the checker assumes the
-// path's start literal true and unit-propagates the edges in order, so edge
-// (¬p ∨ q) with p true forces q. A shuffled chain leaves a hint non-unit and
-// the checker rejects.
-bool big_path_chain(const Kernel &k, Lit from, Lit to,
-                    std::vector<uint64_t> &chain) {
-  const Lit nlits = static_cast<Lit>(2 * k.nvars);
-  // Persistent scratch: three fill-initialized O(nlits) vectors here meant one
-  // large memset per bridge, the per-call linear-scratch hazard.
-  // parent/parent_edge need no clearing — they are read only behind the `seen`
-  // guard and every marked literal writes both first — and `seen` restores
-  // all-zero in O(marked), since every marked literal is queued except `to`.
-  static thread_local std::vector<Lit> parent;
-  static thread_local std::vector<uint64_t> parent_edge;
-  static thread_local std::vector<uint8_t> seen;
-  static thread_local std::vector<Lit> queue;
-  if (seen.size() < static_cast<size_t>(nlits)) {
-    parent.resize(nlits);
-    parent_edge.resize(nlits);
-    seen.resize(nlits, 0);
-  }
-  queue.clear();
-  queue.push_back(from);
-  seen[from] = 1;
-  bool found = false;
-  for (size_t qi = 0; qi < queue.size() && !found; qi++) {
-    const Lit cur = queue[qi];
-    const Lit nl = negate(cur); // edges cur -> q are the binary watches of ¬cur
-    for (const WatchEntry w : k.watches.entries(nl)) {
-      if (!w.binary())
-        continue;
-      const Lit q = w.other();
-      if (k.values[q] < 0 || kernel_var_retired(k, var_of(q)) || seen[q])
-        continue;
-      seen[q] = 1;
-      parent[q] = cur;
-      if (k.values[q] > 0) {
-        const uint64_t unit_id = k.unit_ids[var_of(q)];
-        if (!unit_id) {
-          seen[q] = 0;
-          continue;
-        }
-        parent_edge[q] = unit_id;
-      } else
-        parent_edge[q] =
-            kernel_binary_id(k, nl, q); // clause (¬cur ∨ q) = cur->q
-      if (q == to) {
-        found = true;
-        break;
-      }
-      queue.push_back(q);
-    }
-  }
-  const auto restore_seen = [&] {
-    for (const Lit l : queue)
-      seen[l] = 0;
-    seen[to] = 0; // marked without being queued when found
-  };
-  if (!found) {
-    restore_seen();
-    return false;
-  }
-  chain.clear();
-  for (Lit cur = to; cur != from; cur = parent[cur])
-    chain.push_back(parent_edge[cur]);
-  std::reverse(chain.begin(), chain.end());
-  restore_seen();
-  return true;
-}
-
 namespace {
 
 // x ≡ ¬x: emit the refutation (`docs/dev/calculus.md` V3).
 // {¬x} is RUP (assume x; the path x -> ¬x propagates ¬x) and {x} likewise via
 // ¬x -> x, and the two resolve to the empty clause. Uses add_rup rather than
-// add_derived_unit, which emits nothing in DRAT, because these are
-// failed-literal units the DRAT checker must see. Self-contained: not M1's.
+// add_derived_unit, because these are failed-literal units the checker must
+// see. Self-contained: not M1's.
 void emit_unsat(Kernel &k, Lit x) {
-  const bool lrat = k.proof && k.proof->lrat();
   const Lit nx = negate(x);
-  std::vector<uint64_t> chain_nx, chain_x;
-  if (lrat) {
-    // {¬x}: chain = path x -> ¬x; {x}: chain = path ¬x -> x
-    const bool ok1 = big_path_chain(k, x, nx, chain_nx);
-    const bool ok2 = big_path_chain(k, nx, x, chain_x);
-    assert(ok1 && ok2 && "x≡¬x SCC must have both directed paths");
-    (void)ok1;
-    (void)ok2;
-  }
   const uint64_t id_nx = ++k.next_clause_id;
   const uint64_t id_x = ++k.next_clause_id;
   const uint64_t id_e = ++k.next_clause_id;
   if (k.proof) {
-    k.proof->add_rup(id_nx, &nx, 1, chain_nx.data(),
-                     static_cast<uint32_t>(chain_nx.size()));
-    k.proof->add_rup(id_x, &x, 1, chain_x.data(),
-                     static_cast<uint32_t>(chain_x.size()));
-    const uint64_t empty_chain[2] = {id_nx, id_x};
-    k.proof->add_empty(id_e, empty_chain, 2);
+    k.proof->add_rup(id_nx, &nx, 1, nullptr, 0);
+    k.proof->add_rup(id_x, &x, 1, nullptr, 0);
+    k.proof->add_empty(id_e, nullptr, 0);
   }
   k.inconsistent = true;
 }
 
 // Emit and close the failed-root units discovered as a by-product of the SCC
 // DFS. For unit ¬root, assuming root follows two binary implication paths to
-// witness and ¬witness. Concatenating those paths is therefore an LRAT RUP
-// chain; DRAT needs no explicit antecedents. All proof lines are emitted before
-// assignments so every path is read from the same active graph.
+// witness and ¬witness. All proof lines are emitted before assignments so every
+// path is read from the same active graph.
 ApplyResult apply_failed_root_units(Kernel &k, const SccResult &r) {
   if (r.failed_units.empty())
     return ApplyResult::NoOp;
-  const bool lrat = k.proof && k.proof->lrat();
   PendingUnits pending;
   pending.init(k);
-  std::vector<uint64_t> first, second, chain;
-  std::unordered_set<uint64_t> seen_ids;
   for (size_t pos = r.failed_units.size(); pos-- > 0;) {
     const Lit unit = r.failed_units[pos]; // reference pops its unit stack
     if (k.value(unit) > 0)
       continue;
     assert(k.value(unit) == 0 && "failed DFS roots are active at discovery");
-    chain.clear();
-    if (lrat) {
-      const Lit root = negate(unit), witness = r.failed_witness[pos];
-      first.clear();
-      second.clear();
-      const bool first_ok =
-          root == witness || big_path_chain(k, root, witness, first);
-      const bool second_ok = root == negate(witness) ||
-                             big_path_chain(k, root, negate(witness), second);
-      assert(first_ok && second_ok &&
-             "failed-root witness must have both implication paths");
-      if (!first_ok || !second_ok)
-        continue;
-      seen_ids.clear();
-      for (const uint64_t id : first)
-        if (seen_ids.insert(id).second)
-          chain.push_back(id);
-      for (const uint64_t id : second)
-        if (seen_ids.insert(id).second)
-          chain.push_back(id);
-    }
     const uint64_t id = ++k.next_clause_id;
-    emit_rup_lemma(k, id, &unit, 1, chain);
-    if (pending.record(k, unit, id) == PendingUnits::Outcome::Refuted)
+    emit_rup_lemma(k, id, &unit, 1);
+    if (pending.record(k, unit) == PendingUnits::Outcome::Refuted)
       return ApplyResult::Unsat;
   }
   for (const Lit unit : pending.units) {
     if (k.value(unit) > 0)
       continue;
     if (k.value(unit) < 0) {
-      pending.refute(k, unit); // the preceding propagation already refuted
+      kernel_emit_empty(k); // the preceding propagation already refuted
       return ApplyResult::Unsat;
     }
-    pending.commit(k, unit);
     kernel_assign_unit(k, unit);
     if (inprocess_reach_root(k))
       return ApplyResult::Unsat;
@@ -1268,7 +1151,6 @@ namespace {
 ApplyResult do_substitution(Kernel &k, SccResult &r,
                             std::vector<uint8_t> &&sub,
                             SweepSubstitutionSession *session = nullptr) {
-  const bool lrat = k.proof && k.proof->lrat();
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
   substitute_stage_trace(k, "rewrite-entry", nlits, r.nontrivial_count);
   // Canonical substitution rewrites the stable binary watches in place and
@@ -1359,33 +1241,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     return ApplyResult::NoOp;
 
   // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal,
-  // derived before any binary mutation so big_path_chain reads the intact
-  // graph. RUP: assume l, ¬repr[l]; the path l→…→repr[l] forces repr[l].
-  // Clause ids are antecedents only in LRAT. DRAT ignores them, so avoid a
-  // 16-byte-per-variable zero table on the production proof path.
-  std::vector<uint64_t> lemma;
-  if (lrat)
-    lemma.assign(session ? session->retiring_sources().size() : nlits, 0);
-  const auto lemma_index = [&](Lit l) {
-    return session ? static_cast<size_t>(session->retiring_index(l))
-                   : static_cast<size_t>(l);
-  };
-  const auto lemma_id = [&](Lit l) { return lemma[lemma_index(l)]; };
+  // derived before any binary mutation. RUP: assume l, ¬repr[l]; the path
+  // l→…→repr[l] forces repr[l].
   for_each_substitutable([&](Lit l) {
     const Lit s = representative(l);
-    std::vector<uint64_t> chain;
-    if (lrat) {
-      const bool ok = big_path_chain(k, l, s, chain);
-      assert(ok && "SCC members are strongly connected");
-      (void)ok;
-    }
     const uint64_t id = ++k.next_clause_id;
-    if (lrat)
-      lemma[lemma_index(l)] = id;
     const Lit lits2[2] = {negate(l), s};
-    emit_rup_lemma(k, id, lits2, 2, chain);
+    emit_rup_lemma(k, id, lits2, 2);
   });
-  substitute_stage_trace(k, "rewrite-lemmas", lemma.size(), lemma.capacity());
+  substitute_stage_trace(k, "rewrite-lemmas", 0, 0);
 
   // Canonical Substitute benefits from a literal-indexed byte table.  Sweep
   // rewrites a small connected frontier many times on giant formulas, so a
@@ -1418,8 +1282,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   PendingUnits pending;
   substitute_stage_trace(k, "rewrite-pending-begin", k.nvars);
   pending.init(k);
-  substitute_stage_trace(k, "rewrite-pending-end", pending.units.size(),
-                         pending.ids.size(), pending.units.capacity());
+  substitute_stage_trace(k, "rewrite-pending-end", pending.units.size(), 0,
+                         pending.units.capacity());
   bool changed = false;
 
   // Record a size-collapsed root unit `u`, deduping per variable within the
@@ -1427,14 +1291,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // in which case the two resolve to ∅ and the caller returns Unsat. Without
   // this, a batch deriving both `x` and `¬x` would assert the first and
   // silently drop the second, losing the conflict.
-  auto record_unit = [&](Lit u, uint64_t id) -> bool {
+  auto record_unit = [&](Lit u) -> bool {
     if (k.value(u) > 0)
       return false;
     if (k.value(u) < 0) {
-      kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(u)]);
+      kernel_emit_empty(k);
       return true;
     }
-    return pending.record(k, u, id) == PendingUnits::Outcome::Refuted;
+    return pending.record(k, u) == PendingUnits::Outcome::Refuted;
   };
 
   // Kissat substitutes binaries first, then assigns and propagates every unit
@@ -1447,10 +1311,9 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       if (k.value(u) > 0)
         continue;
       if (k.value(u) < 0) {
-        pending.refute(k, u); // ¬u became root-true since the record
+        kernel_emit_empty(k); // ¬u became root-true since the record
         return true;
       }
-      pending.commit(k, u); // the id is this variable's identity from here
       kernel_assign_unit(k, u);
       if (inprocess_reach_root(k))
         return true;
@@ -1459,16 +1322,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     return false;
   };
 
-  // Rewrite one literal sequence: apply repr, strip root-false literals (their
-  // unit ids join `chain`), detect root-true/tautology. Fills `out` with the
-  // kept active literals and `chain` with the antecedent ids, without the
-  // original clause id — the caller appends that. Returns true iff the rewrite
-  // is satisfied or tautological, in which case the caller only deletes.
+  // Rewrite one literal sequence: apply repr, strip root-false literals, detect
+  // root-true/tautology. Fills `out` with the kept active literals. Returns true
+  // iff the rewrite is satisfied or tautological, in which case the caller only
+  // deletes.
   std::vector<uint32_t> sweep_origin_rank;
-  auto rewrite_lits = [&](const Lit *lits, uint32_t size, std::vector<Lit> &out,
-                          std::vector<uint64_t> &chain) -> bool {
+  auto rewrite_lits = [&](const Lit *lits, uint32_t size,
+                          std::vector<Lit> &out) -> bool {
     out.clear();
-    chain.clear();
     sweep_origin_rank.clear();
     const bool connected_large = session && size > 2;
     bool satisfied = false;
@@ -1481,35 +1342,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         satisfied = true;
         break;
       }
-      if (k.value(mp) < 0) { // root-false → strip (cite its unit)
-        // Propagation order, not literal order: the representative's unit is
-        // what makes the bridging lemma unit, so it precedes it. A checker
-        // rejects a hint that is not unit at its turn, and the reverse order
-        // is exactly that (the D-CONG-LRAT lesson).
-        if (lrat) {
-          if (substitutable(m)) {
-            chain.push_back(k.unit_ids[var_of(mp)]);
-            chain.push_back(lemma_id(m));
-          } else {
-            // This map member became root-fixed while SCC detection was
-            // finishing. Kissat still rewrites it, but needs no transient
-            // equivalence: the source literal's own root unit justifies
-            // removing it from the original clause directly.
-            assert(!mapped(m) || k.value(m) < 0);
-            chain.push_back(k.unit_ids[var_of(m)]);
-          }
-        }
+      if (k.value(mp) < 0) // root-false → strip
         continue;
-      }
-      if (substitutable(m) && lrat)
-        chain.push_back(lemma_id(m));
       const uint32_t origin_rank = connected_large && mapped(m)
                                        ? session->retiring_index(m) + 1
                                        : 0;
       if (seen_contains(mp)) { // duplicate literal
         // Connected substitution discards the resident representative, keeping
         // the retiring occurrence's position. Later merge-forest origins win
-        // batched collisions; proof hints retain their independent order.
+        // batched collisions.
         if (connected_large) {
           const auto prior = std::find(out.begin(), out.end(), mp);
           const size_t at = static_cast<size_t>(prior - out.begin());
@@ -1537,20 +1378,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       out.clear();
       return true;
     }
-    if (lrat) { // a duplicated member literal would push its lemma twice
-      // In place, never by sorting: the order is the proof. Every other chain
-      // here sorts pairs keyed by trail position (probe.cpp emit_unit_chain),
-      // which is propagation order; sorting bare ids is not.
-      size_t kept = 0;
-      for (size_t rd = 0; rd < chain.size(); rd++) {
-        bool duplicate = false;
-        for (size_t j = 0; j < kept && !duplicate; j++)
-          duplicate = chain[j] == chain[rd];
-        if (!duplicate)
-          chain[kept++] = chain[rd];
-      }
-      chain.resize(kept);
-    }
     return false;
   };
 
@@ -1559,7 +1386,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // surviving large image is written back into that source allocation; only
   // unit/binary collapses retire the large record.
   std::vector<Lit> out;
-  std::vector<uint64_t> chain;
   size_t large_visited = 0, large_touched = 0;
   bool traced_large_replacement = false;
   const auto rewrite_large_ref = [&](Ref ref) -> ApplyResult {
@@ -1603,22 +1429,19 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       session->prime_large(k, ref);
     const bool credundant = c->redundant();
     const uint32_t cglue = c->glue();
-    const uint64_t cid = c->id();
-    const bool sat = rewrite_lits(c->lits, c->size, out, chain);
+    const bool sat = rewrite_lits(c->lits, c->size, out);
     if (large_touched <= 5)
       substitute_stage_trace(k, "rewrite-large-first-image", out.size(),
-                             out.capacity(), chain.capacity());
+                             out.capacity(), 0);
     if (sat) { // satisfied/tautology -> delete only (deletions are proof-free)
       if (session)
         session->remove_large(k, ref);
-      kernel_delete_clause(k, c); // cid == c->id()
+      kernel_delete_clause(k, c);
       changed = true;
       return ApplyResult::Ok;
     }
     const uint64_t id = ++k.next_clause_id;
-    if (lrat)
-      chain.push_back(cid); // original clause closes the RUP chain
-    emit_rup_lemma(k, id, out, chain);
+    emit_rup_lemma(k, id, out);
     changed = true;
     // Both Kissat substitution paths overwrite surviving large images in the
     // source allocation (`substitute.c:substitute_clauses` and
@@ -1677,7 +1500,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
       return ApplyResult::Unsat;  // quiescent root)
     case ReplaceOutcome::Unit:
-      if (record_unit(out[0], id))
+      if (record_unit(out[0]))
         return ApplyResult::Unsat;
       break;
     default:
@@ -1716,7 +1539,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         break;
       }
     }
-    return touched && !rewrite_lits(c->lits, c->size, out, chain);
+    return touched && !rewrite_lits(c->lits, c->size, out);
   };
 
   // Derive each image before mutating anything so the rewritten clauses' two
@@ -1866,7 +1689,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // do not need separate names: emit one proof image per distinct target pair
   // and let every identical internal watch copy share that live id.  This keeps
   // the formula seen by the following SCC/Sweep passes byte-for-byte aligned
-  // with the no-proof/Kissat path without weakening DRAT or LRAT.
+  // with the no-proof/Kissat path.
   std::vector<Var> variable_order;
   std::vector<uint8_t> canonical_binary_affected;
   substitute_stage_trace(k, "rewrite-variable-order", variable_order.size(),
@@ -1938,7 +1761,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // Streaming PBP closes the proof as soon as the pending unit batch derives
   // the empty clause.  The physical binary rewrite still has to finish its
   // transaction, but no later image in that batch may append another proof
-  // addition.  DRAT/LRAT do not have this terminal-stream restriction.
+  // addition.
   const auto pbp_proof_finished = [&] {
     return refuted && k.proof && k.proof->streaming_pbp();
   };
@@ -1948,11 +1771,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // in source import order (Kissat substitute_binaries::delayed_deleted).
   // Surviving rewrites are not removals; connected Sweep owns its own marks.
   std::vector<std::pair<Lit, Lit>> removed_binaries;
-  // The non-session DRAT path ports Kissat's single in-place `substitute_binaries`
+  // The non-session path ports Kissat's single in-place `substitute_binaries`
   // pass (kissat/src/substitute.c:276) instead of the image-array pipeline below.
-  // LRAT (needs per-pair antecedent ids) and Sweep sessions (bridge targets) keep
-  // the image path.
-  const bool kissat_single_pass = !session && !lrat;
+  // Sweep sessions (bridge targets) keep the image path.
+  const bool kissat_single_pass = !session;
   uint64_t binary_population_transaction = 0;
   struct DeferredBinaryPopulationDelta {
     SolverPopulationEventKind kind;
@@ -1991,10 +1813,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     // rewrites the entry in place; `lit!=repr` moves the pair to `repr`'s list
     // via a per-lit `delayed` stack appended only AFTER the walk, so no push
     // relocates the list being scanned (grow() re-indexes offsets, but the raw
-    // p/q/end pointers are not). DRAT and the pair identity are emitted once per
-    // undirected pair under the import-order owner guard, so the resulting
-    // formula, binary_ids and next_clause_id COUNT match the image path; only
-    // the DRAT line interleaving and the id assignment ORDER differ (checkable,
+    // p/q/end pointers are not). The proof line and the pair identity are emitted
+    // once per undirected pair under the import-order owner guard, so the
+    // resulting formula, binary_ids and next_clause_id COUNT match the image path;
+    // only the line interleaving and the id assignment ORDER differ (checkable,
     // and search-invariant). Metadata bookkeeping mirrors WatchLists::compact.
     const auto import_owner = [&](Lit a, Lit b) {
       return kernel_import_lit_order(k, a) < kernel_import_lit_order(k, b);
@@ -2080,10 +1902,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                 !pbp_proof_finished()) {
               seen_mark(repr_lit);
               touched_units.push_back(repr_lit);
-              const uint64_t id = ++k.next_clause_id;
+              ++k.next_clause_id;
               if (k.proof)
                 k.proof->add_rup(0, &repr_lit, 1, nullptr, 0);
-              if (record_unit(repr_lit, id))
+              if (record_unit(repr_lit))
                 refuted = true;
             }
             retire_source();
@@ -2238,14 +2060,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     emitted_units.push_back(unit);
     return true;
   };
-  std::vector<uint64_t> target_keys, target_ids;
-  if (!lrat) {
-    // DRAT names clauses by their literals, not by ids.  Stream the transformed
-    // multiset exactly as Kissat does instead of sorting two global key arrays
-    // merely to recover the LRAT identity of each distinct target.  On giant
-    // binary formulas those arrays and their comparison sorts dominate both
-    // Substitute's memory and wall time.  Duplicate source clauses deliberately
-    // produce duplicate target clauses, preserving the internal multiset.
+  // Clauses are named by their literals, not by ids.  Stream the transformed
+  // multiset exactly as Kissat does.  Duplicate source clauses deliberately
+  // produce duplicate target clauses, preserving the internal multiset.
+  {
     for (const BinaryImage &stored : images) {
       const ExpandedBinaryImage image = expand_image(stored);
       const bool changed_image = image.changed();
@@ -2258,10 +2076,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           continue;
         if (pbp_proof_finished())
           continue;
-        const uint64_t id = ++k.next_clause_id;
+        ++k.next_clause_id;
         if (k.proof)
           k.proof->add_rup(0, &image.target_a, 1, nullptr, 0);
-        if (record_unit(image.target_a, id))
+        if (record_unit(image.target_a))
           refuted = true;
         continue;
       }
@@ -2280,135 +2098,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         const Lit lits2[2] = {image.source_a, image.source_b};
         k.proof->del(k.next_clause_id, 0, lits2, 2);
       }
-  } else {
-    std::vector<uint64_t> source_keys;
-    source_keys.reserve(images.size());
-    target_keys.reserve(images.size());
-    for (const BinaryImage &stored : images) {
-      const ExpandedBinaryImage image = expand_image(stored);
-      const uint64_t source =
-          kernel_binary_key(image.source_a, image.source_b);
-      source_keys.push_back(source);
-      if (!image.tautological && image.target_a != image.target_b)
-        target_keys.push_back(
-            kernel_binary_key(image.target_a, image.target_b));
-    }
-    const auto sort_unique = [](std::vector<uint64_t> &keys) {
-      std::sort(keys.begin(), keys.end());
-      keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
-    };
-    sort_unique(source_keys);
-    sort_unique(target_keys);
-    const auto contains = [](const std::vector<uint64_t> &keys, uint64_t key) {
-      return std::binary_search(keys.begin(), keys.end(), key);
-    };
-    const auto key_index = [](const std::vector<uint64_t> &keys, uint64_t key) {
-      const auto it = std::lower_bound(keys.begin(), keys.end(), key);
-      assert(it != keys.end() && *it == key);
-      return static_cast<size_t>(it - keys.begin());
-    };
-
-    // LRAT needs one live named antecedent per distinct pair.  A target pair
-    // already present as a source retains that proof clause; a genuinely new
-    // target is derived once and duplicate watches share its id.
-    target_ids.assign(target_keys.size(), 0);
-    for (size_t i = 0; i < target_keys.size(); i++)
-      if (contains(source_keys, target_keys[i]))
-        target_ids[i] = k.binary_ids.at(target_keys[i]);
-
-    for (const BinaryImage &stored : images) {
-      const ExpandedBinaryImage image = expand_image(stored);
-      const bool changed_image = image.changed();
-      changed = changed || changed_image;
-      if (image.tautological)
-        continue;
-
-      const uint64_t source =
-          kernel_binary_key(image.source_a, image.source_b);
-      std::vector<uint64_t> ch;
-      if (stored.bridge_target_a != INVALID_LIT) {
-        // A transformed bridge's endpoints can be intermediate class members,
-        // so the source-literal lemmas (which map to the final representative)
-        // are not unit along this clause. The mirror lemmas of the image
-        // endpoints close the RUP directly: each forces its own class root,
-        // and the two roots are complementary. A root endpoint has no lemma
-        // and needs none — its assumed negation is the forced literal.
-        assert(image.target_a != image.target_b && !image.tautological);
-        if (substitutable(negate(image.target_a)))
-          ch.push_back(lemma_id(negate(image.target_a)));
-        if (substitutable(negate(image.target_b)))
-          ch.push_back(lemma_id(negate(image.target_b)));
-        assert(!ch.empty() && "a changed bridge image joins two class trees");
-      } else {
-        const Lit satisfied =
-            k.value(image.target_a) > 0
-                ? image.target_a
-                : k.value(image.target_b) > 0 ? image.target_b : INVALID_LIT;
-        if (satisfied != INVALID_LIT) {
-          // A failed SCC root can fix a map member and its representative
-          // before rewriting. The target binary is then RUP from the target's
-          // root unit alone; no equivalence lemma was (or should be) emitted.
-          ch.push_back(k.unit_ids[var_of(satisfied)]);
-        } else {
-          const auto append_changed_endpoint = [&](Lit source_lit,
-                                                   Lit target_lit) {
-            if (source_lit == target_lit)
-              return;
-            if (substitutable(source_lit)) {
-              ch.push_back(lemma_id(source_lit));
-            } else {
-              assert(mapped(source_lit));
-              assert(k.value(source_lit) < 0);
-              assert(k.value(target_lit) < 0);
-              ch.push_back(k.unit_ids[var_of(source_lit)]);
-            }
-          };
-          append_changed_endpoint(image.source_a, image.target_a);
-          append_changed_endpoint(image.source_b, image.target_b);
-          ch.push_back(k.binary_ids.at(source));
-        }
-      }
-
-      if (image.target_a == image.target_b) {
-        if (!first_emitted_unit(image.target_a))
-          continue;
-        const uint64_t id = ++k.next_clause_id;
-        k.proof->add_rup(id, &image.target_a, 1, ch.data(),
-                         static_cast<uint32_t>(ch.size()));
-        if (record_unit(image.target_a, id))
-          refuted = true;
-        continue;
-      }
-
-      const uint64_t target =
-          kernel_binary_key(image.target_a, image.target_b);
-      const size_t target_index = key_index(target_keys, target);
-      if (target_ids[target_index])
-        continue;
-      const Lit lits2[2] = {image.target_a, image.target_b};
-      const uint64_t id = ++k.next_clause_id;
-      k.proof->add_rup(id, lits2, 2, ch.data(),
-                       static_cast<uint32_t>(ch.size()));
-      target_ids[target_index] = id;
-    }
-
-    // Retire only distinct source clauses absent from the final image.  Older
-    // duplicate LRAT copies may stay in the checker because one id cannot name
-    // several input copies.
-    std::vector<uint8_t> deleted(source_keys.size(), 0);
-    for (const BinaryImage &stored : images) {
-      const ExpandedBinaryImage image = expand_image(stored);
-      const uint64_t source =
-          kernel_binary_key(image.source_a, image.source_b);
-      const size_t source_index = key_index(source_keys, source);
-      if (contains(target_keys, source) || deleted[source_index])
-        continue;
-      deleted[source_index] = 1;
-      const Lit lits2[2] = {image.source_a, image.source_b};
-      k.proof->del(k.next_clause_id,
-                   kernel_binary_id(k, image.source_a, image.source_b), lits2,
-                   2);
-    }
   }
   // The image path retires one logical source copy for every changed
   // undirected image, independently of the proof format's optional/de-duplicated
@@ -2546,7 +2235,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // bridge image, never by literal pair: an ordinary binary whose pair merely
   // coincides with a bridge target was rewritten or deleted by the proof pass
   // above, and retaining it by pair identity leaves the kernel holding a live
-  // clause whose every checker copy is later consumed — the DRAT population
+  // clause whose every checker copy is later consumed — the checker population
   // then under-runs and a later lemma citing the survivor fails RUP.
 
   // Sorted (key, count) pairs, not a hash map: Sweep calls this once per
@@ -2783,15 +2472,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         !moved_other || kernel_import_lit_order(k, image.source_a) <
                             kernel_import_lit_order(k, image.source_b);
     uint64_t id = 0;
-    if (lrat) {
-      const uint64_t target =
-          kernel_binary_key(image.target_a, image.target_b);
-      const auto it = std::lower_bound(target_keys.begin(), target_keys.end(),
-                                       target);
-      assert(it != target_keys.end() && *it == target);
-      id = target_ids[static_cast<size_t>(it - target_keys.begin())];
-      assert(id);
-    } else if (publish)
+    if (publish)
       id = ++k.next_clause_id;
     const bool already_live =
         session ? (preexisting[this_image] || mirror_seen[this_image])
@@ -2870,12 +2551,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   std::vector<uint8_t>().swap(seen);
   sparse_seen.clear();
   std::vector<Lit>().swap(pending.units);
-  std::vector<uint64_t>().swap(pending.ids);
   substitute_stage_trace(k, "rewrite-large-scratch-released");
 
-  // (E) Retire every transient equivalence lemma after the rewrite. LRAT names
-  // the exact lemma by id. DSR/DRAT name an identical-clause multiset, where
-  // physical identity is irrelevant but multiplicity is not: retaining a
+  // (E) Retire every transient equivalence lemma after the rewrite. DSR names an
+  // identical-clause multiset, where physical identity is irrelevant but multiplicity is not: retaining a
   // proof-only copy makes the checker formula strictly larger than the kernel
   // formula. That used to be harmless for RUP-only output, but a later direct
   // SR step must discharge every checker clause and therefore requires exact
@@ -2883,7 +2562,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   if (k.proof)
     for_each_substitutable([&](Lit l) {
       const Lit lits2[2] = {negate(l), representative(l)};
-      k.proof->del(k.next_clause_id, lrat ? lemma_id(l) : 0, lits2, 2);
+      k.proof->del(k.next_clause_id, 0, lits2, 2);
     });
 
   // (F) reconstruction witnesses, once per substituted variable: the
@@ -2924,7 +2603,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   std::vector<Lit>().swap(r.failed_units);
   std::vector<Lit>().swap(r.failed_witness);
   std::vector<uint8_t>().swap(live_sub);
-  std::vector<uint64_t>().swap(lemma);
   substitute_stage_trace(k, "rewrite-representatives-released");
 
   if (changed && session) {

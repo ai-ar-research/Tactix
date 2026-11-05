@@ -2,7 +2,7 @@
 // (p ∨ a ∨ b) and (¬p ∨ c ∨ d) resolve on p, and the resolvent is kept only
 // when it collapses to size <= 3, i.e. when the antecedents share literals.
 // Adding it needs no witness — a resolvent is entailed by its two parents.
-// Proof delta: add-RUP with chain [id(C), id(D)], the two-parent chain BVE also
+// Proof delta: add-RUP from its two parents, the two-parent resolvent BVE also
 // emits, so no new proof primitive. Precondition, effect and soundness:
 // `docs/dev/calculus.md` §X2. Reference: cadical `ternary.cpp`
 // (`hyper_ternary_resolve`), the same resolvent walk with the same three

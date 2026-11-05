@@ -2390,10 +2390,9 @@ static void test_pending_units_borrow_and_restore_literal_marks() {
   {
     PendingUnits pending;
     pending.init(k);
-    assert(pending.ids.empty()); // proof-less/DRAT batches stay sparse
-    assert(pending.record(k, a, 11) == PendingUnits::Outcome::Recorded);
-    assert(pending.record(k, a, 12) == PendingUnits::Outcome::Duplicate);
-    assert(pending.record(k, b, 13) == PendingUnits::Outcome::Recorded);
+    assert(pending.record(k, a) == PendingUnits::Outcome::Recorded);
+    assert(pending.record(k, a) == PendingUnits::Outcome::Duplicate);
+    assert(pending.record(k, b) == PendingUnits::Outcome::Recorded);
     assert(k.eager_marks[a] && k.eager_marks[b]);
     pending.init(k); // resetting a batch restores every borrowed byte
     assert(!k.eager_marks[a] && !k.eager_marks[b]);
@@ -2403,8 +2402,8 @@ static void test_pending_units_borrow_and_restore_literal_marks() {
 
   PendingUnits opposite;
   opposite.init(k);
-  assert(opposite.record(k, a, 21) == PendingUnits::Outcome::Recorded);
-  assert(opposite.record(k, negate(a), 22) ==
+  assert(opposite.record(k, a) == PendingUnits::Outcome::Recorded);
+  assert(opposite.record(k, negate(a)) ==
          PendingUnits::Outcome::Refuted);
   assert(k.inconsistent);
 }

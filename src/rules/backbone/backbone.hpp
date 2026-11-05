@@ -2,7 +2,7 @@
 // probing restricted to binary-only propagation.  Unlike V1 Probe, successful
 // assumptions remain on one round trail.  A later binary conflict is resolved
 // backwards to its first repeated implication predecessor; that false endpoint
-// is a RUP root unit, with the reversed binary-reason path as its LRAT chain.
+// is a RUP root unit.
 // Units are replayed at root after the round and the schedule repeats to a
 // bounded fixpoint.  This is the chained binary-UIP algorithm in Kissat
 // `backbone.c` and CaDiCaL `backbone.cpp`, not independent failed-literal scans.
