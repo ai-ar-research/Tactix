@@ -2,8 +2,7 @@
 """Prepare candidate-only whole-run-PBP measurements or score a frozen reference.
 
 This tool never reruns a reference solver. Candidate gates use plan §5's
-whole-run PBP route through anonymous scratch. An explicit-DRAT control is
-available only when a proof-backend comparison specifically requires it.
+whole-run PBP route through anonymous scratch.
 """
 import argparse
 import csv
@@ -86,7 +85,7 @@ def reference_identity(ref):
 
 
 def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
-            include_drat=False, runtime_target_seconds=None,
+            runtime_target_seconds=None,
             checker_pins=None, dsr_transport=None):
     campaign = campaign.resolve()
     require(campaign.parent == ROOT / 'benchmarks/runs', 'campaign must be directly under benchmarks/runs')
@@ -121,7 +120,7 @@ def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
                 'copied canonical checker changed: ' + name)
     shutil.copy2(release, campaign / 'pins/tactix')
     shutil.copy2(authority / 'cumulative.patch', campaign / 'pins/candidate-source.patch')
-    selected_arms = ('tactix-pbp', 'tactix-drat') if include_drat else ('tactix-pbp',)
+    selected_arms = ('tactix-pbp',)
     rows = candidate_rows(ref, selected_arms)
     with (campaign / 'matrix.tsv').open('x', newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=rows[0], delimiter='\t', lineterminator='\n')
@@ -148,10 +147,7 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
         source_patch='pins/candidate-source.patch', source_patch_sha256=sha(authority / 'cumulative.patch'))
     # The command-line default is automatic selection: spell whole-run PBP.
     arms = {'tactix-pbp': dict(arm, arguments=['--pbp'], certificate='pbp')}
-    if include_drat:
-        arms['tactix-drat'] = dict(arm, arguments=['--drat'], certificate='drat')
-    proof_mode = ('whole-run PBP plus same-source DRAT' if include_drat
-                  else 'whole-run PBP')
+    proof_mode = 'whole-run PBP'
     contract = dict(partition='cpu-dense-hwulab-q', cpus_per_task=12,
                     memory_mib=32768, array=array, throttle=None,
                     node_constraint=None, proof_mode=proof_mode,
@@ -170,8 +166,7 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
                                sha256=CANONICAL_CHECKERS),
         fixed_reference=dict(path=str(reference_path.relative_to(ROOT)),sha256=sha(reference_path)),
         purpose=(f'{len(ref["records"])} whole-run-PBP solves against the retained reference vector; '
-                 + ('same-source DRAT controls included; ' if include_drat else '')
-                 + 'no reference solver rerun.'),
+                 'no reference solver rerun.'),
         test_consideration=(a['test_consideration'] +
             ' Current runtime protocol checks routed PBP/DSR certificates, task identity and anonymous cleanup.'),
         validation=f'Whole-run PBP is elaborated by VeriPB and checked by CakePB; every stage must verify. Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B28+C5 gate, memory and Claude fuzz are required for acceptance.',
@@ -457,7 +452,6 @@ def main():
         p.add_argument('--' + arg, type=Path, required=True)
     p.add_argument('--dsr-transport', type=Path)
     p.add_argument('--reference', type=Path, default=REFERENCE)
-    p.add_argument('--same-source-drat', action='store_true')
     p.add_argument('--runtime-target-seconds', type=float)
     p.add_argument('--checker-pins', type=Path, required=True,
                    help='frozen PBP/DRAT checker bundle')
@@ -471,7 +465,7 @@ def main():
     if args.command == 'prepare':
         prepare(args.campaign.resolve(), args.authority.resolve(),
                 args.release.resolve(), args.bc.resolve(),
-                args.reference.resolve(), args.same_source_drat,
+                args.reference.resolve(),
                 args.runtime_target_seconds, args.checker_pins.resolve(), args.dsr_transport)
         print(args.campaign)
     elif args.command == 'score':

@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 # Micro-formula proof tests (N2): tiny UNSAT formulas through the real binary;
-# canonical DSR accepted by dsr-trim and pinned Trestle in binary and ASCII,
-# with explicit DRAT/native-LRAT compatibility coverage. Exit 77 (ctest SKIP)
-# without the canonical checker pipeline.
+# canonical DSR accepted by dsr-trim and pinned Trestle in binary and ASCII.
+# Exit 77 (ctest SKIP) without the canonical checker pipeline.
 set -euo pipefail
 TACTIX="$1"
 ROOT="$2"
-DRAT_TRIM="${DRAT_TRIM:-$ROOT/tools/checkers/bin/drat-trim}"
-LRAT_CHECK="${LRAT_CHECK:-$ROOT/tools/checkers/bin/lrat-check}"
-CAKE_LPR="${CAKE_LPR:-$ROOT/tools/checkers/bin/cake_lpr}"
 DSR_TRIM="${DSR_TRIM:-$ROOT/tools/checkers/bin/dsr-trim}"
 SR_CHECK="${SR_CHECK:-$ROOT/tools/checkers/bin/srcheck}"
 DSR_COMPRESS="${DSR_COMPRESS:-$ROOT/tools/checkers/bin/dsr-compress}"
@@ -91,18 +87,16 @@ EOF
   # needs a deferred lemma with both the prior unit and file clause as hints;
   # the following opposite unit then cites that restated id in the empty proof.
   printf 'p cnf 2 3\n1 0\n-1 2 0\n-2 0\n' > "$T/rootshrink.cnf"
-  # A unit implication cascade is closed while DRAT input is still being read.
-  # Its derived x3 shrinks a later ternary to binary, and the following units
-  # refute during ingestion.  This exercises derived-root normalization without
-  # LRAT ids; the proof replay deliberately keeps the deferred-input path,
-  # while the live solver uses the same eager import as proofless solving.
+  # A unit implication cascade is closed while input is still being read. Its
+  # derived x3 shrinks a later ternary to binary, and the following units
+  # refute during ingestion: derived-root normalization during eager import.
   printf 'p cnf 5 6\n-1 2 0\n-2 3 0\n1 0\n-3 4 5 0\n-4 0\n-5 0\n' \
     > "$T/rootcascade.cnf"
   # The unit 1 forces 2 before the third clause is read; that satisfied
-  # clause must not enter the live solver merely because LRAT is requested.
+  # clause must not enter the live solver merely because a proof is requested.
   # The independent 3/4 core makes the original-CNF proof nontrivial.
   printf 'p cnf 4 7\n-1 2 0\n1 0\n2 3 0\n3 4 0\n3 -4 0\n-3 4 0\n-3 -4 0\n' \
-    > "$T/root-satisfied-lrat.cnf"
+    > "$T/root-satisfied.cnf"
   # A later SR witness can fail if the checker retains the raw input clause
   # after pure elimination deletes its normalized replacement. Claude's two
   # minimized regressions cover root shortening and repeated literals.
@@ -157,8 +151,8 @@ EOF
   # cyclic xor chain, odd total parity: 1^2=1, 2^3=1, 1^3=1 sums to 0=1
   printf 'p cnf 3 6\n1 2 0\n-1 -2 0\n2 3 0\n-2 -3 0\n1 3 0\n-1 -3 0\n' \
     > "$T/xor3.cnf"
-  # Exact d=3,n=3 output of the StConn owner generator. Native DSR/DRAT use
-  # Lucky15's crossing-sequence RUP refutation; LRAT safely falls back to CDCL.
+  # Exact d=3,n=3 output of the StConn owner generator. Native DSR uses
+  # Lucky15's crossing-sequence RUP refutation.
   cat > "$T/stconn-3x3.cnf" <<'EOF'
 p cnf 16 68
 -15 -12 0
@@ -262,53 +256,9 @@ for cnf in "$T"/*.cnf; do
       || { echo "FAIL: $cnf missing s line"; exit 1; }
     check_dsr "$cnf" "$proof"
   done
-  # The historical proof vocabulary remains available explicitly in both
-  # DRAT encodings. It is a compatibility surface, not the default.
-  if [ -x "$DRAT_TRIM" ]; then
-    for mode in binary ascii; do
-      proof="$cnf.$mode.drat"
-      if [ "$mode" = binary ]; then
-        "$TACTIX" -q --drat "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
-      else
-        "$TACTIX" -q --drat --no-binary "$cnf" "$proof" \
-          > "$T/out" && rc=$? || rc=$?
-      fi
-      [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under DRAT (rc=$rc)"; exit 1; }
-      "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
-      grep -q 's VERIFIED' "$T/check" \
-        || { echo "FAIL: DRAT proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
-    done
-  fi
-  # native LRAT (plan O4): hints emitted by the solver, no conversion
-  if [ -x "$LRAT_CHECK" ]; then
-    proof="$cnf.lrat"
-    "$TACTIX" -q --lrat "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
-    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under --lrat"; exit 1; }
-    "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-      || { echo "FAIL: native LRAT of $cnf rejected"; cat "$T/check"; exit 1; }
-    grep -q 'c VERIFIED' "$T/check" \
-      || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
-    if [ "$cnf" = "$T/root-satisfied-lrat.cnf" ] && [ -x "$CAKE_LPR" ]; then
-      CML_HEAP_SIZE=24576 "$CAKE_LPR" "$cnf" "$proof" \
-        > "$T/check-cake" 2>&1 \
-        || { echo "FAIL: cake_lpr rejected eager-import LRAT"; \
-             cat "$T/check-cake"; exit 1; }
-      grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/check-cake" \
-        || { echo "FAIL: cake_lpr gave no eager-import verdict"; \
-             cat "$T/check-cake"; exit 1; }
-      : > "$T/root-satisfied-empty.lrat"
-      CML_HEAP_SIZE=24576 "$CAKE_LPR" "$cnf" \
-        "$T/root-satisfied-empty.lrat" > "$T/check-cake-bad" 2>&1 || true
-      if grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/check-cake-bad"; then
-        echo "FAIL: cake_lpr accepted empty eager-import control"
-        cat "$T/check-cake-bad"
-        exit 1
-      fi
-    fi
-  fi
 done
 
-# Negative control for the reference checker semantics.  A DRAT/DSR checker
+# Negative control for the reference checker semantics.  A DSR checker
 # keeps a clause that is the reason of an implied unit even when the proof
 # deletes it, so here -55 stays implied by -5 and (-55 v 5), and the later
 # witnessed unit 55 is not a valid addition.  The reference pipeline must reject
@@ -339,9 +289,8 @@ if check_dsr "$T/implied-unit-delete.cnf" "$T/implied-unit-delete.dsr" \
 fi
 
 # Prove that the checked signed-cardinality certificate above actually came
-# from Lucky16.  The ordinary all-formats loop establishes native DSR/DRAT/LRAT
-# compatibility; this explicit run adds reachability and a negative oracle
-# control for the new proof-producing path.
+# from Lucky16.  This explicit run adds reachability and a negative oracle
+# control for the proof-producing path.
 cnf="$T/signed-cardinality.cnf"
 proof="$T/signed-cardinality-reach.dsr"
 "$TACTIX" --dsr --no-binary "$cnf" "$proof" > "$T/signed-cardinality.out" \
@@ -384,17 +333,11 @@ EOF
 check_dsr "$T/direct-sr.cnf" "$T/direct-sr.dsr"
 
 # The private unique-literal exact-one completion emits each negative pair as
-# a pivot-first RAT line. Check the same three-line completion through native
-# DSR and compatibility DRAT before the unrelated core closes the proof.
+# a pivot-first RAT line. Check the three-line completion before the unrelated
+# core closes the proof.
 if [ -n "$ULC_RAT_TEST" ]; then
-  "$ULC_RAT_TEST" "$T/ulc-rat.cnf" "$T/ulc-rat.dsr" "$T/ulc-rat.drat"
+  "$ULC_RAT_TEST" "$T/ulc-rat.cnf" "$T/ulc-rat.dsr"
   check_dsr "$T/ulc-rat.cnf" "$T/ulc-rat.dsr"
-  if [ -x "$DRAT_TRIM" ]; then
-    "$DRAT_TRIM" "$T/ulc-rat.cnf" "$T/ulc-rat.drat" -f > "$T/check" 2>&1 \
-      || { echo "FAIL: drat-trim rejected ULC RAT proof"; cat "$T/check"; exit 1; }
-    grep -q 'VERIFIED' "$T/check" \
-      || { echo "FAIL: ULC RAT proof was not verified"; cat "$T/check"; exit 1; }
-  fi
 fi
 
 # Exercise the solver's typed SR application and native DSR writer together.
@@ -574,49 +517,25 @@ fi
 
 # Analyze's level-one failed-literal path can emit more than one root unit from
 # one conflict.  Drive the exact rule transition in the analysis fixture, then
-# check the complete native LRAT proof against the matching original CNF.
-if [ -n "$ANALYZE_TEST" ] && [ -x "$LRAT_CHECK" ]; then
+# check the complete proof against the matching original CNF.
+if [ -n "$ANALYZE_TEST" ]; then
   cnf="$T/failed-level-one.cnf"
   printf 'p cnf 5 6\n-1 2 0\n-2 3 0\n-2 4 0\n-3 -4 0\n1 5 0\n1 -5 0\n' \
     > "$cnf"
-  proof="$cnf.lrat"
+  proof="$cnf.dsr"
   "$ANALYZE_TEST" "$proof" > "$T/out"
-  "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-    || { echo "FAIL: native LRAT of level-one failed batch rejected"; \
-         cat "$T/check"; exit 1; }
-  grep -q 'c VERIFIED' "$T/check" \
-    || { echo "FAIL: lrat-check gave no verdict on level-one failed batch"; \
-         cat "$T/check"; exit 1; }
+  check_dsr "$cnf" "$proof"
 fi
 
 # A full Restart can expose a conflict made entirely of chronological
 # level-zero implications while the solver stood above root. Restart must
 # discharge that conflict before any root rewrite can retire its antecedent.
-if [ -n "$RESTART_TEST" ] && [ -x "$CAKE_LPR" ]; then
+if [ -n "$RESTART_TEST" ]; then
   cnf="$T/restart-root-conflict.cnf"
   printf 'p cnf 3 3\n-1 0\n-2 0\n1 2 0\n' > "$cnf"
-  proof="$cnf.lrat"
+  proof="$cnf.dsr"
   "$RESTART_TEST" "$proof"
-  "$CAKE_LPR" "$cnf" "$proof" > "$T/check" 2>&1 \
-    || { echo "FAIL: native LRAT of Restart root conflict rejected by cake_lpr"; \
-         cat "$T/check"; exit 1; }
-  grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/check" \
-    || { echo "FAIL: cake_lpr gave no Restart root-conflict verdict"; \
-         cat "$T/check"; exit 1; }
-  # Keep the oracle live: the same empty lemma with an incomplete hint chain
-  # must be rejected.  This catches verdict parsing and checker invocation
-  # mistakes in addition to checking the positive proof.
-  printf '4 0 1 3 0\n' > "$T/restart-root-conflict-bad.lrat"
-  "$CAKE_LPR" "$cnf" "$T/restart-root-conflict-bad.lrat" \
-    > "$T/check-bad" 2>&1 || true
-  if grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/check-bad"; then
-    echo "FAIL: cake_lpr accepted invalid Restart root-conflict control"
-    cat "$T/check-bad"
-    exit 1
-  fi
-  grep -q 'Checking failed at' "$T/check-bad" \
-    || { echo "FAIL: cake_lpr gave no rejection for invalid Restart control"; \
-         cat "$T/check-bad"; exit 1; }
+  check_dsr "$cnf" "$proof"
 fi
 
 # Congruence's additive semantic surface must carry the same native proof
@@ -641,62 +560,30 @@ if [ -n "$CONGRUENCE_TEST" ]; then
   for kind in v6a gate-unit unary clash literal-clash \
               literal-xor-clash literal-ite-clash; do
     cnf="$T/congruence-$kind.cnf"
-    proof="$cnf.semantic.drat"
-    "$CONGRUENCE_TEST" "$cnf" "$proof" drat "$kind" \
+    proof="$cnf.semantic.dsr"
+    "$CONGRUENCE_TEST" "$cnf" "$proof" dsr "$kind" \
       > "$T/out" && rc=$? || rc=$?
     [ "$rc" -eq 20 ] \
-      || { echo "FAIL: semantic Congruence $kind DRAT helper (rc=$rc)"; exit 1; }
-    "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
-    grep -q 's VERIFIED' "$T/check" \
-      || { echo "FAIL: semantic Congruence $kind DRAT rejected"; \
-           cat "$T/check"; exit 1; }
-    if [ -x "$LRAT_CHECK" ]; then
-      proof="$cnf.semantic.lrat"
-      "$CONGRUENCE_TEST" "$cnf" "$proof" lrat "$kind" \
-        > "$T/out" && rc=$? || rc=$?
-      [ "$rc" -eq 20 ] \
-        || { echo "FAIL: semantic Congruence $kind LRAT helper (rc=$rc)"; exit 1; }
-      "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-        || { echo "FAIL: semantic Congruence $kind LRAT rejected"; \
-             cat "$T/check"; exit 1; }
-      grep -q 'c VERIFIED' "$T/check" \
-        || { echo "FAIL: no semantic Congruence $kind LRAT verdict"; \
-             cat "$T/check"; exit 1; }
-    fi
+      || { echo "FAIL: semantic Congruence $kind helper (rc=$rc)"; exit 1; }
+    check_dsr "$cnf" "$proof"
   done
   for kind in literal-xor-clash literal-ite-clash; do
     cnf="$T/congruence-$kind.cnf"
-    for mode in drat lrat; do
-      [ "$mode" = drat ] || [ -x "$LRAT_CHECK" ] || continue
-      proof="$cnf.canonical.$mode"
-      "$CONGRUENCE_TEST" "$cnf" "$proof" "$mode" "canonical-$kind" \
-        > "$T/out" && rc=$? || rc=$?
-      [ "$rc" -eq 20 ] \
-        || { echo "FAIL: canonical Congruence $kind $mode helper (rc=$rc)"; exit 1; }
-      if [ "$mode" = drat ]; then
-        "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
-        grep -q 's VERIFIED' "$T/check" \
-          || { echo "FAIL: canonical Congruence $kind DRAT rejected"; \
-               cat "$T/check"; exit 1; }
-      else
-        "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-          || { echo "FAIL: canonical Congruence $kind LRAT rejected"; \
-               cat "$T/check"; exit 1; }
-        grep -q 'c VERIFIED' "$T/check" \
-          || { echo "FAIL: no canonical Congruence $kind LRAT verdict"; \
-               cat "$T/check"; exit 1; }
-      fi
-    done
+    proof="$cnf.canonical.dsr"
+    "$CONGRUENCE_TEST" "$cnf" "$proof" dsr "canonical-$kind" \
+      > "$T/out" && rc=$? || rc=$?
+    [ "$rc" -eq 20 ] \
+      || { echo "FAIL: canonical Congruence $kind helper (rc=$rc)"; exit 1; }
+    check_dsr "$cnf" "$proof"
   done
 fi
 
-# ---- Factor (BVA) native-LRAT: dividers emit vacuous add-RAT (fresh pivot, no
-# ¬x clauses yet → empty hints) and quotients emit add-RAT with one resolution
-# group per divider (the resolvent (fᵢ∨rⱼ) discharged by the still-live
-# original's id). The second case duplicates a grid binary, for delete-all-copies
-# under LRAT. The third is a 2x3 occurrence grid whose three columns have equal
-# large-clause contents but distinct ids; it pins aligned multiset hints and
-# deletion. TACTIX_NO_BVE keeps BVE off the grid until Factor has run.
+# ---- Factor (BVA): dividers emit vacuous add-RAT (fresh pivot, no ¬x clauses
+# yet) and quotients emit add-RAT with one resolution group per divider. The
+# second case duplicates a grid binary, for delete-all-copies. The third is a
+# 2x3 occurrence grid whose three columns have equal large-clause contents but
+# distinct ids; it pins multiset deletion. TACTIX_NO_BVE keeps BVE off the grid
+# until Factor has run.
 printf 'p cnf 7 13\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor.cnf"
 printf 'p cnf 7 14\n1 3 0\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor_dup.cnf"
 printf 'p cnf 6 10\n1 3 4 0\n2 3 4 0\n1 3 4 0\n2 3 4 0\n1 3 4 0\n2 3 4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' > "$T/factor_dup_large.cnf"
@@ -715,64 +602,38 @@ for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
       || { echo "FAIL: $cnf (Factor) missing s line"; exit 1; }
     check_dsr "$cnf" "$proof"
   done
-  if [ -x "$LRAT_CHECK" ]; then
-    proof="$cnf.fac.lrat"
-    TACTIX_NO_BVE=1 "$TACTIX" -q --lrat "$cnf" "$proof" \
-      > "$T/out" && rc=$? || rc=$?
-    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under Factor --lrat"; exit 1; }
-    "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-      || { echo "FAIL: native LRAT (Factor) of $cnf rejected"; cat "$T/check"; exit 1; }
-    grep -q 'c VERIFIED' "$T/check" \
-      || { echo "FAIL: lrat-check gave no verdict on Factor $cnf"; cat "$T/check"; exit 1; }
-  fi
 done
 
 # The public exact-grid surface also admits the equality case m*n=m+n (2x2).
 # Drive that opt-in action directly: the shipped canonical schedule remains
 # profitability-filtered. Check its SAT projection against the original CNF,
-# then its UNSAT proof in both proof formats.
+# then its UNSAT proof.
 if [ -n "$FACTOR_N1_TEST" ]; then
   printf 'p cnf 4 4\n1 3 0\n1 4 0\n2 3 0\n2 4 0\n' > "$T/factor_zero_sat.cnf"
   "$FACTOR_N1_TEST" "$T/factor_zero_sat.cnf" \
-    "$T/factor_zero_sat.drat" drat > "$T/out" && rc=$? || rc=$?
+    "$T/factor_zero_sat.dsr" > "$T/out" && rc=$? || rc=$?
   [ "$rc" -eq 10 ] || { echo "FAIL: zero-gain Factor SAT witness (rc=$rc)"; exit 1; }
   "$ROOT/tools/fuzz/checkmodel" "$T/factor_zero_sat.cnf" "$T/out" \
     || { echo "FAIL: zero-gain Factor model rejected"; exit 1; }
 
   printf 'p cnf 6 8\n1 3 0\n1 4 0\n2 3 0\n2 4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' \
     > "$T/factor_zero_unsat.cnf"
-  for mode in drat lrat; do
-    [ "$mode" = drat ] || [ -x "$LRAT_CHECK" ] || continue
-    proof="$T/factor_zero_unsat.$mode"
-    "$FACTOR_N1_TEST" "$T/factor_zero_unsat.cnf" "$proof" "$mode" \
-      > "$T/out" && rc=$? || rc=$?
-    [ "$rc" -eq 20 ] || { echo "FAIL: zero-gain Factor UNSAT witness (rc=$rc)"; exit 1; }
-    if [ "$mode" = drat ]; then
-      "$DRAT_TRIM" "$T/factor_zero_unsat.cnf" "$proof" > "$T/check" 2>&1 || true
-      grep -q 's VERIFIED' "$T/check" \
-        || { echo "FAIL: zero-gain Factor DRAT rejected"; cat "$T/check"; exit 1; }
-    else
-      "$LRAT_CHECK" "$T/factor_zero_unsat.cnf" "$proof" > "$T/check" 2>&1 \
-        || { echo "FAIL: zero-gain Factor LRAT rejected"; cat "$T/check"; exit 1; }
-      grep -q 'c VERIFIED' "$T/check" \
-        || { echo "FAIL: zero-gain Factor LRAT missing verdict"; cat "$T/check"; exit 1; }
-    fi
-  done
+  proof="$T/factor_zero_unsat.dsr"
+  "$FACTOR_N1_TEST" "$T/factor_zero_unsat.cnf" "$proof" \
+    > "$T/out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] || { echo "FAIL: zero-gain Factor UNSAT witness (rc=$rc)"; exit 1; }
+  check_dsr "$T/factor_zero_unsat.cnf" "$proof"
 fi
 # V3 rewrite chain order (corpus 019-022 family): a substituted literal whose
 # representative is root-false needs that unit BEFORE the bridging lemma, since
 # the unit is what makes the lemma unit. Reached through a legal random
 # schedule rather than the default one, so drive that schedule explicitly.
-if [ -x "$LRAT_CHECK" ]; then
-  printf 'p cnf 7 7\n-4 3 1 0\n-5 4 0\n-6 2 0\n6 -2 0\n7 6 2 0\n-6 -2 0\n-7 0\n' \
-    > "$T/substchain.cnf"
-  "$PUBLIC_RANDOM" --random-policy=1 --lrat "$T/substchain.cnf" \
-    "$T/substchain.lrat" > "$T/out" && rc=$? || rc=$?
-  [ "$rc" -eq 20 ] || { echo "FAIL: substchain not UNSAT (rc=$rc)"; exit 1; }
-  "$LRAT_CHECK" "$T/substchain.cnf" "$T/substchain.lrat" > "$T/check" 2>&1 || true
-  grep -q 'c VERIFIED' "$T/check" \
-    || { echo "FAIL: native LRAT of substchain rejected"; cat "$T/check"; exit 1; }
-fi
+printf 'p cnf 7 7\n-4 3 1 0\n-5 4 0\n-6 2 0\n6 -2 0\n7 6 2 0\n-6 -2 0\n-7 0\n' \
+  > "$T/substchain.cnf"
+"$PUBLIC_RANDOM" --random-policy=1 --dsr --no-binary "$T/substchain.cnf" \
+  "$T/substchain.dsr" > "$T/out" && rc=$? || rc=$?
+[ "$rc" -eq 20 ] || { echo "FAIL: substchain not UNSAT (rc=$rc)"; exit 1; }
+check_dsr "$T/substchain.cnf" "$T/substchain.dsr"
 
 # Internal structured advice must accept unequal duplicate counts, retaining
 # exact missing-image rejection and independently checked SAT/UNSAT results.

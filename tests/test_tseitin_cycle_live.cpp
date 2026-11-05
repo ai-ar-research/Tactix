@@ -632,7 +632,9 @@ void unsupported_proof_is_precommit() {
   Kernel kernel = triangle();
   const live::Snapshot captured = snapshot(kernel);
   Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+  assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+  proof.finish_input_transaction();
+  assert(proof.begin_pb());
   proof.bind_variable_map(&kernel.internal_to_external);
   kernel.proof = &proof;
   const uint64_t before_id = kernel.next_clause_id;

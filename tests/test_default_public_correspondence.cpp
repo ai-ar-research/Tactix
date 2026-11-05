@@ -98,8 +98,7 @@ tactix_c_handle *open_session(const Fixture &fixture, const std::string *proof_p
   tactix_c_handle *s = tactix_init();
   assert(tactix_set_guidance_publication(s, TACTIX_GUIDANCE_NATIVE) == 0);
   if (proof_path)
-    assert(tactix_proof(s, proof_path->c_str(),
-                        affine(fixture) ? TACTIX_PROOF_DSR_ASCII : TACTIX_PROOF_DRAT_ASCII) == 0);
+    assert(tactix_proof(s, proof_path->c_str(), TACTIX_PROOF_DSR_ASCII) == 0);
   *provenance = nullptr;
   if (affine(fixture)) {
     *provenance = std::tmpfile();
@@ -167,6 +166,10 @@ std::string emit(const Fixture &fixture, const std::string &scratch) {
   int verdict;
   {
     DefaultStrategyConfig config;
+    // The structured-root SR program dispatches its steps internally; the
+    // correspondence covers the rest of the schedule.
+    config.inprocess.structured_root_stages.clear();
+    config.inprocess.structured_root_bounded_backtracking_stages.clear();
     if (fixture.configure) fixture.configure(config, k);
     DefaultPolicy policy(config);
     verdict = policy.solve(k);

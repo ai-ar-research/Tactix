@@ -312,9 +312,7 @@ int main(int argc, char **argv) {
   publication_identity_preflight_is_pure();
   stale_retained_source_declines();
   changed_source_census_declines();
-  if (argc == 4) {
+  if (argc == 3)
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-    write_certificate(argv[1], argv[3], ProofFormat::DratAscii);
-  }
   std::puts("test_exact_cover_batch: passed");
 }

@@ -61,14 +61,14 @@ int main(int argc, char **argv) {
           ? std::string(argv[1]) + "/profile-" + std::to_string(profile) +
                 "-pigeons-" + std::to_string(pigeons)
           : std::string(temporary) + "/case";
-      const std::string path = stem + ".drat";
+      const std::string path = stem + ".dsr";
       if (diagnostics) {
         rule_journal_close();
         assert(setenv("TACTIX_RULE_JOURNAL", (stem + ".journal").c_str(), 1) == 0);
         assert(setenv("TACTIX_EVENT_TRACE", (stem + ".events").c_str(), 1) == 0);
       }
       Proof proof;
-      assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+      assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
       proof.bind_variable_map(&k.internal_to_external);
       k.proof = &proof;
       DefaultStrategyConfig config;

@@ -552,7 +552,7 @@ inline std::vector<Fixture> fixtures() {
                      [=](DefaultStrategyConfig &c, Kernel &) { signature_profile(c, profile); },
                      true, pigeonhole_dimacs(pigeons, 5), nullptr});
   for (const char *name : {"online-config-3.cnf", "online-config-4.cnf",
-                           "sweep_interrupted_direction.cnf", "sweep-retarget-lrat.cnf"}) {
+                           "sweep_interrupted_direction.cnf", "sweep-retarget.cnf"}) {
     const std::string path = fixtures_dir() + name;
     out.push_back({name, [=](Kernel &k) {
                      FILE *input = std::fopen(path.c_str(), "r");

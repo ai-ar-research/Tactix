@@ -564,33 +564,16 @@ void dsr_and_unsupported_proof_contract() {
   }
   unlink(binary_path);
 
-  char drat_path[] = "/tmp/tseitin-cycle-action-drat-XXXXXX";
-  const int drat_descriptor = mkstemp(drat_path);
-  assert(drat_descriptor >= 0);
-  close(drat_descriptor);
   {
-    Fixture fixture;
-    Proof proof;
-    assert(proof.open(drat_path, ProofFormat::DratAscii));
-    fixture.kernel.proof = &proof;
-    TseitinCycleBreakingSession session;
-    const auto rejected =
-        tseitin_cycle_breaking_offer(fixture.kernel, session, limits());
-    assert(rejected.status == TseitinCycleBreakingStatus::UnsupportedProof);
-    assert(rejected.offers.empty() && fixture.kernel.trail.empty());
-    fixture.kernel.proof = nullptr;
-  }
-  unlink(drat_path);
-
-  for (const ProofFormat format : {ProofFormat::DratBinary,
-                                   ProofFormat::Lrat}) {
     char unsupported_path[] = "/tmp/tseitin-cycle-action-proof-XXXXXX";
     const int unsupported_descriptor = mkstemp(unsupported_path);
     assert(unsupported_descriptor >= 0);
     close(unsupported_descriptor);
     Fixture fixture;
     Proof proof;
-    assert(proof.open(unsupported_path, format));
+    assert(proof.open(unsupported_path, ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     fixture.kernel.proof = &proof;
     TseitinCycleBreakingSession session;
     const auto rejected =

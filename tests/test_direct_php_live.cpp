@@ -207,7 +207,9 @@ void atomic_declines_and_staleness() {
     const std::string path = temporary_path();
     Kernel kernel = fixture(3);
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::Lrat));
+    assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     kernel.proof = &proof;
     const auto extent = kernel.external_to_internal;
     Admission output;
@@ -224,7 +226,6 @@ int main() {
   exact_admission_and_replay();
   normalized_sizes();
   proofless_commit_preserves_solver_state();
-  ascii_publication(ProofFormat::DratAscii);
   ascii_publication(ProofFormat::DsrAscii);
   atomic_declines_and_staleness();
   std::puts("test_direct_php_live: passed");

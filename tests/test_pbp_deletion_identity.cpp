@@ -331,9 +331,9 @@ void test_deferred_root_units() {
            "pseudo-Boolean proof version 3.0\nf 0;\nrup 1 x2 >= 1 ;\n",
            "unfinished stream keeps root units");
   }
-  // Other formats ignore the staging calls byte for byte.
-  for (const ProofFormat format :
-       {ProofFormat::DsrAscii, ProofFormat::DratAscii, ProofFormat::Lrat}) {
+  // DSR ignores the staging calls byte for byte.
+  {
+    const ProofFormat format = ProofFormat::DsrAscii;
     std::string bytes[2];
     for (int staged = 0; staged < 2; ++staged) {
       TemporaryFile file;

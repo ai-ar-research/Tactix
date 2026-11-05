@@ -30,8 +30,8 @@ static void ite_gate(std::vector<Row> &rows, int o, int c, int t, int e) {
                            {c, -e, o}, {c, e, -o}});
 }
 int main() {
-  for (unsigned shape = 0; shape < 3; ++shape)
-    for (auto format : {ProofFormat::DsrAscii, ProofFormat::DratAscii}) {
+  const ProofFormat format = ProofFormat::DsrAscii;
+  for (unsigned shape = 0; shape < 3; ++shape) {
       std::vector<Row> rows;
       if (shape == 0) {
         xor_gate(rows, 3, 1, 2);

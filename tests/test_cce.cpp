@@ -355,13 +355,10 @@ static void test_model_reconstruction_after_structured_root() {
   }
 }
 
-static int binary_proof_witness(const char *input, const char *output,
-                                const char *format) {
+static int binary_proof_witness(const char *input, const char *output) {
   Kernel k;
   Proof proof;
-  assert(proof.open(output, std::string(format) == "lrat"
-                                ? ProofFormat::Lrat
-                                : ProofFormat::DratAscii));
+  assert(proof.open(output, ProofFormat::DsrAscii));
   k.proof = &proof;
   FILE *cnf = std::fopen(input, "r");
   assert(cnf && !parse_dimacs(cnf, k));
@@ -394,8 +391,8 @@ static int binary_proof_witness(const char *input, const char *output,
 }
 
 int main(int argc, char **argv) {
-  if (argc == 4)
-    return binary_proof_witness(argv[1], argv[2], argv[3]);
+  if (argc == 3)
+    return binary_proof_witness(argv[1], argv[2]);
   assert(argc == 1);
   test_covered_then_blocked();
   test_empty_intersection();

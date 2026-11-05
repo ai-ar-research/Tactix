@@ -122,7 +122,7 @@ static void check(unsigned scope, bool reuse, bool flush, unsigned priority,
   const int fd = mkstemp(path); assert(fd >= 0); close(fd);
   Proof proof;
   if (mode) {
-    assert(proof.open(path, mode == 1 ? ProofFormat::DratAscii : ProofFormat::Lrat));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     k.proof = &proof;
   }
   if (!count_cache) { hash(reverse_import); hash(replace); }
@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
   for (unsigned scope = 0; scope != 6; ++scope)
     for (bool reuse : {false, true}) for (bool flush : {false, true})
       for (unsigned priority = 0; priority != 3; ++priority)
-        for (bool root_false : {false, true}) for (unsigned mode = 0; mode != 3; ++mode) {
+        for (bool root_false : {false, true}) for (unsigned mode = 0; mode != 2; ++mode) {
           if (count_cache) {
             check(scope, reuse, flush, priority, root_false, mode, false, false);
             ++cases;

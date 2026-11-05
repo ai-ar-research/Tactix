@@ -351,10 +351,10 @@ static void test_otf_double_strengthening_subsumes_both_parents() {
   kernel_check_invariants(k);
 }
 
-static void test_otf_lrat_add_precedes_parent_deletes() {
+static void test_otf_add_precedes_parent_deletes() {
   const std::string path = "/tmp/tactix-bve-otf-" +
                            std::to_string(static_cast<long>(getpid())) +
-                           ".lrat";
+                           ".dsr";
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
@@ -363,15 +363,14 @@ static void test_otf_lrat_add_precedes_parent_deletes() {
       k, positive, 3, false, 0, ++k.next_clause_id);
   const Ref negative_ref = kernel_add_large_clause(
       k, negative, 3, false, 0, ++k.next_clause_id);
-  const uint64_t positive_id = clause_at(k.arena, positive_ref)->id();
-  const uint64_t negative_id = clause_at(k.arena, negative_ref)->id();
+  (void)positive_ref;
+  (void)negative_ref;
 
   Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   proof.bind_variable_map(&k.internal_to_external);
   k.proof = &proof;
   assert(invoke_otf(k, 1, true).status == InvocationStatus::Completed);
-  const uint64_t replacement_id = k.next_clause_id;
   proof.flush();
   k.proof = nullptr;
 
@@ -381,27 +380,12 @@ static void test_otf_lrat_add_precedes_parent_deletes() {
   size_t positive_deletion_line = 0, negative_deletion_line = 0;
   while (std::getline(input, line)) {
     ++line_number;
-    std::istringstream fields(line);
-    uint64_t line_id = 0;
-    assert(fields >> line_id);
-    fields >> std::ws;
-    if (fields.peek() == 'd') {
-      char deletion = 0;
-      uint64_t deleted_id = 0;
-      fields >> deletion >> deleted_id;
-      assert(deletion == 'd');
-      if (deleted_id == positive_id)
-        positive_deletion_line = line_number;
-      if (deleted_id == negative_id)
-        negative_deletion_line = line_number;
-      continue;
-    }
-    if (line_id == replacement_id) {
-      int first = 0, second = 0, terminator = -1;
-      fields >> first >> second >> terminator;
-      if (first == 2 && second == 3 && terminator == 0)
-        addition_line = line_number;
-    }
+    if (line == "d 1 2 3 0")
+      positive_deletion_line = line_number;
+    else if (line == "d -1 2 3 0")
+      negative_deletion_line = line_number;
+    else if (line == "2 3 0")
+      addition_line = line_number;
   }
   assert(addition_line && positive_deletion_line && negative_deletion_line);
   assert(addition_line < positive_deletion_line &&
@@ -483,12 +467,11 @@ static void test_fastel_collapsed_binary_large_deletes_source_on_decline() {
 static void test_fastel_collapsed_proof_add_precedes_source_delete() {
   const std::string path = "/tmp/tactix-fastel-collapsed-" +
                            std::to_string(static_cast<long>(getpid())) +
-                           ".lrat";
+                           ".dsr";
   Kernel k;
-  const Ref victim = build_fastel_collapsed_binary_large(k, true);
-  const uint64_t victim_id = clause_at(k.arena, victim)->id();
+  build_fastel_collapsed_binary_large(k, true);
   Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   proof.bind_variable_map(&k.internal_to_external);
   k.proof = &proof;
 
@@ -502,23 +485,18 @@ static void test_fastel_collapsed_proof_add_precedes_source_delete() {
   size_t line_number = 0, unit_line = 0, deletion_line = 0;
   while (std::getline(input, line)) {
     ++line_number;
-    std::istringstream fields(line);
-    uint64_t line_id = 0;
-    assert(fields >> line_id);
-    fields >> std::ws;
-    if (fields.peek() == 'd') {
-      char deletion = 0;
-      uint64_t deleted_id = 0;
-      fields >> deletion >> deleted_id;
-      assert(deletion == 'd');
-      if (deleted_id == victim_id)
+    if (line.rfind("d ", 0) == 0) {
+      if (line.find("1 2 3 0") != std::string::npos ||
+          line.find("1 3 2 0") != std::string::npos ||
+          line.find("2 1 3 0") != std::string::npos ||
+          line.find("2 3 1 0") != std::string::npos ||
+          line.find("3 1 2 0") != std::string::npos ||
+          line.find("3 2 1 0") != std::string::npos)
         deletion_line = line_number;
-      continue;
-    }
-    int literal = 0, terminator = -1;
-    fields >> literal >> terminator;
-    if (literal == 2 && terminator == 0)
+    } else if (!unit_line && line.rfind("2 ", 0) == 0) {
+      // A staged DSR unit precedes the deletion block through its split helper.
       unit_line = line_number;
+    }
   }
   assert(unit_line && deletion_line && unit_line < deletion_line &&
          "the collapsed RUP unit must be emitted before its source is deleted");
@@ -526,11 +504,11 @@ static void test_fastel_collapsed_proof_add_precedes_source_delete() {
   kernel_check_invariants(k);
 }
 
-// Emit a complete original-CNF LRAT witness for an external checker.  The
+// Emit a complete original-CNF DSR witness for an external checker.  The
 // first six clauses match the order in focused-array.sbatch; input unit -3 is
 // clause 7.  FastEliminate derives 2 by the collapsed binary x large path,
 // and clauses 5/6 then propagate an ordinary root conflict.
-static void emit_fastel_collapsed_lrat(const char *path) {
+static void emit_fastel_collapsed_proof(const char *path) {
   Kernel k;
   kernel_reserve_vars(k, 7);
   const Lit victim[3] = {internalize(1), internalize(2), internalize(3)};
@@ -551,7 +529,7 @@ static void emit_fastel_collapsed_lrat(const char *path) {
   kernel_assign_unit(k, internalize(-3));
 
   Proof proof;
-  assert(proof.open(path, ProofFormat::Lrat));
+  assert(proof.open(path, ProofFormat::DsrAscii));
   proof.bind_variable_map(&k.internal_to_external);
   k.proof = &proof;
   const InvocationResult result = invoke_fastel(k, 1, 0);
@@ -1080,7 +1058,7 @@ static void test_instance_decline_that_changes_state_reports_ok() {
 
 int main(int argc, char **argv) {
   if (argc == 3 && std::string(argv[1]) == "--collapsed-proof") {
-    emit_fastel_collapsed_lrat(argv[2]);
+    emit_fastel_collapsed_proof(argv[2]);
     return 0;
   }
   assert(argc == 1);
@@ -1094,7 +1072,7 @@ int main(int argc, char **argv) {
   test_otf_size_order_reaches_short_parent_before_cap();
   test_otf_replacement_updates_live_schedule_without_pivot_retry();
   test_otf_double_strengthening_subsumes_both_parents();
-  test_otf_lrat_add_precedes_parent_deletes();
+  test_otf_add_precedes_parent_deletes();
   test_fastel_self_strengthening_precedes_resolvent_cap();
   test_fastel_at_raw_cap_skips_feasibility_strengthening();
   test_fastel_collapsed_binary_large_deletes_source_on_decline();

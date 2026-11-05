@@ -5,7 +5,7 @@
 // learning, retier schedule carried and returned), the other installs the
 // same payload and applies the public semantic instance through registry
 // dispatch. Trail, clause arena, analysis counters, posed tiers, retier
-// schedule and proof bytes must stay identical, in DRAT and LRAT.
+// schedule and proof bytes must stay identical.
 #undef NDEBUG
 #include "test_io.hpp"
 #include "frontend/parse.hpp"
@@ -199,11 +199,10 @@ void run(uint64_t seed, ProofFormat format, Reach &reach) {
 int main() {
   Reach reach;
   uint32_t runs = 0;
-  for (uint64_t seed = 1; seed <= 40; ++seed)
-    for (ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
-      run(seed, format, reach);
-      ++runs;
-    }
+  for (uint64_t seed = 1; seed <= 40; ++seed) {
+    run(seed, ProofFormat::DsrAscii, reach);
+    ++runs;
+  }
   std::printf("PASS: %u twin runs, %llu conflicts, %llu learned, %llu chronological, "
               "%llu reused, %llu retiers, %llu OTFS, %llu reason-bump rounds, "
               "%llu refutations\n",

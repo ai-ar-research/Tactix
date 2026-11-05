@@ -70,12 +70,12 @@ static void run(unsigned sides,bool negative,bool reverse,bool stable,
 }
 int main(int argc,char **argv) {
   if(argc==2) {
-    for(bool negative:{false,true})for(bool stable:{false,true})for(bool lrat:{false,true}) {
-      const std::string stem=std::string(argv[1])+"-"+std::to_string(negative)+"-"+std::to_string(stable)+(lrat?"-lrat":"-drat");
-      run(3,negative,false,stable,true,lrat?ProofFormat::Lrat:ProofFormat::DratAscii,stem);
+    for(bool negative:{false,true})for(bool stable:{false,true}) {
+      const std::string stem=std::string(argv[1])+"-"+std::to_string(negative)+"-"+std::to_string(stable);
+      run(3,negative,false,stable,true,ProofFormat::DsrAscii,stem);
     }
   } else {
     for(unsigned sides=1;sides<=3;++sides)for(bool negative:{false,true})for(bool reverse:{false,true})for(bool stable:{false,true})
-      run(sides,negative,reverse,stable,false,ProofFormat::DratAscii,"");
+      run(sides,negative,reverse,stable,false,ProofFormat::DsrAscii,"");
   }
 }

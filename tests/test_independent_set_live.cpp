@@ -523,8 +523,10 @@ void negative_boundaries() {
     Kernel kernel;
     load(kernel, encoding);
     Proof proof;
-    assert(proof.open("/tmp/independent-set-live-decline.lrat",
-                      ProofFormat::Lrat));
+    assert(proof.open("/tmp/independent-set-live-decline.pbp",
+                      ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -620,8 +622,6 @@ int main(int argc, char **argv) {
   positive_and_continuing(nullptr, ProofFormat::DsrAscii);
   positive_and_continuing("/tmp/independent-set-live-test.dsr",
                           ProofFormat::DsrAscii);
-  positive_and_continuing("/tmp/independent-set-live-test.drat",
-                          ProofFormat::DratAscii);
   retained_owner_repeated_covers();
   negative_boundaries();
   std::puts("test_independent_set_live OK");

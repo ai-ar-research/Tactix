@@ -75,8 +75,8 @@ for ((seed=0; seed<chain_cases; ++seed)); do
 done
 printf 'four-row nonroot affine proof variants: %s independently checked\n' "$chain_cases"
 
-"$binary" --proof-drat "$tmp/input-drat.cnf" "$tmp/proof.drat"
-"$DRAT_TRIM" "$tmp/input-drat.cnf" "$tmp/proof.drat" -f \
+"$binary" --proof "$tmp/input-drat.cnf" "$tmp/proof-drat.dsr"
+"$DRAT_TRIM" "$tmp/input-drat.cnf" "$tmp/proof-drat.dsr" -f \
   > "$tmp/drat-check" 2>&1 || true
 grep -q 's VERIFIED' "$tmp/drat-check" || {
   cat "$tmp/drat-check"

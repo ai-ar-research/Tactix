@@ -1,4 +1,4 @@
-// The proof backend (src/proof/proof.cpp): DSR, DRAT, and native-LRAT
+// The proof backend (src/proof/proof.cpp): DSR and streaming-PBP
 // serializers checked byte for byte. N2 rests on the encoding, which an
 // end-to-end checker cannot distinguish from a wrong lemma.
 #undef NDEBUG
@@ -67,63 +67,61 @@ void expect(const std::string &got, const std::string &want,
   }
 }
 
-// --- binary DRAT ------------------------------------------------------------
-// Encoding (drat-trim's): 'a'/'d' tag, then per literal u = (|e|<<1)|(e<0) as
-// low-first 7-bit chunks, high bit on all but the last, then a 0 terminator.
-void test_drat_binary_add() {
+// --- binary line encoding ---------------------------------------------------
+// A line tag, then per literal u = (|e|<<1)|(e<0) as low-first 7-bit chunks,
+// high bit on all but the last, then a 0 terminator.
+void test_binary_add() {
   const Lit lits[3] = {make_lit(0, false), make_lit(1, true),
                        make_lit(2, false)};
   const std::string got =
-      emitted("bin-add", ProofFormat::DratBinary,
+      emitted("bin-add", ProofFormat::DsrBinary,
               [&](Proof &p) { p.add_rup(7, lits, 3, nullptr, 0); });
-  // +1 -> u=2; -2 -> u=5; +3 -> u=6. Ids and chains are LRAT-only.
-  expect(got, std::string("a\x02\x05\x06\x00", 5), "drat-binary add_rup");
+  // +1 -> u=2; -2 -> u=5; +3 -> u=6.
+  expect(got, std::string("\x01\x02\x05\x06\x00", 5), "binary add_rup");
 }
 
-void test_drat_binary_varint_boundary() {
+void test_binary_varint_boundary() {
   // pin both sides of the `u >= 128` boundary: 63 fits one chunk, 64 needs two
   const Lit small[1] = {make_lit(62, false)}; // +63
   const Lit big[1] = {make_lit(63, false)};   // +64
-  expect(emitted("bin-small", ProofFormat::DratBinary,
+  expect(emitted("bin-small", ProofFormat::DsrBinary,
                  [&](Proof &p) { p.add_rup(1, small, 1, nullptr, 0); }),
-         std::string("a\x7e\x00", 3), "drat-binary varint 1 byte");
-  expect(emitted("bin-big", ProofFormat::DratBinary,
+         std::string("\x01\x7e\x00", 3), "binary varint 1 byte");
+  expect(emitted("bin-big", ProofFormat::DsrBinary,
                  [&](Proof &p) { p.add_rup(1, big, 1, nullptr, 0); }),
-         std::string("a\x80\x01\x00", 4), "drat-binary varint 2 bytes");
+         std::string("\x01\x80\x01\x00", 4), "binary varint 2 bytes");
   // the sign bit rides in bit 0 of the same varint, so -64 differs from +64
   const Lit negbig[1] = {make_lit(63, true)}; // -64 -> u = 129
-  expect(emitted("bin-negbig", ProofFormat::DratBinary,
+  expect(emitted("bin-negbig", ProofFormat::DsrBinary,
                  [&](Proof &p) { p.add_rup(1, negbig, 1, nullptr, 0); }),
-         std::string("a\x81\x01\x00", 4), "drat-binary negative varint");
+         std::string("\x01\x81\x01\x00", 4), "binary negative varint");
 }
 
-void test_drat_binary_delete() {
+void test_binary_delete() {
   const Lit lits[2] = {make_lit(0, true), make_lit(4, false)};
-  expect(emitted("bin-del", ProofFormat::DratBinary,
+  expect(emitted("bin-del", ProofFormat::DsrBinary,
                  [&](Proof &p) { p.del(9, 3, lits, 2); }),
-         std::string("d\x03\x0a\x00", 4), "drat-binary del");
+         std::string("\x02\x03\x0a\x00", 4), "binary del");
 }
 
-void test_drat_binary_empty_clause() {
-  expect(emitted("bin-empty", ProofFormat::DratBinary,
+void test_binary_empty_clause() {
+  expect(emitted("bin-empty", ProofFormat::DsrBinary,
                  [&](Proof &p) { p.add_empty(11, nullptr, 0); }),
-         std::string("a\x00", 2), "drat-binary add_empty");
+         std::string("\x01\x00", 2), "binary add_empty");
 }
 
-// --- ascii DRAT -------------------------------------------------------------
-void test_drat_ascii() {
+// --- ascii lines ------------------------------------------------------------
+void test_ascii_lines() {
   const Lit lits[2] = {make_lit(0, false), make_lit(2, true)};
-  expect(emitted("asc-add", ProofFormat::DratAscii,
+  expect(emitted("asc-add", ProofFormat::DsrAscii,
                  [&](Proof &p) { p.add_rup(5, lits, 2, nullptr, 0); }),
-         "1 -3 0\n", "drat-ascii add_rup");
-  // 'd' takes a separating space in ascii and none in binary: the one place the
-  // two DRAT paths diverge
-  expect(emitted("asc-del", ProofFormat::DratAscii,
+         "1 -3 0\n", "ascii add_rup");
+  expect(emitted("asc-del", ProofFormat::DsrAscii,
                  [&](Proof &p) { p.del(6, 5, lits, 2); }),
-         "d 1 -3 0\n", "drat-ascii del");
-  expect(emitted("asc-empty", ProofFormat::DratAscii,
+         "d 1 -3 0\n", "ascii del");
+  expect(emitted("asc-empty", ProofFormat::DsrAscii,
                  [&](Proof &p) { p.add_empty(7, nullptr, 0); }),
-         "0\n", "drat-ascii add_empty");
+         "0\n", "ascii add_empty");
 }
 
 // --- DSR -------------------------------------------------------------------
@@ -343,14 +341,6 @@ void test_dsr_substitution() {
          std::string("\x01\x02\x05\x02\x06\x02\x08\x0b\x00", 9),
          "dsr-binary add_sr");
 
-  for (const ProofFormat format : {ProofFormat::DratBinary,
-                                   ProofFormat::DratAscii,
-                                   ProofFormat::Lrat})
-    expect(emitted("incompatible-sr", format, [&](Proof &p) {
-             assert(!p.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
-           }),
-           "", "add_sr rejects compatibility format");
-
   Proof unopened;
   assert(unopened.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
 }
@@ -462,7 +452,7 @@ void test_dsr_pivot_mapping_forms() {
 void test_external_variable_map() {
   const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
   const std::vector<Var> map = {4, 1};
-  expect(emitted("mapped", ProofFormat::DratAscii, [&](Proof &p) {
+  expect(emitted("mapped", ProofFormat::DsrAscii, [&](Proof &p) {
            p.bind_variable_map(&map);
            p.add_rup(1, lits, 2, nullptr, 0);
          }),
@@ -498,56 +488,10 @@ void test_proof_only_external_clauses() {
          std::string("\x01\x80\x01\x83\x01\x00"
                      "\x02\x80\x01\x83\x01\x00", 12),
          "binary proof-only extension encoding");
-  expect(emitted("external-lrat", ProofFormat::Lrat, [&](Proof &p) {
-           assert(!p.add_external_rat(1, gate, 3));
-           assert(!p.add_external_rup(2, unit, 1));
-           assert(!p.del_external(3, 1, gate, 3));
-         }), "", "LRAT declines proof-only extension clauses atomically");
 }
 
-// --- native LRAT ------------------------------------------------------------
-void test_lrat_add_rup() {
-  const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
-  const uint64_t chain[3] = {4, 2, 9};
-  // `<id> <lits> 0 <chain> 0`; a reordered chain is a rejected proof
-  expect(emitted("lrat-add", ProofFormat::Lrat,
-                 [&](Proof &p) { p.add_rup(12, lits, 2, chain, 3); }),
-         "12 1 -2 0 4 2 9 0\n", "lrat add_rup");
-}
-
-void test_lrat_add_rat() {
-  const Lit lits[2] = {make_lit(2, false), make_lit(0, true)};
-  // pivot first; hints are one flat signed stream (negative = resolution
-  // partner) and the sign is verbatim
-  const int64_t hints[4] = {7, -5, 3, -8};
-  expect(emitted("lrat-rat", ProofFormat::Lrat,
-                 [&](Proof &p) { p.add_rat(21, lits, 2, hints, 4); }),
-         "21 3 -1 0 7 -5 3 -8 0\n", "lrat add_rat");
-}
-
-void test_lrat_empty_and_unit() {
+void test_derived_unit() {
   const uint64_t chain[2] = {1, 2};
-  // the empty clause keeps its id and chain: `<id> 0 <chain> 0`
-  expect(emitted("lrat-empty", ProofFormat::Lrat,
-                 [&](Proof &p) { p.add_empty(30, chain, 2); }),
-         "30 0 1 2 0\n", "lrat add_empty");
-  // a root-level derived unit is explicit in LRAT (later chains cite its id)
-  expect(emitted("lrat-unit", ProofFormat::Lrat,
-                 [&](Proof &p) {
-                   p.add_derived_unit(31, make_lit(3, true), chain, 2);
-                 }),
-         "31 -4 0 1 2 0\n", "lrat add_derived_unit");
-  // ... and implied in DRAT: emitting it would be a wrong lemma line
-  expect(emitted("bin-unit", ProofFormat::DratBinary,
-                 [&](Proof &p) {
-                   p.add_derived_unit(31, make_lit(3, true), chain, 2);
-                 }),
-         "", "drat-binary add_derived_unit is silent");
-  expect(emitted("asc-unit", ProofFormat::DratAscii,
-                 [&](Proof &p) {
-                   p.add_derived_unit(31, make_lit(3, true), chain, 2);
-                 }),
-         "", "drat-ascii add_derived_unit is silent");
   expect(emitted("dsr-bin-unit", ProofFormat::DsrBinary,
                  [&](Proof &p) {
                    p.add_derived_unit(31, make_lit(3, true), chain, 2);
@@ -559,30 +503,6 @@ void test_lrat_empty_and_unit() {
                    p.add_derived_unit(31, make_lit(3, true), chain, 2);
                  }),
          "-4 0\n", "dsr-ascii add_derived_unit is explicit");
-}
-
-void test_lrat_delete() {
-  const Lit lits[2] = {make_lit(0, false), make_lit(1, false)};
-  // LRAT deletes by id and needs its own line id; the literals are ignored
-  expect(emitted("lrat-del", ProofFormat::Lrat,
-                 [&](Proof &p) { p.del(40, 17, lits, 2); }),
-         "40 d 17 0\n", "lrat del");
-}
-
-void test_lrat_multi_line_stream() {
-  const Lit a[1] = {make_lit(0, false)};
-  const Lit b[2] = {make_lit(1, false), make_lit(0, true)};
-  const uint64_t c1[1] = {1};
-  const uint64_t c2[2] = {2, 3};
-  expect(emitted("lrat-stream", ProofFormat::Lrat,
-                 [&](Proof &p) {
-                   p.add_rup(50, a, 1, c1, 1);
-                   p.add_rup(51, b, 2, c2, 2);
-                   p.del(52, 50, a, 1);
-                   p.add_empty(53, c2, 2);
-                 }),
-         "50 1 0 1 0\n51 2 -1 0 2 3 0\n52 d 50 0\n53 0 2 3 0\n",
-         "lrat stream");
 }
 
 // --- the tautology predicate + the closed-file contract ---------------------
@@ -821,8 +741,7 @@ static void test_all_formats_report_output_failure() {
     return;
   }
   for (auto format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii,
-                      ProofFormat::DratBinary, ProofFormat::DratAscii,
-                      ProofFormat::Lrat, ProofFormat::PbpStreaming})
+                      ProofFormat::PbpStreaming})
     for (bool explicit_flush : {false, true}) {
       const pid_t child = fork();
       assert(child >= 0);
@@ -854,11 +773,11 @@ int main() {
   test_streaming_pbp();
   test_streaming_pbp_does_not_archive_divergent_binary_ids();
   test_streaming_pbp_parity_text_buffer_boundary();
-  test_drat_binary_add();
-  test_drat_binary_varint_boundary();
-  test_drat_binary_delete();
-  test_drat_binary_empty_clause();
-  test_drat_ascii();
+  test_binary_add();
+  test_binary_varint_boundary();
+  test_binary_delete();
+  test_binary_empty_clause();
+  test_ascii_lines();
   test_dsr_binary();
   test_dsr_ascii();
   test_dsr_unit_deletion_transaction();
@@ -867,11 +786,7 @@ int main() {
   test_dsr_pivot_mapping_forms();
   test_external_variable_map();
   test_proof_only_external_clauses();
-  test_lrat_add_rup();
-  test_lrat_add_rat();
-  test_lrat_empty_and_unit();
-  test_lrat_delete();
-  test_lrat_multi_line_stream();
+  test_derived_unit();
   test_tautological();
   test_unopened_proof_is_silent();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW

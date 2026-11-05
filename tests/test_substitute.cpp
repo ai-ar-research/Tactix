@@ -23,7 +23,7 @@ using namespace tactix;
 
 // Congruence can ask for a bridge after root propagation has valued an
 // intermediate BIG node. The proved root unit replaces the incoming edge in
-// the LRAT propagation chain; filtering every valued node used to lose this
+// the propagation chain; filtering every valued node used to lose this
 // otherwise legal bridge.
 static void test_big_path_chain_crosses_root_true_intermediate() {
   Kernel k;
@@ -1134,7 +1134,7 @@ static void test_substitution_preserves_unrelated_binary_watch_order() {
   assert(binary_partners(k, pivot) == before);
 }
 
-// The DRAT/no-proof streaming path keeps clause multiplicity. Two connected
+// The streaming path keeps clause multiplicity. Two connected
 // sources that map to an already-present target must leave three target copies;
 // deduplicating the internal image would change later watch-order scans.
 static void test_substitution_preserves_binary_multiplicity() {
@@ -1151,19 +1151,19 @@ static void test_substitution_preserves_binary_multiplicity() {
   assert(kernel_binary_copies(k, internalize(1), internalize(3)) == 3);
 }
 
-// DSR/DRAT deletions name a literal multiset, so identical physical clauses are
+// DSR deletions name a literal multiset, so identical physical clauses are
 // interchangeable but their count must still match the kernel. The two SCC
 // bridge lemmas are proof-only copies of the two source binaries: Substitute
 // deletes both source copies during rewriting and must then delete both
 // transient copies. A stale proof-only binary can invalidate a later direct-SR
 // witness even though it could only help ordinary RUP.
-static void test_non_lrat_retires_transient_equivalence_lemmas() {
-  const std::string path = "/tmp/tactix-substitute-drat-" +
+static void test_retires_transient_equivalence_lemmas() {
+  const std::string path = "/tmp/tactix-substitute-transient-" +
                            std::to_string(static_cast<long>(getpid())) +
                            ".proof";
   std::remove(path.c_str());
-  for (const ProofFormat format : {ProofFormat::DratAscii,
-                                   ProofFormat::DsrAscii}) {
+  {
+    const ProofFormat format = ProofFormat::DsrAscii;
     {
       Kernel k;
       kernel_reserve_vars(k, 2);
@@ -1238,7 +1238,7 @@ static void test_sweep_bridge_target_pair_collision_consumes_ordinary_copy() {
     SweepSubstitutionSession session;
     session.begin(k);
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
     k.proof = &proof;
     // Sweep publishes both implication binaries per proved pair. Merge order
     // (2,1), (3,4), (4,2) makes the (3,4) bridge's moved endpoint compose to
@@ -1287,7 +1287,7 @@ static void test_sweep_bridge_target_pair_collision_consumes_ordinary_copy() {
     k.proof = nullptr;
     kernel_dense_disconnect(k);
   }
-  // DRAT population balance for the colliding pair: the kernel started with
+  // Population balance for the colliding pair: the kernel started with
   // one live copy the checker holds from the input, so deletions may exceed
   // proof additions by exactly that one copy — never more. An extra deletion
   // is the checker-divergence this regression pins.
@@ -1622,7 +1622,7 @@ int main() {
   test_canonical_root_shrink_preserves_vivify_priority();
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();
-  test_non_lrat_retires_transient_equivalence_lemmas();
+  test_retires_transient_equivalence_lemmas();
   test_sweep_bridge_target_pair_collision_consumes_ordinary_copy();
   test_substitution_rewrites_stable_watch_in_place();
   test_substitution_appends_moved_watches_in_source_order();

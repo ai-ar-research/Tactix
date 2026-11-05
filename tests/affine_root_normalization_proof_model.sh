@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/proof_checks.sh"
 binary=$1
 checker_paths "$2"
-require_tools "" "$DSR_TRIM" "$SR_CHECK" "$DRAT_TRIM" "$CHECKMODEL"
+require_tools "" "$DSR_TRIM" "$SR_CHECK" "$CHECKMODEL"
 make_scratch temporary
 "$binary" "$temporary/normalized"
 shopt -s nullglob
@@ -15,9 +15,6 @@ for input in "${inputs[@]}"; do
   if [[ -f "$stem.dsr" ]]; then
     # Native matrix reasons may introduce fresh XOR definitions by checked RAT.
     dsr_valid "$input" "$stem.dsr" "$stem.lsr" "$stem.trim.log" "$stem.trestle.log"
-  fi
-  if [[ -f "$stem.drat" ]]; then
-    drat_derivation "$stem.drat.log" "$input" "$stem.drat" -f
   fi
   # Challenge each original input with a unit opposite its checked model.  The
   # forty-row fixture sets x1 false; the once-only maintenance fixture sets it

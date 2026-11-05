@@ -30,7 +30,6 @@ void sweep_capture_core_units_for_test(Kernel &, SweepDirProof &, SweepRound &,
                                        const SweepLimits &);
 ApplyResult sweep_emit_round_for_test(Kernel &, SweepRound &, uint32_t,
                                       const SweepLimits &);
-bool sweep_normalize_lrat_capture(const SweepEnv &, SweepDirProof &);
 }
 
 static void test_effort_prices_embedded_and_representation_ticks() {
@@ -57,65 +56,6 @@ static void test_core_prefixes_share_one_immutable_derivation() {
   assert(parent.shared_steps.use_count() == 2);
   parent = {};
   assert(prefix.steps_view()[0].id == 3);
-}
-
-static void test_lrat_capture_replays_lifted_cube() {
-  SweepEnv env;
-  env.vars = {0, 1};
-  env.sub_of_var = {0, 1};
-  env.clause_ids = {1, 2, 3};
-  env.clause_lits = {internalize(-1), internalize(2),
-                     internalize(1), internalize(2), internalize(1)};
-  env.clause_off = {0, 2, 4, 5};
-  SweepDirProof proof;
-  proof.t0 = internalize(1);
-  // Under the sub-solver's original -2 cube, hint 1 propagates -1 and hint 2
-  // conflicts. The lifted (+1 v +2) lemma also assumes -1: hint 1 is now
-  // satisfied and must be omitted, leaving hint 2 as the conflict.
-  proof.steps.push_back(SubStep{4, {sub_lit(1, false)}, {1, 2}, {}});
-  proof.steps.push_back(SubStep{5, {sub_lit(0, false)}, {3}, {}});
-  assert(sweep_normalize_lrat_capture(env, proof));
-  assert((std::vector<uint32_t>(proof.chain_view(0).begin(),
-                                proof.chain_view(0).end()) ==
-          std::vector<uint32_t>{2}));
-  assert((std::vector<uint32_t>(proof.chain_view(1).begin(),
-                                proof.chain_view(1).end()) ==
-          std::vector<uint32_t>{3}));
-
-  // A corrupted remaining antecedent cannot close; the proof direction must
-  // decline before Sweep emits even its first temporary lemma.
-  proof.steps[0].chain = {1, 2};
-  env.clause_lits[3] = internalize(-2);
-  assert(!sweep_normalize_lrat_capture(env, proof));
-}
-
-static void test_lrat_core_prefix_uses_its_own_target_cube() {
-  SweepEnv env;
-  env.vars = {0, 1, 2};
-  env.sub_of_var = {0, 1, 2};
-  env.clause_ids = {1, 2};
-  // Under -1, clause 1 propagates 2 and clause 2 conflicts. A direction
-  // also assuming -2 conflicts at clause 1 alone; a separate core unit 3
-  // still needs both hints. The same raw prefix can serve both targets only
-  // when each has its own normalized chain.
-  env.clause_lits = {internalize(1), internalize(2), internalize(-2)};
-  env.clause_off = {0, 2, 3};
-  SweepDirProof direction;
-  direction.t0 = internalize(2);
-  direction.steps.push_back(SubStep{3, {sub_lit(0, false)}, {1, 2}, {}});
-  assert(sweep_normalize_lrat_capture(env, direction));
-  assert(direction.chain_view(0).size() == 1);
-  assert(direction.chain_view(0)[0] == 1);
-  direction.share_steps();
-  SweepDirProof core;
-  core.t0 = internalize(3);
-  core.shared_steps = direction.shared_steps;
-  core.shared_step_count = 1;
-  assert(sweep_normalize_lrat_capture(env, core));
-  assert(core.chain_view(0).size() == 2);
-  assert(core.chain_view(0)[0] == 1 && core.chain_view(0)[1] == 2);
-  assert(direction.chain_view(0).size() == 1);
-  assert(direction.steps_view()[0].chain.size() == 2);
 }
 
 static void test_unbounded_clause_limit_sizes_from_formula() {
@@ -977,10 +917,8 @@ static void test_sd_declines_non_rup(void) {
 
 // "Is this line RUP over F?" is a question about the FORMULA. Its answer cannot
 // depend on which certificate format the run happens to be writing, so the
-// primitive Sweep admits with must give one verdict in all of them. It used to
-// short-circuit to `true` whenever the proof was not native LRAT, which turned
-// Sweep's admission test into an unconditional yes and let it emit an
-// unreplayable binary under DRAT (corpus 026).
+// primitive Sweep admits with must give one verdict in all of them, or Sweep
+// could emit an unreplayable binary (corpus 026).
 static void test_rup_admission_is_format_independent(void) {
   // Neither direction of the fixture's `1 == 2` is RUP -- that is the premise
   // the whole general path exists for -- so `Decide` must refuse all three.
@@ -993,10 +931,9 @@ static void test_rup_admission_is_format_independent(void) {
     bool proof;
     ProofFormat format;
   };
-  const Mode modes[] = {{"no-proof", false, ProofFormat::DratAscii},
-                        {"DRAT", true, ProofFormat::DratAscii},
+  const Mode modes[] = {{"no-proof", false, ProofFormat::DsrAscii},
                         {"DSR", true, ProofFormat::DsrAscii},
-                        {"LRAT", true, ProofFormat::Lrat}};
+                        {"PBP", true, ProofFormat::PbpStreaming}};
   for (const Mode &mode : modes) {
     Proof proof;
     if (mode.proof)
@@ -1012,14 +949,6 @@ static void test_rup_admission_is_format_independent(void) {
     assert(!congruence_replay_rup(hard, entailed, 2, chain,
                                   RupReplay::Decide) &&
            "an entailed but non-RUP lemma must be declined in every format");
-    // The opposite purpose is a deliberate asymmetry, not an oversight:
-    // Congruence's own lemmas are RUP by construction, so outside LRAT -- where
-    // there is no chain to read -- the replay is pure cost and is skipped.
-    assert(congruence_replay_rup(hard, entailed, 2, chain,
-                                 RupReplay::ChainOnly) ==
-               (mode.proof && mode.format == ProofFormat::Lrat ? false : true) &&
-           "ChainOnly replays exactly when a chain is written");
-
     Kernel easy;
     build(easy, 2, rup);
     if (mode.proof)
@@ -1216,7 +1145,7 @@ static void test_sessionless_substitution_keeps_binaries_whole(void) {
 // with inverted parity still leaves both correct binaries in F, so detection,
 // the pair test and the verdict all look right and only an external checker
 // sees the bad lemma (N2). So this writes a self-contained refutation whose
-// middle is the general path's output, for drat-trim and lrat-check
+// middle is the general path's output, for drat-trim and the DSR pipeline
 // (tests/sweep_proofs.sh). Two checker-only contradictory units close the file
 // after Sweep, so the checker validates the whole general-path + inline-
 // substitution prefix without depending on transient binaries that the
@@ -1238,14 +1167,10 @@ static void emit_se_case(const char *dir) {
   fprintf(cnf, "1 0\n-1 0\n"); // checker-only clauses 9 and 10
   fclose(cnf);
 
-  for (const ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat,
-                                   ProofFormat::DsrAscii}) {
-    const bool lrat = format == ProofFormat::Lrat;
-    const char *suffix = lrat ? "lrat" :
-                         format == ProofFormat::DsrAscii ? "dsr" : "drat";
-    snprintf(path, sizeof path, "%s/se.%s", dir, suffix);
+  {
+    snprintf(path, sizeof path, "%s/se.dsr", dir);
     Proof proof;
-    assert(proof.open(path, format));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     Kernel k;
     // The kernel holds only clauses 1..8: detection needs a satisfiable
     // environment, so 9/10 stay out of F and the contradiction is closed by
@@ -1276,14 +1201,10 @@ static void emit_unit_case(const char *dir) {
   fprintf(cnf, "p cnf 2 3\n1 2 0\n1 -2 0\n-1 0\n");
   fclose(cnf);
 
-  for (const ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat,
-                                   ProofFormat::DsrAscii}) {
-    const bool lrat = format == ProofFormat::Lrat;
-    const char *suffix = lrat ? "lrat" :
-                         format == ProofFormat::DsrAscii ? "dsr" : "drat";
-    snprintf(path, sizeof path, "%s/unit.%s", dir, suffix);
+  {
+    snprintf(path, sizeof path, "%s/unit.dsr", dir);
     Proof proof;
-    assert(proof.open(path, format));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     Kernel k;
     build(k, 2, {{1, 2}, {1, -2}}); // clause 3 stays checker-only
     k.next_clause_id = 3;
@@ -1309,14 +1230,10 @@ static void emit_original_core_unit_case(const char *dir) {
   fprintf(cnf, "p cnf 4 5\n-1 2 3 4 0\n-2 0\n-3 0\n-4 0\n1 0\n");
   fclose(cnf);
 
-  for (const ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat,
-                                   ProofFormat::DsrAscii}) {
-    const bool lrat = format == ProofFormat::Lrat;
-    const char *suffix = lrat ? "lrat" :
-                         format == ProofFormat::DsrAscii ? "dsr" : "drat";
-    snprintf(path, sizeof path, "%s/original-core-unit.%s", dir, suffix);
+  {
+    snprintf(path, sizeof path, "%s/original-core-unit.dsr", dir);
     Proof proof;
-    assert(proof.open(path, format));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     Kernel k;
     build(k, 4, {{-1, 2, 3, 4}, {-2}, {-3}, {-4}});
     k.next_clause_id = 5;
@@ -1341,8 +1258,8 @@ static void emit_original_core_unit_case(const char *dir) {
 // A chained emission batch whose middle winner is named by no later pair: the
 // first pair's preserved bridge must carry the intermediate winner (the suffix
 // image of its emitted binary), and the following canonical Substitute owns
-// the complete retirement. The derived bridge images use mirror-lemma LRAT
-// chains, which only an external checker validates.
+// the complete retirement. The derived bridge images use mirror lemmas, which
+// only an external checker validates.
 static void emit_bridge_chain_case(const char *dir) {
   const std::vector<std::vector<int>> input = {
       {1, 5},  {2, 5},  {3, 6},  {4, 6},  // one occurrence per class member
@@ -1365,12 +1282,10 @@ static void emit_bridge_chain_case(const char *dir) {
   fprintf(cnf, "5 0\n-5 0\n"); // checker-only clauses 11 and 12
   fclose(cnf);
 
-  for (int fmt = 0; fmt < 2; fmt++) {
-    const bool lrat = fmt == 1;
-    snprintf(path, sizeof path, "%s/bridge-chain.%s", dir,
-             lrat ? "lrat" : "drat");
+  {
+    snprintf(path, sizeof path, "%s/bridge-chain.dsr", dir);
     Proof proof;
-    assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     Kernel k;
     build(k, 6, input);
     k.next_clause_id = ID_NP5; // no lemma may reuse the checker-only ids
@@ -1402,7 +1317,7 @@ static void emit_bridge_chain_case(const char *dir) {
 
 // A batch whose pair stream renames an absorbed literal maps both endpoints
 // of an early bridge to intermediate members: {-6, 7} becomes {-4, 7} with
-// neither x4 nor x7 the class root. Its LRAT chain needs both mirror lemmas,
+// neither x4 nor x7 the class root. Its RUP check needs both mirror lemmas,
 // which only an external checker walks.
 static void emit_bridge_two_hint_case(const char *dir) {
   const std::vector<std::vector<int>> input = {
@@ -1426,12 +1341,10 @@ static void emit_bridge_two_hint_case(const char *dir) {
   fprintf(cnf, "8 0\n-8 0\n"); // checker-only clauses 11 and 12
   fclose(cnf);
 
-  for (int fmt = 0; fmt < 2; fmt++) {
-    const bool lrat = fmt == 1;
-    snprintf(path, sizeof path, "%s/bridge-two-hint.%s", dir,
-             lrat ? "lrat" : "drat");
+  {
+    snprintf(path, sizeof path, "%s/bridge-two-hint.dsr", dir);
     Proof proof;
-    assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     Kernel k;
     build(k, 8, input);
     k.next_clause_id = ID_NP8; // no lemma may reuse the checker-only ids
@@ -1523,8 +1436,6 @@ int main(int argc, char **argv) {
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
   test_effort_prices_embedded_and_representation_ticks();
   test_core_prefixes_share_one_immutable_derivation();
-  test_lrat_capture_replays_lifted_cube();
-  test_lrat_core_prefix_uses_its_own_target_cube();
   test_unbounded_clause_limit_sizes_from_formula();
   test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();

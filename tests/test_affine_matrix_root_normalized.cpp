@@ -17,9 +17,10 @@ struct DefaultAffineSearchTestAccess {
 };
 }
 static std::vector<Lit> body(Kernel &k,const std::vector<int32_t>&c){std::vector<Lit> r;for(int x:c)r.push_back(kernel_internalize(k,x));return r;}
-static void exercise(ProofFormat format,const char *prefix){
- const std::string proof_suffix=format==ProofFormat::DsrAscii?".dsr":".drat";
- const std::string base=std::string(prefix?prefix:"/tmp/tactix-root-normalized-")+std::to_string(getpid())+"-"+(format==ProofFormat::DsrAscii?"dsr":"drat");
+static void exercise(const char *prefix){
+ const ProofFormat format=ProofFormat::DsrAscii;
+ const std::string proof_suffix=".dsr";
+ const std::string base=std::string(prefix?prefix:"/tmp/tactix-root-normalized-")+std::to_string(getpid())+"-dsr";
  std::vector<std::vector<int32_t>> original,shorts;
  const std::vector<int32_t> roots={121,122,123,124,-125,126};
  for(int i=0;i<40;++i){const auto variables=i==0?std::vector<int32_t>{1,2,3}:i==1?std::vector<int32_t>{2,3,4}:std::vector<int32_t>{3*i-1,3*i,3*i+1};for(auto clause:clausal_form(variables,i==1)){shorts.push_back(clause);for(int root:roots)clause.push_back(-root);original.push_back(std::move(clause));}}
@@ -98,9 +99,10 @@ static void exercise(ProofFormat format,const char *prefix){
  session.disable(k);proof.flush();assert(!proof.unbacked_deletions());k.proof=nullptr;k.structural_provenance=nullptr;std::fclose(records);
  if(!prefix){std::remove((base+".cnf").c_str());std::remove((base+proof_suffix).c_str());std::remove((base+".model").c_str());}
 }
-static void retained_root_maintenance(ProofFormat format,const char *prefix){
- const std::string suffix=format==ProofFormat::DsrAscii?".dsr":".drat";
- const std::string base=std::string(prefix?prefix:"/tmp/tactix-root-normalized-")+std::to_string(getpid())+"-once-"+(format==ProofFormat::DsrAscii?"dsr":"drat");
+static void retained_root_maintenance(const char *prefix){
+ const ProofFormat format=ProofFormat::DsrAscii;
+ const std::string suffix=".dsr";
+ const std::string base=std::string(prefix?prefix:"/tmp/tactix-root-normalized-")+std::to_string(getpid())+"-once-dsr";
  std::vector<std::vector<int32_t>> initial,original;
  for(auto variables:{std::vector<int32_t>{1,2,3},std::vector<int32_t>{2,3},std::vector<int32_t>{1,4}})
   for(auto c:clausal_form(variables,variables==std::vector<int32_t>{2,3}))initial.push_back(c);
@@ -161,7 +163,6 @@ static void retained_root_maintenance(ProofFormat format,const char *prefix){
  assert(propagate_apply(k)==ApplyResult::Ok&&k.value(kernel_internalize(k,4))>0);
  assert(k.value(kernel_internalize(k,1))>0);
  // Fresh public proof premises/native IDs are genuinely new discovery input.
- // In DRAT, root4 has only its old binary reason, not an emitted unit ID.
  for(size_t i=0;i<discovered_group.size();++i){auto native=body(k,discovered_group[i]);
   const auto id=++k.next_clause_id;assert(proof.add_external_rup(id,discovered_group[i].data(),discovered_group[i].size()));
   kernel_add_large_clause(k,native.data(),native.size(),false,0,id);}
@@ -176,9 +177,9 @@ static void retained_root_maintenance(ProofFormat format,const char *prefix){
  session.disable(k);proof.flush();assert(!proof.unbacked_deletions());k.proof=nullptr;k.structural_provenance=nullptr;std::fclose(records);
  if(!prefix){std::remove((base+".cnf").c_str());std::remove((base+suffix).c_str());std::remove((base+".model").c_str());}
 }
-static void incremental_opposite_parity(ProofFormat format) {
- const std::string path="/tmp/tactix-affine-opposite-"+std::to_string(getpid())+
-     (format==ProofFormat::DsrAscii?".dsr":".drat");
+static void incremental_opposite_parity() {
+ const ProofFormat format=ProofFormat::DsrAscii;
+ const std::string path="/tmp/tactix-affine-opposite-"+std::to_string(getpid())+".dsr";
  const auto first=clausal_form({1,2,3},false),second=clausal_form({1,2,3},true);
  Kernel k;kernel_reserve_vars(k,3);
  for(const auto &c:first){auto native=body(k,c);kernel_add_large_clause(k,native.data(),native.size(),false,0,++k.next_clause_id);}
@@ -206,4 +207,4 @@ static void incremental_opposite_parity(ProofFormat format) {
  assert(k.inconsistent);
  session.disable(k);proof.flush();assert(!proof.unbacked_deletions());k.proof=nullptr;k.structural_provenance=nullptr;std::fclose(records);std::remove(path.c_str());
 }
-int main(int argc,char **argv){for(auto format:{ProofFormat::DsrAscii,ProofFormat::DratAscii}){exercise(format,argc>1?argv[1]:nullptr);retained_root_maintenance(format,argc>1?argv[1]:nullptr);incremental_opposite_parity(format);}}
+int main(int argc,char **argv){exercise(argc>1?argv[1]:nullptr);retained_root_maintenance(argc>1?argv[1]:nullptr);incremental_opposite_parity();}

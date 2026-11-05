@@ -69,7 +69,7 @@ static void fixture(unsigned width, unsigned position, int value, bool negative,
   // clause, and that rebuild selects the watched pair the way Kissat's sparse
   // resume sorts literals: a satisfied lits[0] is exchanged with the first
   // open literal. A deletion names the record's literal sequence at emission
-  // time, so the DRAT expectation reads that sequence from the retired record
+  // time, so the expectation reads that sequence from the retired record
   // and separately pins it to a permutation of the original clause.
   std::string expected;
   if (deleted)
@@ -77,29 +77,25 @@ static void fixture(unsigned width, unsigned position, int value, bool negative,
       const Clause *c = clause_at(k.arena, ref);
       assert(c->size == width);
       assert(std::is_permutation(c->lits, c->lits + c->size, lits.begin()));
-      if (format == ProofFormat::Lrat)
-        expected += std::to_string(proof_line) + " d " + std::to_string(c->id()) + " 0\n";
-      else {
-        expected += "d ";
-        for (Lit lit : *c) expected += std::to_string(externalize(lit)) + " ";
-        expected += "0\n";
-      }
+      expected += "d ";
+      for (Lit lit : *c) expected += std::to_string(externalize(lit)) + " ";
+      expected += "0\n";
   }
   std::ifstream in(path);
   std::string actual;
   for (char ch; in.get(ch);)
     actual.push_back(ch);
   if (actual != expected)
-    std::fprintf(stderr, "case width=%u position=%u value=%d negative=%d redundant=%d copies=%u %s\nexpected:\n%s---\nactual:\n%s---\n",
+    std::fprintf(stderr, "case width=%u position=%u value=%d negative=%d redundant=%d copies=%u\nexpected:\n%s---\nactual:\n%s---\n",
                  width, position, value, static_cast<int>(negative), static_cast<int>(redundant), copies,
-                 format == ProofFormat::Lrat ? "lrat" : "drat", expected.c_str(), actual.c_str());
+                 expected.c_str(), actual.c_str());
   assert(actual == expected);
   in.close();
   assert(!std::remove(path));
   assert(k.value(lits[position]) == value && k.nvars == width);
   // The original clause still evaluates true in every admitted deletion case.
   if (deleted) assert(k.value(lits[position]) == 1);
-  if (!negative && !redundant && copies == 1 && format == ProofFormat::DratAscii)
+  if (!negative && !redundant && copies == 1)
     std::printf("%u %u %d %u\n", width, position, value, static_cast<unsigned>(deleted));
 }
 
@@ -111,7 +107,6 @@ int main() {
         for (bool negative : {false, true})
           for (bool redundant : {false, true})
             for (unsigned copies : {1u, 2u})
-              for (ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat})
-                fixture(width, position, value, negative, redundant, copies, format);
-  std::puts("PASS:1200 actual Congruence cleanup cases, pure extraction and exact proof deletions");
+              fixture(width, position, value, negative, redundant, copies, ProofFormat::DsrAscii);
+  std::puts("PASS:600 actual Congruence cleanup cases, pure extraction and exact proof deletions");
 }

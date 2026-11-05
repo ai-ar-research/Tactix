@@ -12,11 +12,11 @@ drat=$root/tools/checkers/bin/drat-trim
 require_tools "" "$trim" "$compress" "$srcheck" "$drat"
 
 make_scratch scratch
-"$binary" "$scratch/input.cnf" "$scratch/proof.drat"
-"$drat" "$scratch/input.cnf" "$scratch/proof.drat" -f \
+"$binary" "$scratch/input.cnf" "$scratch/proof.dsr"
+"$drat" "$scratch/input.cnf" "$scratch/proof.dsr" -f \
   > "$scratch/drat-check.log" 2>&1
 rg -q 's VERIFIED' "$scratch/drat-check.log"
 python3 "$root/tools/bench/proof_oracle.py" check-dsr \
-  "$scratch/input.cnf" "$scratch/proof.drat" \
+  "$scratch/input.cnf" "$scratch/proof.dsr" \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$srcheck" \
   --every-lemma

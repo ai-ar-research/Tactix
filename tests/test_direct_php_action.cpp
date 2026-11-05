@@ -342,7 +342,9 @@ void stale_and_invalid_paths_do_not_leak_preparation() {
     const int descriptor = mkstemp(path);
     assert(descriptor >= 0);
     close(descriptor);
-    assert(proof.open(path, ProofFormat::Lrat));
+    assert(proof.open(path, ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     kernel.proof = &proof;
     DirectPhpActionSession session(kernel);
     const auto unsupported =
@@ -361,7 +363,7 @@ void proof_backed_execution_has_no_public_prepare_publish_gap() {
   {
     Kernel kernel = fixture();
     Proof proof;
-    assert(proof.open(path, ProofFormat::DratAscii));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -394,7 +396,7 @@ void proof_backed_execution_has_no_public_prepare_publish_gap() {
     assert(direct_php_action_prepare(kernel, session, request(), prepared)
                .status == DirectPhpActionStatus::Prepared);
     Proof proof;
-    assert(proof.open(changed_path, ProofFormat::DratAscii));
+    assert(proof.open(changed_path, ProofFormat::DsrAscii));
     kernel.proof = &proof;
     const auto stale = direct_php_action_publish(kernel, session, prepared);
     assert(stale.status == DirectPhpActionStatus::Stale);

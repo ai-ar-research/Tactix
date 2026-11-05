@@ -396,9 +396,7 @@ void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
            CheckerRoute::None);
   }
 
-  for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DsrBinary,
-                            ProofFormat::DratAscii, ProofFormat::DratBinary,
-                            ProofFormat::Lrat}) {
+  for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DsrBinary}) {
     Recorder recorder;
     const std::string path = proof_path("route");
     {
@@ -409,14 +407,7 @@ void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
              1);
       const CheckerRecord &opened = recorder.checker[1];
       assert(opened.kind == CheckerPopulationEventKind::RouteOpened);
-      const CheckerRoute expected =
-          format == ProofFormat::Lrat
-              ? CheckerRoute::Lrat
-              : (format == ProofFormat::DratAscii ||
-                         format == ProofFormat::DratBinary
-                     ? CheckerRoute::Drat
-                     : CheckerRoute::Dsr);
-      assert(opened.route == expected);
+      assert(opened.route == CheckerRoute::Dsr);
     }
     assert(std::remove(path.c_str()) == 0);
   }
@@ -426,11 +417,11 @@ void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
     const std::string path = proof_path("bind-after-open");
     {
       Proof proof;
-      assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+      assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
       proof.bind_population_observer(&recorder);
       assert(recorder.checker[0].kind ==
              CheckerPopulationEventKind::ObserverBound);
-      assert(recorder.checker[0].route == CheckerRoute::Drat);
+      assert(recorder.checker[0].route == CheckerRoute::Dsr);
     }
     assert(std::remove(path.c_str()) == 0);
   }
@@ -694,125 +685,36 @@ void test_dsr_checker_transactions_and_exact_clauses() {
   assert(solver_materialized);
 }
 
-void test_format_specific_derived_units_and_external_clauses() {
-  for (const ProofFormat format : {ProofFormat::DratAscii,
-                                   ProofFormat::Lrat}) {
-    Kernel kernel;
-    Recorder recorder;
-    const std::string path = proof_path(format == ProofFormat::Lrat
-                                            ? "lrat"
-                                            : "drat");
-    {
-      Proof proof;
-      assert(proof.open(path.c_str(), format));
-      kernel.proof = &proof;
-      {
-        ScopedPopulationObserverBinding binding(kernel, recorder);
-        const Lit unit = lit(1);
-        const uint64_t chain[1] = {1};
-        proof.add_derived_unit(10, unit, chain, 1);
-        const Lit named[2] = {lit(2), lit(3)};
-        proof.seed_population(2, named, 2);
-        proof.del(12, 2, named, 2);
-        if (format == ProofFormat::DratAscii) {
-          const int32_t clause[2] = {7, -8};
-          assert(proof.add_external_rat(11, clause, 2));
-          assert(proof.del_external(12, 11, clause, 2));
-        }
-        proof.flush();
-      }
-      kernel.proof = nullptr;
-    }
-    assert(std::remove(path.c_str()) == 0);
-
-    bool derived = false, external_add = false, external_delete = false;
-    bool exact_delete = false;
-    for (size_t i = 0; i < recorder.checker_size; ++i) {
-      const CheckerRecord &event = recorder.checker[i];
-      derived |= event.kind == CheckerPopulationEventKind::Add &&
-                 event.role == CheckerClauseRole::DerivedUnit &&
-                 event.clause.equals({1});
-      external_add |= event.kind == CheckerPopulationEventKind::Add &&
-                      event.role == CheckerClauseRole::ExternalRat &&
-                      event.proof_only && event.clause.equals({7, -8});
-      external_delete |=
-                         event.kind ==
-                             CheckerPopulationEventKind::DeleteRequested &&
-                         event.proof_only && event.clause.equals({7, -8});
-      exact_delete |= event.kind == CheckerPopulationEventKind::Delete &&
-                      event.checker_id == 2 && event.clause.equals({2, 3});
-    }
-    assert(derived == (format == ProofFormat::Lrat));
-    assert(external_add == (format == ProofFormat::DratAscii));
-    assert(external_delete == (format == ProofFormat::DratAscii));
-    assert(exact_delete == (format == ProofFormat::Lrat));
-  }
-}
-
-void test_lrat_input_population_and_rebind() {
+void test_external_clauses() {
   Kernel kernel;
   Recorder recorder;
-  const std::string path = proof_path("input-lrat");
+  const std::string path = proof_path("external");
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::Lrat));
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);
-      FILE *file = dimacs_file(
-          "p cnf 3 2\n"
-          "1 0\n"
-          "-1 2 2 3 0\n");
-      assert(parse_dimacs(file, kernel) == nullptr);
-      std::fclose(file);
+      const int32_t clause[2] = {7, -8};
+      assert(proof.add_external_rat(11, clause, 2));
+      assert(proof.del_external(12, 11, clause, 2));
+      proof.flush();
     }
     kernel.proof = nullptr;
   }
   assert(std::remove(path.c_str()) == 0);
 
-  bool seed_unit = false, seed_raw = false, finished = false;
-  bool replacement = false, rebind = false;
-  uint64_t replacement_id = 0;
+  bool external_add = false, external_delete = false;
   for (size_t i = 0; i < recorder.checker_size; ++i) {
     const CheckerRecord &event = recorder.checker[i];
-    assert(event.route == CheckerRoute::Lrat);
-    assert(event.naming == CheckerNaming::Id);
-    seed_unit |= event.kind == CheckerPopulationEventKind::InputSeed &&
-                 event.checker_id == 1 && event.clause.equals({1});
-    seed_raw |= event.kind == CheckerPopulationEventKind::InputSeed &&
-                event.checker_id == 2 && event.clause.equals({-1, 2, 2, 3});
-    if (event.kind == CheckerPopulationEventKind::Add &&
-        event.role == CheckerClauseRole::Rup && event.clause.equals({2, 3})) {
-      replacement = true;
-      replacement_id = event.checker_id;
-    }
-    rebind |= event.kind == CheckerPopulationEventKind::IdRebind &&
-              event.checker_id == replacement_id &&
-              event.clause.equals({2, 3});
-    finished |= event.kind == CheckerPopulationEventKind::InputFinished;
+    external_add |= event.kind == CheckerPopulationEventKind::Add &&
+                    event.role == CheckerClauseRole::ExternalRat &&
+                    event.proof_only && event.clause.equals({7, -8});
+    external_delete |=
+        event.kind == CheckerPopulationEventKind::DeleteRequested &&
+        event.proof_only && event.clause.equals({7, -8});
   }
-  assert(seed_unit && seed_raw && replacement && replacement_id > 2);
-  for (size_t i = 0; i < recorder.checker_size; ++i)
-    if (recorder.checker[i].kind == CheckerPopulationEventKind::InputSeed)
-      assert(recorder.checker[i].source_classification ==
-             PopulationSourceClassification::PendingInputClassification);
-  // Re-evaluate after replacement_id is known; serialization order puts the
-  // rebind later, but the assertion should state only the lineage contract.
-  rebind = false;
-  for (size_t i = 0; i < recorder.checker_size; ++i)
-    rebind |= recorder.checker[i].kind ==
-                  CheckerPopulationEventKind::IdRebind &&
-              recorder.checker[i].predecessor_id == 2 &&
-              recorder.checker[i].checker_id == replacement_id &&
-              recorder.checker[i].clause.equals({2, 3});
-  assert(rebind && finished);
-
-  const RawRecord &outcome =
-      recorder.raw_event(RawInputEventKind::Outcome, 2);
-  assert((outcome.disposition &
-          (RawRepeatedLiteral | RawRootShortened | RawAdmitted | RawBinary)) ==
-         (RawRepeatedLiteral | RawRootShortened | RawAdmitted | RawBinary));
-  assert(outcome.normalized.equals({2, 3}));
+  assert(external_add && external_delete);
 }
 
 void test_kernel_mutation_endpoints_and_representation_silence() {
@@ -1107,15 +1009,15 @@ void test_substitute_transaction_preexisting_coalescing_and_duplicates() {
   assert(kernel_binary_copies(kernel, lit(1), lit(3)) == 3);
 }
 
-void test_substitute_lrat_transaction() {
+void test_substitute_proof_transaction() {
   Kernel kernel;
   kernel_reserve_vars(kernel, 3);
   Recorder recorder;
   recorder.invariant_kernel = &kernel;
-  const std::string path = proof_path("substitute-lrat");
+  const std::string path = proof_path("substitute-proof");
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::Lrat));
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
     kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
@@ -1128,12 +1030,6 @@ void test_substitute_lrat_transaction() {
   }
   assert(std::remove(path.c_str()) == 0);
   assert_one_committed_binary_transaction(recorder);
-  bool exact_checker_delete = false;
-  for (size_t i = 0; i < recorder.checker_size; ++i)
-    exact_checker_delete |=
-        recorder.checker[i].kind == CheckerPopulationEventKind::Delete &&
-        recorder.checker[i].naming == CheckerNaming::Id;
-  assert(exact_checker_delete);
 }
 
 void test_substitute_transaction_collapse_and_tautology() {
@@ -1247,15 +1143,14 @@ int main() {
   test_explicit_route_rebind_settles_the_original_observer();
   test_nested_scoped_rebind_settles_each_observer();
   test_dsr_checker_transactions_and_exact_clauses();
-  test_format_specific_derived_units_and_external_clauses();
-  test_lrat_input_population_and_rebind();
+  test_external_clauses();
   test_kernel_mutation_endpoints_and_representation_silence();
   test_metadata_promotion_and_empty_unit_replacements();
   test_rebuilt_binary_publication_endpoints();
   test_variable_compaction_is_population_silent();
   test_substitute_binary_population_rewrite();
   test_substitute_transaction_preexisting_coalescing_and_duplicates();
-  test_substitute_lrat_transaction();
+  test_substitute_proof_transaction();
   test_substitute_transaction_collapse_and_tautology();
   test_substitute_sweep_session_callbacks_see_mirrored_watches();
   test_scope_flushes_before_unbinding();

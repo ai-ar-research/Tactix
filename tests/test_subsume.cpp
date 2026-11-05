@@ -424,7 +424,7 @@ static void test_proof_deltas() {
   Kernel k;
   kernel_reserve_vars(k, 4);
   Proof p;
-  assert(p.open(path, ProofFormat::DratAscii));
+  assert(p.open(path, ProofFormat::DsrAscii));
   k.proof = &p;
   add(k, {1, 2, 3, 4});
   add(k, {1, 2, 3});

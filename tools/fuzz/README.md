@@ -39,9 +39,9 @@ other requirement. Retain the regrade output alongside the original result.
   every-lemma audit). If forward elaboration omits live singleton premises in
   its final empty-clause RUP chain, the harness adds only those active unit
   hint IDs and requires Trestle to verify the completed LSR against the same
-  CNF; no solver clause or proof lemma is waived. Explicit
-  DRAT (`drat-trim`), explicit native LRAT (`cake_lpr`), differential verdict,
-  and crash/I/O consistency. Legacy `lrat-check` is diagnostic only: it can
+  CNF; no solver clause or proof lemma is waived. A reference solver's
+  DRAT (`drat-trim`) or LRAT (`cake_lpr`), differential verdict, and crash/I/O
+  consistency. Legacy `lrat-check` is diagnostic only: it can
   accept an invalid empty lemma on a satisfiable input. Failed cases retain the
   original proof and exact checker commands/stdout/stderr.
 - `checkmodel` — independent model checker (never trusts solver bookkeeping).
@@ -52,8 +52,7 @@ other requirement. Retain the regrade output alongside the original result.
 - `corpus/regressions/` — tracked, monotonically growing regression corpus.
 - `selftest.sh` — end-to-end validation against Kissat/CaDiCaL stand-ins;
   runs in the weekly and manually dispatched CI workflow. It honours
-  `TACTIX_FUZZ_CHECKERS` and `TACTIX_FUZZ_SELFTEST_TACTIX` (the pinned build
-  for its native-LRAT control, otherwise `build/debug/tactix`).
+  `TACTIX_FUZZ_CHECKERS`.
 - `controls/every_lemma_controls.py` — causal controls for both every-lemma
   audits on retained fixtures (`controls/every-lemma/PROVENANCE.md`). They
   require the configured `dsr-trim` to elaborate the F2/F2w proofs forward

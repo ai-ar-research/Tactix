@@ -224,10 +224,10 @@ static void test_level_one_failed_literal_batch() {
 // Proof-producing twin of the batch fixture.  The first four clauses produce
 // the two-unit failed-literal batch under decision 1; the final two make the
 // opposite branch inconsistent, so root propagation closes a complete UNSAT
-// proof that an external LRAT checker can replay.
-static void write_level_one_failed_literal_lrat(const char *path) {
+// proof that an external checker can replay.
+static void write_level_one_failed_literal_proof(const char *path) {
   Proof proof;
-  assert(proof.open(path, ProofFormat::Lrat));
+  assert(proof.open(path, ProofFormat::DsrAscii));
   Kernel k;
   ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 5);
@@ -1121,7 +1121,7 @@ static void test_conflict_reuse_under_default_policy() {
 
 // Drives `analyze_eager_subsume` on a hand-built register: DefaultPolicy
 // cannot produce the discriminating cases. The reason guard is the mechanism's
-// LRAT-safety guard — a deleted id must never reappear in a chain.
+// reason guard — a clause still naming a trail reason is not deleted.
 static void test_eager_subsume() {
   auto fresh = [](Kernel &k, uint32_t nvars) { kernel_reserve_vars(k, nvars); };
 
@@ -1169,7 +1169,7 @@ static void test_eager_subsume() {
     assert(!clause_at(k.arena, r_other)->garbage());
     assert(!clause_at(k.arena, r_irr)->garbage());
   }
-  { // (c) the LRAT-safety guard: a subsumed candidate that is still a trail
+  { // (c) the reason guard: a subsumed candidate that is still a trail
     // reason is kept, and the deviation from kissat is counted
     Kernel k;
     fresh(k, 8);
@@ -1280,7 +1280,7 @@ int main(int argc, char **argv) {
   test_bump_admission_order_is_not_cleanup_order();
   test_level_one_failed_literal_batch();
   if (argc == 2)
-    write_level_one_failed_literal_lrat(argv[1]);
+    write_level_one_failed_literal_proof(argv[1]);
   test_shrink();
   test_shrink_accepts_lower_learned_literal();
   test_shrink_crosses_unmarked_lower_level();

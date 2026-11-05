@@ -18,7 +18,8 @@ int main(int argc, char **argv) {
       for (unsigned copies : {1u, 2u})
         for (bool reverse_import : {false, true})
           for (bool public_instance : {false, true})
-            for (ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
+            {
+              const ProofFormat format = ProofFormat::DsrAscii;
               Kernel k;
               kernel_reserve_vars(k, 4);
               for (unsigned i = 0; i < 4; i++)
@@ -81,12 +82,12 @@ int main(int argc, char **argv) {
               mismatches += !clean;
               cases++;
             }
-  assert(cases == 64);
+  assert(cases == 32);
   if (parent) {
-    assert(mismatches == 32);
-    std::puts("PASS: frozen parent exposes32 binary-only cleanup failures;32 controls pass");
+    assert(mismatches == 16);
+    std::puts("PASS: frozen parent exposes16 binary-only cleanup failures;16 controls pass");
   } else {
     assert(mismatches == 0);
-    std::puts("PASS:64 binary-only Congruence cases, public/direct, proof modes, copies, import order and lazy-unit controls");
+    std::puts("PASS:32 binary-only Congruence cases, public/direct, proof modes, copies, import order and lazy-unit controls");
   }
 }

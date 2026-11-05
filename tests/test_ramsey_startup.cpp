@@ -50,13 +50,6 @@ static void controls(const std::string &cnf) {
   k.startup_input[0]=-k.startup_input[0];assert(ramsey_startup_apply(k,r).result==ApplyResult::NoOp);k.startup_input=raw;no_change();
   const uint64_t before=k.next_clause_id;k.next_clause_id=UINT64_MAX;
   assert(ramsey_startup_apply(k,r).result==ApplyResult::NoOp);k.next_clause_id=before;no_change();
-  for(auto fmt:{ProofFormat::DratAscii,ProofFormat::Lrat}) {
-    char temporary[]="/tmp/tactix-ramsey-format-XXXXXX";const int fd=mkstemp(temporary);assert(fd>=0);close(fd);
-    const std::string path=temporary;
-    Proof proof;assert(proof.open(path.c_str(),fmt));k.proof=&proof;
-    assert(!ramsey_startup_guard(k));assert(ramsey_startup_apply(k,r).result==ApplyResult::NoOp);k.proof=nullptr;
-    std::filesystem::remove(path);no_change();
-  }
   k.close_startup_certificate();assert(!ramsey_startup_guard(k));assert(ramsey_startup_apply(k,r).result==ApplyResult::NoOp);
   std::fclose(out);
 }

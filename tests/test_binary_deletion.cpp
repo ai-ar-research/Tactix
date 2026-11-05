@@ -82,7 +82,7 @@ static void test_delete_shrinks_both_lists() {
 }
 
 // A pair re-derived after deletion installs its fresh id; keeping the retired
-// one would make later LRAT chains cite an already retired clause.
+// one would name an already retired clause.
 static void test_readd_after_delete_installs_fresh_id() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -144,8 +144,7 @@ static void test_duplicate_pair_refused() {
 }
 
 static void test_dsr_deletes_each_physical_copy() {
-  for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DratAscii,
-                             ProofFormat::Lrat}) {
+  {
     for (const unsigned copies : {2u, 3u, 5u}) {
       Kernel k;
       kernel_reserve_vars(k, 2);
@@ -154,7 +153,7 @@ static void test_dsr_deletes_each_physical_copy() {
       assert(fd >= 0);
       close(fd);
       Proof proof;
-      assert(proof.open(path, format));
+      assert(proof.open(path, ProofFormat::DsrAscii));
       k.proof = &proof;
       const Lit a = internalize(1), b = internalize(2);
       for (unsigned i = 0; i < copies; ++i)
@@ -172,18 +171,12 @@ static void test_dsr_deletes_each_physical_copy() {
           bytes.push_back(static_cast<char>(c));
         assert(!std::ferror(input));
         std::fclose(input);
-        size_t deletions = 0;
-        for (const char c : bytes) deletions += c == 'd';
-        const size_t expected = format == ProofFormat::DsrAscii ? removed :
-                                removed == copies ? 1u : 0u;
-        assert(deletions == expected);
-        if (format == ProofFormat::DsrAscii)
-          assert(bytes == [&] {
-            std::string expected_bytes;
-            for (unsigned n = 0; n < removed; ++n)
-              expected_bytes += "d 1 2 0\n";
-            return expected_bytes;
-          }());
+        assert(bytes == [&] {
+          std::string expected_bytes;
+          for (unsigned n = 0; n < removed; ++n)
+            expected_bytes += "d 1 2 0\n";
+          return expected_bytes;
+        }());
         kernel_check_invariants(k);
       }
       assert(std::remove(path) == 0);
@@ -382,7 +375,7 @@ static void test_large_rewrite_preserves_nonroot_reason() {
 }
 
 // Under reason jumping the recorded reason is a virtual resolvent, so the
-// clause the LRAT chain cites is (lit v jumped_over), which the reason field
+// clause a proof walk cites is (lit v jumped_over), which the reason field
 // no longer names. The live-reason guard must protect that pair too.
 // The default follows Kissat; keep the assertion here to pin that wiring.
 static void test_jumped_reason_protects_its_antecedent() {

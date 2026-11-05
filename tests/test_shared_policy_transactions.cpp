@@ -218,8 +218,8 @@ int main() {
   for (Fixture type : {Fixture::Learned, Fixture::UnitBatch, Fixture::Reused,
                        Fixture::RootConflict})
     for (bool stable : {false, true})
-      for (uint32_t target : {0u, 1u, 2u, UINT32_MAX})
-        for (ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
+      for (uint32_t target : {0u, 1u, 2u, UINT32_MAX}) {
+          const ProofFormat format = ProofFormat::DsrAscii;
           const auto stem = "/tmp/tactix-shared-analysis-" + std::to_string(getpid());
           const auto before = run(type, false, stable, target, format, stem + "-old");
           const auto after = run(type, true, stable, target, format, stem + "-new");
@@ -229,6 +229,6 @@ int main() {
           assert(std::remove((stem + "-new").c_str()) == 0);
           ++pairs;
         }
-  assert(pairs == 64);
+  assert(pairs == 32);
   std::printf("PASS: five certificate paths and %u native state/proof pairs\n", pairs);
 }

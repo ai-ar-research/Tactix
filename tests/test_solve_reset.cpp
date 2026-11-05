@@ -98,7 +98,7 @@ static Trace run(DefaultPolicy &p, uint32_t nvars, uint32_t nclauses,
     Kernel k;
     ScopedHeuristics hg(k);
     Proof proof;
-    assert(proof.open(path, ProofFormat::DratAscii));
+    assert(proof.open(path, ProofFormat::DsrAscii));
     k.proof = &proof;
     build(k, nvars, nclauses);
     t.result = p.solve(k);
@@ -234,10 +234,10 @@ int main(int argc, char **argv) {
 
   // --- the identity: solve #2 on a reused policy == solve #1 on a fresh one --
   DefaultPolicy p;
-  run(p, nvars, nclauses, "reset_first.drat"); // dirties p
-  const Trace reused = run(p, nvars, nclauses, "reset_reused.drat");
+  run(p, nvars, nclauses, "reset_first.dsr"); // dirties p
+  const Trace reused = run(p, nvars, nclauses, "reset_reused.dsr");
   DefaultPolicy q;
-  const Trace fresh = run(q, nvars, nclauses, "reset_fresh.drat");
+  const Trace fresh = run(q, nvars, nclauses, "reset_fresh.dsr");
   print("reused#2", reused);
   print("fresh#1", fresh);
   assert(fresh.result == 10 || fresh.result == 20);
@@ -251,7 +251,7 @@ int main(int argc, char **argv) {
 
   // --- and the leak really had something to carry ---------------------------
   DefaultPolicy r;
-  const Trace once = run(r, nvars, nclauses, "reset_dirty.drat");
+  const Trace once = run(r, nvars, nclauses, "reset_dirty.dsr");
   assert(once == fresh);
   assert_every_group_is_dirty_after_a_solve(r);
 
@@ -262,7 +262,7 @@ int main(int argc, char **argv) {
   DefaultPolicy posed;
   posed.reorder.next_conflicts = 12345;
   posed.reorder.count = 7;
-  const Trace after = run(posed, nvars, nclauses, "reset_posed.drat");
+  const Trace after = run(posed, nvars, nclauses, "reset_posed.dsr");
   assert(after == fresh &&
          "posed scheduling state survived into the solve it preceded");
 
@@ -270,7 +270,7 @@ int main(int argc, char **argv) {
   DefaultPolicy honoured;
   honoured.reset_schedule_per_solve = false;
   honoured.reduce.next_conflicts = 1; // reduce from the first conflict on
-  const Trace kept = run(honoured, nvars, nclauses, "reset_optout.drat");
+  const Trace kept = run(honoured, nvars, nclauses, "reset_optout.dsr");
   assert(!(kept == fresh) &&
          "reset_schedule_per_solve=false did not honour the posed schedule");
 

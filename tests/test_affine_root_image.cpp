@@ -279,9 +279,9 @@ int main(int argc,char **argv){
     std::string stem=argv[1];std::ofstream cnf(stem+".cnf");
     cnf<<"p cnf 4 5\n";for(const auto&s:sources){for(int x:s.clause)cnf<<x<<' ';cnf<<"0\n";}
     // Nonrefuting prefixes against the satisfiable ORIGINAL input.
-    std::ofstream dsr(stem+".dsr"),drat(stem+".drat");
-    for(const auto&r:p.residuals){for(int x:r.clause){dsr<<x<<' ';drat<<x<<' ';}dsr<<"0\n";drat<<"0\n";}
-    std::ofstream bad(stem+"-bad.drat");bad<<"1 0\n";
+    std::ofstream dsr(stem+".dsr");
+    for(const auto&r:p.residuals){for(int x:r.clause)dsr<<x<<' ';dsr<<"0\n";}
+    std::ofstream bad(stem+"-bad.dsr");bad<<"1 0\n";
     std::ofstream model(stem+".model");model<<"s SATISFIABLE\nv -1 -2 -3 4 0\n";
   }
 }

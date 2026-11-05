@@ -304,19 +304,14 @@ void interruption_and_capture_output_stability() {
 }
 
 void unsupported_proofs_decline_before_mutation() {
-  for (const auto &[format, path] :
-       {std::pair{ProofFormat::Lrat, "/tmp/direct-csp-support-decline.lrat"},
-        std::pair{ProofFormat::Pbp, "/tmp/direct-csp-support-decline.pbp"}}) {
+  {
+    const char *const path = "/tmp/direct-csp-support-decline.pbp";
     Kernel kernel = parse();
     Proof proof;
     std::remove(path);
-    if (format == ProofFormat::Pbp) {
-      assert(proof.open(path, ProofFormat::PbpStreaming));
-      proof.finish_input_transaction();
-      assert(proof.begin_pb());
-    } else {
-      assert(proof.open(path, format));
-    }
+    assert(proof.open(path, ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -354,9 +349,7 @@ int main(int argc, char **argv) {
   duplicate_scans_have_exact_work_boundaries();
   interruption_and_capture_output_stability();
   unsupported_proofs_decline_before_mutation();
-  if (argc == 4) {
+  if (argc == 3)
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-    write_certificate(argv[1], argv[3], ProofFormat::DratAscii);
-  }
   std::puts("test_direct_csp_support_live: passed");
 }

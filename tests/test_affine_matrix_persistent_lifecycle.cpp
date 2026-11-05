@@ -348,8 +348,8 @@ void root_maintenance_after_sweep_refutes(ProofFormat format,const char *prefix)
 }
 // Handoffs am-rel-548/am-rel-206. A root Substitute round turns the failed
 // root 6 (6 -> 7 and 6 -> -7) into the unit -6. Its PendingUnits batch carries
-// no LRAT id under DSR or DRAT, so the unit is known to proof-visible consumers
-// only through the root-unit table. BVE on 7 then removes the binaries that
+// no unit id, so the unit is known to proof-visible consumers only through the
+// root-unit table. BVE on 7 then removes the binaries that
 // implied it (before the table recorded such units this refresh returned
 // Invalid in every format); the Substitute variant keeps them and covers the
 // second-round path. A persistent refresh (op 2) and root maintenance (op 3)
@@ -380,7 +380,7 @@ void refresh_after_root_unit_premises_removed(ProofFormat format,bool eliminate)
   assert(propagate_apply(k)!=ApplyResult::Unsat);
   const Lit unit=kernel_internalize(k,-6);
   assert(kernel_root_value(k,unit)>0 && k.assigned[var_of(unit)].reason==UNIT_REASON);
-  // DSR and DRAT name the asserted unit only through the root-unit table.
+  // DSR names the asserted unit only through the root-unit table.
   assert(!k.unit_ids[var_of(unit)] && var_of(unit)<k.dsr_root_values.size() &&
          k.dsr_root_values[var_of(unit)]==-1);
   if(eliminate){
@@ -401,11 +401,11 @@ void refresh_after_root_unit_premises_removed(ProofFormat format,bool eliminate)
 }
 int main(int argc,char **argv){
  alias_failure_atomicity();refresh_root_assignment_stamp();
- for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii})
+ for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary})
   root_maintenance_after_sweep_refutes(format,argc>1?argv[1]:nullptr);
- for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii})
+ for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary})
   for(bool eliminate:{false,true})refresh_after_root_unit_premises_removed(format,eliminate);
- for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii,ProofFormat::DratBinary})
+ for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary})
   for(bool signed_alias:{false,true})for(bool sweep:{false,true})
     exercise(signed_alias,sweep,format,argc>1?argv[1]:nullptr);
 }

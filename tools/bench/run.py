@@ -25,13 +25,11 @@ Usage:
 - For the solver under test, every UNSAT answer's proof is checked; a rejected
   (or missing) proof counts as UNSOLVED, competition-style. The arm's own
   command picks the requested format: Tactix automatic output is routed by
-  certificate content (startup PBP, witnessed DSR, or witness-free DSR),
-  `--lrat` selects native LRAT, `--drat` selects compatibility DRAT, and
-  `--pbp` selects whole-run PBP checked by VeriPB and CakePB.
-  Other solver commands default to DRAT.
-  A DRAT check that outruns its budget is not final: the arm is re-solved with
-  `--lrat` and cake_lpr verifies that instead (§8.1, `lrat_rescue`). A checker
-  that rejects still scores the instance unsolved — that is an N2 failure.
+  certificate content (startup PBP, witnessed DSR, or witness-free DSR), `--dsr`
+  selects native DSR, and `--pbp` selects whole-run PBP checked by VeriPB and
+  CakePB. Other solver commands default to DRAT; their `--lrat` selects LRAT
+  checked by cake_lpr. A checker that rejects scores the instance unsolved —
+  that is an N2 failure.
   Verdicts are also checked against the expected status in the list — any
   mismatch is a correctness bug (stop and use the fuzz skill).
 - Every arm writes proofs, baselines included (plan §8.1): timing a
@@ -110,8 +108,7 @@ CHECKMODEL = os.path.join(ROOT, "tools", "fuzz", "checkmodel")
 MODEL_CHECK_BUDGET = 600  # linear scan; Tier-scale instances finish in seconds
 
 # The one message `check_proof` emits when the checker outran its budget rather
-# than rejecting. Single-sourced because it is a control signal, not prose: it,
-# and only it, may trigger the §8.1 native-LRAT re-check (`lrat_rescue`).
+# than rejecting.
 CHECKER_TIMEOUT_PREFIX = "checker exceeded its "
 
 # The `kind` field classifies the checker's verdict. A last-output-line archive
@@ -475,69 +472,6 @@ def reach_counters(stdout):
     return out
 
 
-def lrat_rescue(res, cmd, cnf, proof, timeout, proof_check_timeout=None):
-    """Plan §8.1: "a proof that outruns even this [budget] is re-checked as
-    native LRAT before the instance is called unsolved".
-
-    It must be a RE-SOLVE, not a conversion: producing LRAT from DRAT needs
-    exactly drat-trim's backward search, the search that just timed out. So the
-    arm is re-run with `--lrat` appended and cake_lpr verifies what it writes.
-    Measured, cake_lpr can be an order of magnitude faster than drat-trim on
-    exactly the proofs that overrun the budget.
-
-    Why this exists: without it a checker-budget overrun DISCARDS A CORRECT
-    SOLVE, which has silently changed tier verdicts more than once.
-
-    Sets res["proof_rescue"] to "lrat" when a certificate verified, else to a
-    "failed: <reason>" string, and returns whether the instance is proof-clean.
-    A re-solve that answers DIFFERENTLY is never rescued: that is a genuine
-    anomaly and it must stay visible as an unsolved instance.
-
-    RESCUABILITY IS A PRECONDITION, NOT A HINT. Only CHK_TIMEOUT reaches here,
-    and the assert says so structurally: a REJECTED certificate must never be
-    re-scored as a budget overrun, which is precisely what this path would do
-    if the caller's guard ever loosened."""
-    assert res.get("proof_check_kind") == CHK_TIMEOUT, (
-        "lrat_rescue is only for a checker BUDGET overrun; got "
-        f"{res.get('proof_check_kind')!r} on {res.get('instance')!r}")
-    # The DRAT proof has already been sized and judged, and the LRAT one is
-    # bigger; drop it before writing a second multi-GB file into the same
-    # (node-shared) scratch.
-    if os.path.exists(proof):
-        os.unlink(proof)
-    lproof = proof + ".rescue.lrat"
-    t0 = time.monotonic()
-    try:
-        verdict, solve_s, _, _ = solve_once(cmd + ["--lrat", cnf, lproof],
-                                            timeout)
-        if verdict != res["verdict"]:
-            res["proof_rescue"] = (f"failed: --lrat re-solve answered "
-                                   f"{verdict}, not {res['verdict']}")
-        elif not os.path.exists(lproof):
-            res["proof_rescue"] = "failed: --lrat re-solve wrote no proof"
-        else:
-            lbytes = os.path.getsize(lproof)
-            t1 = time.monotonic()
-            budget = (proof_check_timeout if proof_check_timeout is not None
-                      else checker_budget(timeout))
-            ok, msg, rkind, _ = check_proof("lrat", cnf, lproof, budget)
-            res["proof_rescue_kind"] = rkind
-            detail = (f"re-solve {solve_s:.1f}s, {lbytes / 1e6:.0f} MB LRAT, "
-                      f"cake_lpr {time.monotonic() - t1:.1f}s: {msg}")
-            if ok:
-                res["proof_rescue"] = "lrat"
-                res["proof_ok"] = True
-                res["proof_msg"] += f"; RESCUED as native LRAT ({detail})"
-                return True
-            res["proof_rescue"] = f"failed: {detail}"
-    finally:
-        if os.path.exists(lproof):
-            os.unlink(lproof)
-        res["proof_rescue_time"] = round(time.monotonic() - t0, 3)
-    res["proof_msg"] += f" [{res['proof_rescue']}]"
-    return False
-
-
 def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                  score_proofs=True, verify_proofs=True,
                  proof_limit_bytes=None, proof_check_timeout=None):
@@ -579,12 +513,6 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
            # `proof_check_kind` is the machine-readable fact separating an
            # invalid certificate from a checker that gave up.
            "proof_check_kind": None, "proof_check_detail": None,
-           # §8.1 native-LRAT re-check: "lrat" when it saved the instance, a
-           # "failed: ..." reason when it was tried and did not, None when the
-           # DRAT check never ran out of time. Always present so the schema is
-           # stable across runs and the count is aggregatable.
-           "proof_rescue": None, "proof_rescue_time": None,
-           "proof_rescue_kind": None,
            # §8.2 oracle 1 on the bench path (2026-08-08): SAT verdicts carry
            # a checkmodel result. None = not run (baseline / timeout / UNSAT).
            "model_ok": None, "model_msg": None}
@@ -664,17 +592,6 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                     res["proof_msg"] = msg
                     res["proof_check_kind"] = kind
                     res["proof_check_detail"] = detail or None
-                    # §8.1 second chance, deliberately narrow, and gated on the
-                    # classified kind rather than a prose prefix. Only a budget
-                    # outrun qualifies — a rejection is a real N2 failure, and
-                    # silencing it would be a correctness hole. Only a scored
-                    # arm (a baseline's check cannot change a verdict and its
-                    # CLI need not take `--lrat`), and only a DRAT arm (an
-                    # `--lrat` arm has nothing left to re-check).
-                    if (not ok and score_proofs and fmt == "drat"
-                            and kind == CHK_TIMEOUT):
-                        ok = lrat_rescue(res, cmd, cnf, proof, timeout,
-                                         proof_check_timeout)
                     if not ok and score_proofs:  # rejected proof = unsolved (§2)
                         res["solved"] = False
     if check_proofs and os.path.exists(proof):
@@ -810,21 +727,6 @@ def summarize(name, results, timeout, shape):
         lines.append(f"  proofs ({'/'.join(fmts)}): {len(pbytes)} checked, "
                      f"total {sum(pbytes) / 1e6:.1f} MB, "
                      f"check time {sum(pctime):.1f} s")
-    # §8.1: instances whose DRAT check outran the budget and were saved (or not)
-    # by a native-LRAT re-solve. Never silent — a rescue means an instance would
-    # have been scored unsolved for a checker-budget reason.
-    resc = [r for r in results if r.get("proof_rescue") == "lrat"]
-    rfail = [r for r in results
-             if (r.get("proof_rescue") or "").startswith("failed")]
-    if resc:
-        lines.append(f"  LRAT rescues ({len(resc)}, DRAT budget outrun -> "
-                     f"re-solved with --lrat, cake_lpr VERIFIED): "
-                     + ", ".join(f"{r['instance']} (+{r['proof_rescue_time']:.0f} s)"
-                                 for r in resc[:5]))
-    if rfail:
-        lines.append(f"  !! LRAT RESCUES ATTEMPTED AND FAILED ({len(rfail)}): "
-                     + ", ".join(f"{r['instance']} [{r['proof_rescue']}]"
-                                 for r in rfail[:5]))
     if mism:
         lines.append(f"  !! VERDICT MISMATCHES ({len(mism)}): "
                      + ", ".join(r["instance"] for r in mism[:5]))
@@ -1150,8 +1052,7 @@ def slurm_aggregate(outdir):
                  "proof_bytes": None, "proof_check_time": None,
                  "proof_format": None, "proof_route": None,
                  "proof_scored": False,
-                 "proof_msg": None, "proof_rescue": None,
-                 "proof_rescue_time": None,
+                 "proof_msg": None,
                  "model_ok": None, "model_msg": None}
         all_results[man["solvers"][t["solver"]]["name"]].append(r)
     correctness = correctness_record(
@@ -1341,11 +1242,10 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
     me = os.path.abspath(__file__)
     array = f"0-{len(tasks) - 1}" + (f"%{args.throttle}"
                                      if args.throttle else "")
-    # Per-task wall limit: twice (solve + the plan §8.1 checker budget), plus
-    # slack. The second copy pays for `lrat_rescue` — a re-solve plus a cake_lpr
-    # run. A limit that cannot fit the runner's own worst case is a trap: SLURM
-    # kills the task mid-rescue and the instance comes back missing.
-    tlimit = fmt_time(2 * (timeout + checker_budget(timeout)) + 120)
+    # Per-task wall limit: solve + the plan §8.1 checker budget, plus slack. A
+    # limit that cannot fit the runner's own worst case is a trap: SLURM kills
+    # the task mid-check and the instance comes back missing.
+    tlimit = fmt_time(timeout + checker_budget(timeout) + 120)
     apath = os.path.join(outdir, "array.sbatch")
     with open(apath, "w") as f:
         f.write(f"""#!/usr/bin/env bash
@@ -1427,7 +1327,7 @@ def main() -> int:
     ap.add_argument("--checked-arm", action="append", default=[],
                     help="extra arm timed WITH proof logging and checking, "
                          "`label=<command>` (baselines are timed proof-free) "
-                         "— e.g. a DRAT arm vs an `--lrat` arm in one window")
+                         "— e.g. a PBP arm vs a `--dsr` arm in one window")
     ap.add_argument("--jobs", type=int, default=8,
                     help="local mode: parallel solver processes (1..8)")
     ap.add_argument("--timeout", type=float, default=None,

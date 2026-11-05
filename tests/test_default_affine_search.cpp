@@ -331,8 +331,7 @@ void lazy_policy_boundary(bool minimal) {
 void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="",ProofFormat format=ProofFormat::DsrAscii) {
   Kernel kernel;auto text=cnf(f);AffineMatrixSearchSession session;
   FILE *records=load(kernel,text,session);
-  const std::string suffix=format==ProofFormat::DsrAscii ? ".dsr" : ".drat";
-  std::string proof_path=stem.empty()?"/tmp/tactix-default-affine-fixed"+suffix:stem+suffix;
+  std::string proof_path=stem.empty()?"/tmp/tactix-default-affine-fixed.dsr":stem+".dsr";
   Proof proof;
   if(with_proof) {
     assert(proof.open(proof_path.c_str(),format));
@@ -389,9 +388,7 @@ void paused_owner_retry(const std::string &stem = "",
   AffineMatrixSearchSession session;
   FILE *records = load(kernel, cnf(f), session);
   Proof proof;
-  const bool dsr = format == ProofFormat::DsrAscii || format == ProofFormat::DsrBinary;
-  const std::string path = stem.empty() ? "/tmp/tactix-default-paused-owner" +
-      std::string(dsr ? ".dsr" : ".drat") : stem + (dsr ? ".dsr" : ".drat");
+  const std::string path = stem.empty() ? "/tmp/tactix-default-paused-owner.dsr" : stem + ".dsr";
   assert(proof.open(path.c_str(), format));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
@@ -587,9 +584,7 @@ int main(int argc,char **argv) {
       ? std::string(argv[1]) + "/deferred-policy" : "");
   for (const auto &[format, suffix] : {
       std::pair{ProofFormat::DsrAscii, "/paused"},
-      std::pair{ProofFormat::DsrBinary, "/paused-dsr-binary"},
-      std::pair{ProofFormat::DratAscii, "/paused-drat"},
-      std::pair{ProofFormat::DratBinary, "/paused-drat-binary"}})
+      std::pair{ProofFormat::DsrBinary, "/paused-dsr-binary"}})
     paused_owner_retry(argc == 2 ? std::string(argv[1]) + suffix : "", format);
   Kernel k;kernel_reserve_vars(k,30);auto c=config(true);
   auto p=default_affine_search_parameters(k,c);assert(p && p->valid());
@@ -603,7 +598,6 @@ int main(int argc,char **argv) {
   for(bool sat:{true,false}) {
     auto f=mixed(sat?4:6,5);std::string stem=argc==2?std::string(argv[1])+(sat?"/sat":"/unsat"):"";
     run(f,true,true,stem);
-    run(f,true,true,stem.empty()?"":stem+"-drat",ProofFormat::DratAscii);
     run(f,false,true);
     run(f,false,false);
   }

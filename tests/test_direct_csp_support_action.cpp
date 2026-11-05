@@ -481,19 +481,14 @@ void source_capture_caps_are_resource_rejections() {
 }
 
 void proof_modes_and_guard() {
-  for (const auto &[format, path] :
-       {std::pair{ProofFormat::Lrat, "/tmp/direct-csp-action-decline.lrat"},
-        std::pair{ProofFormat::Pbp, "/tmp/direct-csp-action-decline.pbp"}}) {
+  {
+    const char *const path = "/tmp/direct-csp-action-decline.pbp";
     Kernel kernel = parse();
     Proof proof;
     std::remove(path);
-    if (format == ProofFormat::Pbp) {
-      assert(proof.open(path, ProofFormat::PbpStreaming));
-      proof.finish_input_transaction();
-      assert(proof.begin_pb());
-    } else {
-      assert(proof.open(path, format));
-    }
+    assert(proof.open(path, ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    assert(proof.begin_pb());
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -587,10 +582,9 @@ int main(int argc, char **argv) {
   source_capture_caps_are_resource_rejections();
   proof_modes_and_guard();
   projection_preserves_an_original_model();
-  if (argc == 6) {
+  if (argc == 5) {
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-    write_certificate(argv[1], argv[3], ProofFormat::DratAscii);
-    write_model(argv[4], argv[5]);
+    write_model(argv[3], argv[4]);
   }
   std::puts("test_direct_csp_support_action: passed");
 }

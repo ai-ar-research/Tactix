@@ -63,7 +63,7 @@ void pivot_retirement(ProofFormat format,bool external_rat){
  assert(!p.premise_group_active(handles[0]) && p.premise_group_active(handles[1]));
  assert((!p.population_shadow_available() || !p.population_contains(1,source,2)) && (!p.population_shadow_available() || p.population_contains(2,unrelated,3)));
  p.release_premise_groups(handles,5);p.flush();assert(!p.premise_bytes() && !p.unbacked_deletions());
- if(format==ProofFormat::DsrAscii || format==ProofFormat::DratAscii){
+ if(format==ProofFormat::DsrAscii){
   const auto stream=read_file(path);const auto deletion=stream.find("d -1 2 0\n");
   const auto addition=stream.find("1 0\n",deletion+9);
   assert(deletion!=std::string::npos && addition!=std::string::npos && deletion<addition);
@@ -149,9 +149,6 @@ void witnessless_rup(ProofFormat format,const char *prefix){
 }
 void format_boundaries(){
  const std::string path="/tmp/tactix-lease-routes-"+std::to_string(getpid());
- {Proof p;assert(p.open(path.c_str(),ProofFormat::Lrat));std::vector<uint64_t> handles{77};
-  assert(!p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
-  assert(handles==std::vector<uint64_t>{77} && !p.premise_bytes());}
  {Proof p;assert(p.open(path.c_str(),ProofFormat::PbpStreaming));p.finish_input_transaction();
   assert(p.begin_pb() && p.pb());std::vector<uint64_t> handles{77};
   assert(!p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
@@ -167,7 +164,7 @@ void format_boundaries(){
 }
 }
 int main(int argc,char **argv){
- for(auto f:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii,ProofFormat::DratBinary}){
+ for(auto f:{ProofFormat::DsrAscii,ProofFormat::DsrBinary}){
   witnessless_rup(f,argc>1?argv[1]:nullptr);bounded_deletions(f);shared_copies(f);pivot_retirement(f,false);pivot_retirement(f,true);
  }
  format_boundaries();

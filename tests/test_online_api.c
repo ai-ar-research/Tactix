@@ -43,14 +43,14 @@ static void rejected_configuration_keeps_input_open(void) {
       char path[128];
       const char *proof_dir = getenv("TACTIX_ONLINE_CONFIG_PROOF_DIR");
       if (proof_dir)
-        snprintf(path, sizeof path, "%s/config-%d-%d.lrat",
+        snprintf(path, sizeof path, "%s/config-%d-%d.dsr",
                  proof_dir, version, proof_mode);
       else
         snprintf(path, sizeof path,
-                 "/tmp/tactix-online-config-%ld-%d-%d.lrat",
+                 "/tmp/tactix-online-config-%ld-%d-%d.dsr",
                  (long)getpid(), version, proof_mode);
       if (proof_mode == 1)
-        assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
+        assert(tactix_proof(solver, path, TACTIX_PROOF_DSR_BINARY) == 0);
       add_clause(solver, (const int[]){1, 0});
       assert(tactix_add_checked(solver, 2) == 0); /* unfinished clause */
       tactix_online_step step;
@@ -63,7 +63,7 @@ static void rejected_configuration_keeps_input_open(void) {
       assert(tactix_online_complete(solver) == -1);
       assert(tactix_add_checked(solver, 0) == 0);
       if (proof_mode == 2)
-        assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
+        assert(tactix_proof(solver, path, TACTIX_PROOF_DSR_BINARY) == 0);
 
       step.rule_id = rule("Propagate");
       step.work_unit = TACTIX_ONLINE_WORK_PROPAGATIONS;
@@ -140,12 +140,12 @@ static void condition_cube_v3_is_atomic_and_copied(void) {
   tactix_release(solver);
 }
 
-/* Early and late LRAT attachment share eager import and can finish the input
+/* Early and late proof attachment share eager import and can finish the input
  * refutation before the online executor runs. The executor must not report a
  * second UNSAT transition merely because proof attachment happened early. */
-static void late_lrat_root_refutation_is_terminal(void) {
-  /* Eager root propagation and native-LRAT replay can finish with
-   * different unit trails after the same input has been refuted. */
+static void late_proof_root_refutation_is_terminal(void) {
+  /* Eager root propagation and input replay can finish with different unit
+   * trails after the same input has been refuted. */
   static const int input[] = {
       25, 0, -30, 13, -25, 0, 7, -22, 21, 0, 22, -14, 9, 0,
       -2, 21, 14, 0, -34, -24, -10, 0, -15, 2, -4, 0,
@@ -158,19 +158,19 @@ static void late_lrat_root_refutation_is_terminal(void) {
     char path[512];
     const char *proof_dir = getenv("TACTIX_F1_PROOF_DIR");
     if (proof_dir)
-      snprintf(path, sizeof path, "%s/%s.lrat", proof_dir,
+      snprintf(path, sizeof path, "%s/%s.dsr", proof_dir,
                late ? "late" : "early");
     else
-      snprintf(path, sizeof path, "/tmp/tactix-online-late-root-%ld-%d.lrat",
+      snprintf(path, sizeof path, "/tmp/tactix-online-late-root-%ld-%d.dsr",
                (long)getpid(), late);
     tactix *solver = tactix_init();
     if (!late)
-      assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
+      assert(tactix_proof(solver, path, TACTIX_PROOF_DSR_BINARY) == 0);
     int clauses = 0;
     for (unsigned i = 0; i < sizeof input / sizeof input[0]; ++i) {
       tactix_add(solver, input[i]);
       if (!input[i] && ++clauses == 1 && late)
-        assert(tactix_proof(solver, path, TACTIX_PROOF_LRAT) == 0);
+        assert(tactix_proof(solver, path, TACTIX_PROOF_DSR_BINARY) == 0);
     }
     assert(clauses == 22);
     tactix_online_step step;
@@ -1458,7 +1458,7 @@ int main(void) {
   graph_labeling_parameters_are_public_and_validated();
   rejected_configuration_keeps_input_open();
   condition_cube_v3_is_atomic_and_copied();
-  late_lrat_root_refutation_is_terminal();
+  late_proof_root_refutation_is_terminal();
   canonical_bve_reaches_a_real_fixpoint();
   bve_otf_strengthening_is_public_and_observable();
   status_reconstructs_bve_models_and_refreshes_after_restart();

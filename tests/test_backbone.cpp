@@ -119,43 +119,6 @@ static void test_binary_propagation_leaves_full_propagation_pending() {
   assert(k.assigned[var_of(internalize(3))].level == 0);
 }
 
-// Same obligation `kernel_propagate_probing` already carries: this speculative
-// propagator can force a literal at level zero and never passes through
-// `propagate_service`, so it must name that literal itself.  A root literal
-// whose `unit_ids` entry is still 0 truncates every later chain citing it at
-// LRAT's line terminator.
-static void test_binary_propagation_names_its_root_units_for_lrat() {
-  const std::string path = "/tmp/tactix-binprop-root-" +
-                           std::to_string(static_cast<long>(getpid())) +
-                           ".lrat";
-  {
-    Kernel k;
-    Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::Lrat));
-    k.proof = &proof;
-    kernel_reserve_vars(k, 2);
-    kernel_add_binary_clause(k, internalize(-1), internalize(2), 2);
-    k.next_clause_id = 2;
-    k.unit_ids[var_of(internalize(1))] = 1; // input unit (1) is clause 1
-    kernel_assign_unit(k, internalize(1));
-
-    assert(!kernel_propagate_binary(k));
-    assert(k.value(internalize(2)) > 0);
-    assert(k.assigned[var_of(internalize(2))].level == 0);
-    assert(k.unit_ids[var_of(internalize(2))] != 0);
-    proof.flush();
-    k.proof = nullptr;
-  }
-  FILE *file = fopen(path.c_str(), "rb");
-  assert(file);
-  char bytes[64] = {};
-  const size_t size = fread(bytes, 1, sizeof bytes, file);
-  fclose(file);
-  remove(path.c_str());
-  // the input unit's id, then the binary it propagated through
-  assert(std::string(bytes, size) == "3 2 0 1 2 0\n");
-}
-
 // A round retracts every literal it put on the speculative trail, so the
 // replayed unit batch is propagated from the batch's own trail position.
 // Leaving the level-zero stamps in place instead strands them behind the
@@ -281,14 +244,14 @@ static void test_candidate_priority_survives_variable_compaction() {
   assert(k.backbone_priority[1] == 3);
 }
 
-static void test_chained_binary_uip_lrat_order() {
+static void test_chained_binary_uip_proof_order() {
   const std::string path = "/tmp/tactix-backbone-" +
                            std::to_string(static_cast<long>(getpid())) +
-                           ".lrat";
+                           ".dsr";
   {
     Kernel k;
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::Lrat));
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
     k.proof = &proof;
     kernel_reserve_vars(k, 3);
     kernel_add_binary_clause(k, internalize(-1), internalize(2), 1);
@@ -305,13 +268,7 @@ static void test_chained_binary_uip_lrat_order() {
   const size_t size = fread(bytes, 1, sizeof bytes, file);
   fclose(file);
   remove(path.c_str());
-  // The speculative -1 implication is named before unwind. Replaying the
-  // -2 batch names -1 again: the old id's polarity cache was invalidated with
-  // its assignment, so an opposite replay could not silently reuse it.
-  assert(std::string(bytes, size) ==
-         "4 -2 0 2 3 0\n"
-         "5 -1 0 4 1 0\n"
-         "6 -1 0 4 1 0\n");
+  assert(std::string(bytes, size) == "-2 0\n-1 0\n");
 }
 
 // The binary-only restriction: 1 fails only through the size-3 clauses, so
@@ -524,14 +481,13 @@ int main() {
   test_root_replay_is_outside_backbone_private_meter();
   test_root_replay_propagates_large_clause_closure();
   test_binary_propagation_leaves_full_propagation_pending();
-  test_binary_propagation_names_its_root_units_for_lrat();
   test_round_exit_rescans_every_speculative_root_literal();
   test_falsified_candidate_survives_to_next_round();
   test_round_limits_are_strategy_parameters();
   test_chained_unit_stays_speculative_until_round_end();
   test_candidate_priority_persists_between_computations();
   test_candidate_priority_survives_variable_compaction();
-  test_chained_binary_uip_lrat_order();
+  test_chained_binary_uip_proof_order();
   test_binary_only_misses_large_clause_failure();
   test_no_failed_literal_noop();
   test_binary_meter_charges_scanned_prefix();

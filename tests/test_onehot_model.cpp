@@ -289,19 +289,6 @@ int main() {
     assert(std::remove(path.c_str()) == 0);
   }
   {
-    const std::string path = "/tmp/tactix-exact-one-refutation.lrat";
-    Kernel k = exact_one_bipartite_fixture(3, 2);
-    Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::Lrat));
-    k.proof = &proof;
-    strategy::OnehotModelParameters parameters;
-    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
-    assert(!k.inconsistent);
-    k.proof = nullptr;
-    proof.flush();
-    assert(std::remove(path.c_str()) == 0);
-  }
-  {
     Kernel k = direct_csp_fixture();
     assert(onehot_model_guard(k));
     assert(direct_csp_model_apply(k) == ApplyResult::Sat);

@@ -95,13 +95,12 @@ static void test_mutual_dependency() {
 }
 
 // Pinned transitive.c commits a failed-source unit immediately: b implies d
-// and ¬d, so assuming ¬a refutes and {a} is learned. Exercise the native LRAT
-// BFS chain as well as the semantic assignment. Vars: a=1, b=2, c=3, d=4.
+// and ¬d, so assuming ¬a refutes and {a} is learned. Vars: a=1, b=2, c=3, d=4.
 static void test_failed_literal_committed() {
   Kernel k;
   k.transitive_early_exit = false; // exhaustive diagnostic owns this behavior
   Proof proof;
-  assert(proof.open("/dev/null", ProofFormat::Lrat));
+  assert(proof.open("/dev/null", ProofFormat::DsrAscii));
   k.proof = &proof;
   kernel_reserve_vars(k, 4);
   add_bin(k, 1, 2);   // ¬a → b
@@ -111,7 +110,6 @@ static void test_failed_literal_committed() {
   assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::Ok);
   assert(k.stats.transitive_units == 1);
   assert(k.value(internalize(1)) > 0);
-  assert(k.unit_ids[var_of(internalize(1))] != 0);
   assert(k.stats.transitive_deleted == 0);
   assert(live(k, 1, 2) && live(k, 1, 3));
 }

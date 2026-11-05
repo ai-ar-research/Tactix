@@ -19,13 +19,10 @@
 
 using namespace tactix;
 
-static int zero_gain_proof_witness(const char *input, const char *output,
-                                   const char *format) {
+static int zero_gain_proof_witness(const char *input, const char *output) {
   Kernel k;
   Proof proof;
-  assert(proof.open(output, std::string(format) == "lrat"
-                                ? ProofFormat::Lrat
-                                : ProofFormat::DratAscii));
+  assert(proof.open(output, ProofFormat::DsrAscii));
   k.proof = &proof;
   FILE *cnf = std::fopen(input, "r");
   assert(cnf && !parse_dimacs(cnf, k));
@@ -250,8 +247,8 @@ static void test_complete_grid_enumeration_names_large_occurrences() {
 }
 
 int main(int argc, char **argv) {
-  if (argc == 4)
-    return zero_gain_proof_witness(argv[1], argv[2], argv[3]);
+  if (argc == 3)
+    return zero_gain_proof_witness(argv[1], argv[2]);
   assert(argc == 1);
   test_exact_subgrid_selection();
   test_exact_zero_gain_grid_is_legal();

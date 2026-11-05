@@ -469,7 +469,7 @@ static void print_model(tactix *solver, int maximum_variable) {
 }
 
 static void usage(const char *program) {
-  fprintf(stderr, "usage: %s [--profile=default|stable-negative|stable-positive|stable-saved|gate-default|bnn-default|gate-stable-negative|bnn-stable-negative|lucky-forward-false|lucky-forward-true|lucky-backward-false|lucky-backward-true|lucky-bnn-cascade|input-stable-negative|input-stable-positive|input-auto|input-incidence-negative|input-incidence-positive|input-incidence-auto|input-d-matched] [--drat] CNF[.gz] [PROOF]\n", program);
+  fprintf(stderr, "usage: %s [--profile=default|stable-negative|stable-positive|stable-saved|gate-default|bnn-default|gate-stable-negative|bnn-stable-negative|lucky-forward-false|lucky-forward-true|lucky-backward-false|lucky-backward-true|lucky-bnn-cascade|input-stable-negative|input-stable-positive|input-auto|input-incidence-negative|input-incidence-positive|input-incidence-auto|input-d-matched] [--dsr] CNF[.gz] [PROOF]\n", program);
 }
 
 int main(int argc, char **argv) {
@@ -487,7 +487,7 @@ int main(int argc, char **argv) {
         usage(argv[0]);
         return 1;
       }
-    } else if (!strcmp(argv[arg], "--drat")) {
+    } else if (!strcmp(argv[arg], "--dsr")) {
       /* Declares the proof format to tools/bench/run.py. */
     } else if (!cnf) {
       cnf = argv[arg];
@@ -503,7 +503,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   solver = tactix_init();
-  if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DRAT_BINARY)) {
+  if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DSR_BINARY)) {
     fprintf(stderr, "tactix-eevbnn-policy: cannot create proof '%s'\n", proof);
     tactix_release(solver);
     return 1;

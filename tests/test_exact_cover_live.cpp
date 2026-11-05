@@ -86,7 +86,7 @@ static void positive_and_repeat() {
   char buffer[1024];
   while (const size_t count = std::fread(buffer, 1, sizeof buffer, records))
     journal.append(buffer, count);
-  // Proofless/DRAT kernels name binaries by literals, while large source
+  // Proofless kernels name binaries by literals, while large source
   // clauses retain their native identities. Both cases remain explicit.
   assert(journal.find("\"native_proof_id\":0") != std::string::npos);
   assert(journal.find("\"native_proof_id\":10") != std::string::npos);
@@ -301,9 +301,7 @@ int main(int argc, char **argv) {
   final_revalidation_obeys_recognition_limit();
   clean_declines();
   interrupted_decline_reports_work();
-  if (argc == 4) {
+  if (argc == 3)
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-    write_certificate(argv[1], argv[3], ProofFormat::DratAscii);
-  }
   std::puts("test_exact_cover_live: passed");
 }
