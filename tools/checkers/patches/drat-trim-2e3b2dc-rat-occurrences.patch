@@ -1,0 +1,94 @@
+diff --git a/drat-trim.c b/drat-trim.c
+index cf8a676..71318d6 100644
+--- a/drat-trim.c
++++ b/drat-trim.c
+@@ -23,0 +24 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
++#include <string.h>
+@@ -65,0 +67,2 @@ struct solver { FILE *inputFile, *proofFile, *lratFile, *traceFile, *activeFile;
++    unsigned char *live; // by clause number, once built: is the clause on the watch lists?
++    long *occStart, *occ; // clauses by literal, extension variables only, once built
+@@ -88,0 +92,5 @@ static inline void addWatchPtr (struct solver* S, int lit, long watch) {
++static inline void setLive (struct solver* S, int* clause, int live) {
++  const long number = clause[ID] >> 1;
++  if (live) S->live[number >> 3] |=  (unsigned char) (1 << (number & 7));
++  else      S->live[number >> 3] &= (unsigned char) ~(1 << (number & 7)); }
++
+@@ -89,0 +98 @@ static inline void addWatch (struct solver* S, int* clause, int index) {
++  if (S->live) setLive (S, clause, 1);
+@@ -93,0 +103 @@ static inline void removeWatch (struct solver* S, int* clause, int index) {
++  if (S->live) setLive (S, clause, 0);
+@@ -550,0 +561,43 @@ void printDependencies (struct solver *S, int* clause, int RATflag) {
++static inline long occSlot (struct solver *S, int lit) {
++  return 2L * (abs (lit) - S->nVars - 1) + (lit < 0); }
++
++// Scanning every clause for every RAT lemma costs (RAT lemmas) x (formula), and
++// a proof that factors has millions of such lemmas on extension variables. So on
++// first use, list the clauses holding each extension-variable literal, and track
++// which clauses are live. Input-variable pivots keep the scan, which keeps the
++// index down to the occurrences of proof-introduced variables.
++static void buildOccurrences (struct solver *S) {
++  const long slots = 2L * (S->maxVar - S->nVars);
++  long i; int j, pass;
++  S->occStart = (long *) calloc (slots + 1, sizeof (long));
++  S->live = (unsigned char *) calloc (S->count / 8 + 1, 1);
++  if (S->occStart == NULL || S->live == NULL) { printf ("c MEMOUT: RAT occurrence index\n"); exit (0); }
++  for (i = -S->maxVar; i <= S->maxVar; i++) {
++    if (i == 0) continue;
++    for (j = 0; j < S->used[i]; j++) {
++      int* watched = S->DB + (S->wlist[i][j] >> 1);
++      if (*watched == i) setLive (S, watched, 1); } }
++  // Only proof steps add clauses that can hold an extension variable.
++  for (pass = 0; pass < 2; pass++) {
++    for (i = 0; i < S->nStep; i++) {
++      const long ad = S->proof[i];
++      if (ad == 0 || (ad & DBIT)) continue;
++      const long offset = ad >> INFOBITS;
++      int *lit;
++      for (lit = S->DB + offset; *lit; lit++) {
++        if (abs (*lit) <= S->nVars) continue;
++        if (pass == 0) S->occStart[occSlot (S, *lit) + 1]++;
++        else S->occ[S->occStart[occSlot (S, *lit)]++] = offset; } }
++    if (pass == 0) {
++      for (i = 0; i < slots; i++) S->occStart[i + 1] += S->occStart[i];
++      S->occ = (long *) malloc (sizeof (long) * (S->occStart[slots] + 1));
++      if (S->occ == NULL) { printf ("c MEMOUT: RAT occurrence index\n"); exit (0); } } } }
++
++static inline int addRATcandidate (struct solver *S, int nRAT, long offset) {
++  if (nRAT == S->maxRAT) {
++    S->maxRAT = (S->maxRAT * 3) >> 1;
++    S->RATset = realloc (S->RATset, sizeof (long) * S->maxRAT);
++    assert (S->RATset != NULL); }
++  S->RATset[nRAT] = offset;
++  return nRAT + 1; }
++
+@@ -553,0 +607,14 @@ int checkRAT (struct solver *S, int pivot, int mark) {
++  if (abs (pivot) > S->nVars) {
++    if (S->occStart == NULL) buildOccurrences (S);
++    // Filling moved each slot's start to its end, which is the next slot's start.
++    const long slot = occSlot (S, -pivot);
++    long at;
++    for (at = slot ? S->occStart[slot - 1] : 0; at < S->occStart[slot]; at++) {
++      const int* candidate = S->DB + S->occ[at];
++      const long number = candidate[ID] >> 1;
++      if (!(S->live[number >> 3] >> (number & 7) & 1)) continue;
++      if ((S->mode == BACKWARD_UNSAT) && !(candidate[ID] & ACTIVE)) continue;
++      // Optimization rounds can shorten a lemma after the index was built.
++      const int* lit = candidate;
++      while (*lit && *lit != -pivot) lit++;
++      if (*lit) nRAT = addRATcandidate (S, nRAT, S->occ[at]); } }
+@@ -555 +622 @@ int checkRAT (struct solver *S, int pivot, int mark) {
+-  for (i = -S->maxVar; i <= S->maxVar; i++) {
++  else for (i = -S->maxVar; i <= S->maxVar; i++) {
+@@ -568,5 +635 @@ int checkRAT (struct solver *S, int pivot, int mark) {
+-	    if (nRAT == S->maxRAT) {
+-	      S->maxRAT = (S->maxRAT * 3) >> 1;
+-	      S->RATset = realloc (S->RATset, sizeof (long) * S->maxRAT);
+-              assert (S->RATset != NULL); }
+-	    S->RATset[nRAT++] = S->wlist[i][j] >> 1;
++	    nRAT = addRATcandidate (S, nRAT, S->wlist[i][j] >> 1);
+@@ -717,0 +781 @@ int init (struct solver *S) {
++  if (S->live) memset (S->live, 0, S->count / 8 + 1);
+@@ -1279,0 +1344 @@ int parse (struct solver* S) {
++  S->live = NULL; S->occStart = NULL; S->occ = NULL;
+@@ -1320,0 +1386 @@ void freeMemory (struct solver *S) {
++  free (S->live); free (S->occStart); free (S->occ);

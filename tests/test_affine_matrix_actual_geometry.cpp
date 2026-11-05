@@ -23,7 +23,7 @@ void alias_deferred_caps(uint64_t cap,bool accepted,bool shared_tighter=false){
  for(const auto &clause:original){std::vector<Lit> body;for(int x:clause)body.push_back(kernel_internalize(k,x));const auto id=++k.next_clause_id;if(body.size()==2)kernel_add_binary_clause(k,body[0],body[1],id);else kernel_add_large_clause(k,body.data(),body.size(),false,0,id);}
  const std::string path="/tmp/tactix-alias-reservoir-"+std::to_string(getpid())+"-"+std::to_string(cap)+"-"+std::to_string(shared_tighter);
  Proof proof;assert(proof.open(path.c_str(),ProofFormat::DsrAscii));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
- for(size_t i=0;i<original.size();++i){std::vector<Lit> body;for(int x:original[i])body.push_back(kernel_internalize(k,x));proof.seed_population(i+1,body.data(),body.size());}proof.arm_population_shadow();k.proof=&proof;
+ for(size_t i=0;i<original.size();++i){std::vector<Lit> body;for(int x:original[i])body.push_back(kernel_internalize(k,x));proof.seed_population(i+1,body.data(),body.size());}proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
  FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
  strategy::AffineConsequenceParameters p;
@@ -62,7 +62,7 @@ int main(int argc,char **argv){
  Kernel k;assert(!parse_dimacs(input,k));std::fclose(input);
  FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
  Proof proof;assert(proof.open((base+".dsr").c_str(),ProofFormat::DsrAscii));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
- for(size_t i=0;i<clauses.size();++i){std::vector<Lit> body;for(int x:clauses[i])body.push_back(kernel_internalize(k,x));proof.seed_population(i+1,body.data(),body.size());}proof.arm_population_shadow();k.proof=&proof;
+ for(size_t i=0;i<clauses.size();++i){std::vector<Lit> body;for(int x:clauses[i])body.push_back(kernel_internalize(k,x));proof.seed_population(i+1,body.data(),body.size());}proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
  DefaultStrategyConfig config;config.affine_search.enabled=true;
  config.affine_search.reason_mode=DefaultStrategyConfig::AffineSearch::ReasonMode::EagerSourceSupport;

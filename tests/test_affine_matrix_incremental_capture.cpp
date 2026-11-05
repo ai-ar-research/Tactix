@@ -42,7 +42,7 @@ void capture() {
   Proof proof;assert(proof.open(path.c_str(),ProofFormat::DsrAscii));
   proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
   for(size_t i=0;i<original.size();++i){auto body=physical(k,original[i]);proof.seed_population(i+1,body.data(),body.size());}
-  proof.arm_population_shadow();k.proof=&proof;
+  proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
   AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
   auto p=parameters();p.basis_maximum_nodes=32;
   assert(affine_matrix_search_initialize(k,session,p,AffineMatrixAdmission::AuthenticatedSubimage,

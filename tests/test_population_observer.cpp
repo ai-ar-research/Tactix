@@ -402,7 +402,7 @@ void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
     {
       Proof proof;
       proof.bind_population_observer(&recorder);
-      assert(proof.open(path.c_str(), format));
+      assert(proof.open_dsr_writer(path.c_str(), format));
       assert(recorder.checker_count(CheckerPopulationEventKind::RouteOpened) ==
              1);
       const CheckerRecord &opened = recorder.checker[1];
@@ -417,7 +417,7 @@ void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
     const std::string path = proof_path("bind-after-open");
     {
       Proof proof;
-      assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+      assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
       proof.bind_population_observer(&recorder);
       assert(recorder.checker[0].kind ==
              CheckerPopulationEventKind::ObserverBound);
@@ -455,7 +455,7 @@ void test_explicit_route_rebind_settles_the_original_observer() {
   const std::string path = proof_path("explicit-rebind");
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     kernel_bind_population_observer(kernel, &first);
     const Lit one = lit(1);
@@ -498,7 +498,7 @@ void test_nested_scoped_rebind_settles_each_observer() {
   const std::string path = proof_path("nested-rebind");
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding outer_binding(kernel, outer);
@@ -543,7 +543,7 @@ void test_dsr_checker_transactions_and_exact_clauses() {
   const std::string path = proof_path("dsr");
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);
@@ -691,7 +691,7 @@ void test_external_clauses() {
   const std::string path = proof_path("external");
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);
@@ -1020,7 +1020,7 @@ void test_substitute_proof_transaction() {
   const std::string path = proof_path("substitute-proof");
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
     kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
@@ -1116,7 +1116,7 @@ void test_scope_flushes_before_unbinding() {
   const std::string path = proof_path("scope");
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);

@@ -119,7 +119,7 @@ inline bool affine_live_state_applicable(const Kernel &k) {
 // Empty means admitted.
 template <class Status>
 std::optional<Status> affine_live_decline(const Kernel &k) {
-  if (k.proof && k.proof->terminal_pbp())
+  if (k.proof && k.proof->startup_pb_written())
     return Status::UnsupportedProof;
   if (!affine_live_state_applicable(k)) return Status::Inapplicable;
   if (kernel_terminating(k)) return Status::Interrupted;

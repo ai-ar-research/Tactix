@@ -16,8 +16,8 @@ ApplyResult parity_model_apply(Kernel &);
 
 // Exact extended-resolution refutation for complete bounded-arity XOR systems
 // whose selected equations sum to 0 = 1.  It is the UNSAT half of Lucky's
-// public parity strategy; NoOp means either no such contradiction or a clean
-// resource/proof-format decline.
+// public parity strategy; NoOp means no such contradiction or a clean resource
+// decline.
 ApplyResult parity_refutation_apply(
     Kernel &, const strategy::ParityModelParameters &);
 RuleEligibility startup_parity_guard(const Kernel &);

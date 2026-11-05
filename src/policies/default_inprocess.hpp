@@ -248,7 +248,6 @@ public:
         strategy::InvocationStatus::Completed;
   };
   struct StructuredRootTelem : StructuredRootStageTelem {
-    uint64_t proof_format_declines = 0;
     uint64_t sr_discovery_ticks = 0;
     uint64_t sr_discovery_progress_window = 0;
     uint64_t sr_discovery_renewals = 0;

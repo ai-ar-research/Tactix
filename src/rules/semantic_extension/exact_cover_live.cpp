@@ -109,7 +109,7 @@ ExactCoverLiveResult exact_cover_live_apply(
       !request.maximum_extent_growth || !request.maximum_external_extent ||
       !request.action_id || !request.records || !request.session)
     return result;
-  if (k.proof && k.proof->terminal_pbp()) {
+  if (k.proof && k.proof->startup_pb_written()) {
     result.status = ExactCoverLiveStatus::UnsupportedProof;
     return result;
   }

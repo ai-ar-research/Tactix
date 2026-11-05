@@ -18,7 +18,7 @@ struct Observer final:PopulationObserver {
 };
 void shared_copies(ProofFormat format){
  const std::string path="/tmp/tactix-lease-copies-"+std::to_string(getpid())+"-"+std::to_string(unsigned(format));
- Proof p;assert(p.open(path.c_str(),format));Observer observer;p.bind_population_observer(&observer);
+ Proof p;assert(p.open_dsr_writer(path.c_str(),format));Observer observer;p.bind_population_observer(&observer);
  const Lit native[]={internalize(1),internalize(-2),internalize(3)};
  const int32_t external[]={3,1,-2};
  p.seed_population(1,native,3);p.seed_population(2,native,3);p.arm_population_shadow();
@@ -48,7 +48,7 @@ void shared_copies(ProofFormat format){
 }
 void pivot_retirement(ProofFormat format,bool external_rat){
  const std::string path="/tmp/tactix-lease-pivot-"+std::to_string(getpid())+"-"+std::to_string(unsigned(format))+(external_rat?"-external":"-native");
- Proof p;assert(p.open(path.c_str(),format));
+ Proof p;assert(p.open_dsr_writer(path.c_str(),format));
  const Lit source[]={internalize(-1),internalize(2)};
  const Lit unrelated[]={internalize(3),internalize(4),internalize(5)};
  p.seed_population(1,source,2);p.seed_population(2,unrelated,3);p.arm_population_shadow();
@@ -73,7 +73,7 @@ void pivot_retirement(ProofFormat format,bool external_rat){
 void bounded_deletions(ProofFormat format){
  const std::string path="/tmp/tactix-lease-bounds-"+std::to_string(getpid())+"-"+std::to_string(unsigned(format));
  for(bool wide:{false,true}){
-  Proof p;assert(p.open(path.c_str(),format));Observer observer;p.bind_population_observer(&observer);
+  Proof p;assert(p.open_dsr_writer(path.c_str(),format));Observer observer;p.bind_population_observer(&observer);
   const Lit body[]={internalize(1),internalize(-2),internalize(3)};
   const Lit unrelated[]={internalize(4),internalize(5)};
   for(uint64_t id=1;id<=3;++id)p.seed_population(id,body,3);
@@ -124,7 +124,7 @@ void witnessless_rup(ProofFormat format,const char *prefix){
  const std::string cnf=stem+".cnf",path=stem+".proof";
  FILE *input=std::fopen(cnf.c_str(),"wb");assert(input);
  assert(std::fputs("p cnf 4 2\n1 2 0\n3 4 0\n",input)>=0);assert(!std::fclose(input));
- Proof p;assert(p.open(path.c_str(),format));Observer observer;p.bind_population_observer(&observer);
+ Proof p;assert(p.open_dsr_writer(path.c_str(),format));Observer observer;p.bind_population_observer(&observer);
  const Lit body[]={internalize(1),internalize(2)},other[]={internalize(3),internalize(4)};
  p.seed_population(1,body,2);p.seed_population(2,other,2);p.arm_population_shadow();
  std::vector<uint64_t> handles;
@@ -147,19 +147,75 @@ void witnessless_rup(ProofFormat format,const char *prefix){
  p.bind_population_observer(nullptr);
  if(!prefix){std::remove(path.c_str());std::remove(cnf.c_str());}
 }
+// An XOR group has a parity reason, is leased and natively deleted, and a witnessed
+// SR line then flips one of its variables. The line holds only without those clauses
+// and the reason's proof-only constraints, so the proof has to delete them first. A
+// second XOR's reason repeats after the line, so its constraints are written again. An
+// unrelated core refutes the formula, so a checker reads every line of the proof.
+// Route 0 is PBP, 1 the default, 2 DSR.
+constexpr int32_t plan_carries_for_three=1; // thresholds 2 of a 3-variable equation
+void witnessed_sr_after_native_deletion(const std::string &stem,unsigned route){
+ const std::vector<std::vector<int32_t>> xors={{1,2,3},{1,-2,-3},{-1,2,-3},{-1,-2,3}},
+     others={{8,9,10},{8,-9,-10},{-8,9,-10},{-8,-9,10}},
+     core={{5,6},{5,-6},{-5,6},{-5,-6}};
+ FILE *input=std::fopen((stem+".cnf").c_str(),"wb");assert(input);
+ assert(std::fprintf(input,"p cnf 10 12\n")>0);
+ for(const auto &group:{xors,others,core})for(const auto &clause:group){
+  for(const int32_t literal:clause)assert(std::fprintf(input,"%d ",literal)>0);
+  assert(std::fputs("0\n",input)>=0);
+ }
+ assert(!std::fclose(input));
+ const std::string path=stem+".proof";
+ Proof p;
+ assert(route==1?p.open_automatic(path.c_str(),true):
+        p.open(path.c_str(),route==0?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));
+ const auto body=[](const std::vector<int32_t> &clause){
+  std::vector<Lit> lits;for(const int32_t literal:clause)lits.push_back(internalize(literal));return lits;
+ };
+ uint64_t id=0;
+ for(const auto &group:{xors,others,core})for(const auto &clause:group){
+  const auto lits=body(clause);p.seed_population(++id,lits.data(),lits.size());
+ }
+ p.arm_population_shadow();p.finish_input_transaction();
+ assert(p.commit_clause_stream());
+ PbpParityBoundsCache cache;
+ const auto reason=[&](const std::vector<int32_t> &variables,int32_t extent){
+  const PbpParityEquation equation{variables,true};
+  const std::vector<int32_t> lits=variables;
+  PbpParityReasonPlan plan;
+  assert(p.plan_pbp_parity_reason({equation},lits.data(),lits.size(),extent,cache,plan));
+  const uint64_t clause=++id;
+  assert(p.add_prevalidated_pbp_parity_reason(clause,{equation},lits.data(),lits.size(),cache,plan));
+  assert(p.del_external(clause+1,clause,lits.data(),lits.size()));
+ };
+ reason({1,2,3},10);
+ reason({8,9,10},10+plan_carries_for_three);
+ std::vector<uint64_t> handles;
+ assert(p.retain_premise_groups({xors},8,100,100000,[](uint64_t){return true;},handles,{8,100}));
+ for(size_t i=0;i<xors.size();++i){const auto lits=body(xors[i]);p.del(id+1,i+1,lits.data(),lits.size());}
+ assert(p.premise_group_active(handles[0]));
+ const auto sr=body({2,7});
+ const DsrLiteralMapping flip{internalize(2),internalize(-2)};
+ assert(p.add_sr(++id,sr.data(),sr.size(),nullptr,0,&flip,1,10+2*plan_carries_for_three));
+ assert(!p.premise_group_active(handles[0]) && !p.premise_bytes());
+ reason({8,9,10},10+2*plan_carries_for_three);
+ const Lit unit=internalize(5);
+ p.add_rup(++id,&unit,1);
+ p.add_empty(++id);
+}
 void format_boundaries(){
  const std::string path="/tmp/tactix-lease-routes-"+std::to_string(getpid());
  {Proof p;assert(p.open(path.c_str(),ProofFormat::PbpStreaming));p.finish_input_transaction();
-  assert(p.begin_pb() && p.pb());std::vector<uint64_t> handles{77};
+  assert(p.begin_pb() && p.startup_pb_written());std::vector<uint64_t> handles{77};
   assert(!p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
   const int32_t source[]={1,2};assert(!p.del_external(1,0,source,2));
   assert(handles==std::vector<uint64_t>{77} && !p.premise_bytes());}
- {Proof p;assert(p.open(path.c_str(),ProofFormat::DsrBinary));
+ {Proof p;assert(p.open_dsr_writer(path.c_str(),ProofFormat::DsrBinary));
   const Lit source[]={internalize(1),internalize(2)};p.seed_population(1,source,2);p.arm_population_shadow();
   std::vector<uint64_t> handles;
   assert(p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
   p.del(2,1,source,2);
-  assert(p.dsr());p.release_premise_groups(handles,3);p.flush();assert(!p.unbacked_deletions());}
+  p.release_premise_groups(handles,3);p.flush();assert(!p.unbacked_deletions());}
  std::remove(path.c_str());
 }
 }
@@ -168,4 +224,10 @@ int main(int argc,char **argv){
   witnessless_rup(f,argc>1?argv[1]:nullptr);bounded_deletions(f);shared_copies(f);pivot_retirement(f,false);pivot_retirement(f,true);
  }
  format_boundaries();
+ const std::string stem=argc>1?argv[1]:"/tmp/tactix-lease-sr-"+std::to_string(getpid());
+ for(unsigned route=0;route<3;++route) {
+  const std::string name=stem+"-sr-"+std::to_string(route);
+  witnessed_sr_after_native_deletion(name,route);
+  if(argc<=1){std::remove((name+".cnf").c_str());std::remove((name+".proof").c_str());}
+ }
 }

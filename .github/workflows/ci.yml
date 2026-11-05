@@ -32,7 +32,7 @@ jobs:
             cadical
             drat-trim
             cake_lpr
-          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh') }}
+          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh', 'tools/checkers/patches/**') }}
       - name: Build baseline solvers (kissat, cadical — pinned)
         run: tools/solvers/setup.sh
       - name: Build checker toolchain (drat-trim, lrat-check, cake_lpr — pinned)
@@ -54,7 +54,7 @@ jobs:
             drat-trim
             cake_lpr
             tools/checkers/src
-          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh') }}
+          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh', 'tools/checkers/patches/**') }}
       - name: Build baseline solvers (kissat, cadical — pinned)
         run: tools/solvers/setup.sh
       - name: Build checker toolchain (clausal + VeriPB/CakePB — pinned)

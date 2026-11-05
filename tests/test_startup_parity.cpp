@@ -93,7 +93,6 @@ int main(int argc, char **argv) {
              instances + count);
       assert(apply_rule_instance(lucky, k, LUCKY_STARTUP_PARITY) == ApplyResult::Unsat);
       assert(k.inconsistent && !k.startup_certificate_open);
-      assert(!k.proof || k.proof->pb());
       assert(!startup_parity_guard(k));
       Kernel sat;
       parse_dimacs_text(graph_formula(vertices, false, renamed), sat);
@@ -156,7 +155,7 @@ int main(int argc, char **argv) {
     tactix_release(strict);
     FILE *stream = std::fopen(path.c_str(), "rb");
     assert(stream && std::fseek(stream, 0, SEEK_END) == 0);
-    assert(std::ftell(stream) == 0); // both unsupported actions are byte-invisible
+    assert(std::ftell(stream) == 0); // on an empty session both actions decline
     std::fclose(stream);
     tactix_release(proofless);
   }
@@ -164,8 +163,8 @@ int main(int argc, char **argv) {
   parse_dimacs_text(graph_formula(4, true, false), closed);
   apply_rule(tactix_rules()[tactix_rule_id("Propagate")], closed);
   assert(!startup_parity_guard(closed));
-  // An explicit clausal writer closes the PB boundary, but it must not
-  // renumber the public Lucky action space seen by replay/random policies.
+  // A DSR proof must not renumber the public Lucky action space seen by
+  // replay/random policies.
   const auto &lucky = tactix_rules()[tactix_rule_id("Lucky")];
   uint64_t available[LUCKY_INSTANCE_COUNT];
   Kernel clausal;

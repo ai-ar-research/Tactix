@@ -256,6 +256,7 @@ void deferred_reason_has_public_materialization_boundary() {
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
                                                   100000};
@@ -334,6 +335,7 @@ void detached_minimal_reason_is_public_and_unwatched() {
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
                                                   100000};
@@ -403,6 +405,7 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
                                                   100000};
@@ -504,6 +507,7 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   initialize_persistent(kernel, session);
   for (const int decision : {-1, 2}) {
@@ -560,6 +564,7 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   initialize_persistent(kernel, session);
   for (const int decision : {-1, -2}) {
@@ -644,6 +649,7 @@ void unaffordable_lazy_reasons_are_withdrawn() {
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   initialize_persistent(kernel, session);
   for (const int decision : {-1, -2}) {
@@ -797,6 +803,7 @@ void lazy_source_backtrack_discards_without_publication() {
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   initialize_persistent(kernel, session);
   for (const int decision : {-1, -2}) {
@@ -867,6 +874,7 @@ void deferred_reason_materializes_at_later_conflict(bool pbp) {
     assert(proof.commit_clause_stream());
   } else {
     proof.arm_population_shadow();
+    proof.finish_input_transaction();
   }
   kernel.proof = &proof;
   initialize_persistent(kernel, session);
@@ -1179,6 +1187,7 @@ static int search_proof_fixture(const char *cnf_path, const char *proof_path,
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
                                                   100000};
@@ -1268,6 +1277,7 @@ static int search_chain_proof_fixture(const char *cnf_path,
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
                                                   100000};
@@ -1324,6 +1334,7 @@ static int deferred_reason_proof_fixture(const char *cnf_path,
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
                                                   100000};
@@ -1395,6 +1406,7 @@ static int lazy_reason_ancestor_proof_fixture(const char *cnf_path,
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
                                                   100000};
@@ -1473,6 +1485,7 @@ static int detached_reason_proof_fixture(const char *cnf_path,
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
                                                   100000};

@@ -497,11 +497,8 @@ void finish_input(Kernel &k) {
   // hot path does not carry vector growth and relocation into assignment.
   k.trail.reserve(k.nvars);
   k.frames.reserve(static_cast<size_t>(k.nvars) + 1);
-  // Input ids are now settled: next_clause_id equals the number of input
-  // clauses, exactly the checker's numbering, because ingest_clause consumes
-  // one id per clause and nothing else consumed any. Derived ids start here.
-  // The C API's later attachment first replays the exact raw input into a
-  // proof-bearing kernel.
+  // Input ids are settled. Root units derived during input also took ids, and the
+  // writer tracks that split between Tactix ids and the checker's numbering.
   // An unassigned variable absent from every surviving normalized clause is
   // outside Kissat's active/search population, even when a tautological or
   // root-satisfied raw clause mentioned it. Retire that kernel identity
@@ -568,13 +565,10 @@ void finish_input(Kernel &k) {
 
 void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   assert(!current.proof && current.startup_certificate_open);
-  // A proof attached after proofless input cannot reconstruct the discarded
-  // binary-ID archive. Streaming PBP remains sound by falling back to
-  // deletion-by-specification when it encounters that sentinel.
-  // Replay the checker's exact input, not the clauses left after eager
-  // proofless unit propagation. The C API may keep adding original clauses
-  // after proof selection, so derived ids must follow all input ids.
+  // Replay the checker's exact input, not the clauses left after eager proofless
+  // unit propagation.
   Kernel replay;
+  replay.startup_certificate_open = false; // current holds the raw input
   replay.proof = &proof;
   replay.population_observer = current.population_observer;
   // The replay reconstructs checker identities for input already observed by
@@ -596,8 +590,13 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   }
   assert(clause.empty());
   finish_input(replay);
-  if (proof.dsr())
-    current.dsr_root_values = replay.dsr_root_values;
+  // N2: the root units the replay wrote are the ones a proof attached before the
+  // input would have recorded, so the live kernel's root view must hold them too.
+  current.dsr_root_values = std::move(replay.dsr_root_values);
+  current.dsr_root_proof = replay.dsr_root_proof;
+  current.dsr_root_stream_identity = replay.dsr_root_stream_identity;
+  if (!current.dsr_root_values.empty())
+    current.dsr_root_values.resize(current.nvars, 0);
   current.next_clause_id = std::max(current.next_clause_id,
                                     replay.next_clause_id);
   if (replay.inconsistent) {
@@ -606,12 +605,11 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
     current.inconsistent = true;
     current.input_refuted = false;
   }
-  // Streaming PBP numbers the replayed input by the replay's clause ids.
-  // Unlike the proofless live import, the replay materializes root units
-  // under fresh ids, so a live id can name another constraint. Delete by
-  // specification instead.
-  if (proof.streaming_pbp())
-    proof.disable_pbp_id_deletions();
+  // The writer numbers the replayed input by the replay's clause ids. Unlike
+  // the proofless live import, the replay materializes root units under fresh
+  // ids, so a live id can name another constraint. Delete by specification
+  // instead.
+  proof.disable_pbp_id_deletions();
   current.proof = &proof;
   proof.bind_variable_map(&current.internal_to_external);
   proof.bind_external_variable_map(&current.external_to_internal);

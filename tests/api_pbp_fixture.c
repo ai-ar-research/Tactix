@@ -52,12 +52,9 @@ static int divergent(const char *cnf_path, const char *proof_path) {
   return 0;
 }
 
-/* The documented order: select the proof before the first tactix_add, so it
- * attaches directly with no replay. Seeded random 2+3-SAT whose first clause
- * is ternary; root simplification deletes binaries after input. A binary must
- * never be deleted by an id: finish_input discards the binary-id archive, and
- * its sentinel id would name input clause 1. With seed 27, 5b49680f1 deletes
- * a binary as `del id 1`, which VeriPB rejects and the Debug audit aborts. */
+/* Select the proof before the first tactix_add. Seeded random 2+3-SAT whose first
+ * clause is ternary; root simplification deletes binaries after input, which goes by
+ * specification on this route and must be accepted. */
 static int early(const char *cnf_path, const char *proof_path) {
   enum { VARS = 50, BINARIES = 60, TERNARIES = 170, TOTAL = 1 + 60 + 170 };
   static int clauses[TOTAL][4];

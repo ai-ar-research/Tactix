@@ -463,8 +463,9 @@ bool AffineMatrixSearchSession::attached_to(const Kernel &kernel) const {
   return enabled() && belongs_to(kernel) &&
          kernel.affine_matrix_search_session == this &&
          records_ == kernel.structural_provenance && proof_ == kernel.proof &&
-         (!kernel.proof || (proof_format_ == kernel.proof->format() &&
-          (!persistent() || (proof_stream_identity_ && kernel.proof->stream_identity()==proof_stream_identity_))));
+         (!kernel.proof || !persistent() ||
+          (proof_stream_identity_ &&
+           kernel.proof->stream_identity() == proof_stream_identity_));
 }
 
 bool AffineMatrixSearchSession::inspect_lazy_reason(
@@ -517,7 +518,7 @@ RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
       .provenance()
       .fact("clausal-proof",
             !kernel.proof ||
-                !kernel.proof->terminal_pbp())
+                !kernel.proof->startup_pb_written())
       .finish();
 }
 
@@ -1338,7 +1339,6 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       persistence.maximum_retained_bytes ? owner_version : 0;
   candidate.proof_ = kernel.proof;
   candidate.proof_stream_identity_ = kernel.proof ? kernel.proof->stream_identity() : 0;
-  if (kernel.proof) candidate.proof_format_ = kernel.proof->format();
   candidate.records_ = kernel.structural_provenance;
   candidate.parameters_ = parameters;
   candidate.source_owner_ = std::move(owner);
@@ -2600,7 +2600,7 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                   .fact("sparse", !kernel.dense && kernel.large_watches_connected)
                                   .fact("no-probe-transaction", !kernel.probing.recording)
                                   .fact("profile-valid", profile.valid())
-                                  .fact("clausal-proof", kernel.proof && !kernel.proof->terminal_pbp())
+                                  .fact("clausal-proof", kernel.proof && !kernel.proof->startup_pb_written())
                                   .fact("no-extended-model", !kernel.model_extended)
                                   .fact("session-profile",
                                         profile_session() && !session->has_deferred_reason());

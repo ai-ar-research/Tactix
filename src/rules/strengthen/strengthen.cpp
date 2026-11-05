@@ -331,19 +331,15 @@ static uint64_t forward_cache_lines(size_t watches) {
   return (watches + 31u) / 32u;
 }
 
-// Root facts must survive deletion of a connected reason. Native dense
-// assignment emits the unit immediately and retains UNIT_REASON. Reuse the
-// established named-unit chain builder, before any later satisfied-clause
-// cleanup.
+// Root facts must survive deletion of a connected reason: write the unit
+// immediately and retain UNIT_REASON, before any later satisfied-clause cleanup.
+// With no unit id, the root table is how later rules know the proof holds it.
 static void forward_assign_root(Kernel &k, Lit unit, uint32_t reason,
                                 bool binary) {
-  const size_t from = k.trail.size();
   kernel_assign(k, unit, 0, reason, binary);
   if (k.proof) {
-    if (k.proof->dsr())
-      kernel_emit_root_units(k, from);
-    else
-      k.proof->add_rup(0, &unit, 1);
+    k.proof->add_rup(0, &unit, 1);
+    kernel_note_dsr_root_unit(k, unit);
   }
   Assigned &assigned = k.assigned[var_of(unit)];
   assigned.reason = UNIT_REASON;

@@ -39,7 +39,8 @@ std::string emitted(const char *tag, ProofFormat fmt, Emit emit) {
   const std::string path = tmp_path(tag);
   {
     Proof p;
-    assert(p.open(path.c_str(), fmt));
+    assert(fmt == ProofFormat::PbpStreaming ? p.open(path.c_str(), fmt)
+                                            : p.open_dsr_writer(path.c_str(), fmt));
     emit(p);
   }
   std::string bytes = read_file(path);
@@ -543,7 +544,7 @@ void test_population_membership_uses_exact_drat_multiset() {
   // Input import publishes replacements before the strict checker is armed.
   // Known deletions must still update the population during that interval.
   const std::string path = tmp_path("import-shadow");
-  assert(p.open(path.c_str(), ProofFormat::DsrAscii));
+  assert(p.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
   p.add_rup(2, normalized, 2);
   p.del(2, 1, raw, 3);
   assert(!p.population_contains(1, raw, 3));
@@ -568,7 +569,7 @@ void test_startup_pbp_certificate_boundary() {
     p.finish_input_transaction();
     assert(p.startup_pb_available());
     FILE *out = p.begin_pb();
-    assert(out && p.pb() && !p.startup_pb_available());
+    assert(out && p.startup_pb_written() && !p.startup_pb_available());
     std::fputs("pseudo-Boolean proof version 3.0\n", out);
     assert(p.finish_pb());
     assert(!p.commit_clause_stream());
@@ -577,7 +578,7 @@ void test_startup_pbp_certificate_boundary() {
   expect(read_file(path), "pseudo-Boolean proof version 3.0\n", "atomic PB selection");
   std::remove(path.c_str());
   Proof strict;
-  assert(strict.open(path.c_str(), ProofFormat::DsrAscii));
+  assert(strict.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
   strict.finish_input_transaction();
   assert(!strict.startup_pb_available() && !strict.begin_pb());
   std::remove(path.c_str());
@@ -750,7 +751,9 @@ static void test_all_formats_report_output_failure() {
 #endif
         {
           Proof failed;
-          assert(failed.open("/dev/full", format));
+          assert(format == ProofFormat::PbpStreaming
+                     ? failed.open("/dev/full", format)
+                     : failed.open_dsr_writer("/dev/full", format));
           failed.finish_input_transaction();
           failed.add_empty(1);
           if (explicit_flush)

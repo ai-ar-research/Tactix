@@ -8,61 +8,43 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Removed
 
-- **Breaking:** Tactix no longer writes DRAT or LRAT proofs. `--drat`, `--lrat`,
-  `TACTIX_PROOF_DRAT_BINARY`, `TACTIX_PROOF_DRAT_ASCII` and `TACTIX_PROOF_LRAT`
-  are gone, and `tactix_proof` rejects their values 0, 1 and 2, which are not
-  reused; the other `TACTIX_PROOF_*` values are unchanged. DSR and PBP remain.
-  A witness-free DSR proof still reaches drat-trim and CakeLPR through its
-  lossless DRAT conversion, and `verification_route` still reports
-  `dsr-cake_lpr`, `dsr-trestle` or `pbp`.
+- **Breaking:** DRAT and LRAT proof output: `--drat`, `--lrat`,
+  `TACTIX_PROOF_DRAT_BINARY`, `TACTIX_PROOF_DRAT_ASCII` and `TACTIX_PROOF_LRAT`.
+  `tactix_proof` rejects their values 0, 1 and 2, which stay reserved. A witness-free
+  DSR proof is checked by drat-trim and CakeLPR through its lossless DRAT conversion.
+- `proof_format` in Tseitin-cycle journal records, `proof-format-declines` in
+  `c structured-root`, and the proof fields of the feedback trace header. A trace
+  replays under any proof mode.
 
 ### Changed
 
-- The proof no longer steers the search. No proof, `--pbp`, `--dsr` and the
-  default take the same conflicts, decisions and propagations, and so does the C
-  API with no proof and with every `TACTIX_PROOF_*` format, attached before or
-  after the input. `--dsr` now writes every algebraic reason in clauses.
-  A persistent matrix step that used to be refused without a proof now runs.
-- The default proof is DSR. It is written directly to the proof file, and
-  converts to PBP once, continuing as PBP, in three cases: a startup parity or
-  counting refutation, which has nothing to convert; once GF(2) reasons have cost
-  10 MB of DSR, which keeps occasional reasons in clauses; or at a step DSR cannot
-  follow. The end-of-run comparison of predicted checking times is gone, along
-  with `c auto-proof-cost`. After 3 GB of DSR the run stops converting where it has
-  a choice, and a GF(2) reason stays in clauses (`c auto-proof-switch dsr-limit`);
-  this does not change the search. A conversion replaces the DSR proof by a
-  rename once the PBP prefix is complete, so a run killed at any point, by SIGKILL
-  too, leaves what it had flushed. A symlink, a hard-linked file or a
-  `/proc/<pid>/fd/<n>` path still holds the DSR in a temporary file until the run
-  ends. A run without an empty clause leaves the proof it was writing. A converted
-  proof deletes by specification, so it is larger than the `--pbp` proof. If the
-  DSR proof cannot be written, the run aborts. The `c proof-route` line names the route written; the statistics
-  report the reason as `c auto-proof` and the conversion as `c auto-proof-switch`.
-  `--dsr` and `--pbp` write only that format and never convert; `--no-binary`
-  spells DSR as text. `--dsr` stops with an error on a startup counting
-  refutation, which has no practical clausal spelling: use the default or `--pbp`
-  there. The competition wrapper `tools/compete/run.sh` passes `--pbp`.
-- `tactix-public` defaults to automatic selection as well.
-- Whole-run PBP proofs delete constraints by id (`del id`) instead of
-  restating them (`del spec`), and omit the root units that only precede the
-  empty clause. Binary clauses are still deleted by specification. Searches,
-  verdicts, models and DSR, DRAT and LRAT bytes are unchanged; on the four
-  fixed regression sets the PBP certificates are 37% smaller.
-- Bounded variable elimination can perform CaDiCaL-style, clause-size-ordered
-  generation-time self-subsuming resolution before charging a pair against
-  the resolvent bound; the mechanism remains opt-in after its Common-set
-  structural screen.
-- Startup FastEliminate now composes with structured symmetry reasoning. A
-  read-only occurrence preflight runs when structured reasoning grows the root
-  trail; if it finds an eligible extension created either directly by that
-  invocation or by the following startup Factor call that consumes its
-  representation, the complete startup pass is skipped before discovery or
-  local subsumption can perturb the structured search pose. Clause-only
-  structured output instead defers only its directly owned extension pivots.
-  If a coupled Factor helper becomes eligible only after earlier startup
-  eliminations, the application boundary defers that late candidate as well.
-  Root growth without an eligible composed extension and runs without applied
-  symmetry keep normal FastEl application.
+- No proof, `--pbp`, `--dsr` and the default take the same search, on the CLI and the C
+  API, with the proof attached before or after the input.
+- The default proof is DSR. It converts once to whole-run PBP at a startup refutation,
+  once GF(2) reasons have cost 10 MB of DSR, or at a step DSR cannot follow. Past 3 GB of
+  DSR, GF(2) reasons stay in clauses. A killed run leaves what it had flushed to a regular
+  proof file. `c proof-route`, `c auto-proof` and `c auto-proof-switch` report the route,
+  the reason and the conversion.
+- `--dsr` and `--pbp` write only that format. `--dsr` spells every GF(2) reason in
+  clauses and stops with an error on a startup counting refutation, and a DSR session in
+  the C API exits with status 1 there.
+- A witnessed SR line first deletes the leased clauses and parity constraints its witness
+  changes, and all retained support, in every format.
+- `tactix_add` sessions import their input with no writer and attach the proof by
+  replaying it at the input boundary.
+- `tactix-public` defaults to automatic selection, and `tools/compete/run.sh` passes
+  `--pbp`.
+- The pinned drat-trim finds RAT candidates on proof-introduced variables by occurrence,
+  with the patch in `tools/checkers/patches/`. Re-run `tools/checkers/setup.sh` to get it.
+- `--pbp` proofs delete constraints by id (`del id`), and binary clauses by
+  specification, and omit the root units that only precede the empty clause. On the
+  four fixed regression sets this makes them 37% smaller.
+- Bounded variable elimination can perform opt-in CaDiCaL-style, clause-size-ordered
+  generation-time self-subsuming resolution before charging a pair against the
+  resolvent bound.
+- Startup FastEliminate composes with structured symmetry reasoning. It skips or defers
+  the extension variables that structured reasoning and its following Factor call own, and
+  runs normally on everything else.
 
 ### Added
 
@@ -79,8 +61,8 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Fixed
 
-- OTF parent replacement now updates live BVE occurrence accounting
-  immediately and does not reinsert the pivot currently under test.
+- OTF parent replacement keeps live BVE occurrence accounting current and leaves the
+  pivot under test out of the queue.
 
 ## [0.2.1] - 2026-10-22
 

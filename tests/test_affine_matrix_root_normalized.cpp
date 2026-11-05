@@ -29,7 +29,7 @@ static void exercise(const char *prefix){
  Kernel k;kernel_reserve_vars(k,126);std::vector<Ref> old_refs;
  for(const auto &c:shorts){auto wide=c;for(int root:roots)wide.push_back(-root);auto native=body(k,wide);old_refs.push_back(k.arena.size());kernel_add_large_clause(k,native.data(),native.size(),false,0,++k.next_clause_id);}
  for(int root:roots)k.unit_ids[var_of(kernel_internalize(k,root))]=++k.next_clause_id;
- Proof proof;assert(proof.open((base+proof_suffix).c_str(),format));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);for(size_t i=0;i<original.size();++i){auto native=body(k,original[i]);proof.seed_population(i+1,native.data(),native.size());}proof.arm_population_shadow();k.proof=&proof;
+ Proof proof;assert(proof.open((base+proof_suffix).c_str(),format));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);for(size_t i=0;i<original.size();++i){auto native=body(k,original[i]);proof.seed_population(i+1,native.data(),native.size());}proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
  FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
  for(int root:roots){kernel_assign_unit(k,kernel_internalize(k,root));}assert(propagate_apply(k)==ApplyResult::Ok);
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
@@ -117,7 +117,7 @@ static void retained_root_maintenance(const char *prefix){
   else{large_refs.push_back(k.arena.size());kernel_add_large_clause(k,native.data(),native.size(),false,0,id);}}
  std::vector<uint64_t> discovered_ids;for(size_t i=0;i<discovered_group.size();++i)discovered_ids.push_back(++k.next_clause_id);
  Proof proof;assert(proof.open((base+suffix).c_str(),format));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
- for(size_t i=0;i<original.size();++i){auto native=body(k,original[i]);proof.seed_population(i+1,native.data(),native.size());}proof.arm_population_shadow();k.proof=&proof;
+ for(size_t i=0;i<original.size();++i){auto native=body(k,original[i]);proof.seed_population(i+1,native.data(),native.size());}proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
  FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
  DefaultStrategyConfig cfg;cfg.affine_search.enabled=true;
@@ -143,7 +143,9 @@ static void retained_root_maintenance(const char *prefix){
  assert(!std::fseek(records,leased_record,SEEK_SET));std::string certificate(static_cast<size_t>(record_end-leased_record),'\0');
  assert(std::fread(certificate.data(),1,certificate.size(),records)==certificate.size());
  assert(certificate.find("\"source_ordinals\":")!=std::string::npos);
- assert(certificate.find("\"clause_id\":7,")!=std::string::npos||certificate.find("\"clause_id\":8,")!=std::string::npos);
+ assert(certificate.find("\"proof_mode\":\"pbp-polynomial\"")!=std::string::npos);
+ // All three sources, so the row of the natively deleted x <-> d among them.
+ assert(certificate.find("\"source_ordinals\":[0,1,2]")!=std::string::npos);
  assert(!std::fseek(records,record_end,SEEK_SET));
  assert(propagate_apply(k)==ApplyResult::Ok&&k.value(kernel_internalize(k,1))>0&&k.value(kernel_internalize(k,4))>0);
  // Native x <-> d was removed before the previous restart window, yet its
@@ -190,7 +192,7 @@ static void incremental_opposite_parity() {
  for(size_t i=1;i<second.size();++i)reserved.push_back(++k.next_clause_id);
  Proof proof;assert(proof.open(path.c_str(),format));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
  uint64_t seed=0;for(const auto &population:{first,second})for(const auto &c:population){auto native=body(k,c);proof.seed_population(++seed,native.data(),native.size());}
- proof.arm_population_shadow();k.proof=&proof;FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
+ proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
  DefaultStrategyConfig cfg;cfg.affine_search.enabled=true;DefaultPolicy policy(cfg);
  assert(propagate_apply(k)==ApplyResult::Ok);

@@ -598,7 +598,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   const bool redundant = reason->redundant() && !subsumed_irredundant;
 
   if (k.proof) // streaming PBP tracks the resolvent's id for `del id`
-    k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, lits.data(),
+    k.proof->add_rup(id, lits.data(),
                      static_cast<uint32_t>(lits.size()));
   k.stats.otfs_strengthened++;
 
@@ -1563,7 +1563,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
   // proof delta first (add-RUP), then the clause joins R
   const uint64_t learned_id = ++k.next_clause_id;
   if (k.proof) // streaming PBP tracks the learned id for `del id`
-    k.proof->add_rup(k.proof->streaming_pbp() ? learned_id : 0, learned.data(),
+    k.proof->add_rup(learned_id, learned.data(),
                      static_cast<uint32_t>(learned.size()));
   k.stats.learned++;
   k.stats.learned_lits += learned.size();

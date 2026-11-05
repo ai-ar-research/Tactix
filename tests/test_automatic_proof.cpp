@@ -146,7 +146,8 @@ std::string single(ProofFormat format, const Events &events) {
   const std::string path = directory / "single";
   {
     Proof p;
-    assert(p.open(path.c_str(), format));
+    assert(format == ProofFormat::PbpStreaming ? p.open(path.c_str(), format)
+                                               : p.open_dsr_writer(path.c_str(), format));
     events(p);
   }
   return read_all(path);
@@ -245,32 +246,109 @@ void startup_pb_keeps_pbp() {
                "terminal PB");
 }
 
-void sr_with_support_keeps_pbp() {
-  const Events events = [](Proof &p) {
-    inputs(p);
+// A witnessed line deletes the affine support its witness would have to hold
+// against, in every stream, so the DSR copy follows it. A witness-free line
+// transforms nothing and deletes nothing.
+void sr_under_affine_support() {
+  const Events lease = [](Proof &p) {
+    p.arm_population_shadow();
+    std::vector<uint64_t> handles;
+    assert(p.retain_premise_groups({{{-1, 2}}}, 8, 100, 100000,
+                                   [](uint64_t) { return true; }, handles,
+                                   {4, 100}));
+    p.del(30, 2, clause({-1, 2}).data(), 2);
+  };
+  const Events retain = [](Proof &p) {
     const int32_t support[] = {1, 2};
     assert(p.retain_external(20, support, 2));
-    const auto sr = clause({6, 1});
-    const DsrLiteralMapping mapping[] = {{internalize(6), internalize(-6)}};
-    assert(p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, 7));
-    refutation(p);
   };
+  const Events free_of_witness = [](Proof &p) {
+    const auto body = clause({1, 2});
+    const DsrLiteralMapping identity{internalize(1), internalize(1)};
+    const Lit metadata = internalize(3);
+    assert(plan_dsr_witness(body.data(), 2, &metadata, 1, &identity, 1).form ==
+           DsrWitnessForm::Rup);
+    assert(p.add_sr(21, body.data(), 2, &metadata, 1, &identity, 1, 7));
+  };
+  const Events witnessed = [](Proof &p) {
+    const auto sr = clause({1, 6});
+    const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
+    assert(p.add_sr(22, sr.data(), 2, nullptr, 0, mapping, 1, 7));
+  };
+  for (const Events &support : {lease, retain}) {
+    const Events events = [&](Proof &p) {
+      inputs(p);
+      support(p);
+      free_of_witness(p);
+      witnessed(p);
+      refutation(p);
+    };
+    const std::string want = single(ProofFormat::DsrAscii, events);
+    TemporaryDirectory directory;
+    const std::string path = directory / "proof";
+    {
+      Proof p;
+      assert(p.open_automatic(path.c_str(), false));
+      events(p);
+      assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
+      assert(std::string(p.verification_route()) == "dsr-trestle");
+    }
+    expect_equal(read_all(path), want, "automatic DSR under affine support");
+    {
+      Proof p;
+      assert(p.open(path.c_str(), ProofFormat::DsrAscii));
+      events(p);
+    }
+    expect_equal(read_all(path), want, "--dsr under affine support");
+    {
+      Proof p;
+      assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
+      events(p);
+    }
+    const std::string text = read_all(path);
+    expect_complete_pbp(text, "PBP under affine support");
+    const size_t witness = text.find("x1 -> ~x1");
+    assert(witness != std::string::npos);
+    assert(text.find("del ") < witness);
+  }
+}
+
+// A line DSR cannot spell, for want of an auxiliary variable, converts before either
+// stream deletes anything for it, so the support is deleted once.
+void sr_beyond_the_auxiliary_limit() {
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
   {
     Proof p;
     assert(p.open_automatic(path.c_str(), true));
-    events(p);
-    assert(p.automatic_reason() ==
-           AutomaticProofReason::SrWithAffineSupport);
+    inputs(p);
+    const int32_t support[] = {1, 2};
+    assert(p.retain_external(20, support, 2));
+    const auto sr = clause({1, 6});
+    const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
+    assert(p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, INT32_MAX, true));
+    assert(p.automatic_reason() == AutomaticProofReason::CopyDeclined);
+    assert(p.persistent_external_epoch() == 1);
+    refutation(p);
     assert(std::string(p.verification_route()) == "pbp");
-    assert(directory.entries() == std::vector<std::string>{"proof"});
   }
-  // The SR event was accepted before the copy declined it: it follows the
-  // (here empty) converted prefix, once, and PBP continues.
   const std::string text = read_all(path);
-  expect_complete_pbp(text, "PBP after SR with retained support");
+  expect_complete_pbp(text, "PBP after a line DSR cannot spell");
   assert(count_lines(text, "red ") == 1);
+}
+
+// A RAT line deletes retained support even with no lease left.
+void rat_line_deletes_retained_support() {
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  Proof p;
+  assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
+  inputs(p);
+  const int32_t support[] = {1, 2};
+  assert(p.retain_external(20, support, 2));
+  const auto line = clause({1, 6});
+  p.add_rat(21, line.data(), 2);
+  assert(p.persistent_external_epoch() == 1);
 }
 
 void witnessed_sr_selects_trestle_route() {
@@ -565,7 +643,7 @@ void dsr_only_writes_dsr_with_the_same_answers() {
   {
     Proof p;
     assert(p.open_automatic(path.c_str(), false, nullptr, true));
-    assert(!p.automatic() && p.dsr_only());
+    assert(!p.automatic());
     inputs(p);
     assert(p.commit_clause_stream());
     PbpParityBoundsCache cache;
@@ -886,7 +964,9 @@ void conversion_at_every_point() {
 int main() {
   no_trigger_selects_dsr();
   startup_pb_keeps_pbp();
-  sr_with_support_keeps_pbp();
+  sr_under_affine_support();
+  sr_beyond_the_auxiliary_limit();
+  rat_line_deletes_retained_support();
   witnessed_sr_selects_trestle_route();
   symlink_destination_is_copied();
   caller_stage_is_copied();
@@ -906,8 +986,7 @@ int main() {
   unwritable_directory();
   unfinished_run_with_a_failed_stage_stays_empty();
   device_destination_is_pbp_only();
-  std::puts("automatic proof: one proof at a time; DSR kept unless a PB-native "
-            "step, an unfollowable event, or a faster predicted PBP check "
-            "converted it to PBP");
+  std::puts("automatic proof: DSR, converted once to PBP at a startup refutation, "
+            "a parity limit or an event DSR cannot follow");
   return 0;
 }

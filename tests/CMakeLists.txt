@@ -175,8 +175,8 @@ target_link_libraries(test_api_pbp_fixture PRIVATE tactix_lib)
 tactix_skip77_test(api_pbp_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_SOURCE_DIR}/tests/test_api_pbp_check.py
                    $<TARGET_FILE:test_api_pbp_fixture> ${CMAKE_SOURCE_DIR})
-# Checker-free: Debug builds audit every `del id` of an early and of a
-# divergent late PBP attachment.
+# Checker-free: Debug builds audit every deletion of an early and of a divergent late
+# PBP attachment.
 add_test(NAME api_pbp_early
          COMMAND test_api_pbp_fixture api-pbp-early.cnf api-pbp-early.pbp
                  early)
@@ -219,6 +219,9 @@ tactix_script_test(direct_csp_guarded_cover_proof_model
 tactix_script_test(direct_csp_guarded_cover_owner_refresh_proof_model
                    direct_csp_guarded_cover_owner_refresh_proof_model.sh
                    test_direct_csp_guarded_cover_owner_refresh)
+tactix_script_test(proof_premise_lease_proof
+                   proof_premise_lease_proof.sh
+                   test_proof_premise_lease_lifecycle)
 tactix_script_test(affine_matrix_persistent_lifecycle_proof_model
                    affine_matrix_persistent_lifecycle_proof_model.sh
                    test_affine_matrix_persistent_lifecycle)

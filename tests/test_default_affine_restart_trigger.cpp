@@ -123,6 +123,7 @@ int main(int argc, char **argv) {
   assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   proof.bind_variable_map(&k.internal_to_external);
   proof.bind_external_variable_map(&k.external_to_internal);
+  proof.finish_input_transaction();
   k.proof = &proof;
   DefaultStrategyConfig config;
   config.affine_search.enabled = true;

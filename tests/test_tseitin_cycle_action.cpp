@@ -501,8 +501,6 @@ void dsr_and_unsupported_proof_contract() {
     assert(fixture.kernel.stats.tseitin_cycle_proof_witness_literals == 5);
     assert(fixture.kernel.stats.tseitin_cycle_proof_routes == 1);
     const std::string journal = stream_contents(fixture.journal);
-    assert(journal.find("\"proof_format\":\"dsr-ascii\"") !=
-           std::string::npos);
     assert(journal.find("\"helper_additions\":[[") != std::string::npos);
     assert(journal.find("\"helper_deletions\":[[") != std::string::npos);
     assert(journal.find("\"deletion_state\":\"helpers-removed\"") !=
@@ -544,9 +542,6 @@ void dsr_and_unsupported_proof_contract() {
     assert(applied.effort.proof_additions == 3 &&
            applied.effort.proof_deletions == 2 &&
            applied.effort.proof_literal_occurrences == 5);
-    const std::string journal = stream_contents(fixture.journal);
-    assert(journal.find("\"proof_format\":\"dsr-binary\"") !=
-           std::string::npos);
     proof.flush();
     fixture.kernel.proof = nullptr;
   }

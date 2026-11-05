@@ -87,7 +87,7 @@ static ApplyResult commit_failed_literal(Kernel &k, Lit assumed) {
 
   const uint64_t id = ++k.next_clause_id;
   if (k.proof)
-    k.proof->add_rup(k.proof->streaming_pbp() ? id : 0, &unit, 1);
+    k.proof->add_rup(id, &unit, 1);
   k.unit_ids[var_of(unit)] = id;
   kernel_assign_unit(k, unit);
   return propagate_service(k);

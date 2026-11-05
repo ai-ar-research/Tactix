@@ -93,7 +93,6 @@ def main() -> int:
     assert len(rows) == 1
     record = rows[0]
     assert record["action"] == "TseitinCycleBreaking"
-    assert record["proof_format"] == "none"
     assert record["semantic_key"].startswith("tcd1:")
     transaction = record["transaction"]
     assert transaction["proof_events"] == []

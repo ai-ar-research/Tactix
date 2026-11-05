@@ -1,6 +1,8 @@
 /* N2: a session's search does not depend on its proof. No proof and every format,
  * attached before or after the input, take the same conflicts, decisions and
- * propagations and give the same answer. */
+ * propagations and give the same answer, with the input added clause by clause or
+ * read as DIMACS. Structural provenance is bound, because the affine matrix runs
+ * only with it. */
 #undef NDEBUG
 #include "api_test_support.h"
 
@@ -8,7 +10,24 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+
+/* Formulas go to the session, or to a DIMACS file through this. */
+static FILE *dimacs;
+static int dimacs_variables;
+static long dimacs_clauses;
+static void put(tactix *s, int literal) {
+  if (s) {
+    tactix_add(s, literal);
+    return;
+  }
+  if (abs(literal) > dimacs_variables)
+    dimacs_variables = abs(literal);
+  dimacs_clauses += !literal;
+  if (dimacs)
+    fprintf(dimacs, literal ? "%d " : "%d\n", literal);
+}
 
 static uint64_t state;
 static unsigned below(unsigned bound) {
@@ -21,8 +40,8 @@ static void add_xor(tactix *s, const int *vars, int size, int rhs) {
     if ((__builtin_popcount(mask) & 1) == rhs)
       continue; /* a clause forbids one assignment of the wrong parity */
     for (int i = 0; i < size; ++i)
-      tactix_add(s, mask >> i & 1 ? -vars[i] : vars[i]);
-    tactix_add(s, 0);
+      put(s, mask >> i & 1 ? -vars[i] : vars[i]);
+    put(s, 0);
   }
 }
 
@@ -30,9 +49,9 @@ static void add_random_clauses(tactix *s, int nvars, int count) {
   for (int i = 0; i < count; ++i) {
     for (int k = 0; k < 3; ++k) {
       const int v = 1 + (int)below((unsigned)nvars);
-      tactix_add(s, below(2) ? v : -v);
+      put(s, below(2) ? v : -v);
     }
-    tactix_add(s, 0);
+    put(s, 0);
   }
 }
 
@@ -72,18 +91,57 @@ static void tseitin(tactix *s) {
   add_xor(s, (const int[]){3, 5, 6}, 3, 0);
 }
 
+enum route { EARLY, LATE, READ };
+
 struct run {
   int answer;
   int64_t conflicts, decisions, propagations;
+  long records, matrix_reasons;
 };
 
-static struct run solve(void (*formula)(tactix *), int format, int late,
+/* The journal's size, and how many reasons the affine matrix published in it. */
+static void read_journal(FILE *records, struct run *r) {
+  assert(!fseek(records, 0, SEEK_END));
+  r->records = ftell(records);
+  rewind(records);
+  char *text = malloc((size_t)r->records + 1);
+  assert(text && fread(text, 1, (size_t)r->records, records) == (size_t)r->records);
+  text[r->records] = 0;
+  r->matrix_reasons = 0;
+  for (const char *at = text; (at = strstr(at, "\"kind\":\"affine-matrix-reason\"")); ++at)
+    ++r->matrix_reasons;
+  free(text);
+}
+
+static FILE *as_dimacs(void (*formula)(tactix *)) {
+  dimacs_variables = 0;
+  dimacs_clauses = 0;
+  formula(NULL);
+  FILE *file = tmpfile();
+  assert(file);
+  fprintf(file, "p cnf %d %ld\n", dimacs_variables, dimacs_clauses);
+  dimacs = file;
+  formula(NULL);
+  dimacs = NULL;
+  rewind(file);
+  return file;
+}
+
+static struct run solve(void (*formula)(tactix *), int format, enum route route,
                         const char *path) {
   tactix *s = tactix_init();
-  if (format >= 0 && !late)
+  FILE *records = tmpfile();
+  assert(records && !tactix_bind_structural_provenance(s, records));
+  if (format >= 0 && route != LATE)
     assert(!tactix_proof(s, path, format));
-  formula(s);
-  if (format >= 0 && late)
+  if (route == READ) {
+    FILE *input = as_dimacs(formula);
+    assert(!tactix_read_dimacs(s, input));
+    fclose(input);
+  } else {
+    formula(s);
+  }
+  if (format >= 0 && route == LATE)
     assert(!tactix_proof(s, path, format));
   struct run r;
   r.answer = tactix_solve(s);
@@ -95,33 +153,51 @@ static struct run solve(void (*formula)(tactix *), int format, int late,
   if (format < 0)
     assert(tactix_proof(s, path, TACTIX_PROOF_PBP) == -1);
   tactix_release(s);
+  read_journal(records, &r);
+  fclose(records);
   return r;
 }
 
+static void same(const char *name, int format, enum route route,
+                 const struct run *r, const struct run *none) {
+  if (r->answer == none->answer && r->conflicts == none->conflicts &&
+      r->decisions == none->decisions && r->propagations == none->propagations &&
+      r->records == none->records && r->matrix_reasons == none->matrix_reasons)
+    return;
+  fprintf(stderr,
+          "%s format %d route %d: answer %d conflicts %lld decisions %lld "
+          "propagations %lld journal %ld; no proof: %d %lld %lld %lld %ld\n",
+          name, format, (int)route, r->answer, (long long)r->conflicts,
+          (long long)r->decisions, (long long)r->propagations, r->records,
+          none->answer, (long long)none->conflicts, (long long)none->decisions,
+          (long long)none->propagations, none->records);
+  abort();
+}
+
 static void check(void (*formula)(tactix *), const char *name, const char *path,
-                  int64_t least_conflicts) {
-  const struct run none = solve(formula, -1, 0, path);
-  assert(none.answer == 10 || none.answer == 20);
-  assert(none.conflicts >= least_conflicts);
+                  int64_t least_conflicts, int64_t most_conflicts, long least_reasons) {
+  /* Each way in has its own no-proof search to match. */
+  const struct run none_added = solve(formula, -1, EARLY, path);
+  const struct run none_read = solve(formula, -1, READ, path);
+  assert(none_added.answer == 10 || none_added.answer == 20);
+  assert(none_read.answer == none_added.answer);
+  assert(none_added.conflicts >= least_conflicts && none_added.conflicts <= most_conflicts);
+  assert(none_read.conflicts >= least_conflicts && none_read.conflicts <= most_conflicts);
+  assert(none_added.matrix_reasons >= least_reasons);
+  assert(none_read.matrix_reasons >= least_reasons);
   static const int formats[] = {TACTIX_PROOF_PBP, TACTIX_PROOF_AUTO,
                                 TACTIX_PROOF_DSR_BINARY, TACTIX_PROOF_DSR_ASCII};
-  for (size_t f = 0; f < sizeof formats / sizeof *formats; ++f)
-    for (int late = 0; late < 2; ++late) {
-      const struct run r = solve(formula, formats[f], late, path);
-      if (r.answer != none.answer || r.conflicts != none.conflicts ||
-          r.decisions != none.decisions || r.propagations != none.propagations) {
-        fprintf(stderr,
-                "%s format %d late %d: answer %d conflicts %lld decisions %lld "
-                "propagations %lld; no proof: %d %lld %lld %lld\n",
-                name, formats[f], late, r.answer, (long long)r.conflicts,
-                (long long)r.decisions, (long long)r.propagations, none.answer,
-                (long long)none.conflicts, (long long)none.decisions,
-                (long long)none.propagations);
-        abort();
-      }
-    }
-  printf("%s: answer %d, %lld conflicts in every mode\n", name, none.answer,
-         (long long)none.conflicts);
+  for (size_t f = 0; f < sizeof formats / sizeof *formats; ++f) {
+    const struct run early = solve(formula, formats[f], EARLY, path);
+    const struct run late = solve(formula, formats[f], LATE, path);
+    const struct run read = solve(formula, formats[f], READ, path);
+    same(name, formats[f], EARLY, &early, &none_added);
+    same(name, formats[f], LATE, &late, &none_added);
+    same(name, formats[f], READ, &read, &none_read);
+  }
+  printf("%s: answer %d, %lld conflicts added and %lld read, in every mode\n", name,
+         none_added.answer, (long long)none_added.conflicts,
+         (long long)none_read.conflicts);
 }
 
 int main(void) {
@@ -129,9 +205,9 @@ int main(void) {
   const int fd = mkstemp(path);
   assert(fd >= 0);
   close(fd);
-  check(plain, "plain", path, 10);
-  check(parity, "parity", path, 10);
-  check(tseitin, "tseitin", path, 0);
+  check(plain, "plain", path, 10, INT64_MAX, 0);
+  check(parity, "parity", path, 10, INT64_MAX, 1);
+  check(tseitin, "tseitin", path, 0, 0, 0); /* a startup refutation */
   unlink(path);
   return 0;
 }

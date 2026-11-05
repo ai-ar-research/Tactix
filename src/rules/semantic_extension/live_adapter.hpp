@@ -15,7 +15,7 @@ namespace tactix {
 // root. Polls termination only when the root is not ready.
 template <class Status, class Ready>
 bool live_admitted(const Kernel &kernel, Ready &&ready, Status &status) {
-  if (kernel.proof && kernel.proof->terminal_pbp()) {
+  if (kernel.proof && kernel.proof->startup_pb_written()) {
     status = Status::UnsupportedProof;
     return false;
   }

@@ -42,9 +42,8 @@ struct DsrWitnessPlan {
 };
 
 // One already-authenticated complete XOR encoding, named only by its semantic
-// equation.  Streaming PBP can turn the bounded CNF row into two persistent
-// cutting-planes bounds once, then combine cached bounds for later live
-// reasons.  Premise authentication and lifetime remain the caller's job.
+// equation.  Streaming PBP turns the bounded CNF row into two persistent
+// cutting-planes bounds, then combines cached bounds for later live reasons.  Premise authentication and lifetime remain the caller's job.
 struct PbpParityEquation {
   std::vector<int32_t> variables;
   bool rhs = false;
@@ -63,8 +62,9 @@ struct PbpParityBounds {
   uint64_t lower = 0;
   uint64_t upper = 0;
   std::vector<int32_t> carries;
-  // Which numbering wrote lower and upper: a conversion restarts the numbering,
-  // and bounds written before it exist only in the discarded counting stream.
+  // Which numbering wrote lower and upper. A conversion restarts the numbering and
+  // a witness deletes the rows it touches, so a row from another numbering is written
+  // again before its next use.
   uint64_t numbering = 0;
 };
 
@@ -114,7 +114,6 @@ enum class AutomaticProofReason : uint8_t {
   DsrSelected,          // the empty clause kept the DSR copy
   StartupPbRefutation,  // Lucky parity / count-preservation terminal PB
   ParityReason,         // compact GF(2) reason (affine root closure, search)
-  SrWithAffineSupport,  // a witnessed SR step while affine support is leased
   CopyDeclined,         // the DSR copy rejected an event PBP accepted
   CopyWriteFailed,      // the DSR stage could not be written
   DestinationUnsupported, // not a regular file: no copy was opened
@@ -138,6 +137,9 @@ public:
   ~Proof();
 
   bool open(const char *path, ProofFormat format);
+  // The DSR writer alone, for its own tests. A production kernel never holds
+  // one: open() always gives the kernel the streaming-PBP writer.
+  bool open_dsr_writer(const char *path, ProofFormat format);
   // Automatic selection: streaming PBP at `path` plus a binary (or ASCII) DSR
   // copy. `stage_path`, when given, names the copy's caller-owned stage file;
   // otherwise a sibling of `path` (renamed into place) or an anonymous file
@@ -152,15 +154,16 @@ public:
   bool open_nowhere();
   bool nowhere() const noexcept { return nowhere_; }
   bool automatic() const noexcept { return automatic_ && !dsr_only_; }
-  bool dsr_only() const noexcept { return dsr_only_; }
-  // A startup parity refutation, spelled in clauses; the run ends on it.
-  void write_parity_refutation(const std::vector<PbpParityEquation> &equations);
+  // A startup parity refutation; the run ends on it. `write_pb` writes it to the
+  // PBP stream it is given, and a DSR-only proof spells it in clauses instead.
+  // False, with nothing written, when the stream is already published.
+  bool refute_parity(const std::vector<PbpParityEquation> &equations,
+                     const std::function<bool(FILE *)> &write_pb);
   AutomaticProofReason automatic_reason() const noexcept {
     return automatic_reason_;
   }
   // The selection is final once the copy is discarded or kept.
   bool automatic_dsr_live() const noexcept { return dsr_copy_ != nullptr; }
-  // The checking-time estimate compared at the empty clause, if one was made.
   // Whether the run paid the DSR-to-PBP conversion (see LazyPbpReport).
   void release_lazy_event() noexcept;
   const LazyPbpReport &lazy_pbp_report() const noexcept { return lazy_report_; }
@@ -175,23 +178,13 @@ public:
   bool commit_clause_stream();
   FILE *begin_pb();
   bool finish_pb();
-  bool pb() const {
-    return format_ == ProofFormat::Pbp ||
-           format_ == ProofFormat::PbpStreaming;
-  }
-  // The startup-only terminal PBP route owns a complete refutation and cannot
-  // accept subsequent typed clause events.  Explicit streaming PBP can.
-  bool terminal_pbp() const { return format_ == ProofFormat::Pbp; }
-  bool streaming_pbp() const { return format_ == ProofFormat::PbpStreaming; }
+  // A complete startup PB refutation owns the stream, which takes no further clause
+  // events. No search follows it.
+  bool startup_pb_written() const { return format_ == ProofFormat::Pbp; }
   // Delete by specification for the rest of the run: a proof attached after
   // replayed input cannot name the live kernel's clauses by their ids (see
   // attach_replayed_input_proof).
   void disable_pbp_id_deletions() { abandon_pbp_id_deletions(7, 0); }
-  ProofFormat format() const { return format_; }
-  bool dsr() const {
-    return format_ == ProofFormat::DsrBinary ||
-           format_ == ProofFormat::DsrAscii;
-  }
   // Published proof feature, used only to choose an independent final checker.
   // The runner also scans the finished certificate and rejects disagreement.
   const char *verification_route() const {
@@ -202,7 +195,6 @@ public:
     if (pb()) return "pbp";
     return has_sr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
   }
-  bool binary() const { return format_ == ProofFormat::DsrBinary; }
   void bind_variable_map(const std::vector<Var> *map) {
     variable_map_ = map;
     if (dsr_copy_)
@@ -275,9 +267,9 @@ public:
   bool del_external(uint64_t line_id, uint64_t del_id,
                     const int32_t *lits, uint32_t size);
   // Keep an already-emitted proof-only clause available for later RUP steps.
-  // The registry is a checker-population boundary.  On DSR routes add_sr
-  // deletes every registered clause before emitting a witnessed line, then
-  // advances the epoch so clients cannot reuse stale support.
+  // The registry is a checker-population boundary. add_sr deletes every registered
+  // clause before a witnessed line, then advances the epoch so clients cannot
+  // reuse stale support.
   bool retain_external(uint64_t id, const int32_t *lits, uint32_t size);
   uint64_t persistent_external_epoch() const {
     return persistent_external_epoch_;
@@ -386,6 +378,18 @@ public:
 #endif
 
 private:
+  // Which stream this object writes is the writer's own business: a rule that
+  // could ask could steer the search by it (N2).
+  bool pb() const {
+    return format_ == ProofFormat::Pbp ||
+           format_ == ProofFormat::PbpStreaming;
+  }
+  bool streaming_pbp() const { return format_ == ProofFormat::PbpStreaming; }
+  bool dsr() const {
+    return format_ == ProofFormat::DsrBinary ||
+           format_ == ProofFormat::DsrAscii;
+  }
+  bool binary() const { return format_ == ProofFormat::DsrBinary; }
   // Event bodies. The public methods run these and then feed the automatic
   // DSR copy; internal calls use the bodies so the copy sees each event once.
   void add_rup_impl(uint64_t id, const Lit *lits, uint32_t size);
@@ -431,7 +435,9 @@ private:
   // never sees them, so a variable it creates later takes a higher checker name.
   // Each entry: at solver extent `extent`, `helpers` helpers exist in total.
   std::vector<DsrHelperNames> helper_names_;
-  uint64_t pbp_numbering_ = 0; // bumped by a conversion (PbpParityBounds)
+  uint64_t pbp_numbering_ = 0; // bumped when written rows stop being usable
+  std::vector<uint64_t> pbp_parity_constraints_;
+  std::unordered_set<uint32_t> pbp_parity_variables_;
   bool nowhere_ = false;
   bool pbp_text_wanted() const noexcept;
   __attribute__((format(printf, 2, 3))) void put_pbp_text(const char *format, ...);
@@ -548,6 +554,15 @@ private:
   std::vector<uint32_t> premise_variable_uses_;
   void count_premise_variables(const PremiseGroup &, bool add);
   bool defer_leased_deletion(const int32_t *, uint32_t);
+  // Delete the proof-only constraints of parity reasons that mention a variable the
+  // line's witness changes: a witness must hold against every checker constraint.
+  // Each cached row is written again before its next use.
+  void retire_pbp_parity_constraints(const Lit *, uint32_t, const Lit *, uint32_t,
+                                     const DsrLiteralMapping *, uint32_t);
+  // The DSR writer cannot spell this line, for want of an auxiliary variable.
+  bool sr_needs_missing_auxiliary(const Lit *, uint32_t, const Lit *, uint32_t,
+                                  const DsrLiteralMapping *, uint32_t, uint32_t,
+                                  bool) const;
   void invalidate_premises_for_sr(uint64_t, const Lit *, uint32_t,
       const Lit *, uint32_t, const DsrLiteralMapping *, uint32_t);
   // Binary deletion blocks are usually only a few bytes. Keep them in a

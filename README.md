@@ -26,10 +26,9 @@ To generate an UNSAT proof, supply an output file:
 build/release/tactix formula.cnf proof
 ```
 
-Tactix chooses the proof format per run, on Linux and macOS: a
-pseudo-Boolean proof when the run uses reasoning that only that format spells
-compactly (startup parity or counting refutations, GF(2) Gaussian reasons),
-and a DSR proof otherwise. `--pbp` always writes a pseudo-Boolean proof.
+Tactix writes a DSR proof by default, on Linux and macOS, and converts it once to a
+pseudo-Boolean proof at a startup parity or counting refutation or once GF(2) reasons
+have cost 10 MB of DSR. `--pbp` and `--dsr` always write that format.
 Building Tactix, solving formulas, and generating proofs do not require external
 proof checkers.
 

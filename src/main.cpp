@@ -99,7 +99,6 @@ static void print_model(const Kernel &k) {
 // Build provenance only when feedback is requested. File content identities
 // permit relocated immutable inputs/builds; destination paths are not choices.
 static bool feedback_metadata(const char *input, uint32_t bve_gates,
-                              ProofFormat format, bool have_proof,
                               const DefaultStrategyConfig &default_config,
                               std::string &metadata) {
   std::string build_sha, input_sha;
@@ -114,8 +113,6 @@ static bool feedback_metadata(const char *input, uint32_t bve_gates,
   field("input-sha256", input_sha);
   field("policy", "default");
   field("bve-gates", std::to_string(bve_gates));
-  field("proof-format", std::to_string(static_cast<unsigned>(format)));
-  field("proof-enabled", have_proof ? "1" : "0");
   field("configuration", default_config.serialize());
   static constexpr const char *environment[] = {
 #define TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
@@ -201,9 +198,8 @@ int main(int argc, char **argv) {
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
   enum class CliProofFamily { Dsr, Pbp, Automatic };
-  // Automatic selection is the public default: the solver runs exactly as
-  // under --pbp and keeps whole-run PBP only when a PB-native step fires;
-  // otherwise its native-DSR copy becomes the proof (plan §5).
+  // Automatic selection is the public default: DSR, converted once to PBP where a
+  // run needs it (see Proof::open_automatic).
   CliProofFamily proof_family = CliProofFamily::Automatic;
   const char *proof_stage_path = nullptr;
   bool binary_proof = true;
@@ -340,12 +336,10 @@ int main(int argc, char **argv) {
     }
   }
 
-  // Automatic selection drives the solver through the streaming-PBP stream.
   const ProofFormat proof_format =
-      proof_family == CliProofFamily::Pbp ||
-              proof_family == CliProofFamily::Automatic
-          ? ProofFormat::PbpStreaming
-          : binary_proof ? ProofFormat::DsrBinary : ProofFormat::DsrAscii;
+      proof_family == CliProofFamily::Pbp ? ProofFormat::PbpStreaming
+      : binary_proof                      ? ProofFormat::DsrBinary
+                                          : ProofFormat::DsrAscii;
   if (!cnf_path)
     return fail_unknown("tactix: no input file\n");
 
@@ -502,8 +496,6 @@ int main(int argc, char **argv) {
       !proof_path ? proof.open_nowhere()
       : proof_family == CliProofFamily::Automatic
           ? proof.open_automatic(proof_path, binary_proof, proof_stage_path)
-      : proof_family == CliProofFamily::Dsr
-          ? proof.open_automatic(proof_path, binary_proof, nullptr, true)
           : proof.open(proof_path, proof_format);
   if (!opened)
     return fail_unknown("tactix: cannot write proof to '%s'\n",
@@ -549,8 +541,7 @@ int main(int argc, char **argv) {
   std::string feedback_setup_error;
   if (feedback_path || feedback_replay_path) {
     std::string metadata;
-    if (!feedback_metadata(cnf_path, bve_gate_mask, proof_format,
-                           proof_path != nullptr, default_config, metadata)) {
+    if (!feedback_metadata(cnf_path, bve_gate_mask, default_config, metadata)) {
       feedback_setup_error = "cannot read immutable feedback build/input provenance";
     } else {
       metadata += std::string("structural-provenance=1:") +

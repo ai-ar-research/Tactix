@@ -16,8 +16,8 @@
 
 namespace tactix {
 
-// Returns nullptr on success, a static error string otherwise. Calls
-// finish_input before returning.
+// Returns nullptr after calling finish_input, or a static error string without
+// calling it.
 const char *parse_dimacs(FILE *, Kernel &);
 // The same parser with an explicit input block size. Production uses the
 // 1 MiB block above; smaller blocks exist so tests can put every token and
@@ -28,13 +28,9 @@ const char *parse_dimacs_with_block(FILE *, Kernel &, size_t block_bytes);
 // dedupes, drops tautologies, assigns units, records empty clauses.
 void ingest_clause(Kernel &, std::vector<Lit> &scratch);
 
-// End of input: settle the proof id space (N2). Input clause `i` must carry
-// proof id `i`, because that is how the checker numbers the file, so no derived
-// id may be consumed until the last input clause is in. Emits the deferred
-// input-normalization lemmas and any refutation found during input, and is a
-// no-op once nothing is pending. Must be called after the last ingest_clause
-// and before any rule runs; parse_dimacs does it for the file path, api.cpp for
-// the C API.
+// End of input. Retires variables absent from the input and emits any refutation
+// found during it. Runs exactly once, after the last ingest_clause and before any
+// rule: parse_dimacs does it for the file path, api.cpp for the C API.
 void finish_input(Kernel &);
 
 // Attach a proof after eager import by replaying the exact original clauses

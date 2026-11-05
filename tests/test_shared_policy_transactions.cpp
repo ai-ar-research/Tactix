@@ -71,7 +71,7 @@ static void test_certificate_boundary() {
         break;
       }
       assert(!k.startup_certificate_open && k.startup_input.empty());
-      assert(!proof.startup_pb_available() && proof.streaming_pbp());
+      assert(!proof.startup_pb_available());
       assert(!proof.begin_pb());
       execute_action(k, CloseStartupCertificateRequest{}); // idempotent
       assert(!k.startup_certificate_open);
