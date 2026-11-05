@@ -171,7 +171,22 @@ def dsr_checker_provenance(dsr_profile):
     # Return a detached JSON value so callers cannot mutate the authority.
     return json.loads(json.dumps(FIXED_LONG_DSR_PROVENANCE))
 
-def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
+DRAT_TRIM_COMMIT='2e3b2dc0ecf938addbd779d42877b6ed69d9a985'
+DRAT_TRIM_PATCH='tools/checkers/patches/drat-trim-2e3b2dc-rat-occurrences.patch'
+
+def patched_drat_trim(root=ROOT):
+    # The setup script's checkout: the pinned commit plus exactly the pinned patch.
+    clone,patch=root/'drat-trim',root/DRAT_TRIM_PATCH
+    diff=subprocess.run(['git','-C',str(clone),'diff','--binary','--unified=0',DRAT_TRIM_COMMIT,'--'],
+                        capture_output=True,check=True).stdout
+    if diff!=patch.read_bytes():
+        raise ValueError('drat-trim checkout does not carry exactly the pinned patch')
+    binary=clone/'drat-trim'
+    if not binary.is_file() or binary.stat().st_mtime<(clone/'drat-trim.c').stat().st_mtime:
+        raise ValueError('drat-trim binary is missing or older than its source')
+    return binary,{'upstream_commit':DRAT_TRIM_COMMIT,'patch':DRAT_TRIM_PATCH,'patch_sha256':sha(patch)}
+
+def checker_sources(reference, baseline, certificate, dsr_profile='frozen', drat_trim=None):
     # 'auto': the solver selects whole-run PBP or native DSR per run, so the
     # campaign pins both checker families.
     if certificate not in ('pbp','dsr','auto','none'):
@@ -187,6 +202,9 @@ def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
         names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py'}
     sources={}
     for target,name in names.items():
+        if target=='drat-trim' and drat_trim is not None:
+            sources[target]=drat_trim
+            continue
         source=reference/baseline['checkers'][name]
         expected=baseline['provenance'][name]['sha256']
         if not source.is_file() or sha(source)!=expected:
@@ -487,7 +505,8 @@ def prepare(a):
     assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
     dsr_profile=(getattr(a,'dsr_checker_profile','frozen')
                  if a.certificate in ('dsr','auto') else None)
-    checkers=checker_sources(ref,manifest,a.certificate,dsr_profile)
+    drat_trim,drat_trim_provenance=patched_drat_trim() if a.patched_drat_trim else (None,None)
+    checkers=checker_sources(ref,manifest,a.certificate,dsr_profile,drat_trim)
     checker_provenance=(dsr_checker_provenance(dsr_profile)
                         if a.certificate in ('dsr','auto') else None)
     assert sha(ref/'cache.sha256')==manifest['cache_manifest_sha256']
@@ -652,6 +671,8 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
     if checker_provenance is not None:
         m['dsr_checker_provenance']=checker_provenance
+    if drat_trim_provenance is not None:
+        m['drat_trim_provenance']=drat_trim_provenance
     if recheck is not None:
         m['recheck_source']=recheck[3]
     if home:
@@ -763,6 +784,8 @@ if __name__=='__main__':
     p.add_argument('--source',type=Path)
     p.add_argument('--binary',type=Path)
     p.add_argument('--dsr-transport',type=Path)
+    p.add_argument('--patched-drat-trim',action='store_true',
+                   help='pin the setup script\'s patched drat-trim, not the frozen baseline one')
     p.add_argument('--dsr-checker-profile',choices=['frozen','long64','long64-fixed'],default='frozen',
                    help='immutable DSR elaborator/compressor pins; long64 is the historical audited LONGTYPE build, while long64-fixed selects its source-backed deleted-clause correction; both retain independent Trestle verification')
     p.add_argument('--scratch-capacity-profile',choices=list(SCRATCH_CAPACITY_PROFILES),
