@@ -164,15 +164,6 @@ public:
     return track_values_ ? values_[pos] : UINT64_C(1);
   }
 
-  uint64_t at(uint64_t key) const {
-    if (!track_keys_)
-      return UINT64_C(1);
-    assert(!keys_.empty());
-    const size_t pos = locate(key);
-    assert(keys_[pos] == key && "missing binary clause id");
-    return track_values_ ? values_[pos] : UINT64_C(1);
-  }
-
   void insert_or_assign(uint64_t key, uint64_t value) {
     insert_or_assign_known(key, value, true);
   }

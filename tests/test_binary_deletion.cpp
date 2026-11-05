@@ -23,7 +23,7 @@ static void test_compact_drat_binary_table_keeps_keys_without_ids() {
   ids.insert_or_assign(key, 77);
   assert(!ids.tracks_values());
   assert(ids.size() == 1 && ids.count(key));
-  assert(ids.get(key) == 1 && ids.at(key) == 1);
+  assert(ids.get(key) == 1);
   ids.insert_or_assign(key, 99);
   assert(ids.size() == 1 && ids.get(key) == 1);
   uint64_t visited_key = 0, visited_id = 0;

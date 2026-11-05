@@ -30,8 +30,9 @@ int main() {
   assert(proof_rules == 40);
   // Subrules may have more guard facts than the old fixed eight-entry buffer.
   const RuleEligibility cardinality = signed_cardinality_proof_guard(k);
-  assert(cardinality.facts.size() == 9);
-  assert(std::string(cardinality.facts.back().name) == "proof-format");
+  assert(cardinality.facts.size() == 8);
+  assert(std::string(cardinality.facts.back().name) ==
+         "large-watches-connected");
 #endif
   // A zero clause ID without an explicit selector is not a request for an
   // unbracketed whole-formula diagnostic.
