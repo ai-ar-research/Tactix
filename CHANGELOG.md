@@ -28,8 +28,8 @@ semantic versioning; the public C API remains source-compatible within the
 - `--dsr` and `--pbp` write only that format. `--dsr` spells every GF(2) reason in
   clauses and stops with an error on a startup counting refutation, and a DSR session in
   the C API exits with status 1 there.
-- A witnessed SR line deletes the leased clauses its witness changes and all retained
-  support first, in every format.
+- A witnessed SR line first deletes the leased clauses and parity constraints its witness
+  changes, and all retained support, in every format.
 - `tactix_add` sessions import their input with no writer and attach the proof by
   replaying it at the input boundary.
 - `tactix-public` defaults to automatic selection, and `tools/compete/run.sh` passes
