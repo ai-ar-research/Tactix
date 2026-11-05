@@ -166,6 +166,10 @@ add_executable(test_api_c test_api_c.c)
 target_link_libraries(test_api_c PRIVATE tactix_lib)
 add_test(NAME api_n1 COMMAND test_api_c)
 
+add_executable(test_api_one_search test_api_one_search.c)
+target_link_libraries(test_api_one_search PRIVATE tactix_lib)
+add_test(NAME api_one_search COMMAND test_api_one_search)
+
 add_executable(test_api_pbp_fixture api_pbp_fixture.c)
 target_link_libraries(test_api_pbp_fixture PRIVATE tactix_lib)
 tactix_skip77_test(api_pbp_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}

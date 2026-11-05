@@ -7,6 +7,7 @@
 #endif
 
 #include <algorithm>
+#include <cstdarg>
 #include <atomic>
 #include <bit>
 #include <cassert>
@@ -45,12 +46,14 @@ namespace {
 
 class PbpTextWriter {
 public:
-  explicit PbpTextWriter(FILE *file) : file_(file) {
+  PbpTextWriter(FILE *file, bool wanted) : file_(file), wanted_(wanted) {
     if (!file_)
       std::abort();
   }
 
   void put(std::string_view text) {
+    if (!wanted_)
+      return;
     while (!text.empty()) {
       if (size_ == buffer_.size())
         flush();
@@ -62,6 +65,8 @@ public:
   }
 
   void put_uint(uint64_t value) {
+    if (!wanted_)
+      return;
     std::array<char, 20> digits{};
     const auto converted =
         std::to_chars(digits.data(), digits.data() + digits.size(), value);
@@ -79,6 +84,7 @@ public:
 
 private:
   FILE *file_;
+  bool wanted_;
   std::array<char, 1 << 16> buffer_;
   size_t size_ = 0;
 };
@@ -106,13 +112,6 @@ int write_pbp_header(FILE *file, uint64_t constraints) {
 constexpr const char *kPbpConclusion =
     "output NONE ;\nconclusion UNSAT : -1 ;\nend pseudo-Boolean proof ;\n";
 
-uint64_t pbp_header_length(uint64_t constraints) {
-  const int length = std::snprintf(
-      nullptr, 0, "pseudo-Boolean proof version 3.0\nf %" PRIu64 ";\n",
-      constraints);
-  return length > 0 ? static_cast<uint64_t>(length) : 0;
-}
-
 bool copy_stream(FILE *source, FILE *target) {
   std::array<unsigned char, 65536> bytes{};
   for (;;) {
@@ -129,14 +128,12 @@ bool copy_stream(FILE *source, FILE *target) {
 namespace {
 // What the writer's in-process stream does with its bytes.
 struct LazySinkTarget {
-  uint64_t bytes = 0; // PBP text the writer has produced
   // An event the DSR copy may decline after the writer accepted it: its text
   // is kept until the copy answers, since a switch must write it after the
   // converted prefix (see Proof::hold_lazy_event).
   bool holding = false;
   std::string held;
   size_t accept(const char *data, size_t size) {
-    bytes += size;
     if (holding)
       held.append(data, size);
     return size;
@@ -147,7 +144,7 @@ struct LazySinkTarget {
 // Lazy PBP holder (see Proof::lazy_); the destructor is defined with the
 // automatic-selection code.
 struct Proof::LazyPbp : LazySinkTarget {
-  FILE *sink = nullptr;  // the writer's file_: counts its bytes, stores none
+  FILE *sink = nullptr;  // the writer's file_: stores only a held event
   uint64_t derived_at_hold = 0;
   int stage_fd = -1;     // reads the copy's stage for the conversion
   ~LazyPbp();
@@ -388,6 +385,14 @@ bool Proof::open(const char *path, ProofFormat format) {
   return file && open_stream(file, format);
 }
 
+bool Proof::open_nowhere() {
+  nowhere_ = true;
+  if (open("/dev/null", ProofFormat::PbpStreaming))
+    return true;
+  nowhere_ = false;
+  return false;
+}
+
 bool Proof::open_stream(FILE *file, ProofFormat format) {
   stream_identity_=0;
   if (file_ || pbp_output_ || format == ProofFormat::Pbp || !file) {
@@ -420,7 +425,7 @@ bool Proof::open_stream(FILE *file, ProofFormat format) {
   pbp_audit_derived_.clear();
   if (file_ && format == ProofFormat::PbpStreaming) {
     pbp_output_ = file_;
-    file_ = std::tmpfile();
+    file_ = nowhere_ ? fopen("/dev/null", "w+b") : std::tmpfile();
     if (!file_) {
       std::fclose(pbp_output_);
       pbp_output_ = nullptr;
@@ -489,6 +494,21 @@ FILE *Proof::begin_pb_impl() {
   observe_checker(CheckerPopulationEventKind::RouteCommitted,
                   CheckerClauseRole::None, 0, 0, {});
   return file_;
+}
+
+// A run that cannot read the writer's text spares formatting it: no proof, or an
+// automatic run that keeps only the event it holds for the copy's answer.
+bool Proof::pbp_text_wanted() const noexcept {
+  return !nowhere_ && (!lazy_ || file_ != lazy_->sink || lazy_->holding);
+}
+
+void Proof::put_pbp_text(const char *format, ...) {
+  if (!pbp_text_wanted())
+    return;
+  va_list arguments;
+  va_start(arguments, format);
+  std::vfprintf(file_, format, arguments);
+  va_end(arguments);
 }
 
 bool Proof::finish_pb() {
@@ -614,7 +634,9 @@ const int32_t *Proof::pbp_checker_literals(const Lit *lits, uint32_t size) {
 
 void Proof::put_pbp_clause(const char *rule, const Lit *lits,
                            uint32_t size) {
-  PbpTextWriter text(file_);
+  if (!pbp_text_wanted())
+    return;
+  PbpTextWriter text(file_, true);
   text.put(rule);
   text.put(" ");
   for (uint32_t i = 0; i < size; ++i)
@@ -625,7 +647,9 @@ void Proof::put_pbp_clause(const char *rule, const Lit *lits,
 
 void Proof::put_pbp_external_clause(const char *rule, const int32_t *lits,
                                     uint32_t size) {
-  PbpTextWriter text(file_);
+  if (!pbp_text_wanted())
+    return;
+  PbpTextWriter text(file_, true);
   text.put(rule);
   text.put(" ");
   for (uint32_t i = 0; i < size; ++i)
@@ -902,7 +926,7 @@ bool Proof::put_pbp_deletion_id(uint64_t id) {
       return false;
     mark_pbp_input_deleted(constraint);
   }
-  std::fprintf(file_, "del id %" PRIu64 " ;\n", constraint);
+  put_pbp_text("del id %" PRIu64 " ;\n", constraint);
   pbp_last_deleted_ = constraint;
   ++pbp_counters_.by_id;
   return true;
@@ -916,7 +940,7 @@ bool Proof::put_pbp_rebind_deletion() {
   pbp_last_input_live_ = false;
   pbp_constraint_ids_.insert_or_assign(rebind.id, rebind.replacement);
   mark_pbp_input_deleted(rebind.original);
-  std::fprintf(file_, "del id %" PRIu64 " ;\n", rebind.original);
+  put_pbp_text("del id %" PRIu64 " ;\n", rebind.original);
   pbp_last_deleted_ = rebind.original;
   ++pbp_counters_.by_id;
   ++pbp_counters_.by_rebind;
@@ -939,7 +963,7 @@ bool Proof::put_pbp_anonymous_deletion(const int32_t *canonical,
   found->second.pop_back();
   if (found->second.empty())
     pbp_anonymous_constraints_.erase(found);
-  std::fprintf(file_, "del id %" PRIu64 " ;\n", constraint);
+  put_pbp_text("del id %" PRIu64 " ;\n", constraint);
   pbp_last_deleted_ = constraint;
   ++pbp_counters_.by_id;
   ++pbp_counters_.by_anonymous;
@@ -1037,7 +1061,7 @@ bool Proof::put_pbp_deletion(uint64_t del_id, uint32_t size,
     abandon_pbp_id_deletions(1, width);
   }
   put_pbp_external_clause("del spec", pbp_canonical_scratch_.data(), width);
-  std::fputs(" ;\n", file_);
+  put_pbp_text(" ;\n");
   ++(width == 1 ? pbp_counters_.spec_unit
      : width == 2 ? pbp_counters_.spec_binary
                   : pbp_counters_.spec_wide);
@@ -1307,7 +1331,7 @@ void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size) {
     if (streaming_pbp_finished_)
       std::abort();
     put_pbp_clause("rup", lits, size);
-    std::fputs(" ;\n", file_);
+    put_pbp_text(" ;\n");
     note_pbp_derived(id, size,
                      [&] { return pbp_checker_literals(lits, size); });
   } else if (dsr() && size == 1) {
@@ -1354,7 +1378,7 @@ void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size) {
       std::abort();
     put_pbp_clause("red", lits, size);
     const int32_t external = externalize(checker_lit(lits[0]));
-    std::fprintf(file_, " : x%" PRIu32 " -> %d ;\n",
+    put_pbp_text(" : x%" PRIu32 " -> %d ;\n",
                  external_variable_of(external), external < 0 ? 0 : 1);
     note_pbp_derived(id, size,
                      [&] { return pbp_checker_literals(lits, size); });
@@ -1409,7 +1433,7 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
     if (streaming_pbp_finished_)
       return false;
     put_pbp_clause("red", lits, size);
-    std::fputs(" :", file_);
+    put_pbp_text(" :");
     const auto external_lit = [&](Lit literal) {
       return externalize(checker_lit(literal));
     };
@@ -1420,7 +1444,7 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
     for (uint32_t i = 0; i < nmappings; ++i)
       pivot_assigned |= var_of(mappings[i].from) == pivot_var;
     const auto put_constant = [&](Lit source, bool value) {
-      std::fprintf(file_, " x%" PRIu32 " -> %d",
+      put_pbp_text(" x%" PRIu32 " -> %d",
                    external_variable_of(external_lit(source)), value ? 1 : 0);
     };
     if (!pivot_assigned)
@@ -1432,11 +1456,11 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
       int32_t to = external_lit(mappings[i].to);
       if (from < 0)
         to = -to;
-      std::fprintf(file_, " x%" PRIu32 " -> %sx%" PRIu32,
+      put_pbp_text(" x%" PRIu32 " -> %sx%" PRIu32,
                    external_variable_of(from), to < 0 ? "~" : "",
                    external_variable_of(to));
     }
-    std::fputs(" ;\n", file_);
+    put_pbp_text(" ;\n");
     note_pbp_derived(id, size,
                      [&] { return pbp_checker_literals(lits, size); });
     population_add(id, lits, size);
@@ -1735,7 +1759,7 @@ bool Proof::add_external_rup_impl(uint64_t id, const int32_t *lits,
     if (streaming_pbp_finished_)
       return false;
     put_pbp_external_clause("rup", lits, size);
-    std::fputs(" ;\n", file_);
+    put_pbp_text(" ;\n");
     note_pbp_derived(id, size, [lits] { return lits; });
   } else {
     next_addition_rat_ =
@@ -1775,7 +1799,7 @@ bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
       return false;
     put_pbp_external_clause("red", lits, size);
     const int32_t pivot = lits[0];
-    std::fprintf(file_, " : x%" PRIu32 " -> %d ;\n",
+    put_pbp_text(" : x%" PRIu32 " -> %d ;\n",
                  external_variable_of(pivot), pivot < 0 ? 0 : 1);
     note_pbp_derived(id, size, [lits] { return lits; });
     observe_checker(CheckerPopulationEventKind::Add,
@@ -2045,7 +2069,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   }
   const uint64_t derived_before = pbp_derived_constraints_;
   uint32_t fresh = plan.starting_external_extent;
-  PbpTextWriter text(file_);
+  PbpTextWriter text(file_, pbp_text_wanted());
   const auto constraint = [&]() {
     if (pbp_derived_constraints_ == UINT64_MAX ||
         pbp_original_constraints_ >
@@ -2729,8 +2753,7 @@ void discard_buffered(FILE *file) {
 #endif
 }
 
-// A stdio stream that counts the writer's PBP bytes and stores only an event
-// held for the DSR copy's answer.
+// A stdio stream that stores only an event held for the DSR copy's answer.
 #if defined(__GLIBC__)
 ssize_t pbp_sink_write(void *state, const char *data, size_t size) {
   return static_cast<ssize_t>(

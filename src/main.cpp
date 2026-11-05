@@ -495,11 +495,11 @@ int main(int argc, char **argv) {
   Proof proof;
   // Whole-run streaming PBP is textual, so --no-binary has no effect on it;
   // under automatic selection it spells the native-DSR copy in ASCII.
-  // N2: the proof never steers the search. A run without a proof file takes the
-  // search of a --pbp run by writing the same stream to nowhere.
+  // N2: the proof never steers the search. A run without a proof file answers to
+  // the same writer as a --pbp run, with nothing to write.
   kernel.startup_certificate_open = true;
   const bool opened =
-      !proof_path ? proof.open("/dev/null", ProofFormat::PbpStreaming)
+      !proof_path ? proof.open_nowhere()
       : proof_family == CliProofFamily::Automatic
           ? proof.open_automatic(proof_path, binary_proof, proof_stage_path)
       : proof_family == CliProofFamily::Dsr

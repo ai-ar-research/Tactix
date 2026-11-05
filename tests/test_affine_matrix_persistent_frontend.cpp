@@ -119,8 +119,9 @@ static void c_surface(bool with_proof) {
   const auto saved_base=base;
   step={}; // Configuration owns an exact deep copy of the profile.
   capi::tactix_online_result result{};assert(capi::tactix_online_advance(s,&result)==0);
-  assert(result.status==(with_proof?TACTIX_ONLINE_COMPLETED:TACTIX_ONLINE_INAPPLICABLE));
-  if(with_proof) {
+  // N2: a step does what it does whether or not the session writes a proof.
+  assert(result.status==TACTIX_ONLINE_COMPLETED);
+  {
     int propagate=-1;
     for(int i=0;i<capi::tactix_rule_count();++i)
       if(!std::strcmp(capi::tactix_rule_name(i),"Propagate"))propagate=i;

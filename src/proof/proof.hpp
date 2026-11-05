@@ -148,6 +148,9 @@ public:
   bool open_automatic(const char *path, bool binary_dsr,
                       const char *stage_path = nullptr,
                       bool dsr_only = false);
+  // A run with no proof: the writer the search answers to, with nothing to write.
+  bool open_nowhere();
+  bool nowhere() const noexcept { return nowhere_; }
   bool automatic() const noexcept { return automatic_ && !dsr_only_; }
   bool dsr_only() const noexcept { return dsr_only_; }
   // A startup parity refutation, spelled in clauses; the run ends on it.
@@ -429,6 +432,9 @@ private:
   // Each entry: at solver extent `extent`, `helpers` helpers exist in total.
   std::vector<DsrHelperNames> helper_names_;
   uint64_t pbp_numbering_ = 0; // bumped by a conversion (PbpParityBounds)
+  bool nowhere_ = false;
+  bool pbp_text_wanted() const noexcept;
+  __attribute__((format(printf, 2, 3))) void put_pbp_text(const char *format, ...);
   // In the copy: bytes spent spelling parity reasons. --auto-proof converts once
   // they reach parity_bytes_limit_: measured on Tier D, a run with rare parity
   // reasons spends at most about 1 MB on them in total, and a parity-heavy run
