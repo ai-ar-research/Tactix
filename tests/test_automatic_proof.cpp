@@ -201,7 +201,7 @@ void no_trigger_selects_dsr() {
       Proof p;
       assert(p.open_automatic(path.c_str(), binary));
       assert(p.automatic() && p.automatic_dsr_live());
-      assert(directory.entries().size() == 2); // destination + sibling stage
+      assert(directory.entries() == std::vector<std::string>{"proof"});
       events(p);
       assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
       assert(!p.automatic_dsr_live());
@@ -215,7 +215,7 @@ void no_trigger_selects_dsr() {
                  single(binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii,
                         events),
                  binary ? "binary DSR selected" : "ASCII DSR selected");
-    // The renamed stage keeps the mode an ordinary proof file would have.
+    // The proof keeps the mode an ordinary proof file would have.
     const std::string reference = directory / "reference";
     std::fclose(std::fopen(reference.c_str(), "wb"));
     struct stat st, want;
@@ -373,28 +373,127 @@ void failed_conversion_keeps_dsr() {
   const Events events = [](Proof &p) { inputs(p); refutation(p); };
   const std::string want = single(ProofFormat::DsrBinary, events);
   assert(want.size() < 40);
+  for (const bool caller_stage : {true, false}) {
+    const pid_t child = fork();
+    assert(child >= 0);
+    if (!child) {
+      signal(SIGXFSZ, SIG_IGN);
+      const rlimit limit{60, 60};
+      setrlimit(RLIMIT_FSIZE, &limit);
+      setenv("TACTIX_AUTO_PROOF_SWITCH_AT", "end", 1);
+      TemporaryDirectory directory;
+      const std::string path = directory / "proof", stage = directory / "stage";
+      bool kept = false;
+      {
+        Proof p;
+        assert(p.open_automatic(path.c_str(), true,
+                                caller_stage ? stage.c_str() : nullptr));
+        events(p);
+        kept = p.automatic_reason() == AutomaticProofReason::DsrSelected &&
+               std::string(p.lazy_pbp_report().state) == "fallback";
+      }
+      // The failed PBP left nothing behind.
+      kept = kept && (caller_stage || directory.entries() ==
+                                          std::vector<std::string>{"proof"});
+      _exit(kept && read_all(path) == want ? 0 : 1);
+    }
+    int status = 0;
+    assert(waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  }
+}
+
+// No handler runs on SIGKILL, and the destination already holds what was flushed.
+void killed_run_leaves_dsr_prefix() {
+  const Events events = [](Proof &p) {
+    inputs(p);
+    p.add_rup(7, clause({-3, 4}).data(), 2, nullptr, 0);
+    p.flush();
+  };
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
   const pid_t child = fork();
   assert(child >= 0);
   if (!child) {
-    signal(SIGXFSZ, SIG_IGN);
-    const rlimit limit{60, 60};
-    setrlimit(RLIMIT_FSIZE, &limit);
-    setenv("TACTIX_AUTO_PROOF_SWITCH_AT", "end", 1);
-    TemporaryDirectory directory;
-    const std::string path = directory / "proof", stage = directory / "stage";
-    bool kept = false;
-    {
-      Proof p;
-      assert(p.open_automatic(path.c_str(), true, stage.c_str()));
-      events(p);
-      kept = p.automatic_reason() == AutomaticProofReason::DsrSelected &&
-             std::string(p.lazy_pbp_report().state) == "fallback";
-    }
-    _exit(kept && read_all(path) == want ? 0 : 1);
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true));
+    events(p);
+    raise(SIGKILL);
+    _exit(1);
   }
   int status = 0;
   assert(waitpid(child, &status, 0) == child);
-  assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL);
+  assert(directory.entries() == std::vector<std::string>{"proof"});
+  expect_equal(read_all(path), single(ProofFormat::DsrBinary, events),
+               "DSR left by a killed run");
+}
+
+// A switch replaces the DSR file whole, with a new file of the same mode.
+void switch_replaces_the_destination() {
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  FILE *const created = std::fopen(path.c_str(), "wb");
+  assert(created && !std::fclose(created));
+  assert(!chmod(path.c_str(), 0640));
+  struct stat before, after;
+  assert(!stat(path.c_str(), &before));
+  setenv("TACTIX_AUTO_PROOF_SWITCH_AT", "end", 1);
+  const Events events = [](Proof &p) { inputs(p); refutation(p); };
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), true));
+    events(p);
+    assert(p.automatic_reason() == AutomaticProofReason::ForcedSwitch);
+    assert(directory.entries() == std::vector<std::string>{"proof"});
+    assert(!stat(path.c_str(), &after));
+    assert(after.st_ino != before.st_ino);
+    assert((after.st_mode & 07777) == 0640);
+  }
+  unsetenv("TACTIX_AUTO_PROOF_SWITCH_AT");
+  expect_complete_pbp(read_all(path), "PBP that replaced the DSR");
+}
+
+// With nowhere to put a sibling the DSR stays out of the destination, as a stage
+// that can be rewritten over it; if the directory closes later, a conversion
+// fails and the DSR stays the proof.
+void unwritable_directory() {
+  if (!geteuid())
+    return; // root ignores the mode
+  const Events events = [](Proof &p) { inputs(p); refutation(p); };
+  const std::string want = single(ProofFormat::DsrBinary, events);
+  {
+    TemporaryDirectory directory;
+    const std::string path = directory / "proof";
+    FILE *const created = std::fopen(path.c_str(), "wb");
+    assert(created && !std::fclose(created));
+    assert(!chmod(directory.path.c_str(), 0555));
+    {
+      Proof p;
+      assert(p.open_automatic(path.c_str(), true));
+      assert(p.automatic_dsr_live());
+      events(p);
+      assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
+    }
+    assert(!chmod(directory.path.c_str(), 0755));
+    expect_equal(read_all(path), want, "DSR rewritten from an anonymous stage");
+  }
+  {
+    TemporaryDirectory directory;
+    const std::string path = directory / "proof";
+    setenv("TACTIX_AUTO_PROOF_SWITCH_AT", "end", 1);
+    {
+      Proof p;
+      assert(p.open_automatic(path.c_str(), true));
+      assert(!chmod(directory.path.c_str(), 0555));
+      events(p);
+      assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
+      assert(std::string(p.lazy_pbp_report().state) == "fallback");
+    }
+    unsetenv("TACTIX_AUTO_PROOF_SWITCH_AT");
+    assert(!chmod(directory.path.c_str(), 0755));
+    expect_equal(read_all(path), want, "DSR kept when no sibling can open");
+  }
 }
 
 // DSR rejects a tautological RAT line: the conversion runs first, and the line
@@ -547,8 +646,15 @@ void unfinished_run_leaves_dsr_prefix() {
         assert(p.automatic_reason() == AutomaticProofReason::Pending);
         assert(p.automatic_dsr_live());
         assert(std::string(p.lazy_pbp_report().state) == "dsr");
-        // No PBP byte has reached the disk while the run is lazy.
-        assert(read_all(path).empty());
+        // No PBP byte has reached the disk while the run is lazy; the DSR is
+        // there already unless a stage holds it.
+        expect_equal(
+            read_all(path),
+            placement == Rename
+                ? single(binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii,
+                         events)
+                : std::string(),
+            "destination during the run");
       }
       std::vector<std::string> expected = {"proof"};
       if (placement == Rewrite)
@@ -846,6 +952,9 @@ int main() {
   long_conversion_marks_every_rat_line();
   unusable_stage_is_pbp_only();
   unfinished_run_leaves_dsr_prefix();
+  killed_run_leaves_dsr_prefix();
+  switch_replaces_the_destination();
+  unwritable_directory();
   unfinished_run_with_a_failed_stage_stays_empty();
   device_destination_is_pbp_only();
   std::puts("automatic proof: one proof at a time; DSR kept unless a PB-native "

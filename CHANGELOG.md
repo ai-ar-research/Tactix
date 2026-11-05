@@ -8,6 +8,7 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Changed
 
+- The proof no longer steers the search in three cases. A command-line run without a proof file takes the same search as `--pbp`; it used to run with parity search off. Parity search no longer stops after a million proof helper variables, so `--dsr` follows it to the end. A parity reason that cannot be spelled because a budget ran out is withdrawn instead of aborting the run.
 - The command-line default proof writes one proof at a time. The solver runs
   exactly as with `--pbp` but writes only native DSR. A step with no clausal
   spelling (a compact GF(2) reason) converts the DSR proof so far to PBP once,
@@ -21,7 +22,7 @@ semantic versioning; the public C API remains source-compatible within the
   GF(2) reason takes its clausal certificate, the end-of-run conversion is
   skipped, and a startup refutation or a witnessed step that DSR cannot follow
   declines (`c auto-proof-switch dsr-limit`). An event with no clausal spelling
-  still converts. A run without an empty clause leaves the proof it was writing. A converted proof deletes clauses by
+  still converts. The DSR proof is written directly to the proof file, and a conversion replaces it by a rename once the PBP prefix is complete, so a run killed at any point, by SIGKILL too, leaves what it had flushed. A symlink, a hard-linked file or a `/proc/<pid>/fd/<n>` path still holds the DSR in a temporary file until the run ends. A run without an empty clause leaves the proof it was writing. A converted proof deletes clauses by
   specification, so it is larger than the `--pbp` proof. If the DSR proof cannot
   be written, the run aborts, as `--dsr` does. The `c proof-route` line names the
   route written; the statistics report the reason as `c auto-proof` and the

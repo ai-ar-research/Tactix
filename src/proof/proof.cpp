@@ -2280,6 +2280,8 @@ bool Proof::retain_premise_groups_impl(const std::vector<PremiseGroup> &groups,
   if (input_transaction_ || !commit_clause_stream()) return false;
   leased_premises_.swap(premises); premise_groups_.swap(retained);
   next_premise_group_ = next; premise_literals_ = literals; premise_bytes_ = bytes;
+  for (const uint64_t handle : candidate)
+    count_premise_variables(premise_groups_.at(handle), true);
   for (const auto &group : groups)
     for (const auto &clause : group)
       premise_maximum_width_ = std::max<uint32_t>(premise_maximum_width_, clause.size());
@@ -2340,6 +2342,7 @@ void Proof::release_premise_groups_impl(const std::vector<uint64_t> &handles,
     add_saturating(premise_maintenance_work_, maintenance);
     PremiseGroup clauses = std::move(group->second);
     premise_groups_.erase(group); changed = true;
+    count_premise_variables(clauses, false);
     for (const auto &clause : clauses) {
       auto found = leased_premises_.find(clause);
       if (found == leased_premises_.end() || !found->second.users) std::abort();
@@ -2365,15 +2368,24 @@ void Proof::release_premise_groups_impl(const std::vector<uint64_t> &handles,
   if (changed && ++premise_epoch_ == 0) std::abort();
 }
 
+void Proof::count_premise_variables(const PremiseGroup &group, bool add) {
+  for (const auto &clause : group)
+    for (const int32_t literal : clause) {
+      const uint32_t variable = external_variable_of(literal);
+      if (variable >= premise_variable_uses_.size())
+        premise_variable_uses_.resize(variable + 1, 0);
+      uint32_t &uses = premise_variable_uses_[variable];
+      if (add ? uses == UINT32_MAX : !uses)
+        std::abort();
+      add ? ++uses : --uses;
+    }
+}
+
 void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
     uint32_t size, const Lit *true_lits, uint32_t ntrue,
     const DsrLiteralMapping *mappings, uint32_t nmappings) {
   if (premise_groups_.empty()) return;
   const uint64_t changed_bound = 1 + uint64_t(ntrue) + nmappings;
-  const uint64_t work = 1 + premise_groups_.size() +
-      changed_bound * (2 * std::bit_width(changed_bound) + 2) +
-      premise_literals_ * (std::bit_width(changed_bound) + 1);
-  add_saturating(premise_maintenance_work_, work);
   std::vector<uint32_t> changed;
   const auto take = [&](Lit lit) {
     changed.push_back(var_of(checker_lit(lit)) + 1);
@@ -2383,6 +2395,26 @@ void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
   for (uint32_t i = 0; i < ntrue; ++i) take(true_lits[i]);
   for (uint32_t i = 0; i < nmappings; ++i) take(mappings[i].from);
   std::sort(changed.begin(), changed.end());
+  add_saturating(premise_maintenance_work_, changed_bound);
+  bool leased = false;
+  for (const uint32_t variable : changed)
+    leased |= variable < premise_variable_uses_.size() &&
+              premise_variable_uses_[variable];
+#ifndef NDEBUG
+  // The counts must agree with the scan they replace.
+  bool scanned = false;
+  for (const auto &entry : premise_groups_)
+    for (const auto &clause : entry.second)
+      for (const int32_t literal : clause)
+        scanned |= std::binary_search(changed.begin(), changed.end(),
+                                      external_variable_of(literal));
+  assert(leased == scanned);
+#endif
+  if (!leased) return; // Most RAT pivots here are fresh helper variables.
+  const uint64_t work = 1 + premise_groups_.size() +
+      changed_bound * (2 * std::bit_width(changed_bound) + 2) +
+      premise_literals_ * (std::bit_width(changed_bound) + 1);
+  add_saturating(premise_maintenance_work_, work);
   std::vector<uint64_t> retire;
   for (const auto &[handle, clauses] : premise_groups_) {
     bool touched = false;
@@ -2690,6 +2722,30 @@ std::string sibling_stage_template(const char *path) {
   return directory + "." + name + ".dsr-XXXXXX";
 }
 
+// A new file next to `path`, on the filesystem with `device` and with `mode`,
+// so a rename can place it over `path` and leave an ordinary proof file.
+FILE *open_sibling(const std::string &path, dev_t device, mode_t mode,
+                   std::string &name) {
+  name = sibling_stage_template(path.c_str());
+  const int descriptor = mkstemp(name.data());
+  if (descriptor < 0) {
+    name.clear();
+    return nullptr;
+  }
+  struct stat sibling;
+  FILE *const file =
+      !fstat(descriptor, &sibling) && sibling.st_dev == device &&
+              !fchmod(descriptor, mode & 07777)
+          ? fdopen(descriptor, "w+b")
+          : nullptr;
+  if (!file) {
+    close(descriptor);
+    unlink(name.c_str());
+    name.clear();
+  }
+  return file;
+}
+
 } // namespace
 
 Proof::LazyPbp::~LazyPbp() {
@@ -2778,9 +2834,11 @@ void Proof::release_lazy_event() noexcept {
   }
 }
 
-// The switch (plan §5): convert the complete DSR stage to PBP in the destination
-// and continue on it. The numbering restarts from the converted lines, so every
-// later deletion is by specification and no line cites a prefix constraint.
+// The switch (plan §5): convert the complete DSR proof to PBP and continue on it.
+// DSR written to the destination is replaced by a rename once the PBP prefix is
+// complete, so the path names one or the other, whatever kills the run. The
+// numbering restarts from the converted lines, so every later deletion is by
+// specification and no line cites a prefix constraint.
 bool Proof::convert_lazy_pbp() {
   LazyPbp &lazy = *lazy_;
   Proof &copy = *dsr_copy_;
@@ -2788,10 +2846,34 @@ bool Proof::convert_lazy_pbp() {
   copy.flush_impl();
   if (copy.copy_failed_ || std::fflush(file_))
     return false;
-  FILE *target = lazy_published_ ? lazy_destination_ : std::tmpfile();
-  if (!target)
+  // Replaces a destination that holds the DSR. Before publication the PBP
+  // prefix stays private, as on any route, and this file waits for the header.
+  FILE *replacement = nullptr;
+  std::string replacement_name;
+  if (dsr_in_destination_) {
+    struct stat dsr_stat;
+    if (fstat(fileno(copy.file_), &dsr_stat))
+      return false;
+    replacement = open_sibling(automatic_path_, dsr_stat.st_dev,
+                               dsr_stat.st_mode, replacement_name);
+    if (!replacement)
+      return false;
+  }
+  const auto discard_replacement = [&] {
+    if (replacement) {
+      discard_buffered(replacement);
+      std::fclose(replacement);
+      unlink(replacement_name.c_str());
+    }
+  };
+  FILE *target = !lazy_published_ ? std::tmpfile()
+                 : replacement    ? replacement
+                                  : lazy_destination_;
+  if (!target) {
+    discard_replacement();
     return false;
-  if (!lazy_published_)
+  }
+  if (!lazy_published_ || replacement)
     setvbuf(target, nullptr, _IOFBF, 1 << 20);
   DsrToPbpResult converted;
   bool ok = !lazy_published_ || write_pbp_header(target, lazy_f_) >= 0;
@@ -2812,9 +2894,15 @@ bool Proof::convert_lazy_pbp() {
   if (ok && streaming_pbp_finished_ && !lazy.holding)
     ok = std::fputs(kPbpConclusion, target) >= 0;
   ok = ok && !std::fflush(target) && !std::ferror(target);
+  // The DSR leaves the path only here, when the PBP that replaces it is whole.
+  if (ok && replacement)
+    ok = !std::rename(replacement_name.c_str(), automatic_path_.c_str());
   if (!ok) {
     if (!lazy_published_) {
       std::fclose(target);
+      discard_replacement();
+    } else if (replacement) {
+      discard_replacement();
     } else {
       // The destination is free again for the complete DSR copy.
       discard_buffered(target);
@@ -2840,8 +2928,17 @@ bool Proof::convert_lazy_pbp() {
   lazy_report_.dsr_bytes = converted.dsr_bytes;
   lazy_report_.pbp_bytes = converted.pbp_bytes;
   file_ = target; // the stream continues on the real file
-  if (lazy_published_)
+  if (replacement) {
+    // The old handle names the unlinked DSR file; nothing was written through it.
+    FILE *&held = lazy_published_ ? lazy_destination_ : pbp_output_;
+    std::fclose(held);
+    held = nullptr;
+    if (!lazy_published_)
+      pbp_output_ = replacement;
+    dsr_in_destination_ = false;
+  } else if (lazy_published_) {
     lazy_destination_ = nullptr; // now owned through file_
+  }
   lazy_.reset();
   dsr_is_the_proof_ = false;
   automatic_destination_ = file_;
@@ -2888,13 +2985,56 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
     automatic_reason_ = AutomaticProofReason::DestinationUnsupported;
     return true;
   }
-  FILE *stage = nullptr;
   struct stat link_stat;
   const bool renameable = !lstat(path, &link_stat) &&
                           S_ISREG(link_stat.st_mode) &&
                           link_stat.st_nlink == 1 &&
                           link_stat.st_dev == destination_stat.st_dev &&
                           link_stat.st_ino == destination_stat.st_ino;
+  const auto attach_copy = [&](FILE *stage) {
+    auto copy = std::make_unique<Proof>();
+    copy->copy_role_ = true;
+    copy->census_on_ = true;
+    if (!copy->open_stream(stage, binary_dsr ? ProofFormat::DsrBinary
+                                             : ProofFormat::DsrAscii))
+      return false;
+    copy->bind_variable_map(variable_map_);
+    copy->bind_external_variable_map(external_variable_map_);
+    dsr_copy_ = std::move(copy);
+    start_lazy_pbp();
+    return true;
+  };
+  // The DSR goes straight to the destination, so a killed run leaves its
+  // prefix. That needs a counting PBP stream, since nothing else may write
+  // there, and a place for the file that replaces it at a switch.
+  if (!stage_path && renameable) {
+    std::string probe_name;
+    FILE *const probe = open_sibling(automatic_path_, destination_stat.st_dev,
+                                     destination_stat.st_mode, probe_name);
+    if (probe) {
+      std::fclose(probe);
+      unlink(probe_name.c_str());
+      const int descriptor =
+          ::open(automatic_path_.c_str(), O_RDWR | O_CLOEXEC);
+      struct stat direct_stat;
+      FILE *const direct =
+          descriptor >= 0 && !fstat(descriptor, &direct_stat) &&
+                  direct_stat.st_dev == destination_stat.st_dev &&
+                  direct_stat.st_ino == destination_stat.st_ino
+              ? fdopen(descriptor, "r+b")
+              : nullptr;
+      if (!direct && descriptor >= 0)
+        close(descriptor);
+      if (direct && attach_copy(direct)) {
+        if (lazy_) {
+          dsr_in_destination_ = true;
+          return true;
+        }
+        dsr_copy_.reset(); // nothing was written: fall back to a stage
+      }
+    }
+  }
+  FILE *stage = nullptr;
   if (stage_path) {
     // A caller stage is copied from at the empty clause: it must be a
     // regular file other than the destination, or the copy could not be
@@ -2909,20 +3049,8 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
       stage = nullptr;
     }
   } else if (renameable) {
-    std::string name = sibling_stage_template(automatic_path_.c_str());
-    const int descriptor = mkstemp(name.data());
-    if (descriptor >= 0) {
-      struct stat stage_stat;
-      if (!fstat(descriptor, &stage_stat) &&
-          stage_stat.st_dev == destination_stat.st_dev &&
-          !fchmod(descriptor, destination_stat.st_mode & 07777) &&
-          (stage = fdopen(descriptor, "w+b"))) {
-        automatic_stage_name_ = name;
-      } else {
-        close(descriptor);
-        unlink(name.c_str());
-      }
-    }
+    stage = open_sibling(automatic_path_, destination_stat.st_dev,
+                         destination_stat.st_mode, automatic_stage_name_);
   }
   if (!stage && !stage_path)
     stage = std::tmpfile();
@@ -2930,21 +3058,12 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
     automatic_reason_ = AutomaticProofReason::StageUnavailable;
     return true;
   }
-  auto copy = std::make_unique<Proof>();
-  copy->copy_role_ = true;
-  copy->census_on_ = true;
-  if (!copy->open_stream(stage, binary_dsr ? ProofFormat::DsrBinary
-                                           : ProofFormat::DsrAscii)) {
+  if (!attach_copy(stage)) {
     if (!automatic_stage_name_.empty())
       unlink(automatic_stage_name_.c_str());
     automatic_stage_name_.clear();
     automatic_reason_ = AutomaticProofReason::StageUnavailable;
-    return true;
   }
-  copy->bind_variable_map(variable_map_);
-  copy->bind_external_variable_map(external_variable_map_);
-  dsr_copy_ = std::move(copy);
-  start_lazy_pbp();
   return true;
 }
 
@@ -2972,6 +3091,7 @@ void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
     copy.file_ = nullptr;
   }
   dsr_copy_.reset();
+  dsr_in_destination_ = false;
   if (!automatic_stage_name_.empty())
     unlink(automatic_stage_name_.c_str());
   automatic_stage_name_.clear();
@@ -3044,8 +3164,8 @@ void Proof::settle_dsr_copy() {
   }
 }
 
-// Replace the destination's PBP bytes with the DSR copy: rename a sibling stage
-// over the destination, else rewrite the destination in place. Until the
+// Make the DSR copy the proof: it is already in the destination, else rename a
+// sibling stage over the destination, else rewrite the destination in place. Until the
 // destination changes, any copy-side failure keeps the complete PBP stream.
 // Afterwards the discarded PBP bytes are dropped unwritten, so only the DSR
 // bytes can fail to land; a failed placement aborts before any UNSAT verdict.
@@ -3061,13 +3181,25 @@ void Proof::select_dsr_copy(bool finished) {
       discard_lazy_pbp();
     else if (dsr_is_the_proof_)
       std::abort(); // the only proof could not be written
+    // Whatever reached the destination stays: dropping would truncate it.
+    if (dsr_in_destination_ && copy.file_) {
+      discard_buffered(copy.file_);
+      std::fclose(copy.file_);
+      copy.file_ = nullptr;
+    }
     drop_dsr_copy(AutomaticProofReason::CopyWriteFailed);
     return;
   }
   FILE *stage = copy.file_;
   copy.file_ = nullptr;
   bool placed = false;
-  if (!automatic_stage_name_.empty()) {
+  if (dsr_in_destination_) {
+    placed = true;
+    const bool closed = !std::fclose(stage);
+    stage = nullptr;
+    if (!closed && finished)
+      std::abort();
+  } else if (!automatic_stage_name_.empty()) {
     // The rename is atomic: the path names either the PBP or the DSR file.
     const bool closed = !std::fclose(stage);
     stage = nullptr;
@@ -3112,7 +3244,7 @@ void Proof::select_dsr_copy(bool finished) {
   binary_buffer_size_ = 0;
   discard_buffered(destination);
   if (placed) {
-    std::fclose(destination); // the renamed-over PBP file is unlinked
+    std::fclose(destination); // a second handle, or the renamed-over PBP file
     destination = nullptr;
   } else {
     if ((ftruncate(fileno(destination), 0) ||

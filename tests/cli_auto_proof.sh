@@ -189,6 +189,33 @@ grep -qx 'c auto-proof    pending' "$tmp/hard.out"
 not_pbp "$tmp/hard.auto"
 no_stage_left
 
+# SIGKILL mid-search: no handler runs, but the destination already holds the DSR.
+# The search is deterministic, so it agrees with the SIGTERM prefix byte for byte.
+kill_when() { # proof shell-test: SIGKILL the solver once the test holds; a fixed
+  # delay would not do, because slow builds fill their first buffer late.
+  local proof=$1 ready=$2
+  "$solver" "$tmp/hard.cnf" "$proof" > "$proof.out" 2>&1 &
+  local pid=$!
+  for _ in $(seq 1 1200); do
+    eval "$ready" && break
+    kill -0 "$pid" 2> /dev/null || break
+    sleep 0.1
+  done
+  kill -KILL "$pid" 2> /dev/null || true
+  set +e
+  wait "$pid"
+  local status=$?
+  set -e
+  [[ $status -eq 137 ]] || { echo "$proof: exit $status"; exit 1; }
+}
+kill_when "$tmp/hard.killed" '[[ -s "$tmp/hard.killed" ]]'
+killed_bytes=$(wc -c < "$tmp/hard.killed")
+[[ $killed_bytes -gt 0 ]] || { echo 'hard killed: empty prefix'; exit 1; }
+not_pbp "$tmp/hard.killed"
+no_stage_left
+term_bytes=$(wc -c < "$tmp/hard.auto")
+cmp -n "$((killed_bytes < term_bytes ? killed_bytes : term_bytes))" "$tmp/hard.killed" "$tmp/hard.auto"
+
 # SIGTERM after a switch: the run leaves PBP, the converted prefix joined to the
 # live stream, without a conclusion. VeriPB accepts every derivation in it.
 set +e
@@ -219,4 +246,19 @@ TRAILER
   { echo 'hard switched: VeriPB rejected the prefix'; tail -5 "$tmp/hard.veripb"; exit 1; }
 grep -qx 's VERIFIED NO CONCLUSION' "$tmp/hard.veripb"
 
-printf 'CLI automatic proof: DSR for plain CDCL and Ramsey SR, PBP for startup parity and GF(2) reasons; statistics equal --pbp; conversions forced mid-run; every route checked; SIGTERM leaves the current stream\n'
+# SIGKILL after a switch: the path names the PBP, whose whole lines VeriPB accepts.
+TACTIX_AUTO_PROOF_SWITCH_AT=50 kill_when "$tmp/hard.killed-pbp" \
+  'head -c 14 "$tmp/hard.killed-pbp" 2> /dev/null | grep -q pseudo-Boolean'
+head -c 14 "$tmp/hard.killed-pbp" | grep -q 'pseudo-Boolean'
+no_stage_left
+python3 - "$tmp/hard.killed-pbp" "$tmp/hard.killed-closed" <<'CUT'
+import sys
+text = open(sys.argv[1], 'rb').read()
+open(sys.argv[2], 'wb').write(text[:text.rindex(b'\n') + 1] +
+    b'output NONE ;\nconclusion NONE ;\nend pseudo-Boolean proof ;\n')
+CUT
+"$bin/veripb" -u --cnf "$tmp/hard.cnf" "$tmp/hard.killed-closed" > "$tmp/hard.veripb" 2>&1 ||
+  { echo 'hard killed after the switch: VeriPB rejected the prefix'; tail -5 "$tmp/hard.veripb"; exit 1; }
+grep -qx 's VERIFIED NO CONCLUSION' "$tmp/hard.veripb"
+
+printf 'CLI automatic proof: DSR for plain CDCL and Ramsey SR, PBP for startup parity and GF(2) reasons; statistics equal --pbp; conversions forced mid-run; every route checked; SIGTERM and SIGKILL leave the current stream\n'

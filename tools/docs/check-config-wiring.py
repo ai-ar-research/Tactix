@@ -363,6 +363,7 @@ TABLE = {
                                 ("POLICY", "configured chronological-gap limit "
                                            "for the conflict-reuse shortcut"),
     "structural_action_sequence": ("RULE", "monotone structural provenance attempt identity"),
+    "affine_reasons_unaffordable": ("RULE", "ConflictAnalysis withdrew parity handles; parity search ends"),
     "semantic_variable_candidate_pending":
                                 ("RULE", "registry transaction state for one staged "
                                          "producer declaration"),

@@ -433,6 +433,14 @@ void AffineMatrixSearchSession::disable(Kernel &kernel) {
   *this = AffineMatrixSearchSession{};
 }
 
+uint32_t AffineMatrixSearchSession::lowest_lazy_reason_level(
+    const Kernel &kernel) const noexcept {
+  uint32_t lowest = UINT32_MAX;
+  for (const auto &pending : lazy_reasons_)
+    lowest = std::min(lowest, kernel.assigned[pending.implied_variable].level);
+  return lowest;
+}
+
 void AffineMatrixSearchSession::erase_lazy_reason_at(size_t index) noexcept {
   assert(index < lazy_reasons_.size());
   const uint64_t bytes = lazy_reasons_[index].retained_bytes;
@@ -1809,6 +1817,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     session.disable(kernel);
     return finish_service(kernel, result, AffineMatrixServiceStatus::Stale);
   }
+  // Analysis withdrew the handles it could not pay for (analyze.cpp).
+  if (kernel.affine_reasons_unaffordable) lazy_source = false;
   // Backtracking retires handles synchronously at kernel_unassign_literal.
   // Debug keeps the former polling predicate as a boundary assertion.
 #ifndef NDEBUG

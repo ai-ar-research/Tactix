@@ -945,5 +945,6 @@ TACTIX_STATS_U64(affine_matrix_service_minimum_slice_work_max)
 // These cumulative counters survive session replacement.
 TACTIX_STATS_U64(affine_matrix_analyze_handles)
 TACTIX_STATS_U64(affine_matrix_analyze_materializations)
+TACTIX_STATS_U64(affine_matrix_analyze_retractions)
 TACTIX_STATS_U64(affine_matrix_analyze_vectors_constructed)
 TACTIX_STATS_U64(affine_matrix_analyze_literals_constructed)

@@ -454,6 +454,8 @@ private:
   AutomaticProofReason automatic_reason_ = AutomaticProofReason::Pending;
   std::string automatic_path_;       // the destination, for the final rename
   std::string automatic_stage_name_; // a named sibling stage, else empty
+  // The DSR copy writes to the destination itself, so a killed run leaves it.
+  bool dsr_in_destination_ = false;
   // The proof file the automatic selection finally rewrites (non-owning: an
   // alias of pbp_output_ or, after publication, file_ or lazy_destination_).
   // Every fstat, truncation and copy-in of the destination goes through it.
@@ -464,8 +466,8 @@ private:
 
   // One proof at a time (plan §5). In automatic mode, until a trigger, file_ is
   // an in-process stream that only counts PBP text, and the DSR copy is the
-  // proof. A trigger converts the copy's stage to PBP in the destination and
-  // the writer continues on the real file. The writer's state and every answer
+  // proof. A trigger converts the copy to PBP, which takes over the destination,
+  // and the writer continues on the real file. The writer's state and every answer
   // it gives the kernel are those of --pbp until the switch.
   struct LazyPbp;
   std::unique_ptr<LazyPbp> lazy_;     // null when the stream is real
@@ -561,6 +563,10 @@ private:
   uint64_t premise_pending_deletion_cap_ = UINT64_MAX, premise_pending_work_cap_ = UINT64_MAX;
   uint32_t premise_maximum_width_ = 0;
   uint64_t premise_maintenance_work_ = 0;
+  // Occurrences of each external variable in premise_groups_, so a line whose
+  // pivot and witness touch no lease need not scan them.
+  std::vector<uint32_t> premise_variable_uses_;
+  void count_premise_variables(const PremiseGroup &, bool add);
   bool defer_leased_deletion(const int32_t *, uint32_t);
   void invalidate_premises_for_sr(uint64_t, const Lit *, uint32_t,
       const Lit *, uint32_t, const DsrLiteralMapping *, uint32_t);
