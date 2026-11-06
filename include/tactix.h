@@ -28,7 +28,7 @@
  *    literal and not constructible by the caller: enumerate, then apply one of
  *    the values returned, within the same solver state.
  *  - ParityConsequence selects its bounded consequence through typed online
- *    parameters and requires a bound structural provenance stream.
+ *    parameters and requires bound structural provenance.
  *  - Propagate and SwitchMode have no instance surface at all, so a
  *    non-canonical payload to tactix_apply_instance on one of them is an
  *    invalid argument (-1), never a silent canonical application. Congruence
@@ -172,6 +172,11 @@ void tactix_release(tactix *);
  * Caller owns its lifetime; NULL unbinds it. Binding invalidates outstanding
  * selections. The session's action IDs never reset. Returns 0 or -1. */
 int tactix_bind_structural_provenance(tactix *, FILE *);
+/* Bind a provenance journal that keeps nothing: structural actions run as with
+ * a stream and their records are discarded unformatted, as the CLI does without
+ * --structural-provenance. Binding invalidates outstanding selections.
+ * Returns 0 or -1. */
+int tactix_discard_structural_provenance(tactix *);
 
 /* Input ingest: literals in DIMACS convention, 0 terminates a clause.
  * Input closes on the first status, enumeration, rule, or solve query.

@@ -53,6 +53,8 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Added
 
+- `tactix_discard_structural_provenance` binds the journal the CLI uses without
+  `--structural-provenance`: it keeps nothing and formats no text. `tactix-public` uses it.
 - `--auto-proof` names the automatic default explicitly; `--proof-stage=FILE`
   places its DSR proof in a caller-owned file until the run ends.
 - The C API proof format `TACTIX_PROOF_AUTO` (7) selects automatic proofs,

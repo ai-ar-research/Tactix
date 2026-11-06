@@ -114,14 +114,8 @@ int main(int argc, char **argv) {
   kernel_defer_cold_state(kernel);
   if (tactix_set_guidance_publication(s, TACTIX_GUIDANCE_NATIVE) != 0) return 1;
   tactix_set_bve_gates(s, BVE_GATE_KISSAT_DEFAULT);
-  // Structural actions need a bound journal, which a C session binds as a
-  // stream.
-  FILE *provenance = std::tmpfile();
-  if (!provenance || tactix_bind_structural_provenance(s, provenance) != 0) {
-    fprintf(stderr, "tactix-public: cannot create structural provenance stream\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
+  // As the CLI without --structural-provenance.
+  if (tactix_discard_structural_provenance(s) != 0) return 1;
   if (proof_path && tactix_proof(s, proof_path, proof_format) != 0) {
     fprintf(stderr, "tactix-public: cannot write proof to '%s'\n", proof_path);
     printf("s UNKNOWN\n");
@@ -171,6 +165,5 @@ int main(int argc, char **argv) {
   }
   fflush(stdout);
   tactix_release(s);
-  std::fclose(provenance);
   return res == 10 ? 10 : res == 20 ? 20 : 0;
 }

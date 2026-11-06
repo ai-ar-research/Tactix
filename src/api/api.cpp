@@ -1898,6 +1898,13 @@ int tactix_bind_structural_provenance(tactix_solver *s, FILE *stream) {
   return 0;
 }
 
+int tactix_discard_structural_provenance(tactix_solver *s) {
+  if (!s) return -1;
+  s->kernel.structural_provenance = StructuralJournal::discard();
+  external_state_change(s);
+  return 0;
+}
+
 static void attach_proof(tactix_solver *s) {
   s->kernel.proof = &s->proof;
   s->proof.bind_variable_map(&s->kernel.internal_to_external);
