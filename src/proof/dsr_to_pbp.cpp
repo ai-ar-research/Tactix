@@ -44,7 +44,7 @@ private:
 class Writer {
 public:
   Writer(FILE *out, const std::vector<DsrHelperNames> &helpers)
-      : out_(out), helpers_(helpers) {
+      : helpers_(helpers), out_(out) {
     text_.reserve(capacity + 256);
   }
   void put(const char *text) { text_ += text; }
