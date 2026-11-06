@@ -3,7 +3,6 @@
 #include "kernel/kernel.hpp"
 #include "kernel/types.hpp"
 
-#include <cstdarg>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -24,13 +23,13 @@ protected:
         initial_(k.input_unit_clause_count + k.input_nonunit_clause_count),
         id_(initial_) {}
 
-  void text(const char *format, ...) {
+  template <class... Args> void text(const char *format, Args... args) {
     if (!out_)
       return;
-    va_list args;
-    va_start(args, format);
-    std::vfprintf(out_, format, args);
-    va_end(args);
+    if constexpr (sizeof...(Args) == 0)
+      std::fputs(format, out_);
+    else
+      std::fprintf(out_, format, args...);
   }
   void term(unsigned coefficient, int32_t literal) {
     text("%u %sx%u ", coefficient, literal < 0 ? "~" : "",
