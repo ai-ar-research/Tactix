@@ -453,6 +453,10 @@ private:
   uint64_t parity_bytes_ = 0;
   uint64_t parity_bytes_limit_ = 10000000;
   uint32_t new_helper();
+  // A solver variable's DSR name: every helper named while the solver had fewer
+  // variables sits below it. checker_variable stops the run past the names
+  // the checkers read.
+  uint64_t checker_name(uint64_t solver_variable) const;
   uint32_t checker_variable(uint32_t solver_variable) const;
   struct ParityWriter;
   friend struct ParityWriter;
@@ -478,8 +482,10 @@ private:
   // The copy is the only proof (held across a failed conversion, when lazy_ is
   // gone): losing its bytes must abort before any UNSAT claim.
   bool dsr_is_the_proof_ = false;
-  // In the copy: which additions are witness-free RAT lines (dsr_to_pbp.hpp).
+  // In the copy: which additions are witness-free RAT lines (dsr_to_pbp.hpp),
+  // kept by a copy a conversion may read.
   std::vector<uint64_t> rat_additions_;
+  bool keeps_rat_additions_ = false;
   uint64_t additions_ = 0;
   bool next_addition_rat_ = false;
   // Validation: switch after this many DSR additions (never by default); the
@@ -564,7 +570,8 @@ private:
   // Each cached row is written again before its next use.
   void retire_pbp_parity_constraints(const Lit *, uint32_t, const Lit *, uint32_t,
                                      const DsrLiteralMapping *, uint32_t);
-  // The DSR writer cannot spell this line, for want of an auxiliary variable.
+  // The DSR writer cannot spell this line: its auxiliary variable would need a
+  // name past the ones the checkers read.
   bool sr_needs_missing_auxiliary(const Lit *, uint32_t, const Lit *, uint32_t,
                                   const DsrLiteralMapping *, uint32_t, uint32_t,
                                   bool) const;

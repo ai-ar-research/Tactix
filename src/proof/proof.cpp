@@ -40,6 +40,15 @@ namespace {
   std::fprintf(stderr, "tactix: proof error: %s\n", what);
   std::_Exit(1);
 }
+
+// The largest variable name a DSR line carries. The pinned drat-trim and
+// dsr-trim decode a binary literal, (name << 1) | sign, into a signed int, and
+// dsr-trim indexes a literal of either spelling by twice its name.
+constexpr uint32_t MAX_CHECKER_NAME = (uint32_t{1} << 30) - 1;
+[[noreturn]] void checker_name_error() {
+  proof_error("the DSR proof needs a variable name above 2^30-1, the largest "
+              "drat-trim and dsr-trim read");
+}
 } // namespace
 
 namespace {
@@ -612,20 +621,19 @@ void Proof::put_external_dimacs(int32_t e) {
 }
 
 void Proof::put_checker_literal(int32_t e) {
-  if (copy_role_)
-    for (uint32_t u = (external_variable_of(e) << 1) | (e < 0); ++dsr_bytes_written_, u >= 128;)
-      u >>= 7;
+  uint32_t u = (external_variable_of(e) << 1) | (e < 0);
+  uint64_t bytes = 1;
   if (binary()) {
-    const uint32_t magnitude = external_variable_of(e);
-    uint32_t u = (magnitude << 1) | (e < 0);
-    while (u >= 128) {
+    for (; u >= 128; u >>= 7, ++bytes)
       put_byte(static_cast<unsigned char>(128 | (u & 127)));
-      u >>= 7;
-    }
     put_byte(static_cast<unsigned char>(u));
   } else {
+    for (; u >= 128; u >>= 7)
+      ++bytes;
     fprintf(file_, "%d ", e);
   }
+  if (copy_role_)
+    dsr_bytes_written_ += bytes;
 }
 
 const int32_t *Proof::pbp_checker_literals(const Lit *lits, uint32_t size) {
@@ -1158,7 +1166,8 @@ void Proof::put_line_tag(bool deletion) {
   // text does not distinguish from RUP.
   if (copy_role_ && !deletion) {
     if (next_addition_rat_) {
-      rat_additions_.push_back(additions_);
+      if (keeps_rat_additions_)
+        rat_additions_.push_back(additions_);
       next_addition_rat_ = false;
     }
     ++additions_;
@@ -1213,7 +1222,8 @@ void Proof::flush_pending_dsr_units() {
                   CheckerClauseRole::None, 0, 0, {}, false,
                   pending_population_transaction_);
   const bool split = (pending_deletions_ || !pending_deletion_bytes_.empty()) &&
-                     external_variable_bound() < static_cast<uint32_t>(INT32_MAX);
+                     checker_name(uint64_t{external_variable_bound()} + 1) <=
+                         MAX_CHECKER_NAME;
   const int32_t auxiliary = split ?
       static_cast<int32_t>(external_variable_bound() + 1) : 0;
   const auto emit = [&](int32_t unit, bool deletion, int32_t companion) {
@@ -1824,8 +1834,8 @@ bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
 uint32_t Proof::new_helper() {
   const uint32_t extent = external_variable_bound();
   const uint32_t before = helper_names_.empty() ? 0 : helper_names_.back().helpers;
-  if (uint64_t{extent} + before + 1 > static_cast<uint64_t>(INT32_MAX))
-    proof_error("the DSR proof ran out of 32-bit variable names");
+  if (uint64_t{extent} + before + 1 > MAX_CHECKER_NAME)
+    checker_name_error();
   if (helper_names_.empty() || helper_names_.back().extent != extent)
     helper_names_.push_back({extent, before + 1});
   else
@@ -1833,15 +1843,22 @@ uint32_t Proof::new_helper() {
   return extent + before + 1;
 }
 
-uint32_t Proof::checker_variable(uint32_t solver_variable) const {
+uint64_t Proof::checker_name(uint64_t solver_variable) const {
   if (helper_names_.empty() || solver_variable <= helper_names_.front().extent)
     return solver_variable;
   const auto after = std::lower_bound(
       helper_names_.begin(), helper_names_.end(), solver_variable,
-      [](const DsrHelperNames &entry, uint32_t variable) {
+      [](const DsrHelperNames &entry, uint64_t variable) {
         return entry.extent < variable;
       });
   return solver_variable + std::prev(after)->helpers;
+}
+
+uint32_t Proof::checker_variable(uint32_t solver_variable) const {
+  const uint64_t name = checker_name(solver_variable);
+  if (name > MAX_CHECKER_NAME)
+    checker_name_error();
+  return static_cast<uint32_t>(name);
 }
 
 // Writes one parity certificate to the DSR copy. Dense variable i+1 is
@@ -2517,7 +2534,7 @@ bool Proof::sr_needs_missing_auxiliary(const Lit *lits, uint32_t size,
       plan_dsr_witness(lits, size, true_lits, ntrue, mappings, nmappings).form;
   return (form == DsrWitnessForm::Extension ||
           (propagates && form != DsrWitnessForm::Rup)) &&
-         external_variables >= static_cast<uint32_t>(INT32_MAX);
+         checker_name(uint64_t{external_variables} + 1) > MAX_CHECKER_NAME;
 }
 
 void Proof::retire_pbp_parity_constraints(const Lit *lits, uint32_t size,
@@ -3170,6 +3187,7 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   const auto attach_copy = [&](FILE *stage) {
     auto copy = std::make_unique<Proof>();
     copy->copy_role_ = true;
+    copy->keeps_rat_additions_ = true;
     if (!copy->open_stream(stage, binary_dsr ? ProofFormat::DsrBinary
                                              : ProofFormat::DsrAscii))
       return false;
@@ -3460,10 +3478,13 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates) {
   // A line the copy cannot write converts first, before either stream retires
-  // anything for it.
+  // anything for it; --dsr stops there.
   if (dsr_copy_ && dsr_copy_->sr_needs_missing_auxiliary(lits, size, true_lits, ntrue, mappings,
-                                                         nmappings, external_variables, propagates))
+                                                         nmappings, external_variables, propagates)) {
+    if (dsr_only_)
+      checker_name_error();
     drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+  }
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_sr_impl(id, lits, size, true_lits, ntrue, mappings,
