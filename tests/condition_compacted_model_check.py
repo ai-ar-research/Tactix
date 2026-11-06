@@ -20,9 +20,9 @@ def main() -> int:
                          capture_output=True, text=True, timeout=60)
     if run.returncode or "s SATISFIABLE" not in run.stdout:
         raise RuntimeError(f"compacted X5 model driver failed: {run}")
-    scratch = ROOT / "benchmarks/probes/scratch"
-    scratch.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(prefix="condition-compacted-", dir=scratch) as tmp:
+    # The system temporary directory is node-local; on NFS, removing a just-closed
+    # file can leave a silly-renamed entry that makes the directory removal fail.
+    with TemporaryDirectory(prefix="condition-compacted-") as tmp:
         cnf = ROOT / "tests/condition_compacted_original.cnf"
         model = Path(tmp) / "model.out"
         model.write_text(run.stdout)

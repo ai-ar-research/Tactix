@@ -553,6 +553,25 @@ void test_population_membership_uses_exact_drat_multiset() {
   p.arm_population_shadow();
   assert(p.population_shadow());
 }
+
+// The whole-run PBP stream records an external RAT addition, so deleting it
+// is backed.
+void test_population_backs_streaming_pbp_external_rat() {
+  const std::string path = tmp_path("pbp-shadow-external-rat");
+  {
+    Proof p;
+    assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
+    const Lit input = make_lit(0, false);
+    p.seed_population(1, &input, 1);
+    p.finish_input_transaction();
+    p.arm_population_shadow();
+    const int32_t gate[2] = {-9, 1};
+    assert(p.add_external_rat(2, gate, 2));
+    assert(p.del_external(3, 2, gate, 2));
+    assert(p.unbacked_deletions() == 0);
+  }
+  std::remove(path.c_str());
+}
 #endif
 
 } // namespace
@@ -611,19 +630,21 @@ void test_startup_pb_without_a_proof() {
     wrote = true;
     return std::fputs("pseudo-Boolean proof version 3.0\n", out) >= 0;
   };
+  std::vector<int32_t> input{1, 0, -1, 0};
   Proof nowhere;
   assert(nowhere.open_nowhere());
   nowhere.finish_input_transaction();
-  assert(nowhere.write_startup_pb(write_pb));
+  assert(nowhere.refute_by_counting(write_pb, input));
   assert(!wrote && nowhere.startup_pb_written());
   const std::string path = tmp_path("startup-pb");
   {
     Proof p;
     assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
     p.finish_input_transaction();
-    assert(p.write_startup_pb(write_pb));
+    assert(p.refute_by_counting(write_pb, input));
     assert(wrote && p.startup_pb_written());
-    assert(!p.write_startup_pb(write_pb));
+    assert(!p.refute_by_counting(write_pb, input));
+    assert(input.size() == 4 && !p.dsr_follow_on_pending());
   }
   std::remove(path.c_str());
 }
@@ -816,6 +837,7 @@ int main() {
   test_unopened_proof_is_silent();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   test_population_membership_uses_exact_drat_multiset();
+  test_population_backs_streaming_pbp_external_rat();
 #endif
   printf("test_proof: all proof-backend serializer cases passed\n");
   return 0;

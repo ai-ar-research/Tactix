@@ -1987,6 +1987,7 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // The local cursor follows the growing used trail during assignments; publish
   // it on both fixpoint and conflict exits as native propsearch.c does.
   const size_t assigned_before = k.trail.size();
+  const uint64_t roots_before = k.stats.root_assignments;
   const bool conflict = ignore == INVALID_REF
                             ? propagate_trail<false>(k, INVALID_REF)
                             : propagate_trail<true>(k, ignore);
@@ -1996,9 +1997,11 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // can force a literal at level 0, and a root literal left implicit is one a
   // backward checker knows only as an implied unit.  It cannot cite such a unit
   // for a witnessed addition whose candidate the literal satisfies, so the
-  // elaborated LSR loses that hint group.  Not gated on `k.level`: a forced
-  // literal is stamped at its true level, and `kernel_emit_root_units` applies
-  // the per-literal test.
+  // elaborated LSR loses that hint group.  A forced literal is stamped at its
+  // true level, whatever `k.level` is, so the scan runs when this call made a
+  // level-0 assignment: kernel_assign, the only trail writer here, counts each
+  // in `root_assignments`, and `kernel_emit_root_units` applies the per-literal
+  // test to the literals appended since `assigned_before`.
   // A root conflict normally ends the run: the empty clause that follows is
   // RUP from the same formula, so streaming PBP stages these units and drops
   // them if that clause is next (VeriPB need not re-justify one conflict
@@ -2007,7 +2010,8 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
     const bool stage = conflict && k.level == 0;
     if (stage)
       k.proof->begin_deferred_root_units();
-    kernel_emit_root_units(k, assigned_before);
+    if (__builtin_expect(k.stats.root_assignments != roots_before, 0))
+      kernel_emit_root_units(k, assigned_before);
     if (stage)
       k.proof->end_deferred_root_units();
   }
@@ -2208,6 +2212,7 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   // does deliberately: it asserts each environment's units without propagating
   // and then replays the next equivalence.
   const size_t assigned_before = k.trail.size();
+  const uint64_t roots_before = k.stats.root_assignments;
   const bool named_root_units = k.proof && !k.proof->startup_pb_written();
   bool conflict = false;
   kernel_settle_binary_only_debt(k); // this scan is a full one
@@ -2233,7 +2238,8 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
     k.stats.propagations += k.propagate_head - saved_propagate;
     kernel_charge_ticks(k, ticks);
   }
-  if (named_root_units)
+  // Only a level-0 assignment made by this call can need a unit line.
+  if (named_root_units && k.stats.root_assignments != roots_before)
     kernel_emit_root_units(k, assigned_before);
   return conflict;
 }
@@ -2255,6 +2261,7 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   if (k.propagate_head < k.binary_only_head)
     k.binary_only_head = k.propagate_head;
   const size_t assigned_before = k.trail.size();
+  const uint64_t roots_before = k.stats.root_assignments;
   const bool named_root_units = k.proof && !k.proof->startup_pb_written();
   bool conflict = false;
   const uint32_t saved_propagate = k.propagate_head;
@@ -2269,7 +2276,8 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   }
   k.stats.propagations += k.propagate_head - saved_propagate;
   kernel_charge_ticks(k, ticks);
-  if (named_root_units)
+  // Only a level-0 assignment made by this call can need a unit line.
+  if (named_root_units && k.stats.root_assignments != roots_before)
     kernel_emit_root_units(k, assigned_before);
   return conflict;
 }

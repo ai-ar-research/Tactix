@@ -129,16 +129,6 @@ SemanticVariableAdviceResult commit_semantic_variable_advice(
   return out;
 }
 
-SemanticVariableAdviceResult apply_semantic_variable_advice(
-    Kernel &k, const SemanticVariableAdvice &advice,
-    const SemanticVariableAdviceLimits &limits) {
-  SemanticVariableAdviceResult result =
-      commit_semantic_variable_advice(k, advice, limits);
-  if (result.status == SemanticVariableAdviceStatus::Applied)
-    ++k.strategy_epoch;
-  return result;
-}
-
 void begin_semantic_variable_candidate_action(Kernel &k) {
   if (!k.semantic_variable_candidate_pending) return;
   clear_staged_candidate(k);

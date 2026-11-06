@@ -73,6 +73,7 @@ add_library(tactix_lib OBJECT
   src/policies/structured_root_strategy.cpp
   ${TACTIX_STRATEGY_SOURCES}
   src/frontend/parse.cpp
+  src/frontend/dsr_follow_on.cpp
   src/api/api.cpp
   src/api/api_work.cpp
 )

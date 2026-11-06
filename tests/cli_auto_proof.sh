@@ -67,11 +67,40 @@ write("sat", 60, [[x * r.choice([1, -1]) for x in r.sample(range(1, 61), 3)]
 r = random.Random(11)
 write("hard", 700, [[x * r.choice([1, -1]) for x in r.sample(range(1, 701), 3)]
                     for _ in range(2982)])
+# Signed permutation layers on `width` wires that cannot keep the one input
+# truth while making two outputs true: the startup counting refutation
+# (formula(width, true, true) in tests/test_count_preservation.cpp, which has
+# two layers).
+def network(name, width, layers):
+    n, count = width * (layers + 1), []
+    for layer in range(layers):
+        sel = [[0] * width for _ in range(width)]
+        for a in range(width):
+            for b in range(a, width):
+                n += 1; sel[a][b] = sel[b][a] = n
+        for a in range(width):
+            count.append(list(sel[a]))
+            for b in range(width):
+                count += [[-sel[a][b], -sel[a][c]] for c in range(b)]
+                x, y = layer * width + a + 1, (layer + 1) * width + b + 1
+                count += [[-sel[a][b], -x, y], [-sel[a][b], x, -y]]
+    out = layers * width
+    for a in range(width):
+        count += [[a + 1 if a == 0 else -(a + 1)],
+                  [out + a + 1 if a < 2 else -(out + a + 1)]]
+    rename = lambda l: (-1 if (l < 0) != bool(abs(l) & 1) else 1) * (n + 1 - abs(l))
+    write(name, n, [[rename(l) for l in reversed(c)] for c in reversed(count)])
+# Seven wires through four layers: a --dsr follow-on refutes it by search, with
+# hundreds of conflicts.
+network("count", 7, 4)
+# Twelve wires through forty layers: a follow-on search of seconds in Release,
+# for SIGTERM to interrupt.
+network("count_long", 12, 40)
 PY
 
 mask() {
   grep '^c ' "$1" |
-    grep -vE '^c (timing|phasecost|auto-proof|proof-route)|nanos|seconds| ms\b|%\)' |
+    grep -vE '^c (timing|phasecost|auto-proof|proof-route|follow-on)|nanos|seconds| ms\b|%\)' |
     sed -E 's/[0-9]+\.[0-9]+/<f>/g'
 }
 run() { # name expected-exit args...
@@ -119,6 +148,7 @@ while read -r name route reason content; do
 done <<'EOF'
 plain dsr-cake_lpr dsr-selected drat
 tseitin pbp startup-pb-refutation pbp
+count pbp startup-pb-refutation pbp
 ramsey dsr-trestle dsr-selected dsr
 EOF
 
@@ -171,8 +201,9 @@ ramsey end
 SWITCHES
 
 # One search: no proof, every format and a named journal take the same search,
-# whatever is written.
-for name in plain tseitin xor parity ramsey; do
+# whatever is written. Under --dsr a startup counting refutation hands the proof
+# to a follow-on solve.
+for name in plain tseitin xor parity ramsey count; do
   run "$name-none" 20 "$tmp/$name.cnf"
   run "$name-journal" 20 --structural-provenance="$tmp/$name.jsonl" "$tmp/$name.cnf"
   run "$name-only-dsr" 20 --dsr "$tmp/$name.cnf" "$tmp/$name.only-dsr"
@@ -180,6 +211,18 @@ for name in plain tseitin xor parity ramsey; do
   for other in none journal only-dsr only-text; do
     diff <(mask "$tmp/$name-pbp.out") <(mask "$tmp/$name-$other.out")
   done
+  if [[ $name == count ]]; then
+    for other in only-dsr only-text; do
+      grep -qx 'c follow-on   startup-count-pb' "$tmp/$name-$other.out" ||
+        { echo "count $other: no follow-on"; cat "$tmp/$name-$other.out"; exit 1; }
+      # The follow-on proof spells a search: conflicts after decisions.
+      grep -qE '^c follow-on   20 result, [1-9][0-9]* conflicts, [1-9][0-9]* decisions,' "$tmp/$name-$other.out" ||
+        { echo "count $other: the follow-on did not search"; cat "$tmp/$name-$other.out"; exit 1; }
+    done
+    # Binary and ASCII DSR take the same follow-on search.
+    diff <(grep '^c follow-on   [0-9]* result,' "$tmp/$name-only-dsr.out") \
+         <(grep '^c follow-on   [0-9]* result,' "$tmp/$name-only-text.out")
+  fi
   not_pbp "$tmp/$name.only-dsr"
   check "$tmp/$name.cnf" "$tmp/$name.only-dsr" "$(sed -n 's/^c proof-route dsr-cake_lpr$/drat/p; s/^c proof-route dsr-trestle$/dsr/p' "$tmp/$name-only-dsr.out")"
   check "$tmp/$name.cnf" "$tmp/$name.only-text" "$(sed -n 's/^c proof-route dsr-cake_lpr$/drat/p; s/^c proof-route dsr-trestle$/dsr/p' "$tmp/$name-only-text.out")"
@@ -235,6 +278,54 @@ grep -qx 'c auto-proof    pending' "$tmp/hard.out"
 [[ -s "$tmp/hard.auto" ]] || { echo 'hard: empty prefix'; exit 1; }
 not_pbp "$tmp/hard.auto"
 no_stage_left
+
+# SIGTERM in a --dsr follow-on: the UNSAT verdict waits on the follow-on's proof,
+# so the run ends as an interrupted search does, with no verdict and no route.
+"$solver" --dsr "$tmp/count_long.cnf" "$tmp/count_long.dsr" > "$tmp/count_long.out" 2>&1 &
+pid=$!
+follow_on=false
+for _ in $(seq 1 1200); do # the main run takes well under a minute
+  if grep -qxF 'c follow-on   startup-count-pb' "$tmp/count_long.out"; then
+    follow_on=true
+    break
+  fi
+  kill -0 "$pid" 2> /dev/null || break
+  sleep 0.05
+done
+signalled=false
+if $follow_on && kill -TERM "$pid" 2> /dev/null; then
+  signalled=true
+  for _ in $(seq 1 1200); do # the search polls its stop flag
+    kill -0 "$pid" 2> /dev/null || break
+    sleep 0.05
+  done
+fi
+if kill -0 "$pid" 2> /dev/null; then
+  kill -KILL "$pid"
+  wait "$pid" || true
+  $signalled && echo 'count_long: the follow-on outlived SIGTERM by a minute' ||
+    echo 'count_long: no follow-on within a minute'
+  cat "$tmp/count_long.out"
+  exit 1
+fi
+set +e
+wait "$pid"
+status=$?
+set -e
+if ! $signalled; then
+  # Only a follow-on that finished first leaves nothing to interrupt.
+  [[ $status -eq 20 ]] && grep -q '^c follow-on   20 result,' "$tmp/count_long.out" ||
+    { echo "count_long: exit $status before SIGTERM"; cat "$tmp/count_long.out"; exit 1; }
+  echo 'count_long: SKIPPED the interrupted follow-on: it finished before SIGTERM could be sent'
+else
+  [[ $status -eq 0 ]] || { echo "count_long: exit $status"; cat "$tmp/count_long.out"; exit 1; }
+  grep -qx 's UNKNOWN' "$tmp/count_long.out" || { echo 'count_long: a verdict'; cat "$tmp/count_long.out"; exit 1; }
+  if grep -q '^c proof-route' "$tmp/count_long.out"; then
+    echo 'count_long: a route for an unfinished proof'
+    cat "$tmp/count_long.out"
+    exit 1
+  fi
+fi
 
 # SIGKILL mid-search: no handler runs, but the destination already holds the DSR.
 # The search is deterministic, so it agrees with the SIGTERM prefix byte for byte.
@@ -308,4 +399,4 @@ CUT
   { echo 'hard killed after the switch: VeriPB rejected the prefix'; tail -5 "$tmp/hard.veripb"; exit 1; }
 grep -qx 's VERIFIED NO CONCLUSION' "$tmp/hard.veripb"
 
-printf 'CLI automatic proof: DSR by default, PBP for a startup refutation and for parity past its limit; statistics equal --pbp; conversions forced mid-run; every route checked; SIGTERM and SIGKILL leave the current stream\n'
+printf 'CLI automatic proof: DSR by default, PBP for a startup refutation and for parity past its limit; --dsr follows a counting refutation on with a search, and claims nothing when interrupted; statistics equal --pbp; conversions forced mid-run; every route checked; SIGTERM and SIGKILL leave the current stream\n'

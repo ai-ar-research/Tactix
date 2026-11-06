@@ -1575,6 +1575,7 @@ std::string DefaultStrategyConfig::serialize() const {
       ("enabled", ramsey_startup.enabled)
       ("parameters", serialize_lucky_parameters(ramsey_startup.parameters,
                                                 LUCKY_STARTUP_RAMSEY));
+  SnapshotGroup{out, "startup_count"}("enabled", startup_count.enabled);
   SnapshotGroup{out, "affine_root_closure"}
       ("enabled", affine_root_closure.enabled)
       ("maximum_clauses", affine_root_closure.maximum_clauses)
@@ -4407,7 +4408,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (pb == ApplyResult::Unsat)
       return finish(20);
   }
-  if (count_preservation_guard(k)) {
+  if (config_.startup_count.enabled && count_preservation_guard(k)) {
     const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::StartupCount>(
         k, "startup-count-pb", completion_);
     if (counting == ApplyResult::Unsat)

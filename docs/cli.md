@@ -51,11 +51,14 @@ pseudo-Boolean (PBP) once and continues in PBP only when a startup algebraic
 argument refutes the formula, once parity reasoning has cost 10 MB of DSR, or at
 a step DSR cannot follow. The output names the result, for example
 `c proof-route dsr-cake_lpr`. Use `--pbp` to always write PBP and `--dsr` to always
-write DSR. A startup counting refutation has no practical DSR spelling, so `--dsr`
-stops there with an error.
+write DSR. A startup counting refutation has no practical DSR spelling: under
+`--dsr`, a second solve of the original formula without that refutation writes the
+DSR proof and prints its statistics on `c follow-on` lines. If that solve is
+interrupted, the run reports no verdict.
 
 The search is the same with no proof and in every format, so the choice affects
-only what is written and how long it takes to check.
+what is written, how long it takes to check, and, after a startup counting
+refutation under `--dsr`, the follow-on's run time.
 
 ## Optional proof checking
 

@@ -23,6 +23,9 @@ namespace tactix {
 
 enum class ProofFormat { DsrBinary, DsrAscii, Pbp, PbpStreaming };
 
+// One route for a proof that cannot be written: say why and stop, with no verdict.
+[[noreturn]] void proof_error(const char *what);
+
 struct DsrLiteralMapping {
   Lit from = INVALID_LIT;
   Lit to = INVALID_LIT;
@@ -159,11 +162,23 @@ public:
   // False, with nothing written, when the stream is already published.
   bool refute_parity(const std::vector<PbpParityEquation> &equations,
                      const std::function<bool(FILE *)> &write_pb);
-  // A complete startup PB refutation; the run ends on it. `write_pb` writes it to the
-  // stream it is given, and is not called when no proof is being written. False, with
-  // nothing written, when the stream is already published. Stops with the proof error
-  // on a DSR-only proof.
-  bool write_startup_pb(const std::function<bool(FILE *)> &write_pb);
+  // A startup counting refutation; the run ends on it. `write_pb` writes it to the
+  // PBP stream it is given, and is not called when no proof is being written. A
+  // DSR-only proof writes nothing yet: it takes `input`, the original DIMACS
+  // literals, and is pending until a follow-on solve writes the DSR
+  // (frontend/dsr_follow_on.hpp). False, with nothing written or taken, when the
+  // stream is already published.
+  bool refute_by_counting(const std::function<bool(FILE *)> &write_pb,
+                          std::vector<int32_t> &input);
+  bool dsr_follow_on_pending() const noexcept { return follow_on_pending_; }
+  const std::vector<int32_t> &follow_on_input() const noexcept {
+    return follow_on_input_;
+  }
+  // Open `f`, a fresh proof, as DSR-only on this proof's untouched destination.
+  bool open_dsr_follow_on(Proof &f);
+  // After `f`'s run reported UNSAT: true when its DSR is complete, which then
+  // names this proof's route.
+  bool settle_dsr_follow_on(const Proof &f);
   AutomaticProofReason automatic_reason() const noexcept {
     return automatic_reason_;
   }
@@ -193,6 +208,8 @@ public:
   // Published proof feature, used only to choose an independent final checker.
   // The runner also scans the finished certificate and rejects disagreement.
   const char *verification_route() const {
+    if (follow_on_route_)
+      return follow_on_route_;
     if (automatic_selected_dsr_)
       return automatic_dsr_witness_ ? "dsr-trestle" : "dsr-cake_lpr";
     if (dsr_only_ && dsr_copy_)
@@ -422,7 +439,20 @@ private:
   void finish_input_transaction_impl();
   void flush_impl();
   FILE *begin_pb_impl();
+  // A complete startup PB refutation written to the PBP stream (see
+  // refute_by_counting).
+  bool write_startup_pb(const std::function<bool(FILE *)> &write_pb);
   bool open_stream(FILE *file, ProofFormat format);
+  // Explicit DSR on `destination` (owned); see open_automatic.
+  bool open_dsr_only(FILE *destination, bool binary);
+  void publish_dsr_only_prefix();
+
+  // The DSR follow-on of a startup counting refutation (refute_by_counting).
+  bool follow_on_pending_ = false;
+  FILE *follow_on_destination_ = nullptr; // owned until open_dsr_follow_on
+  bool follow_on_binary_ = true;
+  std::vector<int32_t> follow_on_input_;
+  const char *follow_on_route_ = nullptr; // the written follow-on's route
 
   // Automatic selection state (see AutomaticProofReason). The copy is a
   // native-DSR Proof fed every event the PBP stream accepted.
@@ -434,6 +464,7 @@ private:
   std::string automatic_path_;       // the destination, for the final rename
   std::string automatic_stage_name_; // a named sibling stage, else empty
   // The DSR copy writes to the destination itself, so a killed run leaves it.
+  // A DSR-only copy writes there once its prefix is published.
   bool dsr_in_destination_ = false;
   bool dsr_only_ = false; // explicit --dsr: DSR is the proof, whatever fires
   // In the DSR copy: proof-only variables that spell parity reasons. The solver
@@ -453,6 +484,10 @@ private:
   uint64_t parity_bytes_ = 0;
   uint64_t parity_bytes_limit_ = 10000000;
   uint32_t new_helper();
+  // A solver variable's DSR name: every helper named while the solver had fewer
+  // variables sits below it. checker_variable stops the run past the names
+  // the checkers read.
+  uint64_t checker_name(uint64_t solver_variable) const;
   uint32_t checker_variable(uint32_t solver_variable) const;
   struct ParityWriter;
   friend struct ParityWriter;
@@ -478,8 +513,10 @@ private:
   // The copy is the only proof (held across a failed conversion, when lazy_ is
   // gone): losing its bytes must abort before any UNSAT claim.
   bool dsr_is_the_proof_ = false;
-  // In the copy: which additions are witness-free RAT lines (dsr_to_pbp.hpp).
+  // In the copy: which additions are witness-free RAT lines (dsr_to_pbp.hpp),
+  // kept by a copy a conversion may read.
   std::vector<uint64_t> rat_additions_;
+  bool keeps_rat_additions_ = false;
   uint64_t additions_ = 0;
   bool next_addition_rat_ = false;
   // Validation: switch after this many DSR additions (never by default); the
@@ -502,6 +539,7 @@ private:
   bool copy_role_ = false;
   bool copy_failed_ = false;
   void drop_dsr_copy(AutomaticProofReason) noexcept;
+  void discard_dsr_copy() noexcept;
   void select_dsr_copy(bool finished = true);
   // After forwarding: discard a failed copy, keep the copy at the empty clause.
   void settle_dsr_copy();
@@ -564,7 +602,8 @@ private:
   // Each cached row is written again before its next use.
   void retire_pbp_parity_constraints(const Lit *, uint32_t, const Lit *, uint32_t,
                                      const DsrLiteralMapping *, uint32_t);
-  // The DSR writer cannot spell this line, for want of an auxiliary variable.
+  // The DSR writer cannot spell this line: its auxiliary variable would need a
+  // name past the ones the checkers read.
   bool sr_needs_missing_auxiliary(const Lit *, uint32_t, const Lit *, uint32_t,
                                   const DsrLiteralMapping *, uint32_t, uint32_t,
                                   bool) const;

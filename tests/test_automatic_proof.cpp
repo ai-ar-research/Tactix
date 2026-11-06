@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
@@ -15,6 +16,8 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <functional>
+#include <set>
+#include <sstream>
 #include <string>
 #include <csignal>
 #include <sys/resource.h>
@@ -335,6 +338,143 @@ void sr_beyond_the_auxiliary_limit() {
   const std::string text = read_all(path);
   expect_complete_pbp(text, "PBP after a line DSR cannot spell");
   assert(count_lines(text, "red ") == 1);
+}
+
+// The largest variable name drat-trim and dsr-trim read.
+constexpr uint32_t NAME_BOUND = (uint32_t{1} << 30) - 1;
+
+// The run stops with exit status 1 and a proof error that says `needle`.
+void expect_proof_error(const std::function<void()> &body, const char *needle) {
+  TemporaryDirectory directory;
+  const std::string said = directory / "stderr";
+  const pid_t child = fork();
+  assert(child >= 0);
+  if (!child) {
+    const int descriptor = open(said.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (descriptor < 0 || dup2(descriptor, 2) != 2)
+      _exit(2);
+    body();
+    _exit(0);
+  }
+  int status = 0;
+  assert(waitpid(child, &status, 0) == child);
+  assert(WIFEXITED(status) && WEXITSTATUS(status) == 1);
+  assert(read_all(said).find(needle) != std::string::npos);
+}
+
+// A parity reason, which the DSR copy spells with proof-only helpers.
+void parity_reason(Proof &p) {
+  const PbpParityEquation equation{{1, 2}, false};
+  const int32_t reason[] = {-1, 2};
+  assert(p.commit_clause_stream());
+  PbpParityBoundsCache cache;
+  PbpParityReasonPlan plan;
+  assert(p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
+  assert(p.add_prevalidated_pbp_parity_reason(30, {equation}, reason, 2, cache, plan));
+}
+
+// How many helpers that reason names after `inputs`: the names its lines carry
+// beyond its own variables.
+uint32_t parity_helpers() {
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), false, nullptr, true));
+    inputs(p);
+    parity_reason(p);
+    p.flush();
+  }
+  std::set<long> names;
+  std::istringstream text(read_all(path));
+  for (std::string token; text >> token;)
+    if (token != "d")
+      names.insert(std::labs(std::stol(token)));
+  for (const long own : {0L, 1L, 2L})
+    names.erase(own);
+  return static_cast<uint32_t>(names.size());
+}
+
+// The auxiliary of an SR line takes the checker name above every helper. One
+// that would pass the bound converts under --auto-proof; one at the bound is
+// written.
+void sr_auxiliary_name_counts_helpers() {
+  const uint32_t helpers = parity_helpers();
+  assert(helpers > 0);
+  const auto sr = clause({1, 6});
+  const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
+  for (const bool past : {false, true}) {
+    TemporaryDirectory directory;
+    const std::string path = directory / "proof";
+    {
+      Proof p;
+      assert(p.open_automatic(path.c_str(), false));
+      inputs(p);
+      parity_reason(p);
+      // The auxiliary is external variable `external_variables + 1`.
+      const uint32_t external_variables = NAME_BOUND - helpers - !past;
+      assert(p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1,
+                      external_variables, true));
+      assert(p.automatic_reason() == (past ? AutomaticProofReason::CopyDeclined
+                                           : AutomaticProofReason::Pending));
+      refutation(p);
+    }
+    const std::string text = read_all(path);
+    if (past)
+      expect_complete_pbp(text, "PBP after an auxiliary past the name bound");
+    else
+      assert(text.find(std::to_string(NAME_BOUND) + " ") != std::string::npos);
+  }
+}
+
+// --dsr writes every name up to the bound and stops, naming the bound, at a
+// line that would pass it: an SR auxiliary, a solver variable above the
+// helpers, or a new helper.
+void dsr_only_stops_at_the_name_bound() {
+  const uint32_t helpers = parity_helpers();
+  const auto sr = clause({1, 6});
+  const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof";
+  const auto run = [&](const Events &events) {
+    Proof p;
+    assert(p.open_automatic(path.c_str(), false, nullptr, true));
+    inputs(p);
+    events(p);
+  };
+  run([&](Proof &p) {
+    parity_reason(p);
+    assert(p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1,
+                    NAME_BOUND - helpers - 1, true));
+    const int32_t top[] = {1, static_cast<int32_t>(NAME_BOUND - helpers)};
+    assert(p.add_external_rup(22, top, 2));
+    refutation(p);
+  });
+  const std::string text = read_all(path);
+  const std::string name = std::to_string(NAME_BOUND);
+  assert(text.find("-" + name + " ") != std::string::npos); // the auxiliary
+  assert(text.find("\n1 " + name + " 0\n") != std::string::npos);
+  expect_proof_error([&] {
+    run([&](Proof &p) {
+      parity_reason(p);
+      p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, NAME_BOUND - helpers,
+               true);
+    });
+  }, "2^30-1");
+  expect_proof_error([&] {
+    run([&](Proof &p) {
+      parity_reason(p);
+      const int32_t past[] = {1, static_cast<int32_t>(NAME_BOUND - helpers + 1)};
+      p.add_external_rup(22, past, 2);
+    });
+  }, "2^30-1");
+  expect_proof_error([&] {
+    run([&](Proof &p) {
+      const int32_t top[] = {1, static_cast<int32_t>(NAME_BOUND)};
+      assert(p.add_external_rup(22, top, 2));
+      parity_reason(p);
+    });
+  }, "2^30-1");
 }
 
 // A RAT line deletes retained support even with no lease left.
@@ -676,6 +816,145 @@ void dsr_only_writes_dsr_with_the_same_answers() {
   assert(read_all(path).rfind("pseudo-Boolean", 0) != 0);
 }
 
+// --dsr keeps its input transaction private, as whole-run PBP does, so a startup
+// refutation finds its destination untouched: nothing reaches a file, even past
+// one write buffer of input normalization, or a pipe before the first clausal
+// event. The first clausal event publishes the whole prefix at once, and a
+// refutation inside the input transaction publishes it at selection; either
+// way the destination receives the bytes of a DSR writer.
+void dsr_only_keeps_the_input_private() {
+  constexpr uint64_t duplicates = 300000; // 5 bytes each in binary DSR
+  const Events normalized = [](Proof &p) {
+    const auto duplicate = clause({1, 2, 3});
+    for (uint64_t id = 1; id <= duplicates; ++id) {
+      p.seed_population(id, duplicate.data(), 3);
+      if (id > 1)
+        p.del(id, id, duplicate.data(), 3);
+    }
+    p.finish_input_transaction();
+  };
+  const Events derivation = [](Proof &p) {
+    p.add_rup(duplicates + 1, clause({1, 2}).data(), 2);
+  };
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof", fifo = directory / "fifo";
+  const std::string prefix = single(ProofFormat::DsrBinary, normalized);
+  assert(prefix.size() > (1u << 20)); // past one write buffer
+  {
+    Proof p;
+    assert(p.open(path.c_str(), ProofFormat::DsrBinary));
+    normalized(p);
+    assert(p.startup_pb_available() && read_all(path).empty());
+    derivation(p);
+    // The commit published the prefix: the open proof's destination holds it.
+    expect_equal(read_all(path), prefix, "--dsr prefix at the first clausal event");
+  }
+  expect_equal(read_all(path),
+               single(ProofFormat::DsrBinary,
+                      [&](Proof &p) { normalized(p); derivation(p); }),
+               "--dsr to a file");
+  // Conflicting input units refuted before the transaction ends: no clausal
+  // event commits the stream, so the selection publishes the prefix, which a
+  // pipe cannot take by rewriting in place.
+  const Events conflicting = [](Proof &p) {
+    p.seed_population(1, clause({1}).data(), 1);
+    p.seed_population(2, clause({-1}).data(), 1);
+  };
+  const Events refuted_in_input = [](Proof &p) {
+    p.add_empty(3);
+    p.finish_input_transaction();
+  };
+  const struct {
+    const char *what;
+    Events before, after;
+  } piped_runs[] = {
+      {"--dsr to a pipe at the first clausal event", inputs, refutation},
+      {"--dsr to a pipe at selection", conflicting, refuted_in_input}};
+  for (const auto &[what, before, after] : piped_runs) {
+    assert(!mkfifo(fifo.c_str(), 0600));
+    const int reader = open(fifo.c_str(), O_RDONLY | O_NONBLOCK);
+    assert(reader >= 0);
+    std::string piped;
+    char buffer[4096];
+    {
+      Proof p;
+      assert(p.open(fifo.c_str(), ProofFormat::DsrBinary));
+      before(p);
+      assert(read(reader, buffer, sizeof buffer) < 0 && errno == EAGAIN);
+      after(p);
+    }
+    for (ssize_t n; (n = read(reader, buffer, sizeof buffer)) > 0;)
+      piped.append(buffer, static_cast<size_t>(n));
+    close(reader);
+    assert(!unlink(fifo.c_str()));
+    const std::string want = single(ProofFormat::DsrBinary, [&](Proof &p) {
+      before(p);
+      after(p);
+    });
+    assert(!want.empty());
+    expect_equal(piped, want, what);
+  }
+}
+
+// --dsr never converts, so its copy keeps no RAT marks: a validation switch at
+// the empty clause finds no stage to read and keeps the DSR, byte for byte.
+void dsr_only_switch_at_the_end_keeps_dsr() {
+  const Events events = [](Proof &p) {
+    inputs(p);
+    p.add_rat(20, clause({6, -1}).data(), 2);
+    const int32_t rat[] = {-6, 2};
+    assert(p.add_external_rat(21, rat, 2));
+    refutation(p);
+  };
+  for (const bool binary : {true, false}) {
+    TemporaryDirectory directory;
+    const std::string path = directory / "proof";
+    setenv("TACTIX_AUTO_PROOF_SWITCH_AT", "end", 1);
+    {
+      Proof p;
+      assert(p.open_automatic(path.c_str(), binary, nullptr, true));
+      events(p);
+      assert(std::string(p.lazy_pbp_report().state) == "fallback");
+      assert(std::string(p.verification_route()) == "dsr-cake_lpr");
+    }
+    unsetenv("TACTIX_AUTO_PROOF_SWITCH_AT");
+    assert(directory.entries() == std::vector<std::string>{"proof"});
+    expect_equal(read_all(path),
+                 single(binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii,
+                        events),
+                 "--dsr past a switch at the end");
+  }
+}
+
+// The DSR limit counts binary DSR bytes in either spelling, names of one to
+// five varint bytes included: a parity reason once the DSR has reached the
+// limit stays on DSR, and one a byte below it converts.
+void dsr_limit_counts_binary_bytes() {
+  const auto lines = [](Proof &p) {
+    inputs(p);
+    const int32_t wide[][2] = {{1, 70}, {-2, 9000}, {3, -1100000}, {-4, 300000000}};
+    for (uint64_t i = 0; i < 4; ++i)
+      assert(p.add_external_rup(20 + i, wide[i], 2));
+  };
+  const uint64_t bytes = single(ProofFormat::DsrBinary, lines).size();
+  setenv("TACTIX_AUTO_PROOF_PARITY_BYTES", "0", 1);
+  for (const bool binary : {true, false})
+    for (const uint64_t limit : {bytes, bytes + 1}) {
+      setenv("TACTIX_AUTO_PROOF_DSR_LIMIT", std::to_string(limit).c_str(), 1);
+      TemporaryDirectory directory;
+      const std::string path = directory / "proof";
+      Proof p;
+      assert(p.open_automatic(path.c_str(), binary));
+      lines(p);
+      parity_reason(p);
+      assert(p.automatic_reason() == (limit == bytes
+                                          ? AutomaticProofReason::Pending
+                                          : AutomaticProofReason::ParityReason));
+    }
+  unsetenv("TACTIX_AUTO_PROOF_DSR_LIMIT");
+  unsetenv("TACTIX_AUTO_PROOF_PARITY_BYTES");
+}
+
 // A deletion block spilled behind a pending root unit is copied into the stage
 // when the batch flushes; a failure there is a failure of the only proof.
 void failed_spill_aborts() {
@@ -966,6 +1245,8 @@ int main() {
   startup_pb_keeps_pbp();
   sr_under_affine_support();
   sr_beyond_the_auxiliary_limit();
+  sr_auxiliary_name_counts_helpers();
+  dsr_only_stops_at_the_name_bound();
   rat_line_deletes_retained_support();
   witnessed_sr_selects_trestle_route();
   symlink_destination_is_copied();
@@ -977,6 +1258,9 @@ int main() {
   tautological_rat_converts_first();
   dsr_limit_stays_on_dsr();
   dsr_only_writes_dsr_with_the_same_answers();
+  dsr_only_keeps_the_input_private();
+  dsr_only_switch_at_the_end_keeps_dsr();
+  dsr_limit_counts_binary_bytes();
   conversion_at_every_point();
   long_conversion_marks_every_rat_line();
   unusable_stage_is_pbp_only();

@@ -209,6 +209,88 @@ static void test_conflicting_propagation_consumes_trail_literal() {
   }
 }
 
+// Each propagator writes a unit line for every root literal it forces, at any
+// decision level, and skips the root-unit scan when it forced none. On random
+// formulas and trails (decisions, out-of-order root units, conflicts, probing
+// scopes) an ungated rescan after every call finds nothing left to publish, so
+// the proof is the one the ungated scan writes.
+static void test_root_units_follow_root_assignments() {
+  const std::string path = "/tmp/tactix-root-unit-gate-" +
+                           std::to_string(static_cast<long>(getpid())) + ".dsr";
+  uint64_t published_above_root = 0, skipped = 0;
+  for (uint64_t seed = 1; seed <= 400; ++seed) {
+    uint64_t state = seed * 0x9E3779B97F4A7C15ull;
+    const auto below = [&](uint32_t bound) {
+      state = state * 6364136223846793005ull + 1442695040888963407ull;
+      return static_cast<uint32_t>((state >> 33) % bound);
+    };
+    Kernel k;
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    k.proof = &proof;
+    const uint32_t n = 8 + below(9);
+    kernel_reserve_vars(k, n);
+    for (uint32_t c = 0, m = 2 * n + below(n); c < m; ++c) {
+      std::vector<Lit> lits;
+      for (uint32_t size = 2 + below(3); lits.size() < size;) {
+        const Var v = below(n);
+        if (std::none_of(lits.begin(), lits.end(),
+                         [&](Lit l) { return var_of(l) == v; }))
+          lits.push_back(make_lit(v, below(2)));
+      }
+      if (lits.size() == 2)
+        kernel_add_binary_clause(k, lits[0], lits[1], ++k.next_clause_id);
+      else
+        kernel_add_large_clause(k, lits.data(), lits.size(), false, 0,
+                                ++k.next_clause_id);
+    }
+    for (int step = 0; step < 40; ++step) {
+      std::vector<Var> open;
+      for (Var v = 0; v < n; ++v)
+        if (!k.values[make_lit(v, false)])
+          open.push_back(v);
+      if (open.empty())
+        break;
+      const Lit lit = make_lit(open[below(open.size())], below(2));
+      if (below(3)) {
+        kernel_assign_decision(k, lit);
+      } else {
+        k.unit_ids[var_of(lit)] = ++k.next_clause_id;
+        kernel_assign_unit(k, lit); // out of order when k.level > 0
+      }
+      const size_t before = k.trail.size();
+      const uint64_t roots = k.stats.root_assignments;
+      const uint64_t ids = k.next_clause_id;
+      const uint32_t propagator = below(4);
+      const bool scope = propagator == 2 && k.level > 0;
+      if (scope)
+        kernel_probing_begin(k, below(2));
+      const bool conflict =
+          propagator == 0   ? kernel_propagate(k)
+          : propagator == 1 ? kernel_propagate_binary(k, below(2))
+                            : kernel_propagate_probing(k);
+      if (scope)
+        kernel_probing_end(k);
+      if (k.stats.root_assignments == roots)
+        ++skipped;
+      else if (k.level && k.next_clause_id != ids)
+        ++published_above_root;
+      const uint64_t published = k.next_clause_id;
+      kernel_emit_root_units(k, before);
+      assert(k.next_clause_id == published);
+      if (conflict) {
+        if (!k.level)
+          break;
+        kernel_backtrack(k, below(k.level));
+        k.conflict_valid = false;
+      }
+    }
+    k.proof = nullptr;
+  }
+  remove(path.c_str());
+  assert(published_above_root > 0 && skipped > 0);
+}
+
 static void test_variable_identity_maps() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -2575,6 +2657,7 @@ int main() {
   test_binary_liveness_uses_bounded_exact_pair_image();
   test_reserved_trail_stack_contract();
   test_conflicting_propagation_consumes_trail_literal();
+  test_root_units_follow_root_assignments();
   test_variable_identity_maps();
   test_solver_extension_identity_survives_compaction();
   test_import_order_survives_compaction_linearly();

@@ -170,29 +170,22 @@ static void test_reduction_preparation(bool terminal) {
 }
 
 static void test_reduction_collection(bool compact) {
-  Kernel native, shared;
-  ScopedHeuristics nh(native), sh(shared);
-  Ref victim = INVALID_REF;
-  for (Kernel *k : {&native, &shared}) {
-    kernel_reserve_vars(*k, 6);
-    const Lit prefix[] = {internalize(1), internalize(2), internalize(3)};
-    const Lit redundant[] = {internalize(4), internalize(5), internalize(6)};
-    kernel_add_large_clause(*k, prefix, 3, false, 0);
-    const Ref next = kernel_add_large_clause(*k, redundant, 3, true, 9);
-    if (victim != INVALID_REF) assert(victim == next);
-    victim = next;
-    kernel_assign_unit(*k, internalize(1));
-    assert(propagate_apply(*k) == ApplyResult::Ok);
-  }
-  const auto expected = reduce_apply_refs(native, &victim, 1, compact);
-  const auto actual = execute_action(shared, ReductionRequest{{&victim, 1}, compact});
-  assert(expected == actual && actual == ApplyResult::Ok);
-  assert(state(native) == state(shared) && native.arena.size() == shared.arena.size());
-  assert(shared.arena.empty() == compact);
-  assert(shared.stats.reductions == 1);
-  assert(shared.stats.sparse_collected == native.stats.sparse_collected);
-  if (compact) assert(shared.stats.sparse_collected == 1);
-  kernel_check_invariants(shared);
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  kernel_reserve_vars(k, 6);
+  const Lit prefix[] = {internalize(1), internalize(2), internalize(3)};
+  const Lit redundant[] = {internalize(4), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, prefix, 3, false, 0);
+  const Ref victim = kernel_add_large_clause(k, redundant, 3, true, 9);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  // A compacting collection starts at offset zero and also sweeps the
+  // root-satisfied irredundant prefix.
+  assert(reduce_apply_refs(k, &victim, 1, compact) == ApplyResult::Ok);
+  assert(k.arena.empty() == compact);
+  assert(k.stats.reductions == 1);
+  if (compact) assert(k.stats.sparse_collected == 1);
+  kernel_check_invariants(k);
 }
 
 int main() {

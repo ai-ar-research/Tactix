@@ -3,9 +3,8 @@
 
 ``--causal-preflight`` is the cheap 60-second-or-shorter discovery lane.  It
 records only terminal controller counters and forbids full controller traces,
-feedback, and structural provenance.  A later gated target run omits the flag
-and may retain the full telemetry needed for causal scoring.  SAT and UNSAT
-preflight verdicts still take the normal independent checker route.
+feedback, and structural provenance.  SAT and UNSAT preflight verdicts still
+take the normal independent checker route.
 """
 import argparse
 import csv
@@ -60,19 +59,9 @@ FIXED_LONG_DSR_PROVENANCE={
 PROOF_ARGUMENTS={'--pbp','--auto-proof','--dsr'}
 # Proof flags of retired modes; `--auto-proof` names automatic selection again.
 RETIRED_PROOF_ARGUMENTS={'--drat','--lrat'}
-GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
-                         '--controller-gf2-affine-profile')
 CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS=('--feedback','--feedback-replay',
                                     '--structural-provenance',
                                     '--controller-trace')
-DEFAULT_GF2_FEEDBACK_MAX_BYTES=512 << 20
-DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES=8 << 30
-DEFAULT_GF2_FEEDBACK_MAX_RECORDS=20_000_000
-DEFAULT_GF2_PROVENANCE_MAX_BYTES=256 << 20
-MAX_GF2_FEEDBACK_BYTES=512 << 20
-MAX_GF2_FEEDBACK_DECODED_BYTES=8 << 30
-MAX_GF2_FEEDBACK_RECORDS=20_000_000
-MAX_GF2_PROVENANCE_BYTES=256 << 20
 FIXED44_SCRATCH_CAPACITY={
     'schema':'tactix-anonymous-scratch-capacity-v1',
     'directory':'/tmp',
@@ -232,8 +221,7 @@ def scheduler_wall_seconds(solve_timeout,checker_timeout):
 def slurm_time(seconds):
     return f'{seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}'
 
-def solver_arguments(certificate, extra, gf2_telemetry=False,
-                     causal_preflight=False):
+def solver_arguments(certificate, extra, causal_preflight=False):
     if certificate not in ('pbp','dsr','auto','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
     # Spell every proof mode: the command-line default is automatic selection.
@@ -241,12 +229,6 @@ def solver_arguments(certificate, extra, gf2_telemetry=False,
     if any(not value or value in PROOF_ARGUMENTS or
            value in RETIRED_PROOF_ARGUMENTS for value in extra):
         raise ValueError('extra solver arguments must be nonempty and may not override the certificate mode')
-    if gf2_telemetry and any(
-            value == reserved or value.startswith(reserved+'=')
-            for value in extra for reserved in GF2_TELEMETRY_ARGUMENTS):
-        raise ValueError('GF2 telemetry paths are task-local and may not be overridden by solver arguments')
-    if gf2_telemetry and causal_preflight:
-        raise ValueError('causal preflight and full GF2 telemetry are mutually exclusive')
     if causal_preflight and any(
             value == reserved or value.startswith(reserved+'=')
             for value in extra for reserved in CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS):
@@ -262,8 +244,8 @@ def selected_scratch_capacity(a, selection_authority, rows):
             a.cpus_per_task!=4 or a.partition!='cpu-q' or
             a.array_throttle is not None or a.certificate!='pbp'):
         raise ValueError('fixed44 scratch capacity requires the exact 44-row selection authority, cpu-q, 4 CPUs, no throttle, and whole-run PBP')
-    if a.gf2_telemetry or a.retain_failed_proof or a.causal_preflight:
-        raise ValueError('fixed44 scratch capacity forbids telemetry, proof retention, and causal preflight')
+    if a.retain_failed_proof or a.causal_preflight:
+        raise ValueError('fixed44 scratch capacity forbids proof retention and causal preflight')
     if profile=='fixed44-shared-floor-v1':
         return dict(FIXED44_SHARED_FLOOR_SCRATCH_CAPACITY)
     return dict(FIXED44_COOPERATIVE_SCRATCH_CAPACITY
@@ -559,7 +541,7 @@ def prepare(a):
     assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
     arm_arguments=(list(recheck[1]['arms']['tactix']['arguments']) if recheck is not None else
                    solver_arguments(a.certificate,a.solver_argument,
-                                    a.gf2_telemetry,a.causal_preflight))
+                                    a.causal_preflight))
     home=bool(a.home_scratch)
     if home and (capacity_profile or a.retain_failed_proof):
         raise ValueError('home scratch excludes anonymous capacity profiles and proof retention')
@@ -569,26 +551,18 @@ def prepare(a):
                if home or a.memory_mib!=DEFAULT_MEMORY_MIB else None)
     if cake_heap is not None and cake_heap<4096:
         raise ValueError('memory too small for the CakeML heap')
-    if a.gf2_telemetry:
-        profile=a.gf2_affine_profile.resolve()
-        if not profile.is_file():raise ValueError('GF2 affine profile is not a file')
-        arm_arguments.append(f'--controller-gf2-affine-profile={c}/pins/gf2-affine.profile')
     c.mkdir()
     directories=['pins','logs','claims','provisional','results']
     if home:directories.append('scratch')
     if a.retain_failed_proof:directories.append('retained-proofs')
-    if a.gf2_telemetry:directories.append('telemetry')
     for name in directories:(c/name).mkdir()
     shutil.copy2(a.binary,c/'pins/tactix')
-    if a.gf2_telemetry:shutil.copy2(profile,c/'pins/gf2-affine.profile')
     for name,checker_source in checkers.items():
         shutil.copy2(checker_source,c/'pins'/name)
     runner_pins=['runtime_task.py','proof_oracle.py','anonymous_scratch.py',
                  'test_anonymous_scratch.py','validate_anonymous_runtime.py']
     if home:
         runner_pins.extend(['directory_scratch.py','test_directory_scratch.py'])
-    if a.gf2_telemetry:
-        runner_pins.extend(['gf2_target_score.py','inspect_policy_feedback.py'])
     for name in runner_pins:
         shutil.copy2(ROOT/'tools/bench'/name,c/'pins'/name)
     pin_dsr_transport(getattr(a, 'dsr_transport', None), c/'pins')
@@ -638,8 +612,7 @@ ulimit -c 0
 {capacity_environment if home else ''}python3 {c}/pins/{scratch_test}
 exec python3 {c}/pins/validate_anonymous_runtime.py {c}
 ''')
-    m=dict(schema=('tactix-experimental-single-tierd-v4-gf2-telemetry'
-                   if a.gf2_telemetry else 'tactix-experimental-single-tierd-v3'),
+    m=dict(schema='tactix-experimental-single-tierd-v3',
         created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         source_commit=commit,source_tree=str(source),source_files=sources,
         arms={'tactix':dict(path='pins/tactix',sha256=sha(c/'pins/tactix'),
@@ -738,14 +711,6 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             'the result records its exact SHA-256 and remains cleanup-pending.')
         m['caveat'] += (' Failed certificates are retained only when their size is within the declared '
             'per-task cap; solver or job death before the copy still leaves no artifact.')
-    if a.gf2_telemetry:
-        m['gf2_telemetry']=dict(
-            schema='tactix-experimental-gf2-telemetry-v2',directory='telemetry',
-            feedback_compression='gzip',feedback_wire_version=2,
-            feedback_stored_max_bytes=a.gf2_feedback_max_bytes,
-            feedback_decoded_max_bytes=a.gf2_feedback_decoded_max_bytes,
-            feedback_max_records=a.gf2_feedback_max_records,
-            structural_provenance_max_bytes=a.gf2_provenance_max_bytes)
     if a.causal_preflight:
         m['causal_preflight']=dict(
             schema='tactix-causal-preflight-v1',
@@ -819,21 +784,8 @@ if __name__=='__main__':
                         'verified for the same instance is recorded as verified by identity, unchecked')
     p.add_argument('--solver-argument',action='append',default=[],
                    help='repeatable immutable solver argument for the prepared arm; use = before values beginning with --')
-    p.add_argument('--gf2-telemetry',action='store_true',
-                   help='retain and score bounded GF(2) feedback/provenance sidecars')
     p.add_argument('--causal-preflight',action='store_true',
-                   help='for <=60s gate probes, retain terminal controller counters only; full telemetry belongs to the gated target run')
-    p.add_argument('--gf2-affine-profile',type=Path,
-                   help='GF(2) producer profile frozen into an opt-in campaign')
-    p.add_argument('--gf2-feedback-stored-max-bytes','--gf2-feedback-max-bytes',
-                   dest='gf2_feedback_max_bytes',type=int,
-                   default=DEFAULT_GF2_FEEDBACK_MAX_BYTES)
-    p.add_argument('--gf2-feedback-decoded-max-bytes',type=int,
-                   default=DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES)
-    p.add_argument('--gf2-feedback-max-records',type=int,
-                   default=DEFAULT_GF2_FEEDBACK_MAX_RECORDS)
-    p.add_argument('--gf2-provenance-max-bytes',type=int,
-                   default=DEFAULT_GF2_PROVENANCE_MAX_BYTES)
+                   help='for <=60s gate probes, retain terminal controller counters only')
     p.add_argument('--retain-failed-proof',action='store_true',
                    help='retain a bounded copy of an UNSAT certificate after checker failure')
     p.add_argument('--retain-failed-proof-max-bytes',type=int,default=1 << 30,
@@ -856,7 +808,7 @@ if __name__=='__main__':
         p.error('--home-scratch, --recheck-from and --memory-mib are valid only with --prepare')
     if a.recheck_from and (a.source or a.binary or a.binary_source_commit or a.solver_argument or
                            a.dsr_transport or a.dsr_checker_profile!='frozen' or
-                           a.instance or a.selection_table or a.gf2_telemetry or a.causal_preflight):
+                           a.instance or a.selection_table or a.causal_preflight):
         p.error('--recheck-from takes binary, source, arguments and rows from the source campaign')
     if a.recheck_source_task and not a.recheck_from:
         p.error('--recheck-source-task requires --recheck-from')
@@ -875,28 +827,10 @@ if __name__=='__main__':
         p.error('--dsr-checker-profile is valid only with --prepare')
     if a.scratch_capacity_profile is not None and not a.prepare:
         p.error('--scratch-capacity-profile is valid only with --prepare')
-    if not 1 <= a.gf2_feedback_max_bytes <= MAX_GF2_FEEDBACK_BYTES:
-        p.error(f'--gf2-feedback-stored-max-bytes must be in 1..{MAX_GF2_FEEDBACK_BYTES}')
-    if not 1 <= a.gf2_feedback_decoded_max_bytes <= MAX_GF2_FEEDBACK_DECODED_BYTES:
-        p.error(f'--gf2-feedback-decoded-max-bytes must be in 1..{MAX_GF2_FEEDBACK_DECODED_BYTES}')
-    if not 1 <= a.gf2_feedback_max_records <= MAX_GF2_FEEDBACK_RECORDS:
-        p.error(f'--gf2-feedback-max-records must be in 1..{MAX_GF2_FEEDBACK_RECORDS}')
-    if not 1 <= a.gf2_provenance_max_bytes <= MAX_GF2_PROVENANCE_BYTES:
-        p.error(f'--gf2-provenance-max-bytes must be in 1..{MAX_GF2_PROVENANCE_BYTES}')
-    if (not a.gf2_telemetry and
-            (a.gf2_feedback_max_bytes != DEFAULT_GF2_FEEDBACK_MAX_BYTES or
-             a.gf2_feedback_decoded_max_bytes != DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES or
-             a.gf2_feedback_max_records != DEFAULT_GF2_FEEDBACK_MAX_RECORDS or
-             a.gf2_provenance_max_bytes != DEFAULT_GF2_PROVENANCE_MAX_BYTES)):
-        p.error('GF2 telemetry byte caps require --gf2-telemetry')
-    if a.gf2_telemetry and not a.prepare:
-        p.error('--gf2-telemetry is valid only with --prepare')
     if a.causal_preflight and not a.prepare:
         p.error('--causal-preflight is valid only with --prepare')
     if a.causal_preflight and a.solve_timeout > 60:
         p.error('--causal-preflight requires --solve-timeout <= 60')
-    if a.causal_preflight and a.gf2_telemetry:
-        p.error('--causal-preflight and --gf2-telemetry are mutually exclusive')
     if a.retain_failed_proof and not a.prepare:
         p.error('--retain-failed-proof is valid only with --prepare')
     if a.retain_failed_proof and a.certificate not in ('pbp','dsr'):
@@ -905,6 +839,4 @@ if __name__=='__main__':
         p.error('--retain-failed-proof-max-bytes must be positive')
     if a.verified_certificate_reference and (not a.prepare or a.certificate == 'none'):
         p.error('--verified-certificate-reference requires --prepare and a certificate')
-    if a.gf2_telemetry != bool(a.gf2_affine_profile):
-        p.error('--gf2-affine-profile is required exactly when --gf2-telemetry is selected')
     prepare(a) if a.prepare else submit(a)

@@ -12,7 +12,6 @@ from unittest.mock import patch
 from runtime_task import (atomic_json, atomic_retain, checked_verdict_valid,
                           causal_preflight_contract, checker_timeout_for,
                           effective_cgroup_memory_limit,
-                          gf2_telemetry_contract,
                           expected_matches, failed_proof_retention_contract,
                           positive_timeout, provisional_result, solver_command,
                           scratch_incomplete, scratch_resource_reason,
@@ -56,7 +55,6 @@ class RuntimeTaskTests(unittest.TestCase):
         self.assertIsNone(scratch_capacity_contract({}))
         for changed, message in (
                 ({**manifest, 'resource_contract': {}}, 'isolation'),
-                ({**manifest, 'gf2_telemetry': {}}, 'telemetry'),
                 ({**manifest, 'failed_proof_retention': {}}, 'retention'),
                 ({**manifest, 'anonymous_scratch_capacity': {
                     **contract, 'minimum_free_bytes': 399_999_999_999}},
@@ -438,7 +436,6 @@ with tempfile.TemporaryDirectory() as tmp:
         for changed, message in (
                 ({**manifest, "resource_contract": {"solve_timeout": 61}},
                  "exceeds 60"),
-                ({**manifest, "gf2_telemetry": {}}, "full GF2 telemetry"),
                 ({**manifest, "arms": {"tactix": {"arguments": [
                     "--controller-trace=large.trace"]}}}, "full telemetry artifact")):
             with self.subTest(changed=changed), self.assertRaisesRegex(
@@ -465,20 +462,7 @@ with tempfile.TemporaryDirectory() as tmp:
             with self.subTest(changed=changed), self.assertRaises(RuntimeError):
                 failed_proof_retention_contract({"failed_proof_retention": changed})
 
-    def test_v2_telemetry_contract_and_atomic_stored_cap(self):
-        contract = {
-            "schema": "tactix-experimental-gf2-telemetry-v2",
-            "directory": "telemetry", "feedback_compression": "gzip",
-            "feedback_wire_version": 2,
-            "feedback_stored_max_bytes": 512 << 20,
-            "feedback_decoded_max_bytes": 8 << 30,
-            "feedback_max_records": 20_000_000,
-            "structural_provenance_max_bytes": 256 << 20,
-        }
-        self.assertEqual(gf2_telemetry_contract({"gf2_telemetry": contract}), contract)
-        changed = dict(contract, unknown=True)
-        with self.assertRaisesRegex(RuntimeError, "contract fields"):
-            gf2_telemetry_contract({"gf2_telemetry": changed})
+    def test_atomic_retain_respects_stored_cap(self):
         with tempfile.TemporaryDirectory() as directory:
             source, target = Path(directory) / "source", Path(directory) / "target"
             source.write_bytes(b"12345")
@@ -747,30 +731,6 @@ with tempfile.TemporaryDirectory() as tmp:
             for name in ('veripb', 'cake-pb-cnf'):
                 (campaign/'pins'/name).write_text('x')
                 manifest['pin_sha256']['pins/' + name] = 'h'
-            validate_runtime_pin_contract(campaign, manifest)
-
-    def test_gf2_telemetry_profile_pin_only_for_controller_profile(self):
-        from runtime_task import validate_runtime_pin_contract
-        with tempfile.TemporaryDirectory() as directory:
-            campaign = Path(directory)
-            (campaign/'pins').mkdir()
-            names = ('checkmodel', 'modelcheck.py', 'tactix',
-                     'gf2_target_score.py', 'inspect_policy_feedback.py')
-            for name in names:
-                (campaign/'pins'/name).write_text('pin')
-            manifest = {
-                'arms': {'default-affine': {
-                    'path': 'pins/tactix', 'certificate': 'none',
-                    'arguments': ['--default-affine-search=on']}},
-                'gf2_telemetry': {'schema': 'test'},
-                'pin_sha256': {'pins/'+name: 'hash' for name in names}}
-            validate_runtime_pin_contract(campaign, manifest)
-            manifest['arms']['default-affine']['arguments'] = [
-                '--controller-gf2-affine-profile=profile']
-            with self.assertRaisesRegex(RuntimeError, 'gf2-affine.profile'):
-                validate_runtime_pin_contract(campaign, manifest)
-            (campaign/'pins/gf2-affine.profile').write_text('pin')
-            manifest['pin_sha256']['pins/gf2-affine.profile'] = 'hash'
             validate_runtime_pin_contract(campaign, manifest)
 
     def test_automatic_pb_route_preserves_original_clauses_and_complete_pipeline(self):

@@ -791,6 +791,13 @@ struct Kernel {
     startup_certificate_open = false;
     std::vector<int32_t>().swap(startup_input);
   }
+  // The last DIMACS header's counts (declare_input), so a replay of the input
+  // poses the kernel as the parse did.
+  struct InputHeader {
+    bool declared = false;
+    uint32_t variables = 0;
+    uint64_t clauses = 0;
+  } input_header;
   uint64_t input_nonunit_clause_count = 0;
   uint32_t input_uniform_nonunit_width = 0;
   bool input_nonunit_uniform = true;

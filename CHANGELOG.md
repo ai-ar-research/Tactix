@@ -26,8 +26,14 @@ semantic versioning; the public C API remains source-compatible within the
   proof file. `c proof-route`, `c auto-proof` and `c auto-proof-switch` report the route,
   the reason and the conversion.
 - `--dsr` and `--pbp` write only that format. `--dsr` spells every GF(2) reason in
-  clauses and stops with an error on a startup counting refutation, and a DSR session in
-  the C API exits with status 1 there.
+  clauses. At a startup counting refutation, which has no practical DSR spelling, the
+  run's search and statistics are those of every other mode; before it reports UNSAT, a
+  follow-on solve of the original formula without that refutation writes the DSR proof,
+  and its statistics print on `c follow-on` lines. A follow-on that is interrupted or does
+  not refute the formula leaves the run without a verdict. A C API DSR session runs the
+  follow-on in the default configuration. A `--dsr` run keeps its input normalization in
+  a temporary file until its first clausal step, so a run stopped during input leaves an
+  empty proof file and a counting refutation finds the destination untouched.
 - A witnessed SR line first deletes the leased clauses and parity constraints its witness
   changes, and all retained support, in every format.
 - `tactix_add` sessions import their input with no writer and attach the proof by

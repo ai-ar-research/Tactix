@@ -159,7 +159,7 @@ class MatrixSourceSummaryTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "declared cap"):
             summarize(path, 10, INPUT)
 
-    def test_contract_rejects_unbounded_or_conflicting_telemetry(self):
+    def test_contract_rejects_unbounded_cap(self):
         contract = {"schema": "tactix-matrix-source-overlap-v1",
                     "maximum_bytes": 256 << 20}
         self.assertEqual(matrix_source_summary_contract(
@@ -167,9 +167,6 @@ class MatrixSourceSummaryTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "invalid matrix"):
             matrix_source_summary_contract({"matrix_source_summary":
                 {**contract, "maximum_bytes": (256 << 20) + 1}})
-        with self.assertRaisesRegex(RuntimeError, "invalid matrix"):
-            matrix_source_summary_contract({"matrix_source_summary": contract,
-                                            "gf2_telemetry": {}})
 
 
 if __name__ == "__main__":

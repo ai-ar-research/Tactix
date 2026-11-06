@@ -65,8 +65,11 @@ typedef struct tactix_solver tactix;
 
 /* proof formats */
 /* Proof-format values 0 to 2 are retired and rejected. */
-/* A DSR session exits the process with status 1 on a startup counting refutation,
-   which has no practical DSR spelling. */
+/* A startup counting refutation has no practical DSR spelling. Before a DSR
+   session reports it as UNSAT, a follow-on solve of the original formula
+   without that refutation, under the default configuration, writes the DSR
+   proof, and tactix_proof_route names that proof. A follow-on that does not
+   refute the formula exits the process with status 1. */
 #define TACTIX_PROOF_DSR_BINARY 3 /* canonical DSR stream */
 #define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
 /* Proof-format value 5 is retired and rejected. */
