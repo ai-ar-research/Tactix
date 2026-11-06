@@ -2,7 +2,7 @@
  * attached before or after the input, take the same conflicts, decisions and
  * propagations and give the same answer, with the input added clause by clause or
  * read as DIMACS. Structural provenance is bound, because the affine matrix runs
- * only with it. */
+ * only with it; the discard journal takes the same search as a stream. */
 #undef NDEBUG
 #include "api_test_support.h"
 
@@ -175,6 +175,20 @@ static void same(const char *name, int format, enum route route,
   abort();
 }
 
+static void same_discarding(void (*formula)(tactix *), const char *name,
+                            const struct run *none) {
+  tactix *s = tactix_init();
+  assert(!tactix_discard_structural_provenance(s));
+  formula(s);
+  struct run r = *none;
+  r.answer = tactix_solve(s);
+  r.conflicts = tactix_stat(s, TACTIX_STAT_CONFLICTS);
+  r.decisions = tactix_stat(s, TACTIX_STAT_DECISIONS);
+  r.propagations = tactix_stat(s, TACTIX_STAT_PROPAGATIONS);
+  tactix_release(s);
+  same(name, -1, EARLY, &r, none);
+}
+
 static void check(void (*formula)(tactix *), const char *name, const char *path,
                   int64_t least_conflicts, int64_t most_conflicts, long least_reasons) {
   /* Each way in has its own no-proof search to match. */
@@ -186,6 +200,7 @@ static void check(void (*formula)(tactix *), const char *name, const char *path,
   assert(none_read.conflicts >= least_conflicts && none_read.conflicts <= most_conflicts);
   assert(none_added.matrix_reasons >= least_reasons);
   assert(none_read.matrix_reasons >= least_reasons);
+  same_discarding(formula, name, &none_added);
   static const int formats[] = {TACTIX_PROOF_PBP, TACTIX_PROOF_AUTO,
                                 TACTIX_PROOF_DSR_BINARY, TACTIX_PROOF_DSR_ASCII};
   for (size_t f = 0; f < sizeof formats / sizeof *formats; ++f) {
@@ -202,6 +217,7 @@ static void check(void (*formula)(tactix *), const char *name, const char *path,
 }
 
 int main(void) {
+  assert(tactix_discard_structural_provenance(NULL) == -1);
   char path[] = "/tmp/tactix-one-search-XXXXXX";
   const int fd = mkstemp(path);
   assert(fd >= 0);
