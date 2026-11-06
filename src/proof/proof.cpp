@@ -1817,6 +1817,7 @@ bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
     put_pbp_text(" : x%" PRIu32 " -> %d ;\n",
                  external_variable_of(pivot), pivot < 0 ? 0 : 1);
     note_pbp_derived(id, size, [lits] { return lits; });
+    population_external(true, id, lits, size);
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::ExternalRat, id, id,
                     PopulationClauseView::external_lits(lits, size), true);
@@ -1882,6 +1883,20 @@ struct Proof::ParityWriter {
     for (uint32_t i = 0; i < size; ++i)
       proof.put_checker_literal(checker_literal(lits[i]));
     proof.end_line();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    // The shadow names solver variables before renaming, as every other event
+    // does. A helper keeps its checker name: it lies above every solver name
+    // that exists while the certificate's helper clauses are live.
+    std::vector<int32_t> named(size);
+    for (uint32_t i = 0; i < size; ++i) {
+      const uint32_t at = external_variable_of(lits[i]);
+      const int32_t name = static_cast<int32_t>(
+          at <= variables.size() ? static_cast<uint32_t>(variables[at - 1])
+                                 : helpers[at - variables.size() - 1]);
+      named[i] = lits[i] < 0 ? -name : name;
+    }
+    proof.population_external(!deletion, 0, named.data(), size);
+#endif
   }
   bool add(const parity_certificate::SmallClause &clause, bool rat) {
     line(clause.lits.data(), clause.size, false, rat);

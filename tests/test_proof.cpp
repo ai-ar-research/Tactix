@@ -553,6 +553,25 @@ void test_population_membership_uses_exact_drat_multiset() {
   p.arm_population_shadow();
   assert(p.population_shadow());
 }
+
+// The whole-run PBP stream records an external RAT addition, so deleting it
+// is backed.
+void test_population_backs_streaming_pbp_external_rat() {
+  const std::string path = tmp_path("pbp-shadow-external-rat");
+  {
+    Proof p;
+    assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
+    const Lit input = make_lit(0, false);
+    p.seed_population(1, &input, 1);
+    p.finish_input_transaction();
+    p.arm_population_shadow();
+    const int32_t gate[2] = {-9, 1};
+    assert(p.add_external_rat(2, gate, 2));
+    assert(p.del_external(3, 2, gate, 2));
+    assert(p.unbacked_deletions() == 0);
+  }
+  std::remove(path.c_str());
+}
 #endif
 
 } // namespace
@@ -816,6 +835,7 @@ int main() {
   test_unopened_proof_is_silent();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   test_population_membership_uses_exact_drat_multiset();
+  test_population_backs_streaming_pbp_external_rat();
 #endif
   printf("test_proof: all proof-backend serializer cases passed\n");
   return 0;
