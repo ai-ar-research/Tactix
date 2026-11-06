@@ -59,6 +59,7 @@ add_library(tactix_lib OBJECT
   src/kernel/kernel.cpp
   src/population/population_observer.cpp
   src/proof/proof.cpp
+  src/proof/proof_writer.cpp
   src/proof/dsr_to_pbp.cpp
   src/proof/direct_php_recognition.cpp
   src/rules/registry.cpp

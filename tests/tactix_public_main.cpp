@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
     printf("s SATISFIABLE\n");
     print_model(kernel);
   } else if (res == 20) {
-    if (kernel.proof) printf("c proof-route %s\n", kernel.proof->verification_route());
+    if (proof_path) printf("c proof-route %s\n", kernel.proof->verification_route());
     printf("s UNSATISFIABLE\n");
   } else {
     printf("s UNKNOWN\n");

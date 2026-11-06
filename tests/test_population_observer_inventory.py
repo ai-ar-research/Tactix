@@ -47,6 +47,8 @@ def require(path: Path, signature: str, *tokens: str) -> None:
 kernel_cpp = src / "kernel" / "kernel.cpp"
 kernel_hpp = src / "kernel" / "kernel.hpp"
 proof_cpp = src / "proof" / "proof.cpp"
+writer_cpp = src / "proof" / "proof_writer.cpp"
+writer_hpp = src / "proof" / "proof_writer.hpp"
 parse_cpp = src / "frontend" / "parse.cpp"
 
 # Clause semantic storage can only be created/replaced/retired at the audited
@@ -87,57 +89,64 @@ for (path, token), expected in exact_mutation_counts.items():
             f"{path.relative_to(root)} {token!r}: {observed} != {expected}"
         )
 
-# Checker-population authority. The wrapper-only derived-unit/empty endpoints
-# must scope the role and funnel through add_rup; every serializer endpoint
-# emits its own typed event. The serializer bodies are the `_impl` methods;
-# each public event method runs its body and then feeds the automatic DSR
-# copy, which has no observer of its own.
+# Checker-population authority. Every writer body emits its own typed event.
+# The ledger names each clause's role, funnels derived units and the empty
+# clause through rup_event, and runs each public event before feeding it to
+# the automatic DSR copy, which has no observer of its own.
 for signature in (
-    "void Proof::flush_pending_dsr_units()",
-    "void Proof::add_rup_impl(",
-    "void Proof::add_rat_impl(",
-    "bool Proof::add_sr_impl(",
-    "void Proof::del_impl(",
-    "bool Proof::add_external_rup_impl(",
-    "bool Proof::del_external_impl(",
-    "FILE *Proof::begin_pb_impl()",
-    "bool Proof::open_stream(",
+    "void ProofWriter::flush_pending_dsr_units()",
+    "void ProofWriter::rup(",
+    "void ProofWriter::rat(",
+    "void ProofWriter::sr(",
+    "void ProofWriter::del(",
+    "void ProofWriter::external_rup(",
+    "void ProofWriter::external_rat(",
+    "void ProofWriter::del_external(",
+    "void ProofWriter::parity_reason(",
+    "FILE *ProofWriter::switch_to_pb()",
+    "void ProofWriter::opened()",
+    "void ProofWriter::seed(",
+    "void ProofWriter::finish_input()",
 ):
-    require(proof_cpp, signature, "observe_checker(")
-require(proof_cpp, "bool Proof::settle_population_observer()",
-        "streaming_pbp() && pbp_output_", "flush()")
-require(proof_cpp, "bool Proof::open_stream(",
+    require(writer_cpp, signature, "observe_checker(")
+require(writer_cpp, "void ProofWriter::opened()",
         "CheckerPopulationEventKind::RouteOpened")
+require(writer_cpp, "void ProofWriter::del(",
+        "CheckerPopulationEventKind::DeleteRequested",
+        "CheckerPopulationEventKind::StageDeleteRequested")
+require(writer_cpp, "void ProofWriter::del_external(",
+        "CheckerPopulationEventKind::DeleteRequested",
+        "CheckerPopulationEventKind::StageDeleteRequested")
+require(proof_cpp, "bool Proof::settle_population_observer()",
+        "live_stream() && !published_", "flush()")
 require(proof_cpp, "void Proof::bind_population_observer(",
-        "ObserverUnboundIncomplete", "population_observer_->observe")
-require(proof_cpp, "void Proof::del_impl(",
-        "CheckerPopulationEventKind::DeleteRequested",
-        "CheckerPopulationEventKind::StageDeleteRequested")
-require(proof_cpp, "bool Proof::del_external_impl(",
-        "CheckerPopulationEventKind::DeleteRequested",
-        "CheckerPopulationEventKind::StageDeleteRequested")
-for signature in ("void Proof::add_empty_impl(",
-                  "void Proof::add_derived_unit_impl("):
-    require(proof_cpp, signature, "population_role_", "add_rup_impl(")
-require(proof_cpp, "bool Proof::add_external_rat_impl(", "population_role_",
-        "add_external_rup_impl(")
-require(proof_cpp, "void Proof::seed_population_impl(", "observe_checker(")
-for name, signature in (
-    ("add_rup", "void Proof::add_rup("), ("add_rat", "void Proof::add_rat("),
-    ("add_sr", "bool Proof::add_sr("), ("add_empty", "void Proof::add_empty("),
-    ("add_derived_unit", "void Proof::add_derived_unit("),
-    ("del", "void Proof::del("),
-    ("add_external_rup", "bool Proof::add_external_rup("),
-    ("add_external_rat", "bool Proof::add_external_rat("),
-    ("del_external", "bool Proof::del_external("),
-    ("retain_external", "bool Proof::retain_external("),
-    ("retain_premise_groups", "bool Proof::retain_premise_groups("),
-    ("release_premise_groups", "void Proof::release_premise_groups("),
-    ("seed_population", "void Proof::seed_population("),
-    ("finish_input_transaction", "void Proof::finish_input_transaction()"),
-    ("flush", "void Proof::flush()"),
+        "ObserverUnboundIncomplete", "population_observer_->observe",
+        "set_population_observer(")
+require(proof_cpp, "void Proof::add_empty(", "CheckerClauseRole::Empty",
+        "rup_event(")
+for signature in ("void Proof::add_derived_unit(", "void Proof::settle_staged("):
+    require(proof_cpp, signature, "CheckerClauseRole::DerivedUnit", "rup_event(")
+require(proof_cpp, "bool Proof::external_rat_event(",
+        "CheckerClauseRole::ExternalRat", "external_rup_event(")
+for signature, body in (
+    ("void Proof::add_rup(", "rup_event("),
+    ("void Proof::add_rat(", "writer_->rat("),
+    ("bool Proof::add_sr(", "sr_event("),
+    ("void Proof::add_empty(", "rup_event("),
+    ("void Proof::add_derived_unit(", "rup_event("),
+    ("void Proof::del(", "del_event("),
+    ("bool Proof::add_external_rup(", "external_rup_event("),
+    ("bool Proof::add_external_rat(", "external_rat_event("),
+    ("bool Proof::del_external(", "del_external_event("),
+    ("bool Proof::retain_external(", "retain_external_event("),
+    ("bool Proof::retain_premise_groups(", "retain_premise_groups_event("),
+    ("void Proof::release_premise_groups(", "release_premise_groups_event("),
+    ("void Proof::seed_population(", "writer_->seed("),
+    ("void Proof::finish_input_transaction()", "writer_->finish_input("),
+    ("void Proof::flush()", "writer_->flush("),
 ):
-    require(proof_cpp, signature, f"{name}_impl(", "dsr_copy_")
+    require(proof_cpp, signature, body, "writer_->forward")
+require(writer_hpp, "template <class Event> void forward(", "event(*copy_)")
 
 # Solver-population authority. Physical mirror publication, arena collection,
 # watch pose, and variable compaction are intentionally absent: they do not

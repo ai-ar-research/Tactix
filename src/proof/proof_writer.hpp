@@ -280,6 +280,7 @@ private:
   // alias of pbp_output_ or, after publication, file_ or lazy_destination_).
   // Every fstat, truncation and copy-in of the destination goes through it.
   FILE *automatic_destination_ = nullptr;
+  std::unique_ptr<Proof> open_copy(FILE *stage, bool binary);
   // Never converted, so any destination will do; the prefix moves once.
   void publish_dsr_only_prefix();
   void drop_copy(AutomaticProofReason) noexcept;

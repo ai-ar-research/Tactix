@@ -492,7 +492,7 @@ int main(int argc, char **argv) {
   // Whole-run streaming PBP is textual, so --no-binary has no effect on it;
   // under automatic selection it spells the native-DSR copy in ASCII.
   // N2: the proof never steers the search. A run without a proof file answers to
-  // the same writer as a --pbp run, with nothing to write.
+  // the same ledger as every proof run, with no writer.
   kernel.startup_certificate_open = true;
   const bool opened =
       !proof_path ? proof.open_nowhere()
@@ -500,8 +500,9 @@ int main(int argc, char **argv) {
           ? proof.open_automatic(proof_path, binary_proof, proof_stage_path)
           : proof.open(proof_path, proof_format);
   if (!opened)
-    return fail_unknown("tactix: cannot write proof to '%s'\n",
-                        proof_path ? proof_path : "/dev/null");
+    return proof_path
+               ? fail_unknown("tactix: cannot write proof to '%s'\n", proof_path)
+               : fail_unknown("tactix: cannot open the proof ledger\n");
   kernel.proof = &proof;
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);

@@ -1992,7 +1992,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   if (s->input_completed || s->pending_input_proof)
     return -1;
   // Public values are append-only; see TACTIX_PROOF_* in tactix.h. Every format
-  // takes the same search, on the streaming-PBP writer (N2).
+  // takes the same search, on the same streaming ledger (N2).
   bool opened;
   switch (format) {
   case 3:
@@ -2018,7 +2018,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
 }
 
 const char *tactix_proof_route(tactix_solver *s) {
-  if (!s || s->proof.nowhere() || (!s->kernel.proof && !s->pending_input_proof))
+  if (!s || !s->proof.writes() || (!s->kernel.proof && !s->pending_input_proof))
     return nullptr;
   return s->proof.verification_route();
 }
