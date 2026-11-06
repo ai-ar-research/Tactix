@@ -206,7 +206,8 @@ void witnessed_sr_after_native_deletion(const std::string &stem,unsigned route){
 void format_boundaries(){
  const std::string path="/tmp/tactix-lease-routes-"+std::to_string(getpid());
  {Proof p;assert(p.open(path.c_str(),ProofFormat::PbpStreaming));p.finish_input_transaction();
-  assert(p.begin_pb() && p.startup_pb_written());std::vector<uint64_t> handles{77};
+  std::vector<int32_t> startup_input;
+  assert(p.refute_by_counting([](FILE *){return true;},startup_input) && p.startup_pb_written());std::vector<uint64_t> handles{77};
   assert(!p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
   const int32_t source[]={1,2};assert(!p.del_external(1,0,source,2));
   assert(handles==std::vector<uint64_t>{77} && !p.premise_bytes());}

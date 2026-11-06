@@ -1,13 +1,14 @@
 // The proof writer (private to src/proof). It exists only when a proof is
-// written and spells the events the ledger (Proof, proof.hpp) has accepted.
+// written and spells the events its ledger (Proof, proof.hpp) has accepted.
 // Every answer the search reads comes from the ledger, and the event bodies
-// return void, so a writer cannot steer the search (N2).
+// return void, so a writer cannot steer the search (N2). The writer reads the
+// ledger's lifecycle, maps and observer; it keeps none of its own.
 #pragma once
 
+#include "proof/dsr_to_pbp.hpp"
 #include "proof/proof.hpp"
 
 #include <array>
-#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -23,11 +24,11 @@ class ProofWriter {
 public:
   // Streaming PBP to `destination` (owned) behind a private input-transaction
   // file; null, with `destination` closed, when either cannot be used.
-  static std::unique_ptr<ProofWriter> pbp(FILE *destination);
+  static std::unique_ptr<ProofWriter> pbp(const Proof &owner, FILE *destination);
   // Native DSR to `file` (owned); null when `file` is null. In the copy role a
   // failed write disables the writer instead of aborting the solver.
-  static std::unique_ptr<ProofWriter> dsr(FILE *file, ProofFormat format,
-                                          bool copy_role);
+  static std::unique_ptr<ProofWriter> dsr(const Proof &owner, FILE *file,
+                                          ProofFormat format);
   // Closes every handle; a failed close of a proof a verdict may rest on aborts.
   ~ProofWriter();
 
@@ -71,17 +72,14 @@ public:
                    const int32_t *reason, uint32_t reason_size);
   // Rows never written (lower == 0) or written under another numbering are
   // written, once each, in order; then the sums and the reason.
+  // `rows` holds each equation's cache row, in order.
   void parity_reason(uint64_t kernel_clause_id,
                      const std::vector<PbpParityEquation> &equations,
+                     const std::vector<PbpParityBounds *> &rows,
                      const int32_t *reason, uint32_t reason_size,
-                     PbpParityBoundsCache &cache,
                      const PbpParityReasonPlan &plan);
 
   // --- Startup PB refutations, after the ledger made the stream terminal ---
-  void check_startup_pb(); // a DSR-only proof has no PB stream: proof_error
-  FILE *startup_pb_begin(); // the terminal PB stream; the copy converts away
-  void startup_pb(const std::function<bool(FILE *)> &write_pb); // aborts unless complete
-  bool finish_pb();
   // DSR-only: spelled in clauses (refuted_in_clauses_); otherwise startup_pb.
   void refute_parity(const std::vector<PbpParityEquation> &equations,
                      const std::function<bool(FILE *)> &write_pb);
@@ -101,20 +99,7 @@ public:
     }
   }
 
-  // --- Bindings ---
-  void bind_variable_map(const std::vector<Var> *map) {
-    variable_map_ = map;
-    if (copy_)
-      copy_->bind_variable_map(map);
-  }
-  void bind_external_variable_map(const std::vector<Var> *map) {
-    external_variable_map_ = map;
-    if (copy_)
-      copy_->bind_external_variable_map(map);
-  }
-  void set_population_observer(PopulationObserver *observer) noexcept {
-    population_observer_ = observer;
-  }
+  // --- Routes ---
   CheckerRoute population_route() const noexcept;
   CheckerNaming population_naming() const noexcept;
   // The DSR writer cannot spell this line: its auxiliary variable would need a
@@ -128,6 +113,7 @@ public:
                                   bool propagates) const;
 
   // --- The automatic DSR copy: a complete Proof fed each public event ---
+  Proof *copy() const noexcept { return copy_.get(); } // its ledger takes the bindings
   // Each front: hold, ledger body (with this writer's bodies), forward, release.
   void hold() noexcept {
     if (copy_)
@@ -211,11 +197,11 @@ public:
 #endif
   // Debug builds, after every public front: this writer's lifecycle is the
   // ledger's (proof.hpp).
-  void check_lifecycle(bool input, bool published, bool terminal,
-                       bool finished) const;
+  void check_lifecycle() const;
 
 private:
-  ProofWriter();
+  explicit ProofWriter(const Proof &owner);
+  const Proof &owner_; // the ledger whose events this writer spells
 
   bool pb() const noexcept {
     return format_ == ProofFormat::Pbp || format_ == ProofFormat::PbpStreaming;
@@ -233,16 +219,16 @@ private:
   FILE *file_ = nullptr;
   // The destination while the stream is private (input transaction).
   FILE *pbp_output_ = nullptr;
-  bool input_transaction_ = false; // input constraints are still being numbered
   bool streaming_pbp_finished_ = false;
   bool has_sr_witness_ = false;
-  bool copy_role_ = false;
   bool copy_failed_ = false;
   // A DSR-only startup parity refutation, spelled in clauses on the published
   // stream while the ledger is terminal.
   bool refuted_in_clauses_ = false;
   // The terminal PB stream replaces the private clausal prefix.
   FILE *switch_to_pb();
+  // A complete native PB refutation on the terminal stream; aborts unless whole.
+  void startup_pb(const std::function<bool(FILE *)> &write_pb);
   void finish_streaming_pbp_unsat();
   void observe_checker(CheckerPopulationEventKind, CheckerClauseRole,
                        uint64_t line_id, uint64_t checker_id,
@@ -250,9 +236,6 @@ private:
                        uint64_t transaction_id = 0,
                        PopulationSourceClassification =
                            PopulationSourceClassification::Ineligible) noexcept;
-  const std::vector<Var> *variable_map_ = nullptr;
-  const std::vector<Var> *external_variable_map_ = nullptr;
-  PopulationObserver *population_observer_ = nullptr; // non-owning
   uint64_t pending_population_transaction_ = 0;
   uint64_t next_population_transaction_ = 0;
 
@@ -384,11 +367,11 @@ private:
   void end_pending_deletion(FILE *main_file);
 
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
-  // Diagnostic N2 oracle (Proof::arm_population_shadow).
-  std::string population_key(uint64_t id, const Lit *lits, uint32_t size) const;
+  // Diagnostic N2 oracle (Proof::arm_population_shadow), keyed by checker
+  // literals: internal ones under the ledger's map, external ones as given.
+  std::vector<int32_t> checker_clause(const Lit *lits, uint32_t size) const;
   void population_add(uint64_t id, const Lit *lits, uint32_t size);
   void population_del(uint64_t id, const Lit *lits, uint32_t size);
-  // The same oracle for a proof-only clause given by external DIMACS literals.
   void population_external(bool add, uint64_t id, const int32_t *lits,
                            uint32_t size);
   std::unordered_map<std::string, uint32_t> population_;
@@ -399,17 +382,11 @@ private:
   void population_del(uint64_t, const Lit *, uint32_t) {}
   void population_external(bool, uint64_t, const int32_t *, uint32_t) {}
 #endif
-  // The checker-visible literal for an internal literal under the bound map.
-  Lit checker_lit(Lit l) const {
-    if (!variable_map_)
-      return l;
-    assert(var_of(l) < variable_map_->size());
-    return make_lit((*variable_map_)[var_of(l)], negated(l));
-  }
-  // The population view of internal literals under the same map.
+  Lit checker_lit(Lit l) const { return owner_.checker_lit(l); }
+  // The population view of internal literals under the ledger's map.
   PopulationClauseView internal_view(const Lit *lits,
                                      uint32_t size) const noexcept {
-    return PopulationClauseView::internal_lits(lits, size, variable_map_);
+    return PopulationClauseView::internal_lits(lits, size, owner_.variable_map_);
   }
 
   // --- Streaming-PBP numbering and deletion ---

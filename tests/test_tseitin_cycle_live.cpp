@@ -615,14 +615,14 @@ void proof_route_transition_is_precommit() {
              .status == live::Status::Prepared);
   proof.finish_input_transaction();
   assert(proof.startup_pb_available());
-  assert(proof.begin_pb());
+  std::vector<int32_t> startup_input; // the stream becomes terminal
+  assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
   const uint64_t before_id = kernel.next_clause_id;
   const live::Result result = live::apply(kernel, prepared);
   assert(result.status == live::Status::UnsupportedProof);
   assert(result.reason == live::Reason::UnsupportedProof);
   assert(kernel.next_clause_id == before_id);
   assert(!kernel.value(internalize(-3)));
-  assert(proof.finish_pb());
   kernel.proof = nullptr;
   unlink(path.c_str());
 }
@@ -634,7 +634,8 @@ void unsupported_proof_is_precommit() {
   Proof proof;
   assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
   proof.finish_input_transaction();
-  assert(proof.begin_pb());
+  std::vector<int32_t> startup_input; // the stream becomes terminal
+  assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
   proof.bind_variable_map(&kernel.internal_to_external);
   kernel.proof = &proof;
   const uint64_t before_id = kernel.next_clause_id;

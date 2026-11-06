@@ -1,8 +1,6 @@
 // The proof writer: every byte of every proof format. The ledger (proof.cpp)
 // decides each event; the bodies here only spell it.
 #include "proof/proof_writer.hpp"
-#include "kernel/types.hpp"
-#include "proof/dsr_to_pbp.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 
 #include <algorithm>
@@ -98,8 +96,6 @@ void put_pbp_literal(PbpTextWriter &text, int32_t literal) {
   text.put(" ");
 }
 
-// Append every remaining byte of `source` to `target`; false on a failed
-// read or write.
 // The streaming-PBP header; publication and lazy materialization share it so
 // both spell the same bytes.
 int write_pbp_header(FILE *file, uint64_t constraints) {
@@ -110,6 +106,8 @@ int write_pbp_header(FILE *file, uint64_t constraints) {
 constexpr const char *kPbpConclusion =
     "output NONE ;\nconclusion UNSAT : -1 ;\nend pseudo-Boolean proof ;\n";
 
+// Append every remaining byte of `source` to `target`; false on a failed
+// read or write.
 bool copy_stream(FILE *source, FILE *target) {
   std::array<unsigned char, 65536> bytes{};
   for (;;) {
@@ -175,7 +173,7 @@ void ProofWriter::observe_checker(CheckerPopulationEventKind kind,
                             uint64_t transaction_id,
                             PopulationSourceClassification
                                 source_classification) noexcept {
-  if (!population_observer_)
+  if (!owner_.population_observer_)
     return;
   CheckerPopulationEvent event;
   event.kind = kind;
@@ -197,12 +195,13 @@ void ProofWriter::observe_checker(CheckerPopulationEventKind kind,
     source_classification = PopulationSourceClassification::Ineligible;
   event.source_classification = source_classification;
   event.clause = clause;
-  population_observer_->observe(event);
+  owner_.population_observer_->observe(event);
 }
 
-ProofWriter::ProofWriter() = default;
+ProofWriter::ProofWriter(const Proof &owner) : owner_(owner) {}
 
-std::unique_ptr<ProofWriter> ProofWriter::pbp(FILE *destination) {
+std::unique_ptr<ProofWriter> ProofWriter::pbp(const Proof &owner,
+                                              FILE *destination) {
   if (!destination)
     return nullptr;
   FILE *const transaction = std::tmpfile();
@@ -210,29 +209,27 @@ std::unique_ptr<ProofWriter> ProofWriter::pbp(FILE *destination) {
     std::fclose(destination);
     return nullptr;
   }
-  std::unique_ptr<ProofWriter> writer(new ProofWriter);
+  std::unique_ptr<ProofWriter> writer(new ProofWriter(owner));
   writer->format_ = ProofFormat::PbpStreaming;
   writer->pbp_output_ = destination;
   writer->file_ = transaction;
-  writer->input_transaction_ = true;
   setvbuf(transaction, nullptr, _IOFBF, 1 << 20);
   return writer;
 }
 
-std::unique_ptr<ProofWriter> ProofWriter::dsr(FILE *file, ProofFormat format,
-                                              bool copy_role) {
+std::unique_ptr<ProofWriter> ProofWriter::dsr(const Proof &owner, FILE *file,
+                                              ProofFormat format) {
   if (!file)
     return nullptr;
-  std::unique_ptr<ProofWriter> writer(new ProofWriter);
+  std::unique_ptr<ProofWriter> writer(new ProofWriter(owner));
   writer->format_ = format;
   writer->file_ = file;
-  writer->copy_role_ = copy_role;
   setvbuf(file, nullptr, writer->binary() ? _IONBF : _IOFBF, 1 << 20);
   return writer;
 }
 
 ProofWriter::~ProofWriter() {
-  if (file_ && std::fclose(file_) && !copy_role_)
+  if (file_ && std::fclose(file_) && !owner_.copy_role_)
     std::abort();
   if (pbp_output_ && std::fclose(pbp_output_))
     std::abort();
@@ -269,17 +266,14 @@ void ProofWriter::teardown_copy() {
   pbp_output_ = lazy_destination_ = nullptr;
 }
 
-void ProofWriter::check_lifecycle([[maybe_unused]] bool input,
-                                  [[maybe_unused]] bool published,
-                                  [[maybe_unused]] bool terminal,
-                                  [[maybe_unused]] bool finished) const {
+void ProofWriter::check_lifecycle() const {
   if (dsr())
     return;
-  assert(input == input_transaction_);
+  [[maybe_unused]] const bool terminal = owner_.terminal_;
   assert(terminal == (format_ == ProofFormat::Pbp || refuted_in_clauses_));
   // A selected copy leaves this stream without a file.
-  assert(terminal || !file_ || published == !pbp_output_);
-  assert(terminal || !file_ || finished == streaming_pbp_finished_);
+  assert(terminal || !file_ || owner_.published_ == !pbp_output_);
+  assert(terminal || !file_ || owner_.finished_ == streaming_pbp_finished_);
 }
 
 void ProofWriter::finish_input() {
@@ -290,7 +284,6 @@ void ProofWriter::finish_input() {
   if (pbp_pending_rebind_.id)
     abandon_pbp_id_deletions(5, 0);
   pbp_last_input_live_ = false;
-  input_transaction_ = false;
 }
 
 // Never converted, so nothing replaces or rereads the destination: any will
@@ -354,10 +347,6 @@ void ProofWriter::put_pbp_text(const char *format, ...) {
   va_end(arguments);
 }
 
-bool ProofWriter::finish_pb() {
-  return pb() && file_ && !std::ferror(file_) && std::fflush(file_) == 0;
-}
-
 void ProofWriter::publish() {
   if (!streaming_pbp() || !pbp_output_ || !file_)
     return;
@@ -417,7 +406,7 @@ void ProofWriter::flush_binary() {
         std::fwrite(pending_deletion_bytes_.data(), 1,
                     pending_deletion_bytes_.size(), pending_deletions_) !=
             pending_deletion_bytes_.size()) {
-      if (!copy_role_)
+      if (!owner_.copy_role_)
         std::abort();
       copy_failed_ = true;
       binary_buffer_size_ = 0;
@@ -430,7 +419,7 @@ void ProofWriter::flush_binary() {
   const size_t written =
       fwrite(binary_buffer_.data(), 1, binary_buffer_size_, destination);
   if (written != binary_buffer_size_) {
-    if (!copy_role_)
+    if (!owner_.copy_role_)
       std::abort();
     copy_failed_ = true; // the owner discards this copy (settle_copy)
   }
@@ -464,7 +453,7 @@ void ProofWriter::put_checker_literal(int32_t e) {
       ++bytes;
     fprintf(file_, "%d ", e);
   }
-  if (copy_role_)
+  if (owner_.copy_role_)
     dsr_bytes_written_ += bytes;
 }
 
@@ -568,7 +557,7 @@ void ProofWriter::mark_pbp_input_deleted(uint64_t constraint) {
 // The ID the next derived constraint receives: absolute after input, or a
 // transaction-relative ordinal while the `f` count is still unknown.
 bool ProofWriter::pbp_current_ordinal(uint64_t &constraint) const {
-  if (input_transaction_) {
+  if (owner_.input_transaction_) {
     if (pbp_derived_constraints_ >= PBP_DERIVED_ORDINAL)
       return false;
     constraint = PBP_DERIVED_ORDINAL | pbp_derived_constraints_;
@@ -589,7 +578,7 @@ bool ProofWriter::pbp_absolute_constraint(uint64_t stored,
     constraint = stored;
     return true;
   }
-  if (input_transaction_)
+  if (owner_.input_transaction_)
     return false;
   const uint64_t ordinal = stored & ~PBP_DERIVED_ORDINAL;
   if (pbp_original_constraints_ > UINT64_MAX - ordinal)
@@ -651,7 +640,7 @@ void ProofWriter::track_pbp_derived_constraint(uint64_t id, uint32_t clause_size
   // Record the replacement as pending; that deletion names the original's
   // exact constraint and then rebinds the id to the replacement. The
   // replacement consumes no Tactix id, so the identity prefix is unchanged.
-  if (input_transaction_ && pbp_last_input_live_ &&
+  if (owner_.input_transaction_ && pbp_last_input_live_ &&
       id == pbp_last_input_id_) {
     uint64_t replacement = 0;
     if (pbp_pending_rebind_.id || !pbp_current_ordinal(replacement)) {
@@ -681,7 +670,7 @@ void ProofWriter::track_pbp_derived_constraint(uint64_t id, uint32_t clause_size
     }
   }
   uint64_t constraint = 0;
-  if (input_transaction_)
+  if (owner_.input_transaction_)
     pbp_input_ids_diverged_ = true;
   if (!pbp_current_ordinal(constraint)) {
     abandon_pbp_id_deletions(6, clause_size);
@@ -960,14 +949,14 @@ void ProofWriter::end_line() {
     put_byte(0);
   else
     fputs("0\n", file_);
-  if (copy_role_)
+  if (owner_.copy_role_)
     ++dsr_bytes_written_;
 }
 
 void ProofWriter::put_line_tag(bool deletion) {
   // In the copy: the ordinals of witness-free RAT additions, which the DSR
   // text does not distinguish from RUP.
-  if (copy_role_ && !deletion) {
+  if (owner_.copy_role_ && !deletion) {
     if (next_addition_rat_) {
       if (keeps_rat_additions_)
         rat_additions_.push_back(additions_);
@@ -975,7 +964,7 @@ void ProofWriter::put_line_tag(bool deletion) {
     }
     ++additions_;
   }
-  if (copy_role_)
+  if (owner_.copy_role_)
     ++dsr_bytes_written_;
   if (format_ == ProofFormat::DsrBinary)
     put_byte(deletion ? 2 : 1);
@@ -995,11 +984,10 @@ void ProofWriter::put_clausal_line(bool deletion, const Lit *lits, uint32_t size
 
 uint32_t ProofWriter::external_variable_bound() const {
   uint32_t bound = std::max(pending_max_external_, proof_external_max_);
-  if (external_variable_map_)
-    bound = std::max(bound,
-                     static_cast<uint32_t>(external_variable_map_->size()));
-  else if (variable_map_)
-    for (const Var external : *variable_map_)
+  if (const auto *map = owner_.external_variable_map_)
+    bound = std::max(bound, static_cast<uint32_t>(map->size()));
+  else if (const auto *map = owner_.variable_map_)
+    for (const Var external : *map)
       bound = std::max(bound, external + 1);
   return bound;
 }
@@ -1081,7 +1069,7 @@ void ProofWriter::flush_pending_dsr_units() {
       const bool closed = !std::fclose(pending_deletions_);
       pending_deletions_ = nullptr;
       if (!copied || !closed) {
-        if (!copy_role_)
+        if (!owner_.copy_role_)
           std::abort();
         copy_failed_ = true; // the owner discards this copy (settle_copy)
       }
@@ -1170,7 +1158,7 @@ void ProofWriter::rat(uint64_t id, const Lit *lits, uint32_t size) {
   } else {
     // DSR: a witnessless addition with the pivot ordered first. The checker
     // first tries RUP and then infers first-literal RAT.
-    next_addition_rat_ = copy_role_;
+    next_addition_rat_ = owner_.copy_role_;
     put_clausal_line(false, lits, size);
   }
   population_add(id, lits, size);
@@ -1243,7 +1231,7 @@ void ProofWriter::sr(uint64_t id, const Lit *lits, uint32_t size,
     // The first clause is RAT on a fresh variable. Under the negation of
     // the second clause, the original X7 obligations hold; the first clause's
     // image is exactly the already-validated candidate image C|sigma.
-    next_addition_rat_ = copy_role_;
+    next_addition_rat_ = owner_.copy_role_;
     temporary(false, true);
     end_line();
     PopulationClauseView negative_helper = internal_view(lits, size);
@@ -1364,7 +1352,7 @@ FILE *ProofWriter::begin_pending_deletion() {
     return nullptr;
   }
   if (!pending_deletions_ && !(pending_deletions_ = std::tmpfile())) {
-    if (!copy_role_)
+    if (!owner_.copy_role_)
       std::abort();
     copy_failed_ = true; // keep the main stream; the copy is discarded
     return file_;
@@ -1441,7 +1429,8 @@ void ProofWriter::external_rup(uint64_t id, const int32_t *lits, uint32_t size,
     put_pbp_text(" ;\n");
     note_pbp_derived(id, size, [lits] { return lits; });
   } else {
-    next_addition_rat_ = copy_role_ && role == CheckerClauseRole::ExternalRat;
+    next_addition_rat_ =
+        owner_.copy_role_ && role == CheckerClauseRole::ExternalRat;
     put_line_tag(false);
     for (uint32_t i = 0; i < size; ++i) {
       proof_external_max_ =
@@ -1516,7 +1505,7 @@ struct ProofWriter::ParityWriter {
   }
   void line(const int32_t *lits, uint32_t size, bool deletion, bool rat) {
     if (!deletion)
-      proof.next_addition_rat_ = proof.copy_role_ && rat;
+      proof.next_addition_rat_ = proof.owner_.copy_role_ && rat;
     proof.put_line_tag(deletion);
     for (uint32_t i = 0; i < size; ++i)
       proof.put_checker_literal(checker_literal(lits[i]));
@@ -1605,22 +1594,12 @@ void ProofWriter::write_parity_reason(const std::vector<PbpParityEquation> &equa
     proof_error("a parity reason has no clausal certificate");
 }
 
-void ProofWriter::check_startup_pb() {
-  // Every startup refutation spells or defers itself on a DSR-only proof.
-  if (dsr_only_)
-    proof_error("a DSR proof has no PB stream");
-}
-
-FILE *ProofWriter::startup_pb_begin() {
+void ProofWriter::startup_pb(const std::function<bool(FILE *)> &write_pb) {
   FILE *const terminal = switch_to_pb();
   // A complete native PB refutation has no clausal spelling.
   drop_copy(AutomaticProofReason::StartupPbRefutation);
-  return terminal;
-}
-
-void ProofWriter::startup_pb(const std::function<bool(FILE *)> &write_pb) {
   // A published but incomplete certificate never claims UNSAT.
-  if (!write_pb(startup_pb_begin()) || !finish_pb())
+  if (!write_pb(terminal) || std::ferror(terminal) || std::fflush(terminal))
     std::abort();
 }
 
@@ -1688,8 +1667,8 @@ void ProofWriter::parity_copy(const std::vector<PbpParityEquation> &equations,
 
 void ProofWriter::parity_reason(uint64_t kernel_clause_id,
                                 const std::vector<PbpParityEquation> &equations,
+                                const std::vector<PbpParityBounds *> &rows,
                                 const int32_t *reason, uint32_t reason_size,
-                                PbpParityBoundsCache &cache,
                                 const PbpParityReasonPlan &plan) {
   if (plan.proof_constraints > UINT64_MAX - pbp_derived_constraints_ ||
       pbp_original_constraints_ >
@@ -1819,8 +1798,9 @@ void ProofWriter::parity_reason(uint64_t kernel_clause_id,
   // The ledger entered every new row. A row is written when it never was (a
   // written lower bound names a constraint, so it is at least 1) or when
   // another numbering wrote it; a duplicate row is then current.
-  for (const PbpParityEquation &equation : equations) {
-    PbpParityBounds &bounds = cache.entries_.find(equation)->second;
+  for (size_t i = 0; i < equations.size(); ++i) {
+    const PbpParityEquation &equation = equations[i];
+    PbpParityBounds &bounds = *rows[i];
     if (!bounds.lower) {
       write_bounds(equation, bounds);
     } else if (bounds.numbering != pbp_numbering_) {
@@ -1993,7 +1973,7 @@ void ProofWriter::flush() {
     // Text serializers use stdio buffering. Both a previous short write and
     // this publication flush must succeed before a caller may report UNSAT.
     if (std::ferror(file_) || std::fflush(file_)) {
-      if (!copy_role_)
+      if (!owner_.copy_role_)
         std::abort();
       copy_failed_ = true;
     }
@@ -2001,35 +1981,50 @@ void ProofWriter::flush() {
 }
 
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
+namespace {
 // Key a clause exactly the way the checker matches a deletion: by the sorted
-// external literal multiset. Keying by id would miss the whole defect class,
+// checker literal multiset. Keying by id would miss the whole defect class,
 // because the hazard is precisely that two different ids can carry the same
 // literals.
-std::string ProofWriter::population_key(uint64_t, const Lit *lits,
-                                  uint32_t size) const {
-  std::string key;
-  std::vector<int> external;
-  external.reserve(size);
+std::string population_key(std::vector<int32_t> clause) {
+  std::sort(clause.begin(), clause.end());
+  return std::string(reinterpret_cast<const char *>(clause.data()),
+                     clause.size() * sizeof(int32_t));
+}
+} // namespace
+
+std::vector<int32_t> ProofWriter::checker_clause(const Lit *lits,
+                                                 uint32_t size) const {
+  std::vector<int32_t> clause;
+  clause.reserve(size);
   for (uint32_t i = 0; i < size; i++)
-    external.push_back(externalize(checker_lit(lits[i])));
-  std::sort(external.begin(), external.end());
-  key.assign(reinterpret_cast<const char *>(external.data()),
-             external.size() * sizeof(int));
-  return key;
+    clause.push_back(externalize(checker_lit(lits[i])));
+  return clause;
 }
 
 void ProofWriter::population_add(uint64_t id, const Lit *lits, uint32_t size) {
-  population_[population_key(id, lits, size)]++;
+  population_external(true, id, checker_clause(lits, size).data(), size);
 }
 
-bool ProofWriter::population_contains(uint64_t id, const Lit *lits,
-                                uint32_t size) const {
-  const auto found = population_.find(population_key(id, lits, size));
+bool ProofWriter::population_contains(uint64_t, const Lit *lits,
+                                      uint32_t size) const {
+  const auto found = population_.find(population_key(checker_clause(lits, size)));
   return found != population_.end() && found->second;
 }
 
 void ProofWriter::population_del(uint64_t id, const Lit *lits, uint32_t size) {
-  const auto found = population_.find(population_key(id, lits, size));
+  population_external(false, id, checker_clause(lits, size).data(), size);
+}
+
+// External DIMACS literals already name checker variables.
+void ProofWriter::population_external(bool add, uint64_t id, const int32_t *lits,
+                                      uint32_t size) {
+  const std::string key = population_key({lits, lits + size});
+  if (add) {
+    population_[key]++;
+    return;
+  }
+  const auto found = population_.find(key);
   if (found != population_.end() && found->second) {
     if (!--found->second)
       population_.erase(found);
@@ -2042,7 +2037,7 @@ void ProofWriter::population_del(uint64_t id, const Lit *lits, uint32_t size) {
                   "]",
           unbacked_deletions_, id);
   for (uint32_t i = 0; i < size; i++)
-    fprintf(stderr, " %d", externalize(checker_lit(lits[i])));
+    fprintf(stderr, " %d", lits[i]);
   fputs(" 0\n", stderr);
   void *frames[32];
   const int depth = backtrace(frames, 32);
@@ -2051,23 +2046,6 @@ void ProofWriter::population_del(uint64_t id, const Lit *lits, uint32_t size) {
   // Abort on the FIRST one: the emitting rule is what this build exists to
   // name, and every later line is downstream of an already-diverged checker.
   std::abort();
-}
-
-// External DIMACS literals already name checker variables: key them through
-// an identity map.
-void ProofWriter::population_external(bool add, uint64_t id, const int32_t *lits,
-                                uint32_t size) {
-  std::vector<Lit> external;
-  external.reserve(size);
-  for (uint32_t i = 0; i < size; ++i)
-    external.push_back(internalize(lits[i]));
-  const auto *saved = variable_map_;
-  variable_map_ = nullptr;
-  if (add)
-    population_add(id, external.data(), size);
-  else
-    population_del(id, external.data(), size);
-  variable_map_ = saved;
 }
 
 #endif
@@ -2082,7 +2060,7 @@ void ProofWriter::seed(uint64_t id, const Lit *lits, uint32_t size) {
   // ids can therefore make later raw-input ids non-contiguous.  Count each
   // raw seed exactly once instead of inferring the input population from its
   // internal identity namespace.
-  if (streaming_pbp() && input_transaction_) {
+  if (streaming_pbp() && owner_.input_transaction_) {
     ++pbp_original_constraints_;
     track_pbp_original_constraint(id, size, size == 2 && lits[0] == lits[1]);
 #ifndef NDEBUG
@@ -2236,8 +2214,9 @@ int open_stage_reader(int fd) {
 // automatic stream with a counting sink. Without one (no custom streams, no
 // readable stage) the run stays eager and writes both streams.
 void ProofWriter::start_lazy_pbp() {
-  if (!streaming_pbp() || !file_ || !pbp_output_ || !input_transaction_ ||
-      ftello(file_) != 0 || !copy_ || !copy_->writer_->file_)
+  if (!streaming_pbp() || !file_ || !pbp_output_ ||
+      !owner_.input_transaction_ || ftello(file_) != 0 || !copy_ ||
+      !copy_->writer_->file_)
     return;
   auto lazy = std::make_unique<LazyPbp>();
   if (!dsr_only_)
@@ -2425,14 +2404,14 @@ void ProofWriter::discard_lazy_pbp() noexcept {
 // A native-DSR Proof on `stage` (owned) in the copy role: its ledger is
 // published from the start and its writer never aborts the solver.
 std::unique_ptr<Proof> ProofWriter::open_copy(FILE *stage, bool binary) {
-  std::unique_ptr<ProofWriter> writer = dsr(
-      stage, binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii, true);
   auto copy = std::make_unique<Proof>();
   copy->copy_role_ = true;
+  std::unique_ptr<ProofWriter> writer = dsr(
+      *copy, stage, binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii);
   if (!writer || !copy->start(std::move(writer), false))
     return nullptr;
-  copy->bind_variable_map(variable_map_);
-  copy->bind_external_variable_map(external_variable_map_);
+  copy->bind_variable_map(owner_.variable_map_);
+  copy->bind_external_variable_map(owner_.external_variable_map_);
   return copy;
 }
 

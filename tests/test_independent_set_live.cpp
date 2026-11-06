@@ -526,7 +526,8 @@ void negative_boundaries() {
     assert(proof.open("/tmp/independent-set-live-decline.pbp",
                       ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
-    assert(proof.begin_pb());
+    std::vector<int32_t> startup_input; // the stream becomes terminal
+    assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -546,7 +547,8 @@ void negative_boundaries() {
     assert(proof.open("/tmp/independent-set-live-decline.pbp",
                       ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
-    assert(proof.begin_pb());
+    std::vector<int32_t> startup_input; // the stream becomes terminal
+    assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
     kernel.proof = &proof;
     FILE *records = std::tmpfile();
     assert(records);
@@ -554,7 +556,6 @@ void negative_boundaries() {
         assert_failed_unchanged(kernel, request(records));
     assert(unsupported.status == IndependentSetLiveStatus::UnsupportedProof);
     kernel.proof = nullptr;
-    assert(proof.finish_pb());
     std::fclose(records);
   }
 }

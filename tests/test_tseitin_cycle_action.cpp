@@ -568,7 +568,8 @@ void dsr_and_unsupported_proof_contract() {
     Proof proof;
     assert(proof.open(unsupported_path, ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
-    assert(proof.begin_pb());
+    std::vector<int32_t> startup_input; // the stream becomes terminal
+    assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
     fixture.kernel.proof = &proof;
     TseitinCycleBreakingSession session;
     const auto rejected =

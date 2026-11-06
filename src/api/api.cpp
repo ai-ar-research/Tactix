@@ -2018,7 +2018,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
 }
 
 const char *tactix_proof_route(tactix_solver *s) {
-  if (!s || !s->proof.writes() || (!s->kernel.proof && !s->pending_input_proof))
+  if (!s || (!s->kernel.proof && !s->pending_input_proof))
     return nullptr;
   return s->proof.verification_route();
 }

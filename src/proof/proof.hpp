@@ -5,18 +5,13 @@
 #pragma once
 
 #include "kernel/types.hpp"
-#include "proof/dsr_to_pbp.hpp"
 #include "population/population_observer.hpp"
 
-#include <array>
 #include <compare>
+#include <cstdio>
 #include <functional>
 #include <map>
-#include <cstdio>
 #include <memory>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace tactix {
@@ -82,7 +77,6 @@ public:
 
 private:
   friend class Proof;
-  friend class ProofWriter;
   static uint64_t empty_retained_bytes() noexcept;
   uint64_t stream_identity_ = 0;
   uint64_t generation_ = 0;
@@ -159,12 +153,11 @@ public:
   // A run with no proof: the ledger every proof mode's search answers to,
   // with no writer.
   bool open_nowhere();
-  // A proof is written. Read only to name the published route (api.cpp).
-  bool writes() const noexcept { return writer_ != nullptr; }
   bool automatic() const noexcept;
   // A startup parity refutation; the run ends on it. `write_pb` writes it to the
   // PBP stream it is given, and a DSR-only proof spells it in clauses instead.
-  // False, with nothing written, when the stream is already published.
+  // False, with nothing written, when the stream is already published or
+  // already refuted.
   bool refute_parity(const std::vector<PbpParityEquation> &equations,
                      const std::function<bool(FILE *)> &write_pb);
   // A startup counting refutation; the run ends on it. `write_pb` writes it to the
@@ -172,7 +165,7 @@ public:
   // DSR-only proof writes nothing yet: it takes `input`, the original DIMACS
   // literals, and is pending until a follow-on solve writes the DSR
   // (frontend/dsr_follow_on.hpp). False, with nothing written or taken, when the
-  // stream is already published.
+  // stream is already published or already refuted.
   bool refute_by_counting(const std::function<bool(FILE *)> &write_pb,
                           std::vector<int32_t> &input);
   bool dsr_follow_on_pending() const noexcept;
@@ -185,7 +178,6 @@ public:
   AutomaticProofReason automatic_reason() const noexcept;
   // The selection is final once the copy is discarded or kept.
   bool automatic_dsr_live() const noexcept;
-  void release_lazy_event() noexcept;
   // Whether the run paid the DSR-to-PBP conversion (see LazyPbpReport).
   const LazyPbpReport &lazy_pbp_report() const noexcept;
   uint64_t stream_identity() const noexcept { return stream_identity_; }
@@ -197,8 +189,6 @@ public:
     return live_stream() && !input_transaction_ && !published_;
   }
   bool commit_clause_stream();
-  FILE *begin_pb();
-  bool finish_pb();
   // A complete startup PB refutation owns the stream, which takes no further clause
   // events. No search follows it.
   bool startup_pb_written() const { return terminal_; }
@@ -407,8 +397,9 @@ private:
                           const int32_t *lits, uint32_t size);
   void check_lifecycle() const; // Debug: the writer agrees with the ledger
   static bool external_tautological(const int32_t *lits, uint32_t size);
-  // A startup PB refutation ends the clausal stream and its staged units.
-  void make_terminal() noexcept;
+  // A startup PB refutation ends the clausal stream and its staged units. False,
+  // with nothing changed, when none is available or the empty clause came first.
+  bool make_terminal() noexcept;
   // The ledger bodies of the public events that take a writer hold.
   bool sr_event(uint64_t id, const Lit *lits, uint32_t size,
                 const Lit *true_lits, uint32_t ntrue,
@@ -480,7 +471,13 @@ private:
   bool defer_leased_deletion(const int32_t *, uint32_t);
   void invalidate_premises_for_sr(uint64_t, const Lit *, uint32_t,
       const Lit *, uint32_t, const DsrLiteralMapping *, uint32_t);
+  // Retire every lease that names one of the `changed` checker variables,
+  // charging `changed_bound` for the variables a line may change.
+  void retire_premises(uint64_t line_id, std::vector<uint32_t> changed,
+                       uint64_t changed_bound);
 
+  // Scratch: each equation's cache row, for the writer's parity reason.
+  std::vector<PbpParityBounds *> parity_rows_;
   std::unique_ptr<ProofWriter> writer_;
 };
 

@@ -3,7 +3,6 @@
 // ledger hands it each event it accepts, at the event's own point.
 #include "proof/proof.hpp"
 #include "proof/proof_writer.hpp"
-#include "kernel/types.hpp"
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 #include "diagnostics/rule_journal.hpp"
 #endif
@@ -123,6 +122,14 @@ uint64_t next_proof_stream_identity() noexcept {
 
 Proof::Proof() = default;
 
+// The ledger is containers and counters, never a buffer: a run with no proof
+// carries a few hundred bytes. The bound counts the fields (two maps, four
+// vectors, four pointers, twelve counters, and three words of flags and
+// padding), so a new field updates it here.
+static_assert(sizeof(Proof) <= 2 * sizeof(std::map<int, int>) +
+                                   4 * sizeof(std::vector<int>) +
+                                   4 * sizeof(void *) + 15 * sizeof(uint64_t));
+
 Proof::~Proof() {
   if (writer_)
     writer_->teardown_copy();
@@ -141,12 +148,8 @@ bool Proof::start(std::unique_ptr<ProofWriter> writer, bool streaming) {
   streaming_ = input_transaction_ = streaming;
   published_ = !streaming;
   writer_ = std::move(writer);
-  if (writer_) {
-    writer_->set_population_observer(population_observer_);
-    writer_->bind_variable_map(variable_map_);
-    writer_->bind_external_variable_map(external_variable_map_);
+  if (writer_)
     writer_->opened();
-  }
   return true;
 }
 
@@ -158,12 +161,12 @@ bool Proof::open(const char *path, ProofFormat format) {
   // N2: the kernel only ever answers to a streaming ledger.
   if (format != ProofFormat::PbpStreaming)
     return file && open_dsr_only(file, format == ProofFormat::DsrBinary);
-  std::unique_ptr<ProofWriter> writer = ProofWriter::pbp(file);
+  std::unique_ptr<ProofWriter> writer = ProofWriter::pbp(*this, file);
   return writer && start(std::move(writer), true);
 }
 
 bool Proof::open_dsr_only(FILE *destination, bool binary) {
-  std::unique_ptr<ProofWriter> writer = ProofWriter::pbp(destination);
+  std::unique_ptr<ProofWriter> writer = ProofWriter::pbp(*this, destination);
   if (!writer || !start(std::move(writer), true))
     return false;
   writer_->start_dsr_only(binary);
@@ -176,14 +179,11 @@ bool Proof::open_dsr_writer(const char *path, ProofFormat format) {
       (format != ProofFormat::DsrBinary && format != ProofFormat::DsrAscii))
     return false;
   std::unique_ptr<ProofWriter> writer =
-      ProofWriter::dsr(fopen(path, "wb"), format, false);
+      ProofWriter::dsr(*this, fopen(path, "wb"), format);
   return writer && start(std::move(writer), false);
 }
 
-bool Proof::open_nowhere() {
-  stream_identity_ = 0;
-  return !open_ && start(nullptr, true);
-}
+bool Proof::open_nowhere() { return start(nullptr, true); }
 
 bool Proof::open_automatic(const char *path, bool binary_dsr,
                            const char *stage_path, bool dsr_only) {
@@ -219,16 +219,20 @@ bool Proof::commit_clause_stream() {
 void Proof::check_lifecycle() const {
 #ifndef NDEBUG
   if (writer_)
-    writer_->check_lifecycle(input_transaction_, published_, terminal_,
-                             finished_);
+    writer_->check_lifecycle();
 #endif
 }
 
-void Proof::make_terminal() noexcept {
+bool Proof::make_terminal() noexcept {
+  // An empty clause inside the input transaction leaves the stream unpublished,
+  // but the run is already refuted (and its writer may have kept the copy).
+  if (!startup_pb_available() || finished_)
+    return false;
   terminal_ = true;
   // Staged root units belong to the discarded clausal stream.
   staged_.clear();
   deferring_ = false;
+  return true;
 }
 
 void Proof::finish_input_transaction() {
@@ -250,24 +254,10 @@ void Proof::flush() {
   check_lifecycle();
 }
 
-FILE *Proof::begin_pb() {
-  if (writer_)
-    writer_->check_startup_pb();
-  if (!startup_pb_available())
-    return nullptr;
-  make_terminal();
-  FILE *const terminal = writer_ ? writer_->startup_pb_begin() : nullptr;
-  check_lifecycle();
-  return terminal;
-}
-
-bool Proof::finish_pb() { return writer_ && writer_->finish_pb(); }
-
 bool Proof::refute_parity(const std::vector<PbpParityEquation> &equations,
                           const std::function<bool(FILE *)> &write_pb) {
-  if (!startup_pb_available())
+  if (!make_terminal())
     return false;
-  make_terminal();
   if (writer_)
     writer_->refute_parity(equations, write_pb);
   check_lifecycle();
@@ -276,9 +266,8 @@ bool Proof::refute_parity(const std::vector<PbpParityEquation> &equations,
 
 bool Proof::refute_by_counting(const std::function<bool(FILE *)> &write_pb,
                                std::vector<int32_t> &input) {
-  if (!startup_pb_available())
+  if (!make_terminal())
     return false;
-  make_terminal();
   if (writer_)
     writer_->refute_by_counting(write_pb, input);
   check_lifecycle();
@@ -304,16 +293,17 @@ bool Proof::settle_dsr_follow_on(const Proof &f) {
 
 // --- Bindings and reporting -----------------------------------------------------
 
+// The writer reads this ledger's maps; the automatic copy has its own ledger.
 void Proof::bind_variable_map(const std::vector<Var> *map) {
   variable_map_ = map;
-  if (writer_)
-    writer_->bind_variable_map(map);
+  if (Proof *const copy = writer_ ? writer_->copy() : nullptr)
+    copy->bind_variable_map(map);
 }
 
 void Proof::bind_external_variable_map(const std::vector<Var> *map) {
   external_variable_map_ = map;
-  if (writer_)
-    writer_->bind_external_variable_map(map);
+  if (Proof *const copy = writer_ ? writer_->copy() : nullptr)
+    copy->bind_external_variable_map(map);
 }
 
 void Proof::bind_population_observer(PopulationObserver *observer) noexcept {
@@ -342,8 +332,6 @@ void Proof::bind_population_observer(PopulationObserver *observer) noexcept {
     population_observer_->observe(event);
   }
   population_observer_ = observer;
-  if (writer_)
-    writer_->set_population_observer(observer);
   if (population_observer_) {
     CheckerPopulationEvent event;
     event.kind = CheckerPopulationEventKind::ObserverBound;
@@ -370,11 +358,6 @@ AutomaticProofReason Proof::automatic_reason() const noexcept {
 
 bool Proof::automatic_dsr_live() const noexcept {
   return writer_ && writer_->automatic_dsr_live();
-}
-
-void Proof::release_lazy_event() noexcept {
-  if (writer_)
-    writer_->release_lazy_event();
 }
 
 const LazyPbpReport &Proof::lazy_pbp_report() const noexcept {
@@ -677,11 +660,9 @@ bool Proof::external_rat_event(uint64_t id, const int32_t *lits,
                                uint32_t size) {
   settle_staged(false);
   if (size && !premise_groups_.empty()) {
-    const auto *saved = variable_map_; variable_map_ = nullptr;
-    const Lit pivot = internalize(lits[0]);
+    // The pivot already names its checker variable.
     const uint64_t before = premise_epoch_;
-    invalidate_premises_for_sr(id, &pivot, 1, nullptr, 0, nullptr, 0);
-    variable_map_ = saved;
+    retire_premises(id, {external_variable_of(lits[0])}, 1);
     if (premise_epoch_ != before) flush_persistent_external(id);
   }
   if (!input_transaction_ && !commit())
@@ -907,9 +888,13 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   }
   // A new row reserves its carry names; the writer writes its bounds.
   uint32_t fresh = plan.starting_external_extent;
+  parity_rows_.clear();
   for (const PbpParityEquation &equation : equations) {
-    if (cache.entries_.contains(equation))
+    auto found = cache.entries_.lower_bound(equation);
+    if (found != cache.entries_.end() && found->first == equation) {
+      parity_rows_.push_back(&found->second);
       continue;
+    }
     PbpParityBounds bounds;
     for (uint32_t threshold = 2;
          threshold <= equation.variables.size(); threshold += 2) {
@@ -917,7 +902,8 @@ bool Proof::add_prevalidated_pbp_parity_reason(
         std::abort();
       bounds.carries.push_back(static_cast<int32_t>(++fresh));
     }
-    const auto found = cache.entries_.emplace(equation, std::move(bounds)).first;
+    found = cache.entries_.emplace_hint(found, equation, std::move(bounds));
+    parity_rows_.push_back(&found->second);
     uint64_t retained = cache.retained_bytes_;
     if (!retained)
       retained = cache.empty_retained_bytes();
@@ -935,8 +921,8 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       cache.retained_bytes() > plan.retained_bytes)
     std::abort();
   if (writer_)
-    writer_->parity_reason(kernel_clause_id, equations, reason, reason_size,
-                           cache, plan);
+    writer_->parity_reason(kernel_clause_id, equations, parity_rows_, reason,
+                           reason_size, plan);
   if (!reason_size)
     finished_ = true;
   if (writer_)
@@ -1137,7 +1123,6 @@ void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
     uint32_t size, const Lit *true_lits, uint32_t ntrue,
     const DsrLiteralMapping *mappings, uint32_t nmappings) {
   if (premise_groups_.empty()) return;
-  const uint64_t changed_bound = 1 + uint64_t(ntrue) + nmappings;
   std::vector<uint32_t> changed;
   const auto take = [&](Lit lit) {
     changed.push_back(var_of(checker_lit(lit)) + 1);
@@ -1146,6 +1131,11 @@ void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
   if (size) take(lits[0]);
   for (uint32_t i = 0; i < ntrue; ++i) take(true_lits[i]);
   for (uint32_t i = 0; i < nmappings; ++i) take(mappings[i].from);
+  retire_premises(line_id, std::move(changed), 1 + uint64_t(ntrue) + nmappings);
+}
+
+void Proof::retire_premises(uint64_t line_id, std::vector<uint32_t> changed,
+                            uint64_t changed_bound) {
   std::sort(changed.begin(), changed.end());
   add_saturating(premise_maintenance_work_, changed_bound);
   bool leased = false;

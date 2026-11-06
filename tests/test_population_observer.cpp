@@ -434,7 +434,8 @@ void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
       proof.bind_population_observer(&recorder);
       assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
       proof.finish_input_transaction();
-      assert(proof.begin_pb());
+      std::vector<int32_t> startup_input; // the stream becomes terminal
+      assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
       assert(recorder.checker_count(
                  CheckerPopulationEventKind::ClausalRouteDiscarded) == 1);
       bool committed_pbp = false;

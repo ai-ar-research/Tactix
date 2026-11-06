@@ -72,7 +72,8 @@ static void test_certificate_boundary() {
       }
       assert(!k.startup_certificate_open && k.startup_input.empty());
       assert(!proof.startup_pb_available());
-      assert(!proof.begin_pb());
+      std::vector<int32_t> startup_input;
+      assert(!proof.refute_by_counting([](FILE *) { return true; }, startup_input));
       execute_action(k, CloseStartupCertificateRequest{}); // idempotent
       assert(!k.startup_certificate_open);
       kernel_check_invariants(k);

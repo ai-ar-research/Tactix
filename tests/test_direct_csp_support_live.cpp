@@ -311,7 +311,8 @@ void unsupported_proofs_decline_before_mutation() {
     std::remove(path);
     assert(proof.open(path, ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
-    assert(proof.begin_pb());
+    std::vector<int32_t> startup_input; // the stream becomes terminal
+    assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;

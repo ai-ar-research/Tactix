@@ -6,6 +6,7 @@
 #include "proof/proof.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -579,6 +580,10 @@ void test_population_backs_streaming_pbp_external_rat() {
 void test_startup_pbp_certificate_boundary() {
   const Lit unit = internalize(1);
   const auto path = tmp_path("startup-pbp");
+  const auto write_pb = [](FILE *out) {
+    return std::fputs("pseudo-Boolean proof version 3.0\n", out) >= 0;
+  };
+  std::vector<int32_t> input;
   {
     Proof p;
     assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
@@ -587,21 +592,20 @@ void test_startup_pbp_certificate_boundary() {
     assert(read_file(path).empty()); // input prefix is private
     p.finish_input_transaction();
     assert(p.startup_pb_available());
-    FILE *out = p.begin_pb();
-    assert(out && p.startup_pb_written() && !p.startup_pb_available());
-    std::fputs("pseudo-Boolean proof version 3.0\n", out);
-    assert(p.finish_pb());
+    assert(p.refute_by_counting(write_pb, input));
+    assert(p.startup_pb_written() && !p.startup_pb_available());
     assert(!p.commit_clause_stream());
-    assert(!p.begin_pb());
+    assert(!p.refute_by_counting(write_pb, input));
   }
   expect(read_file(path), "pseudo-Boolean proof version 3.0\n", "atomic PB selection");
   std::remove(path.c_str());
   Proof strict;
   assert(strict.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
   strict.finish_input_transaction();
-  assert(!strict.startup_pb_available() && !strict.begin_pb());
+  assert(!strict.startup_pb_available() && !strict.refute_by_counting(write_pb, input));
   std::remove(path.c_str());
-  // A completed derivation is not a successful publication on a full device.
+  // A completed derivation is not a successful publication on a full device:
+  // the run stops before any verdict.
   if (access("/dev/full", W_OK)) {
     std::puts("SKIP: full-device PB publication check (/dev/full unavailable)");
     return;
@@ -612,15 +616,12 @@ void test_startup_pbp_certificate_boundary() {
     Proof failed_output;
     assert(failed_output.open("/dev/full", ProofFormat::PbpStreaming));
     failed_output.finish_input_transaction();
-    FILE *full = failed_output.begin_pb();
-    assert(full);
-    std::fputs("pseudo-Boolean proof version 3.0\n", full);
-    assert(!failed_output.finish_pb());
-    _exit(0); // failure was reported; do not retry publication in the destructor
+    failed_output.refute_by_counting(write_pb, input);
+    _exit(0);
   }
   int pb_status = 0;
   assert(waitpid(pb_child, &pb_status, 0) == pb_child);
-  assert(WIFEXITED(pb_status) && !WEXITSTATUS(pb_status));
+  assert(WIFSIGNALED(pb_status) && WTERMSIG(pb_status) == SIGABRT);
 }
 
 // A startup refutation with no proof takes the same path and formats nothing.

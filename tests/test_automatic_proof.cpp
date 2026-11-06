@@ -229,10 +229,10 @@ void no_trigger_selects_dsr() {
 void startup_pb_keeps_pbp() {
   const Events events = [](Proof &p) {
     inputs(p);
-    FILE *terminal = p.begin_pb();
-    assert(terminal);
-    std::fputs("pseudo-Boolean proof version 3.0\nf 6 ;\n", terminal);
-    assert(p.finish_pb());
+    std::vector<int32_t> startup_input;
+    assert(p.refute_by_counting([](FILE *terminal) {
+      return std::fputs("pseudo-Boolean proof version 3.0\nf 6 ;\n", terminal) >= 0;
+    }, startup_input));
   };
   TemporaryDirectory directory;
   const std::string path = directory / "proof";

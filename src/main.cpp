@@ -500,9 +500,8 @@ int main(int argc, char **argv) {
           ? proof.open_automatic(proof_path, binary_proof, proof_stage_path)
           : proof.open(proof_path, proof_format);
   if (!opened)
-    return proof_path
-               ? fail_unknown("tactix: cannot write proof to '%s'\n", proof_path)
-               : fail_unknown("tactix: cannot open the proof ledger\n");
+    return fail_unknown("tactix: cannot write proof to '%s'\n",
+                        proof_path ? proof_path : "the ledger");
   kernel.proof = &proof;
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);

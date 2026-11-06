@@ -4370,7 +4370,8 @@ static void unsupported_sr_proof_format_is_transactional() {
     Proof proof;
     assert(proof.open(path, ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
-    assert(proof.begin_pb());
+    std::vector<int32_t> startup_input; // the stream becomes terminal
+    assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
     k.proof = &proof;
     proof.bind_variable_map(&k.internal_to_external);
 

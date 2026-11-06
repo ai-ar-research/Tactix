@@ -209,7 +209,8 @@ void atomic_declines_and_staleness() {
     Proof proof;
     assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
-    assert(proof.begin_pb());
+    std::vector<int32_t> startup_input; // the stream becomes terminal
+    assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
     kernel.proof = &proof;
     const auto extent = kernel.external_to_internal;
     Admission output;

@@ -344,7 +344,8 @@ void stale_and_invalid_paths_do_not_leak_preparation() {
     close(descriptor);
     assert(proof.open(path, ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
-    assert(proof.begin_pb());
+    std::vector<int32_t> startup_input; // the stream becomes terminal
+    assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
     kernel.proof = &proof;
     DirectPhpActionSession session(kernel);
     const auto unsupported =

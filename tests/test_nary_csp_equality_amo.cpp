@@ -236,7 +236,8 @@ void controller_decline_feedback() {
     if (cause == Unsupported) {
       assert(proof.open("/dev/null", ProofFormat::PbpStreaming));
       proof.finish_input_transaction();
-      assert(proof.begin_pb());
+      std::vector<int32_t> startup_input; // the stream becomes terminal
+      assert(proof.refute_by_counting([](FILE *) { return true; }, startup_input));
       kernel.proof = &proof;
     }
     if (cause == Stale) {
