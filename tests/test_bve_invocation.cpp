@@ -10,6 +10,7 @@
 #include <csignal>
 #include <cstdio>
 #include <fstream>
+#include <span>
 #include <sstream>
 #include <string>
 #include <unistd.h>
@@ -20,6 +21,44 @@ using namespace tactix::strategy;
 
 static const RuleVTable &bve_rule() {
   return tactix_rules()[static_cast<size_t>(tactix_rule_id("BVE"))];
+}
+
+// One session per atomic application, as the online executor applies a
+// payload; the session restores the caller's BVE pose before this returns.
+static InvocationResult apply_one(Kernel &k, const BveParameters &parameters,
+                                  uint64_t instance, InvocationBudget &budget,
+                                  uint64_t revision = 0) {
+  BveInvocationSession session(bve_rule(), k, parameters, budget, revision);
+  return session.apply_one(instance);
+}
+
+static InvocationResult apply_one(Kernel &k, const BveParameters &parameters,
+                                  uint64_t instance) {
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  return apply_one(k, parameters, instance, budget);
+}
+
+// A selected batch, as the online executor applies a selection: one session
+// per member over a shared budget. Each member is atomic and validated when
+// applied: an exhausted budget or a member an earlier one made stale declines
+// without mutation.
+static std::vector<InvocationResult>
+apply_batch(Kernel &k, const BveParameters &parameters,
+            std::span<const uint64_t> instances, InvocationBudget &budget) {
+  std::vector<InvocationResult> results;
+  for (const uint64_t instance : instances)
+    results.push_back(apply_one(k, parameters, instance, budget));
+  return results;
+}
+
+// A generated pass, as the online executor prepares CompleteCurrentPass: the
+// complete current scope is enumerated before the session poses parameters.
+static std::vector<InvocationResult>
+apply_complete_pass(Kernel &k, const BveParameters &parameters) {
+  std::vector<uint64_t> instances;
+  bve_complete_instances(k, bve_rule(), parameters, instances);
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  return apply_batch(k, parameters, instances, budget);
 }
 
 static void add_pair(Kernel &k, int pivot, int positive_partner,
@@ -101,12 +140,9 @@ static void test_one_instance_matches_legacy_and_restores_parameters() {
   const uint64_t pivot = lit_instance(internalize(1));
   const ApplyResult expected = apply_rule_instance(bve_rule(), legacy, pivot);
   const BveParameters saved = BveParameters::from_kernel(configured);
-  const uint64_t selected[] = {pivot};
-  BveInvocationRequest request{saved, InvocationGranularity::OneInstance,
-                               selected, 41};
   InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  const InvocationResult actual = invoke_bve(bve_rule(), configured, request,
-                                             budget);
+  const InvocationResult actual =
+      apply_one(configured, saved, pivot, budget, 41);
 
   assert(expected == ApplyResult::Ok && actual.rule_result == expected);
   assert(actual.status == InvocationStatus::Completed);
@@ -151,11 +187,8 @@ static void test_per_call_bound_is_effective_and_scoped() {
   k.bve_bound = 0;
   BveParameters posed = BveParameters::from_kernel(k);
   posed.growth_bound = 16;
-  const uint64_t pivot[] = {lit_instance(internalize(1))};
-  BveInvocationRequest request{posed, InvocationGranularity::OneInstance,
-                               pivot, 0};
-  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+  const InvocationResult result =
+      apply_one(k, posed, lit_instance(internalize(1)));
   assert(result.status == InvocationStatus::Completed);
   assert(result.rule_result == ApplyResult::Ok && result.work == 18);
   assert(kernel_var_retired(k, var_of(internalize(1))));
@@ -174,11 +207,8 @@ static void test_absolute_resolvent_cap_is_effective_and_scoped() {
   k.bve_resolvent_count_limit = 77;
   BveParameters posed = BveParameters::from_kernel(k);
   posed.resolvent_count_limit = 8;
-  const uint64_t pivot[] = {lit_instance(internalize(1))};
-  BveInvocationRequest request{posed, InvocationGranularity::OneInstance,
-                               pivot, 0};
-  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+  const InvocationResult result =
+      apply_one(k, posed, lit_instance(internalize(1)));
   assert(result.status == InvocationStatus::NoChange);
   assert(result.rule_result == ApplyResult::NoOp && result.work == 9);
   assert(!kernel_var_retired(k, var_of(internalize(1))));
@@ -195,11 +225,7 @@ static InvocationResult invoke_fastel(Kernel &k, uint32_t pivot,
   parameters.resolvent_size_limit = UINT32_MAX;
   parameters.backward = false;
   parameters.traversal = BveTraversal::FastEliminate;
-  const uint64_t selected[] = {lit_instance(k, internalize(pivot))};
-  BveInvocationRequest request{parameters, InvocationGranularity::OneInstance,
-                               selected, 0};
-  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  return invoke_bve(bve_rule(), k, request, budget);
+  return apply_one(k, parameters, lit_instance(k, internalize(pivot)));
 }
 
 static InvocationResult invoke_otf(Kernel &k, uint32_t pivot, bool enabled,
@@ -212,11 +238,7 @@ static InvocationResult invoke_otf(Kernel &k, uint32_t pivot, bool enabled,
   parameters.backward = false;
   parameters.on_the_fly_strengthening = enabled;
   parameters.traversal = BveTraversal::Eliminate;
-  const uint64_t selected[] = {lit_instance(k, internalize(pivot))};
-  BveInvocationRequest request{parameters, InvocationGranularity::OneInstance,
-                               selected, 0};
-  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  return invoke_bve(bve_rule(), k, request, budget);
+  return apply_one(k, parameters, lit_instance(k, internalize(pivot)));
 }
 
 static void test_otf_single_strengthening_precedes_resolvent_cap() {
@@ -606,19 +628,17 @@ static void test_fastel_strengthening_is_atomic_at_budget_boundary() {
   parameters.traversal = BveTraversal::FastEliminate;
   const uint64_t selected[] = {lit_instance(k, internalize(1)),
                                lit_instance(k, internalize(6))};
-  BveInvocationRequest request{parameters,
-                               InvocationGranularity::SelectedBatch, selected,
-                               0};
   InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::bounded(1));
-  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+  const auto results = apply_batch(k, parameters, selected, budget);
 
   // An invocation budget interrupts only between atomic pivots.  The first
   // pivot may strengthen before its elimination declines; that checked edit
   // must survive, while the next selected pivot must remain untouched.
-  assert(result.status == InvocationStatus::BudgetExhausted);
-  assert(result.budget_status == BudgetStatus::Exhausted);
-  assert(result.applications == 1 && !result.selection_complete);
-  assert(result.made_rule_progress && result.work >= 1);
+  assert(results[0].applications == 1 && results[0].made_rule_progress);
+  assert(results[0].work >= 1 &&
+         results[0].budget_status == BudgetStatus::Exhausted);
+  assert(results[1].status == InvocationStatus::BudgetExhausted);
+  assert(results[1].applications == 0 && !results[1].selection_complete);
   assert(!kernel_var_retired(k, var_of(internalize(1))));
   assert(clause_at(k.arena, strengthened_ref)->garbage());
   assert(kernel_binary_live(k, internalize(2), internalize(3)));
@@ -645,51 +665,22 @@ static void test_per_call_xor_arity_is_effective_and_scoped() {
   Kernel low, high;
   build_xor3(low);
   build_xor3(high);
-  const uint64_t pivot[] = {lit_instance(internalize(1))};
+  const uint64_t pivot = lit_instance(internalize(1));
 
   BveParameters low_parameters = BveParameters::from_kernel(low);
   low_parameters.gate_mask = BVE_GATE_XOR;
   low_parameters.xor_arity_limit = 2;
-  BveInvocationRequest low_request{low_parameters,
-                                   InvocationGranularity::OneInstance, pivot,
-                                   0};
-  InvocationBudget low_budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  assert(invoke_bve(bve_rule(), low, low_request, low_budget).rule_result ==
-         ApplyResult::Ok);
+  assert(apply_one(low, low_parameters, pivot).rule_result == ApplyResult::Ok);
   assert(low.stats.bve_gates_xor == 0);
 
   high.bve_xor_arity_limit = 2; // caller state restored after the posed call
   BveParameters high_parameters = BveParameters::from_kernel(high);
   high_parameters.gate_mask = BVE_GATE_XOR;
   high_parameters.xor_arity_limit = 3;
-  BveInvocationRequest high_request{high_parameters,
-                                    InvocationGranularity::OneInstance, pivot,
-                                    0};
-  InvocationBudget high_budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  assert(invoke_bve(bve_rule(), high, high_request, high_budget).rule_result ==
+  assert(apply_one(high, high_parameters, pivot).rule_result ==
          ApplyResult::Ok);
   assert(high.stats.bve_gates_xor == 1);
   assert(high.bve_xor_arity_limit == 2);
-}
-
-static void test_batch_budget_stops_between_atomic_pivots() {
-  Kernel k;
-  build_two_pivots(k);
-  BveParameters parameters = BveParameters::from_kernel(k);
-  parameters.gate_mask = 0;
-  const uint64_t selected[] = {lit_instance(internalize(1)),
-                               lit_instance(internalize(2))};
-  BveInvocationRequest request{parameters,
-                               InvocationGranularity::SelectedBatch, selected,
-                               0};
-  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::bounded(1));
-  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
-  assert(result.status == InvocationStatus::BudgetExhausted);
-  assert(result.budget_status == BudgetStatus::Exhausted);
-  assert(result.applications == 1 && result.work == 1);
-  assert(!result.selection_complete && result.made_rule_progress);
-  assert(kernel_var_retired(k, var_of(internalize(1))));
-  assert(!kernel_var_retired(k, var_of(internalize(2))));
 }
 
 static void test_pass_session_poses_once_and_keeps_cumulative_budget() {
@@ -707,11 +698,17 @@ static void test_pass_session_poses_once_and_keeps_cumulative_budget() {
         session.apply_one(lit_instance(internalize(1)));
     assert(first.status == InvocationStatus::Completed);
     assert(first.applications == 1 && first.work == 1);
+    assert(first.made_rule_progress &&
+           first.budget_status == BudgetStatus::Exhausted);
     assert(first.configuration_revision == 53 && budget.consumed() == 1);
+    // The budget stops the pass between atomic pivots.
     const InvocationResult second =
         session.apply_one(lit_instance(internalize(2)));
     assert(second.status == InvocationStatus::BudgetExhausted);
-    assert(second.applications == 0 && budget.consumed() == 1);
+    assert(second.budget_status == BudgetStatus::Exhausted);
+    assert(second.applications == 0 && !second.selection_complete);
+    assert(budget.consumed() == 1);
+    assert(kernel_var_retired(k, var_of(internalize(1))));
     assert(!kernel_var_retired(k, var_of(internalize(2))));
   }
   assert(k.bve_bound == 0 && "the session must restore the caller pose");
@@ -723,14 +720,11 @@ static void test_complete_pass_and_stale_batch_are_distinct() {
   build_two_pivots(pass);
   BveParameters parameters = BveParameters::from_kernel(pass);
   parameters.gate_mask = 0;
-  BveInvocationRequest complete{parameters,
-                                InvocationGranularity::CompleteCurrentPass,
-                                {}, 7};
-  InvocationBudget unlimited(WorkUnit::BveTicks, WorkLimit::unlimited());
-  const InvocationResult full =
-      invoke_bve(bve_rule(), pass, complete, unlimited);
-  assert(full.status == InvocationStatus::Completed);
-  assert(full.selection_complete && full.applications == 6);
+  const auto full = apply_complete_pass(pass, parameters);
+  assert(full.size() == 6);
+  for (const InvocationResult &one : full)
+    assert(one.status == InvocationStatus::Completed &&
+           one.applications == 1 && one.selection_complete);
   assert(pass.stats.bve_eliminated == 6);
 
   Kernel stale;
@@ -739,15 +733,17 @@ static void test_complete_pass_and_stale_batch_are_distinct() {
   kernel_add_binary_clause(stale, internalize(-1), internalize(2));
   const uint64_t selected[] = {lit_instance(internalize(1)),
                                lit_instance(internalize(2))};
-  BveInvocationRequest batch{BveParameters::from_kernel(stale),
-                             InvocationGranularity::SelectedBatch, selected,
-                             0};
+  const BveParameters current = BveParameters::from_kernel(stale);
   InvocationBudget batch_budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  const InvocationResult changed =
-      invoke_bve(bve_rule(), stale, batch, batch_budget);
-  assert(changed.status == InvocationStatus::StaleRequest);
-  assert(changed.applications == 1 && !changed.selection_complete);
+  const auto changed = apply_batch(stale, current, selected, batch_budget);
+  // The first member's unit resolvent assigns the second member.
+  assert(changed[0].applications == 1);
+  assert(changed[1].status == InvocationStatus::StaleRequest);
+  assert(changed[1].applications == 0 && !changed[1].selection_complete);
   assert(stale.value(internalize(2)) > 0);
+  // A retired pivot is stale as well.
+  assert(apply_one(stale, current, selected[0]).status ==
+         InvocationStatus::StaleRequest);
 }
 
 static void test_pure_scope_filters_only_generated_complete_passes() {
@@ -758,15 +754,10 @@ static void test_pure_scope_filters_only_generated_complete_passes() {
   BveParameters pure = BveParameters::from_kernel(generated);
   pure.candidate_scope = BveCandidateScope::PureOnly;
   pure.gate_mask = 0;
-  BveInvocationRequest complete{pure,
-                                InvocationGranularity::CompleteCurrentPass,
-                                {}, 0};
-  InvocationBudget complete_budget(WorkUnit::BveTicks,
-                                   WorkLimit::unlimited());
-  const InvocationResult filtered =
-      invoke_bve(bve_rule(), generated, complete, complete_budget);
-  assert(filtered.status == InvocationStatus::Completed);
-  assert(filtered.selection_complete && filtered.applications == 2);
+  const auto filtered = apply_complete_pass(generated, pure);
+  assert(filtered.size() == 2);
+  for (const InvocationResult &one : filtered)
+    assert(one.status == InvocationStatus::Completed);
   assert(kernel_var_retired(generated, var_of(internalize(1))));
   assert(kernel_var_retired(generated, var_of(internalize(3))));
   assert(!kernel_var_retired(generated, var_of(internalize(2))));
@@ -777,11 +768,8 @@ static void test_pure_scope_filters_only_generated_complete_passes() {
   pure = BveParameters::from_kernel(explicit_instance);
   pure.candidate_scope = BveCandidateScope::PureOnly;
   pure.gate_mask = 0;
-  const uint64_t pivot[] = {lit_instance(internalize(1))};
-  BveInvocationRequest one{pure, InvocationGranularity::OneInstance, pivot, 0};
-  InvocationBudget one_budget(WorkUnit::BveTicks, WorkLimit::unlimited());
   const InvocationResult unfiltered =
-      invoke_bve(bve_rule(), explicit_instance, one, one_budget);
+      apply_one(explicit_instance, pure, lit_instance(internalize(1)));
   assert(unfiltered.status == InvocationStatus::Completed);
   assert(unfiltered.applications == 1 && unfiltered.made_rule_progress);
   assert(kernel_var_retired(explicit_instance, var_of(internalize(1))));
@@ -807,14 +795,13 @@ static void test_pure_closure_matches_repeated_pure_passes() {
     BveParameters pure = BveParameters::from_kernel(k);
     pure.candidate_scope = scope;
     pure.gate_mask = 0;
-    BveInvocationRequest request{pure,
-                                 InvocationGranularity::CompleteCurrentPass,
-                                 {}, 0};
-    InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-    const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
-    assert(result.status == InvocationStatus::Completed ||
-           result.status == InvocationStatus::NoChange);
-    return result.applications;
+    uint64_t applications = 0;
+    for (const InvocationResult &one : apply_complete_pass(k, pure)) {
+      assert(one.status == InvocationStatus::Completed ||
+             one.status == InvocationStatus::NoChange);
+      applications += one.applications;
+    }
+    return applications;
   };
   Kernel repeated, closure;
   build(repeated);
@@ -848,13 +835,10 @@ static void test_pure_scope_inside_unordered_dense_state() {
   BveParameters pure = BveParameters::from_kernel(k);
   pure.candidate_scope = BveCandidateScope::PureOnly;
   pure.gate_mask = 0;
-  BveInvocationRequest request{pure,
-                               InvocationGranularity::CompleteCurrentPass,
-                               {}, 0};
-  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
-  assert(result.status == InvocationStatus::Completed);
-  assert(result.selection_complete && result.applications == 2);
+  const auto results = apply_complete_pass(k, pure);
+  assert(results.size() == 2);
+  for (const InvocationResult &one : results)
+    assert(one.status == InvocationStatus::Completed);
   assert(kernel_var_retired(k, var_of(internalize(1))));
   assert(kernel_var_retired(k, var_of(internalize(3))));
   assert(!kernel_var_retired(k, var_of(internalize(2))));
@@ -866,27 +850,34 @@ static void test_invalid_zero_budget_and_stop_do_not_mutate() {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_pair(k, 1, 2, 3);
-  const uint64_t pivot[] = {lit_instance(internalize(1))};
+  const uint64_t pivot = lit_instance(internalize(1));
   BveParameters invalid = BveParameters::from_kernel(k);
   invalid.xor_arity_limit = BVE_XOR_ARITY_CAPACITY + 1;
-  BveInvocationRequest bad{invalid, InvocationGranularity::OneInstance, pivot,
-                           0};
   InvocationBudget bad_budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  assert(invoke_bve(bve_rule(), k, bad, bad_budget).status ==
-         InvocationStatus::InvalidRequest);
+  {
+    BveInvocationSession session(bve_rule(), k, invalid, bad_budget);
+    assert(!session.valid());
+    assert(session.apply_one(pivot).status == InvocationStatus::InvalidRequest);
+  }
+  assert(k.bve_xor_arity_limit != invalid.xor_arity_limit);
+
+  // The canonical marker, a non-literal payload and an unknown variable are
+  // invalid instances.
+  const BveParameters parameters = BveParameters::from_kernel(k);
+  for (const uint64_t instance :
+       {INSTANCE_CANONICAL, uint64_t{0}, lit_instance(internalize(99))})
+    assert(apply_one(k, parameters, instance).status ==
+           InvocationStatus::InvalidRequest);
   assert(k.stats.bve_resolutions == 0);
 
-  BveInvocationRequest request{BveParameters::from_kernel(k),
-                               InvocationGranularity::OneInstance, pivot, 0};
   InvocationBudget zero(WorkUnit::BveTicks, WorkLimit::bounded(0));
-  assert(invoke_bve(bve_rule(), k, request, zero).status ==
+  assert(apply_one(k, parameters, pivot, zero).status ==
          InvocationStatus::BudgetExhausted);
   assert(k.stats.bve_resolutions == 0);
 
   volatile sig_atomic_t stop = 1;
   k.stop = &stop;
-  InvocationBudget ready(WorkUnit::BveTicks, WorkLimit::unlimited());
-  assert(invoke_bve(bve_rule(), k, request, ready).status ==
+  assert(apply_one(k, parameters, pivot).status ==
          InvocationStatus::Interrupted);
   assert(k.stats.bve_resolutions == 0);
   k.stop = nullptr;
@@ -898,11 +889,8 @@ static void test_terminal_result_is_not_overwritten_by_completion() {
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_unit(k, internalize(-2));
-  const uint64_t pivot[] = {lit_instance(internalize(1))};
-  BveInvocationRequest request{BveParameters::from_kernel(k),
-                               InvocationGranularity::OneInstance, pivot, 0};
-  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+  const InvocationResult result = apply_one(
+      k, BveParameters::from_kernel(k), lit_instance(internalize(1)));
   assert(result.status == InvocationStatus::Unsat);
   assert(result.rule_result == ApplyResult::Unsat);
   assert(result.selection_complete && result.applications == 1);
@@ -930,11 +918,8 @@ run_traversal_fixture(BveTraversal traversal, bool binary_positive) {
   parameters.gate_mask = 0;
   parameters.growth_bound = 8;
   parameters.traversal = traversal;
-  const uint64_t selected[] = {lit_instance(k, L(1))};
-  BveInvocationRequest request{parameters, InvocationGranularity::OneInstance,
-                               selected, 0};
-  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
-  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+  const InvocationResult result =
+      apply_one(k, parameters, lit_instance(k, L(1)));
   assert(result.status == InvocationStatus::Completed);
   std::vector<std::vector<Lit>> fresh;
   for (Ref ref = fresh_begin; ref < k.arena.size();) {
@@ -1081,7 +1066,6 @@ int main(int argc, char **argv) {
   test_fastel_decline_retains_checked_strengthening();
   test_fastel_strengthening_is_atomic_at_budget_boundary();
   test_per_call_xor_arity_is_effective_and_scoped();
-  test_batch_budget_stops_between_atomic_pivots();
   test_pass_session_poses_once_and_keeps_cumulative_budget();
   test_complete_pass_and_stale_batch_are_distinct();
   test_pure_scope_filters_only_generated_complete_passes();

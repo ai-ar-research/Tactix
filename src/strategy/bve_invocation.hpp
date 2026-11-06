@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <cstring>
 #include <optional>
-#include <span>
 #include <vector>
 
 namespace tactix::strategy {
@@ -241,15 +240,6 @@ inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
   }
 }
 
-struct BveInvocationRequest {
-  BveParameters parameters;
-  InvocationGranularity granularity = InvocationGranularity::OneInstance;
-  // Stable external-literal payloads for OneInstance/SelectedBatch.  A
-  // CompleteCurrentPass enumerates the complete current BVE scope itself.
-  std::span<const uint64_t> instances;
-  uint64_t configuration_revision = 0;
-};
-
 inline void install_rule_parameters(Kernel &k, const BveParameters &p) {
   k.bve_gate_mask = p.gate_mask;
   k.bve_bound = p.growth_bound;
@@ -455,113 +445,5 @@ private:
   std::optional<detail::ScopedBveParameters> posed_;
   std::optional<BveCandidateHeap> heap_;
 };
-
-// Execute through the existing registered BVE primitive.  This intentionally
-// does not perform DefaultPolicy's heap, propagation, H-publication or garbage
-// collection duties; those are composition choices, not BVE rule semantics.
-inline InvocationResult invoke_bve(const RuleVTable &rule, Kernel &k,
-                                   const BveInvocationRequest &request,
-                                   InvocationBudget &budget) {
-  InvocationResult out;
-  out.before = state_version(k);
-  out.after = out.before;
-    out.work_unit = WorkUnit::BveTicks;
-    out.rule_id = rule.id;
-  out.configuration_revision = request.configuration_revision;
-  out.budget_status = budget.status();
-
-  const auto invalid = [&out] {
-    out.status = InvocationStatus::InvalidRequest;
-    return out;
-  };
-  if (!detail::bve_admissible(rule, request.parameters, budget))
-    return invalid();
-  if (out.budget_status != BudgetStatus::Ready) {
-    out.status = detail::accounting_status(out.budget_status);
-    return out;
-  }
-
-  std::vector<uint64_t> complete;
-  std::span<const uint64_t> selected = request.instances;
-  switch (request.granularity) {
-  case InvocationGranularity::OneInstance:
-    if (selected.size() != 1 || selected.front() == INSTANCE_CANONICAL)
-      return invalid();
-    break;
-  case InvocationGranularity::SelectedBatch:
-    if (selected.empty() ||
-        std::find(selected.begin(), selected.end(), INSTANCE_CANONICAL) !=
-            selected.end())
-      return invalid();
-    break;
-  case InvocationGranularity::CompleteCurrentPass:
-    if (!selected.empty() || !rule.instances)
-      return invalid();
-    bve_complete_instances(k, rule, request.parameters, complete);
-    selected = complete;
-    break;
-  case InvocationGranularity::CanonicalApplication:
-    if (!selected.empty())
-      return invalid();
-    {
-      BveInvocationSession session(rule, k, request.parameters, budget,
-                                   request.configuration_revision);
-      return session.apply_canonical();
-    }
-  case InvocationGranularity::NativeProducerOffer:
-    return invalid();
-  }
-
-  // Validate external identities transactionally before posing parameters or
-  // executing the first member.  A later member may legitimately go stale
-  // because an earlier member changed the formula; that is reported below.
-  for (const uint64_t instance : selected) {
-    Lit lit;
-    if (!lit_of_instance(k, instance, &lit))
-      return invalid();
-  }
-
-  BveInvocationSession session(rule, k, request.parameters, budget,
-                               request.configuration_revision);
-  bool any_progress = false;
-  for (const uint64_t instance : selected) {
-    const InvocationResult one = session.apply_one(instance);
-    out.work += one.work;
-    out.applications += one.applications;
-    out.rule_result = one.rule_result;
-    out.budget_status = one.budget_status;
-    any_progress |= one.made_rule_progress;
-    out.made_rule_progress = any_progress;
-    out.status = one.status;
-
-    if (!one.applications || one.status == InvocationStatus::Conflict ||
-        one.status == InvocationStatus::Sat ||
-        one.status == InvocationStatus::Unsat) {
-      break;
-    }
-    if (out.budget_status != BudgetStatus::Ready &&
-        out.applications != selected.size()) {
-      out.status = detail::accounting_status(out.budget_status);
-      break;
-    }
-  }
-
-  if (out.applications == selected.size()) {
-    out.selection_complete = true;
-    const bool terminal = out.status == InvocationStatus::Conflict ||
-                          out.status == InvocationStatus::Sat ||
-                          out.status == InvocationStatus::Unsat;
-    if (!terminal) {
-      if (out.budget_status != BudgetStatus::Ready &&
-          out.budget_status != BudgetStatus::Exhausted)
-        out.status = InvocationStatus::AccountingError;
-      else
-        out.status = any_progress ? InvocationStatus::Completed
-                                  : InvocationStatus::NoChange;
-    }
-  }
-  out.after = state_version(k);
-  return out;
-}
 
 } // namespace tactix::strategy

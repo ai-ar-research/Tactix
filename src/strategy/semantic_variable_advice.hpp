@@ -39,14 +39,9 @@ struct SemanticVariableAdviceResult {
 // expose its semantic variables, and leave Propagate as the learner's next
 // separately accounted action. Validation and resource accounting complete
 // before either ranking changes, so every decline has no effect. The same
-// advice is installed in VMTF and EVSIDS regardless of the active mode.
-//
-// `commit_semantic_variable_advice` leaves epoch ownership to registry dispatch.
-// The direct wrapper below advances it once on success for non-registry callers.
+// advice is installed in VMTF and EVSIDS regardless of the active mode. The
+// strategy-epoch transition belongs to registry dispatch.
 SemanticVariableAdviceResult commit_semantic_variable_advice(
-    Kernel &, const SemanticVariableAdvice &,
-    const SemanticVariableAdviceLimits &);
-SemanticVariableAdviceResult apply_semantic_variable_advice(
     Kernel &, const SemanticVariableAdvice &,
     const SemanticVariableAdviceLimits &);
 

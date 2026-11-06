@@ -30,14 +30,17 @@ int main() {
   advice.variables = {{1, SemanticVariableRole::ExistingTheory, 1},
                       {3, SemanticVariableRole::IntroducedTheory, 3}};
   const uint64_t source_strategy_epoch = advice.source.strategy_epoch;
-  const auto applied = apply_semantic_variable_advice(k, advice, limits);
+  const auto applied = commit_semantic_variable_advice(k, advice, limits);
+  // Commit leaves the strategy-epoch transition to registry dispatch; this
+  // test performs it after each applied commit.
+  assert(k.strategy_epoch == source_strategy_epoch);
+  ++k.strategy_epoch;
   assert(applied.status == SemanticVariableAdviceStatus::Applied);
   assert(applied.variables == 2 && applied.priority_sum == 4);
   assert(k.stats.semantic_variable_advice_attempts == 1);
   assert(k.stats.semantic_variable_advice_applied == 1);
   assert(k.stats.semantic_variable_advice_variables == 2);
   assert(k.stats.semantic_variable_advice_priority == 4);
-  assert(k.strategy_epoch == source_strategy_epoch + 1);
   assert(k.h->queue_last == k.external_to_internal[2]);
   assert(k.h->scores.score[k.external_to_internal[2]] >
          k.h->scores.score[k.external_to_internal[0]]);
@@ -45,28 +48,28 @@ int main() {
   // A stale request and every malformed/nonsemantic request are atomic.
   const auto after_scores = scores(k);
   const Var after_last = k.h->queue_last;
-  assert(apply_semantic_variable_advice(k, advice, limits).status ==
+  assert(commit_semantic_variable_advice(k, advice, limits).status ==
          SemanticVariableAdviceStatus::Stale);
   assert(k.stats.semantic_variable_advice_stale == 1);
   assert(scores(k) == after_scores && k.h->queue_last == after_last);
 
   advice.source = state_version(k);
   advice.variables = {{2, SemanticVariableRole::ProofOnly, 1}};
-  assert(apply_semantic_variable_advice(k, advice, limits).status ==
+  assert(commit_semantic_variable_advice(k, advice, limits).status ==
          SemanticVariableAdviceStatus::Invalid);
   assert(k.stats.semantic_variable_advice_invalid == 1);
   assert(scores(k) == after_scores && k.h->queue_last == after_last);
 
   advice.variables = {{1, SemanticVariableRole::ExistingTheory, 4},
                       {2, SemanticVariableRole::IntroducedTheory, 3}};
-  assert(apply_semantic_variable_advice(k, advice, limits).status ==
+  assert(commit_semantic_variable_advice(k, advice, limits).status ==
          SemanticVariableAdviceStatus::ResourceExhausted);
   assert(k.stats.semantic_variable_advice_resource_exhausted == 1);
   assert(scores(k) == after_scores && k.h->queue_last == after_last);
 
   advice.variables = {{1, SemanticVariableRole::ExistingTheory, 1},
                       {1, SemanticVariableRole::IntroducedTheory, 1}};
-  assert(apply_semantic_variable_advice(k, advice, limits).status ==
+  assert(commit_semantic_variable_advice(k, advice, limits).status ==
          SemanticVariableAdviceStatus::Invalid);
   assert(k.stats.semantic_variable_advice_invalid == 2);
   assert(k.stats.semantic_variable_advice_attempts == 5);
@@ -83,8 +86,9 @@ int main() {
   pending_advice.source = state_version(k);
   pending_advice.variables = {
       {1, SemanticVariableRole::ExistingTheory, 1}};
-  assert(apply_semantic_variable_advice(k, pending_advice, limits).status ==
+  assert(commit_semantic_variable_advice(k, pending_advice, limits).status ==
          SemanticVariableAdviceStatus::Applied);
+  ++k.strategy_epoch;
   assert(!kernel_propagation_fixpoint(k));
   assert(k.stats.semantic_variable_advice_attempts == 6);
   assert(k.stats.semantic_variable_advice_applied == 2);
@@ -117,8 +121,9 @@ int main() {
   assert(selected.source.strategy_epoch == k.strategy_epoch);
   assert(selected.variables[0].priority == 2 &&
          selected.variables[1].priority == 2);
-  assert(apply_semantic_variable_advice(k, selected, limits).status ==
+  assert(commit_semantic_variable_advice(k, selected, limits).status ==
          SemanticVariableAdviceStatus::Applied);
+  ++k.strategy_epoch;
   assert(k.stats.semantic_variable_advice_attempts == 7);
   assert(k.stats.semantic_variable_advice_applied == 3);
   assert(k.stats.semantic_variable_advice_variables == 5);
