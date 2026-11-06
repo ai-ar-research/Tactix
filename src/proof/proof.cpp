@@ -3471,11 +3471,11 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   const ReleaseLazyEvent release{this};
   if (!written || !dsr_copy_)
     return written;
+  // The check above leaves the copy every line it can spell.
   if (!dsr_copy_->add_sr(id, lits, size, true_lits, ntrue, mappings, nmappings,
                          external_variables, propagates))
-    drop_dsr_copy(AutomaticProofReason::CopyDeclined);
-  else
-    settle_dsr_copy();
+    std::abort();
+  settle_dsr_copy();
   return written;
 }
 

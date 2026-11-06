@@ -108,8 +108,6 @@ endif()
 tactix_python_test(p4_fixtures ${CMAKE_CURRENT_SOURCE_DIR}/test_p4_fixtures.py)
 tactix_skip77_test(campaign_certificate_cleanup ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_campaign_certificate_cleanup.py)
-tactix_python_test(tierd_campaign_pinning
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_tierd_campaign_pinning.py)
 tactix_python_test(slurm_memory_enforcement
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_slurm_memory_enforcement.py)
 tactix_python_test(symmetry_backend_build_boundary

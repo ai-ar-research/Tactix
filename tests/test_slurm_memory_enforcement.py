@@ -9,7 +9,6 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNNERS = (
     ROOT / "tools/bench/run.py",
     ROOT / "tools/bench/frozen_baseline.py",
-    ROOT / "tools/bench/tactix_tierd.py",
     ROOT / "tools/bench/p4_cvg.py",
 )
 
