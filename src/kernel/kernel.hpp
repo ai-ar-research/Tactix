@@ -4,6 +4,7 @@
 #include "kernel/connected_occurrence.hpp"
 #include "kernel/occ.hpp"
 #include "kernel/splitmix64.hpp"
+#include "kernel/structural_journal.hpp"
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
@@ -24,7 +25,6 @@
 #include <array>
 #include <csignal>
 #include <cstddef>
-#include <cstdio>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -1108,9 +1108,9 @@ struct Kernel {
       gf3_general_row_consequence_parameters;
   strategy::TseitinCycleBreakingParameters tseitin_cycle_breaking_parameters;
   strategy::SemanticVariableAdviceParameters semantic_variable_advice_parameters;
-  // Borrowed session stream. The owner keeps it open through all structural
-  // actions; sequence IDs never reset on rebind or proof-mode changes.
-  FILE *structural_provenance = nullptr;
+  // Where structural actions record; a borrowed stream stays open through
+  // them. Sequence IDs never reset on rebind or proof-mode changes.
+  StructuralJournal structural_provenance;
   // Opt-in journal encoding: authenticated matrix sources/reasons remain,
   // duplicate per-step clausal proof-event telemetry is omitted.
   bool affine_matrix_provenance_compact = false;

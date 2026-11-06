@@ -4,7 +4,6 @@
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
 #include <cstdint>
-#include <cstdio>
 #include <vector>
 
 namespace tactix {
@@ -83,7 +82,7 @@ struct DirectCspSupportLiveRequest {
   bool allow_extension = false;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
 };
 
 struct DirectCspSupportOwnerCaptureResult {

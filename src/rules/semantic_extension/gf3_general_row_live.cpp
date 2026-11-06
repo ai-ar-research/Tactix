@@ -3,11 +3,11 @@
 #include "strategy/action_status_mapping.hpp"
 
 #include "proof/proof.hpp"
-#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/gf3_certificate_common.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 #include "rules/semantic_extension/live_adapter.hpp"
+#include "rules/structural_text.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -27,8 +27,6 @@ using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
 using gf3_live_common::owner_request;
-using semantic_extension::append_bounded;
-using semantic_extension::join_integers;
 
 Gf3GeneralRowLiveStatus owner_status(Gf3AffineLiveStatus status) {
   if (const auto failure =
@@ -87,42 +85,40 @@ bool make_journal(const Gf3GeneralRowLiveRequest &request,
                   const gf3_general_row::Plan &plan,
                   const std::string &identity,
                   const std::vector<uint64_t> &ids,
-                  std::string &journal) {
-  const std::string prefix =
-      "{\"action\":" + std::to_string(request.action_id) +
-      ",\"semantic\":" + std::to_string(request.semantic_id);
-  if (!append_bounded(journal, request.limits.maximum_journal_bytes,
-                      prefix + ",\"kind\":\"gf3-general-row-begin\","
-                               "\"identity\":\"" + identity + "\","
-                               "\"outcome\":" +
-                          std::to_string(plan.request.outcome) +
-                          ",\"tuple\":" + std::to_string(plan.request.tuple) +
-                          ",\"clause\":[" + join_integers(plan.consequence) +
-                          "]}\n"))
+                  JournalText &journal) {
+  journal = JournalText(request.records);
+  const uint64_t maximum = request.limits.maximum_journal_bytes;
+  const auto prefix = [&](auto &out) {
+    out("{\"action\":", request.action_id, ",\"semantic\":",
+        request.semantic_id);
+  };
+  if (!journal.append(maximum, prefix,
+                      ",\"kind\":\"gf3-general-row-begin\","
+                      "\"identity\":\"", identity, "\","
+                      "\"outcome\":", plan.request.outcome, ",\"tuple\":",
+                      plan.request.tuple, ",\"clause\":[",
+                      journal_list(plan.consequence), "]}\n"))
     return false;
   for (size_t i = 0; i < plan.events.size(); ++i) {
     const char *role = plan.events[i].role ==
                                gf3_general_row::EventRole::Consequence
                            ? "consequence"
                            : "auxiliary";
-    if (!append_bounded(journal, request.limits.maximum_journal_bytes,
-                        prefix + ",\"kind\":\"gf3-general-row-rup\","
-                                 "\"event\":" +
-                            std::to_string(i) + ",\"clause_id\":" +
-                            std::to_string(ids[i]) + ",\"role\":\"" + role +
-                            "\",\"clause\":[" +
-                            join_integers(plan.events[i].clause) + "]}\n"))
+    if (!journal.append(maximum, prefix,
+                        ",\"kind\":\"gf3-general-row-rup\",\"event\":", i,
+                        ",\"clause_id\":", ids[i], ",\"role\":\"", role,
+                        "\",\"clause\":[", journal_list(plan.events[i].clause),
+                        "]}\n"))
       return false;
   }
-  return append_bounded(journal, request.limits.maximum_journal_bytes,
-                        prefix +
-                            ",\"kind\":\"gf3-general-row-complete\"}\n");
+  return journal.append(maximum, prefix,
+                        ",\"kind\":\"gf3-general-row-complete\"}\n");
 }
 
 struct Preflight {
   Gf3GeneralRowLiveResult result;
   std::vector<uint64_t> ids;
-  std::string journal;
+  JournalText journal;
 };
 
 Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
@@ -431,7 +427,7 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
       kernel_rearm_theory_clause(kernel, internal.data(), internal.size());
     result.installed_clause_id = id;
   }
-  semantic_extension::write_journal_or_abort(request.records, prepared.journal);
+  prepared.journal.write(request.records);
   std::set<int32_t> semantic;
   for (const auto &term : result.plan.duplicate_key.row) {
     const auto &domain = result.owner.affine.theory.domains[term.variable - 1];

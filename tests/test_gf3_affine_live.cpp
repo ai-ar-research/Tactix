@@ -92,7 +92,7 @@ Gf3AffineLiveRequest request(FILE *records) {
 Gf3AffineLiveResult decline_unchanged(
     Kernel &kernel, const Gf3AffineLiveRequest &candidate) {
   const Image before = image(kernel);
-  const long journal = position(candidate.records);
+  const long journal = candidate.records.tell();
   const auto result = gf3_affine_live_apply(kernel, candidate);
   assert(result.result == ApplyResult::NoOp);
   assert(result.status != Gf3AffineLiveStatus::Applied);
@@ -101,7 +101,7 @@ Gf3AffineLiveResult decline_unchanged(
          !result.last_published_clause_id && !result.journal_bytes &&
          result.semantic_variables.empty());
   assert(image(kernel) == before);
-  assert(position(candidate.records) == journal);
+  assert(candidate.records.tell() == journal);
   return result;
 }
 

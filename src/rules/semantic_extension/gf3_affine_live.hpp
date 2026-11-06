@@ -5,7 +5,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -68,7 +67,7 @@ struct Gf3AffineLiveRequest {
   uint32_t maximum_external_extent = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
 };
 
 struct Gf3AffineOwnerCaptureResult {

@@ -42,6 +42,36 @@ void write_original(const std::string &path,const std::vector<std::vector<int32_
   for(const auto &c:clauses){for(auto x:c)std::fprintf(out,"%d ",x);std::fputs("0\n",out);}
   assert(!std::fclose(out));
 }
+// A lease retired just before an alias step stays visible: the next service removes
+// only that equation and keeps the session.
+void alias_step_leaves_a_retired_lease_for_the_service() {
+  const std::string path="/tmp/tactix-alias-retired-"+std::to_string(getpid());
+  Kernel k;kernel_reserve_vars(k,8);
+  auto original=clausal_form({2,3,4},false);
+  for(const auto &c:clausal_form({3,4,5},true))original.push_back(c);
+  original.push_back({-2,-6});original.push_back({6,-1});original.push_back({1,2});
+  for(const auto &c:original)add(k,c);
+  FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
+  Proof proof;assert(proof.open(path.c_str(),ProofFormat::DsrAscii));
+  proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
+  for(size_t i=0;i<original.size();++i){const auto body=physical(k,original[i]);proof.seed_population(i+1,body.data(),body.size());}
+  proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
+  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
+  auto bounded=parameters();bounded.basis_maximum_work=10000;bounded.maximum_clauses=original.size();
+  assert(affine_matrix_search_initialize(k,session,bounded,
+      AffineMatrixAdmission::AuthenticatedSubimage,{64*1024*1024}).status==AffineMatrixInitStatus::Applied);
+  const auto before=proof.premise_epoch();
+  const auto line=physical(k,{5,7});
+  proof.add_rat(++k.next_clause_id,line.data(),line.size());
+  assert(proof.premise_epoch()!=before);
+  const auto from=kernel_internalize(k,2),to=kernel_internalize(k,-1);
+  assert(affine_matrix_search_preserve_aliases(k,session,{{from,to}}).status==AffineMatrixServiceStatus::Applied);
+  const auto served=affine_matrix_search_step(k,session);
+  assert(served.retired_source_groups>0 && session.enabled());
+  session.disable(k);proof.flush();
+  k.affine_matrix_search_session=nullptr;k.proof=nullptr;k.structural_provenance=nullptr;std::fclose(journal);
+  std::remove(path.c_str());
+}
 void alias_failure_atomicity() {
   const std::string path="/tmp/tactix-alias-atomic-"+std::to_string(getpid());
   Kernel k;kernel_reserve_vars(k,8);
@@ -400,7 +430,8 @@ void refresh_after_root_unit_premises_removed(ProofFormat format,bool eliminate)
 }
 }
 int main(int argc,char **argv){
- alias_failure_atomicity();refresh_root_assignment_stamp();
+
+ alias_step_leaves_a_retired_lease_for_the_service(); alias_failure_atomicity();refresh_root_assignment_stamp();
  for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary})
   root_maintenance_after_sweep_refutes(format,argc>1?argv[1]:nullptr);
  for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary})

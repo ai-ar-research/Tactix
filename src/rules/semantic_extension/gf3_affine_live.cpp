@@ -13,7 +13,6 @@
 #include <limits>
 #include <map>
 #include <set>
-#include <string>
 #include <utility>
 
 namespace tactix {
@@ -255,14 +254,14 @@ bool render_journal(const Gf3AffineLiveRequest &request,
                     const gf3::PairEliminationPlan &plan,
                     const std::vector<uint64_t> &published_ids,
                     uint64_t proof_work, Journal &journal) {
-  const std::string ids = "\"action\":" + std::to_string(request.action_id) +
-                          ",\"semantic\":" +
-                          std::to_string(request.semantic_id);
-  if (!journal.append("{" + ids +
-                      ",\"kind\":\"gf3-affine-begin\",\"first_equation\":" +
-                      std::to_string(request.first_equation) +
-                      ",\"second_equation\":" +
-                      std::to_string(request.second_equation) +
+  const auto ids = [&](auto &out) {
+    out("\"action\":", request.action_id, ",\"semantic\":",
+        request.semantic_id);
+  };
+  if (!journal.append("{", ids,
+                      ",\"kind\":\"gf3-affine-begin\",\"first_equation\":",
+                      request.first_equation, ",\"second_equation\":",
+                      request.second_equation,
                       ",\"recognition\":\"complete-forbidden-tuples\","
                       "\"proof\":\"rup\",\"propagation\":"
                       "\"deferred-controller\"}\n"))
@@ -288,49 +287,42 @@ bool render_journal(const Gf3AffineLiveRequest &request,
   for (uint64_t occurrence : relevant) {
     const gf3::Premise *source = premise(owner.theory, occurrence);
     if (!source ||
-        !journal.append("{" + ids +
-                        ",\"kind\":\"gf3-affine-source\",\"occurrence\":" +
-                        std::to_string(occurrence) +
-                        ",\"native_proof_id\":" +
-                        std::to_string(source->native_proof_id) +
-                        ",\"clause\":[") ||
+        !journal.append("{", ids,
+                        ",\"kind\":\"gf3-affine-source\",\"occurrence\":",
+                        occurrence, ",\"native_proof_id\":",
+                        source->native_proof_id, ",\"clause\":[") ||
         !journal.integers(source->literals) || !journal.append("]}\n"))
       return false;
   }
   for (uint32_t equation_index :
        {request.first_equation, request.second_equation}) {
     const gf3::Equation &equation = owner.theory.equations[equation_index];
-    if (!journal.append("{" + ids +
-                        ",\"kind\":\"gf3-affine-equation\",\"index\":" +
-                        std::to_string(equation_index) +
-                        ",\"domains\":[") ||
+    if (!journal.append("{", ids,
+                        ",\"kind\":\"gf3-affine-equation\",\"index\":",
+                        equation_index, ",\"domains\":[") ||
         !journal.integers(equation.domains) ||
         !journal.append("],\"coefficients\":[") ||
         !journal.integers(equation.coefficients) ||
-        !journal.append("],\"rhs\":" + std::to_string(equation.rhs) +
-                        "}\n"))
+        !journal.append("],\"rhs\":", +equation.rhs, "}\n"))
       return false;
   }
-  if (!journal.append("{" + ids +
+  if (!journal.append("{", ids,
                       ",\"kind\":\"gf3-affine-consequence\",\"domains\":[") ||
       !journal.integers(plan.consequence.domains) ||
       !journal.append("],\"coefficients\":[") ||
       !journal.integers(plan.consequence.coefficients) ||
-      !journal.append("],\"rhs\":" +
-                      std::to_string(plan.consequence.rhs) +
+      !journal.append("],\"rhs\":", +plan.consequence.rhs,
                       ",\"projection\":\"identity-original-variables\","
                       "\"reconstruction_witness_required\":false}\n"))
     return false;
   if (published_ids.size() != plan.additions.size()) return false;
   for (size_t index = 0; index < plan.additions.size(); ++index) {
     const gf3::Addition &addition = plan.additions[index];
-    if (!journal.append("{" + ids +
-                        ",\"kind\":\"gf3-affine-addition\",\"plan_index\":" +
-                        std::to_string(index) +
-                        ",\"published_id\":" +
-                        std::to_string(published_ids[index]) +
-                        ",\"duplicate\":" +
-                        (published_ids[index] ? "false" : "true") +
+    if (!journal.append("{", ids,
+                        ",\"kind\":\"gf3-affine-addition\",\"plan_index\":",
+                        index, ",\"published_id\":", published_ids[index],
+                        ",\"duplicate\":",
+                        published_ids[index] ? "false" : "true",
                         ",\"clause\":[") ||
         !journal.integers(addition.clause) ||
         !journal.append("],\"antecedents\":["))
@@ -338,11 +330,9 @@ bool render_journal(const Gf3AffineLiveRequest &request,
     for (size_t antecedent = 0; antecedent < addition.antecedents.size();
          ++antecedent) {
       const gf3::SourceReference &source = addition.antecedents[antecedent];
-      if (!journal.append((antecedent ? "," : "") +
-                          std::string("{\"occurrence\":") +
-                          std::to_string(source.occurrence) +
-                          ",\"native_proof_id\":" +
-                          std::to_string(source.native_proof_id) + "}"))
+      if (!journal.append(antecedent ? "," : "", "{\"occurrence\":",
+                          source.occurrence, ",\"native_proof_id\":",
+                          source.native_proof_id, "}"))
         return false;
     }
     if (!journal.append("]}\n")) return false;
@@ -350,11 +340,9 @@ bool render_journal(const Gf3AffineLiveRequest &request,
   size_t published = 0;
   for (uint64_t id : published_ids) published += id != 0;
   return journal.append(
-      "{" + ids +
-      ",\"kind\":\"gf3-affine-complete\",\"planned_additions\":" +
-      std::to_string(plan.additions.size()) +
-      ",\"published_additions\":" + std::to_string(published) +
-      ",\"proof_work\":" + std::to_string(proof_work) +
+      "{", ids, ",\"kind\":\"gf3-affine-complete\",\"planned_additions\":",
+      plan.additions.size(), ",\"published_additions\":", published,
+      ",\"proof_work\":", proof_work,
       ",\"projection\":\"identity-original-variables\","
       "\"reconstruction_witness_required\":false}\n");
 }
@@ -461,7 +449,7 @@ struct Gf3AffinePreflightResult {
   uint64_t journal_work = 0;
   std::vector<size_t> missing_additions;
   std::vector<uint64_t> published_clause_ids;
-  std::string journal;
+  JournalText journal;
 };
 
 // Complete the mutation-free half of one action: compare the plan with the
@@ -550,7 +538,7 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
   uint64_t next_id = kernel.next_clause_id;
   for (size_t index : result.missing_additions)
     result.published_clause_ids[index] = ++next_id;
-  Journal journal{request.maximum_journal_bytes};
+  Journal journal{request.maximum_journal_bytes, JournalText(request.records)};
   if (!render_journal(request, owner, plan, result.published_clause_ids,
                       result.proof_work, journal)) {
     result.journal_work = journal.work;
@@ -558,7 +546,7 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
     return result;
   }
   result.journal_work = journal.work;
-  result.journal = std::move(journal.bytes);
+  result.journal = std::move(journal.text);
   result.status = Gf3AffinePreflightStatus::Ready;
   return result;
 }
@@ -676,8 +664,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
     install_redundant_clause(kernel, literals, id);
     result.published_clause_ids.push_back(id);
   }
-  semantic_extension::write_journal_or_abort(request.records,
-                                             preflight.journal);
+  preflight.journal.write(request.records);
 
   result.status = Gf3AffineLiveStatus::Applied;
   result.result = ApplyResult::Ok;

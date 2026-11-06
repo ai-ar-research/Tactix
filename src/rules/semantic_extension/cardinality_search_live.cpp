@@ -1,22 +1,19 @@
 #include "rules/semantic_extension/cardinality_search_live.hpp"
 
 #include "proof/proof.hpp"
-#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/structural_text.hpp"
 
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
 #include <map>
 #include <set>
-#include <string>
 
 namespace tactix {
 namespace {
 
 using ClauseKey = cardinality_search::Clause;
-using semantic_extension::append_bounded;
-using semantic_extension::join_integers;
 
 struct Source {
   uint64_t id = 0;
@@ -33,7 +30,7 @@ struct Prepared {
   std::set<ClauseKey> live_clauses;
   std::vector<Lit> physical_reason;
   std::vector<Lit> trail;
-  std::string journal;
+  JournalText journal;
   uint64_t clause_id = 0;
   uint64_t arena_generation = 0;
   uint32_t level = 0;
@@ -105,42 +102,37 @@ bool collect_sources(const Kernel &kernel, uint64_t maximum,
 bool make_journal(const CardinalitySearchLiveRequest &request,
                   const CardinalitySearchLiveResult &result,
                   const cardinality_search::ResolutionPlan &plan,
-                  std::string &journal) {
-  const std::string prefix = "{\"action\":" +
-                             std::to_string(request.action_id) +
-                             ",\"semantic\":" +
-                             std::to_string(request.semantic_id);
-  if (!append_bounded(journal, request.maximum_journal_bytes,
-                      prefix + ",\"kind\":\"cardinality-search-begin\","
-                               "\"reason\":[" + join_integers(result.reason) +
-                               "]}\n"))
+                  JournalText &journal) {
+  journal = JournalText(request.records);
+  const uint64_t maximum = request.maximum_journal_bytes;
+  const auto prefix = [&](auto &out) {
+    out("{\"action\":", request.action_id, ",\"semantic\":",
+        request.semantic_id);
+  };
+  if (!journal.append(maximum, prefix,
+                      ",\"kind\":\"cardinality-search-begin\",\"reason\":[",
+                      journal_list(result.reason), "]}\n"))
     return false;
   size_t source = 0;
   for (const auto &constraint : request.constraints)
     for (const ClauseKey &premise : constraint.premises) {
-      if (!append_bounded(journal, request.maximum_journal_bytes,
-                          prefix + ",\"kind\":\"cardinality-source\","
-                                   "\"id\":" +
-                                   std::to_string(result.source_ids[source++]) +
-                                   ",\"clause\":[" + join_integers(premise) +
-                                   "]}\n"))
+      const uint64_t id = result.source_ids[source++];
+      if (!journal.append(maximum, prefix,
+                          ",\"kind\":\"cardinality-source\",\"id\":", id,
+                          ",\"clause\":[", journal_list(premise), "]}\n"))
         return false;
     }
   for (size_t at = 0; at < plan.additions.size(); ++at)
-    if (!append_bounded(journal, request.maximum_journal_bytes,
-                        prefix + ",\"kind\":\"cardinality-rup\","
-                                 "\"id\":" +
-                                 std::to_string(result.proof_ids[at]) +
-                                 ",\"role\":\"" +
-                                 (at + 1 == plan.additions.size()
-                                      ? "consequence"
-                                      : "auxiliary") +
-                                 "\",\"clause\":[" +
-                                 join_integers(plan.additions[at]) + "]}\n"))
+    if (!journal.append(maximum, prefix,
+                        ",\"kind\":\"cardinality-rup\",\"id\":",
+                        result.proof_ids[at], ",\"role\":\"",
+                        at + 1 == plan.additions.size() ? "consequence"
+                                                        : "auxiliary",
+                        "\",\"clause\":[", journal_list(plan.additions[at]),
+                        "]}\n"))
       return false;
-  return append_bounded(
-      journal, request.maximum_journal_bytes,
-      prefix + ",\"kind\":\"cardinality-search-complete\"}\n");
+  return journal.append(maximum, prefix,
+                        ",\"kind\":\"cardinality-search-complete\"}\n");
 }
 
 Prepared preflight(Kernel &kernel,
@@ -335,7 +327,7 @@ CardinalitySearchLiveResult cardinality_search_live_apply(
       kernel_rearm_theory_clause(kernel, prepared.physical_reason.data(),
                                  prepared.physical_reason.size());
   }
-  semantic_extension::write_journal_or_abort(request.records, prepared.journal);
+  prepared.journal.write(request.records);
   result.installed_clause_id = final_id;
   result.propagation_pending = !kernel_propagation_fixpoint(kernel);
   result.result = prepared.physical_reason.empty()

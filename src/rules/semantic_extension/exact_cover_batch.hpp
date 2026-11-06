@@ -250,7 +250,7 @@ bool plan_batch(const std::vector<Premise> &source,
 struct BatchPublicationRequest {
   uint64_t action_id = 0;
   uint64_t maximum_journal_bytes = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
 };
 
 enum class BatchPublicationStatus : uint8_t {

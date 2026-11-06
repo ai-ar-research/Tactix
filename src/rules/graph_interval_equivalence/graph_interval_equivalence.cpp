@@ -11,7 +11,6 @@
 #include <array>
 #include <cassert>
 #include <climits>
-#include <cstdio>
 #include <cstdlib>
 #include <map>
 #include <set>
@@ -351,8 +350,8 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
     return ApplyResult::NoOp;
 
   const uint64_t action = kernel.structural_action_sequence + 1;
-  FILE *out = kernel.structural_provenance;
-  std::fprintf(out,
+  const StructuralJournal out = kernel.structural_provenance;
+  out.print(
       "{\"action\":%llu,\"kind\":\"action-context\",\"version\":1,"
       "\"rule\":\"GraphIntervalEquivalence\",\"strategy_epoch\":%llu,"
       "\"arena_generation\":%llu,\"touch_epoch\":%llu,"
@@ -375,7 +374,7 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
       (unsigned long long)MAXIMUM_WORKSPACE);
   for (const Candidate *candidate : selected) {
     const auto print_gate = [&](const char *name, const Gate &gate) {
-      std::fprintf(out,
+      out.print(
           "\"%s\":{\"output\":%d,\"inputs\":[%d,%d],"
           "\"defining\":%llu,\"left_reverse\":[",
           name, kernel_externalize(kernel, gate.output),
@@ -383,23 +382,23 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
           kernel_externalize(kernel, gate.right),
           (unsigned long long)gate.defining);
       for (uint8_t i = 0; i < gate.left_reverse.count; ++i)
-        std::fprintf(out, "%s%llu", i ? "," : "",
-                     (unsigned long long)gate.left_reverse.parents[i]);
-      std::fputs("],\"right_reverse\":[", out);
+        out.print("%s%llu", i ? "," : "",
+                  (unsigned long long)gate.left_reverse.parents[i]);
+      out.put("],\"right_reverse\":[");
       for (uint8_t i = 0; i < gate.right_reverse.count; ++i)
-        std::fprintf(out, "%s%llu", i ? "," : "",
-                     (unsigned long long)gate.right_reverse.parents[i]);
-      std::fputs("]}", out);
+        out.print("%s%llu", i ? "," : "",
+                  (unsigned long long)gate.right_reverse.parents[i]);
+      out.put("]}");
     };
-    std::fprintf(out,
+    out.print(
         "{\"action\":%llu,\"kind\":\"authenticated-duplicate-interval\","
         "\"row\":%u,\"first\":%u,\"last\":%u,",
         (unsigned long long)action, candidate->interval.row,
         candidate->interval.first, candidate->interval.last);
     print_gate("first_gate", candidate->first);
-    std::fputc(',', out);
+    out.put(",");
     print_gate("second_gate", candidate->second);
-    std::fputs("}\n", out);
+    out.put("}\n");
   }
 
   for (const PlannedClause &plan : planned) {
@@ -407,7 +406,7 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
     const Lit literals[2] = {plan.first, plan.second};
     emit_rup_lemma(kernel, id, literals, 2);
     kernel_add_binary_clause(kernel, plan.first, plan.second, id);
-    std::fprintf(out,
+    out.print(
         "{\"action\":%llu,\"kind\":\"publish-interval-equivalence\","
         "\"id\":%llu,\"clause\":[%d,%d],\"rup_hints\":0}\n",
         (unsigned long long)action, (unsigned long long)id,
@@ -419,7 +418,7 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
   kernel.stats.graph_interval_equivalence_published += planned.size();
   kernel.stats.graph_interval_equivalence_proof_literal_occurrences +=
       2 * planned.size();
-  std::fprintf(out,
+  out.print(
       "{\"action\":%llu,\"kind\":\"action-complete\","
       "\"result\":0,\"discovery_work\":%llu,\"rup_ticks\":%llu,"
       "\"source_clauses\":%llu,\"source_literals\":%llu,"
@@ -436,8 +435,7 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
       (unsigned long long)discovery.intervals, discovery.candidates.size(),
       selected.size(), planned.size(), 2 * planned.size(),
       (unsigned long long)kernel.next_clause_id);
-  std::fflush(out);
-  if (std::ferror(out)) std::abort();
+  out.flush();
   return ApplyResult::Ok;
 }
 

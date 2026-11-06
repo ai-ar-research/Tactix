@@ -457,10 +457,9 @@ int main(int argc, char **argv) {
   // `=0` reverts to the pre-parity behaviour and is the priced arm.
   env_flag("TACTIX_SHRINK_GLUE", kernel.shrink_glue_promote);
   env_flag("TACTIX_TUMBLE", kernel.tumble);
-  // The stream is session-owned and outlives policy execution. Structural
-  // actions require a complete provenance sink even when the caller does not
-  // retain it; tmpfile keeps the normal CLI capable without creating a named
-  // artifact. Exclusive creation protects explicitly retained provenance.
+  // Structural actions record into a bound journal. A named journal is
+  // session-owned, created exclusively, and outlives policy execution; without
+  // a path the CLI binds the discard journal, which keeps nothing.
   std::unique_ptr<FILE, CloseFile> structural_records;
   if (structural_provenance_path) {
     std::string input_sha;
@@ -479,12 +478,7 @@ int main(int argc, char **argv) {
     if (std::ferror(structural_records.get())) return 1;
     kernel.structural_provenance = structural_records.get();
   } else {
-    structural_records.reset(std::tmpfile());
-    if (!structural_records) {
-      fprintf(stderr, "tactix: cannot create anonymous structural provenance stream\n");
-      return 1;
-    }
-    kernel.structural_provenance = structural_records.get();
+    kernel.structural_provenance = StructuralJournal::discard();
   }
   Proof proof;
   // Whole-run streaming PBP is textual, so --no-binary has no effect on it;

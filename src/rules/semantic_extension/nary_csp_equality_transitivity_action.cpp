@@ -1,12 +1,11 @@
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "proof/proof.hpp"
-#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 #include "rules/structural_action_guard.hpp"
+#include "rules/structural_text.hpp"
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
-#include <string>
 namespace tactix {
 struct NaryCspEqualityTransitivitySessionAccess{};
 namespace {
@@ -79,7 +78,7 @@ NaryCspRelationCaptureRequest capture_request(const NaryCspEqualityKey &key,
  auto r=nary_csp_ternary_capture_request(key.domains,l);
  r.maximum_source_clauses=clauses;r.maximum_source_literals=literals;r.maximum_recognition_work=work;return r;
 }
-std::string clause_json(const ExternalClause &c){return "["+semantic_extension::join_integers(c)+"]";}
+constexpr auto clause_json=[](auto &o,const ExternalClause &c){o("[",journal_list(c),"]");};
 }
 bool NaryCspEqualityTransitivityLimits::valid()const{
  return maximum_source_clauses&&maximum_source_literals&&maximum_recognition_work&&maximum_planning_work&&
@@ -108,7 +107,7 @@ bool nary_csp_equality_transitivity_selection_valid(const Selection &s){
 NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  Kernel &k,const NaryCspRelationOwnerSession &relations,const NaryCspEqualitySession &equalities,
  NaryCspEqualityTransitivitySession &session,const NaryCspEqualityTransitivityLimits &limits,
- const Selection &selected,FILE *records){
+ const Selection &selected,StructuralJournal records){
  NaryCspEqualityTransitivityResult out;
  if(!nary_csp_equality_transitivity_guard(k)){out.status=Status::Inapplicable;return out;}
  if(!limits.valid()||!records||selected.domains[0].size()>limits.maximum_domain_values)return out;
@@ -215,16 +214,12 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  if(journal_envelope>limits.maximum_journal_bytes||journal_envelope>limits.maximum_preparation_bytes/3||3*journal_envelope>limits.maximum_preparation_bytes-std::min(preparation+extra_bytes,limits.maximum_preparation_bytes)){
    out.status=Status::ResourceExhausted;return finish();}
  if(!meter.charge(journal_envelope)){out.status=stopped_status(meter,Status::ResourceExhausted);return finish();}
- std::string journal="{\"kind\":\"nary-csp-equality-transitivity\",\"action\":"+std::to_string(k.structural_action_sequence+1)+",\"projection\":\"identity\",\"new_variables\":0,\"domains\":[";
- for(size_t i=0;i<3;++i){if(i)journal+=',';journal+=clause_json(selected.domains[i]);}
- journal+="],\"owners\":[";
- for(size_t i=0;i<3;++i){if(i)journal+=',';const auto &key=selected.equalities[i];
-   journal+="{\"domains\":[";for(size_t j=0;j<3;++j){if(j)journal+=',';journal+=clause_json(key.domains[j]);}
-   journal+="],\"left\":"+std::to_string(key.first_equal_domain)+",\"right\":"+std::to_string(key.second_equal_domain)+",\"residual\":"+std::to_string(key.residual_domain)+",\"equality\":"+std::to_string(selected.equality_variables[i])+"}";}
- journal+="],\"sources\":[";
- for(size_t i=0;i<out.sources.size();++i){if(i)journal+=',';const auto &source=out.sources[i];
-   journal+="{\"id\":"+std::to_string(source.native_proof_id)+",\"exact_id\":"+(source.exact_proof_id?"true":"false")+",\"clause\":"+clause_json(source.literals)+"}";}
- journal+="]}\n";
+ JournalText journal(records);
+ journal.put("{\"kind\":\"nary-csp-equality-transitivity\",\"action\":",k.structural_action_sequence+1,",\"projection\":\"identity\",\"new_variables\":0,\"domains\":[",journal_list(selected.domains,clause_json),"],\"owners\":[");
+ for(size_t i=0;i<3;++i){const auto &key=selected.equalities[i];
+   journal.put(i?",":"","{\"domains\":[",journal_list(key.domains,clause_json),"],\"left\":",key.first_equal_domain,",\"right\":",key.second_equal_domain,",\"residual\":",key.residual_domain,",\"equality\":",selected.equality_variables[i],"}");}
+ journal.put("],\"sources\":[",journal_list(out.sources,[](auto &o,const auto &source){
+   o("{\"id\":",source.native_proof_id,",\"exact_id\":",source.exact_proof_id?"true":"false",",\"clause\":");clause_json(o,source.literals);o("}");}),"]}\n");
  if(journal.size()>journal_envelope)std::abort();
 
  std::vector<Selection> keys;keys.reserve(session.keys().size()+1);
@@ -246,7 +241,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
      if(k.proof&&!k.proof->del_external(++k.next_clause_id,start+i+1,bridge.data(),bridge.size()))std::abort();
      if(!k.proof)++k.next_clause_id;}
  }
- semantic_extension::write_journal_or_abort(records,journal);
+ journal.write(records);
  session.commit({},k,std::move(keys));k.structural_action_sequence=out.proposed_action_id;
  out.published_consequences=std::move(consequences);
  out.committed_action_id=out.proposed_action_id;out.status=Status::Applied;out.result=ApplyResult::Ok;

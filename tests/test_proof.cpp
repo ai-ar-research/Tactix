@@ -604,6 +604,30 @@ void test_startup_pbp_certificate_boundary() {
   assert(WIFEXITED(pb_status) && !WEXITSTATUS(pb_status));
 }
 
+// A startup refutation with no proof takes the same path and formats nothing.
+void test_startup_pb_without_a_proof() {
+  bool wrote = false;
+  const auto write_pb = [&](FILE *out) {
+    wrote = true;
+    return std::fputs("pseudo-Boolean proof version 3.0\n", out) >= 0;
+  };
+  Proof nowhere;
+  assert(nowhere.open_nowhere());
+  nowhere.finish_input_transaction();
+  assert(nowhere.write_startup_pb(write_pb));
+  assert(!wrote && nowhere.startup_pb_written());
+  const std::string path = tmp_path("startup-pb");
+  {
+    Proof p;
+    assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
+    p.finish_input_transaction();
+    assert(p.write_startup_pb(write_pb));
+    assert(wrote && p.startup_pb_written());
+    assert(!p.write_startup_pb(write_pb));
+  }
+  std::remove(path.c_str());
+}
+
 void test_streaming_pbp() {
   const auto path = tmp_path("pbp-stream");
   {
@@ -771,6 +795,7 @@ int main() {
   test_all_formats_report_output_failure();
   test_startup_pbp_certificate_boundary();
   test_streaming_pbp();
+  test_startup_pb_without_a_proof();
   test_streaming_pbp_does_not_archive_divergent_binary_ids();
   test_streaming_pbp_parity_text_buffer_boundary();
   test_binary_add();

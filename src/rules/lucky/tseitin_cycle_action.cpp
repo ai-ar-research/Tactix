@@ -1,6 +1,7 @@
 #include "rules/lucky/tseitin_cycle_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/structural_text.hpp"
 
 #include "proof/proof.hpp"
 #include "strategy/action_status_mapping.hpp"
@@ -8,11 +9,9 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdio>
 #include <initializer_list>
 #include <limits>
 #include <map>
-#include <sstream>
 #include <string_view>
 
 namespace tactix {
@@ -517,14 +516,6 @@ TseitinCycleBreakingStatus enumerate_offers(
   return TseitinCycleBreakingStatus::Applied;
 }
 
-bool append(std::string &journal, uint64_t maximum,
-            const std::string &line) {
-  if (journal.size() > maximum || line.size() > maximum - journal.size())
-    return false;
-  journal += line;
-  return true;
-}
-
 bool find_session_key(const std::vector<std::string> &keys,
                       const std::string &target, WorkMeter &meter,
                       size_t &position, bool &found) {
@@ -575,13 +566,15 @@ TseitinCycleBreakingStatus admit_session_key(
 bool make_journal(const Kernel &kernel, uint64_t action_id,
                   const TseitinCycleBreakingLimits &limits,
                   const Offered &offered, uint64_t maximum,
-                  std::string &journal, WorkMeter &meter) {
+                  JournalText &journal, WorkMeter &meter) {
   const auto &transaction = offered.transaction;
-  const auto put = [&](const std::string &text) {
-    return meter.spend(text.size()) && append(journal, maximum, text);
+  const auto put = [&](auto &&...pieces) {
+    return journal.append_if(
+        maximum, [&](uint64_t size) { return meter.spend(size); },
+        std::forward<decltype(pieces)>(pieces)...);
   };
-  const auto number = [&](uint64_t value) { return put(std::to_string(value)); };
-  const auto integer = [&](int64_t value) { return put(std::to_string(value)); };
+  const auto number = [&](uint64_t value) { return put(value); };
+  const auto integer = [&](int64_t value) { return put(value); };
   // Comma-separated `item(value)` for every element of `values`.
   const auto list = [&](const auto &values, const auto &item) {
     for (size_t i = 0; i < values.size(); ++i)
@@ -597,8 +590,7 @@ bool make_journal(const Kernel &kernel, uint64_t action_id,
       [&](bool first,
           std::initializer_list<std::pair<const char *, uint64_t>> members) {
         for (const auto &[name, value] : members) {
-          if (!put(std::string(first ? "\"" : ",\"") + name + "\":") ||
-              !number(value))
+          if (!put(first ? "\"" : ",\"", name, "\":") || !number(value))
             return false;
           first = false;
         }
@@ -949,7 +941,7 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
               session.keys().end());
 
   result.proposed_action_id = kernel.structural_action_sequence + 1;
-  std::string journal;
+  JournalText journal(kernel.structural_provenance);
   uint64_t journal_work = 0;
   WorkMeter journal_meter{UINT64_MAX, journal_work, &action_poll};
   const bool journal_ready = make_journal(
@@ -978,11 +970,7 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
     result.effort.proof_literal_occurrences =
         2 * (candidate_literals + 1) + candidate_literals;
   }
-  if (std::fwrite(journal.data(), 1, journal.size(),
-                  kernel.structural_provenance) != journal.size() ||
-      std::fflush(kernel.structural_provenance) ||
-      std::ferror(kernel.structural_provenance))
-    std::abort();
+  journal.write(kernel.structural_provenance);
   TseitinCycleBreakingSessionAccess::commit(session, kernel, std::move(keys));
   kernel.structural_action_sequence = result.proposed_action_id;
   result.committed_action_id = result.proposed_action_id;

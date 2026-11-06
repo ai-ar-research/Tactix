@@ -319,7 +319,7 @@ private:
   uint64_t retained_source_provenance_owner_ = 0;
   Proof *proof_ = nullptr;
   uint64_t proof_stream_identity_ = 0;
-  FILE *records_ = nullptr;
+  StructuralJournal records_;
   strategy::AffineConsequenceParameters parameters_;
   AffineLiveSnapshot source_owner_;
   // Discovery has an independent bounded census; the admitted system never

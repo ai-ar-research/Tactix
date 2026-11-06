@@ -482,13 +482,12 @@ ApplyResult count_preservation_apply(Kernel &k) {
   if (!preflight.run(&work))
     return ApplyResult::NoOp;
   if (k.proof) {
-    FILE *out = k.proof->begin_pb();
-    if (!out)
+    const auto write_pb = [&](FILE *out) {
+      Certificate proof(k, plan, out);
+      return proof.run(nullptr) && proof.additions() == preflight.additions();
+    };
+    if (!k.proof->write_startup_pb(write_pb))
       return ApplyResult::NoOp;
-    Certificate proof(k, plan, out);
-    if (!proof.run(nullptr) || proof.additions() != preflight.additions() ||
-        !k.proof->finish_pb())
-      std::abort();
   }
   k.stats.counting_stars += plan.chosen.size();
   k.stats.counting_additions += preflight.additions();

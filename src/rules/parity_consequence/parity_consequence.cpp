@@ -16,13 +16,13 @@ ApplyResult parity_consequence_apply(Kernel &k) {
   if (!parity_consequence_guard(k) || !p.valid() ||
       p.consequence > std::numeric_limits<size_t>::max()) return ApplyResult::NoOp;
   const uint64_t action = ++k.structural_action_sequence;
-  FILE *out = k.structural_provenance;
-  std::fprintf(out, "{\"action\":%llu,\"kind\":\"action-context\",\"version\":1,\"rule\":\"ParityConsequence\",\"strategy_epoch\":%llu,\"arena_generation\":%llu,\"touch_epoch\":%llu,\"proof_id_before\":%llu,\"external_extent\":%zu,\"original_variables\":%u,\"reconstruction\":\"unchanged;proof-only-helpers-projected\"}\n",
+  const StructuralJournal out = k.structural_provenance;
+  out.print("{\"action\":%llu,\"kind\":\"action-context\",\"version\":1,\"rule\":\"ParityConsequence\",\"strategy_epoch\":%llu,\"arena_generation\":%llu,\"touch_epoch\":%llu,\"proof_id_before\":%llu,\"external_extent\":%zu,\"original_variables\":%u,\"reconstruction\":\"unchanged;proof-only-helpers-projected\"}\n",
       (unsigned long long)action, (unsigned long long)k.strategy_epoch,
       (unsigned long long)k.arena_generation, (unsigned long long)k.touch_epoch,
       (unsigned long long)k.next_clause_id, k.external_to_internal.size(),
       kernel_num_output_vars(k));
-  if (std::ferror(out)) std::abort();
+  if (out.failed()) std::abort();
   const auto result = parity_live_apply(k, {{p.maximum_clauses, p.maximum_groups},
       {p.selection_work, p.intermediate_width, p.source_count, p.output_width},
       p.descending, p.maximum_proof_additions, p.maximum_tree_variables,
@@ -36,15 +36,14 @@ ApplyResult parity_consequence_apply(Kernel &k) {
   k.stats.parity_consequence_deletions += result.deletions;
   k.stats.parity_consequence_helpers += result.helpers;
   k.stats.parity_consequence_published += result.published;
-  std::fprintf(out, "{\"action\":%llu,\"kind\":\"action-complete\",\"result\":%u,\"clauses\":%llu,\"equations\":%llu,\"selection_work\":%llu,\"preflight_additions\":%llu,\"additions\":%llu,\"deletions\":%llu,\"helpers\":%u,\"published\":%llu,\"proof_id_after\":%llu}\n",
+  out.print("{\"action\":%llu,\"kind\":\"action-complete\",\"result\":%u,\"clauses\":%llu,\"equations\":%llu,\"selection_work\":%llu,\"preflight_additions\":%llu,\"additions\":%llu,\"deletions\":%llu,\"helpers\":%u,\"published\":%llu,\"proof_id_after\":%llu}\n",
       (unsigned long long)action, static_cast<unsigned>(result.result),
       (unsigned long long)result.clauses, (unsigned long long)result.equations,
       (unsigned long long)result.work, (unsigned long long)result.preflight_additions,
       (unsigned long long)result.additions, (unsigned long long)result.deletions,
       result.helpers, (unsigned long long)result.published,
       (unsigned long long)k.next_clause_id);
-  std::fflush(out);
-  if (std::ferror(out)) std::abort();
+  out.flush();
   return result.result;
 }
 TACTIX_REGISTER_RULE(ParityConsequence, RuleTier::Inprocess,

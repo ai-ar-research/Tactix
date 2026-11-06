@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <map>
 #include <set>
-#include <string>
+#include <span>
 
 namespace tactix {
 namespace {
@@ -18,14 +18,8 @@ using affine_semantic_extension::External;
 using affine_semantic_extension::ProofEvent;
 using affine_semantic_extension::ProofPlan;
 using affine_semantic_extension::sorted_clause;
-using semantic_extension::join_integers;
 
 using Journal = semantic_extension::BoundedJournal<true, true>;
-
-bool append_clause(Journal &journal, const std::string &prefix,
-                   const std::vector<External> &literals) {
-  return journal.append(prefix + join_integers(literals) + "]}\n");
-}
 
 struct Replay {
   std::vector<uint64_t> ids;
@@ -187,91 +181,82 @@ bool append_journal(const AffineLiveRequest &request,
                     const std::vector<bool> &delete_uninstalled,
                     const AffineLiveResult &result, uint64_t root_conflict_id,
                     Journal &journal) {
-  const std::string ids = "\"action\":" + std::to_string(request.action_id) +
-                          ",\"semantic\":" +
-                          std::to_string(request.semantic_id);
-  if (!journal.append("{" + ids +
-      ",\"kind\":\"affine-begin\",\"consequence\":" +
-      std::to_string(request.consequence) +
-      ",\"maximum_proof_additions\":" +
-      std::to_string(request.maximum_proof_additions) +
-      ",\"maximum_proof_deletions\":" +
-      std::to_string(request.maximum_proof_deletions) +
-      ",\"propagation\":\"deferred-controller\"" +
+  const auto ids = [&](auto &out) {
+    out("\"action\":", request.action_id, ",\"semantic\":",
+        request.semantic_id);
+  };
+  if (!journal.append("{", ids,
+      ",\"kind\":\"affine-begin\",\"consequence\":", request.consequence,
+      ",\"maximum_proof_additions\":", request.maximum_proof_additions,
+      ",\"maximum_proof_deletions\":", request.maximum_proof_deletions,
+      ",\"propagation\":\"deferred-controller\""
       ",\"projection\":\"identity-existing-variables\"}\n")) return false;
   std::set<uint64_t> selected(choice.premises.begin(), choice.premises.end());
   for (uint64_t occurrence : selected) {
     if (!occurrence || occurrence > snapshot.sources.size()) return false;
     const auto &source = snapshot.sources[occurrence - 1];
-    const std::string prefix = "{" + ids +
-        ",\"kind\":\"affine-source\",\"occurrence\":" +
-        std::to_string(occurrence) + ",\"source_kind\":\"" +
-        (source.kind == AffineSourceKind::Large ? "large" : "binary") +
-        "\",\"source_id\":" + std::to_string(source.clause_id) +
-        ",\"clause\":[";
-    if (!append_clause(journal, prefix, source.clause)) return false;
+    if (!journal.append("{", ids,
+        ",\"kind\":\"affine-source\",\"occurrence\":", occurrence,
+        ",\"source_kind\":\"",
+        source.kind == AffineSourceKind::Large ? "large" : "binary",
+        "\",\"source_id\":", source.clause_id, ",\"clause\":[",
+        journal_list(source.clause), "]}\n"))
+      return false;
   }
   for (size_t source_index : choice.sources) {
     if (source_index >= image.equations.size()) return false;
     const auto &equation = image.equations[source_index];
-    if (!journal.append("{" + ids +
-        ",\"kind\":\"affine-equation\",\"index\":" +
-        std::to_string(source_index) + ",\"rhs\":" +
-        (equation.rhs ? "true" : "false") + ",\"variables\":[" +
-        join_integers(equation.variables) + "],\"premises\":[" +
-        join_integers(equation.premises) + "]}\n"))
+    if (!journal.append("{", ids,
+        ",\"kind\":\"affine-equation\",\"index\":", source_index, ",\"rhs\":",
+        equation.rhs ? "true" : "false", ",\"variables\":[",
+        journal_list(equation.variables), "],\"premises\":[",
+        journal_list(equation.premises), "]}\n"))
       return false;
   }
-  if (!journal.append("{" + ids +
-      ",\"kind\":\"affine-consequence\",\"rhs\":" +
-      (choice.rhs ? "true" : "false") + ",\"variables\":[" +
-      join_integers(choice.variables) + "],\"sources\":[" +
-      join_integers(choice.sources) + "]}\n"))
+  if (!journal.append("{", ids,
+      ",\"kind\":\"affine-consequence\",\"rhs\":",
+      choice.rhs ? "true" : "false", ",\"variables\":[",
+      journal_list(choice.variables), "],\"sources\":[",
+      journal_list(choice.sources), "]}\n"))
     return false;
   for (size_t i = 0; i < plan.events.size(); ++i) {
     const auto &event = plan.events[i];
-    std::vector<External> clause(event.clause.lits.begin(),
-                                 event.clause.lits.begin() + event.clause.size);
-    const std::string prefix = "{" + ids + ",\"kind\":\"" +
-        (event.addition ? "affine-proof-rup" : "affine-proof-delete") +
-        "\",\"id\":" +
-        std::to_string(event.addition ? replay.ids[i] : replay.deleted[i]) +
-        ",\"clause\":[";
-    if (!append_clause(journal, prefix, clause)) return false;
+    const std::span<const External> clause(event.clause.lits.data(),
+                                           event.clause.size);
+    if (!journal.append("{", ids, ",\"kind\":\"",
+        event.addition ? "affine-proof-rup" : "affine-proof-delete",
+        "\",\"id\":", event.addition ? replay.ids[i] : replay.deleted[i],
+        ",\"clause\":[", journal_list(clause), "]}\n"))
+      return false;
   }
   for (size_t i = 0; i < plan.targets.size(); ++i) {
     if (!installed[i]) continue;
-    const std::string prefix = "{" + ids +
-        ",\"kind\":\"affine-publish\",\"id\":" +
-        std::to_string(replay.target_ids[i]) + ",\"clause\":[";
-    if (!append_clause(journal, prefix, plan.targets[i])) return false;
+    if (!journal.append("{", ids, ",\"kind\":\"affine-publish\",\"id\":",
+                        replay.target_ids[i], ",\"clause\":[",
+                        journal_list(plan.targets[i]), "]}\n"))
+      return false;
   }
-  if (root_conflict_id && !journal.append(
-          "{" + ids +
-          ",\"kind\":\"affine-root-conflict\",\"id\":" +
-          std::to_string(root_conflict_id) + ",\"clause\":[]}\n"))
+  if (root_conflict_id &&
+      !journal.append("{", ids, ",\"kind\":\"affine-root-conflict\",\"id\":",
+                      root_conflict_id, ",\"clause\":[]}\n"))
     return false;
   for (size_t i = 0; i < plan.targets.size(); ++i) {
     if (!delete_uninstalled[i]) continue;
-    const std::string prefix = "{" + ids +
-        ",\"kind\":\"affine-proof-delete-uninstalled\",\"id\":" +
-        std::to_string(replay.target_ids[i]) + ",\"clause\":[";
-    if (!append_clause(journal, prefix, plan.targets[i])) return false;
+    if (!journal.append("{", ids,
+        ",\"kind\":\"affine-proof-delete-uninstalled\",\"id\":",
+        replay.target_ids[i], ",\"clause\":[", journal_list(plan.targets[i]),
+        "]}\n"))
+      return false;
   }
-  return journal.append("{" + ids +
-      ",\"kind\":\"affine-complete\",\"snapshot_clauses\":" +
-      std::to_string(result.snapshot_clauses) +
-      ",\"equations\":" + std::to_string(result.equations) +
-      ",\"consequences\":" + std::to_string(result.consequences) +
-      ",\"preflight_additions\":" +
-      std::to_string(result.preflight_additions) +
-      ",\"preflight_deletions\":" +
-      std::to_string(result.preflight_deletions) +
-      ",\"additions\":" + std::to_string(result.additions) +
-      ",\"deletions\":" + std::to_string(result.deletions) +
-      ",\"published\":" + std::to_string(result.published) +
-      ",\"propagation_pending\":" +
-      (result.propagation_pending ? "true" : "false") + "}\n");
+  return journal.append("{", ids,
+      ",\"kind\":\"affine-complete\",\"snapshot_clauses\":",
+      result.snapshot_clauses, ",\"equations\":", result.equations,
+      ",\"consequences\":", result.consequences, ",\"preflight_additions\":",
+      result.preflight_additions, ",\"preflight_deletions\":",
+      result.preflight_deletions, ",\"additions\":", result.additions,
+      ",\"deletions\":", result.deletions, ",\"published\":", result.published,
+      ",\"propagation_pending\":",
+      result.propagation_pending ? "true" : "false", "}\n");
 }
 
 } // namespace
@@ -700,7 +685,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
   }
   result.preflight_additions = total_additions;
   result.preflight_deletions = total_deletions;
-  Journal journal{request.maximum_journal_bytes};
+  Journal journal{request.maximum_journal_bytes, JournalText(request.records)};
   AffineLiveResult journal_result = result;
   journal_result.additions = total_additions;
   journal_result.deletions = total_deletions;
@@ -774,8 +759,8 @@ AffineLiveResult derive_affine_live(Kernel &k,
       !k.inconsistent && !kernel_propagation_fixpoint(k);
   if (result.propagation_pending != journal_result.propagation_pending)
     std::abort();
-  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
-  result.journal_bytes = journal.bytes.size();
+  journal.text.write(request.records);
+  result.journal_bytes = journal.text.size();
   result.status = AffineLiveStatus::Applied;
   return result;
 }

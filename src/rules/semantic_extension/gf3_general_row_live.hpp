@@ -6,7 +6,6 @@
 
 #include <compare>
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -91,7 +90,7 @@ struct Gf3GeneralRowLiveRequest {
   std::string selected_identity;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
   const Gf3GeneralRowOwner *retained_owner = nullptr;
 };
 

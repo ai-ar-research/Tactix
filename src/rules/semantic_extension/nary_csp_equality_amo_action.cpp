@@ -1,7 +1,7 @@
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
-#include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/structural_text.hpp"
 #include "rules/semantic_extension/csp_domain_identity.hpp"
 
 #include "proof/proof.hpp"
@@ -11,14 +11,9 @@
 #include <climits>
 #include <cstdlib>
 #include <limits>
-#include <string>
 #include <utility>
 
 namespace tactix {
-
-using semantic_extension::append_bounded;
-using semantic_extension::join_integers;
-using semantic_extension::join_rendered;
 
 struct NaryCspEqualityAmoSessionAccess {};
 
@@ -74,14 +69,12 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &external) {
   return false;
 }
 
-std::string domains_json(
-    const std::vector<std::vector<int32_t>> &domains) {
-  return "[" +
-         join_rendered(domains,
-                       [](const std::vector<int32_t> &domain) {
-                         return "[" + join_integers(domain) + "]";
-                       }) +
-         "]";
+auto domains_json(const std::vector<std::vector<int32_t>> &domains) {
+  return [&domains](auto &out) {
+    out("[", journal_list(domains, [](auto &each, const auto &domain) {
+          each("[", journal_list(domain), "]");
+        }), "]");
+  };
 }
 
 uint32_t shared_domain(const NaryCspEqualityRecord &first,
@@ -132,7 +125,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
     const NaryCspEqualitySession &equality_session,
     NaryCspEqualityAmoSession &session,
     const NaryCspEqualityAmoLimits &limits,
-    const NaryCspEqualityAmoSelection &selection, FILE *records) {
+    const NaryCspEqualityAmoSelection &selection, StructuralJournal records) {
   NaryCspEqualityAmoResult result;
   if (!nary_csp_equality_amo_guard(kernel)) {
     result.status = NaryCspEqualityAmoStatus::Inapplicable;
@@ -217,14 +210,12 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
     result.status = NaryCspEqualityAmoStatus::ResourceExhausted;
     return result;
   }
-  std::string journal;
+  JournalText journal(records);
   const uint64_t action_id = kernel.structural_action_sequence + 1;
-  if (!append_bounded(
-          journal, limits.maximum_journal_bytes,
-          "{\"kind\":\"nary-csp-equality-amo\",\"action\":" +
-              std::to_string(action_id) + ",\"domains\":" +
-              domains_json(selection.domains) +
-              ",\"projection\":\"identity\",\"new_variables\":0}\n")) {
+  if (!journal.append(limits.maximum_journal_bytes,
+          "{\"kind\":\"nary-csp-equality-amo\",\"action\":", action_id,
+          ",\"domains\":", domains_json(selection.domains),
+          ",\"projection\":\"identity\",\"new_variables\":0}\n")) {
     result.status = NaryCspEqualityAmoStatus::ResourceExhausted;
     return result;
   }
@@ -285,7 +276,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
         std::abort();
     }
   }
-  semantic_extension::write_journal_or_abort(records, journal);
+  journal.write(records);
   std::vector<NaryCspEqualityAmoKey> keys = session.keys();
   keys.insert(std::lower_bound(keys.begin(), keys.end(), key), key);
   session.commit({}, kernel, std::move(keys));

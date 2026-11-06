@@ -5,7 +5,6 @@
 #include "rules/semantic_extension/affine_image.hpp"
 #include "rules/registry.hpp"
 
-#include <cstdio>
 #include <cstdlib>
 #include <optional>
 
@@ -45,7 +44,7 @@ struct AffineLiveRequest {
   size_t consequence = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
-  FILE *records = nullptr;
+  StructuralJournal records;
   // Optional caller-cached exact source view. Payload counters are recomputed,
   // and selected sources are revalidated immediately before commit; stale
   // occurrences make the action a clean NoOp.

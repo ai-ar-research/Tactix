@@ -154,13 +154,13 @@ IndependentSetLiveResult
 assert_failed_unchanged(Kernel &kernel,
                         const IndependentSetLiveRequest &candidate) {
   const KernelImage before = image(kernel);
-  const long record_position = std::ftell(candidate.records);
+  const long record_position = candidate.records.tell();
   assert(record_position >= 0);
   const IndependentSetLiveResult result =
       independent_set_live_apply(kernel, candidate);
   assert_declined(result);
   assert(image(kernel) == before);
-  assert(std::ftell(candidate.records) == record_position);
+  assert(candidate.records.tell() == record_position);
   return result;
 }
 

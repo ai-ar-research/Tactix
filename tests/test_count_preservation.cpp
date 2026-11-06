@@ -132,6 +132,18 @@ int main(int argc, char **argv) {
     }
   const auto cnf = formula(3, true, true);
   dsr_stops_with_the_error(cnf);
+  {
+    // With no proof the refutation is the same, and its text is never formatted.
+    Kernel k;
+    Proof proof;
+    assert(proof.open_nowhere());
+    proof.bind_variable_map(&k.internal_to_external);
+    k.proof = &proof;
+    parse_dimacs_text(cnf, k);
+    assert(count_preservation_apply(k) == ApplyResult::Unsat);
+    assert(k.inconsistent && k.stats.counting_unsat == 1 && k.stats.counting_additions > 0);
+    k.proof = nullptr;
+  }
   for (bool stop : {false, true}) {
     Kernel k;
     parse_dimacs_text(cnf, k);
