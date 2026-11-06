@@ -129,8 +129,11 @@ static void test_order(bool budgeted, bool preprocessing, uint32_t rounds) {
       invocations++;
     } else if (fields[2] == "transaction") {
       assert(fields[4] == "rule-attempt");
-      assert(fields[6] == std::string("policy-complete-rounds=") +
-                              std::to_string(effective));
+      // The budget-aware round batch shares the online Substitute step's
+      // `rounds` candidate; the unbudgeted call names its complete rounds.
+      assert(fields[6] == (budgeted ? std::string("rounds")
+                                    : std::string("policy-complete-rounds=") +
+                                          std::to_string(effective)));
       transactions++;
       transaction_effort += std::stoull(fields[18]);
       reconstruction |= line.find("reconstruct(") != std::string::npos;
@@ -143,14 +146,12 @@ static void test_order(bool budgeted, bool preprocessing, uint32_t rounds) {
   journal.close();
   assert(std::remove(journal_path) == 0);
   assert(invocations == 1);
-  if (!budgeted) {
-    assert(transactions == 1);
+  assert(transactions == 1);
+  assert(transaction_effort > 0 && reconstruction && retirement && root_unit);
+  // Only the unbudgeted call prices its transaction in the ledger meter; the
+  // budget-aware schedule record carries that path's ledger effort.
+  if (!budgeted)
     assert(transaction_effort == actual.stats.substitute_ticks - ticks_before);
-    assert(transaction_effort > 0 && reconstruction && retirement && root_unit);
-  } else {
-    // The budget-aware path's preexisting schedule-only journal is unchanged.
-    assert(transactions == 0);
-  }
 #endif
   assert(actual.stats.substitute_vars == expected.stats.substitute_vars);
   assert(actual.stats.substitute_rounds == expected.stats.substitute_rounds);
