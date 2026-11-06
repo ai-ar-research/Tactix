@@ -70,12 +70,6 @@ for artifact in ("--controller-trace=trace", "--feedback=feedback.jsonl.gz",
         raise AssertionError("causal preflight accepted a full telemetry artifact")
     except ValueError:
         pass
-try:
-    TIERD.solver_arguments("dsr", [], gf2_telemetry=True,
-                           causal_preflight=True)
-    raise AssertionError("causal preflight accepted full GF2 telemetry")
-except ValueError:
-    pass
 for invalid in ([""], ["--pbp"], ["--dsr"], ["--auto-proof"], ["--drat"], ["--lrat"]):
     try:
         TIERD.solver_arguments("dsr", invalid)

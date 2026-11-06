@@ -224,8 +224,8 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
         arguments = SimpleNamespace(
             scratch_capacity_profile='fixed44-whole-memory-v2',
             cpus_per_task=4, partition='cpu-q', array_throttle=None,
-            certificate='pbp', gf2_telemetry=False,
-            retain_failed_proof=False, causal_preflight=False)
+            certificate='pbp', retain_failed_proof=False,
+            causal_preflight=False)
         rows = [dict(task=index) for index in range(44)]
         selected = builder.selected_scratch_capacity(
             arguments, builder.FIXED44_SELECTION, rows)
@@ -251,8 +251,7 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
         for field, value in (
                 ('cpus_per_task', 5), ('partition', 'cpu-dense-hwulab-q'),
                 ('array_throttle', 1), ('certificate', 'dsr'),
-                ('gf2_telemetry', True), ('retain_failed_proof', True),
-                ('causal_preflight', True)):
+                ('retain_failed_proof', True), ('causal_preflight', True)):
             changed = SimpleNamespace(**vars(arguments))
             setattr(changed, field, value)
             with self.subTest(field=field), self.assertRaises(ValueError):
@@ -269,8 +268,8 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
         arguments = SimpleNamespace(
             scratch_capacity_profile='fixed44-cooperative-v1',
             cpus_per_task=4, partition='cpu-q', array_throttle=None,
-            certificate='pbp', gf2_telemetry=False,
-            retain_failed_proof=False, causal_preflight=False)
+            certificate='pbp', retain_failed_proof=False,
+            causal_preflight=False)
         rows = [dict(task=index) for index in range(44)]
         selected = builder.selected_scratch_capacity(
             arguments, builder.FIXED44_SELECTION, rows)

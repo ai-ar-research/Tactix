@@ -142,8 +142,6 @@ def scratch_capacity_contract(manifest):
         raise RuntimeError("anonymous scratch capacity does not preserve its reserve")
     if manifest.get("scratch_policy") != "anonymous-local-files-v1":
         raise RuntimeError("scratch capacity requires anonymous local files")
-    if manifest.get("gf2_telemetry") is not None:
-        raise RuntimeError("scratch capacity forbids retained telemetry")
     if manifest.get("failed_proof_retention") is not None:
         raise RuntimeError("scratch capacity forbids failed-proof retention")
     resource_contract = manifest.get("resource_contract", {})
@@ -222,8 +220,6 @@ def shared_floor_capacity_contract(manifest, contract):
         raise RuntimeError("shared-floor ledger identity differs from contract")
     if manifest.get("scratch_policy") != "anonymous-local-files-v1":
         raise RuntimeError("scratch capacity requires anonymous local files")
-    if manifest.get("gf2_telemetry") is not None:
-        raise RuntimeError("scratch capacity forbids retained telemetry")
     if manifest.get("failed_proof_retention") is not None:
         raise RuntimeError("scratch capacity forbids failed-proof retention")
     resource_contract = manifest.get("resource_contract", {})
@@ -528,10 +524,10 @@ def atomic_json(path, value):
 
 
 def atomic_retain(source, target, maximum_bytes):
-    """Retain one bounded raw artifact without exposing a partial sidecar."""
+    """Retain one bounded raw artifact without exposing a partial copy."""
     if (isinstance(maximum_bytes, bool) or not isinstance(maximum_bytes, int) or
             maximum_bytes <= 0):
-        raise RuntimeError("invalid telemetry byte cap")
+        raise RuntimeError("invalid retention byte cap")
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + f".tmp.{os.getpid()}")
     total = 0
@@ -540,7 +536,7 @@ def atomic_retain(source, target, maximum_bytes):
             for block in iter(lambda: stream.read(1 << 20), b""):
                 total += len(block)
                 if total > maximum_bytes:
-                    raise RuntimeError(f"telemetry byte cap exceeded: {source.name}")
+                    raise RuntimeError(f"retention byte cap exceeded: {source.name}")
                 output.write(block)
             output.flush()
             os.fsync(output.fileno())
@@ -577,42 +573,6 @@ def retained_proof_filename(task, certificate):
     return f"{task:03d}.{certificate}"
 
 
-def gf2_telemetry_contract(manifest):
-    contract = manifest.get("gf2_telemetry")
-    if contract is None:
-        return None
-    from gf2_target_score import (LEGACY_SCHEMA, MAX_FEEDBACK_BYTES,
-                                  MAX_FEEDBACK_DECODED_BYTES,
-                                  MAX_FEEDBACK_RECORDS, MAX_PROVENANCE_BYTES,
-                                  SCHEMA)
-    modern = contract.get("schema") == SCHEMA
-    required = ({"schema", "directory", "feedback_compression",
-                 "feedback_wire_version", "feedback_stored_max_bytes",
-                 "feedback_decoded_max_bytes", "feedback_max_records",
-                 "structural_provenance_max_bytes"} if modern else
-                {"schema", "directory", "feedback_max_bytes",
-                 "structural_provenance_max_bytes"})
-    if type(contract) is not dict or set(contract) != required:
-        raise RuntimeError("invalid GF2 telemetry contract fields")
-    if contract["schema"] not in (LEGACY_SCHEMA, SCHEMA) or contract["directory"] != "telemetry":
-        raise RuntimeError("unsupported GF2 telemetry contract")
-    if modern and (contract["feedback_compression"] != "gzip" or
-                   contract["feedback_wire_version"] != 2):
-        raise RuntimeError("unsupported GF2 feedback format")
-    maximums = {("feedback_stored_max_bytes" if modern else "feedback_max_bytes"):
-                MAX_FEEDBACK_BYTES,
-                "structural_provenance_max_bytes": MAX_PROVENANCE_BYTES}
-    if modern:
-        maximums.update(feedback_decoded_max_bytes=MAX_FEEDBACK_DECODED_BYTES,
-                        feedback_max_records=MAX_FEEDBACK_RECORDS)
-    for name, maximum in maximums.items():
-        value = contract[name]
-        if (isinstance(value, bool) or not isinstance(value, int) or
-                not 0 < value <= maximum):
-            raise RuntimeError(f"invalid GF2 telemetry cap: {name}")
-    return contract
-
-
 def matrix_source_summary_contract(manifest):
     contract = manifest.get("matrix_source_summary")
     if contract is None:
@@ -621,8 +581,7 @@ def matrix_source_summary_contract(manifest):
     if (type(contract) is not dict or set(contract) != {"schema", "maximum_bytes"} or
             contract.get("schema") != SCHEMA or
             type(contract.get("maximum_bytes")) is not int or
-            not 0 < contract["maximum_bytes"] <= MAXIMUM_BYTES or
-            manifest.get("gf2_telemetry") is not None):
+            not 0 < contract["maximum_bytes"] <= MAXIMUM_BYTES):
         raise RuntimeError("invalid matrix source summary contract")
     return contract
 
@@ -646,8 +605,6 @@ def causal_preflight_contract(manifest):
         raise RuntimeError("invalid causal-preflight contract")
     if positive_timeout(manifest, "solve_timeout") > 60:
         raise RuntimeError("causal preflight solve timeout exceeds 60 seconds")
-    if manifest.get("gf2_telemetry") is not None:
-        raise RuntimeError("causal preflight cannot retain full GF2 telemetry")
     forbidden = ("--feedback", "--feedback-replay",
                  "--structural-provenance", "--controller-trace")
     for arm in manifest.get("arms", {}).values():
@@ -738,56 +695,6 @@ def terminal_counter_summary(stdout, arguments, verdict):
     }
 
 
-def collect_gf2_telemetry(campaign, task, contract, feedback_path,
-                          provenance_path, solver_statistics, bindings):
-    """Retain, hash, and parse the two telemetry streams.
-
-    Raw sidecars are retained before parsing, so a malformed stream remains
-    auditable while its integrity error prevents a causal score.
-    """
-    from gf2_target_score import (parse_feedback, parse_provenance,
-                                  raw_yield, sidecar_descriptor)
-    modern = contract["schema"].endswith("-v2")
-    directory = campaign / contract["directory"]
-    retained = {
-        "feedback": directory / f"{task:03d}.feedback.jsonl{'.gz' if modern else ''}",
-        "structural_provenance": directory / f"{task:03d}.provenance.jsonl",
-    }
-    sources = {"feedback": feedback_path,
-               "structural_provenance": provenance_path}
-    caps = {"feedback": contract["feedback_stored_max_bytes" if modern else
-                                 "feedback_max_bytes"],
-            "structural_provenance": contract["structural_provenance_max_bytes"]}
-    payload = {"schema": contract["schema"], "bindings": bindings, "sidecars": {}}
-    errors = []
-    for name in ("feedback", "structural_provenance"):
-        try:
-            atomic_retain(sources[name], retained[name], caps[name])
-            if name != "feedback" or not modern:
-                payload["sidecars"][name] = sidecar_descriptor(retained[name], campaign)
-        except (OSError, RuntimeError) as error:
-            errors.append(f"{name}: {error}")
-    if not errors:
-        try:
-            feedback = parse_feedback(
-                retained["feedback"], caps["feedback"],
-                contract.get("feedback_decoded_max_bytes", caps["feedback"]),
-                contract.get("feedback_max_records"))
-            if modern:
-                payload["sidecars"]["feedback"] = sidecar_descriptor(
-                    retained["feedback"], campaign, feedback)
-            provenance = parse_provenance(
-                retained["structural_provenance"], caps["structural_provenance"])
-            payload.update(feedback=feedback, structural_provenance=provenance,
-                           raw_yield=raw_yield(feedback, provenance,
-                                               solver_statistics))
-        except (OSError, KeyError, TypeError, ValueError) as error:
-            errors.append(str(error))
-    if errors:
-        payload["integrity_error"] = "; ".join(errors)
-    return payload
-
-
 def expected_matches(expected, verdict):
     """Unknown dataset labels do not replace independent verdict checking."""
     return verdict in ("SAT", "UNSAT") and expected in (verdict, "UNKNOWN")
@@ -837,13 +744,6 @@ def validate_runtime_pin_contract(campaign, manifest):
         required.add("pins/anonymous_scratch.py")
     if manifest.get("scratch_policy") == HOME_SCRATCH_POLICY:
         required.add("pins/directory_scratch.py")
-    if manifest.get("gf2_telemetry") is not None:
-        required.update({"pins/gf2_target_score.py",
-                         "pins/inspect_policy_feedback.py"})
-        if any(any(argument.startswith("--controller-gf2-affine-profile=")
-                   for argument in arm.get("arguments", []))
-               for arm in manifest.get("arms", {}).values()):
-            required.add("pins/gf2-affine.profile")
     if manifest.get("matrix_source_summary") is not None:
         required.add("pins/matrix_source_summary.py")
     hashes = manifest.get("pin_sha256", {})
@@ -1243,7 +1143,6 @@ def main():
     })
 
     manifest = json.loads((CAMPAIGN / "manifest.json").read_text())
-    manifest_sha256 = sha256(CAMPAIGN / "manifest.json")
     solve_timeout = positive_timeout(manifest, "solve_timeout")
     check_timeout = checker_timeout_for(manifest, row["instance"])
     compressed = ROOT / "benchmarks/cache" / row["instance"]
@@ -1251,27 +1150,19 @@ def main():
     certificate = arm.get("certificate", "drat")
     binary = CAMPAIGN / arm["path"]
     scratch_root = Path(os.environ.get("SLURM_TMPDIR", tempfile.gettempdir()))
-    telemetry_contract = gf2_telemetry_contract(manifest)
     matrix_summary_contract = matrix_source_summary_contract(manifest)
     preflight_contract = causal_preflight_contract(manifest)
     capacity_contract = scratch_capacity_contract(manifest)
-    result_schema = ("tactix-experimental-gf2-runtime-result-v1"
-                     if telemetry_contract is not None else
-                     "tactix-matrix-source-diagnostic-result-v1"
+    result_schema = ("tactix-matrix-source-diagnostic-result-v1"
                      if matrix_summary_contract is not None else
                      "tactix-matched-slurm-memory-regression-result-v2")
     telemetry_local = None
-    telemetry_payload = None
     matrix_summary_payload = None
     telemetry_paths = None
-    if telemetry_contract is not None or matrix_summary_contract is not None:
+    if matrix_summary_contract is not None:
         telemetry_local = Path(tempfile.mkdtemp(
-            prefix=f"tactix-gf2-telemetry-{task:03d}-", dir=scratch_root))
+            prefix=f"tactix-telemetry-{task:03d}-", dir=scratch_root))
         telemetry_paths = {"structural_provenance": telemetry_local / "provenance.jsonl"}
-        if telemetry_contract is not None:
-            telemetry_paths["feedback"] = telemetry_local / (
-                "feedback.jsonl.gz" if telemetry_contract["schema"].endswith("-v2")
-                else "feedback.jsonl")
     anonymous = manifest.get("scratch_policy") == "anonymous-local-files-v1"
     home = manifest.get("scratch_policy") == HOME_SCRATCH_POLICY
     previous_term_handler = None
@@ -1404,8 +1295,7 @@ def main():
         affinity = sorted(os.sched_getaffinity(0))
         instrumentation = ()
         if telemetry_paths is not None:
-            instrumentation = ((f"--feedback={telemetry_paths['feedback']}",)
-                               if telemetry_contract is not None else ()) + (
+            instrumentation = (
                 f"--structural-provenance={telemetry_paths['structural_provenance']}",)
         command = ["taskset", "-c", str(affinity[0]),
                    *solver_command(binary, arm, cnf, proof, instrumentation)]
@@ -1439,18 +1329,6 @@ def main():
                 stdout, [*arm.get("arguments", []),
                          *arm.get("trailing_arguments", [])], verdict)
             statistics = preflight_payload["lines"]
-        if telemetry_contract is not None:
-            from gf2_target_score import expected_checker_hashes
-            checker_hashes = expected_checker_hashes(manifest, arm)
-            telemetry_payload = collect_gf2_telemetry(
-                CAMPAIGN, task, telemetry_contract,
-                telemetry_paths["feedback"],
-                telemetry_paths["structural_provenance"], statistics,
-                {"manifest_sha256": manifest_sha256,
-                 "compressed_input_sha256": manifest["input_sha256"][row["instance"]],
-                 "decompressed_input_sha256": decompressed_input_sha256,
-                 "binary_sha256": arm["sha256"],
-                 "checker_sha256": checker_hashes})
         if matrix_summary_contract is not None:
             from matrix_source_summary import summarize
             try:
@@ -1492,8 +1370,6 @@ def main():
             "valid": False,
             "cleanup_pending": True,
         }
-        if telemetry_payload is not None:
-            result["gf2_telemetry"] = telemetry_payload
         if matrix_summary_payload is not None:
             result["matrix_source_summary"] = matrix_summary_payload
         if preflight_payload is not None:
@@ -1635,13 +1511,6 @@ def main():
             signal.signal(signal.SIGXFSZ, previous_xfsz_handler)
         if telemetry_local is not None:
             shutil.rmtree(telemetry_local, ignore_errors=True)
-    if telemetry_contract is not None and "gf2_telemetry" not in result:
-        result["gf2_telemetry"] = telemetry_payload or {
-            "schema": telemetry_contract["schema"],
-            "bindings": {"manifest_sha256": manifest_sha256},
-            "sidecars": {},
-            "integrity_error": "telemetry collection did not complete",
-        }
     if matrix_summary_contract is not None and "matrix_source_summary" not in result:
         result["matrix_source_summary"] = matrix_summary_payload or {
             "schema": matrix_summary_contract["schema"],

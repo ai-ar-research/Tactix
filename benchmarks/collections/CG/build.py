@@ -13,8 +13,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 sys.path.insert(0, str(ROOT / "tools/bench"))
 
-from cms_tierd import family as lexical_family  # noqa: E402
-from cms_tierd_cpuq import independently_checked, verified_saved_arms  # noqa: E402
+from cms_tierd_cpuq import (family as lexical_family,  # noqa: E402
+                            independently_checked, verified_saved_arms)
 from frozen_baseline import sha256  # noqa: E402
 
 SCREENING = ROOT / "benchmarks/runs/20261018-cms-tierd-proof-free-4core-5000s"
