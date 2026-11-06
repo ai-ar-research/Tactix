@@ -26,11 +26,11 @@ To generate an UNSAT proof, supply an output file:
 build/release/tactix formula.cnf proof
 ```
 
-Tactix writes a DSR proof by default, on Linux and macOS, and converts it once to a
-pseudo-Boolean proof at a startup parity or counting refutation or once GF(2) reasons
-have cost 10 MB of DSR. `--pbp` and `--dsr` always write that format.
-Building Tactix, solving formulas, and generating proofs do not require external
-proof checkers.
+You can choose the proof format with `--dsr` or `--pbp`. By default Tactix selects it
+automatically: it writes a DSR proof, and writes a pseudo-Boolean (PBP) proof instead
+when the formula is refuted by algebraic reasoning alone or when the search relies on
+enough algebraic reasoning. Building Tactix, solving formulas, and generating proofs do
+not require external proof checkers.
 
 <details>
 <summary>Optional: install proof checkers and verify a proof</summary>
