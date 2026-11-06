@@ -1,4 +1,5 @@
 #include "proof/proof.hpp"
+#include "proof/proof_writer.hpp"
 #include "kernel/types.hpp"
 #include "proof/dsr_to_pbp.hpp"
 #include "rules/lucky/parity_certificate.hpp"
@@ -490,8 +491,8 @@ bool Proof::open_stream(FILE *file, ProofFormat format) {
   pbp_last_input_id_ = pbp_last_input_constraint_ = 0;
   pbp_last_input_live_ = false;
   pbp_pending_rebind_ = {};
-  pbp_deferred_units_.clear();
-  pbp_deferring_units_ = false;
+  staged_.clear();
+  deferring_ = false;
   pbp_counters_ = {};
   pbp_last_deleted_ = 0;
   pbp_audit_input_.clear();
@@ -541,8 +542,8 @@ FILE *Proof::begin_pb_impl() {
   observe_checker(CheckerPopulationEventKind::ClausalRouteDiscarded,
                   CheckerClauseRole::None, 0, 0, {});
   // Staged root units belong to the discarded clausal stream.
-  pbp_deferred_units_.clear();
-  pbp_deferring_units_ = false;
+  staged_.clear();
+  deferring_ = false;
   if (lazy_) {
     // The private prefix was never written: the refutation starts from the CNF.
     discard_lazy_pbp();
@@ -1121,7 +1122,7 @@ bool Proof::put_pbp_deletion(uint64_t del_id, uint32_t size,
     return false;
   const uint32_t width = static_cast<uint32_t>(pbp_canonical_scratch_.size());
   if (exact_identity) {
-    if (!pbp_replaying_leased_ &&
+    if (!replaying_leased_ &&
         put_pbp_anonymous_deletion(pbp_canonical_scratch_.data(), width))
       return audited();
     abandon_pbp_id_deletions(1, width);
@@ -1178,21 +1179,21 @@ void Proof::pbp_audit_deletion(uint64_t constraint, const int32_t *lits,
 #endif
 
 void Proof::begin_deferred_root_units() noexcept {
-  pbp_deferring_units_ = streaming_pbp() && file_ && !streaming_pbp_finished_;
+  deferring_ = streaming_pbp() && file_ && !streaming_pbp_finished_;
 }
 
 void Proof::end_deferred_root_units() noexcept {
-  if (pbp_deferring_units_ && !pbp_deferred_units_.empty())
+  if (deferring_ && !staged_.empty())
     ++pbp_counters_.deferred_batches;
-  pbp_deferring_units_ = false;
+  deferring_ = false;
 }
 
 // Write (or, before the empty clause, drop) every staged root unit.
 void Proof::settle_pbp_deferred_units(bool drop) {
-  if (pbp_deferred_units_.empty())
+  if (staged_.empty())
     return;
-  std::vector<PbpDeferredUnit> units = std::move(pbp_deferred_units_);
-  pbp_deferred_units_.clear();
+  std::vector<StagedUnit> units = std::move(staged_);
+  staged_.clear();
   if (drop) {
     ++pbp_counters_.dropped_batches;
     pbp_counters_.dropped_units += units.size();
@@ -1200,7 +1201,7 @@ void Proof::settle_pbp_deferred_units(bool drop) {
   }
   const CheckerClauseRole saved = population_role_;
   population_role_ = CheckerClauseRole::DerivedUnit;
-  for (const PbpDeferredUnit &unit : units)
+  for (const StagedUnit &unit : units)
     add_rup_impl(unit.id, &unit.lit, 1);
   population_role_ = saved;
 }
@@ -1375,7 +1376,7 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
 }
 
 void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size) {
-  if (!pbp_deferred_units_.empty())
+  if (!staged_.empty())
     settle_pbp_deferred_units(!size && streaming_pbp());
   const CheckerClauseRole role = population_role_;
   if (!input_transaction_ && !commit_clause_stream())
@@ -1425,7 +1426,7 @@ void Proof::add_rup_impl(uint64_t id, const Lit *lits, uint32_t size) {
 }
 
 void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size) {
-  if (!pbp_deferred_units_.empty())
+  if (!staged_.empty())
     settle_pbp_deferred_units(false);
   if (size) {
     invalidate_premises_for_sr(id, lits, 1, nullptr, 0, nullptr, 0);
@@ -1467,7 +1468,7 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                         const DsrLiteralMapping *mappings,
                         uint32_t nmappings, uint32_t external_variables,
                         bool propagates) {
-  if (!pbp_deferred_units_.empty())
+  if (!staged_.empty())
     settle_pbp_deferred_units(false);
   if (!input_transaction_ && !commit_clause_stream())
     return false;
@@ -1697,8 +1698,8 @@ void Proof::add_derived_unit_impl(uint64_t id, Lit unit) {
   // formula as dsr-trim/Trestle.
   if (startup_pb_written())
     return;
-  if (pbp_deferring_units_ && streaming_pbp()) {
-    pbp_deferred_units_.push_back({id, unit});
+  if (deferring_ && streaming_pbp()) {
+    staged_.push_back({id, unit});
     ++pbp_counters_.deferred_units;
     return;
   }
@@ -1738,7 +1739,7 @@ void Proof::end_pending_deletion(FILE *main_file) {
 
 void Proof::del_impl(uint64_t line_id, uint64_t del_id, const Lit *lits,
                      uint32_t size) {
-  if (!pbp_deferred_units_.empty())
+  if (!staged_.empty())
     settle_pbp_deferred_units(false);
   if (!leased_premises_.empty() && size <= premise_maximum_width_) {
     std::vector<int32_t> external; external.reserve(size);
@@ -1792,9 +1793,7 @@ void Proof::del_impl(uint64_t line_id, uint64_t del_id, const Lit *lits,
                   defer ? pending_population_transaction_ : 0);
 }
 
-namespace {
-
-bool external_tautological(const int32_t *lits, uint32_t size) {
+bool Proof::external_tautological(const int32_t *lits, uint32_t size) {
   for (uint32_t i = 0; i < size; ++i) {
     if (!lits[i] || lits[i] == INT32_MIN)
       return true;
@@ -1806,11 +1805,9 @@ bool external_tautological(const int32_t *lits, uint32_t size) {
   return false;
 }
 
-} // namespace
-
 bool Proof::add_external_rup_impl(uint64_t id, const int32_t *lits,
                                   uint32_t size) {
-  if (!pbp_deferred_units_.empty())
+  if (!staged_.empty())
     settle_pbp_deferred_units(!size && streaming_pbp());
   const CheckerClauseRole role =
       population_role_ == CheckerClauseRole::ExternalRat
@@ -1851,7 +1848,7 @@ bool Proof::add_external_rup_impl(uint64_t id, const int32_t *lits,
 
 bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
                                   uint32_t size) {
-  if (!pbp_deferred_units_.empty())
+  if (!staged_.empty())
     settle_pbp_deferred_units(false);
   if (size && !premise_groups_.empty()) {
     const auto *saved = variable_map_; variable_map_ = nullptr;
@@ -2181,7 +2178,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     const std::vector<PbpParityEquation> &equations, const int32_t *reason,
     uint32_t reason_size, PbpParityBoundsCache &cache,
     const PbpParityReasonPlan &plan) {
-  if (!pbp_deferred_units_.empty())
+  if (!staged_.empty())
     settle_pbp_deferred_units(false);
   const bool matching_cache = cache.stream_identity_ == stream_identity_;
   if (!plan.valid || plan.stream_identity != stream_identity_ ||
@@ -2608,10 +2605,10 @@ void Proof::release_premise_groups_impl(const std::vector<uint64_t> &handles,
       leased_premises_.erase(found);
       // A deferred deletion no longer knows which identity it named, so it
       // must not resolve to an anonymous constraint (see put_pbp_deletion).
-      pbp_replaying_leased_ = true;
+      replaying_leased_ = true;
       for (uint64_t i = 0; i < deferred; ++i)
         if (!del_external_impl(line_id, 0, clause.data(), clause.size())) std::abort();
-      pbp_replaying_leased_ = false;
+      replaying_leased_ = false;
     }
   }
   if (changed && ++premise_epoch_ == 0) std::abort();
@@ -2752,7 +2749,7 @@ void Proof::flush_persistent_external(uint64_t line_id) {
 
 bool Proof::del_external_impl(uint64_t line_id, uint64_t del_id,
                               const int32_t *lits, uint32_t size) {
-  if (!pbp_deferred_units_.empty())
+  if (!staged_.empty())
     settle_pbp_deferred_units(false);
   if (defer_leased_deletion(lits, size)) return true;
   if (!input_transaction_ && !commit_clause_stream())

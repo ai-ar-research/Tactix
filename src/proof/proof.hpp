@@ -61,6 +61,8 @@ struct PbpParityEquation {
   }
 };
 
+class ProofWriter; // proof/proof_writer.hpp, private to src/proof
+
 struct PbpParityBounds {
   uint64_t lower = 0;
   uint64_t upper = 0;
@@ -80,6 +82,7 @@ public:
 
 private:
   friend class Proof;
+  friend class ProofWriter;
   static uint64_t empty_retained_bytes() noexcept;
   uint64_t stream_identity_ = 0;
   uint64_t generation_ = 0;
@@ -400,8 +403,93 @@ public:
 #endif
 
 private:
-  // Which stream this object writes is the writer's own business: a rule that
-  // could ask could steer the search by it (N2).
+  friend class ProofWriter;
+
+  // --- The search ledger: every answer the search reads, the same in every
+  // mode. The writer (writer_) exists only when a proof is written. ---
+  struct StagedUnit {
+    uint64_t id;
+    Lit lit;
+  };
+  bool live_stream() const noexcept {
+    return open_ && streaming_ && !terminal_;
+  }
+  // Draws the stream identity, then attaches `writer` (null: no proof).
+  bool start(std::unique_ptr<ProofWriter> writer, bool streaming);
+  // Explicit DSR on `destination` (owned); see open_automatic.
+  bool open_dsr_only(FILE *destination, bool binary);
+  // The first clausal event publishes the stream; false once it is terminal.
+  bool commit();
+  // Write (or, before the empty clause, drop) every staged root unit.
+  void settle_staged(bool drop);
+  void rup_event(uint64_t id, const Lit *lits, uint32_t size,
+                 CheckerClauseRole role);
+  void del_event(uint64_t line_id, uint64_t del_id, const Lit *lits,
+                 uint32_t size);
+  bool del_external_event(uint64_t line_id, uint64_t del_id,
+                          const int32_t *lits, uint32_t size);
+  void check_lifecycle() const; // Debug: the writer agrees with the ledger
+  static bool external_tautological(const int32_t *lits, uint32_t size);
+
+  // Lifecycle. A streaming ledger (the kernel's, with or without a writer)
+  // opens inside the private input transaction and is published by its first
+  // clausal event; a startup PB refutation makes it terminal and the empty
+  // clause finishes it. A DSR writer's own ledger is always published.
+  bool open_ = false, streaming_ = false, input_transaction_ = false;
+  bool published_ = false, terminal_ = false, finished_ = false;
+  bool deferring_ = false;        // staging root units (begin_deferred_root_units)
+  bool replaying_leased_ = false; // a lease release replays deferred deletions
+  bool copy_role_ = false;        // the automatic copy: events already journaled
+  std::vector<StagedUnit> staged_; // root units of a conflicting root propagation
+  uint64_t stream_identity_ = 0;
+  const std::vector<Var> *variable_map_ = nullptr;
+  const std::vector<Var> *external_variable_map_ = nullptr;
+  PopulationObserver *population_observer_ = nullptr; // non-owning
+  // The checker-visible literal for an internal literal under the bound map.
+  Lit checker_lit(Lit l) const {
+    if (!variable_map_)
+      return l;
+    assert(var_of(l) < variable_map_->size());
+    return make_lit((*variable_map_)[var_of(l)], negated(l));
+  }
+
+  // Persistent external clauses (retain_external).
+  struct PersistentExternalClause {
+    uint64_t id = 0;
+    std::vector<int32_t> lits;
+  };
+  std::vector<PersistentExternalClause> persistent_external_;
+  uint64_t persistent_external_epoch_ = 0;
+  void flush_persistent_external(uint64_t line_id);
+
+  // Premise leases (retain_premise_groups).
+  struct LeasedPremise {
+    uint64_t users = 0, deferred = 0;
+  };
+  // Retained bytes charged per leased premise clause; release refunds them.
+  static constexpr uint64_t premise_storage_bytes(size_t size) {
+    return (4 * sizeof(PremiseGroup) + 16 * sizeof(void *) +
+            sizeof(LeasedPremise)) + 2 * uint64_t(size) * sizeof(int32_t);
+  }
+  std::map<std::vector<int32_t>, LeasedPremise> leased_premises_;
+  std::map<uint64_t, PremiseGroup> premise_groups_;
+  uint64_t next_premise_group_ = 0, premise_epoch_ = 0;
+  uint64_t premise_literals_ = 0, premise_bytes_ = 0, premise_deferred_ = 0;
+  uint64_t premise_pending_deletions_ = 0, premise_pending_literal_work_ = 0;
+  uint64_t premise_pending_deletion_cap_ = UINT64_MAX, premise_pending_work_cap_ = UINT64_MAX;
+  uint32_t premise_maximum_width_ = 0;
+  uint64_t premise_maintenance_work_ = 0;
+  // Occurrences of each external variable in premise_groups_, so a line whose
+  // pivot and witness touch no lease need not scan them.
+  std::vector<uint32_t> premise_variable_uses_;
+  void count_premise_variables(const PremiseGroup &, bool add);
+  bool defer_leased_deletion(const int32_t *, uint32_t);
+  void invalidate_premises_for_sr(uint64_t, const Lit *, uint32_t,
+      const Lit *, uint32_t, const DsrLiteralMapping *, uint32_t);
+
+  std::unique_ptr<ProofWriter> writer_;
+
+  // --- Writer state, moving to ProofWriter ---
   bool pb() const {
     return format_ == ProofFormat::Pbp ||
            format_ == ProofFormat::PbpStreaming;
@@ -443,8 +531,6 @@ private:
   // refute_by_counting).
   bool write_startup_pb(const std::function<bool(FILE *)> &write_pb);
   bool open_stream(FILE *file, ProofFormat format);
-  // Explicit DSR on `destination` (owned); see open_automatic.
-  bool open_dsr_only(FILE *destination, bool binary);
   void publish_dsr_only_prefix();
 
   // The DSR follow-on of a startup counting refutation (refute_by_counting).
@@ -536,7 +622,6 @@ private:
   bool convert_lazy_pbp();
   void discard_lazy_pbp() noexcept;
   // In the copy: a failed write disables it instead of aborting the solver.
-  bool copy_role_ = false;
   bool copy_failed_ = false;
   void drop_dsr_copy(AutomaticProofReason) noexcept;
   void discard_dsr_copy() noexcept;
@@ -549,7 +634,6 @@ private:
   // prior pair supplies its unit under either assumption on that variable.
   // Deletion bytes are spooled; helpers are retired before a later SR step.
   void flush_pending_dsr_units();
-  void flush_persistent_external(uint64_t line_id);
   CheckerRoute population_route() const noexcept;
   CheckerNaming population_naming() const noexcept;
   void observe_checker(CheckerPopulationEventKind, CheckerClauseRole,
@@ -569,34 +653,6 @@ private:
   std::unordered_set<uint64_t> pending_unit_ids_;
   uint32_t pending_max_external_ = 0;
   uint32_t proof_external_max_ = 0;
-  struct PersistentExternalClause {
-    uint64_t id = 0;
-    std::vector<int32_t> lits;
-  };
-  std::vector<PersistentExternalClause> persistent_external_;
-  uint64_t persistent_external_epoch_ = 0;
-  struct LeasedPremise {
-    uint64_t users = 0, deferred = 0;
-  };
-  // Retained bytes charged per leased premise clause; release refunds them.
-  static constexpr uint64_t premise_storage_bytes(size_t size) {
-    return (4 * sizeof(PremiseGroup) + 16 * sizeof(void *) +
-            sizeof(LeasedPremise)) + 2 * uint64_t(size) * sizeof(int32_t);
-  }
-  std::map<std::vector<int32_t>, LeasedPremise> leased_premises_;
-  std::map<uint64_t, PremiseGroup> premise_groups_;
-  uint64_t next_premise_group_ = 0, premise_epoch_ = 0;
-  uint64_t stream_identity_ = 0;
-  uint64_t premise_literals_ = 0, premise_bytes_ = 0, premise_deferred_ = 0;
-  uint64_t premise_pending_deletions_ = 0, premise_pending_literal_work_ = 0;
-  uint64_t premise_pending_deletion_cap_ = UINT64_MAX, premise_pending_work_cap_ = UINT64_MAX;
-  uint32_t premise_maximum_width_ = 0;
-  uint64_t premise_maintenance_work_ = 0;
-  // Occurrences of each external variable in premise_groups_, so a line whose
-  // pivot and witness touch no lease need not scan them.
-  std::vector<uint32_t> premise_variable_uses_;
-  void count_premise_variables(const PremiseGroup &, bool add);
-  bool defer_leased_deletion(const int32_t *, uint32_t);
   // Delete the proof-only constraints of parity reasons that mention a variable the
   // line's witness changes: a witness must hold against every checker constraint.
   // Each cached row is written again before its next use.
@@ -607,8 +663,6 @@ private:
   bool sr_needs_missing_auxiliary(const Lit *, uint32_t, const Lit *, uint32_t,
                                   const DsrLiteralMapping *, uint32_t, uint32_t,
                                   bool) const;
-  void invalidate_premises_for_sr(uint64_t, const Lit *, uint32_t,
-      const Lit *, uint32_t, const DsrLiteralMapping *, uint32_t);
   // Binary deletion blocks are usually only a few bytes. Keep them in a
   // bounded buffer and spill exceptional blocks to a temporary file.
   std::vector<unsigned char> pending_deletion_bytes_;
@@ -629,13 +683,6 @@ private:
   void population_del(uint64_t, const Lit *, uint32_t) {}
   void population_external(bool, uint64_t, const int32_t *, uint32_t) {}
 #endif
-  // The checker-visible literal for an internal literal under the bound map.
-  Lit checker_lit(Lit l) const {
-    if (!variable_map_)
-      return l;
-    assert(var_of(l) < variable_map_->size());
-    return make_lit((*variable_map_)[var_of(l)], negated(l));
-  }
   // The population view of internal literals under the same map.
   PopulationClauseView internal_view(const Lit *lits,
                                      uint32_t size) const noexcept {
@@ -678,7 +725,6 @@ private:
   void end_line();
   FILE *file_ = nullptr;
   FILE *pbp_output_ = nullptr;
-  bool input_transaction_ = false;
   bool has_sr_witness_ = false;
   bool streaming_pbp_finished_ = false;
   uint64_t pbp_original_constraints_ = 0;
@@ -727,14 +773,6 @@ private:
     uint64_t id = 0, original = 0, replacement = 0;
   };
   PbpPendingRebind pbp_pending_rebind_;
-  // Lazily published root units of a conflicting root propagation.
-  struct PbpDeferredUnit {
-    uint64_t id;
-    Lit lit;
-  };
-  std::vector<PbpDeferredUnit> pbp_deferred_units_;
-  bool pbp_deferring_units_ = false;
-  bool pbp_replaying_leased_ = false;
   uint64_t pbp_last_deleted_ = 0; // constraint named by the last `del id`
   // Assertion-build audit of exact deletion (proof.cpp compiled without
   // NDEBUG; the members exist in every build so the layout never depends on
@@ -755,9 +793,6 @@ private:
   ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;
-  const std::vector<Var> *variable_map_ = nullptr;
-  const std::vector<Var> *external_variable_map_ = nullptr;
-  PopulationObserver *population_observer_ = nullptr; // non-owning
   CheckerClauseRole population_role_ = CheckerClauseRole::Rup;
   uint64_t pending_population_transaction_ = 0;
   uint64_t next_population_transaction_ = 0;
