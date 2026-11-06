@@ -1,6 +1,8 @@
 #undef NDEBUG
 #include "dimacs_text.hpp"
 #include "temporary_file.hpp"
+#include "api/api_internal.hpp"
+#include "frontend/dsr_follow_on.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -9,14 +11,11 @@
 #undef tactix
 #include <algorithm>
 #include <cassert>
+#include <csignal>
 #include <cstdio>
-#include <fstream>
 #include <sstream>
 #include <string>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <string>
-#include <sstream>
+#include <sys/stat.h>
 #include <vector>
 using namespace tactix;
 
@@ -68,34 +67,47 @@ static std::string formula(unsigned width, bool unsat, bool rename) {
   }
   return text;
 }
-// A counting refutation has no practical clausal spelling: --dsr stops with an
-// error, exit 1, where the other modes write it and report UNSAT.
-static void dsr_stops_with_the_error(const std::string &cnf) {
-  for (ProofFormat format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii}) {
-    TemporaryFile proof_file;
-    TemporaryFile message;
-    const pid_t child = fork();
-    assert(child >= 0);
-    if (!child) {
-      FILE *said = std::fopen(message.path.c_str(), "w");
-      assert(said && dup2(fileno(said), 2) == 2);
+static uint64_t file_size(const std::string &path) {
+  struct stat st;
+  assert(!stat(path.c_str(), &st));
+  return static_cast<uint64_t>(st.st_size);
+}
+
+static bool dsr_route(const char *route) {
+  return route && std::string(route).rfind("dsr-", 0) == 0;
+}
+
+// A counting refutation has no practical clausal spelling. Under a DSR proof the
+// rule ends the run as it does with no proof, and nothing reaches the
+// destination; a follow-on solve without the rule writes the DSR there. An
+// interrupted follow-on leaves the proof pending.
+static void dsr_follows_on(const std::string &cnf, const Kernel &unproved) {
+  for (ProofFormat format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii})
+    for (const bool stopped : {false, true}) {
+      TemporaryFile destination;
       Kernel k;
       Proof proof;
-      assert(proof.open(proof_file.path.c_str(), format));
+      assert(proof.open(destination.path.c_str(), format));
       proof.bind_variable_map(&k.internal_to_external);
       k.proof = &proof;
       parse_dimacs_text(cnf, k);
-      count_preservation_apply(k);
-      _exit(0);
+      assert(count_preservation_apply(k) == ApplyResult::Unsat);
+      assert(k.inconsistent && k.stats.counting_unsat == 1);
+      assert(k.stats.counting_stars == unproved.stats.counting_stars &&
+             k.stats.counting_additions == unproved.stats.counting_additions &&
+             k.stats.counting_work == unproved.stats.counting_work);
+      assert(k.startup_input.empty() && !k.startup_certificate_open);
+      assert(proof.startup_pb_written() && proof.dsr_follow_on_pending());
+      assert(file_size(destination.path) == 0);
+      volatile sig_atomic_t stop = stopped;
+      const DsrFollowOn follow_on = run_dsr_follow_on(
+          k, proof, DefaultStrategyConfig{}, [](Kernel &) {}, &stop);
+      assert(follow_on.result == (stopped ? 0 : 20));
+      assert(proof.dsr_follow_on_pending() == stopped);
+      assert(stopped || (dsr_route(proof.verification_route()) &&
+                         file_size(destination.path) > 0));
+      k.proof = nullptr;
     }
-    int status = 0;
-    assert(waitpid(child, &status, 0) == child);
-    assert(WIFEXITED(status) && WEXITSTATUS(status) == 1);
-    std::ifstream text(message.path);
-    std::ostringstream said;
-    said << text.rdbuf();
-    assert(said.str().find("counting refutation") != std::string::npos);
-  }
 }
 
 int main(int argc, char **argv) {
@@ -131,7 +143,6 @@ int main(int argc, char **argv) {
       assert(!sat.inconsistent);
     }
   const auto cnf = formula(3, true, true);
-  dsr_stops_with_the_error(cnf);
   {
     // With no proof the refutation is the same, and its text is never formatted.
     Kernel k;
@@ -143,6 +154,7 @@ int main(int argc, char **argv) {
     assert(count_preservation_apply(k) == ApplyResult::Unsat);
     assert(k.inconsistent && k.stats.counting_unsat == 1 && k.stats.counting_additions > 0);
     k.proof = nullptr;
+    dsr_follows_on(cnf, k);
   }
   for (bool stop : {false, true}) {
     Kernel k;
@@ -159,20 +171,43 @@ int main(int argc, char **argv) {
     assert(k.startup_input == original && k.arena.size() == arena_size);
     assert(!k.stats.counting_unsat);
   }
-  for (bool ordinary : {false, true}) {
-    tactix_handle *solver = tactix_init();
+  const auto add_input = [&](tactix_handle *solver) {
     std::istringstream input(cnf);
     std::string header;
     std::getline(input, header);
     int literal;
     while (input >> literal)
       tactix_add(solver, literal);
+  };
+  for (bool ordinary : {false, true}) {
+    tactix_handle *solver = tactix_init();
+    add_input(solver);
     if (ordinary)
       assert(tactix_apply(solver, tactix::tactix_rule_id("Restart")) >= 0);
     const int result = tactix_apply_instance(solver, tactix::tactix_rule_id("Lucky"),
                                             LUCKY_STARTUP_COUNT);
     assert(result == (ordinary ? 1 : 20));
     tactix_release(solver);
+  }
+  // A DSR session reports the refutation once its follow-on wrote the proof,
+  // after a direct application and in the default solve.
+  for (const bool solve : {false, true}) {
+    TemporaryFile scratch;
+    const std::string path = argc > 1 ? std::string(argv[1]) + "/count3r-" +
+                                            (solve ? "solve" : "apply") + ".dsr"
+                                      : scratch.path;
+    tactix_handle *solver = tactix_init();
+    assert(!tactix_proof(solver, path.c_str(), TACTIX_PROOF_DSR_BINARY));
+    add_input(solver);
+    const int result =
+        solve ? tactix_solve(solver)
+              : tactix_apply_instance(solver, tactix::tactix_rule_id("Lucky"),
+                                      LUCKY_STARTUP_COUNT);
+    assert(result == 20);
+    assert(api_detail::kernel_for_fixed_testing(solver).stats.counting_unsat == 1);
+    assert(dsr_route(tactix_proof_route(solver)));
+    tactix_release(solver);
+    assert(file_size(path) > 0);
   }
   Kernel closed;
   parse_dimacs_text(cnf, closed);

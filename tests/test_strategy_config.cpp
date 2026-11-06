@@ -131,6 +131,8 @@ int main() {
   assert(default_snapshot.find(
              "affine_root_closure.maximum_basis_work=100000000") !=
          std::string::npos);
+  // Only the DSR follow-on solve turns the startup counting refutation off.
+  assert(default_snapshot.find("startup_count.enabled=1") != std::string::npos);
   for (const auto &step : defaults.inprocess.program)
     assert(step.rule != "Lucky");
   for (const auto *stages : {&defaults.inprocess.structured_root_stages,

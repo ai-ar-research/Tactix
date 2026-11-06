@@ -329,7 +329,13 @@ set_tests_properties(feedback_frontend PROPERTIES SKIP_RETURN_CODE 77)
 tactix_skip77_test(startup_parity_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_startup_parity_check.py
                    $<TARGET_FILE:test_startup_parity> $<TARGET_FILE:tactix>)
-tactix_skip77_test(count_preservation_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
+tactix_skip77_test(count_preservation_check ${TACTIX_SKIP_UNLESS_PBP}
+                   ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-trim
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-compress
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/srcheck
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/drat-trim
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake_lpr -- ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_count_preservation_check.py
                    $<TARGET_FILE:test_count_preservation> $<TARGET_FILE:tactix>)
 tactix_skip77_test(ramsey_cli

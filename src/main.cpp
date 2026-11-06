@@ -2,6 +2,7 @@
 // .xz/.gz via decompressor pipe), `s`/`v` lines on stdout, exit codes
 // 10/20/other, proof to argv[2], SIGTERM/SIGINT/SIGXCPU -> flush proof,
 // print `s UNKNOWN`, exit cleanly.
+#include "frontend/dsr_follow_on.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -190,6 +191,70 @@ static void stat_line(const char *prefix,
   }
   line += '\n';
   fputs(line.c_str(), stdout);
+}
+
+// Poses a fresh kernel from the command line and the environment: the main
+// run's and the DSR follow-on's.
+static void pose_kernel(Kernel &kernel, uint32_t bve_gate_mask,
+                        bool compact_affine_provenance) {
+  kernel.affine_matrix_provenance_compact = compact_affine_provenance;
+  kernel_defer_cold_state(kernel);
+  kernel.bve_gate_mask = bve_gate_mask;
+  // Each env knob below poses one `Kernel` config field; that field documents
+  // its default and soundness class. They are read here rather than in
+  // DefaultPolicy so configuration is posed before it owns the session.
+  env_u32("TACTIX_BCE_OCC_LIMIT", kernel.bce_occ_limit);
+  env_u32("TACTIX_TERNARY_OCC_LIMIT", kernel.ternary_occ_limit);
+  env_u32("TACTIX_TERNARY_MAXADD", kernel.ternary_max_add_percent);
+  env_flag("TACTIX_BVE_BACKWARD", kernel.bve_backward);
+  env_flag("TACTIX_BVE_ON_THE_FLY", kernel.bve_on_the_fly_strengthening);
+  if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
+    kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
+  if (const char *dc = getenv("TACTIX_BVE_DEF_CORES"))
+    kernel.bve_definition_cores = std::clamp<uint32_t>(
+        static_cast<uint32_t>(strtoul(dc, nullptr, 10)), 1, 100);
+  env_u32("TACTIX_BVE_DEF_CORE_MULTIPLIER",
+          kernel.bve_definition_core_budget_multiplier);
+  env_flag("TACTIX_V4_EARLY_EXIT", kernel.transitive_early_exit);
+  env_flag("TACTIX_TRANSITIVE_LIVE_METER", kernel.transitive_live_meter);
+  if (const char *meter = getenv("TACTIX_V4_METER"))
+    kernel.transitive_budget_checked = !std::strcmp(meter, "checked");
+  // Vivify's cross-candidate trail reuse ships ON; =0 also restores the older
+  // probe/candidate order, which cannot be separated (Kernel::vivify_reuse).
+  env_flag("TACTIX_VIVIFY_REUSE", kernel.vivify_reuse);
+  env_flag("TACTIX_VIVIFY_FLUSH", kernel.vivify_flush);
+  env_u32("TACTIX_FACTOR_SIZE", kernel.factor_size);
+  // Kissat's `reduction > bound` acceptance threshold (factor.c:939), default 0
+  // accepting any positive gain. Formula-shape-blind, which is why it and not a
+  // scope gate is the candidate for making broad admission safe: Factor's
+  // winners and losers sit at the same scope fraction.
+  env_u32("TACTIX_FACTOR_BOUND", kernel.factor_bound);
+  // Fresh-variable demotion ships ON (reference parity); `=0` is the off arm.
+  env_flag("TACTIX_FACTOR_DEMOTE", kernel.factor_demote_fresh);
+  env_u32("TACTIX_FACTOR_CAND_ROUNDS", kernel.factor_cand_rounds);
+  env_u32("TACTIX_STOP_FUZZ", kernel.stop_fuzz); // see kernel_terminating
+  if (getenv("TACTIX_SUBST_DEMOTE"))
+    kernel.subst_demote = true; // rank substituted vars last, see Kernel
+  // Eager subsumption of recent learned clauses ships ON at kissat's default
+  // and maximum (`eagersubsume`=4, learn.c); `=0` reverts, 1..4 dose it.
+  if (const char *es = getenv("TACTIX_EAGER_SUBSUME")) {
+    const unsigned long n = strtoul(es, nullptr, 10);
+    kernel.eager_subsume = n > Kernel::EAGER_SUBSUME_SLOTS
+                               ? Kernel::EAGER_SUBSUME_SLOTS
+                               : (uint32_t)n;
+  }
+  if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
+    kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
+  // Conflict-clause reuse ships ON, matching Kissat's
+  // one_literal_on_conflict_level shortcut; `=0` is the diagnostic revert.
+  kernel.conflict_reuse = true;
+  env_flag("TACTIX_CONFLICT_REUSE", kernel.conflict_reuse);
+  // Kissat's `jumpreasons` ships ON; =0 restores direct antecedent reasons.
+  env_flag("TACTIX_JUMP_REASONS", kernel.jump_reasons);
+  // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
+  // `=0` reverts to the pre-parity behaviour and is the priced arm.
+  env_flag("TACTIX_SHRINK_GLUE", kernel.shrink_glue_promote);
+  env_flag("TACTIX_TUMBLE", kernel.tumble);
 }
 
 int main(int argc, char **argv) {
@@ -398,65 +463,8 @@ int main(int argc, char **argv) {
     }
   }
   Kernel kernel;
-  kernel.affine_matrix_provenance_compact = compact_affine_provenance;
   StructuralActionSessions structural_action_sessions(kernel);
-  kernel_defer_cold_state(kernel);
-  kernel.bve_gate_mask = bve_gate_mask;
-  // Each env knob below poses one `Kernel` config field; that field documents
-  // its default and soundness class. They are read here rather than in
-  // DefaultPolicy so configuration is posed before it owns the session.
-  env_u32("TACTIX_BCE_OCC_LIMIT", kernel.bce_occ_limit);
-  env_u32("TACTIX_TERNARY_OCC_LIMIT", kernel.ternary_occ_limit);
-  env_u32("TACTIX_TERNARY_MAXADD", kernel.ternary_max_add_percent);
-  env_flag("TACTIX_BVE_BACKWARD", kernel.bve_backward);
-  env_flag("TACTIX_BVE_ON_THE_FLY", kernel.bve_on_the_fly_strengthening);
-  if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
-    kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
-  if (const char *dc = getenv("TACTIX_BVE_DEF_CORES"))
-    kernel.bve_definition_cores = std::clamp<uint32_t>(
-        static_cast<uint32_t>(strtoul(dc, nullptr, 10)), 1, 100);
-  env_u32("TACTIX_BVE_DEF_CORE_MULTIPLIER",
-          kernel.bve_definition_core_budget_multiplier);
-  env_flag("TACTIX_V4_EARLY_EXIT", kernel.transitive_early_exit);
-  env_flag("TACTIX_TRANSITIVE_LIVE_METER", kernel.transitive_live_meter);
-  if (const char *meter = getenv("TACTIX_V4_METER"))
-    kernel.transitive_budget_checked = !std::strcmp(meter, "checked");
-  // Vivify's cross-candidate trail reuse ships ON; =0 also restores the older
-  // probe/candidate order, which cannot be separated (Kernel::vivify_reuse).
-  env_flag("TACTIX_VIVIFY_REUSE", kernel.vivify_reuse);
-  env_flag("TACTIX_VIVIFY_FLUSH", kernel.vivify_flush);
-  env_u32("TACTIX_FACTOR_SIZE", kernel.factor_size);
-  // Kissat's `reduction > bound` acceptance threshold (factor.c:939), default 0
-  // accepting any positive gain. Formula-shape-blind, which is why it and not a
-  // scope gate is the candidate for making broad admission safe: Factor's
-  // winners and losers sit at the same scope fraction.
-  env_u32("TACTIX_FACTOR_BOUND", kernel.factor_bound);
-  // Fresh-variable demotion ships ON (reference parity); `=0` is the off arm.
-  env_flag("TACTIX_FACTOR_DEMOTE", kernel.factor_demote_fresh);
-  env_u32("TACTIX_FACTOR_CAND_ROUNDS", kernel.factor_cand_rounds);
-  env_u32("TACTIX_STOP_FUZZ", kernel.stop_fuzz); // see kernel_terminating
-  if (getenv("TACTIX_SUBST_DEMOTE"))
-    kernel.subst_demote = true; // rank substituted vars last, see Kernel
-  // Eager subsumption of recent learned clauses ships ON at kissat's default
-  // and maximum (`eagersubsume`=4, learn.c); `=0` reverts, 1..4 dose it.
-  if (const char *es = getenv("TACTIX_EAGER_SUBSUME")) {
-    const unsigned long n = strtoul(es, nullptr, 10);
-    kernel.eager_subsume = n > Kernel::EAGER_SUBSUME_SLOTS
-                               ? Kernel::EAGER_SUBSUME_SLOTS
-                               : (uint32_t)n;
-  }
-  if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
-    kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
-  // Conflict-clause reuse ships ON, matching Kissat's
-  // one_literal_on_conflict_level shortcut; `=0` is the diagnostic revert.
-  kernel.conflict_reuse = true;
-  env_flag("TACTIX_CONFLICT_REUSE", kernel.conflict_reuse);
-  // Kissat's `jumpreasons` ships ON; =0 restores direct antecedent reasons.
-  env_flag("TACTIX_JUMP_REASONS", kernel.jump_reasons);
-  // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
-  // `=0` reverts to the pre-parity behaviour and is the priced arm.
-  env_flag("TACTIX_SHRINK_GLUE", kernel.shrink_glue_promote);
-  env_flag("TACTIX_TUMBLE", kernel.tumble);
+  pose_kernel(kernel, bve_gate_mask, compact_affine_provenance);
   // Structural actions record into a bound journal. A named journal is
   // session-owned, created exclusively, and outlives policy execution; without
   // a path the CLI binds the discard journal, which keeps nothing.
@@ -1586,6 +1594,40 @@ int main(int argc, char **argv) {
              lazy.state, lazy.dsr_bytes, lazy.pbp_bytes, lazy.nanos);
     }
   }
+  // An explicit DSR proof cannot spell the startup counting refutation: a
+  // follow-on solve of the original formula without that opportunity writes it.
+  // Without its proof the run reports no verdict.
+  int verdict = res;
+  bool follow_on_failed = false;
+  if (res == 20 && proof.dsr_follow_on_pending()) {
+    if (!quiet)
+      printf("c follow-on   startup-count-pb\n");
+    fflush(stdout);
+    const DsrFollowOn follow_on = run_dsr_follow_on(
+        kernel, proof, default_config,
+        [&](Kernel &k) {
+          pose_kernel(k, bve_gate_mask, compact_affine_provenance);
+        },
+        &caught_signal);
+    if (!quiet) {
+      stat_line("c follow-on   ",
+                {{static_cast<unsigned long long>(follow_on.result), "result"},
+                 {follow_on.conflicts, "conflicts"},
+                 {follow_on.decisions, "decisions"},
+                 {follow_on.propagations, "propagations"},
+                 {follow_on.sr, "sr applications"}});
+      printf("c follow-on   %.0f ms\n", follow_on.nanos / 1e6);
+    }
+    if (follow_on.result != 20) {
+      verdict = 0;
+      // Only a signal ends the follow-on without an answer; any other result
+      // is a failure to certify the refutation.
+      follow_on_failed = follow_on.result != 0 || !caught_signal;
+      if (follow_on_failed)
+        fprintf(stderr, "tactix: the DSR follow-on solve returned %d\n",
+                follow_on.result);
+    }
+  }
   if (res == 10) {
     const uint64_t extend_t0 = frontend_time ? tactix::now_nanos() : 0;
     kernel_extend_model(kernel); // rebuild the model through rho (plan §4)
@@ -1602,7 +1644,7 @@ int main(int argc, char **argv) {
               parse_nanos / 1e6, extend_nanos / 1e6,
               (tactix::now_nanos() - print_t0) / 1e6);
     }
-  } else if (res == 20) {
+  } else if (verdict == 20) {
     if (proof_path)
       printf("c proof-route %s\n", proof.verification_route());
     printf("s UNSATISFIABLE\n");
@@ -1611,5 +1653,6 @@ int main(int argc, char **argv) {
   }
   fflush(stdout);
   if (feedback_failed) return 1; // Solver verdict and certificate remain intact.
-  return res == 10 ? 10 : res == 20 ? 20 : 0;
+  if (follow_on_failed) return 1;
+  return res == 10 ? 10 : verdict == 20 ? 20 : 0;
 }

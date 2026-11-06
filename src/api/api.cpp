@@ -5,6 +5,7 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "frontend/dsr_follow_on.hpp"
 #include "frontend/parse.hpp"
 #include "api/api_internal.hpp"
 #include "policies/heuristics.hpp"
@@ -125,6 +126,21 @@ void prepare_external_model(tactix_solver *solver) {
 
 void external_state_change(tactix_solver *solver) {
   ++solver->kernel.strategy_epoch;
+}
+
+// An UNSAT answer rests on a complete proof. A DSR proof that met a startup
+// counting refutation is written first, by a follow-on solve of the original
+// formula under the session's strategy settings and the default configuration.
+void certify_unsat(tactix_solver *solver) {
+  if (solver->proof.dsr_follow_on_pending()) {
+    ScopedStrategySettings settings(&solver->default_options);
+    const DsrFollowOn follow_on = run_dsr_follow_on(
+        solver->kernel, solver->proof, DefaultStrategyConfig{},
+        [](Kernel &kernel) { kernel.conflict_reuse = true; }, nullptr);
+    if (follow_on.result != 20)
+      proof_error("the DSR follow-on solve did not refute the formula");
+  }
+  solver->proof.flush();
 }
 
 // Every public registry dispatch publishes its rule events through the
@@ -2157,7 +2173,7 @@ int tactix_solve(tactix_solver *s) {
     // next solve start from a state that no longer models the live clauses.
     prepare_external_model(s);
   if (r == 20)
-    s->proof.flush();
+    certify_unsat(s);
   return r;
 }
 
@@ -2217,7 +2233,7 @@ static int result_code(tactix_solver *solver, ApplyResult res) {
     prepare_external_model(solver);
     return 10;
   case ApplyResult::Unsat:
-    solver->proof.flush();
+    certify_unsat(solver);
     return 20;
   }
   return 1;
@@ -2407,7 +2423,7 @@ int tactix_online_advance(tactix_solver *s, tactix_online_result *result) {
     prepare_external_model(s);
   }
   if (advanced.status == strategy::InvocationStatus::Unsat)
-    s->proof.flush();
+    certify_unsat(s);
   online_result(advanced, *result);
   return 0;
 }
@@ -2708,7 +2724,7 @@ int leave_phase(tactix_solver *s) {
       },
       [&] { return propagate_publishing_roots(s); });
   if (left == ApplyResult::Unsat) {
-    s->proof.flush();
+    certify_unsat(s);
     return 20;
   }
   return 0;
@@ -2716,7 +2732,7 @@ int leave_phase(tactix_solver *s) {
 
 int support_result(tactix_solver *s, ApplyResult result) {
   if (result == ApplyResult::Unsat) {
-    s->proof.flush();
+    certify_unsat(s);
     return 20;
   }
   return result == ApplyResult::NoOp ? 1 : 0;
@@ -3040,7 +3056,7 @@ int tactix_status(tactix_solver *s) {
   // then only asks the status must still get the refutation written.
   input_complete(s);
   if (s->kernel.inconsistent) {
-    s->proof.flush();
+    certify_unsat(s);
     return 20;
   }
   // SAT requires every active variable assigned at a propagation fixpoint,

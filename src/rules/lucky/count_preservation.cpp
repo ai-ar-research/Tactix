@@ -486,7 +486,7 @@ ApplyResult count_preservation_apply(Kernel &k) {
       Certificate proof(k, plan, out);
       return proof.run(nullptr) && proof.additions() == preflight.additions();
     };
-    if (!k.proof->write_startup_pb(write_pb))
+    if (!k.proof->refute_by_counting(write_pb, k.startup_input))
       return ApplyResult::NoOp;
   }
   k.stats.counting_stars += plan.chosen.size();

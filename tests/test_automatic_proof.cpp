@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
@@ -815,6 +816,86 @@ void dsr_only_writes_dsr_with_the_same_answers() {
   assert(read_all(path).rfind("pseudo-Boolean", 0) != 0);
 }
 
+// --dsr keeps its input transaction private, as whole-run PBP does, so a startup
+// refutation finds its destination untouched: nothing reaches a file, even past
+// one write buffer of input normalization, or a pipe before the first clausal
+// event. The first clausal event publishes the whole prefix at once, and a
+// refutation inside the input transaction publishes it at selection; either
+// way the destination receives the bytes of a DSR writer.
+void dsr_only_keeps_the_input_private() {
+  constexpr uint64_t duplicates = 300000; // 5 bytes each in binary DSR
+  const Events normalized = [](Proof &p) {
+    const auto duplicate = clause({1, 2, 3});
+    for (uint64_t id = 1; id <= duplicates; ++id) {
+      p.seed_population(id, duplicate.data(), 3);
+      if (id > 1)
+        p.del(id, id, duplicate.data(), 3);
+    }
+    p.finish_input_transaction();
+  };
+  const Events derivation = [](Proof &p) {
+    p.add_rup(duplicates + 1, clause({1, 2}).data(), 2);
+  };
+  TemporaryDirectory directory;
+  const std::string path = directory / "proof", fifo = directory / "fifo";
+  const std::string prefix = single(ProofFormat::DsrBinary, normalized);
+  assert(prefix.size() > (1u << 20)); // past one write buffer
+  {
+    Proof p;
+    assert(p.open(path.c_str(), ProofFormat::DsrBinary));
+    normalized(p);
+    assert(p.startup_pb_available() && read_all(path).empty());
+    derivation(p);
+    // The commit published the prefix: the open proof's destination holds it.
+    expect_equal(read_all(path), prefix, "--dsr prefix at the first clausal event");
+  }
+  expect_equal(read_all(path),
+               single(ProofFormat::DsrBinary,
+                      [&](Proof &p) { normalized(p); derivation(p); }),
+               "--dsr to a file");
+  // Conflicting input units refuted before the transaction ends: no clausal
+  // event commits the stream, so the selection publishes the prefix, which a
+  // pipe cannot take by rewriting in place.
+  const Events conflicting = [](Proof &p) {
+    p.seed_population(1, clause({1}).data(), 1);
+    p.seed_population(2, clause({-1}).data(), 1);
+  };
+  const Events refuted_in_input = [](Proof &p) {
+    p.add_empty(3);
+    p.finish_input_transaction();
+  };
+  const struct {
+    const char *what;
+    Events before, after;
+  } piped_runs[] = {
+      {"--dsr to a pipe at the first clausal event", inputs, refutation},
+      {"--dsr to a pipe at selection", conflicting, refuted_in_input}};
+  for (const auto &[what, before, after] : piped_runs) {
+    assert(!mkfifo(fifo.c_str(), 0600));
+    const int reader = open(fifo.c_str(), O_RDONLY | O_NONBLOCK);
+    assert(reader >= 0);
+    std::string piped;
+    char buffer[4096];
+    {
+      Proof p;
+      assert(p.open(fifo.c_str(), ProofFormat::DsrBinary));
+      before(p);
+      assert(read(reader, buffer, sizeof buffer) < 0 && errno == EAGAIN);
+      after(p);
+    }
+    for (ssize_t n; (n = read(reader, buffer, sizeof buffer)) > 0;)
+      piped.append(buffer, static_cast<size_t>(n));
+    close(reader);
+    assert(!unlink(fifo.c_str()));
+    const std::string want = single(ProofFormat::DsrBinary, [&](Proof &p) {
+      before(p);
+      after(p);
+    });
+    assert(!want.empty());
+    expect_equal(piped, want, what);
+  }
+}
+
 // --dsr never converts, so its copy keeps no RAT marks: a validation switch at
 // the empty clause finds no stage to read and keeps the DSR, byte for byte.
 void dsr_only_switch_at_the_end_keeps_dsr() {
@@ -1177,6 +1258,7 @@ int main() {
   tautological_rat_converts_first();
   dsr_limit_stays_on_dsr();
   dsr_only_writes_dsr_with_the_same_answers();
+  dsr_only_keeps_the_input_private();
   dsr_only_switch_at_the_end_keeps_dsr();
   dsr_limit_counts_binary_bytes();
   conversion_at_every_point();

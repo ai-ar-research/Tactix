@@ -630,19 +630,21 @@ void test_startup_pb_without_a_proof() {
     wrote = true;
     return std::fputs("pseudo-Boolean proof version 3.0\n", out) >= 0;
   };
+  std::vector<int32_t> input{1, 0, -1, 0};
   Proof nowhere;
   assert(nowhere.open_nowhere());
   nowhere.finish_input_transaction();
-  assert(nowhere.write_startup_pb(write_pb));
+  assert(nowhere.refute_by_counting(write_pb, input));
   assert(!wrote && nowhere.startup_pb_written());
   const std::string path = tmp_path("startup-pb");
   {
     Proof p;
     assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
     p.finish_input_transaction();
-    assert(p.write_startup_pb(write_pb));
+    assert(p.refute_by_counting(write_pb, input));
     assert(wrote && p.startup_pb_written());
-    assert(!p.write_startup_pb(write_pb));
+    assert(!p.refute_by_counting(write_pb, input));
+    assert(input.size() == 4 && !p.dsr_follow_on_pending());
   }
   std::remove(path.c_str());
 }

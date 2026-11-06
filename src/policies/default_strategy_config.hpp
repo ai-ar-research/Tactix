@@ -297,6 +297,11 @@ struct DefaultStrategyConfig {
         10'000, 200, 40'000, 10'000'000,
         10'000'000, 100'000, 1'000'000, 200'000};
   } ramsey_startup;
+  // The startup counting refutation (count preservation). The DSR follow-on
+  // solve turns it off: a DSR proof cannot spell it.
+  struct StartupCount {
+    bool enabled = true;
+  } startup_count;
 
   struct AffineRootClosure {
     // The checked Rank263 causal profile bounds this startup-only first

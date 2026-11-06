@@ -459,6 +459,21 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   }
 }
 
+void declare_input(Kernel &k, uint32_t variables, uint64_t clauses) {
+  kernel_reserve_vars(k, variables);
+  k.input_header = {true, variables, clauses};
+  // The direct finite-domain startup rule needs the original order of
+  // unique binary constraints to reproduce its owning algorithm's
+  // deterministic seed. Keep that order only inside the rule's bounded
+  // admission envelope; the first startup opportunity releases it.
+  k.input_binary_order_captured =
+      variables <= strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT &&
+      clauses <= strategy::OnehotModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
+  if (k.input_binary_order_captured)
+    k.input_binary_order.reserve(static_cast<size_t>(clauses));
+  k.input_clause_tail.reserve(Kernel::INPUT_CLAUSE_TAIL_CAPACITY);
+}
+
 void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // Keep the ordinary normalized binary path in a small frame of its own.
   // The generic importer owns proof-restatement and root-unit vectors needed
@@ -563,6 +578,20 @@ void finish_input(Kernel &k) {
   }
 }
 
+void ingest_dimacs(Kernel &k, const std::vector<int32_t> &literals) {
+  std::vector<Lit> clause;
+  for (const int32_t external : literals) {
+    if (external) {
+      clause.push_back(internalize(external));
+    } else {
+      ingest_clause(k, clause);
+      clause.clear();
+    }
+  }
+  assert(clause.empty());
+  finish_input(k);
+}
+
 void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   assert(!current.proof && current.startup_certificate_open);
   // Replay the checker's exact input, not the clauses left after eager proofless
@@ -579,17 +608,7 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   proof.bind_variable_map(&replay.internal_to_external);
   proof.bind_external_variable_map(&replay.external_to_internal);
   kernel_sync_population_observer(replay);
-  std::vector<Lit> clause;
-  for (const int32_t external : current.startup_input) {
-    if (external) {
-      clause.push_back(internalize(external));
-    } else {
-      ingest_clause(replay, clause);
-      clause.clear();
-    }
-  }
-  assert(clause.empty());
-  finish_input(replay);
+  ingest_dimacs(replay, current.startup_input);
   // N2: the root units the replay wrote are the ones a proof attached before the
   // input would have recorded, so the live kernel's root view must hold them too.
   current.dsr_root_values = std::move(replay.dsr_root_values);
@@ -726,7 +745,6 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         uint64_t n = 0;
         if (!read_digits(n, true))
           return "variable count out of range";
-        kernel_reserve_vars(k, static_cast<uint32_t>(n));
         for (;;) {
           while (p != e && (*p == ' ' || *p == '\t' || *p == '\r'))
             ++p;
@@ -735,6 +753,7 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         }
         uint64_t clauses = 0;
         read_digits(clauses, false);
+        declare_input(k, static_cast<uint32_t>(n), clauses);
         // Avoid repeated multi-gigabyte rehashes on binary-dominated inputs.
         // Binary encodings commonly contain almost nothing else.  Reserve up
         // to the declared clause count, capped by twice the variable
@@ -746,17 +765,6 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         // large circuit encodings.
         const uint64_t predicted_binaries =
             std::min<uint64_t>(clauses, 2 * n);
-        // The direct finite-domain startup rule needs the original order of
-        // unique binary constraints to reproduce its owning algorithm's
-        // deterministic seed. Keep that order only inside the rule's bounded
-        // admission envelope; the first startup opportunity releases it.
-        k.input_binary_order_captured =
-            n <= strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT &&
-            clauses <=
-                strategy::OnehotModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
-        if (k.input_binary_order_captured)
-          k.input_binary_order.reserve(static_cast<size_t>(clauses));
-        k.input_clause_tail.reserve(Kernel::INPUT_CLAUSE_TAIL_CAPACITY);
         // Import uses a compact no-false-negative filter backed by exact
         // mirrored-watch confirmation. PBP deletes binaries by specification
         // and retains exact identities only for non-binary clauses. The filter

@@ -18,6 +18,7 @@
 #include <limits>
 #include <set>
 #include <string_view>
+#include <utility>
 
 #if defined(__GLIBC__) || defined(__linux__)
 #include <stdio_ext.h>
@@ -33,14 +34,13 @@
 
 namespace tactix {
 
-namespace {
-// One route for a proof that cannot be written: say why and stop, with no verdict.
-[[noreturn]] void proof_error(const char *what) {
+void proof_error(const char *what) {
   std::fflush(stdout);
   std::fprintf(stderr, "tactix: proof error: %s\n", what);
   std::_Exit(1);
 }
 
+namespace {
 // The largest variable name a DSR line carries. The pinned drat-trim and
 // dsr-trim decode a binary literal, (name << 1) | sign, into a signed int, and
 // dsr-trim indexes a literal of either spelling by twice its name.
@@ -370,6 +370,8 @@ Proof::~Proof() {
   // An unfinished run never aborts over a proof no verdict rests on.
   if (lazy_destination_ && std::fclose(lazy_destination_) && !held)
     std::abort();
+  if (follow_on_destination_) // no follow-on ran: nothing was written
+    std::fclose(follow_on_destination_);
   if (pending_deletions_)
     std::fclose(pending_deletions_);
   stream_identity_=0;
@@ -390,11 +392,61 @@ bool Proof::open(const char *path, ProofFormat format) {
   stream_identity_=0; // Failed opens cannot lend cached-unit authority.
   if (file_ || pbp_output_ || format == ProofFormat::Pbp || dsr_copy_)
     return false;
+  FILE *const file = fopen(path, "wb");
   // N2: the kernel only ever talks to the streaming-PBP writer.
   if (format != ProofFormat::PbpStreaming)
-    return open_automatic(path, format == ProofFormat::DsrBinary, nullptr, true);
-  FILE *const file = fopen(path, "wb");
+    return file && open_dsr_only(file, format == ProofFormat::DsrBinary);
   return file && open_stream(file, format);
+}
+
+// The DSR writer is the copy, so the kernel's view is that of every other run.
+// Like whole-run PBP it keeps the input transaction private: the copy writes to
+// a temporary file until the first clausal event (publish_dsr_only_prefix).
+bool Proof::open_dsr_only(FILE *destination, bool binary) {
+  if (!open_stream(destination, ProofFormat::PbpStreaming))
+    return false;
+  automatic_ = true;
+  dsr_only_ = true;
+  automatic_reason_ = AutomaticProofReason::Pending;
+  automatic_destination_ = pbp_output_;
+  auto copy = std::make_unique<Proof>();
+  copy->copy_role_ = true;
+  if (!copy->open_stream(std::tmpfile(), binary ? ProofFormat::DsrBinary
+                                                : ProofFormat::DsrAscii))
+    proof_error("cannot write the DSR proof");
+  copy->bind_variable_map(variable_map_);
+  copy->bind_external_variable_map(external_variable_map_);
+  dsr_copy_ = std::move(copy);
+  start_lazy_pbp();
+  if (!lazy_)
+    proof_error("no counting stream for the DSR proof");
+  return true;
+}
+
+// Never converted, so nothing replaces or rereads the destination: any will
+// do, a pipe included. The prefix moves once, unchanged, and the copy then
+// writes there directly. A failure is a failed write of the only proof, which
+// settle_dsr_copy and select_dsr_copy stop on before any verdict.
+void Proof::publish_dsr_only_prefix() {
+  Proof &copy = *dsr_copy_;
+  copy.flush_binary();
+  FILE *const destination = lazy_destination_ ? lazy_destination_ : pbp_output_;
+  const int descriptor = copy.copy_failed_ ? -1 : dup(fileno(destination));
+  FILE *const direct = descriptor >= 0 ? fdopen(descriptor, "wb") : nullptr;
+  if (!direct) {
+    if (descriptor >= 0)
+      close(descriptor);
+    copy.copy_failed_ = true;
+    return;
+  }
+  if (setvbuf(direct, nullptr, copy.binary() ? _IONBF : _IOFBF, 1 << 20) ||
+      std::fflush(copy.file_) || std::ferror(copy.file_) ||
+      std::fseek(copy.file_, 0, SEEK_SET) || !copy_stream(copy.file_, direct) ||
+      std::fflush(direct))
+    copy.copy_failed_ = true;
+  std::fclose(copy.file_);
+  copy.file_ = direct;
+  dsr_in_destination_ = true;
 }
 
 bool Proof::open_dsr_writer(const char *path, ProofFormat format) {
@@ -536,6 +588,8 @@ void Proof::publish_streaming_pbp_header() {
     lazy_published_ = true;
     lazy_destination_ = pbp_output_;
     pbp_output_ = nullptr;
+    if (dsr_only_)
+      publish_dsr_only_prefix();
     return;
   }
   if (std::fflush(file_) || std::fseek(file_, 0, SEEK_SET))
@@ -1972,9 +2026,10 @@ bool Proof::refute_parity(const std::vector<PbpParityEquation> &equations,
   if (!startup_pb_available())
     return false;
   if (dsr_only_) {
-    dsr_copy_->write_parity_reason(equations, nullptr, 0);
+    // Published first, so the certificate streams to the destination.
     if (!commit_clause_stream())
       proof_error("cannot publish the proof stream");
+    dsr_copy_->write_parity_reason(equations, nullptr, 0);
     finish_streaming_pbp_unsat();
     settle_dsr_copy();
     return true;
@@ -1989,6 +2044,41 @@ bool Proof::write_startup_pb(const std::function<bool(FILE *)> &write_pb) {
   // A published but incomplete certificate never claims UNSAT.
   if ((!nowhere_ && !write_pb(out)) || !finish_pb())
     std::abort();
+  return true;
+}
+
+bool Proof::refute_by_counting(const std::function<bool(FILE *)> &write_pb,
+                               std::vector<int32_t> &input) {
+  if (!dsr_only_)
+    return write_startup_pb(write_pb);
+  // The kernel gets the terminal PB stream every other mode gives it, and no PB
+  // text is written, as with no proof. Nothing has reached the destination
+  // (publish_dsr_only_prefix), so the follow-on takes it untouched.
+  if (!begin_pb_impl())
+    return false;
+  assert(dsr_copy_ && !dsr_in_destination_);
+  follow_on_binary_ = dsr_copy_->binary();
+  discard_dsr_copy();
+  automatic_reason_ = AutomaticProofReason::StartupPbRefutation;
+  automatic_destination_ = nullptr;
+  follow_on_destination_ = std::exchange(file_, nullptr);
+  follow_on_input_.swap(input);
+  follow_on_pending_ = true;
+  return true;
+}
+
+bool Proof::open_dsr_follow_on(Proof &f) {
+  return follow_on_pending_ && follow_on_destination_ &&
+         f.open_dsr_only(std::exchange(follow_on_destination_, nullptr),
+                         follow_on_binary_);
+}
+
+bool Proof::settle_dsr_follow_on(const Proof &f) {
+  if (!follow_on_pending_ || !f.automatic_selected_dsr_)
+    return false;
+  follow_on_route_ = f.verification_route();
+  follow_on_pending_ = false;
+  std::vector<int32_t>().swap(follow_on_input_);
   return true;
 }
 
@@ -3028,7 +3118,8 @@ bool Proof::convert_lazy_pbp() {
   Proof &copy = *dsr_copy_;
   const auto started = std::chrono::steady_clock::now();
   copy.flush_impl();
-  if (copy.copy_failed_ || std::fflush(file_))
+  // A DSR-only copy has no stage reader: nothing converts.
+  if (copy.copy_failed_ || std::fflush(file_) || lazy.stage_fd < 0)
     return false;
   // Replaces a destination that holds the DSR. Before publication the PBP
   // prefix stays private, as on any route, and this file waits for the header.
@@ -3149,10 +3240,11 @@ void Proof::discard_lazy_pbp() noexcept {
 
 bool Proof::open_automatic(const char *path, bool binary_dsr,
                            const char *stage_path, bool dsr_only) {
+  if (dsr_only)
+    return open(path, binary_dsr ? ProofFormat::DsrBinary : ProofFormat::DsrAscii);
   if (!open(path, ProofFormat::PbpStreaming))
     return false;
   automatic_ = true;
-  dsr_only_ = dsr_only;
   automatic_selected_dsr_ = false;
   automatic_dsr_witness_ = false;
   automatic_reason_ = AutomaticProofReason::Pending;
@@ -3166,27 +3258,6 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   // regular file (a proc-fd path to an anonymous file qualifies).
   FILE *const destination = pbp_output_ ? pbp_output_ : file_;
   automatic_destination_ = destination;
-  // Never converted, so nothing replaces or rereads the file: any destination
-  // will do, a pipe included.
-  if (dsr_only) {
-    const int descriptor = dup(fileno(destination));
-    FILE *const direct = descriptor >= 0 ? fdopen(descriptor, "wb") : nullptr;
-    if (!direct)
-      proof_error("cannot write the DSR proof");
-    auto copy = std::make_unique<Proof>();
-    copy->copy_role_ = true;
-    if (!copy->open_stream(direct, binary_dsr ? ProofFormat::DsrBinary
-                                              : ProofFormat::DsrAscii))
-      proof_error("cannot write the DSR proof");
-    copy->bind_variable_map(variable_map_);
-    copy->bind_external_variable_map(external_variable_map_);
-    dsr_copy_ = std::move(copy);
-    dsr_in_destination_ = true;
-    start_lazy_pbp();
-    if (!lazy_)
-      proof_error("no counting stream for the DSR proof");
-    return true;
-  }
   struct stat destination_stat;
   if (fstat(fileno(destination), &destination_stat) ||
       !S_ISREG(destination_stat.st_mode)) {
@@ -3284,8 +3355,13 @@ void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
   // UNSAT claim may follow: fail closed.
   if (lazy_ && !convert_lazy_pbp())
     std::abort();
-  // Discard the copy's staged and buffered bytes instead of writing them,
-  // and release the stage's space at once (a caller-owned stage stays).
+  discard_dsr_copy();
+  automatic_reason_ = reason;
+}
+
+// Discard the copy's staged and buffered bytes instead of writing them,
+// and release the stage's space at once (a caller-owned stage stays).
+void Proof::discard_dsr_copy() noexcept {
   Proof &copy = *dsr_copy_;
   copy.pending_units_.clear();
   copy.pending_unit_literals_.clear();
@@ -3305,7 +3381,6 @@ void Proof::drop_dsr_copy(AutomaticProofReason reason) noexcept {
   if (!automatic_stage_name_.empty())
     unlink(automatic_stage_name_.c_str());
   automatic_stage_name_.clear();
-  automatic_reason_ = reason;
 }
 
 void Proof::settle_dsr_copy() {
@@ -3351,6 +3426,8 @@ void Proof::settle_dsr_copy() {
 // way, but a failure only loses that prefix: it never aborts and never
 // converts to PBP.
 void Proof::select_dsr_copy(bool finished) {
+  if (dsr_only_ && !dsr_in_destination_)
+    publish_dsr_only_prefix();
   Proof &copy = *dsr_copy_;
   copy.flush_impl();
   if (copy.copy_failed_) {
@@ -3461,10 +3538,9 @@ struct ReleaseLazyEvent {
 } // namespace
 
 FILE *Proof::begin_pb() {
-  // Summing thousands of counting bounds in clauses is out of practical reach.
+  // Every startup refutation spells or defers itself on a DSR-only proof.
   if (dsr_only_)
-    proof_error("a counting refutation found at startup cannot be written as "
-                "DSR; use --pbp or --auto-proof");
+    proof_error("a DSR proof has no PB stream");
   FILE *const terminal = begin_pb_impl();
   // A complete native PB refutation has no clausal spelling.
   if (terminal)
