@@ -1,6 +1,7 @@
 """Check the complete Python declarations against the C compiler and live library."""
 from pathlib import Path
 import ctypes as C
+import gc
 import hashlib
 import importlib.util
 import subprocess
@@ -79,6 +80,55 @@ try:
         assert getattr(lib,'tactix_online_configure'+suffix)(handle,C.byref(program),version,0)==-1
 finally:lib.tactix_release(handle)
 
+# Positive nested payloads through every compatible program version. The C
+# online API fixture uses this same Condition tuple: it removes the duplicated
+# clause, then reconstruction must repair decisions falsifying that clause.
+# Only configure owns the storage after this helper returns.
+def configure_condition(handle, version):
+    clause=(C.c_int*2)(1,2)
+    witness=(C.c_int*3)(1,3,4)
+    cubes=(capi.tactix_online_condition_instance*2)(
+        capi.tactix_online_condition_instance(clause,2,witness,3),
+        capi.tactix_online_condition_instance(clause,2,witness,3))
+    step=getattr(capi,'tactix_online_step_v'+str(version))()
+    payload=step
+    while not hasattr(payload,'condition_instances'):payload=payload.base
+    payload.condition_instances=cubes;payload.condition_instance_count=2
+    base=step
+    while hasattr(base,'base'):base=base.base
+    base.step_id=375
+    base.rule_id=next(i for i in range(lib.tactix_rule_count())
+                      if lib.tactix_rule_name(i)==b'Condition')
+    base.granularity=capi.TACTIX_ONLINE_GRANULARITY_BATCH
+    base.repeat_mode=capi.TACTIX_ONLINE_REPEAT_ONCE;base.repeat_limit=1
+    base.budget_unlimited=1
+    program=getattr(capi,'tactix_online_program_v'+str(version))(
+        C.pointer(step),1,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
+    assert getattr(lib,'tactix_online_configure_v'+str(version))(
+        handle,C.byref(program),2,capi.TACTIX_ONLINE_RECONFIGURE_RESET)==0
+    clause[:]=(0,0);witness[:]=(0,0,0)
+
+formula=((1,2),(1,2),(-1,3),(-3,4))
+for version in range(3,18):
+    handle=lib.tactix_init();assert handle
+    try:
+        for clause in formula:
+            for literal in (*clause,0):assert lib.tactix_add_checked(handle,literal)==0
+        configure_condition(handle,version);gc.collect()
+        result=capi.tactix_online_result()
+        assert lib.tactix_online_advance(handle,C.byref(result))==0
+        assert (result.status,result.made_rule_progress,result.applications,
+                result.instance,result.configuration_revision)==(
+                    capi.TACTIX_ONLINE_COMPLETED,1,1,0,2),(version,result.status)
+        assert lib.tactix_online_advance(handle,C.byref(result))==0
+        assert (result.status,result.applications,result.work)==(
+            capi.TACTIX_ONLINE_STALE_REQUEST,0,0),version
+        for literal in (-1,-2):assert lib.tactix_decide(handle,literal)==0
+        assert lib.tactix_solve(handle)==SAT
+        model={lib.tactix_value(handle,v) for v in range(1,5)}
+        assert all(any(l in model for l in clause) for clause in formula),(version,model)
+    finally:lib.tactix_release(handle)
+
 # Bound native calls preserve the Execution lifetime/re-entry guards.
 views=[];policy=ScriptedCDCL()
 def inspected(execution,restored):
@@ -96,4 +146,5 @@ try:views[-1].tactix_stat(capi.TACTIX_STAT_CONFLICTS)
 except RuntimeError:pass
 else:raise AssertionError('expired C view accepted')
 print(f'Python C ABI: {len(s.FUNCTIONS)} symbols/signatures, {len(s.PUBLIC_TYPES)} types, '
-      f'{len(s.RECORDS)} record layouts, {len(s.CONSTANTS)} constants; typed calls and guarded views pass')
+      f'{len(s.RECORDS)} record layouts, {len(s.CONSTANTS)} constants; '
+      '15 owned nested programs, typed calls and guarded views pass')
