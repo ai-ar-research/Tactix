@@ -4197,6 +4197,17 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
+  // The policy selects an initial subset of substitution/elimination choices;
+  // standalone explicit rule applications keep their complete action surface.
+  struct InitialRetention {
+    Kernel &k;
+    const std::unordered_set<uint32_t> *previous;
+    explicit InitialRetention(Kernel &kernel):k(kernel),previous(k.substitute_retention) {
+      k.substitute_retention=k.variable_retention.empty() ? nullptr:&k.variable_retention;
+    }
+    void release() {k.substitute_retention=previous;k.variable_retention.clear();}
+    ~InitialRetention() {k.substitute_retention=previous;}
+  } retention(k);
   progress_.start(k);
   // Completion ends while owned heuristic state is still attached, including
   // solve-entry and startup terminal paths. No mutable Kernel hook is installed.
@@ -4226,6 +4237,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   execution::ArenaOrderingScope arena_ordered(
       k, execution::ArenaOrderingInstallationRequest{arena_ordering});
   if (k.inconsistent) {
+    retention.release();
     feedback.finish(20, StopReason::Unsat);
     return 20;
   }
@@ -4239,7 +4251,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               return port::execute_action(k, execution::RestartRequest{
                   0, execution::RestartPurpose::Preparation});
             }) == ApplyResult::Unsat)
-      { feedback.finish(20, StopReason::Unsat); return 20; }
+      { retention.release(); feedback.finish(20, StopReason::Unsat); return 20; }
   }
   solves++;
   // Preserve the input's structural classification across preprocessing: the
@@ -4364,6 +4376,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 #endif
   event_trace.macro(k, "startup_begin");
   auto finish = [&](int verdict) {
+    if (verdict) retention.release();
     progress_.finish(k, verdict);
     // These source/proof hook costs overlap ordinary structural actions and
     // are diagnostics, not another charge of the whole Substitute invocation.
@@ -4775,6 +4788,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (graph.status == GraphLabelingSliceStatus::Sat)
       return finish(10);
   }
+  retention.release();
   presearch_ticks->leave();
   presearch_ticks.reset();
   // There is no Kissat collection point between late Lucky and search
@@ -5533,6 +5547,9 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     return SlotStep::Next;
   }
   const bool bve_entry = !std::strcmp(r.name, "BVE");
+  const auto deferred=[&](Var v) {
+    return strategy::bve_candidate_retained(k,v);
+  };
   const bool initial_fast_bve =
       bve_entry && initial_fast_elimination_active_;
   BveBoundPolicy *ramp = nullptr;
@@ -5654,7 +5671,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         // `flags.eliminate`: cleared after each attempt, re-armed by every
         // removal of a clause containing the variable (kernel bve_retry).
         if (variable >= k.bve_retry.size() || !k.bve_retry[variable] ||
-            k.value(candidate) || kernel_var_retired(k, variable))
+            k.value(candidate) || kernel_var_retired(k, variable) || deferred(variable))
           continue;
         const Lit positive = make_lit(variable, false);
         const size_t pos = fastel_flush_occurrences(
@@ -5714,6 +5731,9 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           dynamic_bve ? bve_invocation_session->next_ordered() : payloads_[i++];
       if (bve_entry) {
         Lit candidate;
+        if (lit_of_instance(k,payload,&candidate) &&
+            var_of(candidate)<k.nvars && deferred(var_of(candidate)))
+          continue;
         if (lit_of_instance(k, payload, &candidate) &&
             var_of(candidate) < k.nvars &&
             (k.value(candidate) || kernel_var_retired(k, var_of(candidate))))

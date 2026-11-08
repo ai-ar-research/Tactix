@@ -128,13 +128,13 @@ The reported SAT model projects away introduced variables.
 
 The registered `ExtendedResolution` action is explicit-only: its canonical
 application does nothing, and the built-in strategy does not invent definitions.
-The public function above supplies the exact instance. It neither chooses a
-phase nor raises activity. Its output becomes the current introduced-theory
-candidate for `SemanticVariableAdvice`; an online advice step can set
-`introduced_theory_priority` to raise both its activity and queue priority.
-Advice refers to the current state, so consume it before an unrelated action
-invalidates the candidate. A strategy can also select an eligible output
-literal directly with `tactix_decide`.
+The public function above supplies the exact instance. Use
+`tactix_bump_variable(s, output, dose)` for additive EVSIDS/VMTF priority without
+changing its phase. ER outputs are automatically retained through DefaultPolicy's
+initial substitution and elimination; `tactix_set_variable_retention` releases
+or extends this advice. The deferral ends at search entry and survives an
+interrupted startup. Explicit mathematical elimination remains available.
+A strategy may also select an eligible literal with `tactix_decide`.
 
 Regions, expression discovery and performance policies belong to the caller.
 Defining a variable alone does not assert that it is true or derive additional

@@ -14,7 +14,7 @@ int main() {
   using tactix_public_random::root_work;
   using tactix_public_random::successor;
 
-  constexpr std::array<std::string_view, 46> public_actions{{
+  constexpr std::array<std::string_view, 48> public_actions{{
       "BCE", "BVE", "Backbone", "CCE", "ConflictAnalysis", "Congruence",
       "Decide", "Factor", "HyperBinaryRes", "HyperTernaryRes", "Instantiate",
       "LocalSearchGuidance", "Lucky", "Probe", "Propagate", "Reduce",
@@ -27,11 +27,16 @@ int main() {
       "TseitinCycleBreaking", "GraphIntervalEquivalence",
       "AffineMatrixInitialize", "NaryCspEquality", "Gf3GeneralRowConsequence",
       "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
-      "CardinalitySearch",
+      "CardinalitySearch", "ExtendedResolution", "RupConsequence",
   }};
   for (const auto action : public_actions)
     assert(classify(action) != Terminal::Unknown);
 
+  for (auto rule:{"ExtendedResolution","RupConsequence"}) {
+    assert(classify(rule)==Terminal::StructuralReasoning);
+    assert(allows(Phase::RootWork,classify(rule)));
+    assert(!allows(Phase::Search,classify(rule)));
+  }
   assert(classify("BVE") == Terminal::Simplification);
   assert(classify("SubstitutionRedundancy") ==
          Terminal::StructuralReasoning);

@@ -42,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix="ramsey-cli-") as directory:
                 if row.startswith("c ramsey"))
     assert "1 attempts, 1 recognized" in line and "1 UNSAT" in line, line
     assert proof.stat().st_size > 0
-    pins = ROOT / "benchmarks/baselines/sc24-26-32g-5000s/pins"
+    pins = ROOT / "tools/checkers/bin"
     check = work / "check"
     check.mkdir()
     verified = check_dsr(pins / "dsr-trim", pins / "dsr-compress",

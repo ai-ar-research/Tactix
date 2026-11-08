@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from tempdir_cleanup import RetryingTemporaryDirectory
 
 
 def run(binary, *arguments, env=None):
@@ -48,7 +49,7 @@ def main():
                    name.startswith("rules/") for name in includes), includes
     assert "tactix_solve(" not in source
 
-    with tempfile.TemporaryDirectory(prefix="tactix-public-random-") as tmp:
+    with RetryingTemporaryDirectory(prefix="tactix-public-random-") as tmp:
         work = Path(tmp)
         unsat = work / "unsat.cnf"
         unsat.write_text("p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2 0\n")

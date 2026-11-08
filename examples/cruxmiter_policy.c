@@ -30,69 +30,14 @@ static int rule_id(const char *name) {
   return -1;
 }
 
-static int read_dimacs(tactix *solver, const char *path,
-                       int *maximum_variable) {
-  FILE *input = fopen(path, "r");
-  char line[1 << 16];
-  int open_clause = 0, saw_header = 0;
-  if (!input) {
-    fprintf(stderr, "tactix-cruxmiter-policy: cannot open '%s': %s\n", path,
-            strerror(errno));
-    return 0;
-  }
-  *maximum_variable = 0;
-  while (fgets(line, sizeof line, input)) {
-    char *cursor = line;
-    while (isspace((unsigned char)*cursor)) ++cursor;
-    if (!*cursor || *cursor == 'c') continue;
-    if (*cursor == 'p') {
-      char kind[8];
-      int variables;
-      unsigned long long clauses;
-      if (sscanf(cursor, "p %7s %d %llu", kind, &variables, &clauses) != 3 ||
-          strcmp(kind, "cnf") || variables < 0) {
-        fprintf(stderr, "tactix-cruxmiter-policy: malformed DIMACS header\n");
-        fclose(input);
-        return 0;
-      }
-      saw_header = 1;
-      if (variables > *maximum_variable) *maximum_variable = variables;
-      continue;
-    }
-    while (*cursor) {
-      char *end;
-      long value;
-      while (isspace((unsigned char)*cursor)) ++cursor;
-      if (!*cursor || *cursor == 'c') break;
-      errno = 0;
-      value = strtol(cursor, &end, 10);
-      if (end == cursor || errno || value < INT_MIN || value > INT_MAX) {
-        fprintf(stderr, "tactix-cruxmiter-policy: malformed DIMACS literal\n");
-        fclose(input);
-        return 0;
-      }
-      if (value) {
-        const int variable = value < 0 ? -(int)value : (int)value;
-        if (variable > *maximum_variable) *maximum_variable = variable;
-        open_clause = 1;
-      } else {
-        open_clause = 0;
-      }
-      if (tactix_add_checked(solver, (int)value)) {
-        fprintf(stderr, "tactix-cruxmiter-policy: rejected DIMACS input\n");
-        fclose(input);
-        return 0;
-      }
-      cursor = end;
-    }
-  }
-  if (ferror(input) || !saw_header || open_clause) {
-    fprintf(stderr, "tactix-cruxmiter-policy: incomplete DIMACS input\n");
-    fclose(input);
-    return 0;
-  }
+static int read_dimacs(tactix *solver, const char *path, int *maximum_variable) {
+  FILE *input=fopen(path,"r");
+  if (!input) return 0;
+  const int error=tactix_read_dimacs(solver,input);
   fclose(input);
-  return 1;
+  if (error) return 0;
+  *maximum_variable=tactix_fresh_variable_start(solver)-1;
+  return *maximum_variable>=0;
 }
 
 static int terminal(int result) { return result == 10 || result == 20; }

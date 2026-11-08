@@ -14,7 +14,7 @@ set(TACTIX_SKIP_UNLESS_PBP ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
 # A test whose exit status 77 means "skipped" (a checker or input is absent).
 function(tactix_skip77_test name)
   add_test(NAME ${name} COMMAND ${ARGN})
-  set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77)
+  set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77 LABELS "integration")
 endfunction()
 
 # A Python test script run under `cmake -E env python3`.
@@ -340,7 +340,7 @@ tactix_skip77_test(count_preservation_check ${TACTIX_SKIP_UNLESS_PBP}
                    $<TARGET_FILE:test_count_preservation> $<TARGET_FILE:tactix>)
 tactix_skip77_test(ramsey_cli
                    ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                   ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/dsr-trim --
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-trim --
                    ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_ramsey_cli.py
                    $<TARGET_FILE:tactix>)
@@ -401,6 +401,9 @@ target_compile_definitions(tactix-public PRIVATE TACTIX_DEFAULT_POLICY_PUBLIC_PO
 add_executable(tactix-public-random
                ${CMAKE_SOURCE_DIR}/tools/fuzz/public_random_main.cpp)
 target_link_libraries(tactix-public-random PRIVATE tactix_lib)
+add_executable(tactix-default-er-fuzz
+               ${CMAKE_SOURCE_DIR}/tools/fuzz/default_er_main.cpp)
+target_link_libraries(tactix-default-er-fuzz PRIVATE tactix_lib)
 add_test(NAME public_random_frontend
          COMMAND ${CMAKE_COMMAND} -E env ASAN_OPTIONS=detect_leaks=0
                  python3 ${CMAKE_CURRENT_SOURCE_DIR}/test_public_random_frontend.py
@@ -457,3 +460,5 @@ tactix_skip77_test(tseitin_cycle_action_journal
 tactix_script_test(nary_csp_equality_transitivity_proof_model
                    nary_csp_equality_transitivity_proof_model.sh
                    test_nary_csp_equality_transitivity_live)
+
+include(${PROJECT_SOURCE_DIR}/tests/test_groups.cmake)

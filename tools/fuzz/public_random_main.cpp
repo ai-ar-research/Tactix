@@ -60,6 +60,10 @@ struct Coverage {
   uint64_t root_to_search = 0, partial_restarts = 0, full_restarts = 0;
   uint64_t search_to_root = 0, algebraic_actions = 0;
   uint64_t online_declines = 0, public_declines = 0;
+  uint64_t er_requests=0,er_defined=0,er_bumped=0,er_composed=0,er_released=0;
+  uint64_t rup_requests=0,rup_added=0,extension_decisions=0;
+  std::vector<int> extensions;
+  std::vector<std::array<int,2>> definition_binaries;
 };
 
 bool algebraic(std::string_view name) {
@@ -405,9 +409,71 @@ Form choose_form(const Coverage &coverage, Profile profile, Rng &rng) {
   return choices[rng.below(count)];
 }
 
+// Explicit payloads for the two root-only actions: canonical calls are no-ops.
+void remember_definition(Coverage &c,int gate,int z,int a,int b) {
+  std::vector<std::vector<int>> clauses;
+  if(gate==TACTIX_EXTENSION_AND)clauses={{-z,a},{-z,b},{z,-a,-b}};
+  else if(gate==TACTIX_EXTENSION_OR)clauses={{z,-a},{z,-b},{-z,a,b}};
+  else clauses={{z,a,-b},{z,-a,b},{-z,a,b},{-z,-a,-b}};
+  for(auto &row:clauses) {
+    std::sort(row.begin(),row.end());row.erase(std::unique(row.begin(),row.end()),row.end());
+    if(row.size()==2&&row[0]!=-row[1])c.definition_binaries.push_back({row[0],row[1]});
+  }
+}
+int extension_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
+  ++c.er_requests;
+  int candidates[32];int count=tactix_decide_candidates(s,candidates,32);
+  if(count<=0)return 1;
+  int a=candidates[rng.below(count)],b=candidates[rng.below(count)];
+  if(rng.one_in(4))b=a;else if(rng.one_in(4))b=-a;
+  if(rng.one_in(2))a=-a;
+  bool composed=false;
+  if(!c.extensions.empty()&&rng.one_in(2)) {
+    int previous=c.extensions[rng.below(c.extensions.size())];
+    for(int i=0;i<count;++i)if(std::abs(candidates[i])==previous){a=previous;composed=true;break;}
+  }
+  const int gate=1+int(rng.below(3));
+  int output=tactix_define_extension(s,gate,a,b);
+  if(output<0){++c.public_declines;return 1;}
+  ++c.er_defined;c.er_composed+=composed;c.extensions.push_back(output);
+  remember_definition(c,gate,output,a,b);
+  if(tactix_variable_retained(s,output)!=1)std::abort();
+  if(rng.one_in(2)&&!tactix_bump_variable(s,output,1+uint32_t(rng.below(4))))++c.er_bumped;
+  if(rng.one_in(2)) {
+    if(tactix_set_variable_retention(s,output,0)||tactix_variable_retained(s,output))std::abort();
+    ++c.er_released;
+  }
+  return 0;
+}
+int rup_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
+  ++c.rup_requests;
+  const auto &pool=c.definition_binaries;
+  if(pool.size()<2)return 1;
+  for(unsigned trial=0;trial<32;++trial) {
+    const auto &a=pool[rng.below(pool.size())],&b=pool[rng.below(pool.size())];
+    for(int i=0;i<2;++i)for(int j=0;j<2;++j)if(a[i]==-b[j]&&a[1-i]!=-b[1-j]) {
+      const int target[]={a[1-i],b[1-j]};
+      const tactix_rup_premise sources[]={{a.data(),2},{b.data(),2}};
+      int result=tactix_add_rup(s,target,2,sources,2,10000);
+      if(result<0){++c.public_declines;return 1;}
+      if(result==0||result==20)++c.rup_added;
+      return result;
+    }
+  }
+  return 1;
+}
+
 int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
                  Coverage &coverage, uint32_t variables,
                  uint64_t &revision) {
+  const char *selected=tactix_rule_name(id);
+  if(selected&&(!std::strcmp(selected,"ExtendedResolution")||!std::strcmp(selected,"RupConsequence"))) {
+    const int result=!std::strcmp(selected,"ExtendedResolution")
+        ? extension_action(solver,rng,coverage):rup_action(solver,rng,coverage);
+    ++coverage.rules[size_t(id)];
+    if(result==0||result==20)++coverage.effective_rules[size_t(id)];
+    return result;
+  }
   Form form = choose_form(coverage, profile, rng);
   bool have = true;
   uint64_t instance = TACTIX_INSTANCE_CANONICAL;
@@ -667,6 +733,8 @@ int public_random_solve(tactix_c_handle *solver, uint64_t seed,
         return 0;
       trace_selection(phase, decide);
       if (tactix_decide(solver, literal) == 0) {
+        if (std::find(coverage.extensions.begin(),coverage.extensions.end(),std::abs(literal))!=coverage.extensions.end())
+          ++coverage.extension_decisions;
         if (phase == Phase::RootWork) ++coverage.root_to_search;
         phase = tactix_public_random::successor(phase, Terminal::Decide);
         continue;
@@ -723,6 +791,11 @@ void print_coverage(uint64_t seed, Profile profile, const Coverage &coverage) {
               static_cast<unsigned long long>(coverage.effective_forms[3]),
               static_cast<unsigned long long>(coverage.online_declines),
               static_cast<unsigned long long>(coverage.public_declines));
+  std::printf("c public-random forms er-requests=%llu er-defined=%llu er-composed=%llu er-bumped=%llu er-released=%llu rup-requests=%llu rup-added=%llu extension-decisions=%llu\n",
+      (unsigned long long)coverage.er_requests,(unsigned long long)coverage.er_defined,
+      (unsigned long long)coverage.er_composed,(unsigned long long)coverage.er_bumped,
+      (unsigned long long)coverage.er_released,(unsigned long long)coverage.rup_requests,
+      (unsigned long long)coverage.rup_added,(unsigned long long)coverage.extension_decisions);
   for (size_t id = 0; id < coverage.rules.size(); ++id)
     if (coverage.rules[id])
       std::printf("c public-random rule %s applications=%llu effective=%llu\n",

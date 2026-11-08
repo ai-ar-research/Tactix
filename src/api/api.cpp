@@ -19,10 +19,10 @@
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
 #include "rules/rup_consequence/rup_consequence.hpp"
-#include "rules/substitution_redundancy/clausal_batch.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include "strategy/execution_scope.hpp"
+#include "strategy/semantic_variable_advice.hpp"
 #include "strategy/guidance_execution.hpp"
 #include "strategy/heuristic_execution.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -2342,6 +2342,7 @@ int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
           return output ? ApplyResult::Ok : ApplyResult::NoOp;
         });
   });
+  if (output) s->kernel.variable_retention.insert(static_cast<uint32_t>(output-1));
   kernel_check_invariants(s->kernel);
   return output ? output : -1;
 }
@@ -2385,37 +2386,50 @@ int tactix_fresh_variable_start(tactix_solver *s) {
   return extent<INT32_MAX ? int(extent+1) : -1;
 }
 
-int tactix_refute_clausal(tactix_solver *s,int first_fresh,uint32_t fresh,
-    const tactix_clausal_step *steps,int count,uint64_t maximum_work,
-    tactix_clausal_effort *effort) {
-  if (effort) *effort={};
-  if (!s || !c_array(steps,count) || !count || uint64_t(count)>maximum_work) return -1;
-  uint64_t size=uint64_t(count);
-  for (int i=0;i<count;++i) {
-    if (!c_array(steps[i].clause,steps[i].count) ||
-        uint64_t(steps[i].count)>maximum_work-size) return -1;
-    size+=uint64_t(steps[i].count);
-  }
+int tactix_set_variable_retention(tactix_solver *s, int external, int retain) {
+  if (!s || external<=0 || (retain!=0 && retain!=1)) return -1;
   input_complete(s);
-  if (!clausal_batch_guard(s->kernel)) return -1;
-  std::vector<ClausalBatchStep> program;program.reserve(count);
-  for (int i=0;i<count;++i) {
-    ClausalBatchStep step{static_cast<ClausalBatchKind>(steps[i].kind),{},steps[i].delete_step};
-    if (steps[i].count) step.clause.assign(steps[i].clause,steps[i].clause+steps[i].count);
-    program.push_back(std::move(step));
-  }
-  ClausalBatchPlan plan;ClausalReplay::Effort measured;
-  const bool valid=clausal_batch_prepare(s->kernel,first_fresh,fresh,std::move(program),maximum_work,plan,measured);
-  if (effort) *effort={measured.work,measured.rup_queries,measured.rat_resolvents,
-                       measured.propagated,measured.watch_visits};
-  if (!valid) return -1;
-  const auto &rule=tactix_rules()[tactix_rule_id("SubstitutionRedundancy")];
-  const auto result=apply_published(s,[&] {
-    return apply_rule_structured_preserve_startup(rule,s->kernel,"terminal-clausal-program",
-        [&] { return clausal_batch_commit(s->kernel,plan); });
+  auto &k=s->kernel;
+  const Lit l=kernel_internalize(k,external);
+  if (k.level || l==INVALID_LIT || kernel_var_retired(k,var_of(l))) return -1;
+  if (retain) k.variable_retention.insert(uint32_t(external-1));
+  else k.variable_retention.erase(uint32_t(external-1));
+  external_state_change(s);
+  return 0;
+}
+
+int tactix_variable_retained(tactix_solver *s, int external) {
+  if (!s || external<=0) return -1;
+  input_complete(s);
+  const Lit l=kernel_internalize(s->kernel,external);
+  if (l==INVALID_LIT) return -1;
+  return s->kernel.variable_retention.count(uint32_t(external-1)) ? 1:0;
+}
+
+int tactix_bump_variable(tactix_solver *s, int external, uint32_t dose) {
+  if (!s || external<=0 || !dose) return -1;
+  input_complete(s);
+  auto &k=s->kernel;
+  if (k.inconsistent || k.level || k.conflict_valid || k.pending.valid || !k.h) return -1;
+  strategy::SemanticVariableAdvice advice;
+  advice.action_id=1;
+  advice.source=strategy::state_version(k);
+  const Lit literal=kernel_internalize(k,external);
+  if (literal==INVALID_LIT) return -1;
+  const auto role=kernel_is_solver_extension(k,var_of(literal))
+      ? strategy::SemanticVariableRole::IntroducedTheory
+      : strategy::SemanticVariableRole::ExistingTheory;
+  advice.variables.push_back({uint32_t(external),role,dose});
+  strategy::SemanticVariableAdviceResult outcome;
+  const auto &rule=tactix_rules()[tactix_rule_id("SemanticVariableAdvice")];
+  apply_published(s,[&] {
+    return apply_rule_structured_preserve_startup(rule,k,"explicit-variable-priority",[&] {
+      outcome=strategy::commit_semantic_variable_advice(k,advice,{1,dose});
+      return outcome.status==strategy::SemanticVariableAdviceStatus::Applied
+          ? ApplyResult::Ok:ApplyResult::NoOp;
+    });
   });
-  kernel_check_invariants(s->kernel);
-  return result==ApplyResult::Unsat ? result_code(s,result) : -1;
+  return outcome.status==strategy::SemanticVariableAdviceStatus::Applied ? 0:-1;
 }
 
 int tactix_rule_semantic_instances(tactix_solver *s, int rule_id,
@@ -2621,6 +2635,7 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   case TACTIX_STAT_BVE_OTF_SUBSUMED: return k.stats.bve_otf_subsumed;
   case TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED:
     return k.stats.fastel_extensions_protected;
+  case TACTIX_STAT_DECISIONS_EXTENSION: return k.stats.decisions_extension;
 
   default:
     return UINT64_MAX;

@@ -168,6 +168,7 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_BVE_OTF_STRENGTHENED 62 /* generation-time SSR rewrites */
 #define TACTIX_STAT_BVE_OTF_SUBSUMED 63 /* second parents deleted by double SSR */
 #define TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED 64 /* deferred startup helpers */
+#define TACTIX_STAT_DECISIONS_EXTENSION 65 /* solver helpers, including ER */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
@@ -407,7 +408,8 @@ int tactix_apply_condition(tactix *, const int *clause, int clause_count,
 #define TACTIX_EXTENSION_XOR 3
 int tactix_define_extension(tactix *, int gate, int left, int right);
 
-/* Derive a RUP consequence from an explicitly selected live subset. Each
+/* Use sparingly for small targeted lemmas or rewrite steps; ordinary search
+ * should remain with CDCL. Derive a RUP consequence from a selected live subset. Each
  * premise is authenticated against the current formula; root units are legal
  * premises. Validation uses local unit propagation over the selected support.
  * Returns 0 added, 1 already true, 20 UNSAT, or -1 invalid/inapplicable/budget.
@@ -426,32 +428,16 @@ int tactix_add_rup(tactix *, const int *clause, int count,
  * closes. Returns -1 if no representable identity remains. */
 int tactix_fresh_variable_start(tactix *);
 
-/* Terminal clausal-program surface of SubstitutionRedundancy. Validate an
- * entire RUP/RAT program against one private indexed copy of the live formula,
- * including EVERY opposite-pivot clause for RAT. RAT pivots must belong to
- * the newly declared namespace, excluding hidden earlier proof contexts.
- * DELETE refers to a one-based
- * earlier addition step; original clauses cannot be deleted. The last step
- * must be an empty RUP clause. No branching occurs. Requires an assignment-free
- * propagated sparse root and a clausal proof route. first_fresh must match the
- * namespace query above; fresh_variables reserves proof-only identities.
- * Returns 20 on a fully validated, published refutation, -1 otherwise. After
- * input closure failures leave formula, namespace and proof unchanged. */
-#define TACTIX_CLAUSAL_RUP 1
-#define TACTIX_CLAUSAL_RAT 2
-#define TACTIX_CLAUSAL_DELETE 3
-typedef struct {
-  int kind;
-  const int *clause;
-  int count;
-  uint32_t delete_step;
-} tactix_clausal_step;
-typedef struct {
-  uint64_t work, rup_queries, rat_resolvents, propagated, watch_visits;
-} tactix_clausal_effort;
-int tactix_refute_clausal(tactix *, int first_fresh, uint32_t fresh_variables,
-    const tactix_clausal_step *, int count, uint64_t maximum_work,
-    tactix_clausal_effort *effort);
+/* Strategy advice at root: retain/release a live external variable through
+ * initial automatic elimination. DefaultPolicy consumes this deferral at
+ * search entry; explicit mathematical rule applications remain available.
+ * ER outputs enter this set automatically. Returns 0, or -1 if invalid. */
+int tactix_set_variable_retention(tactix *, int variable, int retain);
+int tactix_variable_retained(tactix *, int variable); /* 1/0, -1 invalid */
+/* Additive EVSIDS/VMTF priority through SemanticVariableAdvice, no phase change.
+ * Returns 0 on success, -1 for an invalid/non-branchable root request. */
+int tactix_bump_variable(tactix *, int variable, uint32_t dose);
+
 
 /* Additive fine-grained action surface. Most rules delegate to the frozen v1
  * payloads. Rules whose v1 payload grouped multiple choices enumerate opaque

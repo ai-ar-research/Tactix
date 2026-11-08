@@ -24,6 +24,12 @@ c localsearch 3 hints offered (127 phases, 1 replacements), 2 applied / 2 target
     assert "NaryCspPrefix" not in counts
     assert seen["TseitinCycleBreaking"]
     assert counts["TseitinCycleBreaking"] == 4
+
+    coverage=FUZZ.policy_coverage("c default-er definitions=8 composed=3 bumped=4 released=2 decisions=7 extension-decisions=2 er-decisions=2\n")
+    assert coverage["loop"]=={"default-er-definitions":8,"default-er-composed":3,
+        "default-er-bumped":4,"default-er-released":2,"default-er-decisions":7,
+        "default-er-extension-decisions":2,"default-er-er-decisions":2}
+    assert FUZZ.policy_coverage("c default-er definitions=invalid\n") is None
     assert seen["LocalSearchGuidance"]
     assert counts["LocalSearchGuidance"] == 2
 

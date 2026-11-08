@@ -507,10 +507,11 @@ _STATS_BANNER_RE = re.compile(r"^c tactix ", re.M)
 _PUBLIC_RANDOM_LINE_RE = re.compile(
     r"^c public-random (?:(rule) (\S+)|(transitions|forms)) "
     r"((?:\S+=\d+ ?)+)$", re.M)
+_DEFAULT_ER_LINE_RE = re.compile(r"^c default-er ((?:\S+=\d+ ?)+)$", re.M)
 
 
 def policy_coverage(stdout):
-    """Return public-random source counters, or None when none were printed."""
+    """Return qualification-client source counters, or None if absent."""
     found = None
     for m in _PUBLIC_RANDOM_LINE_RE.finditer(stdout or ""):
         found = found or {"rule": {}, "search": {}, "loop": {}}
@@ -520,6 +521,10 @@ def policy_coverage(stdout):
             found["rule"][m.group(2)] = fields
         else:
             found["loop"].update(fields)
+    for m in _DEFAULT_ER_LINE_RE.finditer(stdout or ""):
+        found = found or {"rule": {}, "search": {}, "loop": {}}
+        found["loop"].update({"default-er-"+key: int(value) for key,value in
+                              (item.split("=") for item in m.group(1).split())})
     return found
 
 

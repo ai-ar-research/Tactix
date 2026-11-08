@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tactix {
@@ -958,6 +959,10 @@ struct Kernel {
   bool factor_demote_fresh = true;
   uint32_t factor_cand_rounds = 2;
   bool no_ext_reason_bump = false;
+  // Strategy advice, keyed by permanent zero-based external identity. Mathematical
+  // rules remain unfiltered; DefaultPolicy selects its startup deferral.
+  std::unordered_set<uint32_t> variable_retention;
+  const std::unordered_set<uint32_t> *substitute_retention = nullptr;
   std::vector<VarStatus> var_status;
   std::vector<Var> retired_events;
   // Set only through TACTIX_SUPPORT_HOLD_RETIREMENTS: the guidance publisher
