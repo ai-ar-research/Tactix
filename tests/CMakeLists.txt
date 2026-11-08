@@ -27,6 +27,8 @@ if(TACTIX_BUILD_SHARED_IPASIR)
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
   tactix_python_test(python_policy_parity ${CMAKE_CURRENT_SOURCE_DIR}/test_python_policy_parity.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
+  tactix_python_test(python_scripted_default_parity ${CMAKE_CURRENT_SOURCE_DIR}/test_python_policy_parity.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER} --policy scripted-default)
   tactix_skip77_test(python_session ${TACTIX_PYTHON}
     ${CMAKE_CURRENT_SOURCE_DIR}/test_python_session.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})

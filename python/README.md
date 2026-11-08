@@ -110,3 +110,11 @@ Python Cruxmiter root scheduler against the C program, including action order,
 all public counters, models and proof bytes. A full Python transcription of
 native DefaultPolicy is not yet implemented; invoking it through
 `default_solve()` is an explicit native handoff.
+
+`python_scripted_default_parity` uses the same harness to compare an independent
+Python implementation of `examples/demo3_scripted_default.c`. It checks action
+forms and instance payloads as well as counters, models and certificates, and
+requires the retained search witness to reach restarts, reduction, mode changes
+and rephasing. This covers the C example's search schedule; its disabled
+inprocessing slot does not reproduce the full native DefaultPolicy. Both Python
+reference schedulers live in `tests/python_policy_reference.py`.

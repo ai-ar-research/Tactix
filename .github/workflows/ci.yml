@@ -154,9 +154,9 @@ jobs:
           cmake --build build/python-api --target tactix_shared --parallel 2
       - name: Python ABI, strategy parity, sessions/cores, and shared build boundary
         run: |
-          ctest --test-dir build/python-api --output-on-failure --output-log build/python-api/python-tests.log -R '^(python_(capi|policy_parity|session)|symmetry_backend_build_boundary)$'
+          ctest --test-dir build/python-api --output-on-failure --output-log build/python-api/python-tests.log -R '^(python_(capi|policy_parity|scripted_default_parity|session)|symmetry_backend_build_boundary)$'
           python3 - <<'PY'
           from pathlib import Path
           log = Path('build/python-api/python-tests.log').read_text()
-          assert 'out of 4' in log and '***Skipped' not in log and 'Not Run' not in log
+          assert 'out of 5' in log and '***Skipped' not in log and 'Not Run' not in log
           PY

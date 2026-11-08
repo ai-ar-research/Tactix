@@ -208,8 +208,10 @@ static int scripted_solve(tactix *s) {
     /* S5 Lucky once at search start, mirroring DefaultPolicy */
     if (!lucky_tried && r != 2) {
       lucky_tried = 1;
-      if (tactix_apply_instance(s, lucky, TACTIX_INSTANCE_CANONICAL) == 10)
-        return 10;
+      const int lucky_result =
+          tactix_apply_instance(s, lucky, TACTIX_INSTANCE_CANONICAL);
+      if (lucky_result == 10 || lucky_result == 20)
+        return lucky_result;
     }
     if (r == 2) { /* conflict: one atomic ConflictAnalysis (learn+backjump) */
       r = tactix_apply(s, conflictanalysis);
@@ -383,6 +385,19 @@ static const int STATS[] = {
 #define NSTATS (int)(sizeof(STATS) / sizeof(STATS[0]))
 
 int main(int argc, char **argv) {
+  /* Lucky can refute a formula as well as find a model. Ignoring its UNSAT
+   * result used to fall through to the unassigned-variable SAT shortcut. */
+  for (int guidance = TACTIX_GUIDANCE_DISCARD;
+       guidance <= TACTIX_GUIDANCE_NATIVE; ++guidance) {
+    tactix *s = tactix_init();
+    assert(tactix_set_guidance_publication(s, guidance) == 0);
+    for (int a = -1; a <= 1; a += 2)
+      for (int b = -2; b <= 2; b += 4) {
+        tactix_add(s, a); tactix_add(s, b); tactix_add(s, 0);
+      }
+    assert(scripted_solve(s) == 20);
+    tactix_release(s);
+  }
   /* Pinned formula: every schedule component fires on BOTH runs (first mode
    * switch at 1000 conflicts, first reduce at REDUCE_INTERVAL_INIT = 2000,
    * restart floor 50) while the stepped side remains practical under the
