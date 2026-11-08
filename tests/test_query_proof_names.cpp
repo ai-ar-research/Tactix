@@ -10,7 +10,7 @@
 using namespace tactix;
 
 struct Observer final : PopulationObserver {
-  struct Event { bool deletion; std::vector<int32_t> named; };
+  struct Event { bool deletion; std::vector<int32_t> named; CheckerClauseRole role; };
   std::vector<Event> events;
   unsigned helpers_added=0, helpers_deleted=0;
   uint32_t maximum=0;
@@ -24,7 +24,7 @@ struct Observer final : PopulationObserver {
       const int32_t literal=event.checker_literal_at(i);
       named.push_back(literal);maximum=std::max(maximum,external_variable_of(literal));
     }
-    events.push_back({deletion,std::move(named)});
+    events.push_back({deletion,std::move(named),event.role});
     if (event.role==CheckerClauseRole::DsrSubstitutionHelper) {
       assert(event.clause_is_named && event.proof_only);
       deletion ? ++helpers_deleted : ++helpers_added;
@@ -42,6 +42,33 @@ struct UnlicensedSources final : QueryProofSources {
     sources.push_back({99,{3}}); extent=3; return true;
   }
 };
+
+static void scale_fixture(const std::string &prefix, const std::string &mode,
+                          unsigned variables) {
+  assert(variables>=4);
+  std::vector<QueryProofOwnedClause> original{
+      {1,{1,2}},{2,{-1,2}},{3,{1,-2}},{4,{-1,-2}}};
+  for(unsigned v=3;v<=variables;++v)
+    original.push_back({original.size()+1,{int32_t(v),-int32_t(v==variables?3:v+1)}});
+  FILE *cnf=std::fopen((prefix+".cnf").c_str(),"w");assert(cnf);
+  std::fprintf(cnf,"p cnf %u %zu\n",variables,original.size());
+  Proof proof;
+  if(mode=="pbp") assert(proof.open((prefix+".proof").c_str(),ProofFormat::PbpStreaming));
+  else assert(proof.open_dsr_writer((prefix+".proof").c_str(),ProofFormat::DsrAscii));
+  std::vector<QueryProofClause> sources;
+  for(const auto &source:original) {
+    std::vector<Lit> body;
+    for(int32_t l:source.literals) {std::fprintf(cnf,"%d ",l);body.push_back(internalize(l));}
+    std::fputs("0\n",cnf);
+    proof.seed_population(source.id,body.data(),body.size());
+    sources.push_back({source.id,source.literals});
+  }
+  assert(std::fclose(cnf)==0);
+  proof.finish_input_transaction();
+  assert(proof.isolate_query(sources,{},variables));
+  const Lit one=internalize(1);proof.add_rup(original.size()+1,&one,1);
+  proof.add_empty(original.size()+2);proof.flush();
+}
 
 static void fixture(const std::string &prefix, const std::string &mode) {
   const std::vector<QueryProofOwnedClause> original{
@@ -90,14 +117,15 @@ static void fixture(const std::string &prefix, const std::string &mode) {
   const size_t old_events=observer.events.size();
   assert(proof.isolate_query(sources,{},4));
   for(size_t i=old_events;i<observer.events.size();++i)
-    for(int32_t literal:observer.events[i].named)
-      assert(external_variable_of(literal)>old_maximum);
+    if(observer.events[i].role==CheckerClauseRole::ExternalRup)
+      for(int32_t literal:observer.events[i].named)
+        assert(external_variable_of(literal)>old_maximum);
   if(mode=="pbp" || mode=="auto") parity_reason(10,5);
   const Lit one=internalize(1);proof.add_rup(7,&one,1);proof.add_empty(8);proof.flush();
   assert(observer.third && observer.fourth);
   if(mode=="dsr") {
     assert(observer.fourth>observer.third+1); // helpers occupy the gap
-    assert(observer.helpers_added==60 && observer.helpers_deleted==60);
+    assert(observer.helpers_added && observer.helpers_added==observer.helpers_deleted);
     // Every serialized addition/deletion, including each proof-only helper,
     // has one matching callback with exact physical names and byte order.
     std::ifstream input(prefix+".proof");std::string line;size_t at=0;
@@ -120,6 +148,7 @@ static void fixture(const std::string &prefix, const std::string &mode) {
 }
 
 int main(int argc,char **argv) {
+  if(argc==4) {scale_fixture(argv[1],argv[2],std::stoul(argv[3]));return 0;}
   if(argc==3) { fixture(argv[1],argv[2]);return 0; }
   assert(argc==1);TemporaryFile file;fixture(file.path,"dsr");
   assert(std::remove((file.path+".cnf").c_str())==0);

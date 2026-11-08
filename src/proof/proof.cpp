@@ -746,17 +746,11 @@ bool Proof::isolate_query_impl(std::span<const QueryProofClause> sources,
   const uint32_t logical_bound = std::max(extent, external_variable_bound());
   const uint64_t previous_helpers = helper_names_.empty() ? 0 : helper_names_.back().helpers;
   const uint64_t previous_max = uint64_t(certificate_offset_)+logical_bound+previous_helpers;
-  const uint64_t count = uint64_t(sources.size())+assumptions.size();
-  const uint64_t next_offset = previous_max+2*count;
+  const uint64_t next_offset = previous_max;
   if (next_offset+logical_bound+2 > MAX_CHECKER_NAME) return false;
   std::vector<QueryProofClause> copies(sources.begin(), sources.end());
   for (size_t i=0; i<assumptions.size(); ++i) copies.push_back({0, assumptions.subspan(i,1)});
   std::vector<uint32_t> support;
-  const auto maximum = [](const QueryProofClause &clause) {
-    uint32_t result=0;
-    for (int32_t literal : clause.literals) result=std::max(result,external_variable_of(literal));
-    return result;
-  };
   for (const auto &source : copies)
     for (int32_t literal : source.literals) {
       if (!literal || literal==INT32_MIN || external_variable_of(literal)>extent) return false;
@@ -772,15 +766,16 @@ bool Proof::isolate_query_impl(std::span<const QueryProofClause> sources,
     for (int32_t literal : source.literals) support.push_back(external_variable_of(literal));
   std::sort(support.begin(),support.end());
   support.erase(std::unique(support.begin(),support.end()),support.end());
-  // dsr-trim checks substitution names against the range opened by clauses.
-  // Introduce the greatest used fresh name first; unused logical coordinates
-  // need no mapping, and may be introduced by a later native action.
-  std::stable_sort(copies.begin(),copies.end(),[&](const auto &a,const auto &b) { return maximum(a)>maximum(b); });
-  std::vector<DsrLiteralMapping> mapping;
-  mapping.reserve(support.size());
+  // Define each fresh coordinate once. Copying every source with a complete
+  // substitution repeats the whole variable map for every clause (quadratic
+  // certificate volume). These conservative RAT definitions instead make
+  // every renamed source RUP; retire the definitions before native witnesses.
+  std::vector<std::array<int32_t,2>> bridges;
+  bridges.reserve(2*support.size());
   for (uint32_t variable : support)
-    mapping.push_back({internalize(static_cast<int32_t>(next_offset+variable)),
-                       internalize(static_cast<int32_t>(checker_variable(variable)))});
+    for (int sign : {1,-1})
+      bridges.push_back({sign*static_cast<int32_t>(next_offset+variable),
+                         -sign*static_cast<int32_t>(checker_variable(variable))});
   // Retire proof-only leases/caches while they still name the old generation.
   std::vector<uint64_t> groups;
   for (const auto &[handle, group] : premise_groups_) { (void)group; groups.push_back(handle); }
@@ -792,8 +787,10 @@ bool Proof::isolate_query_impl(std::span<const QueryProofClause> sources,
   pbp_parity_variables_.clear();
   disable_pbp_id_deletions();
   certificate_raw_ = true;
-  raw_helper_next_ = previous_max;
-  raw_helper_limit_ = next_offset;
+  bool ok = true;
+  if (!query_input_refuted_)
+    for (const auto &bridge : bridges)
+      if (!add_external_rat_impl(0,bridge.data(),bridge.size())) { ok=false; break; }
   const auto copy = [&](uint64_t id, std::span<const int32_t> original) {
     std::vector<int32_t> body(original.begin(), original.end());
     std::sort(body.begin(), body.end());
@@ -803,15 +800,16 @@ bool Proof::isolate_query_impl(std::span<const QueryProofClause> sources,
       if (std::binary_search(body.begin(), body.end(), -literal)) return true;
     }
     if (body.empty()) return query_input_refuted_;
-    std::vector<Lit> renamed;
+    std::vector<int32_t> renamed;
     for (int32_t literal : body)
-      renamed.push_back(internalize(literal < 0 ? literal-int32_t(next_offset) : literal+int32_t(next_offset)));
-    if (query_input_refuted_) { add_rup_impl(id, renamed.data(), renamed.size()); return true; }
-    return add_sr_impl(id, renamed.data(), renamed.size(), nullptr, 0,
-                       mapping.data(), mapping.size(), next_offset+extent, true);
+      renamed.push_back(literal < 0 ? literal-int32_t(next_offset) : literal+int32_t(next_offset));
+    return add_external_rup_impl(id,renamed.data(),renamed.size());
   };
-  bool ok = true;
-  for (const auto &source : copies) if (!copy(source.id, source.literals)) { ok = false; break; }
+  if (ok)
+    for (const auto &source : copies) if (!copy(source.id, source.literals)) { ok = false; break; }
+  if (ok && !query_input_refuted_)
+    for (const auto &bridge : bridges)
+      if (!del_external_impl(0,0,bridge.data(),bridge.size())) { ok=false; break; }
   flush_impl();
   certificate_raw_ = false;
   if (!ok) return false;
