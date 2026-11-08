@@ -198,6 +198,12 @@ TABLE = {
                            r'gf3_general_row_action_apply\('),
                           ("tests/test_gf3_general_row_public.cpp",
                            r'c_v11_deep_copies_typed_selection\(')]),
+    "RupConsequence":
+                        (EXPLICIT, "caller-selected live premises; default append disabled",
+                         [r'rules\[i\]\.default_inprocess'],
+                         [("src/rules/rup_consequence/rup_consequence.cpp",
+                           r'TACTIX_REGISTER_OPT_IN_RULE\(RupConsequence'),
+                          ("tests/test_rup_consequence.cpp", r'public_inference\(')]),
     "ExtendedResolution":
                         (EXPLICIT, "caller-selected Boolean definitions; default append disabled",
                          [r'rules\[i\]\.default_inprocess'],

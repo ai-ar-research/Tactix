@@ -18,6 +18,7 @@
 #include "rules/decide/decide.hpp"
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
+#include "rules/rup_consequence/rup_consequence.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include "strategy/execution_scope.hpp"
@@ -2342,6 +2343,38 @@ int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
   });
   kernel_check_invariants(s->kernel);
   return output ? output : -1;
+}
+
+int tactix_add_rup(tactix_solver *s, const int *clause, int count,
+                   const tactix_rup_premise *premises, int premise_count,
+                   uint64_t maximum_work) {
+  if (!s || !c_array(clause, count) || !c_array(premises, premise_count) ||
+      uint64_t(count) > maximum_work || uint64_t(premise_count) > maximum_work-uint64_t(count))
+    return -1;
+  uint64_t literal_count = uint64_t(count) + uint64_t(premise_count);
+  for (int i = 0; i < premise_count; ++i) {
+    if (!c_array(premises[i].literals, premises[i].count) ||
+        uint64_t(premises[i].count) > maximum_work-literal_count) return -1;
+    literal_count += uint64_t(premises[i].count);
+  }
+  input_complete(s);
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("RupConsequence")];
+  if (!rule_guard(rule, s->kernel)) return -1;
+  std::vector<int32_t> target;
+  if (count) target.assign(clause, clause+count);
+  std::vector<std::vector<int32_t>> source(premise_count);
+  for (int i = 0; i < premise_count; ++i)
+    if (premises[i].count)
+      source[i].assign(premises[i].literals, premises[i].literals+premises[i].count);
+  RupConsequencePlan plan;
+  if (!rup_consequence_prepare(s->kernel, target, source, maximum_work, plan)) return -1;
+  if (plan.already_true) return 1;
+  const ApplyResult result = apply_published(s, [&] {
+    return apply_rule_structured_preserve_startup(rule, s->kernel,
+        "selected-live-premises", [&] { return rup_consequence_commit(s->kernel, plan); });
+  });
+  kernel_check_invariants(s->kernel);
+  return result_code(s, result);
 }
 
 int tactix_rule_semantic_instances(tactix_solver *s, int rule_id,

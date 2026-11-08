@@ -12,8 +12,8 @@
 
 struct strategy {
   tactix *solver;
-  int sr, propagate;
-  uint64_t revision, definitions, consequences;
+  int propagate;
+  uint64_t definitions, consequences;
 };
 
 static int find_rule(const char *name) {
@@ -38,31 +38,13 @@ static int propagate(struct strategy *p) {
   return 0;
 }
 
-static int consequence(struct strategy *p, const int *clause, int count) {
-  /* RUP consequences are also valid SR instances with the default pivot
-   * witness. The existing public validator checks them against the live CNF.
-   * This first implementation deliberately reuses that exact public surface.
-   */
-  tactix_online_sr_instance instance = {clause, count, NULL, 0, NULL, 0};
-  tactix_online_step_v2 step = {0};
-  step.base.step_id = 1;
-  step.base.rule_id = p->sr;
-  step.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  step.base.budget_unlimited = 1;
-  step.base.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
-  step.base.parameters.value.substitution_redundancy.maximum_validation_ticks = UINT64_MAX;
-  step.sr_instances = &instance;
-  step.sr_instance_count = 1;
-  tactix_online_program_v2 program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
-  if (tactix_online_configure_v2(p->solver, &program, ++p->revision,
-                               TACTIX_ONLINE_RECONFIGURE_RESET)) return -1;
-  tactix_online_result result = {0};
-  if (tactix_online_advance(p->solver, &result)) return -1;
+static int consequence(struct strategy *p, const int *clause, int count,
+                       const tactix_rup_premise *premises, int premise_count) {
+  const int result = tactix_add_rup(p->solver, clause, count, premises,
+                                   premise_count, UINT64_MAX);
+  if (result < 0) return -1;
   ++p->consequences;
-  if (result.rule_result == 20 || result.status == TACTIX_ONLINE_UNSAT) return 20;
-  if (!result.made_rule_progress && result.status != TACTIX_ONLINE_NO_CHANGE)
-    return -1;
-  return propagate(p);
+  return result == 20 ? 20 : propagate(p);
 }
 
 static int reduce_php(struct strategy *p, int holes, int *matrix) {
@@ -73,7 +55,8 @@ static int reduce_php(struct strategy *p, int holes, int *matrix) {
    */
   for (int h = holes; h >= 2 && !outcome; --h) {
     int *next = malloc((size_t)h * (h - 1) * sizeof *next);
-    if (!next) { outcome = -1; break; }
+    int *terms = malloc((size_t)h * (h - 1) * sizeof *terms);
+    if (!next || !terms) { free(next); free(terms); outcome = -1; break; }
     for (int i = 0; i < h && !outcome; ++i)
       for (int j = 0; j < h - 1; ++j) {
         const int term = tactix_define_extension(p->solver, TACTIX_EXTENSION_AND,
@@ -83,6 +66,7 @@ static int reduce_php(struct strategy *p, int holes, int *matrix) {
                                               matrix[i*h+j], term);
         if (q < 0) { outcome = -1; break; }
         next[i*(h-1)+j] = q;
+        terms[i*(h-1)+j] = term;
         p->definitions += 2;
       }
     /* For each hole, split a new collision on the last pigeon's old literal.
@@ -92,13 +76,45 @@ static int reduce_php(struct strategy *p, int holes, int *matrix) {
       for (int i = 0; i < h && !outcome; ++i)
         for (int k = i + 1; k < h && !outcome; ++k) {
           const int a = next[i*(h-1)+j], b = next[k*(h-1)+j];
-          int clause[] = {-a, -b, matrix[h*h+j]};
-          outcome = consequence(p, clause, 3);
-          if (!outcome) { clause[2] = -clause[2]; outcome = consequence(p, clause, 3); }
-          if (!outcome) outcome = consequence(p, clause, 2);
+          const int ti = terms[i*(h-1)+j], tk = terms[k*(h-1)+j];
+          const int x = matrix[i*h+j], y = matrix[k*h+j];
+          const int u = matrix[i*h+h-1], v = matrix[k*h+h-1];
+          const int z = matrix[h*h+j];
+          int positive[] = {-a, -b, z}, negative[] = {-a, -b, -z};
+          int rows[][3] = {{-ti,z}, {-tk,z}, {-a,x,ti}, {-b,y,tk}, {-x,-y},
+                          {-x,-z}, {-y,-z}, {-ti,u}, {-tk,v}, {-u,-v}};
+          tactix_rup_premise first[] = {{rows[0],2},{rows[1],2},
+            {rows[2],3},{rows[3],3},{rows[4],2}};
+          tactix_rup_premise second[] = {{rows[5],2},{rows[6],2},
+            {rows[2],3},{rows[3],3},{rows[7],2},{rows[8],2},{rows[9],2}};
+          tactix_rup_premise final[] = {{positive,3},{negative,3}};
+          outcome = consequence(p, positive, 3, first, 5);
+          if (!outcome) outcome = consequence(p, negative, 3, second, 7);
+          if (!outcome) outcome = consequence(p, positive, 2, final, 2);
         }
-    for (int i = 0; i < h && !outcome; ++i)
-      outcome = consequence(p, next + i*(h-1), h - 1);
+    for (int i = 0; i < h && !outcome; ++i) {
+      const int count = 3*(h-1)+3;
+      tactix_rup_premise *premises = malloc((size_t)count * sizeof *premises);
+      int (*rows)[3] = malloc((size_t)(count-2) * sizeof *rows);
+      if (!premises || !rows) { free(premises); free(rows); outcome = -1; break; }
+      premises[0] = (tactix_rup_premise){matrix+i*h,h};
+      premises[1] = (tactix_rup_premise){matrix+h*h,h};
+      rows[0][0] = -matrix[i*h+h-1]; rows[0][1] = -matrix[h*h+h-1];
+      premises[2] = (tactix_rup_premise){rows[0],2};
+      for (int j = 0; j < h-1; ++j) {
+        const int q = next[i*(h-1)+j], t = terms[i*(h-1)+j];
+        const int r = 1+3*j;
+        rows[r][0] = q; rows[r][1] = -matrix[i*h+j];
+        rows[r+1][0] = q; rows[r+1][1] = -t;
+        rows[r+2][0] = t; rows[r+2][1] = -matrix[i*h+h-1];
+        rows[r+2][2] = -matrix[h*h+j];
+        for (int k = 0; k < 3; ++k)
+          premises[3+3*j+k] = (tactix_rup_premise){rows[r+k],k == 2 ? 3 : 2};
+      }
+      outcome = consequence(p, next+i*(h-1), h-1, premises, count);
+      free(rows); free(premises);
+    }
+    free(terms);
     printf("c php-er level=%d definitions=%" PRIu64 " consequences=%" PRIu64 "\n",
            h, p->definitions, p->consequences);
     free(matrix);
@@ -174,7 +190,6 @@ int main(int argc, char **argv) {
   if (!matrix) { fclose(input); return 1; }
   struct strategy p = {0};
   p.solver = tactix_init();
-  p.sr = find_rule("SubstitutionRedundancy");
   p.propagate = find_rule("Propagate");
   if ((argc == 3 && tactix_proof(p.solver, argv[2], TACTIX_PROOF_PBP)) ||
       tactix_read_dimacs(p.solver, input)) {
