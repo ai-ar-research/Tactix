@@ -404,6 +404,9 @@ target_link_libraries(tactix-public-random PRIVATE tactix_lib)
 add_executable(tactix-default-er-fuzz
                ${CMAKE_SOURCE_DIR}/tools/fuzz/default_er_main.cpp)
 target_link_libraries(tactix-default-er-fuzz PRIVATE tactix_lib)
+tactix_python_test(default_er_frontend
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_default_er_frontend.py
+                   $<TARGET_FILE:tactix-default-er-fuzz>)
 add_test(NAME public_random_frontend
          COMMAND ${CMAKE_COMMAND} -E env ASAN_OPTIONS=detect_leaks=0
                  python3 ${CMAKE_CURRENT_SOURCE_DIR}/test_public_random_frontend.py

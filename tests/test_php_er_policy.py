@@ -4,7 +4,7 @@ import subprocess,sys
 from tempdir_cleanup import RetryingTemporaryDirectory
 binary,root=map(lambda p:Path(p).resolve(),sys.argv[1:])
 fixture=root/'examples/cnf/php/4-3-pairwise.cnf'
-for options in [[],['--prioritize']]:
+for options in [[],['--prioritize'],['--cdcl-only'],['--cdcl-only','--prioritize']]:
  run=subprocess.run([binary,fixture,*options],capture_output=True,text=True,timeout=5)
  assert run.returncode==20,(run.stdout,run.stderr)
  assert 'definitions=4' in run.stdout and 's UNSATISFIABLE' in run.stdout
