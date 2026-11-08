@@ -5,6 +5,7 @@
 #include "kernel/occ.hpp"
 #include "kernel/splitmix64.hpp"
 #include "kernel/structural_journal.hpp"
+#include "kernel/query_projection.hpp"
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
@@ -33,6 +34,15 @@
 namespace tactix {
 
 struct Kernel;
+namespace session { class QueryKernel; }
+
+// Only a query owner that has preflighted its replacement certificate and
+// original-representation repair may discard native sources without deleting
+// them from the previous query's immutable certificate. Never a rule action.
+class QueryPopulationRetirement {
+  friend class session::QueryKernel;
+  QueryPopulationRetirement() = default;
+};
 struct AffineBasisActionSession;
 struct ExactCoverExtensionActionSession;
 struct IndependentSetCoverActionSession;
@@ -638,6 +648,11 @@ struct Kernel {
   uint32_t original_external_vars = UINT32_MAX;
   uint32_t first_extension_var = UINT32_MAX;
   bool inconsistent = false; // root-level conflict happened
+  // Monotone semantic metadata, never reset by statistics APIs. Witnessed
+  // projection repairs and general SR steps can preserve satisfiability while
+  // changing models on externally fixed variables. Query owners must restore
+  // or establish their projection contract before accepting such an epoch.
+  bool projection_changed = false;
 
   std::vector<int8_t> values;     // by lit: 1 true, -1 false, 0 unassigned
   std::vector<Assigned> assigned; // by var
@@ -1159,6 +1174,9 @@ struct Kernel {
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 
+  // Cold, optional query-projection service; never read by propagation.
+  QueryProjectionService *query_projection = nullptr;
+
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   // Keep diagnostic-only storage at the final object boundary. The dedicated
   // observer test intentionally links a trace-compiled test object against the
@@ -1226,6 +1244,10 @@ inline void kernel_mark_factor_literal(Kernel &k, Lit lit,
 }
 
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
+// Cold storage primitive: append one native coordinate for an existing unmapped
+// external identity. The caller owns root safety, registration and restoration.
+// Installs the stable mapping before any growth/heuristic diagnostic observes it.
+void kernel_reconnect_external_variable(Kernel &, Var external);
 void kernel_defer_cold_state(Kernel &);
 void kernel_materialize_cold_state(Kernel &);
 void kernel_record_import(Kernel &, Var);
@@ -1354,6 +1376,10 @@ void kernel_push_cube_witness(Kernel &, const Lit *clause, uint32_t nclause,
 // mirror it into internal values for legacy white-box consumers.  Resumable
 // online paths pass false so model export cannot mutate solver state.
 void kernel_extend_model(Kernel &, bool materialize_internal = true);
+// Seed only unassigned retired/compacted coordinates before reconstruction.
+// Query correctness services supply a licensed effective assumption cube.
+void kernel_extend_model_seeded(Kernel &, std::span<const int32_t>,
+                                 bool materialize_internal = false);
 
 // Policy-free support primitive: densely renumber variables whose formula
 // retirement is already complete.  External proof/API/model identities do not
@@ -1584,6 +1610,8 @@ bool kernel_delete_binary_one_copy(Kernel &, Lit a, Lit b);
 // elimination score at that point, not the currently popped pivot.
 bool kernel_delete_binary_one_copy_bve_scan(Kernel &, Lit pivot, Lit other);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
+bool kernel_discard_query_binary_copies(Kernel &, Lit, Lit,
+                                        const QueryPopulationRetirement &);
 // Forward.c duplicate sweep: retain the first physical copy in each mirrored
 // watch list and retire every later copy. Returns the number retired.
 uint32_t kernel_remove_duplicate_binary_copies(Kernel &, Lit a, Lit b);
@@ -1673,6 +1701,37 @@ inline PopulationClauseView kernel_population_clause(
                                               &k.internal_to_external);
 }
 
+inline bool kernel_records_weakening(const Kernel &k) noexcept {
+  return k.population_observer && k.population_observe_solver &&
+         k.population_observer->records_weakening();
+}
+
+inline ScopedWeakeningCapture::ScopedWeakeningCapture(Kernel &k, WeakeningFamily family,
+    const Lit *clause, uint32_t size, Lit witness, uint64_t source_id,
+    bool binary, bool all_binary_copies) noexcept : kernel_(k) {
+  if (!kernel_records_weakening(k)) return;
+  token_ = kernel_prepare_weakening(k, family,
+      kernel_population_clause(k, clause, size),
+      kernel_population_clause(k, &witness, 1), source_id, binary, all_binary_copies);
+}
+
+inline ScopedWeakeningCapture::~ScopedWeakeningCapture() {
+  if (token_) kernel_finish_weakening(kernel_, token_, false);
+}
+
+inline ScopedWeakeningCapture::ScopedWeakeningCapture(Kernel &k, WeakeningFamily family,
+    PopulationClauseView clause, PopulationClauseView witness, uint64_t source_id,
+    bool binary, bool all_binary_copies, uint64_t reconstruction_words) noexcept : kernel_(k) {
+  if (!kernel_records_weakening(k)) return;
+  token_ = kernel_prepare_weakening(k, family, clause, witness, source_id,
+                                  binary, all_binary_copies, reconstruction_words);
+}
+
+inline void ScopedWeakeningCapture::commit() noexcept {
+  if (token_) kernel_finish_weakening(kernel_, token_, true);
+  token_ = 0;
+}
+
 inline void kernel_observe_solver_clause(
     Kernel &k, SolverPopulationEventKind event_kind,
     SolverClauseKind clause_kind, uint64_t logical_id, const Lit *literals,
@@ -1734,7 +1793,8 @@ inline void kernel_observe_replacement(
   k.population_observer->observe(event);
 }
 
-inline void kernel_delete_clause(Kernel &k, Clause *c,
+template <bool QueryDiscard = false>
+inline void kernel_delete_clause_impl(Kernel &k, Clause *c,
                                  bool semantic_removal = true,
                                  const char *retry_source = "delete-clause",
                                  bool checker_visible = true) {
@@ -1756,7 +1816,7 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
   // placeholder before publishing its certified reason. Such a provisional
   // record has no checker identity and must still retire through this audited
   // solver-population boundary without emitting a proof deletion.
-  assert(checker_visible || (c->redundant() && !c->id()));
+  assert(checker_visible || QueryDiscard || (c->redundant() && !c->id()));
   if (k.proof && checker_visible)
     k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -1777,6 +1837,19 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
       kernel_removed_var(k, var_of(l)); // BCE's side of the substrate
       kernel_notify_bve_score(k, var_of(l), true);
     }
+}
+
+inline void kernel_delete_clause(Kernel &k, Clause *c,
+                                 bool semantic_removal = true,
+                                 const char *retry_source = "delete-clause",
+                                 bool checker_visible = true) {
+  kernel_delete_clause_impl(k,c,semantic_removal,retry_source,checker_visible);
+}
+
+inline void kernel_discard_query_clause(Kernel &k, Clause *c,
+                                        const QueryPopulationRetirement &) {
+  assert(k.trail.empty() && !k.level && !k.pending.valid && !k.conflict_valid);
+  kernel_delete_clause_impl<true>(k,c,true,"query-discard",false);
 }
 
 inline uint32_t kernel_shrunken_glue(Kernel &k, uint32_t old_glue,

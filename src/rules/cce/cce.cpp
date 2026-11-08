@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <unordered_set>
 #include <vector>
 
@@ -358,6 +359,17 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
 
   const bool eliminated = ata || blocked;
   if (eliminated) {
+    std::optional<ScopedWeakeningCapture> capture;
+    if (kernel_records_weakening(k) && !cv.pivot.empty()) {
+      uint64_t words = 0;
+      for (uint32_t prefix : cv.prefix) words += uint64_t(prefix) + 1;
+      const Lit pair[2] = {self.first, self.second};
+      const Clause *source = self.binary() ? nullptr : clause_at(k.arena, self.ref);
+      capture.emplace(k, WeakeningFamily::Cce,
+          kernel_population_clause(k, source ? source->lits : pair, source ? source->size : 2),
+          kernel_population_clause(k, cv.pivot.data(), cv.pivot.size()),
+          source ? source->id() : 0, self.binary(), self.binary(), words);
+    }
     // `ρ` in push order; kernel_extend_model replays it in reverse, the order
     // `docs/dev/calculus.md` §X3 unwinds the CLA steps in. An ATA exit reached with
     // no CLA step in front of it needs no segment: the extension is then pure
@@ -383,6 +395,7 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
       kernel_delete_clause(k, clause_at(k.arena, self.ref));
     }
     if (deleted) {
+      if (capture) capture->commit();
       k.stats.cce_deleted++;
       if (blocked)
         k.stats.cce_blocked++;

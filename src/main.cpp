@@ -1027,9 +1027,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.decisions);
     printf("c extension   %u vars added, %llu decisions on them (%.2f%% of "
            "%llu)\n",
-           kernel.first_extension_var == UINT32_MAX
-               ? 0u
-               : kernel.nvars - kernel.first_extension_var,
+           kernel.first_extension_var == UINT32_MAX ? 0u : static_cast<unsigned>(std::count_if(
+               kernel.internal_to_external.begin() + kernel.first_extension_var,
+               kernel.internal_to_external.end(),
+               [&](Var external) { return external >= kernel.original_external_vars; })),
            (unsigned long long)kernel.stats.decisions_extension,
            percent_of(kernel.stats.decisions_extension, kernel.stats.decisions),
            (unsigned long long)kernel.stats.decisions);

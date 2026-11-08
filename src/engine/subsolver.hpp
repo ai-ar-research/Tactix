@@ -42,6 +42,17 @@ enum class SubPropagationResult {
   Budget,
 };
 
+enum class SubRupAdmission {
+  Accepted,
+  Tautology,
+  NotRup,
+  Invalid,
+  Unavailable,
+  Budget,
+  Interrupted,
+  Exhausted,
+};
+
 enum class SubTickMode {
   Entries, // legacy shared-engine work unit used by BVE definition extraction
   Kitten,  // Kissat cache-line currency used by Sweep scheduling
@@ -146,6 +157,13 @@ public:
   SubPropagationResult propagate_assumptions_only(
       const std::vector<SubLit> &assumptions, uint64_t ticks_budget,
       const volatile sig_atomic_t *stop = nullptr);
+
+  // A persistent RUP oracle: check by pure BCP, unwind temporary assumptions,
+  // then install only an accepted clause for later dependent checks. No CDCL,
+  // learning or derivation export occurs. Fixed mode only, before any full
+  // solve call; reset starts another oracle lifetime. Zero budget does no work.
+  SubRupAdmission admit_rup(const std::vector<SubLit> &, uint64_t ticks_budget,
+                           const volatile sig_atomic_t *stop = nullptr);
 
   // The refutation behind the last `Unsat`. False when there is none: no
   // refutation yet, or the assumptions were directly contradictory, so nothing
@@ -268,6 +286,7 @@ private:
   bool inconsistent_ = false; // the empty clause was derived or added
   bool solved_ = false;       // `solve` has run: no more original clauses
   bool model_valid_ = false;  // the most recent solve returned Sat
+  bool search_started_ = false; // RUP admission cannot renumber a search proof
   // An input clause that refuted the formula on its own. Its target is built at
   // the first solve, so lemma ids never land below the original-id watershed.
   SubRef pending_refutation_ = NO_REF;

@@ -187,6 +187,10 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
   for (const Lit lit : lits)
     if (lit != blocking)
       rest.push_back(lit);
+  const bool binary = choice.candidate.ref == INVALID_REF;
+  ScopedWeakeningCapture capture(k, WeakeningFamily::Bce, lits.data(),
+      static_cast<uint32_t>(lits.size()), blocking,
+      binary ? 0 : clause_at(k.arena, choice.candidate.ref)->id(), binary, binary);
   if (choice.candidate.ref == INVALID_REF) {
     if (!kernel_delete_binary_all_copies(k, blocking,
                                          choice.candidate.partner))
@@ -199,6 +203,7 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
   }
   kernel_push_witness(k, blocking, rest.data(),
                       static_cast<uint32_t>(rest.size()));
+  capture.commit();
   ++k.stats.bce_deleted;
   return ApplyResult::Ok;
 }
@@ -274,14 +279,19 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   for (const Occ &b : blocked) {
     rest.clear();
     if (b.ref == INVALID_REF) {
-      // The primitive refuses a duplicated pair (two live copies sharing one
-      // binary_ids id; see transitive_reduce.hpp). Skip it, and push no
-      // witness: a witness for a clause still in the formula is not wrong, but
-      // it misstates what ρ contains.
+      // A preceding duplicate candidate may already have removed the whole
+      // pair. There is no new source to prepare for that stale index entry.
+      if (kernel_records_weakening(k) && !kernel_binary_live(k, blocking, b.partner))
+        continue;
+      const Lit clause[2] = {blocking, b.partner};
+      ScopedWeakeningCapture capture(k, WeakeningFamily::Bce, clause, 2,
+          blocking, 0, true, true);
+      // Failed deletion publishes neither a witness nor a weakening record.
       if (!kernel_delete_binary_all_copies(k, blocking, b.partner))
         continue;
       rest.push_back(b.partner);
       kernel_push_witness(k, blocking, rest.data(), 1);
+      capture.commit();
     } else {
       Clause *c = clause_at(k.arena, b.ref);
       if (c->garbage())
@@ -289,9 +299,12 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
       for (const Lit l : *c)
         if (l != blocking)
           rest.push_back(l);
+      ScopedWeakeningCapture capture(k, WeakeningFamily::Bce, c->lits, c->size,
+          blocking, c->id(), false);
       kernel_push_witness(k, blocking, rest.data(),
                           static_cast<uint32_t>(rest.size()));
       kernel_delete_clause(k, c);
+      capture.commit();
     }
     k.stats.bce_deleted++;
   }

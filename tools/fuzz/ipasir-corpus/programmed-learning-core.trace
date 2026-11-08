@@ -1,0 +1,39 @@
+init 0
+init 1
+strategy 0 2
+learn 0 1
+core_budget 0 1000000
+add 0 1
+add 0 2
+add 0 0
+add 0 1
+add 0 -2
+add 0 0
+assume 0 7
+assume 0 -1
+solve 0
+learn 0 -1
+strategy 0 1
+solve 0
+learn 0 1
+learn_budget 0 0
+assume 0 -1
+solve 0
+learn_budget 0 -1
+strategy 0 3
+assume 0 7
+assume 0 -1
+solve 0
+strategy 0 0
+learn 0 0
+add 0 -1
+add 0 0
+assume 0 8
+solve 0
+learn 1 0
+strategy 1 1
+assume 1 9
+assume 1 -9
+solve 1
+release 0
+release 1

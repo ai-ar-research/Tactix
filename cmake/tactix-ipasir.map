@@ -1,0 +1,4 @@
+{
+  global: ipasir_*; tactix_*;
+  local: *;
+};

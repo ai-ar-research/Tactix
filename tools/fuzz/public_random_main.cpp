@@ -4,6 +4,9 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#ifdef TACTIX_PUBLIC_RANDOM_IPASIR
+#include "public_random_session.h"
+#endif
 
 #include "public_random_grammar.hpp"
 
@@ -99,6 +102,7 @@ bool validate_public_action_grammar() {
   return valid;
 }
 
+#ifndef TACTIX_PUBLIC_RANDOM_IPASIR
 uint32_t declared_variables(const char *path) {
   std::ifstream input(path);
   std::string line;
@@ -126,6 +130,7 @@ uint32_t declared_variables(const char *path) {
   }
   return result;
 }
+#endif
 
 std::vector<int> applicable(tactix_c_handle *solver) {
   const int count = tactix_rule_count();
@@ -622,28 +627,58 @@ int execute_selected_restart(tactix_c_handle *solver, int restart,
   return result;
 }
 
-int public_random_solve(tactix_c_handle *solver, uint64_t seed,
-                        uint32_t variables, Coverage &coverage) {
-  Rng rng(seed);
-  const Profile profile = static_cast<Profile>(seed % static_cast<unsigned>(Profile::Count));
+struct Runtime {
+  Rng rng;
+  Profile profile;
+  uint64_t revision = 0, remaining_root, next_restart_conflict,
+      next_reduce_conflict, steps = 0;
+  Phase phase = Phase::RootWork;
+  explicit Runtime(uint64_t seed) : rng(seed),
+      profile(static_cast<Profile>(seed % static_cast<unsigned>(Profile::Count))),
+      remaining_root(root_burst(profile,rng)),
+      next_restart_conflict(64+rng.below(65)),
+      next_reduce_conflict(256+rng.below(257)) {}
+};
+
+enum class Boundary { Ready, Assume, Backtrack, Stop, Unsat };
+struct QueryPort {
+  void *session = nullptr;
+  Boundary (*observe)(void *) = nullptr;
+  int (*assume)(void *) = nullptr;
+};
+
+int public_random_solve(tactix_c_handle *solver, Runtime &runtime,
+                        uint32_t variables, Coverage &coverage, QueryPort query = {}) {
+  auto &rng=runtime.rng;
+  const auto profile=runtime.profile;
+  auto &revision=runtime.revision;
+  auto &remaining_root=runtime.remaining_root;
+  auto &next_restart_conflict=runtime.next_restart_conflict;
+  auto &next_reduce_conflict=runtime.next_reduce_conflict;
+  auto &phase=runtime.phase;
   const int propagation = rule_id("Propagate");
   const int analysis = rule_id("ConflictAnalysis");
   const int decide = rule_id("Decide");
   const int restart = rule_id("Restart");
   const int reduce = rule_id("Reduce");
-  uint64_t revision = 0;
-  uint64_t remaining_root = root_burst(profile, rng);
   // Diversity is aggregated over the campaign.  Keeping each prefix short is
   // what lets thousands of independent cases explore more state transitions
   // instead of one case monopolizing a worker in an expensive root action.
   const uint64_t random_budget = 24 + std::min<uint64_t>(variables, 64);
-  uint64_t next_restart_conflict = 64 + rng.below(65);
-  uint64_t next_reduce_conflict = 256 + rng.below(257);
-  Phase phase = Phase::RootWork;
-
-  for (uint64_t steps = 0;; ++steps) {
+  for (;;) {
+    const uint64_t steps=runtime.steps++;
     const int status = tactix_status(solver);
+    const auto boundary=query.observe?query.observe(query.session):Boundary::Ready;
+    if(boundary==Boundary::Stop)return 0;
     if (status) return status;
+    if(boundary==Boundary::Unsat)return tactix_status(solver);
+    if(boundary==Boundary::Backtrack) {
+      const int result=execute_selected_restart(solver,restart,0,Phase::Search,coverage);
+      if(result<0)return 0;
+      ++coverage.full_restarts;++coverage.search_to_root;
+      phase=Phase::RootWork;remaining_root=root_burst(profile,rng);
+      continue;
+    }
     auto rules = applicable(solver);
 
     // These are guarded productions, not candidates in the random choice:
@@ -726,6 +761,15 @@ int public_random_solve(tactix_c_handle *solver, uint64_t seed,
       if (result == 10 || result == 20) return result;
       continue;
     }
+    // Root transformations run on F before installing A. Assumptions are
+    // installed through the shared query service before any search decision;
+    // a restart that removes them must reinstall them through this boundary.
+    if(boundary==Boundary::Assume) {
+      if(query.assume(query.session)!=0)return 0;
+      if(phase==Phase::RootWork)++coverage.root_to_search;
+      phase=Phase::Search;
+      continue;
+    }
     if (phase == Phase::Search && random_phase &&
         !search_maintenance.empty() && search_maintenance_now(profile, rng)) {
       const int id = choose_rule(search_maintenance, coverage, profile, rng);
@@ -765,6 +809,7 @@ int public_random_solve(tactix_c_handle *solver, uint64_t seed,
   }
 }
 
+#ifndef TACTIX_PUBLIC_RANDOM_IPASIR
 void print_model(tactix_c_handle *solver, uint32_t variables) {
   std::fputs("v", stdout);
   for (uint32_t variable = 1; variable <= variables; ++variable) {
@@ -824,9 +869,11 @@ void print_coverage(uint64_t seed, Profile profile, const Coverage &coverage) {
                   static_cast<unsigned long long>(coverage.rules[id]),
                   static_cast<unsigned long long>(coverage.effective_rules[id]));
 }
+#endif
 
 } // namespace
 
+#ifndef TACTIX_PUBLIC_RANDOM_IPASIR
 int main(int argc, char **argv) {
   uint64_t seed = 20260710;
   int proof_format = TACTIX_PROOF_PBP;
@@ -927,3 +974,79 @@ int main(int argc, char **argv) {
   std::fclose(provenance);
   return result == 10 ? 10 : result == 20 ? 20 : 0;
 }
+#else
+struct tactix_random_session {
+  Rng seeds;
+  uint32_t variables=0;
+  Coverage coverage;
+  Runtime runtime;
+  FILE *provenance;
+  explicit tactix_random_session(uint64_t seed) : seeds(seed),runtime(seed),
+      provenance(std::tmpfile()) {}
+  ~tactix_random_session() {if(provenance)std::fclose(provenance);}
+};
+extern "C" {
+tactix_random_session *tactix_random_session_new(uint64_t seed) {
+  if(!validate_public_action_grammar())return nullptr;
+  auto *state=new tactix_random_session(seed);
+  if(!state->provenance) {delete state;return nullptr;}
+  return state;
+}
+void tactix_random_session_delete(tactix_random_session *state) {delete state;}
+void tactix_random_session_seed(tactix_random_session *state,uint64_t seed) {
+  state->seeds=Rng(seed);
+}
+void tactix_random_session_variables(tactix_random_session *state,uint32_t variables) {
+  state->variables=variables;
+  state->coverage=Coverage{};
+}
+int tactix_random_session_run(void *opaque,void *session,tactix_c_handle *view,unsigned entry) {
+  auto &state=*static_cast<tactix_random_session *>(opaque);
+  if(entry==TACTIX_IPASIR_ENTER_QUERY) {
+    state.runtime=Runtime(state.seeds.next());
+    state.coverage=Coverage{};
+    state.coverage.rules.resize(static_cast<size_t>(tactix_rule_count()));
+    state.coverage.effective_rules.resize(static_cast<size_t>(tactix_rule_count()));
+  } else {
+    // Restoration replaces the borrowed view, not the strategy continuation.
+    // Its root quota and finite diversity prefix have already paid for the
+    // action which requested repair; retaining them prevents a replay loop.
+    state.runtime.phase=Phase::RootWork;
+  }
+  if(tactix_bind_structural_provenance(view,state.provenance) ||
+     tactix_set_guidance_publication(view,TACTIX_GUIDANCE_NATIVE))return 0;
+  QueryPort port{session,[](void *s) {
+    tactix_ipasir_query_state q{};q.version=1;q.size=sizeof q;
+    if(tactix_ipasir_next(s,&q))return Boundary::Stop;
+    switch(q.action) {
+    case TACTIX_QUERY_ASSUME:return Boundary::Assume;
+    case TACTIX_QUERY_BACKTRACK:return Boundary::Backtrack;
+    case TACTIX_QUERY_UNSAT:return Boundary::Unsat;
+    case TACTIX_QUERY_READY:case TACTIX_QUERY_PROPAGATE:case TACTIX_QUERY_ANALYZE:
+    case TACTIX_QUERY_SAT:return Boundary::Ready;
+    default:return Boundary::Stop;
+    }
+  },tactix_ipasir_assume_next};
+  return public_random_solve(view,state.runtime,state.variables,state.coverage,port);
+}
+void tactix_random_session_coverage(tactix_random_session *state,FILE *out) {
+  const auto &c=state->coverage;
+  std::fprintf(out,"{\"root\":%llu,\"search\":%llu,\"root_to_search\":%llu,"
+      "\"partial_restarts\":%llu,\"full_restarts\":%llu,\"search_to_root\":%llu,"
+      "\"algebraic\":%llu,\"forms\":[",
+      (unsigned long long)c.root_actions,(unsigned long long)c.search_actions,
+      (unsigned long long)c.root_to_search,(unsigned long long)c.partial_restarts,
+      (unsigned long long)c.full_restarts,(unsigned long long)c.search_to_root,
+      (unsigned long long)c.algebraic_actions);
+  for(unsigned i=0;i<4;++i)std::fprintf(out,"%s%llu",i?",":"",(unsigned long long)c.forms[i]);
+  std::fputs("],\"effective_forms\":[",out);
+  for(unsigned i=0;i<4;++i)std::fprintf(out,"%s%llu",i?",":"",(unsigned long long)c.effective_forms[i]);
+  std::fputs("],\"rules\":{",out);const char *separator="";
+  for(size_t i=0;i<c.rules.size();++i)if(c.rules[i]) {
+    std::fprintf(out,"%s\"%s\":[%llu,%llu]",separator,tactix_rule_name(static_cast<int>(i)),
+        (unsigned long long)c.rules[i],(unsigned long long)c.effective_rules[i]);separator=",";
+  }
+  std::fputs("}}",out);
+}
+}
+#endif

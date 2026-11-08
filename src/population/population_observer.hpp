@@ -4,9 +4,12 @@
 #pragma once
 
 #include "kernel/types.hpp"
+#include "kernel/checker_names.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <vector>
 
 namespace tactix {
@@ -168,10 +171,27 @@ struct CheckerPopulationEvent {
   uint64_t line_id = 0;
   uint64_t checker_id = 0;
   uint64_t transaction_id = 0;
+  uint32_t certificate_offset = 0; // logical external coordinates -> query names
+  // Borrowed for this callback only. Physical helper payloads already carry
+  // their checker names; ordinary clauses additionally use this gap map.
+  std::span<const DsrHelperNames> checker_helpers;
+  bool clause_is_named = false;
   bool proof_only = false;
   PopulationSourceClassification source_classification =
       PopulationSourceClassification::Ineligible;
   PopulationClauseView clause;
+
+  int32_t checker_literal_at(uint32_t index) const noexcept {
+    const int32_t literal = clause.at(index);
+    if (clause_is_named || !literal) return literal;
+    const uint32_t variable = external_variable_of(literal);
+    uint32_t helpers = 0;
+    const auto after = std::lower_bound(checker_helpers.begin(), checker_helpers.end(), variable,
+        [](const DsrHelperNames &entry, uint32_t v) { return entry.extent < v; });
+    if (after != checker_helpers.begin()) helpers = std::prev(after)->helpers;
+    const int32_t name = static_cast<int32_t>(uint64_t(variable)+certificate_offset+helpers);
+    return literal < 0 ? -name : name;
+  }
 };
 
 enum class SolverPopulationEventKind : uint8_t {
@@ -215,16 +235,66 @@ struct SolverReplacementEvent {
   PopulationClauseView replacement;
 };
 
+enum class WeakeningFamily : uint8_t { Bve, Bce, Condition, Cce, Substitute };
+enum class WeakeningEventKind : uint8_t { Prepare, Commit, Cancel, Reconstruction };
+
+// A Prepare borrows the full source clause before deletion and the signed
+// repair cube. Commit follows the authoritative solver deletion. Binary IDs
+// are resolved from observed additions, never the post-import sentinel map.
+struct WeakeningPopulationEvent {
+  WeakeningEventKind kind = WeakeningEventKind::Prepare;
+  WeakeningFamily family = WeakeningFamily::Bve;
+  uint64_t transaction_id = 0;
+  uint64_t source_id = 0; // exact for large clauses; ignored for binaries
+  uint64_t reconstruction_offset = 0;
+  uint64_t reconstruction_words = 0;
+  bool binary = false;
+  bool all_binary_copies = false;
+  PopulationClauseView clause;
+  PopulationClauseView witness;
+};
+
 // Callbacks must neither throw nor retain a view.  A future bounded ledger can
 // preallocate its records before installing this seam; the null path performs
 // only one predictable pointer test at each authoritative mutation endpoint.
 class PopulationObserver {
 public:
   virtual ~PopulationObserver() = default;
+  virtual void observe_binding(const Kernel &, bool /*bound*/) noexcept {}
   virtual void observe(const RawInputPopulationEvent &) noexcept {}
   virtual void observe(const CheckerPopulationEvent &) noexcept {}
   virtual void observe(const SolverPopulationEvent &) noexcept {}
   virtual void observe(const SolverReplacementEvent &) noexcept {}
+  virtual bool records_weakening() const noexcept { return false; }
+  virtual void observe(const WeakeningPopulationEvent &) noexcept {}
+};
+
+uint64_t kernel_prepare_weakening(Kernel &, WeakeningFamily,
+    PopulationClauseView clause, PopulationClauseView witness,
+    uint64_t source_id, bool binary, bool all_binary_copies = false,
+    uint64_t reconstruction_words = 0) noexcept;
+void kernel_finish_weakening(Kernel &, uint64_t token, bool committed) noexcept;
+// Record a producer's newly appended reconstruction lemma. Its proof identity
+// is allocated only after independent admission in a future query stream.
+void kernel_record_reconstruction(Kernel &, WeakeningFamily, uint64_t begin) noexcept;
+
+// Owns only observer staging. Neither destruction nor commit deletes a clause,
+// changes reconstruction, emits a proof event, or schedules solver work.
+class ScopedWeakeningCapture {
+public:
+  ScopedWeakeningCapture(Kernel &, WeakeningFamily, const Lit *clause,
+      uint32_t size, Lit witness, uint64_t source_id, bool binary,
+      bool all_binary_copies = false) noexcept;
+  ScopedWeakeningCapture(Kernel &, WeakeningFamily, PopulationClauseView clause,
+      PopulationClauseView witness, uint64_t source_id, bool binary,
+      bool all_binary_copies, uint64_t reconstruction_words) noexcept;
+  ~ScopedWeakeningCapture();
+  void commit() noexcept;
+  ScopedWeakeningCapture(const ScopedWeakeningCapture &) = delete;
+  ScopedWeakeningCapture &operator=(const ScopedWeakeningCapture &) = delete;
+private:
+  Kernel &kernel_;
+  uint64_t token_ = 0;
 };
 
 // Install one non-owning observer on the kernel and its currently attached

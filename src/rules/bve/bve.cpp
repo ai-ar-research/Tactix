@@ -2211,9 +2211,14 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   // reconstruction witnesses: each removed live clause, pivot as its blocking
   // literal, both sides (design §3.4). Satisfied, redundant and tautological
   // clauses need none — they are entailed or already true.
+  const bool capture_weakening = kernel_records_weakening(k);
+  std::vector<uint64_t> weakening_tokens;
+  if (capture_weakening) weakening_tokens.resize(pos.size() + neg.size(), 0);
+  size_t witness_index = 0;
   for (const std::vector<MClause> *side : {&pos, &neg}) {
     const Lit pivot = (side == &pos) ? px : nx;
     for (const MClause &m : *side) {
+      const size_t source_index = witness_index++;
       if (m.ref != INVALID_REF && clause_at(k.arena, m.ref)->garbage())
         continue;
       bool satisfied = false;
@@ -2229,6 +2234,14 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
       for (const Lit l : m.active)
         if (l != pivot)
           rest.push_back(l);
+      if (capture_weakening) {
+        const Lit binary[2] = {m.ba, m.bb};
+        const Clause *full = m.ref == INVALID_REF ? nullptr : clause_at(k.arena, m.ref);
+        weakening_tokens[source_index] = kernel_prepare_weakening(k, WeakeningFamily::Bve,
+            kernel_population_clause(k, full ? full->lits : binary, full ? full->size : 2),
+            kernel_population_clause(k, &pivot, 1), full ? full->id() : 0, !full, false,
+            uint64_t(rest.size()) + 2);
+      }
       kernel_push_witness(k, pivot, rest.data(),
                           static_cast<uint32_t>(rest.size()));
     }
@@ -2248,20 +2261,25 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
   auto del_large_ref = [&](Ref ref) {
     Clause *c = clause_at(k.arena, ref);
     if (c->garbage())
-      return;
+      return false;
     kernel_delete_clause(k, c);
+    return true;
   };
+  size_t deletion_index = 0;
   auto del_all = [&](const std::vector<MClause> &side) {
     for (const MClause &m : side) {
+      const uint64_t token = capture_weakening ? weakening_tokens[deletion_index++] : 0;
+      bool deleted;
       if (m.ref != INVALID_REF) {
-        del_large_ref(m.ref);
+        deleted = del_large_ref(m.ref);
       } else {
         // One connected occurrence removes one physical copy.  This preserves
         // Kissat's per-copy score-update sequence.
         const bool ok = kernel_delete_binary_one_copy(k, m.ba, m.bb);
         assert(ok);
-        (void)ok;
+        deleted = ok;
       }
+      if (token) kernel_finish_weakening(k, token, deleted);
     }
   };
   del_all(pos);

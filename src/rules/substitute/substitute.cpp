@@ -1257,6 +1257,19 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   });
   substitute_stage_trace(k, "rewrite-lemmas", 0, 0);
 
+  // Translate only the query's constrained coordinates while equivalence
+  // sources and the transient RUP bridges still exist. No ordinary-search
+  // assignment or assumption-derived root unit is introduced.
+  if (k.query_projection) {
+    std::vector<std::pair<Lit, Lit>> aliases;
+    for (const int32_t external : k.query_projection->constraints()) {
+      const Lit from = kernel_internalize(k, external);
+      if (from != INVALID_LIT && mapped(from))
+        aliases.emplace_back(from, representative(from));
+    }
+    k.query_projection->substitute(k, aliases);
+  }
+
   // Canonical Substitute benefits from a literal-indexed byte table.  Sweep
   // rewrites a small connected frontier many times on giant formulas, so a
   // sparse set avoids allocating/zeroing 2*nvars for every equivalence.
@@ -2601,9 +2614,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     // rather than a crash (`docs/design/variable-retirement-design-v2.md` §3).
     retire_variable(k, v, VarStatus::Substituted, "substituted");
     k.substituted_events.push_back(v);
+    size_t repair_begin = k.reconstruction.size();
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
+    kernel_record_reconstruction(k, WeakeningFamily::Substitute, repair_begin);
     const Lit rest_b[1] = {negate(s)};
+    repair_begin = k.reconstruction.size();
     kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}
+    kernel_record_reconstruction(k, WeakeningFamily::Substitute, repair_begin);
   }
   std::vector<Lit>().swap(r.repr);
   std::vector<Lit>().swap(r.failed_units);

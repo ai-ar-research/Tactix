@@ -259,6 +259,8 @@ bool build_symmetry_graph(const Kernel &kernel,
                                kernel.value(literal)))
                                   ? 3 + literal
                                   : 0;
+  sr_detail::stabilize_query_coordinates(kernel, settings.pointwise_root_stabilizer,
+                                          storage.colors, literal_vertices);
 
   const auto add_edge = [&](uint32_t first, uint32_t second) {
     if (first > second)

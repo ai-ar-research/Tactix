@@ -367,16 +367,26 @@ static void pure_bve_scope_is_public_and_validated(void) {
   assert(applications == 2);
 
   step.parameters.value.bve.candidate_scope =
-      TACTIX_ONLINE_BVE_CANDIDATES_PURE_CLOSURE + 1;
+      TACTIX_ONLINE_BVE_CANDIDATES_QUERY_PURE_CLOSURE + 1;
   assert(tactix_online_configure(solver, &program, 21,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   assert(tactix_online_complete(solver));
+  step.parameters.value.bve.candidate_scope = 256;
+  assert(tactix_online_configure(solver, &program, 21,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   step.parameters.value.bve.candidate_scope =
       TACTIX_ONLINE_BVE_CANDIDATES_PURE_ONLY;
   step.parameters.value.bve.traversal = 2;
   assert(tactix_online_configure(solver, &program, 22,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   assert(tactix_online_complete(solver));
+  step.parameters.value.bve.traversal = 0;
+  for (int scope = TACTIX_ONLINE_BVE_CANDIDATES_QUERY_ALL;
+       scope <= TACTIX_ONLINE_BVE_CANDIDATES_QUERY_PURE_CLOSURE; ++scope) {
+    step.parameters.value.bve.candidate_scope = scope;
+    assert(tactix_online_configure(solver, &program, 23,
+                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  }
   tactix_release(solver);
 }
 

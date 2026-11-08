@@ -2,10 +2,17 @@
 
 #include "kernel/kernel.hpp"
 #include "strategy/policy_completion.hpp"
+#include "session/native_variables.hpp"
 
 namespace tactix::execution {
 
 struct MaterializeColdStateRequest {};
+struct ReactivateExternalVariableRequest {
+  int32_t external = 0;
+};
+struct AdmitExternalVariableRequest {
+  int32_t external = 0;
+};
 struct DisconnectLargeWatchesRequest {};
 struct ReconnectLargeWatchesRequest {
   bool arena_order = false;
@@ -29,6 +36,14 @@ struct CollectGarbageRequest {
 
 inline void execute_action(Kernel &k, MaterializeColdStateRequest) {
   kernel_materialize_cold_state(k);
+}
+inline session::NativeVariable execute_action(Kernel &k,
+    const ReactivateExternalVariableRequest &request) {
+  return session::reactivate_external_variable(k, request.external);
+}
+inline session::NativeVariable execute_action(Kernel &k,
+    const AdmitExternalVariableRequest &request) {
+  return session::admit_external_variable(k, request.external);
 }
 inline void execute_action(Kernel &k, DisconnectLargeWatchesRequest) {
   kernel_flush_large_watches(k);

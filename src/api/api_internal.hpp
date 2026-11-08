@@ -1,4 +1,9 @@
 #pragma once
+#include "session/query_result.hpp"
+#include <csignal>
+#include <string>
+#include <utility>
+#include <vector>
 
 // Internal access for fixed tests and api_work.cpp's additive entry points;
 // this is not part of the public C interface.

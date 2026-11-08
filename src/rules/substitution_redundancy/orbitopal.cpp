@@ -1077,6 +1077,8 @@ bool build_direct_binary_graph(const Kernel &kernel,
                              kernel.value(literal)))
                                 ? 3 + literal
                                 : 0;
+  sr_detail::stabilize_query_coordinates(kernel, settings.pointwise_root_stabilizer,
+                                          graph.colors, literal_count);
 
   // Binary clauses are direct literal edges, as in Satsuma. A color-2
   // subdivision vertex represents each positive/negative variable pair, so a
@@ -2528,6 +2530,22 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
           }
           SubstitutionRedundancyInstance instance;
           instance.clause = {a, b};
+          // The selected pointwise query stabilizer also applies to this
+          // pivot-only restriction. Choose a compatible RAT orientation;
+          // withhold a pair when both pivots violate roots or A.
+          // Unrestricted discovery and explicit X7 tuples remain selectable.
+          if (parameters.graph_symmetry.pointwise_root_stabilizer &&
+              kernel.query_projection) {
+            const auto preserves = [&](Lit pivot) {
+              return kernel.value(pivot) >= 0 &&
+                  kernel.query_projection->preserves_constant(kernel_external_lit(kernel, pivot));
+            };
+            if (!preserves(a)) {
+              if (!preserves(b))
+                continue;
+              std::swap(instance.clause[0], instance.clause[1]);
+            }
+          }
           instance.unique_literal_amo_certificate = true;
           ++result.instances;
           emitted = true;

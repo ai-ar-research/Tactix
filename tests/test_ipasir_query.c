@@ -1,0 +1,57 @@
+#undef NDEBUG
+#include "tactix_ipasir.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void artifact(void *s,const char *prefix,unsigned q,int answer) {
+  const char *source=tactix_ipasir_bundle(s);assert(source);
+  const char *suffix[]={".cnf",".proof",".json",answer==10?".model":".core"};
+  for(unsigned i=0;i<4;++i) {
+    char src[4096],dst[4096];
+    assert(snprintf(src,sizeof src,"%s%s",source,suffix[i])>0);
+    FILE *in=fopen(src,"rb");assert(in);
+    if(prefix) {
+      assert(snprintf(dst,sizeof dst,"%s-%u%s",prefix,q,suffix[i])>0);
+      FILE *out=fopen(dst,"wb");assert(out);
+      char buffer[4096];size_t n;
+      while((n=fread(buffer,1,sizeof buffer,in)))assert(fwrite(buffer,1,n,out)==n);
+      assert(!ferror(in)&&!fclose(out));
+    }
+    assert(!fclose(in));
+  }
+}
+static void solve(void *s,const char *prefix,unsigned q,int answer) {
+  const int actual=ipasir_solve(s);
+  if(actual!=answer)fprintf(stderr,"query %u: got %d expected %d\n",q,actual,answer);
+  assert(actual==answer);artifact(s,prefix,q,answer);
+}
+int main(int argc,char **argv) {
+  assert(argc==1||argc==2);const char *prefix=argc==2?argv[1]:NULL;
+  assert(ipasir_signature()&&strstr(ipasir_signature(),"tactix"));
+  void *s=ipasir_init(),*other=ipasir_init();assert(s&&other&&s!=other);
+  assert(!ipasir_val(s,1)&&!ipasir_failed(s,1)&&!tactix_ipasir_bundle(s));
+  ipasir_add(s,1);ipasir_add(s,2);ipasir_add(s,0);
+  ipasir_assume(s,-1);solve(s,prefix,1,10);
+  assert(ipasir_val(s,1)==-1&&ipasir_val(s,-1)==-1&&ipasir_val(s,2)==2);
+  assert(!ipasir_failed(s,-1));
+  ipasir_assume(s,-2);assert(!ipasir_val(s,1)&&!tactix_ipasir_bundle(s));
+  solve(s,prefix,2,10);assert(ipasir_val(s,1)==1&&ipasir_val(s,-2)==-2);
+  ipasir_assume(s,7);ipasir_assume(s,-1);ipasir_assume(s,-2);
+  solve(s,prefix,3,20);
+  assert(ipasir_failed(s,-1)&&ipasir_failed(s,-2)&&!ipasir_failed(s,1));
+  assert(!ipasir_val(s,2));
+  solve(s,prefix,4,10); // the last query's assumption cube has been consumed
+  ipasir_add(s,3);assert(!tactix_ipasir_bundle(s));ipasir_add(s,0);ipasir_assume(s,-3);
+  solve(s,prefix,5,20);assert(ipasir_failed(s,-3)&&!ipasir_failed(s,-1));
+  solve(s,prefix,6,10);assert(ipasir_val(s,3)==3);
+  ipasir_add(s,0);solve(s,prefix,7,20);assert(!ipasir_failed(s,-3));
+  // Session isolation and contradictory assumptions outside permanent F.
+  ipasir_assume(other,9);ipasir_assume(other,-9);
+  solve(other,prefix,8,20);assert(ipasir_failed(other,9)&&ipasir_failed(other,-9));
+  solve(other,prefix,9,10);assert(!ipasir_val(other,9)&&!ipasir_failed(other,9));
+  char owned[4096];assert(snprintf(owned,sizeof owned,"%s.json",tactix_ipasir_bundle(s))>0);
+  ipasir_release(s);assert(!fopen(owned,"rb"));ipasir_release(other);
+  puts("IPASIR query C client: nine queries, isolated sessions and result lifetimes pass");
+}

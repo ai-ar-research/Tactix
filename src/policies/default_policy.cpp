@@ -1,5 +1,6 @@
 #include "strategy/region_program.hpp"
 #include "policies/default_policy.hpp"
+#include "session/query_kernel.hpp"
 #include "kernel/splitmix64.hpp"
 #include "policies/strategy_settings.hpp"
 #include "policies/progress.hpp"
@@ -539,11 +540,17 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
 // helper's out-of-line -O0 symbols (event_trace_zero_overhead).
 // The result is the finish code of the reached terminal (Sat 10, Unsat 20),
 // otherwise 0.
-template <LuckyOpportunity Opportunity, typename TraceMacro>
+struct AcceptAllModels {
+  constexpr bool operator()() const { return true; }
+};
+
+template <LuckyOpportunity Opportunity, typename TraceMacro,
+          typename AcceptModel = AcceptAllModels>
 int default_traced_lucky_terminal(
     Kernel &k, const TraceMacro &trace, const char *candidate,
     const char *begin_event, const char *end_event, ApplyResult terminal,
-    PolicyCompletion *completion = nullptr) {
+    PolicyCompletion *completion = nullptr,
+    const AcceptModel &accept_model = {}) {
   assert(terminal == ApplyResult::Sat || terminal == ApplyResult::Unsat);
   trace(begin_event, "-");
   const ApplyResult result =
@@ -551,6 +558,10 @@ int default_traced_lucky_terminal(
   const bool sat = terminal == ApplyResult::Sat;
   if (result != terminal) {
     trace(end_event, "unknown");
+    return 0;
+  }
+  if (sat && !accept_model()) {
+    trace(end_event, "query-rejected");
     return 0;
   }
   trace(end_event, sat ? "sat" : "unsat");
@@ -4505,6 +4516,43 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     return verdict;
   };
 
+  if constexpr (Query) {
+    if(query->poll_terminate(stop))return finish(0);
+  }
+
+  const auto query_restart = [&](const char *reason) {
+    return port::complete_action(completion_, FeedbackKind::Support,
+        "Restart", INSTANCE_CANONICAL, [&] { return support_feedback(reason); }, [&] {
+          return port::execute_action(k, execution::RestartRequest{
+              0, execution::RestartPurpose::Preparation});
+        });
+  };
+
+  // Early model constructors choose ordinary decisions. Rejecting a model
+  // that misses A returns through the shared root transition, then continues
+  // this strategy's existing startup/search schedule. It does not rerun a
+  // different strategy. The ordinary specialization compiles this away.
+  const auto accept_model = [&](bool may_reject = true) {
+    if constexpr (!Query) return true;
+    else {
+      const auto t = query->ticket();
+      if (query->projection_state(t).restore) {
+        *query_status = session::QuerySolveStatus::RestorationRequired;
+        return false;
+      }
+      const auto checked = query->check_model(t);
+      if (checked.status == session::ModelStatus::Valid) return true;
+      if (checked.status != session::ModelStatus::FalsifiedAssumption || !may_reject) {
+        *query_status = session::QuerySolveStatus::InvalidModel;
+        return false;
+      }
+      (void)query_restart("query-model-rejected");
+      k.model_extended = false;
+      k.model_values.clear();
+      return false;
+    }
+  };
+
   // Kissat's `search_ticks` is charged only by the ordinary CDCL search
   // propagator.  Startup propagation, both Lucky trials, sparse root collection,
   // and `probe_initially` all run before search and therefore must not seed mode
@@ -4558,7 +4606,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
             k, lucky_trace, "signed-cardinality-proof",
             "signed_cardinality_proof_begin",
             "signed_cardinality_proof_end", ApplyResult::Unsat,
-            completion_))
+            completion_, accept_model))
       return finish(verdict);
   // Signed at-most-one block exact cover (the sgen owner): exact recognition
   // on the live clause set, then bounded search and whole-formula model check.
@@ -4566,7 +4614,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     const ApplyResult cover =
         default_lucky_opportunity<LuckyOpportunity::ExactCover>(
             k, "exact-cover-model", completion_);
-    if (cover == ApplyResult::Sat)
+    if (cover == ApplyResult::Sat && accept_model())
       return finish(10);
   }
   // Independent set under a layered exact-count encoding: construct and
@@ -4576,13 +4624,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     const ApplyResult independent =
         default_lucky_opportunity<LuckyOpportunity::IndependentSet>(
             k, "independent-set-model", completion_);
-    if (independent == ApplyResult::Sat)
+    if (independent == ApplyResult::Sat && accept_model())
       return finish(10);
   }
   if (config_.stconn_proof.enabled && stconn_proof_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Stconn>(
             k, lucky_trace, "stconn-proof", "stconn_proof_begin",
-            "stconn_proof_end", ApplyResult::Unsat, completion_))
+            "stconn_proof_end", ApplyResult::Unsat, completion_, accept_model))
       return finish(verdict);
   // The LymphoSAT Oddball owner constructs balanced ternary signatures at the
   // untouched imported root. A complete candidate is checked against the
@@ -4593,7 +4641,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::BalancedSignature>(
             k, lucky_trace, "balanced-signature-model",
             "balanced_signature_model_begin", "balanced_signature_model_end",
-            ApplyResult::Sat, completion_))
+            ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   // SAT-only LymphoSAT owners retain their bounded theory-specific model
   // constructors. Every completed assignment is checked against the whole live
@@ -4601,35 +4649,35 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (config_.fermat_model.enabled && fermat_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Fermat>(
             k, lucky_trace, "fermat-model", "fermat_model_begin",
-            "fermat_model_end", ApplyResult::Sat, completion_))
+            "fermat_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   if (config_.cerny_model.enabled && cerny_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Cerny>(
             k, lucky_trace, "cerny-model", "cerny_model_begin",
-            "cerny_model_end", ApplyResult::Sat, completion_))
+            "cerny_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   if (config_.lookup_circuit_model.enabled && lookup_circuit_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::LookupCircuit>(
             k, lucky_trace, "lookup-circuit-model",
             "lookup_circuit_model_begin", "lookup_circuit_model_end",
-            ApplyResult::Sat, completion_))
+            ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   if (config_.simon_model.enabled && simon_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Simon>(
             k, lucky_trace, "simon-model", "simon_model_begin",
-            "simon_model_end", ApplyResult::Sat, completion_))
+            "simon_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   // The proof-only parity action keeps the constructor's exact recognizer and
   // certificate path without entering its private assignment search.
   if (parity_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::ParityProof>(
             k, lucky_trace, "parity-proof", "parity_proof_begin",
-            "parity_proof_end", ApplyResult::Unsat, completion_))
+            "parity_proof_end", ApplyResult::Unsat, completion_, accept_model))
       return finish(verdict);
   if (config_.parity_model.enabled && parity_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Parity>(
             k, lucky_trace, "parity-model", "parity_model_begin",
-            "parity_model_end", ApplyResult::Sat, completion_))
+            "parity_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   // The exact-one proof compares a complete live incidence system with the
   // parser's stable binary order. Run it while both still describe the same
@@ -4678,7 +4726,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     k.stats.structured_root_nanos += structured_elapsed;
     k.stats.inprocess_nanos += structured_elapsed;
     structured_root_grew_trail = k.trail.size() > structured_trail_before;
-    if (structured_result == 10 || structured_result == 20)
+    if (structured_result == 20 || (structured_result == 10 && accept_model()))
       return finish(structured_result);
     if ((stop && *stop) || (k.stop && *k.stop))
       return finish(0);
@@ -4731,7 +4779,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (config_.onehot_model.enabled && onehot_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::DirectCsp>(
             k, lucky_trace, "direct-csp-model", "direct_csp_model_begin",
-            "direct_csp_model_end", ApplyResult::Sat, completion_))
+            "direct_csp_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   if (k.input_binary_order_captured)
     default_support_request(k, completion_, "ReleaseInputBinaryOrder",
@@ -4747,7 +4795,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     calls++;
     const ApplyResult lucky = default_lucky(k, candidate, completion_);
     const int verdict = lucky == ApplyResult::Unsat ? 20
-                        : lucky == ApplyResult::Sat ? 10 : 0;
+                        : lucky == ApplyResult::Sat && accept_model() ? 10 : 0;
     if (verdict == 10 && sat)
       ++*sat;
     event_trace.macro(k, end,
@@ -4762,7 +4810,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (config_.onehot_model.enabled && onehot_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Onehot>(
             k, lucky_trace, "onehot-model", "onehot_model_begin",
-            "onehot_model_end", ApplyResult::Sat, completion_))
+            "onehot_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer
@@ -4860,7 +4908,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (!configuration_checking_preprocessing_deferred_ &&
       inprocess_.want_phase(k, SlotGroup::Probe)) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
-    if (phase_result == 10 || phase_result == 20) return finish(phase_result);
+    if (phase_result == 20 || (phase_result == 10 && accept_model())) return finish(phase_result);
   }
   if (!configuration_checking_preprocessing_deferred_ &&
       config_.inprocess.initial_fast_elimination) {
@@ -4869,7 +4917,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
         inprocess_.run_initial_fast_elimination(
             k, stop, completion_, inprocess_.structured_fastel_ownership());
     event_trace.macro(k, "initial_fast_eliminate_end");
-    if (phase_result == 10 || phase_result == 20)
+    if (phase_result == 20 || (phase_result == 10 && accept_model()))
       return finish(phase_result);
   }
   event_trace.macro(k, "preprocess_end");
@@ -4893,7 +4941,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (config_.graph_labeling_model.enabled &&
       k.graph_labeling_session.authenticated()) {
     const auto graph = run_graph_labeling(k);
-    if (graph.status == GraphLabelingSliceStatus::Sat)
+    if (graph.status == GraphLabelingSliceStatus::Sat && accept_model())
       return finish(10);
   }
   retention.release();
@@ -4957,6 +5005,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   feedback.resume(IntervalStart::ResumeSearch, "native-start-search");
 
   for (;;) {
+    if constexpr (Query) {
+      query->drain_learned(query->ticket(), stop);
+      if(query->poll_terminate(stop)) {
+        if(!discharge_affine_reason(k))return finish(0);
+        return finish(0);
+      }
+    }
     event_trace.checkpoint(k);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (k.propagate_head < k.trail.size()) {
@@ -5104,6 +5159,42 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
                              mode.ticks_at_focus_entry, mode.count);
       continue;
     }
+    if constexpr (Query) {
+      const auto t = query->ticket();
+      const auto next = query->next_assumption(t);
+      switch (next.status) {
+      case session::AssumptionStatus::QueryUnsat:
+        if (!query->publish_assumption_refutation(t)) {
+          *query_status = session::QuerySolveStatus::ProofFailure;
+          return finish(0);
+        }
+        return finish(20);
+      case session::AssumptionStatus::BaseUnsat: return finish(20);
+      case session::AssumptionStatus::Restore:
+        *query_status = session::QuerySolveStatus::RestorationRequired;
+        return finish(0);
+      case session::AssumptionStatus::Backtrack:
+        (void)query_restart("reinstall-query-assumptions");
+        continue;
+      case session::AssumptionStatus::Decide: {
+        const Lit literal = kernel_internalize(k, next.literal);
+        (void)port::complete_action(completion_, FeedbackKind::SearchService,
+            "Decide", lit_instance(k, literal), [&] {
+              return execution::native_rule_feedback(k, "Decide",
+                  lit_instance(k, literal), "query-assumption="+std::to_string(next.index));
+            }, [&] {
+              return port::execute_action(k, execution::DecisionRequest{literal});
+            });
+        continue;
+      }
+      case session::AssumptionStatus::Propagate:
+      case session::AssumptionStatus::Analyze: continue;
+      case session::AssumptionStatus::Ready: break;
+      default:
+        *query_status = session::QuerySolveStatus::InvalidState;
+        return finish(0);
+      }
+    }
     // The retained matrix observes a completed Boolean propagation prefix.
     // A published conditional reason re-arms ordinary watched propagation,
     // which consumes the implication or conflict on the next loop iteration.
@@ -5117,6 +5208,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     }
     if (k.unassigned_active == 0) {
       if (!discharge_affine_reason(k)) return finish(0);
+      if (!accept_model(false)) return finish(0);
       return finish(10);
     }
     // One preflighted reason debt may span ordinary decisions.  The public
@@ -5352,7 +5444,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
           return finish(20);
         if (graph_labeling_due(k)) {
           const auto graph = run_graph_labeling(k);
-          if (graph.status == GraphLabelingSliceStatus::Sat)
+          if (graph.status == GraphLabelingSliceStatus::Sat && accept_model())
             return finish(10);
         }
       }
@@ -5458,7 +5550,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "probe_begin");
       feedback.end_interval(StopReason::RootPreparation);
       const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
-      if (phase_result == 10 || phase_result == 20) return finish(phase_result);
+      if (phase_result == 20 || (phase_result == 10 && accept_model())) return finish(phase_result);
       update_formula_classification(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-probe-search-continuation");
       event_trace.macro(k, "probe_end");
@@ -5469,7 +5561,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "eliminate_begin");
       feedback.end_interval(StopReason::RootPreparation);
       const int phase_result = inprocess_.run_phase(k, SlotGroup::Eliminate, stop, completion_);
-      if (phase_result == 10 || phase_result == 20) return finish(phase_result);
+      if (phase_result == 20 || (phase_result == 10 && accept_model())) return finish(phase_result);
       update_formula_classification(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-eliminate-search-continuation");
       event_trace.macro(k, "eliminate_end");
@@ -5855,6 +5947,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             var_of(candidate) < k.nvars &&
             affine_support_protected(k, var_of(candidate)))
           continue;
+        // Query scheduling preserves its live assumption interface. Explicit
+        // BVE instances remain available and the projection service records
+        // any required restoration; this is no rule guard or API restriction.
+        if (k.query_projection && lit_of_instance(k, payload, &candidate)) {
+          const Var external = k.internal_to_external[var_of(candidate)];
+          if (k.query_projection->constrains(external)) continue;
+        }
         // Resolvent generation can delete a newly satisfied large antecedent
         // and reinsert its still-active pivot before retiring it. Preserve
         // that physical ghost until pop, but do not apply/count BVE again.

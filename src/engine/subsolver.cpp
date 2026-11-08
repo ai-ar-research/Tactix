@@ -88,6 +88,7 @@ void SubSolver::reset_impl(uint32_t nvars, SubSearchMode mode,
   inconsistent_ = false;
   solved_ = false;
   model_valid_ = false;
+  search_started_ = false;
   arena_.clear();
   // `kitten_clear` empties every per-literal stack but retains its allocation.
   // Definition extraction can reset this engine millions of times, so
@@ -934,6 +935,7 @@ template <bool Interruptible>
 SubResult SubSolver::solve_impl(const std::vector<SubLit> &assumptions,
                                 uint64_t ticks_budget, SubTickMode tick_mode,
                                 const volatile sig_atomic_t *stop) {
+  search_started_ = true;
   // Kissat's `kitten_status` ceases to be SAT as soon as another solve starts.
   // In particular an UNSAT-under-assumptions result must disable the model
   // flipping API even though `model_` still stores the preceding SAT model.
@@ -1115,6 +1117,50 @@ SubPropagationResult SubSolver::propagate_assumptions_only(
   }
   return exhausted() ? SubPropagationResult::Budget
                      : SubPropagationResult::Consistent;
+}
+
+SubRupAdmission SubSolver::admit_rup(const std::vector<SubLit> &lits,
+                                    uint64_t ticks_budget,
+                                    const volatile sig_atomic_t *stop) {
+  if (search_mode_ != SubSearchMode::Fixed || search_started_ || frames_.empty())
+    return SubRupAdmission::Unavailable;
+  if (!ticks_budget) return SubRupAdmission::Budget;
+  if (stop && *stop) return SubRupAdmission::Interrupted;
+  for (const SubLit l : lits)
+    if (sub_var_of(l) >= nvars_) return SubRupAdmission::Invalid;
+  if (next_id_ == UINT32_MAX || lits.size() > UINT32_MAX - 2u ||
+      arena_.size() > UINT32_MAX - 2u - lits.size())
+    return SubRupAdmission::Exhausted;
+  std::vector<SubLit> normalized(lits);
+  std::sort(normalized.begin(), normalized.end());
+  normalized.erase(std::unique(normalized.begin(), normalized.end()), normalized.end());
+  for (size_t i = 1; i < normalized.size(); ++i)
+    if (normalized[i - 1] == sub_negate(normalized[i]))
+      return SubRupAdmission::Tautology;
+  std::vector<SubLit> assumptions;
+  assumptions.reserve(normalized.size());
+  for (const SubLit l : normalized) assumptions.push_back(sub_negate(l));
+  const SubPropagationResult result =
+      propagate_assumptions_only(assumptions, ticks_budget, stop);
+  const bool root_conflict = result == SubPropagationResult::Conflict &&
+                             frames_.size() == 1;
+  backtrack(0);
+  if (result == SubPropagationResult::Interrupted) return SubRupAdmission::Interrupted;
+  if (result == SubPropagationResult::Budget) return SubRupAdmission::Budget;
+  if (result != SubPropagationResult::Conflict) return SubRupAdmission::NotRup;
+  if (root_conflict && !inconsistent_) {
+    inconsistent_ = true;
+    pending_refutation_ = conflict_ref_;
+  }
+  // Pure propagation has no learned IDs or derivation to invalidate. Extend
+  // its premise population, keeping the original-ID watershed current before
+  // any possible future full solve. Re-arm roots for a new watched clause.
+  solved_ = false;
+  add_clause(normalized);
+  original_clauses_ = next_id_ - 1;
+  solved_ = true;
+  propagate_head_ = 0;
+  return SubRupAdmission::Accepted;
 }
 
 bool SubSolver::flip_model_literal(SubLit lit) {

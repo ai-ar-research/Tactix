@@ -8,6 +8,7 @@
 #include "frontend/dsr_follow_on.hpp"
 #include "frontend/parse.hpp"
 #include "api/api_internal.hpp"
+#include "session/query_kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -54,14 +55,25 @@
 using namespace tactix;
 
 struct tactix_solver {
-  Kernel kernel;
+  Kernel owned_kernel;
   // Named settings of the default strategy (tactix_set_default_option).
-  StrategySettings default_options;
-  Heuristics heuristics; // the session owns H, Kernel holds a non-owning
+  StrategySettings owned_options;
+  Heuristics owned_heuristics; // the session owns H, Kernel holds a non-owning
                          // pointer. Outlives every solve(), so tactix_decide
                          // before any solve still has an H.
-  Proof proof;
-  StructuralActionSessions structural_action_sessions;
+  Proof owned_proof;
+  StructuralActionSessions owned_services{owned_kernel};
+  Kernel &kernel=owned_kernel;
+  StrategySettings &default_options=owned_options;
+  Heuristics &heuristics=owned_heuristics;
+  Proof &proof=owned_proof;
+  StructuralActionSessions &structural_action_sessions=owned_services;
+  session::QueryKernel *query_owner=nullptr;
+  session::KernelTicket query_ticket;
+  DefaultPolicy *query_policy=nullptr;
+  volatile sig_atomic_t *query_stop=nullptr;
+  volatile sig_atomic_t *saved_query_stop=nullptr;
+  session::QuerySolveStatus query_status=session::QuerySolveStatus::Complete;
   std::vector<Lit> scratch;
   bool input_completed = false;
   bool pending_input_proof = false;
@@ -101,13 +113,20 @@ struct tactix_solver {
   OccIndex phase_occurrences;
   size_t phase_contexts = 0;
   execution::InprocessPhase phase;
-  tactix_solver() : structural_action_sessions(kernel) {
+  tactix_solver() {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
     // Match the CLI/reference default; rule-level fixtures using a bare Kernel
     // can still exercise the non-reuse path explicitly.
     kernel.conflict_reuse = true;
   }
+  tactix_solver(session::QueryKernel &q,DefaultPolicy &policy,StrategySettings &options,
+      volatile sig_atomic_t *stop)
+      :kernel(*q.kernel(q.ticket())),default_options(options),heuristics(*kernel.h),
+       proof(*kernel.proof),structural_action_sessions(*q.execution_services(q.ticket())),
+       query_owner(&q),query_ticket(q.ticket()),query_policy(&policy),query_stop(stop),
+       saved_query_stop(kernel.stop),input_completed(true) {kernel.stop=stop;}
+  ~tactix_solver() {if(query_owner && kernel.stop==query_stop)kernel.stop=saved_query_stop;}
 };
 
 extern "C" {
@@ -117,6 +136,27 @@ static void input_complete(tactix_solver *solver);
 // Internal introspection of the opaque C handle, for fixed tests and for
 // api_work.cpp's additive entry points; neither depends on the handle layout.
 namespace tactix::api_detail {
+int set_strategy_option(StrategySettings &options,const char *name,const char *value) {
+  if(!name || std::strncmp(name,"TACTIX_",7)!=0)return -1;
+  for(auto it=options.begin();it!=options.end();++it)
+    if(it->first==name) {if(value)it->second=value;else options.erase(it);return 0;}
+  if(value)options.emplace_back(name,value);
+  return 0;
+}
+void *create_query_execution(session::QueryKernel &q,DefaultPolicy &policy,
+    StrategySettings &options,volatile sig_atomic_t *stop) {
+  if(!q.kernel(q.ticket()) || !q.execution_services(q.ticket()))return nullptr;
+  return new ::tactix_solver(q,policy,options,stop);
+}
+void destroy_query_execution(void *opaque) {delete static_cast<::tactix_solver *>(opaque);}
+bool query_execution_settled(void *opaque) {
+  const auto &s=*static_cast<::tactix_solver *>(opaque);
+  return s.contexts.empty() && !s.phase.open() && !s.kernel.inprocessing &&
+      !s.kernel.phase_saving_suppressed && !s.kernel.dense && !s.kernel.pending.valid;
+}
+session::QuerySolveStatus query_execution_status(void *opaque) {
+  return static_cast<::tactix_solver *>(opaque)->query_status;
+}
 Kernel &kernel_for_fixed_testing(void *opaque) {
   assert(opaque);
   return static_cast<::tactix_solver *>(opaque)->kernel;
@@ -203,6 +243,14 @@ bool has_sat_assignment(const Kernel &kernel) {
 }
 
 void prepare_external_model(tactix_solver *solver) {
+  if(solver->query_owner) {
+    const auto model=solver->query_owner->check_model(solver->query_ticket);
+    if(model.status!=session::ModelStatus::Valid && model.status!=session::ModelStatus::FalsifiedAssumption)
+      solver->query_status=model.status==session::ModelStatus::InvalidQuery?
+          session::QuerySolveStatus::RestorationRequired:session::QuerySolveStatus::InvalidModel;
+    solver->model_strategy_epoch=solver->kernel.strategy_epoch;
+    return;
+  }
   Kernel &kernel = solver->kernel;
   if (kernel.model_extended &&
       solver->model_strategy_epoch == kernel.strategy_epoch)
@@ -217,12 +265,18 @@ void prepare_external_model(tactix_solver *solver) {
 
 void external_state_change(tactix_solver *solver) {
   ++solver->kernel.strategy_epoch;
+  if (solver->query_owner)
+    solver->query_owner->drain_learned(solver->query_ticket, solver->query_stop);
 }
 
 // An UNSAT answer rests on a complete proof. A DSR proof that met a startup
 // counting refutation is written first, by a follow-on solve of the original
 // formula under the session's strategy settings and the default configuration.
 void certify_unsat(tactix_solver *solver) {
+  if(solver->query_owner) {
+    if(!solver->query_owner->flush_proof(solver->query_ticket))solver->query_status=session::QuerySolveStatus::ProofFailure;
+    return;
+  }
   if (solver->proof.dsr_follow_on_pending()) {
     ScopedStrategySettings settings(&solver->default_options);
     const DsrFollowOn follow_on = run_dsr_follow_on(
@@ -614,6 +668,9 @@ bool online_parameters(const tactix_online_parameters &source,
     converted.backward = p.backward != 0;
     converted.on_the_fly_strengthening =
         p.on_the_fly_strengthening != 0;
+    if (p.candidate_scope < TACTIX_ONLINE_BVE_CANDIDATES_ALL ||
+        p.candidate_scope > TACTIX_ONLINE_BVE_CANDIDATES_QUERY_PURE_CLOSURE)
+      return false;
     converted.candidate_scope =
         static_cast<strategy::BveCandidateScope>(p.candidate_scope);
     converted.resolvent_count_limit =
@@ -1997,7 +2054,10 @@ extern "C" {
 
 tactix_solver *tactix_init(void) { return new tactix_solver(); }
 
-void tactix_release(tactix_solver *s) { delete s; }
+void tactix_release(tactix_solver *s) {
+  if(s && s->query_owner) {s->query_status=session::QuerySolveStatus::InvalidState;return;}
+  delete s;
+}
 int tactix_bind_structural_provenance(tactix_solver *s, FILE *stream) {
   if (!s || (stream && std::ferror(stream))) return -1;
   s->kernel.structural_provenance = stream;
@@ -2115,16 +2175,7 @@ const char *tactix_proof_route(tactix_solver *s) {
 }
 
 int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {
-  if (!s || !name || std::strncmp(name, "TACTIX_", 7) != 0) return -1;
-  auto &options = s->default_options;
-  for (auto it = options.begin(); it != options.end(); ++it)
-    if (it->first == name) {
-      if (value) it->second = value;
-      else options.erase(it);
-      return 0;
-    }
-  if (value) options.emplace_back(name, value);
-  return 0;
+  return s?api_detail::set_strategy_option(s->default_options,name,value):-1;
 }
 
 int tactix_defer_startup_state(tactix_solver *s) {
@@ -2278,6 +2329,14 @@ int tactix_solve(tactix_solver *s) {
 }
 
 int tactix_value(tactix_solver *s, int elit) {
+  if(s->query_owner) {
+    if(!elit || elit==INT32_MIN)return 0;
+    if(s->query_owner->check_model(s->query_ticket).status!=session::ModelStatus::Valid)return 0;
+    const Lit literal=internalize(elit);
+    if(var_of(literal)>=s->kernel.model_values.size()/2)return 0;
+    const auto value=s->kernel.model_values[literal];
+    return value>0?elit:value<0?-elit:0;
+  }
   // Direct rule applications can report SAT without an intervening status
   // query. Preserve partial-value reads outside a terminal state.
   if (s->input_completed && has_sat_assignment(s->kernel))
@@ -2322,6 +2381,14 @@ int tactix_rules_applicable(tactix_solver *s, int *out, int cap) {
 }
 
 static int result_code(tactix_solver *solver, ApplyResult res) {
+  if(solver->query_owner)
+    solver->query_owner->drain_learned(solver->query_ticket, solver->query_stop);
+  if(solver->query_owner && res==ApplyResult::Sat) {
+    prepare_external_model(solver);
+    return solver->query_status==session::QuerySolveStatus::Complete &&
+        solver->query_owner->check_model(solver->query_ticket).status==session::ModelStatus::Valid?10:0;
+  }
+  if(solver->query_owner && res==ApplyResult::Unsat)return tactix_status(solver);
   switch (res) {
   case ApplyResult::Ok:
     return 0;
@@ -2643,6 +2710,16 @@ int tactix_online_advance(tactix_solver *s, tactix_online_result *result) {
   }
   if (advanced.status == strategy::InvocationStatus::Unsat)
     certify_unsat(s);
+  if(s->query_owner)
+    s->query_owner->drain_learned(s->query_ticket, s->query_stop);
+  if(s->query_owner && (advanced.status==strategy::InvocationStatus::Sat ||
+                         advanced.status==strategy::InvocationStatus::Unsat)) {
+    const int terminal=result_code(s,advanced.rule_result);
+    if(!terminal) {
+      advanced.status=strategy::InvocationStatus::NoChange;
+      advanced.rule_result=ApplyResult::NoOp;
+    }
+  }
   online_result(advanced, *result);
   return 0;
 }
@@ -3350,6 +3427,27 @@ int tactix_status(tactix_solver *s) {
   // Also a verdict-reporting path: a caller that adds a contradictory input and
   // then only asks the status must still get the refutation written.
   input_complete(s);
+  if(s->query_owner) {
+    if(s->query_owner->poll_terminate(s->query_stop)) {s->query_status=session::QuerySolveStatus::Interrupted;return 0;}
+    const auto next=s->query_owner->next_assumption(s->query_ticket);
+    if(next.status==session::AssumptionStatus::Restore) {s->query_status=session::QuerySolveStatus::RestorationRequired;return 0;}
+    if(next.status==session::AssumptionStatus::BaseUnsat || next.status==session::AssumptionStatus::QueryUnsat) {
+      if(next.status==session::AssumptionStatus::QueryUnsat &&
+          !s->query_owner->publish_assumption_refutation(s->query_ticket)) {
+        s->query_status=session::QuerySolveStatus::ProofFailure;return 0;
+      }
+      certify_unsat(s);
+      return s->query_status==session::QuerySolveStatus::Complete?20:0;
+    }
+    if(next.status==session::AssumptionStatus::Ready && has_sat_assignment(s->kernel)) {
+      const auto model=s->query_owner->check_model(s->query_ticket);
+      if(model.status==session::ModelStatus::Valid)return 10;
+      if(model.status!=session::ModelStatus::FalsifiedAssumption)
+        s->query_status=model.status==session::ModelStatus::InvalidQuery?
+            session::QuerySolveStatus::RestorationRequired:session::QuerySolveStatus::InvalidModel;
+    }
+    return 0;
+  }
   if (s->kernel.inconsistent) {
     certify_unsat(s);
     return 20;

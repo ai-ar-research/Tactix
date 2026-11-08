@@ -80,3 +80,14 @@ jobs:
       # property (N1) under continuous test
       - name: Quick fuzz, random rule schedule (debug build)
         run: tools/fuzz/run.sh --public-random --quick --solver "./build/debug/tests/tactix-public-random --pbp --random-policy={seed}" --no-shrink --n 150
+
+      - name: Stateful IPASIR query integration fuzz (debug and release)
+        run: |
+          for mode in debug release; do
+            python3 tools/fuzz/ipasir_trace.py \
+              --driver "build/$mode/tests/tactix-ipasir-trace" \
+              --reference cadical/build/cadical \
+              --seed 0 --n 16 --minimize --corpus tools/fuzz/ipasir-corpus \
+              --out "build/$mode/ipasir-integration-fuzz"
+          done
+

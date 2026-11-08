@@ -645,6 +645,9 @@ int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
 /* The complete pure-literal closure, enumerated layer by layer from one
  * occurrence image: the sequence a repeated PURE_ONLY pass would select. */
 #define TACTIX_ONLINE_BVE_CANDIDATES_PURE_CLOSURE 2
+#define TACTIX_ONLINE_BVE_CANDIDATES_QUERY_ALL 3
+#define TACTIX_ONLINE_BVE_CANDIDATES_QUERY_PURE_ONLY 4
+#define TACTIX_ONLINE_BVE_CANDIDATES_QUERY_PURE_CLOSURE 5
 
 #define TACTIX_ONLINE_SR_EXPLICIT_ONLY 0
 #define TACTIX_ONLINE_SR_ORBITOPAL 1
@@ -738,7 +741,8 @@ typedef struct {
   uint32_t definition_core_budget_multiplier;
   uint64_t definition_budget;
   int backward;
-  /* Appended generated-pass scope. Explicit selections remain unrestricted. */
+  /* Generated-pass scope: 0 all, 1 pure, 2 pure closure; 3/4/5 preserve query
+     constrained variables in those passes. Explicit selections stay unrestricted. */
   int candidate_scope;
   /* Appended absolute non-tautological resolvent cap. Zero preserves the
      historical unlimited behavior for zero-initialized public steps. */

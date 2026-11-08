@@ -1,0 +1,15 @@
+# Retired assumption assigned through the public strategy API; cursor invalidation.
+init 1
+random_seed 1 190209
+strategy 1 5
+assume 1 17
+solve 1
+add 1 3
+add 1 -2
+add 1 0
+add 1 3
+add 1 0
+assume 1 -41
+solve 1
+assume 1 1
+solve 1

@@ -1,0 +1,265 @@
+# Native minimization through all existing drivers; probe identities survive source reuse.
+init 0
+strategy 0 0
+random_seed 0 29
+core_budget 0 1000000
+min_budget 0 -1
+add 0 1
+add 0 2
+add 0 0
+assume 0 -1
+assume 0 -2
+assume 0 7
+assume 0 7
+solve 0
+min_budget 0 0
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_budget 0 -1
+min_context 0 4
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_context 0 0
+min_stop 0 1
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_stop 0 -2
+solve 0
+add 0 1
+add 0 0
+min_context 0 2
+assume 0 7
+assume 0 -1
+solve 0
+add 0 -1
+add 0 0
+min_context 0 0
+assume 0 7
+solve 0
+release 0
+init 0
+strategy 0 1
+random_seed 0 29
+core_budget 0 1000000
+min_budget 0 -1
+add 0 1
+add 0 2
+add 0 0
+assume 0 -1
+assume 0 -2
+assume 0 7
+assume 0 7
+solve 0
+min_budget 0 0
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_budget 0 -1
+min_context 0 4
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_context 0 0
+min_stop 0 1
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_stop 0 -2
+solve 0
+add 0 1
+add 0 0
+min_context 0 2
+assume 0 7
+assume 0 -1
+solve 0
+add 0 -1
+add 0 0
+min_context 0 0
+assume 0 7
+solve 0
+release 0
+init 0
+strategy 0 2
+random_seed 0 29
+core_budget 0 1000000
+min_budget 0 -1
+add 0 1
+add 0 2
+add 0 0
+assume 0 -1
+assume 0 -2
+assume 0 7
+assume 0 7
+solve 0
+min_budget 0 0
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_budget 0 -1
+min_context 0 4
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_context 0 0
+min_stop 0 1
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_stop 0 -2
+solve 0
+add 0 1
+add 0 0
+min_context 0 2
+assume 0 7
+assume 0 -1
+solve 0
+add 0 -1
+add 0 0
+min_context 0 0
+assume 0 7
+solve 0
+release 0
+init 0
+strategy 0 3
+random_seed 0 29
+core_budget 0 1000000
+min_budget 0 -1
+add 0 1
+add 0 2
+add 0 0
+assume 0 -1
+assume 0 -2
+assume 0 7
+assume 0 7
+solve 0
+min_budget 0 0
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_budget 0 -1
+min_context 0 4
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_context 0 0
+min_stop 0 1
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_stop 0 -2
+solve 0
+add 0 1
+add 0 0
+min_context 0 2
+assume 0 7
+assume 0 -1
+solve 0
+add 0 -1
+add 0 0
+min_context 0 0
+assume 0 7
+solve 0
+release 0
+init 0
+strategy 0 4
+random_seed 0 29
+core_budget 0 1000000
+min_budget 0 -1
+add 0 1
+add 0 2
+add 0 0
+assume 0 -1
+assume 0 -2
+assume 0 7
+assume 0 7
+solve 0
+min_budget 0 0
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_budget 0 -1
+min_context 0 4
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_context 0 0
+min_stop 0 1
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_stop 0 -2
+solve 0
+add 0 1
+add 0 0
+min_context 0 2
+assume 0 7
+assume 0 -1
+solve 0
+add 0 -1
+add 0 0
+min_context 0 0
+assume 0 7
+solve 0
+release 0
+init 0
+strategy 0 5
+random_seed 0 29
+core_budget 0 1000000
+min_budget 0 -1
+add 0 1
+add 0 2
+add 0 0
+assume 0 -1
+assume 0 -2
+assume 0 7
+assume 0 7
+solve 0
+min_budget 0 0
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_budget 0 -1
+min_context 0 4
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_context 0 0
+min_stop 0 1
+assume 0 7
+assume 0 -1
+assume 0 -2
+solve 0
+min_stop 0 -2
+solve 0
+add 0 1
+add 0 0
+min_context 0 2
+assume 0 7
+assume 0 -1
+solve 0
+add 0 -1
+add 0 0
+min_context 0 0
+assume 0 7
+solve 0
+release 0

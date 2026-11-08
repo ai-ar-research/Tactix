@@ -403,7 +403,7 @@ static void bump_and_reset_analyzed(Kernel &k) {
   const Var ext_first = k.first_extension_var;
   auto count_bump = [&](Var v) {
     k.stats.bumps++;
-    if (v >= ext_first) {
+    if (v >= ext_first && kernel_is_solver_extension(k, v)) {
       k.stats.bumps_extension++;
       if (!(k.seen[v] & SEEN))
         k.stats.bumps_ext_reason_only++;
@@ -467,7 +467,7 @@ static bool mark_reason_side(Kernel &k, Lit m) {
   // Optional arm (Kernel::no_ext_reason_bump): withhold extension vars from
   // this channel only, so they rise on conflict-side evidence rather than on
   // being a BVA hub.
-  if (k.no_ext_reason_bump && v >= k.first_extension_var)
+  if (k.no_ext_reason_bump && v >= k.first_extension_var && kernel_is_solver_extension(k, v))
     return false;
   if (k.seen[v] & BUMPED)
     return false; // already in the bump set (kissat `a->analyzed`)

@@ -1,5 +1,99 @@
 # Fuzz harness
 
+## Incremental API traces
+
+Each terminal query acquires an owned native result. After all sessions are
+released, the client checks its model/core/assumptions again and compares every
+retained certificate member byte-for-byte with its publication snapshot. The
+harness requires this reach marker as well as independent bundle/model/proof
+validation; UNKNOWN and invalidated borrowed views cannot acquire a result.
+
+`ipasir_trace.py` and the `tactix-ipasir-trace` C client exercise persistent
+sessions through public headers and `libtactix_ipasir.a`. The maintained
+`ipasir-corpus/` is registered as CTest `ipasir_trace_regression`; its oracle
+negative controls are `ipasir_trace_oracles`. Existing CLI, v1 C API, public-rule,
+strategy, proof and performance tests remain acceptance requirements.
+
+Trace operations are `init ID`, `release ID`, `add ID LITERAL`,
+`assume ID LITERAL`, `terminate ID LIMIT`, `learn ID MAX_LENGTH`,
+`learn_budget ID TICKS`, `core_budget ID TICKS`, `strategy ID MODE`,
+`random_seed ID SEED`, `min_budget ID PROBES`, `min_context ID MASK`,
+`min_stop ID LIMIT`, and `solve ID`.
+`add ID 0` closes a clause. A termination limit of -1 disconnects, 0 never stops,
+and a positive limit stops at that poll. A learning length of -1 disconnects;
+zero accepts only an empty clause. Budgets use -1 for UINT64_MAX and zero to
+suppress optional extraction/export work. Strategy modes are 0 DefaultPolicy,
+1 public CDCL, 2 seeded public branch/phase CDCL, 3 an explicit configured
+DefaultPolicy handoff, 4 the named native cruxmiter program, 5 the full
+public-random grammar compiled from `public_random_main.cpp`, 6 native DPLL,
+and 7 native CDCL without restarts. Modes 6/7 must record their exact native
+name, with no root-program work or DefaultPolicy handoff. Mode 5 retains
+its RNG, root quota, step count and online revision across same-query
+restoration; it rebinds the replacement execution view and never hands off to
+DefaultPolicy. Seed values are nonnegative signed 32-bit integers. Per-query
+coverage records root/search transitions, partial/full restarts, per-rule
+requests/effective applications and all four public application forms.
+Native identity
+and root requests/eligible/effective actions, completed rounds and explicit
+handoffs are checked separately. These clients use the same persistent session.
+Whole-line `#` comments are allowed. Session IDs can be reused after release.
+
+Minimization is optional after an UNSAT outer solve. Its budget is -2 to
+disable (default), -1 for unlimited probes, or a nonnegative probe count.
+The context mask selects raw assumption positions 0–30, then normalizes
+duplicates. `min_stop` inherits the outer termination callback at -2 (default);
+otherwise it temporarily installs a fresh poll counter and the specified
+-1/0/positive callback limit for minimization, then restores the caller's
+configuration and result view. This permits UNKNOWN probes after a successful
+source query without confusing the source verdict with probe interruption.
+
+Each outer call and hidden minimization probe has a unique artifact index;
+native query IDs also count UNKNOWN probes. The client retains terminal probe
+handles after the reduction and session close, checks source-view preservation,
+and compares every retained member byte-for-byte. Probe records include exact
+assumptions, best-core/context binding, certificate identity and SAT deletion
+witnesses. The oracle independently reconstructs deletions, checks budgets,
+refutation and subset-minimality, licenses learned exports from F alone, and
+runs the same model/proof/core, fresh replay and CaDiCaL chain for every probe.
+The total owned-result marker must include probes, not only outer solves.
+
+The oracle validates every learned clause against permanent F without A and
+rejects private/assumption-only names, checks size/configuration/driver reach,
+and independently verifies exact reduced F+C bundles when extraction succeeds.
+It also recomputes the permanent-input digest from the original signed words,
+including duplicates, tautologies and clause terminators, excluding assumptions.
+Fresh replay retains the selected strategy, learning and core configuration but
+runs without requested termination. Remaining specialized adapters and the ordinary
+DefaultPolicy/public-random acceptance legs remain separate. IPASIR-UP is excluded.
+
+For an immutable cluster campaign, invoke the pinned harness with `--driver
+PIN/tests/tactix-ipasir-trace --reference PIN/cadical --n COUNT --seed FIRST
+--out NEW_DIRECTORY --root PIN/source`. Add `--corpus PIN/source/tools/fuzz/ipasir-corpus`
+on the corpus shard. Use `--strategy 0` and `--strategy 5` for separate generated
+DefaultPolicy/public-random legs; retained corpus traces keep their declared
+drivers. Add `--minimize` to generate minimization budgets, contexts and probe
+interruption; omit fixed strategy selection for mixed-driver switching.
+The generator tracks legal states; enumeration checks every
+completed query, every completion of a partial model and the failed-assumption
+set. Interrupted queries consume assumptions and are checked against a fresh,
+uninterrupted solve of the exact original F+A. The
+runner verifies exact F+A snapshots, artifact hashes, model/core artifacts and
+each UNSAT certificate, compares pinned CaDiCaL and repeats queries in fresh
+Tactix sessions. Solver and checker process trees have separate resident-memory
+and wall-time limits through `memory_runner.py`, compatible with ASan. Successful
+case artifacts are removed; failures/resources retain their original trace,
+certificates, outputs and resource records. `summary.json` states reached query
+coverage and pending interfaces. Missing coverage never completes the N5 gate.
+
+Use `--shrink FAILED.trace` with the same pinned driver, reference, limits and
+oracles to minimize a deterministic failure while preserving legal states and
+its failure class. Keep the original bundle and promote the checked minimized
+trace into `ipasir-corpus/` with its causal regression. Resource failures retain
+their artifacts for the declared recheck workflow; they are not correctness
+verdicts and are not automatically shrunk.
+
+## Ordinary policy fuzzing
+
 Both `--nightly` arms default to at least 100,000 independently checked verdicts
 and at most 5% nonterminating cases, with zero correctness failures. Explicit
 `--minimum-verdicts` and `--max-nonterminating-frac` arguments override these

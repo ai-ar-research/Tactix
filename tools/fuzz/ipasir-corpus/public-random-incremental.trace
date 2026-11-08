@@ -1,0 +1,305 @@
+# Same public-random grammar across F growth, A changes, cores, stop/resume and driver switches.
+init 0
+random_seed 0 0
+strategy 0 5
+core_budget 0 1000000
+add 0 1
+add 0 2
+add 0 0
+add 0 -1
+add 0 3
+add 0 0
+add 0 2
+add 0 -3
+add 0 0
+solve 0
+assume 0 -2
+assume 0 -3
+assume 0 7
+assume 0 7
+solve 0
+solve 0
+add 0 -1
+add 0 0
+assume 0 -2
+solve 0
+add 0 17
+add 0 -3
+add 0 0
+solve 0
+terminate 0 1
+assume 0 -17
+solve 0
+terminate 0 -1
+solve 0
+strategy 0 0
+solve 0
+strategy 0 5
+solve 0
+release 0
+init 1
+random_seed 1 1
+strategy 1 5
+core_budget 1 1000000
+add 1 1
+add 1 2
+add 1 0
+add 1 -1
+add 1 3
+add 1 0
+add 1 2
+add 1 -3
+add 1 0
+solve 1
+assume 1 -2
+assume 1 -3
+assume 1 7
+assume 1 7
+solve 1
+solve 1
+add 1 -1
+add 1 0
+assume 1 -2
+solve 1
+add 1 17
+add 1 -3
+add 1 0
+solve 1
+terminate 1 1
+assume 1 -17
+solve 1
+terminate 1 -1
+solve 1
+strategy 1 0
+solve 1
+strategy 1 5
+solve 1
+release 1
+init 2
+random_seed 2 2
+strategy 2 5
+core_budget 2 1000000
+add 2 1
+add 2 2
+add 2 0
+add 2 -1
+add 2 3
+add 2 0
+add 2 2
+add 2 -3
+add 2 0
+solve 2
+assume 2 -2
+assume 2 -3
+assume 2 7
+assume 2 7
+solve 2
+solve 2
+add 2 -1
+add 2 0
+assume 2 -2
+solve 2
+add 2 17
+add 2 -3
+add 2 0
+solve 2
+terminate 2 1
+assume 2 -17
+solve 2
+terminate 2 -1
+solve 2
+strategy 2 0
+solve 2
+strategy 2 5
+solve 2
+release 2
+init 3
+random_seed 3 3
+strategy 3 5
+core_budget 3 1000000
+add 3 1
+add 3 2
+add 3 0
+add 3 -1
+add 3 3
+add 3 0
+add 3 2
+add 3 -3
+add 3 0
+solve 3
+assume 3 -2
+assume 3 -3
+assume 3 7
+assume 3 7
+solve 3
+solve 3
+add 3 -1
+add 3 0
+assume 3 -2
+solve 3
+add 3 17
+add 3 -3
+add 3 0
+solve 3
+terminate 3 1
+assume 3 -17
+solve 3
+terminate 3 -1
+solve 3
+strategy 3 0
+solve 3
+strategy 3 5
+solve 3
+release 3
+init 4
+random_seed 4 4
+strategy 4 5
+core_budget 4 1000000
+add 4 1
+add 4 2
+add 4 0
+add 4 -1
+add 4 3
+add 4 0
+add 4 2
+add 4 -3
+add 4 0
+solve 4
+assume 4 -2
+assume 4 -3
+assume 4 7
+assume 4 7
+solve 4
+solve 4
+add 4 -1
+add 4 0
+assume 4 -2
+solve 4
+add 4 17
+add 4 -3
+add 4 0
+solve 4
+terminate 4 1
+assume 4 -17
+solve 4
+terminate 4 -1
+solve 4
+strategy 4 0
+solve 4
+strategy 4 5
+solve 4
+release 4
+init 5
+random_seed 5 5
+strategy 5 5
+core_budget 5 1000000
+add 5 1
+add 5 2
+add 5 0
+add 5 -1
+add 5 3
+add 5 0
+add 5 2
+add 5 -3
+add 5 0
+solve 5
+assume 5 -2
+assume 5 -3
+assume 5 7
+assume 5 7
+solve 5
+solve 5
+add 5 -1
+add 5 0
+assume 5 -2
+solve 5
+add 5 17
+add 5 -3
+add 5 0
+solve 5
+terminate 5 1
+assume 5 -17
+solve 5
+terminate 5 -1
+solve 5
+strategy 5 0
+solve 5
+strategy 5 5
+solve 5
+release 5
+init 6
+random_seed 6 6
+strategy 6 5
+core_budget 6 1000000
+add 6 1
+add 6 2
+add 6 0
+add 6 -1
+add 6 3
+add 6 0
+add 6 2
+add 6 -3
+add 6 0
+solve 6
+assume 6 -2
+assume 6 -3
+assume 6 7
+assume 6 7
+solve 6
+solve 6
+add 6 -1
+add 6 0
+assume 6 -2
+solve 6
+add 6 17
+add 6 -3
+add 6 0
+solve 6
+terminate 6 1
+assume 6 -17
+solve 6
+terminate 6 -1
+solve 6
+strategy 6 0
+solve 6
+strategy 6 5
+solve 6
+release 6
+init 7
+random_seed 7 7
+strategy 7 5
+core_budget 7 1000000
+add 7 1
+add 7 2
+add 7 0
+add 7 -1
+add 7 3
+add 7 0
+add 7 2
+add 7 -3
+add 7 0
+solve 7
+assume 7 -2
+assume 7 -3
+assume 7 7
+assume 7 7
+solve 7
+solve 7
+add 7 -1
+add 7 0
+assume 7 -2
+solve 7
+add 7 17
+add 7 -3
+add 7 0
+solve 7
+terminate 7 1
+assume 7 -17
+solve 7
+terminate 7 -1
+solve 7
+strategy 7 0
+solve 7
+strategy 7 5
+solve 7
+release 7

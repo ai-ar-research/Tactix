@@ -12,6 +12,21 @@
 
 namespace tactix::sr_detail {
 
+// Query assumptions constrain the model projection even while unassigned.
+// Only the explicitly selected pointwise stabilizer uses these colors;
+// unrestricted discovery and explicit SR retain their complete surface.
+inline void stabilize_query_coordinates(const Kernel &kernel, bool enabled,
+                                          std::vector<uint32_t> &colors,
+                                          uint32_t literals) {
+  if (!enabled || !kernel.query_projection) return;
+  for (const int32_t external : kernel.query_projection->constraints()) {
+    const Lit literal = kernel_internalize(kernel, external);
+    if (literal == INVALID_LIT || literal >= literals) continue;
+    colors[literal] = 3+literal;
+    colors[negate(literal)] = 3+negate(literal);
+  }
+}
+
 // A pure read of the caller's and the kernel's stop flags. It must not poll
 // kernel_terminating, whose stop-fuzz draws belong to the schedule.
 inline bool stop_requested(const Kernel &kernel, volatile sig_atomic_t *stop) {

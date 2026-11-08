@@ -11,24 +11,11 @@
  * ancestor algorithm without touching the kernel. */
 #undef NDEBUG
 #include "tactix.h"
+#include "tactix_search_demo.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-
-static int rule_id(const char *name) {
-  for (int i = 0; i < tactix_rule_count(); i++)
-    if (!strcmp(tactix_rule_name(i), name))
-      return i;
-  return -1;
-}
-
-static int has(const int *ids, int n, int id) {
-  for (int i = 0; i < n; i++)
-    if (ids[i] == id)
-      return 1;
-  return 0;
-}
 
 static void add_clause(tactix *s, const int *lits) {
   for (; *lits; lits++)
@@ -37,42 +24,10 @@ static void add_clause(tactix *s, const int *lits) {
 }
 
 static int dpll_solve(tactix *s) {
-  const int propagate = rule_id("Propagate");
-  const int conflictanalysis = rule_id("ConflictAnalysis");
-  const int decide = rule_id("Decide");
-  const int reduce = rule_id("Reduce");
-  assert(propagate >= 0 && conflictanalysis >= 0 && decide >= 0 &&
-         reduce >= 0);
-  long steps = 0;
-  for (;;) {
-    assert(++steps < 2000000); /* DPLL on toy formulas must not wedge */
-    const int st = tactix_status(s);
-    if (st)
-      return st;
-    int ids[32];
-    const int n = tactix_rules_applicable(s, ids, 32);
-    assert(n > 0);
-    if (has(ids, n, propagate)) {
-      const int r = tactix_apply(s, propagate);
-      if (r == 20)
-        return 20;
-      continue;
-    }
-    if (has(ids, n, conflictanalysis)) {
-      /* atomic learn+backjump (Analyze and Backjump are one rule; calculus
-       * §8). Backjumps to the assertion level. */
-      int r = tactix_apply(s, conflictanalysis);
-      if (r == 20)
-        return 20;
-      /* "no learning": purge every learned clause the kernel will
-       * release (payload = victim count; oversized clamps to all) */
-      tactix_apply_instance(s, reduce, UINT64_MAX - 1);
-      continue;
-    }
-    assert(has(ids, n, decide));
-    const int r = tactix_apply(s, decide); /* canonical pick */
-    assert(r != -1);
-  }
+  tactix_search_demo program;
+  assert(tactix_search_demo_begin(&program,TACTIX_DEMO_DPLL));
+  program.step_limit=2000000; /* Original toy-only nontermination guard. */
+  return tactix_search_demo_run(&program,s,NULL,NULL);
 }
 
 int main(void) {

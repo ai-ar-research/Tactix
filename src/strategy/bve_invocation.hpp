@@ -23,11 +23,26 @@ enum class BveCandidateScope : uint8_t {
   // would order it, so repeating PureOnly to a fixpoint selects the same
   // sequence; this scope does not rebuild the image once per layer.
   PureClosure = 2,
+  // Policy-generated passes preserving the current query interface. The
+  // corresponding explicit instances remain legal and unfiltered.
+  QueryAll = 3,
+  QueryPureOnly = 4,
+  QueryPureClosure = 5,
 };
 
+constexpr BveCandidateScope bve_base_scope(BveCandidateScope scope) {
+  return scope >= BveCandidateScope::QueryAll
+      ? static_cast<BveCandidateScope>(static_cast<unsigned>(scope)-3) : scope;
+}
+
+constexpr BveCandidateScope bve_query_scope(BveCandidateScope scope) {
+  return scope < BveCandidateScope::QueryAll
+      ? static_cast<BveCandidateScope>(static_cast<unsigned>(scope)+3) : scope;
+}
+
 constexpr bool pure_bve_candidate_scope(BveCandidateScope scope) {
-  return scope == BveCandidateScope::PureOnly ||
-         scope == BveCandidateScope::PureClosure;
+  return bve_base_scope(scope) == BveCandidateScope::PureOnly ||
+         bve_base_scope(scope) == BveCandidateScope::PureClosure;
 }
 
 // Ordinary Kissat elimination and SC2024 startup fast elimination own
@@ -45,7 +60,7 @@ constexpr bool valid_bve_traversal(BveTraversal traversal) {
 }
 
 constexpr bool valid_bve_candidate_scope(BveCandidateScope scope) {
-  return scope == BveCandidateScope::All || pure_bve_candidate_scope(scope);
+  return scope <= BveCandidateScope::QueryPureClosure;
 }
 
 // Every heuristic control consumed by BVE is supplied per invocation.  The
@@ -114,6 +129,7 @@ struct BveParameters {
 // PureClosure's selection. It removes each layer from `occurrences` the way a
 // pure elimination removes it from the formula: every counted clause holding
 // the pure literal goes, and its other active literals lose one occurrence.
+template <bool Query = false>
 inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
                                        std::vector<uint64_t> &out) {
   const uint32_t literals = 2 * k.nvars;
@@ -215,7 +231,13 @@ inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
 inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
                                    const BveParameters &parameters,
                                    std::vector<uint64_t> &out) {
-  if (parameters.candidate_scope == BveCandidateScope::All) {
+  const auto scope = bve_base_scope(parameters.candidate_scope);
+  const bool query = parameters.candidate_scope >= BveCandidateScope::QueryAll &&
+                     k.query_projection;
+  const auto constrained = [&](Var variable) {
+    return query && k.query_projection->constrains(k.internal_to_external[variable]);
+  };
+  if (scope == BveCandidateScope::All) {
     out.resize(k.nvars);
     out.resize(rule.instances(k, out.data(), k.nvars));
     if (k.substitute_retention)
@@ -230,8 +252,9 @@ inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
   BveOccurrences occurrences;
   bve_build_occurrences(k, occurrences);
   out.clear();
-  if (parameters.candidate_scope == BveCandidateScope::PureClosure) {
-    bve_pure_closure_instances(k, occurrences, out);
+  if (scope == BveCandidateScope::PureClosure) {
+    if (query) bve_pure_closure_instances<true>(k, occurrences, out);
+    else bve_pure_closure_instances(k, occurrences, out);
     return;
   }
   std::vector<Var> candidates;
