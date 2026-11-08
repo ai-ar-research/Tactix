@@ -46,6 +46,13 @@ use `tactix_ipasir_set_strategy_name`; Python exposes `strategy_name` and
 `strategy_counters()` for reached root work and handoffs. Core extraction and
 minimization use the selected strategy for ordinary queries and probes.
 
+`strategy='chvatal'` shares the existing Chvatal client's bottom-up twin detector,
+SR instance order, substitution closure and explicit DefaultPolicy handoff. Twin
+candidates are cached only for an unchanged permanent input prefix; every SR
+instance is validated against the current representation. The program owns its
+pairs and action cursor across repair, and new clauses refresh the candidate set.
+It uses the same query/core/certificate services as other named programs.
+
 `strategy='dpll'` and `strategy='cdcl-no-restarts'` select the corresponding
 example programs already compiled into the library. They keep their explicit
 search loops for incremental queries and minimization, without a DefaultPolicy

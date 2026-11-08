@@ -85,7 +85,7 @@ typedef int (*tactix_ipasir_strategy)(void *state,void *session,
 int tactix_ipasir_set_strategy(void *,void *state,tactix_ipasir_strategy);
 int tactix_ipasir_set_default_option(void *,const char *name,const char *value);
 /* Native programs are compiled once with the library. NULL/"default" selects
- * DefaultPolicy; "cruxmiter", "dpll", "cdcl-no-restarts" and "scripted-default" select shared
+ * DefaultPolicy; "cruxmiter", "chvatal", "dpll", "cdcl-no-restarts" and "scripted-default" select shared
  * programs from the corresponding existing examples.
  * Unknown names fail without changing the selected driver or result view.
  * Preset options overlay caller options for that query only; selecting another

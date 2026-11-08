@@ -30,7 +30,7 @@ typedef struct client {
 
 static const char *native_driver(int strategy) {
   return strategy==4?"cruxmiter":strategy==6?"dpll":strategy==7?"cdcl-no-restarts":
-      strategy==8?"scripted-default":NULL;
+      strategy==8?"scripted-default":strategy==9?"chvatal":NULL;
 }
 
 typedef struct retained_result {
@@ -285,7 +285,7 @@ int main(int argc,char **argv) {
       } else if(!strcmp(op,"strategy")||!strcmp(op,"learn")||!strcmp(op,"learn_budget")||!strcmp(op,"core_budget")) {
         assert(words==3);const char *before=tactix_ipasir_bundle(c->solver);
         if(!strcmp(op,"strategy")) {
-          assert(lit>=0&&lit<=8);c->strategy=lit;
+          assert(lit>=0&&lit<=9);c->strategy=lit;
           if(native_driver(lit))assert(!tactix_ipasir_set_strategy_name(c->solver,native_driver(lit)));
           else assert(!tactix_ipasir_set_strategy(c->solver,c,lit?scripted:NULL));
         } else if(!strcmp(op,"learn")) {

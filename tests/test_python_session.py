@@ -43,7 +43,7 @@ def verify(stem):
 with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
     tmp=Path(tmp)
     for name,strategy in (('default',None),('scripted',ScriptedCDCL(lambda c:-c[0])),
-                          ('cruxmiter','cruxmiter'),('dpll','dpll'),('cdcl-no-restarts','cdcl-no-restarts'),
+                          ('cruxmiter','cruxmiter'),('chvatal','chvatal'),('dpll','dpll'),('cdcl-no-restarts','cdcl-no-restarts'),
                           ('python-cruxmiter',Cruxmiter()),
                           ('scripted-default','scripted-default'),
                           ('python-scripted-default',ScriptedDefault())):
@@ -164,4 +164,4 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
         else:raise AssertionError('native minimization callback exception lost')
         assert s._lib.dll.tactix_ipasir_bundle(s._handle)==before and s._lib.dll.ipasir_val(s._handle,1)==1
         s.set_strategy(None);assert s.solve().status==SAT
-print('Python sessions: default/scripted/native-and-Python-cruxmiter/native-and-Python-scripted-default/DPLL/no-restart cores, minimization, learned exports, contexts, interruption and lifetimes pass')
+print('Python sessions: default/scripted/native-and-Python-cruxmiter/native-and-Python-scripted-default/Chvatal/DPLL/no-restart cores, minimization, learned exports, contexts, interruption and lifetimes pass')

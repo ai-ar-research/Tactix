@@ -99,7 +99,7 @@ class Oracles(unittest.TestCase):
         queries,_=trace.queries(['init 0','strategy 0 2','learn 0 1','learn_budget 0 0',
                                 'core_budget 0 4096','solve 0'])
         self.assertEqual((queries[0]['strategy'],queries[0]['learning_limit'],queries[0]['core_budget']),(2,1,4096))
-        for lines in (['init 0','strategy 0 9','solve 0'],['init 0','learn_budget 0 -2','solve 0']):
+        for lines in (['init 0','strategy 0 10','solve 0'],['init 0','learn_budget 0 -2','solve 0']):
             with self.assertRaises(ValueError):trace.queries(lines)
 
     def test_native_program_identity_and_reach(self):
@@ -107,11 +107,14 @@ class Oracles(unittest.TestCase):
         good={'result':10,'values':[1],'strategy':4,'strategy_calls':1,
               'driver_name':'cruxmiter','native_root_requests':3,'native_root_eligible':2,
               'native_root_effective':1,'native_root_rounds':1,'native_handoffs':1}
+        trace.validate_answer(dict(q,strategy=9),dict(good,strategy=9,driver_name='chvatal'))
         trace.validate_answer(q,good)
         for update in ({'driver_name':'default'},{'native_root_eligible':4},
                        {'native_root_effective':3},{'native_handoffs':2},
                        {'native_root_requests':None}):
             with self.assertRaises(trace.Failure):trace.validate_answer(q,dict(good,**update))
+            with self.assertRaises(trace.Failure):
+                trace.validate_answer(dict(q,strategy=9),dict(dict(good,strategy=9,driver_name='chvatal'),**update))
         for strategy,name in ((6,'dpll'),(7,'cdcl-no-restarts'),(8,'scripted-default')):
             q=dict(q,strategy=strategy)
             good=dict(good,strategy=strategy,driver_name=name,native_root_requests=0,
@@ -132,7 +135,7 @@ class Oracles(unittest.TestCase):
                        dict(policy,rules={'BVE':[0,1]})):
             with self.assertRaises(trace.Failure):
                 trace.validate_answer(q,dict(good,random_policy=update))
-        for strategy in (0,5,6,7,8):
+        for strategy in (0,5,6,7,8,9):
             qs,_=trace.queries(trace.generate(314159,40,strategy=strategy))
             self.assertTrue(all(q['strategy']==strategy for q in qs))
 

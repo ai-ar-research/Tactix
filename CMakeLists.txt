@@ -205,7 +205,7 @@ if(TACTIX_BUILD_SHARED_IPASIR)
 endif()
 install(TARGETS tactix RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(TARGETS tactix_archive ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES include/tactix.h include/tactix_search_demo.h include/tactix_scripted_default.h
+install(FILES include/tactix.h include/tactix_search_demo.h include/tactix_scripted_default.h include/tactix_chvatal.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 include(CMakePackageConfigHelpers)
 configure_package_config_file(cmake/TactixConfig.cmake.in

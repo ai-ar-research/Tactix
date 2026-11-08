@@ -2,6 +2,7 @@
 #include "api_test_support.h"
 #include "tactix_ipasir.h"
 #include "strategy/presets/cruxmiter.h"
+#include "tactix_chvatal.h"
 #include "tactix_search_demo.h"
 #include "tactix_scripted_default.h"
 #include <stdio.h>
@@ -58,6 +59,38 @@ static void continuation(void) {
   if(result==CRUXMITER_HANDOFF)result=tactix_solve(view);
   assert(result==10&&tactix_ipasir_finish(s,result)==10&&ipasir_val(s,1)==-1&&ipasir_val(s,2)==2);
   ipasir_release(s);
+}
+typedef struct {void *session;chvatal_program *program;int paused;} twin_hook;
+static int twin_boundary(void *state) {
+  twin_hook *h=state;
+  if(!h->paused&&h->program->revision>1) {h->paused=1;return 1;}
+  tactix_ipasir_query_state q={0};q.version=1;q.size=sizeof q;
+  assert(!tactix_ipasir_next(h->session,&q));
+  return q.action==TACTIX_QUERY_RESTORE||q.action==TACTIX_QUERY_INTERRUPTED;
+}
+static int twin_stop(void *state) {return ++*(unsigned *)state==2;}
+static void chvatal_continuation(void) {
+  void *s=ipasir_init();assert(s);
+  const int clauses[][4]={{-3,1,0},{-3,2,0},{3,-1,-2,0},{-4,1,0},{-4,2,0},{4,-1,-2,0}};
+  for(unsigned i=0;i<6;++i)input(s,clauses[i]);
+  ipasir_assume(s,-1);
+  tactix *view=NULL;assert(tactix_ipasir_begin(s,&view)==1);
+  int literals[]={-3,1,-3,2,3,-1,-2,-4,1,-4,2,4,-1,-2};size_t starts[]={0,2,4,7,9,11,14};
+  const struct chvatal_formula formula={literals,starts,6,14,4};
+  chvatal_program p={0};unsigned stopped=0;
+  assert(!chvatal_begin(&p,&formula,twin_stop,&stopped)&&stopped==2&&!p.pairs&&!p.pair_round);
+  assert(chvatal_begin(&p,&formula,NULL,NULL));twin_hook h={s,&p,0};
+  assert(!chvatal_run(&p,view,twin_boundary,&h,NULL)&&h.paused&&p.revision==2&&p.index==1&&p.round_accepted==1);
+  const chvatal_program before=p;
+  assert(tactix_apply_instance(view,rule("BVE"),1)>=0);
+  tactix_ipasir_query_state q={0};q.version=1;q.size=sizeof q;
+  assert(!tactix_ipasir_next(s,&q)&&q.action==TACTIX_QUERY_RESTORE);
+  assert(tactix_ipasir_repair(s,&view)==1&&!memcmp(&p,&before,sizeof p));
+  assert(!tactix_set_guidance_publication(view,TACTIX_GUIDANCE_NATIVE));
+  int result=chvatal_run(&p,view,twin_boundary,&h,NULL);
+  if(result==CHVATAL_HANDOFF)result=tactix_solve(view);
+  assert(result==10&&tactix_ipasir_finish(s,10)==10&&ipasir_val(s,1)==-1&&ipasir_val(s,3)==-3&&ipasir_val(s,4)==-4);
+  chvatal_release(&p);ipasir_release(s);
 }
 typedef struct {void *session;tactix *view;tactix_search_demo *program;int paused;
   tactix_scripted_default *scripted;} demo_hook;
@@ -144,6 +177,23 @@ static void plain(const char *mode,const char *prefix,const char *scenario,const
     assert(!tactix_set_guidance_publication(s,TACTIX_GUIDANCE_NATIVE));
     assert(cruxmiter_begin(&p));result=cruxmiter_run(&p,s,NULL,NULL,NULL);
     if(result==CRUXMITER_HANDOFF)result=tactix_solve(s);
+  } else if(!strcmp(name,"chvatal")) {
+    int literals[128],literal;size_t starts[64]={0};unsigned clauses;
+    struct chvatal_formula formula={literals,starts,0,0,0};
+    FILE *file=fopen(path,"r");assert(file);
+    assert(fscanf(file,"p cnf %d %u",&formula.variables,&clauses)==2);
+    while(fscanf(file,"%d",&literal)==1) {
+      if(literal) {assert(formula.literal_count<128);literals[formula.literal_count++]=literal;}
+      else {assert(formula.clauses+1<64);starts[++formula.clauses]=formula.literal_count;}
+    }
+    assert(!ferror(file)&&!fclose(file)&&formula.clauses==clauses);
+    assert(!tactix_set_guidance_publication(s,TACTIX_GUIDANCE_NATIVE));
+    chvatal_program program={0};assert(chvatal_begin(&program,&formula,NULL,NULL));
+    result=chvatal_run(&program,s,NULL,NULL,NULL);
+    p.requests=program.requests;p.eligible=program.eligible;
+    p.effective=program.effective;p.rounds=program.completed_rounds;
+    chvatal_release(&program);
+    if(result==CHVATAL_HANDOFF)result=tactix_solve(s);
   } else if(!strcmp(name,"scripted-default")) {
     tactix_scripted_default program;tactix_scripted_default_begin(&program);
     result=tactix_scripted_default_run(&program,s,NULL,NULL);
@@ -168,6 +218,7 @@ int main(int argc,char **argv) {
   if(argc==4||argc==5) {plain(argv[1],argv[2],argv[3],argc==5?argv[4]:"cruxmiter");return 0;}
   assert(argc>=1&&argc<=3);const char *prefix=argc>=2?argv[1]:NULL;
   const char *name=argc==3?argv[2]:"cruxmiter";const int crux=!strcmp(name,"cruxmiter");
+  const int chvatal=!strcmp(name,"chvatal");
   void *s=ipasir_init();assert(s);
   assert(!strcmp(tactix_ipasir_strategy_name(s),"default"));
   assert(tactix_ipasir_set_strategy_name(s,"missing")==-1);
@@ -187,7 +238,7 @@ int main(int argc,char **argv) {
   assert(ipasir_solve(s)==10);save(s,prefix,5);
   tactix_ipasir_strategy_counters c=counters(s);
   assert(c.query_entries==5);
-  if(crux)assert(c.root_requests>0&&c.root_eligible>0&&c.root_effective>0&&c.root_rounds>0&&c.default_handoffs>0);
+  if(crux||chvatal)assert(c.root_requests>0&&c.root_eligible>0&&c.root_effective>0&&c.root_rounds>0&&c.default_handoffs>0);
   else assert(!c.root_requests&&!c.root_eligible&&!c.root_effective&&!c.root_rounds&&!c.default_handoffs);
   int stop=1;ipasir_set_terminate(s,&stop,flag);ipasir_assume(s,-4);assert(!ipasir_solve(s));
   ipasir_set_terminate(s,NULL,NULL);assert(ipasir_solve(s)==10);
@@ -198,6 +249,7 @@ int main(int argc,char **argv) {
   assert(!tactix_ipasir_set_strategy_name(s,NULL)&&!strcmp(tactix_ipasir_strategy_name(s),"default"));
   ipasir_release(s);
   if(crux)continuation();
+  else if(chvatal)chvatal_continuation();
   else demo_continuation(!strcmp(name,"scripted-default")?3:
       !strcmp(name,"dpll")?TACTIX_DEMO_DPLL:TACTIX_DEMO_NO_RESTARTS);
   printf("%s: entries=%llu requests=%llu eligible=%llu effective=%llu rounds=%llu handoffs=%llu; cores and option isolation pass\n",

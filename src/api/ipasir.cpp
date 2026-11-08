@@ -2,6 +2,7 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #include "strategy/presets/cruxmiter.h"
+#include "tactix_chvatal.h"
 #include "tactix_search_demo.h"
 #include "tactix_scripted_default.h"
 #undef tactix
@@ -49,21 +50,47 @@ struct ArtifactStore {
 };
 
 struct NativeRuntime {
-  enum { scripted_default=3 };
+  enum { scripted_default=3,chvatal=4 };
   cruxmiter_program program{};
+  chvatal_program twins{};
+  size_t twin_input_words=SIZE_MAX;
   tactix_search_demo search{};
   tactix_scripted_default scripted{};
   int demo_kind=0;
   StrategySettings options;
   uint64_t query_entries=0,restored_entries=0,handoffs=0;
   uint64_t requests=0,eligible=0,effective=0,rounds=0;
-  void begin(const StrategySettings &caller_options) {
+  NativeRuntime()=default;
+  NativeRuntime(const NativeRuntime &)=delete;
+  NativeRuntime &operator=(const NativeRuntime &)=delete;
+  ~NativeRuntime() {chvatal_release(&twins);}
+  bool begin(const StrategySettings &caller_options,const QueryHistory &history,
+      QueryKernel &query,volatile sig_atomic_t *stopped) {
     if(demo_kind==scripted_default) {
       tactix_scripted_default_begin(&scripted);
-      return;
+      return true;
+    } else if(demo_kind==chvatal) {
+      requests+=twins.requests;eligible+=twins.eligible;
+      effective+=twins.effective;rounds+=twins.completed_rounds;
+      chvatal_reset(&twins);
+      const auto input=history.input();
+      if(twin_input_words!=input.size()) {
+        std::vector<int> literals;std::vector<size_t> starts{0};int variables=0;
+        for(int literal:input) {
+          if(query.poll_terminate(stopped))return false;
+          if(!literal)starts.push_back(literals.size());
+          else {literals.push_back(literal);variables=std::max(variables,std::abs(literal));}
+        }
+        const chvatal_formula formula{literals.data(),starts.data(),starts.size()-1,literals.size(),variables};
+        struct Stop {QueryKernel &query;volatile sig_atomic_t *stopped;} stop{query,stopped};
+        if(!chvatal_begin(&twins,&formula,[](void *state) {
+          auto &stop=*static_cast<Stop *>(state);return int(stop.query.poll_terminate(stop.stopped));
+        },&stop))return false;
+        twin_input_words=input.size();
+      }
+      return true;
     } else if(demo_kind) {
-      (void)tactix_search_demo_begin(&search,demo_kind);
-      return;
+      return tactix_search_demo_begin(&search,demo_kind)!=0;
     } else {
       requests+=program.requests;eligible+=program.eligible;
       effective+=program.effective;rounds+=program.rounds;
@@ -73,6 +100,7 @@ struct NativeRuntime {
     const char *value,*name;
     for(size_t i=0;(name=cruxmiter_setting(i,&value));++i)
       (void)api_detail::set_strategy_option(options,name,value);
+    return true;
   }
 };
 
@@ -217,9 +245,9 @@ struct Session {
   int prepare(bool expose) {
     if(busy || input_error)return -1;
     if(history.begin_query()!=InputStatus::Ok)return -1;
-    if(native)native->begin(options);
     clear_published();busy=true;stopped=0;query->reset_termination();
     if(query->poll_terminate(&stopped))return unknown();
+    if(native&&!native->begin(options,history,*query,&stopped))return unknown();
     auto proof=writer();if(!proof)return unknown();
     const auto advanced=query->advance(history,std::move(proof),&stopped);
     if(advanced.status==NativeAdvanceStatus::Interrupted)return unknown();
@@ -300,7 +328,15 @@ struct Session {
           native->query_entries+=cause==TACTIX_IPASIR_ENTER_QUERY;
           native->restored_entries+=cause==TACTIX_IPASIR_ENTER_RESTORED;
           auto *view=static_cast<::tactix_solver *>(execution);
-          if(native->demo_kind==NativeRuntime::scripted_default) {
+          if(native->demo_kind==NativeRuntime::chvatal) {
+            (void)tactix_set_guidance_publication(view,TACTIX_GUIDANCE_NATIVE);
+            proposed=chvatal_run(&native->twins,view,[](void *session) {
+              return int(static_cast<Session *>(session)->program_boundary(false)==0);
+            },this,nullptr);
+            if(proposed==CHVATAL_HANDOFF) {
+              ++native->handoffs;proposed=tactix_solve(view);
+            }
+          } else if(native->demo_kind==NativeRuntime::scripted_default) {
             (void)tactix_set_guidance_publication(view,TACTIX_GUIDANCE_NATIVE);
             proposed=tactix_scripted_default_run(&native->scripted,view,[](void *session) {
               return static_cast<Session *>(session)->program_boundary(true);
@@ -562,10 +598,11 @@ int tactix_ipasir_set_strategy_name(void *p,const char *name) {
   }
   const int kind=!std::strcmp(name,"dpll")?TACTIX_DEMO_DPLL:
       !std::strcmp(name,"cdcl-no-restarts")?TACTIX_DEMO_NO_RESTARTS:
+      !std::strcmp(name,"chvatal")?NativeRuntime::chvatal:
       !std::strcmp(name,"scripted-default")?NativeRuntime::scripted_default:0;
   if(!kind && std::strcmp(name,"cruxmiter"))return -1;
   auto runtime=std::make_unique<NativeRuntime>();runtime->demo_kind=kind;
-  const bool valid=kind==NativeRuntime::scripted_default?
+  const bool valid=kind==NativeRuntime::chvatal?true:kind==NativeRuntime::scripted_default?
       (tactix_scripted_default_begin(&runtime->scripted),true):
       kind?tactix_search_demo_begin(&runtime->search,kind):cruxmiter_begin(&runtime->program);
   if(!valid)return -1;
@@ -575,6 +612,7 @@ const char *tactix_ipasir_strategy_name(void *p) {
   if(!p || as_session(p)->busy || as_session(p)->minimizing)return nullptr;
   const auto &s=*as_session(p);
   return s.native?(s.native->demo_kind==TACTIX_DEMO_DPLL?"dpll":
+      s.native->demo_kind==NativeRuntime::chvatal?"chvatal":
       s.native->demo_kind==NativeRuntime::scripted_default?"scripted-default":
       s.native->demo_kind==TACTIX_DEMO_NO_RESTARTS?"cdcl-no-restarts":"cruxmiter"):
       s.strategy?"callback":"default";
@@ -584,10 +622,10 @@ int tactix_ipasir_get_strategy_counters(void *p,tactix_ipasir_strategy_counters 
       as_session(p)->busy || as_session(p)->minimizing || !as_session(p)->native)return -1;
   const auto &s=*as_session(p)->native;
   out->query_entries=s.query_entries;out->restored_entries=s.restored_entries;
-  out->root_requests=s.requests+(s.demo_kind?0:s.program.requests);
-  out->root_eligible=s.eligible+(s.demo_kind?0:s.program.eligible);
-  out->root_effective=s.effective+(s.demo_kind?0:s.program.effective);
-  out->root_rounds=s.rounds+(s.demo_kind?0:s.program.rounds);out->default_handoffs=s.handoffs;
+  out->root_requests=s.requests+s.program.requests+s.twins.requests;
+  out->root_eligible=s.eligible+s.program.eligible+s.twins.eligible;
+  out->root_effective=s.effective+s.program.effective+s.twins.effective;
+  out->root_rounds=s.rounds+s.program.rounds+s.twins.completed_rounds;out->default_handoffs=s.handoffs;
   return 0;
 }
 int tactix_ipasir_set_default_option(void *p,const char *name,const char *value) {

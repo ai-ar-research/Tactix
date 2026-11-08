@@ -58,7 +58,7 @@ def validate_answer(query, answer):
     strategy=query.get('strategy',0)
     if (not strategy and answer.get('strategy_calls',0)) or (strategy and answer['result'] and not answer.get('strategy_calls',0)):
         raise Failure('strategy',('missing/wrong execution driver',query,answer))
-    native={4:'cruxmiter',6:'dpll',7:'cdcl-no-restarts',8:'scripted-default'}.get(strategy)
+    native={4:'cruxmiter',6:'dpll',7:'cdcl-no-restarts',8:'scripted-default',9:'chvatal'}.get(strategy)
     if native:
         if answer.get('driver_name')!=native:raise Failure('strategy','wrong native program')
         counts=[answer.get('native_root_'+name) for name in ('requests','eligible','effective','rounds')]
@@ -67,7 +67,7 @@ def validate_answer(query, answer):
         handoffs=answer.get('native_handoffs')
         if not isinstance(handoffs,int) or not 0<=handoffs<=answer.get('strategy_calls',0):
             raise Failure('strategy','invalid native handoff count')
-        if strategy!=4 and (any(counts) or handoffs):
+        if strategy not in (4,9) and (any(counts) or handoffs):
             raise Failure('strategy','search program reported unexpected root-program work or a default handoff')
     if strategy==5:
         policy=answer.get('random_policy')
@@ -174,7 +174,7 @@ def queries(lines):
                 value=int(words[2])
                 if not -1<=value<=2147483647:raise ValueError('configuration overflow')
                 if op=='strategy':
-                    if not 0<=value<=8:raise ValueError('unknown strategy')
+                    if not 0<=value<=9:raise ValueError('unknown strategy')
                     coverage['strategy-switch']+=value!=s['strategy']
                     s['strategy']=value
                 elif op=='random_seed':
@@ -226,7 +226,7 @@ def generate(seed, count=12, strategy=None,minimize=False):
             if strategy is not None:lines += [f'strategy {sid} {strategy}']
         if rng.randrange(3)==0:
             lines += [f'terminate {sid} {rng.choice((-1,0,1,2,4,16,64))}']
-        if rng.randrange(3)==0:lines += [f'strategy {sid} {rng.randrange(9) if strategy is None else strategy}']
+        if rng.randrange(3)==0:lines += [f'strategy {sid} {rng.randrange(10) if strategy is None else strategy}']
         if rng.randrange(3)==0:lines += [f'learn {sid} {rng.choice((-1,0,1,2,4,8))}']
         if rng.randrange(4)==0:lines += [f'learn_budget {sid} {rng.choice((-1,0,1,64,4096,65536))}']
         if rng.randrange(3)==0:lines += [f'core_budget {sid} {rng.choice((0,1,64,4096,1000000))}']
@@ -553,7 +553,7 @@ def main():
     p.add_argument('--corpus', type=Path)
     p.add_argument('--n', type=int, default=0)
     p.add_argument('--seed', type=int, default=0)
-    p.add_argument('--strategy',type=int,choices=range(9),
+    p.add_argument('--strategy',type=int,choices=range(10),
                    help='fix the generated-trace driver; retained corpus keeps its own drivers')
     p.add_argument('--minimize',action='store_true',help='generate native minimization budgets and fixed contexts')
     p.add_argument('--timeout', type=float, default=30)
@@ -602,9 +602,10 @@ def main():
                  (['runtime-strategy'] if total['strategy-calls'] else [])+
                  (['certified-reduced-core'] if total['reduced-core-verified'] else [])+
                  (['owned-result'] if total['owned-result-verified'] else [])+
-                 (['named-cruxmiter'] if total['native-root-eligible'] else [])+
+                 (['named-cruxmiter'] if total['strategy-4-solve'] else [])+
                  (['public-random-incremental'] if total['strategy-5-solve'] else [])+
                  (['named-scripted-default'] if total['strategy-8-solve'] else [])+
+                 (['named-chvatal'] if total['strategy-9-solve'] else [])+
                  (['native-minimization'] if total['minimizations'] else []),
              'interfaces_pending':['remaining-named-specialized-adapters','full-policy-acceptance'],
              'interfaces_excluded':['IPASIR-UP'],
