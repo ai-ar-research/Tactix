@@ -32,6 +32,23 @@ RetentionStatus RetainedClauses::prepare(const QueryHistory &history,
       query.input_words + 2 * ids + literals_ >= UINT32_MAX)
     return RetentionStatus::Exhausted;
   if (oracle_ && input_words_ == query.input_words) return RetentionStatus::Accepted;
+  if (oracle_) {
+    std::vector<SubLit> clause;
+    // Commit complete original clauses only. An interrupted suffix can resume
+    // from this cursor without reinstalling premises or discarding proof IDs.
+    for (size_t at=input_words_;at<query.input_words;++at) {
+      if (stop && *stop) return RetentionStatus::Interrupted;
+      const int32_t literal=history.input()[at];
+      if (literal) clause.push_back(internalize(literal));
+      else {
+        if (!oracle_->append_input(query.formula_variables,clause))
+          return RetentionStatus::Exhausted;
+        input_words_=at+1;
+        clause.clear();
+      }
+    }
+    return RetentionStatus::Accepted;
+  }
   auto next = std::make_unique<SubSolver>();
   next->reset(query.formula_variables);
   std::vector<SubLit> clause;

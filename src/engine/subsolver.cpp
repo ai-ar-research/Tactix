@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <utility>
 
 namespace tactix {
 
@@ -1096,8 +1097,13 @@ SubPropagationResult SubSolver::propagate_assumptions_only(
   };
   if (interrupted())
     return SubPropagationResult::Interrupted;
-  if (inconsistent_ || !propagate())
+  if (inconsistent_)
     return SubPropagationResult::Conflict;
+  if (!propagate()) {
+    inconsistent_ = true;
+    pending_refutation_ = conflict_ref_;
+    return SubPropagationResult::Conflict;
+  }
   if (exhausted())
     return SubPropagationResult::Budget;
 
@@ -1117,6 +1123,55 @@ SubPropagationResult SubSolver::propagate_assumptions_only(
   }
   return exhausted() ? SubPropagationResult::Budget
                      : SubPropagationResult::Consistent;
+}
+
+bool SubSolver::append_input(uint32_t nvars, const std::vector<SubLit> &lits) {
+  if (search_mode_ != SubSearchMode::Fixed || search_started_ || frames_.empty() ||
+      nvars<nvars_ || nvars>UINT32_MAX/2 || next_id_==UINT32_MAX ||
+      lits.size()>UINT32_MAX-2u || arena_.size()>UINT32_MAX-2u-lits.size()) return false;
+  for (SubLit lit:lits) if (sub_var_of(lit)>=nvars) return false;
+  backtrack(0);
+  const size_t nlits=2*size_t(nvars);
+  if (watches_.size()<nlits) watches_.resize(nlits);
+  if (occurrences_.size()<nlits) occurrences_.resize(nlits);
+  clause_marks_.resize(nvars,0);
+  values_.resize(nlits,0);model_.resize(nvars,1);phase_.resize(nvars,0);
+  import_.resize(nvars);
+  for (SubVar v=nvars_;v<nvars;++v) {import_[v]=v+1;export_.push_back(v);}
+  queue_prev_.resize(nvars,NO_VAR);queue_next_.resize(nvars,NO_VAR);
+  queue_stamp_.resize(nvars,0);level_.resize(nvars,0);trail_pos_.resize(nvars,0);
+  reason_.resize(nvars,NO_REF);seen_.resize(nvars,0);cone_seen_.resize(nvars,0);
+  nvars_=imported_vars_=phase_capacity_vars_=nvars;
+  model_valid_=false;
+  append_oracle_clause(lits);
+  return true;
+}
+
+void SubSolver::append_oracle_clause(std::vector<SubLit> lits) {
+  // Watch two distinct non-false literals before attaching, rather than
+  // replaying the whole root trail for each new premise or checked lemma.
+  size_t next=0;
+  for (size_t at=0;at<lits.size() && next<2;++at)
+    if (values_[lits[at]]>=0 && (!next || lits[at]!=lits[0]))
+      std::swap(lits[next++],lits[at]);
+  const size_t before=arena_.size();
+  solved_=false;
+  add_clause(lits);
+  original_clauses_=next_id_-1;
+  solved_=true;
+  if (inconsistent_ || arena_.size()==before) return; // empty/tautological/satisfied unit
+  const SubRef ref=static_cast<SubRef>(before+2);
+  SubLit open=NO_LIT;
+  for (uint32_t at=0;at<clause_size(ref);++at) {
+    const SubLit lit=clause_lits(ref)[at];
+    if (values_[lit]>0) return;
+    if (!values_[lit]) {
+      if (open!=NO_LIT) return;
+      open=lit;
+    }
+  }
+  if (open!=NO_LIT) assign(open,ref);
+  else {inconsistent_=true;pending_refutation_=ref;}
 }
 
 SubRupAdmission SubSolver::admit_rup(const std::vector<SubLit> &lits,
@@ -1152,14 +1207,8 @@ SubRupAdmission SubSolver::admit_rup(const std::vector<SubLit> &lits,
     inconsistent_ = true;
     pending_refutation_ = conflict_ref_;
   }
-  // Pure propagation has no learned IDs or derivation to invalidate. Extend
-  // its premise population, keeping the original-ID watershed current before
-  // any possible future full solve. Re-arm roots for a new watched clause.
-  solved_ = false;
-  add_clause(normalized);
-  original_clauses_ = next_id_ - 1;
-  solved_ = true;
-  propagate_head_ = 0;
+  // Pure propagation has no learned IDs or derivation to invalidate.
+  append_oracle_clause(std::move(normalized));
   return SubRupAdmission::Accepted;
 }
 

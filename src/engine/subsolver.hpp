@@ -165,6 +165,12 @@ public:
   SubRupAdmission admit_rup(const std::vector<SubLit> &, uint64_t ticks_budget,
                            const volatile sig_atomic_t *stop = nullptr);
 
+  // Append a trusted original premise to a Fixed-mode propagation oracle,
+  // extending its stable variable namespace if needed. Temporary assumptions
+  // are unwound; root reasons, clauses and IDs survive. No full search may have
+  // started. False leaves the oracle unchanged (invalid/unsupported/ID bounds).
+  bool append_input(uint32_t nvars, const std::vector<SubLit> &);
+
   // The refutation behind the last `Unsat`. False when there is none: no
   // refutation yet, or the assumptions were directly contradictory, so nothing
   // was derived and the target clause would be a tautology — which only
@@ -252,6 +258,7 @@ private:
   void clear_assignments();
   bool propagate_units();
   void attach(SubRef ref);
+  void append_oracle_clause(std::vector<SubLit>);
   SubRef add_derived(const std::vector<SubLit> &lits,
                      const std::vector<uint32_t> &chain,
                      const std::vector<uint32_t> &ante = {});
