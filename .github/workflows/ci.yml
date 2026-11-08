@@ -45,7 +45,11 @@ jobs:
 
   solver:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [debug, release]
     steps:
       - uses: actions/checkout@v4
       - name: Install verified-checker build tools
@@ -69,37 +73,40 @@ jobs:
         run: tools/solvers/setup.sh
       - name: Build checker toolchain (clausal + VeriPB/CakePB — pinned)
         run: tools/checkers/setup.sh
-      - name: "Build tactix (debug: ASan/UBSan)"
-        run: cmake --preset debug && cmake --build build/debug --parallel 2
-      - name: Build tactix (release)
-        run: cmake --preset release && cmake --build build/release --parallel 2
-      - name: Unit + micro-proof tests (debug)
-        run: ctest --preset debug
-      - name: Unit + micro-proof tests (release)
-        run: ctest --preset release
+      # Every test links the solver. Keep sanitizer assertions/instrumentation,
+      # with the same compact debug info as build.yml to fit the runner's disk.
+      - name: Build tactix
+        run: |
+          cmake --preset ${{ matrix.mode }} -DCMAKE_CXX_FLAGS_DEBUG=-g1 -DCMAKE_C_FLAGS_DEBUG=-g1
+          cmake --build build/${{ matrix.mode }} --parallel 2
+      - name: Unit + micro-proof tests
+        run: |
+          ctest --preset ${{ matrix.mode }} --no-tests=error --output-log build/${{ matrix.mode }}/ctest.log
+          ! grep -E '\*\*\*Skipped|Not Run' build/${{ matrix.mode }}/ctest.log
       - name: Competition compliance
+        if: matrix.mode == 'release'
         run: tools/compete/check.sh ./build/release/tactix
       # 300 cases: the GH runner is ~4x slower than the reference machine;
       # the full 1000-case --quick gate runs locally per commit, volume
       # coverage is the nightly job's business (plan §8.2 cadence)
       - name: Quick fuzz (debug build, all oracles)
+        if: matrix.mode == 'debug'
         run: tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300
 
       # rule-order fuzzing (plan §8.2): random legal schedules + random
       # branching instances through the same four oracles — the modularity
       # property (N1) under continuous test
       - name: Quick fuzz, random rule schedule (debug build)
+        if: matrix.mode == 'debug'
         run: tools/fuzz/run.sh --public-random --quick --solver "./build/debug/tests/tactix-public-random --pbp --random-policy={seed}" --no-shrink --n 150
 
-      - name: Stateful IPASIR query integration fuzz (debug and release)
+      - name: Stateful IPASIR query integration fuzz
         run: |
-          for mode in debug release; do
-            python3 tools/fuzz/ipasir_trace.py \
-              --driver "build/$mode/tests/tactix-ipasir-trace" \
-              --reference cadical/build/cadical \
-              --seed 0 --n 16 --minimize --corpus tools/fuzz/ipasir-corpus \
-              --out "build/$mode/ipasir-integration-fuzz"
-          done
+          python3 tools/fuzz/ipasir_trace.py \
+            --driver "build/${{ matrix.mode }}/tests/tactix-ipasir-trace" \
+            --reference cadical/build/cadical \
+            --seed 0 --n 16 --minimize --corpus tools/fuzz/ipasir-corpus \
+            --out "build/${{ matrix.mode }}/ipasir-integration-fuzz"
 
   python-api:
     runs-on: ubuntu-latest
