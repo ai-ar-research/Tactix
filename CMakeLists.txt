@@ -30,7 +30,7 @@ add_compile_options(-Wall -Wextra -fno-exceptions $<$<COMPILE_LANGUAGE:CXX>:-fno
 # Tests and examples are built when Tactix is the top-level project; a parent
 # project that adds it with add_subdirectory gets only the solver and library.
 option(TACTIX_BUILD_TESTS "Build the tests and example strategies" ${PROJECT_IS_TOP_LEVEL})
-option(TACTIX_BUILD_SHARED_IPASIR "Build the experimental shared IPASIR library" OFF)
+option(TACTIX_BUILD_SHARED_IPASIR "Build the experimental shared IPASIR/Python library" OFF)
 
 # DejaVu is a pinned graph-automorphism backend whose public implementation
 # uses exceptions and RTTI.  Keep it in a separate translation unit with a
@@ -200,6 +200,8 @@ if(TACTIX_BUILD_SHARED_IPASIR)
   install(TARGETS tactix_shared LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   install(FILES include/ipasir.h include/tactix_ipasir.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  install(DIRECTORY python/tactix DESTINATION ${CMAKE_INSTALL_DATADIR}/tactix/python
+    FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE)
 endif()
 install(TARGETS tactix RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(TARGETS tactix_archive ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})

@@ -91,3 +91,34 @@ jobs:
               --out "build/$mode/ipasir-integration-fuzz"
           done
 
+  python-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache third-party toolchain builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            kissat
+            cadical
+            drat-trim
+            cake_lpr
+            tools/checkers/src
+          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh', 'tools/checkers/patches/**') }}
+      - name: Build pinned solvers and checkers
+        run: |
+          tools/solvers/setup.sh
+          tools/checkers/setup.sh
+      - name: Build the reusable Python library
+        run: |
+          cmake -S . -B build/python-api -DCMAKE_BUILD_TYPE=Release -DTACTIX_BUILD_SHARED_IPASIR=ON
+          cmake --build build/python-api --target tactix_shared --parallel 2
+      - name: Python ABI, programmable strategy parity, and session/core tests
+        run: |
+          ctest --test-dir build/python-api --output-on-failure --output-log build/python-api/python-tests.log -R '^python_(capi|policy_parity|session)$'
+          python3 - <<'PY'
+          from pathlib import Path
+          log = Path('build/python-api/python-tests.log').read_text()
+          assert 'out of 3' in log and '***Skipped' not in log and 'Not Run' not in log
+          PY

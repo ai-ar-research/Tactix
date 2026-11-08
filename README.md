@@ -68,6 +68,10 @@ build/release/examples/tactix-chvatal-policy formula.cnf proof
 restarts, the default schedule re-implemented outside the library) and
 strategies for binarized-neural-network and random 3-SAT encodings.
 
+The experimental [persistent Python API](python/README.md) adds runtime strategy
+control, IPASIR sessions and certified cores over one reusable shared library.
+Full integration qualification remains pending.
+
 ## Documentation and paper
 
 [docs/README.md](docs/README.md) indexes the guides. The

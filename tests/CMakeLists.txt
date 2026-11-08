@@ -22,6 +22,15 @@ function(tactix_python_test name script)
   add_test(NAME ${name} COMMAND ${TACTIX_PYTHON} ${script} ${ARGN})
 endfunction()
 
+if(TACTIX_BUILD_SHARED_IPASIR)
+  tactix_python_test(python_capi ${CMAKE_CURRENT_SOURCE_DIR}/test_python_capi.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
+  tactix_python_test(python_policy_parity ${CMAKE_CURRENT_SOURCE_DIR}/test_python_policy_parity.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
+  tactix_skip77_test(python_session ${TACTIX_PYTHON}
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_session.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
+endif()
 
 # A tests/<script> proof/model check over one fixture executable and the
 # source root; it exits 77 when a pinned checker is missing.
