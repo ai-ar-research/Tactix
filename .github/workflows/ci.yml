@@ -70,9 +70,9 @@ jobs:
       - name: Build checker toolchain (clausal + VeriPB/CakePB — pinned)
         run: tools/checkers/setup.sh
       - name: "Build tactix (debug: ASan/UBSan)"
-        run: cmake --preset debug && cmake --build build/debug -j
+        run: cmake --preset debug && cmake --build build/debug --parallel 2
       - name: Build tactix (release)
-        run: cmake --preset release && cmake --build build/release -j
+        run: cmake --preset release && cmake --build build/release --parallel 2
       - name: Unit + micro-proof tests (debug)
         run: ctest --preset debug
       - name: Unit + micro-proof tests (release)

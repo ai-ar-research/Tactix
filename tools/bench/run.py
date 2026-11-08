@@ -85,8 +85,7 @@ SR_CHECK = os.environ.get("TACTIX_SR_CHECK", os.path.join(
 DSR_COMPRESS = os.environ.get("TACTIX_DSR_COMPRESS", os.path.join(
     ROOT, "tools", "checkers", "bin", "dsr-compress"))
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
-PB_PINS = os.path.join(ROOT, "benchmarks", "baselines",
-                       "sc24-26-32g-5000s", "pins")
+PB_PINS = os.path.join(ROOT, "tools", "checkers", "bin")
 VERIPB = os.path.join(PB_PINS, "veripb")
 CAKE_PB_CNF = os.path.join(PB_PINS, "cake-pb-cnf")
 sys.path.insert(0, HERE)
