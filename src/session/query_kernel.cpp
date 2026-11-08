@@ -162,6 +162,7 @@ struct QueryKernel::Epoch final : QueryProofSources {
     uint64_t generation=0, retraction=0, names=0, translations=0;
     size_t assumption=0, trail=0;
     bool only_assumptions=true;
+    size_t root_trail=SIZE_MAX;
   } assumption_cursor;
   size_t input_words = 0;
   NativeQueryLimits limits;
@@ -1023,6 +1024,16 @@ AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
       cursor.translations!=translations || cursor.trail>k.trail.size())
     cursor={generation_,k.affine_trail_retraction_epoch,
             k.affine_semantic_namespace_epoch,translations,0,0,true};
+  // A root-falsified assumption refutes the cube even when an earlier member
+  // is undecided. Scan once per root trail/semantic epoch, not once per member.
+  // Above root an arbitrary client branch may falsify A, so keep the ordinary
+  // decision-origin check below. Cache only absence, never a refutation.
+  if (!k.level && cursor.root_trail!=k.trail.size()) {
+    for (size_t i=0;i<assumptions.size();++i)
+      if (kernel_external_value(k,internalize(assumptions[i]))<0)
+        return {AssumptionStatus::QueryUnsat,i,assumptions[i]};
+    cursor.root_trail=k.trail.size();
+  }
   // A false assumption is a query refutation only when the current decisions
   // are assumptions themselves. An arbitrary client may have branched first;
   // that calls for backtracking, never an UNSAT answer from a wrong branch.

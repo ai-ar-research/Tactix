@@ -21,7 +21,7 @@ def main():
         directory = Path(raw)
         traces = {}
         for mode, route in (("none", None), ("pbp", "pbp"), ("dsr", "dsr-cake_lpr")):
-            for case in ("search", "root", "opposite"):
+            for case in ("search", "root", "late-root", "opposite"):
                 cnf, proof = directory / f"{case}.cnf", directory / f"{case}.{mode}"
                 generated = subprocess.run(
                     [fixture, cnf, proof, mode, case], text=True,

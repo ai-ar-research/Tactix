@@ -98,6 +98,7 @@ static void wrong_branch_is_not_unsat() {
   QueryHistory h;
   QueryKernel s;
   clause(h, {1, 2});
+  assert(h.assume(3) == InputStatus::Ok); // an undecided prefix must not hide branch safety
   assert(h.assume(1) == InputStatus::Ok);
   assert(h.begin_query() == InputStatus::Ok);
   assert(s.replay(h) == ReplayStatus::Ok);
@@ -111,6 +112,45 @@ static void wrong_branch_is_not_unsat() {
   assert(s.next_assumption(t).status == AssumptionStatus::Propagate ||
          s.next_assumption(t).status == AssumptionStatus::Decide);
   assert(drive(s, h, true) == 10);
+}
+
+static void root_refutation_looks_past_undecided_assumptions() {
+  {
+    QueryHistory h;
+    QueryKernel s;
+    clause(h,{1,2}); clause(h,{-1,2}); // F implies 2, initially undiscovered
+    assert(h.assume(3)==InputStatus::Ok && h.assume(-2)==InputStatus::Ok);
+    assert(h.begin_query()==InputStatus::Ok && s.replay(h)==ReplayStatus::Ok);
+    const auto t=s.ticket();
+    assert(s.next_assumption(t).status==AssumptionStatus::Decide);
+    assert(s.next_assumption(t).status==AssumptionStatus::Decide); // cached absence
+    auto &k=*s.kernel(t);
+    kernel_assign_unit(k,kernel_internalize(k,2));
+    assert(propagate_service(k)==ApplyResult::Ok);
+    const auto next=s.next_assumption(t);
+    assert(next.status==AssumptionStatus::QueryUnsat && next.index==1);
+  }
+  QueryHistory h;
+  QueryKernel s;
+  clause(h, {1});
+  for (int literal=2;literal<=65;++literal)
+    assert(h.assume(literal)==InputStatus::Ok);
+  assert(h.assume(-1)==InputStatus::Ok);
+  assert(h.begin_query()==InputStatus::Ok && s.replay(h)==ReplayStatus::Ok);
+  auto t=s.ticket();
+  auto check=[&] {
+    const auto next=s.next_assumption(t);
+    assert(next.status==AssumptionStatus::QueryUnsat && next.index==64 && next.literal==-1);
+  };
+  check();
+  auto &k=*s.kernel(t);
+  kernel_compact_variables(k,true); // root now lives in the fixed external table
+  k.stats={};
+  check();
+  assert(s.publish_assumption_refutation(t) && !k.inconsistent);
+  assert(h.finish_query(1,QueryResult::Unsat)==InputStatus::Ok);
+  assert(h.begin_query()==InputStatus::Ok && s.replay(h)==ReplayStatus::Ok);
+  assert(drive(s,h,true)==10); // the failed cube never refutes permanent F
 }
 
 static void assumption_cursor_after_public_backtracking() {
@@ -252,6 +292,11 @@ static void certificate_fixture(const char *cnf, const char *path, const std::st
     assert(h.assume(1) == InputStatus::Ok);
     assert(h.assume(1) == InputStatus::Ok);
     assert(h.assume(-1) == InputStatus::Ok);
+  } else if (scenario == "late-root") {
+    clause(h, {1});
+    for (int literal=2;literal<=65;++literal)
+      assert(h.assume(literal)==InputStatus::Ok);
+    assert(h.assume(-1)==InputStatus::Ok);
   } else if (scenario == "root") {
     clause(h, {1});
     clause(h, {-1, 2}); // derive a root before the later checker assumption
@@ -273,6 +318,10 @@ static void certificate_fixture(const char *cnf, const char *path, const std::st
   }
   QueryKernel s;
   assert(s.replay(h, std::move(proof)) == ReplayStatus::Ok);
+  if (scenario == "late-root") {
+    const auto next=s.next_assumption(s.ticket());
+    assert(next.status==AssumptionStatus::QueryUnsat && next.index==64);
+  }
   assert(drive(s, h, false) == 20);
   assert(s.flush_proof(s.ticket()));
   const auto &k = *s.kernel(s.ticket());
@@ -294,6 +343,7 @@ int main(int argc, char **argv) {
   repeated_queries(true);
   replay_restores_representation_and_namespaces();
   wrong_branch_is_not_unsat();
+  root_refutation_looks_past_undecided_assumptions();
   assumption_cursor_after_public_backtracking();
   decision_on_skipped_retired_assumption();
   assumption_restarts_duplicates_and_compaction();
