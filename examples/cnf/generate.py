@@ -6,6 +6,7 @@
 Each formula is deterministic, so rerunning the script reproduces the files
 byte for byte.
 """
+import argparse
 import random
 from pathlib import Path
 
@@ -62,6 +63,21 @@ def tseitin(vertices, degree, seed):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--pigeonhole', nargs=2, type=int,
+                        metavar=('PIGEONS', 'HOLES'))
+    parser.add_argument('--output', type=Path)
+    args = parser.parse_args()
+    if args.pigeonhole is not None:
+        pigeons, holes = args.pigeonhole
+        if pigeons < 1 or holes < 1 or args.output is None:
+            parser.error('--pigeonhole needs positive dimensions and --output')
+        n, clauses = pigeonhole(pigeons, holes)
+        write(args.output.resolve(), n, clauses,
+              [f'Pigeonhole principle: {pigeons} pigeons, {holes} holes.'])
+        return
+    if args.output is not None:
+        parser.error('--output requires --pigeonhole')
     write("random3sat-sat.cnf", 200, random3sat(200, 800, seed=1),
           ["Uniform random 3-SAT, 200 variables, 800 clauses (ratio 4.0), seed 1.",
            "Satisfiable."])

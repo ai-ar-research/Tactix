@@ -15,7 +15,7 @@
 
 /* Entries with no uint64 payload surface: a numeric payload is invalid.
  * Condition instead has a structured public tuple surface below. */
-static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
+static const char *const NO_SURFACE[] = {"RupConsequence", "ExtendedResolution", "Propagate", "SubstitutionRedundancy",
                                          "SwitchMode", "Condition", "ParityConsequence",
                                          "AffineConsequence", "ExactCoverExtension",
                                          "IndependentSetCover",
@@ -37,7 +37,7 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
  * application rather than an application (`N1-CONG-INSTANCES`, disposed in
  * the rule calculus §6 V6 and pinned by test_congruence.cpp). Factor left this
  * set when its seed-literal surface landed (`N1-FACTOR-INSTANCES`). */
-static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
+static const char *const CANONICAL_ONLY[] = {"RupConsequence", "ExtendedResolution", "Congruence", "Propagate",
                                              "SubstitutionRedundancy",
                                              "SwitchMode", "Walk", "ParityConsequence",
                                              "AffineConsequence", "ExactCoverExtension",

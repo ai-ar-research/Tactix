@@ -22,7 +22,8 @@ enum class SemanticVariableProducer : uint8_t {
   RetiredNaryCsp = 5, // Reserved producer wire identity; never published.
   NaryCspEquality = 6,
   Gf3GeneralRow = 7,
-  Count = 8,
+  ExtendedResolution = 8,
+  Count = 9,
 };
 
 inline constexpr size_t SEMANTIC_VARIABLE_PRODUCER_COUNT =

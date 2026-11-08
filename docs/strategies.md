@@ -5,7 +5,7 @@ A *strategy* is a C program that decides which of the solver's techniques
 [c-api.md](c-api.md) introduces the interface; this page walks through two
 example strategies and shows how to compile and run your own.
 
-The interface is large: 46 rules, many with their own settings. You
+The interface has many rules, each with its own settings. You
 do not need most of it to start. Both examples use a handful of rules and
 hand the rest of the work to the built-in strategy.
 
@@ -107,7 +107,40 @@ short opening that exploits it with a few rules, and let the built-in strategy
 do the rest. The paper's second case study,
 [`examples/chvatal_policy.c`](../examples/chvatal_policy.c), follows it too.
 
-## 4. Compiling and running your own strategy
+## 4. Choosing Boolean extension variables
+
+At a propagated root, a strategy can introduce an exact definition without
+requiring an existing Factor/BVA clause grid:
+
+```c
+int parity = tactix_define_extension(s, TACTIX_EXTENSION_XOR, a, b);
+if (parity < 0) return -1; /* handle inapplicable request */
+/* Propagate any root debt before defining the next gate. */
+int summary = tactix_define_extension(s, TACTIX_EXTENSION_AND, parity, c);
+```
+
+AND, OR and XOR take two signed permanent DIMACS literals and return a fresh
+positive variable identity. Negated operands, repeated operands and outputs
+of earlier calls are supported. A declined call returns `-1`; callers must
+handle that result before using it as a literal. Definitions preserve all
+original solutions and emit RAT additions through an attached proof writer.
+The reported SAT model projects away introduced variables.
+
+The registered `ExtendedResolution` action is explicit-only: its canonical
+application does nothing, and the built-in strategy does not invent definitions.
+The public function above supplies the exact instance. It neither chooses a
+phase nor raises activity. Its output becomes the current introduced-theory
+candidate for `SemanticVariableAdvice`; an online advice step can set
+`introduced_theory_priority` to raise both its activity and queue priority.
+Advice refers to the current state, so consume it before an unrelated action
+invalidates the candidate. A strategy can also select an eligible output
+literal directly with `tactix_decide`.
+
+Regions, expression discovery and performance policies belong to the caller.
+Defining a variable alone does not assert that it is true or derive additional
+relations involving it. Useful consequences require separate sound reasoning.
+
+## 5. Compiling and running your own strategy
 
 Start from an example, for instance `examples/demo1_dpll.c` (a complete
 search) or `examples/cruxmiter_policy.c` (an opening, then the built-in

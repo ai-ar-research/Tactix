@@ -234,7 +234,7 @@ const std::vector<RuleVTable> &tactix_rules() {
         "GraphIntervalEquivalence", "AffineMatrixInitialize",
         "NaryCspEquality", "Gf3GeneralRowConsequence",
         "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
-        "CardinalitySearch"};
+        "CardinalitySearch", "ExtendedResolution", "RupConsequence"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() + 1 != count) {

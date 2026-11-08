@@ -198,6 +198,20 @@ TABLE = {
                            r'gf3_general_row_action_apply\('),
                           ("tests/test_gf3_general_row_public.cpp",
                            r'c_v11_deep_copies_typed_selection\(')]),
+    "RupConsequence":
+                        (EXPLICIT, "caller-selected live premises; default append disabled",
+                         [r'rules\[i\]\.default_inprocess'],
+                         [("src/rules/rup_consequence/rup_consequence.cpp",
+                           r'TACTIX_REGISTER_OPT_IN_RULE\(RupConsequence'),
+                          ("tests/test_rup_consequence.cpp", r'public_inference\(')]),
+    "ExtendedResolution":
+                        (EXPLICIT, "caller-selected Boolean definitions; default append disabled",
+                         [r'rules\[i\]\.default_inprocess'],
+                         [("src/rules/extended_resolution/extended_resolution.cpp",
+                           r'TACTIX_REGISTER_OPT_IN_RULE\(ExtendedResolution'),
+                          ("src/rules/registry.hpp", r'rule\.default_inprocess = false'),
+                          ("tests/test_extended_resolution.cpp",
+                           r'public_composition_and_advice\(')]),
     "CardinalitySearch":
                         (EXPLICIT, "typed authenticated CDCL-time cardinality action; default slot disabled",
                          [r'std::strcmp\(rules\[i\]\.name, "CardinalitySearch"\)'],

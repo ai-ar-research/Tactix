@@ -387,6 +387,41 @@ int tactix_apply_instance(tactix *, int rule_id, uint64_t instance);
 int tactix_apply_condition(tactix *, const int *clause, int clause_count,
                            const int *witness, int witness_count);
 
+/* Exact Boolean extension, selected by the external strategy. Define a fresh
+ * z iff (left OP right), where operands are signed permanent DIMACS literals.
+ * Returns z's positive external identity, or -1 for an invalid/inapplicable
+ * request. Input closes as for other rule calls. After that closure, declines
+ * do not change the formula, variable namespace or guidance. Requires a
+ * consistent propagated sparse root and live operands; equal/complementary
+ * operands and root-assigned live variables are supported. Calls compose into
+ * circuits, including using earlier outputs as signed operands. Propagate any
+ * new root debt before the next definition. Each call allocates one variable.
+ * The registered ExtendedResolution rule has no numeric instance payload;
+ * its canonical application is a no-op. This function is its exact surface.
+ * RAT definitions preserve every original model; output models project away z.
+ * The output is published as an introduced-theory SemanticVariableAdvice
+ * candidate. Defining it does not itself bump activity or choose a phase.
+ * DefaultPolicy does not schedule this rule automatically. */
+#define TACTIX_EXTENSION_AND 1
+#define TACTIX_EXTENSION_OR 2
+#define TACTIX_EXTENSION_XOR 3
+int tactix_define_extension(tactix *, int gate, int left, int right);
+
+/* Derive a RUP consequence from an explicitly selected live subset. Each
+ * premise is authenticated against the current formula; root units are legal
+ * premises. Validation uses local unit propagation over the selected support.
+ * Returns 0 added, 1 already true, 20 UNSAT, or -1 invalid/inapplicable/budget.
+ * No speculative search or main-trail change occurs during validation. A
+ * successful nonterminal addition may leave propagation for the next action.
+ * This is the exact instance surface of the opt-in RupConsequence rule. */
+typedef struct {
+  const int *literals;
+  int count;
+} tactix_rup_premise;
+int tactix_add_rup(tactix *, const int *clause, int count,
+                   const tactix_rup_premise *premises, int premise_count,
+                   uint64_t maximum_work);
+
 /* Additive fine-grained action surface. Most rules delegate to the frozen v1
  * payloads. Rules whose v1 payload grouped multiple choices enumerate opaque
  * semantic payloads here; Instantiate, for example, exposes one payload per
