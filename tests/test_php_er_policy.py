@@ -37,5 +37,5 @@ with tempfile.TemporaryDirectory(prefix="php-er-fixed-", dir=Path.cwd()) as temp
         cnf.write_text(text)
         run = subprocess.run([binary, cnf], capture_output=True, text=True, timeout=30)
         assert run.returncode == 1 and "s UNSATISFIABLE" not in run.stdout
-        assert "unsupported input" in run.stderr
+        assert "unsupported input" in run.stderr, (index, run.stdout, run.stderr)
 print("PHP 3/2, 4/3, 5/4: zero decisions; six unsupported inputs rejected")

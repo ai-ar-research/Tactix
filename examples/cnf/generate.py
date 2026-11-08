@@ -28,14 +28,73 @@ def random3sat(nvars, nclauses, seed):
     return clauses
 
 
-def pigeonhole(pigeons, holes):
+def at_most_one(literals, next_variable, encoding):
+    """Return clauses and next free identity; all variants encode AMO exactly."""
+    clauses = []
+    def fresh():
+        nonlocal next_variable
+        v = next_variable
+        next_variable += 1
+        return v
+    def pairwise(xs):
+        clauses.extend([-a, -b] for i, a in enumerate(xs) for b in xs[i+1:])
+    xs = list(literals)
+    if len(xs) < 2:
+        return clauses, next_variable
+    if encoding == 'pairwise':
+        pairwise(xs)
+    elif encoding == 'sequential':
+        chain = [fresh() for _ in xs[:-1]]
+        clauses.append([-xs[0], chain[0]])
+        for i in range(1, len(xs)-1):
+            clauses.extend(([-xs[i], chain[i]], [-chain[i-1], chain[i]],
+                            [-xs[i], -chain[i-1]]))
+        clauses.append([-xs[-1], -chain[-1]])
+    elif encoding == 'bitwise':
+        bits = [fresh() for _ in range((len(xs)-1).bit_length())]
+        for i, x in enumerate(xs):
+            clauses.extend([-x, bit if i >> j & 1 else -bit]
+                           for j, bit in enumerate(bits))
+    elif encoding == 'commander':
+        while len(xs) > 3:
+            commanders = []
+            for start in range(0, len(xs), 3):
+                group = xs[start:start+3]
+                c = fresh()
+                commanders.append(c)
+                pairwise(group)
+                clauses.extend([-x, c] for x in group)
+            xs = commanders
+        pairwise(xs)
+    elif encoding == 'product':
+        width = 1
+        while width*width < len(xs):
+            width += 1
+        row = [fresh() for _ in range((len(xs)+width-1)//width)]
+        column = [fresh() for _ in range(width)]
+        for i, x in enumerate(xs):
+            clauses.extend(([-x, row[i//width]], [-x, column[i%width]]))
+        pairwise(row)
+        pairwise(column)
+    else:
+        raise ValueError('unknown AMO encoding: '+encoding)
+    return clauses, next_variable
+
+
+def pigeonhole(pigeons, holes, amo='pairwise', functional=False):
     var = lambda p, h: p * holes + h + 1
     clauses = [[var(p, h) for h in range(holes)] for p in range(pigeons)]
+    next_variable = pigeons*holes+1
     for h in range(holes):
+        rows, next_variable = at_most_one([var(p, h) for p in range(pigeons)],
+                                         next_variable, amo)
+        clauses.extend(rows)
+    if functional:
         for p in range(pigeons):
-            for q in range(p + 1, pigeons):
-                clauses.append([-var(p, h), -var(q, h)])
-    return pigeons * holes, clauses
+            rows, next_variable = at_most_one([var(p, h) for h in range(holes)],
+                                             next_variable, 'pairwise')
+            clauses.extend(rows)
+    return next_variable-1, clauses
 
 
 def tseitin(vertices, degree, seed):
@@ -67,12 +126,14 @@ def main():
     parser.add_argument('--pigeonhole', nargs=2, type=int,
                         metavar=('PIGEONS', 'HOLES'))
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--amo', choices=['pairwise', 'sequential', 'bitwise', 'commander', 'product'], default='pairwise')
+    parser.add_argument('--functional', action='store_true')
     args = parser.parse_args()
     if args.pigeonhole is not None:
         pigeons, holes = args.pigeonhole
         if pigeons < 1 or holes < 1 or args.output is None:
             parser.error('--pigeonhole needs positive dimensions and --output')
-        n, clauses = pigeonhole(pigeons, holes)
+        n, clauses = pigeonhole(pigeons, holes, args.amo, args.functional)
         write(args.output.resolve(), n, clauses,
               [f'Pigeonhole principle: {pigeons} pigeons, {holes} holes.'])
         return

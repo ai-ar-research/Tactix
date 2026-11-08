@@ -50,11 +50,27 @@ python3 examples/cnf/generate.py --pigeonhole 21 20 --output php-21-20.cnf
 build/release/examples/tactix-php-er php-21-20.cnf php-21-20.pbp
 ```
 
-The dedicated solver accepts the generator's canonical row-major encoding of
-PHP(n+1,n), for n >= 2. It validates every clause and literal before invoking
-the strategy. Other encodings, reordered inputs, malformed files, and SAT
-PHP(n,n) controls are rejected as unsupported. It does not invoke the existing
-DirectPhpRefutation rule or general CDCL search.
+The dedicated solver accepts unary PHP rows with pairwise, Sinz sequential,
+bitwise-selector, commander or product at-most-one constraints for each hole.
+It recognizes rows and recovers their hole correspondence from authenticated
+binary implication paths, including paths through encoding auxiliaries. It
+checks every required collision pair, then derives missing binary collisions
+through the public RUP operation before reducing the PHP. Clause/literal order
+and positive variable numbering are immaterial. Optional per-pigeon pairwise
+at-most-one constraints are supported.
+
+For example, add `--amo sequential` or `--amo commander --functional` to the
+generator invocation. Tests independently enumerate the existential auxiliary
+semantics of all five AMO generators, solve 60 fixed encoded/permuted PHP
+variants without decisions, reject satisfiable/damaged controls, and smoke-test
+PBP output for every encoding. These smoke tests do not establish independent
+proof-checker acceptance.
+
+The recognizer currently requires positive unary pigeon row clauses and binary
+implication witnesses for hole capacity. Totalizer and sorting-network encodings
+that require multi-premise propagation are not covered. Unsupported inputs are
+reported as UNKNOWN, not silently treated as a recognized PHP. The strategy
+does not invoke DirectPhpRefutation or general CDCL search.
 
 ## Polynomial construction
 

@@ -19,6 +19,7 @@ struct Work {
 bool normalize(const Kernel &k, const std::vector<int32_t> &external,
                Work &work, std::vector<Lit> &literals) {
   if (!work.take(external.size())) return false;
+  literals.reserve(external.size());
   for (int32_t x : external) {
     if (!x || x == INT32_MIN) return false;
     const Lit lit = kernel_internalize(k, x);

@@ -3,6 +3,7 @@
  * Usage: tactix-php-er INPUT.cnf [PROOF]
  */
 #include "tactix.h"
+#include "php_input.h"
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -28,14 +29,12 @@ static int find_rule(const char *name) {
 static int propagate(struct strategy *p) {
   const int status = tactix_status(p->solver);
   if (status) return status == 20 ? 20 : -1;
-  int applicable[64];
-  const int count = tactix_rules_applicable(p->solver, applicable, 64);
-  for (int i = 0; i < count; ++i)
-    if (applicable[i] == p->propagate) {
-      const int result = tactix_apply(p->solver, p->propagate);
-      return result == 20 ? 20 : result < 0 ? -1 : 0;
-    }
-  return 0;
+  /* Query only this rule. Enumerating every rule here also runs expensive
+   * unrelated guards once per consequence. A zero-capacity query tests the
+   * guard without allocating or enumerating a payload. */
+  if (tactix_rule_instances(p->solver, p->propagate, NULL, 0) < 0) return 0;
+  const int result = tactix_apply(p->solver, p->propagate);
+  return result == 20 ? 20 : result < 0 ? -1 : 0;
 }
 
 static int consequence(struct strategy *p, const int *clause, int count,
@@ -124,80 +123,37 @@ static int reduce_php(struct strategy *p, int holes, int *matrix) {
   return outcome;
 }
 
-/* The family format is the existing generator's canonical row-major PHP
- * encoding. Validate every token, not just a header or filename. Unsupported
- * permutations/encodings are rejected; they are never assumed to be PHP.
- */
-static int token(FILE *in, char word[64]) {
-  for (;;) {
-    const int result = fscanf(in, "%63s", word);
-    if (result != 1) return 0;
-    if (strcmp(word, "c")) return 1;
-    int c; do { c = fgetc(in); } while (c != EOF && c != '\n');
-  }
-}
-static int number(FILE *in, int64_t *out) {
-  char word[64], *end;
-  if (!token(in, word)) return 0;
-  errno = 0;
-  const long long value = strtoll(word, &end, 10);
-  if (errno || !*word || *end) return 0;
-  *out = value;
-  return 1;
-}
-static int expect(FILE *in, int64_t wanted) {
-  int64_t got;
-  return number(in, &got) && got == wanted;
-}
-static int php_dimension(FILE *in) {
-  char word[64];
-  int64_t variables, clauses;
-  if (!token(in, word) || strcmp(word, "p") ||
-      !token(in, word) || strcmp(word, "cnf") ||
-      !number(in, &variables) || !number(in, &clauses) ||
-      variables < 6 || variables > INT_MAX) return 0;
-  int n = 2;
-  while ((int64_t)n*(n+1) < variables) ++n;
-  if ((int64_t)n*(n+1) != variables ||
-      clauses != n+1+(int64_t)n*n*(n+1)/2 ||
-      variables + 2*(int64_t)n*(n+1)*(n-1)/3 > INT_MAX) return 0;
-  for (int i = 0; i <= n; ++i) {
-    for (int j = 0; j < n; ++j)
-      if (!expect(in, i*n+j+1)) return 0;
-    if (!expect(in, 0)) return 0;
-  }
-  for (int j = 0; j < n; ++j)
-    for (int i = 0; i <= n; ++i)
-      for (int k = i+1; k <= n; ++k)
-        if (!expect(in, -(i*n+j+1)) || !expect(in, -(k*n+j+1)) ||
-            !expect(in, 0)) return 0;
-  return token(in, word) || ferror(in) ? 0 : n;
-}
-
 int main(int argc, char **argv) {
   if (argc < 2 || argc > 3) {
     fprintf(stderr, "usage: %s INPUT.cnf [PROOF]\n", argv[0]); return 1;
   }
   FILE *input = fopen(argv[1], "r");
   if (!input) { perror(argv[1]); return 1; }
-  const int n = php_dimension(input);
-  if (!n || fseek(input, 0, SEEK_SET)) {
-    fprintf(stderr, "unsupported input: expected canonical PHP(n+1,n)\n");
-    fclose(input); puts("s UNKNOWN"); return 1;
+  struct php_input *decoded = php_input_read(input);
+  if (!decoded || fseek(input, 0, SEEK_SET)) {
+    fclose(input);
+    php_input_release(decoded);
+    fprintf(stderr, "unsupported input: expected authenticated unary PHP with binary AMO implications\n");
+    puts("s UNKNOWN"); return 1;
   }
-  const size_t variables = (size_t)n*(n+1);
-  int *matrix = malloc(variables * sizeof *matrix);
-  if (!matrix) { fclose(input); return 1; }
+  const int n = php_input_holes(decoded);
+  int *matrix = php_input_matrix(decoded);
+  if (!matrix) { fclose(input); php_input_release(decoded); return 1; }
   struct strategy p = {0};
   p.solver = tactix_init();
   p.propagate = find_rule("Propagate");
-  if ((argc == 3 && tactix_proof(p.solver, argv[2], TACTIX_PROOF_PBP)) ||
-      tactix_read_dimacs(p.solver, input)) {
-    fclose(input); free(matrix); tactix_release(p.solver); return 1;
+  if (argc == 3 && tactix_proof(p.solver, argv[2], TACTIX_PROOF_PBP)) {
+    fclose(input); free(matrix); php_input_release(decoded); tactix_release(p.solver); return 1;
   }
+  /* Preserve the original DIMACS header namespace and input proof image. */
+  const int read_error = tactix_read_dimacs(p.solver, input);
   fclose(input);
-  for (size_t i = 0; i < variables; ++i) matrix[i] = (int)i+1;
+  if (read_error) { free(matrix); php_input_release(decoded); tactix_release(p.solver); return 1; }
   int outcome = propagate(&p);
+  uint64_t collisions = 0;
+  if (!outcome) outcome = php_input_collisions(p.solver, decoded, &collisions);
+  printf("c php-er normalized-collisions=%" PRIu64 "\n", collisions);
+  php_input_release(decoded);
   if (!outcome) outcome = reduce_php(&p, n, matrix);
   else free(matrix);
   printf("c php-er decisions=%" PRIu64 "\n", tactix_stat(p.solver, TACTIX_STAT_DECISIONS));
