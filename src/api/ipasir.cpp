@@ -3,6 +3,7 @@
 #include "tactix.h"
 #include "strategy/presets/cruxmiter.h"
 #include "tactix_search_demo.h"
+#include "tactix_scripted_default.h"
 #undef tactix
 #include "api/api_internal.hpp"
 #include "session/query_kernel.hpp"
@@ -48,14 +49,19 @@ struct ArtifactStore {
 };
 
 struct NativeRuntime {
+  enum { scripted_default=3 };
   cruxmiter_program program{};
   tactix_search_demo search{};
+  tactix_scripted_default scripted{};
   int demo_kind=0;
   StrategySettings options;
   uint64_t query_entries=0,restored_entries=0,handoffs=0;
   uint64_t requests=0,eligible=0,effective=0,rounds=0;
   void begin(const StrategySettings &caller_options) {
-    if(demo_kind) {
+    if(demo_kind==scripted_default) {
+      tactix_scripted_default_begin(&scripted);
+      return;
+    } else if(demo_kind) {
       (void)tactix_search_demo_begin(&search,demo_kind);
       return;
     } else {
@@ -294,7 +300,12 @@ struct Session {
           native->query_entries+=cause==TACTIX_IPASIR_ENTER_QUERY;
           native->restored_entries+=cause==TACTIX_IPASIR_ENTER_RESTORED;
           auto *view=static_cast<::tactix_solver *>(execution);
-          if(native->demo_kind) {
+          if(native->demo_kind==NativeRuntime::scripted_default) {
+            (void)tactix_set_guidance_publication(view,TACTIX_GUIDANCE_NATIVE);
+            proposed=tactix_scripted_default_run(&native->scripted,view,[](void *session) {
+              return static_cast<Session *>(session)->program_boundary(true);
+            },this);
+          } else if(native->demo_kind) {
             proposed=tactix_search_demo_run(&native->search,view,[](void *session) {
               return static_cast<Session *>(session)->program_boundary(true);
             },this);
@@ -550,10 +561,13 @@ int tactix_ipasir_set_strategy_name(void *p,const char *name) {
     s.native.reset();s.strategy=nullptr;s.strategy_state=nullptr;return 0;
   }
   const int kind=!std::strcmp(name,"dpll")?TACTIX_DEMO_DPLL:
-      !std::strcmp(name,"cdcl-no-restarts")?TACTIX_DEMO_NO_RESTARTS:0;
+      !std::strcmp(name,"cdcl-no-restarts")?TACTIX_DEMO_NO_RESTARTS:
+      !std::strcmp(name,"scripted-default")?NativeRuntime::scripted_default:0;
   if(!kind && std::strcmp(name,"cruxmiter"))return -1;
   auto runtime=std::make_unique<NativeRuntime>();runtime->demo_kind=kind;
-  const bool valid=kind?tactix_search_demo_begin(&runtime->search,kind):cruxmiter_begin(&runtime->program);
+  const bool valid=kind==NativeRuntime::scripted_default?
+      (tactix_scripted_default_begin(&runtime->scripted),true):
+      kind?tactix_search_demo_begin(&runtime->search,kind):cruxmiter_begin(&runtime->program);
   if(!valid)return -1;
   s.native=std::move(runtime);s.strategy=nullptr;s.strategy_state=nullptr;return 0;
 }
@@ -561,6 +575,7 @@ const char *tactix_ipasir_strategy_name(void *p) {
   if(!p || as_session(p)->busy || as_session(p)->minimizing)return nullptr;
   const auto &s=*as_session(p);
   return s.native?(s.native->demo_kind==TACTIX_DEMO_DPLL?"dpll":
+      s.native->demo_kind==NativeRuntime::scripted_default?"scripted-default":
       s.native->demo_kind==TACTIX_DEMO_NO_RESTARTS?"cdcl-no-restarts":"cruxmiter"):
       s.strategy?"callback":"default";
 }

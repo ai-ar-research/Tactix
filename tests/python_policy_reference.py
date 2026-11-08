@@ -36,7 +36,7 @@ class ScriptedDefault:
         self.rel_u=self.rel_v=1;self.rel_wait=1024;self.rel_trigger=False
         self.rephase_next=1000;self.lucky_tried=False
 
-    def run(self, view, rules, boundary=lambda:False):
+    def run(self, view, rules, boundary=None):
         def stat(name):return view.tactix_stat(getattr(capi,'TACTIX_STAT_'+name))
         def apply(name, instance=None):
             code=(view.tactix_apply(rules[name]) if instance is None else
@@ -47,7 +47,9 @@ class ScriptedDefault:
             self.restart_next=stat('CONFLICTS')+1+(int(math.log10(float(restarts)+9)-1.0) if restarts else 0)
         if view.tactix_status()==20:return 20
         while True:
-            if boundary():return 0
+            if boundary is not None:
+                action=boundary()
+                if action>=0:return action
             code=apply('Propagate')
             if code==20:return 20
             if not self.lucky_tried and code!=2:
@@ -68,6 +70,7 @@ class ScriptedDefault:
                         if self.rel_wait>1<<20:self.rel_u=self.rel_v=1;self.rel_wait=1024
                         self.rel_trigger=True
                 continue
+            if boundary is not None and code==0:continue
             if not stat('UNASSIGNED'):return 10
             conflicts=stat('CONFLICTS')
             if conflicts>=self.reduce_next and apply('Reduce')!=-1:
@@ -99,6 +102,22 @@ class ScriptedDefault:
                     n=stat('REPHASED');lg=math.log10(float(n)+9)
                     self.rephase_next=stat('CONFLICTS')+int(1000*float(n)*lg*lg*lg);continue
             assert apply('Decide')!=-1
+
+    def __call__(self, execution, restored):
+        if not restored:self.begin()
+        assert execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE)==0
+        def boundary():
+            while True:
+                action=execution.next()
+                if action==capi.TACTIX_QUERY_ASSUME:execution.assume_next()
+                elif action==capi.TACTIX_QUERY_BACKTRACK:execution.apply('Restart',0)
+                elif action in (10,20):return action
+                elif action in (capi.TACTIX_QUERY_RESTORE,capi.TACTIX_QUERY_INTERRUPTED,
+                                capi.TACTIX_QUERY_INVALID,capi.TACTIX_QUERY_BUSY):return 0
+                else:return -1
+        rules={execution.c.tactix_rule_name(i).decode():i
+               for i in range(execution.c.tactix_rule_count())}
+        return self.run(execution.c,rules,boundary)
 
 class Cruxmiter:
     """Python transcription of the C Cruxmiter root program, not a native delegate."""

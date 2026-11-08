@@ -52,6 +52,13 @@ search loops for incremental queries and minimization, without a DefaultPolicy
 handoff. DPLL retains its post-analysis learned-clause purge. Mandatory assumption
 installation and root re-entry use the same session service as other drivers.
 
+`strategy='scripted-default'` selects the existing demo3 search scheduler. Its
+C header, plain example and persistent adapter share one implementation, with
+the same moving averages, restart/reduction, mode-switch and rephase schedule.
+The adapter settles assumptions before branching and preserves scheduler state
+across same-query restoration. It has no DefaultPolicy handoff. This is the
+search-only example; its inprocessing slot remains disabled.
+
 `Result` keeps owned model, assumption and core tuples plus a native result
 handle. Its certificate files survive later queries and session closure until
 the last result owner is collected; call `export` to keep a permanent disk copy.

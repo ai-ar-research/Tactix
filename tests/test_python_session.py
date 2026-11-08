@@ -14,7 +14,7 @@ library,root=map(Path,sys.argv[1:])
 sys.path.insert(0,str(root/'python'))
 sys.path.insert(0,str(root/'tools/bench'))
 from tactix import Session, ScriptedCDCL, SAT, UNSAT, UNKNOWN
-from python_policy_reference import Cruxmiter
+from python_policy_reference import Cruxmiter, ScriptedDefault
 spec=importlib.util.spec_from_file_location('python_session_runner',root/'tools/bench/run.py')
 runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
 from proof_oracle import certificate_route
@@ -44,7 +44,9 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
     tmp=Path(tmp)
     for name,strategy in (('default',None),('scripted',ScriptedCDCL(lambda c:-c[0])),
                           ('cruxmiter','cruxmiter'),('dpll','dpll'),('cdcl-no-restarts','cdcl-no-restarts'),
-                          ('python-cruxmiter',Cruxmiter())):
+                          ('python-cruxmiter',Cruxmiter()),
+                          ('scripted-default','scripted-default'),
+                          ('python-scripted-default',ScriptedDefault())):
         folder=tmp/name;folder.mkdir()
         with Session(library=library,strategy=strategy,core_budget=1_000_000) as s:
             if isinstance(strategy,Cruxmiter):strategy.configure(s)
@@ -162,4 +164,4 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
         else:raise AssertionError('native minimization callback exception lost')
         assert s._lib.dll.tactix_ipasir_bundle(s._handle)==before and s._lib.dll.ipasir_val(s._handle,1)==1
         s.set_strategy(None);assert s.solve().status==SAT
-print('Python sessions: default/scripted/native-and-Python-cruxmiter/DPLL/no-restart cores, minimization, learned exports, contexts, interruption and lifetimes pass')
+print('Python sessions: default/scripted/native-and-Python-cruxmiter/native-and-Python-scripted-default/DPLL/no-restart cores, minimization, learned exports, contexts, interruption and lifetimes pass')

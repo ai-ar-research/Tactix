@@ -3,6 +3,7 @@
 #include "tactix_ipasir.h"
 #include "strategy/presets/cruxmiter.h"
 #include "tactix_search_demo.h"
+#include "tactix_scripted_default.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -58,11 +59,14 @@ static void continuation(void) {
   assert(result==10&&tactix_ipasir_finish(s,result)==10&&ipasir_val(s,1)==-1&&ipasir_val(s,2)==2);
   ipasir_release(s);
 }
-typedef struct {void *session;tactix *view;tactix_search_demo *program;int paused;} demo_hook;
+typedef struct {void *session;tactix *view;tactix_search_demo *program;int paused;
+  tactix_scripted_default *scripted;} demo_hook;
 static int demo_boundary(void *state) {
   demo_hook *h=state;
-  if(!h->paused&&h->program->steps&&
-      (h->program->kind!=TACTIX_DEMO_DPLL||h->program->pending_purge)) {
+  const int progressed=h->scripted?
+      h->scripted->avg[0].initialized||h->scripted->avg[1].initialized:
+      h->program->steps&&(h->program->kind!=TACTIX_DEMO_DPLL||h->program->pending_purge);
+  if(!h->paused&&progressed) {
     h->paused=1;return 0;
   }
   for(;;) {
@@ -75,21 +79,32 @@ static int demo_boundary(void *state) {
     else return -1;
   }
 }
+static int demo_run(demo_hook *h) {
+  return h->scripted?tactix_scripted_default_run(h->scripted,h->view,demo_boundary,h):
+      tactix_search_demo_run(h->program,h->view,demo_boundary,h);
+}
 static void demo_continuation(int kind) {
   void *s=ipasir_init();assert(s);
   input(s,(const int[]){1,2,0});input(s,(const int[]){1,-2,0});input(s,(const int[]){3,4,0});
   ipasir_assume(s,-3);tactix *view=NULL;assert(tactix_ipasir_begin(s,&view)==1);
   assert(!tactix_decide(view,-1)); // Client-selected wrong branch before A.
-  tactix_search_demo p;assert(tactix_search_demo_begin(&p,kind));demo_hook h={s,view,&p,0};
-  assert(!tactix_search_demo_run(&p,view,demo_boundary,&h)&&h.paused);
+  tactix_search_demo p;assert(tactix_search_demo_begin(&p,kind==3?TACTIX_DEMO_NO_RESTARTS:kind));
+  tactix_scripted_default scripted;tactix_scripted_default_begin(&scripted);
+  // Suppress the optional Lucky shortcut only in this continuation fixture,
+  // so the scripted scheduler observes a real conflict before suspension.
+  scripted.lucky_tried=1;
+  demo_hook h={s,view,&p,0,kind==3?&scripted:NULL};
+  assert(!demo_run(&h)&&h.paused);
   const uint64_t steps=p.steps;const int purge=p.pending_purge;
-  assert(steps&&purge==(kind==TACTIX_DEMO_DPLL));
+  assert((kind==3||steps)&&purge==(kind==TACTIX_DEMO_DPLL));
+  const tactix_scripted_default before=scripted;
   assert(tactix_apply_instance(view,rule("BVE"),3)>=0);
   tactix_ipasir_query_state q={0};q.version=1;q.size=sizeof q;
   assert(!tactix_ipasir_next(s,&q)&&q.action==TACTIX_QUERY_RESTORE);
   assert(tactix_ipasir_repair(s,&view)==1&&p.steps==steps&&p.pending_purge==purge);
+  assert(!memcmp(&before,&scripted,sizeof scripted));
   h.view=view;
-  assert(tactix_search_demo_run(&p,view,demo_boundary,&h)==10&&!p.pending_purge);
+  assert(demo_run(&h)==10&&!p.pending_purge);
   assert(tactix_ipasir_finish(s,10)==10&&ipasir_val(s,1)==1&&ipasir_val(s,3)==-3&&ipasir_val(s,4)==4);
   ipasir_release(s);
 }
@@ -129,6 +144,9 @@ static void plain(const char *mode,const char *prefix,const char *scenario,const
     assert(!tactix_set_guidance_publication(s,TACTIX_GUIDANCE_NATIVE));
     assert(cruxmiter_begin(&p));result=cruxmiter_run(&p,s,NULL,NULL,NULL);
     if(result==CRUXMITER_HANDOFF)result=tactix_solve(s);
+  } else if(!strcmp(name,"scripted-default")) {
+    tactix_scripted_default program;tactix_scripted_default_begin(&program);
+    result=tactix_scripted_default_run(&program,s,NULL,NULL);
   } else {
     tactix_search_demo program;
     assert(tactix_search_demo_begin(&program,!strcmp(name,"dpll")?TACTIX_DEMO_DPLL:TACTIX_DEMO_NO_RESTARTS));
@@ -180,7 +198,8 @@ int main(int argc,char **argv) {
   assert(!tactix_ipasir_set_strategy_name(s,NULL)&&!strcmp(tactix_ipasir_strategy_name(s),"default"));
   ipasir_release(s);
   if(crux)continuation();
-  else demo_continuation(!strcmp(name,"dpll")?TACTIX_DEMO_DPLL:TACTIX_DEMO_NO_RESTARTS);
+  else demo_continuation(!strcmp(name,"scripted-default")?3:
+      !strcmp(name,"dpll")?TACTIX_DEMO_DPLL:TACTIX_DEMO_NO_RESTARTS);
   printf("%s: entries=%llu requests=%llu eligible=%llu effective=%llu rounds=%llu handoffs=%llu; cores and option isolation pass\n",
       name,(unsigned long long)c.query_entries,(unsigned long long)c.root_requests,(unsigned long long)c.root_eligible,
       (unsigned long long)c.root_effective,(unsigned long long)c.root_rounds,(unsigned long long)c.default_handoffs);

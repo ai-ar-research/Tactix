@@ -221,7 +221,7 @@ add_test(NAME ipasir_cruxmiter COMMAND test_ipasir_cruxmiter)
 tactix_skip77_test(ipasir_cruxmiter_proof ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_cruxmiter_proof.py
                    $<TARGET_FILE:test_ipasir_cruxmiter> ${CMAKE_SOURCE_DIR})
-foreach(driver dpll cdcl-no-restarts)
+foreach(driver dpll cdcl-no-restarts scripted-default)
   tactix_skip77_test(ipasir_${driver}_proof ${TACTIX_PYTHON}
                     ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_cruxmiter_proof.py
                     $<TARGET_FILE:test_ipasir_cruxmiter> ${CMAKE_SOURCE_DIR} ${driver})

@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='ipasir-trace-regression-') as tmp:
                  'termination-polls','unknown-validated','0-to-10','strategy-switch',
                  'strategy-calls','strategy-1-solve','strategy-2-solve','strategy-3-solve',
                  'learned-clauses','learned-units','learned-empty','reduced-core-verified','owned-result-verified',
-                 'strategy-4-solve','native-root-requests','native-root-eligible','native-root-effective',
+                 'strategy-4-solve','strategy-8-solve','native-root-requests','native-root-eligible','native-root-effective',
                  'native-root-rounds','native-handoffs','strategy-5-solve',
                  'random-root','random-search','random-root_to_search','random-partial_restarts',
                  'random-full_restarts','random-search_to_root','random-algebraic',
