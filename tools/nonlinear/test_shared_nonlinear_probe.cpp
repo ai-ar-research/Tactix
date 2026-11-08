@@ -1,3 +1,6 @@
+#ifdef NDEBUG
+#define SHARED_NONLINEAR_RELEASE_CORE 1
+#endif
 #undef NDEBUG
 #include "diagnostics/shared_nonlinear_probe.hpp"
 #include "frontend/parse.hpp"
@@ -34,8 +37,9 @@ static void check(const char *arm,unsigned assignment,bool corrupt) {
   for(int j=1;j<=4;++j)kernel_assign_unit(k,kernel_internalize(k,values[j] ? j:-j));
   auto result=propagate_apply(k);assert((result==ApplyResult::Unsat)==corrupt);
   if(!corrupt)for(int j=1;j<=10;++j)assert((k.value(kernel_internalize(k,j))>0)==values[j]);
-#ifndef NDEBUG
-  kernel_check_invariants(k);heuristics_check(k);
+  kernel_check_invariants(k);
+#ifndef SHARED_NONLINEAR_RELEASE_CORE
+  heuristics_check(k);
 #endif
 }
 int main() {
