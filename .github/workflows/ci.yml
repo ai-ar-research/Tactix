@@ -1,9 +1,5 @@
-# CI (plan §5 build & CI, decided decision (b6287bc)). Two parallel jobs sharing the
-# pinned-toolchain cache:
-#   harness — fuzz-harness selftest (validates the validators)
-#   solver  — tactix debug(ASan/UBSan)+release builds, unit + micro-proof
-#             tests, competition compliance, quick fuzz of the debug build
-# The Tier A gate step joins the solver job once T1 is close.
+# CI checks the validator harness, native Debug/Release solver, and Python API
+# in parallel, using the pinned solver/checker toolchain.
 name: ci
 
 on:

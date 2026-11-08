@@ -19,8 +19,26 @@ assert set(capi.SIGNATURES)==set(s.FUNCTIONS)
 
 # The compiler evaluates the actual public definitions, including the nested
 # union, arrays and all field offsets. Header hashes prohibit stale coverage.
-source=['#include "tactix.h"','#include "tactix_ipasir.h"','#include <stddef.h>',
-        '#include <stdio.h>','int main(void) {']
+def c_declaration(code,name):
+    if isinstance(code,str):
+        return ('struct tactix_solver' if code=='tactix_solver' else code)+' '+name
+    kind,value,*extra=code
+    if kind=='*':return c_declaration(value,'*'+name)
+    if kind=='function':
+        params=', '.join(c_declaration(t,'').strip() for t in extra[0]) or 'void'
+        return c_declaration(value,'(*'+name+')('+params+')')
+    if kind=='array':return c_declaration(value,name+'['+str(extra[0])+']')
+    raise AssertionError(code)
+
+# Const qualifiers do not affect the calling ABI. Erase them only in this
+# declaration-only probe so signatures compare directly with ctypes types.
+source=['#include <stddef.h>','#include <stdint.h>','#include <stdio.h>',
+        '#define const','#include "tactix.h"','#include "tactix_ipasir.h"','#undef const']
+for name,(result,params) in s.FUNCTIONS.items():
+    expected_type='expected_'+name
+    source.append('typedef '+c_declaration(('function',result,params),expected_type)+';')
+    source.append(f'_Static_assert(__builtin_types_compatible_p(__typeof__(&{name}), {expected_type}), "{name} signature");')
+source.append('int main(void) {')
 expected=[]
 for name,(_,ctype,fields) in s.RECORDS.items():
     t=capi._TYPES[name]
@@ -77,5 +95,5 @@ with Session(library=library,strategy=inspected) as session:
 try:views[-1].tactix_stat(capi.TACTIX_STAT_CONFLICTS)
 except RuntimeError:pass
 else:raise AssertionError('expired C view accepted')
-print(f'Python C ABI: {len(s.FUNCTIONS)} symbols, {len(s.PUBLIC_TYPES)} types, '
+print(f'Python C ABI: {len(s.FUNCTIONS)} symbols/signatures, {len(s.PUBLIC_TYPES)} types, '
       f'{len(s.RECORDS)} record layouts, {len(s.CONSTANTS)} constants; typed calls and guarded views pass')
