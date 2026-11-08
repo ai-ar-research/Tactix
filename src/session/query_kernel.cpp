@@ -796,7 +796,11 @@ NativeAdvanceResult QueryKernel::transition(const QueryHistory &history,
       for(int32_t l:record.literals)body.push_back(internalize(l));
       for(int32_t l:step.witness)witness.push_back(internalize(l));
       for(auto [from,to]:step.mappings)mappings.push_back({internalize(from),internalize(to)});
-      if(!writer->add_sr(++next_id,body.data(),body.size(),witness.data(),witness.size(),
+      // A checked implicit-pivot-only substitution is RAT. Explicit witnesses
+      // and mappings still require the general SR encoder.
+      if(witness.empty() && mappings.empty())
+        writer->add_rat(++next_id,body.data(),body.size());
+      else if(!writer->add_sr(++next_id,body.data(),body.size(),witness.data(),witness.size(),
           mappings.data(),mappings.size(),namespace_extent,true))return fail(NativeAdvanceStatus::ProofUnavailable);
     } else if(!emit_query_knowledge(*writer,record,next_id,query->query_variables,parity_cache,charge_proof))
       return fail(interrupted()?NativeAdvanceStatus::Interrupted:

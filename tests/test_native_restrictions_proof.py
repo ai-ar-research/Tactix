@@ -56,6 +56,9 @@ def main():
                             continue
                         kind = 'pbp' if text.startswith('pseudo-Boolean') else 'dsr'
                         free = kind == 'dsr' and certificate_route(proof) == 'drat'
+                        if case.startswith('rat-') and kind == 'dsr':
+                            assert free, (case, mode, query,
+                                          'witness-free RAT replay unexpectedly needs SR')
                         route = 'pbp' if kind == 'pbp' else ('dsr-cake_lpr' if free else 'dsr-trestle')
                         result = runner.check_proof(kind, str(cnf), str(proof), 30, route=route)
                         assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (key, result)
