@@ -15,7 +15,8 @@ static void invalid_atomic() {
   auto *s=tactix_init();for (int l:{1,2,0}) tactix_add(s,l);
   assert(tactix_status(s)==0);
   auto &k=api_detail::kernel_for_fixed_testing(s);
-  const auto id=k.next_clause_id,epoch=k.strategy_epoch,extent=k.external_to_internal.size();
+  const auto id=k.next_clause_id,epoch=k.strategy_epoch;
+  const auto extent=k.external_to_internal.size();
   int negative[]={-3}, positive[]={3};
   tactix_clausal_step steps[]={{TACTIX_CLAUSAL_RAT,negative,1,0},
     {TACTIX_CLAUSAL_RAT,positive,1,0},{TACTIX_CLAUSAL_RUP,nullptr,0,0}};
