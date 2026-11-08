@@ -112,6 +112,12 @@ other requirement. Retain the regrade output alongside the original result.
   Custom layouts use `--shards`, `--physical-cores`, `--threads-per-core` and `--partition`. `--index-offset` preserves unsharded cases; aggregate coverage/reach requirements preserve grading.
 - Core clausal checkers (`cake_lpr`, `drat-trim`, `dsr-compress`, `dsr-trim`, `lrat-check`, `srcheck`) default to the mutable `tools/checkers/bin` links. `slurm.sh --checkers DIR` freezes them instead: `DIR` holds exactly those basenames and a `SHA256SUMS` manifest; submission verifies it, installs a read-only content-addressed copy under `failures/checkers/<sha256>/`, and records that path and manifest in the snapshot (so failure `repro.sh` files use the same checkers); the job re-verifies it. For a live checkout, `TACTIX_FUZZ_CHECKERS=DIR` selects the same kind of collection, and `fuzz.py checkers` prints and verifies whichever is in effect. Optional `--dsr-transport FILE` pins the CMake `dsr-transport` helper and its hash beside the oracle; missing helper pins retain Python parsing, never weaker checking.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
+  Public frontends emit sparse `c public-reach RULE COUNT` observations through
+  the installed C statistics API. These do not claim the full CLI dump:
+  Propagate/Decide/ConflictAnalysis report their native work counts, BVE reports
+  resolution work, and BCE/Substitute require deleted clauses/substituted
+  variables. Attempted actions and NoOps do not replace these witnesses; the
+  public-random effective-action/transition/form requirements remain separate.
   `coverage:` counts cases that reached a verdict — a case that times out runs
   NO oracle, and the non-terminating population is printed on its own line,
   saved under `<outdir>/nonterminating/` and can be made fatal with

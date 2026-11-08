@@ -33,6 +33,20 @@ c localsearch 3 hints offered (127 phases, 1 replacements), 2 applied / 2 target
     assert seen["LocalSearchGuidance"]
     assert counts["LocalSearchGuidance"] == 2
 
+    # A public frontend declares sparse source counters, not a full CLI dump.
+    partial = "c tactix-public\nc public-reach BVE 3\nc public-reach BCE 0\n"
+    present, counts, seen = FUZZ.rule_reachability(partial)
+    assert not present and counts == {"BVE": 3, "BCE": 0}
+    assert seen == {"BVE": True, "BCE": True}
+    # Attempted actions/NoOps and absent/malformed counters provide no witness.
+    for invalid in ("c public-random rule BVE applications=9 effective=0\n",
+                    "c public-reach BVE -1\n", "c public-reach BVE\n", ""):
+        present, counts, seen = FUZZ.rule_reachability(invalid)
+        assert not present and not counts.get("BVE") and not seen.get("BVE")
+    # Sparse output cannot conceal a missing counter in a declared full dump.
+    present, counts, seen = FUZZ.rule_reachability("c tactix 0.2.1\n"+partial)
+    assert present and not seen["BVE"] and counts["BVE"] == 0
+
     zero = stdout.replace(", 2 applied /", ", 0 applied /")
     present, counts, seen = FUZZ.rule_reachability(zero)
     assert present and seen["LocalSearchGuidance"]

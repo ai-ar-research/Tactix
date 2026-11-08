@@ -499,6 +499,7 @@ REACH_SPECS = [
 ]
 _REACH_RES = [(label, re.compile(pat, re.M)) for label, pat in REACH_SPECS]
 _STATS_BANNER_RE = re.compile(r"^c tactix ", re.M)
+_PUBLIC_REACH_RE = re.compile(r"^c public-reach (\S+) (\d+)$", re.M)
 
 
 # The qualification client prints one line per exercised public rule plus
@@ -582,6 +583,8 @@ def missing_policy_counters(coverage, required=()):
 def rule_reachability(stdout):
     """(stats_present, {label: count}, {label: line_present}) for one case.
 
+    `stats_present` denotes the full CLI dump; public clients may instead
+    declare individual source counters without claiming all CLI statistics.
     `count` is the entry's fired-counter value; `line_present` says the print
     line existed at all, which separates "the rule did not fire" from "the
     harness is looking for a line the solver no longer prints"."""
@@ -589,6 +592,10 @@ def rule_reachability(stdout):
     present = bool(_STATS_BANNER_RE.search(text))
     counts, seen = {}, {}
     if not present:
+        known = {label for label, _ in _REACH_RES}
+        for label, value in _PUBLIC_REACH_RE.findall(text):
+            if label in known:
+                counts[label], seen[label] = int(value), True
         return False, counts, seen
     for label, rx in _REACH_RES:
         m = rx.search(text)
@@ -1199,11 +1206,11 @@ def cmd_run(args):
                     reach["restated_unsat"] += 1
             if stats_present:
                 stats_cases += 1
-                for label in reach_rules:
-                    if rcounts.get(label, 0) > 0:
-                        reach_rules[label] += 1
-                    if rseen.get(label):
-                        reach_spec_seen[label] += 1
+            for label in reach_rules:
+                if rcounts.get(label, 0) > 0:
+                    reach_rules[label] += 1
+                if rseen.get(label):
+                    reach_spec_seen[label] += 1
             for o, _ in outcome.skips:
                 skips_count[o] = skips_count.get(o, 0) + 1
             if outcome.failures:

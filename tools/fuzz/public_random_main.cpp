@@ -6,6 +6,8 @@
 #undef tactix
 #ifdef TACTIX_PUBLIC_RANDOM_IPASIR
 #include "public_random_session.h"
+#else
+#include "public_reach.hpp"
 #endif
 
 #include "public_random_grammar.hpp"
@@ -956,6 +958,7 @@ int main(int argc, char **argv) {
   coverage.region_invalidated=tactix_stat(solver,TACTIX_STAT_REGION_INVALIDATED);
   std::puts("c tactix-public-random");
   print_coverage(seed, profile, coverage);
+  tactix_public_reach(solver);
   if (result == 10) {
     std::puts("s SATISFIABLE");
     print_model(solver, variables);
