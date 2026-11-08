@@ -132,6 +132,29 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
     with Session(library=library,strategy=forced_policy()) as s:
         s.add([1,2]);s.add([1,-2]);learned=[];s.set_learn(learned.append,1,work_budget=0)
         assert s.solve().status==SAT and not learned
+    # Lucky's all-true candidate satisfies F but misses A. This observation
+    # lets a Python root scheduler make the same explicit rejection restart
+    # as native DefaultPolicy, without treating progress as query SAT.
+    rejected=[]
+    def candidate_policy(execution,restored):
+        assert execution.rejected_models==0
+        assert execution.apply('Lucky',0)==0
+        count=execution.rejected_models
+        assert count>0 and execution.rejected_models==count
+        assert execution.apply('Restart',0)>=0
+        assert execution.rejected_models==count
+        rejected.append(execution)
+        return ScriptedCDCL()(execution,restored)
+    with Session(library=library,strategy=candidate_policy) as s:
+        s.add([1,2])
+        for i in range(2):
+            result=s.solve([-1]);assert result.status==SAT and -1 in result.model
+            result.export(Path(tmp)/f'rejected-model-{i}');verify(Path(tmp)/f'rejected-model-{i}')
+        assert s._lib.dll.tactix_ipasir_rejected_models(s._handle)==2**64-1
+    assert s._lib.dll.tactix_ipasir_rejected_models(None)==2**64-1
+    try:rejected[0].rejected_models
+    except RuntimeError:pass
+    else:raise AssertionError('expired model-rejection observation accepted')
     views=[]
     forced=forced_policy()
     def capture(execution,restored):

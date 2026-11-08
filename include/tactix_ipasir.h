@@ -131,6 +131,16 @@ typedef struct tactix_ipasir_query_state {
  * with ENTER_RESTORED. Each strategy owns its persistent continuation state. */
 int tactix_ipasir_begin(void *,struct tactix_solver **execution);
 int tactix_ipasir_next(void *,tactix_ipasir_query_state *);
+/* Read-only count of rejected model checks for the current execution epoch.
+ * A public rule can construct a model of F which misses A: its return code
+ * remains nonterminal, while this counter increases. A strategy can observe
+ * that event and explicitly Restart before continuing its root schedule.
+ * Internal checks can count the same candidate more than once; use changes
+ * to detect rejection, not as a count of distinct models.
+ * Repeated reads do not reconstruct/check another model or mutate search.
+ * Repair may replace the epoch and reset the count. UINT64_MAX means no active
+ * borrowed execution view (including before begin and after finish). */
+uint64_t tactix_ipasir_rejected_models(void *);
 /* A boundary observation does not reserve the next action: termination can
  * arrive in between. assume_next returns 0 on success, ACTION_INTERRUPTED when
  * stopped, or -1 for an invalid call/boundary. A strategy returns UNKNOWN on

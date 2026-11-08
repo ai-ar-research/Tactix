@@ -2,7 +2,7 @@
 HEADER_SHA256 = {
     'tactix.h': 'e18e6316af89fce33de03efd4f80d5a69686e703c29f7f9e6fd34368e0a34cdf',
     'ipasir.h': '2a655b27aeda9e76bc33be759a7b5af12fb19a70d0b3365c3393459072626fcd',
-    'tactix_ipasir.h': '4ac38148225c1a0739982534301b4503790089fdeb77573f5ccd0ba611032900',
+    'tactix_ipasir.h': 'f9dda8fb1694c8687f9051b121fb24e2dd75fb32bea238c8935e5e5fd6033237',
 }
 CONSTANTS = {
     'TACTIX_INSTANCE_CANONICAL': 18446744073709551615,
@@ -629,6 +629,7 @@ FUNCTIONS = {
     'tactix_ipasir_get_strategy_counters': ('int', [('*', 'void'), ('*', 'tactix_ipasir_strategy_counters')]),
     'tactix_ipasir_begin': ('int', [('*', 'void'), ('*', ('*', 'tactix_solver'))]),
     'tactix_ipasir_next': ('int', [('*', 'void'), ('*', 'tactix_ipasir_query_state')]),
+    'tactix_ipasir_rejected_models': ('uint64_t', [('*', 'void')]),
     'tactix_ipasir_assume_next': ('int', [('*', 'void')]),
     'tactix_ipasir_repair': ('int', [('*', 'void'), ('*', ('*', 'tactix_solver'))]),
     'tactix_ipasir_finish': ('int', [('*', 'void'), 'int']),

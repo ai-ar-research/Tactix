@@ -97,6 +97,12 @@ the C API's return codes, pointer ownership and callback lifetime requirements.
 Inside a Python strategy, `execution.c` binds C operations to the current
 borrowed solver and enforces the execution-view lifetime and callback guards:
 
+`execution.rejected_models` observes candidate models that satisfy permanent
+input but miss the assumptions. A root scheduler can compare it around a model
+constructor and explicitly restart after rejection. Reads do not repeat model
+checking; the counter belongs to the borrowed execution epoch and may reset
+after repair. It does not publish a terminal result.
+
 ```python
 import ctypes
 from tactix import capi

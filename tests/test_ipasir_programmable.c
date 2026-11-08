@@ -91,10 +91,30 @@ static void interrupt_inside_boundary_observation(void) {
   assert(!tactix_ipasir_finish(s,0)&&!tactix_ipasir_bundle(s));
   ipasir_set_terminate(s,NULL,NULL);assert(ipasir_solve(s)==10);ipasir_release(s);
 }
+static void rejected_model_observation(void) {
+  assert(tactix_ipasir_rejected_models(NULL)==UINT64_MAX);
+  void *s=ipasir_init();assert(s);
+  ipasir_add(s,1);ipasir_add(s,2);ipasir_add(s,0);
+  assert(tactix_ipasir_rejected_models(s)==UINT64_MAX);
+  for(unsigned i=0;i<2;++i) {
+    ipasir_assume(s,-1);tactix *view=NULL;
+    assert(tactix_ipasir_begin(s,&view)==1&&!tactix_ipasir_rejected_models(s));
+    assert(tactix_apply_instance(view,rule("Lucky"),0)==0); // all true misses A
+    const uint64_t count=tactix_ipasir_rejected_models(s);assert(count&&count!=UINT64_MAX);
+    assert(tactix_ipasir_rejected_models(s)==count);
+    assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
+    assert(tactix_ipasir_rejected_models(s)==count);
+    driver_state state={0};assert(run_script(s,view,&state)==10);
+    assert(tactix_ipasir_finish(s,10)==10&&ipasir_val(s,1)==-1&&ipasir_val(s,2)==2);
+    assert(tactix_ipasir_rejected_models(s)==UINT64_MAX);
+  }
+  ipasir_release(s);
+}
 int main(int argc,char **argv) {
   assert(argc==1||argc==2);const char *prefix=argc==2?argv[1]:NULL;
   interrupt_between_boundary_and_action();
   interrupt_inside_boundary_observation();
+  rejected_model_observation();
   void *s=ipasir_init();assert(s);driver_state state={0};
   ipasir_add(s,1);ipasir_add(s,2);ipasir_add(s,0);
   assert(tactix_ipasir_set_default_option(s,"bad",NULL)==-1);

@@ -123,6 +123,15 @@ class Execution:
             raise RuntimeError('invalid query boundary')
         return query.action
 
+    @property
+    def rejected_models(self):
+        """Rejected model checks in this epoch; candidates may be checked repeatedly."""
+        self._check()
+        count = self._lib.dll.tactix_ipasir_rejected_models(self._session)
+        if count == 2**64-1:
+            raise RuntimeError('no active query execution view')
+        return count
+
     def assume_next(self):
         self._check()
         code = self._lib.dll.tactix_ipasir_assume_next(self._session)

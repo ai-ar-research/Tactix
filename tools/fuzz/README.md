@@ -26,8 +26,10 @@ suppress optional extraction/export work. Strategy modes are 0 DefaultPolicy,
 1 public CDCL, 2 seeded public branch/phase CDCL, 3 an explicit configured
 DefaultPolicy handoff, 4 the named native cruxmiter program, 5 the full
 public-random grammar compiled from `public_random_main.cpp`, 6 native DPLL,
-and 7 native CDCL without restarts. Modes 6/7 must record their exact native
-name, with no root-program work or DefaultPolicy handoff. Mode 5 retains
+7 native CDCL without restarts, 8 native scripted-default and 9 native Chvatal.
+Modes 6/7/8 must record their exact native name, with no root-program work or
+DefaultPolicy handoff. Chvatal preserves its explicit DefaultPolicy handoff;
+its identity and root-program accounting are checked as for Cruxmiter. Mode 5 retains
 its RNG, root quota, step count and online revision across same-query
 restoration; it rebinds the replacement execution view and never hands off to
 DefaultPolicy. Seed values are nonnegative signed 32-bit integers. Per-query

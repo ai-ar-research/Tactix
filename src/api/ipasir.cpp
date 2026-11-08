@@ -638,6 +638,12 @@ int tactix_ipasir_begin(void *p,::tactix_solver **execution) {
   if(prepared==1)*execution=static_cast<::tactix_solver *>(as_session(p)->execution);
   return prepared;
 }
+uint64_t tactix_ipasir_rejected_models(void *p) {
+  if(!p)return UINT64_MAX;
+  const auto &s=*as_session(p);
+  if(!s.busy || !s.execution)return UINT64_MAX;
+  return s.query->projection_state(s.query->ticket()).rejected_models;
+}
 int tactix_ipasir_next(void *p,tactix_ipasir_query_state *state) {
   if(!p || !state || state->version!=TACTIX_IPASIR_SESSION_VERSION || state->size<sizeof *state)return -1;
   auto &s=*as_session(p);
