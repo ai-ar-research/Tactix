@@ -25,6 +25,14 @@ struct Formula {
   std::vector<std::vector<SubLit>> clauses;
 };
 
+// Sequence the draws: function-argument evaluation order differs between
+// Clang and GCC. Preserve the historical GCC sign-before-variable corpus.
+SubLit random_literal(std::mt19937 &rng, uint32_t nvars) {
+  const bool negative = (rng() & 1u) != 0;
+  const SubVar variable = rng() % nvars;
+  return sub_lit(variable, negative);
+}
+
 bool satisfied_by(const Formula &f, uint32_t bits) {
   for (const auto &c : f.clauses) {
     bool ok = false;
@@ -69,7 +77,7 @@ Formula random_formula(std::mt19937 &rng, uint32_t nvars, uint32_t nclauses,
         minsize + (maxsize > minsize ? rng() % (maxsize - minsize + 1) : 0);
     std::vector<SubLit> c;
     for (uint32_t j = 0; j < size; j++) {
-      const SubLit l = sub_lit(rng() % nvars, rng() & 1u);
+      const SubLit l = random_literal(rng, nvars);
       bool clash = false;
       for (const SubLit o : c)
         if (o == l || o == sub_negate(l))
@@ -104,7 +112,7 @@ void test_against_brute_force(uint32_t iterations) {
     if (rng() & 1u) {
       const uint32_t n = rng() % 3;
       for (uint32_t i = 0; i < n; i++)
-        assumptions.push_back(sub_lit(rng() % nvars, rng() & 1u));
+        assumptions.push_back(random_literal(rng, nvars));
       if (!assumptions.empty())
         with_assumptions++;
     }
@@ -433,7 +441,7 @@ void test_kitten_against_brute_force(uint32_t iterations) {
         random_formula(rng, nvars, 1 + rng() % (4 * nvars), 3);
     std::vector<SubLit> assumptions;
     for (uint32_t i = 0, n = rng() % 3; i < n; i++)
-      assumptions.push_back(sub_lit(rng() % nvars, rng() & 1u));
+      assumptions.push_back(random_literal(rng, nvars));
     load(s, f, SubSearchMode::Kitten);
     s.randomize_phases();
     const SubResult result =
@@ -549,7 +557,7 @@ void test_derivations(uint32_t iterations,
     std::vector<SubLit> assumptions;
     const uint32_t na = rng() % 3;
     for (uint32_t i = 0; i < na; i++)
-      assumptions.push_back(sub_lit(rng() % nvars, rng() & 1u));
+      assumptions.push_back(random_literal(rng, nvars));
     load(s, f, mode);
     if (mode == SubSearchMode::Kitten)
       s.randomize_phases();
@@ -699,7 +707,7 @@ void emit_cases(const char *dir) {
     std::vector<SubLit> assumptions;
     const uint32_t na = rng() % 3;
     for (uint32_t i = 0; i < na; i++)
-      assumptions.push_back(sub_lit(rng() % nvars, rng() & 1u));
+      assumptions.push_back(random_literal(rng, nvars));
     load(s, f);
     if (s.solve(assumptions, 0) != SubResult::Unsat)
       continue;

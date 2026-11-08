@@ -92,6 +92,9 @@ jobs:
           df -h .
       - name: Unit + micro-proof tests
         run: |
+          # Clang-ASan inlines several fixture-local kernels into test main;
+          # the largest observed instrumented test frame is about 47 MiB.
+          if [ '${{ matrix.mode }}' = debug ]; then ulimit -s 65536; fi
           ctest --preset ${{ matrix.mode }} --no-tests=error --output-log build/${{ matrix.mode }}/ctest.log
           ! grep -E '\*\*\*Skipped|Not Run' build/${{ matrix.mode }}/ctest.log
       - name: Competition compliance
