@@ -160,10 +160,13 @@ public:
 
   // A persistent RUP oracle: check by pure BCP, unwind temporary assumptions,
   // then install only an accepted clause for later dependent checks. No CDCL,
-  // learning or derivation export occurs. Fixed mode only, before any full
+  // learning occurs. Optional `proof` captures the accepted normalized clause
+  // and its ordered RUP antecedents before assumptions unwind, using stable
+  // oracle IDs. Non-acceptance clears it. Fixed mode only, before any full
   // solve call; reset starts another oracle lifetime. Zero budget does no work.
   SubRupAdmission admit_rup(const std::vector<SubLit> &, uint64_t ticks_budget,
-                           const volatile sig_atomic_t *stop = nullptr);
+                           const volatile sig_atomic_t *stop = nullptr,
+                           SubStep *proof = nullptr);
 
   // Append a trusted original premise to a Fixed-mode propagation oracle,
   // extending its stable variable namespace if needed. Temporary assumptions

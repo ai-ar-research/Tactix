@@ -1090,6 +1090,7 @@ SubPropagationResult SubSolver::propagate_assumptions_only(
   }
   if (frames_.size() > 1)
     backtrack(0);
+  conflict_ref_ = NO_REF;
   const uint64_t start = ticks_;
   const auto interrupted = [&] { return stop && *stop; };
   const auto exhausted = [&] {
@@ -1176,7 +1177,9 @@ void SubSolver::append_oracle_clause(std::vector<SubLit> lits) {
 
 SubRupAdmission SubSolver::admit_rup(const std::vector<SubLit> &lits,
                                     uint64_t ticks_budget,
-                                    const volatile sig_atomic_t *stop) {
+                                    const volatile sig_atomic_t *stop,
+                                    SubStep *proof) {
+  if (proof) *proof = {};
   if (search_mode_ != SubSearchMode::Fixed || search_started_ || frames_.empty())
     return SubRupAdmission::Unavailable;
   if (!ticks_budget) return SubRupAdmission::Budget;
@@ -1199,6 +1202,32 @@ SubRupAdmission SubSolver::admit_rup(const std::vector<SubLit> &lits,
       propagate_assumptions_only(assumptions, ticks_budget, stop);
   const bool root_conflict = result == SubPropagationResult::Conflict &&
                              frames_.size() == 1;
+  if (proof && result == SubPropagationResult::Conflict) {
+    SubRef closing = inconsistent_ ? pending_refutation_ : conflict_ref_;
+    chain_clear();
+    // All negated target literals are checker assumptions, even ones not yet
+    // visited by BCP. Cut their satisfied reason cones. If a target literal
+    // is already true, its earliest trail occurrence closes the proof first.
+    SubVar failed = NO_VAR;
+    for (SubLit lit : normalized) {
+      const SubVar v = sub_var_of(lit);
+      if (values_[lit] < 0) {
+        cone_seen_[v] = 1;
+        cone_touched_.push_back(v);
+      } else if (values_[lit] > 0 &&
+                 (failed == NO_VAR || trail_pos_[v] < trail_pos_[failed])) failed = v;
+    }
+    if (failed != NO_VAR) {
+      record_cone(failed, nullptr);
+      closing = NO_REF;
+    } else {
+      assert(closing != NO_REF);
+      for (uint32_t i = 0; i < clause_size(closing); ++i)
+        record_cone(sub_var_of(clause_lits(closing)[i]), nullptr);
+    }
+    *proof = {next_id_, normalized, chain_build(closing), {}};
+    chain_clear();
+  }
   backtrack(0);
   if (result == SubPropagationResult::Interrupted) return SubRupAdmission::Interrupted;
   if (result == SubPropagationResult::Budget) return SubRupAdmission::Budget;

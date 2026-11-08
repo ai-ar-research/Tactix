@@ -528,6 +528,65 @@ void check_target_is_entailed(const Formula &f, const std::vector<SubLit> &assum
   }
 }
 
+void test_rup_admission_chains(uint32_t iterations) {
+  {
+    SubSolver s;
+    s.reset(1);
+    const std::vector<SubLit> positive{sub_lit(0,false)}, negative{sub_lit(0,true)};
+    s.add_clause(positive); s.add_clause(negative);
+    SubStep proof;
+    assert(s.admit_rup(positive,UINT64_MAX,nullptr,&proof)==SubRupAdmission::Accepted);
+    assert((proof.chain==std::vector<uint32_t>{1})); // stop at target's first root clash
+    assert(s.admit_rup(negative,UINT64_MAX,nullptr,&proof)==SubRupAdmission::Accepted);
+    assert((proof.chain==std::vector<uint32_t>{2})); // the opposite root is an assumption
+    assert(s.admit_rup(positive,0,nullptr,&proof)==SubRupAdmission::Budget);
+    assert(!proof.id && proof.lits.empty() && proof.chain.empty());
+  }
+  std::mt19937 rng(94153);
+  uint32_t checked = 0, dependent = 0;
+  for (uint32_t run = 0; run < iterations; ++run) {
+    Formula f = random_formula(rng, 2 + rng() % 7, 1 + rng() % 12, 3);
+    SubSolver s;
+    s.reset(f.nvars);
+    std::map<uint32_t, std::vector<SubLit>> clauses;
+    std::vector<uint32_t> admitted;
+    for (const auto &c : f.clauses) clauses.emplace(s.add_clause(c), c);
+    for (unsigned query = 0; query < 16; ++query) {
+      if (query % 4 == 3) {
+        auto c = random_formula(rng, f.nvars, 1, 3).clauses[0];
+        assert(s.append_input(f.nvars, c));
+        clauses.emplace(s.original_clauses(), c);
+        f.clauses.push_back(std::move(c));
+      }
+      // Leave a previous query's conflict or decisions behind. Admission must
+      // capture this query's cone, including a directly falsified assumption.
+      s.propagate_assumptions_only({random_literal(rng, f.nvars)}, UINT64_MAX);
+      auto c = random_formula(rng, f.nvars, 1, 3).clauses[0];
+      std::vector<SubLit> assumptions;
+      for (auto l : c) assumptions.push_back(sub_negate(l));
+      SubStep proof{UINT32_MAX, c, {UINT32_MAX}, {UINT32_MAX}};
+      const auto result = s.admit_rup(c, UINT64_MAX, nullptr, &proof);
+      if (result != SubRupAdmission::Accepted) {
+        assert(result == SubRupAdmission::NotRup);
+        assert(!proof.id && proof.lits.empty() && proof.chain.empty() && proof.antecedents.empty());
+        continue;
+      }
+      assert(proof.id == s.original_clauses() && !clauses.count(proof.id));
+      assert(chain_replay(clauses, proof));
+      assert(!brute_force(f, assumptions));
+      for (auto id : proof.chain) {
+        assert(id < proof.id);
+        if (std::find(admitted.begin(), admitted.end(), id) != admitted.end()) ++dependent;
+      }
+      clauses.emplace(proof.id, proof.lits);
+      admitted.push_back(proof.id);
+      ++checked;
+    }
+  }
+  assert(checked && dependent);
+  std::printf("  RUP admission: %u checked dependency chains\n", checked);
+}
+
 // The derivation oracle: random refutations, each replayed by propagation, checked for
 // entailment by enumeration, and checked for core discipline — every chain
 // entry is a core original or an earlier lemma, so the order replays.
@@ -802,6 +861,7 @@ int main(int argc, char **argv) {
   test_kitten_search_state();
   test_compact_kitten_identity();
   test_assumption_only_propagation();
+  test_rup_admission_chains(iterations / 100 + 1);
   test_kitten_against_brute_force(iterations / 5);
   test_against_brute_force(iterations);
   test_derivation_edge_cases();
