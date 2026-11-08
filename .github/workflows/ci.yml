@@ -56,6 +56,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes elan zstd
+      - name: Install sanitizer compiler
+        if: matrix.mode == 'debug'
+        run: sudo apt-get install --yes clang-18 llvm-18 libclang-rt-18-dev
       - name: Cache third-party toolchain builds
         uses: actions/cache@v4
         with:
@@ -73,12 +76,20 @@ jobs:
         run: tools/solvers/setup.sh
       - name: Build checker toolchain (clausal + VeriPB/CakePB — pinned)
         run: tools/checkers/setup.sh
-      # Every test links the solver. Keep sanitizer assertions/instrumentation,
-      # with the same compact debug info as build.yml to fit the runner's disk.
+      # Each test links the full solver. Clang and compressed debug sections
+      # bound disk usage while retaining ASan/UBSan, assertions and symbols.
       - name: Build tactix
         run: |
-          cmake --preset ${{ matrix.mode }} -DCMAKE_CXX_FLAGS_DEBUG=-g1 -DCMAKE_C_FLAGS_DEBUG=-g1
+          tactix_compiler_args=()
+          if [ '${{ matrix.mode }}' = debug ]; then
+            tactix_compiler_args=(-DCMAKE_C_COMPILER=/usr/bin/clang-18 -DCMAKE_CXX_COMPILER=/usr/bin/clang++-18 -DCMAKE_EXE_LINKER_FLAGS=-Wl,--compress-debug-sections=zlib)
+            /usr/bin/clang++-18 --version
+          fi
+          df -h .
+          cmake --preset ${{ matrix.mode }} "${tactix_compiler_args[@]}" -DCMAKE_CXX_FLAGS_DEBUG=-g1 -DCMAKE_C_FLAGS_DEBUG=-g1
           cmake --build build/${{ matrix.mode }} --parallel 2
+          du -sh build/${{ matrix.mode }}
+          df -h .
       - name: Unit + micro-proof tests
         run: |
           ctest --preset ${{ matrix.mode }} --no-tests=error --output-log build/${{ matrix.mode }}/ctest.log
