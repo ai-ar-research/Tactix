@@ -59,6 +59,7 @@ struct Proof::QueryCertificates {
   uint64_t literals = 0;
   QueryProofSnapshot stats;
   bool dirty = false;
+  uint32_t stale_extent = 0;
   void charge(uint64_t work) {
     if (work > limits.work-std::min(stats.work, limits.work))
       proof_error("incremental certificate work allowance exhausted");
@@ -832,11 +833,17 @@ void Proof::enable_query_certificates(const QueryProofSources &sources,
   query_certificates_->sources = &sources;
   query_certificates_->limits = limits;
   query_certificates_->dirty = isolate_before_witness;
+  query_certificates_->stale_extent = external_variable_bound();
   enable_query_names();
-  for (const auto &source : initial)
+  for (const auto &source : initial) {
     query_clause(true, PopulationClauseView::external_lits(source.literals.data(), source.literals.size()));
-  for (int32_t assumption : assumptions)
+    for (int32_t literal : source.literals)
+      query_certificates_->stale_extent = std::max(query_certificates_->stale_extent, external_variable_of(literal));
+  }
+  for (int32_t assumption : assumptions) {
     query_clause(true, PopulationClauseView::external_lits(&assumption, 1));
+    query_certificates_->stale_extent = std::max(query_certificates_->stale_extent, external_variable_of(assumption));
+  }
 }
 
 QueryProofSnapshot Proof::query_certificate_state() const {
@@ -861,6 +868,7 @@ void Proof::query_clause(bool add, PopulationClauseView view) {
   context.charge(body.size()+1);
   if (!add) {
     context.dirty = true;
+    context.stale_extent = std::max(context.stale_extent, external_variable_bound());
     const auto found = context.licensed.find(body);
     if (found != context.licensed.end() && !--found->second) {
       context.literals -= body.size(); context.licensed.erase(found);
@@ -876,9 +884,13 @@ void Proof::query_clause(bool add, PopulationClauseView view) {
   }
 }
 
-void Proof::prepare_query_witness() {
+void Proof::prepare_query_witness(uint32_t rat_pivot) {
   if (!query_certificates_ || !query_certificates_->dirty || query_input_refuted_) return;
   auto &context = *query_certificates_;
+  // Stale clauses cannot contain a later extension variable, in either
+  // polarity. RAT on that pivot has exactly the current prefix's obligations;
+  // it needs no copy. Existing-variable RAT and every SR retain full refresh.
+  if (rat_pivot > context.stale_extent) return;
   std::vector<QueryProofOwnedClause> owned;
   std::vector<int32_t> assumptions;
   uint32_t extent = 0;
@@ -932,6 +944,7 @@ void Proof::prepare_query_witness() {
     query_clause(true, PopulationClauseView::external_lits(source.literals.data(), source.literals.size()));
   for (int32_t literal : assumptions) query_clause(true, PopulationClauseView::external_lits(&literal, 1));
   context.dirty = false;
+  context.stale_extent = 0;
   ++context.stats.generations;
 }
 
@@ -3923,7 +3936,8 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size) {
 }
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size) {
-  prepare_query_witness();
+  if (query_certificates_)
+    prepare_query_witness(size ? external_variable_of(externalize(checker_lit(lits[0]))) : 0);
   add_rat_impl(id, lits, size);
   observe_derivation(DerivationKind::Rat, id, 0, internal_view(lits, size));
   if (dsr_copy_) {
@@ -4020,7 +4034,8 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
 
 bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
                              uint32_t size) {
-  prepare_query_witness();
+  if (query_certificates_)
+    prepare_query_witness(size ? external_variable_of(lits[0]) : 0);
   // DSR rejects a tautology only after retiring leased premises, so its text
   // and the writer's would overlap: convert before either stream runs.
   const bool tautology = dsr_copy_ && size && lits && external_tautological(lits, size);

@@ -94,7 +94,9 @@ static void fixture(const std::string &prefix, const std::string &mode) {
   if(mode=="unlicensed") {
     const Lit removed[]{internalize(1),internalize(2)};
     proof.del(20,1,removed,2);map.push_back(2);
-    const Lit candidate=internalize(3);proof.add_rat(21,&candidate,1);
+    // An existing-coordinate RAT needs the snapshot. A fresh pivot could be
+    // admitted vacuously without importing its unlicensed clause at all.
+    const Lit candidate=internalize(2);proof.add_rat(21,&candidate,1);
     assert(false && "unlicensed native snapshot must not be copied");
   }
   assert(proof.isolate_query(sources,{},2));

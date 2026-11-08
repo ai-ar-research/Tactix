@@ -453,7 +453,7 @@ private:
   int32_t certificate_literal(int32_t literal) const;
   std::vector<int32_t> certificate_literals(const int32_t *, uint32_t) const;
   void query_clause(bool add, PopulationClauseView);
-  void prepare_query_witness();
+  void prepare_query_witness(uint32_t rat_pivot = 0);
   bool isolate_query_impl(std::span<const QueryProofClause>,
       std::span<const int32_t>, uint32_t extent);
   void observe_named_helper(bool deletion, std::span<const int32_t> clause);

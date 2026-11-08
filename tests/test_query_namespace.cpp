@@ -3,6 +3,7 @@
 #include "temporary_file.hpp"
 #include "proof/proof.hpp"
 #include "rules/bce/bce.hpp"
+#include "rules/factor/factor.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include <cstdio>
 #include <string>
@@ -12,6 +13,10 @@ using namespace tactix::session;
 static void run(const std::string &which, const std::string &prefix, const std::string &mode) {
   QueryHistory h;
   query_test::clause(h, {1,2});
+  if (which=="fresh")
+    for (int32_t start : {7,11})
+      for (int32_t f : {start,start+1})
+        for (int32_t r : {start+2,start+3}) query_test::clause(h,{f,r});
   if (which=="repeat") query_test::clause(h, {3,4});
   for (auto clause : {std::vector<int32_t>{5,6},{-5,6},{5,-6},{-5,-6}}) {
     for (int32_t literal : clause) assert(h.add(literal)==InputStatus::Ok);
@@ -47,6 +52,17 @@ static void run(const std::string &which, const std::string &prefix, const std::
   FILE *cnf=std::fopen((prefix+".cnf").c_str(),"w");
   assert(cnf && h.write_query_dimacs(query,cnf) && std::fclose(cnf)==0);
   if (which!="cross") assert(bce_try(k, internalize(1))==ApplyResult::Ok && k.stats.bce_deleted==1);
+  if (which=="fresh") {
+    for (int32_t start : {7,11}) {
+      FactorGrid grid;
+      grid.factors={kernel_internalize(k,start),kernel_internalize(k,start+1)};
+      grid.remainders={{kernel_internalize(k,start+2)},{kernel_internalize(k,start+3)}};
+      assert(factor_apply_grid(k,grid)==ApplyResult::Ok);
+      assert(!k.proof->query_certificate_state().generations);
+      assert(k.proof->certificate_offset()==0); // either RAT polarity stays beyond stale prefix
+    }
+    assert(k.stats.factorings==2);
+  }
   SubstitutionRedundancyInstance sr;
   sr.clause={kernel_internalize(k,-1)}; sr.witness=sr.clause;
   assert(substitution_redundancy_apply_detailed(k,sr).rule_result==ApplyResult::Ok);
@@ -69,7 +85,7 @@ static void run(const std::string &which, const std::string &prefix, const std::
 int main(int argc, char **argv) {
   if (argc==4) { run(argv[1],argv[2],argv[3]); return 0; }
   assert(argc==1);
-  for (const std::string which : {"cross","within","repeat","replay"}) {
+  for (const std::string which : {"cross","within","repeat","replay","fresh"}) {
     TemporaryFile file; run(which,file.path,"none");
     assert(std::remove((file.path+".cnf").c_str())==0);
   }

@@ -24,7 +24,7 @@ def main():
     checked = audits = 0
     with tempfile.TemporaryDirectory(prefix='tactix-query-names-') as tmp:
         directory = Path(tmp)
-        for case in ('cross', 'within', 'repeat', 'replay'):
+        for case in ('cross', 'within', 'repeat', 'replay', 'fresh'):
             trace = None
             for mode in ('none', 'pbp', 'dsr', 'auto', 'auto-pbp'):
                 prefix = directory/f'{case}-{mode}'
