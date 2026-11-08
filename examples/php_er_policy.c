@@ -1,9 +1,10 @@
 /* Polynomial extended-resolution construction for PHP(n+1,n).
  * An external strategy: no kernel headers or built-in PHP refutation action.
- * Usage: tactix-php-er INPUT.cnf [PROOF]
+ * Usage: tactix-php-er INPUT.cnf [PROOF] [--cook]
  */
 #include "tactix.h"
 #include "php_input.h"
+#include "php_cubic.h"
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -124,8 +125,15 @@ static int reduce_php(struct strategy *p, int holes, int *matrix) {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 2 || argc > 3) {
-    fprintf(stderr, "usage: %s INPUT.cnf [PROOF]\n", argv[0]); return 1;
+  if (argc < 2 || argc > 4) {
+    fprintf(stderr, "usage: %s INPUT.cnf [PROOF] [--cook]\n", argv[0]); return 1;
+  }
+  int cook = 0;
+  const char *proof = NULL;
+  for (int i = 2; i < argc; ++i) {
+    if (!strcmp(argv[i], "--cook") && !cook) cook = 1;
+    else if (!proof && strcmp(argv[i], "--cook")) proof = argv[i];
+    else { fprintf(stderr, "invalid arguments\n"); return 1; }
   }
   FILE *input = fopen(argv[1], "r");
   if (!input) { perror(argv[1]); return 1; }
@@ -142,7 +150,7 @@ int main(int argc, char **argv) {
   struct strategy p = {0};
   p.solver = tactix_init();
   p.propagate = find_rule("Propagate");
-  if (argc == 3 && tactix_proof(p.solver, argv[2], TACTIX_PROOF_PBP)) {
+  if (proof && tactix_proof(p.solver, proof, TACTIX_PROOF_PBP)) {
     fclose(input); free(matrix); php_input_release(decoded); tactix_release(p.solver); return 1;
   }
   /* Preserve the original DIMACS header namespace and input proof image. */
@@ -151,11 +159,22 @@ int main(int argc, char **argv) {
   if (read_error) { free(matrix); php_input_release(decoded); tactix_release(p.solver); return 1; }
   int outcome = propagate(&p);
   uint64_t collisions = 0;
-  if (!outcome) outcome = php_input_collisions(p.solver, decoded, &collisions);
+  /* Cubic replay checks the original compact AMO clauses directly. Only
+   * the Cook comparison requires materialized pairwise collision clauses. */
+  if (!outcome && cook) outcome = php_input_collisions(p.solver, decoded, &collisions);
   printf("c php-er normalized-collisions=%" PRIu64 "\n", collisions);
   php_input_release(decoded);
-  if (!outcome) outcome = reduce_php(&p, n, matrix);
-  else free(matrix);
+  if (!outcome && cook) outcome = reduce_php(&p, n, matrix);
+  else {
+    if (!outcome) {
+      uint64_t additions = 0;
+      tactix_clausal_effort effort = {0};
+      outcome = php_cubic(p.solver, matrix, n, &additions, &effort);
+      printf("c php-er construction=cubic additions=%" PRIu64 " validation-work=%" PRIu64
+             " rat-resolvents=%" PRIu64 "\n", additions, effort.work, effort.rat_resolvents);
+    }
+    free(matrix);
+  }
   printf("c php-er decisions=%" PRIu64 "\n", tactix_stat(p.solver, TACTIX_STAT_DECISIONS));
   printf("c php-er bve-eliminated=%" PRIu64 " substituted=%" PRIu64 "\n",
          tactix_stat(p.solver, TACTIX_STAT_BVE_ELIMINATED),

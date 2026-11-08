@@ -5,6 +5,8 @@ import subprocess
 import sys
 import tempfile
 
+from tempdir_cleanup import RetryingTemporaryDirectory
+
 binary, root = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
 spec = importlib.util.spec_from_file_location("examples_generator", root / "examples/cnf/generate.py")
 generator = importlib.util.module_from_spec(spec)
@@ -15,12 +17,12 @@ def dimacs(pigeons, holes):
     return (f"p cnf {variables} {len(clauses)}\n" +
             "".join(" ".join(map(str, clause + [0])) + "\n" for clause in clauses))
 
-with tempfile.TemporaryDirectory(prefix="php-er-fixed-", dir=Path.cwd()) as temporary:
+with RetryingTemporaryDirectory(prefix="php-er-fixed-", dir=Path.cwd()) as temporary:
     directory = Path(temporary)
     for holes in (2, 3, 4):
         cnf = directory / f"php-{holes}.cnf"
         cnf.write_text(dimacs(holes + 1, holes))
-        run = subprocess.run([binary, cnf], capture_output=True, text=True, timeout=30)
+        run = subprocess.run([binary, cnf, "--cook"], capture_output=True, text=True, timeout=30)
         assert run.returncode == 20, (run.returncode, run.stdout, run.stderr)
         assert "s UNSATISFIABLE" in run.stdout and "c php-er decisions=0" in run.stdout
         assert "c php-er bve-eliminated=0 substituted=0" in run.stdout
@@ -35,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix="php-er-fixed-", dir=Path.cwd()) as temp
     for index, text in enumerate(invalid):
         cnf = directory / f"invalid-{index}.cnf"
         cnf.write_text(text)
-        run = subprocess.run([binary, cnf], capture_output=True, text=True, timeout=30)
+        run = subprocess.run([binary, cnf, "--cook"], capture_output=True, text=True, timeout=30)
         assert run.returncode == 1 and "s UNSATISFIABLE" not in run.stdout
         assert "unsupported input" in run.stderr, (index, run.stdout, run.stderr)
 print("PHP 3/2, 4/3, 5/4: zero decisions; six unsupported inputs rejected")

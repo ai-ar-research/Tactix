@@ -25,6 +25,25 @@ variable. A strategy can choose its priority dose or branch on an eligible
 output directly. Defining a variable does not itself apply a score bump.
 Advice is state-bound and should be consumed before another action stales it.
 
+## Terminal clausal programs
+
+`tactix_refute_clausal` exposes a terminal RUP/RAT program through the existing
+SubstitutionRedundancy action. It imports the live formula into one private
+watched propagation database. Every RAT step checks all live clauses containing
+the opposite pivot; the caller cannot omit a premise. RAT pivots must be from
+the batch's newly declared namespace, so earlier proof-only contexts cannot
+contain an unexamined opposing occurrence. RUP targets may use original or new
+variables. Deletions name earlier batch additions by step number; input clauses
+remain available. The program must end with the only empty RUP clause.
+
+The whole program is validated before publication. Failure after input closure
+changes no formula, namespace, proof or search guidance. Success reserves
+proof-only identities, emits the checked program and concludes UNSAT. These
+identities are not continuing-search variables or semantic-priority candidates.
+The separate exact-definition operation above provides live variables for
+strategies that continue CDCL search. No new registered rule or proof format is
+introduced by the program interface.
+
 ## Variable lifetime
 
 New summaries must survive long enough to participate in reasoning and search.
@@ -54,8 +73,10 @@ The dedicated solver accepts unary PHP rows with pairwise, Sinz sequential,
 bitwise-selector, commander or product at-most-one constraints for each hole.
 It recognizes rows and recovers their hole correspondence from authenticated
 binary implication paths, including paths through encoding auxiliaries. It
-checks every required collision pair, then derives missing binary collisions
-through the public RUP operation before reducing the PHP. Clause/literal order
+checks every required collision pair. Cubic replay then validates its program
+against the original AMO clauses without materializing pairwise collisions.
+The Cook comparison derives missing binary collisions through the public RUP
+operation before reducing the PHP. Clause/literal order
 and positive variable numbering are immaterial. Optional per-pigeon pairwise
 at-most-one constraints are supported.
 
@@ -73,6 +94,18 @@ reported as UNKNOWN, not silently treated as a recognized PHP. The strategy
 does not invoke DirectPhpRefutation or general CDCL search.
 
 ## Polynomial construction
+
+The default PHP strategy uses the existing cubic Grosof--Zhang--Heule planner,
+now installed as the public C++ header `tactix_php_certificate.hpp`. It keeps
+compact recursive AMO structure between layers. Its fresh definitions and
+non-definitional RAT steps, RUP covers and retired helper clauses are submitted
+through the generic clausal-program API, not the built-in DirectPhpRefutation
+action. Original AMO clauses are retained; the batch validates every RAT step
+against that stronger retained context. This preserves the cubic addition count
+but does not by itself establish cubic validation time or competitive runtime.
+
+The earlier Cook construction remains available with `--cook` to exercise the
+live exact-definition and selected-premise RUP interfaces separately:
 
 At a level with h holes and h+1 pigeons, let `p[i,j]` denote the current
 assignment variables. For i < h and j < h-1 introduce
@@ -117,8 +150,9 @@ retained in an immutable benchmark source archive as a performance control.
 - Report runtime against both hole count and input size, alongside definition
   and consequence counts. Standard pairwise PHP has Theta(n^3) clauses, so
   runtime linear in hole count is impossible for an explicit-input solver.
-  Near-linear scaling in input size is the optimization target; the current
-  O(n^4) construction does not establish it.
+  Near-linear scaling in input size is the optimization target; cubic proof
+  size alone does not establish it, and the Cook comparison still uses O(n^4)
+  clauses.
 - Publish Andrew's report with measured plots and explicit limitations. Do not
   infer a speedup over full Tactix from resolution lower bounds: full Tactix
   already includes specialized PHP reasoning.

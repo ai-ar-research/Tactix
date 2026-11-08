@@ -64,6 +64,7 @@ add_library(tactix_lib OBJECT
   src/rules/registry.cpp
   ${TACTIX_RULE_SOURCES}
   ${TACTIX_POLICY_OP_SOURCES}
+  src/engine/clausal_replay.cpp
   src/engine/subsolver.cpp
   src/engine/subsolver_proof_export.cpp
   src/policies/heuristics.cpp
@@ -142,7 +143,7 @@ set_target_properties(tactix_archive PROPERTIES OUTPUT_NAME tactix)
 include(GNUInstallDirs)
 install(TARGETS tactix RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(TARGETS tactix_archive ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES include/tactix.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES include/tactix.h include/tactix_php_certificate.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 include(CMakePackageConfigHelpers)
 configure_package_config_file(cmake/TactixConfig.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/TactixConfig.cmake

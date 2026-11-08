@@ -1,6 +1,8 @@
 """Fixed AMO truth tables and PHP integration controls, not a fuzz campaign."""
 from pathlib import Path
 import importlib.util, itertools, subprocess, sys, tempfile, re
+from tempdir_cleanup import RetryingTemporaryDirectory
+
 binary,root=Path(sys.argv[1]).resolve(),Path(sys.argv[2]).resolve()
 spec=importlib.util.spec_from_file_location('generator',root/'examples/cnf/generate.py')
 g=importlib.util.module_from_spec(spec);spec.loader.exec_module(g)
@@ -19,7 +21,12 @@ for encoding in encodings:
 
 def dimacs(n,clauses):
  return f'p cnf {n} {len(clauses)}\n'+''.join(' '.join(map(str,c+[0]))+'\n' for c in clauses)
-with tempfile.TemporaryDirectory(prefix='php-amo-fixed-',dir=Path.cwd()) as tmp:
+def expect_return(run, expected, path):
+ if run.returncode != expected or (expected == 1 and 's UNSATISFIABLE' in run.stdout):
+  detail=(str(path),run.returncode,run.stdout,run.stderr,path.read_text())
+  print('PHP subprocess failure:',repr(detail),file=sys.stderr,flush=True)
+  raise AssertionError(detail)
+with RetryingTemporaryDirectory(prefix='php-amo-fixed-',dir=Path.cwd()) as tmp:
  directory=Path(tmp)
  for encoding in encodings:
   for holes in (2,3,5):
@@ -28,24 +35,32 @@ with tempfile.TemporaryDirectory(prefix='php-amo-fixed-',dir=Path.cwd()) as tmp:
     # A deterministic variable reversal and clause/literal permutation.
     variants=[clauses, [[(n+1-abs(x))*(1 if x>0 else -1) for x in reversed(c)] for c in reversed(clauses)]]
     for index,variant in enumerate(variants):
-     path=directory/'input.cnf';path.write_text(dimacs(n,variant))
+     path=directory/f'input-{encoding}-{holes}-{functional}-{index}.cnf';path.write_text(dimacs(n,variant))
      command=[binary,path]
-     proof=directory/"output.pbp"
+     proof=directory/f"output-{encoding}-{holes}-{functional}-{index}.pbp"
      emit_proof=holes==3 and not functional and index==0
      if emit_proof: command.append(proof)
      run=subprocess.run(command,text=True,capture_output=True,timeout=30)
+     expect_return(run,20,path)
      if emit_proof:
       text=proof.read_text()
       assert "conclusion UNSAT" in text and "end pseudo-Boolean proof" in text
      assert run.returncode==20,(encoding,holes,functional,index,run.stdout,run.stderr)
      assert 'c php-er decisions=0' in run.stdout
-     if encoding!='pairwise' and not (encoding=='commander' and holes==2):
-      count=int(run.stdout.split('normalized-collisions=')[1].split()[0])
-      assert count>0,(encoding,run.stdout)
+     assert 'construction=cubic' in run.stdout
+     assert 'normalized-collisions=0' in run.stdout
+   if holes==3 and encoding!='pairwise':
+    path=directory/f'cook-{encoding}.cnf'
+    path.write_text(dimacs(n,clauses))
+    run=subprocess.run([binary,path,'--cook'],text=True,capture_output=True,timeout=30)
+    expect_return(run,20,path)
+    count=int(run.stdout.split('normalized-collisions=')[1].split()[0])
+    assert count>0,(encoding,run.stdout)
   # The same construction with as many pigeons as holes is satisfiable.
   n,clauses=g.pigeonhole(3,3,encoding)
-  path=directory/'sat.cnf';path.write_text(dimacs(n,clauses))
+  path=directory/f'sat-{encoding}.cnf';path.write_text(dimacs(n,clauses))
   run=subprocess.run([binary,path],text=True,capture_output=True,timeout=30)
+  expect_return(run,1,path)
   assert run.returncode==1 and 's UNSATISFIABLE' not in run.stdout
  # Unused declared original identities must remain outside the extension
  # namespace, even though they do not occur in the recognized PHP core.
@@ -65,7 +80,8 @@ with tempfile.TemporaryDirectory(prefix='php-amo-fixed-',dir=Path.cwd()) as tmp:
   for h in (1,2):
    extra,next_var=g.at_most_one([p*holes+h+1 for p in range(pigeons)],next_var,encoding)
    clauses.extend(extra)
-  path=directory/'damaged.cnf';path.write_text(dimacs(next_var-1,clauses))
+  path=directory/f'damaged-{encoding}.cnf';path.write_text(dimacs(next_var-1,clauses))
   run=subprocess.run([binary,path],text=True,capture_output=True,timeout=30)
-  assert run.returncode==1 and 's UNSATISFIABLE' not in run.stdout,(encoding,run.stdout)
+  expect_return(run,1,path)
+  assert run.returncode==1 and 's UNSATISFIABLE' not in run.stdout,(encoding,run.returncode,run.stdout,run.stderr,path.read_text())
 print('Five AMO encodings: exact auxiliary truth tables, 60 PHP variants, ten SAT controls')

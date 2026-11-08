@@ -19,6 +19,7 @@
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
 #include "rules/rup_consequence/rup_consequence.hpp"
+#include "rules/substitution_redundancy/clausal_batch.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include "strategy/execution_scope.hpp"
@@ -2375,6 +2376,46 @@ int tactix_add_rup(tactix_solver *s, const int *clause, int count,
   });
   kernel_check_invariants(s->kernel);
   return result_code(s, result);
+}
+
+int tactix_fresh_variable_start(tactix_solver *s) {
+  if (!s) return -1;
+  input_complete(s);
+  const auto extent=s->kernel.external_to_internal.size();
+  return extent<INT32_MAX ? int(extent+1) : -1;
+}
+
+int tactix_refute_clausal(tactix_solver *s,int first_fresh,uint32_t fresh,
+    const tactix_clausal_step *steps,int count,uint64_t maximum_work,
+    tactix_clausal_effort *effort) {
+  if (effort) *effort={};
+  if (!s || !c_array(steps,count) || !count || uint64_t(count)>maximum_work) return -1;
+  uint64_t size=uint64_t(count);
+  for (int i=0;i<count;++i) {
+    if (!c_array(steps[i].clause,steps[i].count) ||
+        uint64_t(steps[i].count)>maximum_work-size) return -1;
+    size+=uint64_t(steps[i].count);
+  }
+  input_complete(s);
+  if (!clausal_batch_guard(s->kernel)) return -1;
+  std::vector<ClausalBatchStep> program;program.reserve(count);
+  for (int i=0;i<count;++i) {
+    ClausalBatchStep step{static_cast<ClausalBatchKind>(steps[i].kind),{},steps[i].delete_step};
+    if (steps[i].count) step.clause.assign(steps[i].clause,steps[i].clause+steps[i].count);
+    program.push_back(std::move(step));
+  }
+  ClausalBatchPlan plan;ClausalReplay::Effort measured;
+  const bool valid=clausal_batch_prepare(s->kernel,first_fresh,fresh,std::move(program),maximum_work,plan,measured);
+  if (effort) *effort={measured.work,measured.rup_queries,measured.rat_resolvents,
+                       measured.propagated,measured.watch_visits};
+  if (!valid) return -1;
+  const auto &rule=tactix_rules()[tactix_rule_id("SubstitutionRedundancy")];
+  const auto result=apply_published(s,[&] {
+    return apply_rule_structured_preserve_startup(rule,s->kernel,"terminal-clausal-program",
+        [&] { return clausal_batch_commit(s->kernel,plan); });
+  });
+  kernel_check_invariants(s->kernel);
+  return result==ApplyResult::Unsat ? result_code(s,result) : -1;
 }
 
 int tactix_rule_semantic_instances(tactix_solver *s, int rule_id,

@@ -422,6 +422,37 @@ int tactix_add_rup(tactix *, const int *clause, int count,
                    const tactix_rup_premise *premises, int premise_count,
                    uint64_t maximum_work);
 
+/* Read the next permanent external identity without allocating it. Input
+ * closes. Returns -1 if no representable identity remains. */
+int tactix_fresh_variable_start(tactix *);
+
+/* Terminal clausal-program surface of SubstitutionRedundancy. Validate an
+ * entire RUP/RAT program against one private indexed copy of the live formula,
+ * including EVERY opposite-pivot clause for RAT. RAT pivots must belong to
+ * the newly declared namespace, excluding hidden earlier proof contexts.
+ * DELETE refers to a one-based
+ * earlier addition step; original clauses cannot be deleted. The last step
+ * must be an empty RUP clause. No branching occurs. Requires an assignment-free
+ * propagated sparse root and a clausal proof route. first_fresh must match the
+ * namespace query above; fresh_variables reserves proof-only identities.
+ * Returns 20 on a fully validated, published refutation, -1 otherwise. After
+ * input closure failures leave formula, namespace and proof unchanged. */
+#define TACTIX_CLAUSAL_RUP 1
+#define TACTIX_CLAUSAL_RAT 2
+#define TACTIX_CLAUSAL_DELETE 3
+typedef struct {
+  int kind;
+  const int *clause;
+  int count;
+  uint32_t delete_step;
+} tactix_clausal_step;
+typedef struct {
+  uint64_t work, rup_queries, rat_resolvents, propagated, watch_visits;
+} tactix_clausal_effort;
+int tactix_refute_clausal(tactix *, int first_fresh, uint32_t fresh_variables,
+    const tactix_clausal_step *, int count, uint64_t maximum_work,
+    tactix_clausal_effort *effort);
+
 /* Additive fine-grained action surface. Most rules delegate to the frozen v1
  * payloads. Rules whose v1 payload grouped multiple choices enumerate opaque
  * semantic payloads here; Instantiate, for example, exposes one payload per
