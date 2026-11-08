@@ -20,6 +20,7 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_set>
+#include <unistd.h>
 
 namespace {
 using namespace tactix;
