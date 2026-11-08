@@ -115,6 +115,14 @@ for path in sorted((root / "src").glob("**/*")):
                 "proof-rule ownership"
             )
 
+# Strategy programs select and publish rule applications; inference and proof
+# construction belong to the registered rule or its rule-owned support.
+for path in sorted((root / "src/strategy").glob("**/*")):
+    if path.suffix not in {".cpp", ".hpp"}:
+        continue
+    if re.search(r"(?:add_rup|add_rat|kernel_assign_unit|kernel_emit_empty)\s*\(", path.read_text()):
+        bad.append(f"{path.relative_to(root)} constructs a logical consequence in strategy code")
+
 factor = (root / "src/rules/factor/factor.cpp").read_text()
 if "TACTIX_FACTOR_FORCE" in factor or "factor_admit" in factor:
     bad.append("src/rules/factor/factor.cpp contains a rule-side admission gate")

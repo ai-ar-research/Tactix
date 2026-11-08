@@ -1,0 +1,106 @@
+#undef NDEBUG
+#define tactix tactix_c_handle
+#include "tactix.h"
+#undef tactix
+#include "api/api_internal.hpp"
+#include "policies/default_policy.hpp"
+#include "strategy/region_program.hpp"
+#include <cassert>
+#include <cstdio>
+#include <cstring>
+
+using namespace tactix;
+static int rule(const char *name) { return tactix_rule_id(name); }
+static tactix_c_handle *fixture() {
+  auto *s=tactix_init();
+  for(int l:{1,2,0})tactix_add(s,l);
+  assert(!tactix_regions_begin(s));return s;
+}
+static int region(tactix_c_handle *s) {
+  int variables[16];int n=tactix_fresh_variable_start(s)-1;assert(n<=16);
+  for(int i=0;i<n;++i)variables[i]=i+1;
+  return tactix_region_add(s,variables,n);
+}
+static void local_cdcl() {
+  auto *s=fixture();
+  int a=tactix_define_extension(s,1,1,2),b=tactix_define_extension(s,1,2,1);
+  int z=tactix_define_extension(s,3,a,b),r=region(s);assert(r==0);
+  // The commuted-gate miter is false but not UP-refutable under z alone.
+  assert(tactix_region_apply(s,rule("Probe"),z,r,1,4096)==1);
+  assert(tactix_region_apply(s,rule("Sweep"),z,r,1,4096)==0);
+  assert(tactix_stat(s,TACTIX_STAT_REGION_UNITS)==1);
+  assert(tactix_stat(s,TACTIX_STAT_REGION_LEMMAS)>1);
+  assert(tactix_solve(s)==10);
+  assert(tactix_value(s,1)>0||tactix_value(s,2)>0);
+  assert(!tactix_regions_clear(s));tactix_release(s);
+}
+static void source_deletion(bool large, bool detached = false) {
+  auto *s=fixture();auto &k=api_detail::kernel_for_fixed_testing(s);
+  int a=tactix_define_extension(s,1,1,2),b=tactix_define_extension(s,1,2,1);
+  int z=tactix_define_extension(s,1,a,-b),r=region(s);
+  PopulationObserver silent;
+  std::unique_ptr<ScopedPopulationObserverBinding> binding;
+  if (detached) binding=std::make_unique<ScopedPopulationObserverBinding>(k,silent);
+  if(large) {
+    bool removed=false;
+    for(auto w:k.watches.entries(kernel_internalize(k,b)))if(!w.binary()) {
+      Clause *c=clause_at(k.arena,w.ref());
+      if(!c->garbage()&&c->size==3){kernel_delete_clause(k,c);removed=true;break;}
+    }
+    assert(removed);
+  } else assert(kernel_delete_binary(k,kernel_internalize(k,-a),internalize(1)));
+  binding.reset();
+  // The capture missed deletion while detached, but restoring its pointer
+  // cannot restore trust. The binding epoch authenticates the whole interval.
+  if (detached) assert(!tactix_stat(s,TACTIX_STAT_REGION_INVALIDATED));
+  assert(tactix_region_apply(s,rule("Sweep"),z,r,1,4096)==1);
+  assert(tactix_stat(s,TACTIX_STAT_REGION_INVALIDATED)==1);
+  assert(!tactix_stat(s,TACTIX_STAT_REGION_UNITS));
+  assert(!tactix_decide(s,z));assert(tactix_solve(s)==10);tactix_release(s);
+}
+static void queue_and_guards() {
+  auto *s=tactix_init();
+  for(int l:{-2,-1,0,-2,1,0,3,4,0})tactix_add(s,l);
+  assert(!tactix_regions_begin(s));assert(tactix_regions_begin(s)==-1);
+  const int variables[]={2,1,2};int r=tactix_region_add(s,variables,3);assert(r==0);
+  assert(tactix_region_queue(s,rule("BVE"),2,r,0,0)==-1);
+  assert(tactix_region_queue(s,rule("Probe"),3,r,0,0)==-1);
+  assert(tactix_region_queue(s,rule("Probe"),2,r,0,1)==-1);
+  assert(tactix_region_queue(s,rule("Probe"),2,r,0,0)==0);
+  assert(tactix_solve(s)==10&&tactix_stat(s,TACTIX_STAT_REGION_QUERIES)==1);
+  assert(tactix_stat(s,TACTIX_STAT_REGION_UNITS)==1&&tactix_value(s,2)<0);
+  assert(!tactix_regions_clear(s));tactix_release(s);
+}
+static void interruption() {
+  Kernel k;kernel_reserve_vars(k,4);kernel_materialize_cold_state(k);
+  kernel_add_binary_clause(k,internalize(-2),internalize(-1));
+  kernel_add_binary_clause(k,internalize(-2),internalize(1));
+  kernel_add_binary_clause(k,internalize(3),internalize(4));
+  strategy::RegionProgram program(k);const int vars[]={1,2};
+  int r=program.add_region(vars);assert(r==0);
+  assert(program.enqueue({rule("Probe"),2,0,strategy::RegionSource::Formula,0}));
+  volatile sig_atomic_t stop=1;DefaultPolicy policy;
+  assert(policy.solve(k,&stop,&program)==0&&program.pending()==1);
+  stop=0;assert(policy.solve(k,&stop,&program)==10&&program.pending()==0);
+  assert(k.stats.region_units==1);
+}
+// Optional integration mode writes a fixed non-UP UNSAT input and its whole
+// proof. External checkers validate the local solver's intermediate clauses.
+static void proof_fixture(const char *cnf,const char *pbp) {
+  const int clauses[][4]={{-3,1,0},{-3,2,0},{3,-1,-2,0},
+      {-4,2,0},{-4,1,0},{4,-2,-1,0},{5,3,-4,0},
+      {5,-3,4,0},{-5,3,4,0},{-5,-3,-4,0},{5,0}};
+  FILE *f=std::fopen(cnf,"w");assert(f);std::fprintf(f,"p cnf 5 11\n");
+  auto *s=tactix_init();assert(!tactix_proof(s,pbp,TACTIX_PROOF_PBP));
+  for(const auto &row:clauses){for(int l:row){std::fprintf(f,"%d ",l);tactix_add(s,l);if(!l)break;}std::fputc('\n',f);}std::fclose(f);
+  assert(!tactix_regions_begin(s));int r=region(s);
+  assert(!tactix_region_queue(s,rule("Sweep"),1,r,0,4096));
+  assert(tactix_solve(s)==20&&tactix_stat(s,TACTIX_STAT_REGION_QUERIES)==1);
+  tactix_release(s);
+}
+int main(int argc,char **argv) {
+  if(argc==3){proof_fixture(argv[1],argv[2]);return 0;}
+  assert(argc==1);local_cdcl();source_deletion(false);source_deletion(true);
+  source_deletion(false,true);source_deletion(true,true);
+  queue_and_guards();interruption();std::puts("region program PASS");
+}

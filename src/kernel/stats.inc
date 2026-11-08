@@ -947,3 +947,11 @@ TACTIX_STATS_U64(affine_matrix_analyze_materializations)
 TACTIX_STATS_U64(affine_matrix_analyze_retractions)
 TACTIX_STATS_U64(affine_matrix_analyze_vectors_constructed)
 TACTIX_STATS_U64(affine_matrix_analyze_literals_constructed)
+
+// Explicit regional root inference (opt-in public strategy program).
+TACTIX_STATS_U64(region_queries)
+TACTIX_STATS_U64(region_units)
+TACTIX_STATS_U64(region_lemmas)
+TACTIX_STATS_U64(region_ticks)
+TACTIX_STATS_U64(region_budget)
+TACTIX_STATS_U64(region_invalidated)

@@ -32,7 +32,7 @@ with RetryingTemporaryDirectory(prefix='php-encodings-',dir=Path.cwd()) as tempo
      variant=[[(n+1-abs(l))*(1 if l>0 else -1) for l in reversed(c)] for c in reversed(formula)] if permuted else formula
      path=work/f'{encoding}-{holes}-{functional}-{permuted}.cnf';path.write_text(text(n,variant))
      result=run(path,'--prioritize')
-     assert f'definitions={holes+1}' in result.stdout
+     queries=re.search(r'queries=(\d+)',result.stdout);assert queries and int(queries[1])>0
    if holes==3:
     path=work/f'proof-{encoding}.cnf';path.write_text(text(n,clauses))
     proof=work/f'{encoding}.pbp';run(path,proof)

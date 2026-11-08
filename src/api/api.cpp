@@ -20,12 +20,14 @@
 #include "rules/extended_resolution/extended_resolution.hpp"
 #include "rules/rup_consequence/rup_consequence.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/structural_action_guard.hpp"
 #include "rules/registry.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 #include "strategy/guidance_execution.hpp"
 #include "strategy/heuristic_execution.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/region_program.hpp"
 #include "strategy/parameter_execution.hpp"
 #include "strategy/phase_execution.hpp"
 #include "strategy/publication_execution.hpp"
@@ -68,6 +70,7 @@ struct tactix_solver {
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
+  std::unique_ptr<strategy::RegionProgram> regions;
   // Execution contexts entered through tactix_support, innermost last.
   std::vector<std::pair<execution::ExecutionContext,
                         execution::ExecutionContextState>> contexts;
@@ -2165,7 +2168,7 @@ int tactix_solve(tactix_solver *s) {
   int r;
   {
     ScopedStrategySettings settings(&s->default_options);
-    r = default_solve(s->kernel);
+    r = default_solve(s->kernel, nullptr, s->regions.get());
   }
   rule_journal_flush();
   external_state_change(s);
@@ -2335,6 +2338,7 @@ int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
   const std::string description = "gate=" + std::to_string(gate) +
       ";left=" + std::to_string(left) + ";right=" + std::to_string(right);
   int32_t output = 0;
+  if (s->regions) s->regions->begin_definition();
   apply_published(s, [&] {
     return apply_rule_structured_preserve_startup(rule, s->kernel,
         description.c_str(), [&] {
@@ -2342,9 +2346,51 @@ int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
           return output ? ApplyResult::Ok : ApplyResult::NoOp;
         });
   });
+  if (s->regions) s->regions->end_definition(output);
   if (output) s->kernel.variable_retention.insert(static_cast<uint32_t>(output-1));
   kernel_check_invariants(s->kernel);
   return output ? output : -1;
+}
+
+int tactix_regions_begin(tactix_solver *s) {
+  if (!s || s->regions) return -1;
+  input_complete(s);
+  if (s->kernel.level || s->kernel.inconsistent || s->kernel.probing.recording)
+    return -1;
+  s->regions = std::make_unique<strategy::RegionProgram>(s->kernel);
+  external_state_change(s); return 0;
+}
+int tactix_regions_clear(tactix_solver *s) {
+  if (!s) return -1;
+  s->regions.reset(); external_state_change(s); return 0;
+}
+int tactix_region_add(tactix_solver *s, const int *variables, int count) {
+  if (!s || !s->regions || !c_array(variables, count)) return -1;
+  const int id = s->regions->add_region({variables, size_t(count)});
+  if (id >= 0) external_state_change(s);
+  return id;
+}
+static bool region_request(tactix_solver *s, int rule, int literal, int region,
+                           int source, uint64_t ticks, strategy::RegionQuery &q) {
+  if (!s || !s->regions || region < 0 || source < 0 || source > 1) return false;
+  q = {rule, literal, uint32_t(region), static_cast<strategy::RegionSource>(source), ticks};
+  return s->regions->valid_query(q);
+}
+int tactix_region_queue(tactix_solver *s, int rule, int literal, int region,
+                        int source, uint64_t ticks) {
+  strategy::RegionQuery q;
+  if (!region_request(s, rule, literal, region, source, ticks, q) ||
+      !s->regions->enqueue(q)) return -1;
+  external_state_change(s); return 0;
+}
+int tactix_region_apply(tactix_solver *s, int rule, int literal, int region,
+                        int source, uint64_t ticks) {
+  strategy::RegionQuery q;
+  if (!region_request(s, rule, literal, region, source, ticks, q) ||
+      !root_action_guard(s->kernel, false).clausal_certificate().finish()) return -1;
+  const auto result = apply_published(s, [&] { return s->regions->apply(q); });
+  kernel_check_invariants(s->kernel);
+  return result_code(s, result);
 }
 
 int tactix_add_rup(tactix_solver *s, const int *clause, int count,
@@ -2636,6 +2682,12 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   case TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED:
     return k.stats.fastel_extensions_protected;
   case TACTIX_STAT_DECISIONS_EXTENSION: return k.stats.decisions_extension;
+  case TACTIX_STAT_REGION_QUERIES: return k.stats.region_queries;
+  case TACTIX_STAT_REGION_UNITS: return k.stats.region_units;
+  case TACTIX_STAT_REGION_LEMMAS: return k.stats.region_lemmas;
+  case TACTIX_STAT_REGION_TICKS: return k.stats.region_ticks;
+  case TACTIX_STAT_REGION_BUDGET: return k.stats.region_budget;
+  case TACTIX_STAT_REGION_INVALIDATED: return k.stats.region_invalidated;
 
   default:
     return UINT64_MAX;

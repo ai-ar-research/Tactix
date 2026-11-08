@@ -606,9 +606,9 @@ static void test_stats_and_config_surface(void) {
   /* Completeness: every documented id answers, in yield/effort pairs so
      the §5.6 learner can order outcomes by cost per unit output. Presence
      only — tools/docs/check-stat-ids.py pins the mapping. */
-  for (id = 0; id <= TACTIX_STAT_DECISIONS_EXTENSION; id++)
+  for (id = 0; id <= TACTIX_STAT_REGION_INVALIDATED; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
-  assert(tactix_stat(s, TACTIX_STAT_DECISIONS_EXTENSION + 1) == UINT64_MAX);
+  assert(tactix_stat(s, TACTIX_STAT_REGION_INVALIDATED + 1) == UINT64_MAX);
   assert(tactix_stat(s, -1) == UINT64_MAX);
   tactix_release(s);
 }

@@ -62,6 +62,10 @@ struct Coverage {
   uint64_t online_declines = 0, public_declines = 0;
   uint64_t er_requests=0,er_defined=0,er_bumped=0,er_composed=0,er_released=0;
   uint64_t rup_requests=0,rup_added=0,extension_decisions=0;
+  bool region_session=false;
+  uint64_t region_requests=0,region_formula=0,region_definitions=0;
+  uint64_t region_probe=0,region_sweep=0;
+  uint64_t region_queries=0,region_units=0,region_lemmas=0,region_budget=0,region_invalidated=0;
   std::vector<int> extensions;
   std::vector<std::array<int,2>> definition_binaries;
 };
@@ -420,8 +424,23 @@ void remember_definition(Coverage &c,int gate,int z,int a,int b) {
     if(row.size()==2&&row[0]!=-row[1])c.definition_binaries.push_back({row[0],row[1]});
   }
 }
-int extension_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
+int define_gate(tactix_c_handle *s,Rng &rng,Coverage &c,int gate,int a,int b,bool composed) {
   ++c.er_requests;
+  int output=tactix_define_extension(s,gate,a,b);
+  if(output<0){++c.public_declines;return output;}
+  ++c.er_defined;c.er_composed+=composed;c.extensions.push_back(output);
+  remember_definition(c,gate,output,a,b);
+  if(tactix_variable_retained(s,output)!=1)std::abort();
+  if(rng.one_in(2)&&!tactix_bump_variable(s,output,1+uint32_t(rng.below(4))))++c.er_bumped;
+  if(rng.one_in(2)) {
+    if(tactix_set_variable_retention(s,output,0)||tactix_variable_retained(s,output))std::abort();
+    ++c.er_released;
+  }
+  return output;
+}
+int extension_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
+  if(c.region_session&&rng.one_in(8)){tactix_regions_clear(s);c.region_session=false;}
+  if(!c.region_session)c.region_session=tactix_regions_begin(s)==0;
   int candidates[32];int count=tactix_decide_candidates(s,candidates,32);
   if(count<=0)return 1;
   int a=candidates[rng.below(count)],b=candidates[rng.below(count)];
@@ -433,17 +452,7 @@ int extension_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
     for(int i=0;i<count;++i)if(std::abs(candidates[i])==previous){a=previous;composed=true;break;}
   }
   const int gate=1+int(rng.below(3));
-  int output=tactix_define_extension(s,gate,a,b);
-  if(output<0){++c.public_declines;return 1;}
-  ++c.er_defined;c.er_composed+=composed;c.extensions.push_back(output);
-  remember_definition(c,gate,output,a,b);
-  if(tactix_variable_retained(s,output)!=1)std::abort();
-  if(rng.one_in(2)&&!tactix_bump_variable(s,output,1+uint32_t(rng.below(4))))++c.er_bumped;
-  if(rng.one_in(2)) {
-    if(tactix_set_variable_retention(s,output,0)||tactix_variable_retained(s,output))std::abort();
-    ++c.er_released;
-  }
-  return 0;
+  return define_gate(s,rng,c,gate,a,b,composed)>0?0:1;
 }
 int rup_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
   ++c.rup_requests;
@@ -463,6 +472,39 @@ int rup_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
   return 1;
 }
 
+int region_action(tactix_c_handle *s,int rule,Rng &rng,Coverage &c) {
+  ++c.region_requests;
+  if(!c.region_session)c.region_session=tactix_regions_begin(s)==0;
+  if(!c.region_session)return 1;
+  int pool[32];const int count=tactix_decide_candidates(s,pool,32);if(count<=0)return 1;
+  const bool probe=!std::strcmp(tactix_rule_name(rule),"Probe");
+  int literal=pool[rng.below(count)];if(rng.one_in(2))literal=-literal;
+  std::vector<int> vertices{std::abs(literal)};
+  if(count>1&&rng.one_in(2)) {
+    // A fresh snapshot makes successful inference reachable alongside stale
+    // snapshots and arbitrary subregions. Probe gets a UP contradiction;
+    // Sweep gets an XOR miter requiring local CDCL intermediates.
+    if(tactix_regions_clear(s)||tactix_regions_begin(s)){c.region_session=false;return 1;}
+    int a=pool[rng.below(count)],b=pool[rng.below(count)];
+    if(rng.one_in(2)){a=-a;} if(rng.one_in(2)){b=-b;}
+    int u=define_gate(s,rng,c,TACTIX_EXTENSION_AND,a,b,false);
+    int v=define_gate(s,rng,c,TACTIX_EXTENSION_AND,b,a,false);
+    if(u<0||v<0)return 1;
+    literal=define_gate(s,rng,c,probe?TACTIX_EXTENSION_AND:TACTIX_EXTENSION_XOR,u,probe?-v:v,true);
+    if(literal<0)return 1;
+    vertices={std::abs(a),std::abs(b),u,v,literal};
+  } else for(int i=0;i<count;++i)if(rng.one_in(2))vertices.push_back(std::abs(pool[i]));
+  const int region=tactix_region_add(s,vertices.data(),int(vertices.size()));
+  if(region<0){++c.public_declines;return 1;}
+  const int source=int(rng.below(2));
+  c.region_formula+=source==0;c.region_definitions+=source==1;
+  c.region_probe+=probe;c.region_sweep+=!probe;
+  const uint64_t ticks=probe&&source==0?0:rng.one_in(4)?1:1+rng.below(4096);
+  int result=tactix_region_apply(s,rule,literal,region,source,ticks);
+  if(result<0){++c.public_declines;return 1;}
+  return result;
+}
+
 int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
                  Coverage &coverage, uint32_t variables,
                  uint64_t &revision) {
@@ -470,6 +512,12 @@ int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
   if(selected&&(!std::strcmp(selected,"ExtendedResolution")||!std::strcmp(selected,"RupConsequence"))) {
     const int result=!std::strcmp(selected,"ExtendedResolution")
         ? extension_action(solver,rng,coverage):rup_action(solver,rng,coverage);
+    ++coverage.rules[size_t(id)];
+    if(result==0||result==20)++coverage.effective_rules[size_t(id)];
+    return result;
+  }
+  if(selected&&(!std::strcmp(selected,"Probe")||!std::strcmp(selected,"Sweep"))&&rng.one_in(2)) {
+    int result=region_action(solver,id,rng,coverage);
     ++coverage.rules[size_t(id)];
     if(result==0||result==20)++coverage.effective_rules[size_t(id)];
     return result;
@@ -796,6 +844,12 @@ void print_coverage(uint64_t seed, Profile profile, const Coverage &coverage) {
       (unsigned long long)coverage.er_composed,(unsigned long long)coverage.er_bumped,
       (unsigned long long)coverage.er_released,(unsigned long long)coverage.rup_requests,
       (unsigned long long)coverage.rup_added,(unsigned long long)coverage.extension_decisions);
+  std::printf("c public-random forms region-requests=%llu region-formula=%llu region-definitions=%llu region-probe=%llu region-sweep=%llu region-queries=%llu region-units=%llu region-lemmas=%llu region-budget=%llu region-invalidated=%llu\n",
+      (unsigned long long)coverage.region_requests,(unsigned long long)coverage.region_formula,
+      (unsigned long long)coverage.region_definitions,(unsigned long long)coverage.region_probe,
+      (unsigned long long)coverage.region_sweep,(unsigned long long)coverage.region_queries,
+      (unsigned long long)coverage.region_units,(unsigned long long)coverage.region_lemmas,
+      (unsigned long long)coverage.region_budget,(unsigned long long)coverage.region_invalidated);
   for (size_t id = 0; id < coverage.rules.size(); ++id)
     if (coverage.rules[id])
       std::printf("c public-random rule %s applications=%llu effective=%llu\n",
@@ -881,6 +935,11 @@ int main(int argc, char **argv) {
   coverage.effective_rules.resize(static_cast<size_t>(tactix_rule_count()));
   const Profile profile = static_cast<Profile>(seed % static_cast<unsigned>(Profile::Count));
   const int result = public_random_solve(solver, seed, variables, coverage);
+  coverage.region_queries=tactix_stat(solver,TACTIX_STAT_REGION_QUERIES);
+  coverage.region_units=tactix_stat(solver,TACTIX_STAT_REGION_UNITS);
+  coverage.region_lemmas=tactix_stat(solver,TACTIX_STAT_REGION_LEMMAS);
+  coverage.region_budget=tactix_stat(solver,TACTIX_STAT_REGION_BUDGET);
+  coverage.region_invalidated=tactix_stat(solver,TACTIX_STAT_REGION_INVALIDATED);
   std::puts("c tactix-public-random");
   print_coverage(seed, profile, coverage);
   if (result == 10) {

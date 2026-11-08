@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cerrno>
 #include <vector>
+#include <numeric>
 
 namespace {
 struct Input {
@@ -82,7 +83,7 @@ std::optional<php_example::Matrix> recognize(const Input &p, const std::vector<u
   return result;
 }
 }
-std::optional<php_example::Matrix> php_example::read(FILE *in) {
+std::optional<php_example::Matrix> php_example::read(FILE *in, Matrix *column_support) {
   char word[64];long long variables, count;
   if (!token(in,word)||strcmp(word,"p")||!token(in,word)||strcmp(word,"cnf")||
       !number(in,variables)||!number(in,count)||variables<1||variables>INT_MAX||count<1||count>INT_MAX) return {};
@@ -115,6 +116,24 @@ std::optional<php_example::Matrix> php_example::read(FILE *in) {
   }
   for (size_t h=2;h<positive.size();++h)
     if (positive[h].size()==h+1)
-      if (auto matrix=recognize(*p,positive[h],int(h)))return matrix;
+      if (auto matrix=recognize(*p,positive[h],int(h))) {
+        if (column_support) {
+          std::vector<unsigned> parent(static_cast<size_t>(variables));
+          std::iota(parent.begin(), parent.end(), 0u);
+          const auto find=[&](unsigned v) {
+            while (parent[v]!=v) { parent[v]=parent[parent[v]]; v=parent[v]; }
+            return v;
+          };
+          for (unsigned l=0;l<p->edges.size();++l) for (unsigned other:p->edges[l]) {
+            auto a=find(l/2), b=find(other/2); if(a!=b)parent[a]=b;
+          }
+          std::vector<int> column(size_t(variables),-1);
+          column_support->assign(h,{});
+          for (size_t j=0;j<h;++j)column[find(unsigned((*matrix)[0][j]-1))]=int(j);
+          for (unsigned v=0;v<unsigned(variables);++v)
+            if (int j=column[find(v)];j>=0)(*column_support)[j].push_back(int(v+1));
+        }
+        return matrix;
+      }
   return {};
 }

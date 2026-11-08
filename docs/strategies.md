@@ -136,6 +136,15 @@ or extends this advice. The deferral ends at search entry and survives an
 interrupted startup. Explicit mathematical elimination remains available.
 A strategy may also select an eligible literal with `tactix_decide`.
 
+For a regional root consumer, call `tactix_regions_begin` before introducing
+definitions, register variable sets with `tactix_region_add`, and choose
+`tactix_region_apply` or `tactix_region_queue` with the Probe/Sweep rule ID.
+Probe performs UP; Sweep can use bounded native CDCL and emits its intermediate
+RUP clauses. Select live formula clauses or captured definition clauses;
+source weakening invalidates the latter. `tactix_solve` consumes queued work
+before its usual preprocessing and continues with its full default policy.
+The PHP example uses this interface; it supplies no refutation clauses.
+
 Regions, expression discovery and performance policies belong to the caller.
 Defining a variable alone does not assert that it is true or derive additional
 relations involving it. Useful consequences require separate sound reasoning.

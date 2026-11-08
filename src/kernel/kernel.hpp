@@ -828,6 +828,9 @@ struct Kernel {
   // Always-compiled, nullable Stage-0 population seam. The observer is
   // non-owning; ScopedPopulationObserverBinding settles Proof before unbind.
   PopulationObserver *population_observer = nullptr;
+  // Cold observer-lifetime authentication. A detached capture must not become
+  // trusted again merely because a nested observer restored the same pointer.
+  uint64_t population_binding_epoch = 0;
   bool population_observe_raw_input = true;
   bool population_observe_solver = true;
   uint64_t next_population_transaction = 0;

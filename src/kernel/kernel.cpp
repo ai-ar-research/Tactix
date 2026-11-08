@@ -1,3 +1,4 @@
+#include "kernel/propagation_region.hpp"
 #include "kernel/kernel.hpp"
 
 #include "diagnostics/rule_journal.hpp"
@@ -1755,9 +1756,18 @@ template <bool RECORD> static inline void flush_delayed(Kernel &k) {
 // `IGNORE` mirrors Kissat's `PROBING_PROPAGATION`: `propsearch.c` compiles
 // without it and carries no candidate test, `proprobe.c` compiles with it
 // (`proplit.h:151,169`).
-template <bool RECORD, bool BEYOND = false, bool IGNORE = true>
+static inline bool region_allows(const Kernel &k, Lit l,
+                                 const PropagationRegion &region) {
+  const Var v = var_of(l);
+  return (v < region.stamps.size() && region.stamps[v] == region.epoch) ||
+         kernel_root_value(k, l);
+}
+
+template <bool RECORD, bool BEYOND = false, bool IGNORE = true,
+          bool LOCAL = false>
 static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
-                              uint64_t &total_ticks) {
+                              uint64_t &total_ticks,
+                              const PropagationRegion *region = nullptr) {
   const Lit not_lit = negate(lit);
   if constexpr (!RECORD)
     event_trace_watch_scan(k, lit);
@@ -1803,6 +1813,8 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
     const Lit blocking = head.blocking();
     const int8_t blocking_value = values[blocking];
     if (head.binary()) {
+      if constexpr (LOCAL)
+        if (!region_allows(k, blocking, *region)) continue;
       if (blocking_value > 0)
         continue;
       if (blocking_value < 0) { // conflict: clause (not_lit, blocking)
@@ -1831,6 +1843,12 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
           probing_snapshot_list(k, not_lit); // dropping an entry
         q -= 2;
         continue;
+      }
+      if constexpr (LOCAL) {
+        bool selected = true;
+        for (Lit x : *c)
+          if (!region_allows(k, x, *region)) { selected = false; break; }
+        if (!selected) continue;
       }
       Lit *lits = c->lits;
       const Lit other = lits[0] ^ lits[1] ^ not_lit;
@@ -2240,6 +2258,31 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   }
   // Only a level-0 assignment made by this call can need a unit line.
   if (named_root_units && k.stats.root_assignments != roots_before)
+    kernel_emit_root_units(k, assigned_before);
+  return conflict;
+}
+
+// Selected-premise probing has its own entry point. Ordinary propagation
+// retains its previous instantiations and does not test region membership.
+bool kernel_propagate_region(Kernel &k, const PropagationRegion &region) {
+  assert(k.probing.recording && !k.probing.rollback_pose);
+  const size_t assigned_before = k.trail.size();
+  const uint64_t roots_before = k.stats.root_assignments;
+  const uint32_t saved = k.propagate_head;
+  uint32_t cursor = saved;
+  uint64_t ticks = 0;
+  bool conflict = false;
+  while (cursor < k.trail.size()) {
+    const Lit l = k.trail[cursor++];
+    if (propagate_literal<false, false, true, true>(
+            k, l, INVALID_REF, ticks, &region)) { conflict = true; break; }
+  }
+  k.stats.propagations += cursor - saved;
+  kernel_charge_ticks(k, ticks);
+  // A subset scan cannot discharge global propagation debt, even on success.
+  k.propagate_head = saved;
+  if (k.proof && !k.proof->startup_pb_written() &&
+      k.stats.root_assignments != roots_before)
     kernel_emit_root_units(k, assigned_before);
   return conflict;
 }

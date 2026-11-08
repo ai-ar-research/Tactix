@@ -12,6 +12,7 @@
 #include <array>
 
 namespace tactix {
+namespace strategy { class RegionProgram; }
 
 class EventTrace;
 
@@ -240,6 +241,7 @@ public:
   strategy::controller::Observation observe(const Kernel &) const;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
+  int solve(Kernel &, volatile sig_atomic_t *stop, strategy::RegionProgram *);
   const DefaultAffineSearchDiagnostics &affine_search_diagnostics() const {
     return affine_search_diagnostics_;
   }
@@ -377,5 +379,6 @@ private:
 };
 
 int default_solve(Kernel &, volatile sig_atomic_t *stop = nullptr);
+int default_solve(Kernel &, volatile sig_atomic_t *stop, strategy::RegionProgram *);
 
 } // namespace tactix

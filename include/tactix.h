@@ -169,6 +169,12 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_BVE_OTF_SUBSUMED 63 /* second parents deleted by double SSR */
 #define TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED 64 /* deferred startup helpers */
 #define TACTIX_STAT_DECISIONS_EXTENSION 65 /* solver helpers, including ER */
+#define TACTIX_STAT_REGION_QUERIES 66
+#define TACTIX_STAT_REGION_UNITS 67
+#define TACTIX_STAT_REGION_LEMMAS 68
+#define TACTIX_STAT_REGION_TICKS 69
+#define TACTIX_STAT_REGION_BUDGET 70
+#define TACTIX_STAT_REGION_INVALIDATED 71
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
@@ -407,6 +413,40 @@ int tactix_apply_condition(tactix *, const int *clause, int clause_count,
 #define TACTIX_EXTENSION_OR 2
 #define TACTIX_EXTENSION_XOR 3
 int tactix_define_extension(tactix *, int gate, int left, int right);
+
+/* Optional solver-owned root program. Begin before defining ER outputs to
+ * capture their actual clauses. Clear releases its metadata and queued work;
+ * neither operation changes the formula. Begin returns0/-1, clear returns0.
+ * Ordinary solves allocate none of this state. */
+int tactix_regions_begin(tactix *);
+int tactix_regions_clear(tactix *);
+
+/* Register a region of positive permanent external variable IDs; copies,
+ * sorts and deduplicates the input. Returns a nonnegative region ID or-1.
+ * Any imported variables may be selected; the queried literal must belong.
+ * FORMULA selects live clauses whose unfixed variables are in the region.
+ * DEFINITIONS selects only clauses of ER outputs defined since begin, with
+ * the same membership test. Both may use current root facts outside it.
+ * Source deletion/replacement invalidates captured definitions; those queries
+ * then decline until a new session, while FORMULA remains available. */
+#define TACTIX_REGION_FORMULA 0
+#define TACTIX_REGION_DEFINITIONS 1
+int tactix_region_add(tactix *, const int *variables, int count);
+
+/* Structured Probe/Sweep applications. Probe performs only unit propagation;
+ * Sweep uses the existing bounded CDCL engine and emits its RUP derivation.
+ * Refuting the selected literal adds its negation as a root unit. An
+ * inconclusive or budget-limited query adds no unit. ticks=0 is unlimited;
+ * FORMULA Probe is one atomic native propagation cascade (ticks must be0).
+ * apply requires a propagated sparse root and returns0 changed,1 declined,
+ *20 UNSAT or-1 invalid. Queue copies the request and returns0/-1; ordinary
+ * tactix_solve executes queued work at root before its usual preprocessing.
+ * Its cursor survives interruption. A normal solve follows any declined
+ * queries, with its complete default preprocessing/inprocessing enabled. */
+int tactix_region_apply(tactix *, int rule_id, int literal, int region,
+                       int source, uint64_t ticks);
+int tactix_region_queue(tactix *, int rule_id, int literal, int region,
+                       int source, uint64_t ticks);
 
 /* Use sparingly for small targeted lemmas or rewrite steps; ordinary search
  * should remain with CDCL. Derive a RUP consequence from a selected live subset. Each

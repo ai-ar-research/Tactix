@@ -12,6 +12,8 @@ PopulationObserver *kernel_bind_population_observer(
     kernel_sync_population_observer(kernel);
     return previous;
   }
+  if (kernel.population_binding_epoch != UINT64_MAX)
+    ++kernel.population_binding_epoch;
   if (kernel.proof && kernel.proof->population_observer() == previous)
     kernel.proof->bind_population_observer(nullptr);
   kernel.population_observer = observer;

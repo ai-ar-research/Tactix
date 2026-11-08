@@ -1,3 +1,4 @@
+#include "strategy/region_program.hpp"
 #include "policies/default_policy.hpp"
 #include "kernel/splitmix64.hpp"
 #include "policies/strategy_settings.hpp"
@@ -4195,6 +4196,11 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
 }
 
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+  return solve(k, stop, nullptr);
+}
+
+int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
+                         strategy::RegionProgram *regions) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
   // The policy selects an initial subset of substitution/elimination choices;
@@ -4254,6 +4260,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       { retention.release(); feedback.finish(20, StopReason::Unsat); return 20; }
   }
   solves++;
+  // Explicit public root work precedes elimination and uses the same native
+  // publication as other default actions. No region state exists by default.
+  if (regions) {
+    if (regions->run() == ApplyResult::Unsat) {
+      retention.release(); feedback.finish(20, StopReason::Unsat); return 20;
+    }
+    if (regions->pending()) return 0;
+  }
   // Preserve the input's structural classification across preprocessing: the
   // very simplifications that expose an easier residual can retire one member
   // of a complementary pair. Scheduling is formula-derived, not name-derived.
@@ -7290,8 +7304,13 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
 }
 
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
+  return default_solve(k, stop, nullptr);
+}
+
+int default_solve(Kernel &k, volatile sig_atomic_t *stop,
+                  strategy::RegionProgram *regions) {
   DefaultPolicy policy;
-  const int res = policy.solve(k, stop);
+  const int res = policy.solve(k, stop, regions);
   if (strategy_setting("TACTIX_STRATEGY_CONFIG"))
     std::printf("c strategy-config %s\n",
                 policy.strategy_config_snapshot().c_str());
