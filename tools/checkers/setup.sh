@@ -13,7 +13,7 @@
 #
 # Pinned commits — bump deliberately, never implicitly:
 #   drat-trim  2e3b2dc0ecf938addbd779d42877b6ed69d9a985 plus the
-#              repository-pinned RAT occurrence lookup (same LRAT output)
+#              repository-pinned POSIX stdio declarations and RAT occurrence lookup (same LRAT output)
 #   cake_lpr   a4323b203cc9ecd584ba7da9e3fff08135a09d5f
 #   dsr-trim   0b8cc0ef4d228c059994923cbc66abeb9a42ea14 plus the
 #              repository-pinned forward-elaboration and bitmask-growth repairs
@@ -117,7 +117,7 @@ clone_patched_at_commit trestle https://github.com/FormalSAT/trestle.git \
 SR_CHECK="$ROOT/trestle/.lake/build/bin/srcheck"
 if [ ! -x "$SR_CHECK" ]; then
     if command -v lake >/dev/null 2>&1; then
-        (cd "$ROOT/trestle" && lake build srcheck)
+        (cd "$ROOT/trestle" && lake exe cache get && lake build srcheck)
     else
         echo "lake is required to build the patched Trestle srcheck" >&2
         exit 1

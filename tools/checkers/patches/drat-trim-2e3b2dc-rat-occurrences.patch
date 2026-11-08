@@ -1,23 +1,25 @@
 diff --git a/drat-trim.c b/drat-trim.c
-index cf8a676..71318d6 100644
+index cf8a676..c8cd5b5 100644
 --- a/drat-trim.c
 +++ b/drat-trim.c
-@@ -23,0 +24 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
+@@ -0,0 +1 @@
++#define _POSIX_C_SOURCE 200809L
+@@ -23,0 +25 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 +#include <string.h>
-@@ -65,0 +67,2 @@ struct solver { FILE *inputFile, *proofFile, *lratFile, *traceFile, *activeFile;
+@@ -65,0 +68,2 @@ struct solver { FILE *inputFile, *proofFile, *lratFile, *traceFile, *activeFile;
 +    unsigned char *live; // by clause number, once built: is the clause on the watch lists?
 +    long *occStart, *occ; // clauses by literal, extension variables only, once built
-@@ -88,0 +92,5 @@ static inline void addWatchPtr (struct solver* S, int lit, long watch) {
+@@ -88,0 +93,5 @@ static inline void addWatchPtr (struct solver* S, int lit, long watch) {
 +static inline void setLive (struct solver* S, int* clause, int live) {
 +  const long number = clause[ID] >> 1;
 +  if (live) S->live[number >> 3] |=  (unsigned char) (1 << (number & 7));
 +  else      S->live[number >> 3] &= (unsigned char) ~(1 << (number & 7)); }
 +
-@@ -89,0 +98 @@ static inline void addWatch (struct solver* S, int* clause, int index) {
+@@ -89,0 +99 @@ static inline void addWatch (struct solver* S, int* clause, int index) {
 +  if (S->live) setLive (S, clause, 1);
-@@ -93,0 +103 @@ static inline void removeWatch (struct solver* S, int* clause, int index) {
+@@ -93,0 +104 @@ static inline void removeWatch (struct solver* S, int* clause, int index) {
 +  if (S->live) setLive (S, clause, 0);
-@@ -550,0 +561,43 @@ void printDependencies (struct solver *S, int* clause, int RATflag) {
+@@ -550,0 +562,43 @@ void printDependencies (struct solver *S, int* clause, int RATflag) {
 +static inline long occSlot (struct solver *S, int lit) {
 +  return 2L * (abs (lit) - S->nVars - 1) + (lit < 0); }
 +
@@ -61,7 +63,7 @@ index cf8a676..71318d6 100644
 +  S->RATset[nRAT] = offset;
 +  return nRAT + 1; }
 +
-@@ -553,0 +607,14 @@ int checkRAT (struct solver *S, int pivot, int mark) {
+@@ -553,0 +608,14 @@ int checkRAT (struct solver *S, int pivot, int mark) {
 +  if (abs (pivot) > S->nVars) {
 +    if (S->occStart == NULL) buildOccurrences (S);
 +    // Filling moved each slot's start to its end, which is the next slot's start.
@@ -76,19 +78,19 @@ index cf8a676..71318d6 100644
 +      const int* lit = candidate;
 +      while (*lit && *lit != -pivot) lit++;
 +      if (*lit) nRAT = addRATcandidate (S, nRAT, S->occ[at]); } }
-@@ -555 +622 @@ int checkRAT (struct solver *S, int pivot, int mark) {
+@@ -555 +623 @@ int checkRAT (struct solver *S, int pivot, int mark) {
 -  for (i = -S->maxVar; i <= S->maxVar; i++) {
 +  else for (i = -S->maxVar; i <= S->maxVar; i++) {
-@@ -568,5 +635 @@ int checkRAT (struct solver *S, int pivot, int mark) {
+@@ -568,5 +636 @@ int checkRAT (struct solver *S, int pivot, int mark) {
 -	    if (nRAT == S->maxRAT) {
 -	      S->maxRAT = (S->maxRAT * 3) >> 1;
 -	      S->RATset = realloc (S->RATset, sizeof (long) * S->maxRAT);
 -              assert (S->RATset != NULL); }
 -	    S->RATset[nRAT++] = S->wlist[i][j] >> 1;
 +	    nRAT = addRATcandidate (S, nRAT, S->wlist[i][j] >> 1);
-@@ -717,0 +781 @@ int init (struct solver *S) {
+@@ -717,0 +782 @@ int init (struct solver *S) {
 +  if (S->live) memset (S->live, 0, S->count / 8 + 1);
-@@ -1279,0 +1344 @@ int parse (struct solver* S) {
+@@ -1279,0 +1345 @@ int parse (struct solver* S) {
 +  S->live = NULL; S->occStart = NULL; S->occ = NULL;
-@@ -1320,0 +1386 @@ void freeMemory (struct solver *S) {
+@@ -1320,0 +1387 @@ void freeMemory (struct solver *S) {
 +  free (S->live); free (S->occStart); free (S->occ);
