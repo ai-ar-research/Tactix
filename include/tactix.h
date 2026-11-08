@@ -2041,7 +2041,8 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  *                              Propagate (in the probing context if PROBING),
  *                              optional root-prefix consumption.
  *   SPARSE_COLLECT             collect root-satisfied/false-literal clause
- *                              state at a propagated root.
+ *                              state at a consistent root; Propagate drains
+ *                              any pending or newly derived root units.
  *   COMPACT_RANDOM_ORDER       fold root-fixed variables of the random
  *                              branching order onto one representative (H).
  *   COMPACT_VARIABLES          COMPACT_* flags: compact variable storage at

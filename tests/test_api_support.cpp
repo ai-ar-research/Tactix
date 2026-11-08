@@ -110,6 +110,30 @@ void decide_both(tactix_c_handle *a, tactix_c_handle *b, int count) {
   }
 }
 
+void test_pending_root_collection() {
+  tactix_c_handle *pub = load(), *nat = load();
+  Kernel &p = kernel(pub), &n = kernel(nat);
+  // Replay/retraction can reopen an existing root prefix without changing
+  // its facts. Reproduce that valid cursor state on both sides.
+  assert(!p.trail.empty());
+  p.propagate_head = n.propagate_head = 0;
+  assert(!p.level && !kernel_propagation_fixpoint(p));
+  const int collected = tactix_support(pub, TACTIX_SUPPORT_SPARSE_COLLECT, 0);
+  const auto native = execution::execute_action(n, execution::SparseCollectRequest{});
+  assert(collected == (native == RootCollectOutcome::Refuted ? 20
+                       : native == RootCollectOutcome::Unit ? 2
+                       : native == RootCollectOutcome::NoChange ? 1 : 0));
+  same(p, n);
+  if (collected != 20) {
+    const auto propagated = native_propagate(n);
+    assert(tactix_apply(pub, tactix_rule_id("Propagate")) ==
+           (propagated == ApplyResult::Unsat ? 20 : 0));
+    same(p, n);
+  }
+  tactix_release(pub);
+  tactix_release(nat);
+}
+
 void test_twins() {
   tactix_c_handle *pub = load(), *nat = load();
   Kernel &p = kernel(pub), &n = kernel(nat);
@@ -435,6 +459,7 @@ void test_work_settings() {
 }
 
 int main() {
+  test_pending_root_collection();
   test_twins();
   test_contexts();
   test_rejections();

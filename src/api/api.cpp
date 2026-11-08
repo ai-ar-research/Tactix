@@ -3092,7 +3092,7 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     break;
   }
   case TACTIX_SUPPORT_SPARSE_COLLECT: {
-    if (argument || !support_root(k) || !kernel_propagation_fixpoint(k))
+    if (argument || !support_root(k))
       return -1;
     // Derived units stay on the propagation queue for the caller's Propagate,
     // which publishes the roots it assigns.
