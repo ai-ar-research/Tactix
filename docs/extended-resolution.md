@@ -73,20 +73,13 @@ by opposite signs of `p[h,j]`, then derive their binary resolvent. Each clause
 is RUP from the preceding constraints and definitions. Pigeon clauses are RUP
 by the old pigeon clauses and the collision in the final hole.
 
-The strategy calls `tactix_add_rup` with explicit live premises. The public
-operation authenticates each premise against the current clause database (or
-a current root unit), assumes the negated target, and performs unit propagation
-on only that subset. It publishes a RUP proof addition after a contradiction.
-Invalid premises, failed propagation and exhausted work budgets decline without
-publishing a clause. The operation creates no variables and performs no search.
-
-The collision steps use five, seven and two premises respectively. A pigeon
-clause uses `3*(h-1)+3` premises. Repeat with q until root propagation refutes
-PHP(2,1). There are at most `2*n*(n+1)*(n-1)/3` fresh variables and O(n^4)
-consequence requests, with O(n^4) total clause literals. Premise lookup and
-local propagation add implementation costs; polynomial proof size alone does
-not establish near-linear runtime. The earlier general-SR implementation is
-retained in an immutable benchmark source archive as a performance control.
+The implementation uses the existing public explicit SR validator for these
+RUP consequences. Repeat with q until root propagation refutes PHP(2,1).
+There are at most `2*n*(n+1)*(n-1)/3` fresh variables and O(n^4) consequence
+requests, with O(n^4) total clause literals. Validation uses propagation,
+not branching, so the complete algorithm is polynomial. The general SR
+validator currently reconstructs a validation formula for each application;
+that can make its practical scaling much worse than the construction size.
 
 ## Validation and scaling plan
 

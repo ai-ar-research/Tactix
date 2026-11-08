@@ -407,21 +407,6 @@ int tactix_apply_condition(tactix *, const int *clause, int clause_count,
 #define TACTIX_EXTENSION_XOR 3
 int tactix_define_extension(tactix *, int gate, int left, int right);
 
-/* Derive a RUP consequence from an explicitly selected live subset. Each
- * premise is authenticated against the current formula; root units are legal
- * premises. Validation uses local unit propagation over the selected support.
- * Returns 0 added, 1 already true, 20 UNSAT, or -1 invalid/inapplicable/budget.
- * No speculative search or main-trail change occurs during validation. A
- * successful nonterminal addition may leave propagation for the next action.
- * This is the exact instance surface of the opt-in RupConsequence rule. */
-typedef struct {
-  const int *literals;
-  int count;
-} tactix_rup_premise;
-int tactix_add_rup(tactix *, const int *clause, int count,
-                   const tactix_rup_premise *premises, int premise_count,
-                   uint64_t maximum_work);
-
 /* Additive fine-grained action surface. Most rules delegate to the frozen v1
  * payloads. Rules whose v1 payload grouped multiple choices enumerate opaque
  * semantic payloads here; Instantiate, for example, exposes one payload per
