@@ -3,6 +3,7 @@
 #include "engine/subsolver.hpp"
 #include "kernel/types.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <limits>
 
@@ -199,10 +200,49 @@ static void disabled_bounds_and_retry() {
   assert(bounded_variables.clauses().empty());
 }
 
+static void indexed_admission_order() {
+  QueryHistory h;
+  clause(h,{1});clause(h,{11,-11});assert(h.begin_query()==InputStatus::Ok);
+  auto bounded=limits();bounded.maximum_clauses=2048;bounded.maximum_literals=20000;
+  RetainedClauses pool(bounded);
+  const auto body=[](unsigned bits) {
+    std::vector<int32_t> result{1};
+    for(unsigned bit=0;bit<10;++bit)if(bits&(1u<<bit))result.push_back(int32_t(bit+2));
+    return result;
+  };
+  // Force repeated storage growth. Index keys must still name the committed
+  // immutable bodies, and lookup order must not change proof admission order.
+  for(unsigned bits=0;bits<1024;++bits) {
+    const auto literals=body(bits);
+    assert(pool.admit(h,1,literals,UINT64_MAX).status==RetentionStatus::Accepted);
+    assert(pool.clauses().back().literals==literals);
+  }
+  for(unsigned bits=1024;bits--;) {
+    auto literals=body(bits);std::reverse(literals.begin(),literals.end());literals.push_back(1);
+    const auto result=pool.admit(h,1,literals,1);
+    assert(result.status==RetentionStatus::AlreadyPresent && !result.ticks);
+    assert(pool.clauses()[bits].literals==body(bits));
+  }
+  assert(pool.clauses().size()==1024 && pool.literals()==6144);
+  assert(h.finish_query(1,QueryResult::Unknown)==InputStatus::Ok);
+  clause(h,{12});assert(h.begin_query()==InputStatus::Ok);
+  const int32_t fresh[]{12,1};
+  assert(pool.admit(h,2,fresh,UINT64_MAX).status==RetentionStatus::Accepted);
+  const int32_t old[]{1};
+  assert(pool.admit(h,1,old,UINT64_MAX).status==RetentionStatus::Stale);
+  assert(h.finish_query(2,QueryResult::Unknown)==InputStatus::Ok);
+  clause(h,{-1});assert(h.begin_query()==InputStatus::Ok);
+  assert(pool.admit(h,3,{},UINT64_MAX).status==RetentionStatus::Accepted);
+  assert(pool.admit(h,3,{},UINT64_MAX).status==RetentionStatus::AlreadyPresent);
+  assert(pool.admit(h,3,{},0).status==RetentionStatus::Exhausted);
+  assert(pool.clauses().size()==1026 && pool.literals()==6146);
+}
+
 int main() {
   propagation_admission();
   append_oracle_inputs();
   persistent_prefix_roots();
   dependency_and_prefix_binding();
   disabled_bounds_and_retry();
+  indexed_admission_order();
 }

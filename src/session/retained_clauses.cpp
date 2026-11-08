@@ -5,13 +5,27 @@
 
 #include <algorithm>
 #include <limits>
-#include <set>
+#include <type_traits>
 #include <utility>
 
 namespace tactix::session {
 
 RetainedClauses::RetainedClauses(RetentionLimits limits) : limits_(limits) {}
 RetainedClauses::~RetainedClauses() = default;
+
+bool RetainedClauses::ClauseLess::operator()(std::span<const int32_t> a,
+    std::span<const int32_t> b) const noexcept {
+  return std::lexicographical_compare(a.begin(),a.end(),b.begin(),b.end());
+}
+
+void RetainedClauses::remember(RetainedClause record) {
+  // Relocation must transfer the buffers borrowed by known_, never copy them.
+  static_assert(std::is_nothrow_move_constructible_v<RetainedClause>);
+  const size_t words=record.literals.size();
+  clauses_.push_back(std::move(record));
+  known_.emplace(clauses_.back().literals);
+  literals_+=words;
+}
 
 RetentionStatus RetainedClauses::prepare(const QueryHistory &history,
                                         const QueryRecord &query,
@@ -95,8 +109,7 @@ RetentionResult RetainedClauses::admit(const QueryHistory &history, uint64_t id,
   normalized.erase(std::unique(normalized.begin(), normalized.end()), normalized.end());
   for (size_t i = 1; i < normalized.size(); ++i)
     if (normalized[i - 1] == -normalized[i]) return {RetentionStatus::Tautology};
-  for (const auto &old : clauses_)
-    if (old.literals == normalized) return {RetentionStatus::AlreadyPresent};
+  if (known_.contains(normalized)) return {RetentionStatus::AlreadyPresent};
   if (clauses_.size() >= limits_.maximum_clauses ||
       normalized.size() > limits_.maximum_literals - literals_ - recipe_literals_)
     return {RetentionStatus::Exhausted};
@@ -110,8 +123,7 @@ RetentionResult RetainedClauses::admit(const QueryHistory &history, uint64_t id,
   const uint64_t ticks = oracle_->ticks() - before;
   switch (admitted) {
   case SubRupAdmission::Accepted:
-    literals_ += normalized.size();
-    clauses_.push_back({query->id, query->input_words, std::move(normalized), {}});
+    remember({query->id, query->input_words, std::move(normalized), {}});
     return {RetentionStatus::Accepted, ticks};
   case SubRupAdmission::NotRup: return {RetentionStatus::NotRup, ticks};
   case SubRupAdmission::Tautology: return {RetentionStatus::Tautology, ticks};
@@ -164,8 +176,7 @@ RetentionResult RetainedClauses::admit_parity(const QueryHistory &history,uint64
   // F entails the sum equation. A falsifying assignment of this clause must
   // assign its entire support and violate its parity, including canceled extras.
   if (!odd.empty() || falsifying==rhs) return {RetentionStatus::Invalid};
-  for (const auto &old:clauses_)
-    if (old.literals==normalized) return {RetentionStatus::AlreadyPresent};
+  if (known_.contains(normalized)) return {RetentionStatus::AlreadyPresent};
   const __uint128_t payload=__uint128_t(literals_)+recipe_literals_+normalized.size()+words;
   const __uint128_t import=__uint128_t(query->input_words)+literals_+
       2*(__uint128_t(query->clauses)+clauses_.size())+source_words;
@@ -204,8 +215,7 @@ RetentionResult RetainedClauses::admit_parity(const QueryHistory &history,uint64
   if (ticks>=budget || words+normalized.size()+1>budget-ticks) return {RetentionStatus::Exhausted,ticks};
   ticks+=words+normalized.size()+1;
   RetainedClause record{query->id,query->input_words,std::move(normalized),{equations.begin(),equations.end()}};
-  literals_+=record.literals.size();recipe_literals_+=words;
-  clauses_.push_back(std::move(record));
+  remember(std::move(record));recipe_literals_+=words;
   return {RetentionStatus::Accepted,ticks};
 }
 

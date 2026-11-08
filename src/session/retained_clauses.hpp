@@ -5,6 +5,7 @@
 
 #include <csignal>
 #include <memory>
+#include <set>
 #include <span>
 
 namespace tactix {
@@ -77,6 +78,10 @@ public:
   const RetentionLimits &limits() const { return limits_; }
 
 private:
+  struct ClauseLess {
+    bool operator()(std::span<const int32_t>, std::span<const int32_t>) const noexcept;
+  };
+  void remember(RetainedClause);
   RetentionStatus prepare(const QueryHistory &, const QueryRecord &,
                           const volatile sig_atomic_t *stop);
   RetentionLimits limits_;
@@ -86,6 +91,9 @@ private:
   uint64_t recipe_literals_ = 0;
   std::unique_ptr<SubSolver> oracle_;
   std::vector<RetainedClause> clauses_;
+  // Borrow immutable clause buffers, which survive vector relocation. Keep
+  // admission order in clauses_; the index owns no second literal archive.
+  std::set<std::span<const int32_t>, ClauseLess> known_;
 };
 
 } // namespace session
