@@ -14,8 +14,8 @@ ctest --preset debug                       # unit, API, proof and example tests
 The release preset (`--preset release`) is the one to measure performance
 with. Every change should keep the debug test suite green.
 
-Routine test presets exclude the `extended` label and limit each test to ten
-seconds. Keep new CI tests small; exhaustive sweeps, large solver fixtures and
+Routine test presets exclude the `extended` label. Keep individual CI tests
+under ten seconds by limiting their workload; exhaustive sweeps, large solver fixtures and
 long external proof checks belong in explicit extended runs:
 
 ```sh

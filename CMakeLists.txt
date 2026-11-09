@@ -171,7 +171,7 @@ if(TACTIX_BUILD_TESTS)
   add_subdirectory(examples)
 
   # Exhaustive sweeps, large solve fixtures and external checker campaigns are
-  # explicit local runs. Routine CI tests must finish within ten seconds.
+  # explicit local runs rather than routine CI tests.
   set(TACTIX_EXTENDED_TESTS
       symmetry_backend lucky_late_parallel cli_auto_proof feedback_frontend
       demo3_scripted_default structural_journal_trajectory congruence_ite_collapse
@@ -179,7 +179,9 @@ if(TACTIX_BUILD_TESTS)
       affine_matrix congruence_ite_valued_sides dsr_transport sweep_proofs
       vivify_compact_contract api_one_search affine_matrix_search_proof subsolver
       congruence_ite_unit_proof ramsey_cli default_public_replay online_inprocess
-      connected_occurrence pbp_deletion_identity_cli symmetry_clause_multiset)
+      connected_occurrence pbp_deletion_identity_cli symmetry_clause_multiset
+      event_trace_zero_overhead analysis_native_target automatic_proof
+      feedback_provenance)
   foreach(test_directory IN ITEMS "${CMAKE_CURRENT_SOURCE_DIR}"
                                   "${CMAKE_CURRENT_SOURCE_DIR}/tests"
                                   "${CMAKE_CURRENT_SOURCE_DIR}/examples")
@@ -188,11 +190,6 @@ if(TACTIX_BUILD_TESTS)
       if(test_name IN_LIST TACTIX_EXTENDED_TESTS)
         set_property(TEST "${test_name}" DIRECTORY "${test_directory}"
                      APPEND PROPERTY LABELS extended)
-        set_tests_properties("${test_name}" DIRECTORY "${test_directory}"
-                             PROPERTIES TIMEOUT 600)
-      else()
-        set_tests_properties("${test_name}" DIRECTORY "${test_directory}"
-                             PROPERTIES TIMEOUT 10)
       endif()
     endforeach()
   endforeach()

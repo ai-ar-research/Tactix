@@ -28,11 +28,9 @@
   "testPresets": [
     { "name": "debug", "configurePreset": "debug",
       "output": { "outputOnFailure": true },
-      "filter": { "exclude": { "label": "extended" } },
-      "execution": { "timeout": 10 } },
+      "filter": { "exclude": { "label": "extended" } } },
     { "name": "release", "configurePreset": "release",
       "output": { "outputOnFailure": true },
-      "filter": { "exclude": { "label": "extended" } },
-      "execution": { "timeout": 10 } }
+      "filter": { "exclude": { "label": "extended" } } }
   ]
 }

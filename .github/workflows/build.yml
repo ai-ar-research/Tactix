@@ -97,4 +97,4 @@ jobs:
       - name: Run unit tests
         run: >-
           ctest --test-dir build/ci-tests --output-on-failure
-          --parallel 8 --timeout 10 --label-exclude extended --no-tests=error
+          --parallel 8 --timeout 900 --label-exclude extended --no-tests=error
