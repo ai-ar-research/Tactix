@@ -1003,6 +1003,22 @@ ModelCheck QueryKernel::check_model(KernelTicket t) {
   });
 }
 
+std::optional<uint32_t> QueryKernel::assigned_assumption_floor(KernelTicket t) const {
+  if (!valid(t)) return std::nullopt;
+  const Kernel &k=epoch_->kernel;
+  if (epoch_->projection &&
+      (k.query_projection!=epoch_->projection.get() ||
+       epoch_->projection->snapshot().restore ||
+       epoch_->projection->snapshot().invalid_model)) return std::nullopt;
+  uint32_t floor=0;
+  for (const int external : effective_assumptions(t)) {
+    const Lit literal=kernel_internalize(k,external);
+    if (literal!=INVALID_LIT && k.value(literal)>0)
+      floor=std::max(floor,k.var_level(var_of(literal)));
+  }
+  return floor;
+}
+
 AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
   if (!valid(t)) return {};
   const Kernel &k = epoch_->kernel;

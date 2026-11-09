@@ -9,6 +9,7 @@
 #include "session/learned_clause_export.hpp"
 
 #include <memory>
+#include <optional>
 #include <span>
 
 namespace tactix {
@@ -142,6 +143,9 @@ public:
   // The caller explicitly schedules the returned transition. No propagation,
   // analysis, restart or restoration is hidden inside this inspection.
   AssumptionStep next_assumption(KernelTicket) const;
+  // Maximum level of currently true effective assumptions, ignoring free
+  // reconstruction coordinates. Pure observation, not a Ready certificate.
+  std::optional<uint32_t> assigned_assumption_floor(KernelTicket) const;
   bool decide_assumption(KernelTicket, size_t index);
   // Publish a query refutation only after next_assumption proves QueryUnsat.
   // This does not set Kernel::inconsistent or make assumptions base units.

@@ -2893,6 +2893,26 @@ int tactix_online_complete(tactix_solver *s) {
   return s && s->online ? (s->online->complete() ? 1 : 0) : -1;
 }
 
+int tactix_query_assumption_floor(tactix_solver *s, uint32_t *out) {
+  if (!s || !out || !s->query_owner) return -1;
+  const auto floor=s->query_owner->assigned_assumption_floor(s->query_ticket);
+  if (!floor) return -1;
+  *out=*floor;
+  return 0;
+}
+
+int tactix_restart_reuse_level(tactix_solver *s, int next_literal,
+                               uint32_t floor, uint32_t *out) {
+  if (!s || !out || !next_literal || next_literal==std::numeric_limits<int>::min()) return -1;
+  if (s->query_owner && !s->query_owner->kernel(s->query_ticket)) return -1;
+  const Kernel &k=s->kernel;
+  const Lit literal=kernel_internalize(k,next_literal);
+  if (!k.h || literal==INVALID_LIT ||
+      k.value(literal) || floor>k.level) return -1;
+  *out=heuristics_restart_reuse_level_for(s->kernel,var_of(literal),floor);
+  return 0;
+}
+
 uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   const Kernel &k = s->kernel;
   switch (stat_id) {

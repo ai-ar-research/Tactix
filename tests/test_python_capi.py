@@ -183,6 +183,50 @@ with Session(library=library,strategy=inspected) as session:
 try:views[-1].tactix_stat(capi.TACTIX_STAT_CONFLICTS)
 except RuntimeError:pass
 else:raise AssertionError('expired C view accepted')
+# Shared restart observations are callable from an independently authored policy.
+restart_policy=ScriptedCDCL()
+def restart_planning(execution,restored):
+    views.append(execution.c)
+    while True:
+        action=execution.next()
+        if action==capi.TACTIX_QUERY_ASSUME: execution.assume_next()
+        elif action==capi.TACTIX_QUERY_PROPAGATE: execution.apply('Propagate')
+        else:
+            assert action==capi.TACTIX_QUERY_READY
+            break
+    floor=C.c_uint32(99)
+    assert execution.c.tactix_query_assumption_floor(C.byref(floor))==0 and floor.value==1
+    ranked=tuple(map(abs,execution.candidates()))
+    assert len(ranked)>=3
+    next_literal=ranked[0]
+    for literal in ranked[-2:]:
+        execution.decide(literal)
+        execution.apply('Propagate')
+    level=execution.c.tactix_stat(capi.TACTIX_STAT_LEVEL)
+    keep=C.c_uint32(99)
+    assert execution.c.tactix_restart_reuse_level(-next_literal,floor.value,C.byref(keep))==0
+    assert floor.value<=keep.value<level
+    selected_keep=keep.value
+    invalid=C.c_uint32(77)
+    assert execution.c.tactix_restart_reuse_level(0,0,C.byref(invalid))==-1 and invalid.value==77
+    assert execution.c.tactix_restart_reuse_level(next_literal,level,C.byref(keep))==0 and keep.value==level
+    assert execution.apply('Restart',keep.value)==0
+    assert execution.c.tactix_stat(capi.TACTIX_STAT_LEVEL)==level
+    assert execution.c.tactix_query_assumption_floor(C.byref(floor))==0 and floor.value==1
+    assert execution.apply('Restart',selected_keep)==0
+    assert execution.c.tactix_stat(capi.TACTIX_STAT_LEVEL)==selected_keep
+    assert execution.c.tactix_query_assumption_floor(C.byref(floor))==0 and floor.value==1
+    assert execution.next()==capi.TACTIX_QUERY_READY
+    return restart_policy(execution,restored)
+with Session(library=library,strategy=restart_planning) as session:
+    for clause in ([1,2],[3,4],[5,6],[7,8]): session.add(clause)
+    assert session.solve([1]).status==SAT
+try: views[-1].tactix_query_assumption_floor(C.byref(C.c_uint32()))
+except RuntimeError: pass
+else: raise AssertionError('restart observation accepted expired execution')
+try: views[-1].tactix_restart_reuse_level(7,0,C.byref(C.c_uint32()))
+except RuntimeError: pass
+else: raise AssertionError('reuse observation accepted expired execution')
 print(f'Python C ABI: {len(s.FUNCTIONS)} symbols/signatures, {len(s.PUBLIC_TYPES)} types, '
       f'{len(s.RECORDS)} record layouts, {len(s.CONSTANTS)} constants; '
       '30 owned nested programs, independent continuations, typed calls and guarded views pass')

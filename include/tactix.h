@@ -1977,6 +1977,18 @@ int tactix_install_parameters(tactix *, int rule_id,
                               const tactix_online_parameters *parameters);
 int tactix_install_material_settings(tactix *, int touch_filter_mode,
                                      int likely_kept_redundant_mode);
+/* Read-only restart planning; no input finalization, propagation or cursor
+ * changes. Returns 0 on success, -1 with *out unchanged on invalid input.
+ * query_assumption_floor requires a current borrowed query with a valid
+ * projection. It returns the maximum assignment level of true effective
+ * assumptions (0 if none); unassigned/free coordinates are omitted. It does
+ * not certify Ready, and foreign decisions below those levels may remain.
+ * restart_reuse_level requires initialized guidance, a known unassigned
+ * external next_literal and floor <= current level. It scans reuse ranks
+ * starting at floor; callers still choose and explicitly execute Restart. */
+int tactix_query_assumption_floor(tactix *, uint32_t *out);
+int tactix_restart_reuse_level(tactix *, int next_literal, uint32_t floor,
+                               uint32_t *out);
 /* Work settings budget-aware rules read: the per-round budget (in the rule's
  * own currency), the offset already spent from it, whether a zero budget is an
  * explicit zero allowance (bounded), and whether a rule may stop mid-round

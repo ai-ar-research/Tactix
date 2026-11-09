@@ -509,23 +509,25 @@ uint32_t heuristics_decide_candidates(const Kernel &k, Lit *out,
   return append_unranked_decision_candidates(k, out, cap, n);
 }
 
-uint32_t heuristics_restart_reuse_level_for(Kernel &k, Var next) {
+uint32_t heuristics_restart_reuse_level_for(const Kernel &k, Var next, uint32_t floor) {
   assert(k.h && next < k.nvars);
   assert(k.values[make_lit(next, false)] == 0);
-  uint32_t level = 0;
-  if (k.h->stable) {
-    const double limit = k.h->scores.score[next];
+  assert(floor <= k.level);
+  const Heuristics &h=*k.h;
+  uint32_t level = floor;
+  if (h.stable) {
+    const double limit = h.scores.score[next];
     while (level < k.level) {
       const Lit decision = k.trail[k.frames[level + 1]];
-      if (k.h->scores.score[var_of(decision)] <= limit)
+      if (h.scores.score[var_of(decision)] <= limit)
         break;
       level++;
     }
   } else {
-    const uint32_t limit = k.h->links[next].stamp;
+    const uint32_t limit = h.links[next].stamp;
     while (level < k.level) {
       const Lit decision = k.trail[k.frames[level + 1]];
-      if (k.h->links[var_of(decision)].stamp <= limit)
+      if (h.links[var_of(decision)].stamp <= limit)
         break;
       level++;
     }
