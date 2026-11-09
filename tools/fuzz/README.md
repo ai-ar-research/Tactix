@@ -34,7 +34,7 @@ its RNG, root quota, step count and online revision across same-query
 restoration; it rebinds the replacement execution view and never hands off to
 DefaultPolicy. Seed values are nonnegative signed 32-bit integers. Per-query
 coverage records root/search transitions, partial/full restarts, per-rule
-requests/effective applications and all four public application forms.
+requests/effective applications and all five public application forms.
 Native identity
 and root requests/eligible/effective actions, completed rounds and explicit
 handoffs are checked separately. These clients use the same persistent session.

@@ -133,12 +133,27 @@ class Oracles(unittest.TestCase):
         structured = dict(policy,forms=[0,0,0,0,1],effective_forms=[0,0,0,0,1],
                           rules={'ExtendedResolution':[1,1]})
         trace.validate_answer(q,dict(good,random_policy=structured))
+        trace.validate_answer(q,dict(good,random_policy=dict(structured,
+            forms=[0,0,0,0,2],rules={'ExtendedResolution':[2,1]})))
+        for rule in ('Probe','Sweep'):
+            trace.validate_answer(q,dict(good,random_policy=dict(structured,rules={rule:[1,1]})))
+        # Each control isolates an invariant: totals, per-form monotonicity,
+        # and sum-preserving relabels between Structured and ordinary forms.
         for update in (None,{},dict(policy,forms=[0,0,0,0]),
                        dict(policy,effective_forms=[0,0,2,0,0]),dict(policy,root=-1),
-                       dict(policy,rules={'BVE':[0,1]}),
+                       dict(policy,rules={'BVE':[0,1],'BCE':[1,0]}),
                        dict(structured,forms=[0,0,0,0,0]),
                        dict(structured,effective_forms=[0,0,0,0,0]),
-                       dict(structured,forms=[0,0,0,1])):
+                       dict(structured,forms=[0,0,0,1]),
+                       dict(policy,forms=[0,0,2,0,0]),
+                       dict(policy,forms=[0,0,2,0,0],effective_forms=[0,0,2,0,0],rules={'BVE':[2,1]}),
+                       dict(policy,forms=[0,0,0,1,0]),
+                       dict(structured,forms=policy['forms'],effective_forms=policy['effective_forms']),
+                       dict(structured,rules=policy['rules']),
+                       dict(structured,forms=[0,0,1,0,1],effective_forms=[0,0,1,0,0],
+                            rules={'ExtendedResolution':[1,1],'BVE':[1,0]}),
+                       dict(structured,forms=[0,0,1,0,0],effective_forms=[0,0,0,0,0],
+                            rules={'ExtendedResolution':[1,0]})):
             with self.assertRaises(trace.Failure):
                 trace.validate_answer(q,dict(good,random_policy=update))
         for strategy in (0,5,6,7,8,9):

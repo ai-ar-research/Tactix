@@ -31,6 +31,7 @@ with tempfile.TemporaryDirectory(prefix='ipasir-trace-regression-') as tmp:
                  'native-root-rounds','native-handoffs','strategy-5-solve',
                  'random-root','random-search','random-root_to_search','random-partial_restarts',
                  'random-full_restarts','random-search_to_root','random-algebraic',
+                 'random-form-structured',
                  'random-effective-rule-BVE','random-effective-rule-BCE',
                  'random-effective-form-canonical','random-effective-form-instance',
                  'random-effective-form-semantic','random-effective-form-online',

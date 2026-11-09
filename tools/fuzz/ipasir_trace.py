@@ -89,6 +89,12 @@ def validate_answer(query, answer):
                 raise Failure('strategy','invalid public-random rule counts')
         if sum(forms)!=sum(n[0] for n in rules.values()) or sum(effective)!=sum(n[1] for n in rules.values()):
             raise Failure('strategy','public-random form/rule accounting mismatch')
+        er=rules.get('ExtendedResolution',[0,0])
+        probe,sweep=rules.get('Probe',[0,0]),rules.get('Sweep',[0,0])
+        structured=APPLICATION_FORMS.index('structured')
+        if any(not er[i]<=counts[structured]<=er[i]+probe[i]+sweep[i]
+               for i,counts in enumerate((forms,effective))):
+            raise Failure('strategy','public-random Structured/rule accounting mismatch')
     validate_learning(query,answer.get('learned',[]))
     limit=query.get('termination_limit',-1)
     calls=answer.get('termination_calls',0)
