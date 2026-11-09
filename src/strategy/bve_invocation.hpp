@@ -14,11 +14,6 @@
 
 namespace tactix::strategy {
 
-inline bool bve_candidate_retained(const Kernel &k, Var variable) {
-  return k.substitute_retention &&
-         k.substitute_retention->count(k.internal_to_external[variable]);
-}
-
 enum class BveCandidateScope : uint8_t {
   All = 0,
   PureOnly = 1,
@@ -123,7 +118,7 @@ inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
                                        std::vector<uint64_t> &out) {
   const uint32_t literals = 2 * k.nvars;
   const auto pure_literal = [&](Var variable) {
-    if (bve_candidate_retained(k, variable)) return INVALID_LIT;
+    if (kernel_startup_retained(k, variable)) return INVALID_LIT;
     const Lit positive = make_lit(variable, false);
     const bool has_positive = occurrences.count(positive);
     const bool has_negative = occurrences.count(negate(positive));
@@ -227,7 +222,7 @@ inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
       out.erase(std::remove_if(out.begin(), out.end(), [&](uint64_t instance) {
         Lit literal;
         return lit_of_instance(k, instance, &literal) &&
-               bve_candidate_retained(k, var_of(literal));
+               kernel_startup_retained(k, var_of(literal));
       }), out.end());
     return;
   }
@@ -243,7 +238,7 @@ inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
   bve_schedule_from_occurrences(k, occurrences, candidates);
   out.reserve(candidates.size());
   for (const Var variable : candidates) {
-    if (bve_candidate_retained(k, variable)) continue;
+    if (kernel_startup_retained(k, variable)) continue;
     const uint32_t positive =
         occurrences.count(make_lit(variable, false));
     const uint32_t negative = occurrences.count(make_lit(variable, true));

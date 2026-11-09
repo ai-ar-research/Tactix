@@ -61,13 +61,12 @@ struct Coverage {
   uint64_t search_to_root = 0, algebraic_actions = 0;
   uint64_t online_declines = 0, public_declines = 0;
   uint64_t er_requests=0,er_defined=0,er_bumped=0,er_composed=0,er_released=0;
-  uint64_t rup_requests=0,rup_added=0,extension_decisions=0;
+  uint64_t extension_decisions=0;
   bool region_session=false;
   uint64_t region_requests=0,region_formula=0,region_definitions=0;
   uint64_t region_probe=0,region_sweep=0;
   uint64_t region_queries=0,region_units=0,region_lemmas=0,region_budget=0,region_invalidated=0;
   std::vector<int> extensions;
-  std::vector<std::array<int,2>> definition_binaries;
 };
 
 bool algebraic(std::string_view name) {
@@ -413,23 +412,12 @@ Form choose_form(const Coverage &coverage, Profile profile, Rng &rng) {
   return choices[rng.below(count)];
 }
 
-// Explicit payloads for the two root-only actions: canonical calls are no-ops.
-void remember_definition(Coverage &c,int gate,int z,int a,int b) {
-  std::vector<std::vector<int>> clauses;
-  if(gate==TACTIX_EXTENSION_AND)clauses={{-z,a},{-z,b},{z,-a,-b}};
-  else if(gate==TACTIX_EXTENSION_OR)clauses={{z,-a},{z,-b},{-z,a,b}};
-  else clauses={{z,a,-b},{z,-a,b},{-z,a,b},{-z,-a,-b}};
-  for(auto &row:clauses) {
-    std::sort(row.begin(),row.end());row.erase(std::unique(row.begin(),row.end()),row.end());
-    if(row.size()==2&&row[0]!=-row[1])c.definition_binaries.push_back({row[0],row[1]});
-  }
-}
+// Exact payloads for the opt-in ER action.
 int define_gate(tactix_c_handle *s,Rng &rng,Coverage &c,int gate,int a,int b,bool composed) {
   ++c.er_requests;
   int output=tactix_define_extension(s,gate,a,b);
   if(output<0){++c.public_declines;return output;}
   ++c.er_defined;c.er_composed+=composed;c.extensions.push_back(output);
-  remember_definition(c,gate,output,a,b);
   if(tactix_variable_retained(s,output)!=1)std::abort();
   if(rng.one_in(2)&&!tactix_bump_variable(s,output,1+uint32_t(rng.below(4))))++c.er_bumped;
   if(rng.one_in(2)) {
@@ -454,24 +442,6 @@ int extension_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
   const int gate=1+int(rng.below(3));
   return define_gate(s,rng,c,gate,a,b,composed)>0?0:1;
 }
-int rup_action(tactix_c_handle *s,Rng &rng,Coverage &c) {
-  ++c.rup_requests;
-  const auto &pool=c.definition_binaries;
-  if(pool.size()<2)return 1;
-  for(unsigned trial=0;trial<32;++trial) {
-    const auto &a=pool[rng.below(pool.size())],&b=pool[rng.below(pool.size())];
-    for(int i=0;i<2;++i)for(int j=0;j<2;++j)if(a[i]==-b[j]&&a[1-i]!=-b[1-j]) {
-      const int target[]={a[1-i],b[1-j]};
-      const tactix_rup_premise sources[]={{a.data(),2},{b.data(),2}};
-      int result=tactix_add_rup(s,target,2,sources,2,10000);
-      if(result<0){++c.public_declines;return 1;}
-      if(result==0||result==20)++c.rup_added;
-      return result;
-    }
-  }
-  return 1;
-}
-
 int region_action(tactix_c_handle *s,int rule,Rng &rng,Coverage &c) {
   ++c.region_requests;
   if(!c.region_session)c.region_session=tactix_regions_begin(s)==0;
@@ -496,11 +466,10 @@ int region_action(tactix_c_handle *s,int rule,Rng &rng,Coverage &c) {
   } else for(int i=0;i<count;++i)if(rng.one_in(2))vertices.push_back(std::abs(pool[i]));
   const int region=tactix_region_add(s,vertices.data(),int(vertices.size()));
   if(region<0){++c.public_declines;return 1;}
-  const int source=int(rng.below(2));
-  c.region_formula+=source==0;c.region_definitions+=source==1;
+  c.region_formula+=probe;c.region_definitions+=!probe;
   c.region_probe+=probe;c.region_sweep+=!probe;
-  const uint64_t ticks=probe&&source==0?0:rng.one_in(4)?1:1+rng.below(4096);
-  int result=tactix_region_apply(s,rule,literal,region,source,ticks);
+  const uint64_t ticks=probe?0:rng.one_in(4)?1:1+rng.below(4096);
+  int result=tactix_region_apply(s,rule,literal,region,ticks);
   if(result<0){++c.public_declines;return 1;}
   return result;
 }
@@ -509,9 +478,8 @@ int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
                  Coverage &coverage, uint32_t variables,
                  uint64_t &revision) {
   const char *selected=tactix_rule_name(id);
-  if(selected&&(!std::strcmp(selected,"ExtendedResolution")||!std::strcmp(selected,"RupConsequence"))) {
-    const int result=!std::strcmp(selected,"ExtendedResolution")
-        ? extension_action(solver,rng,coverage):rup_action(solver,rng,coverage);
+  if(selected&&!std::strcmp(selected,"ExtendedResolution")) {
+    const int result=extension_action(solver,rng,coverage);
     ++coverage.rules[size_t(id)];
     if(result==0||result==20)++coverage.effective_rules[size_t(id)];
     return result;
@@ -839,11 +807,10 @@ void print_coverage(uint64_t seed, Profile profile, const Coverage &coverage) {
               static_cast<unsigned long long>(coverage.effective_forms[3]),
               static_cast<unsigned long long>(coverage.online_declines),
               static_cast<unsigned long long>(coverage.public_declines));
-  std::printf("c public-random forms er-requests=%llu er-defined=%llu er-composed=%llu er-bumped=%llu er-released=%llu rup-requests=%llu rup-added=%llu extension-decisions=%llu\n",
+  std::printf("c public-random forms er-requests=%llu er-defined=%llu er-composed=%llu er-bumped=%llu er-released=%llu extension-decisions=%llu\n",
       (unsigned long long)coverage.er_requests,(unsigned long long)coverage.er_defined,
       (unsigned long long)coverage.er_composed,(unsigned long long)coverage.er_bumped,
-      (unsigned long long)coverage.er_released,(unsigned long long)coverage.rup_requests,
-      (unsigned long long)coverage.rup_added,(unsigned long long)coverage.extension_decisions);
+      (unsigned long long)coverage.er_released,(unsigned long long)coverage.extension_decisions);
   std::printf("c public-random forms region-requests=%llu region-formula=%llu region-definitions=%llu region-probe=%llu region-sweep=%llu region-queries=%llu region-units=%llu region-lemmas=%llu region-budget=%llu region-invalidated=%llu\n",
       (unsigned long long)coverage.region_requests,(unsigned long long)coverage.region_formula,
       (unsigned long long)coverage.region_definitions,(unsigned long long)coverage.region_probe,

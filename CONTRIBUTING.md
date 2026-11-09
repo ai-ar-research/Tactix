@@ -8,12 +8,11 @@ integration; do not use it as a development worktree.
 ```sh
 cmake --preset debug                       # AddressSanitizer + UndefinedBehaviorSanitizer
 cmake --build --preset debug --parallel
-ctest --preset debug                       # small unit tests
+ctest --preset debug                       # unit, API, proof and example tests
 ```
 
 The release preset (`--preset release`) is the one to measure performance
-with. Use `ctest --preset debug-full` and `ctest --preset release-full` for
-complete integration and proof qualification. Every change must keep both green.
+with. Every change should keep the debug test suite green.
 
 ## Correctness checks
 

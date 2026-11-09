@@ -4266,7 +4266,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     if (regions->run() == ApplyResult::Unsat) {
       retention.release(); feedback.finish(20, StopReason::Unsat); return 20;
     }
-    if (regions->pending()) return 0;
+    if (regions->pending()) {
+      progress_.finish(k, 0);
+      feedback.finish(0, StopReason::Interrupted);
+      return 0;
+    }
   }
   // Preserve the input's structural classification across preprocessing: the
   // very simplifications that expose an easier residual can retire one member
@@ -5562,7 +5566,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
   }
   const bool bve_entry = !std::strcmp(r.name, "BVE");
   const auto deferred=[&](Var v) {
-    return strategy::bve_candidate_retained(k,v);
+    return kernel_startup_retained(k,v);
   };
   const bool initial_fast_bve =
       bve_entry && initial_fast_elimination_active_;

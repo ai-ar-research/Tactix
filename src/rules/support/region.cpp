@@ -84,8 +84,7 @@ int RegionSession::add_region(std::span<const int32_t> input) {
 bool RegionSession::valid_query(const RegionQuery &q) const {
   if ((q.rule != probe_ && q.rule != sweep_) || !q.literal ||
       q.literal == INT_MIN || q.region >= regions_.size() ||
-      (q.source != RegionSource::Formula && q.source != RegionSource::Definitions) ||
-      (q.rule == probe_ && q.source == RegionSource::Formula && q.ticks))
+      (q.rule == probe_ && q.ticks))
     return false;
   const auto r = regions_[q.region];
   return std::binary_search(vertices_.begin() + r.begin,
@@ -126,43 +125,26 @@ bool RegionSession::compile(const RegionQuery &q) {
     solver_.add_clause(scratch_);
   };
   const auto r = regions_[q.region];
-  if (q.source == RegionSource::Definitions) {
-    if (k.population_binding_epoch != binding_epoch_ ||
-        binding_epoch_ == UINT64_MAX || k.population_observer != this)
-      invalidate();
-    if (!valid_) return false;
-    for (uint32_t at = r.begin; at < r.end; ++at) {
-      const Definition *d = definition(vertices_[at]); if (!d) continue;
-      for (uint32_t ci = d->clauses.begin; ci < d->clauses.end; ++ci) {
-        Lit body[3]; uint32_t count = 0; bool skip = false;
-        for (int x : clauses_[ci]) {
-          if (!x) break;
-          const Lit l = kernel_internalize(k, x);
-          if (l == INVALID_LIT) {
-            const int root = kernel_external_value(k, internalize(x));
-            if (root < 0) continue;
-            skip = true; break;
-          }
-          body[count++] = l;
+  if (k.population_binding_epoch != binding_epoch_ ||
+      binding_epoch_ == UINT64_MAX || k.population_observer != this)
+    invalidate();
+  if (!valid_) return false;
+  for (uint32_t at = r.begin; at < r.end; ++at) {
+    const Definition *d = definition(vertices_[at]); if (!d) continue;
+    for (uint32_t ci = d->clauses.begin; ci < d->clauses.end; ++ci) {
+      Lit body[3]; uint32_t count = 0; bool skip = false;
+      for (int x : clauses_[ci]) {
+        if (!x) break;
+        const Lit l = kernel_internalize(k, x);
+        if (l == INVALID_LIT) {
+          const int root = kernel_external_value(k, internalize(x));
+          if (root < 0) continue;
+          skip = true; break;
         }
-        if (!skip) add(body, count);
+        body[count++] = l;
       }
+      if (!skip) add(body, count);
     }
-  } else {
-    binaries_.clear(); large_.clear();
-    for (Var v : mapped_) if (v != INVALID_VAR)
-      for (Lit l : {make_lit(v, false), make_lit(v, true)})
-        for (const auto watch : k.watches.entries(l)) {
-          ++work_;
-          if (watch.binary()) {
-            if (binaries_.insert(kernel_binary_key(l, watch.other())).second) {
-              const Lit pair[] = {l, watch.other()}; add(pair, 2);
-            }
-          } else if (large_.insert(watch.ref()).second) {
-            const Clause *c = clause_at(k.arena, watch.ref());
-            if (!c->garbage()) add(c->lits, c->size);
-          }
-        }
   }
   return true;
 }
@@ -170,19 +152,16 @@ ApplyResult RegionSession::unit(Lit u) {
   auto &k = owner_; const uint64_t id = ++k.next_clause_id;
   if (k.proof) k.proof->add_rup(id, &u, 1);
   ++k.stats.region_units; ++k.stats.region_lemmas;
-  if (k.value(u) < 0) {
-    k.inconsistent = true; ++k.stats.conflicts; kernel_emit_empty(k);
-    return ApplyResult::Unsat;
-  }
+  assert(!k.value(u));
   k.unit_ids[var_of(u)] = id;
-  if (!k.value(u)) kernel_assign_unit(k, u);
+  kernel_assign_unit(k, u);
   return ApplyResult::Ok;
 }
 ApplyResult RegionSession::infer(const RegionQuery &q) {
   auto &k = owner_; const Lit p = kernel_internalize(k, q.literal);
   if (p == INVALID_LIT || kernel_var_retired(k, var_of(p)) || k.value(p) ||
       !prepare(q)) return ApplyResult::NoOp;
-  if (q.rule == probe_ && q.source == RegionSource::Formula) {
+  if (q.rule == probe_) {
     ++k.stats.region_queries; ++k.stats.probed;
     const uint64_t ticks = k.stats.search_ticks;
     kernel_probing_begin(k, false); kernel_assign_decision(k, p);
@@ -195,18 +174,6 @@ ApplyResult RegionSession::infer(const RegionQuery &q) {
   if (!compile(q)) return ApplyResult::NoOp;
   ++k.stats.region_queries;
   const SubLit assumption = sub_lit(local_[var_of(p)], negated(p));
-  if (q.rule == probe_) {
-    ++k.stats.probed;
-    const auto result = solver_.propagate_assumptions_only(
-        {assumption}, q.ticks ? q.ticks : UINT64_MAX, k.stop);
-    k.stats.region_ticks += work_ + solver_.ticks();
-    kernel_charge_ticks(k, work_ + solver_.ticks());
-    if (result != SubPropagationResult::Conflict) {
-      if (result == SubPropagationResult::Budget) ++k.stats.region_budget;
-      return ApplyResult::NoOp;
-    }
-    ++k.stats.probe_failed; return unit(negate(p));
-  }
   const auto result = solver_.solve_interruptible(
       {assumption}, q.ticks, SubTickMode::Entries, k.stop);
   k.stats.region_ticks += work_ + solver_.ticks();
@@ -225,20 +192,33 @@ ApplyResult RegionSession::infer(const RegionQuery &q) {
     for (SubLit l : step.lits)
       if (sub_var_of(l) >= mapped_.size() || mapped_[sub_var_of(l)] == INVALID_VAR)
         return ApplyResult::NoOp;
+  const bool terminal = target.empty();
+  const Lit goal = negate(p);
+  std::vector<TransientLemma> transients;
   std::vector<Lit> clause;
   for (size_t i = 0; i + 1 < proof.steps.size(); ++i) {
     clause.clear();
     for (SubLit l : proof.steps[i].lits)
       clause.push_back(make_lit(mapped_[sub_var_of(l)], l & 1));
+    // Match Sweep: proof-only intermediates must not teach the checker
+    // persistent root facts absent from the kernel before a later SR step.
+    if (!terminal) {
+      if (std::find(clause.begin(), clause.end(), p) != clause.end()) continue;
+      if (std::find(clause.begin(), clause.end(), goal) == clause.end())
+        clause.push_back(goal);
+    }
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof) k.proof->add_rup(id, clause.data(), static_cast<uint32_t>(clause.size()));
+    emit_rup_lemma(k, id, clause);
     ++k.stats.region_lemmas;
+    if (!terminal) transients.push_back({id, clause});
   }
-  if (target.empty()) {
+  if (terminal) {
     k.inconsistent = true; ++k.stats.conflicts; kernel_emit_empty(k);
     return ApplyResult::Unsat;
   }
-  return unit(negate(p));
+  const auto committed = unit(goal);
+  delete_transients(k, transients);
+  return committed;
 }
 ApplyResult RegionSession::apply(const RegionQuery &q) {
   if (!valid_query(q) || !root_action_guard(owner_, false).clausal_certificate()

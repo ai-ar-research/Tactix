@@ -22,7 +22,7 @@ static uint64_t definitions(tactix *s, php_example::Matrix matrix,
   const auto query=[&](int literal,std::vector<int> variables,bool local) {
     int id=tactix_region_add(s,variables.data(),int(variables.size()));
     if(id<0||tactix_region_queue(s,local?sweep:probe,literal,id,
-          local?TACTIX_REGION_DEFINITIONS:TACTIX_REGION_FORMULA,local?4096:0)||
+          local?4096:0)||
        (prioritize&&tactix_bump_variable(s,std::abs(literal),1)))std::exit(1);
   };
   auto parent_rows=matrix;

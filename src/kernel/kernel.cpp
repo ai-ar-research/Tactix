@@ -2265,9 +2265,7 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
 // Selected-premise probing has its own entry point. Ordinary propagation
 // retains its previous instantiations and does not test region membership.
 bool kernel_propagate_region(Kernel &k, const PropagationRegion &region) {
-  assert(k.probing.recording && !k.probing.rollback_pose);
-  const size_t assigned_before = k.trail.size();
-  const uint64_t roots_before = k.stats.root_assignments;
+  assert(k.probing.recording && !k.probing.rollback_pose && k.level);
   const uint32_t saved = k.propagate_head;
   uint32_t cursor = saved;
   uint64_t ticks = 0;
@@ -2280,10 +2278,7 @@ bool kernel_propagate_region(Kernel &k, const PropagationRegion &region) {
   k.stats.propagations += cursor - saved;
   kernel_charge_ticks(k, ticks);
   // A subset scan cannot discharge global propagation debt, even on success.
-  k.propagate_head = saved;
-  if (k.proof && !k.proof->startup_pb_written() &&
-      k.stats.root_assignments != roots_before)
-    kernel_emit_root_units(k, assigned_before);
+  assert(k.propagate_head == saved);
   return conflict;
 }
 

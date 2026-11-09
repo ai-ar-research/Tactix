@@ -14,7 +14,7 @@ set(TACTIX_SKIP_UNLESS_PBP ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
 # A test whose exit status 77 means "skipped" (a checker or input is absent).
 function(tactix_skip77_test name)
   add_test(NAME ${name} COMMAND ${ARGN})
-  set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77 LABELS "integration")
+  set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77)
 endfunction()
 
 # A Python test script run under `cmake -E env python3`.
@@ -340,7 +340,7 @@ tactix_skip77_test(count_preservation_check ${TACTIX_SKIP_UNLESS_PBP}
                    $<TARGET_FILE:test_count_preservation> $<TARGET_FILE:tactix>)
 tactix_skip77_test(ramsey_cli
                    ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-trim --
+                   ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/dsr-trim --
                    ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_ramsey_cli.py
                    $<TARGET_FILE:tactix>)
@@ -463,5 +463,3 @@ tactix_skip77_test(tseitin_cycle_action_journal
 tactix_script_test(nary_csp_equality_transitivity_proof_model
                    nary_csp_equality_transitivity_proof_model.sh
                    test_nary_csp_equality_transitivity_live)
-
-include(${PROJECT_SOURCE_DIR}/tests/test_groups.cmake)

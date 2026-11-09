@@ -1,7 +1,7 @@
 # Example formulas
 
-The original three examples take different paths and solve in a few seconds.
-The case-study fixtures below are harder and belong in cluster regressions.
+Small formulas that each take a different path through the solver. All solve
+in a few seconds.
 
 | File | Answer | What it shows |
 |---|---|---|
@@ -9,13 +9,10 @@ The case-study fixtures below are harder and belong in cluster regressions.
 | `pigeonhole-9-8.cnf` | UNSAT | Hard for plain resolution. Symmetry breaking closes it at once; `--dsr` demonstrates native substitution-redundancy steps (route `dsr-trestle`). |
 | `tseitin-40.cnf` | UNSAT | A parity contradiction refuted before search; the proof is pseudo-Boolean (route `pbp`). |
 
-`generate.py` regenerates the original three examples. Small PHP instances
-in `php/` cover five AMO encodings. `cruxmiter32seed0.cnf` and
-`chvatal-n7-1111001.cnf.xz` are actual case-study benchmarks copied from the
-artifact branch. `fixtures.json` records source revisions, hashes and saved
-independently checked verdicts. They are not part of the fast unit gate.
-Use `xz -dc` to expand the Chvátal fixture before solving. No additional
-benchmark generators are included.
+`generate.py` regenerates all three files. The
+[artifact branch](https://github.com/ai-ar-research/Tactix/tree/artifact/paper/benchmarks)
+ships the full Chvátal and cruxmiter case-study sets; main does not include
+separate development or reduced copies of those families.
 
 ## Try them
 

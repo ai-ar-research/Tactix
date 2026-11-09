@@ -109,45 +109,10 @@ do the rest. The paper's second case study,
 
 ## 4. Choosing Boolean extension variables
 
-At a propagated root, a strategy can introduce an exact definition without
-requiring an existing Factor/BVA clause grid:
-
-```c
-int parity = tactix_define_extension(s, TACTIX_EXTENSION_XOR, a, b);
-if (parity < 0) return -1; /* handle inapplicable request */
-/* Propagate any root debt before defining the next gate. */
-int summary = tactix_define_extension(s, TACTIX_EXTENSION_AND, parity, c);
-```
-
-AND, OR and XOR take two signed permanent DIMACS literals and return a fresh
-positive variable identity. Negated operands, repeated operands and outputs
-of earlier calls are supported. A declined call returns `-1`; callers must
-handle that result before using it as a literal. Definitions preserve all
-original solutions and emit RAT additions through an attached proof writer.
-The reported SAT model projects away introduced variables.
-
-The registered `ExtendedResolution` action is explicit-only: its canonical
-application does nothing, and the built-in strategy does not invent definitions.
-The public function above supplies the exact instance. Use
-`tactix_bump_variable(s, output, dose)` for additive EVSIDS/VMTF priority without
-changing its phase. ER outputs are automatically retained through DefaultPolicy's
-initial substitution and elimination; `tactix_set_variable_retention` releases
-or extends this advice. The deferral ends at search entry and survives an
-interrupted startup. Explicit mathematical elimination remains available.
-A strategy may also select an eligible literal with `tactix_decide`.
-
-For a regional root consumer, call `tactix_regions_begin` before introducing
-definitions, register variable sets with `tactix_region_add`, and choose
-`tactix_region_apply` or `tactix_region_queue` with the Probe/Sweep rule ID.
-Probe performs UP; Sweep can use bounded native CDCL and emits its intermediate
-RUP clauses. Select live formula clauses or captured definition clauses;
-source weakening invalidates the latter. `tactix_solve` consumes queued work
-before its usual preprocessing and continues with its full default policy.
-The PHP example uses this interface; it supplies no refutation clauses.
-
-Regions, expression discovery and performance policies belong to the caller.
-Defining a variable alone does not assert that it is true or derive additional
-relations involving it. Useful consequences require separate sound reasoning.
+Strategies can introduce exact AND/OR/XOR definitions, retain them through
+startup elimination, and raise their decision priority before ordinary solve.
+See [extended resolution](extended-resolution.md) for the API and the
+[PHP strategy](../examples/php_er_policy.cpp).
 
 ## 5. Compiling and running your own strategy
 

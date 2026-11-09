@@ -82,19 +82,19 @@ int main(int argc,char **argv) {
     std::sort(pool.begin(),pool.end());pool.erase(std::unique(pool.begin(),pool.end()),pool.end());
     if(!pool.empty()) {
       int full=tactix_region_add(s,pool.data(),int(pool.size()));
-      const auto queue=[&](int rule,int literal,int region,int source,uint64_t ticks) {
+      const auto queue=[&](int rule,int literal,int region,uint64_t ticks) {
         ++region_requests;
-        if(region>=0&&!tactix_region_queue(s,rule,literal,region,source,ticks))++region_queued;
+        if(region>=0&&!tactix_region_queue(s,rule,literal,region,ticks))++region_queued;
         else ++region_declined;
       };
-      if(miter>0)queue(sweep,miter,full,TACTIX_REGION_DEFINITIONS,4096);
+      if(miter>0)queue(sweep,miter,full,4096);
       for(unsigned i=0;i<12;++i) {
         int literal=pool[random()%pool.size()];std::vector<int> vertices{literal};
         for(int x:pool)if(random()%2)vertices.push_back(x);
         int region=random()%3?full:tactix_region_add(s,vertices.data(),int(vertices.size()));
-        bool probing=random()%2;int source=int(random()%2);
+        bool probing=random()%2;
         if(random()%2)literal=-literal;
-        queue(probing?probe:sweep,literal,region,source,probing&&source==0?0:1+random()%4096);
+        queue(probing?probe:sweep,literal,region,probing?0:1+random()%4096);
       }
       // A public source-weakening action between configuration and execution.
       if(random()%4==0&&tactix_apply(s,propagation)!=20) {

@@ -1291,6 +1291,12 @@ inline uint32_t kernel_num_output_vars(const Kernel &k) {
 // the input-model boundary. Unlike `first_extension_var`, this predicate is
 // stable across internal-variable compaction and does not assume extensions
 // remain a contiguous internal suffix.
+// Startup policy advice; explicit elimination rules remain available.
+inline bool kernel_startup_retained(const Kernel &k, Var variable) {
+  return k.substitute_retention &&
+         k.substitute_retention->count(k.internal_to_external[variable]);
+}
+
 inline bool kernel_is_solver_extension(const Kernel &k, Var variable) {
   assert(variable < k.nvars);
   assert(variable < k.internal_to_external.size());

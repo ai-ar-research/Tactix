@@ -1191,8 +1191,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     for (Lit l = 0; l < nlits; l++) {
       // A policy may select a subset of the valid SCC substitution. An
       // explicit standalone invocation has no selection and stays complete.
-      if (mapped_sub[l] && k.substitute_retention &&
-          k.substitute_retention->count(k.internal_to_external[var_of(l)])) {
+      if (mapped_sub[l] && kernel_startup_retained(k, var_of(l))) {
         mapped_sub[l]=mapped_sub[negate(l)]=0;
         live_sub[l]=live_sub[negate(l)]=0;
       }
@@ -2744,9 +2743,8 @@ ApplyResult substitute_apply_sweep_equivalences(
   const auto admitted = [&](Lit a, Lit b) {
     return a < nlits && b < nlits && a != b && a != negate(b) &&
            k.value(a) == 0 && k.value(b) == 0 &&
-           (!k.substitute_retention ||
-            (!k.substitute_retention->count(k.internal_to_external[var_of(a)]) &&
-             !k.substitute_retention->count(k.internal_to_external[var_of(b)])));
+           !kernel_startup_retained(k, var_of(a)) &&
+           !kernel_startup_retained(k, var_of(b));
   };
   std::vector<Lit> members;
   members.reserve(4 * equivalences.size());

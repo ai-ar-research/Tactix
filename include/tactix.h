@@ -416,53 +416,34 @@ int tactix_define_extension(tactix *, int gate, int left, int right);
 
 /* Optional solver-owned root program. Begin before defining ER outputs to
  * capture their actual clauses. Clear releases its metadata and queued work;
- * neither operation changes the formula. Begin returns0/-1, clear returns0.
+ * neither operation changes the formula. Begin returns 0/-1, clear returns 0.
  * Ordinary solves allocate none of this state. */
 int tactix_regions_begin(tactix *);
 int tactix_regions_clear(tactix *);
 
 /* Register a region of positive permanent external variable IDs; copies,
- * sorts and deduplicates the input. Returns a nonnegative region ID or-1.
+ * sorts and deduplicates the input. Returns a nonnegative region ID or -1.
  * Any imported variables may be selected; the queried literal must belong.
- * FORMULA selects live clauses whose unfixed variables are in the region.
- * DEFINITIONS selects only clauses of ER outputs defined since begin, with
- * the same membership test. Both may use current root facts outside it.
- * Source deletion/replacement invalidates captured definitions; those queries
- * then decline until a new session, while FORMULA remains available. */
-#define TACTIX_REGION_FORMULA 0
-#define TACTIX_REGION_DEFINITIONS 1
+ * Probe selects live clauses whose unfixed variables are in the region.
+ * Sweep selects captured ER definition clauses with the same membership test.
+ * Both use current root facts outside the region. Source weakening invalidates
+ * captured definitions until a new session. */
 int tactix_region_add(tactix *, const int *variables, int count);
 
 /* Structured Probe/Sweep applications. Probe performs only unit propagation;
  * Sweep uses the existing bounded CDCL engine and emits its RUP derivation.
  * Refuting the selected literal adds its negation as a root unit. An
  * inconclusive or budget-limited query adds no unit. ticks=0 is unlimited;
- * FORMULA Probe is one atomic native propagation cascade (ticks must be0).
- * apply requires a propagated sparse root and returns0 changed,1 declined,
- *20 UNSAT or-1 invalid. Queue copies the request and returns0/-1; ordinary
+ * Probe is one atomic native propagation cascade (ticks must be 0).
+ * apply requires a propagated sparse root and returns 0 changed, 1 declined,
+ * 20 UNSAT or -1 invalid. Queue copies the request and returns 0/-1; ordinary
  * tactix_solve executes queued work at root before its usual preprocessing.
  * Its cursor survives interruption. A normal solve follows any declined
  * queries, with its complete default preprocessing/inprocessing enabled. */
 int tactix_region_apply(tactix *, int rule_id, int literal, int region,
-                       int source, uint64_t ticks);
+                       uint64_t ticks);
 int tactix_region_queue(tactix *, int rule_id, int literal, int region,
-                       int source, uint64_t ticks);
-
-/* Use sparingly for small targeted lemmas or rewrite steps; ordinary search
- * should remain with CDCL. Derive a RUP consequence from a selected live subset. Each
- * premise is authenticated against the current formula; root units are legal
- * premises. Validation uses local unit propagation over the selected support.
- * Returns 0 added, 1 already true, 20 UNSAT, or -1 invalid/inapplicable/budget.
- * No speculative search or main-trail change occurs during validation. A
- * successful nonterminal addition may leave propagation for the next action.
- * This is the exact instance surface of the opt-in RupConsequence rule. */
-typedef struct {
-  const int *literals;
-  int count;
-} tactix_rup_premise;
-int tactix_add_rup(tactix *, const int *clause, int count,
-                   const tactix_rup_premise *premises, int premise_count,
-                   uint64_t maximum_work);
+                       uint64_t ticks);
 
 /* Read the next permanent external identity without allocating it. Input
  * closes. Returns -1 if no representable identity remains. */

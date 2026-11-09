@@ -64,9 +64,9 @@ jobs:
       - name: Build tactix (release)
         run: cmake --preset release && cmake --build build/release -j
       - name: Unit + micro-proof tests (debug)
-        run: ctest --preset debug-full
+        run: ctest --preset debug
       - name: Unit + micro-proof tests (release)
-        run: ctest --preset release-full
+        run: ctest --preset release
       - name: Competition compliance
         run: tools/compete/check.sh ./build/release/tactix
       # 300 cases: the GH runner is ~4x slower than the reference machine;

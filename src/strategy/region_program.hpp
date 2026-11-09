@@ -1,7 +1,6 @@
 #pragma once
 #include "rules/support/region.hpp"
 namespace tactix::strategy {
-using RegionSource = tactix::RegionSource;
 using RegionQuery = tactix::RegionQuery;
 
 // Strategy-owned ordering and continuation; rule-owned inference is separate.

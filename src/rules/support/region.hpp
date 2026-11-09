@@ -6,15 +6,12 @@
 #include "rules/registry.hpp"
 #include <array>
 #include <span>
-#include <unordered_set>
 
 namespace tactix {
 
-enum class RegionSource : uint8_t { Formula, Definitions };
 struct RegionQuery {
   int rule, literal;
   uint32_t region;
-  RegionSource source;
   uint64_t ticks;
 };
 
@@ -36,8 +33,6 @@ class RegionSession final : public PopulationObserver {
   std::vector<uint32_t> stamps_, local_;
   std::vector<Var> mapped_;
   std::vector<SubLit> scratch_;
-  std::unordered_set<uint64_t> binaries_;
-  std::unordered_set<Ref> large_;
   SubSolver solver_;
   uint64_t work_ = 0;
   ScopedPopulationObserverBinding binding_;
