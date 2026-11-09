@@ -97,7 +97,8 @@ add_library(tactix_lib OBJECT
 # Keep this island optimized in Debug too (as in the debug preset). Apple
 # Clang 15 can otherwise coalesce libc++ vector constructors with copies from
 # -fno-exceptions objects and bypass the allocation-failure handler.
-set_source_files_properties(src/engine/subsolver_proof_export.cpp PROPERTIES
+set_source_files_properties(src/engine/subsolver_proof_export.cpp
+  src/rules/sweep/sweep_proof_capture.cpp PROPERTIES
   COMPILE_OPTIONS "-fexceptions;$<$<CONFIG:Debug>:-O1>")
 # Optional weakening capture owns allocating copies behind noexcept callbacks.
 # Contain allocation failure in this cold module; kernel/rule code retains its

@@ -149,6 +149,10 @@ struct SweepDirProof {
   uint64_t formula_epoch = 0;
   bool ok = false;
 };
+// False means optional capture allocation failed; older captures remain valid.
+bool sweep_share_steps(SubDerivation &, std::shared_ptr<SweepProofSteps> &,
+                       SweepDirProof &) noexcept;
+
 struct SweepPairProof {
   SweepDirProof fwd, rev;
 };

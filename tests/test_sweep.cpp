@@ -76,6 +76,42 @@ static void test_core_prefixes_share_one_immutable_derivation() {
   assert(parent.shared_steps.use_count() == 2);
   parent = {};
   assert(prefix.steps_view()[0].id == 3);
+
+  auto program = std::make_shared<SweepProofSteps>();
+  const SubStep *first = program->retain(SubStep{3, {0}, {1}, {}});
+  const SubStep *last = program->retain(SubStep{5, {2}, {3}, {}});
+  SweepDirProof selected;
+  selected.program = program;
+  selected.program_steps = std::make_shared<const std::vector<const SubStep *>>(
+      std::vector<const SubStep *>{first, last});
+  selected.shared_step_count = 2;
+  // A later export can fill a previously unused ID and grow the backing store.
+  program->retain(SubStep{4, {4}, {3}, {}});
+  for (uint32_t id = 6; id < 4096; ++id)
+    program->retain(SubStep{id, {id}, {id - 1}, {}});
+  assert(program->retain(SubStep{3, {0}, {1}, {}}) == first);
+  const auto view = selected.steps_view();
+  assert(view[0].id == 3 && view[1].id == 5 && view[1].chain[0] == 3);
+  const auto found = std::ranges::lower_bound(view, 5u, {}, &SubStep::id);
+  assert(found - view.begin() == 1);
+  // Kitten's synthetic target does not consume its ID. Another query, or a
+  // later real learned clause, may use that same ID with a different payload.
+  const SubStep *chain_only = program->retain(SubStep{3, {0}, {2}, {}});
+  assert(chain_only != first && chain_only->chain[0] == 2 && first->chain[0] == 1);
+  const SubStep *reused = program->retain(SubStep{3, {8}, {2}, {}});
+  assert(reused != chain_only && reused->lits[0] == 8 && chain_only->lits[0] == 0);
+  const size_t retained = program->steps.size();
+  assert(program->retain(SubStep{3, {8}, {2}, {}}) == reused);
+  assert(program->steps.size() == retained && first->lits[0] == 0);
+  prefix = {};
+  prefix.program = selected.program;
+  prefix.program_steps = selected.program_steps;
+  prefix.shared_step_count = 1;
+  selected = {};
+  // Reusing IDs in a fresh environment cannot change an older captured prefix.
+  program = std::make_shared<SweepProofSteps>();
+  program->retain(SubStep{3, {8}, {2}, {}});
+  assert(prefix.steps_view()[0].lits[0] == 0);
 }
 
 static void test_unbounded_clause_limit_sizes_from_formula() {

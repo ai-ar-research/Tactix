@@ -1218,6 +1218,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
   // Preserve that public builder contract, but only an absent environment
   // (fixed/retired seed) declines the solve lifecycle here.
   if (!sweep_env_build(k, seed, lim, r) && e.vars.empty()) {
+    e.proof_steps.reset();
     e.solver.reset(0, SubSearchMode::Kitten);
     return 0;
   }
@@ -1231,6 +1232,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
   for (uint32_t i = 0; i < e.vars.size(); i++)
     event_trace_sweep_environment_var(k, seed, i, e.vars[i], e.depth[i]);
 #endif
+  e.proof_steps.reset();
   e.solver.reset(static_cast<uint32_t>(e.vars.size()),
                  SubSearchMode::Kitten);
   // Even an empty or single-clause environment follows Kissat's initial
@@ -1394,6 +1396,10 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
       continue;
     // Both directions refuted over env ⊆ F, so F ⊨ x ≡ y.
     r.found.push_back({std::min(seed_lit, y), std::max(seed_lit, y)});
+    // The simple partition path does not extract core units. Neither path
+    // needs clausal-core observations after recording the pair.
+    std::vector<SubDerivation::CoreClause>().swap(pair.fwd.core_clauses);
+    std::vector<SubDerivation::CoreClause>().swap(pair.rev.core_clauses);
     r.proofs.push_back(std::move(pair));
     k.stats.sweep_equivalences++;
     found++;
