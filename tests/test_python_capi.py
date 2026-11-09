@@ -15,6 +15,16 @@ s=capi.schema
 for name,digest in s.HEADER_SHA256.items():
     assert hashlib.sha256((root/'include'/name).read_bytes()).hexdigest()==digest, 'regenerate Python declarations: '+name
 assert all(hasattr(capi,name) for name in s.PUBLIC_TYPES)
+for name in s.RECORDS:
+    record = capi._TYPES[name]
+    try: record(__tactix_unknown_field__=1)
+    except TypeError: pass
+    else: raise AssertionError('unknown field silently ignored: ' + name)
+try: capi.tactix_online_parameters(tag=capi.TACTIX_ONLINE_PARAMETERS_SUBSTITUTE)
+except TypeError: pass
+else: raise AssertionError('misspelled discriminator silently selected INHERIT')
+parameters = capi.tactix_online_parameters(kind=capi.TACTIX_ONLINE_PARAMETERS_SUBSTITUTE)
+assert parameters.kind == capi.TACTIX_ONLINE_PARAMETERS_SUBSTITUTE
 lib=capi.load_library(library)
 assert set(capi.SIGNATURES)==set(s.FUNCTIONS)
 

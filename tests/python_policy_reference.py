@@ -86,6 +86,8 @@ class NativeInprocessSchedule:
         self.forward_pair_limit = 0
 
     def reset(self, slots):
+        if self.phase is not None:
+            raise RuntimeError('cannot reset an active phase')
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
         self.initialized = False
@@ -164,6 +166,53 @@ class NativeInprocessSchedule:
             slot.doses = (slot.doses + 1) & ((1 << 32) - 1)
         return result
 
+    def run_typed_batch(self, view, slot, meter, parameters):
+        """One caller-selected typed canonical application, with owned feedback.
+
+        The independent continuation copies the program and is released on
+        every exit. The caller still handles interruption, query rejection,
+        completion marks and propagation from the returned execution packet.
+        The action code follows public application codes, derived from the
+        published status; packet.base.rule_result retains its native enum value.
+        A budget decline returns (1, None), without creating a continuation.
+        """
+        packet = None
+        def apply(view):
+            nonlocal packet
+            rule = next((i for i in range(view.tactix_rule_count())
+                         if view.tactix_rule_name(i).decode() == slot.rule), None)
+            if rule is None:
+                raise ValueError('unknown batch rule: ' + slot.rule)
+            step = capi.tactix_online_step(step_id=rule + 1, rule_id=rule,
+                parameters=parameters, granularity=capi.TACTIX_ONLINE_GRANULARITY_CANONICAL,
+                repeat_mode=capi.TACTIX_ONLINE_REPEAT_ONCE, budget_unlimited=1,
+                rule_budget_mode=capi.TACTIX_ONLINE_RULE_BUDGET_INHERIT)
+            program = capi.tactix_online_program(C.pointer(step), 1,
+                                                capi.TACTIX_ONLINE_REPEAT_ONCE, 0)
+            executor = None
+            try:
+                executor = view.tactix_online_executor_create()
+                if not executor:
+                    raise RuntimeError('cannot create typed batch continuation')
+                if view.tactix_online_executor_configure(executor, 1, C.byref(program), 0,
+                        capi.TACTIX_ONLINE_RECONFIGURE_RESET) < 0:
+                    raise ValueError('invalid typed batch: ' + slot.rule)
+                packet = capi.tactix_online_execution_result()
+                if view.tactix_online_executor_advance(executor, None, C.byref(packet)) < 0:
+                    raise RuntimeError('typed batch advance failed')
+                if packet.base.status >= capi.TACTIX_ONLINE_INVALID_REQUEST:
+                    error = RuntimeError('typed batch status: ' + str(packet.base.status))
+                    error.execution_result = packet
+                    raise error
+                return {capi.TACTIX_ONLINE_SAT: 10, capi.TACTIX_ONLINE_UNSAT: 20,
+                        capi.TACTIX_ONLINE_CONFLICT: 2}.get(packet.base.status,
+                            0 if packet.base.made_rule_progress else 1)
+            finally:
+                if executor:
+                    view._library.tactix_online_executor_release(executor)
+        result = self.run_budgeted_batch(view, slot, meter, apply)
+        return result, packet
+
     def _fast_phase(self, requested):
         if self.phase is not None:
             current = self.phase[1]
@@ -176,6 +225,7 @@ class NativeInprocessSchedule:
                    sweep_changed=False, phase_unsat=False, initial_fast_elimination=None):
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
+        initial_fast_elimination = self._fast_phase(initial_fast_elimination)
         slot.followup_mode, slot.decline = 'None', ''
         startup = not observation['CONFLICTS']
         if startup and slot.followup != 'None' and self.config['preprocess_followups']:
@@ -189,7 +239,7 @@ class NativeInprocessSchedule:
             if slot.followup_mode == 'None':
                 slot.decline = 'preprocess'
                 return False
-        fast_bve = self._fast_phase(initial_fast_elimination) and slot.rule == 'BVE'
+        fast_bve = initial_fast_elimination and slot.rule == 'BVE'
         if not slot.enabled or phase_unsat:
             slot.decline = 'disabled'
         elif startup and not slot.preprocess and not fast_bve:
@@ -291,6 +341,8 @@ class NativeInprocessSchedule:
         """
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
+        if self.phase is None:
+            raise RuntimeError('round execution requires an active phase')
         initial_fast_elimination = self._fast_phase(initial_fast_elimination)
         if self.phase is not None and self.phase[0] != group:
             raise ValueError('round group disagrees with active phase')

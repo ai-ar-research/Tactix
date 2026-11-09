@@ -19,10 +19,20 @@ _PRIMITIVES = {
        for prefix in ('int', 'uint') for bits in (8,16,32,64)},
 }
 _TYPES = dict(_PRIMITIVES)
+
+def _record_init(self, *args, **kwargs):
+    if kwargs:
+        unknown = kwargs.keys() - {name for name, *_ in self._fields_}
+        if unknown:
+            raise TypeError('unknown '+type(self).__name__+' field(s): '+', '.join(sorted(unknown)))
+    base = C.Union if isinstance(self, C.Union) else C.Structure
+    base.__init__(self, *args, **kwargs)
+
 for _name in schema.OPAQUE:
     _TYPES[_name] = type(_name, (C.Structure,), {})
 for _name, (_kind, _, _) in schema.RECORDS.items():
-    _TYPES[_name] = type(_name, (C.Union if _kind=='union' else C.Structure,), {})
+    _TYPES[_name] = type(_name, (C.Union if _kind=='union' else C.Structure,),
+                         {'__init__': _record_init})
 _complete = set()
 
 def _canonical(code):
