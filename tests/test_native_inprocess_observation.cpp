@@ -33,6 +33,9 @@ static void config_json(const DefaultStrategyConfig::Inprocess &cfg) {
     << ",\"forward_midround_budget\":" << cfg.forward_midround_budget
     << ",\"preprocess_followups\":" << cfg.preprocess_followups
     << ",\"factor_initial_ticks\":" << cfg.factor_initial_ticks
+    << ",\"phase_rounds\":" << cfg.phase_rounds
+    << ",\"initial_fast_elimination_rounds\":" << cfg.initial_fast_elimination_rounds
+    << ",\"hold_subsume_until_eliminate\":" << cfg.hold_subsume_until_eliminate
     << ",\"initial_fast_elimination_bve_permille\":" << cfg.initial_fast_elimination_bve_permille
     << '}';
 }
@@ -313,6 +316,69 @@ static void emit_admission() {
 
 
 // Execute the native batch path, rather than reconstruct its work-wire choices.
+static void emit_rounds() {
+  for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate})
+    for (const char *name : {"BCE", "SubsumeForward"})
+      for (bool search : {false, true})
+        for (uint32_t cap : {0u, 1u})
+          for (bool hold : {false, true}) {
+    auto *s = tactix_init(); assert(s);
+    for (int lit : {-1, 2, 0, -1, -2, 0, 1, 3, 4, 0,
+                    5, 6, 7, 0, -5, 6, 7, 0, 5, -6, 7, 0, 5, 6, -7, 0})
+      tactix_add(s, lit);
+    assert(tactix_status(s) == 0);
+    if (search) {
+      assert(tactix_decide(s, 1) == 0);
+      assert(tactix_apply(s, tactix_rule_id("Propagate")) == 2);
+      assert(tactix_apply(s, tactix_rule_id("ConflictAnalysis")) == 0);
+      assert(tactix_apply_instance(s, tactix_rule_id("Restart"), 0) == 0);
+      assert(tactix_apply(s, tactix_rule_id("Propagate")) == 0);
+    }
+    Kernel &k = api_detail::kernel_for_fixed_testing(s);
+    // Both flag values must be direct observations, with no hidden input flush.
+    for (bool subsume : {false, true}) for (bool strengthen : {false, true}) {
+      k.subsume_complete = subsume; k.strengthen_complete = strengthen;
+      const auto trail = k.trail.size();
+      assert(tactix_stat(s, TACTIX_STAT_SUBSUME_COMPLETE) == subsume);
+      assert(tactix_stat(s, TACTIX_STAT_STRENGTHEN_COMPLETE) == strengthen);
+      assert(k.trail.size() == trail && k.subsume_complete == subsume &&
+             k.strengthen_complete == strengthen);
+    }
+    DefaultStrategyConfig config;
+    config.inprocess.phase_rounds = 4;
+    config.inprocess.hold_subsume_until_eliminate = hold;
+    DefaultInprocessScheduler native(&config.inprocess);
+    native.configure(); native.reset(k); native.pose_initialized();
+    DefaultInprocessScheduler::SlotEntry e;
+    e.rule = tactix_rule_id(name); e.group = group; e.preprocess = true;
+    e.budget_aware = true; e.max_applies = cap;
+    // Round refresh and pair sharing depend on the native meter identity.
+    DefaultInprocessScheduler stock(&config.inprocess);
+    stock.build(k);
+    const auto found = std::find_if(stock.entries.begin(), stock.entries.end(),
+        [&](const auto &entry) { return entry.rule == e.rule; });
+    assert(found != stock.entries.end());
+    e.meter = found->meter;
+    native.entries.push_back(e);
+    const int result = native.run_phase(k, group, nullptr);
+    assert(result == 0);
+    const auto &after = native.entries.front();
+    std::cout << "{\"kind\":\"rounds\",\"config\":"; config_json(config.inprocess);
+    std::cout << ",\"group\":\"" << (group == SlotGroup::Probe ? "Probe" : "Eliminate")
+      << "\",\"rule\":\"" << name << "\",\"search\":" << search << ",\"cap\":" << cap
+      << ",\"occasions\":" << after.tm.occasions << ",\"applies\":" << after.applies
+      << ",\"admitted\":" << after.tm.admitted << ",\"handed\":" << after.tm.handed
+      << ",\"spent\":" << after.tm.spent << ",\"doses\":" << after.doses
+      << ",\"limit\":" << after.limit << ",\"result\":" << result
+      << ",\"subsume_complete\":" << k.subsume_complete
+      << ",\"strengthen_complete\":" << k.strengthen_complete << ",\"after\":";
+    observation_json(observe(s));
+    std::cout << ",\"finished\":"; clocks_json(native.probe_clock, native.elim_clock);
+    std::cout << "}\n";
+    tactix_release(s);
+  }
+}
+
 static void emit_batches() {
   for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate})
     for (const char *name : {"BCE", "SubsumeForward", "Strengthen"})
@@ -358,6 +424,7 @@ static void emit_batches() {
 
 int main() {
   emit_batches();
+  emit_rounds();
   emit_admission();
   emit_budgets();
   for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate}) {

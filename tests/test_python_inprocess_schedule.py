@@ -33,7 +33,7 @@ coverage = set()
 rows = subprocess.check_output([str(fixture)], text=True).splitlines()
 for line in rows:
     row = json.loads(line)
-    if row.get('kind') == 'batch':
+    if row.get('kind') in ('batch', 'rounds'):
         continue  # Compared through actual public operations below.
     if row.get('kind') == 'followup':
         schedule = NativeInprocessSchedule(row['config'])
@@ -269,3 +269,67 @@ if str(library) != '-':
     assert declined == {'BCE', 'SubsumeForward', 'Strengthen'}, declined
     assert len(batches) == 72, batches
     print('Python budgeted public batches: 72 executions/reset cycles match 36 native phases and work-wire exits')
+
+if str(library) != '-':
+    rounds_coverage = set()
+    for row in map(json.loads, rows):
+        if row.get('kind') != 'rounds': continue
+        handle = lib.tactix_init()
+        assert handle
+        try:
+            formula = [[-1, 2], [-1, -2], [1, 3, 4], [5, 6, 7],
+                       [-5, 6, 7], [5, -6, 7], [5, 6, -7]]
+            for clause in formula:
+                for literal in [*clause, 0]: lib.tactix_add(handle, literal)
+            assert lib.tactix_status(handle) == 0
+            view = capi.SolverView(lib, handle, lambda: None)
+            if row['search']:
+                assert view.tactix_decide(1) == 0
+                assert view.tactix_apply(rule_ids['Propagate']) == 2
+                assert view.tactix_apply(rule_ids['ConflictAnalysis']) == 0
+                assert view.tactix_apply_instance(rule_ids['Restart'], 0) == 0
+                assert view.tactix_apply(rule_ids['Propagate']) == 0
+            assert view.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE) == 0
+            schedule = NativeInprocessSchedule(row['config'])
+            slot = InprocessSlot(row['rule'], group=row['group'], preprocess=True,
+                                 budget_aware=True, max_applies=row['cap'],
+                                 forward_pair=row['rule'] == 'SubsumeForward')
+            other = InprocessSlot('BCE', group='Probe' if row['group'] == 'Eliminate' else 'Eliminate')
+            calls = []
+            admitted = []
+            def meter(view):
+                fields = ('BCE_TICKS',) if slot.rule == 'BCE' else ('FORWARD_VISITS', 'STRENGTHEN_VISITS')
+                return sum(view.tactix_stat(getattr(capi, 'TACTIX_STAT_' + field)) for field in fields)
+            def run_slot(view, entry, outer):
+                assert entry is slot
+                calls.append(outer)
+                observation = schedule.observe(view)
+                if not schedule.admit_slot(slot, observation): return PhaseOutcome()
+                schedule.refresh_entry_limit(slot, observation, meter(view), outer)
+                if not schedule.batch_admissible(slot, meter(view)): return PhaseOutcome()
+                applicable = (C.c_int * view.tactix_rule_count())()
+                count = view.tactix_rules_applicable(applicable, len(applicable))
+                if rule_ids[slot.rule] not in applicable[:count]: return PhaseOutcome()
+                admitted.append(outer)
+                result = schedule.run_budgeted_batch(view, slot, meter,
+                    lambda view: view.tactix_apply_instance(rule_ids[slot.rule], capi.TACTIX_INSTANCE_CANONICAL))
+                if result == 0: result = view.tactix_apply(rule_ids['Propagate'])
+                return PhaseOutcome(20 if result == 20 else 0)
+            def pipeline(view):
+                return schedule.run_rounds(view, row['group'], iter([other, slot]), run_slot)
+            assert schedule.execute_pipeline(view, row['group'], pipeline) == row['result'], row
+            assert len(calls) == row['occasions'], (row, calls)
+            assert len(admitted) == row['admitted'], row
+            assert slot.applies == row['applies'], row
+            assert (slot.handed, slot.spent, slot.doses, slot.limit) == tuple(row[key] for key in ('handed', 'spent', 'doses', 'limit')), row
+            assert schedule.observe(view) == row['after'], row
+            assert view.tactix_stat(capi.TACTIX_STAT_SUBSUME_COMPLETE) == row['subsume_complete'], row
+            assert view.tactix_stat(capi.TACTIX_STAT_STRENGTHEN_COMPLETE) == row['strengthen_complete'], row
+            assert {name: asdict(clock) for name, clock in schedule.clocks.items()} == row['finished'], row
+            rounds_coverage.add((row['group'], row['rule'], row['search'], row['cap'],
+                                 row['config']['hold_subsume_until_eliminate'], len(calls)))
+        finally:
+            lib.tactix_release(handle)
+    assert len(rounds_coverage) == 32, rounds_coverage
+    assert any(count > 1 for *_, count in rounds_coverage), rounds_coverage
+    print('Python outer fixpoint: 32 real native phases match order, budgets, completeness and exits')

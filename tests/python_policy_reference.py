@@ -25,6 +25,7 @@ class PhaseOutcome:
     status: int = 0
     bve_ran: bool = False
     maximum_bound: bool = False
+    eliminate_limit_reached: bool = False
 
 
 @dataclass
@@ -60,6 +61,7 @@ class NativeInprocessSchedule:
         self.config = config
         self.initialized = False
         self.unusable = False
+        self.phase = None
         self.last_reduce_conflicts = _U64
         self.forward_pair_limit = 0
         self.clocks = {group: InprocessClock() for group in ('Probe', 'Eliminate')}
@@ -162,8 +164,16 @@ class NativeInprocessSchedule:
             slot.doses = (slot.doses + 1) & ((1 << 32) - 1)
         return result
 
+    def _fast_phase(self, requested):
+        if self.phase is not None:
+            current = self.phase[1]
+            if requested is not None and requested != current:
+                raise ValueError('fast-elimination mode disagrees with active phase')
+            return current
+        return bool(requested)
+
     def admit_slot(self, slot, observation, *, congruence_changed=False,
-                   sweep_changed=False, phase_unsat=False, initial_fast_elimination=False):
+                   sweep_changed=False, phase_unsat=False, initial_fast_elimination=None):
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
         slot.followup_mode, slot.decline = 'None', ''
@@ -179,7 +189,7 @@ class NativeInprocessSchedule:
             if slot.followup_mode == 'None':
                 slot.decline = 'preprocess'
                 return False
-        fast_bve = initial_fast_elimination and slot.rule == 'BVE'
+        fast_bve = self._fast_phase(initial_fast_elimination) and slot.rule == 'BVE'
         if not slot.enabled or phase_unsat:
             slot.decline = 'disabled'
         elif startup and not slot.preprocess and not fast_bve:
@@ -193,11 +203,11 @@ class NativeInprocessSchedule:
             return True
         return False
 
-    def set_entry_limit(self, slot, observation, meter, *, initial_fast_elimination=False):
+    def set_entry_limit(self, slot, observation, meter, *, initial_fast_elimination=None):
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
         permille = (self.config['initial_fast_elimination_bve_permille']
-                    if initial_fast_elimination and slot.rule == 'BVE' else slot.permille)
+                    if self._fast_phase(initial_fast_elimination) and slot.rule == 'BVE' else slot.permille)
         if not 0 <= permille <= 1000 or not 0 <= meter <= _U64:
             raise ValueError('invalid effort budget')
         now, anchor = observation['SEARCH_TICKS'], self.clocks[slot.group].anchor
@@ -271,6 +281,60 @@ class NativeInprocessSchedule:
         """Rearm candidates after the fast phase, including terminal exits."""
         reschedule_bve()
 
+    def run_rounds(self, view, group, slots, run_slot, *, stopped=lambda: False,
+                   initial_fast_elimination=None):
+        """Native outer fixpoint; run_slot owns each admitted rule application.
+
+        The callback receives (view, slot, outer) and returns PhaseOutcome.
+        It owns candidate discovery, guards, budgets, publication, propagation
+        and the BVE bound. This loop owns round order and stopping only.
+        """
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        initial_fast_elimination = self._fast_phase(initial_fast_elimination)
+        if self.phase is not None and self.phase[0] != group:
+            raise ValueError('round group disagrees with active phase')
+        if group not in self.clocks or initial_fast_elimination and group != 'Eliminate':
+            raise ValueError('invalid round group')
+        slots = tuple(slots)
+        startup = not view.tactix_stat(capi.TACTIX_STAT_CONFLICTS)
+        rounds = (self.config['initial_fast_elimination_rounds'] if initial_fast_elimination
+                  else 1 if startup else self.config['phase_rounds'])
+        active = view.tactix_stat(capi.TACTIX_STAT_ACTIVE_VARIABLES)
+        outcome = PhaseOutcome()
+        try:
+            for outer in range(rounds):
+                if stopped():
+                    break
+                self.begin_round(view)
+                for slot in slots:
+                    if slot.group != group or initial_fast_elimination and slot.rule != 'BVE':
+                        continue
+                    if stopped():
+                        break
+                    result = run_slot(view, slot, outer)
+                    if not isinstance(result, PhaseOutcome) or result.status not in (0, 20):
+                        raise ValueError('invalid slot outcome')
+                    outcome.bve_ran |= result.bve_ran
+                    outcome.maximum_bound |= result.maximum_bound
+                    outcome.eliminate_limit_reached |= result.eliminate_limit_reached
+                    if result.status == 20 or view.tactix_status() == 20:
+                        outcome.status = 20
+                        return outcome
+                if outcome.eliminate_limit_reached:
+                    break
+                pending = (group == 'Eliminate' and self.config['hold_subsume_until_eliminate']
+                           and (not view.tactix_stat(capi.TACTIX_STAT_SUBSUME_COMPLETE)
+                                or not view.tactix_stat(capi.TACTIX_STAT_STRENGTHEN_COMPLETE)))
+                current = view.tactix_stat(capi.TACTIX_STAT_ACTIVE_VARIABLES)
+                if current == active and not pending:
+                    break
+                active = current
+            return outcome
+        except BaseException:
+            self.unusable = True
+            raise
+
     def execute_pipeline(self, view, group, run_rounds, *, run_startup=None, factor_bound=0,
                          initial_fast_elimination=False):
         """Execute the ordinary phase bracket through public C operations.
@@ -280,6 +344,8 @@ class NativeInprocessSchedule:
         and returns 0/10/20. Parameters and fast-entry candidate selection
         remain caller-owned; this is not the full native policy.
         """
+        if self.phase is not None:
+            raise RuntimeError('inprocessing phase is already active')
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
         if (group not in self.clocks or not 0 <= factor_bound <= (1 << 32) - 1 or
@@ -296,6 +362,7 @@ class NativeInprocessSchedule:
         def cleanup(name, primary=None):
             return self._cleanup(lambda: support(name), primary)
         self.enter_phase(self.observe(view), group)
+        self.phase = (group, bool(initial_fast_elimination))
         primary = None
         try:
             if group == 'Eliminate' and not initial_fast_elimination:
@@ -350,8 +417,11 @@ class NativeInprocessSchedule:
             self.unusable = True
             raise
         finally:
-            if initial_fast_elimination:
-                cleanup('RESCHEDULE_BVE', primary)
+            try:
+                if initial_fast_elimination:
+                    cleanup('RESCHEDULE_BVE', primary)
+            finally:
+                self.phase = None
 
     def want_phase(self, observation, group):
         if self.unusable:
