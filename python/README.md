@@ -122,6 +122,14 @@ manual IPASIR query lifecycle calls. Borrowed views cannot release their solver.
 file objects. Keep callback objects and referenced buffers alive for their
 native borrowing period.
 
+Independent `tactix_online_executor_*` handles let a policy retain several
+online continuations on one execution view, including their cursors and spent
+budgets. Configure them with an existing versioned program and release each
+handle when finished. They expire when their owning view ends; a repaired query
+needs new handles. An optional shared discovery ledger exposes cumulative work
+and producer feedback so the caller can decide stage retries and budget renewal.
+These are the same native atomic executors used by DefaultPolicy.
+
 Maintainers regenerate declarations with `python3 tools/api/generate_python.py`
 (`pycparser` is needed only for generation). The `python_capi` test checks header
 coverage and compares every public record's size/alignment/field offsets and

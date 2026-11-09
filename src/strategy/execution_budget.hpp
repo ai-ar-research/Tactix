@@ -39,10 +39,13 @@ class InvocationBudget;
 // like the solver; owners and borrowed spans outlive each invocation.
 class Allowance {
 public:
-  Allowance(WorkUnit unit, WorkLimit limit) : unit_(unit), limit_(limit) {}
+  Allowance(WorkUnit unit, WorkLimit limit, uint64_t consumed = 0,
+            bool overflow = false)
+      : unit_(unit), limit_(limit), consumed_(consumed), overflow_(overflow) {}
   Allowance(const Allowance &) = delete;
   Allowance &operator=(const Allowance &) = delete;
   WorkUnit unit() const { return unit_; }
+  WorkLimit limit() const { return limit_; }
   uint64_t consumed() const { return consumed_; }
   bool accounting_overflow() const { return overflow_; }
   WorkLimit remaining() const {

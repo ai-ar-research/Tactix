@@ -1464,7 +1464,60 @@ static void graph_labeling_parameters_are_public_and_validated(void) {
   tactix_release(solver);
 }
 
+static void independent_online_continuations(void) {
+  tactix *s = tactix_init(), *foreign = tactix_init();
+  tactix_online_executor *e = tactix_online_executor_create(s);
+  assert(e && !tactix_online_executor_create(NULL));
+  assert(tactix_online_executor_complete(NULL) == -1);
+  assert(tactix_online_executor_consumed(NULL, 1) == UINT64_MAX);
+  tactix_online_execution_result out, untouched;
+  memset(&out, 0x5a, sizeof out); untouched = out;
+  assert(tactix_online_executor_advance(s, e, NULL, &out) == -1);
+  assert(!memcmp(&out, &untouched, sizeof out));
+  int clause[] = {1, 2}, witness[] = {1, 3, 4};
+  tactix_online_condition_instance cubes[] = {{clause, 2, witness, 3}, {clause, 2, witness, 3}};
+  tactix_online_step_v3 step = {0};
+  step.base.base.step_id = 375;
+  step.base.base.rule_id = rule("Condition");
+  step.base.base.granularity = TACTIX_ONLINE_GRANULARITY_BATCH;
+  step_once(&step.base.base);
+  step.condition_instances = cubes; step.condition_instance_count = 2;
+  tactix_online_program_v3 program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_executor_configure(foreign, e, 3, &program, 1, 0) == -1);
+  assert(tactix_add_checked(foreign, 1) == 0 && tactix_add_checked(foreign, 0) == 0);
+  assert(tactix_online_executor_configure(s, e, 18, &program, 1, 0) == -1);
+  add_clause(s, (const int[]){1, 2, 0}); add_clause(s, (const int[]){1, 2, 0});
+  add_clause(s, (const int[]){-1, 3, 0}); add_clause(s, (const int[]){-3, 4, 0});
+  assert(!tactix_online_executor_configure(s, e, 3, &program, 2, 0));
+  memset(clause, 0, sizeof clause); memset(witness, 0, sizeof witness);
+  tactix_online_discovery_budget pool = {17, 11, 0, 17, 2, 0};
+  assert(tactix_online_executor_advance(s, e, &pool, &out) == -1);
+  assert(pool.consumed == 11 && !memcmp(&out, &untouched, sizeof out));
+  pool.unlimited = 0;
+  assert(!tactix_online_executor_advance(s, e, &pool, &out));
+  assert(out.base.status == TACTIX_ONLINE_COMPLETED && out.base.applications == 1);
+  assert(!out.query_rejected_model && !out.discovery_progress_units);
+  assert(pool.limit == 17 && pool.consumed == 11 && !pool.accounting_overflow);
+  assert(tactix_online_executor_consumed(e, 375) == 1);
+  tactix_online_executor *copy = tactix_online_executor_clone(e);
+  assert(copy && tactix_online_executor_consumed(copy, 375) == 1);
+  program.step_count = -1;
+  assert(tactix_online_executor_configure(s, e, 3, &program, 9, 0) == -1);
+  assert(!tactix_online_executor_advance(s, e, NULL, &out));
+  assert(out.base.status == TACTIX_ONLINE_STALE_REQUEST && !out.base.applications);
+  assert(!tactix_online_executor_advance(s, copy, NULL, &out));
+  assert(out.base.status == TACTIX_ONLINE_STALE_REQUEST && out.base.configuration_revision == 2);
+  tactix_release(s);
+  assert(tactix_online_executor_complete(e) == -1);
+  assert(tactix_online_executor_consumed(copy, 375) == UINT64_MAX);
+  assert(!tactix_online_executor_clone(e));
+  assert(tactix_online_executor_advance(foreign, copy, NULL, &out) == -1);
+  tactix_online_executor_release(e); tactix_online_executor_release(copy);
+  tactix_online_executor_release(NULL); tactix_release(foreign);
+}
+
 int main(void) {
+  independent_online_continuations();
   graph_labeling_parameters_are_public_and_validated();
   rejected_configuration_keeps_input_open();
   condition_cube_v3_is_atomic_and_copied();

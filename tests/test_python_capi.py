@@ -66,6 +66,7 @@ with tempfile.TemporaryDirectory(prefix='tactix-python-abi-') as tmp:
 # Typed parameter readback, discovery, and all program versions go through the
 # same native ABI; invalid programs remain native errors rather than crashes.
 handle=lib.tactix_init();assert handle
+executor=lib.tactix_online_executor_create(handle);assert executor
 try:
     settings=capi.tactix_work_settings(fields=capi.TACTIX_WORK_BUDGET|capi.TACTIX_WORK_OFFSET,
                                      budget=123456,offset=17)
@@ -78,13 +79,17 @@ try:
         # A negative step count is invalid in every public version.
         program.step_count=-1
         assert getattr(lib,'tactix_online_configure'+suffix)(handle,C.byref(program),version,0)==-1
-finally:lib.tactix_release(handle)
+        assert lib.tactix_online_executor_configure(handle,executor,version,
+            C.byref(program),version,0)==-1
+finally:
+    lib.tactix_online_executor_release(executor)
+    lib.tactix_release(handle)
 
 # Positive nested payloads through every compatible program version. The C
 # online API fixture uses this same Condition tuple: it removes the duplicated
 # clause, then reconstruction must repair decisions falsifying that clause.
 # Only configure owns the storage after this helper returns.
-def configure_condition(handle, version):
+def configure_condition(handle, version, executor=None):
     clause=(C.c_int*2)(1,2)
     witness=(C.c_int*3)(1,3,4)
     cubes=(capi.tactix_online_condition_instance*2)(
@@ -104,8 +109,12 @@ def configure_condition(handle, version):
     base.budget_unlimited=1
     program=getattr(capi,'tactix_online_program_v'+str(version))(
         C.pointer(step),1,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
-    assert getattr(lib,'tactix_online_configure_v'+str(version))(
-        handle,C.byref(program),2,capi.TACTIX_ONLINE_RECONFIGURE_RESET)==0
+    if executor:
+        assert lib.tactix_online_executor_configure(handle,executor,version,
+            C.byref(program),2,capi.TACTIX_ONLINE_RECONFIGURE_RESET)==0
+    else:
+        assert getattr(lib,'tactix_online_configure_v'+str(version))(
+            handle,C.byref(program),2,capi.TACTIX_ONLINE_RECONFIGURE_RESET)==0
     clause[:]=(0,0);witness[:]=(0,0,0)
 
 formula=((1,2),(1,2),(-1,3),(-3,4))
@@ -129,6 +138,35 @@ for version in range(3,18):
         assert all(any(l in model for l in clause) for clause in formula),(version,model)
     finally:lib.tactix_release(handle)
 
+# Independent native continuations expose the same owned versioned payloads
+# through Python. A cloned pending selection preserves its spent work and
+# detects stale identities; handles remain safely releasable after the view.
+for version in range(3,18):
+    handle=lib.tactix_init();executor=lib.tactix_online_executor_create(handle)
+    clone=None
+    try:
+        for clause in formula:
+            for literal in (*clause,0):assert lib.tactix_add_checked(handle,literal)==0
+        configure_condition(handle,version,executor);gc.collect()
+        result=capi.tactix_online_execution_result()
+        assert lib.tactix_online_executor_advance(handle,executor,None,C.byref(result))==0
+        assert (result.base.status,result.base.applications,result.base.instance)==(
+            capi.TACTIX_ONLINE_COMPLETED,1,0),version
+        clone=lib.tactix_online_executor_clone(executor);assert clone
+        for continuation in (executor,clone):
+            assert lib.tactix_online_executor_consumed(continuation,375)==1
+            assert lib.tactix_online_executor_advance(handle,continuation,None,C.byref(result))==0
+            assert result.base.status==capi.TACTIX_ONLINE_STALE_REQUEST,version
+        for literal in (-1,-2):assert lib.tactix_decide(handle,literal)==0
+        assert lib.tactix_solve(handle)==SAT
+        model={lib.tactix_value(handle,v) for v in range(1,5)}
+        assert all(any(l in model for l in clause) for clause in formula),(version,model)
+    finally:
+        lib.tactix_release(handle)
+        assert lib.tactix_online_executor_complete(executor)==-1
+        lib.tactix_online_executor_release(executor)
+        if clone:lib.tactix_online_executor_release(clone)
+
 # Bound native calls preserve the Execution lifetime/re-entry guards.
 views=[];policy=ScriptedCDCL()
 def inspected(execution,restored):
@@ -147,4 +185,4 @@ except RuntimeError:pass
 else:raise AssertionError('expired C view accepted')
 print(f'Python C ABI: {len(s.FUNCTIONS)} symbols/signatures, {len(s.PUBLIC_TYPES)} types, '
       f'{len(s.RECORDS)} record layouts, {len(s.CONSTANTS)} constants; '
-      '15 owned nested programs, typed calls and guarded views pass')
+      '30 owned nested programs, independent continuations, typed calls and guarded views pass')

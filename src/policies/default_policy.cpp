@@ -6739,7 +6739,7 @@ int DefaultInprocessScheduler::run_structured_root(
         k.stats.sr_nonforcing_cuts_declined > nonforcing_cuts_before);
     auto &telem = structured_root.stages[index];
     ++telem.runs;
-    strategy::OnlineStrategySequence executor;
+    port::OnlineStrategySequence executor;
     std::string error;
     if (!executor.configure(stage, 1,
                             strategy::ReconfigureMode::ResetRuntime, &error)) {

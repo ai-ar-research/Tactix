@@ -129,8 +129,19 @@ struct tactix_solver {
   ~tactix_solver() {if(query_owner && kernel.stop==query_stop)kernel.stop=saved_query_stop;}
 };
 
+struct tactix_online_executor {
+  const tactix_solver *owner;
+  std::weak_ptr<const int> lifetime;
+  strategy::OnlineStrategyExecutor executor;
+  bool configured = false;
+  bool valid(const tactix_solver *s) const {
+    return s && owner == s && !lifetime.expired();
+  }
+};
+
 extern "C" {
 static void input_complete(tactix_solver *solver);
+static int result_code(tactix_solver *solver, ApplyResult result);
 }
 
 // Internal introspection of the opaque C handle, for fixed tests and for
@@ -231,6 +242,10 @@ const strategy::OnlineStrategyProgram *online_program_for_fixed_testing(void *op
   assert(opaque);
   const auto &online = static_cast<::tactix_solver *>(opaque)->online;
   return online ? &online->program() : nullptr;
+}
+const strategy::OnlineStrategyProgram *online_executor_for_fixed_testing(void *opaque) {
+  const auto *e = static_cast<::tactix_online_executor *>(opaque);
+  return e && !e->lifetime.expired() && e->configured ? &e->executor.program() : nullptr;
 }
 }
 
@@ -1979,6 +1994,63 @@ void online_result(const strategy::InvocationResult &source,
   target.configuration_revision = source.configuration_revision;
 }
 
+bool convert_online_version(unsigned version, const void *source,
+                            const Kernel &kernel,
+                            strategy::OnlineStrategyProgram &program) {
+  if (!source) return false;
+  switch (version) {
+  case 1: return online_program(*static_cast<const tactix_online_program *>(source),
+                               kernel, program, true);
+#define TACTIX_CONVERT_ONLINE_VERSION(N) \
+  case N: return online_program_v##N( \
+      *static_cast<const tactix_online_program_v##N *>(source), kernel, program, true);
+  TACTIX_CONVERT_ONLINE_VERSION(2)
+  TACTIX_CONVERT_ONLINE_VERSION(3)
+  TACTIX_CONVERT_ONLINE_VERSION(4)
+  TACTIX_CONVERT_ONLINE_VERSION(5)
+  TACTIX_CONVERT_ONLINE_VERSION(6)
+  TACTIX_CONVERT_ONLINE_VERSION(7)
+  TACTIX_CONVERT_ONLINE_VERSION(8)
+  TACTIX_CONVERT_ONLINE_VERSION(9)
+  TACTIX_CONVERT_ONLINE_VERSION(10)
+  TACTIX_CONVERT_ONLINE_VERSION(11)
+  TACTIX_CONVERT_ONLINE_VERSION(12)
+  TACTIX_CONVERT_ONLINE_VERSION(13)
+  TACTIX_CONVERT_ONLINE_VERSION(14)
+  TACTIX_CONVERT_ONLINE_VERSION(15)
+  TACTIX_CONVERT_ONLINE_VERSION(16)
+  TACTIX_CONVERT_ONLINE_VERSION(17)
+#undef TACTIX_CONVERT_ONLINE_VERSION
+  default: return false;
+  }
+}
+
+bool advance_online(tactix_solver *s, strategy::OnlineStrategyExecutor &executor,
+                    strategy::InvocationResult &advanced,
+                    strategy::Allowance *discovery = nullptr,
+                    strategy::DiscoveryFeedbackPolicy feedback = {}) {
+  input_complete(s);
+  // Every online continuation uses the same publication/certification path.
+  (void)apply_published(s, [&] {
+    advanced = executor.advance(s->kernel, s->query_stop, discovery, feedback);
+    return advanced.rule_result;
+  });
+  kernel_check_invariants(s->kernel);
+  if (advanced.status == strategy::InvocationStatus::Sat) prepare_external_model(s);
+  if (advanced.status == strategy::InvocationStatus::Unsat) certify_unsat(s);
+  if (s->query_owner) s->query_owner->drain_learned(s->query_ticket, s->query_stop);
+  if (s->query_owner && (advanced.status == strategy::InvocationStatus::Sat ||
+                        advanced.status == strategy::InvocationStatus::Unsat) &&
+      !result_code(s, advanced.rule_result)) {
+    const bool rejected_model = advanced.status == strategy::InvocationStatus::Sat &&
+        s->query_status == session::QuerySolveStatus::Complete;
+    advanced.status = strategy::InvocationStatus::NoChange;
+    advanced.rule_result = ApplyResult::NoOp;
+    return rejected_model;
+  }
+  return false;
+}
+
 template <class Source, class Convert>
 int configure_online_program(tactix_solver *solver, const Source *source,
                              uint64_t revision, int reconfigure_mode,
@@ -2696,32 +2768,72 @@ TACTIX_DEFINE_ONLINE_CONFIGURE(17)
 int tactix_online_advance(tactix_solver *s, tactix_online_result *result) {
   if (!s || !result || !s->online)
     return -1;
-  input_complete(s);
-  // The online executor publishes each application natively; the session
-  // profile governs only events left after the composed step.
   strategy::InvocationResult advanced;
-  (void)apply_published(s, [&] {
-    advanced = s->online->advance(s->kernel);
-    return advanced.rule_result;
-  });
-  kernel_check_invariants(s->kernel);
-  if (advanced.status == strategy::InvocationStatus::Sat) {
-    prepare_external_model(s);
-  }
-  if (advanced.status == strategy::InvocationStatus::Unsat)
-    certify_unsat(s);
-  if(s->query_owner)
-    s->query_owner->drain_learned(s->query_ticket, s->query_stop);
-  if(s->query_owner && (advanced.status==strategy::InvocationStatus::Sat ||
-                         advanced.status==strategy::InvocationStatus::Unsat)) {
-    const int terminal=result_code(s,advanced.rule_result);
-    if(!terminal) {
-      advanced.status=strategy::InvocationStatus::NoChange;
-      advanced.rule_result=ApplyResult::NoOp;
-    }
-  }
+  (void)advance_online(s, *s->online, advanced);
   online_result(advanced, *result);
   return 0;
+}
+
+tactix_online_executor *tactix_online_executor_create(tactix_solver *s) {
+  if (!s) return nullptr;
+  if (!s->online_lifetime) s->online_lifetime = std::make_shared<const int>(0);
+  return new tactix_online_executor{s, s->online_lifetime, {}};
+}
+
+tactix_online_executor *tactix_online_executor_clone(const tactix_online_executor *e) {
+  return e && !e->lifetime.expired() ? new tactix_online_executor(*e) : nullptr;
+}
+
+void tactix_online_executor_release(tactix_online_executor *e) { delete e; }
+
+int tactix_online_executor_configure(tactix_solver *s, tactix_online_executor *e,
+    unsigned version, const void *source, uint64_t revision, int mode) {
+  if (!e || !e->valid(s) ||
+      (mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS)) return -1;
+  strategy::OnlineStrategyProgram program;
+  if (!convert_online_version(version, source, s->kernel, program) ||
+      !e->executor.configure(program, revision,
+          mode == TACTIX_ONLINE_RECONFIGURE_RESET ? strategy::ReconfigureMode::ResetRuntime
+              : strategy::ReconfigureMode::RetainMatchingStepBudgets)) return -1;
+  input_complete(s);
+  e->configured = true;
+  return 0;
+}
+
+int tactix_online_executor_advance(tactix_solver *s, tactix_online_executor *e,
+    tactix_online_discovery_budget *pool, tactix_online_execution_result *result) {
+  if (!e || !e->valid(s) || !e->configured || !result ||
+      (pool && ((pool->unlimited != 0 && pool->unlimited != 1) ||
+                (pool->accounting_overflow != 0 && pool->accounting_overflow != 1)))) return -1;
+  strategy::Allowance discovery(strategy::WorkUnit::SrDiscoveryTicks,
+      !pool || pool->unlimited ? strategy::WorkLimit::unlimited()
+                              : strategy::WorkLimit::bounded(pool->limit),
+      pool ? pool->consumed : 0, pool && pool->accounting_overflow);
+  strategy::InvocationResult out;
+  const bool rejected = advance_online(s, e->executor, out, pool ? &discovery : nullptr,
+      pool ? strategy::DiscoveryFeedbackPolicy{pool->ticks_per_generator, pool->hard_limit}
+           : strategy::DiscoveryFeedbackPolicy{});
+  if (pool) {
+    pool->limit = discovery.limit().amount();
+    pool->unlimited = discovery.limit().is_unlimited();
+    pool->consumed = discovery.consumed();
+    pool->accounting_overflow = discovery.accounting_overflow();
+  }
+  online_result(out, result->base);
+  result->discovery_progress_units = out.discovery_progress_units;
+  result->discovery_entry_required = out.discovery_entry_required;
+  result->discovery_exhausted = out.discovery_exhausted;
+  result->query_rejected_model = rejected;
+  return 0;
+}
+
+uint64_t tactix_online_executor_consumed(const tactix_online_executor *e, uint64_t id) {
+  return e && !e->lifetime.expired() ? e->executor.step_consumed(id) : UINT64_MAX;
+}
+
+int tactix_online_executor_complete(const tactix_online_executor *e) {
+  return e && !e->lifetime.expired() ? e->executor.complete() : -1;
 }
 
 uint64_t tactix_online_step_consumed(tactix_solver *s, uint64_t step_id) {

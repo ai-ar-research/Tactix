@@ -1918,6 +1918,45 @@ int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);
 int tactix_online_complete(tactix *);
 
+/* Independent online continuations for caller-composed schedules. Each handle
+ * belongs to one execution view; release it even after that view expires.
+ * Cloning explicitly copies its cursor and spent budgets. Configuration copies
+ * the same version 1..17 program values accepted above, transactionally; the
+ * caller supplies the matching tactix_online_program[_vN] address. Unknown
+ * versions/modes, foreign/expired views and invalid programs return -1 without
+ * replacing the continuation or finalizing input. Handles never select a
+ * strategy or hand off to DefaultPolicy. NULL getters return -1/UINT64_MAX. */
+typedef struct tactix_online_executor tactix_online_executor;
+tactix_online_executor *tactix_online_executor_create(tactix *);
+tactix_online_executor *tactix_online_executor_clone(const tactix_online_executor *);
+void tactix_online_executor_release(tactix_online_executor *);
+int tactix_online_executor_configure(tactix *, tactix_online_executor *,
+    unsigned program_version, const void *program, uint64_t revision,
+    int reconfigure_mode);
+/* Optional caller-owned shared SR discovery ledger. Preserve it across calls
+ * and independent continuations to share a pool; changing/resetting it is an
+ * explicit budget decision. Consumed work includes atomic overshoot. Inline
+ * producer feedback may raise limit, bounded by hard_limit. Unlimited is
+ * distinct from UINT64_MAX. A NULL ledger uses no shared discovery pool. */
+typedef struct {
+  uint64_t limit, consumed, ticks_per_generator, hard_limit;
+  int unlimited, accounting_overflow;
+} tactix_online_discovery_budget;
+typedef struct {
+  tactix_online_result base;
+  uint64_t discovery_progress_units;
+  int discovery_entry_required, discovery_exhausted, query_rejected_model;
+} tactix_online_execution_result;
+/* Advances the existing atomic executor, with the same publication and query
+ * certification as tactix_online_advance. Detailed discovery feedback supports
+ * caller-defined stage/retry policies. query_rejected_model means a candidate
+ * satisfied F but missed A; base is nonterminal and the caller must continue
+ * the query. Invalid arguments leave the ledger/result/continuation unchanged. */
+int tactix_online_executor_advance(tactix *, tactix_online_executor *,
+    tactix_online_discovery_budget *, tactix_online_execution_result *);
+uint64_t tactix_online_executor_consumed(const tactix_online_executor *, uint64_t step_id);
+int tactix_online_executor_complete(const tactix_online_executor *);
+
 /* Permanent rule-profile installation (additive). Online-step parameters are
  * scoped to their step; these calls install a profile that later
  * applications, online steps with INHERIT parameters and tactix_solve read.

@@ -28,12 +28,20 @@
 #include "strategy/rule_parameters.hpp"
 #include "strategy/vivify_execution.hpp"
 #include "strategy/work_execution.hpp"
+#include "strategy/online_sequence.hpp"
 
 #include <concepts>
 #include <functional>
 #include <utility>
 
 namespace tactix::port {
+
+#if defined(TACTIX_DEFAULT_POLICY_PUBLIC_PORT)
+class PublicOnlineStrategyExecutor;
+using OnlineStrategySequence = strategy::BasicOnlineStrategySequence<PublicOnlineStrategyExecutor>;
+#else
+using OnlineStrategySequence = strategy::OnlineStrategySequence;
+#endif
 
 template <class P>
 concept ActionPort = requires(Kernel &k, const RuleVTable &rule, uint64_t instance,

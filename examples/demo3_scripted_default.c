@@ -1,24 +1,11 @@
-/* §8.4 demo policy 3 — a scripted policy reproducing the default
- * schedule "within noise" (the plan's Python variant lands with the
- * phase-4 bindings; the schedule logic is what is under review here).
+/* Demo 3: a search-only policy over the public C API. Its shared scheduler
+ * covers restart, reduction, mode changes, rephasing and a Lucky attempt;
+ * its inprocessing slot is disabled. The fixture compares verdicts and
+ * requires these search mechanisms to fire on both programs.
  *
- * This client re-implements DefaultPolicy::solve outside the library,
- * pull-based (O5), using only the frozen v1 API: canonical rule
- * applications plus tactix_stat for the counters the built-in policy
- * reads (conflicts, ticks, last learned glue, mode). Because the
- * arithmetic is replicated exactly (same EMA
- * updates, same reluctant doubling, same mode-limit formulas — constants
- * from default_policy.hpp), the SEARCH schedule is trajectory-identical.
- * The inprocessing PHASE is reproduced structurally (preprocess at
- * conflicts=0: BVE to its budget + the batch simplifiers once per outer
- * round) but NOT bit-identically: DefaultPolicy's BVE reads an internal
- * dense occurrence index while the API path uses the arena-scan fallback,
- * so the two take equivalent-but-different eliminations. The "within noise"
- * acceptance is therefore the SAME VERDICT plus every scheduled component
- * firing on both runs — not exact counter-equality (N1 requires
- * applicability, which this demo exercises and the fuzzer verifies; the
- * dense optimization gives up bit-exact external reproduction). If
- * DefaultPolicy's schedule changes, update this mirror deliberately. */
+ * Full DefaultPolicy correspondence uses the separate tactix-public /
+ * PublicPort path, which runs the native policy's complete schedule through
+ * C API requests. This demo is not that full-policy reference. */
 #undef NDEBUG
 #include "tactix.h"
 
@@ -114,15 +101,9 @@ int main(int argc, char **argv) {
   const int got = scripted_solve(scripted);
   assert(got == expect);
 
-  /* §8.4 "within noise": the scripted policy drives the SAME schedule through
-   * the public API and reaches the SAME VERDICT (asserted above). Exact
-   * counter-equality no longer holds — DefaultPolicy's inprocessing BVE reads
-   * an internal dense occurrence index while this API path uses the arena-scan
-   * fallback, so the two take equivalent-but-different elimination trajectories
-   * (N1 is preserved: every rule is applicable via the API at any state, which
-   * this demo exercises and the fuzzer verifies; bit-exact reproduction was a
-   * bonus the dense optimization gives up). Report both trajectories and check
-   * every scheduled component fired on BOTH the built-in and the scripted run. */
+  /* This search-only fixture checks the verdict and effective scheduler
+   * coverage below. Full native/public-policy trajectory and certificate
+   * equality belongs to the separate DefaultPolicy correspondence gate. */
   printf("demo3: verdict %d — builtin{confl %llu rst %llu red %llu sw %llu rp %llu}"
          "  scripted{confl %llu rst %llu red %llu sw %llu rp %llu}\n",
          expect,
