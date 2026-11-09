@@ -1060,13 +1060,18 @@ AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
       const Lit literal=k.trail[cursor.trail];
       const auto &assigned = k.assigned[var_of(literal)];
       const int external = kernel_externalize(k, literal);
-      const bool requested=epoch_->projection && epoch_->projection->is_assumption(external);
-      // N1 permits decisions on retired coordinates. A previously skipped
-      // free assumption can become false without a retraction/namespace change.
-      if (!requested && epoch_->projection && epoch_->projection->is_assumption(-external))
-        cursor.assumption=0;
-      if (assigned.level && !assigned.binary && assigned.reason==DECISION_REASON && !requested)
-        cursor.only_assumptions=false;
+      const bool decision=assigned.level && !assigned.binary && assigned.reason==DECISION_REASON;
+      // N1 permits decisions on retired coordinates. Opposite-sign detection
+      // covers every append; positive membership matters only for these two
+      // cases, not ordinary non-assumption propagations.
+      const bool opposite=epoch_->projection && epoch_->projection->is_assumption(-external);
+      if (opposite || decision) {
+        const bool requested=epoch_->projection && epoch_->projection->is_assumption(external);
+        if (!requested) {
+          if (opposite) cursor.assumption=0;
+          if (decision) cursor.only_assumptions=false;
+        }
+      }
     }
     return cursor.only_assumptions;
   };

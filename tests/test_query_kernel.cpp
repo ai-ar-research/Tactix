@@ -183,6 +183,21 @@ static void assumption_cursor_after_public_backtracking() {
   assert(drive(s,h,true)==10);
 }
 
+static void unrelated_decision_cannot_refute_cube() {
+  QueryHistory h; QueryKernel s;
+  clause(h,{-5,-1});
+  assert(h.assume(1)==InputStatus::Ok);
+  assert(h.begin_query()==InputStatus::Ok && s.replay(h)==ReplayStatus::Ok);
+  const auto t=s.ticket(); Kernel &k=*s.kernel(t);
+  assert(decide_apply(k,kernel_internalize(k,5),false)==ApplyResult::Ok);
+  assert(propagate_service(k)==ApplyResult::Ok);
+  assert(kernel_external_value(k,internalize(1))<0);
+  assert(s.next_assumption(t).status==AssumptionStatus::Backtrack);
+  assert(!s.publish_assumption_refutation(t));
+  assert(restart_apply_to(k,0)==ApplyResult::Ok);
+  assert(drive(s,h,true)==10);
+}
+
 static void assigned_cube_with_foreign_branch() {
   QueryHistory h; QueryKernel s;
   clause(h,{1,3}); clause(h,{2,4}); clause(h,{5,6});
@@ -369,6 +384,7 @@ int main(int argc, char **argv) {
   root_refutation_looks_past_undecided_assumptions();
   assumption_cursor_after_public_backtracking();
   assigned_cube_with_foreign_branch();
+  unrelated_decision_cannot_refute_cube();
   decision_on_skipped_retired_assumption();
   assumption_restarts_duplicates_and_compaction();
   projection_changes_require_restoration();
