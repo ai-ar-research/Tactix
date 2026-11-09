@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "api_test_support.h"
 #include "tactix_ipasir.h"
+#include "ipasir_test_support.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -59,16 +60,8 @@ static int preflight_delegate(void *data,void *session,tactix *view,unsigned cau
   return result;
 }
 static void artifact(void *s,const char *prefix,unsigned index,int answer,int reduced) {
-  if(!prefix)return;
-  const char *source=tactix_ipasir_bundle(s);assert(source);
-  const char *suffix[]={".cnf",".proof",".json",answer==10?".model":".core","-core.cnf","-core.proof"};
-  for(unsigned i=0;i<(reduced?6u:4u);++i) {
-    char a[4096],b[4096];snprintf(a,sizeof a,"%s%s",source,suffix[i]);
-    snprintf(b,sizeof b,"%s-%u%s",prefix,index,suffix[i]);
-    FILE *in=fopen(a,"rb"),*out=fopen(b,"wb");assert(in&&out);char buffer[4096];size_t n;
-    while((n=fread(buffer,1,sizeof buffer,in)))assert(fwrite(buffer,1,n,out)==n);
-    assert(!ferror(in)&&!fclose(in)&&!fclose(out));
-  }
+  if(prefix)copy_query_bundle(tactix_ipasir_bundle(s),prefix,index,answer,
+                             reduced?TEST_CORE_REQUIRED:TEST_CORE_NONE);
 }
 static void call(void *s,int expected,const char *prefix,unsigned index) {
   const int result=ipasir_solve(s);if(result!=expected)fprintf(stderr,"query %u result %d expected %d\n",index,result,expected);

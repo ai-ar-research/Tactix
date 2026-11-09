@@ -242,19 +242,24 @@ struct Session {
     if(const auto *active=history.active_query())history.finish_query(active->id,QueryResult::Unknown);
     busy=false;return 0;
   }
+  int advance_query(bool repair) {
+    auto proof=writer();if(!proof)return unknown();
+    const auto advanced=repair?query->repair(history,std::move(proof),&stopped):
+        query->advance(history,std::move(proof),&stopped);
+    if(advanced.status==NativeAdvanceStatus::Interrupted)return unknown();
+    if(advanced.status!=NativeAdvanceStatus::Ok && advanced.status!=NativeAdvanceStatus::Replayed) {
+      proof=writer();if(!proof)return unknown();
+      if(query->replay(history,std::move(proof))!=ReplayStatus::Ok)return unknown();
+    }
+    return 1;
+  }
   int prepare(bool expose) {
     if(busy || input_error)return -1;
     if(history.begin_query()!=InputStatus::Ok)return -1;
     clear_published();busy=true;stopped=0;query->reset_termination();
     if(query->poll_terminate(&stopped))return unknown();
     if(native&&!native->begin(options,history,*query,&stopped))return unknown();
-    auto proof=writer();if(!proof)return unknown();
-    const auto advanced=query->advance(history,std::move(proof),&stopped);
-    if(advanced.status==NativeAdvanceStatus::Interrupted)return unknown();
-    if(advanced.status!=NativeAdvanceStatus::Ok && advanced.status!=NativeAdvanceStatus::Replayed) {
-      proof=writer();if(!proof)return unknown();
-      if(query->replay(history,std::move(proof))!=ReplayStatus::Ok)return unknown();
-    }
+    if(advance_query(false)!=1)return 0;
     if(expose && !make_execution())return unknown();
     return 1;
   }
@@ -263,13 +268,7 @@ struct Session {
        (execution && !api_detail::query_execution_settled(execution)))return -1;
     if(query->projection_state(query->ticket()).restore==false)return -1;
     clear_execution();
-    auto proof=writer();if(!proof)return unknown();
-    const auto repaired=query->repair(history,std::move(proof),&stopped);
-    if(repaired.status==NativeAdvanceStatus::Interrupted)return unknown();
-    if(repaired.status!=NativeAdvanceStatus::Ok && repaired.status!=NativeAdvanceStatus::Replayed) {
-      proof=writer();if(!proof)return unknown();
-      if(query->replay(history,std::move(proof))!=ReplayStatus::Ok)return unknown();
-    }
+    if(advance_query(true)!=1)return 0;
     return !expose || make_execution()?1:unknown();
   }
   int finish(int result) {
@@ -374,6 +373,15 @@ struct Session {
   }
 };
 Session *as_session(void *p) {return static_cast<Session *>(p);}
+int query_action(QuerySolveStatus status,int ready=TACTIX_QUERY_READY) {
+  switch(status) {
+  case QuerySolveStatus::InvalidState:case QuerySolveStatus::InvalidModel:case QuerySolveStatus::ProofFailure:
+    return TACTIX_QUERY_INVALID;
+  case QuerySolveStatus::Interrupted:return TACTIX_QUERY_INTERRUPTED;
+  case QuerySolveStatus::RestorationRequired:return TACTIX_QUERY_RESTORE;
+  default:return ready;
+  }
+}
 }
 
 struct tactix_ipasir_result {
@@ -651,13 +659,8 @@ int tactix_ipasir_next(void *p,tactix_ipasir_query_state *state) {
   state->assumption_index=0;state->literal=0;
   state->generation=s.query->ticket().generation;
   if(s.query->poll_terminate(&s.stopped)) {state->action=TACTIX_QUERY_INTERRUPTED;return 0;}
-  switch(api_detail::query_execution_status(s.execution)) {
-  case QuerySolveStatus::InvalidState:case QuerySolveStatus::InvalidModel:case QuerySolveStatus::ProofFailure:
-    state->action=TACTIX_QUERY_INVALID;return 0;
-  case QuerySolveStatus::Interrupted:state->action=TACTIX_QUERY_INTERRUPTED;return 0;
-  case QuerySolveStatus::RestorationRequired:state->action=TACTIX_QUERY_RESTORE;return 0;
-  default:break;
-  }
+  state->action=query_action(api_detail::query_execution_status(s.execution));
+  if(state->action!=TACTIX_QUERY_READY)return 0;
   const auto next=s.query->next_assumption(s.query->ticket());
   state->assumption_index=next.index;state->literal=next.literal;
   switch(next.status) {
@@ -665,13 +668,8 @@ int tactix_ipasir_next(void *p,tactix_ipasir_query_state *state) {
     const int terminal=tactix_status(static_cast<::tactix_solver *>(s.execution));
     // Status reconstruction polls termination too. Honor the state it latched
     // during this same observation instead of publishing a stale READY action.
-    switch(api_detail::query_execution_status(s.execution)) {
-    case QuerySolveStatus::Interrupted:state->action=TACTIX_QUERY_INTERRUPTED;break;
-    case QuerySolveStatus::RestorationRequired:state->action=TACTIX_QUERY_RESTORE;break;
-    case QuerySolveStatus::InvalidState:case QuerySolveStatus::InvalidModel:case QuerySolveStatus::ProofFailure:
-      state->action=TACTIX_QUERY_INVALID;break;
-    default:state->action=terminal?terminal:TACTIX_QUERY_READY;break;
-    }
+    state->action=query_action(api_detail::query_execution_status(s.execution),
+                              terminal?terminal:TACTIX_QUERY_READY);
     break;
   }
   case AssumptionStatus::Decide:state->action=TACTIX_QUERY_ASSUME;break;

@@ -1,26 +1,13 @@
 #undef NDEBUG
 #include "tactix_ipasir.h"
+#include "ipasir_test_support.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static void artifact(void *s,const char *prefix,unsigned q,int answer) {
-  const char *source=tactix_ipasir_bundle(s);assert(source);
-  const char *suffix[]={".cnf",".proof",".json",answer==10?".model":".core"};
-  for(unsigned i=0;i<4;++i) {
-    char src[4096],dst[4096];
-    assert(snprintf(src,sizeof src,"%s%s",source,suffix[i])>0);
-    FILE *in=fopen(src,"rb");assert(in);
-    if(prefix) {
-      assert(snprintf(dst,sizeof dst,"%s-%u%s",prefix,q,suffix[i])>0);
-      FILE *out=fopen(dst,"wb");assert(out);
-      char buffer[4096];size_t n;
-      while((n=fread(buffer,1,sizeof buffer,in)))assert(fwrite(buffer,1,n,out)==n);
-      assert(!ferror(in)&&!fclose(out));
-    }
-    assert(!fclose(in));
-  }
+  copy_query_bundle(tactix_ipasir_bundle(s),prefix,q,answer,TEST_CORE_NONE);
 }
 static void solve(void *s,const char *prefix,unsigned q,int answer) {
   const int actual=ipasir_solve(s);

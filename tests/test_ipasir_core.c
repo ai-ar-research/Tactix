@@ -1,18 +1,12 @@
 #undef NDEBUG
 #include "tactix_ipasir.h"
+#include "ipasir_test_support.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 static void snapshot(void *s,const char *prefix,unsigned index,int reduced) {
-  if(!prefix)return;
-  const char *source=tactix_ipasir_bundle(s);assert(source);
-  const char *suffix[]={".cnf",".proof",".json",".core","-core.cnf","-core.proof"};
-  for(unsigned i=0;i<(reduced?6u:4u);++i) {
-    char from[4096],to[4096];snprintf(from,sizeof from,"%s%s",source,suffix[i]);snprintf(to,sizeof to,"%s-%u%s",prefix,index,suffix[i]);
-    FILE *a=fopen(from,"rb"),*b=fopen(to,"wb");assert(a&&b);char bytes[4096];size_t n;
-    while((n=fread(bytes,1,sizeof bytes,a)))assert(fwrite(bytes,1,n,b)==n);
-    assert(!ferror(a)&&!fclose(a)&&!fclose(b));
-  }
+  if(prefix)copy_query_bundle(tactix_ipasir_bundle(s),prefix,index,20,
+                             reduced?TEST_CORE_REQUIRED:TEST_CORE_NONE);
 }
 int main(int argc,char **argv) {
   assert(argc==1||argc==2);const char *prefix=argc==2?argv[1]:NULL;

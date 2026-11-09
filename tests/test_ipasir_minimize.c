@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "tactix_ipasir.h"
+#include "ipasir_test_support.h"
 #include "../tools/fuzz/public_random_session.h"
 #include <assert.h>
 #include <stdio.h>
@@ -19,20 +20,9 @@ static int run(void *opaque,void *session,struct tactix_solver *view,unsigned en
 static int stop(void *p) {return *(int *)p;}
 static unsigned exported=0;
 static void export_result(const tactix_ipasir_result *r,const char *prefix) {
-  assert(r);if(!prefix)return;
-  const char *bundle=tactix_ipasir_result_bundle(r);assert(bundle);
-  char name[4096],target[4096];
-  const int status=tactix_ipasir_result_status(r);
-  const char *suffixes[]={".cnf",".proof",".json",status==10?".model":".core","-core.cnf","-core.proof"};
-  ++exported;
-  for(unsigned i=0;i<6;++i) {
-    snprintf(name,sizeof name,"%s%s",bundle,suffixes[i]);FILE *in=fopen(name,"rb");
-    if(!in) {assert(i>=4);continue;}
-    snprintf(target,sizeof target,"%s-%u%s",prefix,exported,suffixes[i]);
-    FILE *out=fopen(target,"wb");assert(out);char buffer[4096];size_t n;
-    while((n=fread(buffer,1,sizeof buffer,in)))assert(fwrite(buffer,1,n,out)==n);
-    assert(!ferror(in)&&!fclose(in)&&!fclose(out));
-  }
+  assert(r);
+  if(prefix)copy_query_bundle(tactix_ipasir_result_bundle(r),prefix,++exported,
+                             tactix_ipasir_result_status(r),TEST_CORE_OPTIONAL);
 }
 static void exercise(unsigned mode,const char *prefix) {
   void *s=ipasir_init();assert(s);driver d={0};

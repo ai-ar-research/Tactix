@@ -1,6 +1,6 @@
 # Experimental persistent Python API
 
-Build the reusable library once (CMake 3.25+, C++20, Python 3.9+):
+Build once with CMake 3.25+, C++20 and Python 3.9+:
 
 ```sh
 cmake -S . -B build/python -DTACTIX_BUILD_SHARED_IPASIR=ON -DCMAKE_BUILD_TYPE=Release
@@ -9,11 +9,10 @@ export PYTHONPATH="$PWD/python"
 export TACTIX_LIBRARY="$PWD/build/python/libtactix_ipasir.so"
 ```
 
-The shared library has separate PIC objects; ordinary CLI/archive compilation
-flags remain unchanged. `cmake --install build/python --prefix PREFIX` installs
-the library and C headers, `Tactix::ipasir` CMake target, and the Python module
-under `PREFIX/share/tactix/python` (add that directory to `PYTHONPATH`).
-The existing `Tactix::tactix` static package stays available.
+The shared library uses separate PIC objects. Installing with
+`cmake --install build/python --prefix PREFIX` provides C headers, the
+`Tactix::ipasir` target and `PREFIX/share/tactix/python` (add it to `PYTHONPATH`).
+The existing `Tactix::tactix` static package remains available.
 
 ```python
 from tactix import Session, ScriptedCDCL, UNSAT
@@ -29,79 +28,56 @@ with Session(strategy=policy, core_budget=1_000_000) as solver:
     reduction.certificate.export('/tmp/minimized-query')
 ```
 
-`strategy=None` selects native DefaultPolicy. A Python callable receives a
-borrowed `Execution` and a `restored` flag; it controls assumptions, public rule
-applications, branch/phase choices and an explicit optional default handoff.
-Return 0, 10 or 20. The shared session checks every terminal proposal and
-re-enters that same strategy after repair. Keep continuation state in the
-callable object and do not use an execution view after the call returns. No new
-binary or generated C++ is needed when changing this Python strategy.
+## Strategies and lifetime
 
-`strategy='cruxmiter'` selects a native program already compiled into the library:
-the paper strategy's bounded Congruence/Substitute closure, Backbone dose and
-configured DefaultPolicy handoff. It shares the plain C client's implementation
-and resumes its next stage after restoration. Its options overlay caller options
-for that query, so switching drivers preserves the caller's settings. C clients
-use `tactix_ipasir_set_strategy_name`; Python exposes `strategy_name` and
-`strategy_counters()` for reached root work and handoffs. Core extraction and
-minimization use the selected strategy for ordinary queries and probes.
+A callable receives a borrowed `Execution` and a `restored` flag, controls
+assumptions, rules and branch/phase choices, and returns 0, 10 or 20. The shared
+session validates terminal proposals and calls the same strategy after repair.
+Keep continuation state in the callable; execution views expire on return.
+Changing Python strategies requires no new binary or generated C++.
 
-`strategy='chvatal'` shares the existing Chvatal client's bottom-up twin detector,
-SR instance order, substitution closure and explicit DefaultPolicy handoff. Twin
-candidates are cached only for an unchanged permanent input prefix; every SR
-instance is validated against the current representation. The program owns its
-pairs and action cursor across repair, and new clauses refresh the candidate set.
-It uses the same query/core/certificate services as other named programs.
+Native choices share their [C programs](../examples/):
 
-`strategy='dpll'` and `strategy='cdcl-no-restarts'` select the corresponding
-example programs already compiled into the library. They keep their explicit
-search loops for incremental queries and minimization, without a DefaultPolicy
-handoff. DPLL retains its post-analysis learned-clause purge. Mandatory assumption
-installation and root re-entry use the same session service as other drivers.
+| `strategy` | Behavior |
+|---|---|
+| `None` | Native DefaultPolicy |
+| `'cruxmiter'` | Congruence/Substitute closure, Backbone, configured DefaultPolicy handoff |
+| `'chvatal'` | Twin detection, SR/substitution closure, explicit DefaultPolicy handoff |
+| `'dpll'` | DPLL, including its post-analysis learned-clause purge |
+| `'cdcl-no-restarts'` | CDCL without restarts or a DefaultPolicy handoff |
+| `'scripted-default'` | Demo3 search schedule; no inprocessing or DefaultPolicy handoff |
 
-`strategy='scripted-default'` selects the existing demo3 search scheduler. Its
-C header, plain example and persistent adapter share one implementation, with
-the same moving averages, restart/reduction, mode-switch and rephase schedule.
-The adapter settles assumptions before branching and preserves scheduler state
-across same-query restoration. It has no DefaultPolicy handoff. This is the
-search-only example; its inprocessing slot remains disabled.
+Programs retain their action cursor across repair. Chvatal refreshes its twin
+cache after permanent additions and validates each SR instance against the
+current representation. Cruxmiter's query options overlay caller options without
+changing them. `strategy_name` and `strategy_counters()` expose driver identity,
+root work and handoffs. Queries and core-minimization probes use the selected
+strategy and the same assumption/restoration services. Python control costs a
+call per step; native programs are available for frequent work.
 
-`Result` keeps owned model, assumption and core tuples plus a native result
-handle. Its certificate files survive later queries and session closure until
-the last result owner is collected; call `export` to keep a permanent disk copy.
-Core minimization uses the same selected strategy
-and permanent prefix, checks each UNSAT deletion, retains SAT witnesses, and
-preserves the last sound core on UNKNOWN/probe limits. `context` fixes selected
-source assumptions: an empty reduced core then refutes F+context, not necessarily
-F. `minimal` means subset-minimal; it makes no cardinality or weight claim.
-Foreign results and results preceding permanent additions are rejected.
+`Result` owns its model, assumptions, core and native handle. Certificates survive
+later queries and session closure until the last result owner is collected;
+`export` makes a permanent copy. Minimization checks UNSAT deletions, retains SAT
+witnesses and preserves the last sound core on UNKNOWN or probe limits.
+`context` fixes source assumptions: an empty core refutes F+context. `minimal`
+means subset-minimal, with no cardinality or weight claim. Foreign results and
+results preceding permanent additions are rejected.
 
-`set_learn(callback, max_length, work_budget=...)` reports canonical original-
-coordinate clauses independently licensed by permanent F. Assumptions, helper
-names and unlicensed SR restrictions are excluded. The callback receives an
-owned Python tuple; session and execution-view re-entry is rejected. A zero
-work budget disables exports for subsequent queries without changing SAT search.
-Learning feedback does not replace a completed query's certificate bundle.
+`set_learn(callback, max_length, work_budget=...)` delivers owned tuples of
+canonical original-coordinate clauses independently licensed by permanent F.
+Assumptions, helper names and unlicensed SR restrictions are excluded. Callback
+re-entry into sessions or execution views is rejected. Zero work budget disables
+exports on subsequent queries without changing search; learning feedback does
+not replace query certificates.
 
-Full IPASIR conformance qualification, all specialized adapter coverage,
-and final fuzz/performance acceptance are still
-pending. IPASIR-UP is outside the active scope. Python control incurs a call per
-step; use DefaultPolicy or native strategy programs for frequent native work.
+## Complete C interface
 
-The complete installed C ABI is available through `tactix.capi`: function
-signatures, constants and typed structures are generated from `tactix.h`,
-`ipasir.h` and `tactix_ipasir.h`. It uses standard-library `ctypes`; consumers
-need neither a compiler nor a parser to compose a strategy. Raw calls retain
-the C API's return codes, pointer ownership and callback lifetime requirements.
-
-Inside a Python strategy, `execution.c` binds C operations to the current
-borrowed solver and enforces the execution-view lifetime and callback guards:
-
-`execution.rejected_models` observes candidate models that satisfy permanent
-input but miss the assumptions. A root scheduler can compare it around a model
-constructor and explicitly restart after rejection. Reads do not repeat model
-checking; the counter belongs to the borrowed execution epoch and may reset
-after repair. It does not publish a terminal result.
+`tactix.capi` exposes the installed C ABI: generated signatures, constants and
+typed structures from `tactix.h`, `ipasir.h` and `tactix_ipasir.h`. It uses
+standard-library `ctypes`; consumers need no compiler or parser. See the
+[C guide](../docs/c-api.md) and [headers](../include/) for operation contracts.
+`execution.c` binds solver calls to the borrowed view and enforces its lifetime
+and callback guards:
 
 ```python
 import ctypes
@@ -111,54 +87,42 @@ def inspect(execution, restored):
     conflicts = execution.c.tactix_stat(capi.TACTIX_STAT_CONFLICTS)
     settings = capi.tactix_work_settings()
     assert execution.c.tactix_read_work_settings(ctypes.byref(settings)) == 0
-    # Continue the caller's strategy using discovery, typed programs or rules.
+    # Continue with discovery, typed programs or rules.
 ```
 
-All parameter/program versions and application forms remain accessible through
-these bound C functions. Global rule introspection is available on the same
-view. Use `capi.load_library(path)` for standalone raw C-ABI clients, including
-manual IPASIR query lifecycle calls. Borrowed views cannot release their solver.
-`FILE *` arguments use native C streams, as in the C API, rather than Python
-file objects. Keep callback objects and referenced buffers alive for their
-native borrowing period.
+All program versions, application forms and global introspection remain
+accessible. `capi.load_library(path)` also supports standalone raw clients and
+manual IPASIR lifecycle calls. C return codes, pointer ownership and borrowing
+periods apply: keep callbacks/buffers alive, use native C streams for `FILE *`,
+and never release a borrowed solver.
 
-Independent `tactix_online_executor_*` handles let a policy retain several
-online continuations on one execution view, including their cursors and spent
-budgets. Configure them with an existing versioned program and release each
-handle when finished. They expire when their owning view ends; a repaired query
-needs new handles. An optional shared discovery ledger exposes cumulative work
-and producer feedback so the caller can decide stage retries and budget renewal.
-These are the same native atomic executors used by DefaultPolicy.
+Independent `tactix_online_executor_*` handles own continuations, cursors and
+spent budgets on one execution view. Configure them with versioned programs,
+release them when finished and recreate them after view expiry or repair. The
+shared discovery ledger exposes work and producer feedback for caller scheduling;
+these are the native atomic executors used by DefaultPolicy.
 
-`RestartClock(execution)` owns the native DefaultPolicy restart calculations,
-including per-mode moving averages and the reluctant sequence. Python chooses
-when to reset it, supplies analysis/mode/restart events, reads `observe()` and
-issues the selected public actions. The clock retains no solver/view pointer;
-it may be reused on later execution views from the same library. `parameters`
-returns a copy; `configure(execution, parameters)` validates and resets it.
-Release it with `close()`. This component supplies scheduling arithmetic, not
-a complete DefaultPolicy implementation or a native solve handoff.
+`RestartClock(execution)` wraps the [owned C scheduling component](../docs/c-api.md#reusing-scheduling-components).
+Supply analysis/mode/restart events, read `observe()` and choose solver actions.
+`parameters` returns a copy; `configure(execution, parameters)` validates and
+resets it. The clock can outlive a view and be reused with the same library;
+release it with `close()`. It supplies scheduling arithmetic. `default_solve()`
+is an explicit native handoff.
 
-Native scheduling observations distinguish search ticks from total work and
-expose Sweep units/variables swept. `TACTIX_STAT_ACTIVE_VARIABLES` counts the
-current non-retired, non-root-fixed population, including helpers; this read
-scans the variable population. Accumulated learned glue and reason-bump
-round/abort counters expose completed-analysis feedback for restart averages
-and reason-bump delay scheduling. These observations do not advance the solver.
+`execution.rejected_models` observes models satisfying permanent input but
+missing assumptions. Reading it does not recheck a model or publish a result;
+it may reset after repair. A scheduler can compare it around a model constructor
+and explicitly restart. Public scheduling counters and their costs are described
+in [`tactix.h`](../include/tactix.h).
 
-Maintainers regenerate declarations with `python3 tools/api/generate_python.py`
-(`pycparser` is needed only for generation). The `python_capi` test checks header
-coverage and compares every public record's size/alignment/field offsets and
-all constants with the C compiler. `python_policy_parity` compares an independent
-Python Cruxmiter root scheduler against the C program, including action order,
-all public counters, models and proof bytes. A full Python transcription of
-native DefaultPolicy is not yet implemented; invoking it through
-`default_solve()` is an explicit native handoff.
+## Qualification and maintenance
 
-`python_scripted_default_parity` uses the same harness to compare an independent
-Python implementation of `examples/demo3_scripted_default.c`. It checks action
-forms and instance payloads as well as counters, models and certificates, and
-requires the retained search witness to reach restarts, reduction, mode changes
-and rephasing. This covers the C example's search schedule; its disabled
-inprocessing slot does not reproduce the full native DefaultPolicy. Both Python
-reference schedulers live in `tests/python_policy_reference.py`.
+Full IPASIR conformance, specialized-adapter coverage and final fuzz/performance
+acceptance remain pending. IPASIR-UP is outside scope. Independent Python
+Cruxmiter and demo3 schedulers in `tests/python_policy_reference.py` check action
+order/payloads, counters, models and proof bytes against C; they do not implement
+full native DefaultPolicy, including inprocessing.
+
+Regenerate declarations with `python3 tools/api/generate_python.py` (`pycparser`
+is needed only for generation). `python_capi` checks header coverage, constants
+and every public record's size, alignment and field offsets against the C compiler.

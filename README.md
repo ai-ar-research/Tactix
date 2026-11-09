@@ -65,7 +65,7 @@ build/release/examples/tactix-chvatal-policy formula.cnf proof
 ```
 
 `examples/` also holds smaller teaching strategies (plain DPLL, CDCL without
-restarts, the default schedule re-implemented outside the library) and
+restarts and the demo3 search scheduler) and
 strategies for binarized-neural-network and random 3-SAT encodings.
 
 The experimental [persistent Python API](python/README.md) adds runtime strategy

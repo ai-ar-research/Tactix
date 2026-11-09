@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "api_test_support.h"
 #include "tactix_ipasir.h"
+#include "ipasir_test_support.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,14 +47,7 @@ static int scripted(void *data,void *session,tactix *view,unsigned cause) {
 static void formula(void *s) {for(unsigned i=0;i<2;++i) {ipasir_add(s,1);ipasir_add(s,i?-2:2);ipasir_add(s,0);}}
 static void artifact(void *solver,const char *prefix,unsigned index,int answer,state *s) {
   if(!prefix)return;
-  const char *source=tactix_ipasir_bundle(solver);assert(source);
-  const char *suffix[]={".cnf",".proof",".json",answer==10?".model":".core"};
-  for(unsigned i=0;i<4;++i) {
-    char a[4096],b[4096];snprintf(a,sizeof a,"%s%s",source,suffix[i]);snprintf(b,sizeof b,"%s-%u%s",prefix,index,suffix[i]);
-    FILE *in=fopen(a,"rb"),*out=fopen(b,"wb");assert(in&&out);char data[4096];size_t n;
-    while((n=fread(data,1,sizeof data,in)))assert(fwrite(data,1,n,out)==n);
-    assert(!ferror(in)&&!fclose(in)&&!fclose(out));
-  }
+  copy_query_bundle(tactix_ipasir_bundle(solver),prefix,index,answer,TEST_CORE_NONE);
   char path[4096];snprintf(path,sizeof path,"%s-%u.learned",prefix,index);FILE *f=fopen(path,"w");assert(f);
   for(int i=0;i<s->calls;++i) {for(int j=0;j<s->sizes[i];++j)fprintf(f,"%d ",s->body[i][j]);fputs("0\n",f);}assert(!fclose(f));
 }

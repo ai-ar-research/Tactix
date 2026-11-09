@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "api_test_support.h"
 #include "tactix_ipasir.h"
+#include "ipasir_test_support.h"
 #include "strategy/presets/cruxmiter.h"
 #include "tactix_chvatal.h"
 #include "tactix_search_demo.h"
@@ -18,15 +19,8 @@ static tactix_ipasir_strategy_counters counters(void *s) {
 static void save(void *s,const char *prefix,unsigned index) {
   if(!prefix)return;
   tactix_ipasir_result *r=tactix_ipasir_result_acquire(s);assert(r);
-  const char *suffixes[]={".json",".cnf",".proof",".model",".core","-core.cnf","-core.proof"};
-  for(unsigned i=0;i<sizeof suffixes/sizeof *suffixes;++i) {
-    char from[4096],to[4096];snprintf(from,sizeof from,"%s%s",tactix_ipasir_result_bundle(r),suffixes[i]);
-    FILE *in=fopen(from,"rb");if(!in)continue;
-    snprintf(to,sizeof to,"%s-%u%s",prefix,index,suffixes[i]);FILE *out=fopen(to,"wb");assert(out);
-    char bytes[4096];size_t n;
-    while((n=fread(bytes,1,sizeof bytes,in)))assert(fwrite(bytes,1,n,out)==n);
-    assert(!ferror(in)&&!fclose(in)&&!fclose(out));
-  }
+  copy_query_bundle(tactix_ipasir_result_bundle(r),prefix,index,
+                    tactix_ipasir_result_status(r),TEST_CORE_OPTIONAL);
   tactix_ipasir_result_release(r);
 }
 static int delegate(void *state,void *session,tactix *view,unsigned cause) {

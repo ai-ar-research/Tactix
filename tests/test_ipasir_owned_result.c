@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "tactix_ipasir.h"
+#include "ipasir_test_support.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -11,17 +12,8 @@ static int exists(const char *prefix) {
   FILE *f=fopen(path,"rb");if(!f)return 0;assert(!fclose(f));return 1;
 }
 static void save(const tactix_ipasir_result *r,const char *prefix,unsigned index) {
-  if(!prefix)return;
-  const char *suffixes[]={".json",".cnf",".proof",".model",".core","-core.cnf","-core.proof"};
-  for(unsigned i=0;i<sizeof suffixes/sizeof *suffixes;++i) {
-    char from[4096],to[4096];
-    snprintf(from,sizeof from,"%s%s",tactix_ipasir_result_bundle(r),suffixes[i]);
-    FILE *in=fopen(from,"rb");if(!in)continue;
-    snprintf(to,sizeof to,"%s-%u%s",prefix,index,suffixes[i]);
-    FILE *out=fopen(to,"wb");assert(out);char buffer[4096];size_t n;
-    while((n=fread(buffer,1,sizeof buffer,in)))assert(fwrite(buffer,1,n,out)==n);
-    assert(!ferror(in)&&!fclose(in)&&!fclose(out));
-  }
+  if(prefix)copy_query_bundle(tactix_ipasir_result_bundle(r),prefix,index,
+                             tactix_ipasir_result_status(r),TEST_CORE_OPTIONAL);
 }
 int main(int argc,char **argv) {
   assert(argc==1||argc==2);const char *out=argc==2?argv[1]:NULL;
