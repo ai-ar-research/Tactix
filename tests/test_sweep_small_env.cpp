@@ -138,6 +138,8 @@ static void selected_seed_budget() {
     for (bool bounded : {false, true}) {
       Kernel k;
       positive_clause(k, 3);
+      // Keep a canonical seed eligible in the unbounded comparison.
+      clause(k, {make_lit(0, true), make_lit(1, false)});
       k.work_budget = 0;
       k.work_budget_bounded = bounded;
       if (selected) (void)sweep_try(k, 0);
