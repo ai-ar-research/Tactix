@@ -30,6 +30,7 @@ static void config_json(const DefaultStrategyConfig::Inprocess &cfg) {
     << ",\"scale_quadratic\":" << cfg.scale_quadratic << ",\"scale_constant\":" << cfg.scale_constant
     << ",\"preprocess_initial_ticks\":" << cfg.preprocess_initial_ticks
     << ",\"minimum_effort_ticks\":" << cfg.minimum_effort_ticks
+    << ",\"forward_midround_budget\":" << cfg.forward_midround_budget
     << ",\"preprocess_followups\":" << cfg.preprocess_followups
     << ",\"factor_initial_ticks\":" << cfg.factor_initial_ticks
     << ",\"initial_fast_elimination_bve_permille\":" << cfg.initial_fast_elimination_bve_permille
@@ -310,7 +311,53 @@ static void emit_admission() {
   }
 }
 
+
+// Execute the native batch path, rather than reconstruct its work-wire choices.
+static void emit_batches() {
+  for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate})
+    for (const char *name : {"BCE", "SubsumeForward", "Strengthen"})
+      for (uint32_t permille : {0u, 1u, 1000u})
+        for (bool inherited : {false, true}) {
+    auto *s = tactix_init(); assert(s);
+    for (int lit : {1, 2, 3, 0, -1, 2, 3, 0, 1, -2, 3, 0, 1, 2, -3, 0}) tactix_add(s, lit);
+    Kernel &k = api_detail::kernel_for_fixed_testing(s);
+    DefaultStrategyConfig config;
+    DefaultInprocessScheduler native(&config.inprocess);
+    native.configure(); native.reset(k); native.pose_initialized();
+    DefaultInprocessScheduler::SlotEntry e;
+    e.rule = tactix_rule_id(name); e.group = group; e.preprocess = true;
+    e.permille = permille; e.budget_aware = true; e.max_applies = 1;
+    // One slot: pair sharing is qualified separately using native meter identity.
+    e.meter = std::string_view(name) == "BCE"
+      ? +[](const Kernel &kernel) { return kernel.stats.bce_ticks; }
+      : +[](const Kernel &kernel) { return kernel.stats.forward_visits + kernel.stats.strengthen_visits; };
+    native.entries.push_back(e);
+    k.work_budget = 123; k.work_budget_offset = inherited ? 5 : 0;
+    k.work_budget_bounded = inherited; k.midround_budget = inherited;
+    const auto before = observe(s);
+    const int result = native.run_phase(k, group, nullptr);
+    assert(result == 0);
+    const auto &after = native.entries.front();
+    assert(after.tm.admitted == 1);
+    assert(k.work_budget == 0 && k.work_budget_offset == (inherited ? 5u : 0u));
+    assert(k.work_budget_bounded == inherited && k.midround_budget == inherited);
+    std::cout << "{\"kind\":\"batch\",\"config\":"; config_json(config.inprocess);
+    std::cout << ",\"slot\":{\"rule\":\"" << name << "\",\"group\":\""
+      << (group == SlotGroup::Probe ? "Probe" : "Eliminate") << "\",\"preprocess\":true"
+      << ",\"budget_aware\":true,\"max_applies\":1,\"permille\":" << permille
+      << ",\"forward_pair\":" << (std::string_view(name) != "BCE") << "},\"inherited\":" << inherited
+      << ",\"before\":"; observation_json(before);
+    std::cout << ",\"after\":"; observation_json(observe(s));
+    std::cout << ",\"finished\":"; clocks_json(native.probe_clock, native.elim_clock);
+    std::cout << ",\"limit\":" << after.limit << ",\"handed\":" << after.tm.handed
+      << ",\"spent\":" << after.tm.spent << ",\"doses\":" << after.doses
+      << ",\"meter\":" << after.meter(k) << ",\"result\":" << result << "}\n";
+    tactix_release(s);
+  }
+}
+
 int main() {
+  emit_batches();
   emit_admission();
   emit_budgets();
   for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate}) {

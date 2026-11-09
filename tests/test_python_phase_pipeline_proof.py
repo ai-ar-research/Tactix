@@ -2,6 +2,7 @@
 from pathlib import Path
 import importlib.util
 import json
+import ctypes as C
 import subprocess
 import sys
 import tempfile
@@ -10,7 +11,7 @@ from dataclasses import asdict
 library, fixture, root = map(Path, sys.argv[1:])
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench')]
 from tactix import Session, capi
-from python_policy_reference import NativeInprocessSchedule, PhaseOutcome, ScriptedDefault
+from python_policy_reference import NativeInprocessSchedule, InprocessSlot, PhaseOutcome, ScriptedDefault
 from proof_oracle import certificate_route
 
 spec = importlib.util.spec_from_file_location('phase_proof_runner', root/'tools/bench/run.py')
@@ -22,13 +23,14 @@ rules = {lib.tactix_rule_name(i).decode(): i for i in range(lib.tactix_rule_coun
 normal = [[1, 2], [1, -2], [-1, 3], [-3, 4]]
 wide = [[1, 2, 3], [-1, 2, 3], [1, -2, 3], [1, 2, -3]]
 cases = [(group, mode, normal) for group in ('Probe', 'Eliminate')
-         for mode in ('empty', 'bce', 'exception', 'invalid-outcome', 'false-unsat')]
+         for mode in ('empty', 'bce', 'batch-exception', 'batch-cleanup-error', 'exception', 'invalid-outcome', 'false-unsat')]
 cases += [('Probe', 'probe', [[1, 2], [1, -2], [-1, 2], [-1, -2]]),
           ('Probe', 'early', [[1], [-1]]), ('Eliminate', 'early', [[1], [-1]]),
           ('Probe', 'startup-sat', [[1]]),
           ('Probe', 'startup-substitute', [[1, 2], [1, -2], [-1, 2], [-1, -2]])]
 cases += [('Eliminate', mode, normal) for mode in ('bve-maximum', 'bve-advance', 'fast-empty')]
-cases += [('Probe', 'startup-decisions', normal)]
+cases += [('Probe', 'startup-decisions', normal),
+          ('Probe', 'budgeted-unsat', [[1, 2], [1, -2], [-1, 2], [-1, -2]])]
 cases += [(group, mode, wide) for group in ('Probe', 'Eliminate') for mode in ('empty', 'bce')]
 canonical = {}
 proofs = models = 0
@@ -63,25 +65,57 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                     if mode == 'exception': raise LookupError('phase callback failed')
                     if mode == 'invalid-outcome': return PhaseOutcome(10)
                     if mode == 'false-unsat': return PhaseOutcome(20)
-                    assert view.tactix_support(capi.TACTIX_SUPPORT_BEGIN_FORWARD_ROUND, 0) in (0, 1)
+                    schedule.begin_round(view)
                     result = 0
-                    if mode in ('bce', 'probe', 'startup-substitute', 'bve-maximum', 'bve-advance'):
+                    slot = InprocessSlot('Substitute' if mode == 'budgeted-unsat' else 'BCE', group=group, budget_aware=True, preprocess=True, permille=1000)
+                    def meter(view): return view.tactix_stat(capi.TACTIX_STAT_SUBSTITUTE_TICKS if slot.rule == 'Substitute' else capi.TACTIX_STAT_BCE_TICKS)
+                    if mode in ('batch-exception', 'batch-cleanup-error'):
+                        if mode == 'batch-cleanup-error':
+                            raw_install = view.tactix_install_work_settings
+                            calls = []
+                            def install(pointer):
+                                calls.append(1)
+                                result = raw_install(pointer)
+                                return -1 if len(calls) == 2 else result
+                            view.tactix_install_work_settings = install
+                        def fail(view): raise LookupError('batch callback failed')
+                        schedule.refresh_entry_limit(slot, schedule.observe(view), meter(view), 0)
+                        schedule.run_budgeted_batch(view, slot, meter, fail)
+                    if mode in ('bce', 'probe', 'startup-substitute', 'budgeted-unsat', 'bve-maximum', 'bve-advance'):
                         name = ('BVE' if mode.startswith('bve-') else 'BCE' if mode == 'bce'
-                                else 'Substitute' if mode == 'startup-substitute' else 'Probe')
+                                else 'Substitute' if mode in ('startup-substitute', 'budgeted-unsat') else 'Probe')
                         rule = rules[name]
-                        result = view.tactix_apply_instance(rule, capi.TACTIX_INSTANCE_CANONICAL)
+                        if mode in ('bce', 'budgeted-unsat'):
+                            assert schedule.admit_slot(slot, schedule.observe(view))
+                            schedule.refresh_entry_limit(slot, schedule.observe(view), meter(view), 0)
+                            result = schedule.run_budgeted_batch(view, slot, meter,
+                                lambda view: view.tactix_apply_instance(rule, capi.TACTIX_INSTANCE_CANONICAL))
+                        else:
+                            result = view.tactix_apply_instance(rule, capi.TACTIX_INSTANCE_CANONICAL)
                         assert result in (0, 1, 20)
                         if mode in ('bce', 'bve-maximum', 'bve-advance'): assert result == 0
+                        if mode == 'budgeted-unsat': assert result == 20
                         actions.append((rule, result))
                     return PhaseOutcome(20 if result == 20 else 0,
                                         bve_ran=mode.startswith('bve-'),
                                         maximum_bound=mode == 'bve-maximum')
-                if mode in ('exception', 'invalid-outcome', 'false-unsat'):
-                    expected = LookupError if mode == 'exception' else ValueError
+                if mode in ('exception', 'batch-exception', 'batch-cleanup-error', 'invalid-outcome', 'false-unsat'):
+                    expected = LookupError if mode in ('exception', 'batch-exception', 'batch-cleanup-error') else ValueError
                     try: schedule.execute_pipeline(view, group, body)
-                    except expected: pass
+                    except expected as error:
+                        if mode == 'batch-cleanup-error':
+                            assert len(error.phase_cleanup_errors) == 1
+                            assert str(error.phase_cleanup_errors[0]) == 'cannot clear batch work settings'
+                            del view.tactix_install_work_settings
                     else: raise AssertionError('callback error was suppressed')
+                    if mode in ('batch-exception', 'batch-cleanup-error'):
+                        work = capi.tactix_work_settings()
+                        assert view.tactix_read_work_settings(C.byref(work)) == 0
+                        assert (work.budget, work.offset, work.bounded, work.midround) == (0, 0, 0, 0)
                     assert schedule.unusable
+                    try: schedule.reset([])
+                    except RuntimeError: pass
+                    else: raise AssertionError('reset revived failed schedule')
                     # The bracket closed, but failed bookkeeping must not be reused.
                     schedule = NativeInprocessSchedule(config)
                     result = schedule.execute_pipeline(view, group, lambda view: PhaseOutcome())
@@ -102,6 +136,10 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                 else:
                     result = schedule.execute_pipeline(view, group, body,
                                                        initial_fast_elimination=mode == 'fast-empty')
+                if mode in ('bce', 'batch-exception', 'batch-cleanup-error', 'budgeted-unsat'):
+                    work = capi.tactix_work_settings()
+                    assert view.tactix_read_work_settings(C.byref(work)) == 0
+                    assert (work.budget, work.offset, work.bounded, work.midround) == (0, 0, 0, 0)
                 reschedules = sum(kind == capi.TACTIX_SUPPORT_RESCHEDULE_BVE for kind, _ in supports)
                 assert reschedules == int(mode in ('bve-advance', 'fast-empty'))
                 if mode == 'bve-maximum':
@@ -114,7 +152,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                     assert schedule.clocks[group].material_mark == 123
                 policy = ScriptedDefault()
                 if result not in (10, 20): result = policy.run(view, rules)
-                assert result == (20 if mode in ('probe', 'early', 'startup-substitute') else 10)
+                assert result == (20 if mode in ('probe', 'early', 'startup-substitute', 'budgeted-unsat') else 10)
                 model = tuple(v if lib.tactix_value(handle, v) > 0 else -v
                               for v in range(1, n+1)) if result == 10 else ()
                 if model:

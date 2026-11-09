@@ -1,6 +1,7 @@
 """Python reference policies for C/Python scheduling equivalence tests."""
 from tactix import capi
 import math
+import ctypes as C
 from dataclasses import dataclass
 
 _U64 = (1 << 64) - 1
@@ -44,6 +45,8 @@ class InprocessSlot:
     followup: str = 'None'
     followup_mode: str = 'None'
     decline: str = ''
+    handed: int = 0
+    spent: int = 0
 
 
 class NativeInprocessSchedule:
@@ -61,6 +64,15 @@ class NativeInprocessSchedule:
         self.forward_pair_limit = 0
         self.clocks = {group: InprocessClock() for group in ('Probe', 'Eliminate')}
 
+    def _cleanup(self, action, primary=None):
+        try:
+            return action()
+        except BaseException as error:
+            self.unusable = True
+            if primary is None:
+                raise
+            primary.phase_cleanup_errors = getattr(primary, 'phase_cleanup_errors', []) + [error]
+
     def begin_round(self, view=None):
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
@@ -70,6 +82,85 @@ class NativeInprocessSchedule:
                 self.unusable = True
                 raise RuntimeError('forward round support failed')
         self.forward_pair_limit = 0
+
+    def reset(self, slots):
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        self.initialized = False
+        self.last_reduce_conflicts = _U64
+        self.forward_pair_limit = 0
+        self.clocks = {group: InprocessClock() for group in self.clocks}
+        for slot in slots:
+            slot.limit = slot.applies = slot.doses = slot.wrapped = 0
+            slot.handed = slot.spent = 0
+            slot.decline = ''
+
+    def refresh_entry_limit(self, slot, observation, meter, outer, **flags):
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        if outer < 0:
+            raise ValueError('invalid phase round')
+        if slot.rule == 'Substitute' or slot.group == 'Probe' or not outer or slot.forward_pair:
+            self.set_entry_limit(slot, observation, meter, **flags)
+        return slot.limit
+
+    def batch_admissible(self, slot, spent):
+        """Check before Factor, closure, delay and rule guards, as native does."""
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        if slot.rule != 'Substitute' and spent > slot.limit:
+            slot.decline = 'budget'
+            return False
+        return True
+
+    def run_budgeted_batch(self, view, slot, meter, apply):
+        """Run an admitted, guarded batch; apply owns typed rule parameters.
+
+        Call batch_admissible before stateful entry guards; recheck here before
+        installing wires. The full slot runner must preserve that ordering.
+
+        Factor matching, Substitute rounds, guidance publication and completion
+        marks remain caller-owned. Work wires follow native ClearBudget scope.
+        """
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        before = meter(view)
+        if not self.batch_admissible(slot, before):
+            return 1
+        remaining = max(0, slot.limit - before)
+        if before > slot.limit:
+            slot.wrapped = (slot.wrapped + 1) & _U64
+        handed = remaining if slot.rule == 'Substitute' else max(1, remaining)
+        saved = capi.tactix_work_settings()
+        if view.tactix_read_work_settings(C.byref(saved)) < 0:
+            raise RuntimeError('cannot read work settings')
+        fields = capi.TACTIX_WORK_BUDGET | capi.TACTIX_WORK_MIDROUND
+        posed = capi.tactix_work_settings(fields=fields, budget=handed,
+            midround=self.config['forward_midround_budget'] and
+                     slot.rule in ('SubsumeForward', 'Strengthen'))
+        primary = None
+        try:
+            if view.tactix_install_work_settings(C.byref(posed)) < 0:
+                raise RuntimeError('cannot install work settings')
+            result = apply(view)
+            if result < 0:
+                raise RuntimeError('batch rule failed: ' + slot.rule)
+        except BaseException as error:
+            primary = error
+            self.unusable = True
+            raise
+        finally:
+            posed.budget, posed.midround = 0, saved.midround
+            def clear():
+                if view.tactix_install_work_settings(C.byref(posed)) < 0:
+                    raise RuntimeError('cannot clear batch work settings')
+            self._cleanup(clear, primary)
+        spent = (meter(view) - before) & _U64
+        slot.handed = (slot.handed + handed) & _U64
+        slot.spent = (slot.spent + spent) & _U64
+        if spent:
+            slot.doses = (slot.doses + 1) & ((1 << 32) - 1)
+        return result
 
     def admit_slot(self, slot, observation, *, congruence_changed=False,
                    sweep_changed=False, phase_unsat=False, initial_fast_elimination=False):
@@ -203,13 +294,7 @@ class NativeInprocessSchedule:
         def reschedule():
             return support('RESCHEDULE_BVE')
         def cleanup(name, primary=None):
-            try:
-                return support(name)
-            except BaseException as error:
-                self.unusable = True
-                if primary is None:
-                    raise
-                primary.phase_cleanup_errors = getattr(primary, 'phase_cleanup_errors', []) + [error]
+            return self._cleanup(lambda: support(name), primary)
         self.enter_phase(self.observe(view), group)
         primary = None
         try:

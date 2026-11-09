@@ -33,6 +33,8 @@ coverage = set()
 rows = subprocess.check_output([str(fixture)], text=True).splitlines()
 for line in rows:
     row = json.loads(line)
+    if row.get('kind') == 'batch':
+        continue  # Compared through actual public operations below.
     if row.get('kind') == 'followup':
         schedule = NativeInprocessSchedule(row['config'])
         slot = InprocessSlot('BCE', preprocess=True, followup=row['followup'])
@@ -208,3 +210,62 @@ if str(library) != '-':
     assert executed == {(group, mode) for group in ('Probe', 'Eliminate')
                         for mode in ('empty', 'material-change')}, executed
     print('Python public phase execution matches four actual native pipelines')
+
+if str(library) != '-':
+    import ctypes as C
+    batches, declined = set(), set()
+    for line in rows:
+        row = json.loads(line)
+        if row.get('kind') != 'batch': continue
+        schedule = NativeInprocessSchedule(row['config'])
+        slot = InprocessSlot(**row['slot'])
+        for iteration in range(2):
+            if iteration:
+                schedule.reset([slot])
+                slot.forward_pair = False  # Midround cut follows the rule, not meter identity.
+            handle = lib.tactix_init()
+            assert handle
+            try:
+                for clause in ([1, 2, 3], [-1, 2, 3], [1, -2, 3], [1, 2, -3]):
+                    for literal in [*clause, 0]: lib.tactix_add(handle, literal)
+                assert lib.tactix_set_guidance_publication(handle, capi.TACTIX_GUIDANCE_NATIVE) == 0
+                view = capi.SolverView(lib, handle, lambda: None)
+                inherited = row['inherited']
+                settings = capi.tactix_work_settings(fields=15, budget=123, offset=5 if inherited else 0,
+                                                    bounded=inherited, midround=inherited)
+                assert view.tactix_install_work_settings(C.byref(settings)) == 0
+                def meter(view):
+                    names = ('FORWARD_VISITS', 'STRENGTHEN_VISITS') if slot.rule in ('SubsumeForward', 'Strengthen') else ('BCE_TICKS',)
+                    return sum(view.tactix_stat(getattr(capi, 'TACTIX_STAT_' + name)) for name in names) & ((1 << 64) - 1)
+                def rounds(view):
+                    schedule.begin_round(view)
+                    assert schedule.admit_slot(slot, schedule.observe(view))
+                    schedule.refresh_entry_limit(slot, schedule.observe(view), meter(view), 0)
+                    def apply(view):
+                        actual = capi.tactix_work_settings()
+                        assert view.tactix_read_work_settings(C.byref(actual)) == 0
+                        assert (actual.budget, actual.offset, actual.bounded, actual.midround) == (row['handed'], settings.offset, inherited,
+                            row['config']['forward_midround_budget'] and slot.rule in ('SubsumeForward', 'Strengthen')), row
+                        return view.tactix_apply_instance(rule_ids[slot.rule], capi.TACTIX_INSTANCE_CANONICAL)
+                    schedule.run_budgeted_batch(view, slot, meter, apply)
+                    if meter(view) > slot.limit:
+                        before = (slot.handed, slot.spent, slot.doses, slot.wrapped)
+                        def forbidden(view): raise AssertionError('over-budget batch executed')
+                        assert schedule.run_budgeted_batch(view, slot, meter, forbidden) == 1
+                        assert slot.decline == 'budget'
+                        assert (slot.handed, slot.spent, slot.doses, slot.wrapped) == before
+                        declined.add(slot.rule)
+                    return PhaseOutcome()
+                assert schedule.execute_pipeline(view, slot.group, rounds) == row['result']
+                actual = capi.tactix_work_settings()
+                assert view.tactix_read_work_settings(C.byref(actual)) == 0
+                assert (actual.budget, actual.offset, actual.bounded, actual.midround) == (0, settings.offset, inherited, inherited), row
+                assert (slot.limit, slot.handed, slot.spent, slot.doses, meter(view)) == tuple(row[key] for key in ('limit', 'handed', 'spent', 'doses', 'meter')), row
+                assert schedule.observe(view) == row['after'], row
+                assert {name: asdict(clock) for name, clock in schedule.clocks.items()} == row['finished'], row
+                batches.add((slot.rule, slot.group, slot.permille, inherited, iteration))
+            finally:
+                lib.tactix_release(handle)
+    assert declined == {'BCE', 'SubsumeForward', 'Strengthen'}, declined
+    assert len(batches) == 72, batches
+    print('Python budgeted public batches: 72 executions/reset cycles match 36 native phases and work-wire exits')
