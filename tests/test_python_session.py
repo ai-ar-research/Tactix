@@ -107,6 +107,32 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
     gc.collect();assert directory.is_dir()
     detached_result.export(tmp/'detached');verify(tmp/'detached')
     del detached_result;gc.collect();assert not directory.exists()
+    # Files live through the session; afterwards each result pins only its query.
+    with Session(library=library) as retained:
+        retained.add([1]);first=retained.solve();directory=Path(first.bundle).parent
+        for index in range(16):
+            latest=retained.solve();assert latest.status==SAT
+            assert len(list(directory.glob('*.json')))==index+2
+            del latest
+        verify(first.bundle)
+    assert set(directory.glob('*.json'))=={Path(first.bundle+'.json')}
+    members=json.loads(Path(first.bundle+'.json').read_text())['sha256']
+    assert set(directory.iterdir())=={Path(first.bundle+suffix) for suffix in (*members,'.json')}
+    del first;gc.collect();assert not directory.exists()
+    # A failed writer must leave the still-live old epoch's files intact.
+    with Session(library=library) as retry:
+        retry.add([1]);old=retry.solve();prefix=old.bundle;directory=Path(prefix).parent
+        del old
+        retry.set_strategy(lambda execution,restored:0)
+        assert retry.solve().status==UNKNOWN
+        unpublished=directory/'q2-a2.cnf';assert unpublished.is_file()
+        (directory/'q3-a3.cnf').mkdir() # fopen must fail, including as root
+        assert retry.solve().status==UNKNOWN
+        assert unpublished.is_file()
+        retry.set_strategy(None)
+        recovered=retry.solve();assert recovered.status==SAT
+        assert not unpublished.exists() and Path(prefix+'.json').is_file()
+        verify(recovered.bundle)
     stop=[False]
     def interrupted_assumption(execution,restored):
         assert execution.next()==1

@@ -37,14 +37,28 @@ NativeQueryLimits native_limits() {
   return {{size,size,size},{u32,u64,u32,u64,u32,u32,u64},u64};
 }
 
-// Certificate files have one shared owner. Session destruction closes the
-// writer first; acquired results can then retain this directory independently.
+// Query owners retain only their own files; the last owner removes the store.
 struct ArtifactStore {
   std::string directory;
   ~ArtifactStore() {
     if(!directory.empty()) {
       std::error_code error;
       std::filesystem::remove_all(directory,error);
+    }
+  }
+};
+
+struct QueryArtifacts {
+  const std::shared_ptr<ArtifactStore> store;
+  const std::string prefix;
+  QueryArtifacts(std::shared_ptr<ArtifactStore> owner,std::string name)
+      :store(std::move(owner)),prefix(std::move(name)) {}
+  QueryArtifacts(const QueryArtifacts &)=delete;
+  QueryArtifacts &operator=(const QueryArtifacts &)=delete;
+  ~QueryArtifacts() {
+    for(const char *suffix:{".cnf",".proof",".model",".core","-core.cnf","-core.proof",".json",".up-proof"}) {
+      std::error_code error;
+      std::filesystem::remove(prefix+suffix,error);
     }
   }
 };
@@ -107,7 +121,8 @@ struct NativeRuntime {
 struct PublishedResultView {
   std::shared_ptr<const QueryResultSnapshot> snapshot;
   std::vector<int32_t> assumptions;
-  std::string bundle,input_hash;
+  std::shared_ptr<QueryArtifacts> files;
+  std::string input_hash;
 };
 
 struct Session {
@@ -122,7 +137,9 @@ struct Session {
   volatile sig_atomic_t stopped=0;
   bool in_strategy=false;
   std::shared_ptr<ArtifactStore> artifacts=std::make_shared<ArtifactStore>();
-  std::string current;
+  std::shared_ptr<QueryArtifacts> current;
+  // The public bundle contract retains published files until session release.
+  std::vector<std::shared_ptr<QueryArtifacts>> retained;
   std::shared_ptr<const PublishedResultView> published;
   strategy::controller::FeedbackSha256 input_digest;
   size_t hashed_words=0;
@@ -162,14 +179,15 @@ struct Session {
   std::unique_ptr<Proof> writer() {
     const auto *active=history.active_query();
     if(!active || attempt==UINT64_MAX)return {};
-    current=artifacts->directory+"/q"+std::to_string(active->id)+"-a"+std::to_string(++attempt);
-    FILE *cnf=std::fopen((current+".cnf").c_str(),"w");
+    current=std::make_shared<QueryArtifacts>(artifacts,
+        artifacts->directory+"/q"+std::to_string(active->id)+"-a"+std::to_string(++attempt));
+    FILE *cnf=std::fopen((current->prefix+".cnf").c_str(),"w");
     if(!cnf)return {};
     const bool written=history.write_query_dimacs(active->id,cnf);
     const bool closed=std::fclose(cnf)==0;
     if(!written||!closed)return {};
     auto proof=std::make_unique<Proof>();
-    if(!proof->open_automatic((current+".proof").c_str(),false))return {};
+    if(!proof->open_automatic((current->prefix+".proof").c_str(),false))return {};
     return proof;
   }
 
@@ -178,10 +196,10 @@ struct Session {
     if(!result || result->result==QueryResult::Unknown)return false;
     const bool sat=result->result==QueryResult::Sat;
     const auto certificate=sat?QueryCertificateStatus::Unchanged:
-        write_query_up_certificate(history,result->query,current,&stopped);
+        write_query_up_certificate(history,result->query,current->prefix,&stopped);
     if(certificate==QueryCertificateStatus::Error || certificate==QueryCertificateStatus::Interrupted)return false;
     const auto identity=input_digest.finish();
-    const std::string payload=current+(sat?".model":".core");
+    const std::string payload=current->prefix+(sat?".model":".core");
     FILE *file=std::fopen(payload.c_str(),"w");
     if(!file)return false;
     bool good=true;
@@ -197,16 +215,16 @@ struct Session {
     good=(std::fclose(file)==0)&&good;
     if(!good)return false;
     const bool reduced=!sat && result->core.kind==CoreKind::LicensedSubset;
-    if(reduced && !write_core_certificate(history,*result,current+"-core"))return false;
+    if(reduced && !write_core_certificate(history,*result,current->prefix+"-core"))return false;
     using strategy::controller::feedback_file_sha256;
     std::vector<std::string> members={".cnf",".proof",sat?".model":".core"},hashes;
     if(reduced) {members.push_back("-core.cnf");members.push_back("-core.proof");}
     for(const auto &member:members) {
       std::string digest;
-      if(!feedback_file_sha256((current+member).c_str(),digest))return false;
+      if(!feedback_file_sha256((current->prefix+member).c_str(),digest))return false;
       hashes.push_back(std::move(digest));
     }
-    file=std::fopen((current+".json").c_str(),"w");
+    file=std::fopen((current->prefix+".json").c_str(),"w");
     if(!file)return false;
     // Relative member suffixes avoid embedding caller paths in JSON strings.
     good=std::fprintf(file,
@@ -222,8 +240,9 @@ struct Session {
     good=(std::fputs("}}\n",file)>=0)&&good;
     good=(std::fclose(file)==0)&&good;
     if(good) {
-      published=std::make_shared<PublishedResultView>(PublishedResultView{
+      auto view=std::make_shared<PublishedResultView>(PublishedResultView{
           result,history.query(result->query)->assumptions,current,identity});
+      retained.push_back(current);published=std::move(view);
     }
     return good;
   }
@@ -245,6 +264,14 @@ struct Session {
     busy=false;return 0;
   }
   int advance_query(bool repair) {
+    // The old writer may survive a rejected advance/replay. Keep its files
+    // until replacement succeeds, and close failed writers before cleanup.
+    struct Attempt {
+      Session &session;
+      std::shared_ptr<QueryArtifacts> previous;
+      bool committed=false;
+      ~Attempt() {if(!committed)session.current=std::move(previous);}
+    } transaction{*this,current};
     auto proof=writer();if(!proof)return unknown();
     const auto advanced=repair?query->repair(history,std::move(proof),&stopped):
         query->advance(history,std::move(proof),&stopped);
@@ -253,7 +280,7 @@ struct Session {
       proof=writer();if(!proof)return unknown();
       if(query->replay(history,std::move(proof))!=ReplayStatus::Ok)return unknown();
     }
-    return 1;
+    transaction.committed=true;return 1;
   }
   int prepare(bool expose) {
     if(busy || input_error)return -1;
@@ -388,7 +415,6 @@ int query_action(QuerySolveStatus status,int ready=TACTIX_QUERY_READY) {
 }
 
 struct tactix_ipasir_result {
-  std::shared_ptr<ArtifactStore> artifacts;
   std::shared_ptr<const PublishedResultView> view;
 };
 
@@ -458,13 +484,13 @@ int tactix_ipasir_set_learn_budget(void *p,uint64_t ticks) {
   as_session(p)->query->set_learn_budget(ticks);return 0;
 }
 const char *tactix_ipasir_bundle(void *p) {
-  return p&&as_session(p)->published?as_session(p)->published->bundle.c_str():nullptr;
+  return p&&as_session(p)->published?as_session(p)->published->files->prefix.c_str():nullptr;
 }
 tactix_ipasir_result *tactix_ipasir_result_acquire(void *p) {
   if(!p)return nullptr;
   const auto &s=*as_session(p);
   if(s.busy || !s.published)return nullptr;
-  return new tactix_ipasir_result{s.artifacts,s.published};
+  return new tactix_ipasir_result{s.published};
 }
 void tactix_ipasir_result_release(tactix_ipasir_result *r) {delete r;}
 int tactix_ipasir_result_status(const tactix_ipasir_result *r) {
@@ -493,7 +519,7 @@ int tactix_ipasir_result_core_literal(const tactix_ipasir_result *r,size_t index
       ?r->view->snapshot->core.assumptions[index]:0;
 }
 const char *tactix_ipasir_result_bundle(const tactix_ipasir_result *r) {
-  return r?r->view->bundle.c_str():nullptr;
+  return r?r->view->files->prefix.c_str():nullptr;
 }
 const char *tactix_ipasir_result_input_sha256(const tactix_ipasir_result *r) {
   return r?r->view->input_hash.c_str():nullptr;
@@ -504,7 +530,7 @@ tactix_ipasir_reduction *tactix_ipasir_minimize_core(void *p,const tactix_ipasir
   auto &s=*as_session(p);
   if(s.busy || s.minimizing || s.input_error || s.history.active_query() ||
       !s.history.pending_clause().empty() || !s.history.pending_assumptions().empty() ||
-      source->view->snapshot->result!=QueryResult::Unsat || source->artifacts!=s.artifacts ||
+      source->view->snapshot->result!=QueryResult::Unsat || source->view->files->store!=s.artifacts ||
       source->view->snapshot->input_words!=s.history.input().size() ||
       source->view->input_hash!=s.input_digest.finish())return nullptr;
   auto reduced=std::make_unique<tactix_ipasir_reduction>();

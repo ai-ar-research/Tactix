@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static int stop(void *unused) {(void)unused;return 1;}
 static int exists(const char *prefix) {
@@ -46,17 +47,30 @@ int main(int argc,char **argv) {
   assert(tactix_ipasir_result_val(sat,9)==-9&&tactix_ipasir_result_val(sat,-9)==-9);
   assert(!tactix_ipasir_result_val(sat,INT_MIN)&&!tactix_ipasir_result_val(sat,10));
   assert(!tactix_ipasir_result_core_size(sat)&&!tactix_ipasir_result_failed(sat,-1));
+  char sat_files[4096],discarded[4096]="";
+  snprintf(sat_files,sizeof sat_files,"%s",tactix_ipasir_result_bundle(sat));
+  for(unsigned i=0;i<8;++i) {
+    ipasir_assume(s,-9);assert(ipasir_solve(s)==10);
+    if(*discarded)assert(exists(discarded)); // public session-lifetime contract
+    snprintf(discarded,sizeof discarded,"%s",tactix_ipasir_bundle(s));
+    assert(exists(old)&&exists(sat_files)&&exists(discarded));
+  }
   ipasir_add(s,-1);assert(!tactix_ipasir_result_acquire(s));ipasir_add(s,0);
   assert(ipasir_solve(s)==20);tactix_ipasir_result *hard=tactix_ipasir_result_acquire(s);
-  assert(hard&&!tactix_ipasir_result_core_size(hard));
+  assert(hard&&!tactix_ipasir_result_core_size(hard)&&exists(discarded));
+  char hard_files[4096],directory[4096];
+  snprintf(hard_files,sizeof hard_files,"%s",tactix_ipasir_result_bundle(hard));
+  snprintf(directory,sizeof directory,"%s",old);*strrchr(directory,'/')=0;
   ipasir_set_terminate(s,NULL,stop);assert(!ipasir_solve(s)&&!tactix_ipasir_result_acquire(s));
   ipasir_release(s);
+  assert(!exists(discarded)); // no owned result retained these query files
   assert(exists(old)&&!strcmp(old,tactix_ipasir_result_bundle(core)));
   assert(tactix_ipasir_result_failed(core,-1)&&tactix_ipasir_result_val(sat,9)==-9);
   save(core,out,1);save(sat,out,2);save(hard,out,3);
   tactix_ipasir_result_release(core);assert(exists(old));
-  tactix_ipasir_result_release(copy);assert(exists(old));
-  tactix_ipasir_result_release(sat);assert(exists(old));
-  tactix_ipasir_result_release(hard);assert(!exists(old));
-  puts("Owned IPASIR results: immutable models/cores/artifacts survive mutation, probes and release; last owner cleans files");
+  tactix_ipasir_result_release(copy);assert(!exists(old)&&exists(sat_files)&&exists(hard_files));
+  tactix_ipasir_result_release(sat);assert(!exists(sat_files)&&exists(hard_files));
+  tactix_ipasir_result_release(hard);assert(!exists(hard_files));
+  struct stat remaining;assert(stat(directory,&remaining)!=0);
+  puts("Owned IPASIR results: each result retains only its query; the last owner cleans the directory");
 }
