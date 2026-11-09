@@ -487,6 +487,7 @@ void test_native_scheduling_observations() {
   k.stats.sweep_equivalences = 11; k.stats.sweep_units = 3; k.stats.sweep_swept = 17;
   k.stats.learned_glue_sum = 23; k.stats.reason_bump_rounds = 7;
   k.stats.reason_bump_aborted = 2;
+  k.stats.bve_marks = 13; k.subsume_material_count = 19;
   const auto epoch = k.strategy_epoch, touch = k.touch_epoch;
   const auto trail = k.trail;
   for (unsigned repeat = 0; repeat != 3; ++repeat) {
@@ -496,6 +497,8 @@ void test_native_scheduling_observations() {
     assert(tactix_stat(s, TACTIX_STAT_LEARNED_GLUE_SUM) == 23);
     assert(tactix_stat(s, TACTIX_STAT_REASON_BUMP_ROUNDS) == 7);
     assert(tactix_stat(s, TACTIX_STAT_REASON_BUMP_ABORTED) == 2);
+    assert(tactix_stat(s, TACTIX_STAT_BVE_MARKS) == 13);
+    assert(tactix_stat(s, TACTIX_STAT_SUBSUME_MATERIAL) == 19);
     assert(tactix_stat(s, TACTIX_STAT_SEARCH_TICKS) == search);
     assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 4);
   }

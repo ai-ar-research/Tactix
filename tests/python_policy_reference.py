@@ -1,6 +1,83 @@
 """Python reference policies for C/Python scheduling equivalence tests."""
 from tactix import capi
 import math
+from dataclasses import dataclass
+
+
+@dataclass
+class InprocessClock:
+    next_conflicts: int = 0
+    rounds: int = 0
+    reductions_mark: int = 0
+    marks_mark: int = 0
+    fixed_mark: int = 0
+    material_mark: int = 0
+    blocked: bool = False
+    blocked_episodes: int = 0
+
+
+class NativeInprocessSchedule:
+    """Independent native phase clocks; not yet a complete DefaultPolicy.
+
+    Configuration comes from the C reference's native defaults. The Python
+    caller owns phase entry/exit, reduction notifications and watermark updates.
+    No native scheduling delegate or trace replay is used.
+    """
+    def __init__(self, config):
+        self.config = config
+        self.initialized = False
+        self.last_reduce_conflicts = (1 << 64) - 1
+        self.clocks = {group: InprocessClock() for group in ('Probe', 'Eliminate')}
+
+    @staticmethod
+    def observe(view):
+        return {name: view.tactix_stat(getattr(capi, 'TACTIX_STAT_' + name))
+                for name in ('CONFLICTS', 'REDUCTIONS', 'BVE_MARKS', 'ROOT_FIXED',
+                             'SUBSUME_MATERIAL', 'IRREDUNDANT_CLAUSES')}
+
+    def note_reduce(self, observation):
+        self.last_reduce_conflicts = observation['CONFLICTS']
+
+    def want_phase(self, observation, group):
+        clock = self.clocks[group]
+        conflicts = observation['CONFLICTS']
+        if (not self.initialized or
+            self.config['preprocess_only'] and conflicts or
+            group == 'Eliminate' and not conflicts or
+            self.last_reduce_conflicts == conflicts):
+            return False
+        startup = group == 'Probe' and not clock.rounds and conflicts == clock.next_conflicts
+        early = (conflicts <= clock.next_conflicts if group == 'Probe' else
+                 conflicts < clock.next_conflicts)
+        if not startup and early:
+            return False
+        blocked = self.config['watermarks'] and clock.rounds and (
+            observation['REDUCTIONS'] == clock.reductions_mark if group == 'Probe' else
+            observation['BVE_MARKS'] <= clock.marks_mark and
+            observation['ROOT_FIXED'] <= clock.fixed_mark and
+            observation['SUBSUME_MATERIAL'] <= clock.material_mark)
+        if blocked:
+            if not clock.blocked:
+                clock.blocked = True
+                clock.blocked_episodes += 1
+            return False
+        return True
+
+    def update_limit(self, observation, group):
+        clock = self.clocks[group]
+        split = self.config['split_clocks']
+        rounds = max(1, clock.rounds if split else
+                     max(c.rounds for c in self.clocks.values()))
+        lg = math.log10(float(rounds) + self.config['logarithm_offset'])
+        if split and group == 'Probe':
+            base = float(self.config['probe_interval']) * float(rounds) * lg
+        else:
+            base = float(self.config['eliminate_interval']) * float(rounds) * lg * lg
+        scale = (math.log10(float(observation['IRREDUNDANT_CLAUSES']) + 1.0 +
+                            self.config['logarithm_offset']) - self.config['scale_log_shift'])
+        delta = int((self.config['scale_quadratic'] * scale * scale +
+                     self.config['scale_constant']) * float(int(base)))
+        clock.next_conflicts = (observation['CONFLICTS'] + delta) & ((1 << 64) - 1)
 
 
 class Smooth:
