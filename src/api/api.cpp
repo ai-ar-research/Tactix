@@ -78,6 +78,7 @@ struct tactix_solver {
   bool input_completed = false;
   bool pending_input_proof = false;
   uint64_t model_strategy_epoch = UINT64_MAX;
+  session::ModelStatus query_model_status=session::ModelStatus::InvalidValue;
   int guidance_publication = TACTIX_GUIDANCE_DISCARD;
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
@@ -273,13 +274,24 @@ bool has_sat_assignment(const Kernel &kernel) {
          kernel_propagation_fixpoint(kernel);
 }
 
+session::ModelStatus query_model(tactix_solver *solver) {
+  const auto projection=solver->query_owner->projection_state(solver->query_ticket);
+  if(!solver->query_owner->kernel(solver->query_ticket) || projection.restore)
+    return session::ModelStatus::InvalidQuery;
+  if(projection.invalid_model)return session::ModelStatus::InvalidValue;
+  if(!solver->kernel.model_extended || solver->model_strategy_epoch!=solver->kernel.strategy_epoch) {
+    solver->query_model_status=solver->query_owner->check_model(solver->query_ticket).status;
+    solver->model_strategy_epoch=solver->kernel.strategy_epoch;
+  }
+  return solver->query_model_status;
+}
+
 void prepare_external_model(tactix_solver *solver) {
   if(solver->query_owner) {
-    const auto model=solver->query_owner->check_model(solver->query_ticket);
-    if(model.status!=session::ModelStatus::Valid && model.status!=session::ModelStatus::FalsifiedAssumption)
-      solver->query_status=model.status==session::ModelStatus::InvalidQuery?
+    const auto model=query_model(solver);
+    if(model!=session::ModelStatus::Valid && model!=session::ModelStatus::FalsifiedAssumption)
+      solver->query_status=model==session::ModelStatus::InvalidQuery?
           session::QuerySolveStatus::RestorationRequired:session::QuerySolveStatus::InvalidModel;
-    solver->model_strategy_epoch=solver->kernel.strategy_epoch;
     return;
   }
   Kernel &kernel = solver->kernel;
@@ -2419,7 +2431,13 @@ int tactix_solve(tactix_solver *s) {
 int tactix_value(tactix_solver *s, int elit) {
   if(s->query_owner) {
     if(!elit || elit==INT32_MIN)return 0;
-    if(s->query_owner->check_model(s->query_ticket).status!=session::ModelStatus::Valid)return 0;
+    if(!s->query_owner->kernel(s->query_ticket))return 0;
+    // Reads do not propose partial assignments as models. Explicit SAT
+    // candidates already have a checked cache, including rejected candidates.
+    const bool cached=s->kernel.model_extended&&s->model_strategy_epoch==s->kernel.strategy_epoch;
+    if(!cached&&(!has_sat_assignment(s->kernel)||
+       s->query_owner->next_assumption(s->query_ticket).status!=session::AssumptionStatus::Ready))return 0;
+    if(query_model(s)!=session::ModelStatus::Valid)return 0;
     const Lit literal=internalize(elit);
     if(var_of(literal)>=s->kernel.model_values.size()/2)return 0;
     const auto value=s->kernel.model_values[literal];
@@ -2474,7 +2492,7 @@ static int result_code(tactix_solver *solver, ApplyResult res) {
   if(solver->query_owner && res==ApplyResult::Sat) {
     prepare_external_model(solver);
     return solver->query_status==session::QuerySolveStatus::Complete &&
-        solver->query_owner->check_model(solver->query_ticket).status==session::ModelStatus::Valid?10:0;
+        query_model(solver)==session::ModelStatus::Valid?10:0;
   }
   if(solver->query_owner && res==ApplyResult::Unsat)return tactix_status(solver);
   switch (res) {
@@ -3568,10 +3586,10 @@ int tactix_status(tactix_solver *s) {
       return s->query_status==session::QuerySolveStatus::Complete?20:0;
     }
     if(next.status==session::AssumptionStatus::Ready && has_sat_assignment(s->kernel)) {
-      const auto model=s->query_owner->check_model(s->query_ticket);
-      if(model.status==session::ModelStatus::Valid)return 10;
-      if(model.status!=session::ModelStatus::FalsifiedAssumption)
-        s->query_status=model.status==session::ModelStatus::InvalidQuery?
+      const auto model=query_model(s);
+      if(model==session::ModelStatus::Valid)return 10;
+      if(model!=session::ModelStatus::FalsifiedAssumption)
+        s->query_status=model==session::ModelStatus::InvalidQuery?
             session::QuerySolveStatus::RestorationRequired:session::QuerySolveStatus::InvalidModel;
     }
     return 0;

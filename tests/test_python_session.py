@@ -166,7 +166,9 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
         assert execution.rejected_models==0
         assert execution.apply('Lucky',0)==0
         count=execution.rejected_models
-        assert count>0 and execution.rejected_models==count
+        assert count==1
+        for _ in range(32):assert execution.c.tactix_value(1)==0
+        assert execution.rejected_models==count
         assert execution.apply('Restart',0)>=0
         assert execution.rejected_models==count
         rejected.append(execution)

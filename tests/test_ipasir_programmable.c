@@ -101,9 +101,15 @@ static void rejected_model_observation(void) {
     ipasir_assume(s,-1);tactix *view=NULL;
     assert(tactix_ipasir_begin(s,&view)==1&&!tactix_ipasir_rejected_models(s));
     assert(tactix_apply_instance(view,rule("Lucky"),0)==0); // all true misses A
-    const uint64_t count=tactix_ipasir_rejected_models(s);assert(count&&count!=UINT64_MAX);
+    const uint64_t count=tactix_ipasir_rejected_models(s);assert(count==1);
+    for(unsigned j=0;j<32;++j)assert(!tactix_value(view,1));
     assert(tactix_ipasir_rejected_models(s)==count);
-    assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
+    if(i==0)assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
+    else {
+      assert(tactix_ipasir_assume_next(s)==-1); // Lucky's trail needs backtracking first.
+      for(unsigned j=0;j<32;++j)assert(!tactix_value(view,1)&&!tactix_status(view));
+      assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
+    }
     assert(tactix_ipasir_rejected_models(s)==count);
     driver_state state={0};assert(run_script(s,view,&state)==10);
     assert(tactix_ipasir_finish(s,10)==10&&ipasir_val(s,1)==-1&&ipasir_val(s,2)==2);
@@ -111,11 +117,40 @@ static void rejected_model_observation(void) {
   }
   ipasir_release(s);
 }
+static void model_reads(void) {
+  void *s=ipasir_init();assert(s);
+  ipasir_add(s,-1);ipasir_add(s,2);ipasir_add(s,0);ipasir_assume(s,1);
+  tactix *view=NULL;assert(tactix_ipasir_begin(s,&view)==1);
+  for(unsigned i=0;i<32;++i)assert(!tactix_value(view,1)&&!tactix_value(view,2));
+  assert(!tactix_ipasir_rejected_models(s)&&!tactix_status(view));
+  driver_state state={0};assert(run_script(s,view,&state)==10);
+  for(unsigned i=0;i<1024;++i)assert(tactix_value(view,1)==1&&tactix_value(view,-2)==2&&tactix_status(view)==10);
+  assert(!tactix_ipasir_rejected_models(s));
+  assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
+  for(unsigned i=0;i<32;++i)assert(!tactix_value(view,1)&&!tactix_value(view,2));
+  assert(!tactix_ipasir_rejected_models(s));
+  assert(run_script(s,view,&state)==10&&tactix_ipasir_finish(s,10)==10);
+  assert(ipasir_val(s,1)==1&&ipasir_val(s,2)==2);ipasir_release(s);
+}
+static void model_reads_before_assumptions(void) {
+  void *s=ipasir_init();assert(s);
+  ipasir_add(s,1);ipasir_add(s,2);ipasir_add(s,0);ipasir_assume(s,-1);
+  tactix *view=NULL;assert(tactix_ipasir_begin(s,&view)==1);
+  assert(!tactix_decide(view,1)&&!tactix_decide(view,2));
+  assert(tactix_apply(view,rule("Propagate"))>=0);
+  for(unsigned i=0;i<32;++i)assert(!tactix_value(view,1)&&!tactix_status(view));
+  assert(!tactix_ipasir_rejected_models(s));
+  assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
+  driver_state state={0};assert(run_script(s,view,&state)==10);
+  assert(tactix_ipasir_finish(s,10)==10&&ipasir_val(s,1)==-1);ipasir_release(s);
+}
 int main(int argc,char **argv) {
   assert(argc==1||argc==2);const char *prefix=argc==2?argv[1]:NULL;
   interrupt_between_boundary_and_action();
   interrupt_inside_boundary_observation();
   rejected_model_observation();
+  model_reads();
+  model_reads_before_assumptions();
   void *s=ipasir_init();assert(s);driver_state state={0};
   ipasir_add(s,1);ipasir_add(s,2);ipasir_add(s,0);
   assert(tactix_ipasir_set_default_option(s,"bad",NULL)==-1);
