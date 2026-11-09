@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tactix {
@@ -827,6 +828,9 @@ struct Kernel {
   // Always-compiled, nullable Stage-0 population seam. The observer is
   // non-owning; ScopedPopulationObserverBinding settles Proof before unbind.
   PopulationObserver *population_observer = nullptr;
+  // Cold observer-lifetime authentication. A detached capture must not become
+  // trusted again merely because a nested observer restored the same pointer.
+  uint64_t population_binding_epoch = 0;
   bool population_observe_raw_input = true;
   bool population_observe_solver = true;
   uint64_t next_population_transaction = 0;
@@ -958,6 +962,10 @@ struct Kernel {
   bool factor_demote_fresh = true;
   uint32_t factor_cand_rounds = 2;
   bool no_ext_reason_bump = false;
+  // Strategy advice, keyed by permanent zero-based external identity. Mathematical
+  // rules remain unfiltered; DefaultPolicy selects its startup deferral.
+  std::unordered_set<uint32_t> variable_retention;
+  const std::unordered_set<uint32_t> *substitute_retention = nullptr;
   std::vector<VarStatus> var_status;
   std::vector<Var> retired_events;
   // Set only through TACTIX_SUPPORT_HOLD_RETIREMENTS: the guidance publisher
@@ -1283,6 +1291,12 @@ inline uint32_t kernel_num_output_vars(const Kernel &k) {
 // the input-model boundary. Unlike `first_extension_var`, this predicate is
 // stable across internal-variable compaction and does not assume extensions
 // remain a contiguous internal suffix.
+// Startup policy advice; explicit elimination rules remain available.
+inline bool kernel_startup_retained(const Kernel &k, Var variable) {
+  return k.substitute_retention &&
+         k.substitute_retention->count(k.internal_to_external[variable]);
+}
+
 inline bool kernel_is_solver_extension(const Kernel &k, Var variable) {
   assert(variable < k.nvars);
   assert(variable < k.internal_to_external.size());

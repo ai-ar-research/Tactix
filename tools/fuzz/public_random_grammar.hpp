@@ -31,7 +31,7 @@ inline constexpr std::array<std::string_view, 15> SIMPLIFICATION_ACTIONS{{
     "SubsumeForward", "Sweep", "TransitiveReduce", "Vivify",
 }};
 
-inline constexpr std::array<std::string_view, 20>
+inline constexpr std::array<std::string_view, 21>
     STRUCTURAL_REASONING_ACTIONS{{
         "Factor", "SubstitutionRedundancy", "Condition", "ParityConsequence",
         "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
@@ -40,7 +40,7 @@ inline constexpr std::array<std::string_view, 20>
         "TseitinCycleBreaking", "GraphIntervalEquivalence",
         "AffineMatrixInitialize", "NaryCspEquality", "Gf3GeneralRowConsequence",
         "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
-        "CardinalitySearch",
+        "CardinalitySearch", "ExtendedResolution",
     }};
 
 inline constexpr std::array<std::string_view, 3> LOCAL_SEARCH_ACTIONS{{

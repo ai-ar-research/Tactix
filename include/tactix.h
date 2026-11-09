@@ -168,6 +168,13 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_BVE_OTF_STRENGTHENED 62 /* generation-time SSR rewrites */
 #define TACTIX_STAT_BVE_OTF_SUBSUMED 63 /* second parents deleted by double SSR */
 #define TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED 64 /* deferred startup helpers */
+#define TACTIX_STAT_DECISIONS_EXTENSION 65 /* solver helpers, including ER */
+#define TACTIX_STAT_REGION_QUERIES 66
+#define TACTIX_STAT_REGION_UNITS 67
+#define TACTIX_STAT_REGION_LEMMAS 68
+#define TACTIX_STAT_REGION_TICKS 69
+#define TACTIX_STAT_REGION_BUDGET 70
+#define TACTIX_STAT_REGION_INVALIDATED 71
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
@@ -386,6 +393,72 @@ int tactix_apply_instance(tactix *, int rule_id, uint64_t instance);
  * instance input publishes no X5 formula, proof, or reconstruction event. */
 int tactix_apply_condition(tactix *, const int *clause, int clause_count,
                            const int *witness, int witness_count);
+
+/* Exact Boolean extension, selected by the external strategy. Define a fresh
+ * z iff (left OP right), where operands are signed permanent DIMACS literals.
+ * Returns z's positive external identity, or -1 for an invalid/inapplicable
+ * request. Input closes as for other rule calls. After that closure, declines
+ * do not change the formula, variable namespace or guidance. Requires a
+ * consistent propagated sparse root and live operands; equal/complementary
+ * operands and root-assigned live variables are supported. Calls compose into
+ * circuits, including using earlier outputs as signed operands. Propagate any
+ * new root debt before the next definition. Each call allocates one variable.
+ * The registered ExtendedResolution rule has no numeric instance payload;
+ * its canonical application is a no-op. This function is its exact surface.
+ * RAT definitions preserve every original model; output models project away z.
+ * The output is published as an introduced-theory SemanticVariableAdvice
+ * candidate. Defining it does not itself bump activity or choose a phase.
+ * DefaultPolicy does not schedule this rule automatically. */
+#define TACTIX_EXTENSION_AND 1
+#define TACTIX_EXTENSION_OR 2
+#define TACTIX_EXTENSION_XOR 3
+int tactix_define_extension(tactix *, int gate, int left, int right);
+
+/* Optional solver-owned root program. Begin before defining ER outputs to
+ * capture their actual clauses. Clear releases its metadata and queued work;
+ * neither operation changes the formula. Begin returns 0/-1, clear returns 0.
+ * Ordinary solves allocate none of this state. */
+int tactix_regions_begin(tactix *);
+int tactix_regions_clear(tactix *);
+
+/* Register a region of positive permanent external variable IDs; copies,
+ * sorts and deduplicates the input. Returns a nonnegative region ID or -1.
+ * Any imported variables may be selected; the queried literal must belong.
+ * Probe selects live clauses whose unfixed variables are in the region.
+ * Sweep selects captured ER definition clauses with the same membership test.
+ * Both use current root facts outside the region. Source weakening invalidates
+ * captured definitions until a new session. */
+int tactix_region_add(tactix *, const int *variables, int count);
+
+/* Structured Probe/Sweep applications. Probe performs only unit propagation;
+ * Sweep uses the existing bounded CDCL engine and emits its RUP derivation.
+ * Refuting the selected literal adds its negation as a root unit. An
+ * inconclusive or budget-limited query adds no unit. ticks=0 is unlimited;
+ * Probe is one atomic native propagation cascade (ticks must be 0).
+ * apply requires a propagated sparse root and returns 0 changed, 1 declined,
+ * 20 UNSAT or -1 invalid. Queue copies the request and returns 0/-1; ordinary
+ * tactix_solve executes queued work at root before its usual preprocessing.
+ * Its cursor survives interruption. A normal solve follows any declined
+ * queries, with its complete default preprocessing/inprocessing enabled. */
+int tactix_region_apply(tactix *, int rule_id, int literal, int region,
+                       uint64_t ticks);
+int tactix_region_queue(tactix *, int rule_id, int literal, int region,
+                       uint64_t ticks);
+
+/* Read the next permanent external identity without allocating it. Input
+ * closes. Returns -1 if no representable identity remains. */
+int tactix_fresh_variable_start(tactix *);
+
+/* Strategy advice at root: retain/release a live external variable through
+ * initial automatic elimination. DefaultPolicy consumes this deferral at
+ * search entry; explicit mathematical rule applications remain available.
+ * ER outputs enter this set automatically. Returns 0, or -1 if invalid. */
+int tactix_set_variable_retention(tactix *, int variable, int retain);
+int tactix_variable_retained(tactix *, int variable); /* 1/0, -1 invalid */
+/* Additive EVSIDS/VMTF priority through SemanticVariableAdvice, no phase change.
+ * Returns 0 on success, -1 for an invalid/non-branchable root request. */
+int tactix_bump_variable(tactix *, int variable, uint32_t dose);
+
 
 /* Additive fine-grained action surface. Most rules delegate to the frozen v1
  * payloads. Rules whose v1 payload grouped multiple choices enumerate opaque

@@ -25,3 +25,10 @@ target_link_libraries(tactix-random3sat-policy PRIVATE tactix_lib)
 # Paper strategy for symbreak's Chvatal SAT subproblems.
 add_executable(tactix-chvatal-policy chvatal_policy.c)
 target_link_libraries(tactix-chvatal-policy PRIVATE tactix_lib)
+
+# ER definitions followed by ordinary solving, public API only.
+add_executable(tactix-php-er php_er_policy.cpp php_input.cpp)
+target_link_libraries(tactix-php-er PRIVATE tactix_lib)
+add_test(NAME php_er_policy COMMAND ${CMAKE_COMMAND} -E env python3
+  ${CMAKE_SOURCE_DIR}/tests/test_php_er_policy.py
+  $<TARGET_FILE:tactix-php-er>)

@@ -17,12 +17,16 @@
 #include "rules/analyze/analyze.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/condition/condition.hpp"
+#include "rules/extended_resolution/extended_resolution.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/structural_action_guard.hpp"
 #include "rules/registry.hpp"
 #include "strategy/execution_scope.hpp"
+#include "strategy/semantic_variable_advice.hpp"
 #include "strategy/guidance_execution.hpp"
 #include "strategy/heuristic_execution.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/region_program.hpp"
 #include "strategy/parameter_execution.hpp"
 #include "strategy/phase_execution.hpp"
 #include "strategy/publication_execution.hpp"
@@ -65,6 +69,7 @@ struct tactix_solver {
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
+  std::unique_ptr<strategy::RegionProgram> regions;
   // Execution contexts entered through tactix_support, innermost last.
   std::vector<std::pair<execution::ExecutionContext,
                         execution::ExecutionContextState>> contexts;
@@ -2162,7 +2167,7 @@ int tactix_solve(tactix_solver *s) {
   int r;
   {
     ScopedStrategySettings settings(&s->default_options);
-    r = default_solve(s->kernel);
+    r = default_solve(s->kernel, nullptr, s->regions.get());
   }
   rule_journal_flush();
   external_state_change(s);
@@ -2319,6 +2324,125 @@ int tactix_apply_condition(tactix_solver *s, const int *clause,
   });
   kernel_check_invariants(s->kernel);
   return result_code(s, result);
+}
+
+int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
+  if (!s || gate < TACTIX_EXTENSION_AND || gate > TACTIX_EXTENSION_XOR)
+    return -1;
+  input_complete(s);
+  const ExtensionDefinition definition{static_cast<ExtensionGate>(gate), left, right};
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("ExtendedResolution")];
+  if (!rule_guard(rule, s->kernel) ||
+      !extended_resolution_valid(s->kernel, definition)) return -1;
+  const std::string description = "gate=" + std::to_string(gate) +
+      ";left=" + std::to_string(left) + ";right=" + std::to_string(right);
+  int32_t output = 0;
+  if (s->regions) s->regions->begin_definition();
+  apply_published(s, [&] {
+    return apply_rule_structured_preserve_startup(rule, s->kernel,
+        description.c_str(), [&] {
+          output = extended_resolution_define(s->kernel, definition);
+          return output ? ApplyResult::Ok : ApplyResult::NoOp;
+        });
+  });
+  if (s->regions) s->regions->end_definition(output);
+  if (output) s->kernel.variable_retention.insert(static_cast<uint32_t>(output-1));
+  kernel_check_invariants(s->kernel);
+  return output ? output : -1;
+}
+
+int tactix_regions_begin(tactix_solver *s) {
+  if (!s || s->regions) return -1;
+  input_complete(s);
+  if (s->kernel.level || s->kernel.inconsistent || s->kernel.probing.recording)
+    return -1;
+  s->regions = std::make_unique<strategy::RegionProgram>(s->kernel);
+  external_state_change(s); return 0;
+}
+int tactix_regions_clear(tactix_solver *s) {
+  if (!s) return -1;
+  s->regions.reset(); external_state_change(s); return 0;
+}
+int tactix_region_add(tactix_solver *s, const int *variables, int count) {
+  if (!s || !s->regions || !c_array(variables, count)) return -1;
+  const int id = s->regions->add_region({variables, size_t(count)});
+  if (id >= 0) external_state_change(s);
+  return id;
+}
+static bool region_request(tactix_solver *s, int rule, int literal, int region,
+                           uint64_t ticks, strategy::RegionQuery &q) {
+  if (!s || !s->regions || region < 0) return false;
+  q = {rule, literal, uint32_t(region), ticks};
+  return s->regions->valid_query(q);
+}
+int tactix_region_queue(tactix_solver *s, int rule, int literal, int region,
+                        uint64_t ticks) {
+  strategy::RegionQuery q;
+  if (!region_request(s, rule, literal, region, ticks, q) ||
+      !s->regions->enqueue(q)) return -1;
+  external_state_change(s); return 0;
+}
+int tactix_region_apply(tactix_solver *s, int rule, int literal, int region,
+                        uint64_t ticks) {
+  strategy::RegionQuery q;
+  if (!region_request(s, rule, literal, region, ticks, q) ||
+      !root_action_guard(s->kernel, false).clausal_certificate().finish()) return -1;
+  const auto result = apply_published(s, [&] { return s->regions->apply(q); });
+  kernel_check_invariants(s->kernel);
+  return result_code(s, result);
+}
+
+int tactix_fresh_variable_start(tactix_solver *s) {
+  if (!s) return -1;
+  input_complete(s);
+  const auto extent=s->kernel.external_to_internal.size();
+  return extent<INT32_MAX ? int(extent+1) : -1;
+}
+
+int tactix_set_variable_retention(tactix_solver *s, int external, int retain) {
+  if (!s || external<=0 || (retain!=0 && retain!=1)) return -1;
+  input_complete(s);
+  auto &k=s->kernel;
+  const Lit l=kernel_internalize(k,external);
+  if (k.level || l==INVALID_LIT || kernel_var_retired(k,var_of(l))) return -1;
+  if (retain) k.variable_retention.insert(uint32_t(external-1));
+  else k.variable_retention.erase(uint32_t(external-1));
+  external_state_change(s);
+  return 0;
+}
+
+int tactix_variable_retained(tactix_solver *s, int external) {
+  if (!s || external<=0) return -1;
+  input_complete(s);
+  const Lit l=kernel_internalize(s->kernel,external);
+  if (l==INVALID_LIT) return -1;
+  return s->kernel.variable_retention.count(uint32_t(external-1)) ? 1:0;
+}
+
+int tactix_bump_variable(tactix_solver *s, int external, uint32_t dose) {
+  if (!s || external<=0 || !dose) return -1;
+  input_complete(s);
+  auto &k=s->kernel;
+  if (k.inconsistent || k.level || k.conflict_valid || k.pending.valid || !k.h) return -1;
+  strategy::SemanticVariableAdvice advice;
+  advice.action_id=1;
+  advice.source=strategy::state_version(k);
+  const Lit literal=kernel_internalize(k,external);
+  if (literal==INVALID_LIT) return -1;
+  const auto role=kernel_is_solver_extension(k,var_of(literal))
+      ? strategy::SemanticVariableRole::IntroducedTheory
+      : strategy::SemanticVariableRole::ExistingTheory;
+  advice.variables.push_back({uint32_t(external),role,dose});
+  strategy::SemanticVariableAdviceResult outcome;
+  const auto &rule=tactix_rules()[tactix_rule_id("SemanticVariableAdvice")];
+  apply_published(s,[&] {
+    return apply_rule_structured_preserve_startup(rule,k,"explicit-variable-priority",[&] {
+      outcome=strategy::commit_semantic_variable_advice(k,advice,{1,dose});
+      return outcome.status==strategy::SemanticVariableAdviceStatus::Applied
+          ? ApplyResult::Ok:ApplyResult::NoOp;
+    });
+  });
+  return outcome.status==strategy::SemanticVariableAdviceStatus::Applied ? 0:-1;
 }
 
 int tactix_rule_semantic_instances(tactix_solver *s, int rule_id,
@@ -2524,6 +2648,13 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   case TACTIX_STAT_BVE_OTF_SUBSUMED: return k.stats.bve_otf_subsumed;
   case TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED:
     return k.stats.fastel_extensions_protected;
+  case TACTIX_STAT_DECISIONS_EXTENSION: return k.stats.decisions_extension;
+  case TACTIX_STAT_REGION_QUERIES: return k.stats.region_queries;
+  case TACTIX_STAT_REGION_UNITS: return k.stats.region_units;
+  case TACTIX_STAT_REGION_LEMMAS: return k.stats.region_lemmas;
+  case TACTIX_STAT_REGION_TICKS: return k.stats.region_ticks;
+  case TACTIX_STAT_REGION_BUDGET: return k.stats.region_budget;
+  case TACTIX_STAT_REGION_INVALIDATED: return k.stats.region_invalidated;
 
   default:
     return UINT64_MAX;

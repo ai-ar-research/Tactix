@@ -18,6 +18,7 @@
 #include "engine/subsolver.hpp"
 
 #include <memory>
+#include <deque>
 #include <span>
 #include <vector>
 
@@ -45,11 +46,25 @@ inline uint64_t sweep_semantic_effort(const Kernel &k) {
 
 constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
 
+// One immutable creation-pose clause per embedded id. Captures from different
+// queries in the same environment usually share most of their reason cones.
+struct SweepProofPool {
+  std::deque<SubStep> steps;
+  std::vector<const SubStep *> by_id;
+  void remember(SubStep step) {
+    if (by_id.size() <= step.id) by_id.resize(size_t(step.id) + 1);
+    if (by_id[step.id]) return;
+    steps.push_back(std::move(step));
+    by_id[steps.back().id] = &steps.back();
+  }
+};
+
 // The local clause set around one seed, encoded for the sub-solver, plus the
 // two mappings emission needs: sub var → kernel var, and environment clause id
 // → main-formula proof id.
 struct SweepEnv {
   SubSolver solver;
+  std::shared_ptr<SweepProofPool> proof_pool;
   // Formula-mutation epoch after this environment was fully built. Inline
   // emission may rewrite F while the embedded solver still holds this local
   // snapshot; captured general proofs are usable only at this epoch.
@@ -94,14 +109,32 @@ struct SweepDirProof {
   // immutable raw derivation instead of copying each (potentially huge)
   // prefix.
   std::shared_ptr<const std::vector<SubStep>> shared_steps;
+  std::shared_ptr<SweepProofPool> pool;
+  std::shared_ptr<const std::vector<uint32_t>> pooled_steps;
+  // Kitten's synthetic final target may reuse next_id across queries. Its
+  // identity is query-local even when the underlying learned prefix is shared.
+  std::shared_ptr<const SubStep> pooled_target;
   size_t shared_step_count = 0;
-  std::span<const SubStep> steps_view() const {
-    if (shared_steps)
-      return {shared_steps->data(), shared_step_count};
-    return steps;
+  struct StepsView {
+    const SweepDirProof &proof;
+    size_t size() const {
+      return proof.pooled_steps || proof.shared_steps
+                 ? proof.shared_step_count : proof.steps.size();
+    }
+    bool empty() const { return !size(); }
+    const SubStep &operator[](size_t i) const {
+      if (proof.pooled_steps && i + 1 == proof.pooled_steps->size())
+        return *proof.pooled_target;
+      if (proof.pooled_steps)
+        return *proof.pool->by_id[(*proof.pooled_steps)[i]];
+      return proof.shared_steps ? (*proof.shared_steps)[i] : proof.steps[i];
+    }
+  };
+  StepsView steps_view() const {
+    return {*this};
   }
   void share_steps() {
-    if (!shared_steps) {
+    if (!shared_steps && !pooled_steps) {
       shared_step_count = steps.size();
       shared_steps =
           std::make_shared<const std::vector<SubStep>>(std::move(steps));
@@ -110,6 +143,7 @@ struct SweepDirProof {
   // Saved at the query boundary; original eligibility does not change while
   // a later core commits units.
   std::vector<SubDerivation::CoreClause> core_clauses;
+  std::vector<uint32_t> pooled_core;
   std::vector<uint64_t> orig_ids;
   std::vector<Var> vars;
   uint64_t formula_epoch = 0;

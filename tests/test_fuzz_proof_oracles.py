@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the actual fuzz dispatch with fixed proofs and real checkers."""
 import json
+import shutil
 from pathlib import Path
 import sys
 import tempfile
@@ -19,11 +20,26 @@ def synthetic_route_hint(proof):
 
 
 class FuzzProofOracles(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.sandbox = tempfile.TemporaryDirectory(prefix='fuzz-proof-oracles-')
+        cls.addClassCleanup(cls.sandbox.cleanup)
+        cls.campaign = Path(cls.sandbox.name)
+        pins = cls.campaign/'pins'
+        pins.mkdir()
+        for name, source in {
+            'cake_lpr': fuzz.CAKE_LPR, 'drat-trim': fuzz.DRAT_TRIM,
+            'dsr-trim': fuzz.DSR_TRIM, 'dsr-compress': fuzz.DSR_COMPRESS,
+            'srcheck': fuzz.SR_CHECK, 'veripb': fuzz.VERIPB,
+            'cake-pb-cnf': fuzz.CAKE_PB,
+        }.items():
+            shutil.copy2(source, pins/name)
+
     def test_pbp_leading_blanks_on_every_executing_surface(self):
         from proof_oracle import check_routed
         from runtime_task import check_unsat_proof
         from anonymous_scratch import AnonymousScratch
-        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        campaign = self.campaign
         pins = campaign/'pins'
         text = ('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
                 'output NONE ;\nconclusion UNSAT : -1 ;\n'
@@ -68,7 +84,7 @@ class FuzzProofOracles(unittest.TestCase):
     def test_input_restatement_maps_rat_hints_and_is_independently_checked(self):
         from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
         import subprocess
-        cake = ROOT/'benchmarks/runs/20260923-am341-unwatch/pins/cake_lpr'
+        cake = self.campaign/'pins/cake_lpr'
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, spelling_path = work/'input.cnf', work/'checker.cnf'
@@ -99,7 +115,7 @@ class FuzzProofOracles(unittest.TestCase):
     def test_routed_restatement_corruption_is_rejected_by_cake_lpr(self):
         import proof_oracle as oracle
         import runtime_task
-        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        campaign = self.campaign
         pins = campaign/'pins'
         actual = oracle.restate_duplicate_input_lrat
         def corrupt(cnf, spelling, source, target):
@@ -127,7 +143,7 @@ class FuzzProofOracles(unittest.TestCase):
         from proof_oracle import check_routed
         from runtime_task import check_unsat_proof
         from anonymous_scratch import AnonymousScratch
-        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        campaign = self.campaign
         pins = campaign/'pins'
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -159,7 +175,7 @@ class FuzzProofOracles(unittest.TestCase):
         from proof_oracle import check_dsr
         from runtime_task import check_unsat_proof
         import run as tier
-        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        campaign = self.campaign
         pins = campaign/'pins'
         layouts = (
             b'p cnf 1 2\r\n1 0\r\n-1 0\r\n',
@@ -201,7 +217,7 @@ class FuzzProofOracles(unittest.TestCase):
         from proof_oracle import check_routed
         from runtime_task import check_unsat_proof
         from anonymous_scratch import AnonymousScratch
-        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        campaign = self.campaign
         pins = campaign/'pins'
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -234,7 +250,7 @@ class FuzzProofOracles(unittest.TestCase):
     def test_empty_input_bridge_does_not_bypass_cake_lpr(self):
         import proof_oracle
         import runtime_task
-        campaign = ROOT/'benchmarks/runs/20260923-am341-unwatch'
+        campaign = self.campaign
         pins = campaign/'pins'
         actual_bridge = proof_oracle.bridge_trivial_input_lrat
         def corrupt_hint(spelling, lrat, returncode, stdout, stderr=''):
@@ -383,7 +399,7 @@ class FuzzProofOracles(unittest.TestCase):
 
     def test_pinned_checkers_accept_original_layout_variants(self):
         from proof_oracle import check_dsr, check_pb
-        pins = ROOT/'benchmarks/runs/20260923-am337-proof-lifetime-v2/pins'
+        pins = self.campaign/'pins'
         layouts = ['p cnf 1 2\n1\n0\n-1 0\n',
                    'p cnf 1 2\n1 0 -1 0\n',
                    'p cnf 1 2\n1 0\nc between clauses\n-1 0\n',
@@ -434,7 +450,7 @@ class FuzzProofOracles(unittest.TestCase):
         from proof_oracle import (certificate_route, check_routed,
                                   proof_check_status, pb_stages,
                                   stage_environment)
-        pins = ROOT/'benchmarks/baselines/sc24-26-32g-5000s/pins'
+        pins = self.campaign/'pins'
         self.assertTrue((pins/'veripb').is_file())
         self.assertTrue((pins/'cake-pb-cnf').is_file())
         self.assertEqual(stage_environment('cake-pb-cnf')['CML_HEAP_SIZE'],
@@ -598,7 +614,7 @@ class FuzzProofOracles(unittest.TestCase):
     def test_runtime_drat_layouts_and_routed_elaboration(self):
         from runtime_task import check_unsat_proof
         from proof_oracle import check_routed, drat_stages
-        campaign = ROOT/'benchmarks/runs/20260923-am337-proof-lifetime-v2'
+        campaign = self.campaign
         pins = campaign/'pins'
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -631,7 +647,7 @@ class FuzzProofOracles(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('bench_runner', ROOT/'tools/bench/run.py')
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
-        pins = ROOT/'benchmarks/runs/20260923-am337-proof-lifetime-v2/pins'
+        pins = self.campaign/'pins'
         with tempfile.TemporaryDirectory() as directory, patch.object(
                 runner, 'DRAT_TRIM', str(pins/'drat-trim')):
             cnf, proof = Path(directory)/'original.cnf', Path(directory)/'proof.drat'

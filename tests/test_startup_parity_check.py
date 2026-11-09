@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/bench'))
 from proof_oracle import check_routed, pb_proof_has_header
 
-pins = ROOT / 'benchmarks/baselines/sc24-26-32g-5000s/pins'
+pins = ROOT / 'tools/checkers/bin'
 with tempfile.TemporaryDirectory(prefix='startup-parity-check-') as directory:
     work = Path(directory)
     subprocess.run([sys.argv[1], str(work)], check=True)

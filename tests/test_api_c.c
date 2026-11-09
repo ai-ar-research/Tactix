@@ -603,12 +603,12 @@ static void test_stats_and_config_surface(void) {
   tactix_set_vivify_scope(s, 0);
   assert(tactix_set_vivify_parameters(s, 0, 1, 0, 10) == 0);
   assert(tactix_solve(s) == 20);
-  /* Completeness: every documented id 0..64 answers, in yield/effort pairs so
+  /* Completeness: every documented id answers, in yield/effort pairs so
      the §5.6 learner can order outcomes by cost per unit output. Presence
      only — tools/docs/check-stat-ids.py pins the mapping. */
-  for (id = 0; id <= 64; id++)
+  for (id = 0; id <= TACTIX_STAT_REGION_INVALIDATED; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
-  assert(tactix_stat(s, 65) == UINT64_MAX); /* first unknown id */
+  assert(tactix_stat(s, TACTIX_STAT_REGION_INVALIDATED + 1) == UINT64_MAX);
   assert(tactix_stat(s, -1) == UINT64_MAX);
   tactix_release(s);
 }
@@ -725,7 +725,7 @@ static void test_action_kind(void) {
       "Retired39", "GraphIntervalEquivalence",
       "AffineMatrixInitialize", "NaryCspEquality",
       "Gf3GeneralRowConsequence", "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
-      "CardinalitySearch"};
+      "CardinalitySearch", "ExtendedResolution"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)

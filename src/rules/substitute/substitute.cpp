@@ -1188,9 +1188,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   if (!session) {
     mapped_sub = std::move(sub);
     live_sub = mapped_sub;
-    for (Lit l = 0; l < nlits; l++)
-      live_sub[l] =
-          static_cast<uint8_t>(substitution_member_live(k, live_sub, l));
+    for (Lit l = 0; l < nlits; l++) {
+      // A policy may select a subset of the valid SCC substitution. An
+      // explicit standalone invocation has no selection and stays complete.
+      if (mapped_sub[l] && kernel_startup_retained(k, var_of(l))) {
+        mapped_sub[l]=mapped_sub[negate(l)]=0;
+        live_sub[l]=live_sub[negate(l)]=0;
+      }
+      live_sub[l]=static_cast<uint8_t>(substitution_member_live(k,live_sub,l));
+    }
   }
   substitute_stage_trace(k, "rewrite-live-sub", live_sub.size(),
                          live_sub.capacity());
@@ -2736,7 +2742,9 @@ ApplyResult substitute_apply_sweep_equivalences(
   // variables.
   const auto admitted = [&](Lit a, Lit b) {
     return a < nlits && b < nlits && a != b && a != negate(b) &&
-           k.value(a) == 0 && k.value(b) == 0;
+           k.value(a) == 0 && k.value(b) == 0 &&
+           !kernel_startup_retained(k, var_of(a)) &&
+           !kernel_startup_retained(k, var_of(b));
   };
   std::vector<Lit> members;
   members.reserve(4 * equivalences.size());

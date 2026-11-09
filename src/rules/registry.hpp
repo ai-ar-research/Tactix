@@ -229,6 +229,15 @@ RuleEligibility rule_guard(const RuleVTable &, const Kernel &);
       ::tactix::tactix_register_rule( \
           ::tactix::ActionKind::ProofRule, {#NAME, TIER, __VA_ARGS__})
 
+// An explicit strategy action, excluded from the default inprocessing append.
+#define TACTIX_REGISTER_OPT_IN_RULE(NAME, TIER, ...) \
+  static const int tactix_rule_registered_##NAME = \
+      ::tactix::tactix_register_rule(::tactix::ActionKind::ProofRule, [] { \
+        ::tactix::RuleVTable rule{#NAME, TIER, __VA_ARGS__}; \
+        rule.default_inprocess = false; \
+        return rule; \
+      }())
+
 // A policy operation (plan §4): H-only search guidance, no proof obligation.
 // Same registry, same append-only id space, same guard/apply(/instance)
 // contract — only the ActionKind differs, so a rule reclassified in place

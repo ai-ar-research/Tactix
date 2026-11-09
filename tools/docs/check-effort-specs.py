@@ -198,6 +198,14 @@ TABLE = {
                            r'gf3_general_row_action_apply\('),
                           ("tests/test_gf3_general_row_public.cpp",
                            r'c_v11_deep_copies_typed_selection\(')]),
+    "ExtendedResolution":
+                        (EXPLICIT, "caller-selected Boolean definitions; default append disabled",
+                         [r'rules\[i\]\.default_inprocess'],
+                         [("src/rules/extended_resolution/extended_resolution.cpp",
+                           r'TACTIX_REGISTER_OPT_IN_RULE\(ExtendedResolution'),
+                          ("src/rules/registry.hpp", r'rule\.default_inprocess = false'),
+                          ("tests/test_extended_resolution.cpp",
+                           r'public_composition_and_advice\(')]),
     "CardinalitySearch":
                         (EXPLICIT, "typed authenticated CDCL-time cardinality action; default slot disabled",
                          [r'std::strcmp\(rules\[i\]\.name, "CardinalitySearch"\)'],

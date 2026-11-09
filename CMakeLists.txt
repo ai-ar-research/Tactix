@@ -165,7 +165,32 @@ if(TACTIX_BUILD_TESTS)
     add_executable(dsr-transport tools/bench/dsr_transport.cpp)
     add_test(NAME dsr_transport COMMAND python3
       ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/test_dsr_transport.py $<TARGET_FILE:dsr-transport>)
+    set_tests_properties(dsr_transport PROPERTIES LABELS "integration")
   endif()
   add_subdirectory(tests)
   add_subdirectory(examples)
+
+  # Exhaustive sweeps, large solve fixtures and external checker campaigns are
+  # explicit local runs rather than routine CI tests.
+  set(TACTIX_EXTENDED_TESTS
+      symmetry_backend lucky_late_parallel cli_auto_proof feedback_frontend
+      demo3_scripted_default structural_journal_trajectory congruence_ite_collapse
+      inspect_policy_feedback micro_proofs independent_set_semantic_extension
+      affine_matrix congruence_ite_valued_sides dsr_transport sweep_proofs
+      vivify_compact_contract api_one_search affine_matrix_search_proof subsolver
+      congruence_ite_unit_proof ramsey_cli default_public_replay online_inprocess
+      connected_occurrence pbp_deletion_identity_cli symmetry_clause_multiset
+      event_trace_zero_overhead analysis_native_target automatic_proof
+      feedback_provenance)
+  foreach(test_directory IN ITEMS "${CMAKE_CURRENT_SOURCE_DIR}"
+                                  "${CMAKE_CURRENT_SOURCE_DIR}/tests"
+                                  "${CMAKE_CURRENT_SOURCE_DIR}/examples")
+    get_property(directory_tests DIRECTORY "${test_directory}" PROPERTY TESTS)
+    foreach(test_name IN LISTS directory_tests)
+      if(test_name IN_LIST TACTIX_EXTENDED_TESTS)
+        set_property(TEST "${test_name}" DIRECTORY "${test_directory}"
+                     APPEND PROPERTY LABELS extended)
+      endif()
+    endforeach()
+  endforeach()
 endif()

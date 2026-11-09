@@ -221,6 +221,20 @@ void test_non_rup_equivalence() {
   const uint32_t found = sweep_detect_round(k, lim, r);
   assert(found == 1);
   assert(r.found.size() == 1);
+  const auto &pair = r.proofs.front();
+  assert(pair.fwd.pool && pair.fwd.pool == pair.rev.pool);
+  const auto forward = pair.fwd.steps_view();
+  const auto reverse = pair.rev.steps_view();
+  // A captured clause keeps its creation pose while later embedded queries
+  // and environments move their own watches or reset their local IDs.
+  for (size_t i = 0; i + 1 < forward.size(); ++i)
+    for (size_t j = 0; j + 1 < reverse.size(); ++j)
+      if (forward[i].id == reverse[j].id)
+        assert(&forward[i] == &reverse[j]);
+  const uint32_t saved_id = forward[0].id;
+  const auto saved_lits = forward[0].lits;
+  r.env.proof_pool.reset();
+  assert(forward[0].id == saved_id && forward[0].lits == saved_lits);
   // The full partition is model-polarized. Kitten's deterministic randomized
   // phases may represent x=y as either (x,y) or (-x,-y).
   assert(same_polarity_pair(r.found[0], x, y));

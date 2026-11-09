@@ -16,6 +16,8 @@ def main():
         "tactix_bench_run", root / "tools" / "bench" / "run.py")
     runner = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runner)
+    runner.VERIPB = str(root / "tools/checkers/bin/veripb")
+    runner.CAKE_PB_CNF = str(root / "tools/checkers/bin/cake-pb-cnf")
 
     with tempfile.TemporaryDirectory(prefix="tactix-api-pbp-") as raw:
         directory = pathlib.Path(raw)

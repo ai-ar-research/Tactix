@@ -5,7 +5,7 @@ A *strategy* is a C program that decides which of the solver's techniques
 [c-api.md](c-api.md) introduces the interface; this page walks through two
 example strategies and shows how to compile and run your own.
 
-The interface is large: 46 rules, many with their own settings. You
+The interface has many rules, each with its own settings. You
 do not need most of it to start. Both examples use a handful of rules and
 hand the rest of the work to the built-in strategy.
 
@@ -107,7 +107,14 @@ short opening that exploits it with a few rules, and let the built-in strategy
 do the rest. The paper's second case study,
 [`examples/chvatal_policy.c`](../examples/chvatal_policy.c), follows it too.
 
-## 4. Compiling and running your own strategy
+## 4. Choosing Boolean extension variables
+
+Strategies can introduce exact AND/OR/XOR definitions, retain them through
+startup elimination, and raise their decision priority before ordinary solve.
+See [extended resolution](extended-resolution.md) for the API and the
+[PHP strategy](../examples/php_er_policy.cpp).
+
+## 5. Compiling and running your own strategy
 
 Start from an example, for instance `examples/demo1_dpll.c` (a complete
 search) or `examples/cruxmiter_policy.c` (an opening, then the built-in

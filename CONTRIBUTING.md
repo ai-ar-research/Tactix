@@ -14,6 +14,14 @@ ctest --preset debug                       # unit, API, proof and example tests
 The release preset (`--preset release`) is the one to measure performance
 with. Every change should keep the debug test suite green.
 
+Routine test presets exclude the `extended` label. Keep individual CI tests
+under ten seconds by limiting their workload; exhaustive sweeps, large solver fixtures and
+long external proof checks belong in explicit extended runs:
+
+```sh
+ctest --test-dir build/debug -L extended --output-on-failure
+```
+
 ## Correctness checks
 
 Tactix's correctness rests on independent checking, not on trusting the
