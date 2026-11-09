@@ -133,6 +133,28 @@ static void repeated_session() {
   }
 }
 
+static void selected_seed_budget() {
+  for (unsigned mode = 0; mode < 4; ++mode) {
+    Kernel k;
+    positive_clause(k, 3);
+    SweepLimits lim;
+    // Both the explicit round limit and the enclosing public rule limit
+    // must reach the selected seed's embedded solver. Keep a tighter
+    // environment limit when both are supplied.
+    if (mode == 0) lim.round_ticks = 1;
+    if (mode == 1) {
+      k.work_budget = 1;
+      k.work_budget_bounded = true;
+    }
+    if (mode == 2) { lim.round_ticks = 8; lim.env_ticks = 1; }
+    if (mode == 3) { lim.round_ticks = 1; lim.env_ticks = 8; }
+    assert(sweep_try_with_limits(k, 0, lim) == ApplyResult::NoOp);
+    assert(k.stats.sweep_solves == 1 && k.stats.sweep_budget == 1);
+    assert(k.stats.sweep_ticks_sub == 1);
+    assert(!k.inconsistent && k.trail.empty());
+  }
+}
+
 int main(int argc, char **argv) {
   const bool old = argc == 2 && !std::strcmp(argv[1], "--old-counterexample");
   for (uint32_t size : {2u, 3u, 17u, 270u}) {
@@ -150,5 +172,6 @@ int main(int argc, char **argv) {
   root_and_retired_still_decline();
   enclosing_budget();
   repeated_session();
+  selected_seed_budget();
   std::puts("small-environment solve/model/effort: PASS");
 }
