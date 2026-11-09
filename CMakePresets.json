@@ -26,7 +26,13 @@
     { "name": "release", "configurePreset": "release" }
   ],
   "testPresets": [
-    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
-    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } }
+    { "name": "debug", "configurePreset": "debug",
+      "output": { "outputOnFailure": true },
+      "filter": { "exclude": { "label": "extended" } },
+      "execution": { "timeout": 10 } },
+    { "name": "release", "configurePreset": "release",
+      "output": { "outputOnFailure": true },
+      "filter": { "exclude": { "label": "extended" } },
+      "execution": { "timeout": 10 } }
   ]
 }

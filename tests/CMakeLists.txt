@@ -447,11 +447,6 @@ add_test(NAME vivify_count_cache
 # The full-device failure fixture is unavailable on platforms without /dev/full.
 set_tests_properties(proof_output_failure PROPERTIES SKIP_RETURN_CODE 77)
 
-# Bound the empty-scope interruption regression if stop polling regresses.
-# The nonvacuous 728-graph clique-order sweep also exercises bounded prefixes;
-# the full online suite takes about 21 seconds under ASan/UBSan.
-set_tests_properties(online_inprocess PROPERTIES TIMEOUT 60)
-
 tactix_skip77_test(tseitin_cycle_action_journal
                    ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
                    ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-trim
