@@ -32,7 +32,7 @@ namespace {
 using tactix_public_random::Phase;
 using tactix_public_random::Terminal;
 
-enum class Form : unsigned { Canonical, Instance, Semantic, Online, Count };
+enum class Form : unsigned { Canonical, Instance, Semantic, Online, Structured, Count };
 enum class Profile : unsigned {
   RootHeavy,
   SearchHeavy,
@@ -408,7 +408,7 @@ Form choose_form(const Coverage &coverage, Profile profile, Rng &rng) {
   uint64_t best = UINT64_MAX;
   std::array<Form, static_cast<unsigned>(Form::Count)> choices{};
   size_t count = 0;
-  for (unsigned raw = 0; raw < static_cast<unsigned>(Form::Count); ++raw) {
+  for (unsigned raw = 0; raw < static_cast<unsigned>(Form::Structured); ++raw) {
     const Form form = static_cast<Form>(raw);
     uint64_t score = coverage.forms[raw] * 8 + rng.below(8);
     if (profile == Profile::InstanceHeavy && form != Form::Canonical)
@@ -484,18 +484,22 @@ int region_action(tactix_c_handle *s,int rule,Rng &rng,Coverage &c) {
 int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
                  Coverage &coverage, uint32_t variables,
                  uint64_t &revision) {
+  const auto record = [&](Form form, int result) {
+    ++coverage.forms[static_cast<unsigned>(form)];
+    const bool known = id >= 0 && static_cast<size_t>(id) < coverage.rules.size();
+    if (known) ++coverage.rules[static_cast<size_t>(id)];
+    if (result == 0 || (form == Form::Structured && result == 20)) {
+      ++coverage.effective_forms[static_cast<unsigned>(form)];
+      if (known) ++coverage.effective_rules[static_cast<size_t>(id)];
+    }
+    return result;
+  };
   const char *selected=tactix_rule_name(id);
   if(selected&&!std::strcmp(selected,"ExtendedResolution")) {
-    const int result=extension_action(solver,rng,coverage);
-    ++coverage.rules[size_t(id)];
-    if(result==0||result==20)++coverage.effective_rules[size_t(id)];
-    return result;
+    return record(Form::Structured, extension_action(solver,rng,coverage));
   }
   if(selected&&(!std::strcmp(selected,"Probe")||!std::strcmp(selected,"Sweep"))&&rng.one_in(2)) {
-    int result=region_action(solver,id,rng,coverage);
-    ++coverage.rules[size_t(id)];
-    if(result==0||result==20)++coverage.effective_rules[size_t(id)];
-    return result;
+    return record(Form::Structured, region_action(solver,id,rng,coverage));
   }
   Form form = choose_form(coverage, profile, rng);
   bool have = true;
@@ -524,17 +528,9 @@ int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
     form = Form::Canonical;
     result = tactix_apply(solver, id);
   }
-  ++coverage.forms[static_cast<unsigned>(form)];
-  if (id >= 0 && static_cast<size_t>(id) < coverage.rules.size())
-    ++coverage.rules[static_cast<size_t>(id)];
-  if (result == 0) {
-    ++coverage.effective_forms[static_cast<unsigned>(form)];
-    if (id >= 0 && static_cast<size_t>(id) < coverage.effective_rules.size())
-      ++coverage.effective_rules[static_cast<size_t>(id)];
-  }
   const char *name = tactix_rule_name(id);
   if (name && algebraic(name)) ++coverage.algebraic_actions;
-  return result;
+  return record(form, result);
 }
 
 int choose_rule(const std::vector<int> &pool, const Coverage &coverage,
@@ -841,17 +837,19 @@ void print_coverage(uint64_t seed, Profile profile, const Coverage &coverage) {
               static_cast<unsigned long long>(coverage.search_to_root),
               static_cast<unsigned long long>(coverage.algebraic_actions));
   std::printf("c public-random forms canonical=%llu instance=%llu semantic=%llu "
-              "online=%llu effective-canonical=%llu effective-instance=%llu "
-              "effective-semantic=%llu effective-online=%llu "
+              "online=%llu structured=%llu effective-canonical=%llu effective-instance=%llu "
+              "effective-semantic=%llu effective-online=%llu effective-structured=%llu "
               "online-declines=%llu public-declines=%llu\n",
               static_cast<unsigned long long>(coverage.forms[0]),
               static_cast<unsigned long long>(coverage.forms[1]),
               static_cast<unsigned long long>(coverage.forms[2]),
               static_cast<unsigned long long>(coverage.forms[3]),
+              static_cast<unsigned long long>(coverage.forms[4]),
               static_cast<unsigned long long>(coverage.effective_forms[0]),
               static_cast<unsigned long long>(coverage.effective_forms[1]),
               static_cast<unsigned long long>(coverage.effective_forms[2]),
               static_cast<unsigned long long>(coverage.effective_forms[3]),
+              static_cast<unsigned long long>(coverage.effective_forms[4]),
               static_cast<unsigned long long>(coverage.online_declines),
               static_cast<unsigned long long>(coverage.public_declines));
   std::printf("c public-random forms er-requests=%llu er-defined=%llu er-composed=%llu er-bumped=%llu er-released=%llu extension-decisions=%llu\n",
@@ -1041,9 +1039,9 @@ void tactix_random_session_coverage(tactix_random_session *state,FILE *out) {
       (unsigned long long)c.root_to_search,(unsigned long long)c.partial_restarts,
       (unsigned long long)c.full_restarts,(unsigned long long)c.search_to_root,
       (unsigned long long)c.algebraic_actions);
-  for(unsigned i=0;i<4;++i)std::fprintf(out,"%s%llu",i?",":"",(unsigned long long)c.forms[i]);
+  for(size_t i=0;i<c.forms.size();++i)std::fprintf(out,"%s%llu",i?",":"",(unsigned long long)c.forms[i]);
   std::fputs("],\"effective_forms\":[",out);
-  for(unsigned i=0;i<4;++i)std::fprintf(out,"%s%llu",i?",":"",(unsigned long long)c.effective_forms[i]);
+  for(size_t i=0;i<c.effective_forms.size();++i)std::fprintf(out,"%s%llu",i?",":"",(unsigned long long)c.effective_forms[i]);
   std::fputs("],\"rules\":{",out);const char *separator="";
   for(size_t i=0;i<c.rules.size();++i)if(c.rules[i]) {
     std::fprintf(out,"%s\"%s\":[%llu,%llu]",separator,tactix_rule_name(static_cast<int>(i)),

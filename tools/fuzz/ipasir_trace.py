@@ -17,6 +17,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+APPLICATION_FORMS = ('canonical', 'instance', 'semantic', 'online', 'structured')
 sys.path.insert(0,str(ROOT/'tools/bench'))
 from directory_scratch import remove_tree
 
@@ -76,7 +77,8 @@ def validate_answer(query, answer):
             if type(policy.get(field)) is not int or policy[field]<0:
                 raise Failure('strategy',('invalid public-random counter',field))
         forms,effective=policy.get('forms'),policy.get('effective_forms')
-        if not isinstance(forms,list) or not isinstance(effective,list) or len(forms)!=4 or len(effective)!=4:
+        if (not isinstance(forms,list) or not isinstance(effective,list) or
+                len(forms)!=len(APPLICATION_FORMS) or len(effective)!=len(APPLICATION_FORMS)):
             raise Failure('strategy','missing public-random application forms')
         if any(type(n) is not int or n<0 for n in forms+effective) or any(a<b for a,b in zip(forms,effective)):
             raise Failure('strategy','invalid public-random form counts')
@@ -481,7 +483,7 @@ def check_run(driver, lines, directory, timeout, solver_memory, checker_memory, 
             policy=answer['random_policy']
             for field in ('root','search','root_to_search','partial_restarts','full_restarts','search_to_root','algebraic'):
                 coverage['random-'+field]+=policy[field]
-            for i,form in enumerate(('canonical','instance','semantic','online')):
+            for i,form in enumerate(APPLICATION_FORMS):
                 coverage['random-form-'+form]+=policy['forms'][i]
                 coverage['random-effective-form-'+form]+=policy['effective_forms'][i]
             for rule,counts in policy['rules'].items():

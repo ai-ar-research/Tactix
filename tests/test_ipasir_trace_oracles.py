@@ -126,13 +126,19 @@ class Oracles(unittest.TestCase):
     def test_public_random_rejects_missing_and_fabricated_accounting(self):
         q={'formula':[[1]],'assumptions':[],'strategy':5}
         policy=dict(root=1,search=0,root_to_search=0,partial_restarts=0,full_restarts=0,
-                    search_to_root=0,algebraic=0,forms=[0,0,1,0],effective_forms=[0,0,1,0],
+                    search_to_root=0,algebraic=0,forms=[0,0,1,0,0],effective_forms=[0,0,1,0,0],
                     rules={'BVE':[1,1]})
         good=dict(result=10,values=[1],strategy=5,strategy_calls=1,random_policy=policy)
         trace.validate_answer(q,good)
+        structured = dict(policy,forms=[0,0,0,0,1],effective_forms=[0,0,0,0,1],
+                          rules={'ExtendedResolution':[1,1]})
+        trace.validate_answer(q,dict(good,random_policy=structured))
         for update in (None,{},dict(policy,forms=[0,0,0,0]),
-                       dict(policy,effective_forms=[0,0,2,0]),dict(policy,root=-1),
-                       dict(policy,rules={'BVE':[0,1]})):
+                       dict(policy,effective_forms=[0,0,2,0,0]),dict(policy,root=-1),
+                       dict(policy,rules={'BVE':[0,1]}),
+                       dict(structured,forms=[0,0,0,0,0]),
+                       dict(structured,effective_forms=[0,0,0,0,0]),
+                       dict(structured,forms=[0,0,0,1])):
             with self.assertRaises(trace.Failure):
                 trace.validate_answer(q,dict(good,random_policy=update))
         for strategy in (0,5,6,7,8,9):
