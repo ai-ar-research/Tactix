@@ -23,7 +23,8 @@ static const std::vector<Formula> formulas{
   {{1,2},{1,-2},{-1,2},{-1,-2}},
   {{1,2},{1,3},{-1,2,4},{-1,4,5},{-2,6},{-4,-6,7},{-7,8},{-8,5}},
   {{1,2,3},{-2,4},{-3,4},{1}},
-  {{1,2,3},{-1,2,4},{1,-2,5},{-1,-2,-3},{3,4},{-3,5},{6,7},{-6,8},{-7,8},{-8,4}}
+  {{1,2,3},{-1,2,4},{1,-2,5},{-1,-2,-3},{3,4},{-3,5},{6,7},{-6,8},{-7,8},{-8,4}},
+  {{1,2},{1,-2},{-1,2},{-1,-2},{3,4,5},{3}}
 };
 static int rule(const char *name) {
   for(int i=0;i<tactix_rule_count();++i)if(std::string(tactix_rule_name(i))==name)return i;
@@ -84,7 +85,7 @@ static std::string run(const std::string &prefix,int format,bool native) {
       assert(direct->valid());direct->order_by_score_heap(candidates.data(),candidates.size());
     }
     else {order=tactix_bve_order_create(s,candidates.data(),candidates.size());assert(order);}
-    if(index==3) {
+    if(index==3||index==5) {
       assert(k.startup_certificate_open);
       const auto before=k.live_irredundant_large;
       if(native) {
@@ -94,7 +95,7 @@ static std::string run(const std::string &prefix,int format,bool native) {
       assert(!k.startup_certificate_open&&k.live_irredundant_large<before);
       trace<<"case="<<index<<" first_flush=0\n";
     }
-    bool nonzero_relevance=false;
+    bool nonzero_relevance=false,applied_bve=false;
     for(unsigned steps=0;;++steps) {
       assert(steps<1000);
       uint64_t instance=0;uint32_t begin=0;
@@ -114,7 +115,7 @@ static std::string run(const std::string &prefix,int format,bool native) {
           });
           assert(applied.applications==1);
         } else result=tactix_bve_order_apply(s,order,rule("BVE"),instance);
-        assert(result>=0);
+        assert(result>=0);applied_bve|=result==0;
         if(result!=20&&applicable(s,rule("Propagate"))) {
           propagated=native?tactix_apply(s,rule("Propagate")):
               tactix_bve_order_apply(s,order,rule("Propagate"),TACTIX_INSTANCE_CANONICAL);
@@ -133,9 +134,10 @@ static std::string run(const std::string &prefix,int format,bool native) {
     if(index==4)assert(nonzero_relevance);
     direct.reset();tactix_bve_order_release(order);
     const int left=tactix_support(s,TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE,0);assert(left==0||left==20);
-    const int answer=tactix_solve(s);assert(answer==(index==1?20:10));
     assert(tactix_stat(s,TACTIX_STAT_BVE_ELIMINATED)>0 ||
-        (index==1&&tactix_stat(s,TACTIX_STAT_BVE_RESOLUTIONS)>0));
+        ((index==1||index==5)&&tactix_stat(s,TACTIX_STAT_BVE_RESOLUTIONS)>0));
+    if(index!=1&&index!=5)assert(applied_bve); // before any DefaultPolicy fallback
+    const int answer=tactix_solve(s);assert(answer==(index==1||index==5?20:10));
     trace<<"case="<<index<<" answer="<<answer<<" eliminated="<<tactix_stat(s,TACTIX_STAT_BVE_ELIMINATED)
         <<" resolutions="<<tactix_stat(s,TACTIX_STAT_BVE_RESOLUTIONS)<<" ticks="<<tactix_stat(s,TACTIX_STAT_TICKS)<<'\n';
     if(answer==10&&!stem.empty()) {
@@ -209,10 +211,57 @@ static void physical_reinsertion_and_first_closure() {
   while(tactix_bve_order_next(s,o,&instance,&begin)==1)reinserted|=instance==1;
   assert(reinserted); // the removed clause re-arms an already-popped endpoint
   tactix_bve_order_release(o);tactix_release(s);
+  s=create({{1,2},{-2,3}});
+  assert(!tactix_support(s,TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE,1));
+  const uint64_t seed[]{2};o=tactix_bve_order_create(s,seed,1);assert(o);
+  assert(tactix_bve_order_next(s,o,&instance,&begin)==1&&instance==2);
+  assert(tactix_bve_order_apply(s,o,rule("BVE"),instance)==0);
+  bool ghost=false;
+  while(tactix_bve_order_next(s,o,&instance,&begin)==1)if(instance==1) {
+    tactix_bve_candidate_state observed{};
+    assert(!tactix_read_bve_candidate(s,instance,&observed));
+    ghost=true; // real clause removal rearms retry advice before notifying the heap
+  }
+  assert(ghost); // real reinsertion extends the initial seed set
+  tactix_bve_order_release(o);tactix_release(s);
+  s=create({{1,2},{-2,3}});
+  auto &posed=tactix::api_detail::kernel_for_fixed_testing(s);
+  const auto variable=tactix::var_of(tactix::kernel_internalize(posed,1));
+  assert(!tactix_support(s,TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE,1));
+  {
+    // Isolate the notification contract from clause removal's retry rearm.
+    tactix::strategy::BveOrdering direct(posed,nullptr,0);
+    assert(direct.empty()&&!posed.bve_retry[variable]);
+    tactix::kernel_notify_bve_score(posed,variable,true);
+    assert(!direct.empty()&&direct.next()==1&&!posed.bve_retry[variable]);
+  }
+  tactix_release(s);
   s=create(formulas[3]);auto &k=tactix::api_detail::kernel_for_fixed_testing(s);
   assert(k.startup_certificate_open);
   assert(tactix_support(s,TACTIX_SUPPORT_FORWARD_CLOSURE,0)>=0);
   assert(!k.startup_certificate_open);tactix_release(s);
+}
+
+static void stable_order_oracle() {
+  auto *s=create({{1,2},{-1,-2}});
+  assert(!tactix_apply(s,rule("SwitchMode")));
+  auto &k=tactix::api_detail::kernel_for_fixed_testing(s);
+  const auto a=tactix::var_of(tactix::kernel_internalize(k,1));
+  const auto b=tactix::var_of(tactix::kernel_internalize(k,2));
+  // Pose an equal-score stable fixture, independently of the shared ordering.
+  k.h->scores.score[a]=k.h->scores.score[b]=0;
+  const uint64_t seed[]{1,2};
+  const auto first=[&] {
+    auto *o=tactix_bve_order_create(s,seed,2);assert(o);
+    uint64_t instance=0;uint32_t begin=0;
+    assert(tactix_bve_order_next(s,o,&instance,&begin)==1);
+    tactix_bve_order_release(o);return instance;
+  };
+  assert(first()==1); // equal populations/relevance: initial compact-order tie
+  assert(!tactix_bump_variable(s,1,2));
+  assert(k.h->scores.score[a]>k.h->scores.score[b]);
+  assert(first()==2); // lower relevance gives the smaller elimination score
+  tactix_release(s);
 }
 
 struct Closing {
@@ -263,6 +312,6 @@ int main(int argc,char **argv) {
         std::string(argv[2])=="pbp"?TACTIX_PROOF_PBP:0;
     std::fputs(run(argv[1],format,std::string(argv[3])=="native").c_str(),stdout);return 0;
   }
-  assert(argc==1);lifetime_and_invalidation();physical_reinsertion_and_first_closure();callback_release();
+  assert(argc==1);lifetime_and_invalidation();physical_reinsertion_and_first_closure();stable_order_oracle();callback_release();
   assert(run("",0,true)==run("",0,false));
 }

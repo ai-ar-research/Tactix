@@ -9,6 +9,7 @@ import types
 
 fixture, root = map(Path, sys.argv[1:3])
 library = Path(sys.argv[3]) if len(sys.argv) == 4 else None
+UNSAT_CASES = (1, 5)
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench'), str(root/'tests')]
 from test_native_query_proof import formula
 from test_native_query_append_proof import satisfiable
@@ -43,7 +44,7 @@ if library:
     def ordered_phase(view, variables, index=0, instances=None):
         rows = []
         with BveOrder(view, range(1, variables+1) if instances is None else instances) as order:
-            if index == 3:
+            if index in (3, 5):
                 order.flush_units(0)
                 rows.append(f'case={index} first_flush=0\n')
             nonzero_relevance = False
@@ -69,7 +70,7 @@ if library:
 
     def python_fixture(prefix, mode, original):
         trace = []
-        for index in range(5):
+        for index in range(6):
             n, clauses = formula(Path(f'{original}-{index}.cnf'))
             stem = Path(f'{prefix}-{index}')
             Path(str(stem)+'.cnf').write_bytes(Path(f'{original}-{index}.cnf').read_bytes())
@@ -93,7 +94,7 @@ if library:
                 trace.extend(ordered_phase(view, n, index))
                 assert view.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) in (0, 20)
                 answer = view.default_solve()  # Finish this component fixture; not full-policy correspondence.
-                assert answer == (20 if index == 1 else 10)
+                assert answer == (20 if index in UNSAT_CASES else 10)
                 eliminated = view.c.tactix_stat(capi.TACTIX_STAT_BVE_ELIMINATED)
                 resolutions = view.c.tactix_stat(capi.TACTIX_STAT_BVE_RESOLUTIONS)
                 ticks = view.c.tactix_stat(capi.TACTIX_STAT_TICKS)
@@ -108,11 +109,11 @@ if library:
 
 def verify(prefix, mode):
     checked = models = 0
-    for index in range(5):
+    for index in range(6):
         cnf, proof = Path(f'{prefix}-{index}.cnf'), Path(f'{prefix}-{index}.proof')
         n, clauses = formula(cnf)
-        assert satisfiable(n, clauses) == (index != 1)
-        if index != 1:
+        assert satisfiable(n, clauses) == (index not in UNSAT_CASES)
+        if index not in UNSAT_CASES:
             model = set(map(int, Path(f'{prefix}-{index}.model').read_text().split()))
             assert all((v in model) != (-v in model) for v in range(1, n+1))
             assert all(any(l in model for l in clause) for clause in clauses)
@@ -120,7 +121,7 @@ def verify(prefix, mode):
         if mode == 'none':
             assert not proof.exists()
             continue
-        if index != 1: continue
+        if index not in UNSAT_CASES: continue
         route = 'pbp' if mode == 'pbp' else ('dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
         result = runner.check_proof(mode, str(cnf), str(proof), 30, route=route)
         assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), result
@@ -148,7 +149,7 @@ with tempfile.TemporaryDirectory(prefix='tactix-bve-order-') as tmp:
             assert trace == golden, (mode, driver, trace, golden)
             counts = verify(prefix, mode);checked += counts[0];models += counts[1]
             if mode != 'none':
-                for index in range(5):
+                for index in range(6):
                     data = Path(f'{prefix}-{index}.proof').read_bytes()
                     key = mode, index
                     assert data == proofs.setdefault(key, data), (mode, driver, index)

@@ -2265,6 +2265,7 @@ int tactix_support(tactix *, int support, uint64_t argument);
  * is copied; duplicates use their last payload. next returns 1 and a payload,
  * plus its entry propagation head, 0 at exhaustion, or -1 for an invalid/stale
  * handle (outputs unchanged).
+ * The array seeds the heap; clause removal may reinsert variables outside it.
  * No candidate is applied by next, including retired/retry ghosts.
  *
  * apply explicitly selects one BVE instance or canonical Propagate and returns
@@ -2276,7 +2277,8 @@ int tactix_support(tactix *, int support, uint64_t argument);
  * No update hook remains attached between calls, so unrelated public actions
  * stay available. Release is safe after the execution/solver is destroyed;
  * release from a callback during an active operation is deferred until return.
- * A valid flush ends the startup counting-certificate window before deletions.
+ * A valid flush (like FORWARD_CLOSURE) ends the startup counting-certificate
+ * window before deletions.
  * Terminal results do not consume remaining candidates; callers choose when
  * to stop. -1 combines stale handles, invalid selections and guard refusal.
  * Creation returns NULL on invalid input; callers own returned handles. */
