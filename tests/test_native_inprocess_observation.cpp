@@ -33,6 +33,17 @@ static void config_json(const DefaultStrategyConfig::Inprocess &cfg) {
     << ",\"forward_midround_budget\":" << cfg.forward_midround_budget
     << ",\"preprocess_followups\":" << cfg.preprocess_followups
     << ",\"factor_initial_ticks\":" << cfg.factor_initial_ticks
+    << ",\"factor_repeated_enabled\":" << cfg.factor_repeated_enabled
+    << ",\"factor_active_ceiling\":" << cfg.factor_active_ceiling
+    << ",\"factor_decade_round_cap\":" << cfg.factor_decade_round_cap
+    << ",\"factor_decade_cap\":" << cfg.factor_decade_cap
+    << ",\"factor_decade_offset\":" << cfg.factor_decade_offset
+    << ",\"factor_decade_base\":" << cfg.factor_decade_base
+    << ",\"factor_parameters\":{\"maximum_clause_size\":" << cfg.factor_parameters.maximum_clause_size
+    << ",\"growth_bound\":" << cfg.factor_parameters.growth_bound
+    << ",\"candidate_rounds\":" << cfg.factor_parameters.candidate_rounds
+    << ",\"composite\":" << cfg.factor_parameters.composite
+    << ",\"demote_fresh\":" << cfg.factor_parameters.demote_fresh << '}'
     << ",\"phase_rounds\":" << cfg.phase_rounds
     << ",\"initial_fast_elimination_rounds\":" << cfg.initial_fast_elimination_rounds
     << ",\"hold_subsume_until_eliminate\":" << cfg.hold_subsume_until_eliminate
@@ -44,7 +55,10 @@ static constexpr std::pair<const char *, int> stat_fields[] = {
   {"BVE_MARKS", TACTIX_STAT_BVE_MARKS}, {"ROOT_FIXED", TACTIX_STAT_ROOT_FIXED},
   {"SUBSUME_MATERIAL", TACTIX_STAT_SUBSUME_MATERIAL},
   {"IRREDUNDANT_CLAUSES", TACTIX_STAT_IRREDUNDANT_CLAUSES},
-  {"SEARCH_TICKS", TACTIX_STAT_SEARCH_TICKS}};
+  {"SEARCH_TICKS", TACTIX_STAT_SEARCH_TICKS},
+  {"ACTIVE_VARIABLES", TACTIX_STAT_ACTIVE_VARIABLES}, {"BINARY_CLAUSES", TACTIX_STAT_BINARY_CLAUSES},
+  {"FACTOR_LITERALS_MARKED", TACTIX_STAT_FACTOR_LITERALS_MARKED},
+  {"FACTOR_COMPLETED", TACTIX_STAT_FACTOR_COMPLETED}, {"ARENA_WORDS", TACTIX_STAT_ARENA_WORDS}};
 using Observation = std::array<uint64_t, std::size(stat_fields)>;
 static Observation observe(tactix_c_handle *s) {
   Observation out;
@@ -316,6 +330,95 @@ static void emit_admission() {
 
 
 // Execute the native batch path, rather than reconstruct its work-wire choices.
+static void observation_purity() {
+  auto *s = tactix_init(); assert(s);
+  for (int literal : {1, 2, 3}) tactix_add(s, literal);
+  Kernel &k = api_detail::kernel_for_fixed_testing(s);
+  const auto vars = k.nvars, trail = static_cast<uint32_t>(k.trail.size());
+  for (unsigned i = 0; i < 3; ++i) {
+    assert(tactix_stat(s, TACTIX_STAT_FACTOR_LITERALS_MARKED) == k.factor_literals_marked);
+    assert(tactix_stat(s, TACTIX_STAT_FACTOR_COMPLETED) == k.factor_completed);
+    assert(tactix_stat(s, TACTIX_STAT_ARENA_WORDS) == k.arena.size());
+  }
+  assert(k.nvars == vars && k.trail.size() == trail && k.arena.empty());
+  tactix_add(s, 0); assert(tactix_status(s) == 0 && !k.arena.empty());
+  assert(tactix_stat(s, TACTIX_STAT_ARENA_WORDS) == k.arena.size());
+  tactix_release(s);
+}
+
+static void emit_factor_batches() {
+  for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate})
+    for (bool stable : {false, true}) for (bool demote : {false, true})
+      for (const char *arm : {"first", "budget", "search", "warmup", "latch", "profile"}) {
+    auto *s = tactix_init(); assert(s);
+    const bool search = std::string_view(arm) == "search" || std::string_view(arm) == "profile";
+    for (int literal : {-1, 2, 0, -1, -2, 0}) tactix_add(s, literal);
+    for (int factor : {3, 4}) for (int remainder : {5, 6, 7}) {
+      tactix_add(s, factor); tactix_add(s, remainder); tactix_add(s, 0);
+    }
+    assert(tactix_status(s) == 0);
+    assert(tactix_set_guidance_publication(s, TACTIX_GUIDANCE_NATIVE) == 0);
+    if (search) {
+      assert(tactix_decide(s, 1) == 0);
+      assert(tactix_apply(s, tactix_rule_id("Propagate")) == 2);
+      assert(tactix_apply(s, tactix_rule_id("ConflictAnalysis")) == 0);
+      assert(tactix_apply_instance(s, tactix_rule_id("Restart"), 0) == 0);
+      assert(tactix_apply(s, tactix_rule_id("Propagate")) == 0);
+    }
+    if (stable) assert(tactix_apply(s, tactix_rule_id("SwitchMode")) == 0);
+    Kernel &k = api_detail::kernel_for_fixed_testing(s);
+    const auto initial = observe(s);
+    assert(tactix_stat(s, TACTIX_STAT_FACTOR_LITERALS_MARKED) == k.factor_literals_marked);
+    assert(tactix_stat(s, TACTIX_STAT_FACTOR_COMPLETED) == k.factor_completed);
+    assert(tactix_stat(s, TACTIX_STAT_ARENA_WORDS) == k.arena.size());
+    assert(initial == observe(s));
+    DefaultStrategyConfig config;
+    config.inprocess.factor_parameters.demote_fresh = demote;
+    if (std::string_view(arm) == "warmup") config.inprocess.factor_decade_offset = 0;
+    if (std::string_view(arm) == "latch") config.inprocess.factor_active_ceiling = 1;
+    if (std::string_view(arm) == "profile") config.inprocess.factor_repeated_enabled = false;
+    DefaultInprocessScheduler stock(&config.inprocess); stock.build(k);
+    const int rule = tactix_rule_id("Factor");
+    const auto found = std::find_if(stock.entries.begin(), stock.entries.end(),
+        [=](const auto &entry) { return entry.rule == rule; });
+    assert(found != stock.entries.end());
+    auto entry = *found;
+    entry.enabled = entry.preprocess = entry.budget_aware = true;
+    entry.group = group; entry.permille = 0; entry.max_applies = 0;
+    entry.doses = std::string_view(arm) == "budget" ? 1 : 0;
+    DefaultInprocessScheduler native(&config.inprocess);
+    native.configure(); native.reset(k); native.pose_initialized();
+    native.entries.push_back(entry);
+    for (unsigned phase = 0; phase < 2; ++phase) {
+      if (phase && std::string_view(arm) == "latch") config.inprocess.factor_active_ceiling = 0;
+      const int result = native.run_phase(k, group, nullptr);
+      assert(result == 0);
+      const auto &after = native.entries.front();
+      if (!phase && (std::string_view(arm) == "first" || std::string_view(arm) == "search"))
+        assert(k.stats.factorings > 0 && k.factor_completed && after.tm.admitted > 0);
+      if (std::string_view(arm) == "budget") assert(!k.factor_completed);
+      int candidates[64]; const int count = tactix_decide_candidates(s, candidates, 64);
+      assert(count >= 0);
+      std::cout << "{\"kind\":\"factor-batch\",\"config\":"; config_json(config.inprocess);
+      std::cout << ",\"group\":\"" << (group == SlotGroup::Probe ? "Probe" : "Eliminate")
+        << "\",\"arm\":\"" << arm << "\",\"stable\":" << stable << ",\"phase\":" << phase
+        << ",\"result\":" << result << ",\"after\":"; observation_json(observe(s));
+      std::cout << ",\"finished\":"; clocks_json(native.probe_clock, native.elim_clock);
+      std::cout << ",\"slot\":{\"applies\":" << after.applies << ",\"limit\":" << after.limit
+        << ",\"doses\":" << after.doses << ",\"handed\":" << after.tm.handed
+        << ",\"spent\":" << after.tm.spent << ",\"completed\":" << after.tm.completed
+        << ",\"binaries_mark\":" << after.binaries_mark << ",\"arena_mark\":" << after.arena_mark
+        << ",\"root_fixed_mark\":" << after.root_fixed_mark << "}"
+        << ",\"declines\":{\"profile\":" << after.tm.dec_profile << ",\"warmup\":" << after.tm.dec_warmup
+        << ",\"material\":" << after.tm.dec_material << "},\"factorings\":" << k.stats.factorings
+        << ",\"composite\":" << k.factor_composite << ",\"candidates\":[";
+      for (int i = 0; i < count; ++i) { if (i) std::cout << ','; std::cout << candidates[i]; }
+      std::cout << "]}\n";
+    }
+    tactix_release(s);
+  }
+}
+
 static void emit_rounds() {
   for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate})
     for (const char *name : {"BCE", "SubsumeForward"})
@@ -425,6 +528,8 @@ static void emit_batches() {
 int main() {
   emit_batches();
   emit_rounds();
+  observation_purity();
+  emit_factor_batches();
   emit_admission();
   emit_budgets();
   for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate}) {

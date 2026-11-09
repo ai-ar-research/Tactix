@@ -26,6 +26,7 @@ class PhaseOutcome:
     bve_ran: bool = False
     maximum_bound: bool = False
     eliminate_limit_reached: bool = False
+    interrupted: bool = False
 
 
 @dataclass
@@ -48,6 +49,10 @@ class InprocessSlot:
     decline: str = ''
     handed: int = 0
     spent: int = 0
+    completed: int = 0
+    binaries_mark: int = 0
+    arena_mark: int = 0
+    root_fixed_mark: int = 0
 
 
 class NativeInprocessSchedule:
@@ -62,6 +67,10 @@ class NativeInprocessSchedule:
         self.initialized = False
         self.unusable = False
         self.phase = None
+        self.last_phase_interrupted = False
+        self.factor_marked_watermark = 0
+        self.factor_large_formula = False
+        self.bve_rounds_run = 0
         self.last_reduce_conflicts = _U64
         self.forward_pair_limit = 0
         self.clocks = {group: InprocessClock() for group in ('Probe', 'Eliminate')}
@@ -91,12 +100,16 @@ class NativeInprocessSchedule:
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
         self.initialized = False
+        self.last_phase_interrupted = False
         self.last_reduce_conflicts = _U64
         self.forward_pair_limit = 0
+        self.factor_marked_watermark = self.bve_rounds_run = 0
+        self.factor_large_formula = False
         self.clocks = {group: InprocessClock() for group in self.clocks}
         for slot in slots:
             slot.limit = slot.applies = slot.doses = slot.wrapped = 0
             slot.handed = slot.spent = 0
+            slot.completed = slot.binaries_mark = slot.arena_mark = slot.root_fixed_mark = 0
             slot.decline = ''
 
     def refresh_entry_limit(self, slot, observation, meter, outer, **flags):
@@ -117,14 +130,14 @@ class NativeInprocessSchedule:
             return False
         return True
 
-    def run_budgeted_batch(self, view, slot, meter, apply):
+    def run_budgeted_batch(self, view, slot, meter, apply, *, complete=None):
         """Run an admitted, guarded batch; apply owns typed rule parameters.
 
         Call batch_admissible before stateful entry guards; recheck here before
         installing wires. The full slot runner must preserve that ordering.
 
         Factor matching, Substitute rounds, guidance publication and completion
-        marks remain caller-owned. Work wires follow native ClearBudget scope.
+        decisions remain caller-owned. Work wires follow native ClearBudget scope.
         """
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
@@ -164,6 +177,13 @@ class NativeInprocessSchedule:
         slot.spent = (slot.spent + spent) & _U64
         if spent:
             slot.doses = (slot.doses + 1) & ((1 << 32) - 1)
+            finished = ((complete() if complete is not None else True)
+                        if slot.rule == 'Substitute' else spent <= handed)
+            if finished:
+                slot.completed = (slot.completed + 1) & _U64
+                slot.binaries_mark = view.tactix_stat(capi.TACTIX_STAT_BINARY_CLAUSES)
+                slot.arena_mark = view.tactix_stat(capi.TACTIX_STAT_ARENA_WORDS)
+                slot.root_fixed_mark = view.tactix_stat(capi.TACTIX_STAT_ROOT_FIXED)
         return result
 
     def run_typed_batch(self, view, slot, meter, parameters):
@@ -210,8 +230,83 @@ class NativeInprocessSchedule:
             finally:
                 if executor:
                     view._library.tactix_online_executor_release(executor)
-        result = self.run_budgeted_batch(view, slot, meter, apply)
+        result = self.run_budgeted_batch(view, slot, meter, apply,
+            complete=lambda: packet is not None and bool(packet.base.selection_complete))
+        if (slot.rule == 'Factor' and slot.budget_aware and packet is not None
+                and packet.base.applications and view.tactix_stat(capi.TACTIX_STAT_FACTOR_COMPLETED)):
+            self.factor_marked_watermark = view.tactix_stat(capi.TACTIX_STAT_FACTOR_LITERALS_MARKED)
         return result, packet
+
+    def factor_entry_declines(self, slot, observation):
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        config, active = self.config, observation['ACTIVE_VARIABLES']
+        if observation['CONFLICTS'] and not config['factor_repeated_enabled']:
+            slot.decline = 'profile'
+        else:
+            if config['factor_active_ceiling'] and active >= config['factor_active_ceiling']:
+                self.factor_large_formula = True
+            decades = (config['factor_decade_cap'] if self.bve_rounds_run > config['factor_decade_round_cap']
+                       else self.bve_rounds_run + config['factor_decade_offset'])
+            if self.factor_large_formula or active >= pow(config['factor_decade_base'], decades, 1 << 64):
+                slot.decline = 'warmup'
+            elif self.factor_marked_watermark >= observation['FACTOR_LITERALS_MARKED']:
+                slot.decline = 'material'
+            else:
+                return False
+        return True
+
+    def run_factor_slot(self, view, slot, outer):
+        """Budget-aware Factor component; its profile scopes fresh guidance.
+
+        The phase owns matching/bound selection. This call owns admission,
+        composite matching, completion marks and the productive-call Propagate.
+        """
+        if slot.rule != 'Factor' or not slot.budget_aware:
+            raise ValueError('expected a budget-aware Factor slot')
+        if self.phase is None or self.phase[0] != slot.group:
+            raise RuntimeError('Factor slot requires its active phase')
+        observation = self.observe(view)
+        if not self.admit_slot(slot, observation):
+            return PhaseOutcome()
+        meter = lambda view: view.tactix_stat(capi.TACTIX_STAT_FACTOR_TICKS)
+        self.refresh_entry_limit(slot, observation, meter(view), outer)
+        if not self.batch_admissible(slot, meter(view)) or self.factor_entry_declines(slot, observation):
+            return PhaseOutcome()
+        rule = next(i for i in range(view.tactix_rule_count()) if view.tactix_rule_name(i) == b'Factor')
+        applicable = (C.c_int * view.tactix_rule_count())()
+        count = view.tactix_rules_applicable(applicable, len(applicable))
+        if rule not in applicable[:count]:
+            slot.decline = 'guard'
+            return PhaseOutcome()
+        parameters = capi.tactix_online_parameters(kind=capi.TACTIX_ONLINE_PARAMETERS_FACTOR)
+        parameters.value.factor = capi.tactix_online_factor_parameters(
+            **dict(self.config['factor_parameters'], composite=1,
+                   growth_bound=view.tactix_config(capi.TACTIX_CFG_FACTOR_BOUND)))
+        primary = None
+        try:
+            code, packet = self.run_typed_batch(view, slot, meter, parameters)
+        except BaseException as error:
+            primary = error
+            raise
+        finally:
+            # Native Factor leaves composite matching off, including when its
+            # configured entry profile had it on. Avoid a redundant setter.
+            def clear_composite():
+                if view.tactix_config(capi.TACTIX_CFG_FACTOR_COMPOSITE):
+                    view.tactix_set_factor_composite(0)
+            self._cleanup(clear_composite, primary)
+        if packet is not None and packet.base.status == capi.TACTIX_ONLINE_INTERRUPTED:
+            return PhaseOutcome(interrupted=True)
+        if code == 0:
+            propagate = next(i for i in range(view.tactix_rule_count())
+                             if view.tactix_rule_name(i) == b'Propagate')
+            count = view.tactix_rules_applicable(applicable, len(applicable))
+            if propagate in applicable[:count]:
+                code = view.tactix_apply(propagate)
+                if code < 0:
+                    raise RuntimeError('Factor propagation failed')
+        return PhaseOutcome(20 if code == 20 else 0)
 
     def _fast_phase(self, requested):
         if self.phase is not None:
@@ -282,7 +377,9 @@ class NativeInprocessSchedule:
     def observe(view):
         return {name: view.tactix_stat(getattr(capi, 'TACTIX_STAT_' + name))
                 for name in ('CONFLICTS', 'REDUCTIONS', 'BVE_MARKS', 'ROOT_FIXED',
-                             'SUBSUME_MATERIAL', 'IRREDUNDANT_CLAUSES', 'SEARCH_TICKS')}
+                             'SUBSUME_MATERIAL', 'IRREDUNDANT_CLAUSES', 'SEARCH_TICKS',
+                             'ACTIVE_VARIABLES', 'BINARY_CLAUSES', 'FACTOR_LITERALS_MARKED',
+                             'FACTOR_COMPLETED', 'ARENA_WORDS')}
 
     def note_reduce(self, observation):
         self.last_reduce_conflicts = observation['CONFLICTS']
@@ -331,13 +428,15 @@ class NativeInprocessSchedule:
         """Rearm candidates after the fast phase, including terminal exits."""
         reschedule_bve()
 
-    def run_rounds(self, view, group, slots, run_slot, *, stopped=lambda: False,
+    def run_rounds(self, view, group, slots, run_slot, *, stopped,
                    initial_fast_elimination=None):
         """Native outer fixpoint; run_slot owns each admitted rule application.
 
         The callback receives (view, slot, outer) and returns PhaseOutcome.
         It owns candidate discovery, guards, budgets, publication, propagation
         and the BVE bound. This loop owns round order and stopping only.
+        stopped must poll the caller's live stop source, including after a
+        rule returns; a native result packet need not report a mid-rule stop.
         """
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
@@ -357,12 +456,14 @@ class NativeInprocessSchedule:
         try:
             for outer in range(rounds):
                 if stopped():
+                    outcome.interrupted = True
                     break
                 self.begin_round(view)
                 for slot in slots:
                     if slot.group != group or initial_fast_elimination and slot.rule != 'BVE':
                         continue
                     if stopped():
+                        outcome.interrupted = True
                         break
                     result = run_slot(view, slot, outer)
                     if not isinstance(result, PhaseOutcome) or result.status not in (0, 20):
@@ -370,10 +471,13 @@ class NativeInprocessSchedule:
                     outcome.bve_ran |= result.bve_ran
                     outcome.maximum_bound |= result.maximum_bound
                     outcome.eliminate_limit_reached |= result.eliminate_limit_reached
+                    outcome.interrupted |= result.interrupted
                     if result.status == 20 or view.tactix_status() == 20:
                         outcome.status = 20
                         return outcome
-                if outcome.eliminate_limit_reached:
+                    if outcome.interrupted:
+                        return outcome
+                if outcome.interrupted or outcome.eliminate_limit_reached:
                     break
                 pending = (group == 'Eliminate' and self.config['hold_subsume_until_eliminate']
                            and (not view.tactix_stat(capi.TACTIX_STAT_SUBSUME_COMPLETE)
@@ -382,6 +486,8 @@ class NativeInprocessSchedule:
                 if current == active and not pending:
                     break
                 active = current
+            if not outcome.interrupted:
+                outcome.interrupted = bool(stopped())
             return outcome
         except BaseException:
             self.unusable = True
@@ -415,6 +521,7 @@ class NativeInprocessSchedule:
             return self._cleanup(lambda: support(name), primary)
         self.enter_phase(self.observe(view), group)
         self.phase = (group, bool(initial_fast_elimination))
+        self.last_phase_interrupted = False
         primary = None
         try:
             if group == 'Eliminate' and not initial_fast_elimination:
@@ -457,6 +564,7 @@ class NativeInprocessSchedule:
                     raise ValueError('startup SAT disagrees with solver')
                 return 10
             unsat = status == 20
+            self.last_phase_interrupted = outcome.interrupted
             if not unsat and (outcome.status == 20 or exit_status == 20):
                 raise ValueError('phase UNSAT disagrees with solver')
             self.leave_phase(self.observe(view), group, bve_ran=outcome.bve_ran,

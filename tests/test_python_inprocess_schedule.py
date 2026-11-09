@@ -33,7 +33,7 @@ coverage = set()
 rows = subprocess.check_output([str(fixture)], text=True).splitlines()
 for line in rows:
     row = json.loads(line)
-    if row.get('kind') in ('batch', 'rounds'):
+    if row.get('kind') in ('batch', 'rounds', 'factor-batch'):
         continue  # Compared through actual public operations below.
     if row.get('kind') == 'followup':
         schedule = NativeInprocessSchedule(row['config'])
@@ -173,6 +173,31 @@ assert coverage >= {('Probe', False), ('Probe', True), ('Eliminate', False), ('E
                     'post-phase-deadline', 'phase-Probe-search', 'phase-Probe-startup',
                     'phase-Eliminate-search'}, coverage
 print(f'native/Python phase clocks: {len(rows)} observation cases, all deadline and watermark checks pass')
+
+# A stop source may pulse once; observing it must end all remaining rounds.
+class RoundView:
+    active = 10
+    def tactix_support(self, action, value): return 0
+    def tactix_stat(self, stat):
+        return self.active if stat == capi.TACTIX_STAT_ACTIVE_VARIABLES else 1
+    def tactix_status(self): return 0
+
+for group in ('Probe', 'Eliminate'):
+    config = dict(json.loads(rows[0])['config'], phase_rounds=3)
+    schedule = NativeInprocessSchedule(config)
+    schedule.phase = (group, False)
+    view = RoundView()
+    calls = []
+    polls = iter([False, False, True])
+    def run_slot(view, slot, outer):
+        calls.append((slot.rule, outer))
+        view.active -= 1  # Without the stop, another round would be needed.
+        return PhaseOutcome()
+    outcome = schedule.run_rounds(
+        view, group, [InprocessSlot('Factor', group=group), InprocessSlot('BVE', group=group)],
+        run_slot, stopped=lambda: next(polls, False))
+    assert outcome.interrupted and calls == [('Factor', 0)], (group, outcome, calls)
+print('Python phase rounds preserve a single-poll stop across outer rounds')
 
 if str(library) != '-':
     lib = capi.load_library(library)
@@ -316,7 +341,7 @@ if str(library) != '-':
                 if result == 0: result = view.tactix_apply(rule_ids['Propagate'])
                 return PhaseOutcome(20 if result == 20 else 0)
             def pipeline(view):
-                return schedule.run_rounds(view, row['group'], iter([other, slot]), run_slot)
+                return schedule.run_rounds(view, row['group'], iter([other, slot]), run_slot, stopped=lambda: False)
             assert schedule.execute_pipeline(view, row['group'], pipeline) == row['result'], row
             assert len(calls) == row['occasions'], (row, calls)
             assert len(admitted) == row['admitted'], row
@@ -333,3 +358,59 @@ if str(library) != '-':
     assert len(rounds_coverage) == 32, rounds_coverage
     assert any(count > 1 for *_, count in rounds_coverage), rounds_coverage
     print('Python outer fixpoint: 32 real native phases match order, budgets, completeness and exits')
+
+if str(library) != '-':
+    import ctypes as C
+    from collections import defaultdict
+    factor_rows = defaultdict(list)
+    for row in map(json.loads, rows):
+        if row.get('kind') == 'factor-batch':
+            key = (row['group'], row['arm'], row['stable'], row['config']['factor_parameters']['demote_fresh'])
+            factor_rows[key].append(row)
+    factor_coverage = set()
+    for key, phases in factor_rows.items():
+        group, arm, stable, demote = key
+        handle = lib.tactix_init()
+        assert handle
+        try:
+            for clause in [[-1, 2], [-1, -2]] + [[factor, remainder] for factor in (3, 4) for remainder in (5, 6, 7)]:
+                for literal in [*clause, 0]: lib.tactix_add(handle, literal)
+            assert lib.tactix_status(handle) == 0
+            view = capi.SolverView(lib, handle, lambda: None)
+            assert view.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE) == 0
+            if arm in ('search', 'profile'):
+                assert view.tactix_decide(1) == 0
+                assert view.tactix_apply(rule_ids['Propagate']) == 2
+                assert view.tactix_apply(rule_ids['ConflictAnalysis']) == 0
+                assert view.tactix_apply_instance(rule_ids['Restart'], 0) == 0
+                assert view.tactix_apply(rule_ids['Propagate']) == 0
+            if stable: assert view.tactix_apply(rule_ids['SwitchMode']) == 0
+            schedule = NativeInprocessSchedule(phases[0]['config'])
+            slot = InprocessSlot('Factor', group=group, preprocess=True, budget_aware=True,
+                                 doses=int(arm == 'budget'))
+            declines = dict.fromkeys(('profile', 'warmup', 'material'), 0)
+            for row in phases:
+                schedule.config = row['config']
+                def run_slot(view, entry, outer):
+                    outcome = schedule.run_factor_slot(view, slot, outer)
+                    if slot.decline in declines: declines[slot.decline] += 1
+                    return outcome
+                result = schedule.execute_pipeline(view, group,
+                    lambda view: schedule.run_rounds(view, group, [slot], run_slot, stopped=lambda: False))
+                assert result == row['result'], row
+                assert {name: getattr(slot, name) for name in row['slot']} == row['slot'], (row, asdict(slot))
+                assert schedule.observe(view) == row['after'], row
+                assert {name: asdict(clock) for name, clock in schedule.clocks.items()} == row['finished'], row
+                assert declines == row['declines'], (row, declines)
+                assert view.tactix_stat(capi.TACTIX_STAT_FACTORINGS) == row['factorings'], row
+                assert view.tactix_config(capi.TACTIX_CFG_FACTOR_COMPOSITE) == row['composite'] == 0, row
+                candidates = (C.c_int * 64)()
+                count = view.tactix_decide_candidates(candidates, len(candidates))
+                assert list(candidates[:count]) == row['candidates'], (row, list(candidates[:count]))
+                if view.tactix_stat(capi.TACTIX_STAT_FACTOR_COMPLETED) and row['factorings']:
+                    assert schedule.factor_marked_watermark == view.tactix_stat(capi.TACTIX_STAT_FACTOR_LITERALS_MARKED), row
+                factor_coverage.add((*key, row['phase']))
+        finally:
+            lib.tactix_release(handle)
+    assert len(factor_coverage) == 96, factor_coverage
+    print('Python Factor slots: 96 real native phases match material gates, retries, budgets, completion marks and fresh guidance')

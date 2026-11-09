@@ -64,6 +64,8 @@ ALIAS = {
                            "H's mode, and 0 for a null-H solver"),
     "TACTIX_STAT_BINARY_CLAUSES": ("k.binary_ids.size()",
                                    "the id SET is the counter"),
+    "TACTIX_STAT_ARENA_WORDS": ("k.arena.size()",
+                                "Arena is ReallocWords<uint32_t>; size counts stored words"),
 }
 
 # The (yield, effort) pair per rule family. The KEY set is checked against

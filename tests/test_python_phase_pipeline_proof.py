@@ -47,6 +47,13 @@ cases += [('Probe', 'rounds-unsat', [[1, 2], [1, -2], [-1, 2], [-1, -2]])]
 cases += [(group, mode, normal) for group in ('Probe', 'Eliminate') for mode in
           ('typed-error-configure', 'typed-error-advance', 'typed-error-status',
            'typed-interrupted', 'typed-budget-decline')]
+factor_formula = [[-1, 2], [-1, -2]] + [[factor, remainder] for factor in (3, 4) for remainder in (5, 6, 7)]
+factor_unsat = factor_formula + [[8, 9], [8, -9], [-8, 9], [-8, -9]]
+cases += [(group, 'factor-' + arm + '-' + verdict, formula)
+          for group in ('Probe', 'Eliminate') for arm in ('first', 'budget', 'composite', 'bound', 'live')
+          for verdict, formula in (('sat', factor_formula), ('unsat', factor_unsat))]
+cases += [(group, mode, factor_formula) for group in ('Probe', 'Eliminate') for mode in
+          ('factor-interrupted', 'factor-propagate-error', 'factor-primary-cleanup-error')]
 canonical = {}
 proofs = models = 0
 with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
@@ -114,7 +121,101 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                     return PhaseOutcome(20 if result == 20 else 0,
                                         bve_ran=mode.startswith('bve-'),
                                         maximum_bound=mode == 'bve-maximum')
-                if mode.startswith('rounds-'):
+                if mode.startswith('factor-'):
+                    slot = InprocessSlot('Factor', group=group, preprocess=True, budget_aware=True,
+                                         doses=int(mode.startswith('factor-budget-')))
+                    before = schedule.observe(view)
+                    try: schedule.run_factor_slot(view, slot, 0)
+                    except RuntimeError: pass
+                    else: raise AssertionError('Factor slot ran without its selection phase')
+                    assert slot.applies == 0 and schedule.observe(view) == before
+                    if mode.startswith('factor-composite-'): view.tactix_set_factor_composite(1)
+                    bound = 2 if mode.startswith('factor-bound-') else 0
+                    original_advance = view.tactix_online_executor_advance
+                    original_apply = view.tactix_apply
+                    original_composite = view.tactix_set_factor_composite
+                    original_configure = view.tactix_online_executor_configure
+                    inspected_bounds = []
+                    if mode.startswith('factor-live-'):
+                        def inspect(executor, version, program, revision, reset):
+                            request = C.cast(program, C.POINTER(capi.tactix_online_program)).contents.steps.contents
+                            inspected_bounds.append(request.parameters.value.factor.growth_bound)
+                            assert inspected_bounds[-1] == view.tactix_config(capi.TACTIX_CFG_FACTOR_BOUND) == 3
+                            return original_configure(executor, version, program, revision, reset)
+                        view.tactix_online_executor_configure = inspect
+                    if mode == 'factor-propagate-error':
+                        def stage_pending_root(*args):
+                            result = original_advance(*args)
+                            # Probe proves -1 from {-1,2},{-1,-2} and leaves
+                            # that root unit pending at the public boundary.
+                            assert view.tactix_apply_instance(rules['Probe'], capi.TACTIX_LIT_INSTANCE(1)) == 0
+                            return result
+                        view.tactix_online_executor_advance = stage_pending_root
+                        def fail_propagate(rule):
+                            result = original_apply(rule)
+                            return -1 if rule == rules['Propagate'] else result
+                        view.tactix_apply = fail_propagate
+                    if mode == 'factor-primary-cleanup-error':
+                        view.tactix_set_factor_composite(1)
+                        view.tactix_online_executor_advance = lambda *args: -1
+                        def fail_composite(value):
+                            original_composite(value)
+                            raise LookupError('composite cleanup failed')
+                        view.tactix_set_factor_composite = fail_composite
+                    if mode == 'factor-interrupted':
+                        def interrupt(*args):
+                            packet = C.cast(args[-1], C.POINTER(capi.tactix_online_execution_result)).contents
+                            packet.base.status = capi.TACTIX_ONLINE_INTERRUPTED
+                            return 0
+                        view.tactix_online_executor_advance = interrupt
+                    sentinel = InprocessSlot('BCE', group=group)
+                    def factor_slot(view, entry, outer):
+                        assert entry is slot, 'interruption failed to stop the remaining slots'
+                        if mode.startswith('factor-live-'): view.tactix_set_factor_bound(3)
+                        return schedule.run_factor_slot(view, slot, outer)
+                    try:
+                        if mode in ('factor-propagate-error', 'factor-primary-cleanup-error'):
+                            try: schedule.execute_pipeline(view, group,
+                                lambda view: schedule.run_rounds(view, group, [slot], factor_slot, stopped=lambda: False))
+                            except RuntimeError as error:
+                                assert schedule.unusable and schedule.phase is None
+                                if mode == 'factor-propagate-error': assert str(error) == 'Factor propagation failed'
+                                else:
+                                    assert str(error) == 'typed batch advance failed'
+                                    assert len(error.phase_cleanup_errors) == 1
+                                    assert isinstance(error.phase_cleanup_errors[0], LookupError)
+                            else: raise AssertionError('Factor failure was swallowed')
+                            result = 0
+                        for phase in range(0 if mode in ('factor-propagate-error', 'factor-primary-cleanup-error') else 2):
+                            result = schedule.execute_pipeline(view, group,
+                                lambda view: schedule.run_rounds(view, group,
+                                    [slot, sentinel] if mode == 'factor-interrupted' else [slot], factor_slot, stopped=lambda: False),
+                                factor_bound=bound)
+                            actions.append((phase, slot.applies, slot.handed, slot.spent, slot.completed,
+                                            slot.binaries_mark, slot.arena_mark, slot.root_fixed_mark,
+                                            schedule.factor_marked_watermark))
+                            assert view.tactix_config(capi.TACTIX_CFG_FACTOR_COMPOSITE) == 0
+                            assert schedule.phase is None
+                            if mode == 'factor-interrupted':
+                                assert schedule.last_phase_interrupted and not schedule.unusable
+                                break
+                        if mode.startswith(('factor-first-', 'factor-composite-', 'factor-live-')):
+                            assert view.tactix_stat(capi.TACTIX_STAT_FACTORINGS) > 0
+                            assert slot.decline == 'material' and slot.completed > 0
+                            if mode.startswith('factor-live-'): assert inspected_bounds and all(value == 3 for value in inspected_bounds)
+                        if mode.startswith('factor-bound-'):
+                            assert view.tactix_stat(capi.TACTIX_STAT_FACTORINGS) == 0 and slot.decline == 'material'
+                        if mode.startswith('factor-budget-'):
+                            assert slot.spent > slot.handed and not view.tactix_stat(capi.TACTIX_STAT_FACTOR_COMPLETED)
+                    finally:
+                        if mode in ('factor-interrupted', 'factor-primary-cleanup-error', 'factor-propagate-error'): del view.tactix_online_executor_advance
+                        if mode == 'factor-propagate-error': del view.tactix_apply
+                        if mode == 'factor-primary-cleanup-error': del view.tactix_set_factor_composite
+                        if mode.startswith('factor-live-'): del view.tactix_online_executor_configure
+                    work = capi.tactix_work_settings()
+                    assert view.tactix_read_work_settings(C.byref(work)) == 0
+                    assert (work.budget, work.offset, work.bounded, work.midround) == (0, 0, 0, 0)
+                elif mode.startswith('rounds-'):
                     fast = mode in ('rounds-fast', 'rounds-fast-startup')
                     bve = fast or mode in ('rounds-stop', 'rounds-limit')
                     if mode not in ('rounds-unsat', 'rounds-fast-startup'):
@@ -136,7 +237,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                     stop, calls, changes = [False], [], []
                     sentinel = InprocessSlot('BCE', group=group)
                     before = schedule.observe(view)
-                    try: schedule.run_rounds(view, group, [], lambda *args: PhaseOutcome(), initial_fast_elimination=True)
+                    try: schedule.run_rounds(view, group, [], lambda *args: PhaseOutcome(), initial_fast_elimination=True, stopped=lambda: False)
                     except RuntimeError: pass
                     else: raise AssertionError('rounds ran outside a phase')
                     assert schedule.phase is None and schedule.observe(view) == before
@@ -215,7 +316,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                         if code == 0: code = view.tactix_apply(rules['Propagate'])
                         return PhaseOutcome(20 if code == 20 else 0)
                     result = schedule.execute_pipeline(view, group,
-                        lambda view: schedule.run_rounds(view, group, [slot], typed))
+                        lambda view: schedule.run_rounds(view, group, [slot], typed, stopped=lambda: False))
                     assert packets and view.tactix_stat(capi.TACTIX_STAT_SUBSTITUTE_VARS) > 0
                     assert slot.handed == int(mode == 'typed-substitute-budget') and slot.spent > slot.handed
                 elif mode.startswith('typed-'):
@@ -346,7 +447,8 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                     assert schedule.clocks[group].material_mark == 123
                 policy = ScriptedDefault()
                 if result not in (10, 20): result = policy.run(view, rules)
-                assert result == (20 if mode in ('probe', 'early', 'startup-substitute', 'budgeted-unsat', 'rounds-unsat', 'fast-early') else 10)
+                assert result == (20 if mode in ('probe', 'early', 'startup-substitute', 'budgeted-unsat', 'rounds-unsat', 'fast-early')
+                                  or mode.startswith('factor-') and mode.endswith('-unsat') else 10)
                 model = tuple(v if lib.tactix_value(handle, v) > 0 else -v
                               for v in range(1, n+1)) if result == 10 else ()
                 if model:
@@ -424,7 +526,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-sessions-') as raw:
                 if code == 0: code = view.tactix_apply(rules['Propagate'])
                 return PhaseOutcome(20 if code == 20 else 0)
             result = schedule.execute_pipeline(execution.c, group,
-                lambda view: schedule.run_rounds(view, group, [slot], typed))
+                lambda view: schedule.run_rounds(view, group, [slot], typed, stopped=lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED))
             return result if result in (10, 20) else ScriptedDefault()(execution, restored)
         with Session(library, strategy=strategy) as session:
             for clause in normal: session.add(clause)
@@ -450,7 +552,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-sessions-') as raw:
                 assert packet.base.applications == 1
                 return PhaseOutcome(20)
             return schedule.execute_pipeline(execution.c, group,
-                lambda view: schedule.run_rounds(view, group, [slot], body))
+                lambda view: schedule.run_rounds(view, group, [slot], body, stopped=lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED))
         with Session(library, strategy=refute) as session:
             for clause in [[1, 2], [1, -2], [-1, 2], [-1, -2]]: session.add(clause)
             result = session.solve()
@@ -480,5 +582,57 @@ with tempfile.TemporaryDirectory(prefix='python-phase-sessions-') as raw:
             session.set_strategy(None)
             result = session.solve()
             assert result.status == 10 and all(any(lit in result.model for lit in clause) for clause in wide)
+            session_models += 1
+        def factor_strategy(execution, restored):
+            schedule = NativeInprocessSchedule(config)
+            slot = InprocessSlot('Factor', group=group, preprocess=True, budget_aware=True)
+            code = schedule.execute_pipeline(execution.c, group,
+                lambda view: schedule.run_rounds(view, group, [slot], schedule.run_factor_slot, stopped=lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED))
+            if schedule.last_phase_interrupted: return 0
+            assert execution.c.tactix_stat(capi.TACTIX_STAT_FACTORINGS) > 0
+            return code if code in (10, 20) else ScriptedDefault()(execution, restored)
+        with Session(library, strategy=factor_strategy) as session:
+            for clause in factor_formula: session.add(clause)
+            for index, assumptions in enumerate(((), (3,), (-3,))):
+                if index == 1: session.add([8, 9])
+                result = session.solve(assumptions)
+                assert result.status == 10 and all(lit in result.model for lit in assumptions)
+                assert all(any(lit in result.model for lit in clause) for clause in
+                           factor_formula + ([[8, 9]] if index else []))
+                session_models += 1
+        with Session(library, strategy=factor_strategy) as session:
+            for clause in factor_unsat: session.add(clause)
+            result = session.solve()
+            assert result.status == 20
+            prefix = Path(raw)/('factor-' + group)
+            result.export(prefix)
+        proof = prefix.with_suffix('.proof')
+        kind = 'pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
+        route = 'pbp' if kind == 'pbp' else ('dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
+        checked = runner.check_proof(kind, str(prefix.with_suffix('.cnf')), str(proof), 30, route=route)
+        assert checked[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), checked
+        session_proofs += 1
+        armed = [False]
+        def stopped_factor(execution, restored):
+            schedule = NativeInprocessSchedule(config)
+            slot = InprocessSlot('Factor', group=group, preprocess=True, budget_aware=True)
+            def finish_then_stop(view, entry, outer):
+                outcome = schedule.run_factor_slot(view, entry, outer)
+                armed[0] = True
+                return outcome
+            code = schedule.execute_pipeline(execution.c, group,
+                lambda view: schedule.run_rounds(view, group, [slot], finish_then_stop,
+                    stopped=lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED))
+            assert code == 0 and schedule.last_phase_interrupted and not schedule.unusable
+            assert execution.c.tactix_stat(capi.TACTIX_STAT_FACTORINGS) > 0
+            return 0
+        with Session(library, strategy=stopped_factor) as session:
+            for clause in factor_formula: session.add(clause)
+            session.set_terminate(lambda: armed[0])
+            assert session.solve().status == 0
+            session.set_terminate(None)
+            session.set_strategy(factor_strategy)
+            result = session.solve()
+            assert result.status == 10 and all(any(lit in result.model for lit in clause) for clause in factor_formula)
             session_models += 1
 print(f'Python phase Session boundary: {session_models} models, {session_proofs} proofs, callback identity and recovery pass')
