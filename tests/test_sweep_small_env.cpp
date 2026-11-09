@@ -134,6 +134,17 @@ static void repeated_session() {
 }
 
 static void selected_seed_budget() {
+  for (bool selected : {false, true})
+    for (bool bounded : {false, true}) {
+      Kernel k;
+      positive_clause(k, 3);
+      k.work_budget = 0;
+      k.work_budget_bounded = bounded;
+      if (selected) (void)sweep_try(k, 0);
+      else (void)sweep_apply(k);
+      assert((k.stats.sweep_solves == 0) == bounded);
+      assert(!k.inconsistent && k.trail.empty());
+    }
   for (unsigned mode = 0; mode < 4; ++mode) {
     Kernel k;
     positive_clause(k, 3);

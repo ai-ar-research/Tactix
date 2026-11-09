@@ -2830,6 +2830,10 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
     return ApplyResult::Unsat;
   if (k.level != 0 || k.conflict_valid)
     return ApplyResult::NoOp;
+  // Zero is the legacy unlimited sentinel in SweepLimits, but an explicit
+  // bounded-zero public allowance admits no optional embedded work.
+  if (kernel_has_work_budget(k) && !k.work_budget)
+    return ApplyResult::NoOp;
   SweepRound round;
   SweepLimits lim = base;
   const size_t retired_begin = k.retired_events.size();
@@ -2870,6 +2874,8 @@ ApplyResult sweep_try_with_limits(Kernel &k, Var seed,
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (k.level != 0 || k.conflict_valid || seed >= k.nvars)
+    return ApplyResult::NoOp;
+  if (kernel_has_work_budget(k) && !k.work_budget)
     return ApplyResult::NoOp;
   SweepRound round;
   SweepLimits lim = base;
