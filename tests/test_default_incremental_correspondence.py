@@ -6,6 +6,10 @@ import sys
 import tempfile
 
 root = Path(sys.argv[1])
+sys.path.insert(0, str(root/'python'))
+from tactix import capi
+stat_count = 1 + max(value for name,value in capi.schema.CONSTANTS.items()
+                     if name.startswith('TACTIX_STAT_'))
 sys.path.insert(0, str(root/'tools/fuzz'))
 import ipasir_trace as oracle
 oracle.ROOT = root
@@ -56,5 +60,5 @@ with tempfile.TemporaryDirectory(prefix='default-incremental-twins-') as tmp:
                 key = (label, suffix)
                 assert contents == artifacts.setdefault(key, contents), (arm, key)
     print(f'DefaultPolicy incremental twins: 3 arms, {len(queries)} owned results/arm, '
-          f'65 counters, exact bundles, {models} models/{proofs} proofs checked; '
+          f'{stat_count} counters, exact bundles, {models} models/{proofs} proofs checked; '
           'strict minimization, interruption/reuse and late input; zero public fallbacks')

@@ -130,6 +130,22 @@ needs new handles. An optional shared discovery ledger exposes cumulative work
 and producer feedback so the caller can decide stage retries and budget renewal.
 These are the same native atomic executors used by DefaultPolicy.
 
+`RestartClock(execution)` owns the native DefaultPolicy restart calculations,
+including per-mode moving averages and the reluctant sequence. Python chooses
+when to reset it, supplies analysis/mode/restart events, reads `observe()` and
+issues the selected public actions. The clock retains no solver/view pointer;
+it may be reused on later execution views from the same library. `parameters`
+returns a copy; `configure(execution, parameters)` validates and resets it.
+Release it with `close()`. This component supplies scheduling arithmetic, not
+a complete DefaultPolicy implementation or a native solve handoff.
+
+Native scheduling observations distinguish search ticks from total work and
+expose Sweep units/variables swept. `TACTIX_STAT_ACTIVE_VARIABLES` counts the
+current non-retired, non-root-fixed population, including helpers; this read
+scans the variable population. Accumulated learned glue and reason-bump
+round/abort counters expose completed-analysis feedback for restart averages
+and reason-bump delay scheduling. These observations do not advance the solver.
+
 Maintainers regenerate declarations with `python3 tools/api/generate_python.py`
 (`pycparser` is needed only for generation). The `python_capi` test checks header
 coverage and compares every public record's size/alignment/field offsets and

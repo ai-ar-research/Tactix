@@ -167,6 +167,66 @@ class Execution:
         self._check()
         return self._lib.dll.tactix_solve(self._view)
 
+class RestartClock:
+    """Owned native restart scheduler; the Python policy chooses all actions.
+
+    The clock retains no execution view and can survive queries or sessions.
+    Use reset for a new schedule and update for explicitly selected events.
+    """
+    def __init__(self, execution, parameters=None):
+        execution._check()
+        self._lib, self._handle = execution._lib, None
+        self._handle = execution.c.tactix_restart_clock_create(
+            None if parameters is None else C.byref(parameters))
+        if not self._handle:
+            raise ValueError('invalid restart-clock parameters')
+
+    def close(self):
+        if self._handle:
+            self._lib.dll.tactix_restart_clock_release(self._handle)
+            self._handle = None
+
+    def __del__(self):
+        if getattr(self, '_handle', None): self.close()
+
+    def _view(self, execution):
+        execution._check()
+        if not self._handle: raise RuntimeError('restart clock is closed')
+        if execution._lib.dll._handle != self._lib.dll._handle:
+            raise ValueError('restart clock belongs to another library')
+        return execution.c
+
+    @property
+    def parameters(self):
+        if not self._handle: raise RuntimeError('restart clock is closed')
+        result = capi.tactix_restart_clock_parameters()
+        if self._lib.dll.tactix_restart_clock_get_parameters(self._handle, C.byref(result)):
+            raise RuntimeError('cannot read restart-clock parameters')
+        return result
+
+    def configure(self, execution, parameters=None):
+        if self._view(execution).tactix_restart_clock_configure(self._handle,
+                None if parameters is None else C.byref(parameters)):
+            raise ValueError('invalid restart-clock parameters')
+
+    def update(self, execution, event, glue=0):
+        if not isinstance(event, int) or not capi.TACTIX_RESTART_CLOCK_RESET <= event <= capi.TACTIX_RESTART_CLOCK_MODE_ENTERED:
+            raise ValueError('invalid restart-clock event')
+        if not isinstance(glue, int) or not 0 <= glue <= 2**32-1:
+            raise ValueError('glue must be a uint32 value')
+        if self._view(execution).tactix_restart_clock_update(self._handle, event, glue):
+            raise ValueError('invalid restart-clock event')
+
+    def reset(self, execution):
+        self.update(execution, capi.TACTIX_RESTART_CLOCK_RESET)
+
+    def observe(self, execution):
+        result = capi.tactix_restart_clock_state()
+        if self._view(execution).tactix_restart_clock_observe(self._handle, C.byref(result)):
+            raise RuntimeError('cannot observe restart clock')
+        return result
+
+
 class ScriptedCDCL:
     """Example Python control policy; rule execution remains in the native engine."""
     def __init__(self, choose=None):

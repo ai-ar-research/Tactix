@@ -458,7 +458,61 @@ void test_work_settings() {
   tactix_release(s);
 }
 
+void test_native_scheduling_observations() {
+  auto *s = tactix_init();
+  assert(tactix_set_guidance_publication(s, TACTIX_GUIDANCE_NATIVE) == 0);
+  for (int v = 1; v < 5; ++v) {
+    tactix_add(s, -v); tactix_add(s, v + 1); tactix_add(s, 0);
+  }
+  assert(tactix_status(s) == 0);
+  assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 5);
+  assert(tactix_decide(s, 1) == 0);
+  assert(tactix_apply(s, tactix_rule_id("Propagate")) >= 0);
+  const auto search = tactix_stat(s, TACTIX_STAT_SEARCH_TICKS);
+  assert(search > 0 && tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 5);
+  assert(tactix_apply_instance(s, tactix_rule_id("Restart"), 0) >= 0);
+  assert(tactix_support(s, TACTIX_SUPPORT_ENTER_CONTEXT, TACTIX_CONTEXT_STARTUP) == 0);
+  const auto total = tactix_stat(s, TACTIX_STAT_TICKS);
+  assert(tactix_decide(s, 1) == 0);
+  assert(tactix_apply(s, tactix_rule_id("Propagate")) >= 0);
+  assert(tactix_stat(s, TACTIX_STAT_TICKS) > total);
+  assert(tactix_stat(s, TACTIX_STAT_SEARCH_TICKS) == search);
+  assert(tactix_apply_instance(s, tactix_rule_id("Restart"), 0) >= 0);
+  assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_CONTEXT, 0) == 0);
+  assert(tactix_apply_instance(s, tactix_rule_id("BVE"), TACTIX_LIT_INSTANCE(1)) >= 0);
+  assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 4);
+  Kernel &k = kernel(s);
+  // Distinct diagnostic values pin units/swept independently of the existing
+  // equivalence statistic; observing them must not advance the solver.
+  k.stats.sweep_equivalences = 11; k.stats.sweep_units = 3; k.stats.sweep_swept = 17;
+  k.stats.learned_glue_sum = 23; k.stats.reason_bump_rounds = 7;
+  k.stats.reason_bump_aborted = 2;
+  const auto epoch = k.strategy_epoch, touch = k.touch_epoch;
+  const auto trail = k.trail;
+  for (unsigned repeat = 0; repeat != 3; ++repeat) {
+    assert(tactix_stat(s, TACTIX_STAT_SWEEP_EQUIVALENCES) == 11);
+    assert(tactix_stat(s, TACTIX_STAT_SWEEP_UNITS) == 3);
+    assert(tactix_stat(s, TACTIX_STAT_SWEEP_SWEPT) == 17);
+    assert(tactix_stat(s, TACTIX_STAT_LEARNED_GLUE_SUM) == 23);
+    assert(tactix_stat(s, TACTIX_STAT_REASON_BUMP_ROUNDS) == 7);
+    assert(tactix_stat(s, TACTIX_STAT_REASON_BUMP_ABORTED) == 2);
+    assert(tactix_stat(s, TACTIX_STAT_SEARCH_TICKS) == search);
+    assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 4);
+  }
+  assert(k.strategy_epoch == epoch && k.touch_epoch == touch && k.trail == trail);
+  tactix_release(s);
+  s = tactix_init();
+  for (int v = 1; v < 5; ++v) {
+    tactix_add(s, -v); tactix_add(s, v + 1); tactix_add(s, 0);
+  }
+  tactix_add(s, 5); tactix_add(s, 0);
+  assert(tactix_status(s) == 0);
+  assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 4);
+  tactix_release(s);
+}
+
 int main() {
+  test_native_scheduling_observations();
   test_pending_root_collection();
   test_twins();
   test_contexts();

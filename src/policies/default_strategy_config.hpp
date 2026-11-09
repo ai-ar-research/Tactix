@@ -7,6 +7,7 @@
 #include "strategy/online_sequence.hpp"
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -149,6 +150,13 @@ struct DefaultStrategyConfig {
     double logarithm_bias = 1.0;
     uint64_t reluctant_period = RELUCTANT_PERIOD_DEFAULT;
     uint64_t reluctant_limit = RELUCTANT_LIMIT_DEFAULT;
+    bool valid() const {
+      const auto positive = [](double v) { return std::isfinite(v) && v > 0.0; };
+      return positive(glue_margin) && positive(fast_ema_window) &&
+             positive(slow_ema_window) && positive(logarithm_offset) &&
+             positive(logarithm_bias) && initial_interval && reluctant_period &&
+             reluctant_limit;
+    }
   } restart;
 
   struct Mode {

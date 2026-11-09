@@ -1123,12 +1123,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("analysis eager-subsumption size exceeds its representation");
   if (analysis.big_binary_fraction_permille > PERMILLE_SCALE)
     return reject("analysis binary fraction exceeds 1000 permille");
-  if (!positive_finite(restart.glue_margin) ||
-      !positive_finite(restart.fast_ema_window) ||
-      !positive_finite(restart.slow_ema_window) ||
-      !positive_finite(restart.logarithm_offset) ||
-      !positive_finite(restart.logarithm_bias) || !restart.initial_interval ||
-      !restart.reluctant_period || !restart.reluctant_limit)
+  if (!restart.valid())
     return reject("restart settings contain a zero or non-finite scale");
   if (mode.force > 2 || !mode.initial_conflicts || !mode.interval ||
       !positive_finite(mode.logarithm_offset) || !mode.logarithm_power)
@@ -2085,8 +2080,7 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   const uint64_t conflicts = k.stats.conflicts;
   const uint64_t ticks = search_ticks(k);
 
-  averages[0] = averages[1] = {};
-  update_restart_limit(k);
+  DefaultRestartControl::reset(k, config_.restart);
   // Kissat initializes Reduce from `reduceinit` independently of the cadence
   // used after a completed reduction (kimits.c:kissat_init_limits).  The
   // arithmetic interval is a recurrence delta, not an alternative first
@@ -2096,8 +2090,6 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   mode = {};
   mode.conflicts_limit = conflicts + config_.mode.initial_conflicts;
   mode.ticks_at_focus_entry = ticks;
-  reluctant = {};
-  reluctant.wait = config_.restart.reluctant_period;
   rephase = {};
   rephase.next_conflicts = conflicts + config_.rephase.initial_interval;
   reorder = {};
@@ -5418,9 +5410,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
           heuristics_update_target_phases(k);
         static const RuleVTable &restart_rule = registered_rule("Restart");
         const ApplyResult restarted = port::apply_rule_instance(restart_rule, k, keep);
-        reluctant.trigger = false; // consumed (kissat reluctant.h)
-        if (!k.h->stable) // kissat restart.c: focused-only limit update
-          update_restart_limit(k);
+        DefaultRestartControl::restart_completed(k, config_.restart);
         return restarted;
       });
       feedback.end_interval(StopReason::Restart);

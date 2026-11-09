@@ -32,6 +32,9 @@ if(TACTIX_BUILD_SHARED_IPASIR)
   tactix_skip77_test(python_session ${TACTIX_PYTHON}
     ${CMAKE_CURRENT_SOURCE_DIR}/test_python_session.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
+  tactix_skip77_test(python_restart_clock ${TACTIX_PYTHON}
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_restart_clock.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
 endif()
 
 # A tests/<script> proof/model check over one fixture executable and the

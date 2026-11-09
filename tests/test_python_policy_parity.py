@@ -168,7 +168,9 @@ with tempfile.TemporaryDirectory(prefix='python-crux-parity-') as tmp:
                 if result==30:result=lib.tactix_solve(s)
                 elapsed=time.perf_counter_ns()-start
                 assert result in (10,20) and (satisfiable is None or result==(10 if satisfiable else 20)),(i,mode,arm,result)
-                counters=tuple(lib.tactix_stat(s,j) for j in range(65))
+                counters=tuple(lib.tactix_stat(s,j) for j in range(1 + max(
+                    value for name,value in capi.schema.CONSTANTS.items()
+                    if name.startswith('TACTIX_STAT_'))))
                 model=tuple(v if lib.tactix_value(s,v)>0 else -v for v in range(1,n+1)) if result==10 else ()
                 if result==10:
                     assert all(any(l in model for l in c) for c in formula);models+=1
