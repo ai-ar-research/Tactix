@@ -38,6 +38,7 @@
 #include "strategy/slot_execution.hpp"
 #include "strategy/structural_action_sessions.hpp"
 #include "strategy/work_execution.hpp"
+#include "strategy/bve_invocation.hpp"
 #include "policies/rule_publication.hpp"
 
 #include <algorithm>
@@ -151,6 +152,42 @@ struct tactix_online_executor {
     return s && owner == s && !lifetime.expired();
   }
 };
+
+struct tactix_bve_order {
+  const tactix_solver *owner;
+  std::weak_ptr<const int> lifetime;
+  uint64_t epoch;
+  strategy::BveParameters parameters;
+  bool stable;
+  bool active=false, release_pending=false;
+  strategy::BveOrdering ordering;
+  struct Operation {
+    tactix_bve_order &order;
+    explicit Operation(tactix_bve_order &o):order(o) {order.active=true;}
+    ~Operation();
+  };
+  struct Connection {
+    strategy::BveOrdering &ordering;
+    explicit Connection(tactix_bve_order &o):ordering(o.ordering) {ordering.connect();}
+    ~Connection() {ordering.disconnect();}
+  };
+  tactix_bve_order(tactix_solver *s,const uint64_t *instances,uint32_t count)
+      :owner(s),lifetime(s->online_lifetime),epoch(s->kernel.strategy_epoch),
+       parameters(strategy::BveParameters::from_kernel(s->kernel)),stable(s->kernel.h->stable),
+       ordering(s->kernel,instances,count,false) {}
+  bool valid(const tactix_solver *s) const {
+    return s&&owner==s&&!active&&!lifetime.expired()&&epoch==s->kernel.strategy_epoch&&
+        s->phase.open()&&s->phase.eliminate()&&s->phase.occurrences_open()&&
+        s->kernel.dense==&s->phase_occurrences&&!s->kernel.bve_score_update_hook&&
+        !s->kernel.bve_occurrence_count_image&&s->kernel.h&&stable==s->kernel.h->stable&&
+        parameters==strategy::BveParameters::from_kernel(s->kernel);
+  }
+};
+
+tactix_bve_order::Operation::~Operation() {
+  order.active=false;
+  if(order.release_pending)delete &order;
+}
 
 extern "C" {
 static void input_complete(tactix_solver *solver);
@@ -2893,6 +2930,83 @@ int tactix_online_complete(tactix_solver *s) {
   return s && s->online ? (s->online->complete() ? 1 : 0) : -1;
 }
 
+tactix_bve_order *tactix_bve_order_create(tactix_solver *s,const uint64_t *instances,int count) {
+  if(!s||!c_array(instances,count))return nullptr;
+  input_complete(s);
+  const auto &k=s->kernel;
+  if(!s->phase.open()||!s->phase.eliminate()||!s->phase.occurrences_open()||
+      k.dense!=&s->phase_occurrences||k.level||k.inconsistent||k.conflict_valid||k.pending.valid||
+      !kernel_propagation_fixpoint(k)||k.bve_score_update_hook||k.bve_occurrence_count_image||!k.h)
+    return nullptr;
+  for(int i=0;i<count;++i) {
+    Lit literal;
+    if(!lit_of_instance(k,instances[i],&literal))return nullptr;
+  }
+  if(!s->online_lifetime)s->online_lifetime=std::make_shared<const int>(0);
+  return new tactix_bve_order(s,instances,static_cast<uint32_t>(count));
+}
+
+void tactix_bve_order_release(tactix_bve_order *o) {
+  if(o&&o->active)o->release_pending=true;
+  else delete o;
+}
+
+int tactix_bve_order_next(tactix_solver *s,tactix_bve_order *o,uint64_t *instance,uint32_t *propagation_begin) {
+  if(!o||!instance||!propagation_begin||!o->valid(s))return -1;
+  if(o->ordering.empty())return 0;
+  *instance=o->ordering.next();*propagation_begin=s->kernel.propagate_head;return 1;
+}
+
+int tactix_bve_order_apply(tactix_solver *s,tactix_bve_order *o,int rule_id,uint64_t instance) {
+  if(!o||!o->valid(s))return -1;
+  const RuleVTable *r=guarded_rule(s,rule_id);
+  if(!r||((std::strcmp(r->name,"BVE")||instance==INSTANCE_CANONICAL)&&
+      (std::strcmp(r->name,"Propagate")||instance!=INSTANCE_CANONICAL)))return -1;
+  tactix_bve_order::Operation operation(*o);
+  int result;
+  {
+    tactix_bve_order::Connection connected(*o);
+    result=tactix_apply_instance(s,rule_id,instance);
+  }
+  o->epoch=s->kernel.strategy_epoch;return result;
+}
+
+int tactix_bve_order_flush_units(tactix_solver *s,tactix_bve_order *o,uint32_t trail_from) {
+  if(!o||!o->valid(s))return -1;
+  auto &k=s->kernel;
+  if(k.level||k.inconsistent||k.conflict_valid||k.pending.valid||
+      !k.dense->track_order||trail_from>k.propagate_head)return -1;
+  tactix_bve_order::Operation operation(*o);
+  execution::execute_action(k,execution::CloseStartupCertificateRequest{});
+  {
+    tactix_bve_order::Connection connected(*o);
+    bve_flush_units_while_connected(k,trail_from);
+  }
+  external_state_change(s);o->epoch=k.strategy_epoch;
+  kernel_check_invariants(k);return 0;
+}
+
+int tactix_read_bve_candidate(tactix_solver *s,uint64_t instance,tactix_bve_candidate_state *out) {
+  if(!s||!out)return -1;
+  input_complete(s);
+  const auto &k=s->kernel;Lit literal;
+  if(!lit_of_instance(k,instance,&literal))return -1;
+  const Var v=var_of(literal);
+  uint32_t flags=0;
+  if(k.value(literal))flags|=TACTIX_BVE_CANDIDATE_ASSIGNED;
+  if(kernel_var_retired(k,v))flags|=TACTIX_BVE_CANDIDATE_RETIRED;
+  if(v<k.bve_retry.size()&&k.bve_retry[v])flags|=TACTIX_BVE_CANDIDATE_RETRY;
+  if(kernel_startup_retained(k,v))flags|=TACTIX_BVE_CANDIDATE_RETAINED;
+  if(strategy::bve_affine_support_protected(k,v))flags|=TACTIX_BVE_CANDIDATE_AFFINE;
+  if(k.query_projection&&k.query_projection->constrains(k.internal_to_external[v]))
+    flags|=TACTIX_BVE_CANDIDATE_QUERY;
+  *out={kernel_externalize(k,literal),flags,
+      bve_schedule_occurrence_count(k,make_lit(v,false)),
+      bve_schedule_occurrence_count(k,make_lit(v,true)),
+      k.h?(k.h->stable?k.h->scores.score[v]:double(k.h->links[v].stamp)):0.0};
+  return 0;
+}
+
 int tactix_query_assumption_floor(tactix_solver *s, uint32_t *out) {
   if (!s || !out || !s->query_owner) return -1;
   const auto floor=s->query_owner->assigned_assumption_floor(s->query_ticket);
@@ -3435,6 +3549,7 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
         k.pending.valid || k.probing.recording || !k.dense ||
         !k.dense->track_order || k.large_watches_connected)
       return -1;
+    execution::execute_action(k,execution::CloseStartupCertificateRequest{});
     result = support_result(s, execution::execute_action(
         k, execution::ForwardClosureRequest{static_cast<uint32_t>(argument)}));
     break;

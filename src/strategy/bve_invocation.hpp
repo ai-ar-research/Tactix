@@ -67,6 +67,7 @@ constexpr bool valid_bve_candidate_scope(BveCandidateScope scope) {
 // legacy Kernel fields remain the rule ABI during migration; ScopedParameters
 // poses these values only for the atomic request and restores them exactly.
 struct BveParameters {
+  bool operator==(const BveParameters &) const = default;
   static constexpr uint32_t GROWTH_BOUND_DEFAULT = 16;
   static constexpr uint32_t XOR_ARITY_DEFAULT = 5;
   static constexpr uint32_t RESOLVENT_SIZE_DEFAULT = 100;
@@ -350,7 +351,8 @@ public:
         valid_(detail::bve_admissible(rule, parameters, budget)) {}
   BveInvocationSession(const BveInvocationSession &) = delete;
   BveInvocationSession &operator=(const BveInvocationSession &) = delete;
-  ~BveInvocationSession() { finish_ordering(); }
+  // heap_ is destroyed before posed_, disconnecting notifications before
+  // the invocation's parameters are restored.
 
   bool valid() const { return valid_; }
 
@@ -359,22 +361,12 @@ public:
   // publishes until finish_ordering().
   void order_by_score_heap(const uint64_t *instances, uint32_t n) {
     assert(!heap_ && !k_.bve_score_update_hook);
-    heap_.emplace();
-    heap_->initialize(k_, instances, n);
-    k_.bve_score_update_hook = BveCandidateHeap::update_hook;
-    k_.bve_score_update_state = &*heap_;
+    heap_.emplace(k_,instances,n);
   }
   bool ordered() const { return heap_.has_value(); }
   bool ordering_empty() const { return heap_->empty(); }
-  uint64_t next_ordered() { return heap_->pop_max(); }
-  void finish_ordering() {
-    if (!heap_) return;
-    k_.bve_score_update_hook = nullptr;
-    k_.bve_score_update_state = nullptr;
-    assert(k_.bve_occurrence_count_image);
-    k_.bve_occurrence_count_image = nullptr;
-    heap_.reset();
-  }
+  uint64_t next_ordered() { return heap_->next(); }
+  void finish_ordering() {heap_.reset();}
 
   // eliminate.c flush_units_while_connected: after a candidate's propagation,
   // the units from `propagation_begin` update the connected occurrence image.
@@ -474,7 +466,7 @@ private:
   uint64_t configuration_revision_;
   bool valid_ = false;
   std::optional<detail::ScopedBveParameters> posed_;
-  std::optional<BveCandidateHeap> heap_;
+  std::optional<BveOrdering> heap_;
 };
 
 } // namespace tactix::strategy

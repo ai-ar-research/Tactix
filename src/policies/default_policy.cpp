@@ -303,16 +303,6 @@ void pose_affine_structured_stage(DefaultStrategyConfig &config) {
 
 } // namespace
 
-// Admitted support of a persistent affine session (sorted externals).
-static bool affine_support_protected(const Kernel &kernel, Var variable) {
-  const auto *session = kernel.affine_matrix_search_session;
-  if (!session || !session->enabled() || !session->persistent())
-    return false;
-  const auto &support = session->support();
-  return std::binary_search(support.begin(), support.end(),
-                            kernel_externalize(kernel, make_lit(variable, false)));
-}
-
 std::optional<strategy::AffineConsequenceParameters>
 default_affine_search_parameters(const Kernel &kernel,
                                  const DefaultStrategyConfig &config) {
@@ -5993,7 +5983,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         // the persistent affine session's admitted support to BVE.
         if (lit_of_instance(k, payload, &candidate) &&
             var_of(candidate) < k.nvars &&
-            affine_support_protected(k, var_of(candidate)))
+            strategy::bve_affine_support_protected(k, var_of(candidate)))
           continue;
         // Query scheduling preserves its live assumption interface. Explicit
         // BVE instances remain available and the projection service records

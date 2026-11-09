@@ -227,6 +227,72 @@ class RestartClock:
         return result
 
 
+class BveOrder:
+    """Owned mutable BVE ordering; the Python policy selects every operation.
+
+    Create inside an Eliminate occurrence session. Other solver mutations
+    invalidate the order. Closing remains safe after the execution expires.
+    """
+    def __init__(self, execution, instances):
+        execution._check()
+        self._execution, self._handle = execution, None
+        instances = tuple(instances)
+        if len(instances) > 2**31-1:
+            raise ValueError('too many BVE instances')
+        for instance in instances: self._instance(instance)
+        data = (C.c_uint64 * len(instances))(*instances)
+        self._handle = execution.c.tactix_bve_order_create(data, len(instances))
+        if not self._handle:
+            raise RuntimeError('BVE ordering requires a quiescent Eliminate occurrence session')
+
+    @staticmethod
+    def _instance(instance):
+        if not isinstance(instance, int) or not 0 <= instance <= 2**64-1:
+            raise ValueError('instance must be uint64; use TACTIX_LIT_INSTANCE for signed literals')
+        return instance
+
+    def close(self):
+        if self._handle:
+            self._execution._lib.dll.tactix_bve_order_release(self._handle)
+            self._handle = None
+
+    def __del__(self):
+        if getattr(self, '_handle', None): self.close()
+
+    def __enter__(self): return self
+    def __exit__(self, *_): self.close()
+
+    def _view(self):
+        self._execution._check()
+        if not self._handle: raise RuntimeError('BVE ordering is closed')
+        return self._execution.c
+
+    def pop(self):
+        instance, begin = C.c_uint64(), C.c_uint32()
+        code = self._view().tactix_bve_order_next(self._handle, C.byref(instance), C.byref(begin))
+        if code < 0: raise RuntimeError('BVE ordering is stale')
+        return (instance.value, begin.value) if code else None
+
+    def candidate(self, instance):
+        result = capi.tactix_bve_candidate_state()
+        if self._view().tactix_read_bve_candidate(self._instance(instance), C.byref(result)):
+            raise ValueError('invalid BVE candidate')
+        return result
+
+    def apply(self, rule, instance=None):
+        instance = capi.TACTIX_INSTANCE_CANONICAL if instance is None else self._instance(instance)
+        code = self._view().tactix_bve_order_apply(self._handle,
+            self._execution._lib.rules[rule], instance)
+        if code < 0: raise RuntimeError('BVE ordering or selected operation is invalid')
+        return code
+
+    def flush_units(self, propagation_begin):
+        if not isinstance(propagation_begin, int) or not 0 <= propagation_begin <= 2**32-1:
+            raise ValueError('propagation boundary must be uint32')
+        if self._view().tactix_bve_order_flush_units(self._handle, propagation_begin):
+            raise RuntimeError('BVE ordering or propagation boundary is invalid')
+
+
 class ScriptedCDCL:
     """Example Python control policy; rule execution remains in the native engine."""
     def __init__(self, choose=None):

@@ -109,6 +109,13 @@ resets it. The clock can outlive a view and be reused with the same library;
 release it with `close()`. It supplies scheduling arithmetic. `default_solve()`
 is an explicit native handoff.
 
+`BveOrder(execution, candidates)` wraps the same C candidate heap. Use `pop()`,
+`apply(rule, instance)` and `flush_units(begin)` to schedule explicit operations;
+`order.candidate(instance)` supplies the matching observations.
+The order expires after other execution mutations or phase/view expiry. Release
+it with `close()`, including after expiry or from a learned-clause callback.
+It supplies candidate ordering, not the complete built-in policy.
+
 `execution.rejected_models` observes models satisfying permanent input but
 missing assumptions. Reading it does not recheck a model or publish a result;
 it may reset after repair. A scheduler can compare it around a model constructor

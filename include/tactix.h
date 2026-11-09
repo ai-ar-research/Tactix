@@ -407,7 +407,9 @@ int tactix_apply_condition(tactix *, const int *clause, int clause_count,
                            const int *witness, int witness_count);
 
 /* Exact Boolean extension, selected by the external strategy. Define a fresh
- * z iff (left OP right), where operands are signed permanent DIMACS literals.
+ * z iff (left OP right), where operands are signed external DIMACS literals.
+ * Client identities persist across queries. Private outputs belong to the
+ * current query namespace and may move when later client input grows into it.
  * Returns z's positive external identity, or -1 for an invalid/inapplicable
  * request. Input closes as for other rule calls. After that closure, declines
  * do not change the formula, variable namespace or guidance. Requires a
@@ -433,7 +435,7 @@ int tactix_define_extension(tactix *, int gate, int left, int right);
 int tactix_regions_begin(tactix *);
 int tactix_regions_clear(tactix *);
 
-/* Register a region of positive permanent external variable IDs; copies,
+/* Register a region of positive IDs in this query's external namespace; copies,
  * sorts and deduplicates the input. Returns a nonnegative region ID or -1.
  * Any imported variables may be selected; the queried literal must belong.
  * Probe selects live clauses whose unfixed variables are in the region.
@@ -457,7 +459,7 @@ int tactix_region_apply(tactix *, int rule_id, int literal, int region,
 int tactix_region_queue(tactix *, int rule_id, int literal, int region,
                        uint64_t ticks);
 
-/* Read the next permanent external identity without allocating it. Input
+/* Read the next external identity in this query without allocating it. Input
  * closes. Returns -1 if no representable identity remains. */
 int tactix_fresh_variable_start(tactix *);
 
@@ -1293,8 +1295,8 @@ typedef struct {
   int complete_profile_mode;
 } tactix_online_sr_parameters;
 
-/* One exact Factor remainder column and grid. Literals use permanent DIMACS
- * identities. The grid is copied during configure; caller storage may be
+/* One exact Factor remainder column and grid. Literals use this query's external
+ * DIMACS identities. The grid is copied during configure; caller storage may be
  * released immediately afterward. Matching large-clause occurrences are
  * chosen deterministically when the action executes. */
 typedef struct {
@@ -2257,6 +2259,53 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
 #define TACTIX_CONTEXT_INPROCESSING 2
 #define TACTIX_CONTEXT_SPECULATION 3
 int tactix_support(tactix *, int support, uint64_t argument);
+
+/* Mutable BVE ordering, shared with the native score heap. Create at a
+ * consistent root in an open Eliminate occurrence session. The instance array
+ * is copied; duplicates use their last payload. next returns 1 and a payload,
+ * plus its entry propagation head, 0 at exhaustion, or -1 for an invalid/stale
+ * handle (outputs unchanged).
+ * No candidate is applied by next, including retired/retry ghosts.
+ *
+ * apply explicitly selects one BVE instance or canonical Propagate and returns
+ * the ordinary tactix_apply_instance codes. flush_units selects the connected
+ * unit-flush boundary used after propagation (trail_from <= propagation head).
+ * These calls alone update this ordering. Formula/relevance/coordinate/
+ * phase or BVE-profile changes invalidate it. Reads preserve the cursor.
+ * Several detached orderings may coexist; updating one invalidates the others.
+ * No update hook remains attached between calls, so unrelated public actions
+ * stay available. Release is safe after the execution/solver is destroyed;
+ * release from a callback during an active operation is deferred until return.
+ * A valid flush ends the startup counting-certificate window before deletions.
+ * Terminal results do not consume remaining candidates; callers choose when
+ * to stop. -1 combines stale handles, invalid selections and guard refusal.
+ * Creation returns NULL on invalid input; callers own returned handles. */
+typedef struct tactix_bve_order tactix_bve_order;
+tactix_bve_order *tactix_bve_order_create(tactix *, const uint64_t *instances, int count);
+void tactix_bve_order_release(tactix_bve_order *);
+int tactix_bve_order_next(tactix *, tactix_bve_order *, uint64_t *instance, uint32_t *propagation_begin);
+int tactix_bve_order_apply(tactix *, tactix_bve_order *, int rule_id, uint64_t instance);
+int tactix_bve_order_flush_units(tactix *, tactix_bve_order *, uint32_t trail_from);
+
+/* BVE scheduling observations, not restrictions on explicit rules. The first
+ * read completes original input as other rule observations do; later reads
+ * preserve solver state and ordering cursors. In an occurrence session counts
+ * are physical stack sizes including pending garbage; outside one the large
+ * count scans live irredundant records. Relevance is EVSIDS in stable mode,
+ * otherwise VMTF stamp.
+ * Returns 0, or -1 for an unknown literal/invalid argument (output unchanged). */
+#define TACTIX_BVE_CANDIDATE_ASSIGNED 1u
+#define TACTIX_BVE_CANDIDATE_RETIRED 2u
+#define TACTIX_BVE_CANDIDATE_RETRY 4u
+#define TACTIX_BVE_CANDIDATE_RETAINED 8u
+#define TACTIX_BVE_CANDIDATE_AFFINE 16u
+#define TACTIX_BVE_CANDIDATE_QUERY 32u
+typedef struct {
+  int literal;
+  uint32_t flags, positive_occurrences, negative_occurrences;
+  double relevance;
+} tactix_bve_candidate_state;
+int tactix_read_bve_candidate(tactix *, uint64_t instance, tactix_bve_candidate_state *);
 
 /* branching surface: candidates ranked by the active heuristic
  * (saved/target-phase literals, DIMACS convention); tactix_decide branches

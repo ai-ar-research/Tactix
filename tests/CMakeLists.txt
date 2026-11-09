@@ -7,6 +7,12 @@
 # arguments or a special name are declared explicitly.
 
 set(TACTIX_PYTHON ${CMAKE_COMMAND} -E env python3)
+
+# Internal heap comparison plus real IPASIR callback/lifetime coverage.
+add_executable(test_bve_order test_bve_order.cpp)
+target_link_libraries(test_bve_order PRIVATE tactix_lib tactix_ipasir)
+add_test(NAME bve_order COMMAND test_bve_order)
+
 set(TACTIX_SKIP_UNLESS_PBP ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
     ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb
     ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --)
@@ -42,6 +48,10 @@ if(TACTIX_BUILD_SHARED_IPASIR)
     ${CMAKE_CURRENT_SOURCE_DIR}/test_python_restart_clock.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
 endif()
+
+tactix_skip77_test(bve_order_proof ${TACTIX_PYTHON}
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_python_bve_order.py
+  $<TARGET_FILE:test_bve_order> ${CMAKE_SOURCE_DIR})
 
 # A tests/<script> proof/model check over one fixture executable and the
 # source root; it exits 77 when a pinned checker is missing.
