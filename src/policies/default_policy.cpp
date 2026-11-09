@@ -4545,6 +4545,185 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     }
   };
 
+  // Query preflight and ordinary search execute one identical analysis
+  // transaction, including policy feedback, retiering and restart averages.
+  const auto analyze_conflict = [&] {
+    event_trace.conflict(k);
+    event_trace.detail(k, "analysis_begin", k.level);
+    event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
+                           mode.ticks_at_focus_entry, mode.count);
+    observe_decision_rate(k); // kissat: before the analysis, once per conflict
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace.detail(k, "reason_bump_delay_before",
+                       bump_reasons_delay_.count);
+    event_trace.detail(k, "reason_bump_rate_milli",
+                       static_cast<int64_t>(
+                           averages[k.h->stable].decision_rate.value * 1000));
+#endif
+    // The per-conflict payload, by value (gap plan Step 6): the public
+    // ANALYZE_TARGET_CHRONO instance.
+    execution::NativeConflictAnalysisRequest request;
+    request.bump_reason_limit = want_bump_reasons(k);
+    request.bump_reason_depth = config_.analysis.reason_depth;
+    request.target_mode = AnalysisTarget::Chrono;
+    request.retier_schedule = retier_;
+    assert(k.conflict_reuse_chrono_levels == chrono_levels);
+    event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
+    const uint64_t analysis_instance = ANALYZE_TARGET_CHRONO;
+    const uint64_t learned_before = k.stats.learned;
+    const uint64_t glue_sum_before = k.stats.learned_glue_sum;
+    const uint64_t backjumps_before = k.stats.backjumps;
+    const uint64_t br_rounds = k.stats.reason_bump_rounds;
+    const uint64_t br_aborted = k.stats.reason_bump_aborted;
+    const auto analysis = port::complete_action(
+        completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
+        [&] {
+          auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
+              analysis_instance, "native-target-chrono");
+          // The record names the request's whole payload: the profile with
+          // its bump fields, and the schedule it carries.
+          auto &profile = std::get<strategy::AnalyzeParameters>(
+              spec.description.invocation->parameters);
+          profile.bump_reason_limit = request.bump_reason_limit;
+          profile.bump_reason_depth = request.bump_reason_depth;
+          spec.description.description +=
+              ";retier=" + execution::retier_schedule_text(request.retier_schedule);
+          return spec;
+        }, [&] {
+      return port::execute_action(
+        k, request,
+        [&](auto &&apply) {
+          return default_direct_rule(
+              k, "ConflictAnalysis",
+              [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
+              apply);
+        },
+        [&](ApplyResult ar) -> uint32_t {
+          // Advice only traces; the policy's own updates read the completed
+          // transaction below.
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+          if (ar == ApplyResult::Unsat) {
+            event_trace.detail(k, "analysis_end", -1);
+          } else if (!k.pending.valid) {
+            event_trace.detail(k, "analysis_end", k.level);
+            event_trace_analysis_deletions(k);
+            event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
+                                   mode.ticks_at_focus_entry, mode.count);
+          } else {
+            event_trace.learned(k, k.pending.lits);
+            event_trace.detail(k, "analysis_tail_learned_emitted",
+                               k.pending.lits.size());
+            event_trace.detail(k, "analysis_tail_policy_updated",
+                               k.pending.glue);
+            const uint32_t chosen_back = k.level - 1;
+            event_trace.detail(
+                k, "analysis_tail_target",
+                chosen_back - k.pending.jump_level > chrono_levels
+                    ? chosen_back
+                    : k.pending.jump_level);
+          }
+#else
+          (void)ar;
+#endif
+          return 0;
+        });
+    }, [&](const execution::ConflictAnalysisExecutionResult &result,
+           strategy::controller::NativeActionDescription &description) {
+      // The realized target makes the native choice replayable as the
+      // public ConflictAnalysis instance (target clamped to [jump, level-1]).
+      // Conflict reuse and level-one unit batches end without Backjump at
+      // their own realized level.
+      if (result.backjumped)
+        description.description += ";target=" + std::to_string(result.target) +
+                                   ";jump=" + std::to_string(result.jump);
+      else if (result.result != ApplyResult::Unsat)
+        description.description += ";target=" + std::to_string(k.level) +
+                                   ";no-backjump=1";
+      description.description +=
+          ";retier-after=" + execution::retier_schedule_text(result.retier_schedule);
+      return strategy::controller::feedback_outcome(result.result);
+    });
+    retier_ = analysis.retier_schedule;
+    if (analysis.analysis == ApplyResult::Unsat)
+      return analysis;
+    // Post-transaction observation through public statistics only: a
+    // learned result (a backjumped clause, or a level-one unit batch, which
+    // Kissat observes as size one / glue zero, learn.c:120-130) feeds the
+    // glue averages and the reluctant clock; only a final learned clause
+    // (a counted backjump) reaches Kissat's DELAYING(bumpreasons) gate,
+    // never reuse or early exits.
+    const bool backjumped = k.stats.backjumps != backjumps_before;
+    assert(backjumped == analysis.backjumped);
+    if (k.stats.learned != learned_before) {
+      if (backjumped)
+        bump_reasons_delay_.reached_gate(
+            k.stats.reason_bump_rounds != br_rounds,
+            k.stats.reason_bump_aborted != br_aborted);
+      observe_glue(k, static_cast<uint32_t>(k.stats.learned_glue_sum -
+                                            glue_sum_before));
+      if (k.h->stable)
+        tick_reluctant(); // per learned clause (kissat learn.c)
+    }
+    assert(!backjumped || k.stats.learned == learned_before + 1);
+    return analysis;
+  };
+
+  const auto decide_query_assumption = [&](const session::AssumptionStep &next) {
+    const Lit literal = kernel_internalize(k, next.literal);
+    return port::complete_action(completion_, FeedbackKind::SearchService,
+        "Decide", lit_instance(k, literal), [&] {
+          return execution::native_rule_feedback(k, "Decide",
+              lit_instance(k, literal), "query-assumption="+std::to_string(next.index));
+        }, [&] {
+          return port::execute_action(k, execution::DecisionRequest{literal});
+        });
+  };
+
+  if constexpr (Query) {
+    // A contradictory cube needs no startup simplification. Try its ordinary
+    // decisions/propagation/analysis first, without an independent SAT engine
+    // or assumptions inserted as permanent units. A surviving query rewinds
+    // to root and retains every configured startup/inprocessing opportunity.
+    const auto ticket = query->ticket();
+    if (!query->effective_assumptions(ticket).empty()) {
+      for (;;) {
+        if (query->poll_terminate(stop)) return finish(0);
+        const auto next = query->next_assumption(ticket);
+        if (next.status == session::AssumptionStatus::BaseUnsat) return finish(20);
+        if (next.status == session::AssumptionStatus::QueryUnsat) {
+          if (!query->publish_assumption_refutation(ticket)) {
+            *query_status = session::QuerySolveStatus::ProofFailure;
+            return finish(0);
+          }
+          return finish(20);
+        }
+        if (next.status == session::AssumptionStatus::Restore) {
+          *query_status = session::QuerySolveStatus::RestorationRequired;
+          return finish(0);
+        }
+        auto boundary = next.status;
+        if (boundary == session::AssumptionStatus::Propagate) {
+          const auto propagated = default_propagate(k, "query-preflight", completion_);
+          if (propagated == ApplyResult::Ok) continue;
+          if (propagated == ApplyResult::Unsat) return finish(20);
+          if (propagated != ApplyResult::Conflict) break;
+          boundary = session::AssumptionStatus::Analyze;
+        }
+        if (boundary == session::AssumptionStatus::Analyze) {
+          if (!discharge_affine_reason(k)) return finish(0);
+          default_branching_.on_search_propagation_conflict();
+          const auto analyzed = analyze_conflict();
+          if (analyzed.analysis == ApplyResult::Unsat) return finish(20);
+          continue;
+        }
+        if (next.status != session::AssumptionStatus::Decide) break;
+        if (decide_query_assumption(next) != ApplyResult::Ok) break;
+      }
+      if (k.level || k.conflict_valid)
+        (void)query_restart("query-preflight-rewind");
+    }
+  }
+
   // Kissat's `search_ticks` is charged only by the ordinary CDCL search
   // propagator.  Startup propagation, both Lucky trials, sparse root collection,
   // and `probe_initially` all run before search and therefore must not seed mode
@@ -5022,123 +5201,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     if (r == ApplyResult::Conflict) {
       if (!discharge_affine_reason(k)) return finish(0);
       default_branching_.on_search_propagation_conflict();
-      event_trace.conflict(k);
-      event_trace.detail(k, "analysis_begin", k.level);
-      event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
-                             mode.ticks_at_focus_entry, mode.count);
-      observe_decision_rate(k); // kissat: before the analysis, once per conflict
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      event_trace.detail(k, "reason_bump_delay_before",
-                         bump_reasons_delay_.count);
-      event_trace.detail(k, "reason_bump_rate_milli",
-                         static_cast<int64_t>(
-                             averages[k.h->stable].decision_rate.value * 1000));
-#endif
-      // The per-conflict payload, by value (gap plan Step 6): the public
-      // ANALYZE_TARGET_CHRONO instance.
-      execution::NativeConflictAnalysisRequest request;
-      request.bump_reason_limit = want_bump_reasons(k);
-      request.bump_reason_depth = config_.analysis.reason_depth;
-      request.target_mode = AnalysisTarget::Chrono;
-      request.retier_schedule = retier_;
-      assert(k.conflict_reuse_chrono_levels == chrono_levels);
-      event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
-      const uint64_t analysis_instance = ANALYZE_TARGET_CHRONO;
-      const uint64_t learned_before = k.stats.learned;
-      const uint64_t glue_sum_before = k.stats.learned_glue_sum;
-      const uint64_t backjumps_before = k.stats.backjumps;
-      const uint64_t br_rounds = k.stats.reason_bump_rounds;
-      const uint64_t br_aborted = k.stats.reason_bump_aborted;
-      const auto analysis = port::complete_action(
-          completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
-          [&] {
-            auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
-                analysis_instance, "native-target-chrono");
-            // The record names the request's whole payload: the profile with
-            // its bump fields, and the schedule it carries.
-            auto &profile = std::get<strategy::AnalyzeParameters>(
-                spec.description.invocation->parameters);
-            profile.bump_reason_limit = request.bump_reason_limit;
-            profile.bump_reason_depth = request.bump_reason_depth;
-            spec.description.description +=
-                ";retier=" + execution::retier_schedule_text(request.retier_schedule);
-            return spec;
-          }, [&] {
-        return port::execute_action(
-          k, request,
-          [&](auto &&apply) {
-            return default_direct_rule(
-                k, "ConflictAnalysis",
-                [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
-                apply);
-          },
-          [&](ApplyResult ar) -> uint32_t {
-            // Advice only traces; the policy's own updates read the completed
-            // transaction below.
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-            if (ar == ApplyResult::Unsat) {
-              event_trace.detail(k, "analysis_end", -1);
-            } else if (!k.pending.valid) {
-              event_trace.detail(k, "analysis_end", k.level);
-              event_trace_analysis_deletions(k);
-              event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
-                                     mode.ticks_at_focus_entry, mode.count);
-            } else {
-              event_trace.learned(k, k.pending.lits);
-              event_trace.detail(k, "analysis_tail_learned_emitted",
-                                 k.pending.lits.size());
-              event_trace.detail(k, "analysis_tail_policy_updated",
-                                 k.pending.glue);
-              const uint32_t chosen_back = k.level - 1;
-              event_trace.detail(
-                  k, "analysis_tail_target",
-                  chosen_back - k.pending.jump_level > chrono_levels
-                      ? chosen_back
-                      : k.pending.jump_level);
-            }
-#else
-            (void)ar;
-#endif
-            return 0;
-          });
-      }, [&](const execution::ConflictAnalysisExecutionResult &result,
-             strategy::controller::NativeActionDescription &description) {
-        // The realized target makes the native choice replayable as the
-        // public ConflictAnalysis instance (target clamped to [jump, level-1]).
-        // Conflict reuse and level-one unit batches end without Backjump at
-        // their own realized level.
-        if (result.backjumped)
-          description.description += ";target=" + std::to_string(result.target) +
-                                     ";jump=" + std::to_string(result.jump);
-        else if (result.result != ApplyResult::Unsat)
-          description.description += ";target=" + std::to_string(k.level) +
-                                     ";no-backjump=1";
-        description.description +=
-            ";retier-after=" + execution::retier_schedule_text(result.retier_schedule);
-        return strategy::controller::feedback_outcome(result.result);
-      });
-      retier_ = analysis.retier_schedule;
+      const auto analysis = analyze_conflict();
       if (analysis.analysis == ApplyResult::Unsat)
         return finish(20);
-      // Post-transaction observation through public statistics only: a
-      // learned result (a backjumped clause, or a level-one unit batch, which
-      // Kissat observes as size one / glue zero, learn.c:120-130) feeds the
-      // glue averages and the reluctant clock; only a final learned clause
-      // (a counted backjump) reaches Kissat's DELAYING(bumpreasons) gate,
-      // never reuse or early exits.
-      const bool backjumped = k.stats.backjumps != backjumps_before;
-      assert(backjumped == analysis.backjumped);
-      if (k.stats.learned != learned_before) {
-        if (backjumped)
-          bump_reasons_delay_.reached_gate(
-              k.stats.reason_bump_rounds != br_rounds,
-              k.stats.reason_bump_aborted != br_aborted);
-        observe_glue(k, static_cast<uint32_t>(k.stats.learned_glue_sum -
-                                              glue_sum_before));
-        if (k.h->stable)
-          tick_reluctant(); // per learned clause (kissat learn.c)
-      }
-      assert(!backjumped || k.stats.learned == learned_before + 1);
+      const bool backjumped = analysis.backjumped;
       if (!backjumped)
         continue;
       event_trace.detail(k, "analysis_tail_backjump_return", k.level);
@@ -5168,17 +5234,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
       case session::AssumptionStatus::Backtrack:
         (void)query_restart("reinstall-query-assumptions");
         continue;
-      case session::AssumptionStatus::Decide: {
-        const Lit literal = kernel_internalize(k, next.literal);
-        (void)port::complete_action(completion_, FeedbackKind::SearchService,
-            "Decide", lit_instance(k, literal), [&] {
-              return execution::native_rule_feedback(k, "Decide",
-                  lit_instance(k, literal), "query-assumption="+std::to_string(next.index));
-            }, [&] {
-              return port::execute_action(k, execution::DecisionRequest{literal});
-            });
+      case session::AssumptionStatus::Decide:
+        (void)decide_query_assumption(next);
         continue;
-      }
       case session::AssumptionStatus::Propagate:
       case session::AssumptionStatus::Analyze: continue;
       case session::AssumptionStatus::Ready: break;

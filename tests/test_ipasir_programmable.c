@@ -50,6 +50,14 @@ static int delegate(void *data,void *session,tactix *view,unsigned cause) {
   assert(tactix_set_default_option(view,"TACTIX_LUCKY_LATE","0")==0);
   return tactix_solve(view);
 }
+typedef struct {uint64_t conflicts,sweep_ticks;} preflight_state;
+static int preflight_delegate(void *data,void *session,tactix *view,unsigned cause) {
+  preflight_state *state=data;(void)session;(void)cause;
+  const int result=tactix_solve(view);
+  state->conflicts=tactix_stat(view,TACTIX_STAT_CONFLICTS);
+  state->sweep_ticks=tactix_stat(view,TACTIX_STAT_SWEEP_TICKS);
+  return result;
+}
 static void artifact(void *s,const char *prefix,unsigned index,int answer,int reduced) {
   if(!prefix)return;
   const char *source=tactix_ipasir_bundle(s);assert(source);
@@ -155,6 +163,22 @@ int main(int argc,char **argv) {
   assert(ipasir_solve(s)==20&&core.calls==1&&core.steps>0);
   assert(ipasir_failed(s,-1)&&!ipasir_failed(s,7));artifact(s,prefix,9,20,1);
   call(s,10,prefix,10);assert(core.calls==2&&ipasir_val(s,1)==1);
+  ipasir_release(s);
+  // F implies -1 without root unit propagation. The query's assumption 1
+  // exposes a conflict through ordinary analysis before startup Sweep work.
+  // The preceding irrelevant assumption must not enter the reduced core.
+  s=ipasir_init();assert(s);preflight_state preflight={0};
+  assert(!tactix_ipasir_set_strategy(s,&preflight,preflight_delegate));
+  assert(!tactix_ipasir_set_core_budget(s,1000000));
+  ipasir_add(s,-1);ipasir_add(s,2);ipasir_add(s,0);
+  ipasir_add(s,-1);ipasir_add(s,-2);ipasir_add(s,0);
+  ipasir_assume(s,7);ipasir_assume(s,1);
+  assert(ipasir_solve(s)==20);
+  assert(preflight.conflicts>0&&preflight.sweep_ticks==0);
+  assert(ipasir_failed(s,1)&&!ipasir_failed(s,7));artifact(s,prefix,11,20,1);
+  call(s,10,prefix,12);assert(ipasir_val(s,1)==-1);
+  ipasir_add(s,1);ipasir_add(s,0);call(s,20,prefix,13);
+  assert(!ipasir_failed(s,1)&&!ipasir_failed(s,7));
   ipasir_release(s);
   puts("programmable IPASIR: runtime scripts, configured handoff, manual stepping, native repair and result validity pass");
 }
