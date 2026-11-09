@@ -6,6 +6,7 @@
 #include "api/api_internal.hpp"
 #include "policies/default_inprocess.hpp"
 #include <cassert>
+#include <algorithm>
 #include <array>
 #include <utility>
 #include <string_view>
@@ -27,6 +28,11 @@ static void config_json(const DefaultStrategyConfig::Inprocess &cfg) {
     << ",\"probe_interval\":" << cfg.probe_interval << ",\"eliminate_interval\":" << cfg.eliminate_interval
     << ",\"logarithm_offset\":" << cfg.logarithm_offset << ",\"scale_log_shift\":" << cfg.scale_log_shift
     << ",\"scale_quadratic\":" << cfg.scale_quadratic << ",\"scale_constant\":" << cfg.scale_constant
+    << ",\"preprocess_initial_ticks\":" << cfg.preprocess_initial_ticks
+    << ",\"minimum_effort_ticks\":" << cfg.minimum_effort_ticks
+    << ",\"preprocess_followups\":" << cfg.preprocess_followups
+    << ",\"factor_initial_ticks\":" << cfg.factor_initial_ticks
+    << ",\"initial_fast_elimination_bve_permille\":" << cfg.initial_fast_elimination_bve_permille
     << '}';
 }
 static constexpr std::pair<const char *, int> stat_fields[] = {
@@ -173,10 +179,140 @@ static void emit_phase(SlotGroup group, uint64_t conflicts, const char *mode) {
   std::cout << ",\"finished\":"; clocks_json(native.probe_clock, native.elim_clock);
   std::cout << ",\"result\":" << result << ",\"bve_ran\":" << (bve || fast)
     << ",\"maximum_bound\":" << maximum << ",\"initial_fast_elimination\":" << fast
-    << ",\"early\":" << early << "}\n";
+    << ",\"early\":" << early;
+  if (fast) std::cout << ",\"fast_limit\":" << native.entries.front().limit;
+  std::cout << "}\n";
   tactix_release(s);
 }
+
+// Exercise the actual scheduler budget method, including its shared meter identity.
+static void emit_budgets() {
+  auto *s = tactix_init(); assert(s);
+  Kernel &k = api_detail::kernel_for_fixed_testing(s);
+  DefaultStrategyConfig config;
+  DefaultInprocessScheduler stock(&config.inprocess);
+  stock.build(k);
+  for (bool distinct : {false, true}) {
+  config.inprocess.preprocess_initial_ticks = distinct ? 1234567 : 10000000;
+  config.inprocess.minimum_effort_ticks = distinct ? 7654321 : 10000000;
+  for (const char *name : {"BCE", "Substitute", "Factor", "SubsumeForward", "Strengthen"}) {
+    const int rule = tactix_rule_id(name);
+    auto found = std::find_if(stock.entries.begin(), stock.entries.end(),
+                             [=](const auto &e) { return e.rule == rule; });
+    assert(found != stock.entries.end());
+    for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate})
+      for (uint64_t conflicts : {0ull, 1ull})
+        for (uint64_t now : std::array<uint64_t, 8>{0, 999, 1001, 7654320, 7654321, 7654322, 100000000, UINT64_MAX})
+          for (uint64_t anchor : std::array<uint64_t, 3>{0, 1000, UINT64_MAX})
+            for (uint32_t permille : {0u, 1u, 50u, 1000u})
+              for (bool first : {false, true})
+                for (bool aware : {false, true}) {
+      DefaultInprocessScheduler native(&config.inprocess);
+      native.configure(); native.reset(k);
+      native.probe_clock.anchor = group == SlotGroup::Probe ? anchor : 123;
+      native.elim_clock.anchor = group == SlotGroup::Eliminate ? anchor : 456;
+      k.stats.conflicts = conflicts; k.stats.search_ticks = now;
+      auto e = *found;
+      e.group = group; e.permille = permille; e.doses = first ? 0 : 1;
+      e.budget_aware = aware; e.tm.wrapped = 0;
+      const bool forward = std::string_view(name) == "SubsumeForward" || std::string_view(name) == "Strengthen";
+      std::cout << "{\"kind\":\"budget\",\"config\":"; config_json(config.inprocess);
+      std::cout << ",\"anchor\":" << anchor << ",\"observation\":"; observation_json(observe(s));
+      std::cout << ",\"slot\":{\"rule\":\"" << name << "\",\"group\":\""
+        << (group == SlotGroup::Probe ? "Probe" : "Eliminate") << "\",\"permille\":" << permille
+        << ",\"doses\":" << e.doses << ",\"budget_aware\":" << aware
+        << ",\"forward_pair\":" << forward << "},\"checks\":[";
+      for (unsigned repeat = 0; repeat < 3; ++repeat) {
+        if (repeat == 1 && forward) {
+          const int other = tactix_rule_id(std::string_view(name) == "Strengthen" ? "SubsumeForward" : "Strengthen");
+          e = *std::find_if(stock.entries.begin(), stock.entries.end(), [=](const auto &entry) { return entry.rule == other; });
+          e.group = group; e.permille = 1000 - permille;
+          e.tm.wrapped = 0;
+        }
+        k.stats.bce_ticks = k.stats.substitute_ticks = k.stats.factor_ticks =
+          k.stats.forward_visits = repeat ? UINT64_MAX : 0;
+        k.stats.strengthen_visits = repeat ? 17 : 0;
+        const uint64_t meter = e.meter(k);
+        DefaultInprocessScheduler fresh(&config.inprocess);
+        fresh.configure(); fresh.reset(k);
+        fresh.probe_clock.anchor = native.probe_clock.anchor;
+        fresh.elim_clock.anchor = native.elim_clock.anchor;
+        if (repeat == 2) fresh.set_entry_limit(e, k);
+        else native.set_entry_limit(e, k);
+        if (repeat) std::cout << ',';
+        std::cout << "{\"meter\":" << meter << ",\"limit\":" << e.limit
+          << ",\"wrapped\":" << e.tm.wrapped << ",\"reset\":" << (repeat == 2)
+          << ",\"new_slot\":" << (repeat == 1 && forward)
+          << ",\"rule\":\"" << tactix_rules()[e.rule].name << "\",\"permille\":" << e.permille << '}';
+      }
+      std::cout << "]}\n";
+    }
+  }
+  }
+  tactix_release(s);
+}
+
+
+static const char *followup_name(FollowupKind kind) {
+  return kind == FollowupKind::AfterCongruence ? "AfterCongruence" :
+         kind == FollowupKind::AfterSweepOrFinal ? "AfterSweepOrFinal" : "None";
+}
+static const char *mode_name(FollowupMode mode) {
+  return mode == FollowupMode::Eager ? "Eager" : mode == FollowupMode::Final ? "Final" : "None";
+}
+static void emit_admission() {
+  for (auto kind : {FollowupKind::AfterCongruence, FollowupKind::AfterSweepOrFinal})
+    for (bool congruence : {false, true})
+      for (bool sweep : {false, true}) {
+    DefaultStrategyConfig cfg;
+    std::cout << "{\"kind\":\"followup\",\"config\":"; config_json(cfg.inprocess);
+    std::cout << ",\"followup\":\"" << followup_name(kind)
+      << "\",\"congruence\":" << congruence << ",\"sweep\":" << sweep
+      << ",\"mode\":\"" << mode_name(DefaultInprocessScheduler::preprocessing_followup_mode(kind, congruence, sweep)) << "\"}\n";
+  }
+
+  for (bool followups : {false, true})
+    for (bool search : {false, true})
+      for (bool enabled : {false, true})
+        for (bool preprocess : {false, true})
+          for (bool defer : {false, true})
+            for (uint32_t cap : {0u, 1u})
+              for (uint32_t applies : {0u, 1u, UINT32_MAX})
+                for (auto kind : {FollowupKind::None, FollowupKind::AfterCongruence,
+                                  FollowupKind::AfterSweepOrFinal}) {
+    auto *s = tactix_init(); assert(s);
+    for (int lit : {1, 2, 0, -1, 3, 0, -3, 4, 0}) tactix_add(s, lit);
+    Kernel &k = api_detail::kernel_for_fixed_testing(s);
+    k.stats.conflicts = search ? 1 : 0;
+    DefaultStrategyConfig config;
+    config.inprocess.phase_rounds = 1;
+    config.inprocess.preprocess_followups = followups;
+    DefaultInprocessScheduler native(&config.inprocess);
+    native.configure(); native.reset(k); native.pose_initialized();
+    DefaultInprocessScheduler::SlotEntry e;
+    e.rule = tactix_rule_id("BCE"); e.enabled = enabled; e.preprocess = preprocess;
+    e.defer_preprocess = defer; e.max_applies = cap; e.applies = applies; e.followup = kind;
+    native.entries.push_back(e);
+    const auto before = observe(s);
+    assert(native.run_phase(k, SlotGroup::Probe, nullptr) == 0);
+    const auto &after = native.entries.front();
+    assert(after.tm.occasions == 1);
+    std::cout << "{\"kind\":\"admission\",\"config\":"; config_json(config.inprocess);
+    std::cout << ",\"observation\":"; observation_json(before);
+    std::cout << ",\"slot\":{\"rule\":\"BCE\",\"enabled\":" << enabled
+      << ",\"preprocess\":" << preprocess << ",\"defer_preprocess\":" << defer
+      << ",\"max_applies\":" << cap << ",\"applies\":" << applies
+      << ",\"followup\":\"" << followup_name(kind) << "\"},\"applies\":" << after.applies
+      << ",\"mode\":\"" << mode_name(after.followup_mode) << "\",\"decline\":\""
+      << (after.tm.dec_preprocess ? "preprocess" : after.tm.dec_disabled ? "disabled" :
+          after.tm.dec_cap ? "cap" : "") << "\"}\n";
+    tactix_release(s);
+  }
+}
+
 int main() {
+  emit_admission();
+  emit_budgets();
   for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate}) {
     for (uint64_t conflicts : {0u, 10u}) {
       emit_phase(group, conflicts, "empty");

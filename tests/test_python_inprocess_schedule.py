@@ -12,7 +12,7 @@ import sys
 library, fixture, root = map(Path, sys.argv[1:])
 sys.path.insert(0, str(root/'python'))
 from tactix import Session, UNKNOWN, capi
-from python_policy_reference import InprocessClock, NativeInprocessSchedule, PhaseOutcome
+from python_policy_reference import InprocessClock, InprocessSlot, NativeInprocessSchedule, PhaseOutcome
 
 observed = []
 def inspect(execution, restored):
@@ -33,6 +33,44 @@ coverage = set()
 rows = subprocess.check_output([str(fixture)], text=True).splitlines()
 for line in rows:
     row = json.loads(line)
+    if row.get('kind') == 'followup':
+        schedule = NativeInprocessSchedule(row['config'])
+        slot = InprocessSlot('BCE', preprocess=True, followup=row['followup'])
+        admitted = schedule.admit_slot(slot, {'CONFLICTS': 0}, congruence_changed=row['congruence'], sweep_changed=row['sweep'])
+        assert slot.followup_mode == row['mode'], row
+        assert admitted == (row['mode'] != 'None'), row
+        coverage.add('followup-' + row['mode'])
+        continue
+    if row.get('kind') == 'admission':
+        schedule = NativeInprocessSchedule(row['config'])
+        slot = InprocessSlot(**row['slot'])
+        admitted = schedule.admit_slot(slot, row['observation'])
+        assert admitted == (not row['decline']), row
+        assert (slot.applies, slot.followup_mode, slot.decline) == (row['applies'], row['mode'], row['decline']), row
+        coverage.add('admission-' + (slot.decline or 'allowed'))
+        continue
+    if row.get('kind') == 'budget':
+        schedule = NativeInprocessSchedule(row['config'])
+        slot = InprocessSlot(**row['slot'])
+        schedule.clocks[slot.group].anchor = row['anchor']
+        schedule.begin_round()
+        for check in row['checks']:
+            if check['new_slot']:
+                slot = InprocessSlot(check['rule'], group=slot.group, permille=check['permille'], forward_pair=True)
+                coverage.add('pair-inherited')
+            if check['reset']:
+                if slot.permille % 2:
+                    schedule.enter_phase(row['observation'], slot.group)
+                    coverage.add('phase-budget-reset')
+                else:
+                    schedule.begin_round()
+                    coverage.add('round-reset')
+            assert schedule.set_entry_limit(slot, row['observation'], check['meter']) == check['limit'], row
+            assert slot.wrapped == check['wrapped'], row
+        if slot.rule == 'Factor' and slot.doses and slot.budget_aware:
+            coverage.add('factor-later')
+        coverage.add('budget-' + slot.rule)
+        continue
     if row.get('kind') == 'phase':
         schedule = NativeInprocessSchedule(row['config'])
         schedule.initialized = True
@@ -52,6 +90,8 @@ for line in rows:
         reschedule = False if row['early'] else schedule.leave_phase(row['after'], group, **flags)
         assert reschedule == (row['mode'] == 'advance'), row
         if row['initial_fast_elimination']:
+            slot = InprocessSlot('BVE', group='Eliminate', permille=1001)
+            assert schedule.set_entry_limit(slot, row['before'], 0, initial_fast_elimination=True) == row['fast_limit'], row
             schedule.finish_initial_fast_elimination(reschedule_bve)
         assert len(rescheduling) == int(reschedule or row['initial_fast_elimination']), row
         if reschedule:
@@ -119,7 +159,10 @@ for line in rows:
         assert schedule.clocks['Probe'].next_conflicts == 8278
         coverage.add('logn-boundary')
 assert coverage >= {('Probe', False), ('Probe', True), ('Eliminate', False), ('Eliminate', True),
-                    'blocked', 'startup', 'eliminate-equality', 'probe-equality', 'logn-boundary',
+                    'followup-None', 'followup-Eager', 'followup-Final',
+                    'admission-allowed', 'admission-preprocess', 'admission-disabled', 'admission-cap',
+                    'pair-inherited', 'round-reset', 'phase-budget-reset', 'factor-later', 'budget-BCE', 'budget-Substitute', 'budget-Factor',
+                    'budget-SubsumeForward', 'budget-Strengthen', 'blocked', 'startup', 'eliminate-equality', 'probe-equality', 'logn-boundary',
                     'reductions-reopen', 'marks-reopen', 'root-reopen', 'material-reopen',
                     'BVE_MARKS-lowered', 'ROOT_FIXED-lowered', 'SUBSUME_MATERIAL-lowered',
                     'zero-clamp', 'probe-ahead', 'equal-rounds',
@@ -149,8 +192,10 @@ if str(library) != '-':
             schedule.clocks = {name: InprocessClock(**clock) for name, clock in row['clocks'].items()}
             assert schedule.observe(view) == row['before'], row
             def run_rounds(view):
-                assert view.tactix_support(capi.TACTIX_SUPPORT_BEGIN_FORWARD_ROUND, 0) in (0, 1)
+                schedule.begin_round(view)
                 if row['mode'] == 'material-change':
+                    slot = InprocessSlot('BCE', preprocess=True, max_applies=1)
+                    assert schedule.admit_slot(slot, schedule.observe(view))
                     rule = rule_ids['BCE']
                     assert view.tactix_apply_instance(rule, capi.TACTIX_INSTANCE_CANONICAL) in (0, 1)
                 return PhaseOutcome()

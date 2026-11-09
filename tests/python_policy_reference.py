@@ -26,6 +26,26 @@ class PhaseOutcome:
     maximum_bound: bool = False
 
 
+@dataclass
+class InprocessSlot:
+    rule: str
+    group: str = 'Probe'
+    permille: int = 0
+    budget_aware: bool = False
+    doses: int = 0
+    forward_pair: bool = False
+    limit: int = 0
+    wrapped: int = 0
+    enabled: bool = True
+    preprocess: bool = False
+    defer_preprocess: bool = False
+    max_applies: int = 0
+    applies: int = 0
+    followup: str = 'None'
+    followup_mode: str = 'None'
+    decline: str = ''
+
+
 class NativeInprocessSchedule:
     """Independent native phase clocks; not yet a complete DefaultPolicy.
 
@@ -38,7 +58,74 @@ class NativeInprocessSchedule:
         self.initialized = False
         self.unusable = False
         self.last_reduce_conflicts = _U64
+        self.forward_pair_limit = 0
         self.clocks = {group: InprocessClock() for group in ('Probe', 'Eliminate')}
+
+    def begin_round(self, view=None):
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        if view is not None:
+            result = view.tactix_support(capi.TACTIX_SUPPORT_BEGIN_FORWARD_ROUND, 0)
+            if result < 0:
+                self.unusable = True
+                raise RuntimeError('forward round support failed')
+        self.forward_pair_limit = 0
+
+    def admit_slot(self, slot, observation, *, congruence_changed=False,
+                   sweep_changed=False, phase_unsat=False, initial_fast_elimination=False):
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        slot.followup_mode, slot.decline = 'None', ''
+        startup = not observation['CONFLICTS']
+        if startup and slot.followup != 'None' and self.config['preprocess_followups']:
+            if slot.followup == 'AfterCongruence':
+                slot.followup_mode = 'Eager' if congruence_changed else 'None'
+            elif slot.followup == 'AfterSweepOrFinal':
+                slot.followup_mode = ('Eager' if sweep_changed else
+                                      'None' if congruence_changed else 'Final')
+            else:
+                raise ValueError('invalid followup')
+            if slot.followup_mode == 'None':
+                slot.decline = 'preprocess'
+                return False
+        fast_bve = initial_fast_elimination and slot.rule == 'BVE'
+        if not slot.enabled or phase_unsat:
+            slot.decline = 'disabled'
+        elif startup and not slot.preprocess and not fast_bve:
+            slot.decline = 'preprocess'
+        elif slot.max_applies and slot.applies >= slot.max_applies:
+            slot.decline = 'cap'
+        elif startup and slot.defer_preprocess and not fast_bve:
+            slot.decline = 'preprocess'
+        else:
+            slot.applies = (slot.applies + 1) & ((1 << 32) - 1)
+            return True
+        return False
+
+    def set_entry_limit(self, slot, observation, meter, *, initial_fast_elimination=False):
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        permille = (self.config['initial_fast_elimination_bve_permille']
+                    if initial_fast_elimination and slot.rule == 'BVE' else slot.permille)
+        if not 0 <= permille <= 1000 or not 0 <= meter <= _U64:
+            raise ValueError('invalid effort budget')
+        now, anchor = observation['SEARCH_TICKS'], self.clocks[slot.group].anchor
+        reference = max(0, now - anchor)
+        if now < anchor:
+            slot.wrapped = (slot.wrapped + 1) & _U64
+        if not observation['CONFLICTS']:
+            reference = self.config['preprocess_initial_ticks']
+        elif slot.rule != 'Substitute':
+            reference = max(reference, self.config['minimum_effort_ticks'])
+        slot.limit = (meter + reference * permille // 1000) & _U64
+        if slot.forward_pair:
+            if self.forward_pair_limit:
+                slot.limit = self.forward_pair_limit
+            else:
+                self.forward_pair_limit = slot.limit
+        if not slot.doses and slot.budget_aware and slot.rule == 'Factor':
+            slot.limit = (meter + self.config['factor_initial_ticks']) & _U64
+        return slot.limit
 
     @staticmethod
     def observe(view):
@@ -51,6 +138,7 @@ class NativeInprocessSchedule:
 
     def enter_phase(self, observation, group):
         """Record entry before root preparation, without consuming material."""
+        self.forward_pair_limit = 0
         clock = self.clocks[group]
         clock.reductions_mark = observation['REDUCTIONS']
         clock.marks_mark = observation['BVE_MARKS']
