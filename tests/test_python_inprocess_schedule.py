@@ -4,6 +4,8 @@ This qualifies scheduling components, not the unfinished full DefaultPolicy.
 """
 from pathlib import Path
 import json
+import copy
+from dataclasses import asdict
 import subprocess
 import sys
 
@@ -31,6 +33,41 @@ coverage = set()
 rows = subprocess.check_output([str(fixture)], text=True).splitlines()
 for line in rows:
     row = json.loads(line)
+    if row.get('kind') == 'phase':
+        schedule = NativeInprocessSchedule(row['config'])
+        schedule.initialized = True
+        schedule.clocks = {group: InprocessClock(**clock) for group, clock in row['clocks'].items()}
+        group = row['group']
+        schedule.enter_phase(row['before'], group)
+        assert not schedule.clocks[group].blocked
+        assert schedule.clocks[group].material_mark == row['clocks'][group]['material_mark']
+        stale = copy.deepcopy(schedule)
+        rescheduling = []
+        def reschedule_bve():
+            rescheduling.append(asdict(schedule.clocks[group]))
+            return 1  # Public support no-op is accepted, as native does.
+        flags = dict(reschedule_bve=reschedule_bve, bve_ran=row['bve_ran'], maximum_bound=row['maximum_bound'],
+                     initial_fast_elimination=row['initial_fast_elimination'],
+                     unsat=row['result'] == 20)
+        reschedule = False if row['early'] else schedule.leave_phase(row['after'], group, **flags)
+        assert reschedule == (row['mode'] == 'advance'), row
+        if row['initial_fast_elimination']:
+            schedule.finish_initial_fast_elimination(reschedule_bve)
+        assert len(rescheduling) == int(reschedule or row['initial_fast_elimination']), row
+        if reschedule:
+            assert rescheduling[0]['marks_mark'] == row['before']['BVE_MARKS']
+            assert rescheduling[0]['fixed_mark'] == row['before']['ROOT_FIXED']
+            assert rescheduling[0]['material_mark'] == row['clocks'][group]['material_mark']
+        for name, clock in schedule.clocks.items():
+            assert asdict(clock) == row['finished'][name], row
+        coverage.add('phase-'+row['mode'])
+        if row['mode'] == 'material-change':
+            stale.leave_phase(row['before'], group, **flags)
+            assert stale.clocks[group].next_conflicts != schedule.clocks[group].next_conflicts
+            coverage.add('post-phase-deadline')
+        if row['mode'] == 'empty':
+            coverage.add('phase-'+group+('-search' if row['before']['CONFLICTS'] else '-startup'))
+        continue
     observation = row['observation']
     schedule = NativeInprocessSchedule(row['config'])
     schedule.initialized = row['initialized']
@@ -85,5 +122,9 @@ assert coverage >= {('Probe', False), ('Probe', True), ('Eliminate', False), ('E
                     'blocked', 'startup', 'eliminate-equality', 'probe-equality', 'logn-boundary',
                     'reductions-reopen', 'marks-reopen', 'root-reopen', 'material-reopen',
                     'BVE_MARKS-lowered', 'ROOT_FIXED-lowered', 'SUBSUME_MATERIAL-lowered',
-                    'zero-clamp', 'probe-ahead', 'equal-rounds'}, coverage
+                    'zero-clamp', 'probe-ahead', 'equal-rounds',
+                    'phase-empty', 'phase-root-growth', 'phase-early-unsat', 'phase-late-unsat',
+                    'phase-maximum', 'phase-maximum-growth', 'phase-advance', 'phase-fast', 'phase-material-change',
+                    'post-phase-deadline', 'phase-Probe-search', 'phase-Probe-startup',
+                    'phase-Eliminate-search'}, coverage
 print(f'native/Python phase clocks: {len(rows)} observation cases, all deadline and watermark checks pass')

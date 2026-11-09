@@ -3,6 +3,8 @@ from tactix import capi
 import math
 from dataclasses import dataclass
 
+_U64 = (1 << 64) - 1
+
 
 @dataclass
 class InprocessClock:
@@ -14,29 +16,73 @@ class InprocessClock:
     material_mark: int = 0
     blocked: bool = False
     blocked_episodes: int = 0
+    anchor: int = 0
 
 
 class NativeInprocessSchedule:
     """Independent native phase clocks; not yet a complete DefaultPolicy.
 
     Configuration comes from the C reference's native defaults. The Python
-    caller owns phase entry/exit, reduction notifications and watermark updates.
+    caller executes phase actions and chooses entry/exit and reduction events.
     No native scheduling delegate or trace replay is used.
     """
     def __init__(self, config):
         self.config = config
         self.initialized = False
-        self.last_reduce_conflicts = (1 << 64) - 1
+        self.last_reduce_conflicts = _U64
         self.clocks = {group: InprocessClock() for group in ('Probe', 'Eliminate')}
 
     @staticmethod
     def observe(view):
         return {name: view.tactix_stat(getattr(capi, 'TACTIX_STAT_' + name))
                 for name in ('CONFLICTS', 'REDUCTIONS', 'BVE_MARKS', 'ROOT_FIXED',
-                             'SUBSUME_MATERIAL', 'IRREDUNDANT_CLAUSES')}
+                             'SUBSUME_MATERIAL', 'IRREDUNDANT_CLAUSES', 'SEARCH_TICKS')}
 
     def note_reduce(self, observation):
         self.last_reduce_conflicts = observation['CONFLICTS']
+
+    def enter_phase(self, observation, group):
+        """Record entry before root preparation, without consuming material."""
+        clock = self.clocks[group]
+        clock.reductions_mark = observation['REDUCTIONS']
+        clock.marks_mark = observation['BVE_MARKS']
+        clock.fixed_mark = observation['ROOT_FIXED']
+        clock.blocked = False
+
+    def leave_phase(self, observation, group, *, bve_ran=False, maximum_bound=False,
+                    initial_fast_elimination=False, unsat=False, reschedule_bve=None):
+        """Finish the ordinary phase exit; early terminal paths skip this call.
+
+        An advancing BVE bound requires the caller's rescheduling callback,
+        before clearing retry marks. Raise on API errors, accept a normal
+        no-op. Return whether it ran. maximum_bound describes the bound used
+        by this phase, before advancing. Only that exit consumes material.
+        The initial-fast wrapper separately calls finish_initial_fast_elimination.
+        """
+        clock = self.clocks[group]
+        reschedule = False
+        if group == 'Eliminate' and bve_ran and not initial_fast_elimination and not unsat:
+            if maximum_bound:
+                clock.marks_mark = observation['BVE_MARKS']
+                clock.fixed_mark = observation['ROOT_FIXED']
+                clock.material_mark = observation['SUBSUME_MATERIAL']
+            else:
+                if reschedule_bve is None:
+                    raise ValueError('advancing a BVE bound requires rescheduling')
+                reschedule_bve()
+                clock.marks_mark = clock.fixed_mark = 0
+                reschedule = True
+        if not initial_fast_elimination and (group != 'Probe' or observation['CONFLICTS']):
+            clock.anchor = observation['SEARCH_TICKS']
+        if not unsat and not initial_fast_elimination:
+            clock.rounds = (clock.rounds + 1) & _U64
+            self.update_limit(observation, group)
+        return reschedule
+
+    @staticmethod
+    def finish_initial_fast_elimination(reschedule_bve):
+        """Rearm candidates after the fast phase, including terminal exits."""
+        reschedule_bve()
 
     def want_phase(self, observation, group):
         clock = self.clocks[group]
@@ -59,7 +105,7 @@ class NativeInprocessSchedule:
         if blocked:
             if not clock.blocked:
                 clock.blocked = True
-                clock.blocked_episodes += 1
+                clock.blocked_episodes = (clock.blocked_episodes + 1) & _U64
             return False
         return True
 
@@ -77,7 +123,7 @@ class NativeInprocessSchedule:
                             self.config['logarithm_offset']) - self.config['scale_log_shift'])
         delta = int((self.config['scale_quadratic'] * scale * scale +
                      self.config['scale_constant']) * float(int(base)))
-        clock.next_conflicts = (observation['CONFLICTS'] + delta) & ((1 << 64) - 1)
+        clock.next_conflicts = (observation['CONFLICTS'] + delta) & _U64
 
 
 class Smooth:
