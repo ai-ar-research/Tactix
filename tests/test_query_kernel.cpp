@@ -183,6 +183,29 @@ static void assumption_cursor_after_public_backtracking() {
   assert(drive(s,h,true)==10);
 }
 
+static void assigned_cube_with_foreign_branch() {
+  QueryHistory h; QueryKernel s;
+  clause(h,{1,3}); clause(h,{2,4}); clause(h,{5,6});
+  assert(h.assume(1)==InputStatus::Ok && h.assume(2)==InputStatus::Ok);
+  assert(h.begin_query()==InputStatus::Ok && s.replay(h)==ReplayStatus::Ok);
+  const auto t=s.ticket(); Kernel &k=*s.kernel(t);
+  assert(s.decide_assumption(t,0) && propagate_service(k)==ApplyResult::Ok);
+  assert(s.decide_assumption(t,1) && propagate_service(k)==ApplyResult::Ok);
+  assert(s.next_assumption(t).status==AssumptionStatus::Ready);
+  assert(decide_apply(k,internalize(-5),false)==ApplyResult::Ok);
+  assert(s.next_assumption(t).status==AssumptionStatus::Propagate);
+  assert(propagate_service(k)==ApplyResult::Ok);
+  k.stats={};
+  assert(s.next_assumption(t).status==AssumptionStatus::Ready);
+  assert(restart_apply_to(k,2)==ApplyResult::Ok);
+  assert(s.next_assumption(t).status==AssumptionStatus::Ready);
+  assert(restart_apply_to(k,0)==ApplyResult::Ok);
+  assert(decide_apply(k,internalize(-2),false)==ApplyResult::Ok);
+  assert(propagate_service(k)==ApplyResult::Ok);
+  assert(s.next_assumption(t).status==AssumptionStatus::Backtrack);
+  assert(!s.publish_assumption_refutation(t));
+}
+
 static void decision_on_skipped_retired_assumption() {
   QueryHistory h;QueryKernel s;
   clause(h,{1,2});assert(h.assume(1)==InputStatus::Ok);
@@ -345,6 +368,7 @@ int main(int argc, char **argv) {
   wrong_branch_is_not_unsat();
   root_refutation_looks_past_undecided_assumptions();
   assumption_cursor_after_public_backtracking();
+  assigned_cube_with_foreign_branch();
   decision_on_skipped_retired_assumption();
   assumption_restarts_duplicates_and_compaction();
   projection_changes_require_restoration();

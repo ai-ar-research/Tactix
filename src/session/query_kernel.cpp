@@ -168,6 +168,7 @@ struct QueryKernel::Epoch final : QueryProofSources {
     size_t assumption=0, trail=0;
     bool only_assumptions=true;
     size_t root_trail=SIZE_MAX;
+    bool assigned_cube=false, skipped_free=false;
   } assumption_cursor;
   size_t input_words = 0;
   NativeQueryLimits limits;
@@ -1038,6 +1039,9 @@ AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
       cursor.translations!=translations || cursor.trail>k.trail.size())
     cursor={generation_,k.affine_trail_retraction_epoch,
             k.affine_semantic_namespace_epoch,translations,0,0,true};
+  // Appending assignments cannot falsify an already assigned true cube.
+  // Free reconstruction coordinates are excluded: N1 allows deciding them.
+  if (cursor.assigned_cube) return {AssumptionStatus::Ready};
   // A root-falsified assumption refutes the cube even when an earlier member
   // is undecided. Scan once per root trail/semantic epoch, not once per member.
   // Above root an arbitrary client branch may falsify A, so keep the ordinary
@@ -1076,7 +1080,10 @@ AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
                        k.fixed_external_values[ev];
     if (!fixed && (literal == INVALID_LIT ||
         (kernel_var_retired(k, var_of(literal)) && !k.value(literal))))
+    {
+      cursor.skipped_free=true;
       continue; // licensed free coordinate; seed it before reconstructing rho
+    }
     const int8_t value = kernel_external_value(k, raw);
     if (value > 0) continue;
     if (!assumption_decisions)
@@ -1084,6 +1091,7 @@ AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
     return {value < 0 ? AssumptionStatus::QueryUnsat : AssumptionStatus::Decide,
             i, external};
   }
+  cursor.assigned_cube=!cursor.skipped_free;
   return {AssumptionStatus::Ready};
 }
 
