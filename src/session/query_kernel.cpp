@@ -228,6 +228,10 @@ QueryKernel::QueryKernel(RetentionLimits limits) : retention_limits_(limits) {
 }
 QueryKernel::QueryKernel(NativeQueryLimits limits) : native_limits_(limits) {}
 QueryKernel::~QueryKernel() = default;
+void QueryKernel::discard_epoch() {
+  epoch_.reset();
+  result_.reset();
+}
 
 ReplayStatus QueryKernel::replay(const QueryHistory &history) {
   return replay(history, {});

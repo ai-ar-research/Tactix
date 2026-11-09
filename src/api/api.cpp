@@ -126,7 +126,19 @@ struct tactix_solver {
        proof(*kernel.proof),structural_action_sessions(*q.execution_services(q.ticket())),
        query_owner(&q),query_ticket(q.ticket()),query_policy(&policy),query_stop(stop),
        saved_query_stop(kernel.stop),input_completed(true) {kernel.stop=stop;}
-  ~tactix_solver() {if(query_owner && kernel.stop==query_stop)kernel.stop=saved_query_stop;}
+  ~tactix_solver() {
+    const auto leave_context = [&] {
+      execution::leave_execution_context(kernel, contexts.back().first,
+                                         contexts.back().second);
+      contexts.pop_back();
+    };
+    if (phase.open()) {
+      while (contexts.size() > phase_contexts) leave_context();
+      phase.abandon();
+    }
+    while (!contexts.empty()) leave_context();
+    if(query_owner && kernel.stop==query_stop)kernel.stop=saved_query_stop;
+  }
 };
 
 struct tactix_online_executor {
@@ -163,7 +175,11 @@ void destroy_query_execution(void *opaque) {delete static_cast<::tactix_solver *
 bool query_execution_settled(void *opaque) {
   const auto &s=*static_cast<::tactix_solver *>(opaque);
   return s.contexts.empty() && !s.phase.open() && !s.kernel.inprocessing &&
-      !s.kernel.phase_saving_suppressed && !s.kernel.dense && !s.kernel.pending.valid;
+      !s.kernel.warming && !s.kernel.phase_saving_suppressed &&
+      !s.kernel.probing.recording && s.kernel.large_watches_connected &&
+      !s.kernel.dense && !s.kernel.arena_ordering && !s.kernel.pending.valid &&
+      (!s.kernel.affine_matrix_search_session ||
+       !s.kernel.affine_matrix_search_session->has_deferred_reason());
 }
 session::QuerySolveStatus query_execution_status(void *opaque) {
   return static_cast<::tactix_solver *>(opaque)->query_status;

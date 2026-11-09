@@ -108,6 +108,9 @@ public:
   // The history must outlive this owner and its outstanding tickets.
   ReplayStatus replay(const QueryHistory &);
   ReplayStatus replay(const QueryHistory &, std::unique_ptr<Proof> writer);
+  // Abandon a failed execution after all borrowed views are destroyed. Keep
+  // callbacks and independently retained knowledge; the next entry replays F.
+  void discard_epoch();
   // Explicit native query transition: validate a fresh exact-query proof,
   // restart to root, selectively restore, and bind the new assumption cube.
   // Keeps the same Kernel/H and admits the append-only raw suffix and new

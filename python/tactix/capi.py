@@ -77,7 +77,7 @@ class SolverView:
         declaration = schema.FUNCTIONS.get(name)
         global_query = name in ('tactix_rule_count','tactix_rule_name','tactix_action_kind')
         if not declaration or not global_query and (not declaration[1] or
-                declaration[1][0] != ('*','tactix') or name == 'tactix_release'):
+                declaration[1][0] != ('*','tactix') or name in ('tactix_release','tactix_add')):
             raise AttributeError(name)
         function = getattr(self._library,name)
         def call(*args):

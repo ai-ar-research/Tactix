@@ -238,7 +238,9 @@ struct Session {
     return execution!=nullptr;
   }
   int unknown() {
+    const bool unsettled=execution && !api_detail::query_execution_settled(execution);
     clear_execution();
+    if(unsettled)query->discard_epoch();
     if(const auto *active=history.active_query())history.finish_query(active->id,QueryResult::Unknown);
     busy=false;return 0;
   }
@@ -355,6 +357,7 @@ struct Session {
           }
         } else proposed=strategy(strategy_state,this,static_cast<::tactix_solver *>(execution),cause);
         in_strategy=false;
+        if(proposed<0)return unknown();
         answer={api_detail::query_execution_status(execution),proposed};
         if(query->projection_state(query->ticket()).restore)answer.status=QuerySolveStatus::RestorationRequired;
       } else {

@@ -329,7 +329,7 @@ class Session:
                 return UNKNOWN
             except BaseException as error:
                 self._callback_error = error
-                return UNKNOWN
+                return -1
             finally:
                 execution._active = False
         callback = _Strategy(run) if strategy is not None else _Strategy()

@@ -2,7 +2,7 @@
 HEADER_SHA256 = {
     'tactix.h': 'b0a1d8553f901fa74f2dd46d0fd6cb2d372292d07763f1a11b304009793723fd',
     'ipasir.h': '2a655b27aeda9e76bc33be759a7b5af12fb19a70d0b3365c3393459072626fcd',
-    'tactix_ipasir.h': 'f9dda8fb1694c8687f9051b121fb24e2dd75fb32bea238c8935e5e5fd6033237',
+    'tactix_ipasir.h': '611e4f8a5ef10d02de87b2afc8646244b09bd7a110d64e56670194fe7ac7b3cf',
 }
 CONSTANTS = {
     'TACTIX_INSTANCE_CANONICAL': 18446744073709551615,

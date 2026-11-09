@@ -13,7 +13,7 @@ from test_native_query_append_proof import satisfiable
 library,root=map(Path,sys.argv[1:])
 sys.path.insert(0,str(root/'python'))
 sys.path.insert(0,str(root/'tools/bench'))
-from tactix import Session, ScriptedCDCL, SAT, UNSAT, UNKNOWN
+from tactix import Session, ScriptedCDCL, SAT, UNSAT, UNKNOWN, capi
 from python_policy_reference import Cruxmiter, ScriptedDefault
 spec=importlib.util.spec_from_file_location('python_session_runner',root/'tools/bench/run.py')
 runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
@@ -207,4 +207,49 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
             else:raise AssertionError('native minimization callback exception lost')
             assert s._lib.dll.tactix_ipasir_bundle(s._handle)==before and s._lib.dll.ipasir_val(s._handle,1)==1
         s.set_strategy(None);assert s.solve().status==SAT
-print('Python sessions: default/scripted/native-and-Python-cruxmiter/native-and-Python-scripted-default/Chvatal/DPLL/no-restart cores, minimization, learned exports, contexts, interruption and lifetimes pass')
+    # An exception must unwind contexts and discard an unsettled epoch, while
+    # preserving the session's callbacks and permanent input for the next call.
+    for phase in (False,True):
+        views=[];polls=[]
+        def abandon(execution,restored):
+            views.append(execution)
+            assert execution.c.tactix_support(capi.TACTIX_SUPPORT_ENTER_CONTEXT,capi.TACTIX_CONTEXT_STARTUP)==0
+            if phase:
+                assert execution.c.tactix_support(capi.TACTIX_SUPPORT_ENTER_INPROCESS_PHASE,0)==0
+            assert execution.c.tactix_support(capi.TACTIX_SUPPORT_ENTER_CONTEXT,capi.TACTIX_CONTEXT_SPECULATION)==0
+            raise ValueError('abandoned execution')
+        with Session(library=library,strategy=abandon) as s:
+            s.add([1,2]);s.set_terminate(lambda:polls.append(1) or False)
+            try:s.solve()
+            except RuntimeError as e:assert isinstance(e.__cause__,ValueError)
+            else:raise AssertionError('abandoned context exception lost')
+            try:views[-1].next()
+            except RuntimeError:pass
+            else:raise AssertionError('abandoned view remained active')
+            s.set_strategy(None);before=len(polls);result=s.solve([-1])
+            assert result.status==SAT and result.model[1]==2 and len(polls)>before
+            prefix=tmp/('abandoned-phase' if phase else 'abandoned-context')
+            result.export(prefix);verify(prefix)
+    calls=[];failure=ValueError('abort before restoration')
+    def fail_before_restore(execution,restored):
+        calls.append(restored)
+        if len(calls)>1:return UNKNOWN
+        assert execution.c.tactix_apply_instance(execution._lib.rules['BVE'],1)>=0
+        assert execution.next()==capi.TACTIX_QUERY_RESTORE
+        raise failure
+    with Session(library=library,strategy=fail_before_restore) as s:
+        s.add([1,2])
+        try:s.solve([-1])
+        except RuntimeError as e:assert e.__cause__ is failure
+        else:raise AssertionError('restoration exception lost')
+        assert calls==[False]
+        s.set_strategy(None);assert s.solve([-1]).status==SAT
+    def checked_add(execution,restored):
+        try:execution.c.tactix_add
+        except AttributeError:pass
+        else:raise AssertionError('aborting add exposed on borrowed view')
+        assert execution.c.tactix_add_checked(1)==-1
+        return execution.default_solve()
+    with Session(library=library,strategy=checked_add) as s:
+        s.add([1]);assert s.solve().status==SAT
+print('Python sessions: strategies, cores, proofs/models, callbacks, failure recovery and lifetimes pass')

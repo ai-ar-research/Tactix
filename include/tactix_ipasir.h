@@ -82,6 +82,8 @@ struct tactix_solver;
 #define TACTIX_IPASIR_ENTER_RESTORED 1u
 typedef int (*tactix_ipasir_strategy)(void *state,void *session,
     struct tactix_solver *execution,unsigned entry_reason);
+/* Return 0/10/20 for UNKNOWN/SAT/UNSAT. A negative return aborts the query
+ * without re-entering the strategy for pending restoration. */
 int tactix_ipasir_set_strategy(void *,void *state,tactix_ipasir_strategy);
 int tactix_ipasir_set_default_option(void *,const char *name,const char *value);
 /* Native programs are compiled once with the library. NULL/"default" selects
