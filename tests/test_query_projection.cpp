@@ -5,6 +5,7 @@
 #include "rules/condition/condition.hpp"
 #include "strategy/bve_invocation.hpp"
 #include "proof/proof.hpp"
+#include "session/query_projection.hpp"
 
 #include <string>
 
@@ -18,6 +19,28 @@ using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
 using query_test::drive;
+
+static void sparse_assumption_membership() {
+  for (const std::vector<int32_t> cube : {
+           std::vector<int32_t>{}, {1, 1, -7, INT32_MAX}, {-INT32_MAX}, {7, -7, -7}}) {
+    QueryHistory history;
+    for (int32_t literal : cube) assert(history.assume(literal) == InputStatus::Ok);
+    assert(history.begin_query() == InputStatus::Ok);
+    QueryProjection projection(history, 1);
+    assert(std::equal(cube.begin(), cube.end(), projection.constraints().begin(),
+                      projection.constraints().end()));
+    for (int32_t literal : {0, 1, -1, 7, -7, INT32_MAX, -INT32_MAX})
+      assert(projection.is_assumption(literal) ==
+             (std::find(cube.begin(), cube.end(), literal) != cube.end()));
+    assert(projection.constrains(INT32_MAX - 1u) ==
+           (projection.is_assumption(INT32_MAX) || projection.is_assumption(-INT32_MAX)));
+    assert(projection.constrains(6) ==
+           (projection.is_assumption(7) || projection.is_assumption(-7)));
+    assert(!projection.constrains(INT32_MAX) && !projection.constrains(UINT32_MAX));
+    assert(projection.contradictory() == std::any_of(cube.begin(), cube.end(),
+        [&](int32_t literal) { return std::find(cube.begin(), cube.end(), -literal) != cube.end(); }));
+  }
+}
 
 static ApplyResult eliminate(Kernel &k, int32_t external) {
   const auto &rule = tactix_rules()[tactix_rule_id("BVE")];
@@ -115,6 +138,11 @@ static void equivalence_translation(bool negative, bool dynamic) {
   const int32_t expected = negative ? -1 : 1;
   assert(s.effective_assumptions(t).size() == 1);
   assert(s.effective_assumptions(t)[0] == expected);
+  assert(k.query_projection->constrains(0));
+  assert(!k.query_projection->constrains(1));
+  assert(k.query_projection->preserves_constant(internalize(expected)));
+  assert(!k.query_projection->preserves_constant(internalize(-expected)));
+  assert(k.query_projection->preserves_constant(internalize(-2)));
   assert(s.projection_state(t).translated_assumptions == 1);
   assert(!s.projection_state(t).restore);
   assert(k.value(internalize(expected)) == 0); // proof-only query premise
@@ -249,6 +277,7 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
+  sparse_assumption_membership();
   for (bool dynamic : {false, true}) {
     compatible_elimination_and_cube(dynamic);
     equivalence_translation(false, dynamic);

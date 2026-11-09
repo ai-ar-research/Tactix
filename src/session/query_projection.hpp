@@ -2,6 +2,7 @@
 
 #include "kernel/query_projection.hpp"
 #include "session/query_history.hpp"
+#include <unordered_set>
 #include <vector>
 
 namespace tactix::session {
@@ -44,7 +45,7 @@ private:
   std::vector<int32_t> assumptions_;
   const QueryHistory &history_;
   uint64_t query_ = 0;
-  std::vector<int32_t> cube_;
+  std::unordered_set<int32_t> membership_;
   bool contradictory_ = false;
   ProjectionSnapshot snapshot_;
 };

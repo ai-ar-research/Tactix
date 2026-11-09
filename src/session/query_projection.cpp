@@ -37,7 +37,7 @@ QueryModelAdmission QueryProjection::admit_model(Kernel &k) {
 }
 
 bool QueryProjection::contains(int32_t literal) const {
-  return std::binary_search(cube_.begin(), cube_.end(), literal, external_literal_less);
+  return membership_.contains(literal);
 }
 
 bool QueryProjection::constrains(Var external) const {
@@ -57,12 +57,13 @@ void QueryProjection::restrict_constant(Lit external) {
 }
 
 void QueryProjection::rebuild_cube() {
-  cube_ = assumptions_;
-  std::sort(cube_.begin(), cube_.end(), external_literal_less);
-  cube_.erase(std::unique(cube_.begin(), cube_.end()), cube_.end());
-  contradictory_ = false;
-  for (size_t i = 1; i < cube_.size(); ++i)
-    contradictory_ |= cube_[i] == -cube_[i-1];
+  // Assumptions retain proof order and multiplicity; this index serves only
+  // membership and contradiction checks.
+  // Sparse external coordinates must not allocate up to their largest ID.
+  membership_.clear();
+  membership_.insert(assumptions_.begin(), assumptions_.end());
+  contradictory_ = std::any_of(assumptions_.begin(), assumptions_.end(),
+      [&](int32_t literal) { return membership_.contains(-literal); });
 }
 
 void QueryProjection::reconstruction_literal(Lit external) {
@@ -92,6 +93,12 @@ void QueryProjection::substitute(
     snapshot_.restore = true;
     return;
   }
+  if (premises.empty()) return;
+  // Allocate before publishing translated premises. If an outer allocation
+  // handler resumes this session, it must restore rather than use a partial
+  // projection. Both container swaps below are non-allocating.
+  snapshot_.restore = true;
+  std::unordered_set<int32_t> membership(translated.begin(), translated.end());
   // The original or preceding translated assumption is already a checker
   // premise. Its equivalence path is still live at this boundary. Do not
   // assert these consequences in the native root or its unit-ID table.
@@ -102,7 +109,10 @@ void QueryProjection::substitute(
   for (size_t i = 0; i < assumptions_.size(); ++i)
     snapshot_.translated_assumptions += assumptions_[i] != translated[i];
   assumptions_.swap(translated);
-  rebuild_cube();
+  membership_.swap(membership);
+  contradictory_ = std::any_of(assumptions_.begin(), assumptions_.end(),
+      [&](int32_t literal) { return membership_.contains(-literal); });
+  snapshot_.restore = false;
 }
 
 bool QueryProjection::preserves_restriction(const Kernel &k,
