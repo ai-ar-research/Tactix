@@ -2407,6 +2407,21 @@ int tactix_solve(tactix_solver *s) {
   input_complete(s);
   // Search runs outside the inprocessing phase bracket.
   if (s->phase.open()) {
+    Kernel &k = s->kernel;
+    const bool terminal_probe = !s->phase.eliminate() &&
+        !s->phase.occurrences_open() && k.large_watches_connected && has_sat_assignment(k);
+    if (s->contexts.size() != s->phase_contexts || k.conflict_valid ||
+        k.pending.valid || k.probing.recording || (k.level && !terminal_probe) ||
+        (k.dense && (!s->phase.occurrences_open() || k.dense != &s->phase_occurrences)) ||
+        (k.affine_matrix_search_session &&
+         k.affine_matrix_search_session->has_deferred_reason()))
+      return 0;
+    // Eliminate already disconnected large watches at entry. Complete its
+    // ordinary exit even if the caller never opened the occurrence session.
+    if (!s->phase.occurrences_open() &&
+        (s->phase.eliminate() || !k.large_watches_connected ||
+         (!k.inconsistent && !has_sat_assignment(k))))
+      s->phase.open_occurrences(k, s->phase_occurrences);
     if (s->phase.occurrences_open()) (void)leave_phase(s);
     else s->phase.exit_terminal(s->kernel);
   }
@@ -3508,18 +3523,24 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     break;
   case TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE:
     if (argument || !s->phase.open() || s->contexts.size() != s->phase_contexts ||
-        k.level || k.conflict_valid || k.pending.valid || k.probing.recording)
+        k.conflict_valid || k.pending.valid || k.probing.recording)
+      return -1;
+    if (k.dense && (!s->phase.occurrences_open() || k.dense != &s->phase_occurrences))
       return -1;
     if (!s->phase.occurrences_open()) {
       // Without a session only a Probe bracket may close (a structured
       // startup terminal); an Eliminate bracket must reconnect its watches.
-      if (s->phase.eliminate())
+      if (s->phase.eliminate() || !k.large_watches_connected ||
+          (k.level && !has_sat_assignment(k)))
         return -1;
-      s->phase.exit_terminal(k);
-      result = 0;
-      break;
+      if (k.inconsistent || has_sat_assignment(k)) {
+        s->phase.exit_terminal(k);
+        result = support_result(s, k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok);
+        break;
+      }
+      s->phase.open_occurrences(k, s->phase_occurrences);
     }
-    if (k.dense != nullptr && k.dense != &s->phase_occurrences)
+    if (k.level || (k.dense != nullptr && k.dense != &s->phase_occurrences))
       return -1;
     result = leave_phase(s);
     break;

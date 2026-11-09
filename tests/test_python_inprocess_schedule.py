@@ -12,7 +12,7 @@ import sys
 library, fixture, root = map(Path, sys.argv[1:])
 sys.path.insert(0, str(root/'python'))
 from tactix import Session, UNKNOWN, capi
-from python_policy_reference import InprocessClock, NativeInprocessSchedule
+from python_policy_reference import InprocessClock, NativeInprocessSchedule, PhaseOutcome
 
 observed = []
 def inspect(execution, restored):
@@ -128,3 +128,38 @@ assert coverage >= {('Probe', False), ('Probe', True), ('Eliminate', False), ('E
                     'post-phase-deadline', 'phase-Probe-search', 'phase-Probe-startup',
                     'phase-Eliminate-search'}, coverage
 print(f'native/Python phase clocks: {len(rows)} observation cases, all deadline and watermark checks pass')
+
+if str(library) != '-':
+    lib = capi.load_library(library)
+    rule_ids = {lib.tactix_rule_name(i).decode(): i for i in range(lib.tactix_rule_count())}
+    executed = set()
+    for line in rows:
+        row = json.loads(line)
+        if (row.get('kind') != 'phase' or row['before']['CONFLICTS'] or
+                row['mode'] not in ('empty', 'material-change')):
+            continue
+        handle = lib.tactix_init()
+        assert handle
+        try:
+            for clause in ([1, 2], [1, -2], [-1, 3], [-3, 4]):
+                for literal in [*clause, 0]: lib.tactix_add(handle, literal)
+            assert lib.tactix_status(handle) == 0
+            view = capi.SolverView(lib, handle, lambda: None)
+            schedule = NativeInprocessSchedule(row['config'])
+            schedule.clocks = {name: InprocessClock(**clock) for name, clock in row['clocks'].items()}
+            assert schedule.observe(view) == row['before'], row
+            def run_rounds(view):
+                assert view.tactix_support(capi.TACTIX_SUPPORT_BEGIN_FORWARD_ROUND, 0) in (0, 1)
+                if row['mode'] == 'material-change':
+                    rule = rule_ids['BCE']
+                    assert view.tactix_apply_instance(rule, capi.TACTIX_INSTANCE_CANONICAL) in (0, 1)
+                return PhaseOutcome()
+            assert schedule.execute_pipeline(view, row['group'], run_rounds) == row['result']
+            assert schedule.observe(view) == row['after'], row
+            assert {name: asdict(clock) for name, clock in schedule.clocks.items()} == row['finished'], row
+            executed.add((row['group'], row['mode']))
+        finally:
+            lib.tactix_release(handle)
+    assert executed == {(group, mode) for group in ('Probe', 'Eliminate')
+                        for mode in ('empty', 'material-change')}, executed
+    print('Python public phase execution matches four actual native pipelines')

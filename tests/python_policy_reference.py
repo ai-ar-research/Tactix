@@ -19,6 +19,13 @@ class InprocessClock:
     anchor: int = 0
 
 
+@dataclass
+class PhaseOutcome:
+    status: int = 0
+    bve_ran: bool = False
+    maximum_bound: bool = False
+
+
 class NativeInprocessSchedule:
     """Independent native phase clocks; not yet a complete DefaultPolicy.
 
@@ -29,6 +36,7 @@ class NativeInprocessSchedule:
     def __init__(self, config):
         self.config = config
         self.initialized = False
+        self.unusable = False
         self.last_reduce_conflicts = _U64
         self.clocks = {group: InprocessClock() for group in ('Probe', 'Eliminate')}
 
@@ -84,7 +92,97 @@ class NativeInprocessSchedule:
         """Rearm candidates after the fast phase, including terminal exits."""
         reschedule_bve()
 
+    def execute_pipeline(self, view, group, run_rounds, *, run_startup=None, factor_bound=0,
+                         initial_fast_elimination=False):
+        """Execute the ordinary phase bracket through public C operations.
+
+        run_rounds owns rule selection, budgets and BVE-bound progression and
+        returns PhaseOutcome. Optional Probe startup runs before occurrences
+        and returns 0/10/20. Parameters and fast-entry candidate selection
+        remain caller-owned; this is not the full native policy.
+        """
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        if (group not in self.clocks or not 0 <= factor_bound <= (1 << 32) - 1 or
+                run_startup is not None and group != 'Probe' or
+                initial_fast_elimination and group != 'Eliminate'):
+            raise ValueError('invalid phase configuration')
+        def support(name, argument=0):
+            result = view.tactix_support(getattr(capi, 'TACTIX_SUPPORT_' + name), argument)
+            if result < 0:
+                raise RuntimeError('phase support failed: ' + name)
+            return result
+        def reschedule():
+            return support('RESCHEDULE_BVE')
+        def cleanup(name, primary=None):
+            try:
+                return support(name)
+            except BaseException as error:
+                self.unusable = True
+                if primary is None:
+                    raise
+                primary.phase_cleanup_errors = getattr(primary, 'phase_cleanup_errors', []) + [error]
+        self.enter_phase(self.observe(view), group)
+        primary = None
+        try:
+            if group == 'Eliminate' and not initial_fast_elimination:
+                support('BEGIN_BVE_DEFINITION_SESSION')
+            if view.tactix_status() == 20:
+                return 20
+            flags = capi.TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX
+            flags |= (capi.TACTIX_ROOT_PREPARATION_PROBING if group == 'Probe' else
+                      capi.TACTIX_ROOT_PREPARATION_CAPTURE_TARGET)
+            if support('ROOT_PREPARATION', flags) == 20:
+                return 20
+            argument = factor_bound << capi.TACTIX_PHASE_FACTOR_BOUND_SHIFT
+            if group == 'Eliminate':
+                argument |= capi.TACTIX_PHASE_ELIMINATE
+            support('ENTER_INPROCESS_PHASE', argument)
+            startup_status = 0
+            body_error = None
+            try:
+                if run_startup is not None:
+                    startup_status = run_startup(view)
+                    if startup_status not in (0, 10, 20):
+                        raise ValueError('invalid startup status')
+                    if startup_status == 0:
+                        startup_status = view.tactix_status()
+                if startup_status:
+                    outcome = PhaseOutcome(startup_status)
+                else:
+                    support('OPEN_OCCURRENCE_SESSION')
+                    outcome = run_rounds(view)
+                    if not isinstance(outcome, PhaseOutcome) or outcome.status not in (0, 20):
+                        raise ValueError('ordinary phase requires a non-SAT PhaseOutcome')
+            except BaseException as error:
+                body_error = error
+                raise
+            finally:
+                exit_status = cleanup('LEAVE_INPROCESS_PHASE', body_error)
+            status = view.tactix_status()
+            if startup_status == 10:
+                if status != 10:
+                    raise ValueError('startup SAT disagrees with solver')
+                return 10
+            unsat = status == 20
+            if not unsat and (outcome.status == 20 or exit_status == 20):
+                raise ValueError('phase UNSAT disagrees with solver')
+            self.leave_phase(self.observe(view), group, bve_ran=outcome.bve_ran,
+                             maximum_bound=outcome.maximum_bound,
+                             initial_fast_elimination=initial_fast_elimination,
+                             unsat=unsat, reschedule_bve=reschedule)
+            return 20 if unsat else 0
+        except BaseException as error:
+            primary = error
+            self.unusable = True
+            raise
+        finally:
+            if initial_fast_elimination:
+                cleanup('RESCHEDULE_BVE', primary)
+
     def want_phase(self, observation, group):
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
         clock = self.clocks[group]
         conflicts = observation['CONFLICTS']
         if (not self.initialized or

@@ -73,7 +73,7 @@ public:
                                 index, OccurrenceAttachment::Build, eliminate_});
   }
 
-  // Exit after a structured-startup SAT terminal: no session was opened, so
+  // Exit after a structured-startup terminal: no session was opened, so
   // only the Factor handoff and the context are released.
   void exit_terminal(Kernel &k) {
     assert(open() && !occurrences_);

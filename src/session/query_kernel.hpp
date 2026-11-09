@@ -149,6 +149,7 @@ public:
   bool flush_proof(KernelTicket);
   // Capture the terminal model/core before consuming A and completing history.
   // No native search or proof event depends on optional core minimization.
+  // Status can be observed inside a phase; terminal capture waits for its exit.
   ResultCaptureStatus finish_query(QueryHistory &,QueryResult);
   ResultCaptureStatus finish_query(QueryHistory &,QueryResult,const CoreLimits &,
       const volatile sig_atomic_t *stop = nullptr);

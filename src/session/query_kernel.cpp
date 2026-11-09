@@ -24,6 +24,11 @@
 namespace tactix::session {
 namespace {
 
+bool query_boundary_busy(const Kernel &k) {
+  return k.inprocessing || k.phase_saving_suppressed || k.probing.recording ||
+         !k.large_watches_connected || k.dense || k.pending.valid;
+}
+
 // Solver-population events are independent of proof formatting. Capture only
 // bounded immutable copies; no validation or search runs inside the callback.
 struct ClauseCapture final : PopulationObserver {
@@ -1002,9 +1007,6 @@ AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
   const Kernel &k = epoch_->kernel;
   if (epoch_->projection && epoch_->projection->snapshot().invalid_model)
     return {AssumptionStatus::Invalid};
-  if (k.inprocessing || k.phase_saving_suppressed || k.probing.recording ||
-      !k.large_watches_connected || k.dense || k.pending.valid)
-    return {AssumptionStatus::Busy};
   // The projection owner licenses compatible reconstruction, translated
   // equivalences and cube-preserving restrictions. An incompatible effect
   // requires restoration; statistics reset cannot erase that obligation.
@@ -1017,6 +1019,10 @@ AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
   if (k.inconsistent) return {AssumptionStatus::BaseUnsat};
   if (epoch_->projection && epoch_->projection->contradictory())
     return {AssumptionStatus::QueryUnsat};
+  // Proved terminal states remain observable inside a phase. Restoration and
+  // projection validity above still take precedence over such a verdict.
+  if (query_boundary_busy(k))
+    return {AssumptionStatus::Busy};
   if (k.conflict_valid) return {AssumptionStatus::Analyze};
   if (!kernel_propagation_fixpoint(k)) return {AssumptionStatus::Propagate};
   const auto assumptions = effective_assumptions(t);
@@ -1121,6 +1127,8 @@ ResultCaptureStatus QueryKernel::finish_query(QueryHistory &history,QueryResult 
   if(answer!=QueryResult::Unknown && answer!=QueryResult::Sat && answer!=QueryResult::Unsat)
     return ResultCaptureStatus::InvalidResult;
   if(answer!=QueryResult::Unknown && stop&&*stop)return ResultCaptureStatus::Interrupted;
+  if(answer!=QueryResult::Unknown && query_boundary_busy(epoch_->kernel))
+    return ResultCaptureStatus::NotReady;
   const auto *query=history.active_query();
   auto next=std::make_shared<QueryResultSnapshot>();
   next->query=query->id;next->generation=t.generation;next->input_words=query->input_words;next->result=answer;

@@ -2125,11 +2125,19 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  *                              session, reconnect large watches (Eliminate, or
  *                              if left disconnected), resume sparse Propagate
  *                              from the cursor (Eliminate), clear the Factor
- *                              selection and leave the context. A Probe
- *                              bracket without a session only clears the
- *                              selection and leaves the context. Contexts
+ *                              selection and leave the context. A terminal
+ *                              Probe bracket without a session only clears the
+ *                              selection and leaves the context with watches
+ *                              connected; a complete active-formula assignment
+ *                              may remain above root there. This publishes no
+ *                              query verdict: assumptions still govern status.
+ *                              Nonterminal root Probe exits first open a
+ *                              session and use ordinary cleanup.
+ *                              Other exits require level zero. Contexts
  *                              entered inside the bracket must be left first;
- *                              tactix_solve leaves an open bracket.
+ *                              tactix_solve leaves a quiescent open bracket;
+ *                              unresolved nested contexts/conflicts or reason
+ *                              debt return UNKNOWN without starting search.
  *   BEGIN_FORWARD_ROUND        start a forward-subsumption round:
  *                              SubsumeForward and Strengthen completeness
  *                              flags set (an interrupted pass clears its own).

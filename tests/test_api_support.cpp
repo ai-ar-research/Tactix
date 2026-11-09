@@ -310,6 +310,82 @@ void test_reseed() {
 
 // The phase bracket: the public session against DefaultPolicy's shared
 // bracket with its default Factor selection, H publication and Propagate.
+void test_terminal_probe_bracket() {
+  auto *s = tactix_init();
+  assert(s);
+  for (int literal : {1, 2, 0}) tactix_add(s, literal);
+  assert(tactix_status(s) == 0);
+  assert(tactix_support(s, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, 0) == 0);
+  assert(tactix_decide(s, 1) == 0);
+  assert(tactix_apply(s, tactix_rule_id("Propagate")) == 0);
+  auto &k = api_detail::kernel_for_fixed_testing(s);
+  assert(k.level == 1 && k.unassigned_active == 1);
+  assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == -1);
+  assert(k.inprocessing && k.factor_selection);
+  assert(tactix_decide(s, 2) == 0);
+  assert(tactix_apply(s, tactix_rule_id("Propagate")) == 0);
+  assert(tactix_status(s) == 10 && k.level == 2);
+  assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == 0);
+  assert(k.level == 2 && !k.inprocessing && !k.factor_selection && !k.dense);
+  assert(tactix_status(s) == 10 && tactix_value(s, 1) > 0 && tactix_value(s, 2) > 0);
+  tactix_release(s);
+}
+
+void test_foreign_occurrence_owner() {
+  auto *s = tactix_init();
+  assert(s);
+  for (int literal : {1, 2, 3, 0}) tactix_add(s, literal);
+  assert(tactix_status(s) == 0);
+  assert(tactix_support(s, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, 0) == 0);
+  auto &k = api_detail::kernel_for_fixed_testing(s);
+  OccIndex foreign;
+  {
+    execution::OccurrenceSession session(k, execution::OccurrenceSessionRequest{
+        foreign, execution::OccurrenceAttachment::Build, false});
+    assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == -1);
+    assert(tactix_solve(s) == 0);
+    assert(k.dense == &foreign && k.inprocessing);
+  }
+  assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == 0);
+  assert(!k.dense && !k.inprocessing && k.large_watches_connected);
+  assert(tactix_solve(s) == 10);
+  assert(tactix_value(s, 1) > 0 || tactix_value(s, 2) > 0 || tactix_value(s, 3) > 0);
+  tactix_release(s);
+}
+
+void test_solve_unopened_eliminate() {
+  for (bool unsat : {false, true}) for (bool nested : {false, true}) {
+    auto *s = tactix_init();
+    assert(s);
+    for (unsigned mask = 0; mask < (unsat ? 8u : 7u); ++mask) {
+      for (int v = 1; v <= 3; ++v) tactix_add(s, (mask & (1u << (v - 1))) ? v : -v);
+      tactix_add(s, 0);
+    }
+    assert(tactix_status(s) == 0);
+    auto &k = api_detail::kernel_for_fixed_testing(s);
+    assert(tactix_support(s, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, TACTIX_PHASE_ELIMINATE) == 0);
+    assert(!k.large_watches_connected && !k.dense);
+    if (nested) {
+      assert(tactix_support(s, TACTIX_SUPPORT_ENTER_CONTEXT, TACTIX_CONTEXT_SPECULATION) == 0);
+      assert(tactix_solve(s) == 0);
+      assert(k.inprocessing && !k.large_watches_connected);
+      assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_CONTEXT, 0) == 0);
+    }
+    assert(tactix_solve(s) == (unsat ? 20 : 10));
+    assert(k.large_watches_connected && !k.dense && !k.inprocessing && !k.factor_selection);
+    if (!unsat)
+      for (unsigned mask = 0; mask < 7; ++mask) {
+        bool satisfied = false;
+        for (int v = 1; v <= 3; ++v) {
+          const int literal = (mask & (1u << (v - 1))) ? v : -v;
+          satisfied |= tactix_value(s, literal) == literal;
+        }
+        assert(satisfied);
+      }
+    tactix_release(s);
+  }
+}
+
 void test_phase_bracket() {
   tactix_c_handle *pub = load(), *nat = load();
   Kernel &p = kernel(pub), &n = kernel(nat);
@@ -522,6 +598,9 @@ int main() {
   test_rejections();
   test_reseed();
   test_phase_bracket();
+  test_terminal_probe_bracket();
+  test_solve_unopened_eliminate();
+  test_foreign_occurrence_owner();
   test_complete_sr_profile();
   test_work_settings();
   return 0;

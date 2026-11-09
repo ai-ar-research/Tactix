@@ -141,6 +141,7 @@ static void emit_phase(SlotGroup group, uint64_t conflicts, const char *mode) {
   if (bve || fast || late || material) {
     DefaultInprocessScheduler::SlotEntry e;
     e.rule = tactix_rule_id(material ? "BCE" : late ? "Probe" : "BVE"); e.group = group;
+    e.preprocess = material;
     e.max_applies = 1; e.meter = [](const Kernel &) -> uint64_t { return 0; };
     e.dosed = !late && !material; e.order = CandidateOrder::Reverse;
     native.entries.push_back(e);
@@ -186,6 +187,8 @@ int main() {
   emit_phase(SlotGroup::Probe, 10, "late-unsat");
   emit_phase(SlotGroup::Probe, 10, "material-change");
   emit_phase(SlotGroup::Eliminate, 10, "material-change");
+  emit_phase(SlotGroup::Probe, 0, "material-change");
+  emit_phase(SlotGroup::Eliminate, 0, "material-change");
   emit_phase(SlotGroup::Eliminate, 10, "maximum");
   emit_phase(SlotGroup::Eliminate, 10, "maximum-growth");
   emit_phase(SlotGroup::Eliminate, 10, "advance");
