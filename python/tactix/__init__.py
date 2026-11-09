@@ -318,7 +318,13 @@ class Session:
         def run(_, session, view, cause):
             execution = Execution(self._lib, session, view)
             try:
-                return strategy(execution, cause == 1)
+                result = strategy(execution, cause == 1)
+                # ctypes converts callback results after this try block has
+                # returned. Reject invalid values here so conversion errors
+                # reach solve()/minimize_core() through the callback channel.
+                if not isinstance(result, int) or result not in (UNKNOWN, SAT, UNSAT):
+                    raise ValueError('strategy must return UNKNOWN (0), SAT (10), or UNSAT (20)')
+                return result
             except _QueryInterrupted:
                 return UNKNOWN
             except BaseException as error:

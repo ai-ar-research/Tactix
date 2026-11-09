@@ -178,13 +178,33 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
         except RuntimeError:pass
         else:raise AssertionError('expired execution view accepted')
         s.set_strategy(None);assert s.solve().status==SAT
+    # Callback conversion happens outside the Python callback's exception
+    # handler in ctypes. Reject invalid results before crossing that boundary;
+    # failures still consume assumptions and expire borrowed execution views.
+    for invalid in (None, '10', 10.0, 10 + 2**32, 1, object()):
+        views=[]
+        def invalid_result(execution,restored):
+            views.append(execution)
+            return invalid
+        with Session(library=library,strategy=invalid_result) as s:
+            try:s.solve([3])
+            except RuntimeError as e:
+                assert isinstance(e.__cause__,ValueError) and 'strategy must return' in str(e.__cause__)
+            else:raise AssertionError('invalid strategy return accepted')
+            try:views[-1].next()
+            except RuntimeError:pass
+            else:raise AssertionError('invalid-return execution view remained active')
+            s.set_strategy(None)
+            result=s.solve()
+            assert result.status==SAT and result.assumptions==()
     with Session(library=library) as s:
         s.add([1]);source=s.solve([7,-1]);current=s.solve()
         before=s._lib.dll.tactix_ipasir_bundle(s._handle)
-        s.set_strategy(faulty)
-        try:s.minimize_core(source)
-        except RuntimeError as e:assert isinstance(e.__cause__,ValueError)
-        else:raise AssertionError('native minimization callback exception lost')
-        assert s._lib.dll.tactix_ipasir_bundle(s._handle)==before and s._lib.dll.ipasir_val(s._handle,1)==1
+        for strategy in (faulty, lambda execution,restored:None):
+            s.set_strategy(strategy)
+            try:s.minimize_core(source)
+            except RuntimeError as e:assert isinstance(e.__cause__,ValueError)
+            else:raise AssertionError('native minimization callback exception lost')
+            assert s._lib.dll.tactix_ipasir_bundle(s._handle)==before and s._lib.dll.ipasir_val(s._handle,1)==1
         s.set_strategy(None);assert s.solve().status==SAT
 print('Python sessions: default/scripted/native-and-Python-cruxmiter/native-and-Python-scripted-default/Chvatal/DPLL/no-restart cores, minimization, learned exports, contexts, interruption and lifetimes pass')
