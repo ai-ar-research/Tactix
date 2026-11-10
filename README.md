@@ -52,13 +52,13 @@ See [the checking guide](docs/cli.md#optional-proof-checking) for details.
 
 | Program | Source | Strategy |
 |---|---|---|
-| `tactix-public` | `tests/tactix_public_main.cpp` | The default strategy with every operation issued through `tactix.h`; it makes the same decisions and writes the same proofs as `tactix`. |
+| `tactix-default` | `examples/default_strategy/` | The default strategy written in C over `tactix.h`: every decision is made in C from public reads, and every action is issued through the public interface. On the same session it makes the same decisions and writes the same proofs as the built-in strategy (`--reference` runs that one instead). |
 | `tactix-public-random` | `tools/fuzz/public_random_main.cpp` | The sole random qualification strategy; it generates varied one-action-at-a-time trajectories exclusively through `tactix.h`. |
 | `tactix-cruxmiter-policy` | `examples/cruxmiter_policy.c` | A strategy developed for a set of multiplier-miter benchmarks: four bounded congruence/substitution rounds, Backbone, then the fixed stable default search with vivification as its only inprocessing. |
 | `tactix-chvatal-policy` | `examples/chvatal_policy.c` | A strategy developed for tackling sub-problems of the Chvátal's conjectures: merge duplicated totalizer counters with bidirectional substitution-redundancy steps, collapse after each round, then run the default strategy with a DSR proof. |
 
 ```sh
-build/release/tests/tactix-public formula.cnf proof
+build/release/examples/tactix-default formula.cnf proof
 build/release/tests/tactix-public-random --random-policy=7 formula.cnf proof
 build/release/examples/tactix-cruxmiter-policy formula.cnf proof
 build/release/examples/tactix-chvatal-policy formula.cnf proof

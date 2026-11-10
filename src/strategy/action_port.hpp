@@ -9,10 +9,11 @@
 // execute_substitute_rounds, and the scopes it holds around requests
 // (TickSinkScope, WorkSettingsScope, ScopedRuleWorkBudget, VivifyDoseScope,
 // ScopedReduceParameters, BveInvocationSession). Production binds them to the registered functions
-// themselves (StaticPort, no forwarding layer). A twin translation unit defines
-// TACTIX_DEFAULT_POLICY_PUBLIC_PORT (PublicPort, tests/default_public_port.hpp)
-// or TACTIX_DEFAULT_POLICY_HARDCODED_PORT (HardcodedPort) before including
-// default_policy.cpp. Include this header after the executor headers it names.
+// themselves (StaticPort, no forwarding layer). The hardcoded twin translation
+// unit defines TACTIX_DEFAULT_POLICY_HARDCODED_PORT (HardcodedPort) before
+// including default_policy.cpp. The same strategy over the public C interface
+// is examples/default_strategy. Include this header after the executor headers
+// it names.
 
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
@@ -153,13 +154,8 @@ struct HardcodedPort : StaticPort {
 };
 static_assert(ActionPort<HardcodedPort>);
 
-#if defined(TACTIX_DEFAULT_POLICY_PUBLIC_PORT) || defined(TACTIX_DEFAULT_POLICY_HARDCODED_PORT)
-#if defined(TACTIX_DEFAULT_POLICY_PUBLIC_PORT)
-struct PublicPort; // complete before default_policy.cpp's body
-using SelectedPort = PublicPort;
-#else
+#if defined(TACTIX_DEFAULT_POLICY_HARDCODED_PORT)
 using SelectedPort = HardcodedPort;
-#endif
 // Templates, so the selected port need only be complete where the policy calls.
 template <class P = SelectedPort>
 ApplyResult apply_rule(const RuleVTable &rule, Kernel &k) {

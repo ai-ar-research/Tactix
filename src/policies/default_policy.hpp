@@ -378,6 +378,25 @@ private:
   execution::PolicyCompletion *completion_ = nullptr;
 };
 
+// The configuration a DefaultPolicy constructed from `config` runs
+// (strategy_config()): the structured-root stages posed with the affine model.
+DefaultStrategyConfig default_policy_configuration(DefaultStrategyConfig config);
+
+// DefaultPolicy's own scheduling facts for one rule (its effort and delay
+// tables and its unlisted-rule policy), as the public readback reports them.
+struct DefaultRuleSchedule {
+  uint64_t (*meter)(const Kernel &) = nullptr; // null: an all-or-nothing rule
+  uint32_t permille = 0;
+  bool dosed = false, budget_aware = false, shared_meter = false;
+  uint64_t Stats::*tick_counter = nullptr;
+  uint64_t (*yield)(const Kernel &) = nullptr; // null: no productivity delay
+  uint64_t (*denominator)(const Kernel &) = nullptr;
+  uint32_t delay_permille = 0;
+  bool delay_delta = false;
+  bool appended = false, appended_enabled = false;
+};
+DefaultRuleSchedule default_rule_schedule(const DefaultStrategyConfig &, const char *rule);
+
 int default_solve(Kernel &, volatile sig_atomic_t *stop = nullptr);
 int default_solve(Kernel &, volatile sig_atomic_t *stop, strategy::RegionProgram *);
 

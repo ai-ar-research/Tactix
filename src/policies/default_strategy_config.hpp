@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace tactix {
 
@@ -23,6 +24,14 @@ enum class DefaultReorderTarget : uint8_t {
   Active,
   Queue,
   Heap,
+};
+
+// One configuration setting's value (DefaultStrategyConfig::setting).
+struct StrategySettingValue {
+  enum Kind : uint8_t { Integer, Real, Text } kind = Integer;
+  uint64_t integer = 0; // signed settings in two's complement
+  double real = 0;
+  std::string text;
 };
 
 // A Lucky opportunity's production switch and its typed recognizer bounds.
@@ -565,8 +574,13 @@ struct DefaultStrategyConfig {
   } inprocess;
 
   bool valid(std::string *error = nullptr) const;
-  // Stable, line-oriented snapshot used by trace and benchmark metadata.
+  // Stable, line-oriented snapshot used by trace and benchmark metadata:
+  // every setting as ` <group>.<key>=<value>`.
   std::string serialize() const;
+  // The setting a snapshot key names ("restart.glue_margin"); false for an
+  // unknown key. serialize() and setting() share one field inventory.
+  bool setting(std::string_view key, StrategySettingValue &out) const;
+  template <class Sink> void visit_settings(Sink &) const;
 };
 
 // A policy component's borrowed configuration, or the shipped defaults when

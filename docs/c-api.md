@@ -56,6 +56,21 @@ The solver does nothing on its own: only the rules the strategy applies run.
 A common pattern is a short specialized opening that exploits the structure of
 a family of formulas, followed by `tactix_solve`.
 
+A strategy that makes all of its own scheduling decisions can read the state
+those decisions depend on:
+
+| Call | What it reads |
+|---|---|
+| `tactix_counter_id`, `tactix_counter_view` | a named solver counter, as a pointer that stays current |
+| `tactix_observe` | a solver observation (`TACTIX_OBSERVE_*`), such as a variable's state or a pending service |
+| `tactix_occurrences`, `tactix_clause`, `tactix_binary_partners`, `tactix_literal_value` | the clause database |
+| `tactix_branch_next`, `tactix_branch_phase`, `tactix_branch_rank` | the branching heuristic's state |
+| `tactix_strategy_integer`, `tactix_strategy_read_step`, `tactix_strategy_read_rule` | the built-in strategy's settings, inprocessing program and per-rule scheduling |
+
+`examples/default_strategy/` uses these reads to implement the complete built-in
+strategy in C. On the same session it makes the same decisions and writes the
+same proof as `tactix_solve`.
+
 ## Proof production
 
 Before applying a rule, the solver checks that the rule is sound in the

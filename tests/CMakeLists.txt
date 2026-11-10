@@ -372,28 +372,28 @@ add_test(NAME kernel_h_boundary
 tactix_python_test(rule_policy_boundary
                    ${CMAKE_SOURCE_DIR}/tools/docs/check-rule-policy-boundary.py)
 
-# DefaultPolicy static/public twin (plan §5.6 acceptance, §8.4 correspondence
-# gate): one source over the static, hardcoded and public action ports; the
-# public executable runs the other two and compares.
-add_executable(default_correspondence_static test_default_public_correspondence.cpp)
+# DefaultPolicy static/hardcoded twin (plan §8.4 correspondence gate): one
+# source over the static and hardcoded action ports; the hardcoded executable
+# runs the static one and compares.
+add_executable(default_correspondence_static test_default_port_correspondence.cpp)
 target_link_libraries(default_correspondence_static PRIVATE tactix_lib)
-tactix_port_twin(default_correspondence_hardcoded test_default_public_correspondence.cpp
+tactix_port_twin(test_default_port_correspondence test_default_port_correspondence.cpp
                  $<TARGET_OBJECTS:tactix_default_policy_hardcoded>)
-tactix_port_twin(test_default_public_correspondence test_default_public_correspondence.cpp
-                 default_public_port.cpp)
-target_compile_definitions(test_default_public_correspondence PRIVATE
-                           TACTIX_DEFAULT_POLICY_PUBLIC_PORT=1)
-add_dependencies(test_default_public_correspondence
-                 default_correspondence_static
-                 default_correspondence_hardcoded)
-add_test(NAME default_public_correspondence
-         COMMAND test_default_public_correspondence
-                 $<TARGET_FILE:default_correspondence_static>
-                 $<TARGET_FILE:default_correspondence_hardcoded>)
-# The same PublicPort DefaultPolicy as a command-line solver, for benchmark
-# runs of the default strategy over tactix.h (tactix_public_main.cpp).
-tactix_port_twin(tactix-public tactix_public_main.cpp default_public_port.cpp)
-target_compile_definitions(tactix-public PRIVATE TACTIX_DEFAULT_POLICY_PUBLIC_PORT=1)
+add_dependencies(test_default_port_correspondence default_correspondence_static)
+add_test(NAME default_port_correspondence
+         COMMAND test_default_port_correspondence
+                 $<TARGET_FILE:default_correspondence_static>)
+
+# The C default strategy (examples/default_strategy) against DefaultPolicy on
+# the same correspondence fixtures.
+add_executable(test_c_default_correspondence test_c_default_correspondence.cpp)
+target_link_libraries(test_c_default_correspondence PRIVATE tactix_default tactix_lib)
+target_compile_definitions(test_c_default_correspondence PRIVATE
+                           TACTIX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME c_default_correspondence COMMAND test_c_default_correspondence)
+# The generated, profile and structured fixture families (extended).
+add_test(NAME c_default_correspondence_extended
+         COMMAND test_c_default_correspondence --extended)
 
 # Qualification random strategy: an external client compiled only against the
 # installed C header. It drives one public action at a time and never includes

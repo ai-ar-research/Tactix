@@ -11,6 +11,13 @@
 namespace tactix::execution {
 
 struct CompactRandomOrderRequest {};
+// A completed Decide's target provenance (H): the note DefaultPolicy records
+// after each of its decisions, which public tactix_decide records under the
+// NATIVE publication profile.
+struct TargetDecisionNoteRequest {
+  Lit decision;
+  bool consumed_target;
+};
 struct FactorSelectionInstallationRequest {
   FactorSelection &selection;
   std::optional<uint32_t> bound;
@@ -39,6 +46,9 @@ struct WalkRequest {
 
 inline void execute_action(Kernel &k, CompactRandomOrderRequest) {
   heuristics_compact_random_order_fixed(k);
+}
+inline void execute_action(Kernel &k, const TargetDecisionNoteRequest &request) {
+  heuristics_note_target_decision(k, request.decision, request.consumed_target);
 }
 inline void execute_action(Kernel &k, const FactorSelectionInstallationRequest &request) {
   k.factor_selection = &request.selection;

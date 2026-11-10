@@ -39,7 +39,7 @@ answer against a reference solver and the proof checkers:
 ```sh
 tools/checkers/setup.sh          # proof checkers
 tools/solvers/setup.sh           # reference solvers (Kissat, CaDiCaL)
-tools/fuzz/run.sh --quick --solver 'build/release/tests/tactix-public --pbp'
+tools/fuzz/run.sh --quick --solver 'build/release/examples/tactix-default --pbp'
 tools/fuzz/run.sh --public-random --quick \
   --solver 'build/release/tests/tactix-public-random --pbp --random-policy={seed}'
 ```
@@ -99,12 +99,12 @@ missing evidence does not pass a required gate.
   performance claim applies. PBP cost cannot be used to absorb a search
   regression inside a compatible route. Correctness, memory, cleanup, and
   per-instance limits remain strict.
-- Keep the complete DefaultPolicy implementation through the public port.
-  `default_public_correspondence` must report no fallback or declined request
-  and byte-identical proofs, models, verdicts, and trajectory counters against
-  production. In matched measurements the public port must remain within 5% of
-  production on each fixed regression set, and production must remain within
-  5% of the hardcoded twin.
+- Keep the C default strategy (`examples/default_strategy`) complete.
+  `c_default_correspondence` must report no unported path and byte-identical
+  proofs, models, verdicts, and trajectory counters against DefaultPolicy. In
+  matched measurements `tactix-default` must remain within 5% of production on
+  each fixed regression set, and production must remain within 5% of the
+  hardcoded twin.
 
 A version bump, tag, or release publication waits for every applicable gate
 to pass.

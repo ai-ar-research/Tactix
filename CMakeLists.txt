@@ -76,6 +76,7 @@ add_library(tactix_lib OBJECT
   src/frontend/dsr_follow_on.cpp
   src/api/api.cpp
   src/api/api_work.cpp
+  src/api/api_observe.cpp
 )
 
 # Proof export can copy a huge learned core. Only this translation unit may
@@ -181,7 +182,7 @@ if(TACTIX_BUILD_TESTS)
       congruence_ite_unit_proof ramsey_cli default_public_replay online_inprocess
       connected_occurrence pbp_deletion_identity_cli symmetry_clause_multiset
       event_trace_zero_overhead analysis_native_target automatic_proof
-      feedback_provenance)
+      feedback_provenance c_default_correspondence_extended)
   foreach(test_directory IN ITEMS "${CMAKE_CURRENT_SOURCE_DIR}"
                                   "${CMAKE_CURRENT_SOURCE_DIR}/tests"
                                   "${CMAKE_CURRENT_SOURCE_DIR}/examples")

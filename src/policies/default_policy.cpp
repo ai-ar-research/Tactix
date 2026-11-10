@@ -898,13 +898,60 @@ void retier_current_mode(Kernel &k, RetierSchedule &tiers) {
 
 // One serialize() group: ` <group>.<key>=<value>` per field, in call order,
 // each value inserted through its own type's stream operator.
-struct SnapshotGroup {
-  std::ostream &out;
+template <class Sink> struct SnapshotGroup {
+  Sink &sink;
   const char *group;
   template <class Value>
   SnapshotGroup &operator()(const char *key, const Value &value) {
-    out << ' ' << group << '.' << key << '=' << value;
+    sink(group, key, value);
     return *this;
+  }
+};
+
+// A text value formatted only when a sink writes it: lookups of other keys
+// skip program and profile serialization.
+template <class Format> struct LazyText {
+  Format format;
+};
+template <class Format>
+std::ostream &operator<<(std::ostream &out, const LazyText<Format> &text) {
+  return out << text.format();
+}
+template <class Format> LazyText<Format> lazy(Format format) { return {std::move(format)}; }
+
+// serialize(): every setting as ` <group>.<key>=<value>`, in visit order.
+struct SnapshotStream {
+  std::ostream &out;
+  template <class Value>
+  void operator()(std::string_view group, std::string_view key, const Value &value) {
+    out << ' ' << group << '.' << key << '=' << value;
+  }
+};
+
+// setting(): the value of the one `<group>.<key>` asked for.
+struct SettingLookup {
+  std::string_view wanted;
+  StrategySettingValue &out;
+  bool found = false;
+  template <class Value>
+  void operator()(std::string_view group, std::string_view key, const Value &value) {
+    if (found || wanted.size() != group.size() + 1 + key.size() ||
+        wanted.substr(0, group.size()) != group || wanted[group.size()] != '.' ||
+        wanted.substr(group.size() + 1) != key)
+      return;
+    found = true;
+    if constexpr (std::is_floating_point_v<Value>) {
+      out.kind = StrategySettingValue::Real;
+      out.real = value;
+    } else if constexpr (std::is_integral_v<Value>) {
+      out.kind = StrategySettingValue::Integer;
+      out.integer = static_cast<uint64_t>(value); // signed: two's complement
+    } else {
+      out.kind = StrategySettingValue::Text;
+      std::ostringstream text;
+      text << value;
+      out.text = text.str();
+    }
   }
 };
 } // namespace
@@ -1314,8 +1361,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   return true;
 }
 
-std::string DefaultStrategyConfig::serialize() const {
-  std::ostringstream out;
+template <class Sink>
+void DefaultStrategyConfig::visit_settings(Sink &sink) const {
   const auto serialize_lucky_parameters = [](const auto &parameters,
                                               uint64_t instance) {
     strategy::OnlineStrategyProgram program;
@@ -1329,32 +1376,32 @@ std::string DefaultStrategyConfig::serialize() const {
     return strategy::serialize_online_strategy_program(program);
   };
   const auto serialize_structured_root_stages =
-      [&out](const char *prefix, const auto &stages) {
+      [&sink](const char *prefix, const auto &stages) {
         for (size_t i = 0; i < stages.size(); ++i) {
           const auto &stage = stages[i];
-          out << ' ' << prefix << i << "={"
-              << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
-              << strategy::serialize_online_strategy_program(stage.program)
-              << '}';
+          const std::string key = prefix + std::to_string(i);
+          sink("inprocess", key, lazy([&stage] {
+                 return "{" + std::to_string(static_cast<unsigned>(stage.on_budget_exhaustion)) +
+                        ":" + strategy::serialize_online_strategy_program(stage.program) + "}";
+               }));
           const auto append_ids = [&](const char *suffix, const auto &ids) {
             if (ids.empty()) return;
-            out << ' ' << prefix << i << suffix << '=';
+            std::string list;
             for (size_t j = 0; j < ids.size(); ++j)
-              out << (j ? "," : "") << ids[j];
+              list += (j ? "," : "") + std::to_string(ids[j]);
+            sink("inprocess", key + suffix, list);
           };
           append_ids(".progress_followups", stage.progress_followups);
           append_ids(".before_progress", stage.before_progress);
-          out << ' ' << prefix << i
-              << ".structured_handoff_after_prior_progress="
-              << stage.structured_handoff_after_prior_progress;
+          sink("inprocess", key + ".structured_handoff_after_prior_progress",
+               stage.structured_handoff_after_prior_progress);
         }
       };
   const auto &parity = parity_model.parameters;
   const auto &balanced = balanced_signature_model.parameters;
   const auto &cardinality = signed_cardinality_proof.parameters;
   const auto &ip = inprocess;
-  out << "strategy-v1";
-  SnapshotGroup{out, "branching"}
+  SnapshotGroup<Sink>{sink, "branching"}
       ("random_initial_interval", branching.random_initial_interval)
       ("random_sequence_length", branching.random_sequence_length)
       ("random_seed", branching.random_seed)
@@ -1362,9 +1409,9 @@ std::string DefaultStrategyConfig::serialize() const {
       ("focused_phase_switch_span", branching.focused_phase_switch_span)
       ("random_sequences", branching.random_sequences);
   for (size_t i = 0; i < branching.focused_phase_pattern.size(); ++i)
-    out << " branching.focused_phase" << i << '='
-        << static_cast<int>(branching.focused_phase_pattern[i]);
-  SnapshotGroup{out, "analysis"}
+    sink("branching", "focused_phase" + std::to_string(i),
+         static_cast<int>(branching.focused_phase_pattern[i]));
+  SnapshotGroup<Sink>{sink, "analysis"}
       ("minimize_depth_limit", analysis.minimize_depth_limit)
       ("bump_reason_limit", analysis.bump_reason_limit)
       ("bump_reason_rate", analysis.bump_reason_rate)
@@ -1377,7 +1424,7 @@ std::string DefaultStrategyConfig::serialize() const {
       ("eager_subsume", analysis.eager_subsume)
       ("small_clause_limit", analysis.small_clause_limit)
       ("big_binary_fraction_permille", analysis.big_binary_fraction_permille);
-  SnapshotGroup{out, "restart"}
+  SnapshotGroup<Sink>{sink, "restart"}
       ("glue_margin", restart.glue_margin)
       ("initial_interval", restart.initial_interval)
       ("fast_ema_window", restart.fast_ema_window)
@@ -1386,13 +1433,13 @@ std::string DefaultStrategyConfig::serialize() const {
       ("logarithm_bias", restart.logarithm_bias)
       ("reluctant_period", restart.reluctant_period)
       ("reluctant_limit", restart.reluctant_limit);
-  SnapshotGroup{out, "mode"}
+  SnapshotGroup<Sink>{sink, "mode"}
       ("initial_conflicts", mode.initial_conflicts)
       ("interval", mode.interval)
       ("logarithm_offset", mode.logarithm_offset)
       ("logarithm_power", mode.logarithm_power)
       ("force", mode.force);
-  SnapshotGroup{out, "reduction"}
+  SnapshotGroup<Sink>{sink, "reduction"}
       ("initial_interval", reduction.initial_interval)
       ("arithmetic_interval", reduction.arithmetic_interval)
       ("arithmetic_step", reduction.arithmetic_step)
@@ -1418,7 +1465,7 @@ std::string DefaultStrategyConfig::serialize() const {
       ("ramp_fraction", reduction.ramp_fraction)
       ("dynamic_tiers", reduction.dynamic_tiers)
       ("compact_variables", reduction.compact_variables);
-  SnapshotGroup{out, "rephase"}
+  SnapshotGroup<Sink>{sink, "rephase"}
       ("initial_interval", rephase.initial_interval)
       ("interval", rephase.interval)
       ("logarithm_offset", rephase.logarithm_offset)
@@ -1457,13 +1504,13 @@ std::string DefaultStrategyConfig::serialize() const {
       ("stable_only", rephase.stable_only)
       ("late_lucky", rephase.late_lucky);
   for (size_t i = 0; i < rephase.walk_score_curve.size(); ++i)
-    out << " rephase.walk_score_point" << i << '='
-        << rephase.walk_score_curve[i].average_clause_size_milli << ':'
-        << rephase.walk_score_curve[i].break_base_milli;
+    sink("rephase", "walk_score_point" + std::to_string(i),
+         std::to_string(rephase.walk_score_curve[i].average_clause_size_milli) + ":" +
+             std::to_string(rephase.walk_score_curve[i].break_base_milli));
   for (size_t i = 0; i < rephase.rotation.size(); ++i)
-    out << " rephase.rotation" << i << '='
-        << static_cast<unsigned>(rephase.rotation[i]);
-  SnapshotGroup{out, "reorder"}
+    sink("rephase", "rotation" + std::to_string(i),
+         static_cast<unsigned>(rephase.rotation[i]));
+  SnapshotGroup<Sink>{sink, "reorder"}
       ("initial_interval", reorder.initial_interval)
       ("interval", reorder.interval)
       ("mode", reorder.mode)
@@ -1472,7 +1519,7 @@ std::string DefaultStrategyConfig::serialize() const {
       ("clause_decay_milli", reorder.parameters.clause_decay_milli)
       ("binary_weight_milli", reorder.parameters.binary_weight_milli)
       ("balanced_polarity_milli", reorder.parameters.balanced_polarity_milli);
-  SnapshotGroup{out, "parity_model"}
+  SnapshotGroup<Sink>{sink, "parity_model"}
       ("enabled", parity_model.enabled)
       ("maximum_variables", parity.maximum_variables)
       ("maximum_groups", parity.maximum_groups)
@@ -1490,7 +1537,7 @@ std::string DefaultStrategyConfig::serialize() const {
        parity.refutation_minimum_probe_repeats)
       ("refutation_maximum_proof_additions",
        parity.refutation_maximum_proof_additions);
-  SnapshotGroup{out, "onehot_model"}
+  SnapshotGroup<Sink>{sink, "onehot_model"}
       ("enabled", onehot_model.enabled)
       ("maximum_variables", onehot_model.parameters.maximum_variables)
       ("maximum_domains", onehot_model.parameters.maximum_domains)
@@ -1500,7 +1547,7 @@ std::string DefaultStrategyConfig::serialize() const {
       ("minimum_equations", onehot_model.parameters.minimum_equations)
       ("maximum_free_domains", onehot_model.parameters.maximum_free_domains)
       ("candidate_budget", onehot_model.parameters.candidate_budget);
-  SnapshotGroup{out, "affine_search"}
+  SnapshotGroup<Sink>{sink, "affine_search"}
       ("enabled", affine_search.enabled)
       ("reason_mode", static_cast<unsigned>(affine_search.reason_mode))
       ("maximum_rows", affine_search.maximum_rows)
@@ -1513,10 +1560,10 @@ std::string DefaultStrategyConfig::serialize() const {
       ("maximum_initialization_work", affine_search.maximum_initialization_work)
       ("maximum_service_work", affine_search.maximum_service_work)
       ("maximum_retained_bytes", affine_search.maximum_retained_bytes);
-  SnapshotGroup{out, "affine_model"}
+  SnapshotGroup<Sink>{sink, "affine_model"}
       ("enabled", affine_model.enabled)
-      ("parameters", serialize_lucky_parameters(affine_model.parameters, 8));
-  SnapshotGroup{out, "balanced_signature_model"}
+      ("parameters", lazy([&] { return serialize_lucky_parameters(affine_model.parameters, 8); }));
+  SnapshotGroup<Sink>{sink, "balanced_signature_model"}
       ("enabled", balanced_signature_model.enabled)
       ("maximum_balls", balanced.maximum_balls)
       ("maximum_width", balanced.maximum_width)
@@ -1525,15 +1572,15 @@ std::string DefaultStrategyConfig::serialize() const {
       ("samples_per_step", balanced.samples_per_step)
       ("seed", balanced.seed)
       ("completion_rounds", balanced.completion_rounds);
-  SnapshotGroup{out, "fermat_model"}
+  SnapshotGroup<Sink>{sink, "fermat_model"}
       ("enabled", fermat_model.enabled)
       ("maximum_bits", fermat_model.parameters.maximum_bits)
       ("comparator_tail_clauses",
        fermat_model.parameters.comparator_tail_clauses)
       ("rho_constants", fermat_model.parameters.rho_constants)
       ("rho_iterations", fermat_model.parameters.rho_iterations);
-  SnapshotGroup{out, "cerny_model"}("enabled", cerny_model.enabled);
-  SnapshotGroup{out, "lookup_circuit_model"}
+  SnapshotGroup<Sink>{sink, "cerny_model"}("enabled", cerny_model.enabled);
+  SnapshotGroup<Sink>{sink, "lookup_circuit_model"}
       ("enabled", lookup_circuit_model.enabled)
       ("maximum_fanin", lookup_circuit_model.parameters.maximum_fanin)
       ("maximum_fanout", lookup_circuit_model.parameters.maximum_fanout)
@@ -1542,16 +1589,16 @@ std::string DefaultStrategyConfig::serialize() const {
       ("maximum_support", lookup_circuit_model.parameters.maximum_support)
       ("maximum_vector_gate_evaluations",
        lookup_circuit_model.parameters.maximum_vector_gate_evaluations);
-  SnapshotGroup{out, "simon_model"}
+  SnapshotGroup<Sink>{sink, "simon_model"}
       ("enabled", simon_model.enabled)
       ("maximum_rounds", simon_model.parameters.maximum_rounds)
       ("maximum_candidates", simon_model.parameters.maximum_candidates);
-  SnapshotGroup{out, "stconn_proof"}
+  SnapshotGroup<Sink>{sink, "stconn_proof"}
       ("enabled", stconn_proof.enabled)
       ("maximum_width", stconn_proof.parameters.maximum_width)
       ("maximum_columns", stconn_proof.parameters.maximum_columns)
       ("maximum_rup_clauses", stconn_proof.parameters.maximum_rup_clauses);
-  SnapshotGroup{out, "signed_cardinality_proof"}
+  SnapshotGroup<Sink>{sink, "signed_cardinality_proof"}
       ("enabled", signed_cardinality_proof.enabled)
       ("maximum_variables", cardinality.maximum_variables)
       ("maximum_groups", cardinality.maximum_groups)
@@ -1559,25 +1606,26 @@ std::string DefaultStrategyConfig::serialize() const {
       ("maximum_group_arity", cardinality.maximum_group_arity)
       ("maximum_bdd_nodes", cardinality.maximum_bdd_nodes)
       ("maximum_proof_additions", cardinality.maximum_proof_additions);
-  SnapshotGroup{out, "exact_cover_model"}
+  SnapshotGroup<Sink>{sink, "exact_cover_model"}
       ("enabled", exact_cover_model.enabled)
       ("block_arity", exact_cover_model.parameters.block_arity)
       ("maximum_nodes", exact_cover_model.parameters.maximum_nodes)
       ("restarts", exact_cover_model.parameters.restarts)
       ("restart_nodes", exact_cover_model.parameters.restart_nodes)
       ("seed", exact_cover_model.parameters.seed);
-  SnapshotGroup{out, "independent_set_model"}
+  SnapshotGroup<Sink>{sink, "independent_set_model"}
       ("enabled", independent_set_model.enabled)
       ("maximum_vertices", independent_set_model.parameters.maximum_vertices)
       ("maximum_steps", independent_set_model.parameters.maximum_steps)
       ("completion_rounds", independent_set_model.parameters.completion_rounds)
       ("seed", independent_set_model.parameters.seed);
-  SnapshotGroup{out, "ramsey_startup"}
+  SnapshotGroup<Sink>{sink, "ramsey_startup"}
       ("enabled", ramsey_startup.enabled)
-      ("parameters", serialize_lucky_parameters(ramsey_startup.parameters,
-                                                LUCKY_STARTUP_RAMSEY));
-  SnapshotGroup{out, "startup_count"}("enabled", startup_count.enabled);
-  SnapshotGroup{out, "affine_root_closure"}
+      ("parameters", lazy([&] {
+         return serialize_lucky_parameters(ramsey_startup.parameters, LUCKY_STARTUP_RAMSEY);
+       }));
+  SnapshotGroup<Sink>{sink, "startup_count"}("enabled", startup_count.enabled);
+  SnapshotGroup<Sink>{sink, "affine_root_closure"}
       ("enabled", affine_root_closure.enabled)
       ("maximum_clauses", affine_root_closure.maximum_clauses)
       ("maximum_snapshot_work", affine_root_closure.maximum_snapshot_work)
@@ -1588,12 +1636,13 @@ std::string DefaultStrategyConfig::serialize() const {
       ("maximum_proof_deletions", affine_root_closure.maximum_proof_deletions)
       ("maximum_journal_bytes", affine_root_closure.maximum_journal_bytes)
       ("maximum_session_work", affine_root_closure.maximum_session_work);
-  SnapshotGroup{out, "graph_labeling_model"}
+  SnapshotGroup<Sink>{sink, "graph_labeling_model"}
       ("enabled", graph_labeling_model.enabled)
-      ("parameters",
-       serialize_lucky_parameters(graph_labeling_model.parameters,
-                                  LUCKY_GRAPH_LABELING));
-  SnapshotGroup{out, "inprocess"}
+      ("parameters", lazy([&] {
+         return serialize_lucky_parameters(graph_labeling_model.parameters,
+                                           LUCKY_GRAPH_LABELING);
+       }));
+  SnapshotGroup<Sink>{sink, "inprocess"}
       ("bve_enabled", ip.bve_enabled)
       ("vivify_enabled", ip.vivify_enabled)
       ("factor_enabled", ip.factor_enabled)
@@ -1681,17 +1730,17 @@ std::string DefaultStrategyConfig::serialize() const {
        ip.structured_root_backtracking_domain_limit)
       ("structured_root_large_domain_limit",
        ip.structured_root_large_domain_limit);
-  serialize_structured_root_stages("inprocess.structured_root_stage",
+  serialize_structured_root_stages("structured_root_stage",
                                    inprocess.structured_root_stages);
   serialize_structured_root_stages(
-      "inprocess.structured_root_bounded_backtracking_stage",
+      "structured_root_bounded_backtracking_stage",
       inprocess.structured_root_bounded_backtracking_stages);
   serialize_structured_root_stages(
-      "inprocess.structured_root_large_stage",
+      "structured_root_large_stage",
       inprocess.structured_root_large_domain_stages);
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
-    out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
-  SnapshotGroup{out, "inprocess"}
+    sink("inprocess", "bve_bound" + std::to_string(i), inprocess.bve_bounds[i]);
+  SnapshotGroup<Sink>{sink, "inprocess"}
       ("bve_default_ceiling", ip.bve_default_ceiling)
       ("bve_occurrence_limit", ip.bve_occurrence_limit)
       ("bve_clause_size_limit", ip.bve_clause_size_limit)
@@ -1751,12 +1800,13 @@ std::string DefaultStrategyConfig::serialize() const {
       ("vivify_tier_mode", unsigned(ip.vivify_tier_mode))
       ("vivify_redundant_share", ip.vivify_redundant_share)
       ("vivify_total_share", ip.vivify_total_share);
-  for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i)
-    out << " inprocess.vivify_tier_share" << i << '='
-        << inprocess.vivify_tier_shares[i]
-        << " inprocess.vivify_tier_scope" << i << '='
-        << unsigned(inprocess.vivify_tier_scopes[i]);
-  SnapshotGroup{out, "inprocess"}
+  for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i) {
+    sink("inprocess", "vivify_tier_share" + std::to_string(i),
+         inprocess.vivify_tier_shares[i]);
+    sink("inprocess", "vivify_tier_scope" + std::to_string(i),
+         unsigned(inprocess.vivify_tier_scopes[i]));
+  }
+  SnapshotGroup<Sink>{sink, "inprocess"}
       ("closure_delay", ip.closure_delay)
       ("split_clocks", ip.split_clocks)
       ("watermarks", ip.watermarks)
@@ -1766,31 +1816,49 @@ std::string DefaultStrategyConfig::serialize() const {
       ("couple_factor_bound", ip.couple_factor_bound);
   for (size_t i = 0; i < inprocess.program.size(); ++i) {
     const strategy::InprocessStep &step = inprocess.program[i];
-    out << " inprocess.step" << i << '=' << step.id << ':' << step.rule << ':'
-        << (step.phase == strategy::InprocessPhase::Probe ? 'P' : 'E') << ':'
-        << step.enabled << ':' << step.preprocessing << ':'
-        << static_cast<unsigned>(step.followup) << ":effort=";
-    if (step.effort_permille)
-      out << *step.effort_permille;
-    else
-      out << "inherit";
-    out << ":max=" << step.max_applications << ":cursor=";
-    if (step.cursor_enabled)
-      out << *step.cursor_enabled;
-    else
-      out << "inherit";
-    out << ":order=";
-    if (step.candidate_order)
-      out << candidate_order_name(*step.candidate_order);
-    else
-      out << "inherit";
-    if (!strategy::serialize_common_parameters(
-            out, step.parameters,
-            strategy::CommonParameterFormat::DefaultConfiguration)) {
-      out << ":inherit";
-    }
+    sink("inprocess", "step" + std::to_string(i), lazy([&step] {
+      std::ostringstream out;
+      out << step.id << ':' << step.rule << ':'
+          << (step.phase == strategy::InprocessPhase::Probe ? 'P' : 'E') << ':'
+          << step.enabled << ':' << step.preprocessing << ':'
+          << static_cast<unsigned>(step.followup) << ":effort=";
+      if (step.effort_permille)
+        out << *step.effort_permille;
+      else
+        out << "inherit";
+      out << ":max=" << step.max_applications << ":cursor=";
+      if (step.cursor_enabled)
+        out << *step.cursor_enabled;
+      else
+        out << "inherit";
+      out << ":order=";
+      if (step.candidate_order)
+        out << candidate_order_name(*step.candidate_order);
+      else
+        out << "inherit";
+      if (!strategy::serialize_common_parameters(
+              out, step.parameters,
+              strategy::CommonParameterFormat::DefaultConfiguration)) {
+        out << ":inherit";
+      }
+      return out.str();
+    }));
   }
+}
+
+std::string DefaultStrategyConfig::serialize() const {
+  std::ostringstream out;
+  out << "strategy-v1";
+  SnapshotStream sink{out};
+  visit_settings(sink);
   return out.str();
+}
+
+bool DefaultStrategyConfig::setting(std::string_view key,
+                                    StrategySettingValue &out) const {
+  SettingLookup lookup{key, out};
+  visit_settings(lookup);
+  return lookup.found;
 }
 
 DefaultPolicy::DefaultPolicy()
@@ -2220,6 +2288,35 @@ const EffortSpec *effort_spec(const char *name) {
   return nullptr; // all-or-nothing rule: no titration, no meter
 }
 
+bool named(const char *name, std::initializer_list<const char *> names) {
+  for (const char *candidate : names)
+    if (!std::strcmp(candidate, name))
+      return true;
+  return false;
+}
+
+// Registry inprocessing rules a program that leaves them unlisted never runs.
+bool never_appended(const char *name) {
+  return named(name, {"SubstitutionRedundancy", "Condition", "ParityConsequence",
+                      "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
+                      "Gf3AffineConsequence", "DirectCspSupport", "DirectPhpRefutation",
+                      "Gf3GaussianConsequence", "Gf3GeneralRowConsequence",
+                      "CardinalitySearch", "TseitinCycleBreaking", "NaryCspEquality",
+                      "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
+                      "GraphIntervalEquivalence", "AffineMatrixInitialize"});
+}
+
+// Appended rules that start disabled. DefaultPolicy's Phase-4 reference is
+// original Kissat: the CaDiCaL-derived proof rules stay registered and
+// poseable but are not spliced into Kissat's probe/eliminate pipelines (doing
+// so changes the formula before the next common control choice; Sweep is in
+// the reference pipeline and ships on). Strengthen is Kissat's one fused
+// forward pass, so standalone SubsumeForward would duplicate it.
+bool appended_disabled(const char *name) {
+  return named(name, {"HyperBinaryRes", "Probe", "HyperTernaryRes", "Instantiate", "BCE",
+                      "CCE", "SubsumeForward"});
+}
+
 const char *effort_currency(const char *name) {
   if (!std::strcmp(name, "BVE"))
     return "resolutions";
@@ -2301,6 +2398,34 @@ FollowupKind followup_kind(strategy::Followup followup) {
 
 
 } // namespace
+
+DefaultRuleSchedule default_rule_schedule(const DefaultStrategyConfig &config,
+                                          const char *name) {
+  DefaultRuleSchedule out;
+  if (const EffortSpec *spec = effort_spec(name)) {
+    out.meter = spec->meter;
+    out.permille = config.inprocess.*(spec->permille);
+    out.dosed = spec->dosed;
+    out.budget_aware = spec->budget_aware;
+    out.tick_counter = spec->tick_counter;
+    for (const EffortSpec &other : EFFORT_SPECS)
+      out.shared_meter |= &other != spec && other.meter == spec->meter;
+  }
+  if (const DelaySpec *delay = delay_spec(name)) {
+    out.yield = delay->yield;
+    out.denominator = delay->denom;
+    out.delay_permille = config.inprocess.*(delay->permille);
+    out.delay_delta = delay->denom_delta;
+  }
+  const int id = tactix_rule_id(name);
+  if (id >= 0) {
+    const RuleVTable &rule = tactix_rules()[static_cast<size_t>(id)];
+    out.appended = rule.tier == RuleTier::Inprocess && rule.default_inprocess &&
+                   !never_appended(name);
+    out.appended_enabled = out.appended && !appended_disabled(name);
+  }
+  return out;
+}
 
 const SlotOrderRow *default_slot_order(size_t *count) {
   struct ReferenceRows {
@@ -3271,25 +3396,7 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
                                const strategy::InprocessStep *planned = nullptr) {
       {
         const char *nm = rules[i].name;
-        // DefaultPolicy's Phase-4 reference is original Kissat.  Keep the
-        // CaDiCaL-derived proof rules registered and explicitly poseable, but
-        // do not splice them into Kissat's shipped probe/eliminate pipelines:
-        // doing so changes the formula before the next common control choice.
-        // Sweep remains in the reference pipeline and therefore ships on.
-        const bool non_kissat_pipeline =
-            !std::strcmp(nm, "HyperBinaryRes") ||
-            !std::strcmp(nm, "Probe") ||
-            !std::strcmp(nm, "HyperTernaryRes") ||
-            !std::strcmp(nm, "Instantiate") || !std::strcmp(nm, "BCE") ||
-            !std::strcmp(nm, "CCE");
-        // Strengthen is the one fused Kissat forward pass: it subsumes and
-        // self-subsumes under the shared allowance.  Keep standalone C1 fully
-        // registered/poseable, but do not run the duplicated decomposition in
-        // the reference-shaped default strategy.
-        const bool duplicated_decomposition =
-            !std::strcmp(nm, "SubsumeForward");
-        bool on = planned ? planned->enabled
-                          : !non_kissat_pipeline && !duplicated_decomposition;
+        bool on = planned ? planned->enabled : !appended_disabled(nm);
         on = on &&
              !(!config().bve_enabled && !std::strcmp(nm, "BVE")) &&
              !(!config().vivify_enabled && !std::strcmp(nm, "Vivify")) &&
@@ -3387,26 +3494,8 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
     }
     if (config().append_unlisted_rules)
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
-        if (rules[i].tier == RuleTier::Inprocess &&
-            rules[i].default_inprocess && !placed[i] &&
-            std::strcmp(rules[i].name, "SubstitutionRedundancy") &&
-            std::strcmp(rules[i].name, "Condition") &&
-            std::strcmp(rules[i].name, "ParityConsequence") &&
-            std::strcmp(rules[i].name, "AffineConsequence") &&
-            std::strcmp(rules[i].name, "ExactCoverExtension") &&
-            std::strcmp(rules[i].name, "IndependentSetCover") &&
-            std::strcmp(rules[i].name, "Gf3AffineConsequence") &&
-            std::strcmp(rules[i].name, "DirectCspSupport") &&
-            std::strcmp(rules[i].name, "DirectPhpRefutation") &&
-            std::strcmp(rules[i].name, "Gf3GaussianConsequence") &&
-            std::strcmp(rules[i].name, "Gf3GeneralRowConsequence") &&
-            std::strcmp(rules[i].name, "CardinalitySearch") &&
-            std::strcmp(rules[i].name, "TseitinCycleBreaking") &&
-            std::strcmp(rules[i].name, "NaryCspEquality") &&
-            std::strcmp(rules[i].name, "NaryCspEqualityAmo") &&
-            std::strcmp(rules[i].name, "NaryCspEqualityTransitivity") &&
-            std::strcmp(rules[i].name, "GraphIntervalEquivalence") &&
-            std::strcmp(rules[i].name, "AffineMatrixInitialize"))
+        if (rules[i].tier == RuleTier::Inprocess && rules[i].default_inprocess &&
+            !placed[i] && !never_appended(rules[i].name))
           add_entry(i);
     default_candidate_order_.arms.assign(rules.size(),
                                          CandidateOrder::Native);
@@ -3787,7 +3876,8 @@ Lit DefaultPolicy::search_decide(Kernel &k) {
         const ApplyResult result =
             port::execute_action(k, execution::DecisionRequest{decision});
         if (result == ApplyResult::Ok)
-          heuristics_note_target_decision(k, decision, k.h->stable);
+          port::execute_action(k, execution::TargetDecisionNoteRequest{
+                                      decision, k.h->stable});
         return result;
       });
   });
@@ -5193,8 +5283,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
         (void)port::apply_rule(switch_mode, k);
         mode.count++;
         averages[k.h->stable].saved_decisions = k.stats.decisions;
-        if (k.h->stable) // entering stable: fresh reluctant sequence
-          reluctant = {};
+        if (k.h->stable) { // entering stable: fresh reluctant sequence
+          reluctant = {}; // kissat mode.c kissat_init_reluctant: the options
+          reluctant.wait = config_.restart.reluctant_period;
+        }
         update_mode_limits(k);
         // Kissat mode.c calls `kissat_start_random_sequence` after every mode
         // transition.  It is a no-op on stable entry and starts (or continues)
@@ -7305,6 +7397,11 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
                   (unsigned long long)t.followup_eager,
                   (unsigned long long)t.followup_final);
   }
+}
+
+DefaultStrategyConfig default_policy_configuration(DefaultStrategyConfig config) {
+  pose_affine_structured_stage(config);
+  return config;
 }
 
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
