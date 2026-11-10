@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix='python-dosed-bve-') as scratch:
     for mode, fmt in [('none', None), ('dsr', capi.TACTIX_PROOF_DSR_ASCII), ('pbp', capi.TACTIX_PROOF_PBP)]:
         prefix = directory/('native-'+mode)
         rows = [json.loads(line) for line in subprocess.check_output([str(fixture), str(prefix), mode], text=True).splitlines()]
-        assert len(rows) == 40
+        assert len(rows) == 57
         if canonical is None: canonical = rows
         else: assert rows == canonical, 'proof format changed native schedule'
         for row in rows:
@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory(prefix='python-dosed-bve-') as scratch:
                     assert execution.apply('Propagate') == 2
                     assert execution.apply('ConflictAnalysis') == 0
                     assert view.tactix_stat(capi.TACTIX_STAT_CONFLICTS) > 0
-                if row['formula'] == 4:
+                if row['formula'] in (4,6):
                     for variable in (1,3,7,8): assert view.tactix_bump_variable(variable, n) == 0
                 assert view.tactix_install_parameters(rules['BVE'], C.byref(params)) == 0
                 work = capi.tactix_work_settings(fields=capi.TACTIX_WORK_BUDGET | capi.TACTIX_WORK_OFFSET |
@@ -75,13 +75,14 @@ with tempfile.TemporaryDirectory(prefix='python-dosed-bve-') as scratch:
                     return schedule.run_bve_slot(execution, entry, outer, params,
                         bound=0, maximum_bound=True, stopped=lambda: False)
                 def rounds(v):
-                    return schedule.run_rounds(v, 'Eliminate', [slot], run_slot, stopped=lambda: False)
-                progress = dict(propagate=0, work=0, deleted=0)
+                    return schedule.run_rounds(v, 'Eliminate', [slot], run_slot, stopped=lambda: bool(row['halted']))
+                progress = dict(propagate=0, work=0, deleted=0, refuted=0)
                 propagate, flush = BveOrder.propagate, BveOrder.flush_units
                 def observe_propagation(order):
                     before = view.tactix_stat(capi.TACTIX_STAT_PROPAGATIONS)
                     result = propagate(order)
                     progress['propagate'] += 1
+                    progress['refuted'] += result == 20
                     progress['work'] += view.tactix_stat(capi.TACTIX_STAT_PROPAGATIONS)-before
                     return result
                 def observe_flush(order, begin):
@@ -89,16 +90,20 @@ with tempfile.TemporaryDirectory(prefix='python-dosed-bve-') as scratch:
                     flush(order, begin)
                     progress['deleted'] += before-view.tactix_stat(capi.TACTIX_STAT_IRREDUNDANT_CLAUSES)
                 with patch.object(BveOrder, 'propagate', observe_propagation), patch.object(BveOrder, 'flush_units', observe_flush):
-                    phase = schedule.execute_pipeline(view, 'Eliminate', rounds)
+                    phase = schedule.execute_pipeline(view, 'Eliminate', rounds, stopped=lambda: bool(row['halted']))
                 if row['formula'] == 4:
-                    assert all(value > 0 for value in progress.values()), progress
+                    assert all(progress[key] > 0 for key in ('propagate','work','deleted')), progress
+                if row['formula'] == 5: assert progress['refuted'] == 1, progress
+                if row['formula'] == 6:
+                    assert progress['deleted'] > 0, progress
+                    if row['permille']: assert phase == 20
                 observed = [view.tactix_stat(getattr(capi, 'TACTIX_STAT_'+name)) for name in stat_names]
                 assert phase == row['phase'] and observed == row['stats'], (row, phase, observed)
                 clock = schedule.clocks['Eliminate']
                 assert [getattr(clock, name) for name in ('next_conflicts','rounds','reductions_mark',
                     'marks_mark','fixed_mark','material_mark','blocked','blocked_episodes','anchor')] == row['clock'], row
                 assert slot.limit == row['limit'] and slot.applies == row['applies'], row
-                assert schedule.bve_rounds_run == 1
+                assert schedule.bve_rounds_run == (0 if row['halted'] else 1)
                 assert view.tactix_read_work_settings(C.byref(work)) == 0
                 assert work.budget == row['budget'] and work.offset == 5 and not work.bounded and work.midround
                 answer = execution.default_solve()  # same explicit completion for both phase arms
@@ -125,8 +130,9 @@ with tempfile.TemporaryDirectory(prefix='python-dosed-bve-') as scratch:
                     assert runner.check_proof(mode, str(cnf), str(proof), 30, route=route)[:3] == (True,'VERIFIED',runner.CHK_VERIFIED)
                     checked += 1
                     wrong = directory/f"wrong-{mode}-{row['id']}.cnf"
-                    wrong.write_text(f'p cnf {n} {len(clauses)-1}\n'+''.join(' '.join(map(str,c))+' 0\n' for c in clauses[1:]))
-                    assert satisfiable(n, clauses[1:])
+                    weakened = next(clauses[:i]+clauses[i+1:] for i in range(len(clauses))
+                                    if satisfiable(n, clauses[:i]+clauses[i+1:]))
+                    wrong.write_text(f'p cnf {n} {len(weakened)}\n'+''.join(' '.join(map(str,c))+' 0\n' for c in weakened))
                     rejected = runner.check_proof(mode,str(wrong),str(proof),30,route=route)
                     assert not rejected[0] and rejected[2] == runner.CHK_REJECTED, rejected
                     checked += 1
@@ -144,10 +150,10 @@ def policy(execution, restored):
         schedule.refresh_entry_limit(entry, schedule.observe(view),
             view.tactix_stat(capi.TACTIX_STAT_BVE_RESOLUTIONS), outer)
         return schedule.run_bve_slot(execution, entry, outer, params, bound=0,
-            maximum_bound=True, stopped=lambda: False)
+            maximum_bound=True, stopped=lambda: schedule.query_stopped(execution))
     def rounds(view):
-        return schedule.run_rounds(view, 'Eliminate', [slot], run_slot, stopped=lambda: False)
-    if schedule.execute_pipeline(execution.c, 'Eliminate', rounds) == 20: return 20
+        return schedule.run_rounds(view, 'Eliminate', [slot], run_slot, stopped=lambda: schedule.query_stopped(execution))
+    if schedule.execute_pipeline(execution.c, 'Eliminate', rounds, stopped=lambda: NativeInprocessSchedule.query_stopped(execution)) == 20: return 20
     return ScriptedCDCL()(execution, restored)
 original = [[1,2,3],[-1,2,4],[1,-2,5],[-1,-2,-3],[3,4],[-3,5],[6,7],[-6,8],[-7,8],[-8,4]]
 with Session(library, strategy=policy) as session:
@@ -166,40 +172,66 @@ with tempfile.TemporaryDirectory(prefix='dosed-session-proof-') as scratch:
     checked += 1;models += 1
 print(f'Ordinary dosed BVE: {phases} native/Python phases, {models} models, {checked} refutations/negatives; format trajectories and proof bytes agree')
 
-# A callback can cancel exactly when an atomic BVE step finds refutation.
-latch = [False]
-interrupted = []
-def cancel_from_learn(_): latch[0] = True
-def stopped_policy(execution, restored):
-    assert execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE) == 0
-    schedule = NativeInprocessSchedule(config)
-    slot = InprocessSlot('BVE', group='Eliminate', preprocess=True, permille=1000, budget_aware=True)
-    params = capi.tactix_online_parameters(kind=capi.TACTIX_ONLINE_PARAMETERS_BVE)
-    params.value.bve = capi.tactix_online_bve_parameters(**profile)
-    params.value.bve.gate_mask = 0
-    stopped = lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED
-    def run_slot(view, entry, outer):
-        if not schedule.admit_slot(entry, schedule.observe(view)): return PhaseOutcome()
-        schedule.refresh_entry_limit(entry, schedule.observe(view),
-            view.tactix_stat(capi.TACTIX_STAT_BVE_RESOLUTIONS), outer)
-        return schedule.run_bve_slot(execution, entry, outer, params, bound=0,
-            maximum_bound=True, stopped=stopped)
-    result = schedule.execute_pipeline(execution.c, 'Eliminate', lambda view:
-        schedule.run_rounds(view, 'Eliminate', [slot], run_slot, stopped=stopped), stopped=stopped)
-    interrupted.append(schedule.last_phase_interrupted)
-    return result
-with Session(library, strategy=stopped_policy) as session:
-    for clause in ([1,2],[1,-2],[-1,2],[-1,-2]): session.add(clause)
-    session.set_learn(cancel_from_learn, 2)
-    session.set_terminate(lambda: latch[0])
-    assert session.solve().status == 0 and latch[0] and interrupted == [True]
-    session.set_terminate(None);session.set_learn(None, 0)
-    retried = session.solve();assert retried.status == 20
-with tempfile.TemporaryDirectory(prefix='dosed-stop-retry-') as scratch:
-    stem=Path(scratch)/'query';retried.export(stem)
-    cnf,proof=Path(str(stem)+'.cnf'),Path(str(stem)+'.proof')
-    assert not satisfiable(*formula(cnf))
-    mode='pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-    route='pbp' if mode=='pbp' else ('dsr-cake_lpr' if certificate_route(proof)=='drat' else 'dsr-trestle')
-    assert runner.check_proof(mode,str(cnf),str(proof),30,route=route)[:3] == (True,'VERIFIED',runner.CHK_VERIFIED)
-print('Dosed BVE cancellation masks the theorem, closes the phase, and retry checks its own proof')
+# Cancel during atomic BVE, propagation, and phase exit; retry owns its proof.
+def cancellation_case(original, *, propagate_refutation=False, at_exit=False, at_preparation=False):
+    latch, armed, interrupted, propagation = [False], [not at_preparation], [], []
+    def stopped_policy(execution, restored):
+        assert execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE) == 0
+        schedule = NativeInprocessSchedule(config)
+        if at_preparation and not latch[0]:
+            execution.decide(1)
+            assert execution.apply('Propagate') == 2
+            assert execution.apply('ConflictAnalysis') == 0
+            armed[0] = True
+        slot = InprocessSlot('BVE', group='Eliminate', preprocess=True, permille=1000, budget_aware=True)
+        params = capi.tactix_online_parameters(kind=capi.TACTIX_ONLINE_PARAMETERS_BVE)
+        params.value.bve = capi.tactix_online_bve_parameters(**profile)
+        params.value.bve.gate_mask = 0
+        stopped = lambda: schedule.query_stopped(execution)
+        def run_slot(view, entry, outer):
+            if not schedule.admit_slot(entry, schedule.observe(view)): return PhaseOutcome()
+            schedule.refresh_entry_limit(entry, schedule.observe(view),
+                view.tactix_stat(capi.TACTIX_STAT_BVE_RESOLUTIONS), outer)
+            return schedule.run_bve_slot(execution, entry, outer, params, bound=0,
+                maximum_bound=True, stopped=stopped)
+        def body(view):
+            outcome = schedule.run_rounds(view, 'Eliminate', [slot], run_slot, stopped=stopped)
+            if at_exit: latch[0] = True
+            return outcome
+        raw_propagate = BveOrder.propagate
+        def observe(order):
+            before = schedule._root_refuted(execution.c)
+            result = raw_propagate(order)
+            propagation.append((before, result, schedule._root_refuted(execution.c)))
+            return result
+        with patch.object(BveOrder, 'propagate', observe):
+            result = schedule.execute_pipeline(execution.c, 'Eliminate', body, stopped=stopped)
+        interrupted.append(schedule.last_phase_interrupted)
+        if schedule.last_phase_interrupted:
+            def forbidden(_): raise AssertionError('stopped pipeline entered its body')
+            assert schedule.execute_pipeline(execution.c, 'Eliminate', forbidden, stopped=stopped) == 0
+            assert schedule.last_phase_interrupted and not schedule.unusable and schedule.phase is None
+        return result
+    with Session(library, strategy=stopped_policy) as session:
+        for clause in original: session.add(clause)
+        def cancel(_):
+            if armed[0]: latch[0] = True
+        if not at_exit: session.set_learn(cancel, 2)
+        session.set_terminate(lambda: latch[0])
+        assert session.solve().status == 0 and latch[0] and interrupted == [True]
+        if propagate_refutation: assert (False, 0, True) in propagation, propagation
+        if at_preparation: assert not propagation
+        session.set_terminate(None);session.set_learn(None, 0)
+        retried = session.solve();assert retried.status == 20
+    with tempfile.TemporaryDirectory(prefix='dosed-stop-retry-') as scratch:
+        stem=Path(scratch)/'query';retried.export(stem)
+        cnf,proof=Path(str(stem)+'.cnf'),Path(str(stem)+'.proof')
+        assert not satisfiable(*formula(cnf))
+        mode='pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
+        route='pbp' if mode=='pbp' else ('dsr-cake_lpr' if certificate_route(proof)=='drat' else 'dsr-trestle')
+        assert runner.check_proof(mode,str(cnf),str(proof),30,route=route)[:3] == (True,'VERIFIED',runner.CHK_VERIFIED)
+cancellation_case([[1,2],[1,-2],[-1,2],[-1,-2]])
+cancellation_case([[1,2],[-1,2],[-2,3],[-2,-3]], propagate_refutation=True)
+cancellation_case([[1,2],[1,-2],[-1,2],[-1,-2]], at_exit=True)
+cancellation_case([[1,2],[1,-2],[-1,2],[-1,-2]], at_preparation=True)
+print('Preparation/BVE/propagation/exit cancellation and stopped re-entry return UNKNOWN; all four retries have checked proofs')

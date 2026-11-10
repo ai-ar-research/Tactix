@@ -176,7 +176,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                     try:
                         if mode in ('factor-propagate-error', 'factor-primary-cleanup-error'):
                             try: schedule.execute_pipeline(view, group,
-                                lambda view: schedule.run_rounds(view, group, [slot], factor_slot, stopped=lambda: False))
+                                lambda view: schedule.run_rounds(view, group, [slot], factor_slot, stopped=lambda: False), stopped=lambda: False)
                             except RuntimeError as error:
                                 assert schedule.unusable and schedule.phase is None
                                 if mode == 'factor-propagate-error': assert str(error) == 'Factor propagation failed'
@@ -190,7 +190,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                             result = schedule.execute_pipeline(view, group,
                                 lambda view: schedule.run_rounds(view, group,
                                     [slot, sentinel] if mode == 'factor-interrupted' else [slot], factor_slot, stopped=lambda: False),
-                                factor_bound=bound)
+                                factor_bound=bound, stopped=lambda: False)
                             actions.append((phase, slot.applies, slot.handed, slot.spent, slot.completed,
                                             slot.binaries_mark, slot.arena_mark, slot.root_fixed_mark,
                                             schedule.factor_marked_watermark))
@@ -285,7 +285,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                                 [slot, sentinel] if mode in ('rounds-stop', 'rounds-limit') else [slot])
                     result = schedule.execute_pipeline(view, group,
                         lambda view: schedule.run_rounds(view, group, selected, slot_body, stopped=lambda: stop[0]),
-                        initial_fast_elimination=fast)
+                        initial_fast_elimination=fast, stopped=lambda: False)
                     assert schedule.phase is None
                     if mode == 'rounds-unsat':
                         assert result == 20 and any(rule == rules['Propagate'] and code == 20
@@ -316,7 +316,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                         if code == 0: code = view.tactix_apply(rules['Propagate'])
                         return PhaseOutcome(20 if code == 20 else 0)
                     result = schedule.execute_pipeline(view, group,
-                        lambda view: schedule.run_rounds(view, group, [slot], typed, stopped=lambda: False))
+                        lambda view: schedule.run_rounds(view, group, [slot], typed, stopped=lambda: False), stopped=lambda: False)
                     assert packets and view.tactix_stat(capi.TACTIX_STAT_SUBSTITUTE_VARS) > 0
                     assert slot.handed == int(mode == 'typed-substitute-budget') and slot.spent > slot.handed
                 elif mode.startswith('typed-'):
@@ -356,14 +356,14 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                         return PhaseOutcome()
                     try:
                         if mode.startswith('typed-error-'):
-                            try: schedule.execute_pipeline(view, group, injected)
+                            try: schedule.execute_pipeline(view, group, injected, stopped=lambda: False)
                             except (ValueError if mode == 'typed-error-configure' else RuntimeError) as error:
                                 assert schedule.unusable and schedule.phase is None
                                 if mode == 'typed-error-status':
                                     assert error.execution_result.base.status == capi.TACTIX_ONLINE_RESOURCE_EXHAUSTED
                             else: raise AssertionError('typed failure was suppressed')
                         else:
-                            assert schedule.execute_pipeline(view, group, injected) == 0
+                            assert schedule.execute_pipeline(view, group, injected, stopped=lambda: False) == 0
                             assert not schedule.unusable and schedule.phase is None
                     finally:
                         view._library = raw_library
@@ -384,10 +384,10 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                             return -1 if kind == capi.TACTIX_SUPPORT_RESCHEDULE_BVE else result
                         view.tactix_support = fail_reschedule
                     if mode == 'fast-early':
-                        result = schedule.execute_pipeline(view, group, fast_body, initial_fast_elimination=True)
+                        result = schedule.execute_pipeline(view, group, fast_body, initial_fast_elimination=True, stopped=lambda: False)
                         assert result == 20
                     else:
-                        try: schedule.execute_pipeline(view, group, fast_body, initial_fast_elimination=True)
+                        try: schedule.execute_pipeline(view, group, fast_body, initial_fast_elimination=True, stopped=lambda: False)
                         except (LookupError if mode == 'fast-exception' else RuntimeError): pass
                         else: raise AssertionError('fast phase error was suppressed')
                         assert schedule.unusable
@@ -396,7 +396,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                     assert schedule.phase is None
                 elif mode in ('exception', 'batch-exception', 'batch-cleanup-error', 'invalid-outcome', 'false-unsat'):
                     expected = LookupError if mode in ('exception', 'batch-exception', 'batch-cleanup-error') else ValueError
-                    try: schedule.execute_pipeline(view, group, body)
+                    try: schedule.execute_pipeline(view, group, body, stopped=lambda: False)
                     except expected as error:
                         if mode == 'batch-cleanup-error':
                             assert len(error.phase_cleanup_errors) == 1
@@ -413,7 +413,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                     else: raise AssertionError('reset revived failed schedule')
                     # The bracket closed, but failed bookkeeping must not be reused.
                     schedule = NativeInprocessSchedule(config)
-                    result = schedule.execute_pipeline(view, group, lambda view: PhaseOutcome())
+                    result = schedule.execute_pipeline(view, group, lambda view: PhaseOutcome(), stopped=lambda: False)
                 elif mode.startswith('startup-'):
                     def skipped(view): raise AssertionError('terminal startup ran slots')
                     hook = (lambda view: view.tactix_status()) if mode == 'startup-sat' else (
@@ -425,12 +425,12 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                                 assert view.tactix_apply(rules['Propagate']) in (0, 1)
                             assert view.tactix_status() == 10
                             return 10
-                    result = schedule.execute_pipeline(view, group, skipped, run_startup=hook)
+                    result = schedule.execute_pipeline(view, group, skipped, run_startup=hook, stopped=lambda: False)
                     assert result == (10 if mode in ('startup-sat', 'startup-decisions') else 20)
                     assert schedule.clocks[group].rounds == 0
                 else:
                     result = schedule.execute_pipeline(view, group, body,
-                                                       initial_fast_elimination=mode == 'fast-empty')
+                                                       initial_fast_elimination=mode == 'fast-empty', stopped=lambda: False)
                 if mode in ('bce', 'batch-exception', 'batch-cleanup-error', 'budgeted-unsat') or mode.startswith('typed-substitute-'):
                     work = capi.tactix_work_settings()
                     assert view.tactix_read_work_settings(C.byref(work)) == 0
@@ -477,12 +477,12 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                 assert view.tactix_support(capi.TACTIX_SUPPORT_ENTER_CONTEXT,
                                            capi.TACTIX_CONTEXT_SPECULATION) == 0
                 raise original
-            try: schedule.execute_pipeline(view, group, interrupted)
+            try: schedule.execute_pipeline(view, group, interrupted, stopped=lambda: False)
             except KeyboardInterrupt as error:
                 assert error is original and len(error.phase_cleanup_errors) == 1
                 assert schedule.unusable
             else: raise AssertionError('callback exception was replaced or suppressed')
-            try: schedule.execute_pipeline(view, group, lambda view: PhaseOutcome())
+            try: schedule.execute_pipeline(view, group, lambda view: PhaseOutcome(), stopped=lambda: False)
             except RuntimeError: pass
             else: raise AssertionError('failed-cleanup execution was reused')
         finally:
@@ -498,7 +498,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-proofs-') as raw:
                 return PhaseOutcome()
             try: raise LookupError('unrelated caller exception')
             except LookupError as unrelated:
-                try: schedule.execute_pipeline(view, group, unclosed_context)
+                try: schedule.execute_pipeline(view, group, unclosed_context, stopped=lambda: False)
                 except RuntimeError:
                     assert schedule.unusable and not hasattr(unrelated, 'phase_cleanup_errors')
                 else: raise AssertionError('cleanup failure was swallowed by caller exception')
@@ -526,7 +526,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-sessions-') as raw:
                 if code == 0: code = view.tactix_apply(rules['Propagate'])
                 return PhaseOutcome(20 if code == 20 else 0)
             result = schedule.execute_pipeline(execution.c, group,
-                lambda view: schedule.run_rounds(view, group, [slot], typed, stopped=lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED))
+                lambda view: schedule.run_rounds(view, group, [slot], typed, stopped=lambda: NativeInprocessSchedule.query_stopped(execution)), stopped=lambda: NativeInprocessSchedule.query_stopped(execution))
             return result if result in (10, 20) else ScriptedDefault()(execution, restored)
         with Session(library, strategy=strategy) as session:
             for clause in normal: session.add(clause)
@@ -552,7 +552,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-sessions-') as raw:
                 assert packet.base.applications == 1
                 return PhaseOutcome(20)
             return schedule.execute_pipeline(execution.c, group,
-                lambda view: schedule.run_rounds(view, group, [slot], body, stopped=lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED))
+                lambda view: schedule.run_rounds(view, group, [slot], body, stopped=lambda: NativeInprocessSchedule.query_stopped(execution)), stopped=lambda: NativeInprocessSchedule.query_stopped(execution))
         with Session(library, strategy=refute) as session:
             for clause in [[1, 2], [1, -2], [-1, 2], [-1, -2]]: session.add(clause)
             result = session.solve()
@@ -572,7 +572,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-sessions-') as raw:
                 assert view.tactix_support(capi.TACTIX_SUPPORT_ENTER_CONTEXT,
                                            capi.TACTIX_CONTEXT_SPECULATION) == 0
                 raise original
-            return NativeInprocessSchedule(config).execute_pipeline(execution.c, group, body)
+            return NativeInprocessSchedule(config).execute_pipeline(execution.c, group, body, stopped=lambda: NativeInprocessSchedule.query_stopped(execution))
         with Session(library, strategy=interrupted_strategy) as session:
             for clause in wide: session.add(clause)
             try: session.solve()
@@ -587,7 +587,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-sessions-') as raw:
             schedule = NativeInprocessSchedule(config)
             slot = InprocessSlot('Factor', group=group, preprocess=True, budget_aware=True)
             code = schedule.execute_pipeline(execution.c, group,
-                lambda view: schedule.run_rounds(view, group, [slot], schedule.run_factor_slot, stopped=lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED))
+                lambda view: schedule.run_rounds(view, group, [slot], schedule.run_factor_slot, stopped=lambda: NativeInprocessSchedule.query_stopped(execution)), stopped=lambda: NativeInprocessSchedule.query_stopped(execution))
             if schedule.last_phase_interrupted: return 0
             assert execution.c.tactix_stat(capi.TACTIX_STAT_FACTORINGS) > 0
             return code if code in (10, 20) else ScriptedDefault()(execution, restored)
@@ -622,7 +622,7 @@ with tempfile.TemporaryDirectory(prefix='python-phase-sessions-') as raw:
                 return outcome
             code = schedule.execute_pipeline(execution.c, group,
                 lambda view: schedule.run_rounds(view, group, [slot], finish_then_stop,
-                    stopped=lambda: execution.next() == capi.TACTIX_QUERY_INTERRUPTED))
+                    stopped=lambda: NativeInprocessSchedule.query_stopped(execution)), stopped=lambda: NativeInprocessSchedule.query_stopped(execution))
             assert code == 0 and schedule.last_phase_interrupted and not schedule.unusable
             assert execution.c.tactix_stat(capi.TACTIX_STAT_FACTORINGS) > 0
             return 0

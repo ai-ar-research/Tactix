@@ -157,6 +157,12 @@ class NativeInprocessSchedule:
             self._cleanup(clear, primary)
 
     @staticmethod
+    def query_stopped(execution):
+        """Suspend a query policy for cancellation or required restoration."""
+        return execution.next() in (capi.TACTIX_QUERY_INTERRUPTED,
+                                    capi.TACTIX_QUERY_RESTORE, capi.TACTIX_QUERY_INVALID)
+
+    @staticmethod
     def _root_refuted(view):
         # BVE's declared guard is exactly consistency at level zero. This
         # observes kernel state even when query termination masks its verdict.
@@ -176,6 +182,7 @@ class NativeInprocessSchedule:
         FastEl has a different gather/traversal and remains a separate entry.
         This uses the public mutable heap but makes every scheduling decision
         here, including eligibility before budget and retry after budget.
+        Query callers use query_stopped to cover restoration and invalidation.
         """
         if self.unusable:
             raise RuntimeError('failed phase; discard the schedule')
@@ -602,13 +609,14 @@ class NativeInprocessSchedule:
             raise
 
     def execute_pipeline(self, view, group, run_rounds, *, run_startup=None, factor_bound=0,
-                         initial_fast_elimination=False, stopped=None):
+                         initial_fast_elimination=False, stopped):
         """Execute the ordinary phase bracket through public C operations.
 
         run_rounds owns rule selection, budgets and BVE-bound progression and
         returns PhaseOutcome. Optional Probe startup runs before occurrences
         and returns 0/10/20. Parameters and fast-entry candidate selection
-        remain caller-owned; this is not the full native policy.
+        remain caller-owned; this is not the full native policy. Query callers
+        supply query_stopped; plain executions supply their own stop predicate.
         """
         if self.phase is not None:
             raise RuntimeError('inprocessing phase is already active')
@@ -634,12 +642,20 @@ class NativeInprocessSchedule:
         try:
             if group == 'Eliminate' and not initial_fast_elimination:
                 support('BEGIN_BVE_DEFINITION_SESSION')
-            if view.tactix_status() == 20:
+            status = view.tactix_status()
+            if self._root_refuted(view) and stopped():
+                self.last_phase_interrupted = True
+                return 0
+            if status == 20:
                 return 20
             flags = capi.TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX
             flags |= (capi.TACTIX_ROOT_PREPARATION_PROBING if group == 'Probe' else
                       capi.TACTIX_ROOT_PREPARATION_CAPTURE_TARGET)
-            if support('ROOT_PREPARATION', flags) == 20:
+            prepared = support('ROOT_PREPARATION', flags)
+            if prepared == 20:
+                if stopped():
+                    self.last_phase_interrupted = True
+                    return 0
                 return 20
             argument = factor_bound << capi.TACTIX_PHASE_FACTOR_BOUND_SHIFT
             if group == 'Eliminate':
@@ -667,7 +683,7 @@ class NativeInprocessSchedule:
             finally:
                 exit_status = cleanup('LEAVE_INPROCESS_PHASE', body_error)
             status = view.tactix_status()
-            if stopped is not None: outcome.interrupted |= bool(stopped())
+            outcome.interrupted |= bool(stopped())
             self.last_phase_interrupted = outcome.interrupted
             if startup_status == 10:
                 if outcome.interrupted: return 0

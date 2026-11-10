@@ -226,7 +226,7 @@ if str(library) != '-':
                     rule = rule_ids['BCE']
                     assert view.tactix_apply_instance(rule, capi.TACTIX_INSTANCE_CANONICAL) in (0, 1)
                 return PhaseOutcome()
-            assert schedule.execute_pipeline(view, row['group'], run_rounds) == row['result']
+            assert schedule.execute_pipeline(view, row['group'], run_rounds, stopped=lambda: False) == row['result']
             assert schedule.observe(view) == row['after'], row
             assert {name: asdict(clock) for name, clock in schedule.clocks.items()} == row['finished'], row
             executed.add((row['group'], row['mode']))
@@ -281,7 +281,7 @@ if str(library) != '-':
                         assert (slot.handed, slot.spent, slot.doses, slot.wrapped) == before
                         declined.add(slot.rule)
                     return PhaseOutcome()
-                assert schedule.execute_pipeline(view, slot.group, rounds) == row['result']
+                assert schedule.execute_pipeline(view, slot.group, rounds, stopped=lambda: False) == row['result']
                 actual = capi.tactix_work_settings()
                 assert view.tactix_read_work_settings(C.byref(actual)) == 0
                 assert (actual.budget, actual.offset, actual.bounded, actual.midround) == (0, settings.offset, inherited, inherited), row
@@ -342,7 +342,7 @@ if str(library) != '-':
                 return PhaseOutcome(20 if result == 20 else 0)
             def pipeline(view):
                 return schedule.run_rounds(view, row['group'], iter([other, slot]), run_slot, stopped=lambda: False)
-            assert schedule.execute_pipeline(view, row['group'], pipeline) == row['result'], row
+            assert schedule.execute_pipeline(view, row['group'], pipeline, stopped=lambda: False) == row['result'], row
             assert len(calls) == row['occasions'], (row, calls)
             assert len(admitted) == row['admitted'], row
             assert slot.applies == row['applies'], row
@@ -396,7 +396,7 @@ if str(library) != '-':
                     if slot.decline in declines: declines[slot.decline] += 1
                     return outcome
                 result = schedule.execute_pipeline(view, group,
-                    lambda view: schedule.run_rounds(view, group, [slot], run_slot, stopped=lambda: False))
+                    lambda view: schedule.run_rounds(view, group, [slot], run_slot, stopped=lambda: False), stopped=lambda: False)
                 assert result == row['result'], row
                 assert {name: getattr(slot, name) for name in row['slot']} == row['slot'], (row, asdict(slot))
                 assert schedule.observe(view) == row['after'], row

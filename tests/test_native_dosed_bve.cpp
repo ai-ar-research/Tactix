@@ -7,6 +7,7 @@
 #include "policies/default_inprocess.hpp"
 #include "strategy/bve_invocation.hpp"
 #include <cassert>
+#include <csignal>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -19,6 +20,9 @@ static const std::vector<Formula> formulas{
  {{1,2},{-1,3},{-3,4},{4}},
  {{1,2},{1,-2},{-1,3},{-3,4},{5,6},{-5,7},{-7,8}},
  {{1,2},{1,-2},{-1,3},{1,7,8},{4,5,6},{-4,5,6},{4,-5,6},{4,5,-6}},
+ {{1,2},{-1,2},{-2,3},{-2,-3}},
+ {{1,2},{1,-2},{-1,3},{1,7,8},{4,5,6},{-4,5,6},{4,-5,6},{4,5,-6},
+  {9,10},{9,-10},{-9,10},{-9,-10}},
 };
 struct FixedBound final:BveBoundPolicy {
  const char *name()const override{return "dosed-bve-fixture";}
@@ -44,7 +48,8 @@ int main(int argc,char **argv) {
  const std::string prefix=argc==3?argv[1]:"",mode=argc==3?argv[2]:"none";
  unsigned id=0;
  for(unsigned f=0;f<formulas.size();++f)for(bool aware:{false,true})
- for(unsigned permille:{0u,1000u})for(bool stable:{false,true}) {
+ for(unsigned permille:{0u,1000u})for(bool stable:{false,true})for(bool halted:{false,true}) {
+  if(halted&&(f||aware||permille!=1000||stable))continue;
   const auto &formula=formulas[f];unsigned vars=0;
   auto *s=tactix_init();assert(s);
   for(const auto &clause:formula){for(int l:clause){vars=std::max(vars,unsigned(std::abs(l)));tactix_add(s,l);}tactix_add(s,0);}
@@ -56,7 +61,7 @@ int main(int argc,char **argv) {
   }
   (void)tactix_status(s); // settle the public input/proof owner before native dispatch
   assert(!tactix_set_guidance_publication(s,TACTIX_GUIDANCE_NATIVE));
-  tactix_set_bve_gates(s, f==0||f==4?0:BVE_GATE_KISSAT_DEFAULT);
+  tactix_set_bve_gates(s, f==0||f>=4?0:BVE_GATE_KISSAT_DEFAULT);
   if(stable)assert(!tactix_apply(s,tactix_rule_id("SwitchMode")));
   if(f==3) {
    assert(!tactix_set_variable_retention(s,5,1));
@@ -65,7 +70,7 @@ int main(int argc,char **argv) {
    assert(tactix_apply(s,tactix_rule_id("ConflictAnalysis"))==0);
    assert(tactix_stat(s,TACTIX_STAT_CONFLICTS)>0);
   }
-  if(f==4)for(int variable:{1,3,7,8})assert(!tactix_bump_variable(s,variable,vars));
+  if(f==4||f==6)for(int variable:{1,3,7,8})assert(!tactix_bump_variable(s,variable,vars));
   DefaultStrategyConfig config;config.inprocess.bve_occurrence_limit=formula.size();
   DefaultInprocessScheduler native(&config.inprocess);native.configure();
   auto &k=api_detail::kernel_for_fixed_testing(s);native.reset(k);native.pose_initialized();
@@ -77,10 +82,11 @@ int main(int argc,char **argv) {
   native.entries.push_back(entry);
   k.work_budget=123;k.work_budget_offset=5;k.midround_budget=true;
   k.tick_sink=&k.stats.probe_ticks;
-  const int phase=native.run_phase(k,SlotGroup::Eliminate,nullptr);
+  volatile sig_atomic_t stop=halted;
+  const int phase=native.run_phase(k,SlotGroup::Eliminate,&stop);
   assert(phase==0||phase==20);
   std::cout<<"{\"id\":"<<id<<",\"formula\":"<<f<<",\"aware\":"<<aware
-    <<",\"permille\":"<<permille<<",\"stable\":"<<stable<<",\"phase\":"<<phase<<",\"profile\":";
+    <<",\"halted\":"<<halted<<",\"permille\":"<<permille<<",\"stable\":"<<stable<<",\"phase\":"<<phase<<",\"profile\":";
   profile_json(strategy::BveParameters::from_kernel(k));
   std::cout<<",\"limit\":"<<native.entries[0].limit<<",\"stats\":[";
   for(unsigned i=0;i<std::size(stats);++i)std::cout<<(i?",":"")<<tactix_stat(s,stats[i]);
@@ -89,10 +95,11 @@ int main(int argc,char **argv) {
   std::cout<<"],\"clock\":["<<clock.next_conflicts<<','<<clock.rounds<<','<<clock.reductions_mark
    <<','<<clock.marks_mark<<','<<clock.fixed_mark<<','<<clock.material_mark<<','<<clock.blocked
    <<','<<clock.blocked_episodes<<','<<clock.anchor<<"],\"budget\":"<<k.work_budget<<",\"applies\":"<<native.entries[0].applies;
-  const int answer=tactix_solve(s);assert(answer==(f==1?20:10));
+  stop=0;
+  const int answer=tactix_solve(s);assert(answer==(f==1||f>=5?20:10));
   std::cout<<",\"answer\":"<<answer<<"}\n";
   if(answer==10&&!stem.empty()) {std::ofstream model(stem+".model");for(unsigned v=1;v<=vars;++v)model<<tactix_value(s,v)<<' ';model<<"0\n";}
   tactix_release(s);++id;
  }
- assert(id==40);
+ assert(id==57);
 }
