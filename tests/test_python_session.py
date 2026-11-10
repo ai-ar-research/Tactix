@@ -14,7 +14,8 @@ library,root=map(Path,sys.argv[1:])
 sys.path.insert(0,str(root/'python'))
 sys.path.insert(0,str(root/'tools/bench'))
 from tactix import Session, ScriptedCDCL, SAT, UNSAT, UNKNOWN, capi
-from python_policy_reference import Cruxmiter, ScriptedDefault
+from tactix.strategies import Cruxmiter
+from python_policy_reference import ScriptedDefault
 spec=importlib.util.spec_from_file_location('python_session_runner',root/'tools/bench/run.py')
 runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
 from proof_oracle import certificate_route

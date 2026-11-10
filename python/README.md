@@ -122,11 +122,28 @@ it may reset after repair. A scheduler can compare it around a model constructor
 and explicitly restart. Public scheduling counters and their costs are described
 in [`tactix.h`](../include/tactix.h).
 
+Use the Python-authored CRUX controller with explicit native search handoff:
+
+```python
+from tactix import Session
+from tactix.strategies import Cruxmiter
+
+policy = Cruxmiter()
+with Session(strategy=policy) as solver:
+    policy.configure(solver)
+    solver.add([1, 2])
+    result = solver.solve()
+```
+
+Its preprocessing decisions run in Python; `Session(strategy='cruxmiter')`
+selects the C implementation. `Session(strategy='chvatal')` selects the C
+Chvátal controller. Both explicitly hand off to native default search.
+
 ## Qualification and maintenance
 
 Full IPASIR conformance, specialized-adapter coverage and final fuzz/performance
 acceptance remain pending. IPASIR-UP is outside scope. Independent Python
-Cruxmiter and demo3 schedulers in `tests/python_policy_reference.py` check action
+Cruxmiter (`tactix.strategies`) and demo3 (`tests/python_policy_reference.py`) check action
 order/payloads, counters, models and proof bytes against C; they do not implement
 full native DefaultPolicy, including inprocessing.
 

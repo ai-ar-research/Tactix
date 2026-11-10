@@ -20,7 +20,8 @@ parser.add_argument('--policy',choices=('cruxmiter','scripted-default'),default=
 args=parser.parse_args();root=args.root
 sys.path.insert(0,str(root/'python'));sys.path.insert(0,str(root/'tools/bench'))
 from tactix import capi
-from python_policy_reference import Cruxmiter, ScriptedDefault
+from tactix.strategies import Cruxmiter
+from python_policy_reference import ScriptedDefault
 spec=importlib.util.spec_from_file_location('parity_proof_runner',root/'tools/bench/run.py')
 runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
 from proof_oracle import certificate_route
