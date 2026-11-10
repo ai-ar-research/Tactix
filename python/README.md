@@ -153,6 +153,11 @@ for the lossless `strategy-v1` snapshot. Scalars are Python integers/floats;
 programs remain text. Invalid settings raise `ValueError`. This provides shared
 configuration; the complete independent Python DefaultPolicy is still pending.
 
+`tactix.program.DefaultStage` reads an owned typed native structured-stage
+snapshot. Returned records retain their nested storage after snapshot close.
+`steps_after_feedback` copies records and applies inter-stage feedback
+in Python; the caller still chooses stages and runs every action.
+
 `tactix.startup.DefaultStartup` owns the original-input, constructor and early
 Lucky windows in Python, decoding native profiles and observing opportunity
 eligibility and running the affine root fixpoint. Keep its context open while

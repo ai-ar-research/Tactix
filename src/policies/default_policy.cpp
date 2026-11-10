@@ -3059,7 +3059,7 @@ void DefaultPolicy::pose_query_programs() {
           p->candidate_scope = strategy::bve_query_scope(p->candidate_scope);
 }
 
-std::string DefaultPolicy::configured_strategy_config_snapshot(
+std::optional<DefaultStrategyConfig> DefaultPolicy::configured_strategy_config(
     const Kernel &k, bool query, const DefaultPolicy *previous) {
   DefaultPolicy policy;
   if (previous) {
@@ -3068,9 +3068,15 @@ std::string DefaultPolicy::configured_strategy_config_snapshot(
     policy.default_branching_.randec_enabled = previous->default_branching_.randec_enabled;
   }
   std::string error;
-  if (!policy.configure_from_env(k, &error)) return {};
+  if (!policy.configure_from_env(k, &error)) return std::nullopt;
   if (query) policy.pose_query_programs();
-  return policy.strategy_config_snapshot();
+  return std::move(policy.config_);
+}
+
+std::string DefaultPolicy::configured_strategy_config_snapshot(
+    const Kernel &k, bool query, const DefaultPolicy *previous) {
+  const auto config = configured_strategy_config(k, query, previous);
+  return config ? config->serialize() : std::string{};
 }
 
 bool DefaultPolicy::configure_from_env(const Kernel &, std::string *error) {

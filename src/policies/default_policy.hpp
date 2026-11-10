@@ -238,6 +238,8 @@ public:
   const DefaultStrategyConfig &strategy_config() const { return config_; }
   std::string strategy_config_snapshot() const { return config_.serialize(); }
   // Resolve settings on a temporary policy; never run actions or mutate k.
+  static std::optional<DefaultStrategyConfig> configured_strategy_config(
+      const Kernel &, bool query = false, const DefaultPolicy *previous = nullptr);
   static std::string configured_strategy_config_snapshot(const Kernel &, bool query = false,
                                                   const DefaultPolicy *previous = nullptr);
   void set_feedback(strategy::controller::FeedbackReceiver *receiver) {

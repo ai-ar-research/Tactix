@@ -7,17 +7,101 @@
 #include "policies/strategy_settings.hpp"
 #include "query_test_support.hpp"
 #include "rules/registry.hpp"
+#include "public_online_encoding.hpp"
 #include <algorithm>
 #include <locale>
 #include <cassert>
 #include <cstring>
 #include <iostream>
 using namespace tactix;
+static void stage_snapshots() {
+  assert(!tactix_default_stage_snapshot_create(nullptr,0,0));
+  assert(!tactix_default_stage_snapshot_read(nullptr));
+  tactix_default_stage_snapshot_release(nullptr);
+  auto *source=tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND);assert(source);
+  auto &kernel=api_detail::kernel_for_fixed_testing(source);
+  const auto epoch=kernel.strategy_epoch;
+  strategy::OnlineInvocation unsupported;
+  unsupported.cardinality_search_instances.resize(1);
+  public_encoding::EncodedStep encoding;
+  assert(!public_encoding::encode_step(kernel,unsupported,0,encoding));
+  const auto expected=DefaultPolicy::configured_strategy_config(kernel);assert(expected);
+  assert(!tactix_default_stage_snapshot_create(source,-1,0));
+  assert(!tactix_default_stage_snapshot_create(source,3,0));
+  assert(!tactix_default_stage_snapshot_create(source,0,UINT64_MAX));
+  for(int family=0;family<3;++family) {
+    const auto &stages=family==0?expected->inprocess.structured_root_stages:
+        family==1?expected->inprocess.structured_root_bounded_backtracking_stages:
+                  expected->inprocess.structured_root_large_domain_stages;
+    for(size_t index=0;index<stages.size();++index) {
+      auto *snapshot=tactix_default_stage_snapshot_create(source,family,index);assert(snapshot);
+      const auto *d=tactix_default_stage_snapshot_read(snapshot);assert(d);
+      const auto &stage=stages[index];
+      assert(d->on_budget_exhaustion==static_cast<int>(stage.on_budget_exhaustion));
+      assert(d->structured_handoff_after_prior_progress==stage.structured_handoff_after_prior_progress);
+      assert(d->progress_followup_count==static_cast<int>(stage.progress_followups.size()));
+      assert(d->before_progress_count==static_cast<int>(stage.before_progress.size()));
+      assert(std::equal(stage.progress_followups.begin(),stage.progress_followups.end(),d->progress_followups));
+      assert(std::equal(stage.before_progress.begin(),stage.before_progress.end(),d->before_progress));
+      auto *target=tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND);assert(target);
+      auto *executor=tactix_online_executor_create(target);assert(executor);
+      assert(!tactix_online_executor_configure(target,executor,2,&d->program,1,TACTIX_ONLINE_RECONFIGURE_RESET));
+      const auto *converted=api_detail::online_executor_for_fixed_testing(executor);assert(converted);
+      assert(strategy::serialize_online_strategy_program(*converted)==
+             strategy::serialize_online_strategy_program(stage.program));
+      tactix_online_executor_release(executor);tactix_release(target);
+      tactix_default_stage_snapshot_release(snapshot);
+    }
+    assert(!tactix_default_stage_snapshot_create(source,family,stages.size()));
+  }
+  assert(!tactix_stat(source,TACTIX_STAT_INPUT_CLOSED)&&!kernel.h&&kernel.strategy_epoch==epoch);
+  auto *survivor=tactix_default_stage_snapshot_create(source,0,0);assert(survivor);
+  const auto id=tactix_default_stage_snapshot_read(survivor)->program.steps[0].base.step_id;
+  assert(!tactix_set_default_option(source,"TACTIX_ORDER_BVE","invalid"));
+  assert(!tactix_default_stage_snapshot_create(source,0,0));
+  tactix_release(source);
+  assert(tactix_default_stage_snapshot_read(survivor)->program.steps[0].base.step_id==id);
+  auto *target=tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND);assert(target);
+  auto *executor=tactix_online_executor_create(target);assert(executor);
+  assert(!tactix_online_executor_configure(target,executor,2,
+      &tactix_default_stage_snapshot_read(survivor)->program,1,TACTIX_ONLINE_RECONFIGURE_RESET));
+  assert(strategy::serialize_online_strategy_program(*api_detail::online_executor_for_fixed_testing(executor))==
+      strategy::serialize_online_strategy_program(expected->inprocess.structured_root_stages[0].program));
+  tactix_online_executor_release(executor);tactix_release(target);
+  tactix_default_stage_snapshot_release(survivor);
+}
 struct Comma : std::numpunct<char> {
   char do_decimal_point() const override {return ',';}
   char do_thousands_sep() const override {return '.';}
   std::string do_grouping() const override {return "\3";}
 };
+static int stage_feedback() {
+  Kernel kernel;
+  const auto config=DefaultPolicy::configured_strategy_config(kernel);assert(config);
+  for(int family=0;family<3;++family) {
+    const auto &stages=family==0?config->inprocess.structured_root_stages:
+        family==1?config->inprocess.structured_root_bounded_backtracking_stages:
+                  config->inprocess.structured_root_large_domain_stages;
+    for(size_t index=0;index<stages.size();++index)
+      for(int flags=0;flags<8;++flags) {
+        const auto stage=DefaultStrategyConfig::structured_root_stage_after_feedback(
+            stages[index],flags&1,flags&2,flags&4);
+        std::cout<<family<<' '<<index<<' '<<flags;
+        for(const auto &step:stage.program.sequence) {
+          std::cout<<' '<<step.id;
+          const auto *p=std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
+          if(p&&p->producer==SubstitutionRedundancyProducer::GraphSymmetry) {
+            const auto &g=p->graph_symmetry;
+            std::cout<<','<<static_cast<int>(g.nonforcing_cut_admission)+1
+                     <<','<<(g.use_structured_generators?TACTIX_ONLINE_SETTING_ENABLE:TACTIX_ONLINE_SETTING_DISABLE)
+                     <<','<<(g.stabilize_structured_variables?TACTIX_ONLINE_SETTING_ENABLE:TACTIX_ONLINE_SETTING_DISABLE);
+          }
+        }
+        std::cout<<'\n';
+      }
+  }
+  return 0;
+}
 static void scheduler_refresh() {
   DefaultStrategyConfig config;
   Kernel kernel;
@@ -92,8 +176,10 @@ static void query_history_definition() {
   }
 }
 int main(int argc,char **argv) {
+  if(argc==2&&!std::strcmp(argv[1],"--stage-feedback"))return stage_feedback();
   const bool query=argc==2&&!std::strcmp(argv[1],"--query");assert(argc==1||query);
   assert(!tactix_default_definition(nullptr));
+  stage_snapshots();
   scheduler_refresh();
   query_history_definition();
   for(int variant=0;variant<3;++variant) {

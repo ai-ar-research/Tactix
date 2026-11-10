@@ -1489,6 +1489,35 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v2;
 
+/* Owned, read-only snapshot of one resolved DefaultPolicy structured stage.
+ * The caller selects a family and zero-based index; this reader never chooses
+ * a stage, applies feedback, finalizes input or executes a strategy. Snapshot
+ * storage, including every nested program pointer, survives solver release
+ * and option changes until snapshot_release. NULL/invalid settings, unknown
+ * family, missing index or an unrepresentable v2 payload return NULL. Families
+ * correspond to the three authored lists in tactix_default_definition.
+ * Program records may be copied and modified by the caller; borrowed arrays
+ * remain read-only and require the snapshot to stay alive while configuring
+ * an executor (which deep-copies them). Metadata is scheduling policy only. */
+#define TACTIX_DEFAULT_STAGE_REGULAR 0
+#define TACTIX_DEFAULT_STAGE_BOUNDED_BACKTRACKING 1
+#define TACTIX_DEFAULT_STAGE_LARGE_DOMAIN 2
+#define TACTIX_SEQUENCE_BUDGET_STOP 0
+#define TACTIX_SEQUENCE_BUDGET_CONTINUE 1
+#define TACTIX_SEQUENCE_BUDGET_FINISH_ROUND 2
+typedef struct tactix_default_stage_snapshot tactix_default_stage_snapshot;
+typedef struct {
+  tactix_online_program_v2 program;
+  int on_budget_exhaustion, structured_handoff_after_prior_progress;
+  const uint64_t *progress_followups, *before_progress;
+  int progress_followup_count, before_progress_count;
+} tactix_default_stage_definition;
+tactix_default_stage_snapshot *tactix_default_stage_snapshot_create(
+    tactix *, int family, uint64_t index);
+const tactix_default_stage_definition *tactix_default_stage_snapshot_read(
+    const tactix_default_stage_snapshot *);
+void tactix_default_stage_snapshot_release(tactix_default_stage_snapshot *);
+
 /* Additive v3 payload for X5's variable-length (clause,cube) action. Clause
  * and witness literals use stable external DIMACS identities, as in
  * tactix_apply_condition. Nested storage is copied by configure_v3. */

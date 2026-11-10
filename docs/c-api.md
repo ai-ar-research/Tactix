@@ -31,6 +31,10 @@ positive or negative variable number, and 0 to end the clause.
 
 ## Writing your own strategy
 
+`tactix_default_stage_snapshot_*` reads owned typed structured-stage programs
+from the resolved default definition. Snapshots survive solver release; their
+nested pointers remain read-only until snapshot release. Reading runs no strategy.
+
 The solver's techniques are available as **rules**: unit propagation,
 branching on a variable (`Decide`), learning from a conflict
 (`ConflictAnalysis`), restarts, deleting learned clauses (`Reduce`), and

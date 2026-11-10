@@ -9,6 +9,7 @@
 #include "frontend/parse.hpp"
 #include "api/api_internal.hpp"
 #include "api/public_parameter_encoding.hpp"
+#include "api/public_online_encoding.hpp"
 #include "session/query_kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
@@ -46,6 +47,7 @@
 
 #include <algorithm>
 #include <array>
+#include <climits>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -57,6 +59,19 @@
 #include <vector>
 
 using namespace tactix;
+
+static_assert(TACTIX_AFFINE_RESULT_OK == static_cast<int>(ApplyResult::Ok));
+static_assert(TACTIX_AFFINE_RESULT_NO_OP == static_cast<int>(ApplyResult::NoOp));
+static_assert(TACTIX_AFFINE_RESULT_CONFLICT == static_cast<int>(ApplyResult::Conflict));
+static_assert(TACTIX_AFFINE_RESULT_SAT == static_cast<int>(ApplyResult::Sat));
+static_assert(TACTIX_AFFINE_RESULT_UNSAT == static_cast<int>(ApplyResult::Unsat));
+
+struct tactix_default_stage_snapshot {
+  std::vector<std::unique_ptr<public_encoding::EncodedStep>> storage;
+  std::vector<tactix_online_step_v2> steps;
+  std::vector<uint64_t> progress_followups, before_progress;
+  tactix_default_stage_definition definition{};
+};
 
 struct tactix_solver {
   Kernel owned_kernel;
@@ -2342,6 +2357,55 @@ int tactix_lucky_eligible(tactix_solver *s, uint64_t instance) {
   if (!s || !s->input_completed || lucky_retired_constructor_instance(instance))
     return -1;
   return lucky_opportunity_eligible(s->kernel, instance) ? 1 : 0;
+}
+
+tactix_default_stage_snapshot *tactix_default_stage_snapshot_create(
+    tactix_solver *s, int family, uint64_t index) {
+  if (!s || family < TACTIX_DEFAULT_STAGE_REGULAR ||
+      family > TACTIX_DEFAULT_STAGE_LARGE_DOMAIN) return nullptr;
+  ScopedStrategySettings settings(&s->default_options);
+  const auto config = DefaultPolicy::configured_strategy_config(
+      s->kernel, s->query_owner != nullptr, s->query_policy);
+  if (!config) return nullptr;
+  const auto &stages = family == TACTIX_DEFAULT_STAGE_REGULAR
+      ? config->inprocess.structured_root_stages
+      : family == TACTIX_DEFAULT_STAGE_BOUNDED_BACKTRACKING
+          ? config->inprocess.structured_root_bounded_backtracking_stages
+          : config->inprocess.structured_root_large_domain_stages;
+  if (index >= stages.size()) return nullptr;
+  const auto &stage = stages[index];
+  if (stage.program.sequence.size() > INT_MAX ||
+      stage.progress_followups.size() > INT_MAX ||
+      stage.before_progress.size() > INT_MAX) return nullptr;
+  auto out = std::make_unique<tactix_default_stage_snapshot>();
+  for (const auto &step : stage.program.sequence) {
+    auto encoded = std::make_unique<public_encoding::EncodedStep>();
+    if (!public_encoding::encode_step(s->kernel, step,
+            tactix_rule_id(step.rule.c_str()), *encoded)) return nullptr;
+    out->steps.push_back(encoded->step);
+    out->storage.push_back(std::move(encoded));
+  }
+  out->progress_followups = stage.progress_followups;
+  out->before_progress = stage.before_progress;
+  auto &d = out->definition;
+  d.program = {out->steps.data(), static_cast<int>(out->steps.size()),
+      static_cast<int>(stage.program.repeat.mode), stage.program.repeat.limit};
+  d.on_budget_exhaustion = static_cast<int>(stage.on_budget_exhaustion);
+  d.structured_handoff_after_prior_progress = stage.structured_handoff_after_prior_progress;
+  d.progress_followups = out->progress_followups.data();
+  d.progress_followup_count = static_cast<int>(out->progress_followups.size());
+  d.before_progress = out->before_progress.data();
+  d.before_progress_count = static_cast<int>(out->before_progress.size());
+  return out.release();
+}
+
+const tactix_default_stage_definition *tactix_default_stage_snapshot_read(
+    const tactix_default_stage_snapshot *snapshot) {
+  return snapshot ? &snapshot->definition : nullptr;
+}
+
+void tactix_default_stage_snapshot_release(tactix_default_stage_snapshot *snapshot) {
+  delete snapshot;
 }
 
 int tactix_read_execution_state(tactix_solver *s, tactix_execution_state *out) {
