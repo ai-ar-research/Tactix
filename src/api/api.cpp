@@ -2189,7 +2189,20 @@ auto visit_parameter_fields(strategy::FieldsOf<RetierScheduleFields>,
 
 extern "C" {
 
-tactix_solver *tactix_init(void) { return new tactix_solver(); }
+tactix_solver *tactix_init_configured(uint32_t flags) {
+  if(flags & ~TACTIX_INIT_DEFAULT_FRONTEND)return nullptr;
+  auto *s=new tactix_solver();
+  if(flags & TACTIX_INIT_DEFAULT_FRONTEND) {
+    s->kernel.h=nullptr;s->kernel.saved_phases=nullptr;
+    kernel_defer_cold_state(s->kernel);
+    const int guided=tactix_set_guidance_publication(s,TACTIX_GUIDANCE_NATIVE);
+    tactix_set_bve_gates(s,BVE_GATE_KISSAT_DEFAULT);
+    const int provenance=tactix_discard_structural_provenance(s);
+    if(guided || provenance) {delete s;return nullptr;}
+  }
+  return s;
+}
+tactix_solver *tactix_init(void) { return tactix_init_configured(0); }
 
 void tactix_release(tactix_solver *s) {
   if(s && s->query_owner) {s->query_status=session::QuerySolveStatus::InvalidState;return;}
@@ -2603,6 +2616,7 @@ int tactix_apply_condition(tactix_solver *s, const int *clause,
                            int clause_count, const int *witness,
                            int witness_count) {
   input_complete(s);
+  if (s->kernel.cold_state_deferred)return -1;
   if (!c_array(clause, clause_count) || !c_array(witness, witness_count))
     return -1;
   ConditionInstance instance;
@@ -2674,7 +2688,8 @@ int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
 int tactix_regions_begin(tactix_solver *s) {
   if (!s || s->regions) return -1;
   input_complete(s);
-  if (s->kernel.level || s->kernel.inconsistent || s->kernel.probing.recording)
+  if (s->kernel.cold_state_deferred || s->kernel.level ||
+      s->kernel.inconsistent || s->kernel.probing.recording)
     return -1;
   s->regions = std::make_unique<strategy::RegionProgram>(s->kernel);
   external_state_change(s); return 0;
@@ -3367,6 +3382,15 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
   if (k.affine_matrix_search_session &&
       k.affine_matrix_search_session->has_deferred_reason())
     return -1;
+  if (k.cold_state_deferred &&
+      support!=TACTIX_SUPPORT_MATERIALIZE_COLD_STATE &&
+      support!=TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE &&
+      support!=TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION &&
+      support!=TACTIX_SUPPORT_RELEASE_INPUT_ORDER &&
+      support!=TACTIX_SUPPORT_CONSUME_ROOT_PREFIX &&
+      support!=TACTIX_SUPPORT_ENTER_CONTEXT && support!=TACTIX_SUPPORT_LEAVE_CONTEXT &&
+      support!=TACTIX_SUPPORT_RELEASE_AFFINE_MATRIX)
+    return -1;
   const auto flags = [&](uint64_t allowed) { return !(argument & ~allowed); };
   int result = -1;
   switch (support) {
@@ -3376,6 +3400,28 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     execution::execute_action(k, execution::CloseStartupCertificateRequest{});
     result = 0;
     break;
+  case TACTIX_SUPPORT_MATERIALIZE_COLD_STATE:
+    if(argument || s->phase.open() || !support_root(k))return -1;
+    if(!k.cold_state_deferred)return 1;
+    execution::execute_action(k,execution::MaterializeColdStateRequest{});
+    result=0;break;
+  case TACTIX_SUPPORT_ATTACH_HEURISTICS:
+    if(argument || s->phase.open() || !support_root(k) || !kernel_propagation_fixpoint(k))return -1;
+    if(k.h==&s->heuristics)return 1;
+    if(s->query_owner || k.h || s->heuristics.nvars || k.cold_state_deferred ||
+       !support_root(k) || !kernel_propagation_fixpoint(k))return -1;
+    execution::execute_action(k,execution::HeuristicAttachmentRequest{s->heuristics});
+    result=0;break;
+  case TACTIX_SUPPORT_DETACH_HEURISTICS:
+    if(argument || s->query_owner || s->phase.open() || !s->contexts.empty() ||
+       k.bve_score_update_hook || k.bve_occurrence_count_image || k.probing.recording ||
+       k.pending.valid || (k.conflict_valid && !k.inconsistent) ||
+       (k.level && !has_sat_assignment(k)))return -1;
+    if(!k.h)return 1;
+    if(k.h!=&s->heuristics)return -1;
+    execution::execute_action(k,execution::HeuristicDetachmentRequest{s->heuristics});
+    s->heuristics=Heuristics{};
+    result=0;break;
   case TACTIX_SUPPORT_PREPARATION_RESTART:
     if (argument > UINT32_MAX || !restart_guard(k))
       return -1;
@@ -3387,7 +3433,8 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     if (!flags(TACTIX_ROOT_PREPARATION_PROBING |
                TACTIX_ROOT_PREPARATION_CAPTURE_TARGET |
                TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX) ||
-        k.inconsistent || k.pending.valid || k.dense || k.probing.recording)
+        k.inconsistent || k.pending.valid || k.dense || k.probing.recording ||
+        ((argument & TACTIX_ROOT_PREPARATION_CAPTURE_TARGET) && !k.h))
       return -1;
     const ApplyResult prepared = execution::execute_action(
         k, execution::RootPreparationRequest{
@@ -3721,7 +3768,7 @@ int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {
 
 int tactix_decide(tactix_solver *s, int elit) {
   input_complete(s);
-  if (!decide_guard(s->kernel))
+  if (s->kernel.cold_state_deferred || !decide_guard(s->kernel))
     return -1;
   const Lit l = kernel_internalize(s->kernel, elit);
   if (l == INVALID_LIT)

@@ -85,3 +85,13 @@ slow or never finish, but it cannot produce a wrong answer.
 - [strategies.md](strategies.md): example strategies, and how to compile and
   run your own.
 - [`include/tactix.h`](../include/tactix.h): the header file of the public interface.
+
+`tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND)` reproduces the `tactix-public`
+frontend preset with deferred cold state and H. Public materialize/attach/detach supports
+let external policies select the native lifecycle; these supports preserve
+query-owned H (explicit `RESEED_GUIDANCE` remains available). Pure extent, INPUT_CLOSED, COLD_STATE_DEFERRED and HEURISTICS_ATTACHED reads expose
+representation and output extents without closing input or changing cursors.
+Startup contexts admit materialization and H attachment without charging search
+ticks. Deferred rule execution admits root Propagate, Lucky and root affine
+initialization/search; other rules wait for materialization. Target capture and
+restart-clock operations require H.

@@ -133,3 +133,14 @@ full native DefaultPolicy, including inprocessing.
 Regenerate declarations with `python3 tools/api/generate_python.py` (`pycparser`
 is needed only for generation). `python_capi` checks header coverage, constants
 and every public record's size, alignment and field offsets against the C compiler.
+
+For a plain C-interface strategy, `Solver(default_frontend=True)` mirrors
+`tactix_public_main.cpp` initialization. `proof(path)`, `read_dimacs(path)` and
+`model` use the native parser/proof/model interfaces. The policy explicitly
+selects `MATERIALIZE_COLD_STATE`, `ATTACH_HEURISTICS` and `DETACH_HEURISTICS`
+through `solver.c.tactix_support`; these preserve borrowed IPASIR H. Until
+materialization root Propagate, Lucky and root affine initialization/search
+remain available with the documented startup supports. Startup contexts span
+materialization/attachment; target capture and restart clocks require H.
+Reading `model` while input is open raises without closing input.
+This frontend is separate from the unfinished full Python DefaultPolicy.

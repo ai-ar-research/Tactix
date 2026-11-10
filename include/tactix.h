@@ -176,6 +176,13 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_REGION_BUDGET 70
 #define TACTIX_STAT_REGION_INVALIDATED 71
 
+/* Exact tactix-public frontend preset: defer cold arrays and H, select
+ * native guidance and the shipped BVE gates, discard structural provenance.
+ * This runs no solving strategy; the caller selects materialization, H
+ * attachment and every subsequent action. Flags 0 preserves tactix_init;
+ * unknown flags return NULL. */
+#define TACTIX_INIT_DEFAULT_FRONTEND 1u
+tactix *tactix_init_configured(uint32_t flags);
 tactix *tactix_init(void);
 void tactix_release(tactix *);
 /* Borrow a writable semantic/proof provenance stream for structural actions.

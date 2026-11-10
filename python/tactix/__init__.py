@@ -116,8 +116,13 @@ class Execution:
         if self._lib._callback_depth:
             raise RuntimeError('execution view is unavailable inside a solver callback')
 
-    def next(self):
+    def _check_query(self):
         self._check()
+        if self._session is None:
+            raise RuntimeError("query operations require a persistent Session strategy")
+
+    def next(self):
+        self._check_query()
         query = _Query(version=1, size=C.sizeof(_Query))
         if self._lib.dll.tactix_ipasir_next(self._session, C.byref(query)):
             raise RuntimeError('invalid query boundary')
@@ -126,14 +131,14 @@ class Execution:
     @property
     def rejected_models(self):
         """Rejected model checks in this epoch; candidates may be checked repeatedly."""
-        self._check()
+        self._check_query()
         count = self._lib.dll.tactix_ipasir_rejected_models(self._session)
         if count == 2**64-1:
             raise RuntimeError('no active query execution view')
         return count
 
     def assume_next(self):
-        self._check()
+        self._check_query()
         code = self._lib.dll.tactix_ipasir_assume_next(self._session)
         if code == -2:
             raise _QueryInterrupted()
@@ -166,6 +171,65 @@ class Execution:
         """An explicit strategy handoff to configured DefaultPolicy."""
         self._check()
         return self._lib.dll.tactix_solve(self._view)
+
+class Solver(Execution):
+    """Owned plain C session for Python-authored public-interface strategies.
+
+    default_frontend reproduces tactix_public_main's setup. The caller still
+    selects every policy action, including cold materialization and H lifetime.
+    Session remains the persistent IPASIR frontend.
+    """
+    def __init__(self, library=None, *, default_frontend=False):
+        library = _Library(library)
+        handle = library.dll.tactix_init_configured(
+            capi.TACTIX_INIT_DEFAULT_FRONTEND if default_frontend else 0)
+        if not handle: raise RuntimeError('cannot initialize Tactix solver')
+        super().__init__(library, None, handle)
+
+    def close(self):
+        if getattr(self, '_active', False):
+            self._active = False
+            self._lib.dll.tactix_release(self._view)
+
+    def __del__(self): self.close()
+    def __enter__(self): self._check();return self
+    def __exit__(self, *_): self.close()
+
+    def add(self, clause):
+        self._check()
+        clause = tuple(_literal(literal) for literal in clause)
+        for literal in (*clause, 0):
+            if self.c.tactix_add_checked(literal):
+                raise RuntimeError('plain solver input has already closed')
+
+    def proof(self, path, format=capi.TACTIX_PROOF_AUTO):
+        if self.c.tactix_proof(os.fsencode(path), format):
+            raise ValueError('invalid or late proof attachment')
+
+    def read_dimacs(self, path):
+        """Use the CLI parser, including its advisory header.
+
+        On malformed input ValueError leaves a partial solver; close it.
+        """
+        self._check()
+        libc = C.CDLL(None, use_errno=True)
+        libc.fopen.argtypes, libc.fopen.restype = [C.c_char_p, C.c_char_p], C.c_void_p
+        libc.fclose.argtypes, libc.fclose.restype = [C.c_void_p], C.c_int
+        stream = libc.fopen(os.fsencode(path), b'r')
+        if not stream: raise OSError(C.get_errno(), os.strerror(C.get_errno()), str(path))
+        try:
+            if self.c.tactix_read_dimacs(stream): raise ValueError('invalid DIMACS or nonempty solver')
+        finally:
+            libc.fclose(stream)
+
+    @property
+    def model(self):
+        if not self.c.tactix_stat(capi.TACTIX_STAT_INPUT_CLOSED):
+            raise RuntimeError('solver input is still open')
+        if self.c.tactix_status() != SAT: raise RuntimeError('solver has no SAT model')
+        count = self.c.tactix_stat(capi.TACTIX_STAT_OUTPUT_VARIABLES)
+        return tuple(self.c.tactix_value(v) for v in range(1, count+1))
+
 
 class RestartClock:
     """Owned native restart scheduler; the Python policy chooses all actions.

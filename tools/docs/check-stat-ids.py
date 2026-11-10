@@ -53,6 +53,10 @@ POLICY_REL = "src/policies/default_policy.cpp"
 # counter the id is REQUIRED to return instead. One row per deviation, each
 # with its reason — the point is that the deviation is declared, not inferred.
 ALIAS = {
+    "TACTIX_STAT_INPUT_CLOSED": ("s->input_completed", "pure observation of the frontend input boundary"),
+    "TACTIX_STAT_VARIABLES": ("k.nvars", "internal variable extent, including retired/helper identities"),
+    "TACTIX_STAT_OUTPUT_VARIABLES": ("kernel_num_output_vars(k)", "original model extent, including the advisory DIMACS header"),
+    "TACTIX_STAT_HEURISTICS_ATTACHED": ("k.h!=nullptr", "H pointer presence, including borrowed query guidance"),
     "TACTIX_STAT_SWITCHES": ("k.stats.switched",
                              "the counter is past-tense; the id is a count"),
     "TACTIX_STAT_LEVEL": ("k.level", "kernel state, not a Stats counter"),

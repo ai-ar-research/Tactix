@@ -365,6 +365,9 @@ CONSTANTS = {
     'TACTIX_RETIREMENTS_RELEASE_ONLY': 2,
     'TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE': 26,
     'TACTIX_SUPPORT_FORWARD_CLOSURE': 27,
+    'TACTIX_SUPPORT_MATERIALIZE_COLD_STATE': 28,
+    'TACTIX_SUPPORT_ATTACH_HEURISTICS': 29,
+    'TACTIX_SUPPORT_DETACH_HEURISTICS': 30,
     'TACTIX_ROOT_PREPARATION_PROBING': 1,
     'TACTIX_ROOT_PREPARATION_CAPTURE_TARGET': 2,
     'TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX': 4,
@@ -538,6 +541,7 @@ ALIASES = {
     'tactix_ipasir_strategy': ('function', 'int', [('*', 'void'), ('*', 'void'), ('*', 'tactix_solver'), 'unsigned']),
 }
 FUNCTIONS = {
+    'tactix_init_configured': (('*', 'tactix'), ['uint32_t']),
     'tactix_init': (('*', 'tactix'), []),
     'tactix_release': ('void', [('*', 'tactix')]),
     'tactix_bind_structural_provenance': ('int', [('*', 'tactix'), ('*', 'FILE')]),

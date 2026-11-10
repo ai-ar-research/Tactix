@@ -35,7 +35,7 @@ bool parameters(const tactix_restart_clock_parameters *source,
 extern "C" {
 tactix_restart_clock *tactix_restart_clock_create(
     tactix_c_handle *s, const tactix_restart_clock_parameters *source) {
-  if (!s) return nullptr;
+  if (!s || !api_detail::kernel_for_fixed_testing(s).h) return nullptr;
   DefaultStrategyConfig::Restart profile;
   if (!parameters(source, profile)) return nullptr;
   auto *clock = new tactix_restart_clock;
@@ -48,7 +48,7 @@ void tactix_restart_clock_release(tactix_restart_clock *clock) { delete clock; }
 
 int tactix_restart_clock_configure(tactix_c_handle *s, tactix_restart_clock *clock,
                                   const tactix_restart_clock_parameters *source) {
-  if (!s || !clock) return -1;
+  if (!s || !clock || !api_detail::kernel_for_fixed_testing(s).h) return -1;
   DefaultStrategyConfig::Restart profile;
   if (!parameters(source, profile)) return -1;
   clock->parameters = profile;
@@ -72,6 +72,7 @@ int tactix_restart_clock_update(tactix_c_handle *s, tactix_restart_clock *clock,
       event > TACTIX_RESTART_CLOCK_MODE_ENTERED ||
       (glue && event != TACTIX_RESTART_CLOCK_GLUE)) return -1;
   const Kernel &k = api_detail::kernel_for_fixed_testing(s);
+  if (!k.h) return -1;
   auto &c = clock->control;
   const auto &p = clock->parameters;
   switch (event) {
@@ -87,7 +88,7 @@ int tactix_restart_clock_update(tactix_c_handle *s, tactix_restart_clock *clock,
 
 int tactix_restart_clock_observe(tactix_c_handle *s, const tactix_restart_clock *clock,
                                 tactix_restart_clock_state *out) {
-  if (!s || !clock || !out) return -1;
+  if (!s || !clock || !out || !api_detail::kernel_for_fixed_testing(s).h) return -1;
   const auto &c = clock->control;
   *out = {};
   out->due = c.want_restart(api_detail::kernel_for_fixed_testing(s), clock->parameters);
