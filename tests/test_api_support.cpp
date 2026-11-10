@@ -508,6 +508,22 @@ void test_complete_sr_profile() {
 
 } // namespace
 
+void test_open_input_observations() {
+  auto *s = tactix_init(); assert(s);
+  for (int literal : {1, 2, 3}) tactix_add(s, literal);
+  Kernel &k = api_detail::kernel_for_fixed_testing(s);
+  const auto vars = k.nvars, trail = static_cast<uint32_t>(k.trail.size());
+  for (unsigned i = 0; i < 3; ++i) {
+    assert(tactix_stat(s, TACTIX_STAT_FACTOR_LITERALS_MARKED) == k.factor_literals_marked);
+    assert(tactix_stat(s, TACTIX_STAT_FACTOR_COMPLETED) == k.factor_completed);
+    assert(tactix_stat(s, TACTIX_STAT_ARENA_WORDS) == k.arena.size());
+  }
+  assert(k.nvars == vars && k.trail.size() == trail && k.arena.empty());
+  tactix_add(s, 0); assert(tactix_status(s) == 0 && !k.arena.empty());
+  assert(tactix_stat(s, TACTIX_STAT_ARENA_WORDS) == k.arena.size());
+  tactix_release(s);
+}
+
 void test_work_settings() {
   tactix_c_handle *s = load();
   Kernel &k = kernel(s);
@@ -531,6 +547,8 @@ void test_work_settings() {
          k.tick_sink == &k.stats.vivify_ticks);
   assert(tactix_install_tick_attribution(s, TACTIX_TICK_ATTRIBUTION_NONE) == 0 && !k.tick_sink);
   assert(k.strategy_epoch == epoch);
+  tactix_set_work_budget(s,77);
+  assert(k.strategy_epoch!=epoch);
   tactix_release(s);
 }
 
@@ -591,6 +609,7 @@ void test_native_scheduling_observations() {
 }
 
 int main() {
+  test_open_input_observations();
   test_native_scheduling_observations();
   test_pending_root_collection();
   test_twins();

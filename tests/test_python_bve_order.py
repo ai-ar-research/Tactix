@@ -238,6 +238,28 @@ if library:
         assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), result
         checked += 1
 
+if library:
+    # The unconditional service keeps an owned order usable across its own
+    # epoch change, including a vacuous fixpoint (the apply guard would refuse).
+    reached=[]
+    def propagation_policy(view, restored):
+        assert not restored
+        assert view.c.tactix_support(capi.TACTIX_SUPPORT_ROOT_PREPARATION,0)==0
+        assert view.c.tactix_support(capi.TACTIX_SUPPORT_ENTER_INPROCESS_PHASE,capi.TACTIX_PHASE_ELIMINATE)==0
+        assert view.c.tactix_support(capi.TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION,0)==0
+        with BveOrder(view,()) as order:
+            assert order.propagate()==0 and order.pop() is None
+            reached.append(True)
+        assert view.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE,0)==0
+        return ScriptedCDCL()(view,restored)
+    clauses=([1,2],[-1,3])
+    with Session(library,strategy=propagation_policy) as session:
+        for clause in clauses:session.add(clause)
+        result=session.solve()
+        assert result.status==10 and reached
+        assert all(any(literal in result.model for literal in clause) for clause in clauses)
+    models+=1
+
 print(f'BVE ordering: {checked} checked refutations/negatives, {models} original models; '
       + ('native/C/Python' if library else 'native/C')
       + ' trajectories and same-format proof bytes agree')

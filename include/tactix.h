@@ -1812,8 +1812,10 @@ typedef struct {
 #define TACTIX_AFFINE_MATRIX_PROFILE_LEGACY 0
 #define TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1 1
 #define TACTIX_AFFINE_MATRIX_AUTHENTICATED_SUBIMAGE 1
-/* The startup root closure's non-persistent session over the complete live
- * formula: INITIALIZE or SEARCH_STEP with zero persistence limits. */
+/* Non-persistent complete-live-formula admission with zero persistence limits.
+ * INITIALIZE needs no proof owner or cleared model cache. SEARCH_STEP also
+ * serves a legacy session with matching basis/limits, without the persistent
+ * profiles' proof-owner or reconstructed-model restrictions. */
 #define TACTIX_AFFINE_MATRIX_COMPLETE_SNAPSHOT 2
 #define TACTIX_AFFINE_MATRIX_INITIALIZE 1
 #define TACTIX_AFFINE_MATRIX_REFRESH 2
@@ -2037,7 +2039,9 @@ int tactix_restart_reuse_level(tactix *, int next_literal, uint32_t floor,
  * (SubsumeForward visits, Strengthen steps). Install sets the fields named in
  * `fields` (TACTIX_WORK_*) and leaves the rest; read fills every field and
  * sets `fields` to all. Neither changes formula, assignment or guidance state.
- * Returns 0, or -1 for a null argument or an unknown field bit. */
+ * This is a scoped pose and preserves selection versions; the legacy
+ * tactix_set_work_budget setter is an external configuration change and
+ * invalidates selections. Returns 0, or -1 for null/unknown field bits. */
 #define TACTIX_WORK_BUDGET 1u
 #define TACTIX_WORK_OFFSET 2u
 #define TACTIX_WORK_BOUNDED 4u
@@ -2128,7 +2132,8 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  *   CLOSE_STARTUP_CERTIFICATE  end the original-input certificate window.
  *   PREPARATION_RESTART        argument = keep level: backtrack without
  *                              consuming a scheduled-restart occasion, and
- *                              retire a recorded conflict that no longer holds.
+ *                              retire a recorded conflict that no longer holds
+ *                              and discard the reconstructed-model cache.
  *   ROOT_PREPARATION           ROOT_PREPARATION_* flags: optional target-phase
  *                              capture, preparation restart to level zero, root
  *                              Propagate (in the probing context if PROBING),

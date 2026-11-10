@@ -138,9 +138,13 @@ with Session(strategy=policy) as solver:
 Configuration writes persistent session options; switching policies does not
 restore overwritten options. Python counters are on the policy object and reset
 on fresh query entry; native strategy counters accumulate separately.
-Its preprocessing decisions run in Python; `Session(strategy='cruxmiter')`
+CRUX preprocessing decisions run in Python; `Session(strategy='cruxmiter')`
 selects the C implementation. `Session(strategy='chvatal')` selects the C
 Chvátal controller. Both explicitly hand off to native default search.
+
+`Solver(library)` owns a plain eager C session. `proof(path)` and
+`read_dimacs(path)` use native services; `model` requires closed input and a SAT
+result. Use `Session` for persistent incremental queries.
 
 ## Qualification and maintenance
 

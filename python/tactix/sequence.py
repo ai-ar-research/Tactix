@@ -19,6 +19,8 @@ def _version(state):
 class OnlineSequence:
     """Python sequence policy with native atomic actions and owned payloads.
 
+    This independent Python reference follows BasicOnlineStrategySequence
+    (src/strategy/online_sequence.hpp); update both with the parity tests.
     Supports C program versions 1..17. Configuration copies the request into
     native continuations; input arrays can then be changed or released. Python
     owns admission, exhaustion/retry, round repetition and progress accounting.

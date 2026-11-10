@@ -55,6 +55,9 @@
 
 using namespace tactix;
 
+static_assert(TACTIX_SEQUENCE_BUDGET_STOP == static_cast<int>(strategy::BudgetExhaustionPolicy::Stop));
+static_assert(TACTIX_SEQUENCE_BUDGET_CONTINUE == static_cast<int>(strategy::BudgetExhaustionPolicy::Continue));
+static_assert(TACTIX_SEQUENCE_BUDGET_FINISH_ROUND == static_cast<int>(strategy::BudgetExhaustionPolicy::FinishRoundThenStop));
 static_assert(TACTIX_RULE_RESULT_NO_OP == static_cast<int>(ApplyResult::NoOp));
 static_assert(TACTIX_BUDGET_STATUS_EXHAUSTED == static_cast<int>(strategy::BudgetStatus::Exhausted));
 
@@ -3397,7 +3400,7 @@ int tactix_propagate(tactix_solver *s) {
   if (!s) return -1;
   input_complete(s);
   Kernel &k = s->kernel;
-  if (k.conflict_valid || (k.cold_state_deferred && k.level)) return -1;
+  if (k.conflict_valid) return -1;
   if (k.inconsistent) return tactix_status(s);
   execution::execute_action(k, execution::CloseStartupCertificateRequest{});
   const ApplyResult result = propagate_publishing_roots(s);

@@ -4,6 +4,7 @@ import ctypes as C
 import gc
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -32,19 +33,17 @@ def request(execution, kind):
     cubes = (capi.tactix_online_sr_instance*count)(
         *(capi.tactix_online_sr_instance(clause,1,None,0,None,0) for _ in range(count)))
     steps[0].sr_instances, steps[0].sr_instance_count = cubes, count
-    if kind=='pool':
+    if kind in ('pool','pool-free'):
         p.granularity=capi.TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS
         steps[0].sr_instance_count=0;steps[0].sr_instances=None
         p.parameters.kind=capi.TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY
-        p.parameters.value.substitution_redundancy=capi.tactix_online_sr_parameters(
-            producer=capi.TACTIX_ONLINE_SR_GRAPH_SYMMETRY,
-            maximum_detection_ticks=100000,maximum_validation_ticks=1024,
-            maximum_graph_vertices=1024,maximum_graph_edges=4096,
-            maximum_symmetry_generators=32,symmetry_backend_search_budget=10000,
-            symmetry_backend_support_budget=100000,symmetry_backend_component_size_limit=1024,
-            maximum_symmetry_fixing_instances=64,maximum_symmetry_generator_instances_per_pass=64,
-            maximum_symmetry_group_ticks=100000,
-            symmetry_fixing_mode=capi.TACTIX_ONLINE_SYMMETRY_STABILIZER_THEN_GENERATORS)
+        fields={}
+        for line in (root/'tests/sequence_graph_profile.inc').read_text().splitlines():
+            if line.startswith('//'):continue
+            match=re.fullmatch(r'SR_FIELD\([\w.]+, (\w+), (\d+)\)(?: //.*)?',line)
+            assert match,line
+            fields[match[1]]=int(match[2])
+        p.parameters.value.substitution_redundancy=capi.tactix_online_sr_parameters(**fields)
     cleanup.granularity = capi.TACTIX_ONLINE_GRANULARITY_CANONICAL
     cleanup.parameters.kind = capi.TACTIX_ONLINE_PARAMETERS_REDUCE
     # Explicit semantic fixture, not a second copy of DefaultPolicy settings.
@@ -63,6 +62,7 @@ def request(execution, kind):
         mode,limit=capi.TACTIX_ONLINE_REPEAT_COUNT,3
         options['on_budget_exhaustion']={'stop':capi.TACTIX_SEQUENCE_BUDGET_STOP,
             'finish':capi.TACTIX_SEQUENCE_BUDGET_FINISH_ROUND}.get(kind,capi.TACTIX_SEQUENCE_BUDGET_CONTINUE)
+    if kind=='scaled':mode,limit=capi.TACTIX_ONLINE_REPEAT_SIZE_SCALED_FIXPOINT,3
     if kind=='retain':
         p.budget_unlimited,p.budget=0,1
         mode,limit=capi.TACTIX_ONLINE_REPEAT_COUNT,2
@@ -110,6 +110,7 @@ def python_run(kind, cnf, proof, fmt, finish):
             program,options=request(execution,kind)
             pool=(capi.tactix_online_discovery_budget(limit=0,ticks_per_generator=1024,hard_limit=20000000)
                   if kind=='pool' else None)
+            first_step=program.steps[0].base.step_id
             with OnlineSequence(execution,program,revision=7,**options) as sequence:
                 # Every payload is now owned; modifying the source cannot alter
                 # a later rearmed round. Retain case explicitly reconfigures.
@@ -117,12 +118,22 @@ def python_run(kind, cnf, proof, fmt, finish):
                     program.steps[0].base.rule_id=-1
                     program.repeat_mode=999
                     del program;gc.collect()
-                call=0
+                call=0;blocked_step=None;resumed=feedback_raised=False
+                initial_sr=strategy_state(execution).sr_applied
                 while not sequence.complete:
                     assert call<2000
+                    limit_before=pool.limit if pool is not None else 0
                     result=sequence.advance(pool);trace.append(row(result,sequence,pool))
+                    if pool is not None:
+                        feedback_raised|=pool.limit>limit_before
+                        resumed|=blocked_step is not None and result.base.step_id==blocked_step
+                        if result.discovery_entry_required:
+                            assert result.base.status==capi.TACTIX_ONLINE_BUDGET_EXHAUSTED and pool.consumed>=limit_before
+                            assert result.base.step_id in (0,first_step)
+                            blocked_step=first_step
+                    elif kind=='pool-free':assert not result.discovery_entry_required
                     if pool is not None and (result.discovery_progress_units or result.discovery_entry_required):
-                        pool.limit=max(pool.limit,pool.consumed)+1024
+                        pool.limit=max(pool.limit,pool.consumed)+8192
                     if result.base.status in (capi.TACTIX_ONLINE_SAT,capi.TACTIX_ONLINE_UNSAT):
                         verdict=10 if result.base.status==capi.TACTIX_ONLINE_SAT else 20
                         break
@@ -136,7 +147,8 @@ def python_run(kind, cnf, proof, fmt, finish):
                         capi.TACTIX_ONLINE_SCOPED_FIXPOINT,capi.TACTIX_ONLINE_BUDGET_EXHAUSTED)
                     call+=1
             if kind=='pool':
-                assert pool.consumed>0 and any(int(item.split()[20]) for item in trace)
+                assert blocked_step is not None and resumed and feedback_raised and pool.consumed>0
+                assert strategy_state(execution).sr_applied>initial_sr
             for context in (capi.TACTIX_CONTEXT_INPROCESSING,capi.TACTIX_CONTEXT_STARTUP):
                 assert execution.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_CONTEXT,0)>=0
         prefix=verdict
@@ -157,8 +169,8 @@ def graph(n):
 
 normal=[[-1,2,3],[1,2],[1,-2]]
 unsat=[[1,2],[1,-2],[-1,2],[-1,-2]]
-cases=[(kind,normal) for kind in ('manual','before','batch','continue','stop','finish','retain','external')]
-cases += [('manual',normal+[[1]]),('manual',unsat),('pool',graph(4))]
+cases=[(kind,normal) for kind in ('manual','before','batch','continue','stop','finish','retain','external','scaled')]
+cases += [('manual',normal+[[1]]),('manual',unsat),('pool',graph(4)),('pool-free',graph(4))]
 if str(library)!='-':
     for version in range(1,18):
         with Solver(library) as execution:
@@ -222,6 +234,7 @@ if str(library)!='-':
             sequence.configure(empty)
             assert sequence.advance().base.status==capi.TACTIX_ONLINE_COMPLETED and sequence.complete
 comparisons=models=proofs=advances=0
+pool_controls={}
 with tempfile.TemporaryDirectory(prefix='python-sequence-') as raw:
     directory=Path(raw)
     for case,(kind,formula) in enumerate(cases):
@@ -242,6 +255,8 @@ with tempfile.TemporaryDirectory(prefix='python-sequence-') as raw:
                         print('Native proof setup:',label,'versions',expected[0].split()[13:16],flush=True)
                     if trajectory is None: trajectory=current
                     else: assert current==trajectory,(kind,label,'proof mode changes sequence')
+                if kind in ('pool','pool-free'):
+                    pool_controls[kind,label,finish]=expected
                 artifacts=[(native_proof,verdict)]
                 if str(library)!='-':
                     actual,actual_prefix,answer,model=python_run(kind,cnf,python_proof,fmt,finish)
@@ -352,3 +367,7 @@ if str(library)!='-':
         assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),checked
     print('Real query sequence:',rejections,'rejections; no-poll boundaries; cancellation result',cancel_results,
           'UNKNOWN and proof-checked retry pass')
+
+for label in ("none","auto","pbp"):
+    for finish in (0,1):
+        assert pool_controls["pool",label,finish]!=pool_controls["pool-free",label,finish]
