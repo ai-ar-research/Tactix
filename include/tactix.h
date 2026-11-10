@@ -996,8 +996,7 @@ typedef struct {
   uint32_t occurrence_limit;
   /* Canonical batches only: omit blocking literals whose reconstruction can
    * contradict the active assumption cube. Zero preserves the full domain.
-   * Explicit literal and semantic requests retain every legal BCE action.
-   * Installed profiles persist until replaced, including strategy changes. */
+   * Explicit literal and semantic requests retain every legal BCE action. */
   int preserve_query;
 } tactix_online_bce_parameters;
 typedef struct {
@@ -2006,14 +2005,19 @@ int tactix_online_executor_advance(tactix *, tactix_online_executor *,
 uint64_t tactix_online_executor_consumed(const tactix_online_executor *, uint64_t step_id);
 int tactix_online_executor_complete(const tactix_online_executor *);
 
-/* Permanent rule-profile installation (additive). Online-step parameters are
- * scoped to their step; these calls install a profile that later
- * applications, online steps with INHERIT parameters and tactix_solve read.
+/* Rule-profile installation into the current execution state. Online-step
+ * parameters are scoped to their step; later applications and online steps
+ * with INHERIT parameters use the installed profile until it is replaced.
+ * tactix_solve may install and leave behind DefaultPolicy's own profiles.
+ * IPASIR begin/repair and ENTER_QUERY/ENTER_RESTORED can expose a replaced
+ * execution state with library defaults. Install required profiles on each
+ * borrowed view before use; these profiles are not session-owned state.
  * tactix_install_parameters converts `parameters` exactly as an online step
  * does and requires the same rule/family match and value validity (Lucky
  * profiles name rule Lucky); instance restrictions belong to applications.
- * A Walk profile is its scoring guidance (even-break base and score curve):
- * step_budget, random_seed and seed_candidate must be zero. Installation
+ * A Walk profile installs only its even-break base and score curve.
+ * step_budget, random_seed, seed_candidate and preparation_budget must be zero;
+ * other fields must equal library defaults (zero selects them). Installation
  * changes no formula, assignment or guidance state, finalizes no input and is
  * legal at any decision level. Returns 0, or -1 (nothing changes) for an
  * unknown rule, a mismatched or invalid profile, or a family without a
@@ -2065,8 +2069,8 @@ int tactix_read_work_settings(tactix *, tactix_work_settings *);
  * other statistic. */
 #define TACTIX_TICK_ATTRIBUTION_NONE (-1)
 int tactix_install_tick_attribution(tactix *, int stat);
-/* The AffineMatrixInitialize profile (admission, operation and persistence
- * limits) installed permanently, as an online v16 step carries it; the next
+/* The AffineMatrixInitialize profile has tactix_install_parameters' lifetime.
+ * Its admission, operation and persistence limits match an online v16 step; the next
  * canonical AffineMatrixInitialize application runs that operation. Returns 0,
  * or -1 for an invalid profile. */
 int tactix_install_affine_matrix_profile(

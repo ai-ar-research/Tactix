@@ -122,6 +122,7 @@ void kernel_materialize_cold_state(Kernel &k) {
   // round; later events and watermarks are recorded normally. Parsing and
   // early Lucky do not remove clauses or create kept-band touches.
   assert(!k.subsume_touch_mark && !k.strengthen_touch_mark &&
+         !k.root_occurrence_head &&
          !k.bce_touch_mark && !k.bce_query_touch_mark &&
          k.bce_query_cube.empty() && !k.ternary_touch_mark &&
          !k.instantiate_touch_mark && !k.cce_touch_mark);
@@ -1157,6 +1158,8 @@ static void kernel_unwind_speculation_impl(Kernel &k, uint32_t position) {
   // suffix, or landing at level zero would strand one of its literals.
   assert(!k.level || k.frames[1] >= position);
   if (k.trail.size() > position) kernel_affine_note_trail_retraction(k);
+  const bool observed_roots_retracted = position < k.root_occurrence_head ||
+                                       (!position && k.fixed_external_count);
   while (k.trail.size() > position) {
     const Lit lit = k.trail.back();
     k.trail.pop_back();
@@ -1166,6 +1169,13 @@ static void kernel_unwind_speculation_impl(Kernel &k, uint32_t position) {
     // retaining this id would suppress that derivation. The old proof line
     // itself stays live.
     k.unit_ids[var_of(lit)] = 0;
+  }
+  k.touch_fixed_head = std::min(k.touch_fixed_head, position);
+  k.root_occurrence_head = std::min(k.root_occurrence_head, position);
+  if (observed_roots_retracted) {
+    k.bce_touch_mark = k.bce_query_touch_mark = k.cce_touch_mark = 0;
+    k.bce_rejected_occ_limit = 0;
+    k.cce_rejected_budget = UINT64_MAX;
   }
   k.frames.resize(1);
   k.level = 0;
@@ -1267,13 +1277,15 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   // This is one semantic rewrite, not a deletion of every old literal followed
   // by an unrelated addition.  Kissat arms elimination only for literals that
   // actually disappear from the clause.
-  if (semantic_irredundant) {
+  {
     auto in_new = lit_membership(lits, lits + size);
     for (const Lit old : *c)
       if (!in_new(old)) {
-        kernel_mark_bve_retry(k, var_of(old));
+        if (semantic_irredundant)
+          kernel_mark_bve_retry(k, var_of(old));
         kernel_removed_var(k, var_of(old));
-        kernel_notify_bve_score(k, var_of(old), true);
+        if (semantic_irredundant)
+          kernel_notify_bve_score(k, var_of(old), true);
       }
   }
   kernel_delete_clause(k, c, false); // before any arena-mutating add below
@@ -1377,14 +1389,16 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
     if (!retain || old_second != retained_watch)
       kernel_unwatch_large(k, old_second, ref);
   }
-  if (!redundant && !retain)
+  if (!retain)
     for (uint32_t i = 0; i < old_size; ++i) {
       const Lit old = c->lits[i];
       if (in_new(old))
         continue;
-      kernel_mark_bve_retry(k, var_of(old));
+      if (!redundant)
+        kernel_mark_bve_retry(k, var_of(old));
       kernel_removed_var(k, var_of(old));
-      kernel_notify_bve_score(k, var_of(old), true);
+      if (!redundant)
+        kernel_notify_bve_score(k, var_of(old), true);
     }
   kernel_delete_clause(k, c, false);
   if (old_position_alias)
@@ -1488,6 +1502,10 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
         }
       assert(reason_var == INVALID_VAR || k.assigned[reason_var].level == 0);
 #endif
+      // Even storage-only root flushing removes an opposite occurrence from
+      // BCE/CCE. Keep their advice independent of BVE's material bookkeeping.
+      if (!mark_satisfied_removal)
+        for (Lit member : *c) kernel_removed_var(k, var_of(member));
       kernel_delete_clause(k, c, mark_satisfied_removal);
       k.stats.flushed++;
       if (changed)
@@ -1536,6 +1554,9 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
       clamp_glue ? kernel_shrunken_glue(k, c->glue(),
                                         static_cast<uint32_t>(kept.size()))
                  : c->glue();
+  // Stripping false roots can turn an ineligible source into an open victim.
+  if (!redundant)
+    for (Lit literal : kept) kernel_removed_var(k, var_of(literal));
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (kept.size() == 2) {
     const uint64_t original_id = c->id();
@@ -3788,6 +3809,7 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   }
 
   const uint32_t old_touch_head = k.touch_fixed_head;
+  const uint32_t old_occurrence_head = k.root_occurrence_head;
   // The input activation seed can outlive parsing until a policy attaches H.
   // It names current internal identities, so remap it even when no H exists
   // yet. Otherwise a pre-attach extension/compaction makes the later seed
@@ -3844,6 +3866,7 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   }
 
   k.touch_fixed_head = trail_prefix[old_touch_head];
+  k.root_occurrence_head = trail_prefix[old_occurrence_head];
   k.seen.assign(new_nvars, 0);
   k.eager_marks.assign(2 * new_nvars, 0);
   k.marked_levels.assign(new_nvars + 1, 0);

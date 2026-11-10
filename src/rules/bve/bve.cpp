@@ -1798,6 +1798,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch &def) {
       }
     }
     kernel_delete_clause(k, clause, false, "bve-otf-strengthen");
+    kernel_removed_var(k, var_of(pivot));
     for (const Lit l : *clause) {
       if (l == pivot || k.value(l) != 0)
         continue;

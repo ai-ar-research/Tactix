@@ -899,6 +899,8 @@ struct Kernel {
   std::vector<uint64_t> removed; // by var
   std::vector<uint64_t> touched_kept; // by var
   uint32_t touch_fixed_head = 0;
+  // Root prefix whose satisfied opposite occurrences BCE/CCE have marked.
+  uint32_t root_occurrence_head = 0;
   // Kissat keeps newly derived root units in an `unflushed` trail prefix.
   // Some macro rules (notably Reduce and Rephase) use its non-emptiness as a
   // control guard for a root unwind/flush.  Tactix retains root literals in
@@ -908,12 +910,17 @@ struct Kernel {
   uint64_t subsume_touch_mark = 0;
   uint64_t strengthen_touch_mark = 0;
   uint64_t bce_touch_mark = 0;
+  // Smallest finite ceiling that actually declined canonical work. Profiles
+  // are scoped; invalidate refusals when a later application relaxes it.
+  uint32_t bce_rejected_occ_limit = 0;
   // A query-compatible batch covers only its cube's selected literal domain.
   std::vector<int32_t> bce_query_cube;
   uint64_t bce_query_touch_mark = 0;
   uint64_t ternary_touch_mark = 0;
   uint64_t instantiate_touch_mark = 0;
   uint64_t cce_touch_mark = 0;
+  // No finite budget can exceed UINT64_MAX, so it denotes no refused cover.
+  uint64_t cce_rejected_budget = UINT64_MAX;
   bool subsume_complete = true;
   bool strengthen_complete = true;
   bool touch_filter = true;
@@ -1835,11 +1842,13 @@ inline void kernel_delete_clause_impl(Kernel &k, Clause *c,
   kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
                                SolverClauseKind::Large, c->id(), c->lits,
                                c->size, 1, c->redundant());
-  if (semantic_removal && !c->redundant())
+  if (semantic_removal)
     for (const Lit l : *c) {
-      kernel_mark_bve_retry(k, var_of(l), retry_source, c);
-      kernel_removed_var(k, var_of(l)); // BCE's side of the substrate
-      kernel_notify_bve_score(k, var_of(l), true);
+      if (!c->redundant())
+        kernel_mark_bve_retry(k, var_of(l), retry_source, c);
+      kernel_removed_var(k, var_of(l)); // both rules quantify over learned clauses
+      if (!c->redundant())
+        kernel_notify_bve_score(k, var_of(l), true);
     }
 }
 

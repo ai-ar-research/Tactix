@@ -505,11 +505,12 @@ NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
               # Sweep's resumable-pass latch is written and cleared by the
               # rule's completion state machine, never configured by policy.
               "sweep_incomplete",
-              "touch_epoch", "touch_fixed_head",
+              "touch_epoch", "touch_fixed_head", "root_occurrence_head",
               "subsume_touch_mark", "strengthen_touch_mark",
-              "bce_touch_mark", "bce_query_touch_mark", "ternary_touch_mark",
+              "bce_touch_mark", "bce_query_touch_mark", "bce_rejected_occ_limit",
+              "ternary_touch_mark",
               "instantiate_touch_mark",
-              "cce_touch_mark",
+              "cce_touch_mark", "cce_rejected_budget",
               # rule outputs, read by the policy, never configured
               "subsume_complete", "strengthen_complete"}
 

@@ -606,21 +606,22 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   // dropped root-false tail literals are not marked, and the large path does
   // not semantically delete the reason.  Binary OTFS does delete the old
   // reason, handled below after publishing the new binary.
-  if (reason_irredundant) {
+  if (reason_irredundant)
     kernel_mark_bve_retry(k, var_of(t));
-    kernel_removed_var(k, var_of(t));
+  kernel_removed_var(k, var_of(t));
+  if (reason_irredundant)
     kernel_notify_bve_score(k, var_of(t), true);
-  }
 
   if (binary) {
     kernel_add_binary_clause(k, lits[0], lits[1], id);
-    if (reason_irredundant)
-      for (const Lit old : *reason)
-        if (old != t) {
+    for (const Lit old : *reason)
+      if (old != t) {
+        if (reason_irredundant)
           kernel_mark_bve_retry(k, var_of(old));
-          kernel_removed_var(k, var_of(old));
+        kernel_removed_var(k, var_of(old));
+        if (reason_irredundant)
           kernel_notify_bve_score(k, var_of(old), true);
-        }
+      }
     k.conflict_ref = INVALID_REF;
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];
