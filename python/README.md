@@ -110,7 +110,7 @@ release it with `close()`. It supplies scheduling arithmetic. `default_solve()`
 is an explicit native handoff.
 
 `BveOrder(execution, candidates)` wraps the same C candidate heap. Use `pop()`,
-`apply(rule, instance)` and `flush_units(begin)` to schedule explicit operations;
+`apply(rule, instance)`, `propagate()` and `flush_units(begin)` for explicit operations;
 `order.candidate(instance)` supplies the matching observations.
 The order expires after other execution mutations or phase/view expiry. Release
 it with `close()`, including after expiry or from a learned-clause callback.

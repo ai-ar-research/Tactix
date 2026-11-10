@@ -2971,6 +2971,24 @@ int tactix_bve_order_apply(tactix_solver *s,tactix_bve_order *o,int rule_id,uint
   o->epoch=s->kernel.strategy_epoch;return result;
 }
 
+int tactix_bve_order_propagate(tactix_solver *s,tactix_bve_order *o) {
+  if(!o||!o->valid(s))return -1;
+  auto &k=s->kernel;
+  if(k.level||k.inconsistent||k.conflict_valid||k.pending.valid||k.probing.recording||
+      (k.affine_matrix_search_session&&k.affine_matrix_search_session->has_deferred_reason()))
+    return -1;
+  tactix_bve_order::Operation operation(*o);
+  int result;
+  {
+    tactix_bve_order::Connection connected(*o);
+    const auto propagated=apply_published(s,[&] {return propagate_service(k);});
+    external_state_change(s);
+    kernel_check_invariants(k);
+    result=result_code(s,propagated);
+  }
+  o->epoch=k.strategy_epoch;return result;
+}
+
 int tactix_bve_order_flush_units(tactix_solver *s,tactix_bve_order *o,uint32_t trail_from) {
   if(!o||!o->valid(s))return -1;
   auto &k=s->kernel;

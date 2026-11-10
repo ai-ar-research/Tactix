@@ -286,6 +286,12 @@ class BveOrder:
         if code < 0: raise RuntimeError('BVE ordering or selected operation is invalid')
         return code
 
+    def propagate(self):
+        """Select native root propagation, including fixpoint bookkeeping."""
+        code = self._view().tactix_bve_order_propagate(self._handle)
+        if code < 0: raise RuntimeError('BVE ordering or propagation state is invalid')
+        return code
+
     def flush_units(self, propagation_begin):
         if not isinstance(propagation_begin, int) or not 0 <= propagation_begin <= 2**32-1:
             raise ValueError('propagation boundary must be uint32')

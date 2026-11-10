@@ -2288,6 +2288,12 @@ void tactix_bve_order_release(tactix_bve_order *);
 int tactix_bve_order_next(tactix *, tactix_bve_order *, uint64_t *instance, uint32_t *propagation_begin);
 int tactix_bve_order_apply(tactix *, tactix_bve_order *, int rule_id, uint64_t instance);
 int tactix_bve_order_flush_units(tactix *, tactix_bve_order *, uint32_t trail_from);
+/* Explicit native root-propagation boundary, retaining this heap. Unlike the
+ * registered Propagate rule, a complete fixpoint is accepted and consumes the
+ * unflushed-root bookkeeping prefix. Requires a consistent, conflict/debt-free
+ * root. Returns 0/20 through the ordinary query-aware result protocol, or -1
+ * for invalid/stale state. It does not select a BVE candidate or flush units. */
+int tactix_bve_order_propagate(tactix *, tactix_bve_order *);
 
 /* BVE scheduling observations, not restrictions on explicit rules. The first
  * read completes original input as other rule observations do; later reads

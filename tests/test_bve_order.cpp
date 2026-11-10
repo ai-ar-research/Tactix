@@ -242,6 +242,23 @@ static void physical_reinsertion_and_first_closure() {
   assert(!k.startup_certificate_open);tactix_release(s);
 }
 
+static void propagation_boundary() {
+  auto *s=create({{1},{1,2},{2,3}});
+  auto &k=tactix::api_detail::kernel_for_fixed_testing(s);
+  assert(tactix::kernel_propagation_fixpoint(k));
+  k.unflushed_root=1; // a preceding batch may finish its own propagation
+  const uint64_t selected[]{2};
+  auto *a=tactix_bve_order_create(s,selected,1),*b=tactix_bve_order_create(s,selected,1);
+  assert(a&&b);
+  assert(tactix_apply(s,rule("Propagate"))==-1&&k.unflushed_root==1);
+  assert(!tactix_bve_order_propagate(s,a)&&!k.unflushed_root);
+  assert(!k.bve_score_update_hook&&!k.bve_occurrence_count_image);
+  uint64_t instance=1234;uint32_t begin=5678;
+  assert(tactix_bve_order_next(s,b,&instance,&begin)==-1&&instance==1234&&begin==5678);
+  assert(tactix_bve_order_next(s,a,&instance,&begin)==1&&instance==2);
+  tactix_bve_order_release(a);tactix_bve_order_release(b);tactix_release(s);
+}
+
 static void stable_order_oracle() {
   auto *s=create({{1,2},{-1,-2}});
   assert(!tactix_apply(s,rule("SwitchMode")));
@@ -268,42 +285,55 @@ struct Closing {
   tactix_bve_order *order=nullptr,*detached=nullptr;
   tactix_c_handle *view=nullptr;
   unsigned releases=0;
+  bool propagation=false;
 };
-static void close_from_learn(void *opaque,int *) {
+static void close_from_learn(void *opaque,int *clause) {
   auto &state=*static_cast<Closing *>(opaque);
-  if(!state.order)return;
+  if(!state.order||(state.propagation&&(clause[0]!=3||clause[1])))return;
   auto *order=state.order;state.order=nullptr;++state.releases;
   tactix_bve_order_release(order);
 }
 static int closing_client(void *opaque,void *,tactix_c_handle *view,unsigned) {
   auto &state=*static_cast<Closing *>(opaque);
-  profile(view,4);
+  profile(view,state.propagation?3:4);
   assert(!tactix_set_guidance_publication(view,TACTIX_GUIDANCE_NATIVE));
   assert(!tactix_support(view,TACTIX_SUPPORT_ROOT_PREPARATION,0));
   assert(!tactix_support(view,TACTIX_SUPPORT_ENTER_INPROCESS_PHASE,TACTIX_PHASE_ELIMINATE));
   assert(!tactix_support(view,TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION,0));
-  const uint64_t candidates[]{1,2};
+  const uint64_t candidates[]{state.propagation?2u:1u,2};
+  const unsigned count=state.propagation?1:2;
   state.view=view;
-  state.detached=tactix_bve_order_create(view,candidates,2);assert(state.detached);
-  state.order=tactix_bve_order_create(view,candidates,2);assert(state.order);
+  state.detached=tactix_bve_order_create(view,candidates,count);assert(state.detached);
+  state.order=tactix_bve_order_create(view,candidates,count);assert(state.order);
   uint64_t candidate=0;uint32_t begin=0;
   assert(tactix_bve_order_next(view,state.order,&candidate,&begin)==1);
   const int result=tactix_bve_order_apply(view,state.order,rule("BVE"),candidate);
-  assert(result==20&&state.releases==1&&!state.order);
-  assert(tactix_support(view,TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE,0)==20);
-  return 20;
+  if(state.propagation) {
+    assert(result==0&&!state.releases&&state.order);
+    assert(tactix_bve_order_propagate(view,state.order)==0);
+  } else assert(result==20);
+  assert(state.releases==1&&!state.order);
+  assert(tactix_support(view,TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE,0)==(state.propagation?0:20));
+  return state.propagation?tactix_status(view):20;
 }
 static void callback_release() {
-  void *session=ipasir_init();assert(session);
-  for(const auto &c:formulas[1]) {for(int l:c)ipasir_add(session,l);ipasir_add(session,0);}
-  Closing state;
-  ipasir_set_learn(session,&state,2,close_from_learn);
-  assert(!tactix_ipasir_set_strategy(session,&state,closing_client));
-  assert(ipasir_solve(session)==20&&state.releases==1);
-  ipasir_release(session);
-  uint64_t instance=1234;uint32_t begin=5678;
-  assert(tactix_bve_order_next(state.view,state.detached,&instance,&begin)==-1);
-  assert(instance==1234&&begin==5678);tactix_bve_order_release(state.detached);
+  for(bool propagation:{false,true}) {
+    const Formula input=propagation?Formula{{1,2},{1,-2},{-1,3}}:formulas[1];
+    void *session=ipasir_init();assert(session);
+    for(const auto &c:input) {for(int l:c)ipasir_add(session,l);ipasir_add(session,0);}
+    Closing state;state.propagation=propagation;
+    ipasir_set_learn(session,&state,2,close_from_learn);
+    assert(!tactix_ipasir_set_strategy(session,&state,closing_client));
+    assert(ipasir_solve(session)==(propagation?10:20)&&state.releases==1);
+    if(propagation)for(const auto &clause:input) {
+      bool satisfied=false;for(int l:clause)satisfied|=ipasir_val(session,std::abs(l))==l;
+      assert(satisfied);
+    }
+    ipasir_release(session);
+    uint64_t instance=1234;uint32_t begin=5678;
+    assert(tactix_bve_order_next(state.view,state.detached,&instance,&begin)==-1);
+    assert(instance==1234&&begin==5678);tactix_bve_order_release(state.detached);
+  }
 }
 
 int main(int argc,char **argv) {
@@ -312,6 +342,6 @@ int main(int argc,char **argv) {
         std::string(argv[2])=="pbp"?TACTIX_PROOF_PBP:0;
     std::fputs(run(argv[1],format,std::string(argv[3])=="native").c_str(),stdout);return 0;
   }
-  assert(argc==1);lifetime_and_invalidation();physical_reinsertion_and_first_closure();stable_order_oracle();callback_release();
+  assert(argc==1);lifetime_and_invalidation();physical_reinsertion_and_first_closure();stable_order_oracle();propagation_boundary();callback_release();
   assert(run("",0,true)==run("",0,false));
 }

@@ -1,8 +1,9 @@
 """Python reference policies for C/Python scheduling equivalence tests."""
-from tactix import capi
+from tactix import BveOrder, capi
 import math
 import ctypes as C
 from dataclasses import dataclass
+from contextlib import contextmanager
 
 _U64 = (1 << 64) - 1
 
@@ -130,6 +131,130 @@ class NativeInprocessSchedule:
             return False
         return True
 
+    @contextmanager
+    def _work_budget(self, view, amount, *, midround=None):
+        saved = capi.tactix_work_settings()
+        if view.tactix_read_work_settings(C.byref(saved)) < 0:
+            raise RuntimeError('cannot read work settings')
+        fields = capi.TACTIX_WORK_BUDGET
+        if midround is not None: fields |= capi.TACTIX_WORK_MIDROUND
+        posed = capi.tactix_work_settings(fields=fields, budget=amount,
+                                          midround=bool(midround))
+        primary = None
+        try:
+            if view.tactix_install_work_settings(C.byref(posed)) < 0:
+                raise RuntimeError('cannot install work settings')
+            yield
+        except BaseException as error:
+            primary = error
+            self.unusable = True
+            raise
+        finally:
+            posed.budget, posed.midround = 0, saved.midround
+            def clear():
+                if view.tactix_install_work_settings(C.byref(posed)) < 0:
+                    raise RuntimeError('cannot clear batch work settings')
+            self._cleanup(clear, primary)
+
+    @staticmethod
+    def _root_refuted(view):
+        # BVE's declared guard is exactly consistency at level zero. This
+        # observes kernel state even when query termination masks its verdict.
+        if view.tactix_stat(capi.TACTIX_STAT_LEVEL) != 0: return False
+        count = view.tactix_rule_count()
+        choices = (C.c_int * count)()
+        size = view.tactix_rules_applicable(choices, count)
+        bve = next(i for i in range(count) if view.tactix_rule_name(i) == b'BVE')
+        return bve not in choices[:size]
+
+    def run_bve_slot(self, execution, slot, outer, parameters, *, bound,
+                     maximum_bound=False, stopped):
+        """Ordinary native dosed BVE; caller owns admission, limits and ramp.
+
+        The enclosing policy enables native guidance publication and supplies
+        the inherited profile; typed program-step overrides remain separate.
+        FastEl has a different gather/traversal and remains a separate entry.
+        This uses the public mutable heap but makes every scheduling decision
+        here, including eligibility before budget and retry after budget.
+        """
+        if self.unusable:
+            raise RuntimeError('failed phase; discard the schedule')
+        if (self.phase != ('Eliminate', False) or slot.rule != 'BVE' or
+                slot.group != 'Eliminate' or outer < 0 or not 0 <= slot.limit <= _U64 or
+                parameters.kind != capi.TACTIX_ONLINE_PARAMETERS_BVE or
+                not 0 <= bound <= (1 << 32)-1):
+            raise ValueError('invalid ordinary BVE entry')
+        view, rules = execution.c, execution._lib.rules
+        def applicable(name):
+            choices = (C.c_int * len(rules))()
+            count = view.tactix_rules_applicable(choices, len(choices))
+            return rules[name] in choices[:count]
+        meter = lambda: view.tactix_stat(capi.TACTIX_STAT_BVE_RESOLUTIONS)
+        outcome = PhaseOutcome(maximum_bound=maximum_bound)
+        def terminal(result):
+            if result == 20:
+                outcome.status = 20
+                return True
+            if self._root_refuted(view):
+                if not stopped(): raise RuntimeError('BVE refutation was not published')
+                outcome.status, outcome.interrupted = 20, True
+                return True
+            return False
+        if not applicable('BVE'):
+            slot.decline = 'guard'
+            return outcome
+        try:
+            if meter() <= slot.limit:  # equality admits a candidate
+                posed = capi.tactix_online_parameters.from_buffer_copy(parameters)
+                posed.value.bve.growth_bound = bound
+                if view.tactix_install_parameters(rules['BVE'], C.byref(posed)) < 0:
+                    raise ValueError('invalid BVE profile')
+                capacity = 1
+                while True:
+                    instances = (C.c_uint64 * capacity)()
+                    count = view.tactix_rule_instances(rules['BVE'], instances, capacity)
+                    if count < 0: raise RuntimeError('BVE enumeration failed')
+                    if count < capacity: break
+                    if capacity == (1 << 31)-1: raise OverflowError('too many BVE instances')
+                    capacity = min(2*capacity, (1 << 31)-1)
+                outcome.bve_ran = True
+                with BveOrder(execution, instances[:count]) as order:
+                    while (packet := order.pop()) is not None:
+                        instance, begin = packet
+                        flags = order.candidate(instance).flags
+                        skip = (capi.TACTIX_BVE_CANDIDATE_ASSIGNED | capi.TACTIX_BVE_CANDIDATE_RETIRED |
+                                capi.TACTIX_BVE_CANDIDATE_RETAINED | capi.TACTIX_BVE_CANDIDATE_AFFINE |
+                                capi.TACTIX_BVE_CANDIDATE_QUERY)
+                        if flags & skip: continue
+                        if meter() > slot.limit or not applicable('BVE'): break
+                        if not flags & capi.TACTIX_BVE_CANDIDATE_RETRY: continue
+                        if stopped():
+                            outcome.interrupted = True
+                            break
+                        def apply():
+                            if view.tactix_install_tick_attribution(capi.TACTIX_TICK_ATTRIBUTION_NONE) < 0:
+                                raise RuntimeError('cannot clear BVE tick attribution')
+                            return order.apply('BVE', instance)
+                        if slot.budget_aware:
+                            with self._work_budget(view, max(slot.limit-meter(), 1)):
+                                result = apply()
+                        else:
+                            result = apply()
+                        if terminal(result): break
+                        if result != 0: continue
+                        result = order.propagate()
+                        if terminal(result): break
+                        order.flush_units(begin)
+            if outer == 0: self.bve_rounds_run = (self.bve_rounds_run + 1) & ((1 << 32)-1)
+            if outcome.status != 20:
+                if view.tactix_support(capi.TACTIX_SUPPORT_COLLECT_GARBAGE, 0) < 0:
+                    raise RuntimeError('BVE round collection failed')
+                outcome.eliminate_limit_reached = meter() > slot.limit
+            return outcome
+        except BaseException:
+            self.unusable = True
+            raise
+
     def run_budgeted_batch(self, view, slot, meter, apply, *, complete=None):
         """Run an admitted, guarded batch; apply owns typed rule parameters.
 
@@ -148,30 +273,13 @@ class NativeInprocessSchedule:
         if before > slot.limit:
             slot.wrapped = (slot.wrapped + 1) & _U64
         handed = remaining if slot.rule == 'Substitute' else max(1, remaining)
-        saved = capi.tactix_work_settings()
-        if view.tactix_read_work_settings(C.byref(saved)) < 0:
-            raise RuntimeError('cannot read work settings')
-        fields = capi.TACTIX_WORK_BUDGET | capi.TACTIX_WORK_MIDROUND
-        posed = capi.tactix_work_settings(fields=fields, budget=handed,
-            midround=self.config['forward_midround_budget'] and
-                     slot.rule in ('SubsumeForward', 'Strengthen'))
-        primary = None
-        try:
-            if view.tactix_install_work_settings(C.byref(posed)) < 0:
-                raise RuntimeError('cannot install work settings')
+        midround = (self.config['forward_midround_budget'] and
+                    slot.rule in ('SubsumeForward', 'Strengthen'))
+        with self._work_budget(view, handed, midround=midround):
             result = apply(view)
             if result < 0:
+                self.unusable = True
                 raise RuntimeError('batch rule failed: ' + slot.rule)
-        except BaseException as error:
-            primary = error
-            self.unusable = True
-            raise
-        finally:
-            posed.budget, posed.midround = 0, saved.midround
-            def clear():
-                if view.tactix_install_work_settings(C.byref(posed)) < 0:
-                    raise RuntimeError('cannot clear batch work settings')
-            self._cleanup(clear, primary)
         spent = (meter(view) - before) & _U64
         slot.handed = (slot.handed + handed) & _U64
         slot.spent = (slot.spent + spent) & _U64
@@ -494,7 +602,7 @@ class NativeInprocessSchedule:
             raise
 
     def execute_pipeline(self, view, group, run_rounds, *, run_startup=None, factor_bound=0,
-                         initial_fast_elimination=False):
+                         initial_fast_elimination=False, stopped=None):
         """Execute the ordinary phase bracket through public C operations.
 
         run_rounds owns rule selection, budgets and BVE-bound progression and
@@ -559,19 +667,22 @@ class NativeInprocessSchedule:
             finally:
                 exit_status = cleanup('LEAVE_INPROCESS_PHASE', body_error)
             status = view.tactix_status()
+            if stopped is not None: outcome.interrupted |= bool(stopped())
+            self.last_phase_interrupted = outcome.interrupted
             if startup_status == 10:
+                if outcome.interrupted: return 0
                 if status != 10:
                     raise ValueError('startup SAT disagrees with solver')
                 return 10
             unsat = status == 20
-            self.last_phase_interrupted = outcome.interrupted
-            if not unsat and (outcome.status == 20 or exit_status == 20):
+            kernel_refuted = unsat or (outcome.interrupted and self._root_refuted(view))
+            if not unsat and not outcome.interrupted and (outcome.status == 20 or exit_status == 20):
                 raise ValueError('phase UNSAT disagrees with solver')
             self.leave_phase(self.observe(view), group, bve_ran=outcome.bve_ran,
                              maximum_bound=outcome.maximum_bound,
                              initial_fast_elimination=initial_fast_elimination,
-                             unsat=unsat, reschedule_bve=reschedule)
-            return 20 if unsat else 0
+                             unsat=kernel_refuted, reschedule_bve=reschedule)
+            return 20 if unsat and not outcome.interrupted else 0
         except BaseException as error:
             primary = error
             self.unusable = True

@@ -621,6 +621,7 @@ FUNCTIONS = {
     'tactix_bve_order_next': ('int', [('*', 'tactix'), ('*', 'tactix_bve_order'), ('*', 'uint64_t'), ('*', 'uint32_t')]),
     'tactix_bve_order_apply': ('int', [('*', 'tactix'), ('*', 'tactix_bve_order'), 'int', 'uint64_t']),
     'tactix_bve_order_flush_units': ('int', [('*', 'tactix'), ('*', 'tactix_bve_order'), 'uint32_t']),
+    'tactix_bve_order_propagate': ('int', [('*', 'tactix'), ('*', 'tactix_bve_order')]),
     'tactix_read_bve_candidate': ('int', [('*', 'tactix'), 'uint64_t', ('*', 'tactix_bve_candidate_state')]),
     'tactix_decide_candidates': ('int', [('*', 'tactix'), ('*', 'int'), 'int']),
     'tactix_decide': ('int', [('*', 'tactix'), 'int']),
