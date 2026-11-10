@@ -2,6 +2,7 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "tactix_ipasir.h"
 #include "api/api_internal.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/policy_completion.hpp"
@@ -30,7 +31,54 @@ static void telemetry(const char *label,
   std::cout<<label<<' '<<t.runs<<' '<<t.advances<<' '<<t.applications<<' '
       <<t.effective<<' '<<t.sequence_passes<<' '<<unsigned(t.terminal)<<'\n';
 }
+static int run_root(tactix_c_handle *s,const DefaultStrategyConfig::Inprocess &c) {
+  auto &k=api_detail::kernel_for_fixed_testing(s);
+  DefaultInprocessScheduler scheduler(&c);
+  Capture receiver;
+  execution::PolicyCompletion completion(k,&receiver,
+      [](const Kernel &kernel,const void *) {return strategy::controller::observe_kernel(kernel);},nullptr);
+  completion.begin();
+  tactix_strategy_state initial{};assert(!tactix_read_strategy_state(s,&initial));
+  std::cout<<"initial "<<initial.arena_generation<<' '<<initial.touch_epoch<<' '
+      <<initial.strategy_epoch<<'\n';
+  int result=scheduler.run_structured_root(k,nullptr,&completion);
+  const auto &t=scheduler.structured_root;
+  telemetry("total",t);
+  std::cout<<"discovery "<<t.sr_discovery_ticks<<' '<<t.sr_discovery_progress_window
+      <<' '<<t.sr_discovery_renewals<<' '<<t.sr_discovery_overflow<<'\n';
+  for(const auto &stage:t.stages)telemetry("stage",stage);
+  const auto &o=scheduler.structured_fastel_ownership();
+  std::cout<<"ownership "<<o.grew_root_trail<<' '<<o.external_begin<<' '
+      <<o.external_end<<' '<<o.symmetry_applied<<' '<<o.coupled_factor_ranges.size()<<'\n';
+  tactix_strategy_state state{};assert(!tactix_read_strategy_state(s,&state));
+  std::cout<<"state "<<state.arena_generation<<' '<<state.touch_epoch<<' '
+      <<state.strategy_epoch<<' '<<state.trail_size<<' '<<state.sr_applied<<' '
+      <<state.unique_literal_amo_binaries<<' '<<state.nonforcing_cuts_declined<<' '
+      <<state.post_amo_nonhelper_applied<<' '<<state.post_amo_graph_root_units<<'\n';
+  assert(!scheduler.run_structured_root(k,nullptr));
+  std::cout<<"result "<<result<<'\n';
+  return result;
+}
+static int query_root(void *,void *session,tactix_c_handle *s,unsigned cause) {
+  assert(cause==TACTIX_IPASIR_ENTER_QUERY);
+  assert(!tactix_set_guidance_publication(s,TACTIX_GUIDANCE_NATIVE));
+  auto &k=api_detail::kernel_for_fixed_testing(s);
+  auto config=DefaultPolicy::configured_strategy_config(k,true);assert(config);
+  assert(config->serialize()==tactix_default_definition(s));
+  assert(run_root(s,config->inprocess)==0);
+  tactix_execution_state state{};assert(!tactix_read_execution_state(s,&state));
+  std::cout<<"query "<<tactix_ipasir_rejected_models(session)<<' '
+      <<tactix_stat(s,TACTIX_STAT_LEVEL)<<' '<<state.model_cached<<'\n';
+  return 0;
+}
 int main(int argc,char **argv) {
+  if(argc==2&&std::string(argv[1])=="--query") {
+    void *session=ipasir_init();assert(session);
+    for(int literal:{1,2,3,0,-1,-2,3,0,-1,2,-3,0,1,-2,-3,0})ipasir_add(session,literal);
+    assert(!tactix_ipasir_set_strategy(session,nullptr,query_root));
+    for(int literal:{-1,-2,-3})ipasir_assume(session,literal);
+    assert(!ipasir_solve(session));ipasir_release(session);return 0;
+  }
   if(argc==1) {
     auto *s=tactix_init();assert(s);
     tactix_inprocess_state state{};state.inconsistent=97;
@@ -79,32 +127,9 @@ int main(int argc,char **argv) {
     c.structured_root_sr_discovery_budget=strategy::WorkLimit::bounded(256);
   }
   if(arm==10)c.structured_root_progress_ticks_per_variable=UINT64_MAX;
-  DefaultInprocessScheduler scheduler(&c);
-  Capture receiver;
-  execution::PolicyCompletion completion(k,&receiver,
-      [](const Kernel &kernel,const void *) {return strategy::controller::observe_kernel(kernel);},nullptr);
-  completion.begin();
-  tactix_strategy_state initial{};assert(!tactix_read_strategy_state(s,&initial));
-  std::cout<<"initial "<<initial.arena_generation<<' '<<initial.touch_epoch<<' '
-      <<initial.strategy_epoch<<'\n';
-  int result=scheduler.run_structured_root(k,nullptr,&completion);
-  const auto &t=scheduler.structured_root;
-  telemetry("total",t);
-  std::cout<<"discovery "<<t.sr_discovery_ticks<<' '<<t.sr_discovery_progress_window
-      <<' '<<t.sr_discovery_renewals<<' '<<t.sr_discovery_overflow<<'\n';
-  for(const auto &stage:t.stages)telemetry("stage",stage);
-  const auto &o=scheduler.structured_fastel_ownership();
-  std::cout<<"ownership "<<o.grew_root_trail<<' '<<o.external_begin<<' '
-      <<o.external_end<<' '<<o.symmetry_applied<<' '<<o.coupled_factor_ranges.size()<<'\n';
-  tactix_strategy_state state{};assert(!tactix_read_strategy_state(s,&state));
-  std::cout<<"state "<<state.arena_generation<<' '<<state.touch_epoch<<' '
-      <<state.strategy_epoch<<' '<<state.trail_size<<' '<<state.sr_applied<<' '
-      <<state.unique_literal_amo_binaries<<' '<<state.nonforcing_cuts_declined<<' '
-      <<state.post_amo_nonhelper_applied<<' '<<state.post_amo_graph_root_units<<'\n';
-  assert(!scheduler.run_structured_root(k,nullptr));
+  int result=run_root(s,c);
   if(arm==6)assert(tactix_support(s,TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE,0)>=0);
   assert(!tactix_support(s,TACTIX_SUPPORT_LEAVE_CONTEXT,0));
-  std::cout<<"result "<<result<<'\n';
   if(argc==6&&std::atoi(argv[5])&&!result)result=tactix_solve(s);
   std::cout<<"verdict "<<result<<'\n';
   if(result==10) {

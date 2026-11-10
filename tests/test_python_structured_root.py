@@ -23,6 +23,34 @@ def telemetry(label, t):
         'runs', 'advances', 'applications', 'effective', 'sequence_passes', 'terminal'))
 
 
+def action_row(index,identity,event,unlimited,allowance,consumed,granted):
+    r=event.base
+    description=(f'structured-stage={index};revision=1;step={identity};'
+         f'discovery-consumed={consumed};discovery-limit={granted}')
+    return 'action '+description+' '+' '.join(map(str, (
+        int(unlimited),allowance,r.rule_result,r.work_unit,r.work,r.applications,
+        r.made_rule_progress,event.discovery_progress_units,
+        event.discovery_entry_required,event.discovery_exhausted)))
+
+
+def root_rows(controller,actions,initial,answer):
+    t=controller.telemetry; o=controller.ownership
+    rows=['initial '+' '.join(map(str,(initial.arena_generation,initial.touch_epoch,
+        initial.strategy_epoch)))]+actions+[telemetry('total', t), 'discovery '+' '.join(map(str, (
+        t.sr_discovery_ticks, t.sr_discovery_progress_window,
+        t.sr_discovery_renewals, int(t.sr_discovery_overflow))))]
+    rows.extend(telemetry('stage', stage) for stage in t.stages)
+    rows.append('ownership '+' '.join(map(str, (int(o.grew_root_trail), o.external_begin,
+        o.external_end, int(o.symmetry_applied), len(o.coupled_factor_ranges)))))
+    state=strategy_state(controller.execution)
+    rows.append('state '+' '.join(str(getattr(state, key)) for key in (
+        'arena_generation', 'touch_epoch', 'strategy_epoch', 'trail_size', 'sr_applied',
+        'unique_literal_amo_binaries', 'nonforcing_cuts_declined',
+        'post_amo_nonhelper_applied', 'post_amo_graph_root_units')))
+    rows.append('result '+str(answer))
+    return rows
+
+
 def python_run(cnf, proof, fmt, arm, finish=False, observed=True):
     with Solver(library, default_frontend=True) as e:
         if fmt: e.proof(proof, fmt)
@@ -56,29 +84,12 @@ def python_run(cnf, proof, fmt, arm, finish=False, observed=True):
         if arm==10: config['structured_root_progress_ticks_per_variable']=2**64-1
         actions=[]
         def observe(index, identity, event, unlimited, allowance, consumed, granted):
-            r=event.base
-            description=(f'structured-stage={index};revision=1;step={identity};'
-                         f'discovery-consumed={consumed};discovery-limit={granted}')
-            actions.append('action '+description+' '+' '.join(map(str, (
-                int(unlimited),allowance,r.rule_result,r.work_unit,r.work,r.applications,
-                r.made_rule_progress,event.discovery_progress_units,
-                event.discovery_entry_required,event.discovery_exhausted))))
+            actions.append(action_row(index,identity,event,unlimited,allowance,consumed,granted))
         controller=StructuredRoot(e, config=config, observer=observe if observed else None)
         initial=strategy_state(e)
         answer=controller.run()
-        t=controller.telemetry; o=controller.ownership
-        rows=['initial '+' '.join(map(str,(initial.arena_generation,initial.touch_epoch,
-            initial.strategy_epoch)))]+actions+[telemetry('total', t), 'discovery '+' '.join(map(str, (
-            t.sr_discovery_ticks, t.sr_discovery_progress_window,
-            t.sr_discovery_renewals, int(t.sr_discovery_overflow))))]
-        rows.extend(telemetry('stage', stage) for stage in t.stages)
-        rows.append('ownership '+' '.join(map(str, (int(o.grew_root_trail), o.external_begin,
-            o.external_end, int(o.symmetry_applied), len(o.coupled_factor_ranges)))))
+        rows=root_rows(controller,actions,initial,answer)
         state=strategy_state(e)
-        rows.append('state '+' '.join(str(getattr(state, key)) for key in (
-            'arena_generation', 'touch_epoch', 'strategy_epoch', 'trail_size', 'sr_applied',
-            'unique_literal_amo_binaries', 'nonforcing_cuts_declined',
-            'post_amo_nonhelper_applied', 'post_amo_graph_root_units')))
         assert controller.consumed and not controller._running
         assert controller.run()==0
         after=strategy_state(e)
@@ -91,7 +102,6 @@ def python_run(cnf, proof, fmt, arm, finish=False, observed=True):
         assert bool(phase.phase_open)==(arm==6) and not phase.occurrences_open
         if arm==6: assert e.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE,0)>=0
         assert e.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_CONTEXT, 0)>=0
-        rows.append('result '+str(answer))
         if finish and not answer: answer=ScriptedDefault().run(e.c,e._lib.rules)
         return rows, answer, e.model if answer==10 else ()
 
@@ -311,3 +321,32 @@ if str(library)!='-':
         assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),checked
     assert rejected,'structured affine candidate rejection was not reached'
     print('Real structured query candidate rejection: clean root/cache, ownership, checked query proof')
+
+# Compare actual persistent-session root scheduling with the native scheduler,
+# including its internal query admission transaction, rather than comparing a
+# query candidate with a standalone SAT model.
+os.environ.pop('TACTIX_NO_AFFINE_MODEL',None)
+native=subprocess.check_output([str(fixture),'--query'],text=True,timeout=90)
+expected=[line for line in native.splitlines() if line.startswith(
+    ('initial ','action ','total ','discovery ','stage ','ownership ','state ','result ','query '))]
+assert expected[-1].split()[1:]==['1','0','0'],expected
+if str(library)!='-':
+    actual=[]
+    def root_oracle(e,restored):
+        assert not restored
+        assert not e.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE)
+        actions=[]
+        controller=StructuredRoot(e,observer=lambda *args:actions.append(action_row(*args)))
+        initial=strategy_state(e)
+        answer=controller.run()
+        actual.extend(root_rows(controller,actions,initial,answer))
+        state=capi.tactix_execution_state()
+        assert not e.c.tactix_read_execution_state(C.byref(state))
+        actual.append('query '+' '.join(map(str,(e.rejected_models,
+            e.c.tactix_stat(capi.TACTIX_STAT_LEVEL),state.model_cached))))
+        return 0
+    with Session(library,strategy=root_oracle) as session:
+        for clause in ([1,2,3],[-1,-2,3],[-1,2,-3],[1,-2,-3]):session.add(clause)
+        assert session.solve([-1,-2,-3]).status==0
+    assert actual==expected,(actual,expected)
+    print('Native/Python persistent root: exact atomic feedback, stages, discovery, ownership and versions; rejected candidate stays nonterminal')
