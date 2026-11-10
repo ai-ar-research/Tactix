@@ -3059,27 +3059,7 @@ void DefaultPolicy::pose_query_programs() {
           p->candidate_scope = strategy::bve_query_scope(p->candidate_scope);
 }
 
-std::optional<DefaultStrategyConfig> DefaultPolicy::configured_strategy_config(
-    const Kernel &k, bool query, const DefaultPolicy *previous) {
-  DefaultPolicy policy;
-  if (previous) {
-    policy.base_config_ = previous->base_config_;
-    policy.chrono_levels = previous->chrono_levels;
-    policy.default_branching_.randec_enabled = previous->default_branching_.randec_enabled;
-  }
-  std::string error;
-  if (!policy.configure_from_env(k, &error)) return std::nullopt;
-  if (query) policy.pose_query_programs();
-  return std::move(policy.config_);
-}
-
-std::string DefaultPolicy::configured_strategy_config_snapshot(
-    const Kernel &k, bool query, const DefaultPolicy *previous) {
-  const auto config = configured_strategy_config(k, query, previous);
-  return config ? config->serialize() : std::string{};
-}
-
-bool DefaultPolicy::configure_from_env(const Kernel &, std::string *error) {
+void DefaultPolicy::configure_from_env(const Kernel &) {
   config_ = base_config_;
   // Preserve the pre-existing white-box policy pose surface: callers and
   // focused tests may set these public members before solve().
@@ -3297,7 +3277,6 @@ bool DefaultPolicy::configure_from_env(const Kernel &, std::string *error) {
     if (const char *order = strategy_setting(knob)) {
       CandidateOrder parsed;
       if (!parse_candidate_order(order, &parsed)) {
-        if (error) { *error=std::string(knob)+": unknown candidate-order arm";return false; }
         std::fprintf(stderr, "c ERROR: %s: unknown candidate-order arm\n",
                      knob);
         std::abort();
@@ -3308,7 +3287,6 @@ bool DefaultPolicy::configure_from_env(const Kernel &, std::string *error) {
 
   std::string config_error;
   if (!config_.valid(&config_error)) {
-    if (error) { *error=std::move(config_error);return false; }
     std::fprintf(stderr, "c ERROR: invalid strategy configuration: %s\n",
                  config_error.c_str());
     std::abort();
@@ -3329,7 +3307,6 @@ bool DefaultPolicy::configure_from_env(const Kernel &, std::string *error) {
   default_reduction_.ramp = config_.reduction.ramp_fraction;
   inprocess_.set_config(&config_.inprocess);
   inprocess_.configure();
-  return true;
 }
 
 void DefaultInprocessScheduler::configure() {

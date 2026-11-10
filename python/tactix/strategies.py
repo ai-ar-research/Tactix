@@ -66,7 +66,8 @@ class Cruxmiter:
 
     def __call__(self, execution, restored):
         if not restored:self.begin()
-        assert execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE)==0
+        if execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE) != 0:
+            raise RuntimeError("cannot configure CRUX guidance publication")
         rules={execution.c.tactix_rule_name(i).decode():i
                for i in range(execution.c.tactix_rule_count())}
         result=self.run(execution.c,rules,

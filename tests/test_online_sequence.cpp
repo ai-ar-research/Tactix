@@ -21,7 +21,7 @@ static void readers() {
   assert(tactix_read_strategy_state(nullptr,&out)==-1&&out.trail_size==73);
   uint64_t bound=73;
   assert(tactix_online_repeat_round_limit(nullptr,0,1,&bound)==-1&&bound==73);
-  auto *s=tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND);assert(s);
+  auto *s=tactix_init();assert(s);
   auto *other=tactix_init();assert(other);
   auto &k=api_detail::kernel_for_fixed_testing(s);
   const auto epoch=k.strategy_epoch;
@@ -37,7 +37,7 @@ static void readers() {
   assert(tactix_online_repeat_round_limit(s,TACTIX_ONLINE_REPEAT_COUNT,0,&bound)==-1);
   auto *e=tactix_online_executor_create(s);assert(e);
   assert(tactix_online_executor_rearm(s,e,2,0)==-1);
-  assert(!tactix_stat(s,TACTIX_STAT_INPUT_CLOSED)&&k.strategy_epoch==epoch&&!k.h);
+  assert(!tactix_stat(s,TACTIX_STAT_INPUT_CLOSED)&&k.strategy_epoch==epoch&&k.h);
   tactix_online_program empty{nullptr,0,TACTIX_ONLINE_REPEAT_ONCE,1};
   assert(!tactix_online_executor_configure(s,e,1,&empty,1,0));
   assert(tactix_online_executor_rearm(other,e,2,0)==-1);
@@ -66,17 +66,27 @@ static void readers() {
   api_detail::destroy_query_execution(view);
 }
 
+// A rejected F-model is not a query model. The public recovery restart must
+// discard its reconstructed cache before handing control to another strategy.
+static void restart_candidate_cache() {
+  session::QueryHistory history;query_test::clause(history,{1,2});
+  assert(history.assume(-1)==session::InputStatus::Ok);
+  session::QueryKernel query(session::NativeQueryLimits{{256,4096,1024},
+      {64,4096,1024,8192,64,1024,8192},1000000});
+  assert(history.begin_query()==session::InputStatus::Ok&&query.replay(history)==session::ReplayStatus::Ok);
+  DefaultPolicy policy;StrategySettings options;
+  auto *view=static_cast<tactix_c_handle *>(api_detail::create_query_execution(query,policy,options,nullptr));assert(view);
+  const auto ticket=query.ticket();auto &k=*query.kernel(ticket);
+  assert(tactix_apply_instance(view,tactix_rule_id("Lucky"),TACTIX_INSTANCE_CANONICAL)==0);
+  assert(query.check_model(ticket).status==session::ModelStatus::FalsifiedAssumption);
+  assert(k.model_extended);
+  assert(tactix_support(view,TACTIX_SUPPORT_PREPARATION_RESTART,0)>=0);
+  assert(!k.model_extended&&k.model_values.empty());
+  assert(tactix_solve(view)==10&&query.check_model(ticket).status==session::ModelStatus::Valid);
+  api_detail::destroy_query_execution(view);
+}
+
 static OnlineStrategyStage request(Kernel &k,const std::string &kind) {
-  if(kind=="pool")return request(k,"default:0:2:0");
-  if(kind.rfind("default:",0)==0) {
-    int family,index,flags;
-    assert(std::sscanf(kind.c_str(),"default:%d:%d:%d",&family,&index,&flags)==3);
-    auto config=DefaultPolicy::configured_strategy_config(k);assert(config);
-    const auto &stages=family==0?config->inprocess.structured_root_stages:
-        family==1?config->inprocess.structured_root_bounded_backtracking_stages:
-                  config->inprocess.structured_root_large_domain_stages;
-    return DefaultStrategyConfig::structured_root_stage_after_feedback(stages.at(index),flags&1,flags&2,flags&4);
-  }
   OnlineInvocation producer;
   producer.id=1;producer.rule="SubstitutionRedundancy";
   producer.granularity=InvocationGranularity::OneInstance;
@@ -87,6 +97,21 @@ static OnlineStrategyStage request(Kernel &k,const std::string &kind) {
   ReduceParameters p;p.tier1=p.tier2=0;p.victim_numerator=0;p.victim_denominator=2;
   p.compact_collection=true;p.reduction_bookkeeping=false;
   cleanup.parameters=p;cleanup.granularity=InvocationGranularity::CanonicalApplication;
+  if(kind=="pool") {
+    producer.substitution_redundancy_instances.clear();
+    producer.granularity=InvocationGranularity::CompleteCurrentPass;
+    SubstitutionRedundancyParameters parameters;
+    parameters.producer=SubstitutionRedundancyProducer::GraphSymmetry;
+    parameters.maximum_detection_ticks=100000;
+    auto &g=parameters.graph_symmetry;
+    g.maximum_graph_vertices=1024;g.maximum_graph_edges=4096;
+    g.maximum_generators=32;g.backend_search_budget=10000;
+    g.backend_support_budget=100000;g.backend_component_size_limit=1024;
+    g.maximum_fixing_instances=64;g.maximum_generator_instances_per_pass=64;
+    g.maximum_group_ticks=100000;
+    parameters.maximum_validation_ticks=1024;
+    producer.parameters=parameters;
+  }
   OnlineStrategyStage stage;
   stage.program.sequence={producer,cleanup};stage.progress_followups={2};
   stage.on_budget_exhaustion=BudgetExhaustionPolicy::Continue;
@@ -127,16 +152,15 @@ static void row(const InvocationResult &r,const OnlineStrategySequence &sequence
 }
 
 int main(int argc,char **argv) {
-  readers();if(argc==1)return 0;assert(argc==6);
+  readers();restart_candidate_cache();if(argc==1)return 0;assert(argc==6);
   const std::string kind=argv[1];const int format=std::atoi(argv[4]);
-  auto *s=tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND);assert(s);
+  auto *s=tactix_init();assert(s);
   auto &k=api_detail::kernel_for_fixed_testing(s);
   if(format)assert(!tactix_proof(s,argv[3],format));
   FILE *input=std::fopen(argv[2],"r");assert(input);
   assert(!tactix_read_dimacs(s,input));std::fclose(input);
   int verdict=tactix_status(s)==20?20:0;
   if(!verdict) {
-    assert(tactix_support(s,TACTIX_SUPPORT_MATERIALIZE_COLD_STATE,0)>=0);
     verdict=tactix_propagate(s);assert(verdict==0||verdict==20);
   }
   if(!verdict) {
@@ -145,11 +169,13 @@ int main(int argc,char **argv) {
     auto stage=request(k,kind);OnlineStrategySequence sequence;
     Allowance pool(WorkUnit::SrDiscoveryTicks,WorkLimit::bounded(0));
     assert(sequence.configure(stage,7));
+    bool requested_entry=false;
     for(unsigned call=0;!sequence.complete();++call) {
       assert(call<2000);
       const auto result=sequence.advance(k,nullptr,kind=="pool"?&pool:nullptr,
-          kind=="pool"?DiscoveryFeedbackPolicy{64,20000000}:DiscoveryFeedbackPolicy{});
+          kind=="pool"?DiscoveryFeedbackPolicy{1024,20000000}:DiscoveryFeedbackPolicy{});
       row(result,sequence,stage.program.sequence.size(),kind=="pool"?&pool:nullptr);
+      requested_entry|=result.discovery_entry_required;
       if(kind=="pool"&&(result.discovery_progress_units||result.discovery_entry_required))
         pool.set_limit(WorkLimit::bounded(std::max(pool.limit().amount(),pool.consumed())+1024));
       if(result.status==InvocationStatus::Sat||result.status==InvocationStatus::Unsat) {
@@ -164,6 +190,7 @@ int main(int argc,char **argv) {
       assert(result.status==InvocationStatus::Completed||result.status==InvocationStatus::NoChange||
              result.status==InvocationStatus::ScopedFixpoint||result.status==InvocationStatus::BudgetExhausted);
     }
+    if(kind=="pool")assert(requested_entry&&pool.consumed()>0);
     assert(tactix_support(s,TACTIX_SUPPORT_LEAVE_CONTEXT,0)>=0);
     assert(tactix_support(s,TACTIX_SUPPORT_LEAVE_CONTEXT,0)>=0);
   }

@@ -237,11 +237,6 @@ public:
   DefaultPolicy &operator=(DefaultPolicy &&) = delete;
   const DefaultStrategyConfig &strategy_config() const { return config_; }
   std::string strategy_config_snapshot() const { return config_.serialize(); }
-  // Resolve settings on a temporary policy; never run actions or mutate k.
-  static std::optional<DefaultStrategyConfig> configured_strategy_config(
-      const Kernel &, bool query = false, const DefaultPolicy *previous = nullptr);
-  static std::string configured_strategy_config_snapshot(const Kernel &, bool query = false,
-                                                  const DefaultPolicy *previous = nullptr);
   void set_feedback(strategy::controller::FeedbackReceiver *receiver) {
     feedback_receiver_ = receiver;
   }
@@ -356,7 +351,7 @@ private:
   void schedule_graph_labeling(const Kernel &, const GraphLabelingSliceResult &);
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
-  bool configure_from_env(const Kernel &, std::string *error = nullptr);
+  void configure_from_env(const Kernel &);
   void pose_query_programs();
   template <bool Query>
   int solve_impl(Kernel &, volatile sig_atomic_t *, session::QueryKernel *,

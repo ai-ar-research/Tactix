@@ -26,19 +26,6 @@
 namespace tactix {
 
 RuleEligibility rule_guard(const RuleVTable &rule, const Kernel &kernel) {
-  // Deferred frontends admit only the startup rules whose implementations
-  // use warm input state. Other rules require explicit materialization first.
-  if (kernel.cold_state_deferred) {
-    using Operation = strategy::AffineMatrixInitializeParameters::Operation;
-    const bool root_affine = !kernel.level &&
-        !std::strcmp(rule.name, "AffineMatrixInitialize") &&
-        (!kernel.affine_matrix_initialize_parameters_active ||
-         kernel.affine_matrix_initialize_parameters.operation==Operation::Initialize ||
-         kernel.affine_matrix_initialize_parameters.operation==Operation::SearchStep);
-    if (std::strcmp(rule.name, "Lucky") && !root_affine &&
-        (std::strcmp(rule.name, "Propagate") || kernel.level))
-      return RuleEligibility{}.fact("rule-state-materialized", false);
-  }
   RuleEligibility result = rule.guard(kernel);
   const auto *session = kernel.affine_matrix_search_session;
   if (!session || !session->has_deferred_reason()) return result;

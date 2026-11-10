@@ -8,15 +8,12 @@
 #include "frontend/dsr_follow_on.hpp"
 #include "frontend/parse.hpp"
 #include "api/api_internal.hpp"
-#include "api/public_parameter_encoding.hpp"
-#include "api/public_online_encoding.hpp"
 #include "session/query_kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/bve_schedule.hpp"
 #include "policies/strategy_settings.hpp"
-#include "policies/ops/walk/walk.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
@@ -24,8 +21,6 @@
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
 #include "rules/propagate/propagate.hpp"
-#include "rules/lucky/lucky.hpp"
-#include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/structural_action_guard.hpp"
 #include "rules/registry.hpp"
 #include "strategy/execution_scope.hpp"
@@ -48,7 +43,6 @@
 
 #include <algorithm>
 #include <array>
-#include <climits>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -61,20 +55,8 @@
 
 using namespace tactix;
 
-static_assert(TACTIX_AFFINE_RESULT_OK == static_cast<int>(ApplyResult::Ok));
-static_assert(TACTIX_AFFINE_RESULT_NO_OP == static_cast<int>(ApplyResult::NoOp));
-static_assert(TACTIX_AFFINE_RESULT_CONFLICT == static_cast<int>(ApplyResult::Conflict));
-static_assert(TACTIX_AFFINE_RESULT_SAT == static_cast<int>(ApplyResult::Sat));
-static_assert(TACTIX_AFFINE_RESULT_UNSAT == static_cast<int>(ApplyResult::Unsat));
 static_assert(TACTIX_RULE_RESULT_NO_OP == static_cast<int>(ApplyResult::NoOp));
 static_assert(TACTIX_BUDGET_STATUS_EXHAUSTED == static_cast<int>(strategy::BudgetStatus::Exhausted));
-
-struct tactix_default_stage_snapshot {
-  std::vector<std::unique_ptr<public_encoding::EncodedStep>> storage;
-  std::vector<tactix_online_step_v2> steps;
-  std::vector<uint64_t> progress_followups, before_progress;
-  tactix_default_stage_definition definition{};
-};
 
 struct tactix_solver {
   Kernel owned_kernel;
@@ -97,7 +79,6 @@ struct tactix_solver {
   volatile sig_atomic_t *saved_query_stop=nullptr;
   session::QuerySolveStatus query_status=session::QuerySolveStatus::Complete;
   std::vector<Lit> scratch;
-  std::string default_definition; // lazily populated read-only policy snapshot
   bool input_completed = false;
   bool pending_input_proof = false;
   uint64_t model_strategy_epoch = UINT64_MAX;
@@ -2211,20 +2192,7 @@ auto visit_parameter_fields(strategy::FieldsOf<RetierScheduleFields>,
 
 extern "C" {
 
-tactix_solver *tactix_init_configured(uint32_t flags) {
-  if(flags & ~TACTIX_INIT_DEFAULT_FRONTEND)return nullptr;
-  auto *s=new tactix_solver();
-  if(flags & TACTIX_INIT_DEFAULT_FRONTEND) {
-    s->kernel.h=nullptr;s->kernel.saved_phases=nullptr;
-    kernel_defer_cold_state(s->kernel);
-    const int guided=tactix_set_guidance_publication(s,TACTIX_GUIDANCE_NATIVE);
-    tactix_set_bve_gates(s,BVE_GATE_KISSAT_DEFAULT);
-    const int provenance=tactix_discard_structural_provenance(s);
-    if(guided || provenance) {delete s;return nullptr;}
-  }
-  return s;
-}
-tactix_solver *tactix_init(void) { return tactix_init_configured(0); }
+tactix_solver *tactix_init(void) { return new tactix_solver(); }
 
 void tactix_release(tactix_solver *s) {
   if(s && s->query_owner) {s->query_status=session::QuerySolveStatus::InvalidState;return;}
@@ -2346,22 +2314,6 @@ const char *tactix_proof_route(tactix_solver *s) {
   return s->proof.verification_route();
 }
 
-const char *tactix_default_definition(tactix_solver *s) {
-  if (!s) return nullptr;
-  ScopedStrategySettings settings(&s->default_options);
-  auto definition=DefaultPolicy::configured_strategy_config_snapshot(
-      s->kernel,s->query_owner!=nullptr,s->query_policy);
-  if (definition.empty()) return nullptr;
-  s->default_definition=std::move(definition);
-  return s->default_definition.c_str();
-}
-
-int tactix_lucky_eligible(tactix_solver *s, uint64_t instance) {
-  if (!s || !s->input_completed || lucky_retired_constructor_instance(instance))
-    return -1;
-  return lucky_opportunity_eligible(s->kernel, instance) ? 1 : 0;
-}
-
 int tactix_read_strategy_state(tactix_solver *s, tactix_strategy_state *out) {
   if (!s || !out) return -1;
   const auto &k = s->kernel;
@@ -2372,119 +2324,6 @@ int tactix_read_strategy_state(tactix_solver *s, tactix_strategy_state *out) {
       (k.stop && *k.stop) || (s->query_stop && *s->query_stop) ||
           (s->query_owner && s->query_owner->termination_requested()) ? 1 : 0,
       static_cast<int>(s->query_status)};
-  return 0;
-}
-
-tactix_default_stage_snapshot *tactix_default_stage_snapshot_create(
-    tactix_solver *s, int family, uint64_t index) {
-  if (!s || family < TACTIX_DEFAULT_STAGE_REGULAR ||
-      family > TACTIX_DEFAULT_STAGE_LARGE_DOMAIN) return nullptr;
-  ScopedStrategySettings settings(&s->default_options);
-  const auto config = DefaultPolicy::configured_strategy_config(
-      s->kernel, s->query_owner != nullptr, s->query_policy);
-  if (!config) return nullptr;
-  const auto &stages = family == TACTIX_DEFAULT_STAGE_REGULAR
-      ? config->inprocess.structured_root_stages
-      : family == TACTIX_DEFAULT_STAGE_BOUNDED_BACKTRACKING
-          ? config->inprocess.structured_root_bounded_backtracking_stages
-          : config->inprocess.structured_root_large_domain_stages;
-  if (index >= stages.size()) return nullptr;
-  const auto &stage = stages[index];
-  if (stage.program.sequence.size() > INT_MAX ||
-      stage.progress_followups.size() > INT_MAX ||
-      stage.before_progress.size() > INT_MAX) return nullptr;
-  auto out = std::make_unique<tactix_default_stage_snapshot>();
-  for (const auto &step : stage.program.sequence) {
-    auto encoded = std::make_unique<public_encoding::EncodedStep>();
-    if (!public_encoding::encode_step(s->kernel, step,
-            tactix_rule_id(step.rule.c_str()), *encoded)) return nullptr;
-    out->steps.push_back(encoded->step);
-    out->storage.push_back(std::move(encoded));
-  }
-  out->progress_followups = stage.progress_followups;
-  out->before_progress = stage.before_progress;
-  auto &d = out->definition;
-  d.program = {out->steps.data(), static_cast<int>(out->steps.size()),
-      static_cast<int>(stage.program.repeat.mode), stage.program.repeat.limit};
-  d.on_budget_exhaustion = static_cast<int>(stage.on_budget_exhaustion);
-  d.structured_handoff_after_prior_progress = stage.structured_handoff_after_prior_progress;
-  d.progress_followups = out->progress_followups.data();
-  d.progress_followup_count = static_cast<int>(out->progress_followups.size());
-  d.before_progress = out->before_progress.data();
-  d.before_progress_count = static_cast<int>(out->before_progress.size());
-  return out.release();
-}
-
-const tactix_default_stage_definition *tactix_default_stage_snapshot_read(
-    const tactix_default_stage_snapshot *snapshot) {
-  return snapshot ? &snapshot->definition : nullptr;
-}
-
-void tactix_default_stage_snapshot_release(tactix_default_stage_snapshot *snapshot) {
-  delete snapshot;
-}
-
-int tactix_read_execution_state(tactix_solver *s, tactix_execution_state *out) {
-  if (!s || !out) return -1;
-  tactix_execution_state state{};
-  state.external_variables = s->kernel.external_to_internal.size();
-  state.context_depth = s->contexts.size();
-  state.context_top = s->contexts.empty() ? -1 : static_cast<int>(
-      execution::execution_context_argument(s->contexts.back().first));
-  state.provenance_bound = s->kernel.structural_provenance != nullptr;
-  state.input_order_captured = s->kernel.input_binary_order_captured;
-  state.affine_matrix_bound = s->kernel.affine_matrix_search_session != nullptr;
-  state.inprocess_phase_open = s->phase.open();
-  state.model_cached = s->kernel.model_extended;
-  *out = state;
-  return 0;
-}
-
-int tactix_read_inprocess_state(tactix_solver *s, tactix_inprocess_state *out) {
-  if (!s || !out) return -1;
-  *out = {s->kernel.inconsistent, s->phase.open(),
-          s->phase.open() && s->phase.eliminate(), s->phase.occurrences_open()};
-  return 0;
-}
-
-int tactix_read_walk_structure(tactix_solver *s, int census,
-                              tactix_walk_structure *out) {
-  if (!s || !out || !s->input_completed || (census != 0 && census != 1)) return -1;
-  const auto &k = s->kernel;
-  *out = {k.watches.binary_clauses(), k.live_irredundant_large,
-          census ? walk_complementary_ternary_fraction_permille(k) : 0u, census};
-  return 0;
-}
-
-int tactix_read_graph_labeling_state(tactix_solver *s,
-                                      tactix_graph_labeling_state *out) {
-  if (!s || !out) return -1;
-  const auto &session = s->kernel.graph_labeling_session;
-  tactix_graph_labeling_state state{};
-  state.authenticated = session.authenticated();
-  state.complete = session.complete();
-  state.fingerprint = session.candidate_fingerprint();
-  state.continuation_work = session.recommended_continuation_work();
-  if (const auto *a = session.last_authentication()) {
-    state.authentication_status = static_cast<int>(a->status) + 1;
-    state.authentication_work = a->work;
-  }
-  if (const auto *slice = session.last_slice()) {
-    state.slice_status = static_cast<int>(slice->status) + 1;
-    switch (slice->result) {
-    case ApplyResult::Ok: state.slice_result = 0; break;
-    case ApplyResult::NoOp: state.slice_result = 1; break;
-    case ApplyResult::Conflict: state.slice_result = 2; break;
-    case ApplyResult::Sat: state.slice_result = 10; break;
-    case ApplyResult::Unsat: state.slice_result = 20; break;
-    }
-    state.slice_work = slice->work;
-    state.objective_before = slice->objective_before;
-    state.objective_after = slice->objective_after;
-    state.hint_published = slice->hint_published;
-    state.useful_hint = slice->useful_hint;
-  }
-  *out = state;
   return 0;
 }
 
@@ -2780,7 +2619,6 @@ int tactix_apply_condition(tactix_solver *s, const int *clause,
                            int clause_count, const int *witness,
                            int witness_count) {
   input_complete(s);
-  if (s->kernel.cold_state_deferred)return -1;
   if (!c_array(clause, clause_count) || !c_array(witness, witness_count))
     return -1;
   ConditionInstance instance;
@@ -2852,8 +2690,7 @@ int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
 int tactix_regions_begin(tactix_solver *s) {
   if (!s || s->regions) return -1;
   input_complete(s);
-  if (s->kernel.cold_state_deferred || s->kernel.level ||
-      s->kernel.inconsistent || s->kernel.probing.recording)
+  if (s->kernel.level || s->kernel.inconsistent || s->kernel.probing.recording)
     return -1;
   s->regions = std::make_unique<strategy::RegionProgram>(s->kernel);
   external_state_change(s); return 0;
@@ -3435,31 +3272,6 @@ int tactix_install_affine_matrix_profile(
   return strategy::install_permanent_parameters(s->kernel, converted) ? 0 : -1;
 }
 
-int tactix_read_affine_matrix_profile(tactix_solver *s,
-    tactix_online_affine_matrix_initialize_parameters *out, int *active) {
-  if (!s || !out || !active) return -1;
-  const Kernel &k = s->kernel;
-  public_encoding::Encoded encoded;
-  const bool selected = k.affine_matrix_initialize_parameters_active;
-  const auto &basis = selected ? k.affine_matrix_initialize_parameters.basis
-                               : k.affine_consequence_parameters;
-  if (!public_encoding::encode(strategy::InprocessParameters(basis), encoded))
-    return -1;
-  tactix_online_affine_matrix_initialize_parameters profile{};
-  profile.basis = encoded.parameters.value.affine_consequence;
-  if (selected) {
-    const auto &p = k.affine_matrix_initialize_parameters;
-    profile.admission = static_cast<uint32_t>(p.admission);
-    profile.operation = static_cast<uint32_t>(p.operation);
-    profile.maximum_retained_bytes = p.maximum_retained_bytes;
-    profile.maximum_deferred_deletions = p.maximum_deferred_deletions;
-    profile.maximum_deferred_literal_work = p.maximum_deferred_literal_work;
-  }
-  *out = profile;
-  *active = selected;
-  return 0;
-}
-
 int tactix_read_affine_matrix_result(tactix_solver *s, tactix_affine_matrix_result *out) {
   if (!s || !out) return -1;
   *out = {};
@@ -3605,16 +3417,6 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
   if (k.affine_matrix_search_session &&
       k.affine_matrix_search_session->has_deferred_reason())
     return -1;
-  if (k.cold_state_deferred &&
-      support!=TACTIX_SUPPORT_MATERIALIZE_COLD_STATE &&
-      support!=TACTIX_SUPPORT_PREPARATION_RESTART &&
-      support!=TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE &&
-      support!=TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION &&
-      support!=TACTIX_SUPPORT_RELEASE_INPUT_ORDER &&
-      support!=TACTIX_SUPPORT_CONSUME_ROOT_PREFIX &&
-      support!=TACTIX_SUPPORT_ENTER_CONTEXT && support!=TACTIX_SUPPORT_LEAVE_CONTEXT &&
-      support!=TACTIX_SUPPORT_RELEASE_AFFINE_MATRIX)
-    return -1;
   const auto flags = [&](uint64_t allowed) { return !(argument & ~allowed); };
   int result = -1;
   switch (support) {
@@ -3624,28 +3426,6 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     execution::execute_action(k, execution::CloseStartupCertificateRequest{});
     result = 0;
     break;
-  case TACTIX_SUPPORT_MATERIALIZE_COLD_STATE:
-    if(argument || s->phase.open() || !support_root(k))return -1;
-    if(!k.cold_state_deferred)return 1;
-    execution::execute_action(k,execution::MaterializeColdStateRequest{});
-    result=0;break;
-  case TACTIX_SUPPORT_ATTACH_HEURISTICS:
-    if(argument || s->phase.open() || !support_root(k) || !kernel_propagation_fixpoint(k))return -1;
-    if(k.h==&s->heuristics)return 1;
-    if(s->query_owner || k.h || s->heuristics.nvars || k.cold_state_deferred ||
-       !support_root(k) || !kernel_propagation_fixpoint(k))return -1;
-    execution::execute_action(k,execution::HeuristicAttachmentRequest{s->heuristics});
-    result=0;break;
-  case TACTIX_SUPPORT_DETACH_HEURISTICS:
-    if(argument || s->query_owner || s->phase.open() || !s->contexts.empty() ||
-       k.bve_score_update_hook || k.bve_occurrence_count_image || k.probing.recording ||
-       k.pending.valid || (k.conflict_valid && !k.inconsistent) ||
-       (k.level && !has_sat_assignment(k)))return -1;
-    if(!k.h)return 1;
-    if(k.h!=&s->heuristics)return -1;
-    execution::execute_action(k,execution::HeuristicDetachmentRequest{s->heuristics});
-    s->heuristics=Heuristics{};
-    result=0;break;
   case TACTIX_SUPPORT_PREPARATION_RESTART:
     if (argument > UINT32_MAX || !restart_guard(k))
       return -1;
@@ -3662,8 +3442,7 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     if (!flags(TACTIX_ROOT_PREPARATION_PROBING |
                TACTIX_ROOT_PREPARATION_CAPTURE_TARGET |
                TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX) ||
-        k.inconsistent || k.pending.valid || k.dense || k.probing.recording ||
-        ((argument & TACTIX_ROOT_PREPARATION_CAPTURE_TARGET) && !k.h))
+        k.inconsistent || k.pending.valid || k.dense || k.probing.recording)
       return -1;
     const ApplyResult prepared = execution::execute_action(
         k, execution::RootPreparationRequest{
@@ -3997,7 +3776,7 @@ int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {
 
 int tactix_decide(tactix_solver *s, int elit) {
   input_complete(s);
-  if (s->kernel.cold_state_deferred || !decide_guard(s->kernel))
+  if (!decide_guard(s->kernel))
     return -1;
   const Lit l = kernel_internalize(s->kernel, elit);
   if (l == INVALID_LIT)

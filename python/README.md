@@ -135,6 +135,9 @@ with Session(strategy=policy) as solver:
     result = solver.solve()
 ```
 
+Configuration writes persistent session options; switching policies does not
+restore overwritten options. Python counters are on the policy object and reset
+on fresh query entry; native strategy counters accumulate separately.
 Its preprocessing decisions run in Python; `Session(strategy='cruxmiter')`
 selects the C implementation. `Session(strategy='chvatal')` selects the C
 Chvátal controller. Both explicitly hand off to native default search.
@@ -151,46 +154,7 @@ Regenerate declarations with `python3 tools/api/generate_python.py` (`pycparser`
 is needed only for generation). `python_capi` checks header coverage, constants
 and every public record's size, alignment and field offsets against the C compiler.
 
-For a plain C-interface strategy, `Solver(default_frontend=True)` mirrors
-`tactix_public_main.cpp` initialization. `proof(path)`, `read_dimacs(path)` and
-`model` use the native parser/proof/model interfaces. The policy explicitly
-selects `MATERIALIZE_COLD_STATE`, `ATTACH_HEURISTICS` and `DETACH_HEURISTICS`
-through `solver.c.tactix_support`; these preserve borrowed IPASIR H. Until
-materialization root Propagate, Lucky and root affine initialization/search
-remain available with the documented startup supports. Startup contexts span
-materialization/attachment; target capture and restart clocks require H.
-Reading `model` while input is open raises without closing input.
-This frontend is separate from the unfinished full Python DefaultPolicy.
-
-`execution.default_definition` reads the resolved native settings and authored
-programs without closing input or executing actions. Session options override
-environment settings; borrowed query views include query-preserving scopes.
-Use `definition.section('inprocess')` for that group's fields and `definition.text`
-for the lossless `strategy-v1` snapshot. Scalars are Python integers/floats;
-programs remain text. Invalid settings raise `ValueError`. This provides shared
-configuration; the complete independent Python DefaultPolicy is still pending.
-
-`tactix.program.DefaultStage` reads an owned typed native structured-stage
-snapshot. Returned records retain their nested storage after snapshot close.
-`steps_after_feedback` copies records and applies inter-stage feedback
-in Python; the caller still chooses stages and runs every action.
-
 `tactix.sequence.OnlineSequence` schedules C programs (versions 1–17) in Python
 over owned atomic continuations. It implements progress-gated steps, retained
 budgets, exhaustion policies and repeated rounds; source arrays may be released
 after configuration. Query-rejected candidates are explicit, not query SAT.
-
-`tactix.structured.StructuredRoot` composes those stages in Python: native family
-selection, shared discovery budgets and renewals, inter-stage feedback, once-only
-execution and FastEl ownership. Call at a materialized root or before Probe's
-occurrence session. The caller owns placement gates, post-ULC BCE and rejected
-candidate restarts after surrounding phases close. This demonstrates API capability; Python overhead
-is not a performance target.
-
-`tactix.startup.DefaultStartup` owns the original-input, constructor and early
-Lucky windows in Python, including the affine root fixpoint. `structured_root()`
-selects the before-Lucky opportunity and post-ULC BCE; its immutable Walk census
-preserves the solve-entry classifier across preprocessing. Keep Startup open
-through initial preprocessing. Full inprocess/search orchestration remains pending.
-`tactix_read_graph_labeling_state` exposes authentication and continuation results
-without completing input or publishing a query verdict.

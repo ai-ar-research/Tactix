@@ -331,12 +331,12 @@ inline const std::vector<Entry> &entries() {
        "TACTIX_SUPPORT_LEAVE_CONTEXT", "A11", TACTIX_SUPPORT_LEAVE_CONTEXT},
       {"materialize-cold-state", K::Support, "MaterializeColdState", nullptr,
        Route::Declared, Boundary::Crossing, Replay::Marker, false,
-       "declared representation path; public clients select the shared "
-       "TACTIX_SUPPORT_MATERIALIZE_COLD_STATE service", "A11"},
+       "declared non-action: allocates per-variable state in its initial "
+       "value; predicate-equivalent, and a C session never defers it", "A11"},
       {"attach-heuristics", K::Support, "AttachHeuristics", nullptr,
        Route::Declared, Boundary::Crossing, Replay::Marker, false,
-       "declared H lifetime; deferred clients select ATTACH/DETACH_HEURISTICS, "
-       "while legacy tactix_init supplies H", "A11"},
+       "declared non-action: a C session owns H from tactix_init "
+       "(reseeding is TACTIX_SUPPORT_RESEED_GUIDANCE)", "A11"},
       {"support-phase-entry", K::Support, "InprocessPhaseEntry",
        [](const ActionFeedback &r) { return r.instance != INSTANCE_CANONICAL; },
        Route::Public, Boundary::Crossing, Replay::Support, false,

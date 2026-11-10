@@ -11,7 +11,6 @@ import tempfile
 library, fixture, root = map(Path, sys.argv[1:])
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench')]
 from tactix import Solver, Session, ScriptedCDCL, capi, _QueryInterrupted
-from tactix.program import DefaultStage
 from tactix.sequence import OnlineSequence, strategy_state
 from proof_oracle import certificate_route
 from python_policy_reference import ScriptedDefault
@@ -20,15 +19,6 @@ runner = importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
 
 
 def request(execution, kind):
-    if kind=='pool':return request(execution,'default:0:2:0')
-    if kind.startswith('default:'):
-        family, index, flags = map(int, kind.split(':')[1:])
-        with DefaultStage(execution, family, index) as stage:
-            steps = stage.steps_after_feedback(flags&1, flags&2, flags&4)
-            p = stage.program
-            return capi.tactix_online_program_v2(steps, len(steps), p.repeat_mode, p.repeat_limit), dict(
-                on_budget_exhaustion=stage.on_budget_exhaustion,
-                progress_followups=stage.progress_followups, before_progress=stage.before_progress)
     steps = (capi.tactix_online_step_v2*2)()
     p, cleanup = steps[0].base, steps[1].base
     for i, (base, rule) in enumerate(((p,'SubstitutionRedundancy'),(cleanup,'Reduce')),1):
@@ -42,6 +32,19 @@ def request(execution, kind):
     cubes = (capi.tactix_online_sr_instance*count)(
         *(capi.tactix_online_sr_instance(clause,1,None,0,None,0) for _ in range(count)))
     steps[0].sr_instances, steps[0].sr_instance_count = cubes, count
+    if kind=='pool':
+        p.granularity=capi.TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS
+        steps[0].sr_instance_count=0;steps[0].sr_instances=None
+        p.parameters.kind=capi.TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY
+        p.parameters.value.substitution_redundancy=capi.tactix_online_sr_parameters(
+            producer=capi.TACTIX_ONLINE_SR_GRAPH_SYMMETRY,
+            maximum_detection_ticks=100000,maximum_validation_ticks=1024,
+            maximum_graph_vertices=1024,maximum_graph_edges=4096,
+            maximum_symmetry_generators=32,symmetry_backend_search_budget=10000,
+            symmetry_backend_support_budget=100000,symmetry_backend_component_size_limit=1024,
+            maximum_symmetry_fixing_instances=64,maximum_symmetry_generator_instances_per_pass=64,
+            maximum_symmetry_group_ticks=100000,
+            symmetry_fixing_mode=capi.TACTIX_ONLINE_SYMMETRY_STABILIZER_THEN_GENERATORS)
     cleanup.granularity = capi.TACTIX_ONLINE_GRANULARITY_CANONICAL
     cleanup.parameters.kind = capi.TACTIX_ONLINE_PARAMETERS_REDUCE
     # Explicit semantic fixture, not a second copy of DefaultPolicy settings.
@@ -94,19 +97,18 @@ def relative_versions(rows):
 
 def python_run(kind, cnf, proof, fmt, finish):
     trace=[]
-    with Solver(library,default_frontend=True) as execution:
+    with Solver(library) as execution:
         if fmt: execution.proof(proof,fmt)
         execution.read_dimacs(cnf)
         verdict=20 if execution.c.tactix_status()==20 else 0
         if not verdict:
-            assert execution.c.tactix_support(capi.TACTIX_SUPPORT_MATERIALIZE_COLD_STATE,0)>=0
             verdict=execution.c.tactix_propagate()
             assert verdict in (0,20)
         if not verdict:
             for context in (capi.TACTIX_CONTEXT_STARTUP,capi.TACTIX_CONTEXT_INPROCESSING):
                 assert execution.c.tactix_support(capi.TACTIX_SUPPORT_ENTER_CONTEXT,context)>=0
             program,options=request(execution,kind)
-            pool=(capi.tactix_online_discovery_budget(limit=0,ticks_per_generator=64,hard_limit=20000000)
+            pool=(capi.tactix_online_discovery_budget(limit=0,ticks_per_generator=1024,hard_limit=20000000)
                   if kind=='pool' else None)
             with OnlineSequence(execution,program,revision=7,**options) as sequence:
                 # Every payload is now owned; modifying the source cannot alter
@@ -133,11 +135,12 @@ def python_run(kind, cnf, proof, fmt, finish):
                     assert result.base.status in (capi.TACTIX_ONLINE_COMPLETED,capi.TACTIX_ONLINE_NO_CHANGE,
                         capi.TACTIX_ONLINE_SCOPED_FIXPOINT,capi.TACTIX_ONLINE_BUDGET_EXHAUSTED)
                     call+=1
+            if kind=='pool':
+                assert pool.consumed>0 and any(int(item.split()[20]) for item in trace)
             for context in (capi.TACTIX_CONTEXT_INPROCESSING,capi.TACTIX_CONTEXT_STARTUP):
                 assert execution.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_CONTEXT,0)>=0
         prefix=verdict
         if finish and not verdict:
-            assert execution.c.tactix_support(capi.TACTIX_SUPPORT_ATTACH_HEURISTICS,0)>=0
             execution.default_solve=lambda: (_ for _ in ()).throw(AssertionError('no native DefaultPolicy handoff'))
             verdict=ScriptedDefault().run(execution.c,execution._lib.rules)
         if verdict==20: assert execution.c.tactix_status()==20
@@ -156,14 +159,11 @@ normal=[[-1,2,3],[1,2],[1,-2]]
 unsat=[[1,2],[1,-2],[-1,2],[-1,-2]]
 cases=[(kind,normal) for kind in ('manual','before','batch','continue','stop','finish','retain','external')]
 cases += [('manual',normal+[[1]]),('manual',unsat),('pool',graph(4))]
-cases += [(f'default:{family}:{index}:{flags}',graph(4))
-          for family,indices in [(0,range(4)),(1,range(4)),(2,range(2))]
-          for index in indices for flags in (0,7)]
 if str(library)!='-':
     for version in range(1,18):
-        with Solver(library,default_frontend=True) as execution:
+        with Solver(library) as execution:
             assert execution.c.tactix_status() in (0,10)
-            assert execution.c.tactix_support(capi.TACTIX_SUPPORT_MATERIALIZE_COLD_STATE,0)>=0
+
             assert execution.c.tactix_propagate()==0
             suffix=f'_v{version}' if version>1 else ''
             record=getattr(capi,'tactix_online_step'+suffix)()
@@ -209,7 +209,7 @@ if str(library)!='-':
                 assert (sequence.rounds,sequence.dispatches,sequence.consumed(0))==before
                 saved=sequence.advance();saved.base.status=999
                 assert sequence.advance().base.status==capi.TACTIX_ONLINE_COMPLETED
-    with Solver(library,default_frontend=True) as execution:
+    with Solver(library) as execution:
         with OnlineSequence(execution) as sequence:
             assert sequence.advance().base.status==capi.TACTIX_ONLINE_INVALID_REQUEST
             empty=capi.tactix_online_program_v2(None,0,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
@@ -265,7 +265,7 @@ with tempfile.TemporaryDirectory(prefix='python-sequence-') as raw:
                         checked=runner.check_proof(form,str(cnf),str(path),30,route=route)
                         assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),checked
                         proofs+=1
-print(f'Python/native sequence: {comparisons} comparisons, {advances} advances, {models} checked models, {proofs} checked proofs; full DefaultPolicy remains open')
+print(f'Python/native sequence: {comparisons} comparisons, {advances} advances, {models} checked models, {proofs} checked proofs')
 
 if str(library)!='-':
     rejections=[];polls=[0];cancel=[False];cancelled=[];interruptions=[];cancel_results=[]
@@ -325,9 +325,7 @@ if str(library)!='-':
             execution._lib.dll.tactix_online_executor_advance=raw_advance
         count=execution.rejected_models-before_rejected
         if count:
-            state=capi.tactix_execution_state()
-            assert not execution.c.tactix_read_execution_state(C.byref(state))
-            assert not state.model_cached and execution.c.tactix_stat(capi.TACTIX_STAT_LEVEL)==0
+            assert execution.c.tactix_stat(capi.TACTIX_STAT_LEVEL)==0
         rejections.append(count)
         return ScriptedCDCL()(execution,restored)
     cancel_test=[False]

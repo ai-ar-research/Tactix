@@ -167,14 +167,6 @@ class Execution:
         if self._lib.dll.tactix_decide(self._view, _literal(literal)):
             raise RuntimeError('decision not applicable')
 
-    @property
-    def default_definition(self):
-        """Native policy definitions only; the caller still chooses all actions."""
-        from .definition import StrategyDefinition
-        text = self.c.tactix_default_definition()
-        if text is None: raise ValueError('invalid DefaultPolicy settings')
-        return StrategyDefinition(text.decode())
-
     def default_solve(self):
         """An explicit strategy handoff to configured DefaultPolicy."""
         self._check()
@@ -183,14 +175,11 @@ class Execution:
 class Solver(Execution):
     """Owned plain C session for Python-authored public-interface strategies.
 
-    default_frontend reproduces tactix_public_main's setup. The caller still
-    selects every policy action, including cold materialization and H lifetime.
-    Session remains the persistent IPASIR frontend.
+    The caller selects every policy action. Session is the persistent frontend.
     """
-    def __init__(self, library=None, *, default_frontend=False):
+    def __init__(self, library=None):
         library = _Library(library)
-        handle = library.dll.tactix_init_configured(
-            capi.TACTIX_INIT_DEFAULT_FRONTEND if default_frontend else 0)
+        handle = library.dll.tactix_init()
         if not handle: raise RuntimeError('cannot initialize Tactix solver')
         super().__init__(library, None, handle)
 

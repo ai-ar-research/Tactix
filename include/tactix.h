@@ -176,96 +176,8 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_REGION_BUDGET 70
 #define TACTIX_STAT_REGION_INVALIDATED 71
 
-/* Exact tactix-public frontend preset: defer cold arrays and H, select
- * native guidance and the shipped BVE gates, discard structural provenance.
- * This runs no solving strategy; the caller selects materialization, H
- * attachment and every subsequent action. Flags 0 preserves tactix_init;
- * unknown flags return NULL. */
-#define TACTIX_INIT_DEFAULT_FRONTEND 1u
-tactix *tactix_init_configured(uint32_t flags);
 tactix *tactix_init(void);
 void tactix_release(tactix *);
-/* Resolved DefaultPolicy definition (strategy-v1), including authored programs
- * and query-preserving candidate scopes on borrowed query views. Session options
- * override environment settings as in tactix_solve. No input completion, action,
- * cursor or solver-state change. Returned snapshot lives until the next successful reader
- * call on this solver, release or expiry of a borrowed view. Invalid settings or
- * NULL solver return NULL without completing input or changing solver state. */
-const char *tactix_default_definition(tactix *);
-/* Pure native opportunity eligibility for one Lucky payload. Does not run a
- * rule, complete input, propagate, or change execution state. Requires completed
- * input; returns 1/0 for eligible/ineligible, -1 for an open/null solver or an
- * unknown/retired payload. This is scheduling advice, not a verdict: the caller
- * still chooses and applies the action, which independently validates its work. */
-int tactix_lucky_eligible(tactix *, uint64_t instance);
-/* Pure execution/lifetime facts, even before input completion. context_top is
- * a TACTIX_CONTEXT_* argument or -1 for an empty stack. Discard provenance is
- * still bound. External extent includes retired/helper identities after
- * compaction. model_cached is the raw reconstruction cache flag, not a verdict.
- * Invalid arguments leave *out unchanged. */
-typedef struct {
-  uint64_t external_variables, context_depth;
-  int context_top, provenance_bound, input_order_captured, affine_matrix_bound;
-  int inprocess_phase_open, model_cached;
-} tactix_execution_state;
-int tactix_read_execution_state(tactix *, tactix_execution_state *);
-/* Pure root/phase facts, including before input completion. inconsistent is a
- * raw kernel flag, not a certified query verdict. Reading polls no callback,
- * reconstructs no model and changes no state. Invalid arguments preserve *out.
- * A Probe-entry boundary has phase_open=1 and the other phase flags zero. */
-typedef struct {
-  int inconsistent, phase_open, phase_eliminate, occurrences_open;
-} tactix_inprocess_state;
-int tactix_read_inprocess_state(tactix *, tactix_inprocess_state *);
-/* Read current-formula Walk structure without completing input or changing
- * counters, profiles, model caches or execution versions. Requires closed input.
- * census=0 reads only the live binary/large counts; census=1 also computes the
- * complementary ternary fraction (0..1000 per mille), counting duplicate pairs
- * with their native multiplicity. The caller chooses whether to pay for it.
- * Snapshot before preprocessing to classify the original formula. Invalid
- * arguments preserve *out. No termination callback is polled. */
-typedef struct {
-  uint64_t binary_clauses, large_clauses;
-  uint32_t complementary_ternary_permille;
-  int census_complete;
-} tactix_walk_structure;
-int tactix_read_walk_structure(tactix *, int census, tactix_walk_structure *);
-
-/* The native propagation service, including its vacuous fixpoint transition
- * (settle the propagation cursor and consume a root prefix). Completes input.
- * Returns ordinary rule codes; unlike the registered Propagate action, no
- * pending work is required. Refuses an unresolved conflict or non-root
- * deferred state. Closes the original-input certificate opportunity and
- * invalidates selections as an ordinary rule application does.
- * This chooses no rule or scheduling policy. */
-int tactix_propagate(tactix *);
-
-/* Graph constructor observations; statuses are native enumerators plus one,
- * zero before an application. Pure even before input completion. slice_result
- * uses ordinary public rule result codes (0/1/2/10/20), without publishing a
- * query verdict or checking a model. Invalid arguments leave *out unchanged. */
-#define TACTIX_GRAPH_AUTH_NONE 0
-#define TACTIX_GRAPH_AUTH_NO_STRUCTURE 1
-#define TACTIX_GRAPH_AUTHENTICATED 2
-#define TACTIX_GRAPH_AUTH_EXHAUSTED 3
-#define TACTIX_GRAPH_AUTH_INTERRUPTED 4
-#define TACTIX_GRAPH_SLICE_NONE 0
-#define TACTIX_GRAPH_SLICE_NO_STRUCTURE 1
-#define TACTIX_GRAPH_SLICE_PENDING 2
-#define TACTIX_GRAPH_SLICE_COMPLETE 3
-#define TACTIX_GRAPH_SLICE_SAT 4
-#define TACTIX_GRAPH_SLICE_INTERRUPTED 5
-typedef struct {
-  int authenticated, complete;
-  uint64_t fingerprint, continuation_work;
-  int authentication_status;
-  uint64_t authentication_work;
-  int slice_status, slice_result;
-  uint64_t slice_work, objective_before, objective_after;
-  int hint_published, useful_hint;
-} tactix_graph_labeling_state;
-int tactix_read_graph_labeling_state(tactix *, tactix_graph_labeling_state *);
-
 /* Pure execution versions and structured-producer counters for caller-owned
  * sequence scheduling. No input completion, callback polling or state change.
  * stopped observes existing latched native stop signals, not a query verdict.
@@ -680,6 +592,11 @@ int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
 #define TACTIX_ONLINE_WORK_APPLICATIONS 0
 #define TACTIX_ONLINE_WORK_BVE_TICKS 1
 #define TACTIX_ONLINE_WORK_PROPAGATIONS 2
+/* Caller-owned sequence behavior on exhausted atomic action budgets. */
+#define TACTIX_SEQUENCE_BUDGET_STOP 0
+#define TACTIX_SEQUENCE_BUDGET_CONTINUE 1
+#define TACTIX_SEQUENCE_BUDGET_FINISH_ROUND 2
+
 #define TACTIX_ONLINE_RECONFIGURE_RESET 0
 #define TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS 1
 
@@ -1532,35 +1449,6 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v2;
 
-/* Owned, read-only snapshot of one resolved DefaultPolicy structured stage.
- * The caller selects a family and zero-based index; this reader never chooses
- * a stage, applies feedback, finalizes input or executes a strategy. Snapshot
- * storage, including every nested program pointer, survives solver release
- * and option changes until snapshot_release. NULL/invalid settings, unknown
- * family, missing index or an unrepresentable v2 payload return NULL. Families
- * correspond to the three authored lists in tactix_default_definition.
- * Program records may be copied and modified by the caller; borrowed arrays
- * remain read-only and require the snapshot to stay alive while configuring
- * an executor (which deep-copies them). Metadata is scheduling policy only. */
-#define TACTIX_DEFAULT_STAGE_REGULAR 0
-#define TACTIX_DEFAULT_STAGE_BOUNDED_BACKTRACKING 1
-#define TACTIX_DEFAULT_STAGE_LARGE_DOMAIN 2
-#define TACTIX_SEQUENCE_BUDGET_STOP 0
-#define TACTIX_SEQUENCE_BUDGET_CONTINUE 1
-#define TACTIX_SEQUENCE_BUDGET_FINISH_ROUND 2
-typedef struct tactix_default_stage_snapshot tactix_default_stage_snapshot;
-typedef struct {
-  tactix_online_program_v2 program;
-  int on_budget_exhaustion, structured_handoff_after_prior_progress;
-  const uint64_t *progress_followups, *before_progress;
-  int progress_followup_count, before_progress_count;
-} tactix_default_stage_definition;
-tactix_default_stage_snapshot *tactix_default_stage_snapshot_create(
-    tactix *, int family, uint64_t index);
-const tactix_default_stage_definition *tactix_default_stage_snapshot_read(
-    const tactix_default_stage_snapshot *);
-void tactix_default_stage_snapshot_release(tactix_default_stage_snapshot *);
-
 /* Additive v3 payload for X5's variable-length (clause,cube) action. Clause
  * and witness literals use stable external DIMACS identities, as in
  * tactix_apply_condition. Nested storage is copied by configure_v3. */
@@ -1924,9 +1812,8 @@ typedef struct {
 #define TACTIX_AFFINE_MATRIX_PROFILE_LEGACY 0
 #define TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1 1
 #define TACTIX_AFFINE_MATRIX_AUTHENTICATED_SUBIMAGE 1
-/* Nonpersistent root mode, with zero persistence limits. INITIALIZE requires
- * the complete live formula; SEARCH_STEP also accepts a matching legacy
- * authenticated-subimage session (every published reason is revalidated). */
+/* The startup root closure's non-persistent session over the complete live
+ * formula: INITIALIZE or SEARCH_STEP with zero persistence limits. */
 #define TACTIX_AFFINE_MATRIX_COMPLETE_SNAPSHOT 2
 #define TACTIX_AFFINE_MATRIX_INITIALIZE 1
 #define TACTIX_AFFINE_MATRIX_REFRESH 2
@@ -2175,13 +2062,6 @@ int tactix_install_tick_attribution(tactix *, int stat);
  * or -1 for an invalid profile. */
 int tactix_install_affine_matrix_profile(
     tactix *, const tactix_online_affine_matrix_initialize_parameters *);
-/* Pure readback. If *active is 0 only basis is meaningful; restore it through
- * tactix_install_parameters(AffineMatrixInitialize, AFFINE_CONSEQUENCE).
- * Otherwise restore the complete profile through install_affine_matrix_profile.
- * Invalid arguments leave both outputs unchanged; never completes input. */
-int tactix_read_affine_matrix_profile(tactix *,
-    tactix_online_affine_matrix_initialize_parameters *, int *active);
-
 /* The typed result of the last public AffineMatrixInitialize application and
  * the session state. Statuses are the native enumerators plus one (0: none);
  * APPLIED names the one that admitted a matrix or delivered a consequence. */
@@ -2275,7 +2155,6 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  *                              assignment in H's decision order, propagating
  *                              beyond conflicts, then return to the root;
  *                              assignment-time phase saving is the output (H).
- *   PREPARATION_RESTART       also discards a reconstructed-model cache.
  *   RESEED_GUIDANCE            replace H by a fresh one seeded from the live
  *                              formula's residual activation and import order.
  *   RESET_GRAPH_LABELING_SESSION  clear the graph-labeling session.
@@ -2419,6 +2298,10 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
 #define TACTIX_CONTEXT_STARTUP 1
 #define TACTIX_CONTEXT_INPROCESSING 2
 #define TACTIX_CONTEXT_SPECULATION 3
+/* Explicit native propagation, including an empty fixpoint; completes input.
+ * Refuses an unresolved conflict. Closes the original-input certificate
+ * opportunity and invalidates selections as an ordinary rule application. */
+int tactix_propagate(tactix *);
 int tactix_support(tactix *, int support, uint64_t argument);
 
 /* Mutable BVE ordering, shared with the native score heap. Create at a

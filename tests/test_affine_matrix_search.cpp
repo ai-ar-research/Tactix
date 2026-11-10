@@ -174,6 +174,13 @@ void complete_snapshot_policy_admission() {
     assert(journal);
     kernel.structural_provenance = journal;
     install_implication_formula(kernel);
+    auto &profile=kernel.affine_matrix_initialize_parameters;
+    profile.basis=parameters();
+    profile.admission=AffineMatrixInitializeParameters::Admission::CompleteSnapshot;
+    profile.operation=AffineMatrixInitializeParameters::Operation::Initialize;
+    kernel.affine_matrix_initialize_parameters_active=true;
+    const auto &rule=tactix_rules()[tactix_rule_id("AffineMatrixInitialize")];
+    assert(!kernel.proof&&rule_guard(rule,kernel));
     const auto result = affine_matrix_search_initialize(
         kernel, session, parameters(),
         AffineMatrixAdmission::CompleteSnapshot);
@@ -181,6 +188,10 @@ void complete_snapshot_policy_admission() {
            result.covered_clauses == result.snapshot_clauses &&
            result.covered_clauses == kernel_irredundant_clauses(kernel) &&
            session.enabled() && session.complete_admission());
+    profile.operation=AffineMatrixInitializeParameters::Operation::SearchStep;
+    kernel.model_extended=true;
+    assert(rule_guard(rule,kernel)); // non-persistent, no-proof root service
+    kernel.model_extended=false;
     std::fclose(journal);
   }
   {

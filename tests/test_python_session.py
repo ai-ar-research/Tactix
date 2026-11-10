@@ -341,3 +341,31 @@ for ordered in (False, True):
                 assert not checked[0] and checked[2]==runner.CHK_REJECTED, checked
 assert handoff_models == 2 and handoff_proofs == 4
 print(f'BVE to DefaultPolicy handoff: {handoff_models} models, {handoff_proofs} owned proofs/negative controls after Session release')
+
+# Required callback setup must also execute when Python removes assertions.
+subprocess.run([sys.executable, '-O', '-c', r'''
+import sys
+sys.path.insert(0, sys.argv[2]+'/python')
+from tactix import Session, SAT, capi
+from tactix.strategies import Cruxmiter
+policy=Cruxmiter()
+reached=[]
+def run(execution, restored):
+    result=policy(execution, restored)
+    mode=execution.c.tactix_config(capi.TACTIX_CFG_GUIDANCE_PUBLICATION)
+    if mode!=capi.TACTIX_GUIDANCE_NATIVE:
+        raise RuntimeError('optimized Python skipped CRUX guidance setup')
+    reached.append(policy.requests)
+    return result
+clauses=[[1,2],[-3,1],[-3,2],[3,-1,-2]]
+with Session(sys.argv[1],strategy=run) as session:
+    policy.configure(session)
+    for clause in clauses:session.add(clause)
+    answer=session.solve([-1])
+    if answer.status!=SAT or not reached or max(reached)==0:
+        raise RuntimeError('Python CRUX did not execute its schedule')
+    values=set(answer.model)
+    if -1 not in values or not all(any(l in values for l in c) for c in clauses):
+        raise RuntimeError('invalid optimized CRUX model')
+''', str(library), str(root)],check=True)
+print('Optimized Python CRUX: guidance setup, reached schedule and model pass')

@@ -31,19 +31,6 @@ positive or negative variable number, and 0 to end the clause.
 
 ## Writing your own strategy
 
-`tactix_default_stage_snapshot_*` reads owned typed structured-stage programs
-from the resolved default definition. Snapshots survive solver release; their
-nested pointers remain read-only until snapshot release. Reading runs no strategy.
-
-`tactix_read_strategy_state` observes versions and producer counters without
-closing input. `tactix_online_repeat_round_limit` gives native repeat-bound advice;
-`tactix_online_executor_rearm` explicitly resets an owned atomic continuation,
-optionally retaining spent budgets. Callers still choose scheduling and repetition.
-`tactix_read_inprocess_state` reads raw inconsistency and phase/occurrence flags
-without polling or certifying a verdict; existing state-reader layouts stay fixed.
-`tactix_read_walk_structure` exposes live clause counts and an optional pure
-complementary-ternary census; callers choose its timing and eligibility thresholds.
-
 The solver's techniques are available as **rules**: unit propagation,
 branching on a variable (`Decide`), learning from a conflict
 (`ConflictAnalysis`), restarts, deleting learned clauses (`Reduce`), and
@@ -98,13 +85,3 @@ slow or never finish, but it cannot produce a wrong answer.
 - [strategies.md](strategies.md): example strategies, and how to compile and
   run your own.
 - [`include/tactix.h`](../include/tactix.h): the header file of the public interface.
-
-`tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND)` reproduces the `tactix-public`
-frontend preset with deferred cold state and H. Public materialize/attach/detach supports
-let external policies select the native lifecycle; these supports preserve
-query-owned H (explicit `RESEED_GUIDANCE` remains available). Pure extent, INPUT_CLOSED, COLD_STATE_DEFERRED and HEURISTICS_ATTACHED reads expose
-representation and output extents without closing input or changing cursors.
-Startup contexts admit materialization and H attachment without charging search
-ticks. Deferred rule execution admits root Propagate, Lucky and root affine
-initialization/search; other rules wait for materialization. Target capture and
-restart-clock operations require H.

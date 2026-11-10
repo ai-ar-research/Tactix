@@ -119,6 +119,13 @@ void reference_flush_trace(const char *path) {
       actions[i].rule,actions[i].result,actions[i].form,actions[i].instance);
   assert(!fclose(trace));
 }
+const char *reference_setting(size_t index,const char **value) {
+#if SCRIPTED_DEFAULT
+  (void)index;(void)value;return NULL;
+#else
+  return cruxmiter_setting(index,value);
+#endif
+}
 void reference_counts(void *p,uint64_t *out) {
 #if SCRIPTED_DEFAULT
   (void)p;for(int i=0;i<4;++i)out[i]=0;
@@ -143,6 +150,16 @@ with tempfile.TemporaryDirectory(prefix='python-crux-parity-') as tmp:
         ('reference_run',C.c_int,[C.c_void_p,C.c_void_p,C.c_char_p]),
         ('reference_counts',None,[C.c_void_p,C.POINTER(C.c_uint64)])]:
         function=getattr(ref,name);function.restype=result;function.argtypes=params
+    if args.policy=='cruxmiter':
+        ref.reference_setting.restype=C.c_char_p
+        ref.reference_setting.argtypes=[C.c_size_t,C.POINTER(C.c_char_p)]
+        settings=[]
+        for index in range(100):
+            value=C.c_char_p();name=ref.reference_setting(index,C.byref(value))
+            if name is None:break
+            settings.append((name.decode(),value.value.decode()))
+        else:raise AssertionError('unterminated C CRUX settings table')
+        assert tuple(settings)==Cruxmiter.settings,(settings,Cruxmiter.settings)
     rows=[];proofs=models=0;canonical={};reached_merges=0
     for i,formula in enumerate(cases):
         n=max((abs(lit) for clause in formula for lit in clause),default=0)

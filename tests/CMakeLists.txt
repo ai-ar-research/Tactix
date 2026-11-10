@@ -8,18 +8,10 @@
 
 set(TACTIX_PYTHON ${CMAKE_COMMAND} -E env python3)
 
-# libstdc++ locale facets need RTTI in the host-style definition fixture.
-set_source_files_properties(test_default_definition.cpp PROPERTIES COMPILE_OPTIONS "-frtti;-fno-sanitize=vptr")
-
 # Internal heap comparison plus real IPASIR callback/lifetime coverage.
 add_executable(test_bve_order test_bve_order.cpp)
 target_link_libraries(test_bve_order PRIVATE tactix_lib tactix_ipasir)
 add_test(NAME bve_order COMMAND test_bve_order)
-
-# The persistent-root oracle uses the real IPASIR transport and native policy.
-add_executable(test_structured_root test_structured_root.cpp)
-target_link_libraries(test_structured_root PRIVATE tactix_lib tactix_ipasir)
-add_test(NAME structured_root COMMAND test_structured_root)
 
 set(TACTIX_SKIP_UNLESS_PBP ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
     ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb
