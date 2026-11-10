@@ -144,3 +144,11 @@ remain available with the documented startup supports. Startup contexts span
 materialization/attachment; target capture and restart clocks require H.
 Reading `model` while input is open raises without closing input.
 This frontend is separate from the unfinished full Python DefaultPolicy.
+
+`execution.default_definition` reads the resolved native settings and authored
+programs without closing input or executing actions. Session options override
+environment settings; borrowed query views include query-preserving scopes.
+Use `definition.section('inprocess')` for that group's fields and `definition.text`
+for the lossless `strategy-v1` snapshot. Scalars are Python integers/floats;
+programs remain text. Invalid settings raise `ValueError`. This provides shared
+configuration; the complete independent Python DefaultPolicy is still pending.

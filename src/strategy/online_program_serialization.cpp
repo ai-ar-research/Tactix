@@ -6,6 +6,7 @@
 #include <climits>
 #include <charconv>
 #include <limits>
+#include <locale>
 #include <numeric>
 #include <sstream>
 #include <string_view>
@@ -77,6 +78,7 @@ bool serialize_listed(std::ostream &out, const ActionParameters &parameters,
 std::string serialize_online_strategy_program(
     const OnlineStrategyProgram &program) {
   std::ostringstream out;
+  out.imbue(std::locale::classic());
   out << "sequence-repeat=" << repeat_name(program.repeat.mode) << ':'
       << program.repeat.limit;
   for (const OnlineInvocation &step : program.sequence) {

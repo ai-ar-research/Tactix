@@ -167,6 +167,14 @@ class Execution:
         if self._lib.dll.tactix_decide(self._view, _literal(literal)):
             raise RuntimeError('decision not applicable')
 
+    @property
+    def default_definition(self):
+        """Native policy definitions only; the caller still chooses all actions."""
+        from .definition import StrategyDefinition
+        text = self.c.tactix_default_definition()
+        if text is None: raise ValueError('invalid DefaultPolicy settings')
+        return StrategyDefinition(text.decode())
+
     def default_solve(self):
         """An explicit strategy handoff to configured DefaultPolicy."""
         self._check()

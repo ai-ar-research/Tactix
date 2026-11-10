@@ -185,6 +185,13 @@ typedef struct tactix_solver tactix;
 tactix *tactix_init_configured(uint32_t flags);
 tactix *tactix_init(void);
 void tactix_release(tactix *);
+/* Resolved DefaultPolicy definition (strategy-v1), including authored programs
+ * and query-preserving candidate scopes on borrowed query views. Session options
+ * override environment settings as in tactix_solve. No input completion, action,
+ * cursor or solver-state change. Returned snapshot lives until the next successful reader
+ * call on this solver, release or expiry of a borrowed view. Invalid settings or
+ * NULL solver return NULL without completing input or changing solver state. */
+const char *tactix_default_definition(tactix *);
 /* Borrow a writable semantic/proof provenance stream for structural actions.
  * Caller owns its lifetime; NULL unbinds it. Binding invalidates outstanding
  * selections. The session's action IDs never reset. Returns 0 or -1. */

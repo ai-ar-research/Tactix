@@ -1088,6 +1088,11 @@ DefaultStrategyConfig::reference_structured_root_program() {
   return result;
 }
 
+namespace {
+bool validate_scheduler_program(const std::vector<strategy::InprocessStep> &,
+                                std::string *);
+}
+
 bool DefaultStrategyConfig::valid(std::string *error) const {
   const auto reject = [error](const char *message) {
     if (error)
@@ -1293,7 +1298,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       return reject("Vivify tier scope is invalid");
   if (ip.vivify_irredundant_productivity_percent > PERCENT_SCALE)
     return reject("Vivify productivity exceeds 100 percent");
-  if (!strategy::validate_inprocess_program(ip.program, error))
+  if (!validate_scheduler_program(ip.program, error))
     return false;
   for (const strategy::InprocessStep &step : ip.program)
     if (step.rule == "SubstitutionRedundancy")
@@ -3043,7 +3048,32 @@ void DefaultBranching::start_random_sequence(Kernel &k) {
   k.stats.random_sequences++;
 }
 
-void DefaultPolicy::configure_from_env(const Kernel &) {
+void DefaultPolicy::pose_query_programs() {
+  // Same authored stages, restricted to generated query-preserving BVE choices.
+  for (auto *stages : {&config_.inprocess.structured_root_stages,
+                      &config_.inprocess.structured_root_bounded_backtracking_stages,
+                      &config_.inprocess.structured_root_large_domain_stages})
+    for (auto &stage : *stages)
+      for (auto &step : stage.program.sequence)
+        if (auto *p = std::get_if<strategy::BveParameters>(&step.parameters))
+          p->candidate_scope = strategy::bve_query_scope(p->candidate_scope);
+}
+
+std::string DefaultPolicy::configured_strategy_config_snapshot(
+    const Kernel &k, bool query, const DefaultPolicy *previous) {
+  DefaultPolicy policy;
+  if (previous) {
+    policy.base_config_ = previous->base_config_;
+    policy.chrono_levels = previous->chrono_levels;
+    policy.default_branching_.randec_enabled = previous->default_branching_.randec_enabled;
+  }
+  std::string error;
+  if (!policy.configure_from_env(k, &error)) return {};
+  if (query) policy.pose_query_programs();
+  return policy.strategy_config_snapshot();
+}
+
+bool DefaultPolicy::configure_from_env(const Kernel &, std::string *error) {
   config_ = base_config_;
   // Preserve the pre-existing white-box policy pose surface: callers and
   // focused tests may set these public members before solve().
@@ -3261,6 +3291,7 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
     if (const char *order = strategy_setting(knob)) {
       CandidateOrder parsed;
       if (!parse_candidate_order(order, &parsed)) {
+        if (error) { *error=std::string(knob)+": unknown candidate-order arm";return false; }
         std::fprintf(stderr, "c ERROR: %s: unknown candidate-order arm\n",
                      knob);
         std::abort();
@@ -3271,6 +3302,7 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
 
   std::string config_error;
   if (!config_.valid(&config_error)) {
+    if (error) { *error=std::move(config_error);return false; }
     std::fprintf(stderr, "c ERROR: invalid strategy configuration: %s\n",
                  config_error.c_str());
     std::abort();
@@ -3291,6 +3323,7 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   default_reduction_.ramp = config_.reduction.ramp_fraction;
   inprocess_.set_config(&config_.inprocess);
   inprocess_.configure();
+  return true;
 }
 
 void DefaultInprocessScheduler::configure() {
@@ -3383,7 +3416,11 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
 
 void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
   configure();
-  if (entries.empty()) {
+  // Refresh authored choices between queries, retaining runtime state only
+  // for the same named occurrence. New or retargeted steps start fresh.
+  auto previous = std::move(entries);
+  entries.clear();
+  {
     const std::vector<RuleVTable> &rules = tactix_rules();
     const auto add_entry = [&](int i,
                                const strategy::InprocessStep *planned = nullptr) {
@@ -3441,44 +3478,40 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
           e.cursor_enabled = std::strcmp(nm, "BVE") != 0;
         if (planned && planned->cursor_enabled)
           e.cursor_enabled = *planned->cursor_enabled;
+        const auto old = std::find_if(previous.begin(), previous.end(),
+            [&](const SlotEntry &entry) {
+              return entry.step_id == e.step_id && entry.rule == e.rule;
+            });
+        if (old != previous.end()) {
+          e.limit = old->limit;
+          e.applies = old->applies;
+          e.doses = old->doses;
+          e.cursor = old->cursor;
+          e.tm = old->tm;
+          e.ord = old->ord;
+          e.binaries_mark = old->binaries_mark;
+          e.root_fixed_mark = old->root_fixed_mark;
+          e.arena_mark = old->arena_mark;
+          e.delay_count = old->delay_count;
+          e.delay_current = old->delay_current;
+          e.followup_mode = old->followup_mode;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+          e.journal_reference = old->journal_reference;
+          e.journal_allowance = old->journal_allowance;
+          e.journal_last_round_spent = old->journal_last_round_spent;
+          e.journal_rounds = old->journal_rounds;
+          e.journal_round_budget_break = old->journal_round_budget_break;
+#endif
+        }
         entries.push_back(e);
       }
     };
     std::vector<bool> placed(rules.size(), false);
     std::string program_error;
-    if (!strategy::validate_inprocess_program(config().program,
-                                              &program_error)) {
+    if (!validate_scheduler_program(config().program, &program_error)) {
       std::fprintf(stderr, "c ERROR: invalid inprocess program: %s\n",
                    program_error.c_str());
       std::abort();
-    }
-    // Resolve and validate every occurrence before constructing any runtime
-    // entry, so a bad typed program cannot leave a usable prefix behind.
-    for (const strategy::InprocessStep &step : config().program) {
-      const int id = tactix_rule_id(step.rule.c_str());
-      if (id < 0 || rules[id].tier != RuleTier::Inprocess) {
-        std::fprintf(stderr,
-                     "c ERROR: inprocess program rule '%s' is not a "
-                     "registered inprocessing action\n",
-                     step.rule.c_str());
-        std::abort();
-      }
-      const EffortSpec *spec = effort_spec(step.rule.c_str());
-      if (step.effort_permille && !spec) {
-        std::fprintf(stderr,
-                     "c ERROR: inprocess step '%s' has an effort share but "
-                     "the action has no scheduler effort meter\n",
-                     step.rule.c_str());
-        std::abort();
-      }
-      if ((step.cursor_enabled || step.candidate_order) &&
-          (!spec || !spec->dosed)) {
-        std::fprintf(stderr,
-                     "c ERROR: inprocess step '%s' configures candidate "
-                     "traversal but the action runs as a batch\n",
-                     step.rule.c_str());
-        std::abort();
-      }
     }
     for (const strategy::InprocessStep &step : config().program) {
       const int id = tactix_rule_id(step.rule.c_str());

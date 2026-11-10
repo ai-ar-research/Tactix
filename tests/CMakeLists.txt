@@ -8,6 +8,9 @@
 
 set(TACTIX_PYTHON ${CMAKE_COMMAND} -E env python3)
 
+# libstdc++ locale facets need RTTI in the host-style definition fixture.
+set_source_files_properties(test_default_definition.cpp PROPERTIES COMPILE_OPTIONS "-frtti;-fno-sanitize=vptr")
+
 # Internal heap comparison plus real IPASIR callback/lifetime coverage.
 add_executable(test_bve_order test_bve_order.cpp)
 target_link_libraries(test_bve_order PRIVATE tactix_lib tactix_ipasir)

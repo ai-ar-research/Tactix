@@ -59,7 +59,7 @@ class InprocessSlot:
 class NativeInprocessSchedule:
     """Independent native phase clocks; not yet a complete DefaultPolicy.
 
-    Configuration comes from the C reference's native defaults. The Python
+    Configuration comes from the execution's resolved native definition. The Python
     caller executes phase actions and chooses entry/exit and reduction events.
     No native scheduling delegate or trace replay is used.
     """
@@ -75,6 +75,15 @@ class NativeInprocessSchedule:
         self.last_reduce_conflicts = _U64
         self.forward_pair_limit = 0
         self.clocks = {group: InprocessClock() for group in ('Probe', 'Eliminate')}
+
+    @classmethod
+    def from_execution(cls, execution):
+        """Use installed native definitions; no C fixture or copied constants."""
+        config = execution.default_definition.section('inprocess')
+        config['factor_parameters'] = {
+            name: config['factor_'+name]
+            for name, _ in capi.tactix_online_factor_parameters._fields_}
+        return cls(config)
 
     def _cleanup(self, action, primary=None):
         try:

@@ -544,6 +544,7 @@ FUNCTIONS = {
     'tactix_init_configured': (('*', 'tactix'), ['uint32_t']),
     'tactix_init': (('*', 'tactix'), []),
     'tactix_release': ('void', [('*', 'tactix')]),
+    'tactix_default_definition': (('*', 'char'), [('*', 'tactix')]),
     'tactix_bind_structural_provenance': ('int', [('*', 'tactix'), ('*', 'FILE')]),
     'tactix_discard_structural_provenance': ('int', [('*', 'tactix')]),
     'tactix_add_checked': ('int', [('*', 'tactix'), 'int']),

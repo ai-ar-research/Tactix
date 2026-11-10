@@ -76,6 +76,7 @@ struct tactix_solver {
   volatile sig_atomic_t *saved_query_stop=nullptr;
   session::QuerySolveStatus query_status=session::QuerySolveStatus::Complete;
   std::vector<Lit> scratch;
+  std::string default_definition; // lazily populated read-only policy snapshot
   bool input_completed = false;
   bool pending_input_proof = false;
   uint64_t model_strategy_epoch = UINT64_MAX;
@@ -2322,6 +2323,16 @@ const char *tactix_proof_route(tactix_solver *s) {
   if (!s || s->proof.nowhere() || (!s->kernel.proof && !s->pending_input_proof))
     return nullptr;
   return s->proof.verification_route();
+}
+
+const char *tactix_default_definition(tactix_solver *s) {
+  if (!s) return nullptr;
+  ScopedStrategySettings settings(&s->default_options);
+  auto definition=DefaultPolicy::configured_strategy_config_snapshot(
+      s->kernel,s->query_owner!=nullptr,s->query_policy);
+  if (definition.empty()) return nullptr;
+  s->default_definition=std::move(definition);
+  return s->default_definition.c_str();
 }
 
 int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {

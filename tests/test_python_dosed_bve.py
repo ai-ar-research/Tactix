@@ -21,7 +21,6 @@ runner = importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
 for tool in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DSR_TRIM,
              runner.DSR_COMPRESS, runner.SR_CHECK, runner.CAKE_LPR):
     assert Path(tool).is_file(), tool
-config = json.loads(subprocess.check_output([str(observations)], text=True).splitlines()[0])['config']
 lib = capi.load_library(library)
 rules = {lib.tactix_rule_name(i).decode(): i for i in range(lib.tactix_rule_count())}
 context = types.SimpleNamespace(dll=lib, rules=rules, _callback_depth=0)
@@ -43,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix='python-dosed-bve-') as scratch:
             proof = directory/f"python-{mode}-{row['id']}.proof"
             handle = lib.tactix_init();assert handle
             execution = Execution(context, None, handle);view = execution.c
-            schedule = NativeInprocessSchedule(config);schedule.initialized = True
+            schedule = NativeInprocessSchedule.from_execution(execution);schedule.initialized = True
             slot = InprocessSlot('BVE', group='Eliminate', preprocess=True,
                 max_applies=1, permille=row['permille'], budget_aware=bool(row['aware']))
             params = capi.tactix_online_parameters(kind=capi.TACTIX_ONLINE_PARAMETERS_BVE)
@@ -140,7 +139,7 @@ with tempfile.TemporaryDirectory(prefix='python-dosed-bve-') as scratch:
 profile = next(row['profile'] for row in canonical if row['formula'] == 0 and row['aware'] and row['permille'] == 1000)
 def policy(execution, restored):
     assert execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE) == 0
-    schedule = NativeInprocessSchedule(config)
+    schedule = NativeInprocessSchedule.from_execution(execution)
     slot = InprocessSlot('BVE', group='Eliminate', preprocess=True, permille=1000, budget_aware=True)
     params = capi.tactix_online_parameters(kind=capi.TACTIX_ONLINE_PARAMETERS_BVE)
     params.value.bve = capi.tactix_online_bve_parameters(**profile)
@@ -177,7 +176,7 @@ def cancellation_case(original, *, propagate_refutation=False, at_exit=False, at
     latch, armed, interrupted, propagation = [False], [not at_preparation], [], []
     def stopped_policy(execution, restored):
         assert execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE) == 0
-        schedule = NativeInprocessSchedule(config)
+        schedule = NativeInprocessSchedule.from_execution(execution)
         if at_preparation and not latch[0]:
             execution.decide(1)
             assert execution.apply('Propagate') == 2
