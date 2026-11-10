@@ -684,16 +684,19 @@ void visit_strategy_profiles(const DefaultStrategyConfig &c, Visit &&visit) {
   visit(guidance);
 }
 
-// Every profile family's installed value (from_kernel).
+// Every profile family's installed value (from_kernel). Plain templates
+// rather than a pack-expanded lambda, which Clang 18 fails to instantiate.
+template <size_t I, class Visit> void visit_installed_profile(const Kernel &k, Visit &visit) {
+  using P = std::variant_alternative_t<I, strategy::InprocessParameters>;
+  if constexpr (requires { P::from_kernel(k); }) visit(P::from_kernel(k));
+}
+template <class Visit, size_t... I>
+void visit_installed_profiles(const Kernel &k, Visit &visit, std::index_sequence<I...>) {
+  (visit_installed_profile<I>(k, visit), ...);
+}
 template <class Visit> void visit_installed_profiles(const Kernel &k, Visit &&visit) {
-  [&]<size_t... I>(std::index_sequence<I...>) {
-    (
-        [&] {
-          using P = std::variant_alternative_t<I, strategy::InprocessParameters>;
-          if constexpr (requires { P::from_kernel(k); }) visit(P::from_kernel(k));
-        }(),
-        ...);
-  }(std::make_index_sequence<std::variant_size_v<strategy::InprocessParameters>>{});
+  visit_installed_profiles(
+      k, visit, std::make_index_sequence<std::variant_size_v<strategy::InprocessParameters>>{});
 }
 
 } // namespace
