@@ -65,6 +65,8 @@ static_assert(TACTIX_AFFINE_RESULT_NO_OP == static_cast<int>(ApplyResult::NoOp))
 static_assert(TACTIX_AFFINE_RESULT_CONFLICT == static_cast<int>(ApplyResult::Conflict));
 static_assert(TACTIX_AFFINE_RESULT_SAT == static_cast<int>(ApplyResult::Sat));
 static_assert(TACTIX_AFFINE_RESULT_UNSAT == static_cast<int>(ApplyResult::Unsat));
+static_assert(TACTIX_RULE_RESULT_NO_OP == static_cast<int>(ApplyResult::NoOp));
+static_assert(TACTIX_BUDGET_STATUS_EXHAUSTED == static_cast<int>(strategy::BudgetStatus::Exhausted));
 
 struct tactix_default_stage_snapshot {
   std::vector<std::unique_ptr<public_encoding::EncodedStep>> storage;
@@ -2359,6 +2361,19 @@ int tactix_lucky_eligible(tactix_solver *s, uint64_t instance) {
   return lucky_opportunity_eligible(s->kernel, instance) ? 1 : 0;
 }
 
+int tactix_read_strategy_state(tactix_solver *s, tactix_strategy_state *out) {
+  if (!s || !out) return -1;
+  const auto &k = s->kernel;
+  *out = {k.arena_generation, k.touch_epoch, k.strategy_epoch, k.trail.size(),
+      k.stats.sr_applied, k.stats.sr_unique_literal_amo_binaries,
+      k.stats.sr_nonforcing_cuts_declined, k.stats.sr_post_amo_nonhelper_applied,
+      k.stats.sr_post_amo_graph_root_units,
+      (k.stop && *k.stop) || (s->query_stop && *s->query_stop) ||
+          (s->query_owner && s->query_owner->termination_requested()) ? 1 : 0,
+      static_cast<int>(s->query_status)};
+  return 0;
+}
+
 tactix_default_stage_snapshot *tactix_default_stage_snapshot_create(
     tactix_solver *s, int family, uint64_t index) {
   if (!s || family < TACTIX_DEFAULT_STAGE_REGULAR ||
@@ -3031,6 +3046,27 @@ int tactix_online_executor_configure(tactix_solver *s, tactix_online_executor *e
               : strategy::ReconfigureMode::RetainMatchingStepBudgets)) return -1;
   input_complete(s);
   e->configured = true;
+  return 0;
+}
+
+int tactix_online_executor_rearm(tactix_solver *s, tactix_online_executor *e,
+    uint64_t revision, int mode) {
+  if (!e || !e->valid(s) || !e->configured ||
+      (mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS)) return -1;
+  const auto program = e->executor.program();
+  return e->executor.configure(program, revision,
+      mode == TACTIX_ONLINE_RECONFIGURE_RESET ? strategy::ReconfigureMode::ResetRuntime
+          : strategy::ReconfigureMode::RetainMatchingStepBudgets) ? 0 : -1;
+}
+
+int tactix_online_repeat_round_limit(tactix_solver *s, int mode,
+    uint64_t limit, uint64_t *out) {
+  if (!s || !out) return -1;
+  strategy::OnlineStrategyProgram program;
+  if (!online_repeat(mode, limit, program.repeat) ||
+      !strategy::validate_online_strategy_program(program)) return -1;
+  *out = strategy::repeat_round_limit(s->kernel, program.repeat);
   return 0;
 }
 

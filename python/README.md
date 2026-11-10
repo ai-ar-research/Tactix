@@ -158,6 +158,11 @@ snapshot. Returned records retain their nested storage after snapshot close.
 `steps_after_feedback` copies records and applies inter-stage feedback
 in Python; the caller still chooses stages and runs every action.
 
+`tactix.sequence.OnlineSequence` schedules C programs (versions 1–17) in Python
+over owned atomic continuations. It implements progress-gated steps, retained
+budgets, exhaustion policies and repeated rounds; source arrays may be released
+after configuration. Query-rejected candidates are explicit, not query SAT.
+
 `tactix.startup.DefaultStartup` owns the original-input, constructor and early
 Lucky windows in Python, decoding native profiles and observing opportunity
 eligibility and running the affine root fixpoint. Keep its context open while

@@ -170,6 +170,7 @@ public:
   }
   void reset_termination() { callback_stop_=0; }
   bool termination_enabled() const { return terminate_!=nullptr; }
+  bool termination_requested() const { return callback_stop_!=0; }
   bool poll_terminate(volatile sig_atomic_t *stop=nullptr) const {
     if(!callback_stop_ && terminate_ && terminate_(terminate_state_))callback_stop_=1;
     if(callback_stop_ && stop)*stop=1;

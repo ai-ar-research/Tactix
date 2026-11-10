@@ -245,6 +245,28 @@ typedef struct {
 } tactix_graph_labeling_state;
 int tactix_read_graph_labeling_state(tactix *, tactix_graph_labeling_state *);
 
+/* Pure execution versions and structured-producer counters for caller-owned
+ * sequence scheduling. No input completion, callback polling or state change.
+ * stopped observes existing latched native stop signals, not a query verdict.
+ * query_status is the cached execution status (COMPLETE for a plain solver);
+ * COMPLETE/UNKNOWN certify no readiness or verdict. This reader never checks
+ * a model, assumptions or a termination callback.
+ * Invalid arguments leave *out unchanged. */
+#define TACTIX_EXECUTION_COMPLETE 0
+#define TACTIX_EXECUTION_UNKNOWN 1
+#define TACTIX_EXECUTION_INTERRUPTED 2
+#define TACTIX_EXECUTION_RESTORE 3
+#define TACTIX_EXECUTION_INVALID_STATE 4
+#define TACTIX_EXECUTION_INVALID_MODEL 5
+#define TACTIX_EXECUTION_PROOF_FAILURE 6
+typedef struct {
+  uint64_t arena_generation, touch_epoch, strategy_epoch, trail_size;
+  uint64_t sr_applied, unique_literal_amo_binaries, nonforcing_cuts_declined;
+  uint64_t post_amo_nonhelper_applied, post_amo_graph_root_units;
+  int stopped, query_status;
+} tactix_strategy_state;
+int tactix_read_strategy_state(tactix *, tactix_strategy_state *);
+
 
 /* Borrow a writable semantic/proof provenance stream for structural actions.
  * Caller owns its lifetime; NULL unbinds it. Binding invalidates outstanding
@@ -2033,6 +2055,18 @@ void tactix_online_executor_release(tactix_online_executor *);
 int tactix_online_executor_configure(tactix *, tactix_online_executor *,
     unsigned program_version, const void *program, uint64_t revision,
     int reconfigure_mode);
+/* Reconfigure the executor's existing owned program, dropping pending
+ * selections while retaining spent budgets under RETAIN_BUDGETS. It chooses
+ * no repetition or scheduling policy. The same ownership/mode checks apply
+ * as configure; unconfigured/expired/foreign handles return -1 unchanged. */
+int tactix_online_executor_rearm(tactix *, tactix_online_executor *,
+    uint64_t revision, int reconfigure_mode);
+/* Pure native repeat-bound advice for an explicit repeat mode/limit. Includes
+ * the live formula's size-scaled bound; chooses no round or action and does
+ * not finalize input. Unknown modes or invalid repeats return -1 with *out
+ * unchanged. Zero output is the native unbounded-round sentinel. */
+int tactix_online_repeat_round_limit(tactix *, int repeat_mode,
+    uint64_t repeat_limit, uint64_t *out);
 /* Optional caller-owned shared SR discovery ledger. Preserve it across calls
  * and independent continuations to share a pool; changing/resetting it is an
  * explicit budget decision. Consumed work includes atomic overshoot. Inline

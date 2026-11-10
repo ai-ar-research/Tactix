@@ -35,6 +35,11 @@ positive or negative variable number, and 0 to end the clause.
 from the resolved default definition. Snapshots survive solver release; their
 nested pointers remain read-only until snapshot release. Reading runs no strategy.
 
+`tactix_read_strategy_state` observes versions and producer counters without
+closing input. `tactix_online_repeat_round_limit` gives native repeat-bound advice;
+`tactix_online_executor_rearm` explicitly resets an owned atomic continuation,
+optionally retaining spent budgets. Callers still choose scheduling and repetition.
+
 The solver's techniques are available as **rules**: unit propagation,
 branching on a variable (`Decide`), learning from a conflict
 (`ConflictAnalysis`), restarts, deleting learned clauses (`Reduce`), and
