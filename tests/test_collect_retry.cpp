@@ -1,4 +1,4 @@
-// Sparse collection retirement is not a semantic-removal retry producer.
+// Sparse collection arms BCE/CCE removal advice without producing BVE retries.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -18,7 +18,7 @@ static unsigned cases, parent_differences;
 static void scenario(bool red, unsigned root_at, bool marked, bool collect,
                      bool parent) {
   Kernel k;
-  kernel_reserve_vars(k, 5);
+  kernel_reserve_vars(k, 6);
   kernel_materialize_cold_state(k);
   Lit lits[] = {internalize(1), internalize(2), internalize(3),
                 internalize(4), internalize(5)};
@@ -42,13 +42,16 @@ static void scenario(bool red, unsigned root_at, bool marked, bool collect,
     assert(changed == 1 && clause_at(k.arena, ref)->garbage());
     kernel_collect_garbage(k);
   }
-  const bool removal = !red && (!collect || parent);
-  assert(calls == (removal ? 5u : 0u));
-  assert(k.stats.bve_marks - old_marks == (removal ? 5u : 0u));
+  const bool retry = !red && (!collect || parent);
+  assert(calls == (retry ? 5u : 0u));
+  assert(k.stats.bve_marks - old_marks == (retry ? 5u : 0u));
   for (Var v = 0; v < 5; ++v) {
-    assert(bool(k.bve_retry[v]) == (marked || removal));
-    assert(bool(k.removed[v]) == removal);
+    assert(bool(k.bve_retry[v]) == (marked || retry));
+    // Every retired opposite occurrence can open blocked/covered work, even
+    // when redundant or retired only to collect root-satisfied storage.
+    assert(k.removed[v]);
   }
+  assert(!k.removed[5]); // an unrelated variable receives no removal advice
   if (collect && !red && calls) ++parent_differences;
   assert(k.live_irredundant_large == 0 && k.value(internalize(1)) == 1);
   const auto retries = k.bve_retry;
