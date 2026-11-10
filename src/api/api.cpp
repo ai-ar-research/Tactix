@@ -8,6 +8,7 @@
 #include "frontend/dsr_follow_on.hpp"
 #include "frontend/parse.hpp"
 #include "api/api_internal.hpp"
+#include "api/public_parameter_encoding.hpp"
 #include "session/query_kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
@@ -21,6 +22,8 @@
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/lucky/lucky.hpp"
+#include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/structural_action_guard.hpp"
 #include "rules/registry.hpp"
 #include "strategy/execution_scope.hpp"
@@ -2335,6 +2338,60 @@ const char *tactix_default_definition(tactix_solver *s) {
   return s->default_definition.c_str();
 }
 
+int tactix_lucky_eligible(tactix_solver *s, uint64_t instance) {
+  if (!s || !s->input_completed || lucky_retired_constructor_instance(instance))
+    return -1;
+  return lucky_opportunity_eligible(s->kernel, instance) ? 1 : 0;
+}
+
+int tactix_read_execution_state(tactix_solver *s, tactix_execution_state *out) {
+  if (!s || !out) return -1;
+  tactix_execution_state state{};
+  state.external_variables = s->kernel.external_to_internal.size();
+  state.context_depth = s->contexts.size();
+  state.context_top = s->contexts.empty() ? -1 : static_cast<int>(
+      execution::execution_context_argument(s->contexts.back().first));
+  state.provenance_bound = s->kernel.structural_provenance != nullptr;
+  state.input_order_captured = s->kernel.input_binary_order_captured;
+  state.affine_matrix_bound = s->kernel.affine_matrix_search_session != nullptr;
+  state.inprocess_phase_open = s->phase.open();
+  state.model_cached = s->kernel.model_extended;
+  *out = state;
+  return 0;
+}
+
+int tactix_read_graph_labeling_state(tactix_solver *s,
+                                      tactix_graph_labeling_state *out) {
+  if (!s || !out) return -1;
+  const auto &session = s->kernel.graph_labeling_session;
+  tactix_graph_labeling_state state{};
+  state.authenticated = session.authenticated();
+  state.complete = session.complete();
+  state.fingerprint = session.candidate_fingerprint();
+  state.continuation_work = session.recommended_continuation_work();
+  if (const auto *a = session.last_authentication()) {
+    state.authentication_status = static_cast<int>(a->status) + 1;
+    state.authentication_work = a->work;
+  }
+  if (const auto *slice = session.last_slice()) {
+    state.slice_status = static_cast<int>(slice->status) + 1;
+    switch (slice->result) {
+    case ApplyResult::Ok: state.slice_result = 0; break;
+    case ApplyResult::NoOp: state.slice_result = 1; break;
+    case ApplyResult::Conflict: state.slice_result = 2; break;
+    case ApplyResult::Sat: state.slice_result = 10; break;
+    case ApplyResult::Unsat: state.slice_result = 20; break;
+    }
+    state.slice_work = slice->work;
+    state.objective_before = slice->objective_before;
+    state.objective_after = slice->objective_after;
+    state.hint_published = slice->hint_published;
+    state.useful_hint = slice->useful_hint;
+  }
+  *out = state;
+  return 0;
+}
+
 int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {
   return s?api_detail::set_strategy_option(s->default_options,name,value):-1;
 }
@@ -3261,6 +3318,31 @@ int tactix_install_affine_matrix_profile(
   return strategy::install_permanent_parameters(s->kernel, converted) ? 0 : -1;
 }
 
+int tactix_read_affine_matrix_profile(tactix_solver *s,
+    tactix_online_affine_matrix_initialize_parameters *out, int *active) {
+  if (!s || !out || !active) return -1;
+  const Kernel &k = s->kernel;
+  public_encoding::Encoded encoded;
+  const bool selected = k.affine_matrix_initialize_parameters_active;
+  const auto &basis = selected ? k.affine_matrix_initialize_parameters.basis
+                               : k.affine_consequence_parameters;
+  if (!public_encoding::encode(strategy::InprocessParameters(basis), encoded))
+    return -1;
+  tactix_online_affine_matrix_initialize_parameters profile{};
+  profile.basis = encoded.parameters.value.affine_consequence;
+  if (selected) {
+    const auto &p = k.affine_matrix_initialize_parameters;
+    profile.admission = static_cast<uint32_t>(p.admission);
+    profile.operation = static_cast<uint32_t>(p.operation);
+    profile.maximum_retained_bytes = p.maximum_retained_bytes;
+    profile.maximum_deferred_deletions = p.maximum_deferred_deletions;
+    profile.maximum_deferred_literal_work = p.maximum_deferred_literal_work;
+  }
+  *out = profile;
+  *active = selected;
+  return 0;
+}
+
 int tactix_read_affine_matrix_result(tactix_solver *s, tactix_affine_matrix_result *out) {
   if (!s || !out) return -1;
   *out = {};
@@ -3382,6 +3464,19 @@ int support_result(tactix_solver *s, ApplyResult result) {
 
 } // namespace
 
+int tactix_propagate(tactix_solver *s) {
+  if (!s) return -1;
+  input_complete(s);
+  Kernel &k = s->kernel;
+  if (k.conflict_valid || (k.cold_state_deferred && k.level)) return -1;
+  if (k.inconsistent) return tactix_status(s);
+  execution::execute_action(k, execution::CloseStartupCertificateRequest{});
+  const ApplyResult result = propagate_publishing_roots(s);
+  external_state_change(s);
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
 int tactix_support(tactix_solver *s, int support, uint64_t argument) {
   if (!s)
     return -1;
@@ -3395,6 +3490,7 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     return -1;
   if (k.cold_state_deferred &&
       support!=TACTIX_SUPPORT_MATERIALIZE_COLD_STATE &&
+      support!=TACTIX_SUPPORT_PREPARATION_RESTART &&
       support!=TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE &&
       support!=TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION &&
       support!=TACTIX_SUPPORT_RELEASE_INPUT_ORDER &&
@@ -3436,9 +3532,14 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
   case TACTIX_SUPPORT_PREPARATION_RESTART:
     if (argument > UINT32_MAX || !restart_guard(k))
       return -1;
-    result = support_result(s, execution::execute_action(
-        k, execution::RestartRequest{static_cast<uint32_t>(argument),
-                                     execution::RestartPurpose::Preparation}));
+    {
+      const auto restarted = execution::execute_action(
+          k, execution::RestartRequest{static_cast<uint32_t>(argument),
+                                       execution::RestartPurpose::Preparation});
+      k.model_extended = false;
+      k.model_values.clear();
+      result = support_result(s, restarted);
+    }
     break;
   case TACTIX_SUPPORT_ROOT_PREPARATION: {
     if (!flags(TACTIX_ROOT_PREPARATION_PROBING |

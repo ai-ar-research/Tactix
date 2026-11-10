@@ -2574,6 +2574,18 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                          {profile.maximum_retained_bytes, profile.maximum_deferred_deletions,
                                           profile.maximum_deferred_literal_work});
                             };
+                            // CompleteSnapshot is the native startup's non-persistent
+                            // root service. It needs neither a proof owner nor a
+                            // discarded reconstructed-model cache; durable modes do.
+                            if (active && profile.admission ==
+                                    strategy::AffineMatrixInitializeParameters::Admission::CompleteSnapshot) {
+                              auto guard = affine_matrix_initialize_guard(kernel);
+                              guard.fact("profile-valid", profile.valid());
+                              if (profile.operation == Operation::SearchStep)
+                                guard.fact("session-profile", profile_session() &&
+                                    !session->has_deferred_reason());
+                              return guard;
+                            }
                             if (active &&
                                 (profile.operation == Operation::SearchStep ||
                                  profile.operation == Operation::DeferredSearchStep ||

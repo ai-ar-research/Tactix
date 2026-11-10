@@ -192,6 +192,60 @@ void tactix_release(tactix *);
  * call on this solver, release or expiry of a borrowed view. Invalid settings or
  * NULL solver return NULL without completing input or changing solver state. */
 const char *tactix_default_definition(tactix *);
+/* Pure native opportunity eligibility for one Lucky payload. Does not run a
+ * rule, complete input, propagate, or change execution state. Requires completed
+ * input; returns 1/0 for eligible/ineligible, -1 for an open/null solver or an
+ * unknown/retired payload. This is scheduling advice, not a verdict: the caller
+ * still chooses and applies the action, which independently validates its work. */
+int tactix_lucky_eligible(tactix *, uint64_t instance);
+/* Pure execution/lifetime facts, even before input completion. context_top is
+ * a TACTIX_CONTEXT_* argument or -1 for an empty stack. Discard provenance is
+ * still bound. External extent includes retired/helper identities after
+ * compaction. model_cached is the raw reconstruction cache flag, not a verdict.
+ * Invalid arguments leave *out unchanged. */
+typedef struct {
+  uint64_t external_variables, context_depth;
+  int context_top, provenance_bound, input_order_captured, affine_matrix_bound;
+  int inprocess_phase_open, model_cached;
+} tactix_execution_state;
+int tactix_read_execution_state(tactix *, tactix_execution_state *);
+
+/* The native propagation service, including its vacuous fixpoint transition
+ * (settle the propagation cursor and consume a root prefix). Completes input.
+ * Returns ordinary rule codes; unlike the registered Propagate action, no
+ * pending work is required. Refuses an unresolved conflict or non-root
+ * deferred state. Closes the original-input certificate opportunity and
+ * invalidates selections as an ordinary rule application does.
+ * This chooses no rule or scheduling policy. */
+int tactix_propagate(tactix *);
+
+/* Graph constructor observations; statuses are native enumerators plus one,
+ * zero before an application. Pure even before input completion. slice_result
+ * uses ordinary public rule result codes (0/1/2/10/20), without publishing a
+ * query verdict or checking a model. Invalid arguments leave *out unchanged. */
+#define TACTIX_GRAPH_AUTH_NONE 0
+#define TACTIX_GRAPH_AUTH_NO_STRUCTURE 1
+#define TACTIX_GRAPH_AUTHENTICATED 2
+#define TACTIX_GRAPH_AUTH_EXHAUSTED 3
+#define TACTIX_GRAPH_AUTH_INTERRUPTED 4
+#define TACTIX_GRAPH_SLICE_NONE 0
+#define TACTIX_GRAPH_SLICE_NO_STRUCTURE 1
+#define TACTIX_GRAPH_SLICE_PENDING 2
+#define TACTIX_GRAPH_SLICE_COMPLETE 3
+#define TACTIX_GRAPH_SLICE_SAT 4
+#define TACTIX_GRAPH_SLICE_INTERRUPTED 5
+typedef struct {
+  int authenticated, complete;
+  uint64_t fingerprint, continuation_work;
+  int authentication_status;
+  uint64_t authentication_work;
+  int slice_status, slice_result;
+  uint64_t slice_work, objective_before, objective_after;
+  int hint_published, useful_hint;
+} tactix_graph_labeling_state;
+int tactix_read_graph_labeling_state(tactix *, tactix_graph_labeling_state *);
+
+
 /* Borrow a writable semantic/proof provenance stream for structural actions.
  * Caller owns its lifetime; NULL unbinds it. Binding invalidates outstanding
  * selections. The session's action IDs never reset. Returns 0 or -1. */
@@ -1798,8 +1852,9 @@ typedef struct {
 #define TACTIX_AFFINE_MATRIX_PROFILE_LEGACY 0
 #define TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1 1
 #define TACTIX_AFFINE_MATRIX_AUTHENTICATED_SUBIMAGE 1
-/* The startup root closure's non-persistent session over the complete live
- * formula: INITIALIZE or SEARCH_STEP with zero persistence limits. */
+/* Nonpersistent root mode, with zero persistence limits. INITIALIZE requires
+ * the complete live formula; SEARCH_STEP also accepts a matching legacy
+ * authenticated-subimage session (every published reason is revalidated). */
 #define TACTIX_AFFINE_MATRIX_COMPLETE_SNAPSHOT 2
 #define TACTIX_AFFINE_MATRIX_INITIALIZE 1
 #define TACTIX_AFFINE_MATRIX_REFRESH 2
@@ -2036,6 +2091,13 @@ int tactix_install_tick_attribution(tactix *, int stat);
  * or -1 for an invalid profile. */
 int tactix_install_affine_matrix_profile(
     tactix *, const tactix_online_affine_matrix_initialize_parameters *);
+/* Pure readback. If *active is 0 only basis is meaningful; restore it through
+ * tactix_install_parameters(AffineMatrixInitialize, AFFINE_CONSEQUENCE).
+ * Otherwise restore the complete profile through install_affine_matrix_profile.
+ * Invalid arguments leave both outputs unchanged; never completes input. */
+int tactix_read_affine_matrix_profile(tactix *,
+    tactix_online_affine_matrix_initialize_parameters *, int *active);
+
 /* The typed result of the last public AffineMatrixInitialize application and
  * the session state. Statuses are the native enumerators plus one (0: none);
  * APPLIED names the one that admitted a matrix or delivered a consequence. */
@@ -2129,6 +2191,7 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  *                              assignment in H's decision order, propagating
  *                              beyond conflicts, then return to the root;
  *                              assignment-time phase saving is the output (H).
+ *   PREPARATION_RESTART       also discards a reconstructed-model cache.
  *   RESEED_GUIDANCE            replace H by a fresh one seeded from the live
  *                              formula's residual activation and import order.
  *   RESET_GRAPH_LABELING_SESSION  clear the graph-labeling session.

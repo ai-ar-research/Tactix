@@ -152,3 +152,11 @@ Use `definition.section('inprocess')` for that group's fields and `definition.te
 for the lossless `strategy-v1` snapshot. Scalars are Python integers/floats;
 programs remain text. Invalid settings raise `ValueError`. This provides shared
 configuration; the complete independent Python DefaultPolicy is still pending.
+
+`tactix.startup.DefaultStartup` owns the original-input, constructor and early
+Lucky windows in Python, decoding native profiles and observing opportunity
+eligibility and running the affine root fixpoint. Keep its context open while
+composing structured work and initial preprocessing between those windows. This is an assembly
+component; complete independent DefaultPolicy orchestration remains pending.
+`tactix_read_graph_labeling_state` exposes authentication and continuation results
+without completing input or publishing a query verdict.

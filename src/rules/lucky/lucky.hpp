@@ -50,6 +50,7 @@ constexpr bool lucky_retired_constructor_instance(uint64_t instance) {
 }
 
 RuleEligibility lucky_guard(const Kernel &);
+bool lucky_opportunity_eligible(const Kernel &, uint64_t instance);
 ApplyResult lucky_apply_probe(Kernel &, uint64_t probe);
 ApplyResult lucky_apply(Kernel &); // canonical: the full cascade
 

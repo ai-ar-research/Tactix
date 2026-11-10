@@ -55,6 +55,34 @@ RuleEligibility lucky_guard(const Kernel &k) {
       .fact("root-level", k.level == 0);
 }
 
+// These are the same advisory predicates DefaultPolicy reads before choosing
+// a named opportunity. Applying a public payload retains its existing checks.
+bool lucky_opportunity_eligible(const Kernel &k, uint64_t instance) {
+  if (!lucky_guard(k)) return false;
+  switch (instance) {
+  case INSTANCE_CANONICAL: case 0: case 1: case 2: case 3: case 4: case 5:
+    return true;
+  case 6: case LUCKY_PARITY_PROOF: return bool(parity_model_guard(k));
+  case 7: case 9: case LUCKY_EXACT_ONE_PROOF: return bool(onehot_model_guard(k));
+  case 8: return bool(affine_model_guard(k));
+  case 10: return bool(balanced_signature_model_guard(k));
+  case 11: return bool(fermat_model_guard(k));
+  case 12: return bool(cerny_model_guard(k));
+  case 13: return bool(lookup_circuit_model_guard(k));
+  case 14: return bool(simon_model_guard(k));
+  case 15: return bool(stconn_proof_guard(k));
+  case 16: return bool(signed_cardinality_proof_guard(k));
+  case 17: return bool(exact_cover_model_guard(k));
+  case 18: return bool(independent_set_model_guard(k));
+  case LUCKY_STARTUP_PARITY: return bool(startup_parity_guard(k));
+  case LUCKY_STARTUP_COUNT: return bool(count_preservation_guard(k));
+  case LUCKY_GRAPH_LABELING: case LUCKY_GRAPH_AUTHENTICATE:
+  case LUCKY_GRAPH_CONTINUE: return bool(graph_labeling_model_guard(k));
+  case LUCKY_STARTUP_RAMSEY: return bool(ramsey_startup_guard(k));
+  default: return false;
+  }
+}
+
 // abandon an in-flight probe: clear the recorded conflict (its clause
 // stays in F; the assignment that falsified it is being undone) and
 // restore the entry state without touching phases

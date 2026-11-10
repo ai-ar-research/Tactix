@@ -42,6 +42,7 @@ static void guards(const char *path) {
   }
   for(int support=1;support<=TACTIX_SUPPORT_DETACH_HEURISTICS;++support) {
     if(support==TACTIX_SUPPORT_MATERIALIZE_COLD_STATE ||
+       support==TACTIX_SUPPORT_PREPARATION_RESTART ||
        support==TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE ||
        support==TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION ||
        support==TACTIX_SUPPORT_RELEASE_INPUT_ORDER ||
