@@ -248,6 +248,7 @@ if library:
         assert view.c.tactix_support(capi.TACTIX_SUPPORT_ENTER_INPROCESS_PHASE,capi.TACTIX_PHASE_ELIMINATE)==0
         assert view.c.tactix_support(capi.TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION,0)==0
         with BveOrder(view,()) as order:
+            assert not applicable(view,'Propagate')
             assert order.propagate()==0 and order.pop() is None
             reached.append(True)
         assert view.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE,0)==0

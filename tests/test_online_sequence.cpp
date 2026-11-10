@@ -97,7 +97,7 @@ static OnlineStrategyStage request(Kernel &k,const std::string &kind) {
   ReduceParameters p;p.tier1=p.tier2=0;p.victim_numerator=0;p.victim_denominator=2;
   p.compact_collection=true;p.reduction_bookkeeping=false;
   cleanup.parameters=p;cleanup.granularity=InvocationGranularity::CanonicalApplication;
-  if(kind=="pool"||kind=="pool-free") {
+  if(kind=="pool"||kind=="pool-zero"||kind=="pool-free") {
     producer.substitution_redundancy_instances.clear();
     producer.granularity=InvocationGranularity::CompleteCurrentPass;
     SubstitutionRedundancyParameters parameters;
@@ -162,7 +162,8 @@ int main(int argc,char **argv) {
     assert(tactix_support(s,TACTIX_SUPPORT_ENTER_CONTEXT,TACTIX_CONTEXT_STARTUP)>=0);
     assert(tactix_support(s,TACTIX_SUPPORT_ENTER_CONTEXT,TACTIX_CONTEXT_INPROCESSING)>=0);
     auto stage=request(k,kind);OnlineStrategySequence sequence;
-    Allowance pool(WorkUnit::SrDiscoveryTicks,WorkLimit::bounded(0));
+    const bool pooled=kind=="pool"||kind=="pool-zero";
+    Allowance pool(WorkUnit::SrDiscoveryTicks,WorkLimit::bounded(kind=="pool"?1:0));
     assert(sequence.configure(stage,7));
     bool requested_entry=false,resumed=false,feedback_raised=false;
     uint64_t blocked_step=0;
@@ -170,19 +171,21 @@ int main(int argc,char **argv) {
     for(unsigned call=0;!sequence.complete();++call) {
       assert(call<2000);
       const auto limit_before=pool.limit().amount();
-      const auto result=sequence.advance(k,nullptr,kind=="pool"?&pool:nullptr,
-          kind=="pool"?DiscoveryFeedbackPolicy{1024,20000000}:DiscoveryFeedbackPolicy{});
-      row(result,sequence,stage.program.sequence.size(),kind=="pool"?&pool:nullptr);
-      if(kind=="pool") {
+      const auto result=sequence.advance(k,nullptr,pooled?&pool:nullptr,
+          pooled?DiscoveryFeedbackPolicy{1024,20000000}:DiscoveryFeedbackPolicy{});
+      row(result,sequence,stage.program.sequence.size(),pooled?&pool:nullptr);
+      if(pooled) {
         feedback_raised|=pool.limit().amount()>limit_before;
         if(blocked_step&&result.step_id==blocked_step)resumed=true;
+        if(!result.discovery_entry_required)assert(pool.consumed()<=pool.limit().amount());
         if(result.discovery_entry_required) {
+          if(kind=="pool")assert(limit_before>0);
           assert(result.status==InvocationStatus::BudgetExhausted&&pool.consumed()>=limit_before);
           assert(result.step_id==0||result.step_id==stage.program.sequence.front().id);
           requested_entry=true;blocked_step=stage.program.sequence.front().id;
         }
       } else if(kind=="pool-free")assert(!result.discovery_entry_required);
-      if(kind=="pool"&&(result.discovery_progress_units||result.discovery_entry_required))
+      if(pooled&&(result.discovery_progress_units||result.discovery_entry_required))
         pool.set_limit(WorkLimit::bounded(std::max(pool.limit().amount(),pool.consumed())+8192));
       if(result.status==InvocationStatus::Sat||result.status==InvocationStatus::Unsat) {
         verdict=result.status==InvocationStatus::Sat?10:20;break;
@@ -196,7 +199,7 @@ int main(int argc,char **argv) {
       assert(result.status==InvocationStatus::Completed||result.status==InvocationStatus::NoChange||
              result.status==InvocationStatus::ScopedFixpoint||result.status==InvocationStatus::BudgetExhausted);
     }
-    if(kind=="pool") {
+    if(pooled) {
       std::cout<<"pool-control "<<requested_entry<<' '<<resumed<<' '<<feedback_raised<<' '<<pool.consumed()<<' '<<(k.stats.sr_applied-initial_sr)<<'\n';
       assert(requested_entry&&resumed&&feedback_raised&&pool.consumed()>0&&k.stats.sr_applied>initial_sr);
     }

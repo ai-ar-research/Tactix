@@ -33,7 +33,7 @@ def request(execution, kind):
     cubes = (capi.tactix_online_sr_instance*count)(
         *(capi.tactix_online_sr_instance(clause,1,None,0,None,0) for _ in range(count)))
     steps[0].sr_instances, steps[0].sr_instance_count = cubes, count
-    if kind in ('pool','pool-free'):
+    if kind in ('pool','pool-zero','pool-free'):
         p.granularity=capi.TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS
         steps[0].sr_instance_count=0;steps[0].sr_instances=None
         p.parameters.kind=capi.TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY
@@ -108,8 +108,8 @@ def python_run(kind, cnf, proof, fmt, finish):
             for context in (capi.TACTIX_CONTEXT_STARTUP,capi.TACTIX_CONTEXT_INPROCESSING):
                 assert execution.c.tactix_support(capi.TACTIX_SUPPORT_ENTER_CONTEXT,context)>=0
             program,options=request(execution,kind)
-            pool=(capi.tactix_online_discovery_budget(limit=0,ticks_per_generator=1024,hard_limit=20000000)
-                  if kind=='pool' else None)
+            pool=(capi.tactix_online_discovery_budget(limit=1 if kind=='pool' else 0,ticks_per_generator=1024,hard_limit=20000000)
+                  if kind in ('pool','pool-zero') else None)
             first_step=program.steps[0].base.step_id
             with OnlineSequence(execution,program,revision=7,**options) as sequence:
                 # Every payload is now owned; modifying the source cannot alter
@@ -127,7 +127,9 @@ def python_run(kind, cnf, proof, fmt, finish):
                     if pool is not None:
                         feedback_raised|=pool.limit>limit_before
                         resumed|=blocked_step is not None and result.base.step_id==blocked_step
+                        if not result.discovery_entry_required:assert pool.consumed<=pool.limit
                         if result.discovery_entry_required:
+                            if kind=='pool':assert limit_before>0
                             assert result.base.status==capi.TACTIX_ONLINE_BUDGET_EXHAUSTED and pool.consumed>=limit_before
                             assert result.base.step_id in (0,first_step)
                             blocked_step=first_step
@@ -146,7 +148,7 @@ def python_run(kind, cnf, proof, fmt, finish):
                     assert result.base.status in (capi.TACTIX_ONLINE_COMPLETED,capi.TACTIX_ONLINE_NO_CHANGE,
                         capi.TACTIX_ONLINE_SCOPED_FIXPOINT,capi.TACTIX_ONLINE_BUDGET_EXHAUSTED)
                     call+=1
-            if kind=='pool':
+            if kind in ('pool','pool-zero'):
                 assert blocked_step is not None and resumed and feedback_raised and pool.consumed>0
                 assert strategy_state(execution).sr_applied>initial_sr
             for context in (capi.TACTIX_CONTEXT_INPROCESSING,capi.TACTIX_CONTEXT_STARTUP):
@@ -170,7 +172,7 @@ def graph(n):
 normal=[[-1,2,3],[1,2],[1,-2]]
 unsat=[[1,2],[1,-2],[-1,2],[-1,-2]]
 cases=[(kind,normal) for kind in ('manual','before','batch','continue','stop','finish','retain','external','scaled')]
-cases += [('manual',normal+[[1]]),('manual',unsat),('pool',graph(4)),('pool-free',graph(4))]
+cases += [('manual',normal+[[1]]),('manual',unsat),('pool',graph(4)),('pool-zero',graph(4)),('pool-free',graph(4))]
 if str(library)!='-':
     for version in range(1,18):
         with Solver(library) as execution:
@@ -255,7 +257,7 @@ with tempfile.TemporaryDirectory(prefix='python-sequence-') as raw:
                         print('Native proof setup:',label,'versions',expected[0].split()[13:16],flush=True)
                     if trajectory is None: trajectory=current
                     else: assert current==trajectory,(kind,label,'proof mode changes sequence')
-                if kind in ('pool','pool-free'):
+                if kind in ('pool','pool-zero','pool-free'):
                     pool_controls[kind,label,finish]=expected
                 artifacts=[(native_proof,verdict)]
                 if str(library)!='-':
@@ -370,4 +372,7 @@ if str(library)!='-':
 
 for label in ("none","auto","pbp"):
     for finish in (0,1):
-        assert pool_controls["pool",label,finish]!=pool_controls["pool-free",label,finish]
+        # Compare action identity/work/progress, not ledger or discovery fields.
+        def behaviour(rows):return [tuple(item.split()[:13]) for item in rows]
+        assert behaviour(pool_controls["pool",label,finish])!=behaviour(pool_controls["pool-free",label,finish])
+        assert behaviour(pool_controls["pool-zero",label,finish])!=behaviour(pool_controls["pool-free",label,finish])
