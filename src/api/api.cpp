@@ -902,7 +902,8 @@ bool online_parameters(const tactix_online_parameters &source,
     return true;
   }
   case TACTIX_ONLINE_PARAMETERS_BCE:
-    target = strategy::BceParameters{source.value.bce.occurrence_limit};
+    target = strategy::BceParameters{source.value.bce.occurrence_limit,
+                                     source.value.bce.preserve_query != 0};
     return true;
   case TACTIX_ONLINE_PARAMETERS_TERNARY:
     target = strategy::TernaryParameters{

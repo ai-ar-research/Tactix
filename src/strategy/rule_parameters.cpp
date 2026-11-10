@@ -17,7 +17,7 @@
 namespace tactix::strategy {
 
 BceParameters BceParameters::from_kernel(const Kernel &k) {
-  return {k.bce_occ_limit};
+  return {k.bce_occ_limit, k.bce_preserve_query};
 }
 TernaryParameters TernaryParameters::from_kernel(const Kernel &k) {
   return {k.ternary_occ_limit, k.ternary_max_add_percent};
@@ -171,6 +171,7 @@ bool AffineModelParameters::valid() const {
 
 void install_rule_parameters(Kernel &k, const BceParameters &p) {
   k.bce_occ_limit = p.occurrence_limit;
+  k.bce_preserve_query = p.preserve_query;
 }
 
 void install_rule_parameters(Kernel &k, const TernaryParameters &p) {

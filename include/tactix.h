@@ -994,6 +994,11 @@ typedef struct {
 } tactix_online_vivify_parameters;
 typedef struct {
   uint32_t occurrence_limit;
+  /* Canonical batches only: omit blocking literals whose reconstruction can
+   * contradict the active assumption cube. Zero preserves the full domain.
+   * Explicit literal and semantic requests retain every legal BCE action.
+   * Installed profiles persist until replaced, including strategy changes. */
+  int preserve_query;
 } tactix_online_bce_parameters;
 typedef struct {
   uint32_t occurrence_limit, maximum_add_percent;

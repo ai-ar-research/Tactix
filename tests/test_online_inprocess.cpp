@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
+#include "session/query_projection.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -1290,9 +1291,10 @@ static void rule_parameters_are_scoped_per_call() {
   kernel_reserve_vars(k, 3);
 
   k.bce_occ_limit = 31;
+  k.bce_preserve_query = true;
   assert(apply_parameterized(k, "BCE", BceParameters{7}, 101).applications ==
          1);
-  assert(k.bce_occ_limit == 31);
+  assert(k.bce_occ_limit == 31 && k.bce_preserve_query);
 
   k.ternary_occ_limit = 32;
   k.ternary_max_add_percent = 33;
@@ -4113,6 +4115,56 @@ static void direct_binary_edges_encode_repeated_binary_clauses() {
          finalized.result.complete_group == full.result.complete_group);
 }
 
+static void uncertified_generated_sr_preserves_query_domain() {
+  using namespace tactix::session;
+  for (bool generated : {true, false}) {
+    QueryHistory history;
+    for (int literal : {1,2,0})
+      assert(history.add(literal)==InputStatus::Ok);
+    assert(history.assume(-1)==InputStatus::Ok &&
+           history.begin_query()==InputStatus::Ok);
+    QueryProjection projection(history,history.active_query()->id);
+    Kernel k;kernel_reserve_vars(k,2);
+    kernel_add_binary_clause(k,internalize(1),internalize(2));
+    k.query_projection=&projection;
+    SubstitutionRedundancyParameters parameters;
+    parameters.producer=SubstitutionRedundancyProducer::GeneralComplete;
+    parameters.graph_symmetry.pointwise_root_stabilizer=true;
+    if (generated) {
+      OnlineInvocation step;step.id=1;step.rule="SubstitutionRedundancy";
+      step.parameters=parameters;
+      step.granularity=InvocationGranularity::CompleteCurrentPass;
+      step.budget=WorkLimit::bounded(8);
+      OnlineStrategyProgram program;program.sequence={step};
+      OnlineStrategyExecutor executor;assert(executor.configure(program,1));
+      (void)executor.advance(k);
+      assert(!projection.snapshot().restore &&
+             "uncertified generated SR must honor the query domain");
+      // Each advance consumes one generated tuple, including a declined one.
+      // Continue the public executor until a compatible tuple is applied.
+      // Two variables: at most 3^2 clauses * 3^2 witnesses * 5^2 maps.
+      constexpr unsigned tuple_bound = 9 * 9 * 25;
+      for (unsigned advances = 0; advances < tuple_bound && !executor.complete() &&
+           !projection.snapshot().preserved_restrictions; ++advances) {
+        const auto result = executor.advance(k);
+        assert(result.status != InvocationStatus::InvalidRequest &&
+               result.status != InvocationStatus::StaleRequest &&
+               !projection.snapshot().restore);
+      }
+      assert(k.value(internalize(1))<0 &&
+             projection.snapshot().preserved_restrictions >= 1);
+    } else {
+      SubstitutionRedundancyInstance instance;
+      instance.clause={internalize(1)};
+      instance.witness={internalize(1)};
+      const auto result=substitution_redundancy_apply_detailed(k,instance,parameters);
+      assert(result.status==SubstitutionRedundancyApplicationStatus::Applied &&
+             projection.snapshot().restore); // explicit legal SR stays exposed
+    }
+    k.query_projection=nullptr;
+  }
+}
+
 static void general_sr_cursor_is_lazy_complete_and_resumable() {
   Kernel k;
   kernel_reserve_vars(k, 1);
@@ -5052,6 +5104,7 @@ int main(int argc, char **argv) {
   graph_symmetry_reconfigures_and_resumes_online();
   asymmetric_graph_has_no_symmetry_instance();
   direct_binary_edges_encode_repeated_binary_clauses();
+  uncertified_generated_sr_preserves_query_domain();
   general_sr_cursor_is_lazy_complete_and_resumable();
   repeated_nonunit_sr_is_a_semantic_noop();
   root_simplified_sr_noop_is_format_independent();

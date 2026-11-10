@@ -137,6 +137,7 @@ inline bool encode_one(const strategy::StrengthenParameters &p, Encoded &e) {
 inline bool encode_one(const strategy::BceParameters &p, Encoded &e) {
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_BCE;
   e.parameters.value.bce.occurrence_limit = p.occurrence_limit;
+  e.parameters.value.bce.preserve_query = p.preserve_query;
   return true;
 }
 

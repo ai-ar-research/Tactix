@@ -2067,11 +2067,10 @@ InvocationResult OnlineStrategyExecutor::advance(
                     std::swap(reoriented.clause[0], reoriented.clause[1]);
                     instance = &reoriented;
                   }
+                  // The generated domain applies independently of optional
+                  // certificates; uncertified tuples still get full validation.
                   sr_application =
-                      enumerated_sr &&
-                              (instance->orbitopal_prefix_certificate ||
-                               instance->symmetry_chain_certificate ||
-                               instance->unique_literal_amo_certificate)
+                      enumerated_sr
                           ? substitution_redundancy_apply_orbitopal_prefix(
                                 k, *instance, parameters, stop)
                           : substitution_redundancy_apply_detailed(

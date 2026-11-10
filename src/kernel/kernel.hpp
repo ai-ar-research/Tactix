@@ -908,6 +908,9 @@ struct Kernel {
   uint64_t subsume_touch_mark = 0;
   uint64_t strengthen_touch_mark = 0;
   uint64_t bce_touch_mark = 0;
+  // A query-compatible batch covers only its cube's selected literal domain.
+  std::vector<int32_t> bce_query_cube;
+  uint64_t bce_query_touch_mark = 0;
   uint64_t ternary_touch_mark = 0;
   uint64_t instantiate_touch_mark = 0;
   uint64_t cce_touch_mark = 0;
@@ -965,6 +968,7 @@ struct Kernel {
   // one per elimination invocation and clears it between candidates.
   uint64_t bve_definition_session = 0;
   uint32_t bce_occ_limit = 0;
+  bool bce_preserve_query = false;
   bool midround_budget = false;
   uint32_t factor_size = 5;
   bool transitive_early_exit = true;

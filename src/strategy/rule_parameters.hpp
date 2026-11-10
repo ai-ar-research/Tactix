@@ -15,6 +15,7 @@ namespace strategy {
 
 struct BceParameters {
   uint32_t occurrence_limit = 0;
+  bool preserve_query = false; // canonical batches; instances stay complete
   constexpr bool valid() const { return true; }
   static BceParameters from_kernel(const Kernel &);
 };

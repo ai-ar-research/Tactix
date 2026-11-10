@@ -2,6 +2,7 @@
 // every original clause must still hold after `kernel_extend_model`.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "session/query_projection.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/bce/bce.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -235,7 +236,129 @@ static void test_interrupt() {
   }
 }
 
+static void test_query_domain_keeps_complete_round_watermark() {
+  using namespace tactix::session;
+  QueryHistory history;
+  for (int literal : {1, 2, 0, -1, 3, 0})
+    assert(history.add(literal) == InputStatus::Ok);
+  assert(history.assume(1) == InputStatus::Ok &&
+         history.begin_query() == InputStatus::Ok);
+  QueryProjection projection(history, history.active_query()->id);
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(-3));
+  k.bce_preserve_query = true;
+  // Establish a real complete-round watermark on a formula with no blocker.
+  assert(bce_apply(k) == ApplyResult::NoOp);
+  const uint64_t watermark = k.bce_touch_mark;
+  assert(watermark == k.touch_epoch && !k.stats.bce_deleted);
+  const uint64_t skipped = k.stats.bce_mark_skipped;
+  assert(bce_apply(k) == ApplyResult::NoOp &&
+         k.stats.bce_mark_skipped == skipped + 6);
+  // Removing an opposite occurrence creates pure blockers on 2 and 3,
+  // while variable 1 remains unchanged and can still be skipped.
+  assert(kernel_delete_binary(k, internalize(-2), internalize(-3)));
+  k.query_projection = &projection;
+  assert(bce_apply(k) == ApplyResult::Ok);
+  assert(k.stats.bce_deleted == 2 && k.bce_touch_mark == watermark &&
+         k.stats.bce_mark_skipped > skipped + 6 && !projection.snapshot().restore);
+  k.query_projection = nullptr;
+  assert(default_solve(k) == 10);
+  kernel_extend_model(k);
+  // Reconstruction may leave a witness false when its clause is already true.
+  const auto &model = k.model_values;
+  assert(model.size() >= 6);
+  assert(model[internalize(1)] > 0 || model[internalize(2)] > 0);
+  assert(model[internalize(-1)] > 0 || model[internalize(3)] > 0);
+}
+
+static void test_budgeted_query_bce_reaches_unchanged_prefix_tail() {
+  using namespace tactix::session;
+  QueryHistory history;
+  for (int literal : {1, 2, 0, -1, 3, 0, -2, -3, 0, 4, 5, 0})
+    assert(history.add(literal) == InputStatus::Ok);
+  assert(history.assume(1) == InputStatus::Ok &&
+         history.begin_query() == InputStatus::Ok);
+  QueryProjection projection(history, history.active_query()->id);
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  for (const auto &[a, b] : {std::pair{1, 2}, {-1, 3}, {-2, -3}, {4, 5}})
+    kernel_add_binary_clause(k, internalize(a), internalize(b));
+  k.query_projection = &projection;
+  k.bce_preserve_query = true;
+  k.work_budget = 5; // Two unsuccessful literal checks; not the whole pass.
+  for (unsigned pass = 0; pass <= 2 * k.nvars && !k.stats.bce_deleted; ++pass) {
+    (void)bce_apply(k);
+    assert(!projection.snapshot().restore && !k.bce_touch_mark);
+  }
+  assert(k.stats.bce_deleted == 1 &&
+         "budgeted query batches must reach the pure-literal tail");
+  k.query_projection = nullptr;
+}
+
+static void test_query_bce_rekeys_its_completed_domain() {
+  using namespace tactix::session;
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  for (const auto &[a, b] : {std::pair{1, 2}, {-1, 3}, {-2, -3}})
+    kernel_add_binary_clause(k, internalize(a), internalize(b));
+  k.bce_preserve_query = true;
+  for (int assumption : {1, -1}) {
+    QueryHistory history;
+    for (int literal : {1, 2, 0, -1, 3, 0, -2, -3, 0})
+      assert(history.add(literal) == InputStatus::Ok);
+    assert(history.assume(assumption) == InputStatus::Ok &&
+           history.begin_query() == InputStatus::Ok);
+    QueryProjection projection(history, history.active_query()->id);
+    k.query_projection = &projection;
+    const uint64_t ticks = k.stats.bce_ticks;
+    assert(bce_apply(k) == ApplyResult::NoOp && k.stats.bce_ticks > ticks);
+    const uint64_t quiescent = k.stats.bce_ticks;
+    assert(bce_apply(k) == ApplyResult::NoOp && k.stats.bce_ticks == quiescent);
+    assert(!k.bce_touch_mark && !projection.snapshot().restore);
+    k.query_projection = nullptr;
+  }
+}
+
+static void test_explicit_query_bce_still_requests_repair() {
+  using namespace tactix::session;
+  unsigned semantic_repairs = 0;
+  for (unsigned choice = 0; choice <= 4; ++choice) {
+    QueryHistory history;
+    for (int literal : {1, 2, 0, -1, -2, 0})
+      assert(history.add(literal) == InputStatus::Ok);
+    assert(history.assume(1) == InputStatus::Ok &&
+           history.begin_query() == InputStatus::Ok);
+    QueryProjection projection(history, history.active_query()->id);
+    Kernel k;
+    kernel_reserve_vars(k, 2);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    k.query_projection = &projection;
+    k.bce_preserve_query = true;
+    if (!choice) {
+      assert(bce_try(k, internalize(-1)) == ApplyResult::Ok);
+      assert(projection.snapshot().restore);
+    } else {
+      const RuleVTable &rule = tactix_rules()[tactix_rule_id("BCE")];
+      uint64_t instances[8];
+      assert(rule.semantic_instances(k, instances, 8) == 4);
+      assert(rule.apply_semantic_instance(k, instances[choice - 1]) == ApplyResult::Ok);
+      semantic_repairs += projection.snapshot().restore;
+    }
+    assert(k.stats.bce_deleted == 1);
+    k.query_projection = nullptr;
+  }
+  assert(semantic_repairs > 0); // semantic requests keep the full legal surface
+}
+
 int main() {
+  test_query_domain_keeps_complete_round_watermark();
+  test_budgeted_query_bce_reaches_unchanged_prefix_tail();
+  test_query_bce_rekeys_its_completed_domain();
+  test_explicit_query_bce_still_requests_repair();
   test_interrupt();
   test_regression_fuzz_2204();
   test_touch_filter_is_policy_only();

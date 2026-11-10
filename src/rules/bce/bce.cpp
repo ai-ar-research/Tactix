@@ -1,6 +1,7 @@
 #include "rules/bce/bce.hpp"
 
 #include "proof/proof.hpp"
+#include "kernel/query_projection.hpp"
 #include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/support/flat_occurrence.hpp"
@@ -326,6 +327,13 @@ ApplyResult bce_try(Kernel &k, Lit blocking) {
 ApplyResult bce_apply(Kernel &k) {
   std::vector<Lit> lits;
   bce_literals(k, lits);
+  const size_t full_size = lits.size();
+  if (k.bce_preserve_query && k.query_projection)
+    std::erase_if(lits, [&](Lit literal) {
+      return !k.query_projection->preserves_constant(
+          kernel_external_lit(k, literal));
+    });
+  const bool complete_domain = lits.size() == full_size;
   BceIndex idx;
   build_index(k, idx); // ONE arena pass for the whole round
   std::vector<uint8_t> marked(2 * k.nvars, 0);
@@ -343,8 +351,19 @@ ApplyResult bce_apply(Kernel &k) {
   // on. Stamps are per variable, coarser than cadical's polarity, which is
   // conservative. N1: `bce_literals` and `bce_try` stay complete.
   const bool filter = k.touch_filter;
+  const bool query_domain = filter && !complete_domain;
+  if (query_domain) {
+    const auto cube = k.query_projection->constraints();
+    if (!std::equal(cube.begin(), cube.end(), k.bce_query_cube.begin(),
+                    k.bce_query_cube.end())) {
+      k.bce_query_cube.assign(cube.begin(), cube.end());
+      k.bce_query_touch_mark = k.bce_touch_mark;
+    }
+  }
   const uint64_t snapshot = k.touch_epoch;
-  const uint64_t wm = k.bce_touch_mark;
+  const uint64_t wm = query_domain
+      ? std::max(k.bce_touch_mark, k.bce_query_touch_mark)
+      : k.bce_touch_mark;
   size_t stopped_at = lits.size();
   for (size_t li = 0; li < lits.size(); li++) {
     const Lit l = lits[li];
@@ -379,8 +398,10 @@ ApplyResult bce_apply(Kernel &k) {
     kernel_touch_var(k, var_of(lits[li]));
     k.stats.bce_rearmed++;
   }
-  if (filter)
-    k.bce_touch_mark = snapshot;
+  if (filter) {
+    if (query_domain) k.bce_query_touch_mark = snapshot;
+    else k.bce_touch_mark = snapshot;
+  }
   if (any)
     k.stats.bce_rounds++;
   return any ? ApplyResult::Ok : ApplyResult::NoOp;

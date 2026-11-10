@@ -3049,7 +3049,8 @@ void DefaultBranching::start_random_sequence(Kernel &k) {
 }
 
 void DefaultPolicy::pose_query_programs() {
-  // Same authored stages, restricted to generated query-preserving BVE choices.
+  config_.inprocess.bce_parameters.preserve_query = true;
+  // Authored stages select query-compatible generated choices and BCE batches.
   for (auto *stages : {&config_.inprocess.structured_root_stages,
                       &config_.inprocess.structured_root_bounded_backtracking_stages,
                       &config_.inprocess.structured_root_large_domain_stages})
@@ -3057,6 +3058,8 @@ void DefaultPolicy::pose_query_programs() {
       for (auto &step : stage.program.sequence)
         if (auto *p = std::get_if<strategy::BveParameters>(&step.parameters))
           p->candidate_scope = strategy::bve_query_scope(p->candidate_scope);
+        else if (auto *p = std::get_if<strategy::BceParameters>(&step.parameters))
+          p->preserve_query = true;
 }
 
 void DefaultPolicy::configure_from_env(const Kernel &) {

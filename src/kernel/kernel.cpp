@@ -122,7 +122,8 @@ void kernel_materialize_cold_state(Kernel &k) {
   // round; later events and watermarks are recorded normally. Parsing and
   // early Lucky do not remove clauses or create kept-band touches.
   assert(!k.subsume_touch_mark && !k.strengthen_touch_mark &&
-         !k.bce_touch_mark && !k.ternary_touch_mark &&
+         !k.bce_touch_mark && !k.bce_query_touch_mark &&
+         k.bce_query_cube.empty() && !k.ternary_touch_mark &&
          !k.instantiate_touch_mark && !k.cce_touch_mark);
   k.bve_retry.assign(k.nvars, 1);
   k.backbone_priority.assign(k.nvars, 0);

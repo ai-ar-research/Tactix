@@ -612,9 +612,9 @@ substitution_redundancy_apply_detailed_impl(
     return finish(outcome,
                   SubstitutionRedundancyApplicationStatus::Inapplicable);
 
-  // Refinement-derived orbitopal prefixes need not come from the colored
-  // graph's pointwise stabilizer. Honor the caller-selected generated query
-  // domain at its final witness boundary too, before proof or native mutation.
+  // Generated tuples need not come from the colored graph's pointwise
+  // stabilizer. Honor their selected query domain at the final witness
+  // boundary, including uncertified tuples, before proof or native mutation.
   // Explicit X7 and unrestricted generated requests keep their full surface.
   if (accept_generated_certificate && !unique_literal_amo &&
       parameters.graph_symmetry.pointwise_root_stabilizer &&

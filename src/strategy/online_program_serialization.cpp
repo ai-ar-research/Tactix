@@ -170,8 +170,10 @@ std::string serialize_online_strategy_program(
           << p->resolution.maximum_added_literals << ','
           << p->maximum_source_scan_work << ',' << p->maximum_arena_words
           << ',' << p->maximum_journal_bytes << ')';
-    else if (const auto *p = std::get_if<BceParameters>(&step.parameters))
+    else if (const auto *p = std::get_if<BceParameters>(&step.parameters)) {
       out << ":bce(" << p->occurrence_limit << ')';
+      if (p->preserve_query) out << ":query-preserving";
+    }
     else if (const auto *p =
                  std::get_if<TernaryParameters>(&step.parameters))
       out << ":ternary(" << p->occurrence_limit << ','
