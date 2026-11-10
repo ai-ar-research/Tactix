@@ -171,9 +171,9 @@ candidate restarts after surrounding phases close. This demonstrates API capabil
 is not a performance target.
 
 `tactix.startup.DefaultStartup` owns the original-input, constructor and early
-Lucky windows in Python, decoding native profiles and observing opportunity
-eligibility and running the affine root fixpoint. Keep its context open while
-composing structured work and initial preprocessing between those windows. This is an assembly
-component; complete independent DefaultPolicy orchestration remains pending.
+Lucky windows in Python, including the affine root fixpoint. `structured_root()`
+selects the before-Lucky opportunity and post-ULC BCE; its immutable Walk census
+preserves the solve-entry classifier across preprocessing. Keep Startup open
+through initial preprocessing. Full inprocess/search orchestration remains pending.
 `tactix_read_graph_labeling_state` exposes authentication and continuation results
 without completing input or publishing a query verdict.

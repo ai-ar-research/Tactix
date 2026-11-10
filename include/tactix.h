@@ -217,6 +217,19 @@ typedef struct {
   int inconsistent, phase_open, phase_eliminate, occurrences_open;
 } tactix_inprocess_state;
 int tactix_read_inprocess_state(tactix *, tactix_inprocess_state *);
+/* Read current-formula Walk structure without completing input or changing
+ * counters, profiles, model caches or execution versions. Requires closed input.
+ * census=0 reads only the live binary/large counts; census=1 also computes the
+ * complementary ternary fraction (0..1000 per mille), counting duplicate pairs
+ * with their native multiplicity. The caller chooses whether to pay for it.
+ * Snapshot before preprocessing to classify the original formula. Invalid
+ * arguments preserve *out. No termination callback is polled. */
+typedef struct {
+  uint64_t binary_clauses, large_clauses;
+  uint32_t complementary_ternary_permille;
+  int census_complete;
+} tactix_walk_structure;
+int tactix_read_walk_structure(tactix *, int census, tactix_walk_structure *);
 
 /* The native propagation service, including its vacuous fixpoint transition
  * (settle the propagation cursor and consume a root prefix). Completes input.

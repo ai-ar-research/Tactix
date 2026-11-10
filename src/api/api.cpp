@@ -16,6 +16,7 @@
 #include "policies/default_policy.hpp"
 #include "strategy/bve_schedule.hpp"
 #include "policies/strategy_settings.hpp"
+#include "policies/ops/walk/walk.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
@@ -2443,6 +2444,15 @@ int tactix_read_inprocess_state(tactix_solver *s, tactix_inprocess_state *out) {
   if (!s || !out) return -1;
   *out = {s->kernel.inconsistent, s->phase.open(),
           s->phase.open() && s->phase.eliminate(), s->phase.occurrences_open()};
+  return 0;
+}
+
+int tactix_read_walk_structure(tactix_solver *s, int census,
+                              tactix_walk_structure *out) {
+  if (!s || !out || !s->input_completed || (census != 0 && census != 1)) return -1;
+  const auto &k = s->kernel;
+  *out = {k.watches.binary_clauses(), k.live_irredundant_large,
+          census ? walk_complementary_ternary_fraction_permille(k) : 0u, census};
   return 0;
 }
 

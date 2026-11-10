@@ -5,10 +5,15 @@ import importlib.util
 import subprocess
 import sys
 import tempfile
-library, fixture, root = map(Path, sys.argv[1:])
+from contextlib import nullcontext
+from unittest.mock import patch
+library, fixture, root = map(Path, sys.argv[1:4])
+full = sys.argv[4:]==['--full']
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench')]
 from tactix import Solver, Session, ScriptedCDCL, capi
-from tactix.startup import DefaultStartup
+from tactix.startup import DefaultStartup, walk_preprocessing_deferred
+from tactix.program import DefaultStage
+from tactix.sequence import OnlineSequence
 from proof_oracle import certificate_route
 spec=importlib.util.spec_from_file_location('startup_oracles',root/'tools/bench/run.py')
 runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
@@ -30,6 +35,118 @@ cases=[(3,[[1,2,3],[-1,-2,3],[-1,2,-3],[1,-2,-3],[1,-2],[-1,2]],{}),(16,graph_fo
        (3,[[a,b,c] for a in [-1,1] for b in [-2,2] for c in [-3,3]],{}),
        (3,[[1,2,3],[-1,-2,3],[-1,2,-3],[1,-2,-3]],{}),
        (3,[[1,2],[-1,3]],{'TACTIX_NO_PARITY_MODEL':'1','TACTIX_NO_ONEHOT_MODEL':'1'})]
+deferred_case=helpers_case=None;cleanup_cases=set()
+if full:
+    cases.extend((16,graph_formula(4),options) for options in (
+        {'TACTIX_TOUCH_MARKS':'0'}, {'TACTIX_TOUCH_REDUNDANT':'1'}))
+    for options in ({},{'TACTIX_BCE_OCC_LIMIT':'1','TACTIX_TOUCH_MARKS':'0'},
+                    {'TACTIX_TOUCH_REDUNDANT':'1'}):
+        cleanup_cases.add(len(cases));cases.append((7,[[1,2,3],[4,6],[-4,7],[5,7]],options))
+    helpers_case=len(cases);cases.append((7,[[1,2,3],[4,6],[-4,7],[5,7]],{}))
+    import random
+    generator=random.Random(7);triples=set()
+    while len(triples)<550:triples.add(tuple(sorted(generator.sample(range(1,101),3))))
+    paired=[clause for triple in sorted(triples) for clause in (list(triple),[-v for v in triple])]
+    deferred_case=len(cases)
+    cases.append((100,paired,{}))
+
+
+class CleanupProgram:
+    """Test program choice only: real C SR actions and real producer counters.
+
+    Native uses the same custom stage in its actual DefaultPolicy call site.
+    The substituted controller leaves the production placement/BCE tail intact.
+    """
+    family=capi.TACTIX_DEFAULT_STAGE_REGULAR
+    query_rejected_model=False
+    helpers_only=False
+    def __init__(self,e,observer=None):
+        self.e,self.observer=e,observer
+        self.rule_ids={1:e._lib.rules['SubstitutionRedundancy'],2:e._lib.rules['SubstitutionRedundancy']}
+    def run(self):
+        with DefaultStage(self.e,self.family,1) as stage:
+            source=stage.program
+            selected=next(step for step in source.steps[:source.step_count]
+                          if step.base.rule_id==self.rule_ids[1])
+            steps=(capi.tactix_online_step_v2*2)(selected,selected)
+            for index,step in enumerate(steps):
+                step.base.step_id=index+1
+                sr=step.base.parameters.value.substitution_redundancy
+                sr.maximum_orbitopal_matrices=0
+                sr.orbitopal_unique_literal_amo_mode=capi.TACTIX_ONLINE_SETTING_ENABLE
+            steps[0].base.granularity=capi.TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS
+            steps[1].base.granularity=capi.TACTIX_ONLINE_GRANULARITY_ONE
+            steps[1].base.parameters.value.substitution_redundancy.producer=capi.TACTIX_ONLINE_SR_EXPLICIT_ONLY
+            clause=(C.c_int*2)(5,6)
+            cubes=(capi.tactix_online_sr_instance*1)(capi.tactix_online_sr_instance(clause,2,None,0,None,0))
+            steps[1].sr_instances,steps[1].sr_instance_count=cubes,1
+            program=capi.tactix_online_program_v2(steps,1 if self.helpers_only else 2,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
+            assert self.e.c.tactix_support(capi.TACTIX_SUPPORT_ENTER_CONTEXT,capi.TACTIX_CONTEXT_INPROCESSING)>=0
+            try:
+                with OnlineSequence(self.e,program) as sequence:
+                    for call in range(256):
+                        if sequence.complete: break
+                        dispatched=sequence.dispatches[:]
+                        event=sequence.advance()
+                        if self.observer and dispatched!=sequence.dispatches:
+                            position=next(i for i in range(2) if dispatched[i]!=sequence.dispatches[i])
+                            self.observer(0,position+1,event)
+                        assert event.base.status in (capi.TACTIX_ONLINE_COMPLETED,capi.TACTIX_ONLINE_NO_CHANGE,
+                            capi.TACTIX_ONLINE_SCOPED_FIXPOINT,capi.TACTIX_ONLINE_BUDGET_EXHAUSTED), (
+                            call,event.base.status,event.base.step_id,event.base.rule_id,event.base.rule_result)
+                    assert sequence.complete, ('custom SR did not finish',event.base.status,event.base.step_id,sequence.dispatches)
+            finally:assert self.e.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_CONTEXT,0)>=0
+        return 0
+
+
+class HelpersProgram(CleanupProgram):
+    helpers_only=True
+
+# Known multiset fractions and explicit test policy thresholds. These are not
+# a second copy of DefaultPolicy's defaults. Count calls to prove cheap rejection
+# avoids the native census, while every observation preserves state and cache.
+class CensusPolicy:
+    def __init__(self, minimum, threshold):self.minimum,self.threshold=minimum,threshold
+    def section(self, name):
+        assert name=='rephase'
+        return dict(configuration_checking_minimum_clauses=self.minimum,
+                    complementary_ternary_minimum_permille=self.threshold)
+for formula, expected in (([[1,2,3],[-1,-2,-3]],1000),
+        ([[1,2,3],[1,2,3],[-1,-2,-3]],666),([[1,2],[2,3],[1,2,3]],0)):
+    with Solver(library,default_frontend=True) as e:
+        for clause in formula:e.add(clause)
+        state=capi.tactix_walk_structure(binary_clauses=97)
+        assert e.c.tactix_read_walk_structure(0,C.byref(state))==-1 and state.binary_clauses==97
+        e.c.tactix_status()
+        baseline=capi.tactix_strategy_state();context=capi.tactix_execution_state()
+        assert not e.c.tactix_read_strategy_state(C.byref(baseline))
+        assert not e.c.tactix_read_execution_state(C.byref(context))
+        assert not e.c.tactix_read_walk_structure(1,C.byref(state))
+        assert state.complementary_ternary_permille==expected,(formula,state.complementary_ternary_permille)
+        calls=[];raw=e._lib.dll.tactix_read_walk_structure
+        def counted(handle, census, out):
+            calls.append(census);return raw(handle,census,out)
+        e._lib.dll.tactix_read_walk_structure=counted
+        try:
+            assert not walk_preprocessing_deferred(e,CensusPolicy(100,500)) and calls==[0]
+            calls.clear()
+            assert walk_preprocessing_deferred(e,CensusPolicy(1,500))==(expected>=500)
+            assert calls==([0,1] if state.large_clauses*1000//(state.large_clauses+state.binary_clauses)>=500 else [0])
+            calls.clear()
+            assert walk_preprocessing_deferred(e,CensusPolicy(len(formula),500))==(expected>=500)
+            assert calls==([0,1] if state.large_clauses*1000//(state.large_clauses+state.binary_clauses)>=500 else [0])
+            if expected==666:
+                calls.clear();assert walk_preprocessing_deferred(e,CensusPolicy(3,666)) and calls==[0,1]
+        finally:e._lib.dll.tactix_read_walk_structure=raw
+        after=capi.tactix_strategy_state();after_context=capi.tactix_execution_state()
+        assert not e.c.tactix_read_strategy_state(C.byref(after))
+        assert not e.c.tactix_read_execution_state(C.byref(after_context))
+        assert bytes(baseline)==bytes(after) and bytes(context)==bytes(after_context)
+with Solver(library,default_frontend=True) as e:
+    for offset in range(0,1650,3):
+        e.add([offset+1,offset+2,offset+3]);e.add([-offset-1,-offset-2,-offset-3])
+    with DefaultStartup(e) as startup:
+        assert startup.preprocessing_deferred, 'native default census must classify paired ternaries'
 models=proofs=prefixes=actions=authenticated=0
 with tempfile.TemporaryDirectory(prefix='python-default-startup-') as raw:
     directory=Path(raw)
@@ -41,7 +158,8 @@ with tempfile.TemporaryDirectory(prefix='python-default-startup-') as raw:
             first,second=directory/f'native-{index}-{mode}.proof',directory/f'python-{index}-{mode}.proof'
             import os
             env=dict(os.environ,**options)
-            native=subprocess.check_output([str(fixture),str(cnf),str(first),str(fmt)],text=True,env=env,timeout=90)
+            native=subprocess.check_output([str(fixture),str(cnf),str(first),str(fmt)]+([
+                'cleanup' if index in cleanup_cases else 'helpers' if index==helpers_case else 'full'] if full else []),text=True,env=env,timeout=90)
             expected=[line for line in native.splitlines() if line.startswith('action ')]
             answer=int(next(line.split()[1] for line in native.splitlines() if line.startswith('prefix ')))
             trace=[]
@@ -64,6 +182,7 @@ with tempfile.TemporaryDirectory(prefix='python-default-startup-') as raw:
                 def forbidden():raise AssertionError('startup must not hand off to native DefaultPolicy')
                 s.default_solve=forbidden
                 with DefaultStartup(s) as startup:
+                    if index==deferred_case:assert startup.preprocessing_deferred
                     startup.original_input()
                     graph=next((list(map(int,line.split()[1:])) for line in native.splitlines() if line.startswith('graph ')),None)
                     if graph is not None:
@@ -72,6 +191,41 @@ with tempfile.TemporaryDirectory(prefix='python-default-startup-') as raw:
                         assert [state.authenticated,state.complete,state.fingerprint,state.continuation_work]==graph
                         authenticated+=bool(state.authenticated)
                     result=startup.constructors()
+                    if full:
+                        names={identity:name for name,identity in s._lib.rules.items()}
+                        codes={0:0,1:1,2:2,3:10,4:20}
+                        def observe(index,identity,event,*allowance):
+                            r=event.base
+                            rule_id=r.rule_id
+                            if rule_id==2**32-1:
+                                # Completion-only atomic advances have no raw
+                                # rule id; native feedback names their authored
+                                # step. Read the same definition, not the trace.
+                                if hasattr(startup.structured,'rule_ids'):
+                                    rule_id=startup.structured.rule_ids[identity]
+                                else:
+                                    with DefaultStage(s,startup.structured.family,index) as stage:
+                                        rule_id=next(step.base.rule_id for step in stage.program.steps[:stage.program.step_count]
+                                                     if step.base.step_id==identity)
+                            trace.append(f'action {names[rule_id]} {r.instance} {codes[r.rule_result]}')
+                        custom=(CleanupProgram if index in cleanup_cases else HelpersProgram if index==helpers_case else None)
+                        with patch('tactix.structured.StructuredRoot',custom) if custom else nullcontext():
+                            result=startup.structured_root(observer=observe)
+                        try:startup.structured_root()
+                        except RuntimeError:pass
+                        else:raise AssertionError('structured startup opportunity repeated')
+                        if index in cleanup_cases:
+                            assert startup.structured_root_amo_binaries_added
+                            assert sum(line.startswith('action BCE ') for line in trace)==1
+                        if index==helpers_case:
+                            assert startup.structured_root_amo_binaries_added
+                            assert not any(line.startswith('action BCE ') for line in trace)
+                        if not result:result=startup.early_lucky()
+                        if not result:result=startup.attach_guidance()
+                        if index==deferred_case:
+                            assert result==0 and startup.structured is None
+                    elif not result and startup.preprocessing_deferred:
+                        result=startup.early_lucky()
                     assert result==answer,(index,mode,result,answer,native)
                     assert trace==expected,(index,mode,trace,expected)
                     if result==10:
@@ -84,7 +238,7 @@ with tempfile.TemporaryDirectory(prefix='python-default-startup-') as raw:
                         try:startup.original_input()
                         except RuntimeError:pass
                         else:raise AssertionError('original-input opportunity repeated')
-                assert not s.c.tactix_stat(capi.TACTIX_STAT_HEURISTICS_ATTACHED)
+                assert bool(s.c.tactix_stat(capi.TACTIX_STAT_HEURISTICS_ATTACHED))==bool(full and not result)
             s._lib.dll.tactix_propagate=raw_propagate
             assert trace==expected
             current=(answer,trace)
@@ -258,4 +412,15 @@ with tempfile.TemporaryDirectory(prefix='affine-refutation-retry-') as raw:
     assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),checked
 print({'affine_refutation_last_poll':affine_polls[0], 'masked_public_result':affine_returns[1], 'retry_proof':'VERIFIED'})
 assert authenticated>=3,authenticated
+polls=[0]
+def census_terminate():polls[0]+=1;return False
+def census_query(e,restored):
+    before=polls[0]
+    assert walk_preprocessing_deferred(e,CensusPolicy(1,1000))
+    assert polls[0]==before,'census polled termination'
+    return ScriptedCDCL()(e,restored)
+with Session(library,strategy=census_query) as session:
+    session.add([1,2,3]);session.add([-1,-2,-3]);session.set_terminate(census_terminate)
+    result=session.solve();assert result.status==10
+    assert any(v>0 for v in result.model) and any(v<0 for v in result.model)
 print(f'Python-owned native startup prefix: {prefixes} comparisons, {actions} actions, {models} models, {proofs} proofs, {authenticated} authenticated graph snapshots; full controller remains open')

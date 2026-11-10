@@ -1,11 +1,13 @@
 """Python-owned DefaultPolicy startup windows, composed around root services.
 
-The caller supplies structured preprocessing between the
-windows, and keeps the Startup context until initial preprocessing is complete.
+Run configured regions before entry. Compose original_input(), constructors(),
+structured_root(), early_lucky() and attach_guidance(), keeping Startup open
+until initial preprocessing is complete.
 No method delegates to native DefaultPolicy or runs a search policy.
 """
 import ctypes as C
 import re
+from dataclasses import dataclass
 from . import capi, _QueryInterrupted
 
 # C protocol identities, not a second set of strategy defaults.
@@ -13,6 +15,42 @@ _FLAT_PROFILES = ('parity_model', 'onehot_model', 'balanced_signature_model',
                   'fermat_model', 'lookup_circuit_model', 'simon_model',
                   'stconn_proof', 'signed_cardinality_proof', 'exact_cover_model',
                   'independent_set_model')
+
+
+@dataclass(frozen=True)
+class WalkClassification:
+    live_clauses: int
+    large_clauses: int
+    complementary_ternary_permille: int
+    census_complete: bool
+    configuration_checking: bool
+
+
+def classify_walk(execution, definition):
+    """Native original-input classifier; the caller owns its snapshot lifetime.
+
+    The cheap live-clause bound avoids paying for an ineligible census. All
+    thresholds come from the resolved definition; 1000 is the per-mille unit.
+    Reading this performs no propagation, model check or termination poll.
+    """
+    execution._check()
+    config = definition.section('rephase')
+    state = capi.tactix_walk_structure()
+    if execution.c.tactix_read_walk_structure(0, C.byref(state)):
+        raise RuntimeError('Walk classification requires completed input')
+    live = state.binary_clauses + state.large_clauses
+    bound = min(1000, 1000 * state.large_clauses // live) if live else 0
+    if (live < config['configuration_checking_minimum_clauses'] or
+            bound < config['complementary_ternary_minimum_permille']):
+        return WalkClassification(live, state.large_clauses, 0, False, False)
+    if execution.c.tactix_read_walk_structure(1, C.byref(state)):
+        raise RuntimeError('cannot read Walk structure')
+    return WalkClassification(live, state.large_clauses, state.complementary_ternary_permille, True,
+        state.complementary_ternary_permille >= config['complementary_ternary_minimum_permille'])
+
+
+def walk_preprocessing_deferred(execution, definition):
+    return classify_walk(execution, definition).configuration_checking
 
 
 def _payload(text, tag):
@@ -80,22 +118,31 @@ class DefaultStartup:
     """Independent ordered windows of native DefaultPolicy startup.
 
     Within the context: original_input() including affine root closure,
-    constructors(), caller-owned structured preprocessing, early_lucky(). Keep
+    constructors(), structured_root(), early_lucky(). Keep
     the context open through the initial Probe/late-Lucky pipeline. The complete
     startup/inprocess/search coordinator is still being assembled. Profiles and
     native guidance publication remain installed on the execution view.
-    The caller owns structured-placement/deferral gates and post-ULC BCE cleanup
-    before early_lucky(); StructuredRoot alone does not implement those sites.
+    structured_root() owns the before-Lucky placement gate and post-ULC cleanup;
+    the initial Probe and later search coordinator remain caller-owned.
     """
     def __init__(self, execution):
         self.execution = execution
         self.definition = execution.default_definition
         if self.definition['inprocess.structured_root_residual_search_handoff']:
             raise NotImplementedError('residual guidance handoff must be supplied by the coordinator')
+        if self.definition['inprocess.cadical_arena_ordering_enabled']:
+            raise NotImplementedError('arena-ordering scope must be supplied by the coordinator')
         self.result = 0
         self._stage = 'new'
         self._entered = False
         self._profiles = lucky_profiles(self.definition)
+        self.preprocessing_deferred = False
+        self.walk_classification = None
+        self.structured = None
+        self._structured_attempted = False
+        self.structured_root_grew_trail = False
+        self.structured_root_amo_binaries_added = 0
+        self.structured_root_graph_root_progress = False
 
     def _support(self, name, argument=0):
         result = self.execution.c.tactix_support(getattr(capi, 'TACTIX_SUPPORT_' + name), argument)
@@ -159,12 +206,25 @@ class DefaultStartup:
         if self.execution.c.tactix_status() == 20:
             self.result, self._stage = 20, 'original'
             return self
+        self.walk_classification = classify_walk(self.execution, self.definition)
+        self.preprocessing_deferred = self.walk_classification.configuration_checking
         if self.execution.c.tactix_stat(capi.TACTIX_STAT_LEVEL):
-            if self._support('PREPARATION_RESTART') == 20: self.result = 20
+            if self._support('PREPARATION_RESTART') == 20:
+                self.result, self._stage = 20, 'original'
+                return self
         self._support('RESET_GRAPH_LABELING_SESSION')
         for profile in self._profiles:
             if self.execution.c.tactix_install_parameters(self.execution._lib.rules['Lucky'], C.byref(profile)):
                 raise ValueError('invalid native Lucky profile')
+        bce = _profile('bce', {'occurrence_limit':
+            self.definition['inprocess.bce_occurrence_limit']})
+        if self.execution.c.tactix_install_parameters(self.execution._lib.rules['BCE'], C.byref(bce)):
+            raise ValueError('invalid native BCE profile')
+        mode = lambda enabled: capi.TACTIX_ONLINE_SETTING_ENABLE if enabled else capi.TACTIX_ONLINE_SETTING_DISABLE
+        if self.execution.c.tactix_install_material_settings(
+                mode(self.definition['inprocess.touch_filter']),
+                mode(self.definition['inprocess.likely_kept_redundant'])):
+            raise ValueError('invalid native material settings')
         self._support('ENTER_CONTEXT', capi.TACTIX_CONTEXT_STARTUP)
         self._entered, self._stage = True, 'original'
         return self
@@ -275,6 +335,76 @@ class DefaultStartup:
             self._support('RELEASE_INPUT_ORDER')
         if self._lucky(capi.TACTIX_INSTANCE_CANONICAL): return self.result
         return self._lucky(7, 'onehot_model')
+
+    def structured_root(self, *, observer=None):
+        """Native before-Lucky placement and post-ULC BCE cleanup.
+
+        Keep this Startup context through early_lucky() and initial Probe.
+        If placement is deferred, that Probe owns the still-unused structured
+        opportunity. The structured attribute carries the FastEl ownership.
+        """
+        if self._stage != 'early' or self._structured_attempted:
+            raise RuntimeError('structured startup requires the constructors boundary once')
+        self._structured_attempted = True
+        if self.result: return self.result
+        self._query_boundary()
+        config = self.definition.section('inprocess')
+        if (self.preprocessing_deferred or not config['structured_root_before_lucky']
+                or 'inprocess.structured_root_stage0' not in self.definition):
+            return 0
+        from .structured import StructuredRoot
+        from .sequence import strategy_state
+        self._support('MATERIALIZE_COLD_STATE')
+        before = strategy_state(self.execution)
+        self.structured = StructuredRoot(self.execution, observer=observer)
+        result = self.structured.run()
+        after = strategy_state(self.execution)
+        self.structured_root_grew_trail = after.trail_size > before.trail_size
+        if result:
+            self.result = result
+            return result
+        if self.structured.query_rejected_model:
+            self._support('PREPARATION_RESTART')
+        if after.stopped: raise _QueryInterrupted()
+        self._query_boundary()
+        return self._post_structured(before, after)
+
+    def _post_structured(self, before, after):
+        """Shared counter-driven tail, also usable by a composed root program."""
+        from .sequence import strategy_state
+        config = self.definition.section('inprocess')
+        self.structured_root_amo_binaries_added = (
+            after.unique_literal_amo_binaries - before.unique_literal_amo_binaries) % 2**64
+        self.structured_root_graph_root_progress = (
+            after.post_amo_graph_root_units != before.post_amo_graph_root_units)
+        cleanup = (config['structured_root_bce_after_unique_literal_amo']
+            and self.structured_root_amo_binaries_added
+            and after.post_amo_nonhelper_applied != before.post_amo_nonhelper_applied
+            and not self.structured_root_graph_root_progress)
+        if cleanup:
+            def eligible(rule):
+                return self.execution.c.tactix_rule_instances(
+                    self.execution._lib.rules[rule], None, 0) >= 0
+            if eligible('Propagate') and self._propagate(): return self.result
+            if eligible('BCE'):
+                depth = self._state().context_depth
+                try:
+                    self._support('ENTER_CONTEXT', capi.TACTIX_CONTEXT_INPROCESSING)
+                    code = self.execution.apply('BCE')
+                    if code == 20:
+                        self.result = 20
+                        return self.result
+                finally:
+                    state = self._state()
+                    if (state.context_depth == depth + 1 and
+                            state.context_top == capi.TACTIX_CONTEXT_INPROCESSING and
+                            not state.inprocess_phase_open):
+                        self._support('LEAVE_CONTEXT')
+                    elif state.context_depth != depth or state.inprocess_phase_open:
+                        raise RuntimeError('close foreign scopes before startup BCE cleanup')
+            if strategy_state(self.execution).stopped: raise _QueryInterrupted()
+            self._query_boundary()
+        return self.result
 
     def attach_guidance(self):
         if not self._window('preprocess', 'attached'): return self.result

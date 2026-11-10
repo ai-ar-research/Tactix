@@ -6,7 +6,9 @@
 #include "policies/default_policy.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/lucky.hpp"
+#include "policies/ops/walk/walk.hpp"
 #include <cassert>
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -18,6 +20,9 @@ static void pure_reads() {
   auto *s=tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND);assert(s);
   auto &k=api_detail::kernel_for_fixed_testing(s);
   const auto epoch=k.strategy_epoch;
+  tactix_walk_structure census{};census.binary_clauses=97;
+  assert(tactix_read_walk_structure(s,0,&census)==-1&&census.binary_clauses==97);
+  assert(tactix_read_walk_structure(nullptr,1,&census)==-1&&census.binary_clauses==97);
   tactix_execution_state execution{};execution.external_variables=97;
   assert(tactix_read_execution_state(nullptr,&execution)==-1&&execution.external_variables==97);
   assert(!tactix_read_execution_state(s,&execution));
@@ -56,6 +61,14 @@ static void pure_reads() {
   assert(!tactix_stat(s,TACTIX_STAT_INPUT_CLOSED)&&k.strategy_epoch==epoch&&!k.model_extended&&!k.inconsistent);
   for(int lit:{1,2,0,-1,2,0})assert(!tactix_add_checked(s,lit));
   (void)tactix_status(s);
+  for(int mode:{0,1}) {
+    assert(!tactix_read_walk_structure(s,mode,&census));
+    assert(census.binary_clauses==k.watches.binary_clauses()&&census.large_clauses==k.live_irredundant_large);
+    assert(census.census_complete==mode&&census.complementary_ternary_permille==
+        (mode?walk_complementary_ternary_fraction_permille(k):0));
+  }
+  census.binary_clauses=97;
+  assert(tactix_read_walk_structure(s,2,&census)==-1&&census.binary_clauses==97);
   const auto before_service=k.strategy_epoch;
   const auto ticks=k.stats.search_ticks;
   assert(tactix_propagate(s)==0&&tactix_propagate(s)==0);
@@ -100,8 +113,9 @@ static int code(ApplyResult r) {
   std::abort();
 }
 struct Capture final:strategy::controller::FeedbackReceiver {
-  const Kernel &kernel;std::string proof,prefix;bool boundary=false;
-  Capture(const Kernel &k,const char *p):kernel(k),proof(p),prefix(proof+".prefix") {}
+  const Kernel &kernel;std::string proof,prefix;bool boundary=false,full=false;
+  volatile sig_atomic_t *stop=nullptr;
+  Capture(const Kernel &k,const char *p,bool all=false,volatile sig_atomic_t *end=nullptr):kernel(k),proof(p),prefix(proof+".prefix"),full(all),stop(end) {}
   void save() {
     if(kernel.proof)kernel.proof->flush();
     std::ifstream in(proof,std::ios::binary);std::ofstream out(prefix,std::ios::binary);
@@ -109,26 +123,55 @@ struct Capture final:strategy::controller::FeedbackReceiver {
   }
   void after_action(const strategy::controller::ActionFeedback &r) override {
     if(boundary)return;
-    if(r.identity=="MaterializeColdState") {save();boundary=true;return;}
+    if(r.identity==(full?"AttachHeuristics":"MaterializeColdState")) {
+      save();boundary=true;if(stop)*stop=1;return;
+    }
+    if(full&&r.native_request&&r.native_request->invocation&&
+       r.native_request->description.rfind("structured-stage=",0)==0) {
+      std::cout<<"action "<<r.identity<<' '<<r.outcome.invocation.instance<<' '
+               <<code(r.outcome.invocation.rule_result)<<'\n';
+      return;
+    }
     if(r.identity=="Lucky"&&r.instance==LUCKY_GRAPH_AUTHENTICATE)
       std::cout<<"graph "<<kernel.graph_labeling_session.authenticated()<<' '
                <<kernel.graph_labeling_session.complete()<<' '
                <<kernel.graph_labeling_session.candidate_fingerprint()<<' '
                <<kernel.graph_labeling_session.recommended_continuation_work()<<'\n';
-    if(r.identity=="Lucky"||r.identity=="Propagate"||r.identity=="AffineMatrixInitialize"||r.identity=="AffineMatrixSearch")
+    if(r.identity=="Lucky"||r.identity=="Propagate"||r.identity=="AffineMatrixInitialize"||r.identity=="AffineMatrixSearch"||(full&&r.identity=="BCE"))
       std::cout<<"action "<<(r.identity=="AffineMatrixSearch"?"AffineMatrixInitialize":r.identity)<<' '<<r.instance<<' '<<code(r.outcome.invocation.rule_result)<<'\n';
   }
   void search_interval(const strategy::controller::SearchIntervalFeedback &) override {}
 };
 int main(int argc,char **argv) {
   pure_reads();propagation_boundaries();if(argc==1)return 0;
-  assert(argc==4);
+  assert(argc==4||argc==5);
   auto *s=tactix_init_configured(TACTIX_INIT_DEFAULT_FRONTEND);assert(s);
   const int format=std::atoi(argv[3]);if(format)assert(!tactix_proof(s,argv[2],format));
   FILE *in=std::fopen(argv[1],"r");assert(in);assert(!tactix_read_dimacs(s,in));std::fclose(in);
   auto &k=api_detail::kernel_for_fixed_testing(s);
-  DefaultPolicy policy;Capture capture(k,argv[2]);policy.set_feedback(&capture);
-  const int answer=policy.solve(k);assert(answer==10||answer==20);
+  DefaultStrategyConfig config;
+  if(argc==5&&(std::strcmp(argv[4],"cleanup")==0||std::strcmp(argv[4],"helpers")==0)) {
+    const auto &steps=config.inprocess.structured_root_stages.at(1).program.sequence;
+    auto complete=*std::find_if(steps.begin(),steps.end(),[](const auto &step) {
+      return step.rule=="SubstitutionRedundancy";
+    });
+    assert(complete.rule=="SubstitutionRedundancy");complete.id=1;
+    auto &ulc=std::get<SubstitutionRedundancyParameters>(complete.parameters);
+    ulc.producer=SubstitutionRedundancyProducer::Orbitopal;
+    ulc.maximum_orbitopal_matrices=0;ulc.complete_unique_literal_amos=true;
+    complete.granularity=strategy::InvocationGranularity::CompleteCurrentPass;
+    auto added=complete;added.id=2;
+    std::get<SubstitutionRedundancyParameters>(added.parameters).producer=
+        SubstitutionRedundancyProducer::ExplicitOnly;
+    added.granularity=strategy::InvocationGranularity::OneInstance;
+    added.substitution_redundancy_instances={{{internalize(5),internalize(6)},{},{}}};
+    strategy::OnlineStrategyProgram program;program.sequence={complete,added};
+    if(std::strcmp(argv[4],"helpers")==0)program.sequence.resize(1);
+    config.inprocess.structured_root_stages={{program,strategy::BudgetExhaustionPolicy::Continue}};
+  }
+  volatile sig_atomic_t stop=0;
+  DefaultPolicy policy(config);Capture capture(k,argv[2],argc==5,argc==5?&stop:nullptr);policy.set_feedback(&capture);
+  const int answer=policy.solve(k,&stop);assert(answer==10||answer==20||(argc==5&&capture.boundary&&answer==0));
   if(!capture.boundary)capture.save();
   std::cout<<"prefix "<<(capture.boundary?0:answer)<<'\n';
   if(!capture.boundary&&answer==10) {

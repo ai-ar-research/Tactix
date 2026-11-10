@@ -41,6 +41,8 @@ closing input. `tactix_online_repeat_round_limit` gives native repeat-bound advi
 optionally retaining spent budgets. Callers still choose scheduling and repetition.
 `tactix_read_inprocess_state` reads raw inconsistency and phase/occurrence flags
 without polling or certifying a verdict; existing state-reader layouts stay fixed.
+`tactix_read_walk_structure` exposes live clause counts and an optional pure
+complementary-ternary census; callers choose its timing and eligibility thresholds.
 
 The solver's techniques are available as **rules**: unit propagation,
 branching on a variable (`Decide`), learning from a conflict
