@@ -39,6 +39,8 @@ nested pointers remain read-only until snapshot release. Reading runs no strateg
 closing input. `tactix_online_repeat_round_limit` gives native repeat-bound advice;
 `tactix_online_executor_rearm` explicitly resets an owned atomic continuation,
 optionally retaining spent budgets. Callers still choose scheduling and repetition.
+`tactix_read_inprocess_state` reads raw inconsistency and phase/occurrence flags
+without polling or certifying a verdict; existing state-reader layouts stay fixed.
 
 The solver's techniques are available as **rules**: unit propagation,
 branching on a variable (`Decide`), learning from a conflict

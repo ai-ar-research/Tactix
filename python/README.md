@@ -163,6 +163,13 @@ over owned atomic continuations. It implements progress-gated steps, retained
 budgets, exhaustion policies and repeated rounds; source arrays may be released
 after configuration. Query-rejected candidates are explicit, not query SAT.
 
+`tactix.structured.StructuredRoot` composes those stages in Python: native family
+selection, shared discovery budgets and renewals, inter-stage feedback, once-only
+execution and FastEl ownership. Call at a materialized root or before Probe's
+occurrence session. The caller owns placement gates, post-ULC BCE and rejected
+candidate restarts after surrounding phases close. This demonstrates API capability; Python overhead
+is not a performance target.
+
 `tactix.startup.DefaultStartup` owns the original-input, constructor and early
 Lucky windows in Python, decoding native profiles and observing opportunity
 eligibility and running the affine root fixpoint. Keep its context open while

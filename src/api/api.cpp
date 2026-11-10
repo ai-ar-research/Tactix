@@ -2439,6 +2439,13 @@ int tactix_read_execution_state(tactix_solver *s, tactix_execution_state *out) {
   return 0;
 }
 
+int tactix_read_inprocess_state(tactix_solver *s, tactix_inprocess_state *out) {
+  if (!s || !out) return -1;
+  *out = {s->kernel.inconsistent, s->phase.open(),
+          s->phase.open() && s->phase.eliminate(), s->phase.occurrences_open()};
+  return 0;
+}
+
 int tactix_read_graph_labeling_state(tactix_solver *s,
                                       tactix_graph_labeling_state *out) {
   if (!s || !out) return -1;

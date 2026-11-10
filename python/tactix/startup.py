@@ -84,6 +84,8 @@ class DefaultStartup:
     the context open through the initial Probe/late-Lucky pipeline. The complete
     startup/inprocess/search coordinator is still being assembled. Profiles and
     native guidance publication remain installed on the execution view.
+    The caller owns structured-placement/deferral gates and post-ULC BCE cleanup
+    before early_lucky(); StructuredRoot alone does not implement those sites.
     """
     def __init__(self, execution):
         self.execution = execution

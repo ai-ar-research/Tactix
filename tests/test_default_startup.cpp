@@ -21,6 +21,12 @@ static void pure_reads() {
   tactix_execution_state execution{};execution.external_variables=97;
   assert(tactix_read_execution_state(nullptr,&execution)==-1&&execution.external_variables==97);
   assert(!tactix_read_execution_state(s,&execution));
+  tactix_inprocess_state phase{};phase.inconsistent=97;
+  assert(tactix_read_inprocess_state(nullptr,&phase)==-1&&phase.inconsistent==97);
+  assert(!tactix_read_inprocess_state(s,&phase)&&!phase.inconsistent&&!phase.phase_open);
+  k.inconsistent=true;
+  assert(!tactix_read_inprocess_state(s,&phase)&&phase.inconsistent);
+  k.inconsistent=false;
   assert(!execution.context_depth&&execution.context_top==-1&&execution.provenance_bound&&execution.affine_matrix_bound);
   tactix_online_affine_matrix_initialize_parameters profile{};int active=17;
   assert(tactix_read_affine_matrix_profile(nullptr,&profile,&active)==-1&&active==17);

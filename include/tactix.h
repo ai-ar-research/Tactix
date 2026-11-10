@@ -209,6 +209,14 @@ typedef struct {
   int inprocess_phase_open, model_cached;
 } tactix_execution_state;
 int tactix_read_execution_state(tactix *, tactix_execution_state *);
+/* Pure root/phase facts, including before input completion. inconsistent is a
+ * raw kernel flag, not a certified query verdict. Reading polls no callback,
+ * reconstructs no model and changes no state. Invalid arguments preserve *out.
+ * A Probe-entry boundary has phase_open=1 and the other phase flags zero. */
+typedef struct {
+  int inconsistent, phase_open, phase_eliminate, occurrences_open;
+} tactix_inprocess_state;
+int tactix_read_inprocess_state(tactix *, tactix_inprocess_state *);
 
 /* The native propagation service, including its vacuous fixpoint transition
  * (settle the propagation cursor and consume a root prefix). Completes input.
