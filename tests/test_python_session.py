@@ -281,3 +281,62 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
     with Session(library=library,strategy=checked_add) as s:
         s.add([1]);assert s.solve().status==SAT
 print('Python sessions: strategies, cores, proofs/models, callbacks, failure recovery and lifetimes pass')
+
+# A full gathered BVE witness may retain a literal made false by its resolvent.
+from contextlib import nullcontext
+from tactix import BveOrder
+import ctypes as C
+handoff_models = handoff_proofs = 0
+for ordered in (False, True):
+    applied = []
+    def bve_handoff(execution, restored):
+        view = execution.c
+        if view.tactix_status() == UNSAT: return UNSAT
+        assert view.tactix_support(capi.TACTIX_SUPPORT_ROOT_PREPARATION, 0) == 0
+        assert view.tactix_support(capi.TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, capi.TACTIX_PHASE_ELIMINATE) == 0
+        assert view.tactix_support(capi.TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION, 0) == 0
+        with BveOrder(execution, [3,2]) if ordered else nullcontext() as order:
+            for variable in (3,2):
+                instance = capi.TACTIX_LIT_INSTANCE(variable)
+                state = capi.tactix_bve_candidate_state()
+                assert view.tactix_read_bve_candidate(instance, C.byref(state)) == 0
+                if state.flags & (capi.TACTIX_BVE_CANDIDATE_ASSIGNED | capi.TACTIX_BVE_CANDIDATE_RETIRED | capi.TACTIX_BVE_CANDIDATE_QUERY): continue
+                before = view.tactix_stat(capi.TACTIX_STAT_BVE_ELIMINATED)
+                result = order.apply('BVE', instance) if ordered else execution.apply('BVE', instance)
+                assert result == 0 and view.tactix_stat(capi.TACTIX_STAT_BVE_ELIMINATED) == before+1
+                applied.append(variable)
+                if result == UNSAT: break
+                if ordered:
+                    result = order.propagate()
+                else:
+                    choices = (C.c_int * view.tactix_rule_count())()
+                    count = view.tactix_rules_applicable(choices, len(choices))
+                    result = execution.apply('Propagate') if execution._lib.rules['Propagate'] in choices[:count] else 0
+                if result == UNSAT: break
+        left = view.tactix_support(capi.TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0)
+        assert left in (0, UNSAT)
+        return UNSAT if left == UNSAT else execution.default_solve()
+    with Session(library, strategy=bve_handoff) as session:
+        for clause in ([-3,-6],[3,6],[-6,3],[-7,2]): session.add(clause)
+        results = [session.solve()];assert results[0].status == SAT
+        results.append(session.solve([6]));assert results[-1].status == UNSAT
+        session.add([-3]);results.append(session.solve());assert results[-1].status == UNSAT
+    assert applied == [3,2], applied
+    with tempfile.TemporaryDirectory(prefix='bve-handoff-proof-') as raw:
+        for index, result in enumerate(results):
+            stem = Path(raw)/str(index);result.export(stem);verify(stem)
+            if result.status == SAT: handoff_models += 1
+            else:
+                handoff_proofs += 1
+                cnf,pf=Path(str(stem)+'.cnf'),Path(str(stem)+'.proof')
+                n,original=formula(cnf)
+                weakened=next(original[:i]+original[i+1:] for i in range(len(original))
+                              if satisfiable(n,original[:i]+original[i+1:]))
+                wrong=Path(raw)/(str(index)+'-weakened.cnf')
+                wrong.write_text(f'p cnf {n} {len(weakened)}\n'+''.join(' '.join(map(str,c))+' 0\n' for c in weakened))
+                kind='pbp' if pf.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
+                route='pbp' if kind=='pbp' else 'dsr-cake_lpr' if certificate_route(pf)=='drat' else 'dsr-trestle'
+                checked=runner.check_proof(kind,str(wrong),str(pf),30,route=route)
+                assert not checked[0] and checked[2]==runner.CHK_REJECTED, checked
+assert handoff_models == 2 and handoff_proofs == 4
+print(f'BVE to DefaultPolicy handoff: {handoff_models} models, {handoff_proofs} owned proofs/negative controls after Session release')

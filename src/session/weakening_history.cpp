@@ -338,10 +338,20 @@ bool WeakeningHistory::reconstruction_matches(const Pending &stage) const {
     if (var_of(literal) >= kernel_.external_to_internal.size()) return false;
     actual.push_back(externalize(literal));
   }
-  for (int32_t literal : stage.record.clause)
-    if (kernel_external_value(kernel_, internalize(literal)) >= 0) residual.push_back(literal);
+  residual = stage.record.clause;
   std::sort(actual.begin(), actual.end());
   std::sort(residual.begin(), residual.end());
+  if (!std::includes(residual.begin(), residual.end(), actual.begin(), actual.end())) return false;
+  const auto fixed_false = [&](int32_t literal) {
+    return kernel_external_value(kernel_, internalize(literal)) < 0;
+  };
+  if (fixed_false(stage.record.witness[0])) return false;
+  // BVE can learn a root while generating resolvents after gathering its
+  // source clauses. Its valid repair may retain those now-false literals.
+  // Every saved literal must belong to the source; only false ones may be
+  // omitted, and the witness must remain available to repair that source.
+  std::erase_if(actual, fixed_false);
+  std::erase_if(residual, fixed_false);
   return actual == residual;
 }
 

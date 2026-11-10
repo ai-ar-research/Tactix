@@ -6,8 +6,10 @@
 #include "proof/proof.hpp"
 #include "rules/bce/bce.hpp"
 #include "rules/bve/bve.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "session/weakening_history.hpp"
 #include "session/query_history.hpp"
+#include "session/query_kernel.hpp"
 
 #include <algorithm>
 #include <cassert>
