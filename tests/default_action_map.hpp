@@ -407,6 +407,11 @@ struct Fixture {
   // fixture is not replayed), plus kernel parameters set at load.
   std::vector<std::vector<int>> dimacs;
   std::function<void(Kernel &)> tune;
+  // Public session setup after loading (retention advice, ER definitions,
+  // region programs).
+  std::function<void(tactix_c_handle *)> session = nullptr;
+  // The command line's startup lifetime (tactix_defer_startup_state).
+  bool deferred = false;
 };
 
 inline std::vector<std::vector<int>> pigeonhole_dimacs(unsigned pigeons, unsigned holes) {

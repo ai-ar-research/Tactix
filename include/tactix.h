@@ -226,7 +226,19 @@ const char *tactix_proof_route(tactix *);
 #define TACTIX_BVE_GATE_ITE 4u    /* if-then-else x<->(c?t:e) */
 #define TACTIX_BVE_GATE_XOR 8u    /* parity x<->a1^...^am */
 #define TACTIX_BVE_GATE_DEFINITION 16u /* general x<->phi, via the sub-solver */
+/* The gate families the default strategy's command line poses: Kissat
+ * 4.0.4's (no XOR recognition). */
+#define TACTIX_BVE_GATES_DEFAULT                                               \
+  (TACTIX_BVE_GATE_EQUIV | TACTIX_BVE_GATE_AND_OR | TACTIX_BVE_GATE_ITE |      \
+   TACTIX_BVE_GATE_DEFINITION)
 void tactix_set_bve_gates(tactix *, unsigned mask);
+
+/* Before any input: defer cold per-variable state and the branching heuristic
+ * to their first consumer, as the command line does. tactix_solve completes
+ * them itself; another strategy issues TACTIX_SUPPORT_MATERIALIZE_COLD_STATE
+ * and TACTIX_SUPPORT_ATTACH_HEURISTICS first. Returns 0, or -1 once input has
+ * begun. */
+int tactix_defer_startup_state(tactix *);
 
 /* Kernel configuration setters — the pose surface for external and learned
  * policies. Every value is sound: config narrows or reorders which sound
@@ -475,6 +487,34 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
  * more than c levels below level-1 keeps the trail to level-1; otherwise it
  * backjumps to j. Every other payload is the v1 target level. */
 #define TACTIX_ANALYZE_TARGET_CHRONO (UINT64_C(1) << 63)
+/* Named instance payloads (each rule's v1 encoding). Rephase: the phase
+ * source. Reorder: the ranking it reorders. Lucky: the opportunity. */
+#define TACTIX_REPHASE_BEST 0
+#define TACTIX_REPHASE_INVERTED 1
+#define TACTIX_REPHASE_ORIGINAL 2
+#define TACTIX_REORDER_QUEUE 0
+#define TACTIX_REORDER_HEAP 1
+#define TACTIX_LUCKY_PARITY_MODEL 6
+#define TACTIX_LUCKY_ONEHOT_MODEL 7
+#define TACTIX_LUCKY_AFFINE_MODEL 8
+#define TACTIX_LUCKY_DIRECT_CSP_MODEL 9
+#define TACTIX_LUCKY_BALANCED_SIGNATURE_MODEL 10
+#define TACTIX_LUCKY_FERMAT_MODEL 11
+#define TACTIX_LUCKY_CERNY_MODEL 12
+#define TACTIX_LUCKY_LOOKUP_CIRCUIT_MODEL 13
+#define TACTIX_LUCKY_SIMON_MODEL 14
+#define TACTIX_LUCKY_STCONN_PROOF 15
+#define TACTIX_LUCKY_SIGNED_CARDINALITY_PROOF 16
+#define TACTIX_LUCKY_EXACT_COVER_MODEL 17
+#define TACTIX_LUCKY_INDEPENDENT_SET_MODEL 18
+#define TACTIX_LUCKY_STARTUP_PARITY 19
+#define TACTIX_LUCKY_STARTUP_COUNT 20
+#define TACTIX_LUCKY_GRAPH_LABELING 21
+#define TACTIX_LUCKY_STARTUP_RAMSEY 22
+#define TACTIX_LUCKY_PARITY_PROOF 23
+#define TACTIX_LUCKY_EXACT_ONE_PROOF 24
+#define TACTIX_LUCKY_GRAPH_AUTHENTICATE 26
+#define TACTIX_LUCKY_GRAPH_CONTINUE 27
 /* SubsumeForward instance: the fast-elimination occurrence check of one clause
  * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
  * ordered Eliminate occurrence session. */
@@ -1814,6 +1854,14 @@ typedef struct {
 #define TACTIX_ONLINE_RESOURCE_EXHAUSTED 11
 #define TACTIX_ONLINE_ACCOUNTING_ERROR 12
 
+/* A rule's own result in typed results (rule_result, service_result,
+ * initialization_result); tactix_apply codes them 0, 1, 2, 10 and 20. */
+#define TACTIX_RULE_RESULT_OK 0
+#define TACTIX_RULE_RESULT_NOOP 1
+#define TACTIX_RULE_RESULT_CONFLICT 2
+#define TACTIX_RULE_RESULT_SAT 3
+#define TACTIX_RULE_RESULT_UNSAT 4
+
 typedef struct {
   int status, rule_result, budget_status, work_unit;
   uint64_t work, applications, step_id, instance;
@@ -1918,7 +1966,15 @@ int tactix_install_tick_attribution(tactix *, int stat);
 int tactix_install_affine_matrix_profile(
     tactix *, const tactix_online_affine_matrix_initialize_parameters *);
 /* The typed result of the last public AffineMatrixInitialize application and
- * the session state. Statuses are the native enumerators plus one (0: none). */
+ * the session state. Statuses are the native enumerators plus one (0: none);
+ * APPLIED names the one that admitted a matrix or delivered a consequence. */
+#define TACTIX_AFFINE_INITIALIZATION_APPLIED 9
+#define TACTIX_AFFINE_INITIALIZATION_APPLIED_PARTIAL 10
+#define TACTIX_AFFINE_INITIALIZATION_NO_STRUCTURE 3
+#define TACTIX_AFFINE_SERVICE_APPLIED 4
+#define TACTIX_AFFINE_SERVICE_INAPPLICABLE 5
+#define TACTIX_AFFINE_SERVICE_INTERRUPTED 7
+#define TACTIX_AFFINE_SERVICE_PENDING 11
 typedef struct {
   int initialization_status, initialization_result, unchanged;
   uint64_t equations, rows, admitted_sources;
@@ -1929,6 +1985,37 @@ typedef struct {
   uint64_t basis_rank;
 } tactix_affine_matrix_result;
 int tactix_read_affine_matrix_result(tactix *, tactix_affine_matrix_result *);
+
+/* The persistent affine search's state: the last initialization (its
+ * recognition work, and its root service with that service's work), the last
+ * service, and the session with its own basis and persistence limits.
+ * Statuses as above, results TACTIX_RULE_RESULT_*. Returns 0, or -1 for a
+ * NULL argument. */
+typedef struct {
+  int status, result, bcp_pending, synchronized, cached_event, terminal_failure;
+  uint64_t synchronization_work, work; /* work includes synchronization */
+} tactix_affine_service_state;
+typedef struct {
+  int initialization_status, unchanged, has_root_service;
+  uint64_t root_unit_additions, root_reason_additions;
+  uint64_t recognition_work, maintenance_work;
+  tactix_affine_service_state root_service, service;
+  int enabled, persistent, deferred_reason;
+  uint64_t owner_version, lazy_reasons;
+  tactix_online_affine_consequence_parameters basis;
+  uint64_t maximum_retained_bytes, maximum_deferred_deletions, maximum_deferred_literal_work;
+} tactix_affine_search_state;
+int tactix_read_affine_search(tactix *, tactix_affine_search_state *);
+
+/* A caller-owned (initially zeroed) cursor over an enabled affine session's
+ * inputs: changed is 1 when they changed since the cursor consumed them, 0
+ * otherwise; consume advances it. Both -1 without an enabled session. */
+typedef struct {
+  uint64_t root_scanned, namespace_epoch, owner_version, premise_epoch;
+  int valid;
+} tactix_affine_inputs;
+int tactix_affine_inputs_changed(tactix *, tactix_affine_inputs *);
+int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
 
 /* Support transactions (additive). The lifecycle, representation and
  * guidance transitions a native policy composes around rule applications,
@@ -2061,6 +2148,35 @@ int tactix_read_affine_matrix_result(tactix *, tactix_affine_matrix_result *);
  * disconnected. Derived roots are not published to H; the caller publishes
  * them (as DefaultPolicy does). Returns 0, 1 (nothing changed) or 20. */
 #define TACTIX_SUPPORT_FORWARD_CLOSURE 27
+/* BVE_FLUSH_UNITS: argument = trail position: in an ordered occurrence
+ * session, drop the clauses the root units from there to the propagation head
+ * satisfy, rescoring an open BVE schedule (Kissat flush_units_while_connected).
+ * Returns 0, or -1 outside such a session or past the propagation head. */
+#define TACTIX_SUPPORT_BVE_FLUSH_UNITS 29
+/* AFFINE_CENSUS: argument 1 records the affine source population an empty
+ * recognition answered (when its epochs can key it), 0 forgets it. Returns 0. */
+#define TACTIX_SUPPORT_AFFINE_CENSUS 31
+/* RUN_REGIONS: run the queued region queries at the root. Returns 0 changed,
+ * 1 no change, 20 refuted. */
+#define TACTIX_SUPPORT_RUN_REGIONS 32
+/* STARTUP_RETENTION: 1 opens the startup scope in which Substitute and BVE
+ * keep the variables posed by tactix_set_variable_retention; 0 closes it and
+ * releases them, 2 closes it keeping them posed. Returns 0, or -1 for an
+ * unknown argument or a scope already in that state. */
+#define TACTIX_SUPPORT_STARTUP_RETENTION 33
+/* MATERIALIZE_COLD_STATE / ATTACH_HEURISTICS: complete what
+ * tactix_defer_startup_state deferred. Return 0, or 1 when nothing was. */
+#define TACTIX_SUPPORT_MATERIALIZE_COLD_STATE 34
+#define TACTIX_SUPPORT_ATTACH_HEURISTICS 35
+/* PUBLISH_ROOTS: argument = trail position: publish the root assignments from
+ * there to H, as NATIVE publication does after an application (for supports
+ * such as FORWARD_CLOSURE that leave it to the caller). Idempotent. Returns 0,
+ * or -1 without H or past the trail. */
+#define TACTIX_SUPPORT_PUBLISH_ROOTS 30
+/* CAPTURE_TARGET_PHASES: while stable, save the current assignment as H's
+ * target and best phases where it is the deepest since the last rephase (as a
+ * scheduled restart does first). Returns 0, or -1 without H. */
+#define TACTIX_SUPPORT_CAPTURE_TARGET_PHASES 28
 #define TACTIX_ROOT_PREPARATION_PROBING 1
 #define TACTIX_ROOT_PREPARATION_CAPTURE_TARGET 2
 #define TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX 4
@@ -2092,6 +2208,266 @@ int tactix_status(tactix *);
 /* read-only statistics: returns the counter for a TACTIX_STAT_*
  * id, UINT64_MAX for unknown ids. Allocation-free. */
 uint64_t tactix_stat(tactix *, int stat_id);
+
+/* ---------------------------------------------------------------------------
+ * Reads for strategies that make every decision themselves
+ * (examples/default_strategy is the default strategy written this way). They
+ * change neither the formula, an assignment nor the proof unless noted.
+ * ------------------------------------------------------------------------- */
+
+/* Every solver statistic by name ("conflicts", "search_ticks", ...); ids are
+ * stable within a build. tactix_counter_id: -1 for an unknown name;
+ * tactix_counter_length: elements (0 unknown); tactix_counter: element `index`
+ * (arrays row-major; 0 past the end). tactix_counter_view: a read-only pointer
+ * to a 64-bit counter, kept current for the session's lifetime (NULL for an
+ * unknown id or a 32-bit counter). */
+int tactix_counter_id(const char *name);
+uint32_t tactix_counter_length(int counter_id);
+uint64_t tactix_counter(tactix *, int counter_id, uint32_t index);
+const uint64_t *tactix_counter_view(tactix *, int counter_id);
+
+/* A flag (a signal handler's volatile sig_atomic_t, or NULL) every rule
+ * application polls at its atomic boundaries, stopping once it is nonzero.
+ * It must outlive its installation. Returns 0, or -1 for a NULL session. */
+int tactix_set_interrupt(tactix *, volatile int *flag);
+
+/* State observations: tactix_observe(s, TACTIX_OBSERVE_*, argument). The
+ * argument is zero unless an entry names it. UINT64_MAX for an unknown
+ * observation or an invalid argument. Finalizes input. */
+#define TACTIX_OBSERVE_INCONSISTENT 1        /* 1: the root is refuted */
+#define TACTIX_OBSERVE_CONFLICT 2            /* 1: a recorded conflict awaits analysis */
+#define TACTIX_OBSERVE_UNASSIGNED_ACTIVE 3   /* unassigned active variables */
+#define TACTIX_OBSERVE_LIVE_BINARY 4         /* live binary clauses */
+#define TACTIX_OBSERVE_LIVE_LARGE_IRREDUNDANT 5 /* live irredundant clauses, size >= 3 */
+/* Per mille of live clauses that are ternary members of a complementary
+ * pair (computed by a scan of the live clauses at the call). */
+#define TACTIX_OBSERVE_COMPLEMENTARY_TERNARY_PERMILLE 6
+#define TACTIX_OBSERVE_EXTERNAL_VARIABLES 7  /* largest external variable index */
+#define TACTIX_OBSERVE_PROOF 8               /* 1: a proof writer is attached */
+#define TACTIX_OBSERVE_STRUCTURAL_PROVENANCE 9 /* 1: a provenance stream is bound */
+/* Retained affine matrix session: bit 0 present, bit 1 enabled, bit 2
+ * persistent, bit 3 a deferred reason is outstanding, bit 4 an
+ * AffineMatrixInitialize profile is installed (tactix_install_affine_matrix_
+ * profile, until a basis profile replaces it). */
+#define TACTIX_OBSERVE_AFFINE_SESSION 10
+#define TACTIX_OBSERVE_AFFINE_REASONS_UNAFFORDABLE 11
+#define TACTIX_OBSERVE_MODEL_EXTENDED 12     /* 1: a reconstructed model is cached */
+/* Graph-labeling session: bit 0 authenticated, bit 1 trajectory complete,
+ * bit 2 the last authentication was interrupted. */
+#define TACTIX_OBSERVE_GRAPH_LABELING 13
+#define TACTIX_OBSERVE_INPUT_BINARY_ORDER 14 /* 1: the parser's binary order is retained */
+/* argument = inactive per cent: 1 when variable compaction is due. */
+#define TACTIX_OBSERVE_COMPACTION_DUE 15
+#define TACTIX_OBSERVE_PROPAGATION_FIXPOINT 16 /* 1: nothing left to propagate */
+#define TACTIX_OBSERVE_ACTIVE_VARIABLES 17   /* neither retired nor root fixed */
+#define TACTIX_OBSERVE_SUBSUME_MATERIAL 18   /* forward-subsumption material count */
+/* Forward-round completeness: bit 0 SubsumeForward, bit 1 Strengthen. */
+#define TACTIX_OBSERVE_FORWARD_COMPLETE 19
+#define TACTIX_OBSERVE_FACTOR_BOUND 20       /* the kernel's Factor bound */
+/* argument = variable: 1 when it is unassigned and not retired. */
+#define TACTIX_OBSERVE_VARIABLE_OPEN 21
+#define TACTIX_OBSERVE_TRAIL 22              /* assigned literals on the trail */
+/* Size of the random-decision population (tactix_branch_population). */
+#define TACTIX_OBSERVE_BRANCH_POPULATION 23
+/* argument = 1 to apply Reduce's tier protection, else 0: the redundant
+ * clauses a Reduce under the installed tiers ranks as candidates. */
+#define TACTIX_OBSERVE_REDUCE_CANDIDATES 24
+#define TACTIX_OBSERVE_VARIABLES 25          /* internal variables */
+#define TACTIX_OBSERVE_INPUT_VARIABLES 26    /* variables a model reports */
+#define TACTIX_OBSERVE_PROPAGATION_HEAD 27   /* trail position propagation resumes at */
+/* Factor: bit 0 the last call completed, bit 1 composite matching is posed. */
+#define TACTIX_OBSERVE_FACTOR_STATE 28
+#define TACTIX_OBSERVE_FACTOR_MARKED 29      /* literals marked as Factor material */
+/* argument = variable: 1 when BVE would (re)try it (its retry flag). */
+#define TACTIX_OBSERVE_BVE_RETRY 30
+/* argument = variable: its position in the compacted import order, or
+ * UINT32_MAX when it has none. */
+#define TACTIX_OBSERVE_COMPACT_POSITION 31
+/* argument = variable: 1 when a persistent affine session's admitted support
+ * holds it. */
+#define TACTIX_OBSERVE_AFFINE_SUPPORT 32
+#define TACTIX_OBSERVE_VARIABLE_RETENTION 33 /* variables posed as retained */
+/* argument = variable: 1 when it is retired (eliminated, substituted, ...). */
+#define TACTIX_OBSERVE_VARIABLE_RETIRED 34
+/* The last graph-labeling slice (Lucky 27): its status plus one (0 none; 1
+ * no structure, 2 pending, 3 trajectory complete, 4 SAT, 5 interrupted). */
+#define TACTIX_OBSERVE_GRAPH_LABELING_SLICE 35
+/* The graph-labeling session's recommended continuation work (0 none). */
+#define TACTIX_OBSERVE_GRAPH_LABELING_CONTINUATION 36
+/* The retained bytes one authenticated affine source costs a persistent
+ * session (its source record, premise and two literal identities). */
+#define TACTIX_OBSERVE_AFFINE_SOURCE_BYTES 37
+/* argument = variable: 1 when the solver introduced it (Factor, SR or other
+ * extension definitions), not the input. */
+#define TACTIX_OBSERVE_EXTENSION_VARIABLE 38
+/* The SR-discovery allowance of tactix_stage_advance: work consumed so far,
+ * and 1 once its accounting overflowed. */
+#define TACTIX_OBSERVE_SR_DISCOVERY_CONSUMED 39
+#define TACTIX_OBSERVE_SR_DISCOVERY_OVERFLOW 40
+/* 1 when the recorded affine census (TACTIX_SUPPORT_AFFINE_CENSUS) still
+ * describes the current source population and its epochs can key it. */
+#define TACTIX_OBSERVE_AFFINE_CENSUS_UNCHANGED 41
+#define TACTIX_OBSERVE_REGIONS_PENDING 42   /* queued region queries not yet run */
+/* argument = variable: 1 while the startup retention scope keeps it. */
+#define TACTIX_OBSERVE_STARTUP_RETAINED 43
+/* argument = variable: its import-order key, the compact import position, or
+ * for a variable the compact order does not hold (introduced after the last
+ * compaction) its solver-internal index. FastEl gathers in this order. */
+#define TACTIX_OBSERVE_IMPORT_POSITION 44
+uint64_t tactix_observe(tactix *, int observation, uint64_t argument);
+
+/* Clause database reads. tactix_literal_value: the current assignment of
+ * `literal`, 1 true, -1 false, 0 unassigned (tactix_value reports models).
+ * tactix_occurrences: inside an ordered (Eliminate) occurrence session, the
+ * occurrence list of `literal` in its physical order, at most `cap` entries
+ * copied; returns its length, or -1 outside such a session. An entry is a
+ * binary clause (binary set, partner its other literal) or a larger clause
+ * (clause its handle). tactix_clause: the literals of the clause a handle
+ * names, at most `cap` copied, and its TACTIX_CLAUSE_* flags; returns its
+ * size, or -1 for an invalid handle. Handles stay valid until an arena
+ * collection (COLLECT_GARBAGE, Reduce, phase exit). */
+typedef struct {
+  int binary, partner;
+  uint64_t clause;
+} tactix_occurrence;
+#define TACTIX_CLAUSE_GARBAGE 1u
+#define TACTIX_CLAUSE_REDUNDANT 2u
+#define TACTIX_CLAUSE_SATISFIED 4u /* some literal is true */
+int tactix_literal_value(tactix *, int literal);
+int tactix_occurrences(tactix *, int literal, tactix_occurrence *out, int cap);
+int tactix_clause(tactix *, uint64_t clause, int *literals, int cap, unsigned *flags);
+/* The clause stored after `clause` in the arena (pass UINT64_MAX for the
+ * first), live or garbage, or UINT64_MAX after the last. */
+uint64_t tactix_clause_after(tactix *, uint64_t clause);
+/* The partners of `literal`'s binary clauses in its watch list order, at
+ * most `cap` copied; returns their number. */
+int tactix_binary_partners(tactix *, int literal, int *partners, int cap);
+
+/* Admission without application. tactix_rule_applicable: 1 when the rule's
+ * guard holds (tactix_apply would not refuse it), 0 when not, -1 for an
+ * unknown rule. tactix_instance_applicable additionally evaluates the
+ * instance's own admission predicate: Lucky's recognizer families each have
+ * one (the guard its instance applies behind); other rules' instances share
+ * the rule guard. Finalizes input. */
+int tactix_rule_applicable(tactix *, int rule_id);
+int tactix_instance_applicable(tactix *, int rule_id, uint64_t instance);
+
+/* H's decision structures. tactix_branch_next: the next unassigned active
+ * variable of the active ranking (VMTF queue focused, score heap stable),
+ * advancing its lazy cursor as a default decision does (the one entry here
+ * that changes H); 0 for none. tactix_branch_phase: the literal H's phase picks
+ * for `variable`. tactix_branch_restart_level: the level a restart keeps if
+ * `variable` is decided next. tactix_branch_population: entry `slot` of the
+ * random-decision population (TACTIX_OBSERVE_BRANCH_POPULATION entries).
+ * 0 for an invalid argument; -1 without H. */
+int tactix_branch_next(tactix *);
+int tactix_branch_phase(tactix *, int variable);
+int tactix_branch_restart_level(tactix *, int variable);
+int tactix_branch_population(tactix *, uint32_t slot);
+/* The active ranking's key for `variable`: its EVSIDS score while stable, its
+ * VMTF enqueue stamp while focused (0 for an invalid variable or without H). */
+double tactix_branch_rank(tactix *, int variable);
+
+/* Kissat's elimination schedule: a score heap over BVE's candidates, rescored
+ * by every later BVE application. Open it in an ordered occurrence session
+ * under the pass's BVE profile (0, or -1 outside one or when already open);
+ * next pops the best candidate's instance (TACTIX_INSTANCE_CANONICAL when
+ * empty or closed). */
+int tactix_bve_schedule_open(tactix *);
+uint64_t tactix_bve_schedule_next(tactix *);
+void tactix_bve_schedule_close(tactix *);
+
+/* The default strategy's settings, as tactix_solve runs them, by snapshot key
+ * ("restart.glue_margin", "mode.force", ...). integer: integers and Booleans
+ * (signed ones in two's complement); real: floating point; both 0, or -1 for
+ * an unknown key or another type. text: NUL-terminated into `buffer`,
+ * truncated to `size`; returns the full length, or -1. */
+int tactix_strategy_integer(tactix *, const char *key, uint64_t *value);
+int tactix_strategy_real(tactix *, const char *key, double *value);
+int tactix_strategy_text(tactix *, const char *key, char *buffer, size_t size);
+
+/* The default strategy's structured-root stages (online programs over the SR
+ * producers). configure: make stage `index` of `list` current, adjusted for
+ * earlier stages' TACTIX_STAGE_FEEDBACK_* outcomes, and report its
+ * budget-exhaustion policy (0, or -1 for no such stage). complete: 1 once it
+ * has finished. advance: run its next step under the SR-discovery allowance
+ * (0, or -1 without a stage). sr_discovery_begin starts an allowance of `limit`
+ * work (UINT64_MAX unlimited); sr_discovery_limit changes the limit only. */
+#define TACTIX_STAGE_LIST_ORDINARY 0
+#define TACTIX_STAGE_LIST_BOUNDED_BACKTRACKING 1
+#define TACTIX_STAGE_LIST_LARGE_DOMAIN 2
+#define TACTIX_STAGE_FEEDBACK_PROGRESS 1u
+#define TACTIX_STAGE_FEEDBACK_UNIQUE_LITERAL_AMO 2u
+#define TACTIX_STAGE_FEEDBACK_NONFORCING_CUT 4u
+#define TACTIX_STAGE_EXHAUSTION_STOP 0
+#define TACTIX_STAGE_EXHAUSTION_CONTINUE 1
+#define TACTIX_STAGE_EXHAUSTION_FINISH_ROUND 2
+typedef struct {
+  int status; /* TACTIX_ONLINE_* */
+  int made_rule_progress, discovery_entry_required;
+  uint64_t applications, discovery_progress_units;
+} tactix_stage_result;
+int tactix_stage_configure(tactix *, int list, int index, unsigned feedback,
+                           int *on_budget_exhaustion);
+int tactix_stage_complete(tactix *);
+int tactix_stage_advance(tactix *, uint64_t ticks_per_generator, uint64_t hard_limit,
+                         tactix_stage_result *out);
+int tactix_sr_discovery_begin(tactix *, uint64_t limit);
+int tactix_sr_discovery_limit(tactix *, uint64_t limit);
+
+/* The default strategy's inprocessing program, step `index`: phase 0 Probe,
+ * 1 Eliminate; -1 in effort_permille, cursor or candidate_order inherits the
+ * scheduler's choice; max_applications 0 is unlimited; parameters INHERIT
+ * keeps the installed profile. Returns 0, or -1 past the end. */
+#define TACTIX_FOLLOWUP_NONE 0
+#define TACTIX_FOLLOWUP_AFTER_CONGRUENCE 1
+#define TACTIX_FOLLOWUP_AFTER_SWEEP_OR_FINAL 2
+#define TACTIX_CANDIDATE_ORDER_NATIVE 0
+#define TACTIX_CANDIDATE_ORDER_REVERSE 1
+#define TACTIX_CANDIDATE_ORDER_RANDOM 2
+#define TACTIX_CANDIDATE_ORDER_OCCURRENCES_ASCENDING 3
+#define TACTIX_CANDIDATE_ORDER_OCCURRENCES_DESCENDING 4
+#define TACTIX_CANDIDATE_ORDER_NEGATIVE_OCCURRENCES_DESCENDING 5
+#define TACTIX_CANDIDATE_ORDER_HEURISTIC 6
+typedef struct {
+  uint64_t id;
+  int rule_id, phase, enabled, preprocessing, followup;
+  int64_t effort_permille;
+  uint32_t max_applications;
+  int cursor, candidate_order;
+  tactix_online_parameters parameters;
+} tactix_strategy_step;
+int tactix_strategy_read_step(tactix *, int index, tactix_strategy_step *out);
+/* The same for the shipped reference program, which places unlisted rules. */
+int tactix_strategy_read_reference_step(int index, tactix_strategy_step *out);
+
+/* How the default strategy schedules a rule: its effort meter
+ * (tactix_strategy_meter) and per-mille share, tick attribution (TACTIX_STAT_*
+ * or TACTIX_TICK_ATTRIBUTION_NONE), productivity delay
+ * (tactix_strategy_productivity; delay_delta: a per-call denominator), and
+ * whether a program leaving it unlisted appends it enabled. Returns 0, or -1
+ * for an unknown rule. */
+typedef struct {
+  int instances; /* it has an instance surface */
+  int metered, dosed, budget_aware, shared_meter, tick_stat;
+  uint32_t effort_permille;
+  int delayed, delay_delta;
+  uint32_t delay_permille;
+  int appended, appended_enabled;
+} tactix_strategy_rule;
+int tactix_strategy_read_rule(tactix *, int rule_id, tactix_strategy_rule *out);
+uint64_t tactix_strategy_meter(tactix *, int rule_id); /* 0 without a meter */
+int tactix_strategy_productivity(tactix *, int rule_id, uint64_t *yield,
+                                 uint64_t *denominator); /* -1 without a delay */
+
+/* The inverse of tactix_install_parameters: rule `rule_id`'s `kind` profile as
+ * installed (INSTALLED) or as the default strategy poses it (STRATEGY).
+ * Pointer fields stay valid until the next readback. Returns 0, or -1 when
+ * there is no such profile. */
+#define TACTIX_PARAMETERS_INSTALLED 0
+#define TACTIX_PARAMETERS_STRATEGY 1
+int tactix_read_parameters(tactix *, int rule_id, int kind, int source,
+                           tactix_online_parameters *out);
 
 #ifdef __cplusplus
 }

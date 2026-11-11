@@ -6,7 +6,18 @@ semantic versioning; the public C API remains source-compatible within the
 
 ## [Unreleased]
 
+### Added
+
+- `tactix-default` (`examples/default_strategy/`): the default strategy written
+  in C over `tactix.h`, with the same decisions and proofs as `tactix`.
+  `tactix.h` gains the reads it needs (counters, observations, clause and
+  branching state, the default strategy's settings, program and per-rule
+  scheduling) and `tactix_defer_startup_state`, the command line's startup
+  lifetime.
+
 ### Removed
+
+- `tactix-public` and its C++ PublicPort twin; `tactix-default` replaces them.
 
 - **Breaking:** DRAT and LRAT proof output: `--drat`, `--lrat`,
   `TACTIX_PROOF_DRAT_BINARY`, `TACTIX_PROOF_DRAT_ASCII` and `TACTIX_PROOF_LRAT`.

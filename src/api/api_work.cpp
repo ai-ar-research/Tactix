@@ -34,15 +34,8 @@ int tactix_read_work_settings(tactix_c_handle *s, tactix_work_settings *out) {
 int tactix_install_tick_attribution(tactix_c_handle *s, int stat) {
   if (!s) return -1;
   uint64_t Stats::*counter = nullptr;
-  switch (stat) {
-  case TACTIX_TICK_ATTRIBUTION_NONE: break;
-  case TACTIX_STAT_PROBE_TICKS: counter = &Stats::probe_ticks; break;
-  case TACTIX_STAT_HBR_TICKS: counter = &Stats::hbr_ticks; break;
-  case TACTIX_STAT_BACKBONE_TICKS: counter = &Stats::backbone_ticks; break;
-  case TACTIX_STAT_VIVIFY_TICKS: counter = &Stats::vivify_ticks; break;
-  case TACTIX_STAT_INSTANTIATE_TICKS: counter = &Stats::instantiate_ticks; break;
-  default: return -1;
-  }
+  if (stat != TACTIX_TICK_ATTRIBUTION_NONE && !(counter = api_detail::tick_attribution_counter(stat)))
+    return -1;
   Kernel &k = api_detail::kernel_for_fixed_testing(s);
   k.tick_sink = counter ? &(k.stats.*counter) : nullptr;
   return 0;

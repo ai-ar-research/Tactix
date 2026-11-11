@@ -61,15 +61,19 @@ EV_DELAY = r"closure_delay_ && \(e\.closure \|\| delay_spec"
 # DELAY_SPECS row keyed on its merge yield is what `delay_spec(r.name)` finds.
 EV_CONGRUENCE_LADDER = (r'\{"Congruence", \[\]\(const Kernel &k\) '
                         r'\{ return k\.stats\.congruence_merges; \}')
-EV_SR_LEGACY_SKIP = (r'std::strcmp\(rules\[i\]\.name, '
-                     r'"SubstitutionRedundancy"\)')
+# A rule DefaultPolicy never appends is named in its never_appended list.
+def never_appended(rule):
+    return r'bool never_appended\(const char \*name\) \{[^}]*"' + rule + '"'
+
+
+EV_SR_LEGACY_SKIP = never_appended("SubstitutionRedundancy")
 # Completion is an optional third argument; the same named root owner must
 # still receive the native kernel and stop publisher.
 EV_SR_ROOT_OWNER = r"run_structured_root\(k, stop(?:, completion_?)?\)"
 EV_SR_RUN_ONCE = r"structured_root_consumed_ \|\| k\.stats\.conflicts"
 EV_SR_SCOPED_FIXPOINT = (r"result\.repeat = \{strategy::RepeatMode::"
                          r"UntilSizeScaledFixpoint, 128\}")
-EV_CONDITION_SKIP = r'std::strcmp\(rules\[i\]\.name, "Condition"\)'
+EV_CONDITION_SKIP = never_appended("Condition")
 EV_CONDITION_NOOP = (r'ApplyResult condition_apply\(Kernel &\) \{ '
                      r'return ApplyResult::NoOp; \}')
 
@@ -108,32 +112,32 @@ TABLE = {
                          [EV_SR_LEGACY_SKIP, EV_SR_ROOT_OWNER, EV_SR_RUN_ONCE,
                           EV_SR_SCOPED_FIXPOINT]),
     "ParityConsequence": (EXPLICIT, "typed bounded parity action; default schedule pending",
-                         [r'std::strcmp\(rules\[i\]\.name, "ParityConsequence"\)'],
+                         [never_appended("ParityConsequence")],
                          [("src/rules/parity_consequence/parity_consequence.cpp",
                            r'parity_live_apply\('),
                           ("src/strategy/online_inprocess.cpp",
                            r'ParityConsequenceParameters'),
                           ("tests/test_parity_consequence.cpp", r'public_c\(')]),
     "AffineConsequence": (EXPLICIT, "typed certified affine consequence; default schedule pending",
-                         [r'std::strcmp\(rules\[i\]\.name, "AffineConsequence"\)'],
+                         [never_appended("AffineConsequence")],
                          [("src/rules/semantic_extension/affine_consequence_action.cpp",
                            r'affine_consequence_action_apply\('),
                           ("tests/test_affine_consequence_action.cpp",
                            r'propagation_is_deferred\(')]),
     "ExactCoverExtension": (EXPLICIT, "typed conservative exact-cover extension; default schedule pending",
-                         [r'std::strcmp\(rules\[i\]\.name, "ExactCoverExtension"\)'],
+                         [never_appended("ExactCoverExtension")],
                          [("src/rules/semantic_extension/exact_cover_action.cpp",
                            r'exact_cover_extension_action_apply\('),
                           ("tests/test_exact_cover_action.cpp",
                            r'success_stages_candidate_and_commits_identity\(')]),
     "IndependentSetCover": (EXPLICIT, "typed structured independent-set consequence; no canonical producer",
-                         [r'std::strcmp\(rules\[i\]\.name, "IndependentSetCover"\)'],
+                         [never_appended("IndependentSetCover")],
                          [("src/rules/semantic_extension/independent_set_cover_action.cpp",
                            r'independent_set_cover_action_apply\('),
                           ("tests/test_independent_set_cover_action.cpp",
                            r'void exercise\(')]),
     "Gf3AffineConsequence": (EXPLICIT, "typed caller-selected GF(3) equation-pair consequence; no canonical producer",
-                         [r'std::strcmp\(rules\[i\]\.name, "Gf3AffineConsequence"\)'],
+                         [never_appended("Gf3AffineConsequence")],
                          [("src/rules/semantic_extension/gf3_affine_action.cpp",
                            r'gf3_affine_action_apply\('),
                           ("tests/test_theory_action_v5_runtime.cpp",
@@ -141,7 +145,7 @@ TABLE = {
                           ("tests/test_api_instances.c",
                            r'TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE')]),
     "DirectCspSupport": (EXPLICIT, "typed caller-selected Direct CSP support row; no canonical producer",
-                         [r'std::strcmp\(rules\[i\]\.name, "DirectCspSupport"\)'],
+                         [never_appended("DirectCspSupport")],
                          [("src/rules/semantic_extension/direct_csp_support_action.cpp",
                            r'direct_csp_support_action_apply\('),
                           ("tests/test_theory_action_v5_runtime.cpp",
@@ -149,7 +153,7 @@ TABLE = {
                           ("tests/test_api_instances.c",
                            r'TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT')]),
     "DirectPhpRefutation": (EXPLICIT, "typed terminal direct-PHP action; default schedule pending",
-                         [r'std::strcmp\(rules\[i\]\.name, "DirectPhpRefutation"\)'],
+                         [never_appended("DirectPhpRefutation")],
                          [("src/rules/direct_php/direct_php_action.cpp",
                            r'direct_php_action_apply\('),
                           ("tests/test_direct_php_public.cpp",
@@ -158,42 +162,42 @@ TABLE = {
                            r'c_api_executes_terminal_action\(')]),
     "Gf3GaussianConsequence":
                         (EXPLICIT, "typed authenticated complete-batch GF(3) action; default schedule pending",
-                         [r'std::strcmp\(rules\[i\]\.name, "Gf3GaussianConsequence"\)'],
+                         [never_appended("Gf3GaussianConsequence")],
                          [("src/rules/semantic_extension/gf3_gaussian_action.cpp",
                            r'gf3_gaussian_action_apply\('),
                           ("tests/test_gf3_gaussian_public.cpp",
                            r'singular_batch_and_atomic_publication\(')]),
     "TseitinCycleBreaking":
                         (EXPLICIT, "typed authenticated selected XOR-component action; default schedule pending",
-                         [r'std::strcmp\(rules\[i\]\.name, "TseitinCycleBreaking"\)'],
+                         [never_appended("TseitinCycleBreaking")],
                          [("src/rules/lucky/tseitin_cycle_action.cpp",
                            r'tseitin_cycle_breaking_apply\('),
                           ("tests/test_tseitin_cycle_action.cpp",
                            r'c_v7_is_backward_compatible_and_deep_copies_identity\(')]),
     "NaryCspEquality":
                         (EXPLICIT, "typed authenticated n-ary equality action; default slot disabled",
-                         [r'std::strcmp\(rules\[i\]\.name, "NaryCspEquality"\)'],
+                         [never_appended("NaryCspEquality")],
                          [("src/rules/semantic_extension/nary_csp_equality_action.cpp",
                            r'nary_csp_equality_action_apply\('),
                           ("tests/test_nary_csp_equality_public.cpp",
                            r'c_v10_deep_copies_and_executes_exact_payload\(')]),
     "NaryCspEqualityAmo":
                         (EXPLICIT, "typed equality-derived AMO action; default slot disabled",
-                         [r'std::strcmp\(rules\[i\]\.name, "NaryCspEqualityAmo"\)'],
+                         [never_appended("NaryCspEqualityAmo")],
                          [("src/rules/semantic_extension/nary_csp_equality_amo_action.cpp",
                            r'nary_csp_equality_amo_apply\('),
                           ("tests/test_nary_csp_equality_amo.cpp",
                            r'c_v12_deep_copies_and_executes_exact_payload\(')]),
     "NaryCspEqualityTransitivity":
                         (EXPLICIT, "typed retained-owner triangle action; default slot disabled",
-                         [r'std::strcmp\(rules\[i\]\.name, "NaryCspEqualityTransitivity"\)'],
+                         [never_appended("NaryCspEqualityTransitivity")],
                          [("src/rules/semantic_extension/nary_csp_equality_transitivity_action.cpp",
                            r'nary_csp_equality_transitivity_apply\('),
                           ("tests/test_nary_csp_equality_transitivity_frontend.cpp",
                            r'c15_deep_copy\(')]),
     "Gf3GeneralRowConsequence":
                         (EXPLICIT, "typed authenticated GF(3) general-row action; default slot disabled",
-                         [r'std::strcmp\(rules\[i\]\.name, "Gf3GeneralRowConsequence"\)'],
+                         [never_appended("Gf3GeneralRowConsequence")],
                          [("src/rules/semantic_extension/gf3_general_row_action.cpp",
                            r'gf3_general_row_action_apply\('),
                           ("tests/test_gf3_general_row_public.cpp",
@@ -208,7 +212,7 @@ TABLE = {
                            r'public_composition_and_advice\(')]),
     "CardinalitySearch":
                         (EXPLICIT, "typed authenticated CDCL-time cardinality action; default slot disabled",
-                         [r'std::strcmp\(rules\[i\]\.name, "CardinalitySearch"\)'],
+                         [never_appended("CardinalitySearch")],
                          [("src/rules/semantic_extension/cardinality_search_action.cpp",
                            r'cardinality_search_action_apply\('),
                           ("tests/test_cardinality_search_live.cpp",
@@ -217,14 +221,14 @@ TABLE = {
                            r'c17_deep_copies_bounds_and_executes_search_action\(')]),
     "AffineMatrixInitialize":
                         (EXPLICIT, "typed bounded matrix initialization; default slot disabled and startup owner explicit",
-                         [r'std::strcmp\(rules\[i\]\.name, "AffineMatrixInitialize"\)'],
+                         [never_appended("AffineMatrixInitialize")],
                          [("src/rules/semantic_extension/affine_matrix_search.cpp",
                            r'affine_matrix_initialize_apply\('),
                           ("tests/test_affine_matrix_search.cpp",
                            r'complete_snapshot_policy_admission\(')]),
     "GraphIntervalEquivalence":
                         (EXPLICIT, "typed bounded graph-interval equivalence action; default schedule pending",
-                         [r'std::strcmp\(rules\[i\]\.name, "GraphIntervalEquivalence"\)'],
+                         [never_appended("GraphIntervalEquivalence")],
                          [("src/rules/graph_interval_equivalence/graph_interval_equivalence.cpp",
                            r'ApplyResult apply_instance\('),
                           ("tests/test_graph_interval_equivalence.cpp",

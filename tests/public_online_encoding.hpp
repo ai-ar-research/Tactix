@@ -1,12 +1,11 @@
 #pragma once
 
 // A typed online step as a tactix_online_step_v2, the inverse of the C API's
-// step conversion (api.cpp online_program / online_program_v2). Include after
-// public_parameter_encoding.hpp. A step with a field or payload that has no
+// step conversion (api.cpp online_program / online_program_v2). A step with a field or payload that has no
 // v2 form returns false; callers verify the round trip by configuring the
 // encoding and comparing the converted request with the original.
 
-#include "public_parameter_encoding.hpp"
+#include "api/parameter_encoding.hpp"
 
 #include "kernel/kernel.hpp"
 

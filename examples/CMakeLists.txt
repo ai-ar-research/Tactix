@@ -32,3 +32,18 @@ target_link_libraries(tactix-php-er PRIVATE tactix_lib)
 add_test(NAME php_er_policy COMMAND ${CMAKE_COMMAND} -E env python3
   ${CMAKE_SOURCE_DIR}/tests/test_php_er_policy.py
   $<TARGET_FILE:tactix-php-er>)
+
+# The default strategy written against tactix.h alone (default_strategy/):
+# every setting it reads is the session's default-strategy configuration.
+# tests/test_c_default_correspondence.cpp drives it beside DefaultPolicy.
+# An object library, like tactix_lib: a client links both.
+add_library(tactix_default OBJECT default_strategy/default_strategy.c
+            default_strategy/settings.c default_strategy/search.c
+            default_strategy/inprocess.c default_strategy/services.c)
+target_include_directories(tactix_default PUBLIC default_strategy)
+target_link_libraries(tactix_default PUBLIC tactix_lib m)
+set_target_properties(tactix_default PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON
+                      C_EXTENSIONS OFF)
+target_compile_options(tactix_default PRIVATE -Wall -Wextra -Wpedantic)
+add_executable(tactix-default default_strategy/main.c)
+target_link_libraries(tactix-default PRIVATE tactix_default tactix_lib)

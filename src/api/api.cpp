@@ -11,6 +11,7 @@
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "strategy/bve_schedule.hpp"
 #include "policies/strategy_settings.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
@@ -70,6 +71,25 @@ struct tactix_solver {
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
   std::unique_ptr<strategy::RegionProgram> regions;
+  // The encoding tactix_read_parameters last returned (api_observe.cpp).
+  std::shared_ptr<void> observe_scratch;
+  // The default strategy's configuration as DefaultPolicy runs it, which
+  // tactix_strategy_* and STRATEGY profile readback report.
+  DefaultStrategyConfig strategy_configuration =
+      default_policy_configuration(DefaultStrategyConfig{});
+  // The open BVE schedule (tactix_bve_schedule_*), which the kernel's BVE
+  // score notifications update.
+  std::unique_ptr<strategy::BveCandidateHeap> bve_schedule;
+  // The configured structured-root stage (tactix_stage_*) and the
+  // SR-discovery allowance its advances charge.
+  std::unique_ptr<strategy::OnlineStrategySequence> structured_stage;
+  std::unique_ptr<strategy::Allowance> sr_discovery;
+  // The recorded affine source census, if one is.
+  std::optional<std::array<uint64_t, 13>> affine_census;
+  // The startup retention scope (TACTIX_SUPPORT_STARTUP_RETENTION): whether
+  // open, and the retention it replaced.
+  bool startup_retention = false;
+  const std::unordered_set<uint32_t> *retention_before = nullptr;
   // Execution contexts entered through tactix_support, innermost last.
   std::vector<std::pair<execution::ExecutionContext,
                         execution::ExecutionContextState>> contexts;
@@ -100,6 +120,72 @@ namespace tactix::api_detail {
 Kernel &kernel_for_fixed_testing(void *opaque) {
   assert(opaque);
   return static_cast<::tactix_solver *>(opaque)->kernel;
+}
+void complete_input(void *opaque) {
+  assert(opaque);
+  input_complete(static_cast<::tactix_solver *>(opaque));
+}
+std::shared_ptr<void> &observe_scratch(void *opaque) {
+  assert(opaque);
+  return static_cast<::tactix_solver *>(opaque)->observe_scratch;
+}
+DefaultStrategyConfig &strategy_configuration(void *opaque) {
+  assert(opaque);
+  return static_cast<::tactix_solver *>(opaque)->strategy_configuration;
+}
+std::unique_ptr<strategy::BveCandidateHeap> &bve_schedule(void *opaque) {
+  assert(opaque);
+  return static_cast<::tactix_solver *>(opaque)->bve_schedule;
+}
+std::unique_ptr<strategy::OnlineStrategySequence> &structured_stage(void *opaque) {
+  assert(opaque);
+  return static_cast<::tactix_solver *>(opaque)->structured_stage;
+}
+std::unique_ptr<strategy::Allowance> &sr_discovery(void *opaque) {
+  assert(opaque);
+  return static_cast<::tactix_solver *>(opaque)->sr_discovery;
+}
+namespace {
+constexpr std::pair<int, uint64_t Stats::*> TICK_ATTRIBUTIONS[] = {
+    {TACTIX_STAT_PROBE_TICKS, &Stats::probe_ticks},
+    {TACTIX_STAT_HBR_TICKS, &Stats::hbr_ticks},
+    {TACTIX_STAT_BACKBONE_TICKS, &Stats::backbone_ticks},
+    {TACTIX_STAT_VIVIFY_TICKS, &Stats::vivify_ticks},
+    {TACTIX_STAT_INSTANTIATE_TICKS, &Stats::instantiate_ticks}};
+} // namespace
+uint64_t Stats::*tick_attribution_counter(int stat) {
+  for (const auto &[id, counter] : TICK_ATTRIBUTIONS)
+    if (id == stat) return counter;
+  return nullptr;
+}
+int tick_attribution_stat(uint64_t Stats::*counter) {
+  for (const auto &[id, member] : TICK_ATTRIBUTIONS)
+    if (counter && member == counter) return id;
+  return TACTIX_TICK_ATTRIBUTION_NONE;
+}
+strategy::RegionProgram *regions(void *opaque) {
+  assert(opaque);
+  return static_cast<::tactix_solver *>(opaque)->regions.get();
+}
+size_t regions_pending(void *opaque) {
+  const auto &regions = static_cast<::tactix_solver *>(opaque)->regions;
+  return regions ? regions->pending() : 0;
+}
+std::optional<std::array<uint64_t, 13>> &affine_census(void *opaque) {
+  assert(opaque);
+  return static_cast<::tactix_solver *>(opaque)->affine_census;
+}
+// The source-population identity an empty affine census answers for: learned
+// additions and in-place simplifications change it.
+std::array<uint64_t, 13> affine_census_stamp(void *opaque) {
+  const Kernel &kernel = kernel_for_fixed_testing(opaque);
+  return {kernel.arena_generation, kernel.touch_epoch, kernel.touch_fixed_head,
+          kernel.next_clause_id, kernel.affine_semantic_namespace_epoch, kernel.arena.size(),
+          kernel.nvars, kernel.external_to_internal.size(),
+          kernel.proof ? kernel.proof->premise_epoch() : 0,
+          static_cast<uint64_t>(reinterpret_cast<uintptr_t>(kernel.proof)),
+          kernel.stats.root_assignments, kernel.affine_trail_retraction_epoch,
+          kernel.trail.size()};
 }
 const strategy::OnlineStrategyProgram *online_program_for_fixed_testing(void *opaque) {
   assert(opaque);
@@ -2041,6 +2127,15 @@ int tactix_set_default_option(tactix_solver *s, const char *name, const char *va
   return 0;
 }
 
+int tactix_defer_startup_state(tactix_solver *s) {
+  if (!s || s->input_completed || s->kernel.nvars || s->kernel.h != &s->heuristics)
+    return -1;
+  s->kernel.h = nullptr;
+  s->kernel.saved_phases = nullptr;
+  kernel_defer_cold_state(s->kernel);
+  return 0;
+}
+
 void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
   s->kernel.bve_gate_mask = mask;
   external_state_change(s);
@@ -3085,6 +3180,70 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     result = support_result(s, execution::execute_action(
         k, execution::ForwardClosureRequest{static_cast<uint32_t>(argument)}));
     break;
+  case TACTIX_SUPPORT_BVE_FLUSH_UNITS:
+    if (!k.dense || !k.dense->track_order || argument > k.propagate_head)
+      return -1;
+    bve_flush_units_while_connected(k, static_cast<uint32_t>(argument));
+    return 0;
+  case TACTIX_SUPPORT_AFFINE_CENSUS:
+    if (argument > 1)
+      return -1;
+    if (!argument)
+      s->affine_census.reset();
+    else if (k.affine_capture_epochs_trusted)
+      s->affine_census = api_detail::affine_census_stamp(s);
+    return 0;
+  case TACTIX_SUPPORT_RUN_REGIONS: {
+    if (argument)
+      return -1;
+    if (!s->regions)
+      return 1;
+    result = support_result(s, s->regions->run());
+    break;
+  }
+  case TACTIX_SUPPORT_STARTUP_RETENTION:
+    // DefaultPolicy's initial selection of substitution/elimination choices;
+    // explicit applications keep their complete action surface.
+    if (argument > 2 || (argument == 1) == s->startup_retention)
+      return -1;
+    if (argument == 1) {
+      s->retention_before = k.substitute_retention;
+      k.substitute_retention = k.variable_retention.empty() ? nullptr : &k.variable_retention;
+    } else {
+      k.substitute_retention = s->retention_before;
+      if (argument == 0)
+        k.variable_retention.clear();
+    }
+    s->startup_retention = argument == 1;
+    return 0;
+  case TACTIX_SUPPORT_MATERIALIZE_COLD_STATE:
+    if (argument)
+      return -1;
+    if (!k.cold_state_deferred)
+      return 1;
+    execution::execute_action(k, execution::MaterializeColdStateRequest{});
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_ATTACH_HEURISTICS:
+    if (argument)
+      return -1;
+    if (k.h)
+      return 1;
+    execution::execute_action(k, execution::HeuristicAttachmentRequest{s->heuristics});
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_PUBLISH_ROOTS:
+    if (!k.h || argument > k.trail.size())
+      return -1;
+    heuristics_consume_root_assignments(k, static_cast<size_t>(argument));
+    return 0;
+  case TACTIX_SUPPORT_CAPTURE_TARGET_PHASES:
+    // Guidance only: the stable-only capture a scheduled restart below the
+    // current level performs before backtracking (DefaultPolicy's restart).
+    if (argument || !k.h)
+      return -1;
+    heuristics_update_target_phases(k);
+    return 0;
   case TACTIX_SUPPORT_LEAVE_CONTEXT:
     if (argument || s->contexts.empty() ||
         (s->phase.open() && s->contexts.size() <= s->phase_contexts))
@@ -3176,6 +3335,11 @@ int tactix_decide(tactix_solver *s, int elit) {
   if (s->kernel.proof && !s->kernel.proof->commit_clause_stream())
     return -1;
   const int ok = decide_apply(s->kernel, l, true) == ApplyResult::Ok ? 0 : -1;
+  // NATIVE publication records the decision's target provenance (H), as a
+  // DefaultPolicy decision does; whether a target was consumed follows the
+  // mode, as there.
+  if (!ok && s->guidance_publication == TACTIX_GUIDANCE_NATIVE && s->kernel.h)
+    heuristics_note_target_decision(s->kernel, l, s->kernel.h->stable);
   if (!ok)
     external_state_change(s);
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
