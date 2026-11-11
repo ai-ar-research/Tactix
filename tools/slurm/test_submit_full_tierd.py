@@ -73,8 +73,24 @@ class ArrayAdmissionTest(unittest.TestCase):
                 job = "100" if len(calls) == 1 else "200"
                 return subprocess.CompletedProcess(command, 0, job + "\n", "")
 
-            with (patch.object(launcher, "read_usage", return_value=(500.0, "test")),
+            with (patch.object(launcher, "read_usage", return_value=(812.0, "test")),
+                  patch.object(launcher.subprocess, "check_output",
+                               return_value="500000000000\t/repository\n") as storage_scan,
                   patch.object(launcher.subprocess, "run", side_effect=run)):
+                with patch.object(launcher.subprocess, "check_output",
+                                  return_value="700000000000\t/repository\n"):
+                    with self.assertRaisesRegex(RuntimeError, "repository storage gate"):
+                        launcher.submit(campaign, array)
+                self.assertEqual(calls, [])
+                storage_scan.side_effect = subprocess.CalledProcessError(
+                    1, ["du"], output="500000000000\t/repository\n",
+                    stderr="du: cannot read directory '/repository/private': Permission denied\n")
+                with self.assertRaises(subprocess.CalledProcessError):
+                    launcher.submit(campaign, array)
+                self.assertEqual(calls, [])
+                storage_scan.side_effect = subprocess.CalledProcessError(
+                    1, ["du"], output="500000000000\t/repository\n",
+                    stderr="du: cannot access '/repository/expired': No such file or directory\n")
                 launcher.submit(campaign, array)
             self.assertEqual(calls[0][:2], ["sbatch", "--parsable"])
             self.assertNotIn("--hold", calls[0])
@@ -82,6 +98,8 @@ class ArrayAdmissionTest(unittest.TestCase):
             launch = json.loads((campaign / "launch.json").read_text())
             self.assertEqual(launch["array_job_id"], "100")
             self.assertEqual(launch["monitor_job_id"], "200")
+            self.assertEqual(launch["prelaunch_usage_gib"], 812.0)
+            self.assertEqual(launch["prelaunch_repository_allocated_bytes"], 500000000000)
             monitor = campaign / "storage-monitor"
             self.assertIn("--job 100", (monitor / "monitor.sbatch").read_text())
             self.assertNotIn("scontrol", (monitor / "quota_monitor.py").read_text())
