@@ -29,83 +29,6 @@ bool query_boundary_busy(const Kernel &k) {
          !k.large_watches_connected || k.dense || k.pending.valid;
 }
 
-// Solver-population events are independent of proof formatting. Capture only
-// bounded immutable copies; no validation or search runs inside the callback.
-struct ClauseCapture final : PopulationObserver {
-  RetentionLimits limits;
-  uint32_t variables = 0;
-  std::vector<std::vector<int32_t>> pending;
-  uint64_t literals = 0, dropped = 0;
-  explicit ClauseCapture(RetentionLimits bounds) : limits(bounds) {}
-  void observe(const SolverPopulationEvent &event) noexcept override {
-    if (event.kind != SolverPopulationEventKind::Add) return;
-    const uint32_t size = event.clause.size();
-    if (size > limits.maximum_clause_literals ||
-        pending.size() >= limits.maximum_pending_clauses ||
-        size > limits.maximum_pending_literals - literals) {
-      ++dropped;
-      return;
-    }
-    for (uint32_t i = 0; i < size; ++i) {
-      const int32_t literal = event.clause.at(i);
-      if (!literal || literal == INT32_MIN ||
-          external_variable_of(literal) > variables) {
-        ++dropped;
-        return;
-      }
-    }
-    std::vector<int32_t> clause;
-    clause.reserve(size);
-    for (uint32_t i = 0; i < size; ++i) clause.push_back(event.clause.at(i));
-    literals += size;
-    pending.push_back(std::move(clause));
-  }
-};
-
-bool install_retained(Kernel &k, const RetainedClause &record) {
-  if (k.inconsistent) return true;
-  std::vector<Lit> clause;
-  clause.reserve(record.literals.size());
-  for (const int32_t external : record.literals) {
-    const Lit literal = kernel_internalize(k, external);
-    assert(literal != INVALID_LIT);
-    if (k.value(literal) > 0) return true;
-    if (!k.value(literal)) clause.push_back(literal);
-  }
-  if (clause.size() == 2 && kernel_binary_live(k, clause[0], clause[1])) return true;
-  if (!record.parity_equations.empty()) {
-    PbpParityBoundsCache cache;
-    if (!emit_query_knowledge(*k.proof,record,k.next_clause_id,k.external_to_internal.size(),
-                        cache,[](uint64_t) {return true;})) return false;
-  }
-  if (clause.empty()) {
-    k.proof->add_empty(++k.next_clause_id);
-    k.inconsistent = true; // proved from permanent input, without assumptions
-    return true;
-  }
-  const uint64_t id = ++k.next_clause_id;
-  if (clause.size() == 1) {
-    k.proof->add_derived_unit(id, clause[0]);
-    k.unit_ids[var_of(clause[0])] = id;
-    kernel_assign_unit(k, clause[0]);
-    heuristics_deactivate_var(k, var_of(clause[0]));
-  } else {
-    k.proof->add_rup(id, clause.data(), clause.size());
-    if (clause.size() == 2) kernel_add_binary_clause(k, clause[0], clause[1], id);
-    else {
-      // With no decision levels at import, width is a conservative initial
-      // upper bound on LBD; this service never gives a clause privileged glue.
-      kernel_add_large_clause(k, clause.data(), clause.size(), true,
-                               static_cast<uint32_t>(clause.size()), id);
-      // Every retained literal is unassigned after root normalization. Its
-      // fresh watches need no trail replay; the theory rearm service instead
-      // handles nonroot insertion and requires an open decision level.
-    }
-  }
-  (void)propagate_service(k);
-  return true;
-}
-
 // The full external source is already a checker premise, either independently
 // imported for restoration or seeded as exact new client input. No assumption
 // is asserted here. Preserve raw order while removing repeated/root-false
@@ -151,7 +74,6 @@ void install_external_source(Kernel &k, uint64_t source_id,
 
 struct QueryKernel::Epoch final : QueryProofSources {
   // Outlive Proof's observer-unbind and Kernel destruction.
-  std::unique_ptr<ClauseCapture> capture;
   std::unique_ptr<QueryProjection> projection;
   std::unique_ptr<WeakeningHistory> weakening;
   std::unique_ptr<DerivationHistory> derivations;
@@ -229,9 +151,6 @@ struct QueryKernel::Epoch final : QueryProofSources {
 };
 
 QueryKernel::QueryKernel() = default;
-QueryKernel::QueryKernel(RetentionLimits limits) : retention_limits_(limits) {
-  if (limits.enabled()) retained_ = std::make_unique<RetainedClauses>(limits);
-}
 QueryKernel::QueryKernel(NativeQueryLimits limits) : native_limits_(limits) {}
 QueryKernel::~QueryKernel() = default;
 void QueryKernel::discard_epoch() {
@@ -324,16 +243,6 @@ ReplayStatus QueryKernel::replay(const QueryHistory &history,
   if (!query->assumptions.empty()) {
     next->projection = std::make_unique<QueryProjection>(history, query->id);
     k.query_projection = next->projection.get();
-  }
-  if (retained_) {
-    for (const auto &record : retained_->clauses()) {
-      if(poll_terminate())return ReplayStatus::Interrupted;
-      assert(record.source_input_words <= query->input_words);
-      if (!install_retained(k, record)) return ReplayStatus::ProofUnavailable;
-    }
-    next->capture = std::make_unique<ClauseCapture>(retention_limits_);
-    next->capture->variables = query->formula_variables;
-    kernel_bind_population_observer(k, next->capture.get());
   }
   ++generation_;
   next->derivation_stream = generation_;
@@ -1212,10 +1121,6 @@ bool QueryKernel::failed_literal(int32_t external) const {
   return r && r->failed_literal(external);
 }
 
-std::span<const RetainedClause> QueryKernel::retained_clauses() const {
-  return retained_ ? retained_->clauses() : std::span<const RetainedClause>{};
-}
-
 void QueryKernel::set_learn(void *state, int maximum_length,
                             void (*learn)(void *, int *)) {
   if (!learning_ && learn) learning_ = std::make_unique<LearnedClauseExport>(native_limits_.proof);
@@ -1230,38 +1135,6 @@ void QueryKernel::drain_learned(KernelTicket t, const volatile sig_atomic_t *sto
     learning_->drain(*history_, query_, epoch_->derivation_stream,
         epoch_->derivations->records(), epoch_->derivations->snapshot().dropped, stop,
         [](void *owner) { return static_cast<QueryKernel *>(owner)->poll_terminate(); }, this);
-}
-
-RetentionBatch QueryKernel::retain_pending(KernelTicket t, uint64_t ticks_budget,
-                                          const volatile sig_atomic_t *stop) {
-  RetentionBatch out;
-  if (!valid(t)) { out.stale = true; return out; }
-  if (!retained_ || !epoch_->capture) return out;
-  ClauseCapture &capture = *epoch_->capture;
-  out.capture_dropped = capture.dropped;
-  size_t consumed = 0;
-  for (const auto &clause : capture.pending) {
-    if (out.ticks >= ticks_budget) { out.exhausted = true; break; }
-    const RetentionResult result = retained_->admit(
-        *history_, query_, clause, ticks_budget - out.ticks, stop);
-    out.ticks += std::min(result.ticks, UINT64_MAX - out.ticks);
-    switch (result.status) {
-    case RetentionStatus::Accepted: ++out.accepted; break;
-    case RetentionStatus::AlreadyPresent: ++out.duplicates; break;
-    case RetentionStatus::NotRup:
-    case RetentionStatus::Tautology:
-    case RetentionStatus::Invalid: ++out.rejected; break;
-    case RetentionStatus::Interrupted: out.interrupted = true; break;
-    case RetentionStatus::Exhausted: out.exhausted = true; break;
-    default: out.stale = true; break;
-    }
-    if (out.interrupted || out.exhausted || out.stale) break;
-    capture.literals -= clause.size();
-    ++consumed;
-  }
-  capture.pending.erase(capture.pending.begin(), capture.pending.begin() + consumed);
-  out.pending = capture.pending.size();
-  return out;
 }
 
 } // namespace tactix::session

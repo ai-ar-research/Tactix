@@ -530,9 +530,6 @@ add_test(NAME public_random_frontend
 tactix_skip77_test(query_kernel_proof ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_query_kernel_proof.py
                    $<TARGET_FILE:test_query_kernel> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(query_retention_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_retention_proof.py
-                   $<TARGET_FILE:test_query_retention> ${CMAKE_SOURCE_DIR})
 tactix_skip77_test(query_projection_proof ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_query_projection_proof.py
                    $<TARGET_FILE:test_query_projection> ${CMAKE_SOURCE_DIR}

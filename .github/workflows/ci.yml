@@ -119,7 +119,7 @@ jobs:
           python3 tools/fuzz/ipasir_trace.py \
             --driver "build/${{ matrix.mode }}/tests/tactix-ipasir-trace" \
             --reference cadical/build/cadical \
-            --seed 0 --n 16 --minimize --corpus tools/fuzz/ipasir-corpus \
+            --seed 0 --n 16 --minimize \
             --out "build/${{ matrix.mode }}/ipasir-integration-fuzz"
 
   python-api:

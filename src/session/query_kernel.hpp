@@ -58,13 +58,6 @@ struct AssumptionStep {
   int32_t literal = 0; // permanent external literal, never a compact index
 };
 
-struct RetentionBatch {
-  uint64_t accepted = 0, rejected = 0, duplicates = 0, ticks = 0;
-  uint64_t capture_dropped = 0;
-  size_t pending = 0;
-  bool exhausted = false, interrupted = false, stale = false;
-};
-
 struct NativeQueryLimits {
   WeakeningLimits weakening;
   RetentionLimits proof;
@@ -91,11 +84,10 @@ struct NativeAdvanceResult {
 // the strategy driving the rule registry. Native advance retains Kernel/H;
 // replay is the explicit recovery path and imports F into a fresh epoch.
 // Assumptions are checker premises but enter search only as nonroot decisions.
-// This service is not yet an IPASIR frontend or a complete strategy adapter.
+// The IPASIR transport and custom strategies share this service.
 class QueryKernel {
 public:
   QueryKernel();
-  explicit QueryKernel(RetentionLimits);
   explicit QueryKernel(NativeQueryLimits);
   ~QueryKernel();
   QueryKernel(const QueryKernel &) = delete;
@@ -182,19 +174,11 @@ public:
   LearningSnapshot learning_snapshot() const {
     return learning_ ? learning_->snapshot() : LearningSnapshot{};
   }
-  // Explicit query-end maintenance, with no changes to the current search.
-  // Accepted base-prefix RUP records are installed, with proof deltas, by the
-  // next replay. A partial batch preserves its unconsumed capture cursor.
-  RetentionBatch retain_pending(KernelTicket, uint64_t ticks_budget,
-                                const volatile sig_atomic_t *stop = nullptr);
-  std::span<const RetainedClause> retained_clauses() const;
 
 private:
   struct Epoch;
   std::unique_ptr<Epoch> epoch_;
-  RetentionLimits retention_limits_;
   NativeQueryLimits native_limits_;
-  std::unique_ptr<RetainedClauses> retained_;
   const QueryHistory *history_ = nullptr;
   uint64_t generation_ = 0;
   uint64_t query_ = 0;
