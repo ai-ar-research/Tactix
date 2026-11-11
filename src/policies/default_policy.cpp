@@ -2315,6 +2315,28 @@ bool appended_disabled(const char *name) {
                       "CCE", "SubsumeForward"});
 }
 
+bool validate_scheduler_program(
+    const std::vector<strategy::InprocessStep> &program, std::string *error) {
+  if (!strategy::validate_inprocess_program(program, error))
+    return false;
+  const auto &rules = tactix_rules();
+  const auto reject = [error](const char *message) {
+    if (error) *error = message;
+    return false;
+  };
+  for (const auto &step : program) {
+    const int id = tactix_rule_id(step.rule.c_str());
+    if (id < 0 || rules[id].tier != RuleTier::Inprocess)
+      return reject("inprocess program requires a registered inprocessing action");
+    const EffortSpec *spec = effort_spec(step.rule.c_str());
+    if (step.effort_permille && !spec)
+      return reject("inprocess effort share requires a scheduler effort meter");
+    if ((step.cursor_enabled || step.candidate_order) && (!spec || !spec->dosed))
+      return reject("candidate traversal requires a dosed inprocessing action");
+  }
+  return true;
+}
+
 const char *effort_currency(const char *name) {
   if (!std::strcmp(name, "BVE"))
     return "resolutions";
@@ -4303,8 +4325,41 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
                          strategy::RegionProgram *regions) {
+  return solve_impl<false>(k, stop, nullptr, nullptr, regions);
+}
+
+session::QuerySolveResult DefaultPolicy::solve_query(
+    session::QueryKernel &query, volatile sig_atomic_t *stop,
+    strategy::RegionProgram *regions) {
+  volatile sig_atomic_t callback_stop=0;
+  if(!stop && query.termination_enabled())stop=&callback_stop;
+  Kernel *k = query.kernel(query.ticket());
+  if (!k) return {};
+  if(query.poll_terminate(stop))
+    return {session::QuerySolveStatus::Interrupted,0};
+  if (query.projection_state(query.ticket()).invalid_model)
+    return {session::QuerySolveStatus::InvalidModel, 0};
+  if (query.projection_state(query.ticket()).restore)
+    return {session::QuerySolveStatus::RestorationRequired, 0};
+  if (stop && *stop)
+    return {session::QuerySolveStatus::Interrupted, 0};
+  auto status = session::QuerySolveStatus::Complete;
+  const int result = solve_impl<true>(*k, stop, &query, &status, regions);
+  query.drain_learned(query.ticket(), stop);
+  if (!result && status == session::QuerySolveStatus::Complete)
+    status = stop && *stop ? session::QuerySolveStatus::Interrupted
+                          : session::QuerySolveStatus::Unknown;
+  return {status, result};
+}
+
+template <bool Query>
+int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
+                              session::QueryKernel *query,
+                              session::QuerySolveStatus *query_status,
+                              strategy::RegionProgram *regions) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
+  if constexpr (Query) pose_query_programs();
   // The policy selects an initial subset of substitution/elimination choices;
   // standalone explicit rule applications keep their complete action surface.
   struct InitialRetention {
@@ -4365,10 +4420,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   // Explicit public root work precedes elimination and uses the same native
   // publication as other default actions. No region state exists by default.
   if (regions) {
-    if (regions->run() == ApplyResult::Unsat) {
+    struct RegionStop { session::QueryKernel *query; volatile sig_atomic_t *stop; };
+    RegionStop state{query, stop};
+    const auto poll = [](void *context) {
+      auto &state = *static_cast<RegionStop *>(context);
+      return state.query->poll_terminate(state.stop);
+    };
+    if (regions->run(Query ? +poll : nullptr, &state) == ApplyResult::Unsat) {
       retention.release(); feedback.finish(20, StopReason::Unsat); return 20;
     }
-    if (regions->pending()) {
+    if constexpr (Query) query->poll_terminate(stop);
+    if (regions->pending() || (stop && *stop)) {
       progress_.finish(k, 0);
       feedback.finish(0, StopReason::Interrupted);
       return 0;
@@ -4496,6 +4558,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
 #endif
   event_trace.macro(k, "startup_begin");
   auto finish = [&](int verdict) {
+    if constexpr (Query) {
+      if (query->projection_state(query->ticket()).restore)
+        *query_status = session::QuerySolveStatus::RestorationRequired;
+      if (query->projection_state(query->ticket()).invalid_model)
+        *query_status = session::QuerySolveStatus::InvalidModel;
+      if (*query_status != session::QuerySolveStatus::Complete) verdict = 0;
+    }
     if (verdict) retention.release();
     progress_.finish(k, verdict);
     // These source/proof hook costs overlap ordinary structural actions and

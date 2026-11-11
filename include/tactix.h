@@ -175,6 +175,38 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_REGION_TICKS 69
 #define TACTIX_STAT_REGION_BUDGET 70
 #define TACTIX_STAT_REGION_INVALIDATED 71
+/* Native scheduling observations. Search ticks exclude Startup and
+ * Inprocessing contexts; total TICKS includes their work. ACTIVE_VARIABLES is
+ * the current non-retired, non-root-fixed population (including helpers), not
+ * an estimate from cumulative elimination counts. Sweep productivity includes
+ * both equivalences and units, divided by scheduled variables swept. */
+#define TACTIX_STAT_SEARCH_TICKS 72
+#define TACTIX_STAT_ACTIVE_VARIABLES 73
+#define TACTIX_STAT_SWEEP_UNITS 74
+#define TACTIX_STAT_SWEEP_SWEPT 75
+/* Completed-analysis feedback: a unit batch contributes zero learned glue;
+ * reason-bump rounds/aborts distinguish the native delay gate's outcomes. */
+#define TACTIX_STAT_LEARNED_GLUE_SUM 76
+#define TACTIX_STAT_REASON_BUMP_ROUNDS 77
+#define TACTIX_STAT_REASON_BUMP_ABORTED 78
+/* Cumulative material watermarks used by native elimination scheduling.
+ * They differ from eliminated-variable and deleted-clause counts. */
+#define TACTIX_STAT_BVE_MARKS 79
+#define TACTIX_STAT_SUBSUME_MATERIAL 80
+/* Current forward-pass completeness, 0/1; BEGIN_FORWARD_ROUND resets both
+ * to 1 and an interrupted pass clears its flag. Observation never resumes it. */
+#define TACTIX_STAT_SUBSUME_COMPLETE 81
+#define TACTIX_STAT_STRENGTHEN_COMPLETE 82
+/* Factor's cumulative material counter and last-pass completion, not the
+ * live literal-mark bits. Arena words are representation size, not a clause
+ * count. These observations do not finalize input or advance any pass. */
+#define TACTIX_STAT_FACTOR_LITERALS_MARKED 83
+#define TACTIX_STAT_FACTOR_COMPLETED 84
+#define TACTIX_STAT_ARENA_WORDS 85
+/* Pure representation/output extent and input-lifetime observations. */
+#define TACTIX_STAT_VARIABLES 86
+#define TACTIX_STAT_OUTPUT_VARIABLES 87
+#define TACTIX_STAT_INPUT_CLOSED 88
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
@@ -1901,6 +1933,13 @@ typedef struct {
 #define TACTIX_RULE_RESULT_CONFLICT 2
 #define TACTIX_RULE_RESULT_SAT 3
 #define TACTIX_RULE_RESULT_UNSAT 4
+#define TACTIX_RULE_RESULT_NO_OP TACTIX_RULE_RESULT_NOOP
+#define TACTIX_BUDGET_STATUS_READY 0
+#define TACTIX_BUDGET_STATUS_EXHAUSTED 1
+#define TACTIX_BUDGET_STATUS_INVALID_POOL 2
+#define TACTIX_BUDGET_STATUS_CURRENCY_MISMATCH 3
+#define TACTIX_BUDGET_STATUS_DUPLICATE_POOL 4
+#define TACTIX_BUDGET_STATUS_ACCOUNTING_OVERFLOW 5
 
 typedef struct {
   int status, rule_result, budget_status, work_unit;
@@ -2647,6 +2686,51 @@ int tactix_strategy_productivity(tactix *, int rule_id, uint64_t *yield,
 #define TACTIX_PARAMETERS_STRATEGY 1
 int tactix_read_parameters(tactix *, int rule_id, int kind, int source,
                            tactix_online_parameters *out);
+
+/* An owned scheduling component, shared with native DefaultPolicy. It never
+ * applies a rule, modifies the solver, or retains an execution-view pointer.
+ * Reuse it across views/queries; the caller explicitly chooses resets/events
+ * and whether to act on due. NULL parameters select native defaults. */
+typedef struct tactix_restart_clock tactix_restart_clock;
+typedef struct {
+  uint64_t initial_interval, reluctant_period, reluctant_limit;
+  double glue_margin, fast_ema_window, slow_ema_window;
+  double logarithm_offset, logarithm_bias;
+} tactix_restart_clock_parameters;
+typedef struct {
+  int due, reluctant_trigger;
+  uint64_t next_conflicts, reluctant_u, reluctant_v, reluctant_wait;
+  double fast_glue[2], slow_glue[2], decision_rate[2];
+  int initialized[2];
+  uint64_t saved_decisions[2];
+} tactix_restart_clock_state;
+#define TACTIX_RESTART_CLOCK_RESET 0
+#define TACTIX_RESTART_CLOCK_DECISION_RATE 1
+#define TACTIX_RESTART_CLOCK_GLUE 2
+#define TACTIX_RESTART_CLOCK_RELUCTANT 3
+#define TACTIX_RESTART_CLOCK_RESTARTED 4
+#define TACTIX_RESTART_CLOCK_MODE_ENTERED 5
+/* Profiles require native validity and a representable restart-interval delta
+ * for every positive restart count. Invalid creation returns NULL; configure
+ * returns -1 without changing the clock. Successful configure resets its state
+ * from current solver counters. Solver-bound operations require initialized
+ * guidance. No operation finalizes input. */
+tactix_restart_clock *tactix_restart_clock_create(
+    tactix *, const tactix_restart_clock_parameters *);
+void tactix_restart_clock_release(tactix_restart_clock *);
+int tactix_restart_clock_configure(tactix *, tactix_restart_clock *,
+    const tactix_restart_clock_parameters *);
+int tactix_restart_clock_get_parameters(const tactix_restart_clock *,
+    tactix_restart_clock_parameters *);
+/* DECISION_RATE is the pre-analysis observation; GLUE is supplied after a
+ * learned result; RELUCTANT is an explicitly selected learned-clause tick.
+ * RESTARTED consumes a trigger and updates the focused deadline; MODE_ENTERED
+ * preserves native mode-entry bookkeeping. glue must be zero for other events.
+ * Invalid arguments return -1 without changing clock or solver. */
+int tactix_restart_clock_update(tactix *, tactix_restart_clock *, int event,
+                                uint32_t glue);
+int tactix_restart_clock_observe(tactix *, const tactix_restart_clock *,
+                                 tactix_restart_clock_state *);
 
 #ifdef __cplusplus
 }

@@ -29,12 +29,13 @@ function(tactix_python_test name script)
 endfunction()
 
 if(TACTIX_BUILD_SHARED_IPASIR)
-  tactix_python_test(python_native_inprocess_schedule
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_inprocess_schedule.py
-    $<TARGET_FILE:tactix_shared> $<TARGET_FILE:test_native_inprocess_observation> ${CMAKE_SOURCE_DIR})
-  tactix_python_test(python_phase_pipeline_proof
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_phase_pipeline_proof.py
-    $<TARGET_FILE:tactix_shared> $<TARGET_FILE:test_native_inprocess_observation> ${CMAKE_SOURCE_DIR})
+  tactix_python_test(python_online_sequence ${CMAKE_CURRENT_SOURCE_DIR}/test_python_sequence.py
+    $<TARGET_FILE:tactix_shared> $<TARGET_FILE:test_online_sequence> ${CMAKE_SOURCE_DIR})
+  tactix_python_test(python_bve_order ${CMAKE_CURRENT_SOURCE_DIR}/test_python_bve_order.py
+    $<TARGET_FILE:test_bve_order> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix_shared>)
+  tactix_python_test(python_extended_resolution
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_extended_resolution.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
   tactix_python_test(python_capi ${CMAKE_CURRENT_SOURCE_DIR}/test_python_capi.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
   tactix_python_test(python_policy_parity ${CMAKE_CURRENT_SOURCE_DIR}/test_python_policy_parity.py

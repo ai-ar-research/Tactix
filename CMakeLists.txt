@@ -90,6 +90,7 @@ add_library(tactix_lib OBJECT
   src/api/api.cpp
   src/api/api_work.cpp
   src/api/api_observe.cpp
+  src/api/restart_clock.cpp
 )
 
 # Proof export can copy a huge learned core. This translation unit catches

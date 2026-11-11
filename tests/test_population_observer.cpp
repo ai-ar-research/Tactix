@@ -1136,9 +1136,44 @@ void test_scope_flushes_before_unbinding() {
          CheckerPopulationEventKind::ObserverUnbound);
 }
 
+static void test_forwarding_binding_and_all_seams() {
+  struct Owner final : PopulationObserver {
+    unsigned binds=0, unbinds=0, raw=0, checker=0, solver=0, replacements=0, weakening=0;
+    void observe_binding(const Kernel &,bool bound) noexcept override {bound?++binds:++unbinds;}
+    bool records_weakening() const noexcept override {return true;}
+    void observe(const RawInputPopulationEvent &) noexcept override {++raw;}
+    void observe(const CheckerPopulationEvent &) noexcept override {++checker;}
+    void observe(const SolverPopulationEvent &) noexcept override {++solver;}
+    void observe(const SolverReplacementEvent &) noexcept override {++replacements;}
+    void observe(const WeakeningPopulationEvent &) noexcept override {++weakening;}
+  } owner;
+  struct Layer final : ForwardingPopulationObserver {
+    explicit Layer(PopulationObserver *previous):ForwardingPopulationObserver(previous) {}
+  } first(&owner), second(&first);
+  Kernel k;
+  {
+    ScopedPopulationObserverBinding primary(k,owner);
+    {
+      ScopedPopulationObserverBinding a(k,first), b(k,second);
+      assert(population_observer_contains(k.population_observer,&owner));
+      assert(kernel_records_weakening(k));
+      second.observe(RawInputPopulationEvent{});
+      second.observe(CheckerPopulationEvent{});
+      second.observe(SolverPopulationEvent{});
+      second.observe(SolverReplacementEvent{});
+      second.observe(WeakeningPopulationEvent{});
+      assert(owner.binds==1&&owner.unbinds==0);
+      assert(owner.raw==1&&owner.checker==1&&owner.solver==1&&owner.replacements==1&&owner.weakening==1);
+    }
+    assert(k.population_observer==&owner&&owner.binds==1&&owner.unbinds==0);
+  }
+  assert(owner.unbinds==1);
+}
+
 } // namespace
 
 int main() {
+  test_forwarding_binding_and_all_seams();
   test_no_proof_raw_and_solver_population();
   test_raw_empty_and_long_tautology_classification();
   test_duplicate_unit_and_large_input_classification();

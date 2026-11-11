@@ -41,10 +41,11 @@ def c_declaration(code,name):
     if kind=='array':return c_declaration(value,name+'['+str(extra[0])+']')
     raise AssertionError(code)
 
-# Const qualifiers do not affect the calling ABI. Erase them only in this
+# Const and volatile qualifiers do not affect the calling ABI. Erase them only in this
 # declaration-only probe so signatures compare directly with ctypes types.
 source=['#include <stddef.h>','#include <stdint.h>','#include <stdio.h>',
-        '#define const','#include "tactix.h"','#include "tactix_ipasir.h"','#undef const']
+        '#define const','#define volatile','#include "tactix.h"',
+        '#include "tactix_ipasir.h"','#undef volatile','#undef const']
 for name,(result,params) in s.FUNCTIONS.items():
     expected_type='expected_'+name
     source.append('typedef '+c_declaration(('function',result,params),expected_type)+';')

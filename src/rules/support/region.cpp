@@ -8,7 +8,7 @@
 
 namespace tactix {
 RegionSession::RegionSession(Kernel &k)
-    : owner_(k), previous_(k.population_observer),
+    : ForwardingPopulationObserver(k.population_observer), owner_(k),
       probe_(tactix_rule_id("Probe")), sweep_(tactix_rule_id("Sweep")), binding_(k, *this) {
   binding_epoch_ = k.population_binding_epoch;
 }
@@ -16,17 +16,10 @@ RegionSession::RegionSession(Kernel &k)
 void RegionSession::invalidate() {
   if (valid_) { valid_ = false; ++owner_.stats.region_invalidated; }
 }
-void RegionSession::observe(const RawInputPopulationEvent &e) noexcept {
-  if (previous_) previous_->observe(e);
-}
-void RegionSession::observe(const CheckerPopulationEvent &e) noexcept {
-  if (previous_) previous_->observe(e);
-}
-void RegionSession::observe(const SolverReplacementEvent &e) noexcept {
+void RegionSession::intercept(const SolverReplacementEvent &e) noexcept {
   if (e.phase == SolverReplacementPhase::Begin) invalidate();
-  if (previous_) previous_->observe(e);
 }
-void RegionSession::observe(const SolverPopulationEvent &e) noexcept {
+void RegionSession::intercept(const SolverPopulationEvent &e) noexcept {
   if (e.kind == SolverPopulationEventKind::Delete ||
       e.kind == SolverPopulationEventKind::StageDelete ||
       e.kind == SolverPopulationEventKind::MetadataUpdate) invalidate();
@@ -39,7 +32,6 @@ void RegionSession::observe(const SolverPopulationEvent &e) noexcept {
       clauses_.push_back(clause);
     }
   }
-  if (previous_) previous_->observe(e);
 }
 void RegionSession::begin_definition() {
   if (owner_.population_binding_epoch != binding_epoch_ ||

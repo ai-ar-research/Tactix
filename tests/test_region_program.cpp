@@ -124,6 +124,23 @@ static void interruption() {
   stop=0;assert(policy.solve(k,&stop,&program)==10&&program.pending()==0);
   assert(k.stats.region_units==1);
 }
+static void callback_boundary() {
+  Kernel k;kernel_reserve_vars(k,6);kernel_materialize_cold_state(k);
+  for(int v:{2,4}) {
+    kernel_add_binary_clause(k,internalize(-v),internalize(v-1));
+    kernel_add_binary_clause(k,internalize(-v),internalize(1-v));
+  }
+  kernel_add_binary_clause(k,internalize(5),internalize(6));
+  strategy::RegionProgram program(k);const int vars[]={1,2,3,4};
+  assert(program.add_region(vars)==0);
+  for(int v:{2,4})assert(program.enqueue({rule("Probe"),v,0,0}));
+  unsigned polls=0;
+  const auto stop=[](void *p){return ++*static_cast<unsigned *>(p)==2;};
+  assert(program.run(stop,&polls)==ApplyResult::Ok);
+  assert(program.pending()==1&&k.stats.region_units==1&&k.stats.region_queries==1);
+  assert(program.run()==ApplyResult::Ok&&program.pending()==0);
+  assert(k.stats.region_units==2&&k.stats.region_queries==2);
+}
 // Optional integration mode writes a fixed non-UP UNSAT input and its whole
 // proof. External checkers validate the local solver's intermediate clauses.
 static void proof_fixture(const char *cnf,const char *pbp) {
@@ -144,5 +161,5 @@ int main(int argc,char **argv) {
   if(argc==3){proof_fixture(argv[1],argv[2]);return 0;}
   assert(argc==1);local_cdcl();transient_proof_lifetime();source_deletion(false);source_deletion(true);
   source_deletion(false,true);source_deletion(true,true);
-  queue_and_guards();interruption();std::puts("region program PASS");
+  queue_and_guards();interruption();callback_boundary();std::puts("region program PASS");
 }

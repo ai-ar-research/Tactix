@@ -948,7 +948,8 @@ int main(int argc, char **argv) {
   coverage.rules.resize(static_cast<size_t>(tactix_rule_count()));
   coverage.effective_rules.resize(static_cast<size_t>(tactix_rule_count()));
   const Profile profile = static_cast<Profile>(seed % static_cast<unsigned>(Profile::Count));
-  const int result = public_random_solve(solver, seed, variables, coverage);
+  Runtime runtime(seed);
+  const int result = public_random_solve(solver, runtime, variables, coverage);
   coverage.region_queries=tactix_stat(solver,TACTIX_STAT_REGION_QUERIES);
   coverage.region_units=tactix_stat(solver,TACTIX_STAT_REGION_UNITS);
   coverage.region_lemmas=tactix_stat(solver,TACTIX_STAT_REGION_LEMMAS);

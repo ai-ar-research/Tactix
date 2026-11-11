@@ -135,6 +135,9 @@ inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
                                        std::vector<uint64_t> &out) {
   const uint32_t literals = 2 * k.nvars;
   const auto pure_literal = [&](Var variable) {
+    if constexpr (Query)
+      if (k.query_projection->constrains(k.internal_to_external[variable]))
+        return INVALID_LIT;
     if (kernel_startup_retained(k, variable)) return INVALID_LIT;
     const Lit positive = make_lit(variable, false);
     const bool has_positive = occurrences.count(positive);
@@ -241,11 +244,11 @@ inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
   if (scope == BveCandidateScope::All) {
     out.resize(k.nvars);
     out.resize(rule.instances(k, out.data(), k.nvars));
-    if (k.substitute_retention)
+    if (query || k.substitute_retention)
       out.erase(std::remove_if(out.begin(), out.end(), [&](uint64_t instance) {
         Lit literal;
         return lit_of_instance(k, instance, &literal) &&
-               kernel_startup_retained(k, var_of(literal));
+               (constrained(var_of(literal)) || kernel_startup_retained(k, var_of(literal)));
       }), out.end());
     return;
   }
@@ -262,6 +265,7 @@ inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
   bve_schedule_from_occurrences(k, occurrences, candidates);
   out.reserve(candidates.size());
   for (const Var variable : candidates) {
+    if (constrained(variable)) continue;
     if (kernel_startup_retained(k, variable)) continue;
     const uint32_t positive =
         occurrences.count(make_lit(variable, false));

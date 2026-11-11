@@ -76,7 +76,8 @@ WeakeningHistory::WeakeningHistory(const Kernel &k, WeakeningLimits limits)
 bool WeakeningHistory::capture_complete() const noexcept {
   return intact_ && pending_.empty() && transactions_.empty() &&
          reconstruction_end_ == kernel_.reconstruction.size() &&
-         kernel_.population_observer == this && kernel_.population_observe_solver;
+         population_observer_contains(kernel_.population_observer, this) &&
+         kernel_.population_observe_solver;
 }
 
 RestorationPlan WeakeningHistory::plan_restoration(

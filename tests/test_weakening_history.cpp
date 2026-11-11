@@ -73,6 +73,107 @@ static void full_large_sources_survive_compaction() {
   kernel_check_invariants(k);
 }
 
+static void newly_false_resolvent_literals_preserve_capture() {
+  Kernel k;WeakeningHistory history(k,bounds);
+  ScopedPopulationObserverBinding binding(k,history);
+  input(k,{-3,-6,0,3,6,0,-6,3,0,-7,2,0});
+  eliminate(k,3); // Resolving learns -6 after the source (3,6) was gathered.
+  assert(k.value(internalize(-6))>0 && history.capture_complete());
+  assert(k.reconstruction==std::vector<Lit>({internalize(6),internalize(3),2}));
+  const int32_t touched[]{-3};
+  const auto plan=history.plan_restoration(touched);
+  assert(plan.status()==RestorationPlanStatus::Ready && !plan.kept());
+  assert(plan.selected().size()==1 && equal(plan.selected()[0].clause,{3,6}));
+  assert(history.records().size()>0 && equal(history.records()[0].clause,{3,6}));
+  assert(propagate_apply(k)==ApplyResult::Ok);
+  eliminate(k,2);
+  assert(history.capture_complete() && !history.pending());
+  assert(default_solve(k)==10);
+  kernel_extend_model(k);
+  for(const auto &clause:std::vector<std::vector<int32_t>>{{-3,-6},{3,6},{-6,3},{-7,2}}) {
+    bool satisfied=false;for(int32_t lit:clause)satisfied|=k.model_values[internalize(lit)]>0;
+    assert(satisfied);
+  }
+}
+
+static void false_literals_do_not_license_arbitrary_repairs() {
+  struct Case { std::vector<int32_t> roots,rest;bool accepted; };
+  const std::vector<Case> cases{
+    {{-4},{2,4},true}, {{-4},{2},true}, // Full and root-shortened valid twins.
+    {{-3,-4},{2,3},false}, // A foreign false literal replaces a false source literal.
+    {{-3},{2},false}, // An unfixed source literal is missing.
+    {{-1},{2,4},false}, // The chosen witness is false.
+    {{-4},{2,4,4},false}, {{-4},{2,1},false} // Extra false copy or witness copy.
+  };
+  for(const auto &test:cases) {
+    Kernel k;WeakeningHistory history(k,bounds);
+    ScopedPopulationObserverBinding binding(k,history);
+    std::vector<Lit> raw{internalize(1),internalize(2),internalize(4)};
+    ingest_clause(k,raw);
+    for(int32_t literal:test.roots) {raw={internalize(literal)};ingest_clause(k,raw);}
+    finish_input(k);assert(history.capture_complete());
+    const Lit clause[]{internalize(1),internalize(2),internalize(4)},witness=clause[0];
+    std::vector<Lit> rest;for(int32_t literal:test.rest)rest.push_back(internalize(literal));
+    const uint64_t token=kernel_prepare_weakening(k,WeakeningFamily::Bce,
+        kernel_population_clause(k,clause,3),kernel_population_clause(k,&witness,1),
+        1,false,false,rest.size()+2);
+    assert(token && history.pending()==1 && history.records().empty());
+    bool deleted=false;
+    for(const auto &[ref,c]:arena_records(k.arena)) {
+      (void)ref;if(c->id()!=1)continue;
+      kernel_delete_clause(k,c);deleted=true;break;
+    }
+    assert(deleted);
+    kernel_push_witness(k,witness,rest.data(),rest.size());
+    assert(k.reconstruction.size()==rest.size()+2);
+    kernel_finish_weakening(k,token,true);
+    assert(history.capture_complete()==test.accepted && !history.pending());
+    assert(history.records().size()==(test.accepted?1u:0u));
+  }
+}
+
+static void full_witness_is_consumed_by_native_restoration() {
+  QueryHistory history;
+  for(int literal:{-3,-6,0,3,6,0,-6,3,0,-7,2,0})assert(history.add(literal)==InputStatus::Ok);
+  assert(history.begin_query()==InputStatus::Ok);
+  QueryKernel owner(NativeQueryLimits{bounds,{64,4096,1024,8192,64,1024,8192},1000000});
+  assert(owner.advance(history).status==NativeAdvanceStatus::Replayed);
+  auto *k=owner.kernel(owner.ticket());assert(k);
+  eliminate(*k,3);heuristics_consume_retirements(*k);
+  assert(propagate_apply(*k)==ApplyResult::Ok);
+  assert(k->reconstruction==std::vector<Lit>({internalize(6),internalize(3),2}));
+  assert(history.finish_query(1,QueryResult::Unknown)==InputStatus::Ok);
+  assert(history.add(-3)==InputStatus::Ok && history.add(0)==InputStatus::Ok);
+  assert(history.begin_query()==InputStatus::Ok);
+  const auto restored=owner.advance(history);
+  assert(restored.status==NativeAdvanceStatus::Ok && restored.restored==1);
+  assert(owner.kernel(owner.ticket())==k && k->reconstruction.empty() && k->inconsistent);
+  assert(owner.flush_proof(owner.ticket()));
+}
+
+static void forwarding_capture_and_real_gap() {
+  struct Layer final : ForwardingPopulationObserver {
+    explicit Layer(PopulationObserver *p):ForwardingPopulationObserver(p) {}
+  };
+  Kernel k;WeakeningHistory history(k,bounds);
+  ScopedPopulationObserverBinding primary(k,history);
+  input(k,{1,2,4,0,-1,3,5,0});
+  {
+    Layer layer(&history);ScopedPopulationObserverBinding extra(k,layer);
+    assert(history.capture_complete());
+    eliminate(k,1);
+    assert(history.capture_complete()&&history.records().size()==2);
+    assert(equal(history.records()[0].clause,{1,2,4}));
+    assert(equal(history.records()[1].clause,{-1,3,5}));
+  }
+  assert(history.capture_complete());
+  {
+    PopulationObserver silent;ScopedPopulationObserverBinding gap(k,silent);
+    assert(!history.capture_complete());
+  }
+  assert(!history.capture_complete()); // Rebinding cannot repair missed provenance.
+}
+
 static void binary_occurrence_ids_ignore_sentinel() {
   Kernel k;
   WeakeningHistory history(k, bounds);
@@ -314,6 +415,10 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
+  newly_false_resolvent_literals_preserve_capture();
+  false_literals_do_not_license_arbitrary_repairs();
+  full_witness_is_consumed_by_native_restoration();
+  forwarding_capture_and_real_gap();
   full_large_sources_survive_compaction();
   binary_occurrence_ids_ignore_sentinel();
   bce_batch_and_duplicate_sources();

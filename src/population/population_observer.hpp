@@ -260,6 +260,7 @@ struct WeakeningPopulationEvent {
 class PopulationObserver {
 public:
   virtual ~PopulationObserver() = default;
+  virtual PopulationObserver *forwarded_observer() const noexcept { return nullptr; }
   virtual void observe_binding(const Kernel &, bool /*bound*/) noexcept {}
   virtual void observe(const RawInputPopulationEvent &) noexcept {}
   virtual void observe(const CheckerPopulationEvent &) noexcept {}
@@ -268,6 +269,46 @@ public:
   virtual bool records_weakening() const noexcept { return false; }
   virtual void observe(const WeakeningPopulationEvent &) noexcept {}
 };
+
+// An immutable forwarding link preserves every population seam, including
+// weakening transactions. Interceptors cannot bypass delivery to the owner.
+class ForwardingPopulationObserver : public PopulationObserver {
+  PopulationObserver *const previous_;
+protected:
+  explicit ForwardingPopulationObserver(PopulationObserver *previous) : previous_(previous) {}
+  virtual void intercept(const RawInputPopulationEvent &) noexcept {}
+  virtual void intercept(const CheckerPopulationEvent &) noexcept {}
+  virtual void intercept(const SolverPopulationEvent &) noexcept {}
+  virtual void intercept(const SolverReplacementEvent &) noexcept {}
+  virtual void intercept(const WeakeningPopulationEvent &) noexcept {}
+public:
+  PopulationObserver *forwarded_observer() const noexcept final { return previous_; }
+  bool records_weakening() const noexcept final {
+    return previous_ && previous_->records_weakening();
+  }
+  void observe(const RawInputPopulationEvent &e) noexcept final {
+    intercept(e); if (previous_) previous_->observe(e);
+  }
+  void observe(const CheckerPopulationEvent &e) noexcept final {
+    intercept(e); if (previous_) previous_->observe(e);
+  }
+  void observe(const SolverPopulationEvent &e) noexcept final {
+    intercept(e); if (previous_) previous_->observe(e);
+  }
+  void observe(const SolverReplacementEvent &e) noexcept final {
+    intercept(e); if (previous_) previous_->observe(e);
+  }
+  void observe(const WeakeningPopulationEvent &e) noexcept final {
+    intercept(e); if (previous_) previous_->observe(e);
+  }
+};
+
+inline bool population_observer_contains(const PopulationObserver *chain,
+                                         const PopulationObserver *observer) noexcept {
+  for (; chain; chain = chain->forwarded_observer())
+    if (chain == observer) return true;
+  return false;
+}
 
 uint64_t kernel_prepare_weakening(Kernel &, WeakeningFamily,
     PopulationClauseView clause, PopulationClauseView witness,

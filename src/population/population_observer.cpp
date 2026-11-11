@@ -62,9 +62,11 @@ PopulationObserver *kernel_bind_population_observer(
     ++kernel.population_binding_epoch;
   if (kernel.proof && kernel.proof->population_observer() == previous)
     kernel.proof->bind_population_observer(nullptr);
-  if (previous) previous->observe_binding(kernel, false);
+  for (auto *at = previous; at; at = at->forwarded_observer())
+    if (!population_observer_contains(observer, at)) at->observe_binding(kernel, false);
   kernel.population_observer = observer;
-  if (observer) observer->observe_binding(kernel, true);
+  for (auto *at = observer; at; at = at->forwarded_observer())
+    if (!population_observer_contains(previous, at)) at->observe_binding(kernel, true);
   if (kernel.proof)
     kernel.proof->bind_population_observer(observer);
   return previous;

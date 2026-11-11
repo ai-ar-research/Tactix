@@ -243,6 +243,8 @@ public:
   strategy::controller::Observation observe(const Kernel &) const;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
+  session::QuerySolveResult solve_query(session::QueryKernel &,
+      volatile sig_atomic_t *stop = nullptr, strategy::RegionProgram *regions = nullptr);
   int solve(Kernel &, volatile sig_atomic_t *stop, strategy::RegionProgram *);
   const DefaultAffineSearchDiagnostics &affine_search_diagnostics() const {
     return affine_search_diagnostics_;
@@ -355,7 +357,7 @@ private:
   void pose_query_programs();
   template <bool Query>
   int solve_impl(Kernel &, volatile sig_atomic_t *, session::QueryKernel *,
-                 session::QuerySolveStatus *);
+                 session::QuerySolveStatus *, strategy::RegionProgram *);
   ProgressReport progress_; // -v progress lines; output only
   void observe_glue(const Kernel &, uint32_t);
   void observe_decision_rate(const Kernel &);

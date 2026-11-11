@@ -135,7 +135,6 @@ void repr_unite(const Kernel &k, SweepRound &r, Lit a, Lit b) {
 // --- environment assembly ---------------------------------------------------
 
 void env_reset(const Kernel &k, SweepEnv &e) {
-  e.proof_pool.reset();
   if (e.sub_of_var.size() != k.nvars) {
     e.sub_of_var.assign(k.nvars, SWEEP_NO_SUB_VAR);
     e.touched.clear();
@@ -731,7 +730,14 @@ static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
 static bool sweep_capture_dir(const Kernel &host, SweepEnv &e,
                               uint32_t max_proof_steps,
                               SweepDirProof &out) {
-  out = {};
+  out.ok = false;
+  out.t0 = out.t1 = INVALID_LIT;
+  out.steps.clear();
+  out.shared_steps.reset();
+  out.program.reset();
+  out.program_steps.reset();
+  out.shared_step_count = 0;
+  out.core_clauses.clear();
   SubDerivation d;
   if (!e.solver.derivation(d, true))
     return !d.resource_exhausted;
@@ -744,20 +750,7 @@ static bool sweep_capture_dir(const Kernel &host, SweepEnv &e,
     return true;
   out.t0 = sweep_kernel_lit(e.vars, tl[0]);
   out.t1 = tl.size() == 2 ? sweep_kernel_lit(e.vars, tl[1]) : INVALID_LIT;
-  if (!e.proof_pool) e.proof_pool = std::make_shared<SweepProofPool>();
-  out.pool = e.proof_pool;
-  auto ids = std::make_shared<std::vector<uint32_t>>();
-  ids->reserve(d.steps.size());
-  for (size_t si = 0; si < d.steps.size(); ++si) {
-    SubStep &step = d.steps[si];
-    ids->push_back(step.id);
-    if (si + 1 == d.steps.size())
-      out.pooled_target = std::make_shared<const SubStep>(std::move(step));
-    else
-      out.pool->remember(std::move(step));
-  }
-  out.shared_step_count = ids->size();
-  out.pooled_steps = std::move(ids);
+  if (!sweep_share_steps(d, e.proof_steps, out)) return false;
   for (auto &cc : d.core_clauses) {
     bool drop = false;
     uint32_t non_false = 0;
@@ -772,15 +765,8 @@ static bool sweep_capture_dir(const Kernel &host, SweepEnv &e,
         break;
       }
     }
-    if (drop) continue;
-    // A learned core clause lacking an independent captured prefix was
-    // already skipped by the unit adapter. Keep the same admission here.
-    if (cc.learned && !std::binary_search(out.pooled_steps->begin(),
-                                         out.pooled_steps->end(), cc.id))
-      continue;
-    if (!cc.learned)
-      out.pool->remember(SubStep{cc.id, std::move(cc.lits), {}, {}});
-    out.pooled_core.push_back(cc.id);
+    if (!drop)
+      out.core_clauses.push_back(std::move(cc));
   }
   out.orig_ids = e.clause_ids;
   out.vars = e.vars;
@@ -805,27 +791,15 @@ static void sweep_capture_core_units(Kernel &k, SweepDirProof &proof,
   proof.share_steps();
   const auto steps = proof.steps_view();
   bool committed = false;
-  for (size_t ci = 0; ci < proof.core_clauses.size() + proof.pooled_core.size(); ++ci) {
-    const bool pooled = ci >= proof.core_clauses.size();
-    const uint32_t id = pooled ? proof.pooled_core[ci - proof.core_clauses.size()]
-                              : proof.core_clauses[ci].id;
-    const bool learned = pooled ? id > proof.orig_ids.size()
-                               : proof.core_clauses[ci].learned;
-    const auto &lits = pooled ? (id == proof.pooled_target->id
-                                    ? proof.pooled_target->lits
-                                    : proof.pool->by_id[id]->lits)
-                             : proof.core_clauses[ci].lits;
-    size_t first = 0, last = steps.size();
-    while (first < last) {
-      const size_t middle = first + (last - first) / 2;
-      if (steps[middle].id < id) first = middle + 1;
-      else last = middle;
-    }
-    if (learned && (first == steps.size() || steps[first].id != id))
+  // Unit extraction consumes this capture's core; replay needs only steps.
+  auto core_clauses = std::move(proof.core_clauses);
+  for (const auto &cc : core_clauses) {
+    const auto step_at = std::ranges::lower_bound(steps, cc.id, {}, &SubStep::id);
+    if (cc.learned && (step_at == steps.end() || (*step_at).id != cc.id))
       continue; // No independent proof prefix: do not borrow a different target.
     Lit unit = INVALID_LIT;
     bool satisfied = false;
-    for (const SubLit sl : lits) {
+    for (const SubLit sl : cc.lits) {
       if (sub_var_of(sl) >= proof.vars.size()) {
         satisfied = true; // malformed captures decline in the real evaluator
         break;
@@ -858,15 +832,15 @@ static void sweep_capture_core_units(Kernel &k, SweepDirProof &proof,
     captured.proof.orig_ids = proof.orig_ids;
     captured.proof.vars = proof.vars;
     captured.proof.formula_epoch = proof.formula_epoch;
-    if (learned) {
-      captured.proof.pool = proof.pool;
-      captured.proof.pooled_steps = proof.pooled_steps;
-      captured.proof.pooled_target = proof.pooled_target;
+    if (cc.learned) {
       captured.proof.shared_steps = proof.shared_steps;
-      captured.proof.shared_step_count = first + 1;
+      captured.proof.program = proof.program;
+      captured.proof.program_steps = proof.program_steps;
+      captured.proof.shared_step_count =
+          static_cast<size_t>(step_at - steps.begin()) + 1;
     } else {
-      const uint32_t next_id = static_cast<uint32_t>(proof.orig_ids.size()) + 1;
-      captured.proof.steps.assign(1, SubStep{next_id, lits, {id}, {}});
+      const uint32_t id = static_cast<uint32_t>(proof.orig_ids.size()) + 1;
+      captured.proof.steps.assign(1, SubStep{id, cc.lits, {cc.id}, {}});
     }
     captured.proof.t0 = unit;
     captured.proof.t1 = INVALID_LIT;
@@ -2055,8 +2029,8 @@ static SweepGeneralPlan sweep_plan_general(const Kernel &k,
     return decline(SweepGeneralDecline::CaptureMissing, 0,
                    static_cast<uint32_t>(steps.size()));
   uint32_t max_id = static_cast<uint32_t>(p.orig_ids.size());
-  for (size_t si = 0; si < steps.size(); ++si)
-    max_id = std::max(max_id, steps[si].id);
+  for (const SubStep &step : steps)
+    max_id = std::max(max_id, step.id);
   std::vector<uint8_t> named(static_cast<size_t>(max_id) + 1, 0);
   // The checker re-derives each lemma by propagation, so an original without a
   // proof id is still usable.
@@ -2145,8 +2119,8 @@ static bool sweep_apply_general_plan(Kernel &k,
   const auto steps = capture.steps_view();
   assert(plan.step_count == steps.size());
   uint32_t max_id = static_cast<uint32_t>(plan.source_ids.size());
-  for (size_t si = 0; si < steps.size(); ++si)
-    max_id = std::max(max_id, steps[si].id);
+  for (const SubStep &step : steps)
+    max_id = std::max(max_id, step.id);
   std::vector<uint64_t> id_of(static_cast<size_t>(max_id) + 1, 0);
   for (size_t i = 0; i < plan.source_ids.size(); i++)
     id_of[i + 1] = plan.source_ids[i];
@@ -2836,8 +2810,7 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
     return ApplyResult::Unsat;
   if (k.level != 0 || k.conflict_valid)
     return ApplyResult::NoOp;
-  // Zero is the legacy unlimited sentinel in SweepLimits, but an explicit
-  // bounded-zero public allowance admits no optional embedded work.
+  // An explicit bounded-zero allowance admits no optional embedded work.
   if (kernel_has_work_budget(k) && !k.work_budget)
     return ApplyResult::NoOp;
   SweepRound round;

@@ -17,9 +17,8 @@ struct RegionQuery {
 
 // A solver-owned, opt-in inference session. Its observer follows actual clause
 // installation/retirement; no caller-supplied clause is trusted as a premise.
-class RegionSession final : public PopulationObserver {
+class RegionSession final : public ForwardingPopulationObserver {
   Kernel &owner_;
-  PopulationObserver *previous_;
   uint64_t binding_epoch_ = 0;
   int probe_, sweep_;
   struct Slice { uint32_t begin, end; };
@@ -53,9 +52,8 @@ public:
   bool valid_query(const RegionQuery &) const;
   ApplyResult apply(const RegionQuery &);
 
-  void observe(const RawInputPopulationEvent &) noexcept override;
-  void observe(const CheckerPopulationEvent &) noexcept override;
-  void observe(const SolverPopulationEvent &) noexcept override;
-  void observe(const SolverReplacementEvent &) noexcept override;
+private:
+  void intercept(const SolverPopulationEvent &) noexcept override;
+  void intercept(const SolverReplacementEvent &) noexcept override;
 };
 } // namespace tactix

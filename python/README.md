@@ -76,7 +76,8 @@ not replace query certificates.
 typed structures from `tactix.h`, `ipasir.h` and `tactix_ipasir.h`. It uses
 standard-library `ctypes`; consumers need no compiler or parser. See the
 [C guide](../docs/c-api.md) and [headers](../include/) for operation contracts.
-Record constructors reject unknown field names. `execution.c` binds solver calls
+Record constructors reject unknown field names. `execution.c` binds solver calls,
+including [ER definitions and regional queries](../docs/extended-resolution.md),
 to the borrowed view and enforces its lifetime and callback guards:
 
 ```python

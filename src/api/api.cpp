@@ -90,6 +90,9 @@ struct tactix_solver {
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
+  // Created only for independent public online continuations. Weak owners
+  // reject stale handles even if a later execution view reuses this address.
+  std::shared_ptr<const int> online_lifetime;
   std::unique_ptr<strategy::RegionProgram> regions;
   // The encoding tactix_read_parameters last returned (api_observe.cpp).
   std::shared_ptr<void> observe_scratch;
@@ -2331,10 +2334,6 @@ int tactix_read_strategy_state(tactix_solver *s, tactix_strategy_state *out) {
   return 0;
 }
 
-int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {
-  return s?api_detail::set_strategy_option(s->default_options,name,value):-1;
-}
-
 int tactix_defer_startup_state(tactix_solver *s) {
   if (!s || s->input_completed || s->kernel.nvars || s->kernel.h != &s->heuristics)
     return -1;
@@ -2342,6 +2341,10 @@ int tactix_defer_startup_state(tactix_solver *s) {
   s->kernel.saved_phases = nullptr;
   kernel_defer_cold_state(s->kernel);
   return 0;
+}
+
+int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {
+  return s?api_detail::set_strategy_option(s->default_options,name,value):-1;
 }
 
 void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
@@ -2485,7 +2488,10 @@ int tactix_solve(tactix_solver *s) {
   int r;
   {
     ScopedStrategySettings settings(&s->default_options);
-    r = default_solve(s->kernel, nullptr, s->regions.get());
+    if(s->query_owner) {
+      const auto solved=s->query_policy->solve_query(*s->query_owner,s->query_stop,s->regions.get());
+      s->query_status=solved.status;r=solved.result;
+    } else r = default_solve(s->kernel, nullptr, s->regions.get());
   }
   rule_journal_flush();
   external_state_change(s);
@@ -3181,6 +3187,23 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   case TACTIX_STAT_REGION_TICKS: return k.stats.region_ticks;
   case TACTIX_STAT_REGION_BUDGET: return k.stats.region_budget;
   case TACTIX_STAT_REGION_INVALIDATED: return k.stats.region_invalidated;
+  case TACTIX_STAT_SEARCH_TICKS: return k.stats.search_ticks;
+  case TACTIX_STAT_ACTIVE_VARIABLES: return kernel_active_variables(k);
+  case TACTIX_STAT_SWEEP_UNITS: return k.stats.sweep_units;
+  case TACTIX_STAT_SWEEP_SWEPT: return k.stats.sweep_swept;
+  case TACTIX_STAT_LEARNED_GLUE_SUM: return k.stats.learned_glue_sum;
+  case TACTIX_STAT_REASON_BUMP_ROUNDS: return k.stats.reason_bump_rounds;
+  case TACTIX_STAT_REASON_BUMP_ABORTED: return k.stats.reason_bump_aborted;
+  case TACTIX_STAT_BVE_MARKS: return k.stats.bve_marks;
+  case TACTIX_STAT_SUBSUME_MATERIAL: return k.subsume_material_count;
+  case TACTIX_STAT_SUBSUME_COMPLETE: return k.subsume_complete;
+  case TACTIX_STAT_STRENGTHEN_COMPLETE: return k.strengthen_complete;
+  case TACTIX_STAT_FACTOR_LITERALS_MARKED: return k.factor_literals_marked;
+  case TACTIX_STAT_FACTOR_COMPLETED: return k.factor_completed;
+  case TACTIX_STAT_ARENA_WORDS: return k.arena.size();
+  case TACTIX_STAT_VARIABLES: return k.nvars;
+  case TACTIX_STAT_OUTPUT_VARIABLES: return kernel_num_output_vars(k);
+  case TACTIX_STAT_INPUT_CLOSED: return s->input_completed;
 
   default:
     return UINT64_MAX;

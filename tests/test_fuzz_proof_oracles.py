@@ -22,18 +22,22 @@ def synthetic_route_hint(proof):
 class FuzzProofOracles(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.sandbox = tempfile.TemporaryDirectory(prefix='fuzz-proof-oracles-')
-        cls.addClassCleanup(cls.sandbox.cleanup)
-        cls.campaign = Path(cls.sandbox.name)
+        # Exercise the configured acceptance checkers on clean checkouts too;
+        # historical campaign directories are not part of the source tree.
+        fixture = tempfile.TemporaryDirectory(prefix='proof-oracle-checkers-')
+        cls.addClassCleanup(fixture.cleanup)
+        cls.campaign = Path(fixture.name)
         pins = cls.campaign/'pins'
         pins.mkdir()
         for name, source in {
-            'cake_lpr': fuzz.CAKE_LPR, 'drat-trim': fuzz.DRAT_TRIM,
+            'drat-trim': fuzz.DRAT_TRIM, 'lrat-check': fuzz.LRAT_CHECK,
             'dsr-trim': fuzz.DSR_TRIM, 'dsr-compress': fuzz.DSR_COMPRESS,
-            'srcheck': fuzz.SR_CHECK, 'veripb': fuzz.VERIPB,
-            'cake-pb-cnf': fuzz.CAKE_PB,
+            'srcheck': fuzz.SR_CHECK, 'cake_lpr': fuzz.CAKE_LPR,
+            'veripb': fuzz.VERIPB, 'cake-pb-cnf': fuzz.CAKE_PB,
         }.items():
-            shutil.copy2(source, pins/name)
+            target = Path(source).resolve(strict=True)
+            if not target.is_file(): raise RuntimeError('missing checker: '+str(target))
+            (pins/name).symlink_to(target)
 
     def test_pbp_leading_blanks_on_every_executing_surface(self):
         from proof_oracle import check_routed
