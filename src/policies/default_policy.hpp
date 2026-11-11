@@ -354,7 +354,6 @@ private:
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
   void configure_from_env(const Kernel &);
-  void pose_query_programs();
   template <bool Query>
   int solve_impl(Kernel &, volatile sig_atomic_t *, session::QueryKernel *,
                  session::QuerySolveStatus *, strategy::RegionProgram *);

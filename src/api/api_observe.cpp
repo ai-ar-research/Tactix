@@ -301,11 +301,7 @@ uint64_t tactix_observe(tactix_c_handle *s, int observation, uint64_t argument) 
                ? k.compact_import_position[variable]
                : UINT32_MAX;
   case TACTIX_OBSERVE_AFFINE_SUPPORT: {
-    const AffineMatrixSearchSession *session = k.affine_matrix_search_session;
-    if (!session || !session->enabled() || !session->persistent()) return 0;
-    const auto &support = session->support();
-    return std::binary_search(support.begin(), support.end(),
-                              kernel_externalize(k, make_lit(variable, false)));
+    return strategy::bve_affine_support_protected(k, variable);
   }
   case TACTIX_OBSERVE_VARIABLE_RETENTION: return k.variable_retention.size();
   case TACTIX_OBSERVE_VARIABLE_RETIRED: return kernel_var_retired(k, variable);
@@ -442,12 +438,9 @@ int tactix_stage_complete(tactix_c_handle *s) {
 int tactix_stage_advance(tactix_c_handle *s, uint64_t ticks_per_generator, uint64_t hard_limit,
                          tactix_stage_result *out) {
   if (!s || !out) return -1;
-  auto &sequence = api_detail::structured_stage(s);
-  if (!sequence) return -1;
-  Kernel &k = kernel_of(s);
-  const strategy::InvocationResult advanced =
-      sequence->advance(k, k.stop, api_detail::sr_discovery(s).get(),
-                        strategy::DiscoveryFeedbackPolicy{ticks_per_generator, hard_limit});
+  strategy::InvocationResult advanced;
+  if (!api_detail::advance_structured_stage(s, advanced, ticks_per_generator, hard_limit))
+    return -1;
   *out = {};
   out->status = static_cast<int>(advanced.status);
   out->made_rule_progress = advanced.made_rule_progress;
@@ -596,12 +589,10 @@ int tactix_branch_phase(tactix_c_handle *s, int variable) {
 }
 
 int tactix_branch_restart_level(tactix_c_handle *s, int variable) {
-  if (!s) return -1;
-  Kernel &k = kernel_of(s);
-  if (!k.h) return -1;
-  const Var v = internal_variable(k, variable);
-  if (v == INVALID_VAR || v >= k.nvars) return -1;
-  return static_cast<int>(heuristics_restart_reuse_level_for(k, v));
+  uint32_t level=0;
+  if (variable <= 0 || tactix_restart_reuse_level(s, variable, 0, &level))
+    return -1;
+  return static_cast<int>(level);
 }
 
 int tactix_branch_population(tactix_c_handle *s, uint32_t slot) {
@@ -721,27 +712,19 @@ int tactix_bve_schedule_open(tactix_c_handle *s) {
   const RuleVTable &bve = tactix_rules()[static_cast<size_t>(tactix_rule_id("BVE"))];
   std::vector<uint64_t> candidates(2 * static_cast<size_t>(k.nvars) + 1);
   const uint32_t n = bve.instances(k, candidates.data(), static_cast<uint32_t>(candidates.size()));
-  schedule = std::make_unique<strategy::BveCandidateHeap>();
-  schedule->initialize(k, candidates.data(), n);
-  k.bve_score_update_hook = strategy::BveCandidateHeap::update_hook;
-  k.bve_score_update_state = schedule.get();
+  schedule = std::make_unique<strategy::BveOrdering>(k, candidates.data(), n);
   return 0;
 }
 
 uint64_t tactix_bve_schedule_next(tactix_c_handle *s) {
   if (!s) return TACTIX_INSTANCE_CANONICAL;
   auto &schedule = api_detail::bve_schedule(s);
-  return schedule && !schedule->empty() ? schedule->pop_max() : TACTIX_INSTANCE_CANONICAL;
+  return schedule && !schedule->empty() ? schedule->next() : TACTIX_INSTANCE_CANONICAL;
 }
 
 void tactix_bve_schedule_close(tactix_c_handle *s) {
   if (!s) return;
   auto &schedule = api_detail::bve_schedule(s);
-  if (!schedule) return;
-  Kernel &k = kernel_of(s);
-  k.bve_score_update_hook = nullptr;
-  k.bve_score_update_state = nullptr;
-  k.bve_occurrence_count_image = nullptr;
   schedule.reset();
 }
 

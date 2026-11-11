@@ -80,6 +80,7 @@ struct tactix_solver {
   DefaultPolicy *query_policy=nullptr;
   volatile sig_atomic_t *query_stop=nullptr;
   volatile sig_atomic_t *saved_query_stop=nullptr;
+  uint64_t *saved_tick_sink=nullptr;
   session::QuerySolveStatus query_status=session::QuerySolveStatus::Complete;
   std::vector<Lit> scratch;
   bool input_completed = false;
@@ -102,7 +103,7 @@ struct tactix_solver {
       default_policy_configuration(DefaultStrategyConfig{});
   // The open BVE schedule (tactix_bve_schedule_*), which the kernel's BVE
   // score notifications update.
-  std::unique_ptr<strategy::BveCandidateHeap> bve_schedule;
+  std::unique_ptr<strategy::BveOrdering> bve_schedule;
   // The configured structured-root stage (tactix_stage_*) and the
   // SR-discovery allowance its advances charge.
   std::unique_ptr<strategy::OnlineStrategySequence> structured_stage;
@@ -136,8 +137,12 @@ struct tactix_solver {
       :kernel(*q.kernel(q.ticket())),default_options(options),heuristics(*kernel.h),
        proof(*kernel.proof),structural_action_sessions(*q.execution_services(q.ticket())),
        query_owner(&q),query_ticket(q.ticket()),query_policy(&policy),query_stop(stop),
-       saved_query_stop(kernel.stop),input_completed(true) {kernel.stop=stop;}
+       saved_query_stop(kernel.stop),saved_tick_sink(kernel.tick_sink),input_completed(true) {
+    kernel.stop=stop;
+    pose_query_programs(strategy_configuration);
+  }
   ~tactix_solver() {
+    bve_schedule.reset();
     const auto leave_context = [&] {
       execution::leave_execution_context(kernel, contexts.back().first,
                                          contexts.back().second);
@@ -148,7 +153,11 @@ struct tactix_solver {
       phase.abandon();
     }
     while (!contexts.empty()) leave_context();
-    if(query_owner && kernel.stop==query_stop)kernel.stop=saved_query_stop;
+    if (startup_retention) kernel.substitute_retention=retention_before;
+    if (query_owner) {
+      kernel.stop=saved_query_stop;
+      kernel.tick_sink=saved_tick_sink;
+    }
   }
 };
 
@@ -221,7 +230,8 @@ void *create_query_execution(session::QueryKernel &q,DefaultPolicy &policy,
 void destroy_query_execution(void *opaque) {delete static_cast<::tactix_solver *>(opaque);}
 bool query_execution_settled(void *opaque) {
   const auto &s=*static_cast<::tactix_solver *>(opaque);
-  return s.contexts.empty() && !s.phase.open() && !s.kernel.inprocessing &&
+  return s.contexts.empty() && !s.phase.open() && !s.bve_schedule &&
+      !s.startup_retention && !s.kernel.inprocessing &&
       !s.kernel.warming && !s.kernel.phase_saving_suppressed &&
       !s.kernel.probing.recording && s.kernel.large_watches_connected &&
       !s.kernel.dense && !s.kernel.arena_ordering && !s.kernel.pending.valid &&
@@ -247,7 +257,7 @@ DefaultStrategyConfig &strategy_configuration(void *opaque) {
   assert(opaque);
   return static_cast<::tactix_solver *>(opaque)->strategy_configuration;
 }
-std::unique_ptr<strategy::BveCandidateHeap> &bve_schedule(void *opaque) {
+std::unique_ptr<strategy::BveOrdering> &bve_schedule(void *opaque) {
   assert(opaque);
   return static_cast<::tactix_solver *>(opaque)->bve_schedule;
 }
@@ -2100,7 +2110,8 @@ bool convert_online_version(unsigned version, const void *source,
   }
 }
 
-bool advance_online(tactix_solver *s, strategy::OnlineStrategyExecutor &executor,
+template <class Executor>
+bool advance_online(tactix_solver *s, Executor &executor,
                     strategy::InvocationResult &advanced,
                     strategy::Allowance *discovery = nullptr,
                     strategy::DiscoveryFeedbackPolicy feedback = {}) {
@@ -2196,6 +2207,18 @@ auto visit_parameter_fields(strategy::FieldsOf<RetierScheduleFields>,
 }
 
 } // namespace
+
+namespace tactix::api_detail {
+bool advance_structured_stage(void *opaque, strategy::InvocationResult &result,
+                              uint64_t ticks_per_generator, uint64_t hard_limit) {
+  auto *solver=static_cast<::tactix_solver *>(opaque);
+  if (!solver->structured_stage) return false;
+  (void)advance_online(solver, *solver->structured_stage, result,
+      solver->sr_discovery.get(),
+      strategy::DiscoveryFeedbackPolicy{ticks_per_generator, hard_limit});
+  return true;
+}
+}
 
 extern "C" {
 
@@ -3396,6 +3419,7 @@ static ApplyResult propagate_publishing_roots(tactix_solver *s) {
 // Leave the open inprocessing phase bracket (DefaultPolicy's phase exit).
 int leave_phase(tactix_solver *s) {
   Kernel &k = s->kernel;
+  s->bve_schedule.reset();
   const ApplyResult left = s->phase.exit(
       k, k.inconsistent,
       [&] {
@@ -3657,7 +3681,8 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     if (!k.dense || !k.dense->track_order || argument > k.propagate_head)
       return -1;
     bve_flush_units_while_connected(k, static_cast<uint32_t>(argument));
-    return 0;
+    result = 0;
+    break;
   case TACTIX_SUPPORT_AFFINE_CENSUS:
     if (argument > 1)
       return -1;

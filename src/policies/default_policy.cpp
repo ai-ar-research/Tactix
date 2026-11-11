@@ -3070,12 +3070,12 @@ void DefaultBranching::start_random_sequence(Kernel &k) {
   k.stats.random_sequences++;
 }
 
-void DefaultPolicy::pose_query_programs() {
-  config_.inprocess.bce_parameters.preserve_query = true;
+void pose_query_programs(DefaultStrategyConfig &config) {
+  config.inprocess.bce_parameters.preserve_query = true;
   // Authored stages select query-compatible generated choices and BCE batches.
-  for (auto *stages : {&config_.inprocess.structured_root_stages,
-                      &config_.inprocess.structured_root_bounded_backtracking_stages,
-                      &config_.inprocess.structured_root_large_domain_stages})
+  for (auto *stages : {&config.inprocess.structured_root_stages,
+                      &config.inprocess.structured_root_bounded_backtracking_stages,
+                      &config.inprocess.structured_root_large_domain_stages})
     for (auto &stage : *stages)
       for (auto &step : stage.program.sequence)
         if (auto *p = std::get_if<strategy::BveParameters>(&step.parameters))
@@ -4359,7 +4359,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
                               strategy::RegionProgram *regions) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
-  if constexpr (Query) pose_query_programs();
+  if constexpr (Query) pose_query_programs(config_);
   // The policy selects an initial subset of substitution/elimination choices;
   // standalone explicit rule applications keep their complete action surface.
   struct InitialRetention {
@@ -5502,11 +5502,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         static const RuleVTable &switch_mode = registered_rule("SwitchMode");
         (void)port::apply_rule(switch_mode, k);
         mode.count++;
-        averages[k.h->stable].saved_decisions = k.stats.decisions;
-        if (k.h->stable) { // entering stable: fresh reluctant sequence
-          reluctant = {}; // kissat mode.c kissat_init_reluctant: the options
-          reluctant.wait = config_.restart.reluctant_period;
-        }
+        DefaultRestartControl::mode_entered(k, config_.restart);
         update_mode_limits(k);
         // Kissat mode.c calls `kissat_start_random_sequence` after every mode
         // transition.  It is a no-op on stable entry and starts (or continues)

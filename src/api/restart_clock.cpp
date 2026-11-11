@@ -81,7 +81,7 @@ int tactix_restart_clock_update(tactix_c_handle *s, tactix_restart_clock *clock,
   case TACTIX_RESTART_CLOCK_GLUE: c.observe_glue(k, p, glue); break;
   case TACTIX_RESTART_CLOCK_RELUCTANT: c.tick_reluctant(p); break;
   case TACTIX_RESTART_CLOCK_RESTARTED: c.restart_completed(k, p); break;
-  case TACTIX_RESTART_CLOCK_MODE_ENTERED: c.mode_entered(k); break;
+  case TACTIX_RESTART_CLOCK_MODE_ENTERED: c.mode_entered(k, p); break;
   }
   return 0;
 }

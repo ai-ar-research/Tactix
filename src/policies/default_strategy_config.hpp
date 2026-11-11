@@ -591,6 +591,8 @@ struct DefaultStrategyConfig {
   template <class Sink> void visit_settings(Sink &) const;
 };
 
+void pose_query_programs(DefaultStrategyConfig &);
+
 // A policy component's borrowed configuration, or the shipped defaults when
 // it is used standalone.
 template <class Config>

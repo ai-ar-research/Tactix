@@ -59,9 +59,12 @@ public:
     reluctant.wait = settings.reluctant_period;
   }
 
-  void mode_entered(const Kernel &k) {
+  void mode_entered(const Kernel &k, const DefaultStrategyConfig::Restart &settings) {
     averages[k.h->stable].saved_decisions = k.stats.decisions;
-    if (k.h->stable) reluctant = {};
+    if (k.h->stable) {
+      reluctant = {};
+      reluctant.wait = settings.reluctant_period;
+    }
   }
 
   void restart_completed(const Kernel &k,

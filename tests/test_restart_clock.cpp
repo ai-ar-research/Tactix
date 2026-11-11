@@ -72,8 +72,14 @@ int main() {
       const auto trail = k.trail;
       if (stable != previous) {
         native.averages[stable].saved_decisions = k.stats.decisions;
-        if (stable) native.reluctant = {};
+        if (stable) {
+          native.reluctant = {};
+          native.reluctant.wait = p.reluctant_period;
+        }
         assert(!tactix_restart_clock_update(s, clock, TACTIX_RESTART_CLOCK_MODE_ENTERED, 0));
+        tactix_restart_clock_state entered{};
+        assert(!tactix_restart_clock_observe(s, clock, &entered));
+        if (stable) assert(entered.reluctant_wait == p.reluctant_period);
       }
       native.DefaultRestartControl::observe_decision_rate(k, p);
       assert(!tactix_restart_clock_update(s, clock, TACTIX_RESTART_CLOCK_DECISION_RATE, 0));
