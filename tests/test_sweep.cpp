@@ -61,22 +61,6 @@ static void test_effort_prices_embedded_and_representation_ticks() {
 }
 
 static void test_core_prefixes_share_one_immutable_derivation() {
-  SweepDirProof parent;
-  parent.steps.push_back(SubStep{3, {0}, {1}, {}});
-  parent.steps.push_back(SubStep{4, {2}, {3}, {}});
-  parent.share_steps();
-  assert(parent.steps.empty());
-  assert(parent.steps_view().size() == 2);
-
-  SweepDirProof prefix;
-  prefix.shared_steps = parent.shared_steps;
-  prefix.shared_step_count = 1;
-  assert(prefix.steps_view().size() == 1);
-  assert(prefix.steps_view()[0].id == 3);
-  assert(parent.shared_steps.use_count() == 2);
-  parent = {};
-  assert(prefix.steps_view()[0].id == 3);
-
   auto program = std::make_shared<SweepProofSteps>();
   const SubStep *first = program->retain(SubStep{3, {0}, {1}, {}});
   const SubStep *last = program->retain(SubStep{5, {2}, {3}, {}});
@@ -103,7 +87,7 @@ static void test_core_prefixes_share_one_immutable_derivation() {
   const size_t retained = program->steps.size();
   assert(program->retain(SubStep{3, {8}, {2}, {}}) == reused);
   assert(program->steps.size() == retained && first->lits[0] == 0);
-  prefix = {};
+  SweepDirProof prefix;
   prefix.program = selected.program;
   prefix.program_steps = selected.program_steps;
   prefix.shared_step_count = 1;

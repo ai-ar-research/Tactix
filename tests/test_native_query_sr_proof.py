@@ -1,5 +1,5 @@
 """Witnessed continuation isolates obsolete sources; copy bridges are checked."""
-import importlib.util
+from proof_test_support import proof_runner
 from pathlib import Path
 import subprocess
 import sys
@@ -9,16 +9,9 @@ import re
 
 def main():
     fixture, root = map(Path, sys.argv[1:])
-    sys.path.insert(0, str(root/'tools/bench'))
-    spec = importlib.util.spec_from_file_location('native_sr_runner', root/'tools/bench/run.py')
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
+    runner = proof_runner(root, checkers=('VERIPB', 'CAKE_PB_CNF', 'DSR_TRIM', 'DSR_COMPRESS', 'SR_CHECK'))
     from proof_oracle import check_dsr, canonical_checker_cnf, proof_check_status, stage_environment
-    for tool in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DSR_TRIM,
-                 runner.DSR_COMPRESS, runner.SR_CHECK):
-        if not Path(tool).is_file():
-            print(f'native SR proof: missing checker {tool}')
-            return 77
+
     with tempfile.TemporaryDirectory(prefix='tactix-native-sr-') as tmp:
         directory = Path(tmp)
         trace = None

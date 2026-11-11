@@ -1,5 +1,5 @@
 """Check dependent retained lemmas across query and input changes."""
-import importlib.util
+from proof_test_support import proof_runner
 from pathlib import Path
 import subprocess
 import sys
@@ -9,13 +9,7 @@ import tempfile
 def main():
     fixture, root = map(Path, sys.argv[1:])
     sys.path.insert(0, str(root / "tools" / "bench"))
-    spec = importlib.util.spec_from_file_location("query_retention_runner", root / "tools/bench/run.py")
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
-    for checker in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DRAT_TRIM, runner.CAKE_LPR):
-        if not Path(checker).is_file():
-            print(f"missing checker: {checker}")
-            return 77
+    runner = proof_runner(root, checkers=('VERIPB', 'CAKE_PB_CNF', 'DRAT_TRIM', 'CAKE_LPR'))
     with tempfile.TemporaryDirectory(prefix="tactix-retained-proof-") as raw:
         directory = Path(raw)
         for scenario, queries in (("dependent", (1, 2, 3)), ("shapes", (2, 3, 4))):

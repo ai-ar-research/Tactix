@@ -1,5 +1,5 @@
 """Check copied sources and late variable names after DSR helper allocation."""
-import importlib.util
+from proof_test_support import proof_runner
 from pathlib import Path
 import subprocess
 import sys
@@ -8,16 +8,9 @@ import tempfile
 
 def main():
     fixture, root = map(Path, sys.argv[1:])
-    sys.path.insert(0, str(root/'tools/bench'))
-    spec = importlib.util.spec_from_file_location('query_names_runner', root/'tools/bench/run.py')
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
+    runner = proof_runner(root)
     from proof_oracle import check_dsr
-    for tool in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DSR_TRIM,
-                 runner.DSR_COMPRESS, runner.SR_CHECK, runner.DRAT_TRIM, runner.CAKE_LPR):
-        if not Path(tool).is_file():
-            print(f'query proof names: missing checker {tool}')
-            return 77
+
     with tempfile.TemporaryDirectory(prefix='tactix-query-proof-names-') as tmp:
         unlicensed = subprocess.run([fixture, Path(tmp)/'unlicensed', 'unlicensed'],
                                     capture_output=True, text=True, timeout=30)

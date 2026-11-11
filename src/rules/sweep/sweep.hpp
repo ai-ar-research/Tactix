@@ -105,24 +105,15 @@ struct SweepDirProof {
   // A core can certify many units at different prefix lengths. Share the
   // immutable raw derivation instead of copying each (potentially huge)
   // prefix.
-  std::shared_ptr<const std::vector<SubStep>> shared_steps;
   std::shared_ptr<const SweepProofSteps> program;
   std::shared_ptr<const std::vector<const SubStep *>> program_steps;
   size_t shared_step_count = 0;
   auto steps_view() const {
-    const size_t count = program_steps || shared_steps ? shared_step_count : steps.size();
+    const size_t count = program_steps ? shared_step_count : steps.size();
     return std::views::iota(size_t{0}, count) |
         std::views::transform([this](size_t i) -> const SubStep & {
-          if (program_steps) return *(*program_steps)[i];
-          return shared_steps ? (*shared_steps)[i] : steps[i];
+          return program_steps ? *(*program_steps)[i] : steps[i];
         });
-  }
-  void share_steps() {
-    if (!program_steps && !shared_steps) {
-      shared_step_count = steps.size();
-      shared_steps =
-          std::make_shared<const std::vector<SubStep>>(std::move(steps));
-    }
   }
   // Saved at the query boundary; original eligibility does not change while
   // a later core commits units.

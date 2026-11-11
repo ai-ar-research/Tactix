@@ -1,5 +1,5 @@
 """Check query projection bridges and restrictions against the exact input."""
-import importlib.util
+from proof_test_support import proof_runner
 from pathlib import Path
 import subprocess
 import sys
@@ -9,17 +9,9 @@ import tempfile
 def main():
     fixture, root = map(Path, sys.argv[1:3])
     default_fixture = Path(sys.argv[3]) if len(sys.argv) > 3 else None
-    sys.path.insert(0, str(root/'tools/bench'))
-    spec = importlib.util.spec_from_file_location('query_projection_runner', root/'tools/bench/run.py')
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
+    runner = proof_runner(root)
     from proof_oracle import certificate_route, check_dsr
-    for checker in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DRAT_TRIM,
-                    runner.CAKE_LPR, runner.DSR_TRIM, runner.DSR_COMPRESS,
-                    runner.SR_CHECK):
-        if not Path(checker).is_file():
-            print(f'missing checker: {checker}')
-            return 77
+
     with tempfile.TemporaryDirectory(prefix='tactix-query-projection-') as raw:
         directory = Path(raw)
         scenarios = [(name, schedule) for name in ('bve', 'substitute', 'sr', 'ulc', 'opposite')

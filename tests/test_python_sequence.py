@@ -1,8 +1,8 @@
 """Independent Python sequence policy versus the actual native controller."""
+from proof_test_support import proof_runner
 from pathlib import Path
 import ctypes as C
 import gc
-import importlib.util
 import os
 import re
 import subprocess
@@ -13,12 +13,9 @@ library, fixture, root = map(Path, sys.argv[1:])
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench')]
 from tactix import Solver, Session, ScriptedCDCL, capi, _QueryInterrupted
 from tactix.sequence import OnlineSequence, strategy_state
-from proof_oracle import certificate_route
 from python_policy_reference import ScriptedDefault
-spec = importlib.util.spec_from_file_location('sequence_oracles', root/'tools/bench/run.py')
-runner = importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
-
-
+runner = proof_runner(root, checkers=())
+from proof_oracle import certificate_route
 def request(execution, kind):
     steps = (capi.tactix_online_step_v2*2)()
     p, cleanup = steps[0].base, steps[1].base

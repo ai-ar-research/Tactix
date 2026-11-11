@@ -1,11 +1,9 @@
 """Native repair groups: capture transparency and exact repeated-query proofs."""
-import importlib.util
+from proof_test_support import formula, proof_runner, satisfiable
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from test_native_query_proof import formula
-from test_native_query_append_proof import satisfiable
 
 CASES = ('condition', 'cce', 'binary', 'ata', 'substitute')
 ANSWERS = (10, 20, 20, 10)
@@ -13,16 +11,9 @@ ANSWERS = (10, 20, 20, 10)
 
 def main():
     fixture, root = map(Path, sys.argv[1:])
-    sys.path.insert(0, str(root/'tools/bench'))
-    spec = importlib.util.spec_from_file_location('repair_runner', root/'tools/bench/run.py')
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
+    runner = proof_runner(root)
     from proof_oracle import certificate_route, check_dsr
-    for tool in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DRAT_TRIM, runner.CAKE_LPR,
-                 runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK):
-        if not Path(tool).is_file():
-            print(f'native repair proof: missing checker {tool}')
-            return 77
+
     proofs, traces, initial = {}, {}, {}
     checked = models = 0
     with tempfile.TemporaryDirectory(prefix='tactix-native-repair-') as tmp:

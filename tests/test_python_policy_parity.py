@@ -1,8 +1,8 @@
 """Compare independently written Python/C policies, models and proof bytes."""
+from proof_test_support import proof_runner
 from pathlib import Path
 import argparse
 import ctypes as C
-import importlib.util
 import hashlib
 import itertools
 import json
@@ -18,12 +18,11 @@ parser.add_argument('library',type=Path);parser.add_argument('root',type=Path)
 parser.add_argument('compiler');parser.add_argument('--out',type=Path)
 parser.add_argument('--policy',choices=('cruxmiter','scripted-default'),default='cruxmiter')
 args=parser.parse_args();root=args.root
-sys.path.insert(0,str(root/'python'));sys.path.insert(0,str(root/'tools/bench'))
+sys.path.insert(0,str(root/'python'))
 from tactix import capi
 from tactix.strategies import Cruxmiter
 from python_policy_reference import ScriptedDefault
-spec=importlib.util.spec_from_file_location('parity_proof_runner',root/'tools/bench/run.py')
-runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+runner = proof_runner(root, checkers=())
 from proof_oracle import certificate_route
 lib=capi.load_library(args.library)
 rules={lib.tactix_rule_name(i).decode():i for i in range(lib.tactix_rule_count())}

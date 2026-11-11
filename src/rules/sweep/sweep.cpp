@@ -733,7 +733,6 @@ static bool sweep_capture_dir(const Kernel &host, SweepEnv &e,
   out.ok = false;
   out.t0 = out.t1 = INVALID_LIT;
   out.steps.clear();
-  out.shared_steps.reset();
   out.program.reset();
   out.program_steps.reset();
   out.shared_step_count = 0;
@@ -788,7 +787,7 @@ static void sweep_capture_core_units(Kernel &k, SweepDirProof &proof,
                                      bool commit_inline) {
   if (!proof.ok)
     return;
-  proof.share_steps();
+  assert(proof.program_steps || proof.steps.empty());
   const auto steps = proof.steps_view();
   bool committed = false;
   // Unit extraction consumes this capture's core; replay needs only steps.
@@ -833,7 +832,6 @@ static void sweep_capture_core_units(Kernel &k, SweepDirProof &proof,
     captured.proof.vars = proof.vars;
     captured.proof.formula_epoch = proof.formula_epoch;
     if (cc.learned) {
-      captured.proof.shared_steps = proof.shared_steps;
       captured.proof.program = proof.program;
       captured.proof.program_steps = proof.program_steps;
       captured.proof.shared_step_count =

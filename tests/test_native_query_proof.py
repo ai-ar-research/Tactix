@@ -1,51 +1,16 @@
 """Check exact-query certificates/models after native continuation, in two schedules."""
-import importlib.util
+from proof_test_support import formula, proof_runner, require_forward_rejection
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 
 
-def require_forward_rejection(runner, cnf, proof, output):
-    """A malformed-premise backward-checker error is never a clean rejection."""
-    from proof_oracle import proof_check_status
-    done = subprocess.run([runner.DSR_TRIM, '-f', str(cnf), str(proof), str(output)],
-                          capture_output=True, text=True, timeout=30)
-    assert proof_check_status('dsr-trim', done.returncode, done.stdout, done.stderr) == 'rejected', (
-        cnf, proof, done.returncode, done.stdout, done.stderr)
-
-
-def formula(path):
-    clauses, clause = [], []
-    variables = None
-    for line in path.read_text().splitlines():
-        if not line or line.startswith('c'):
-            continue
-        if line.startswith('p'):
-            variables = int(line.split()[2])
-            continue
-        for lit in map(int, line.split()):
-            if lit:
-                clause.append(lit)
-            else:
-                clauses.append(clause)
-                clause = []
-    assert variables is not None and not clause
-    return variables, clauses
-
-
 def main():
     fixture, root = map(Path, sys.argv[1:])
-    sys.path.insert(0, str(root/'tools/bench'))
-    spec = importlib.util.spec_from_file_location('tactix_bench_run', root/'tools/bench/run.py')
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
+    runner = proof_runner(root)
     from proof_oracle import certificate_route
-    for tool in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DRAT_TRIM, runner.CAKE_LPR,
-                 runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK):
-        if not Path(tool).is_file():
-            print(f'native query proof: missing checker {tool}')
-            return 77
+
     checked = models = 0
     traces, proofs = {}, {}
     with tempfile.TemporaryDirectory(prefix='tactix-native-query-') as tmp:

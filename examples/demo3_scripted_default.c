@@ -1,11 +1,6 @@
-/* Demo 3: a search-only policy over the public C API. Its shared scheduler
- * covers restart, reduction, mode changes, rephasing and a Lucky attempt;
- * its inprocessing slot is disabled. The fixture compares verdicts and
- * requires these search mechanisms to fire on both programs.
- *
- * Full DefaultPolicy correspondence uses the separate tactix-public /
- * PublicPort path, which runs the native policy's complete schedule through
- * C API requests. This demo is not that full-policy reference. */
+/* Demo 3 drives restart, reduction, mode changes, rephasing and Lucky through
+ * the shared public C search scheduler. See examples/default_strategy/ for
+ * the complete default strategy. */
 #undef NDEBUG
 #include "tactix.h"
 

@@ -18,14 +18,7 @@ class Smooth:
 
 
 class ScriptedDefault:
-    """Independent demo3 search scheduler; not the private native DefaultPolicy.
-
-    The duplicate restart arithmetic is deliberate independent test evidence;
-    production callers can reuse RestartClock. demo3 disables its inprocessing
-    slot (UINT64_MAX). This mirror
-    retains that scope, all search scheduling and the canonical Lucky attempt.
-    It does not use a native scheduling delegate or generated strategy code.
-    """
+    """Independent demo3 action and restart arithmetic for C/Python parity."""
     settings=()
 
     def __init__(self):self.begin()

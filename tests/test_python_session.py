@@ -1,26 +1,21 @@
 """Fixed Python/session integration with independent certificate oracles."""
+from proof_test_support import formula, proof_runner, satisfiable
 from pathlib import Path
 import hashlib
 import gc
-import importlib.util
 import json
 import subprocess
 import struct
 import sys
 import tempfile
-from test_native_query_proof import formula
-from test_native_query_append_proof import satisfiable
 library,root=map(Path,sys.argv[1:])
 sys.path.insert(0,str(root/'python'))
-sys.path.insert(0,str(root/'tools/bench'))
 from tactix import Session, ScriptedCDCL, SAT, UNSAT, UNKNOWN, capi
 from tactix.strategies import Cruxmiter
 from python_policy_reference import ScriptedDefault
-spec=importlib.util.spec_from_file_location('python_session_runner',root/'tools/bench/run.py')
-runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+runner = proof_runner(root)
 from proof_oracle import certificate_route
-for tool in (runner.VERIPB,runner.CAKE_PB_CNF,runner.DRAT_TRIM,runner.CAKE_LPR,runner.DSR_TRIM,runner.DSR_COMPRESS,runner.SR_CHECK):
-    if not Path(tool).is_file():sys.exit(77)
+
 def verify(stem):
     cnf,pf=Path(str(stem)+'.cnf'),Path(str(stem)+'.proof')
     n,clauses=formula(cnf)

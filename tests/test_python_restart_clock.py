@@ -1,7 +1,7 @@
 """Owned clock integration in a Python CDCL policy, not full DefaultPolicy parity."""
+from proof_test_support import proof_runner
 from pathlib import Path
 import gc
-import importlib.util
 import itertools
 import json
 import sys
@@ -9,16 +9,9 @@ import tempfile
 
 library, root = map(Path, sys.argv[1:])
 sys.path.insert(0, str(root/'python'))
-sys.path.insert(0, str(root/'tools/bench'))
 from tactix import Session, RestartClock, SAT, UNSAT, UNKNOWN, capi
+runner = proof_runner(root, checkers=('DRAT_TRIM', 'CAKE_LPR'))
 from proof_oracle import certificate_route
-spec = importlib.util.spec_from_file_location('clock_runner', root/'tools/bench/run.py')
-runner = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(runner)
-for tool in (runner.DRAT_TRIM, runner.CAKE_LPR):
-    if not Path(tool).is_file(): sys.exit(77)
-
-
 def raises(kind, call):
     try: call()
     except kind: return

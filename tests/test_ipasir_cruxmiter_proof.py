@@ -1,23 +1,17 @@
 """Native named strategy: exact original queries, models and reduced-core proofs."""
+from proof_test_support import formula, proof_runner, satisfiable
 from pathlib import Path
 import hashlib
-import importlib.util
 import json
 import subprocess
 import sys
 import tempfile
-from test_native_query_proof import formula
-from test_native_query_append_proof import satisfiable
 
 fixture,root=map(Path,sys.argv[1:3])
 name=sys.argv[3] if len(sys.argv)>3 else 'cruxmiter'
-sys.path.insert(0,str(root/'tools/bench'))
-spec=importlib.util.spec_from_file_location('crux_runner',root/'tools/bench/run.py')
-runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+runner = proof_runner(root)
 from proof_oracle import certificate_route
-for tool in (runner.VERIPB,runner.CAKE_PB_CNF,runner.DRAT_TRIM,runner.CAKE_LPR,
-             runner.DSR_TRIM,runner.DSR_COMPRESS,runner.SR_CHECK):
-    if not Path(tool).is_file():sys.exit(77)
+
 base=[[-3,1],[-3,2],[3,-1,-2],[-4,1],[-4,2],[4,-1,-2]]
 proofs=models=reduced=0
 with tempfile.TemporaryDirectory(prefix='ipasir-cruxmiter-proof-') as tmp:

@@ -1,17 +1,15 @@
 """Exercise the public ER strategy surface through ctypes and persistent queries."""
+from proof_test_support import proof_runner
 from pathlib import Path
 import ctypes as C
-import importlib.util
 import sys
 import tempfile
 
 library, root = map(Path, sys.argv[1:])
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench')]
 from tactix import Session, ScriptedCDCL, capi
+runner = proof_runner(root, checkers=())
 from proof_oracle import certificate_route
-spec = importlib.util.spec_from_file_location('er_proof_runner', root/'tools/bench/run.py')
-runner = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(runner)
 lib = capi.load_library(library)
 rules = {lib.tactix_rule_name(i).decode(): i for i in range(lib.tactix_rule_count())}
 assert lib.tactix_action_kind(rules['ExtendedResolution']) == capi.TACTIX_ACTION_PROOF_RULE

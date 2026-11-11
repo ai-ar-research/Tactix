@@ -1,7 +1,7 @@
 """Native/C/Python mutable BVE ordering, lifetimes and original-input oracles."""
+from proof_test_support import formula, proof_runner, satisfiable
 from pathlib import Path
 import ctypes as C
-import importlib.util
 import subprocess
 import sys
 import tempfile
@@ -11,18 +11,8 @@ fixture, root = map(Path, sys.argv[1:3])
 library = Path(sys.argv[3]) if len(sys.argv) == 4 else None
 UNSAT_CASES = (1, 5)
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench'), str(root/'tests')]
-from test_native_query_proof import formula
-from test_native_query_append_proof import satisfiable
+runner = proof_runner(root, checkers=('VERIPB', 'CAKE_PB_CNF', 'DSR_TRIM', 'DSR_COMPRESS', 'SR_CHECK', 'CAKE_LPR'))
 from proof_oracle import certificate_route
-spec = importlib.util.spec_from_file_location('bve_order_oracle', root/'tools/bench/run.py')
-runner = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(runner)
-for tool in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DSR_TRIM,
-             runner.DSR_COMPRESS, runner.SR_CHECK, runner.CAKE_LPR):
-    if not Path(tool).is_file():
-        print('BVE ordering: missing checker', tool)
-        sys.exit(77)
-
 if library:
     from tactix import BveOrder, Execution, Session, ScriptedCDCL, capi
     lib = capi.load_library(library)

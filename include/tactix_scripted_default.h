@@ -17,8 +17,6 @@ static inline int tactix_scripted_rule_id(const char *name) {
   return -1;
 }
 
-/* scheduling constants — mirror of default_policy.hpp (v1 freeze review:
- * these are POLICY state, deliberately not solver API) */
 #define TACTIX_SCRIPTED_RESTART_MARGIN 1.10
 #define TACTIX_SCRIPTED_RESTART_INTERVAL 1
 #define TACTIX_SCRIPTED_EMA_FAST_WINDOW 33.0
@@ -31,19 +29,6 @@ static inline int tactix_scripted_rule_id(const char *name) {
 #define TACTIX_SCRIPTED_RELUCTANT_LIMIT (1 << 20)
 #define TACTIX_SCRIPTED_REPHASE_INTERVAL_INIT 1000
 #define TACTIX_SCRIPTED_REPHASE_INTERVAL 1000
-#define TACTIX_SCRIPTED_CHRONO_LEVELS 100
-#define TACTIX_SCRIPTED_SUBSUME_INTERVAL_INIT 500
-#define TACTIX_SCRIPTED_SUBSUME_INTERVAL 500
-#define TACTIX_SCRIPTED_INPROCESS_PHASE_BUDGET 300
-#define TACTIX_SCRIPTED_INPROCESS_PHASE_ROUNDS 3
-/* This demo mirrors DefaultPolicy's SEARCH trajectory. It deliberately does
- * NOT replicate the inprocessing slot (DefaultPolicy runs the full S4
- * arrangement — probing family + simplifiers + dosed BVE/Factor), so its
- * stat contract is within-noise on inprocessing-heavy instances (§8.4), not
- * exact. That scope is intentional and permanent: the demo exists to prove
- * the N1 stepping surface drives kissat-shaped SEARCH, and the arrangement's
- * slot is exercised end-to-end by the registry demos + fuzz instead. */
-
 /* bias-corrected EMA (mirror of DefaultPolicy::Smooth / kissat smooth.c) */
 struct tactix_scripted_smooth {
   double value, biased, alpha, beta, exp;
@@ -86,10 +71,6 @@ typedef struct tactix_scripted_default {
   uint64_t rel_u, rel_v, rel_wait;
   int rel_trigger;
   uint64_t rephase_next;
-  uint64_t inprocess_next;
-  int inprocess_ran; /* the initial full pass is never gated */
-  uint64_t inprocess_rounds; /* interval growth key (policy-local) */
-  uint64_t inprocess_binaries_seen, inprocess_root_fixed_seen;
   int lucky_tried;
 } tactix_scripted_default;
 
@@ -101,7 +82,6 @@ static inline void tactix_scripted_default_begin(tactix_scripted_default *p) {
   p->rel_u = p->rel_v = 1;
   p->rel_wait = TACTIX_SCRIPTED_RELUCTANT_PERIOD;
   p->rephase_next = TACTIX_SCRIPTED_REPHASE_INTERVAL_INIT;
-  p->inprocess_next = UINT64_MAX; /* Search-only example, unchanged. */
 }
 
 static inline void tactix_scripted_observe_glue(tactix_scripted_default *p, int stable, double glue) {
@@ -176,9 +156,6 @@ static inline int tactix_scripted_default_run(tactix_scripted_default *p,
   const int switchmode = tactix_scripted_rule_id("SwitchMode");
   const int rephase = tactix_scripted_rule_id("Rephase");
   const int lucky = tactix_scripted_rule_id("Lucky");
-  const int strengthen = tactix_scripted_rule_id("Strengthen");
-  const int bve = tactix_scripted_rule_id("BVE");
-  const int subsume = tactix_scripted_rule_id("SubsumeForward");
   if (tactix_status(s) == 20)
     return 20;
   for (;;) {
@@ -268,62 +245,6 @@ static inline int tactix_scripted_default_run(tactix_scripted_default *p,
                                     lg);
         continue;
       }
-    }
-    /* C1 forward subsumption in the eliminate slot (after rephase,
-     * before decide, like DefaultPolicy): new-material gate first (new
-     * binaries / new root-fixed vars, kissat_eliminating's variables
-     * trigger), then the composed root restart and the canonical round;
-     * applies may be -1 (already at root / guard) */
-    if (conflicts >= p->inprocess_next &&
-        (!p->inprocess_ran ||
-         tactix_stat(s, TACTIX_STAT_BINARY_CLAUSES) >
-             p->inprocess_binaries_seen ||
-         tactix_stat(s, TACTIX_STAT_ROOT_FIXED) >
-             p->inprocess_root_fixed_seen)) {
-      /* the simplification PHASE (kissat eliminate-round shape): descend to a
-       * quiescent root, then a few outer rounds — BVE per-variable to its
-       * global budget, the batch rules (Strengthen, SubsumeForward) once each.
-       * Driven entirely through the public API (N1). tactix_apply: 0 progress,
-       * 1 no-op, 20 UNSAT, -1 guard-off. NOTE: DefaultPolicy's BVE reads an
-       * internal dense occurrence index while this API path uses the arena-scan
-       * fallback, so the two pick equivalent-but-different eliminations — the
-       * mirror reproduces the SCHEDULE, not a bit-identical trajectory. */
-      const int batch[2] = {strengthen, subsume};
-      if (tactix_stat(s, TACTIX_STAT_LEVEL) > 0)
-        tactix_apply_instance(s, restart, 0);
-      uint64_t bve_applied = 0;
-      for (int outer = 0; outer < TACTIX_SCRIPTED_INPROCESS_PHASE_ROUNDS; outer++) {
-        int round_changed = 0;
-        while (bve_applied < TACTIX_SCRIPTED_INPROCESS_PHASE_BUDGET) {
-          const int ar = tactix_apply(s, bve);
-          if (ar == 20)
-            return 20;
-          if (ar != 0)
-            break; /* no-op / guard-off = BVE fixpoint this round */
-          bve_applied++;
-          round_changed = 1;
-          if (tactix_apply(s, propagate) == 20)
-            return 20;
-        }
-        for (int bi = 0; bi < 2; bi++) {
-          const int ar = tactix_apply(s, batch[bi]);
-          if (ar == 20)
-            return 20;
-          if (ar == 0) {
-            round_changed = 1;
-            if (tactix_apply(s, propagate) == 20)
-              return 20;
-          }
-        }
-        if (!round_changed)
-          break;
-      }
-      p->inprocess_ran = 1;
-      p->inprocess_rounds++;
-      p->inprocess_binaries_seen = tactix_stat(s, TACTIX_STAT_BINARY_CLAUSES);
-      p->inprocess_root_fixed_seen = tactix_stat(s, TACTIX_STAT_ROOT_FIXED);
-      p->inprocess_next = UINT64_MAX; /* preprocessing-only */
-      continue;
     }
     r = tactix_apply(s, decide); /* canonical branch */
     assert(r != -1);

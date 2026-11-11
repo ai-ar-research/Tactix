@@ -1,17 +1,13 @@
 """Proof-neutral learning, exact query proofs and independent F-only export checks."""
-import importlib.util
+from proof_test_support import formula, proof_runner, satisfiable
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from test_native_query_proof import formula
-from test_native_query_append_proof import satisfiable
-fixture,root=map(Path,sys.argv[1:]);sys.path.insert(0,str(root/'tools/bench'))
-spec=importlib.util.spec_from_file_location('learning_runner',root/'tools/bench/run.py')
-runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+fixture,root=map(Path,sys.argv[1:])
+runner = proof_runner(root)
 from proof_oracle import certificate_route
-for tool in (runner.VERIPB,runner.CAKE_PB_CNF,runner.DRAT_TRIM,runner.CAKE_LPR,runner.DSR_TRIM,runner.DSR_COMPRESS,runner.SR_CHECK):
-    if not Path(tool).is_file():sys.exit(77)
+
 with tempfile.TemporaryDirectory(prefix='learning-proof-') as tmp:
     trajectories={};poll_counts={}
     for scenario,mode in ((s,m) for s in ('plain','sr') for m in ('none','dsr','auto','pbp')):

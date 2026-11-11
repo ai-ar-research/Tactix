@@ -1,25 +1,16 @@
 """Exact-query certificates/models for same-query repair and prior results."""
-import importlib.util
+from proof_test_support import formula, proof_runner, require_forward_rejection, satisfiable
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from test_native_query_proof import formula, require_forward_rejection
-from test_native_query_append_proof import satisfiable
 
 
 def main():
     fixture, root = map(Path, sys.argv[1:])
-    sys.path.insert(0, str(root/'tools/bench'))
-    spec = importlib.util.spec_from_file_location('repair_runner', root/'tools/bench/run.py')
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
+    runner = proof_runner(root)
     from proof_oracle import certificate_route, check_dsr
-    for tool in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DRAT_TRIM, runner.CAKE_LPR,
-                 runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK):
-        if not Path(tool).is_file():
-            print(f'query repair: missing checker {tool}')
-            return 77
+
     traces, proofs = {}, {}
     canonical = models = audits = rejects = source_errors = forward_rejects = 0
     cases = [(name, outcome) for name in ('bve', 'condition', 'sr', 'rat', 'binding', 'alias-binding')
