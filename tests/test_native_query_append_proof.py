@@ -1,34 +1,19 @@
 """Native suffix admission: exact F+A, exhaustive answers, models and proofs."""
-import importlib.util
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from test_native_query_proof import formula
+from proof_test_support import formula, proof_runner, satisfiable
 
 CASES = {'bve': (10, 20, 10), 'bce': (10, 20), 'normalize': (10, 20, 10),
          'growth': (10, 20, 20, 10, 10, 20), 'unitconflict': (10, 20), 'empty': (10, 20),
          'duplicate': (10, 20, 10), 'licensed': (10, 20, 10), 'default': (10, 20, 20, 10)}
 
 
-def satisfiable(variables, clauses):
-    return any(all(any(bool(mask & (1 << (abs(lit)-1))) == (lit > 0)
-                       for lit in clause) for clause in clauses)
-               for mask in range(1 << variables))
-
-
 def main():
     fixture, root = map(Path, sys.argv[1:])
-    sys.path.insert(0, str(root/'tools/bench'))
-    spec = importlib.util.spec_from_file_location('append_runner', root/'tools/bench/run.py')
-    runner = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(runner)
+    runner = proof_runner(root)
     from proof_oracle import certificate_route, check_dsr
-    for tool in (runner.VERIPB, runner.CAKE_PB_CNF, runner.DRAT_TRIM, runner.CAKE_LPR,
-                 runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK):
-        if not Path(tool).is_file():
-            print(f'native append proof: missing checker {tool}')
-            return 77
     proofs, traces = {}, {}
     checked = models = 0
     with tempfile.TemporaryDirectory(prefix='tactix-native-append-') as tmp:

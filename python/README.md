@@ -83,9 +83,9 @@ fresh query entry. Native counters accumulate separately.
 ## Public C operations and reusable components
 
 `tactix.capi` provides generated signatures, constants and typed structures for
-all three installed C headers through standard-library `ctypes`. Constructors
-reject unknown fields. `execution.c` binds calls to the execution view and checks
-lifetime and callback guards, including [ER and regional operations](../docs/extended-resolution.md).
+`tactix.h`, `ipasir.h` and `tactix_ipasir.h` through standard-library `ctypes`.
+Constructors reject unknown fields. `execution.c` binds calls to the execution
+view and checks lifetime and callback guards, including [ER and regional operations](../docs/extended-resolution.md).
 See [tactix.h](../include/tactix.h), [tactix_ipasir.h](../include/tactix_ipasir.h)
 and the [C guide](../docs/c-api.md) for operation contracts.
 
