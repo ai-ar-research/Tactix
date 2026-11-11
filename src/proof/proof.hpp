@@ -261,6 +261,11 @@ public:
     if (dsr_copy_)
       dsr_copy_->bind_external_variable_map(map);
   }
+  // Staged input may contain original names absent from the live kernel.
+  void reserve_external_variables(uint32_t extent) {
+    proof_external_max_ = std::max(proof_external_max_, extent);
+    if (dsr_copy_) dsr_copy_->reserve_external_variables(extent);
+  }
   void bind_population_observer(PopulationObserver *) noexcept;
   // Settle only a route whose bytes already have a committed destination.
   // An unpublished streaming-PBP prefix is incomplete until a clausal event

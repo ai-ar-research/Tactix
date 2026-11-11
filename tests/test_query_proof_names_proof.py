@@ -22,11 +22,14 @@ def main():
         unlicensed = subprocess.run([fixture, Path(tmp)/'unlicensed', 'unlicensed'],
                                     capture_output=True, text=True, timeout=30)
         assert unlicensed.returncode == 1 and 'native clause has no checked incremental certificate source' in unlicensed.stderr, unlicensed
-        for mode in ('pbp', 'dsr', 'auto'):
+        for mode in ('pbp', 'dsr', 'auto', 'staged'):
             prefix = Path(tmp)/mode
             done = subprocess.run([fixture, prefix, mode], capture_output=True, text=True, timeout=30)
             assert done.returncode == 0, (mode, done.stdout, done.stderr)
             cnf, proof = Path(f'{prefix}.cnf'), Path(f'{prefix}.proof')
+            if mode == 'staged':
+                lines = proof.read_text().splitlines()
+                assert 'd 3 4 0' in lines and 'd 5 6 0' not in lines, lines
             kind = 'pbp' if proof.read_text().startswith('pseudo-Boolean') else 'dsr'
             result = runner.check_proof(kind, str(cnf), str(proof), 30,
                                         route='pbp' if kind == 'pbp' else 'dsr-trestle')

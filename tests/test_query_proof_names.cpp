@@ -1,6 +1,8 @@
 #undef NDEBUG
 #include "proof/proof.hpp"
 #include "temporary_file.hpp"
+#include "query_test_support.hpp"
+#include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include <cassert>
 #include <cstdio>
 #include <fstream>
@@ -149,9 +151,55 @@ static void fixture(const std::string &prefix, const std::string &mode) {
   proof.bind_population_observer(nullptr);
 }
 
+static void staged_advance(const std::string &prefix) {
+  using namespace tactix::session;
+  QueryHistory history;
+  query_test::clause(history, {-1, 2});
+  query_test::clause(history, {1, -2});
+  assert(history.begin_query() == InputStatus::Ok);
+  QueryKernel owner({{256,4096,1024},{64,4096,1024,8192,64,1024,8192},1000000});
+  assert(owner.replay(history) == ReplayStatus::Ok);
+  Kernel *kernel = owner.kernel(owner.ticket());
+  assert(kernel && kernel->external_to_internal.size() == 2);
+  SubstitutionRedundancyInstance restriction;
+  restriction.clause = {internalize(1)};
+  restriction.witness = {internalize(1), internalize(2)};
+  assert(substitution_redundancy_apply_detailed(*kernel, restriction).rule_result == ApplyResult::Ok);
+  assert(query_test::drive(owner, history, false) == 10);
+  assert(owner.finish_query(history, QueryResult::Sat) == ResultCaptureStatus::Ok);
+
+  query_test::clause(history, {3, 4});
+  query_test::clause(history, {5, 6});
+  query_test::clause(history, {-5, 6});
+  query_test::clause(history, {5, -6});
+  query_test::clause(history, {-5, -6});
+  assert(history.begin_query() == InputStatus::Ok);
+  FILE *cnf = std::fopen((prefix + ".cnf").c_str(), "w");
+  assert(cnf && history.write_query_dimacs(2, cnf) && std::fclose(cnf) == 0);
+  auto writer = std::make_unique<Proof>();
+  assert(writer->open_automatic((prefix + ".proof").c_str(), false));
+  const auto next = owner.advance(history, std::move(writer));
+  assert(next.status == NativeAdvanceStatus::Ok && next.appended == 5 && next.created == 4);
+  assert(owner.kernel(owner.ticket()) == kernel);
+  const Lit unrelated[]{kernel_internalize(*kernel, 3), kernel_internalize(*kernel, 4)};
+  const uint64_t source = kernel_binary_id(*kernel, unrelated[0], unrelated[1]);
+  assert(source);
+  kernel->proof->del(++kernel->next_clause_id, source, unrelated, 2);
+  // Refute the independent four-clause block over the last two appended variables.
+  const Lit unit = kernel_internalize(*kernel, 5);
+  kernel->proof->add_rup(++kernel->next_clause_id, &unit, 1);
+  kernel->proof->add_empty(++kernel->next_clause_id);
+  kernel->proof->finish_query_output();
+}
+
+
 int main(int argc,char **argv) {
   if(argc==4) {scale_fixture(argv[1],argv[2],std::stoul(argv[3]));return 0;}
-  if(argc==3) { fixture(argv[1],argv[2]);return 0; }
+  if(argc==3) {
+    if (std::string(argv[2]) == "staged") staged_advance(argv[1]);
+    else fixture(argv[1],argv[2]);
+    return 0;
+  }
   assert(argc==1);TemporaryFile file;fixture(file.path,"dsr");
   assert(std::remove((file.path+".cnf").c_str())==0);
   assert(std::remove((file.path+".proof").c_str())==0);

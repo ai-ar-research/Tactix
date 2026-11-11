@@ -745,6 +745,7 @@ NativeAdvanceResult QueryKernel::transition(const QueryHistory &history,
   // authority from the preceding proof. Input IDs are above every native ID.
   writer->bind_variable_map(nullptr);
   writer->bind_external_variable_map(&k.external_to_internal);
+  writer->reserve_external_variables(namespace_extent);
   writer->disable_pbp_id_deletions();
   std::vector<QueryProofClause> imported_sources;
   std::vector<Lit> raw;
