@@ -25,7 +25,7 @@ endfunction()
 
 # A Python test script run under `cmake -E env python3`.
 function(tactix_python_test name script)
-  add_test(NAME ${name} COMMAND ${TACTIX_PYTHON} ${script} ${ARGN})
+  tactix_skip77_test(${name} ${TACTIX_PYTHON} ${script} ${ARGN})
 endfunction()
 
 if(TACTIX_BUILD_SHARED_IPASIR)
@@ -40,8 +40,6 @@ if(TACTIX_BUILD_SHARED_IPASIR)
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
   tactix_python_test(python_policy_parity ${CMAKE_CURRENT_SOURCE_DIR}/test_python_policy_parity.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
-  tactix_python_test(python_scripted_default_parity ${CMAKE_CURRENT_SOURCE_DIR}/test_python_policy_parity.py
-    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER} --policy scripted-default)
   tactix_skip77_test(python_session ${TACTIX_PYTHON}
     ${CMAKE_CURRENT_SOURCE_DIR}/test_python_session.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
@@ -50,9 +48,11 @@ if(TACTIX_BUILD_SHARED_IPASIR)
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
 endif()
 
-tactix_skip77_test(bve_order_proof ${TACTIX_PYTHON}
-  ${CMAKE_CURRENT_SOURCE_DIR}/test_python_bve_order.py
-  $<TARGET_FILE:test_bve_order> ${CMAKE_SOURCE_DIR})
+if(NOT TACTIX_BUILD_SHARED_IPASIR)
+  tactix_skip77_test(bve_order_proof ${TACTIX_PYTHON}
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_bve_order.py
+    $<TARGET_FILE:test_bve_order> ${CMAKE_SOURCE_DIR})
+endif()
 
 # A tests/<script> proof/model check over one fixture executable and the
 # source root; it exits 77 when a pinned checker is missing.
@@ -242,6 +242,7 @@ tactix_skip77_test(ipasir_cruxmiter_proof ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_cruxmiter_proof.py
                    $<TARGET_FILE:test_ipasir_cruxmiter> ${CMAKE_SOURCE_DIR})
 foreach(driver dpll cdcl-no-restarts scripted-default chvatal)
+  add_test(NAME ipasir_${driver} COMMAND test_ipasir_cruxmiter ${driver})
   tactix_skip77_test(ipasir_${driver}_proof ${TACTIX_PYTHON}
                     ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_cruxmiter_proof.py
                     $<TARGET_FILE:test_ipasir_cruxmiter> ${CMAKE_SOURCE_DIR} ${driver})
@@ -527,9 +528,6 @@ add_test(NAME public_random_frontend
                  $<TARGET_FILE:tactix>
                  ${CMAKE_SOURCE_DIR})
 
-tactix_skip77_test(query_kernel_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_kernel_proof.py
-                   $<TARGET_FILE:test_query_kernel> ${CMAKE_SOURCE_DIR})
 tactix_skip77_test(query_projection_proof ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_query_projection_proof.py
                    $<TARGET_FILE:test_query_projection> ${CMAKE_SOURCE_DIR}

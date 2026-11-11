@@ -1,5 +1,5 @@
 """Independent original-query checks for a client using only the C ABI."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import check_unsat, formula, proof_runner, satisfiable
 import hashlib
 from pathlib import Path
 import subprocess
@@ -10,7 +10,6 @@ import tempfile
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route
     import json
 
     queries = {1: [[1, 2], [-1]], 2: [[1, 2], [-2]],
@@ -43,11 +42,7 @@ def main():
             core = list(map(int, Path(str(stem)+'.core').read_text().split()))
             assert core.pop() == 0
             assert core == {3: [7, -1, -2], 5: [-3], 7: [], 8: [9, -9]}[number]
-            kind = 'pbp' if proof.read_text().startswith('pseudo-Boolean') else 'dsr'
-            free = kind == 'dsr' and certificate_route(proof) == 'drat'
-            route = 'pbp' if kind == 'pbp' else 'dsr-cake_lpr' if free else 'dsr-trestle'
-            result = runner.check_proof(kind, str(cnf), str(proof), 45, route=route)
-            assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (number, result)
+            kind, route = check_unsat(runner, str(cnf), str(proof), timeout=45)
             proofs += 1
             wrong = Path(tmp)/'satisfiable-control.cnf'
             wrong.write_text(f'p cnf {variables} {len(clauses)}\n'+''.join('1 -1 0\n' for _ in clauses))

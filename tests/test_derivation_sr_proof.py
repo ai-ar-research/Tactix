@@ -1,5 +1,5 @@
 """Temporary derivations must not obstruct a later witnessed continuation."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import audit_dsr, check_unsat, formula, proof_runner, satisfiable
 from pathlib import Path
 import subprocess
 import sys
@@ -9,7 +9,6 @@ import tempfile
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route, check_dsr
 
     traces = {}
     with tempfile.TemporaryDirectory(prefix='tactix-conditioned-') as tmp:
@@ -26,17 +25,10 @@ def main():
                 if mode == 'none':
                     assert not proof.exists()
                     continue
-                witness_free = mode == 'dsr' and certificate_route(proof) == 'drat'
-                route = 'pbp' if mode == 'pbp' else ('dsr-cake_lpr' if witness_free else 'dsr-trestle')
-                result = runner.check_proof(mode, str(cnf), str(proof), 30, route=route)
-                assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (case, mode, result)
+                _, route = check_unsat(runner, str(cnf), str(proof), fmt=mode)
                 if mode == 'dsr':
                     work = directory/f'{case}-audit'
-                    work.mkdir()
-                    audited = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK,
-                                        cnf, proof, work, 30, every_lemma=True,
-                                        cake_lpr=runner.CAKE_LPR, witness_free=witness_free)
-                    assert audited[0], audited
+                    audit_dsr(runner, cnf, proof, work)
                 if case == 'needed':
                     # The native binary is not directly RUP. The globally
                     # licensed unit5 antecedent remains in the old names.

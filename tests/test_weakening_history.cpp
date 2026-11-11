@@ -174,27 +174,6 @@ static void forwarding_capture_and_real_gap() {
   assert(!history.capture_complete()); // Rebinding cannot repair missed provenance.
 }
 
-static void binary_occurrence_ids_ignore_sentinel() {
-  Kernel k;
-  WeakeningHistory history(k, bounds);
-  ScopedPopulationObserverBinding binding(k, history);
-  input(k, {1, 2, 0, -1, 3, 0});
-  const uint64_t extra_id = ++k.next_clause_id;
-  kernel_add_binary_clause(k, internalize(1), internalize(2), extra_id);
-  assert(kernel_binary_id(k, internalize(-1), internalize(3)) == 1);
-  eliminate(k, 1);
-  assert(history.capture_complete() && history.records().size() == 3);
-  std::set<uint64_t> ids, occurrences;
-  for (const auto &record : history.records()) {
-    assert(record.sources.size() == 1);
-    ids.insert(record.sources[0].proof_id);
-    occurrences.insert(record.sources[0].occurrence);
-  }
-  assert(ids == std::set<uint64_t>({1, 2, extra_id}));
-  assert(occurrences.size() == 3);
-  kernel_check_invariants(k);
-}
-
 static void bce_batch_and_duplicate_sources() {
   Kernel k;
   WeakeningHistory history(k, bounds);
@@ -225,14 +204,18 @@ static void many_reserved_copies_survive_storage_compaction() {
   input(k, {1, 2, 0, -1, 3, 0});
   for (unsigned copy = 0; copy < 100; ++copy)
     kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
+  assert(kernel_binary_id(k, internalize(-1), internalize(3)) == 1);
   eliminate(k, 1);
   assert(history.capture_complete() && history.records().size() == 102);
-  std::set<uint64_t> ids;
+  std::set<uint64_t> ids, occurrences;
   for (const auto &record : history.records()) {
     assert(record.sources.size() == 1);
     ids.insert(record.sources[0].proof_id);
+    occurrences.insert(record.sources[0].occurrence);
   }
   assert(ids.size() == 102 && *ids.begin() == 1 && *ids.rbegin() == 102);
+  assert(occurrences.size() == 102);
+  kernel_check_invariants(k);
 }
 
 static void cancelled_preparation_and_uncommitted_delete() {
@@ -420,7 +403,6 @@ int main(int argc, char **argv) {
   full_witness_is_consumed_by_native_restoration();
   forwarding_capture_and_real_gap();
   full_large_sources_survive_compaction();
-  binary_occurrence_ids_ignore_sentinel();
   bce_batch_and_duplicate_sources();
   many_reserved_copies_survive_storage_compaction();
   cancelled_preparation_and_uncommitted_delete();

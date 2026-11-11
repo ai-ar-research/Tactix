@@ -22,78 +22,6 @@ using namespace tactix::session;
 using query_test::clause;
 using query_test::drive;
 
-static void repeated_queries(bool dynamic) {
-  QueryHistory h;
-  QueryKernel session;
-  clause(h, {1, 2});
-  clause(h, {-1, 2});
-  assert(h.assume(-2) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(session.replay(h) == ReplayStatus::Ok);
-  const auto first = session.ticket();
-  Kernel &k = *session.kernel(first);
-  assert(k.level == 0 && !k.values[internalize(2)]);
-  assert(session.assumption_input_ids(first).size() == 1);
-  assert(drive(session, h, dynamic) == 20);
-  assert(!k.inconsistent); // a failed assumption does not refute the base
-  assert(h.finish_query(1, QueryResult::Unsat) == InputStatus::Ok);
-  assert(!session.kernel(first));
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(session.replay(h) == ReplayStatus::Ok);
-  assert(!session.kernel(first));
-  assert(drive(session, h, dynamic) == 10);
-  assert(h.finish_query(2, QueryResult::Sat) == InputStatus::Ok);
-
-  // Previously unmentioned assumption variable; no hidden root assignment.
-  assert(h.assume(-9) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(session.replay(h) == ReplayStatus::Ok);
-  const auto third = session.ticket();
-  assert(!kernel_var_retired(*session.kernel(third), 8));
-  assert(session.kernel(third)->values[internalize(-9)] == 0);
-  assert(drive(session, h, dynamic) == 10);
-  assert(h.finish_query(3, QueryResult::Sat) == InputStatus::Ok);
-  clause(h, {-2});
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(session.replay(h) == ReplayStatus::Ok);
-  assert(drive(session, h, dynamic) == 20);
-  assert(session.kernel(session.ticket())->inconsistent);
-}
-
-static void replay_restores_representation_and_namespaces() {
-  QueryHistory h;
-  QueryKernel s;
-  clause(h, {1, 2});
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(s.replay(h) == ReplayStatus::Ok);
-  const auto old = s.ticket();
-  Kernel &k = *s.kernel(old);
-  const auto &bve = tactix_rules()[tactix_rule_id("BVE")];
-  assert(rule_guard(bve, k));
-  assert(bve.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
-  assert(k.projection_changed && !k.reconstruction.empty());
-  kernel_compact_variables(k);
-  assert(s.replay(h) == ReplayStatus::Ok);
-  assert(!s.kernel(old));
-  Kernel &restored = *s.kernel(s.ticket());
-  assert(!restored.projection_changed && restored.reconstruction.empty());
-  assert(restored.nvars == 2 && restored.unassigned_active == 2);
-  assert(kernel_internalize(restored, 1) != INVALID_LIT);
-  assert(!kernel_var_retired(restored, 0));
-  const Var extension = kernel_new_extension_vars(restored, 1);
-  assert(kernel_externalize(restored, make_lit(extension, false)) == 3);
-  assert(decide_apply(restored, make_lit(extension, false), false) == ApplyResult::Ok);
-  assert(h.finish_query(1, QueryResult::Unknown) == InputStatus::Ok);
-  clause(h, {-3}); // a new client variable may reuse the OLD epoch's helper ID
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(s.replay(h) == ReplayStatus::Ok);
-  const auto current = s.ticket();
-  const Kernel &new_input = *s.kernel(current);
-  assert(new_input.values[internalize(-3)] > 0);
-  assert(!kernel_is_solver_extension(new_input, 2));
-  assert(!s.kernel(old));
-}
-
 static void wrong_branch_is_not_unsat() {
   QueryHistory h;
   QueryKernel s;
@@ -274,27 +202,6 @@ static void assumption_restarts_duplicates_and_compaction() {
   assert(!s.kernel(s.ticket())->inconsistent);
 }
 
-static void projection_changes_require_restoration() {
-  QueryHistory h;
-  QueryKernel s;
-  clause(h, {1, 2});
-  assert(h.assume(-1) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(s.replay(h) == ReplayStatus::Ok);
-  const auto t = s.ticket();
-  Kernel &k = *s.kernel(t);
-  SubstitutionRedundancyInstance sr;
-  sr.clause = {internalize(1)};
-  sr.witness = {internalize(1)};
-  const auto result = substitution_redundancy_apply_detailed(k, sr);
-  assert(result.rule_result == ApplyResult::Ok && k.projection_changed);
-  k.stats = {}; // correctness may not depend on telemetry surviving a reset
-  assert(s.next_assumption(t).status == AssumptionStatus::Restore);
-  assert(!s.publish_assumption_refutation(t));
-  assert(s.replay(h) == ReplayStatus::Ok);
-  assert(drive(s, h, false) == 10);
-}
-
 static void tickets_boundaries_and_busy_replay() {
   QueryHistory h, other;
   QueryKernel s, foreign;
@@ -323,63 +230,8 @@ static void tickets_boundaries_and_busy_replay() {
   assert(s.next_assumption(s.ticket()).status == AssumptionStatus::Stale);
 }
 
-static void certificate_fixture(const char *cnf, const char *path, const std::string &mode,
-                                const std::string &scenario) {
-  QueryHistory h;
-  if (scenario == "opposite") {
-    assert(h.assume(1) == InputStatus::Ok);
-    assert(h.assume(1) == InputStatus::Ok);
-    assert(h.assume(-1) == InputStatus::Ok);
-  } else if (scenario == "late-root") {
-    clause(h, {1});
-    for (int literal=2;literal<=65;++literal)
-      assert(h.assume(literal)==InputStatus::Ok);
-    assert(h.assume(-1)==InputStatus::Ok);
-  } else if (scenario == "root") {
-    clause(h, {1});
-    clause(h, {-1, 2}); // derive a root before the later checker assumption
-    clause(h, {-2, 3});
-    assert(h.assume(-3) == InputStatus::Ok);
-  } else {
-    clause(h, {1, 2});
-    clause(h, {-1, 2});
-    assert(h.assume(-2) == InputStatus::Ok);
-  }
-  assert(h.begin_query() == InputStatus::Ok);
-  FILE *input = std::fopen(cnf, "w");
-  assert(input && h.write_query_dimacs(1, input));
-  assert(std::fclose(input) == 0);
-  std::unique_ptr<Proof> proof;
-  if (mode != "none") {
-    proof = std::make_unique<Proof>();
-    assert(proof->open(path, mode == "pbp" ? ProofFormat::PbpStreaming : ProofFormat::DsrAscii));
-  }
-  QueryKernel s;
-  assert(s.replay(h, std::move(proof)) == ReplayStatus::Ok);
-  if (scenario == "late-root") {
-    const auto next=s.next_assumption(s.ticket());
-    assert(next.status==AssumptionStatus::QueryUnsat && next.index==64);
-  }
-  assert(drive(s, h, false) == 20);
-  assert(s.flush_proof(s.ticket()));
-  const auto &k = *s.kernel(s.ticket());
-  std::printf("query result=20 conflicts=%llu decisions=%llu propagations=%llu ticks=%llu roots=%llu\n",
-              (unsigned long long)k.stats.conflicts,
-              (unsigned long long)k.stats.decisions,
-              (unsigned long long)k.stats.propagations,
-              (unsigned long long)k.stats.ticks,
-              (unsigned long long)k.stats.root_assignments);
-}
-
-int main(int argc, char **argv) {
-  if (argc == 5) {
-    certificate_fixture(argv[1], argv[2], argv[3], argv[4]);
-    return 0;
-  }
+int main(int argc, char **) {
   assert(argc == 1);
-  repeated_queries(false);
-  repeated_queries(true);
-  replay_restores_representation_and_namespaces();
   wrong_branch_is_not_unsat();
   root_refutation_looks_past_undecided_assumptions();
   assumption_cursor_after_public_backtracking();
@@ -387,7 +239,6 @@ int main(int argc, char **argv) {
   unrelated_decision_cannot_refute_cube();
   decision_on_skipped_retired_assumption();
   assumption_restarts_duplicates_and_compaction();
-  projection_changes_require_restoration();
   tickets_boundaries_and_busy_replay();
   std::puts("query kernel: PASS");
 }

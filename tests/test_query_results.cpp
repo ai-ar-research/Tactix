@@ -1,6 +1,6 @@
 #undef NDEBUG
 #include "query_test_support.hpp"
-#include "session/knowledge_proof.hpp"
+#include "session/core_certificate.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/substitute/substitute.hpp"
@@ -12,17 +12,8 @@ using namespace tactix::session;
 static NativeQueryLimits limits() {
   return {{4096,65536,4096},{64,32768,4096,65536,128,4096,65536},16000000};
 }
-static std::unique_ptr<Proof> writer(const std::string &stem,const std::string &mode) {
-  if(stem.empty()||mode=="none")return {};
-  auto p=std::make_unique<Proof>();
-  if(mode=="auto")assert(p->open_automatic((stem+".proof").c_str(),false));
-  else assert(p->open((stem+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));
-  return p;
-}
-static void dump(QueryHistory &h,const std::string &stem) {
-  if(stem.empty())return;
-  FILE *f=std::fopen((stem+".cnf").c_str(),"w");assert(f&&h.write_query_dimacs(h.active_query()->id,f)&&!std::fclose(f));
-}
+using query_test::writer;
+using query_test::export_query;
 static int solve(QueryKernel &s,QueryHistory &h,const std::string &schedule,DefaultPolicy &p) {
   if(schedule!="default")return query_test::drive(s,h,schedule=="registry");
   auto r=p.solve_query(s);assert(r.status==QuerySolveStatus::Complete);return r.result;
@@ -30,30 +21,11 @@ static int solve(QueryKernel &s,QueryHistory &h,const std::string &schedule,Defa
 static void core_proof(QueryHistory &h,QueryKernel &s,const std::string &stem,const std::string &mode) {
   if(stem.empty())return;
   const auto *r=s.result_snapshot();assert(r&&r->result==QueryResult::Unsat);
-  const auto &q=*h.query(r->query);
   FILE *f=std::fopen((stem+".core").c_str(),"w");assert(f);
   for(int32_t lit:r->core.assumptions)assert(std::fprintf(f,"%d ",lit)>0);
   assert(std::fputs("0\n",f)>=0&&!std::fclose(f));
-  if(r->core.kind!=CoreKind::LicensedSubset)return;
-  const auto prefix=stem+"-core";
-  f=std::fopen((prefix+".cnf").c_str(),"w");assert(f);
-  assert(std::fprintf(f,"p cnf %u %zu\n",q.query_variables,size_t(q.clauses)+r->core.assumptions.size())>0);
-  for(int32_t lit:h.input().first(q.input_words))assert(std::fprintf(f,lit?"%d ":"%d\n",lit)>0);
-  for(int32_t lit:r->core.assumptions)assert(std::fprintf(f,"%d 0\n",lit)>0);
-  assert(!std::fclose(f));
-  if(mode=="none")return;
-  auto proof=writer(prefix,mode);std::vector<Lit> clause;uint64_t id=0;
-  for(int32_t lit:h.input().first(q.input_words)) {
-    if(lit)clause.push_back(internalize(lit));
-    else {proof->seed_population(++id,clause.data(),clause.size());clause.clear();}
-  }
-  for(int32_t lit:r->core.assumptions) {const Lit l=internalize(lit);proof->seed_population(++id,&l,1);}
-  proof->finish_input_transaction();PbpParityBoundsCache cache;
-  for(const auto &step:r->core.evidence) {
-    if(step.literals.empty())continue; // emit the terminal empty clause once
-    assert(emit_query_knowledge(*proof,step,id,q.query_variables,cache,[](uint64_t) {return true;}));
-  }
-  proof->add_empty(++id);proof->flush();
+  if(r->core.kind!=CoreKind::LicensedSubset || mode=="none")return;
+  assert(write_core_certificate(h,*r,stem+"-core"));
 }
 static void scenario(const std::string &name,const std::string &prefix,const std::string &mode,const std::string &schedule) {
   QueryHistory h;bool subset=true;
@@ -85,7 +57,7 @@ static void scenario(const std::string &name,const std::string &prefix,const std
     for(int a:{7,1,-3,1})assert(h.assume(a)==InputStatus::Ok);
     subset=name=="binary";
   }
-  assert(h.begin_query()==InputStatus::Ok);dump(h,prefix);
+  assert(h.begin_query()==InputStatus::Ok);export_query(h,prefix);
   QueryKernel s(limits());assert(s.replay(h,writer(prefix,mode))==ReplayStatus::Ok);
   auto t=s.ticket();Kernel *identity=s.kernel(t);auto &k=*identity;auto *guidance=k.h;
   k.jump_reasons_bigbig=true;

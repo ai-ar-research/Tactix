@@ -1,5 +1,5 @@
 """Independently check native XOR retention, later SR, exact queries and models."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import audit_dsr, check_model, check_unsat, formula, proof_runner, satisfiable
 from pathlib import Path
 import subprocess
 import sys
@@ -9,7 +9,7 @@ import tempfile
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route, check_dsr
+    from proof_oracle import check_dsr
 
     traces, proofs = {}, {}
     checked = models = audits = corruptions = 0
@@ -29,9 +29,7 @@ def main():
                         sat = case == 'sat' and query != 2
                         assert satisfiable(variables, clauses) == sat
                         if sat:
-                            model = set(map(int, Path(f'{prefix}-{query}.model').read_text().split()))
-                            assert all((v in model) != (-v in model) for v in range(1, variables+1))
-                            assert all(any(lit in model for lit in clause) for clause in clauses)
+                            check_model(Path(f'{prefix}-{query}.model'), variables, clauses)
                             models += 1
                         if mode == 'none':
                             assert not proof.exists()
@@ -41,18 +39,10 @@ def main():
                         assert text == proofs.setdefault(key, text), key
                         if sat:
                             continue
-                        kind = 'pbp' if text.startswith('pseudo-Boolean') else 'dsr'
-                        witness_free = kind == 'dsr' and certificate_route(proof) == 'drat'
-                        route = 'pbp' if kind == 'pbp' else ('dsr-cake_lpr' if witness_free else 'dsr-trestle')
-                        result = runner.check_proof(kind, str(cnf), str(proof), 30, route=route)
-                        assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (key, result)
+                        kind, route = check_unsat(runner, str(cnf), str(proof))
                         if kind == 'dsr':
                             work = directory/f'{case}-{query}-{mode}-{schedule}-audit'
-                            work.mkdir()
-                            result = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK,
-                                               cnf, proof, work, 30, every_lemma=True,
-                                               cake_lpr=runner.CAKE_LPR, witness_free=witness_free)
-                            assert result[0], (key, result)
+                            audit_dsr(runner, cnf, proof, work)
                             audits += 1
                         # Remove the final assumption and, for the UNSAT base,
                         # the independent hard component. Both sources of

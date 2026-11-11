@@ -174,10 +174,8 @@ static void staged_advance(const std::string &prefix) {
   query_test::clause(history, {5, -6});
   query_test::clause(history, {-5, -6});
   assert(history.begin_query() == InputStatus::Ok);
-  FILE *cnf = std::fopen((prefix + ".cnf").c_str(), "w");
-  assert(cnf && history.write_query_dimacs(2, cnf) && std::fclose(cnf) == 0);
-  auto writer = std::make_unique<Proof>();
-  assert(writer->open_automatic((prefix + ".proof").c_str(), false));
+  query_test::export_query(history, prefix);
+  auto writer = query_test::writer(prefix, "auto");
   const auto next = owner.advance(history, std::move(writer));
   assert(next.status == NativeAdvanceStatus::Ok && next.appended == 5 && next.created == 4);
   assert(owner.kernel(owner.ticket()) == kernel);

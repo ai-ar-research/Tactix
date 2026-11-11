@@ -1,5 +1,5 @@
 """Fixed Python/session integration with independent certificate oracles."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import check_unsat, formula, proof_runner, satisfiable
 from pathlib import Path
 import hashlib
 import gc
@@ -12,9 +12,7 @@ library,root=map(Path,sys.argv[1:])
 sys.path.insert(0,str(root/'python'))
 from tactix import Session, ScriptedCDCL, SAT, UNSAT, UNKNOWN, capi
 from tactix.strategies import Cruxmiter
-from python_policy_reference import ScriptedDefault
 runner = proof_runner(root)
-from proof_oracle import certificate_route
 
 def verify(stem):
     cnf,pf=Path(str(stem)+'.cnf'),Path(str(stem)+'.proof')
@@ -31,18 +29,15 @@ def verify(stem):
             assert len(values)==n and all(any(values[abs(x)]==(x>0) for x in c) for c in clauses)
             return
     assert not satisfiable(n,clauses)
-    kind='pbp' if pf.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-    route='pbp' if kind=='pbp' else 'dsr-cake_lpr' if certificate_route(pf)=='drat' else 'dsr-trestle'
-    checked=runner.check_proof(kind,str(cnf),str(pf),30,route=route)
-    assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),(stem,checked)
+    return check_unsat(runner, str(cnf), str(pf))
 
 with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
     tmp=Path(tmp)
+    for driver in ('cruxmiter','chvatal','dpll','cdcl-no-restarts','scripted-default'):
+        with Session(library=library,strategy=driver) as solver:
+            assert solver.strategy_name == driver
     for name,strategy in (('default',None),('scripted',ScriptedCDCL(lambda c:-c[0])),
-                          ('cruxmiter','cruxmiter'),('chvatal','chvatal'),('dpll','dpll'),('cdcl-no-restarts','cdcl-no-restarts'),
-                          ('python-cruxmiter',Cruxmiter()),
-                          ('scripted-default','scripted-default'),
-                          ('python-scripted-default',ScriptedDefault())):
+                          ('cruxmiter','cruxmiter'),('python-cruxmiter',Cruxmiter())):
         folder=tmp/name;folder.mkdir()
         with Session(library=library,strategy=strategy,core_budget=1_000_000) as s:
             if isinstance(strategy,Cruxmiter):strategy.configure(s)
@@ -320,7 +315,7 @@ for ordered in (False, True):
     assert applied == [3,2], applied
     with tempfile.TemporaryDirectory(prefix='bve-handoff-proof-') as raw:
         for index, result in enumerate(results):
-            stem = Path(raw)/str(index);result.export(stem);verify(stem)
+            stem = Path(raw)/str(index);result.export(stem);certificate=verify(stem)
             if result.status == SAT: handoff_models += 1
             else:
                 handoff_proofs += 1
@@ -330,8 +325,7 @@ for ordered in (False, True):
                               if satisfiable(n,original[:i]+original[i+1:]))
                 wrong=Path(raw)/(str(index)+'-weakened.cnf')
                 wrong.write_text(f'p cnf {n} {len(weakened)}\n'+''.join(' '.join(map(str,c))+' 0\n' for c in weakened))
-                kind='pbp' if pf.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-                route='pbp' if kind=='pbp' else 'dsr-cake_lpr' if certificate_route(pf)=='drat' else 'dsr-trestle'
+                kind,route=certificate
                 checked=runner.check_proof(kind,str(wrong),str(pf),30,route=route)
                 assert not checked[0] and checked[2]==runner.CHK_REJECTED, checked
 assert handoff_models == 2 and handoff_proofs == 4

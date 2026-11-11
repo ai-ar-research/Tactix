@@ -24,10 +24,8 @@ static void fixture(const std::string &prefix, const std::string &mode) {
   assert(bve.apply_instance(k,lit_instance(k,kernel_internalize(k,1)))==ApplyResult::Ok);
   assert(h.finish_query(1,QueryResult::Unknown)==InputStatus::Ok);
   assert(h.assume(2)==InputStatus::Ok && h.begin_query()==InputStatus::Ok);
-  FILE *cnf=std::fopen((prefix+".cnf").c_str(),"w");
-  assert(cnf && h.write_query_dimacs(2,cnf) && std::fclose(cnf)==0);
-  std::unique_ptr<Proof> p;
-  if(mode!="none") { p=std::make_unique<Proof>(); assert(p->open((prefix+".proof").c_str(),mode=="pbp" ? ProofFormat::PbpStreaming : ProofFormat::DsrAscii)); }
+  query_test::export_query(h, prefix);
+  auto p = query_test::writer(prefix, mode);
   const auto admitted=s.advance(h,std::move(p));
   assert(admitted.status==NativeAdvanceStatus::Ok && admitted.restored==0);
   SubstitutionRedundancyInstance sr;

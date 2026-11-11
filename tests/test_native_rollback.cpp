@@ -13,13 +13,7 @@ static NativeQueryLimits limits() {
   return {{4096,65536,4096},{64,32768,4096,65536,128,4096,65536},16000000};
 }
 
-static std::unique_ptr<Proof> writer(const std::string &stem,const std::string &mode) {
-  if(stem.empty() || mode=="none")return {};
-  auto p=std::make_unique<Proof>();
-  if(mode=="auto")assert(p->open_automatic((stem+".proof").c_str(),false));
-  else assert(p->open((stem+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));
-  return p;
-}
+using query_test::writer;
 
 static void run(bool append,const std::string &variant,const std::string &prefix,
                 const std::string &mode,bool dynamic) {
@@ -72,9 +66,7 @@ static void run(bool append,const std::string &variant,const std::string &prefix
     if(q==5)assert(h.assume(-10)==InputStatus::Ok);
     assert(h.begin_query()==InputStatus::Ok);
     const auto stem=prefix.empty()?"":prefix+"-"+std::to_string(q);
-    if(!stem.empty()) {
-      FILE *f=std::fopen((stem+".cnf").c_str(),"w");assert(f&&h.write_query_dimacs(q,f)&&!std::fclose(f));
-    }
+    query_test::export_query(h, stem);
     const auto advanced=s.advance(h,writer(stem,mode));
     if(advanced.status!=NativeAdvanceStatus::Ok)
       std::fprintf(stderr,"rollback %s append=%d q=%u status=%u\n",variant.c_str(),append,q,unsigned(advanced.status));
@@ -96,12 +88,7 @@ static void run(bool append,const std::string &variant,const std::string &prefix
     }
     const int answer=q==3?20:10;
     assert(query_test::drive(s,h,dynamic)==answer);
-    if(answer==10 && !stem.empty()) {
-      FILE *f=std::fopen((stem+".model").c_str(),"w");assert(f);
-      for(uint32_t v=1;v<=h.active_query()->query_variables;++v)
-        assert(std::fprintf(f,"%d ",k.model_values[internalize(v)]>0?int(v):-int(v))>0);
-      assert(std::fputs("0\n",f)>=0&&!std::fclose(f));
-    }
+    if (answer==10) query_test::export_model(h, k, stem);
     if(q==4) {
       // A fresh weakening group must remain fully tracked after the old repair
       // owner was consumed. The next query forces its selective restoration.

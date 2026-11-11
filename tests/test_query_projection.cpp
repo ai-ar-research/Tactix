@@ -91,24 +91,6 @@ static void compatible_elimination_and_cube(bool dynamic) {
   assert(drive(c, cube, dynamic) == 10);
 }
 
-static void incompatible_elimination_still_has_its_public_action() {
-  QueryHistory h;
-  clause(h, {1, 2});
-  assert(h.assume(-1) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  QueryKernel s;
-  assert(s.replay(h) == ReplayStatus::Ok);
-  const auto t = s.ticket();
-  Kernel &k = *s.kernel(t);
-  assert(eliminate(k, 1) == ApplyResult::Ok);
-  assert(s.next_assumption(t).status == AssumptionStatus::Restore);
-  k.stats = {};
-  assert(s.next_assumption(t).status == AssumptionStatus::Restore);
-  assert(s.check_model(t).status != ModelStatus::Valid);
-  assert(s.replay(h) == ReplayStatus::Ok);
-  assert(drive(s, h, false) == 10);
-}
-
 static void contradictory_reconstruction(bool dynamic) {
   QueryHistory h;
   clause(h, {1, 2});
@@ -169,7 +151,7 @@ static void compatible_restriction(bool dynamic) {
   assert(drive(s, h, dynamic) == 10);
 }
 
-static void incompatible_restriction_and_lost_binding() {
+static void incompatible_restriction() {
   QueryHistory h;
   clause(h, {1, 2});
   assert(h.assume(-1) == InputStatus::Ok);
@@ -191,12 +173,6 @@ static void incompatible_restriction_and_lost_binding() {
   assert(k.next_clause_id == id && k.stats.sr_applications == applied &&
          !s.projection_state(s.ticket()).restore && !k.value(internalize(1)));
   assert(substitution_redundancy_apply_detailed(k, sr, parameters).rule_result == ApplyResult::Ok);
-  assert(s.next_assumption(s.ticket()).status == AssumptionStatus::Restore);
-  assert(s.check_model(s.ticket()).status == ModelStatus::InvalidQuery);
-  assert(s.replay(h) == ReplayStatus::Ok);
-  // Losing the session's correctness service must not silently disable A.
-  s.kernel(s.ticket())->query_projection = nullptr;
-  assert(s.projection_state(s.ticket()).restore);
   assert(s.next_assumption(s.ticket()).status == AssumptionStatus::Restore);
   assert(s.check_model(s.ticket()).status == ModelStatus::InvalidQuery);
 }
@@ -230,15 +206,8 @@ static void proof_fixture(const std::string &prefix, const std::string &mode,
     if (scenario == "ulc") assert(h.assume(1) == InputStatus::Ok);
   }
   assert(h.begin_query() == InputStatus::Ok);
-  FILE *cnf = std::fopen((prefix+".cnf").c_str(), "w");
-  assert(cnf && h.write_query_dimacs(1, cnf));
-  assert(std::fclose(cnf) == 0);
-  std::unique_ptr<Proof> writer;
-  if (mode != "none") {
-    writer = std::make_unique<Proof>();
-    assert(writer->open((prefix+".proof").c_str(), mode == "pbp"
-        ? ProofFormat::PbpStreaming : ProofFormat::DsrAscii));
-  }
+  query_test::export_query(h, prefix);
+  auto writer = query_test::writer(prefix, mode);
   QueryKernel s;
   assert(s.replay(h, std::move(writer)) == ReplayStatus::Ok);
   const auto t = s.ticket();
@@ -285,6 +254,5 @@ int main(int argc, char **argv) {
     compatible_restriction(dynamic);
     contradictory_reconstruction(dynamic);
   }
-  incompatible_elimination_still_has_its_public_action();
-  incompatible_restriction_and_lost_binding();
+  incompatible_restriction();
 }

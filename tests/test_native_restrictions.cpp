@@ -32,15 +32,8 @@ static void fixture(bool rat,bool hard,const std::string &prefix,const std::stri
     if(q==4) assert(h.assume(11)==InputStatus::Ok);
     assert(h.begin_query()==InputStatus::Ok);
     std::string stem=prefix.empty()?"":prefix+"-"+std::to_string(q);
-    std::unique_ptr<Proof> proof;
-    if(!stem.empty()) {
-      FILE *f=std::fopen((stem+".cnf").c_str(),"w");assert(f&&h.write_query_dimacs(q,f)&&!std::fclose(f));
-      if(mode!="none") {
-        proof=std::make_unique<Proof>();
-        if(mode=="auto")assert(proof->open_automatic((stem+".proof").c_str(),false));
-        else assert(proof->open((stem+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));
-      }
-    }
+    query_test::export_query(h, stem);
+    auto proof = query_test::writer(stem, mode);
     if(q==1) {
       assert(s.replay(h,std::move(proof))==ReplayStatus::Ok);identity=s.kernel(s.ticket());guidance=identity->h;
       for(int base:rat?std::vector<int>{0,3}:std::vector<int>{0,4}) {
@@ -69,12 +62,7 @@ static void fixture(bool rat,bool hard,const std::string &prefix,const std::stri
     }
     const int answer=hard||q==3?20:10;
     assert(query_test::drive(s,h,dynamic)==answer);
-    if(answer==10 && !stem.empty()) {
-      FILE *f=std::fopen((stem+".model").c_str(),"w");assert(f);
-      for(uint32_t v=1;v<=h.active_query()->query_variables;++v)
-        assert(std::fprintf(f,"%d ",identity->model_values[internalize(v)]>0?int(v):-int(v))>0);
-      assert(std::fputs("0\n",f)>=0 && !std::fclose(f));
-    }
+    if (answer==10) query_test::export_model(h, *identity, stem);
     assert(s.flush_proof(s.ticket()));
     std::printf("q=%u result=%d base=%d ids=%llu conflicts=%llu decisions=%llu\n",q,answer,identity->inconsistent,
       (unsigned long long)identity->next_clause_id,(unsigned long long)identity->stats.conflicts,(unsigned long long)identity->stats.decisions);
@@ -106,27 +94,15 @@ static void invalidated(bool append,const std::string &prefix,const std::string 
   assert(s.advance(h).status==NativeAdvanceStatus::Exhausted);
   assert(old->values==values && old->reconstruction==rho && old->next_clause_id==UINT64_MAX-8);
   old->next_clause_id=ids;
-  std::unique_ptr<Proof> proof;
-  if(!prefix.empty()) {
-    FILE *f=std::fopen((prefix+".cnf").c_str(),"w");assert(f&&h.write_query_dimacs(2,f)&&!std::fclose(f));
-    if(mode!="none") {
-      proof=std::make_unique<Proof>();
-      if(mode=="auto")assert(proof->open_automatic((prefix+".proof").c_str(),false));
-      else assert(proof->open((prefix+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));
-    }
-  }
+  query_test::export_query(h, prefix);
+  auto proof = query_test::writer(prefix, mode);
   const auto advanced=s.advance(h,std::move(proof));
   if(advanced.status!=NativeAdvanceStatus::Ok)std::fprintf(stderr,"restriction rollback status=%u\n",unsigned(advanced.status));
   assert(advanced.status==NativeAdvanceStatus::Ok && advanced.retracted>=2);
   assert(s.kernel(s.ticket())==old && old->h==guidance);
   assert(query_test::drive(s,h,dynamic)==10);
   Kernel &k=*s.kernel(s.ticket());assert(k.model_values[internalize(3)]<0);
-  if(!prefix.empty()) {
-    FILE *f=std::fopen((prefix+".model").c_str(),"w");assert(f);
-    for(uint32_t v=1;v<=h.active_query()->query_variables;++v)
-      assert(std::fprintf(f,"%d ",k.model_values[internalize(v)]>0?int(v):-int(v))>0);
-    assert(std::fputs("0\n",f)>=0&&!std::fclose(f));
-  }
+  query_test::export_model(h, k, prefix);
   assert(s.flush_proof(s.ticket())&&h.finish_query(2,QueryResult::Sat)==InputStatus::Ok);
   kernel_check_invariants(k);
   std::printf("recovery=native result=10 p=false conflicts=%llu decisions=%llu\n",

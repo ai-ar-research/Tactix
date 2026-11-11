@@ -1,12 +1,11 @@
 """Proof-neutral learning, exact query proofs and independent F-only export checks."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import check_unsat, formula, proof_runner, satisfiable
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 fixture,root=map(Path,sys.argv[1:])
 runner = proof_runner(root)
-from proof_oracle import certificate_route
 
 with tempfile.TemporaryDirectory(prefix='learning-proof-') as tmp:
     trajectories={};poll_counts={}
@@ -25,10 +24,7 @@ with tempfile.TemporaryDirectory(prefix='learning-proof-') as tmp:
             assert learned==([[1]] if enabled else [])
             for clause in learned:assert not satisfiable(n,clauses[:-1]+[[-l] for l in clause])
             if mode=='none':continue
-            proof=Path(str(stem)+'.proof');kind='pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-            route='pbp' if kind=='pbp' else 'dsr-cake_lpr' if certificate_route(proof)=='drat' else 'dsr-trestle'
-            checked=runner.check_proof(kind,str(stem)+'.cnf',str(proof),30,route=route)
-            assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),(scenario,mode,enabled,checked)
+            proof=Path(str(stem)+'.proof');check_unsat(runner, str(stem) + '.cnf', str(proof))
             proofs.append(proof.read_bytes())
         if proofs:assert proofs[0]==proofs[1],(scenario,mode)
 print('Learning: twelve independently checked query proofs, F-only exports after SR, identical proof/search and termination polling across four proof modes')

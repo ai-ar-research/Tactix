@@ -38,19 +38,16 @@ static void run(const std::string &which, const std::string &prefix, const std::
   Kernel &k=*session.kernel(session.ticket());
   Heuristics *const guidance=k.h;
   if (which=="cross") assert(bce_try(k, internalize(1))==ApplyResult::Ok && k.stats.bce_deleted==1);
-  uint64_t query=1;
   if (which!="replay") {
     assert(h.finish_query(1,QueryResult::Unknown)==InputStatus::Ok);
     assert(h.assume(-2)==InputStatus::Ok);
     if (which=="repeat") assert(h.assume(-4)==InputStatus::Ok);
     assert(h.begin_query()==InputStatus::Ok);
-    query=2;
     assert(session.advance(h, writer()).status==NativeAdvanceStatus::Ok);
     assert(&k==session.kernel(session.ticket()) && k.h==guidance);
     assert(k.proof->certificate_offset()==0); // RUP-only entry needs no copies
   }
-  FILE *cnf=std::fopen((prefix+".cnf").c_str(),"w");
-  assert(cnf && h.write_query_dimacs(query,cnf) && std::fclose(cnf)==0);
+  query_test::export_query(h, prefix);
   if (which!="cross") assert(bce_try(k, internalize(1))==ApplyResult::Ok && k.stats.bce_deleted==1);
   if (which=="fresh") {
     for (int32_t start : {7,11}) {

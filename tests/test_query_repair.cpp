@@ -14,25 +14,9 @@ using namespace tactix::session;
 static NativeQueryLimits limits() {
   return {{4096,65536,4096},{64,32768,4096,65536,128,4096,65536},16000000};
 }
-static std::unique_ptr<Proof> writer(const std::string &stem,const std::string &mode) {
-  if(stem.empty() || mode=="none")return {};
-  auto p=std::make_unique<Proof>();
-  if(mode=="auto")assert(p->open_automatic((stem+".proof").c_str(),false));
-  else assert(p->open((stem+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));
-  return p;
-}
-static void export_query(QueryHistory &h,const std::string &stem) {
-  if(stem.empty())return;
-  FILE *f=std::fopen((stem+".cnf").c_str(),"w");
-  assert(f&&h.write_query_dimacs(h.active_query()->id,f)&&!std::fclose(f));
-}
-static void export_model(QueryHistory &h,Kernel &k,const std::string &stem) {
-  if(stem.empty())return;
-  FILE *f=std::fopen((stem+".model").c_str(),"w");assert(f);
-  for(uint32_t v=1;v<=h.active_query()->query_variables;++v)
-    assert(std::fprintf(f,"%d ",k.model_values[internalize(v)]>0?int(v):-int(v))>0);
-  assert(std::fputs("0\n",f)>=0&&!std::fclose(f));
-}
+using query_test::writer;
+using query_test::export_query;
+using query_test::export_model;
 static std::string bytes(const std::string &stem,const std::string &mode) {
   if(stem.empty() || mode=="none")return {};
   FILE *f=std::fopen((stem+".proof").c_str(),"rb");assert(f);
@@ -51,10 +35,9 @@ static void hard_false(QueryHistory &h,int g,int a,int b) {
   query_test::clause(h,{-g,a,b});query_test::clause(h,{-g,a,-b});
   query_test::clause(h,{-g,-a,b});query_test::clause(h,{-g,-a,-b});
 }
-static void sr(Kernel &k,bool indirect) {
+static void sr(Kernel &k) {
   SubstitutionRedundancyInstance x;x.clause={kernel_internalize(k,1)};
-  if(indirect)x.witness={kernel_internalize(k,-2),kernel_internalize(k,3)};
-  else x.witness=x.clause;
+  x.witness={kernel_internalize(k,-2),kernel_internalize(k,3)};
   assert(substitution_redundancy_apply_detailed(k,x).rule_result==ApplyResult::Ok);
   propagate_service(k);
 }
@@ -83,7 +66,7 @@ static void repair(const std::string &family,bool hard,const std::string &prefix
   } else if(family=="condition") {
     ConditionInstance c;c.clause={kernel_internalize(k,1),kernel_internalize(k,2)};c.witness={kernel_internalize(k,1)};
     assert(condition_apply_explicit(k,c));
-  } else if(family=="sr")sr(k,true);
+  } else if(family=="sr")sr(k);
   else if(family=="rat") {
     const Lit x=kernel_internalize(k,1);const auto id=++k.next_clause_id;
     k.proof->add_rat(id,&x,1);k.unit_ids[var_of(x)]=id;kernel_assign_unit(k,x);
@@ -97,6 +80,13 @@ static void repair(const std::string &family,bool hard,const std::string &prefix
     k.query_projection=nullptr;
   }
   assert(s.next_assumption(old).status==AssumptionStatus::Restore);
+  if(family=="bve") {
+    k.stats={};
+    assert(s.next_assumption(old).status==AssumptionStatus::Restore);
+    assert(s.check_model(old).status!=ModelStatus::Valid);
+  }
+  if(family=="binding" || family=="alias-binding")
+    assert(s.check_model(old).status==ModelStatus::InvalidQuery);
   DefaultPolicy policy;
   if(schedule=="default")assert(policy.solve_query(s).status==QuerySolveStatus::RestorationRequired);
   const auto values=k.values;const auto rho=k.reconstruction;const auto id=k.next_clause_id;
@@ -133,7 +123,7 @@ static void transition(const std::string &origin,bool append,const std::string &
   const auto stem=[&](unsigned q) {return prefix.empty()?"":prefix+"-"+std::to_string(q);};
   export_query(h,stem(1));QueryKernel s(limits());assert(s.replay(h,writer(stem(1),mode))==ReplayStatus::Ok);
   Kernel *identity=s.kernel(s.ticket());auto &k=*identity;auto *guidance=k.h;DefaultPolicy policy;
-  sr(k,true);
+  sr(k);
   const Lit bin[]{kernel_internalize(k,3),kernel_internalize(k,5)};
   for(unsigned i=0;i<2;++i) {const auto id=++k.next_clause_id;k.proof->add_rup(id,bin,2);kernel_add_binary_clause(k,bin[0],bin[1],id);}
   const Lit large[]{bin[0],bin[1],kernel_internalize(k,6)};

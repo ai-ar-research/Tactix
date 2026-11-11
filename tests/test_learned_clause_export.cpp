@@ -57,11 +57,8 @@ static void parity_and_budget() {
 static void fixture(const std::string &prefix,const std::string &mode,bool connected,bool restriction=false) {
   QueryHistory h;query_test::clause(h,{1,2});query_test::clause(h,{1,-2});
   assert(h.assume(-1)==InputStatus::Ok&&h.begin_query()==InputStatus::Ok);
-  std::unique_ptr<Proof> writer;
-  if(!prefix.empty()) {FILE *f=std::fopen((prefix+".cnf").c_str(),"w");assert(f&&h.write_query_dimacs(1,f)&&!std::fclose(f));}
-  if(mode!="none") {writer=std::make_unique<Proof>();
-    if(mode=="auto")assert(writer->open_automatic((prefix+".proof").c_str(),false));
-    else assert(writer->open((prefix+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));}
+  query_test::export_query(h, prefix);
+  auto writer = query_test::writer(prefix, mode);
   QueryKernel q(limits());Collected got;if(connected)q.set_learn(&got,1,Collected::learn);
   unsigned polls=0;q.set_terminate(&polls,[](void *state) {++*static_cast<unsigned *>(state);return 0;});
   assert(q.replay(h,std::move(writer))==ReplayStatus::Ok);const auto t=q.ticket();auto &k=*q.kernel(t);

@@ -1,5 +1,5 @@
 """Exercise the public ER strategy surface through ctypes and persistent queries."""
-from proof_test_support import proof_runner
+from proof_test_support import check_unsat, proof_runner
 from pathlib import Path
 import ctypes as C
 import sys
@@ -8,8 +8,7 @@ import tempfile
 library, root = map(Path, sys.argv[1:])
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench')]
 from tactix import Session, ScriptedCDCL, capi
-runner = proof_runner(root, checkers=())
-from proof_oracle import certificate_route
+runner = proof_runner(root)
 lib = capi.load_library(library)
 rules = {lib.tactix_rule_name(i).decode(): i for i in range(lib.tactix_rule_count())}
 assert lib.tactix_action_kind(rules['ExtendedResolution']) == capi.TACTIX_ACTION_PROOF_RULE
@@ -51,10 +50,7 @@ def regions(view, queued):
 
 def verify(stem):
     proof = stem.with_suffix('.proof')
-    kind = 'pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-    route = 'pbp' if kind == 'pbp' else ('dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
-    checked = runner.check_proof(kind, str(stem.with_suffix('.cnf')), str(proof), 30, route=route)
-    assert checked[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), checked
+    check_unsat(runner, str(stem.with_suffix('.cnf')), str(proof))
 
 
 models = proofs = 0

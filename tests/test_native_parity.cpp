@@ -30,15 +30,8 @@ static void fixture(bool hard,const std::string &prefix,const std::string &mode,
     if(query==4) assert(history.assume(3)==InputStatus::Ok && history.assume(4)==InputStatus::Ok);
     assert(history.begin_query()==InputStatus::Ok);
     const std::string stem=prefix.empty()?"":prefix+"-"+std::to_string(query);
-    std::unique_ptr<Proof> proof;
-    if(!stem.empty()) {
-      FILE *cnf=std::fopen((stem+".cnf").c_str(),"w");assert(cnf && history.write_query_dimacs(query,cnf) && !std::fclose(cnf));
-      if(mode!="none") {
-        proof=std::make_unique<Proof>();
-        if(mode=="auto") assert(proof->open_automatic((stem+".proof").c_str(),false));
-        else assert(proof->open((stem+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));
-      }
-    }
+    query_test::export_query(history, stem);
+    auto proof = query_test::writer(stem, mode);
     if(query==1) {
       assert(session.replay(history,std::move(proof))==ReplayStatus::Ok);
       identity=session.kernel(session.ticket());guidance=identity->h;
@@ -67,12 +60,7 @@ static void fixture(bool hard,const std::string &prefix,const std::string &mode,
     }
     const int expected=query==2 || hard ? 20:10;
     assert(query_test::drive(session,history,dynamic)==expected);
-    if(expected==10 && !stem.empty()) {
-      FILE *model=std::fopen((stem+".model").c_str(),"w");assert(model);
-      for(uint32_t v=1;v<=history.active_query()->query_variables;++v)
-        assert(std::fprintf(model,"%d ",identity->model_values[internalize(v)]>0?int(v):-int(v))>0);
-      assert(std::fputs("0\n",model)>=0 && !std::fclose(model));
-    }
+    if (expected==10) query_test::export_model(history, *identity, stem);
     assert(session.flush_proof(session.ticket()));
     std::printf("q=%u result=%d base=%d ids=%llu conflicts=%llu decisions=%llu\n",query,expected,identity->inconsistent,
         (unsigned long long)identity->next_clause_id,(unsigned long long)identity->stats.conflicts,(unsigned long long)identity->stats.decisions);

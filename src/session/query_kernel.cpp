@@ -878,11 +878,6 @@ StructuralActionSessions *QueryKernel::execution_services(KernelTicket t) {
   return valid(t)?epoch_->services.get():nullptr;
 }
 
-std::span<const uint64_t> QueryKernel::assumption_input_ids(KernelTicket t) const {
-  return valid(t) ? std::span<const uint64_t>(epoch_->assumption_ids)
-                  : std::span<const uint64_t>{};
-}
-
 std::span<const int32_t> QueryKernel::effective_assumptions(KernelTicket t) const {
   if (!valid(t)) return {};
   return epoch_->projection ? epoch_->projection->constraints()

@@ -1,7 +1,6 @@
 #undef NDEBUG
 #include "api_test_support.h"
 #include "tactix_ipasir.h"
-#include "ipasir_test_support.h"
 #include "strategy/presets/cruxmiter.h"
 #include "tactix_chvatal.h"
 #include "tactix_search_demo.h"
@@ -15,13 +14,6 @@ static void input(void *s,const int *clause) {
 static tactix_ipasir_strategy_counters counters(void *s) {
   tactix_ipasir_strategy_counters c={0};c.version=1;c.size=sizeof c;
   assert(!tactix_ipasir_get_strategy_counters(s,&c));return c;
-}
-static void save(void *s,const char *prefix,unsigned index) {
-  if(!prefix)return;
-  tactix_ipasir_result *r=tactix_ipasir_result_acquire(s);assert(r);
-  copy_query_bundle(tactix_ipasir_result_bundle(r),prefix,index,
-                    tactix_ipasir_result_status(r),TEST_CORE_OPTIONAL);
-  tactix_ipasir_result_release(r);
 }
 static int delegate(void *state,void *session,tactix *view,unsigned cause) {
   (void)session;(void)cause;const int result=tactix_solve(view);
@@ -210,8 +202,8 @@ static void plain(const char *mode,const char *prefix,const char *scenario,const
 }
 int main(int argc,char **argv) {
   if(argc==4||argc==5) {plain(argv[1],argv[2],argv[3],argc==5?argv[4]:"cruxmiter");return 0;}
-  assert(argc>=1&&argc<=3);const char *prefix=argc>=2?argv[1]:NULL;
-  const char *name=argc==3?argv[2]:"cruxmiter";const int crux=!strcmp(name,"cruxmiter");
+  assert(argc==1||argc==2);
+  const char *name=argc==2?argv[1]:"cruxmiter";const int crux=!strcmp(name,"cruxmiter");
   const int chvatal=!strcmp(name,"chvatal");
   void *s=ipasir_init();assert(s);
   assert(!strcmp(tactix_ipasir_strategy_name(s),"default"));
@@ -222,14 +214,14 @@ int main(int argc,char **argv) {
   assert(!tactix_ipasir_set_core_budget(s,1000000));
   input(s,(const int[]){-3,1,0});input(s,(const int[]){-3,2,0});input(s,(const int[]){3,-1,-2,0});
   input(s,(const int[]){-4,1,0});input(s,(const int[]){-4,2,0});input(s,(const int[]){4,-1,-2,0});
-  ipasir_assume(s,-3);ipasir_assume(s,4);assert(ipasir_solve(s)==20);save(s,prefix,1);
+  ipasir_assume(s,-3);ipasir_assume(s,4);assert(ipasir_solve(s)==20);
   const char *published=tactix_ipasir_bundle(s);assert(published);
   assert(tactix_ipasir_set_strategy_name(s,"missing")==-1&&published==tactix_ipasir_bundle(s));
-  ipasir_assume(s,3);assert(ipasir_solve(s)==10&&ipasir_val(s,4)==4);save(s,prefix,2);
-  ipasir_assume(s,-4);assert(ipasir_solve(s)==10&&ipasir_val(s,3)==-3);save(s,prefix,3);
+  ipasir_assume(s,3);assert(ipasir_solve(s)==10&&ipasir_val(s,4)==4);
+  ipasir_assume(s,-4);assert(ipasir_solve(s)==10&&ipasir_val(s,3)==-3);
   input(s,(const int[]){3,0});ipasir_assume(s,7);ipasir_assume(s,-4);
-  assert(ipasir_solve(s)==20&&ipasir_failed(s,-4)&&!ipasir_failed(s,7));save(s,prefix,4);
-  assert(ipasir_solve(s)==10);save(s,prefix,5);
+  assert(ipasir_solve(s)==20&&ipasir_failed(s,-4)&&!ipasir_failed(s,7));
+  assert(ipasir_solve(s)==10);
   tactix_ipasir_strategy_counters c=counters(s);
   assert(c.query_entries==5);
   if(crux||chvatal)assert(c.root_requests>0&&c.root_eligible>0&&c.root_effective>0&&c.root_rounds>0&&c.default_handoffs>0);

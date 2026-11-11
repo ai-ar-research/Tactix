@@ -22,7 +22,7 @@ static ConditionInstance cube(Kernel &k, std::initializer_list<int> c, std::init
   for(int l:w) out.witness.push_back(internalize(l));
   return out;
 }
-static void scenario(const std::string &name,const std::string &prefix,const std::string &mode,bool capture,bool dynamic) {
+static void scenario(const std::string &name,const std::string &prefix,const std::string &mode,bool dynamic) {
   QueryHistory h;
   if(name=="condition") { clause(h,{1,2});clause(h,{-1,3});clause(h,{-3,4}); }
   else if(name=="cce") { clause(h,{1,2,3});clause(h,{-1,4});clause(h,{-4,-2});clause(h,{-3,4}); }
@@ -31,17 +31,15 @@ static void scenario(const std::string &name,const std::string &prefix,const std
   else { assert(name=="substitute");clause(h,{-1,2});clause(h,{1,-2});clause(h,{-2,3});clause(h,{2,-3});clause(h,{3,4}); }
   const int unrelated=name=="binary"?3:5;
   clause(h,{unrelated,unrelated+1});
-  std::unique_ptr<QueryKernel> storage=capture?std::make_unique<QueryKernel>(limits()):std::make_unique<QueryKernel>();
-  QueryKernel &s=*storage;
+  QueryKernel s(limits());
   Kernel *identity=nullptr;
   Heuristics *guidance=nullptr;
   const auto solve=[&](int expected) {
     assert(h.begin_query()==InputStatus::Ok);
     const auto id=h.active_query()->id;
     std::string file=prefix.empty()?"":prefix+"-"+std::to_string(id);
-    if(!file.empty()) { FILE*f=std::fopen((file+".cnf").c_str(),"w");assert(f&&h.write_query_dimacs(id,f)&&std::fclose(f)==0); }
-    std::unique_ptr<Proof> writer;
-    if(mode!="none") { writer=std::make_unique<Proof>();assert(writer->open((file+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii)); }
+    query_test::export_query(h, file);
+    auto writer = query_test::writer(file, mode);
     if(!identity) {
       assert(s.replay(h,std::move(writer))==ReplayStatus::Ok);
       identity=s.kernel(s.ticket());guidance=identity->h;
@@ -71,14 +69,13 @@ static void scenario(const std::string &name,const std::string &prefix,const std
     assert(query_test::drive(s,h,dynamic)==expected&&!identity->inconsistent);
     if(expected==10) {
       assert(s.check_model(s.ticket()).status==ModelStatus::Valid);
-      if(!file.empty()) { FILE*f=std::fopen((file+".model").c_str(),"w");assert(f);for(uint32_t v=1;v<=h.active_query()->query_variables;v++)assert(std::fprintf(f,"%d ",identity->model_values[internalize(v)]>0?int(v):-int(v))>0);assert(std::fprintf(f,"0\n")>0&&std::fclose(f)==0); }
+      query_test::export_model(h, *identity, file);
     }
     assert(s.flush_proof(s.ticket()));
     std::printf("q=%llu result=%d vars=%u rho=%zu ids=%llu conflicts=%llu decisions=%llu\n",(unsigned long long)id,expected,identity->nvars,identity->reconstruction.size(),(unsigned long long)identity->next_clause_id,(unsigned long long)identity->stats.conflicts,(unsigned long long)identity->stats.decisions);
     assert(h.finish_query(id,expected==10?QueryResult::Sat:QueryResult::Unsat)==InputStatus::Ok);
   };
   solve(10);
-  if(!capture) return;
   if(name=="condition") { assert(h.assume(-3)==InputStatus::Ok);assert(h.assume(-2)==InputStatus::Ok); }
   else if(name=="substitute") { assert(h.assume(2)==InputStatus::Ok);assert(h.assume(-3)==InputStatus::Ok); }
   else { assert(h.assume(-1)==InputStatus::Ok);assert(h.assume(-2)==InputStatus::Ok);if(name=="cce")assert(h.assume(-3)==InputStatus::Ok); }
@@ -176,7 +173,7 @@ static void malformed_groups_and_storage() {
 }
 
 int main(int argc,char**argv) {
-  if(argc==6){scenario(argv[1],argv[2],argv[3],std::string(argv[4])=="capture",std::string(argv[5])=="dynamic");return 0;}
+  if(argc==5){scenario(argv[1],argv[2],argv[3],std::string(argv[4])=="dynamic");return 0;}
   assert(argc==1);group_authentication();unlicensed_repair();malformed_groups_and_storage();
-  for(bool dynamic:{false,true})for(const char *name:{"condition","cce","binary","ata","substitute"})scenario(name,"","none",true,dynamic);
+  for(bool dynamic:{false,true})for(const char *name:{"condition","cce","binary","ata","substitute"})scenario(name,"","none",dynamic);
 }

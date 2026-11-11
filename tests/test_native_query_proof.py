@@ -1,5 +1,5 @@
 """Check exact-query certificates/models after native continuation, in two schedules."""
-from proof_test_support import formula, proof_runner, require_forward_rejection
+from proof_test_support import check_model, check_unsat, formula, proof_runner, remove_clause
 from pathlib import Path
 import subprocess
 import sys
@@ -9,7 +9,6 @@ import tempfile
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route
 
     checked = models = 0
     traces, proofs = {}, {}
@@ -32,9 +31,7 @@ def main():
                         expected_sat = query in (1, 4) or (query == 3 and case not in ('root', 'chain'))
                         assert satisfiable == expected_sat, (case, query)
                         if satisfiable:
-                            model = set(map(int, Path(f'{prefix}-{query}.model').read_text().split()))
-                            assert all((v in model) != (-v in model) for v in range(1, variables+1))
-                            assert all(any(lit in model for lit in clause) for clause in clauses)
+                            check_model(Path(f'{prefix}-{query}.model'), variables, clauses)
                             models += 1
                         if mode == 'none':
                             assert not proof.exists()
@@ -45,20 +42,11 @@ def main():
                         assert proof.read_bytes() == proofs.setdefault(key, proof.read_bytes()), key
                         if satisfiable:
                             continue
-                        route = 'pbp' if mode == 'pbp' else ('dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
-                        result = runner.check_proof(mode, str(cnf), str(proof), 30, route=route)
-                        assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (key, result)
+                        _, route = check_unsat(runner, str(cnf), str(proof), fmt=mode)
                         # Omit exactly the last current assumption. Exhaustion
                         # or a parser error does not count as this rejection.
-                        lines = cnf.read_text().splitlines()
-                        header = lines[0].split()
-                        header[3] = str(int(header[3])-1)
                         wrong = directory/'missing-current-assumption.cnf'
-                        wrong.write_text(' '.join(header)+'\n'+'\n'.join(lines[1:-1])+'\n')
-                        _, wrong_formula = formula(wrong)
-                        assert any(all(any(bool(mask & (1 << (abs(lit)-1))) == (lit > 0)
-                                           for lit in clause) for clause in wrong_formula)
-                                   for mask in range(1 << variables))
+                        remove_clause(cnf, wrong)
                         result = runner.check_proof(mode, str(wrong), str(proof), 30, route=route)
                         assert not result[0] and result[2] == runner.CHK_REJECTED, (key, result)
                         checked += 1

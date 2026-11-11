@@ -1,5 +1,5 @@
 """Witnessed continuation isolates obsolete sources; copy bridges are checked."""
-from proof_test_support import proof_runner
+from proof_test_support import audit_dsr, proof_runner
 from pathlib import Path
 import subprocess
 import sys
@@ -10,7 +10,7 @@ import re
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root, checkers=('VERIPB', 'CAKE_PB_CNF', 'DSR_TRIM', 'DSR_COMPRESS', 'SR_CHECK'))
-    from proof_oracle import check_dsr, canonical_checker_cnf, proof_check_status, stage_environment
+    from proof_oracle import canonical_checker_cnf, proof_check_status, stage_environment
 
     with tempfile.TemporaryDirectory(prefix='tactix-native-sr-') as tmp:
         directory = Path(tmp)
@@ -68,15 +68,9 @@ def main():
                 assert not rejected[0] and rejected[2] == runner.CHK_REJECTED, rejected
             else:
                 good = directory/'forward-good'
-                good.mkdir()
-                checked = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK,
-                                    cnf, proof, good, 30, every_lemma=True)
-                assert checked[0], checked
+                audit_dsr(runner, cnf, proof, good)
                 kept = directory/'forward-retained'
-                kept.mkdir()
-                checked = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK,
-                                    cnf, retained, kept, 30, every_lemma=True)
-                assert checked[0], checked
+                audit_dsr(runner, cnf, retained, kept)
                 bad = directory/'forward-bad'
                 bad.mkdir()
                 checker_cnf = bad/'checker.cnf'

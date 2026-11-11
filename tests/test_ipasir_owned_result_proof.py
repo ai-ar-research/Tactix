@@ -1,5 +1,5 @@
 """Check files copied from owned C handles after the originating session closes."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import check_unsat, formula, proof_runner, satisfiable
 from pathlib import Path
 import hashlib
 import json
@@ -9,7 +9,6 @@ import tempfile
 
 fixture, root = map(Path, sys.argv[1:])
 runner = proof_runner(root)
-from proof_oracle import certificate_route
 
 
 def verify(stem, status):
@@ -22,10 +21,7 @@ def verify(stem, status):
         assert len(values)==n and all(any(values[abs(x)]==(x>0) for x in c) for c in clauses)
         return
     assert not satisfiable(n, clauses)
-    kind = 'pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-    route = 'pbp' if kind=='pbp' else 'dsr-cake_lpr' if certificate_route(proof)=='drat' else 'dsr-trestle'
-    checked = runner.check_proof(kind,str(cnf),str(proof),30,route=route)
-    assert checked[:3] == (True,'VERIFIED',runner.CHK_VERIFIED),(stem,checked)
+    check_unsat(runner, str(cnf), str(proof))
 
 with tempfile.TemporaryDirectory(prefix='ipasir-owned-proof-') as tmp:
     prefix = Path(tmp)/'q'

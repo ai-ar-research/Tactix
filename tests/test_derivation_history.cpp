@@ -51,16 +51,8 @@ static void fixture(const std::string &prefix, const std::string &mode, bool dyn
     }
     assert(h.begin_query() == InputStatus::Ok);
     const std::string stem = prefix.empty() ? "" : prefix+"-"+std::to_string(q);
-    std::unique_ptr<Proof> writer;
-    if (!stem.empty()) {
-      FILE *cnf = std::fopen((stem+".cnf").c_str(), "w");
-      assert(cnf && h.write_query_dimacs(q, cnf) && std::fclose(cnf) == 0);
-      if (mode != "none") {
-        writer = std::make_unique<Proof>();
-        assert(writer->open((stem+".proof").c_str(),
-            mode == "pbp" ? ProofFormat::PbpStreaming : ProofFormat::DsrAscii));
-      }
-    }
+    query_test::export_query(h, stem);
+    auto writer = query_test::writer(stem, mode);
     if (q == 1) {
       assert(s.replay(h, std::move(writer)) == ReplayStatus::Ok);
       identity = s.kernel(s.ticket());
@@ -74,13 +66,7 @@ static void fixture(const std::string &prefix, const std::string &mode, bool dyn
     }
     const int answer = q == 2 || q == 4 ? 20 : 10;
     assert(query_test::drive(s, h, dynamic) == answer && !identity->inconsistent);
-    if (answer == 10 && !stem.empty()) {
-      FILE *model = std::fopen((stem+".model").c_str(), "w");
-      assert(model);
-      for (unsigned v = 1; v <= h.active_query()->query_variables; ++v)
-        assert(std::fprintf(model, "%d ", identity->model_values[internalize(v)] > 0 ? int(v) : -int(v)) > 0);
-      assert(std::fprintf(model, "0\n") > 0 && std::fclose(model) == 0);
-    }
+    if (answer == 10) query_test::export_model(h, *identity, stem);
     assert(s.flush_proof(s.ticket()));
     const auto captured = s.derivation_state(s.ticket());
     assert(captured.records && !captured.dropped);

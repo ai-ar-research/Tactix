@@ -1,5 +1,5 @@
 """Independently check failed cores, their certificates and mode parity."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import audit_dsr, check_unsat, formula, proof_runner, satisfiable
 from pathlib import Path
 import subprocess
 import sys
@@ -9,7 +9,6 @@ import tempfile
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route, check_dsr
 
     traces = {}
     checked = audits = rejects = source_errors = cores = 0
@@ -49,21 +48,11 @@ def main():
                     stems = [prefix] + ([Path(str(prefix)+'-core')] if reduced.exists() else [])
                     for stem in stems:
                         cnf, proof = Path(str(stem)+'.cnf'), Path(str(stem)+'.proof')
-                        text = proof.read_text()
-                        kind = 'pbp' if text.startswith('pseudo-Boolean') else 'dsr'
-                        free = kind == 'dsr' and certificate_route(proof) == 'drat'
-                        route = 'pbp' if kind == 'pbp' else ('dsr-cake_lpr' if free else 'dsr-trestle')
-                        result = runner.check_proof(kind, str(cnf), str(proof), 45, route=route)
-                        assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (stem, result)
+                        kind, route = check_unsat(runner, str(cnf), str(proof), timeout=45)
                         checked += 1
                         if kind == 'dsr':
                             work = directory/(stem.name+'-audit')
-                            work.mkdir()
-                            result = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS,
-                                               runner.SR_CHECK, cnf, proof, work, 45,
-                                               every_lemma=True, cake_lpr=runner.CAKE_LPR,
-                                               witness_free=free)
-                            assert result[0], (stem, result)
+                            audit_dsr(runner, cnf, proof, work, timeout=45)
                             audits += 1
                         # A certificate cannot refute this independently SAT input.
                         wrong = directory/'satisfiable-control.cnf'

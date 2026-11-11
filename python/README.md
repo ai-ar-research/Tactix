@@ -116,6 +116,6 @@ buffers alive, use native C streams for `FILE *`, and release only owned handles
 Regenerate declarations with `python3 tools/api/generate_python.py`.
 `pycparser` is needed during generation. `python_capi` checks header coverage,
 constants, signatures and every record's size, alignment and offsets against C.
-Independent Python CRUX and demo3 tests compare action payloads, counters, models
-and proof bytes with C. Full IPASIR conformance, specialized-adapter coverage and
+Independent Python CRUX tests compare actions, counters, models and proof bytes
+with C. Full IPASIR conformance, specialized-adapter coverage and
 final fuzz/performance qualification remain pending. IPASIR-UP is outside scope.

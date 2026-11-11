@@ -1,5 +1,5 @@
 """Independent Python sequence policy versus the actual native controller."""
-from proof_test_support import proof_runner
+from proof_test_support import check_unsat, proof_runner
 from pathlib import Path
 import ctypes as C
 import gc
@@ -13,9 +13,7 @@ library, fixture, root = map(Path, sys.argv[1:])
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench')]
 from tactix import Solver, Session, ScriptedCDCL, capi, _QueryInterrupted
 from tactix.sequence import OnlineSequence, strategy_state
-from python_policy_reference import ScriptedDefault
-runner = proof_runner(root, checkers=())
-from proof_oracle import certificate_route
+runner = proof_runner(root)
 def request(execution, kind):
     steps = (capi.tactix_online_step_v2*2)()
     p, cleanup = steps[0].base, steps[1].base
@@ -152,8 +150,7 @@ def python_run(kind, cnf, proof, fmt, finish):
                 assert execution.c.tactix_support(capi.TACTIX_SUPPORT_LEAVE_CONTEXT,0)>=0
         prefix=verdict
         if finish and not verdict:
-            execution.default_solve=lambda: (_ for _ in ()).throw(AssertionError('no native DefaultPolicy handoff'))
-            verdict=ScriptedDefault().run(execution.c,execution._lib.rules)
+            verdict=execution.default_solve()
         if verdict==20: assert execution.c.tactix_status()==20
         model=execution.model if verdict==10 else ()
     return trace,prefix,verdict,model
@@ -170,68 +167,67 @@ normal=[[-1,2,3],[1,2],[1,-2]]
 unsat=[[1,2],[1,-2],[-1,2],[-1,-2]]
 cases=[(kind,normal) for kind in ('manual','before','batch','continue','stop','finish','retain','external','scaled')]
 cases += [('manual',normal+[[1]]),('manual',unsat),('pool',graph(4)),('pool-zero',graph(4)),('pool-free',graph(4))]
-if str(library)!='-':
-    for version in range(1,18):
-        with Solver(library) as execution:
-            assert execution.c.tactix_status() in (0,10)
-
-            assert execution.c.tactix_propagate()==0
-            suffix=f'_v{version}' if version>1 else ''
-            record=getattr(capi,'tactix_online_step'+suffix)()
-            base=record
-            while hasattr(base,'base'):base=base.base
-            base.step_id,base.rule_id=31,execution._lib.rules['Propagate']
-            base.repeat_mode,base.repeat_limit=capi.TACTIX_ONLINE_REPEAT_ONCE,1
-            base.granularity=capi.TACTIX_ONLINE_GRANULARITY_CANONICAL
-            base.post_application=capi.TACTIX_ONLINE_POST_PROPAGATE
-            base.work_unit=capi.TACTIX_ONLINE_WORK_PROPAGATIONS
-            base.budget_unlimited=1
-            steps=(type(record)*1)(record)
-            program=getattr(capi,'tactix_online_program'+suffix)(steps,1,capi.TACTIX_ONLINE_REPEAT_COUNT,2)
-            with OnlineSequence(execution,program,version=version) as sequence:
-                C.memset(C.byref(steps),0,C.sizeof(steps))
-                program.repeat_mode=999
-                rejected_flags=0
-                for call in range(8):
-                    raw_advance=execution._lib.dll.tactix_online_executor_advance
-                    def flag_candidate(handle,executor,pool,out):
-                        code=raw_advance(handle,executor,pool,out)
-                        if not code:
-                            C.cast(out,C.POINTER(capi.tactix_online_execution_result)).contents.query_rejected_model=1
-                        return code
-                    # Protocol fault injection only: a candidate-rejection bit
-                    # must never relabel this real nonterminal event as SAT.
-                    if version==2: execution._lib.dll.tactix_online_executor_advance=flag_candidate
-                    try: result=sequence.advance()
-                    finally: execution._lib.dll.tactix_online_executor_advance=raw_advance
-                    rejected_flags+=bool(result.query_rejected_model)
-                    assert result.base.status in (capi.TACTIX_ONLINE_COMPLETED,capi.TACTIX_ONLINE_NO_CHANGE)
-                    if sequence.complete:break
-                else:raise AssertionError(('version did not complete',version))
-                # Each native atomic pass returns its application first, then
-                # completes on a separate advance (finish_step_pass/sequence).
-                assert sequence.rounds==2 and sequence.dispatches==[4],(version,sequence.rounds,sequence.dispatches)
-                if version==2:assert rejected_flags==4
-                before=(sequence.rounds,sequence.dispatches[:],sequence.consumed(0))
-                program.step_count=-1
-                try:sequence.configure(program,version=version)
-                except ValueError:pass
-                else:raise AssertionError('invalid replacement accepted')
-                assert (sequence.rounds,sequence.dispatches,sequence.consumed(0))==before
-                saved=sequence.advance();saved.base.status=999
-                assert sequence.advance().base.status==capi.TACTIX_ONLINE_COMPLETED
+for version in range(1,18):
     with Solver(library) as execution:
-        with OnlineSequence(execution) as sequence:
-            assert sequence.advance().base.status==capi.TACTIX_ONLINE_INVALID_REQUEST
-            empty=capi.tactix_online_program_v2(None,0,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
-            for options in ({'version':0},{'version':2.0},{'revision':-1},{'mode':9},
-                    {'on_budget_exhaustion':9},{'progress_followups':(1,)},{'before_progress':(1,)}):
-                try:sequence.configure(empty,**options)
-                except ValueError:pass
-                else:raise AssertionError(options)
-            assert not execution.c.tactix_stat(capi.TACTIX_STAT_INPUT_CLOSED)
-            sequence.configure(empty)
-            assert sequence.advance().base.status==capi.TACTIX_ONLINE_COMPLETED and sequence.complete
+        assert execution.c.tactix_status() in (0,10)
+
+        assert execution.c.tactix_propagate()==0
+        suffix=f'_v{version}' if version>1 else ''
+        record=getattr(capi,'tactix_online_step'+suffix)()
+        base=record
+        while hasattr(base,'base'):base=base.base
+        base.step_id,base.rule_id=31,execution._lib.rules['Propagate']
+        base.repeat_mode,base.repeat_limit=capi.TACTIX_ONLINE_REPEAT_ONCE,1
+        base.granularity=capi.TACTIX_ONLINE_GRANULARITY_CANONICAL
+        base.post_application=capi.TACTIX_ONLINE_POST_PROPAGATE
+        base.work_unit=capi.TACTIX_ONLINE_WORK_PROPAGATIONS
+        base.budget_unlimited=1
+        steps=(type(record)*1)(record)
+        program=getattr(capi,'tactix_online_program'+suffix)(steps,1,capi.TACTIX_ONLINE_REPEAT_COUNT,2)
+        with OnlineSequence(execution,program,version=version) as sequence:
+            C.memset(C.byref(steps),0,C.sizeof(steps))
+            program.repeat_mode=999
+            rejected_flags=0
+            for call in range(8):
+                raw_advance=execution._lib.dll.tactix_online_executor_advance
+                def flag_candidate(handle,executor,pool,out):
+                    code=raw_advance(handle,executor,pool,out)
+                    if not code:
+                        C.cast(out,C.POINTER(capi.tactix_online_execution_result)).contents.query_rejected_model=1
+                    return code
+                # Protocol fault injection only: a candidate-rejection bit
+                # must never relabel this real nonterminal event as SAT.
+                if version==2: execution._lib.dll.tactix_online_executor_advance=flag_candidate
+                try: result=sequence.advance()
+                finally: execution._lib.dll.tactix_online_executor_advance=raw_advance
+                rejected_flags+=bool(result.query_rejected_model)
+                assert result.base.status in (capi.TACTIX_ONLINE_COMPLETED,capi.TACTIX_ONLINE_NO_CHANGE)
+                if sequence.complete:break
+            else:raise AssertionError(('version did not complete',version))
+            # Each native atomic pass returns its application first, then
+            # completes on a separate advance (finish_step_pass/sequence).
+            assert sequence.rounds==2 and sequence.dispatches==[4],(version,sequence.rounds,sequence.dispatches)
+            if version==2:assert rejected_flags==4
+            before=(sequence.rounds,sequence.dispatches[:],sequence.consumed(0))
+            program.step_count=-1
+            try:sequence.configure(program,version=version)
+            except ValueError:pass
+            else:raise AssertionError('invalid replacement accepted')
+            assert (sequence.rounds,sequence.dispatches,sequence.consumed(0))==before
+            saved=sequence.advance();saved.base.status=999
+            assert sequence.advance().base.status==capi.TACTIX_ONLINE_COMPLETED
+with Solver(library) as execution:
+    with OnlineSequence(execution) as sequence:
+        assert sequence.advance().base.status==capi.TACTIX_ONLINE_INVALID_REQUEST
+        empty=capi.tactix_online_program_v2(None,0,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
+        for options in ({'version':0},{'version':2.0},{'revision':-1},{'mode':9},
+                {'on_budget_exhaustion':9},{'progress_followups':(1,)},{'before_progress':(1,)}):
+            try:sequence.configure(empty,**options)
+            except ValueError:pass
+            else:raise AssertionError(options)
+        assert not execution.c.tactix_stat(capi.TACTIX_STAT_INPUT_CLOSED)
+        sequence.configure(empty)
+        assert sequence.advance().base.status==capi.TACTIX_ONLINE_COMPLETED and sequence.complete
 comparisons=models=proofs=advances=0
 pool_controls={}
 with tempfile.TemporaryDirectory(prefix='python-sequence-') as raw:
@@ -257,115 +253,107 @@ with tempfile.TemporaryDirectory(prefix='python-sequence-') as raw:
                 if kind in ('pool','pool-zero','pool-free'):
                     pool_controls[kind,label,finish]=expected
                 artifacts=[(native_proof,verdict)]
-                if str(library)!='-':
-                    actual,actual_prefix,answer,model=python_run(kind,cnf,python_proof,fmt,finish)
-                    assert actual==expected,(kind,label,finish,'first different advance',actual,expected)
-                    assert actual_prefix==prefix and (not finish or answer in (10,20))
-                    assert not finish or answer==verdict
-                    if not finish and fmt: assert native_proof.read_bytes()==python_proof.read_bytes(),(kind,label,'prefix proof')
-                    if answer==10:
-                        values=set(model)
-                        assert len(model)==n and all(any(l in values for l in c) for c in formula)
-                        models+=1
-                    artifacts.append((python_proof,answer))
-                    comparisons+=1;advances+=len(actual)
+                actual,actual_prefix,answer,model=python_run(kind,cnf,python_proof,fmt,finish)
+                assert actual==expected,(kind,label,finish,'first different advance',actual,expected)
+                assert actual_prefix==prefix and (not finish or answer in (10,20))
+                assert not finish or answer==verdict
+                if fmt: assert native_proof.read_bytes()==python_proof.read_bytes(),(kind,label,'proof bytes')
+                if answer==10:
+                    values=set(model)
+                    assert len(model)==n and all(any(l in values for l in c) for c in formula)
+                    models+=1
+                artifacts.append((python_proof,answer))
+                comparisons+=1;advances+=len(actual)
                 if verdict==10:
                     model=set(map(int,next(line.split()[1:] for line in output.splitlines() if line.startswith('model'))))
                     assert len(model)==n and all(any(l in model for l in c) for c in formula);models+=1
                 for path,answer in artifacts:
                     if fmt and answer==20:
-                        form='pbp' if path.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-                        route='pbp' if form=='pbp' else 'dsr-cake_lpr' if certificate_route(path)=='drat' else 'dsr-trestle'
-                        checked=runner.check_proof(form,str(cnf),str(path),30,route=route)
-                        assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),checked
+                        check_unsat(runner, str(cnf), str(path))
                         proofs+=1
 print(f'Python/native sequence: {comparisons} comparisons, {advances} advances, {models} checked models, {proofs} checked proofs')
 
-if str(library)!='-':
-    rejections=[];polls=[0];cancel=[False];cancelled=[];interruptions=[];cancel_results=[]
-    def terminate():
-        polls[0]+=1
-        return cancel[0]
-    def query_sequence(execution,restored):
+rejections=[];polls=[0];cancel=[False];cancelled=[];interruptions=[];cancel_results=[]
+def terminate():
+    polls[0]+=1
+    return cancel[0]
+def query_sequence(execution,restored):
+    before=polls[0]
+    for _ in range(12):
+        observed=strategy_state(execution)
+        assert observed.query_status in (capi.TACTIX_EXECUTION_COMPLETE,capi.TACTIX_EXECUTION_UNKNOWN)
+    assert polls[0]==before,'pure strategy observations polled termination'
+    empty=capi.tactix_online_program_v2(None,0,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
+    with OnlineSequence(execution,empty) as idle:
         before=polls[0]
-        for _ in range(12):
-            observed=strategy_state(execution)
-            assert observed.query_status in (capi.TACTIX_EXECUTION_COMPLETE,capi.TACTIX_EXECUTION_UNKNOWN)
-        assert polls[0]==before,'pure strategy observations polled termination'
-        empty=capi.tactix_online_program_v2(None,0,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
-        with OnlineSequence(execution,empty) as idle:
-            before=polls[0]
-            assert idle.advance().base.status==capi.TACTIX_ONLINE_COMPLETED
-            assert idle.advance().base.status==capi.TACTIX_ONLINE_COMPLETED
-            assert polls[0]==before,'sequence boundary polled termination or reconstructed a model'
-        assert not execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE)
-        step=capi.tactix_online_step_v2()
-        step.base.step_id,step.base.rule_id=41,execution._lib.rules['Lucky']
-        step.base.granularity=capi.TACTIX_ONLINE_GRANULARITY_CANONICAL
-        step.base.repeat_mode,step.base.repeat_limit=capi.TACTIX_ONLINE_REPEAT_ONCE,1
-        step.base.budget_unlimited=1
-        program=capi.tactix_online_program_v2(C.pointer(step),1,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
-        raw_advance=execution._lib.dll.tactix_online_executor_advance
-        def interrupting(handle,executor,pool,out):
-            first=cancel_test[0] and not cancelled
-            if first:
-                cancelled.append(True);cancel[0]=True
-            code=raw_advance(handle,executor,pool,out)
-            if first:
-                result=C.cast(out,C.POINTER(capi.tactix_online_execution_result)).contents
-                state=strategy_state(execution)
-                cancel_results.append((code,result.base.status,result.base.rule_result,state.query_status,state.stopped))
-            return code
-        execution._lib.dll.tactix_online_executor_advance=interrupting
-        before_rejected=execution.rejected_models
-        try:
-            with OnlineSequence(execution,program) as sequence:
-                for _ in range(8):
-                    result=sequence.advance()
-                    if result.query_rejected_model:
-                        assert result.base.status not in (capi.TACTIX_ONLINE_SAT,capi.TACTIX_ONLINE_UNSAT)
-                        assert execution.c.tactix_support(capi.TACTIX_SUPPORT_PREPARATION_RESTART,0)>=0
-                        break
-                    if result.base.status in (capi.TACTIX_ONLINE_SAT,capi.TACTIX_ONLINE_UNSAT):
-                        return 10 if result.base.status==capi.TACTIX_ONLINE_SAT else 20
-                    if sequence.complete:break
-                else:raise AssertionError('query sequence did not finish')
-        except _QueryInterrupted:
+        assert idle.advance().base.status==capi.TACTIX_ONLINE_COMPLETED
+        assert idle.advance().base.status==capi.TACTIX_ONLINE_COMPLETED
+        assert polls[0]==before,'sequence boundary polled termination or reconstructed a model'
+    assert not execution.c.tactix_set_guidance_publication(capi.TACTIX_GUIDANCE_NATIVE)
+    step=capi.tactix_online_step_v2()
+    step.base.step_id,step.base.rule_id=41,execution._lib.rules['Lucky']
+    step.base.granularity=capi.TACTIX_ONLINE_GRANULARITY_CANONICAL
+    step.base.repeat_mode,step.base.repeat_limit=capi.TACTIX_ONLINE_REPEAT_ONCE,1
+    step.base.budget_unlimited=1
+    program=capi.tactix_online_program_v2(C.pointer(step),1,capi.TACTIX_ONLINE_REPEAT_ONCE,1)
+    raw_advance=execution._lib.dll.tactix_online_executor_advance
+    def interrupting(handle,executor,pool,out):
+        first=cancel_test[0] and not cancelled
+        if first:
+            cancelled.append(True);cancel[0]=True
+        code=raw_advance(handle,executor,pool,out)
+        if first:
+            result=C.cast(out,C.POINTER(capi.tactix_online_execution_result)).contents
             state=strategy_state(execution)
-            assert state.stopped or state.query_status==capi.TACTIX_EXECUTION_INTERRUPTED
-            interruptions.append(True)
-            raise
-        finally:
-            execution._lib.dll.tactix_online_executor_advance=raw_advance
-        count=execution.rejected_models-before_rejected
-        if count:
-            assert execution.c.tactix_stat(capi.TACTIX_STAT_LEVEL)==0
-        rejections.append(count)
-        return ScriptedCDCL()(execution,restored)
-    cancel_test=[False]
+            cancel_results.append((code,result.base.status,result.base.rule_result,state.query_status,state.stopped))
+        return code
+    execution._lib.dll.tactix_online_executor_advance=interrupting
+    before_rejected=execution.rejected_models
+    try:
+        with OnlineSequence(execution,program) as sequence:
+            for _ in range(8):
+                result=sequence.advance()
+                if result.query_rejected_model:
+                    assert result.base.status not in (capi.TACTIX_ONLINE_SAT,capi.TACTIX_ONLINE_UNSAT)
+                    assert execution.c.tactix_support(capi.TACTIX_SUPPORT_PREPARATION_RESTART,0)>=0
+                    break
+                if result.base.status in (capi.TACTIX_ONLINE_SAT,capi.TACTIX_ONLINE_UNSAT):
+                    return 10 if result.base.status==capi.TACTIX_ONLINE_SAT else 20
+                if sequence.complete:break
+            else:raise AssertionError('query sequence did not finish')
+    except _QueryInterrupted:
+        state=strategy_state(execution)
+        assert state.stopped or state.query_status==capi.TACTIX_EXECUTION_INTERRUPTED
+        interruptions.append(True)
+        raise
+    finally:
+        execution._lib.dll.tactix_online_executor_advance=raw_advance
+    count=execution.rejected_models-before_rejected
+    if count:
+        assert execution.c.tactix_stat(capi.TACTIX_STAT_LEVEL)==0
+    rejections.append(count)
+    return ScriptedCDCL()(execution,restored)
+cancel_test=[False]
+with Session(library,strategy=query_sequence) as session:
+    session.add([1,2]);session.set_terminate(terminate)
+    for _ in range(3):
+        result=session.solve([-1]);assert result.status==10 and {-1,2}<=set(result.model)
+assert sum(rejections)>0,rejections
+cancel_test[0]=True
+with tempfile.TemporaryDirectory(prefix='sequence-query-retry-') as raw:
     with Session(library,strategy=query_sequence) as session:
-        session.add([1,2]);session.set_terminate(terminate)
-        for _ in range(3):
-            result=session.solve([-1]);assert result.status==10 and {-1,2}<=set(result.model)
-    assert sum(rejections)>0,rejections
-    cancel_test[0]=True
-    with tempfile.TemporaryDirectory(prefix='sequence-query-retry-') as raw:
-        with Session(library,strategy=query_sequence) as session:
-            for clause in unsat:session.add(clause)
-            session.set_terminate(terminate)
-            assert session.solve().status==0 and interruptions and cancelled
-            assert cancel_results==[(0,capi.TACTIX_ONLINE_NO_CHANGE,capi.TACTIX_RULE_RESULT_NO_OP,
-                capi.TACTIX_EXECUTION_INTERRUPTED,1)],cancel_results
-            cancel[0]=False
-            result=session.solve();assert result.status==20
-            exported=Path(raw)/'retry';result.export(exported)
-        proof=Path(str(exported)+'.proof');cnf=Path(str(exported)+'.cnf')
-        form='pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-        route='pbp' if form=='pbp' else 'dsr-cake_lpr' if certificate_route(proof)=='drat' else 'dsr-trestle'
-        checked=runner.check_proof(form,str(cnf),str(proof),30,route=route)
-        assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),checked
-    print('Real query sequence:',rejections,'rejections; no-poll boundaries; cancellation result',cancel_results,
-          'UNKNOWN and proof-checked retry pass')
+        for clause in unsat:session.add(clause)
+        session.set_terminate(terminate)
+        assert session.solve().status==0 and interruptions and cancelled
+        assert cancel_results==[(0,capi.TACTIX_ONLINE_NO_CHANGE,capi.TACTIX_RULE_RESULT_NO_OP,
+            capi.TACTIX_EXECUTION_INTERRUPTED,1)],cancel_results
+        cancel[0]=False
+        result=session.solve();assert result.status==20
+        exported=Path(raw)/'retry';result.export(exported)
+    proof=Path(str(exported)+'.proof');cnf=Path(str(exported)+'.cnf')
+    check_unsat(runner, str(cnf), str(proof))
+print('Real query sequence:',rejections,'rejections; no-poll boundaries; cancellation result',cancel_results,
+      'UNKNOWN and proof-checked retry pass')
 
 for label in ("none","auto","pbp"):
     for finish in (0,1):

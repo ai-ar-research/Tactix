@@ -1,5 +1,5 @@
 """Exact-query namespace refresh across and within native queries."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import audit_dsr, check_unsat, formula, proof_runner, satisfiable
 from pathlib import Path
 import subprocess
 import sys
@@ -10,7 +10,6 @@ import os
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route, check_dsr
 
     checked = audits = 0
     with tempfile.TemporaryDirectory(prefix='tactix-query-names-') as tmp:
@@ -35,18 +34,11 @@ def main():
                 kind = 'pbp' if proof.read_text().startswith('pseudo-Boolean') else 'dsr'
                 if mode == 'auto-pbp' and case != 'replay':
                     assert kind == 'pbp'
-                witness_free = kind == 'dsr' and certificate_route(proof) == 'drat'
-                route = 'pbp' if kind == 'pbp' else 'dsr-cake_lpr' if witness_free else 'dsr-trestle'
-                verified = runner.check_proof(kind, str(cnf), str(proof), 30, route=route)
-                assert verified[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (case, mode, verified)
+                kind, route = check_unsat(runner, str(cnf), str(proof), fmt=kind)
                 checked += 1
                 if kind == 'dsr':
                     work = directory/f'{case}-{mode}-forward'
-                    work.mkdir()
-                    result = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK,
-                                       cnf, proof, work, 30, every_lemma=True,
-                                       cake_lpr=runner.CAKE_LPR, witness_free=witness_free)
-                    assert result[0], (case, mode, result)
+                    audit_dsr(runner, cnf, proof, work)
                     audits += 1
                 # A false refutation cannot pass: replace the independent
                 # UNSAT component by tautologies without changing dimensions.

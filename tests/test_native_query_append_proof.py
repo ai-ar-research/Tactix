@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import audit_dsr, check_model, check_unsat, formula, proof_runner, remove_clause, satisfiable
 
 CASES = {'bve': (10, 20, 10), 'bce': (10, 20), 'normalize': (10, 20, 10),
          'growth': (10, 20, 20, 10, 10, 20), 'unitconflict': (10, 20), 'empty': (10, 20),
@@ -13,7 +13,6 @@ CASES = {'bve': (10, 20, 10), 'bce': (10, 20), 'normalize': (10, 20, 10),
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route, check_dsr
     proofs, traces = {}, {}
     checked = models = 0
     with tempfile.TemporaryDirectory(prefix='tactix-native-append-') as tmp:
@@ -31,9 +30,7 @@ def main():
                         variables, clauses = formula(cnf)
                         assert satisfiable(variables, clauses) == (answer == 10), (case, query)
                         if answer == 10:
-                            model = set(map(int, Path(f'{prefix}-{query}.model').read_text().split()))
-                            assert all((v in model) != (-v in model) for v in range(1, variables+1))
-                            assert all(any(lit in model for lit in clause) for clause in clauses)
+                            check_model(Path(f'{prefix}-{query}.model'), variables, clauses)
                             models += 1
                         if mode == 'none':
                             assert not proof.exists()
@@ -42,25 +39,14 @@ def main():
                         assert proof.read_bytes() == proofs.setdefault(key, proof.read_bytes()), key
                         if answer == 10:
                             continue
-                        route = 'pbp' if mode == 'pbp' else (
-                            'dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
-                        result = runner.check_proof(mode, str(cnf), str(proof), 30, route=route)
-                        assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (key, result)
+                        _, route = check_unsat(runner, str(cnf), str(proof), fmt=mode)
                         if route == 'dsr-trestle':
                             work = directory/f'audit-{case}-{query}-{schedule}'
-                            work.mkdir()
-                            result = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK,
-                                               cnf, proof, work, 30, every_lemma=True)
-                            assert result[0], result
+                            audit_dsr(runner, cnf, proof, work)
                         # Remove the critical last assumption or new permanent
                         # clause. Independently establish that the control is SAT.
-                        lines = cnf.read_text().splitlines()
-                        header = lines[0].split()
-                        header[3] = str(int(header[3])-1)
                         wrong = directory/'missing-current-constraint.cnf'
-                        wrong.write_text(' '.join(header)+'\n'+'\n'.join(lines[1:-1])+'\n')
-                        _, constraints = formula(wrong)
-                        assert satisfiable(variables, constraints), (key, constraints)
+                        remove_clause(cnf, wrong)
                         result = runner.check_proof(mode, str(wrong), str(proof), 30, route=route)
                         assert not result[0] and result[2] == runner.CHK_REJECTED, (key, result)
                         checked += 1

@@ -1,5 +1,5 @@
 """Exact-query certificates/models for same-query repair and prior results."""
-from proof_test_support import formula, proof_runner, require_forward_rejection, satisfiable
+from proof_test_support import audit_dsr, check_model, check_unsat, formula, proof_runner, require_forward_rejection, satisfiable
 from pathlib import Path
 import subprocess
 import sys
@@ -9,7 +9,6 @@ import tempfile
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route, check_dsr
 
     traces, proofs = {}, {}
     canonical = models = audits = rejects = source_errors = forward_rejects = 0
@@ -38,9 +37,7 @@ def main():
                                if transition else outcome == 'sat')
                         assert satisfiable(variables, clauses) == sat, (key, query)
                         if sat and not unknown:
-                            model = set(map(int, Path(stem+'.model').read_text().split()))
-                            assert all((v in model) != (-v in model) for v in range(1, variables+1))
-                            assert all(any(lit in model for lit in c) for c in clauses)
+                            model = check_model(Path(stem + '.model'), variables, clauses)
                             if transition and query == 2:
                                 assert -3 in model
                             models += 1
@@ -55,19 +52,11 @@ def main():
                         assert text == proofs.setdefault(proof_key, text), proof_key
                         if sat or unknown:
                             continue
-                        kind = 'pbp' if text.startswith('pseudo-Boolean') else 'dsr'
-                        free = kind == 'dsr' and certificate_route(proof) == 'drat'
-                        route = 'pbp' if kind == 'pbp' else ('dsr-cake_lpr' if free else 'dsr-trestle')
-                        result = runner.check_proof(kind, str(cnf), str(proof), 45, route=route)
-                        assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), (proof_key, result)
+                        kind, route = check_unsat(runner, str(cnf), str(proof), timeout=45)
                         canonical += 1
                         if kind == 'dsr':
                             work = directory/f'{name}-{outcome}-{mode}-{schedule}-{query}-audit'
-                            work.mkdir()
-                            result = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK,
-                                               cnf, proof, work, 45, every_lemma=True,
-                                               cake_lpr=runner.CAKE_LPR, witness_free=free)
-                            assert result[0], (proof_key, result)
+                            audit_dsr(runner, cnf, proof, work, timeout=45)
                             audits += 1
                         missing = ([5], [-5, 6, 7]) if not transition else (
                             ([8], [-8, 9, 10]) if query == 1 else ([1], [-1, 3]))

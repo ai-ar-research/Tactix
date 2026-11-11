@@ -26,8 +26,8 @@ static void fixture(const std::string &prefix,const std::string &mode,bool neede
  if(needed) assert(h.assume(-1)==InputStatus::Ok&&h.assume(-2)==InputStatus::Ok);
  else assert(h.assume(7)==InputStatus::Ok);
  assert(h.begin_query()==InputStatus::Ok);
- FILE*f=std::fopen((prefix+".cnf").c_str(),"w");assert(f&&h.write_query_dimacs(2,f)&&std::fclose(f)==0);
- std::unique_ptr<Proof> p;if(mode!="none"){p=std::make_unique<Proof>();assert(p->open((prefix+".proof").c_str(),mode=="pbp"?ProofFormat::PbpStreaming:ProofFormat::DsrAscii));}
+ query_test::export_query(h, prefix);
+ auto p=query_test::writer(prefix, mode);
  assert(s.advance(h,std::move(p)).status==NativeAdvanceStatus::Ok);
  if(!needed){SubstitutionRedundancyInstance sr;sr.clause={internalize(-1)};sr.witness=sr.clause;assert(substitution_redundancy_apply_detailed(k,sr).rule_result==ApplyResult::Ok);}
  assert(query_test::drive(s,h,false)==20);assert(s.flush_proof(s.ticket()));

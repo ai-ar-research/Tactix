@@ -1,5 +1,5 @@
 """Public learned exports must follow from F without assumptions or SR roots."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import check_unsat, formula, proof_runner, satisfiable
 import hashlib
 import json
 from pathlib import Path
@@ -8,7 +8,6 @@ import sys
 import tempfile
 fixture,root=map(Path,sys.argv[1:])
 runner = proof_runner(root)
-from proof_oracle import certificate_route
 
 with tempfile.TemporaryDirectory(prefix='ipasir-learning-proof-') as tmp:
     prefix=Path(tmp)/'q';run=subprocess.run([fixture,prefix],capture_output=True,text=True,timeout=45)
@@ -25,8 +24,5 @@ with tempfile.TemporaryDirectory(prefix='ipasir-learning-proof-') as tmp:
             data=Path(str(stem)+'.model').read_text().split();values={abs(int(x)):int(x)>0 for x in data[1:-1]}
             assert data[0]=='v' and data[-1]=='0' and all(any(values[abs(x)]==(x>0) for x in c) for c in clauses)
             continue
-        proof=Path(str(stem)+'.proof');kind='pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-        route='pbp' if kind=='pbp' else 'dsr-cake_lpr' if certificate_route(proof)=='drat' else 'dsr-trestle'
-        checked=runner.check_proof(kind,str(stem)+'.cnf',str(proof),30,route=route)
-        assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),(i,checked)
+        proof=Path(str(stem)+'.proof');check_unsat(runner, str(stem) + '.cnf', str(proof))
 print('Public learning: four original-query bundles, independent F-only export oracles, three checked UNSAT proofs and one checked SAT model')

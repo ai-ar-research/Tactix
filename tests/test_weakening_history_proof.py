@@ -1,5 +1,5 @@
 """Optional native weakening capture must preserve search and proof bytes."""
-from proof_test_support import proof_runner
+from proof_test_support import audit_dsr, check_model, check_unsat, proof_runner, remove_clause
 from pathlib import Path
 import subprocess
 import sys
@@ -25,7 +25,6 @@ def clauses(path):
 def main():
     fixture, root = map(Path, sys.argv[1:])
     runner = proof_runner(root)
-    from proof_oracle import certificate_route, check_dsr
 
     checked = models = 0
     with tempfile.TemporaryDirectory(prefix='tactix-weakening-') as tmp:
@@ -49,9 +48,7 @@ def main():
                                       for mask in range(1 << 7))
                     assert satisfiable == (case == 'sat')
                     if case == 'sat':
-                        model = set(map(int, Path(f'{prefix}.model').read_text().split()))
-                        assert all((v in model) != (-v in model) for v in range(1, 8))
-                        assert all(any(lit in model for lit in clause) for clause in formula)
+                        check_model(Path(f'{prefix}.model'), 7, formula)
                         models += 1
                     if mode == 'none':
                         assert not proof.exists()
@@ -62,21 +59,12 @@ def main():
                     assert data == control_bytes, (case, mode, 'capture changed proof bytes')
                     if case == 'sat':
                         continue
-                    route = 'pbp' if mode == 'pbp' else (
-                        'dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
-                    result = runner.check_proof(mode, str(cnf), str(proof), 30, route=route)
-                    assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), result
+                    _, route = check_unsat(runner, str(cnf), str(proof), fmt=mode)
                     if route == 'dsr-trestle':
                         work = directory/f'audit-{capture}'
-                        work.mkdir()
-                        audit = check_dsr(runner.DSR_TRIM, runner.DSR_COMPRESS, runner.SR_CHECK,
-                                          cnf, proof, work, 30, every_lemma=True)
-                        assert audit[0], audit
-                    lines = cnf.read_text().splitlines()
-                    header = lines[0].split()
-                    header[3] = str(int(header[3])-1)
+                        audit_dsr(runner, cnf, proof, work)
                     wrong = directory/'missing-core-clause.cnf'
-                    wrong.write_text(' '.join(header)+'\n'+'\n'.join(lines[1:-1])+'\n')
+                    remove_clause(cnf, wrong)
                     result = runner.check_proof(mode, str(wrong), str(proof), 30, route=route)
                     assert not result[0] and result[2] == runner.CHK_REJECTED, result
                     checked += 1

@@ -193,15 +193,8 @@ static void fixture(const std::string &prefix, const std::string &mode) {
   guarded_unsat(h);
   assert(h.assume(1) == InputStatus::Ok);
   assert(h.begin_query() == InputStatus::Ok);
-  FILE *cnf = std::fopen((prefix+".cnf").c_str(), "w");
-  assert(cnf && h.write_query_dimacs(1, cnf));
-  assert(std::fclose(cnf) == 0);
-  std::unique_ptr<Proof> writer;
-  if (mode != "none") {
-    writer = std::make_unique<Proof>();
-    assert(writer->open((prefix+".proof").c_str(), mode == "pbp"
-        ? ProofFormat::PbpStreaming : ProofFormat::DsrAscii));
-  }
+  query_test::export_query(h, prefix);
+  auto writer = query_test::writer(prefix, mode);
   QueryKernel session;
   assert(session.replay(h, std::move(writer)) == ReplayStatus::Ok);
   unsigned polls=0;

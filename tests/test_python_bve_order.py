@@ -1,5 +1,5 @@
 """Native/C/Python mutable BVE ordering, lifetimes and original-input oracles."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import check_model, check_unsat, formula, proof_runner, remove_clause, satisfiable
 from pathlib import Path
 import ctypes as C
 import subprocess
@@ -12,7 +12,6 @@ library = Path(sys.argv[3]) if len(sys.argv) == 4 else None
 UNSAT_CASES = (1, 5)
 sys.path[:0] = [str(root/'python'), str(root/'tools/bench'), str(root/'tests')]
 runner = proof_runner(root, checkers=('VERIPB', 'CAKE_PB_CNF', 'DSR_TRIM', 'DSR_COMPRESS', 'SR_CHECK', 'CAKE_LPR'))
-from proof_oracle import certificate_route
 if library:
     from tactix import BveOrder, Execution, Session, ScriptedCDCL, capi
     lib = capi.load_library(library)
@@ -104,22 +103,15 @@ def verify(prefix, mode):
         n, clauses = formula(cnf)
         assert satisfiable(n, clauses) == (index not in UNSAT_CASES)
         if index not in UNSAT_CASES:
-            model = set(map(int, Path(f'{prefix}-{index}.model').read_text().split()))
-            assert all((v in model) != (-v in model) for v in range(1, n+1))
-            assert all(any(l in model for l in clause) for clause in clauses)
+            check_model(Path(f'{prefix}-{index}.model'), n, clauses)
             models += 1
         if mode == 'none':
             assert not proof.exists()
             continue
         if index not in UNSAT_CASES: continue
-        route = 'pbp' if mode == 'pbp' else ('dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
-        result = runner.check_proof(mode, str(cnf), str(proof), 30, route=route)
-        assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), result
+        _, route = check_unsat(runner, str(cnf), str(proof), fmt=mode)
         wrong = cnf.with_suffix('.wrong.cnf')
-        lines = cnf.read_text().splitlines()
-        header = lines[0].split();header[3] = str(int(header[3])-1)
-        wrong.write_text(' '.join(header)+'\n'+'\n'.join(lines[2:])+'\n')
-        assert satisfiable(n, formula(wrong)[1])
+        remove_clause(cnf, wrong, 0)
         result = runner.check_proof(mode, str(wrong), str(proof), 30, route=route)
         assert not result[0] and result[2] == runner.CHK_REJECTED, result
         checked += 2
@@ -180,10 +172,7 @@ if library:
         second.export(stem)
         cnf, proof = Path(str(stem)+'.cnf'), Path(str(stem)+'.proof')
         assert not satisfiable(*formula(cnf))
-        mode = 'pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-        route = 'pbp' if mode == 'pbp' else ('dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
-        result = runner.check_proof(mode, str(cnf), str(proof), 30, route=route)
-        assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), result
+        check_unsat(runner, str(cnf), str(proof))
         checked += 1
     for order in saved:
         instance, begin = C.c_uint64(1234), C.c_uint32(5678)
@@ -222,10 +211,7 @@ if library:
         stem = Path(tmp)/'query';result.export(stem)
         cnf, proof = Path(str(stem)+'.cnf'), Path(str(stem)+'.proof')
         assert not satisfiable(*formula(cnf))
-        mode = 'pbp' if proof.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-        route = 'pbp' if mode == 'pbp' else ('dsr-cake_lpr' if certificate_route(proof) == 'drat' else 'dsr-trestle')
-        result = runner.check_proof(mode, str(cnf), str(proof), 30, route=route)
-        assert result[:3] == (True, 'VERIFIED', runner.CHK_VERIFIED), result
+        check_unsat(runner, str(cnf), str(proof))
         checked += 1
 
 if library:

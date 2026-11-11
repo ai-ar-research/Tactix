@@ -1,5 +1,5 @@
 """Independent original-query and reduced-core oracles for dedicated C strategies."""
-from proof_test_support import formula, proof_runner, satisfiable
+from proof_test_support import check_unsat, formula, proof_runner, satisfiable
 import hashlib
 import json
 from pathlib import Path
@@ -8,15 +8,11 @@ import sys
 import tempfile
 fixture,root=map(Path,sys.argv[1:])
 runner = proof_runner(root)
-from proof_oracle import certificate_route
 
 def proof(stem):
     cnf,pf=Path(str(stem)+'.cnf'),Path(str(stem)+'.proof')
     n,clauses=formula(cnf);assert not satisfiable(n,clauses)
-    kind='pbp' if pf.read_bytes().startswith(b'pseudo-Boolean') else 'dsr'
-    route='pbp' if kind=='pbp' else 'dsr-cake_lpr' if certificate_route(pf)=='drat' else 'dsr-trestle'
-    checked=runner.check_proof(kind,str(cnf),str(pf),30,route=route)
-    assert checked[:3]==(True,'VERIFIED',runner.CHK_VERIFIED),(stem,checked)
+    check_unsat(runner, str(cnf), str(pf))
 with tempfile.TemporaryDirectory(prefix='ipasir-programmable-proof-') as tmp:
     prefix=Path(tmp)/'q'
     run=subprocess.run([fixture,prefix],capture_output=True,text=True,timeout=60)

@@ -29,19 +29,9 @@ static void eliminate(Kernel &k, int32_t external) {
   heuristics_consume_retirements(k);
 }
 
-static std::unique_ptr<Proof> writer(const std::string &prefix, const std::string &mode) {
-  if (mode == "none") return {};
-  auto proof = std::make_unique<Proof>();
-  assert(proof->open((prefix+".proof").c_str(),
-      mode == "pbp" ? ProofFormat::PbpStreaming : ProofFormat::DsrAscii));
-  return proof;
-}
+using query_test::writer;
 
-static void export_query(QueryHistory &h, const std::string &prefix) {
-  FILE *file = std::fopen((prefix+".cnf").c_str(), "w");
-  assert(file && h.write_query_dimacs(h.active_query()->id, file));
-  assert(std::fclose(file) == 0);
-}
+using query_test::export_query;
 
 static void result(QueryKernel &s, QueryHistory &h, int expected,
                    const std::string &prefix, bool dynamic) {
@@ -51,13 +41,7 @@ static void result(QueryKernel &s, QueryHistory &h, int expected,
   assert(!k.inconsistent);
   if (expected == 10) {
     assert(s.check_model(ticket).status == ModelStatus::Valid);
-    if (!prefix.empty()) {
-      FILE *file = std::fopen((prefix+".model").c_str(), "w");
-      assert(file);
-      for (uint32_t v = 1; v <= h.active_query()->query_variables; ++v)
-        assert(std::fprintf(file, "%d ", k.model_values[internalize(v)] > 0 ? int(v) : -int(v)) > 0);
-      assert(std::fprintf(file, "0\n") > 0 && std::fclose(file) == 0);
-    }
+    query_test::export_model(h, k, prefix);
   }
   assert(s.flush_proof(ticket));
   std::printf("result=%d vars=%u rho=%zu conflicts=%llu decisions=%llu restarts=%llu\n",
@@ -295,6 +279,7 @@ static void unsupported_and_id_capacity() {
     }
     assert(h.finish_query(1, QueryResult::Unknown) == InputStatus::Ok);
     if (kind == 3) clause(h, {-1});
+    if (kind == 0) clause(h, {-3});
     assert(h.begin_query() == InputStatus::Ok);
     const auto rho = k.reconstruction;
     const auto next = k.next_clause_id;
@@ -307,6 +292,11 @@ static void unsupported_and_id_capacity() {
     }
     assert(refused.status == (kind == 2 ? NativeAdvanceStatus::Exhausted : NativeAdvanceStatus::ReplayRequired));
     assert(k.reconstruction == rho && k.next_clause_id == next && k.proof == proof);
+    if (kind == 0) {
+      assert(s.replay(h) == ReplayStatus::Ok);
+      const Kernel &fresh = *s.kernel(s.ticket());
+      assert(fresh.values[internalize(-3)] > 0 && !kernel_is_solver_extension(fresh, 2));
+    }
   }
 }
 

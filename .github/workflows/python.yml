@@ -56,7 +56,7 @@ jobs:
               '-R', '^(python_|symmetry_backend_build_boundary$)'], text=True))
           names = {test['name'] for test in inventory['tests']}
           assert {'python_capi', 'python_extended_resolution', 'python_bve_order', 'python_online_sequence',
-                  'python_policy_parity', 'python_scripted_default_parity',
+                  'python_policy_parity',
                   'python_session', 'python_restart_clock',
                   'symmetry_backend_build_boundary'} <= names, names
           assert f'out of {len(names)}' in log

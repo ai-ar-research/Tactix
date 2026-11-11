@@ -124,7 +124,6 @@ public:
   Kernel *kernel(KernelTicket);
   const Kernel *kernel(KernelTicket) const;
   StructuralActionSessions *execution_services(KernelTicket);
-  std::span<const uint64_t> assumption_input_ids(KernelTicket) const;
   std::span<const int32_t> effective_assumptions(KernelTicket) const;
   ProjectionSnapshot projection_state(KernelTicket) const;
   DerivationSnapshot derivation_state(KernelTicket) const;

@@ -54,16 +54,8 @@ static void scenario(const std::string &name, const std::string &prefix,
     assert(h.begin_query() == InputStatus::Ok);
     const uint64_t id = h.active_query()->id;
     const std::string file = prefix.empty() ? "" : prefix+"-"+std::to_string(id);
-    if (!file.empty()) {
-      FILE *cnf = std::fopen((file+".cnf").c_str(), "w");
-      assert(cnf && h.write_query_dimacs(id, cnf) && std::fclose(cnf) == 0);
-    }
-    std::unique_ptr<Proof> writer;
-    if (mode != "none") {
-      writer = std::make_unique<Proof>();
-      assert(writer->open((file+".proof").c_str(),
-          mode == "pbp" ? ProofFormat::PbpStreaming : ProofFormat::DsrAscii));
-    }
+    query_test::export_query(h, file);
+    auto writer = query_test::writer(file, mode);
     const auto old = s.ticket();
     const auto scores = guidance ? guidance->scores.score : std::vector<double>{};
     const auto phases = guidance ? guidance->saved : std::vector<int8_t>{};
@@ -104,13 +96,7 @@ static void scenario(const std::string &name, const std::string &prefix,
     kernel_check_invariants(*kernel);
     if (expected == 10) {
       assert(s.check_model(s.ticket()).status == ModelStatus::Valid);
-      if (!file.empty()) {
-        FILE *model = std::fopen((file+".model").c_str(), "w");
-        assert(model);
-        for (uint32_t v = 1; v <= h.active_query()->query_variables; ++v)
-          assert(std::fprintf(model, "%d ", kernel->model_values[internalize(v)] > 0 ? int(v) : -int(v)) > 0);
-        assert(std::fprintf(model, "0\n") > 0 && std::fclose(model) == 0);
-      }
+      query_test::export_model(h, *kernel, file);
     }
     assert(s.flush_proof(s.ticket()));
     std::printf("q=%llu result=%d base=%d vars=%u external=%zu rho=%zu appended=%llu created=%llu conflicts=%llu decisions=%llu\n",
