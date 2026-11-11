@@ -2,6 +2,7 @@ name: build
 
 on:
   push:
+    branches: [ main ]
   pull_request:
    branches: [ main ]
   workflow_dispatch:
@@ -90,6 +91,7 @@ jobs:
           -DCMAKE_C_FLAGS_DEBUG=-g1
           -DCMAKE_CXX_FLAGS_DEBUG=-g1
           -DTACTIX_BUILD_TESTS=ON
+          -DTACTIX_BUILD_SHARED_IPASIR=ON
 
       - name: Build unit tests
         run: cmake --build build/ci-tests --parallel 8
@@ -98,3 +100,13 @@ jobs:
         run: >-
           ctest --test-dir build/ci-tests --output-on-failure
           --parallel 8 --timeout 900 --label-exclude extended --no-tests=error
+          --output-junit "${{ github.workspace }}/build/ci-tests/unit-tests.xml"
+
+      - name: Require Python ABI/runtime coverage on this platform
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          cases = [case for case in ET.parse('build/ci-tests/unit-tests.xml').iter('testcase')
+                   if case.get('name') == 'python_capi']
+          assert len(cases) == 1 and cases[0].find('skipped') is None
+          PY
