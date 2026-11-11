@@ -463,6 +463,9 @@ private:
       std::span<const int32_t>, uint32_t extent);
   void observe_named_helper(bool deletion, std::span<const int32_t> clause);
   DerivationObserver *derivation_observer_ = nullptr;
+  bool has_derivation_consumers() const noexcept {
+    return derivation_observer_ || query_certificates_;
+  }
   void observe_derivation(DerivationKind, uint64_t, uint64_t,
                           PopulationClauseView) noexcept;
   // Which stream this object writes is the writer's own business: a rule that

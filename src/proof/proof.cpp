@@ -3928,7 +3928,8 @@ void Proof::observe_derivation(DerivationKind kind, uint64_t id, uint64_t source
 
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size) {
   add_rup_impl(id, lits, size);
-  observe_derivation(DerivationKind::Rup, id, 0, internal_view(lits, size));
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Rup, id, 0, internal_view(lits, size));
   if (dsr_copy_) {
     dsr_copy_->add_rup(id, lits, size);
     settle_dsr_copy();
@@ -3939,7 +3940,8 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size) {
   if (query_certificates_)
     prepare_query_witness(size ? external_variable_of(externalize(checker_lit(lits[0]))) : 0);
   add_rat_impl(id, lits, size);
-  observe_derivation(DerivationKind::Rat, id, 0, internal_view(lits, size));
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Rat, id, 0, internal_view(lits, size));
   if (dsr_copy_) {
     dsr_copy_->add_rat(id, lits, size);
     settle_dsr_copy();
@@ -3989,7 +3991,8 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
 
 void Proof::add_empty(uint64_t id) {
   add_empty_impl(id);
-  observe_derivation(DerivationKind::Rup, id, 0, {});
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Rup, id, 0, {});
   if (dsr_copy_) {
     dsr_copy_->add_empty(id);
     settle_dsr_copy();
@@ -3998,7 +4001,8 @@ void Proof::add_empty(uint64_t id) {
 
 void Proof::add_derived_unit(uint64_t id, Lit unit) {
   add_derived_unit_impl(id, unit);
-  observe_derivation(DerivationKind::Rup, id, 0, internal_view(&unit, 1));
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Rup, id, 0, internal_view(&unit, 1));
   if (dsr_copy_) {
     dsr_copy_->add_derived_unit(id, unit);
     settle_dsr_copy();
@@ -4008,7 +4012,8 @@ void Proof::add_derived_unit(uint64_t id, Lit unit) {
 void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
                 uint32_t size) {
   del_impl(line_id, del_id, lits, size);
-  observe_derivation(DerivationKind::Delete, line_id, del_id, internal_view(lits, size));
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Delete, line_id, del_id, internal_view(lits, size));
   if (dsr_copy_) {
     dsr_copy_->del(line_id, del_id, lits, size);
     settle_dsr_copy();
@@ -4020,7 +4025,7 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_external_rup_impl(id, lits, size);
-  if (written)
+  if (written && has_derivation_consumers())
     observe_derivation(DerivationKind::Rup, id, 0, PopulationClauseView::external_lits(lits, size));
   const ReleaseLazyEvent release{this};
   if (written && dsr_copy_) {
@@ -4044,7 +4049,7 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_external_rat_impl(id, lits, size);
-  if (written)
+  if (written && has_derivation_consumers())
     observe_derivation(DerivationKind::Rat, id, 0, PopulationClauseView::external_lits(lits, size));
   const ReleaseLazyEvent release{this};
   if (written && dsr_copy_ && !tautology) {
@@ -4061,7 +4066,7 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = del_external_impl(line_id, del_id, lits, size);
-  if (written)
+  if (written && has_derivation_consumers())
     observe_derivation(DerivationKind::Delete, line_id, del_id, PopulationClauseView::external_lits(lits, size));
   const ReleaseLazyEvent release{this};
   if (written && dsr_copy_) {
@@ -4125,7 +4130,8 @@ void Proof::release_premise_groups(const std::vector<uint64_t> &handles,
 
 void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
   seed_population_impl(id, lits, size);
-  observe_derivation(DerivationKind::Input, id, 0, internal_view(lits, size));
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Input, id, 0, internal_view(lits, size));
   if (dsr_copy_) {
     dsr_copy_->seed_population(id, lits, size);
     settle_dsr_copy();

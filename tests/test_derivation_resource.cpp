@@ -20,7 +20,7 @@ int main() {
   history.observe(event);
   assert(history.records().size() == 1 && history.snapshot().dropped == 2);
 
-  DerivationHistory mapped(8, 32);
+  DerivationHistory mapped(10, 32);
   mapped.start_query(3);
   std::vector<Var> map = {4,1,8};
   Proof writer;
@@ -48,15 +48,19 @@ int main() {
   assert(writer.del_external(wide+2, wide+1, external, 2));
   writer.add_rat(wide+3, clause, 2);
   writer.seed_population(wide+4, clause, 2);
-  writer.add_empty(wide+5);
-  assert(mapped.records().size() == 8 && mapped.snapshot().literals == 17 && !mapped.snapshot().dropped);
+  writer.add_rup(wide+5, clause, 2);
+  writer.add_derived_unit(wide+6, clause[0]);
+  writer.add_empty(wide+7);
+  assert(mapped.records().size() == 10 && mapped.snapshot().literals == 20 && !mapped.snapshot().dropped);
   assert(mapped.records()[2].kind == DerivationKind::Rup && mapped.records()[2].id == wide);
   assert(mapped.records()[2].clause == saved.clause);
   assert(mapped.records()[3].kind == DerivationKind::Rat);
   assert(mapped.records()[4].kind == DerivationKind::Delete && mapped.records()[4].source_id == wide+1);
   assert(mapped.records()[5].kind == DerivationKind::Rat);
   assert(mapped.records()[6].kind == DerivationKind::Input);
-  assert(mapped.records()[7].kind == DerivationKind::Rup && mapped.records()[7].clause.empty());
+  assert(mapped.records()[7].kind == DerivationKind::Rup && mapped.records()[7].id == wide+5 && mapped.records()[7].clause == saved.clause);
+  assert(mapped.records()[8].kind == DerivationKind::Rup && mapped.records()[8].id == wide+6 && mapped.records()[8].clause == std::vector<int32_t>({5}));
+  assert(mapped.records()[9].kind == DerivationKind::Rup && mapped.records()[9].clause.empty());
 
   std::vector<PbpParityEquation> rows{{{1,2,3},false},{{1,2,4},false}};
   DerivationEvent parity;
