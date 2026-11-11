@@ -11,7 +11,8 @@ semantic versioning; the public C API remains source-compatible within the
 - Experimental Python bindings and programmable strategies, including CRUX,
   Chvátal, public ER regions, and reusable strategy tools.
 - `tactix-default` implements the default strategy in C and replaces `tactix-public`.
-- Automatic DSR/PBP proofs, with explicit `--dsr` and `--pbp` modes.
+- Default proofs use automatic DSR-first routing (`--auto-proof`); `--dsr` and
+  `--pbp` select explicit modes.
 - **Breaking:** DRAT/LRAT output is removed; `--drat`, `--lrat` and C proof-format
   values 0–2 are rejected. Witness-free DSR remains convertible to DRAT for checking.
 - Reduced proof/journal overhead and fixes to RAT checking, variable elimination,
