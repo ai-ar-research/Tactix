@@ -75,7 +75,7 @@ jobs:
           fi
       - name: Install sanitizer compiler
         if: matrix.mode == 'debug'
-        run: sudo apt-get install --yes clang-18 llvm-18 libclang-rt-18-dev
+        run: sudo apt-get update && sudo apt-get install --yes clang-18 llvm-18 libclang-rt-18-dev
       - name: Build baseline solvers (kissat, cadical — pinned)
         run: tools/solvers/setup.sh
       - name: Build checker toolchain (clausal + VeriPB/CakePB — pinned)
