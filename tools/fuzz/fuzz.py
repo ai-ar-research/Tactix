@@ -33,6 +33,7 @@ import concurrent.futures
 import hashlib
 import json
 import os
+import random
 import re
 import resource
 import shlex
@@ -604,15 +605,15 @@ def rule_reachability(stdout):
     return True, counts, seen
 
 
-# A leg's solver command may carry `{seed}` where the public qualification
-# client's `--random-policy={seed}` belongs. `run` fills in each case's own
-# seed; the single-CNF entry points below pin CORPUS_SEED so a replay is
-# reproducible.
+# Resolve policy seed and a domain-separated proof-mode draw per case.
+# Bundles/shrinking retain the resolved command; single-CNF replay uses CORPUS_SEED.
 CORPUS_SEED = 1
 
 
 def substitute_seed(cmd, seed):
-    return [a.replace("{seed}", str(seed)) for a in cmd]
+    mode = random.Random(f"tactix-proof:{seed}").choice(
+        ("--dsr", "--pbp", "--auto-proof"))
+    return [a.replace("{seed}", str(seed)).replace("{proof}", mode) for a in cmd]
 
 
 def substitute_workdir(cmd, workdir):
