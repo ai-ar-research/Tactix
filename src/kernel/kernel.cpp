@@ -594,66 +594,30 @@ static bool retire_binary_root_reasons(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
-// Which of the identical physical copies of one binary a compaction drops,
-// counted in list order.
-enum class BinaryCopies { First, AllButFirst, All };
-
-static bool drops_binary_copy(BinaryCopies which, uint32_t index) {
-  switch (which) {
-  case BinaryCopies::First:
-    return index == 0;
-  case BinaryCopies::AllButFirst:
-    return index > 0;
-  case BinaryCopies::All:
-    break;
-  }
-  return true;
-}
-
-// Drops the selected copies of binary (x, other) from x's watch list,
-// preserving survivor order; x watches exactly `copies` copies.
-static void drop_watched_binary_copies(Kernel &k, Lit x, Lit other,
-                                       BinaryCopies which,
-                                       [[maybe_unused]] uint32_t copies) {
-  uint32_t seen = 0;
-  k.watches.compact(x, [&](WatchEntry w) {
-    return !w.binary() || w.other() != other ||
-           !drops_binary_copy(which, seen++);
-  });
-  assert(seen == copies);
-}
-
-// The same for x's ordered occurrences in mixed dense mode.
-static void drop_ordered_binary_copies(Kernel &k, Lit x, Lit other,
-                                       BinaryCopies which,
-                                       [[maybe_unused]] uint32_t copies) {
-  if (!k.dense || !k.dense->track_order)
-    return;
-  uint32_t seen = 0;
-  k.dense->ordered.compact(x, [&](OccIndex::Entry entry) {
-    return !entry.binary || entry.payload != other ||
-           !drops_binary_copy(which, seen++);
-  });
-  assert(seen == copies);
-}
-
-// Drops the selected copies of binary (a, b) from both mirror watch lists and
-// the dense traversal.
-static void drop_binary_copies(Kernel &k, Lit a, Lit b, BinaryCopies which,
-                               uint32_t copies) {
+// Removes one physical copy from both mirror lists (and the dense traversal),
+// preserving survivor order, and retires its two BVE occurrence counts.
+static void remove_one_binary_watch_pair(Kernel &k, Lit a, Lit b) {
   for (const Lit x : {a, b}) {
     const Lit other = x == a ? b : a;
-    drop_watched_binary_copies(k, x, other, which, copies);
-    drop_ordered_binary_copies(k, x, other, which, copies);
+    bool removed = false;
+    k.watches.compact(x, [&](WatchEntry w) {
+      if (removed || !w.binary() || w.other() != other)
+        return true;
+      removed = true;
+      return false;
+    });
+    assert(removed);
+    if (k.dense && k.dense->track_order) {
+      const auto ordered = k.dense->ordered[x];
+      const auto at = std::find_if(ordered.begin(), ordered.end(),
+                                   [other](const OccIndex::Entry &entry) {
+                                     return entry.binary &&
+                                            entry.payload == other;
+                                   });
+      assert(at != ordered.end());
+      k.dense->ordered.erase_at(x, static_cast<size_t>(at - ordered.begin()));
+    }
   }
-}
-
-// Removes the first of `copies` physical copies from both mirror lists (and
-// the dense traversal), preserving survivor order, and retires its two BVE
-// occurrence counts.
-static void remove_one_binary_watch_pair(Kernel &k, Lit a, Lit b,
-                                         uint32_t copies) {
-  drop_binary_copies(k, a, b, BinaryCopies::First, copies);
   kernel_bve_occurrence_remove(k, a);
   kernel_bve_occurrence_remove(k, b);
 }
@@ -678,7 +642,7 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   if (!retire_binary_root_reasons(k, a, b))
     return false;
   // (3) Remove the mirror watch entries by in-place compaction.
-  remove_one_binary_watch_pair(k, a, b, 1);
+  remove_one_binary_watch_pair(k, a, b);
   if (k.binary_liveness)
     k.binary_liveness->remove(kernel_binary_key(a, b));
   // (4) proof delete (chain-free; deletions do not consume an id).
@@ -703,7 +667,7 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
     return copies && kernel_delete_binary(k, a, b);
   // An identical clause remains, so reasons and the retained proof id stay
   // valid; remove one slot per mirror, preserving survivor order (Kissat).
-  remove_one_binary_watch_pair(k, a, b, copies);
+  remove_one_binary_watch_pair(k, a, b);
   // DSR and streaming PBP track every physical copy.
   if (k.proof && !k.proof->startup_pb_written()) {
     const Lit clause[2] = {a, b};
@@ -738,7 +702,38 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
   const uint32_t removed_copies = copies - 1;
   // forward.c compacts each directed watch vector in place keeping the first
   // occurrence; one-at-a-time deletion would keep the last.
-  drop_binary_copies(k, a, b, BinaryCopies::AllButFirst, copies);
+  for (const Lit x : {a, b}) {
+    const Lit other = x == a ? b : a;
+    bool kept = false;
+    uint32_t removed = 0;
+    k.watches.compact(x, [&](WatchEntry w) {
+      if (!w.binary() || w.other() != other)
+        return true;
+      if (!kept) {
+        kept = true;
+        return true;
+      }
+      removed++;
+      return false;
+    });
+    assert(kept && removed == removed_copies);
+    if (k.dense && k.dense->track_order) {
+      bool retained = false;
+      uint32_t retired = 0;
+      k.dense->ordered.compact(x, [&](OccIndex::Entry entry) {
+        if (entry.binary && entry.payload == other) {
+          if (!retained) {
+            retained = true;
+          } else {
+            retired++;
+            return false;
+          }
+        }
+        return true;
+      });
+      assert(retained && retired == removed_copies);
+    }
+  }
   kernel_bve_occurrence_remove(k, a, removed_copies);
   kernel_bve_occurrence_remove(k, b, removed_copies);
   // One deletion per retired copy, named by literals (Kissat).
@@ -789,9 +784,21 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
       k.watches.resize_live(x, head.size - 1);
       head.set_layout(head.size, true);
     } else {
-      drop_watched_binary_copies(k, x, other, BinaryCopies::All, copies);
+      k.watches.compact(x, [&](WatchEntry w) { // drop every matching copy
+        return !(w.binary() && w.other() == other);
+      });
     }
-    drop_ordered_binary_copies(k, x, other, BinaryCopies::All, copies);
+    if (k.dense && k.dense->track_order) {
+      uint32_t retired = 0;
+      k.dense->ordered.compact(x, [&](OccIndex::Entry entry) {
+        if (entry.binary && entry.payload == other) {
+          retired++;
+          return false;
+        }
+        return true;
+      });
+      assert(retired == copies);
+    }
   }
   kernel_bve_occurrence_remove(k, a, copies);
   kernel_bve_occurrence_remove(k, b, copies);
