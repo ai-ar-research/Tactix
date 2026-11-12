@@ -7,9 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ------------------------------------------------------------------------ */
-/* DefaultInprocessScheduler: the Probe and Eliminate phases.               */
-
 /* install_parameters: the configured profiles, and BVE's scheduler-owned
  * limits over the installed caller profile. */
 static void install_inprocess_profiles(strategy *t) {
@@ -48,8 +45,7 @@ static void install_inprocess_profiles(strategy *t) {
   ds_install(t, bve_rule, &bve);
 }
 
-/* ------------------------------------------------------------------------ */
-/* Effort meters and productivity delays (DefaultPolicy's own tables).      */
+/* Effort meters and productivity delays (DefaultPolicy's own tables). */
 
 static uint64_t meter(const strategy *t, const slot_entry *e) { return tactix_strategy_meter(t->s, e->rule); }
 
@@ -110,8 +106,7 @@ static uint32_t external_extent(strategy *t) {
   return (uint32_t)observe(t, TACTIX_OBSERVE_EXTERNAL_VARIABLES);
 }
 
-/* ------------------------------------------------------------------------ */
-/* Scoped session settings around one slot application.                     */
+/* Scoped session settings around one slot application. */
 
 /* A work-settings scope (WorkSettingsScope): install `request`, then restore
  * the named fields, clearing budget/offset/bounded when `clear`. */
@@ -177,28 +172,15 @@ static int online_step(strategy *t, int rule, const tactix_online_parameters *pa
                        int *complete) {
   tactix_work_settings work;
   tactix_read_work_settings(t->s, &work);
-  const int bounded = work.bounded || work.budget;
-  tactix_online_step_v2 step;
-  memset(&step, 0, sizeof step);
-  step.base.step_id = 1;
-  step.base.rule_id = rule;
-  step.base.parameters = *parameters;
-  step.base.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  step.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.base.repeat_limit = 1;
-  step.base.rule_budget_mode = bounded ? TACTIX_ONLINE_RULE_BUDGET_BOUNDED
-                                       : TACTIX_ONLINE_RULE_BUDGET_UNLIMITED;
+  tactix_online_step_v2 step = ds_online_step(rule, parameters);
+  step.base.rule_budget_mode = work.bounded || work.budget ? TACTIX_ONLINE_RULE_BUDGET_BOUNDED
+                                                           : TACTIX_ONLINE_RULE_BUDGET_UNLIMITED;
   step.base.rule_budget = work.budget;
   step.base.touch_filter_mode = setting_mode(tactix_config(t->s, TACTIX_CFG_TOUCH_FILTER));
   step.base.likely_kept_redundant_mode =
       setting_mode(tactix_config(t->s, TACTIX_CFG_LIKELY_KEPT_REDUNDANT));
-  step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.base.budget_unlimited = 1;
-  const tactix_online_program_v2 program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   tactix_online_result result;
-  if (tactix_online_configure_v2(t->s, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) ||
-      tactix_online_advance(t->s, &result))
-    return ds_unported(t, "refused online slot step");
+  if (ds_online_run(t, &step, &result)) return ds_unported(t, "refused online slot step");
   if (complete) *complete = result.selection_complete;
   return apply_code(result.rule_result);
 }
@@ -230,8 +212,7 @@ static int substitute_rounds(strategy *t, const slot_entry *e, uint32_t rounds, 
   return code;
 }
 
-/* ------------------------------------------------------------------------ */
-/* The slot program.                                                         */
+/* The slot program. */
 
 static void add_entry(strategy *t, const tactix_strategy_step *step) {
   const settings *c = &t->set;
@@ -244,7 +225,6 @@ static void add_entry(strategy *t, const tactix_strategy_step *step) {
                !(!c->inprocess.vivify_enabled && !strcmp(n, "Vivify")) &&
                !(!c->inprocess.factor_enabled && !strcmp(n, "Factor")) &&
                !(!c->inprocess.sweep_enabled && !strcmp(n, "Sweep"));
-  e->step_id = step->id;
   e->defer_preprocess = !strcmp(n, "BVE");
   /* Kissat transitive.c's activity-sorted stack; BVE's score heap. */
   e->order = !strcmp(n, "TransitiveReduce") || !strcmp(n, "BVE") ? TACTIX_CANDIDATE_ORDER_HEURISTIC
@@ -434,6 +414,11 @@ static int scoped_family(int kind) {
   }
 }
 
+static uint64_t vivify_produced(const strategy *t) {
+  return *t->meters.vivify_subsumed + *t->meters.vivify_shrunken + *t->meters.vivify_implied +
+         *t->meters.vivify_asymmetric + *t->meters.vivify_instantiated;
+}
+
 /* run_vivify_dose: Kissat vivify.c's one cumulative tick ceiling across the
  * tier bands, then the irredundant band unless its delay holds. */
 static int run_vivify_dose(strategy *t, slot_entry *e, uint64_t limit) {
@@ -459,7 +444,7 @@ static int run_vivify_dose(strategy *t, slot_entry *e, uint64_t limit) {
   /* Equal focused tiers leave tier 2 empty: Kissat hands its share to tier 1. */
   const uint32_t mode = (uint32_t)c->inprocess.vivify_tier_mode;
   const uint32_t tier1 = t->retier.tier1_by_mode[mode];
-  const uint32_t tier2 = t->retier.tier2_by_mode[mode] > tier1 ? t->retier.tier2_by_mode[mode] : tier1;
+  const uint32_t tier2 = (uint32_t)max_u64(t->retier.tier2_by_mode[mode], tier1);
   if (tier1 == tier2 && shares[0] && shares[1]) {
     shares[0] += shares[1];
     shares[1] = 0;
@@ -477,9 +462,7 @@ static int run_vivify_dose(strategy *t, slot_entry *e, uint64_t limit) {
       scope_id = 2; /* the irredundant band */
     }
     const uint64_t tried = *t->meters.vivify_checked;
-    const uint64_t produced = *t->meters.vivify_subsumed + *t->meters.vivify_shrunken +
-                              *t->meters.vivify_implied + *t->meters.vivify_asymmetric +
-                              *t->meters.vivify_instantiated;
+    const uint64_t produced = vivify_produced(t);
     tactix_set_vivify_scope(t->s, (int)scope_id);
     tactix_work_settings band_work;
     memset(&band_work, 0, sizeof band_work);
@@ -499,9 +482,7 @@ static int run_vivify_dose(strategy *t, slot_entry *e, uint64_t limit) {
       /* Kissat counts every successful candidate terminal as vivified. */
       if (*t->conflicts) {
         const uint64_t tried_now = *t->meters.vivify_checked - tried;
-        const uint64_t produced_now = *t->meters.vivify_subsumed + *t->meters.vivify_shrunken +
-                                      *t->meters.vivify_implied + *t->meters.vivify_asymmetric +
-                                      *t->meters.vivify_instantiated - produced;
+        const uint64_t produced_now = vivify_produced(t) - produced;
         update_delay(e, !tried_now || (wide)produced_now * PERCENT <
                                           (wide)tried_now *
                                               c->inprocess.vivify_irredundant_productivity_percent);
@@ -830,6 +811,22 @@ static void order_candidates(strategy *t, slot_entry *e, uint64_t *instances, ui
   (void)ds_unported(t, "candidate order arm");
 }
 
+/* A literal buffer holding at least `size` entries. */
+static int *reserve_literals(int *literals, int *capacity, int size) {
+  if (size <= *capacity) return literals;
+  *capacity = size;
+  literals = realloc(literals, (size_t)size * sizeof *literals);
+  if (!literals) abort();
+  return literals;
+}
+
+static int read_clause(strategy *t, uint64_t clause, int **literals, int *capacity, unsigned *flags) {
+  const int size = tactix_clause(t->s, clause, *literals, *capacity, flags);
+  if (size <= *capacity) return size;
+  *literals = reserve_literals(*literals, capacity, size);
+  return tactix_clause(t->s, clause, *literals, *capacity, flags);
+}
+
 /* fastel_flush_occurrences: SC2024 fastel's occurrence flush of `literal` in
  * the ordered session, each untouched large clause checked once for forward
  * subsumption, its inspected prefix compacted; the occurrences counted,
@@ -855,13 +852,7 @@ static uint64_t fastel_flush(strategy *t, int literal, uint32_t occurrence_limit
       }
     } else {
       unsigned flags;
-      int size = tactix_clause(t->s, entry->clause, literals, capacity, &flags);
-      if (size > capacity) {
-        capacity = size;
-        literals = realloc(literals, (size_t)capacity * sizeof *literals);
-        if (!literals) abort();
-        size = tactix_clause(t->s, entry->clause, literals, capacity, &flags);
-      }
+      const int size = read_clause(t, entry->clause, &literals, &capacity, &flags);
       int contains = 0;
       for (int j = 0; j < size; ++j) contains |= literals[j] == literal;
       if ((flags & TACTIX_CLAUSE_GARBAGE) || !contains) {
@@ -1167,9 +1158,7 @@ void ds_inprocess_build(strategy *t) {
 void ds_update_phase_limit(strategy *t, int group) {
   const settings *c = &t->set;
   const int split = (int)c->inprocess.split_clocks;
-  uint64_t n = split ? t->clocks[group].rounds
-               : t->clocks[PROBE].rounds > t->clocks[ELIMINATE].rounds ? t->clocks[PROBE].rounds
-                                                                      : t->clocks[ELIMINATE].rounds;
+  uint64_t n = split ? t->clocks[group].rounds : max_u64(t->clocks[PROBE].rounds, t->clocks[ELIMINATE].rounds);
   if (!n) n = 1;
   const double lg = log10((double)n + c->inprocess.logarithm_offset);
   const double base = split && group == PROBE
@@ -1196,11 +1185,7 @@ int ds_want_phase(strategy *t, int group) {
                       : *t->bve_marks <= clock->marks_mark &&
                             stat(t, TACTIX_STAT_ROOT_FIXED) <= clock->fixed_mark &&
                             observe(t, TACTIX_OBSERVE_SUBSUME_MATERIAL) <= clock->material_mark);
-  if (gated) {
-    clock->blocked = 1;
-    return 0;
-  }
-  return 1;
+  return !gated;
 }
 
 /* run_structured_root: the startup SR program, once, before the first
@@ -1216,10 +1201,8 @@ static int structured_stages(strategy *t, int list) {
       (!large || c->inprocess.structured_root_large_domain_progress_feedback)) {
     const uint64_t scale = c->inprocess.structured_root_progress_ticks_per_variable;
     const uint64_t variables = observe(t, TACTIX_OBSERVE_VARIABLES);
-    const uint64_t per_variable = scale && variables > UINT64_MAX / scale ? UINT64_MAX : scale * variables;
-    window = c->inprocess.structured_root_progress_minimum_ticks > per_variable
-                 ? c->inprocess.structured_root_progress_minimum_ticks
-                 : per_variable;
+    window = max_u64(c->inprocess.structured_root_progress_minimum_ticks,
+                     saturated_product(scale, variables));
   }
   uint64_t granted = hard;
   if (window && (unlimited || hard > window)) granted = window;
@@ -1242,15 +1225,11 @@ static int structured_stages(strategy *t, int list) {
       tactix_stage_advance(t->s, window, hard, &advanced);
       effective += advanced.made_rule_progress;
       /* Progress (and a required discovery entry) earns the window again. */
-      uint64_t units = advanced.discovery_progress_units > UINT64_MAX - (uint64_t)advanced.made_rule_progress
-                           ? UINT64_MAX
-                           : advanced.discovery_progress_units + (uint64_t)advanced.made_rule_progress;
+      uint64_t units = saturated_sum(advanced.discovery_progress_units, (uint64_t)advanced.made_rule_progress);
       if (advanced.discovery_entry_required && units != UINT64_MAX) ++units;
       if (window && units && !observe(t, TACTIX_OBSERVE_SR_DISCOVERY_OVERFLOW)) {
         const uint64_t consumed = observe(t, TACTIX_OBSERVE_SR_DISCOVERY_CONSUMED);
-        const uint64_t base = granted > consumed ? granted : consumed;
-        const uint64_t credit = window > UINT64_MAX / units ? UINT64_MAX : window * units;
-        uint64_t renewed = credit > UINT64_MAX - base ? UINT64_MAX : base + credit;
+        uint64_t renewed = saturated_sum(max_u64(granted, consumed), saturated_product(units, window));
         if (!unlimited && renewed > hard) renewed = hard;
         if (renewed > granted) {
           granted = renewed;
@@ -1344,13 +1323,7 @@ static uint64_t fastel_extension_candidates(strategy *t, const tactix_online_bve
     for (uint64_t clause = tactix_clause_after(t->s, UINT64_MAX); clause != UINT64_MAX;
          clause = tactix_clause_after(t->s, clause)) {
       unsigned flags;
-      int size = tactix_clause(t->s, clause, literals, capacity, &flags);
-      if (size > capacity) {
-        capacity = size;
-        literals = realloc(literals, (size_t)capacity * sizeof *literals);
-        if (!literals) abort();
-        size = tactix_clause(t->s, clause, literals, capacity, &flags);
-      }
+      const int size = read_clause(t, clause, &literals, &capacity, &flags);
       if (flags & (TACTIX_CLAUSE_GARBAGE | TACTIX_CLAUSE_REDUNDANT)) continue;
       const int oversized = (uint64_t)size > p->clause_size_limit;
       if (!oversized && (flags & TACTIX_CLAUSE_SATISFIED)) continue;
@@ -1370,11 +1343,7 @@ static uint64_t fastel_extension_candidates(strategy *t, const tactix_online_bve
       for (int sign = 0; sign < 2; ++sign) {
         const int literal = sign ? -(int)variable : (int)variable;
         const int n = tactix_binary_partners(t->s, literal, NULL, 0);
-        if (n > capacity) {
-          capacity = n;
-          literals = realloc(literals, (size_t)capacity * sizeof *literals);
-          if (!literals) abort();
-        }
+        literals = reserve_literals(literals, &capacity, n);
         tactix_binary_partners(t->s, literal, literals, n);
         int kept = 0;
         for (int j = 0; j < n; ++j) {
@@ -1406,7 +1375,6 @@ int ds_run_phase(strategy *t, int group) {
   clock->reductions_mark = *t->reductions;
   clock->marks_mark = *t->bve_marks;
   clock->fixed_mark = stat(t, TACTIX_STAT_ROOT_FIXED);
-  clock->blocked = 0;
   /* One embedded Kitten per complete eliminate() invocation. */
   if (group == ELIMINATE && !t->fastel_active)
     support(t, TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION, 0);

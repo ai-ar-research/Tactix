@@ -18,9 +18,8 @@ uint64_t ds_scale_inprocessing_delta(strategy *t, uint64_t delta) {
                     (double)delta);
 }
 
-/* ------------------------------------------------------------------------ */
-/* DefaultRestartControl, DefaultModeControl, DefaultDatabaseControl and    */
-/* DefaultPhaseControl (default_restart.hpp, default_periodic.hpp).         */
+/* DefaultRestartControl, DefaultModeControl, DefaultDatabaseControl and
+ * DefaultPhaseControl (default_restart.hpp, default_periodic.hpp). */
 
 static void smooth_init(smooth *s, double window) {
   s->alpha = 1.0 / window;
@@ -165,11 +164,10 @@ static void update_reorder_limit(strategy *t) {
   t->reorder.next_conflicts = *t->conflicts + t->set.reorder.interval * t->reorder.count;
 }
 
-/* ------------------------------------------------------------------------ */
-/* DefaultBranching: Kissat's random decision sequences and the focused     */
-/* phase rotation over H's ranking.                                          */
+/* DefaultBranching: Kissat's random decision sequences and the focused
+ * phase rotation over H's ranking. */
 
-/* Kissat random.h's 64-bit LCG (the generator, not a strategy setting). */
+/* Kissat random.h's 64-bit LCG constants. */
 #define RANDEC_MULTIPLIER UINT64_C(6364136223846793005)
 #define RANDEC_INCREMENT UINT64_C(1442695040888963407)
 
@@ -225,8 +223,7 @@ static int pick(strategy *t, int restart_reuse) {
   return decide_literal(t, tactix_branch_next(t->s));
 }
 
-/* ------------------------------------------------------------------------ */
-/* Profiles.                                                                 */
+/* Profiles. */
 
 tactix_online_parameters ds_read_profile(strategy *t, int rule_id, int kind, int source) {
   tactix_online_parameters profile;
@@ -257,9 +254,7 @@ static void pose_tiers(strategy *t, uint64_t tier1_mode, uint64_t tier2_mode) {
   tactix_online_parameters reduce =
       ds_read_profile(t, t->reduce_rule, TACTIX_ONLINE_PARAMETERS_REDUCE, TACTIX_PARAMETERS_INSTALLED);
   reduce.value.reduce.tier1 = t->retier.tier1_by_mode[tier1_mode];
-  reduce.value.reduce.tier2 = t->retier.tier2_by_mode[tier2_mode] > reduce.value.reduce.tier1
-                                  ? t->retier.tier2_by_mode[tier2_mode]
-                                  : reduce.value.reduce.tier1;
+  reduce.value.reduce.tier2 = (uint32_t)max_u64(t->retier.tier2_by_mode[tier2_mode], reduce.value.reduce.tier1);
   ds_install(t, t->reduce_rule, &reduce);
 }
 
@@ -280,9 +275,7 @@ static void retier_current_mode(strategy *t) {
   for (uint32_t g = 0; g < length; ++g) total += tactix_counter(t->s, t->used_glue, mode * length + g);
   if (!total) {
     t->retier.tier1_by_mode[mode] = t->retier.tier1_default;
-    t->retier.tier2_by_mode[mode] = t->retier.tier2_default > t->retier.tier1_default
-                                        ? t->retier.tier2_default
-                                        : t->retier.tier1_default;
+    t->retier.tier2_by_mode[mode] = (uint32_t)max_u64(t->retier.tier2_default, t->retier.tier1_default);
     return;
   }
   const uint64_t lim1 = total * t->retier.tier1_relative_permille / PERMILLE;
@@ -322,8 +315,7 @@ void ds_update_formula_classification(strategy *t) {
   ds_install(t, t->conflict_analysis, &t->analysis_profile);
 }
 
-/* ------------------------------------------------------------------------ */
-/* Actions.                                                                  */
+/* Actions. */
 
 /* default_propagate. The public guard refuses a propagation fixpoint, where
  * the native service still consumes the root-prefix marker at level zero. */
@@ -511,28 +503,37 @@ static int prepare_rephase_root(strategy *t) {
 static uint64_t ds_walk_effort_reference(strategy *t) {
   const uint64_t now = *t->search_ticks, anchor = t->clocks[ELIMINATE].anchor;
   const uint64_t reference = now >= anchor ? now - anchor : 0;
-  return reference < t->set.inprocess.minimum_effort_ticks ? t->set.inprocess.minimum_effort_ticks
-                                                           : reference;
+  return max_u64(reference, t->set.inprocess.minimum_effort_ticks);
 }
 
-/* One online Walk step under `walk` (the installed profile with this
- * application's budget and seed). */
-static void walk(strategy *t, tactix_online_parameters walk) {
+/* A one-application online step of `rule` under `parameters`. */
+tactix_online_step_v2 ds_online_step(int rule, const tactix_online_parameters *parameters) {
   tactix_online_step_v2 step;
   memset(&step, 0, sizeof step);
   step.base.step_id = 1;
-  step.base.rule_id = t->walk;
-  step.base.parameters = walk;
+  step.base.rule_id = rule;
+  step.base.parameters = *parameters;
   step.base.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
   step.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
   step.base.repeat_limit = 1;
   step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
   step.base.budget_unlimited = 1;
-  const tactix_online_program_v2 program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  return step;
+}
+
+/* Run `step` as the whole online program: nonzero when the session refuses. */
+int ds_online_run(strategy *t, const tactix_online_step_v2 *step, tactix_online_result *result) {
+  const tactix_online_program_v2 program = {step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  return tactix_online_configure_v2(t->s, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) ||
+         tactix_online_advance(t->s, result);
+}
+
+/* One online Walk step under `walk` (the installed profile with this
+ * application's budget and seed). */
+static void walk(strategy *t, tactix_online_parameters walk) {
+  const tactix_online_step_v2 step = ds_online_step(t->walk, &walk);
   tactix_online_result result;
-  if (tactix_online_configure_v2(t->s, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET) ||
-      tactix_online_advance(t->s, &result))
-    (void)ds_unported(t, "refused Walk step");
+  if (ds_online_run(t, &step, &result)) (void)ds_unported(t, "refused Walk step");
 }
 
 static tactix_online_parameters walk_profile(strategy *t, uint64_t allowance, uint64_t seed) {
@@ -580,9 +581,7 @@ static int configuration_checking_walk(strategy *t) {
   if (prepare_rephase_root(t) == UNSAT) return UNSAT;
   const uint64_t scaled =
       scale_permille(ds_walk_effort_reference(t), c->rephase.configuration_checking_walk_permille);
-  const uint64_t allowance = scaled > c->rephase.configuration_checking_minimum_step_budget
-                                 ? scaled
-                                 : c->rephase.configuration_checking_minimum_step_budget;
+  const uint64_t allowance = max_u64(scaled, c->rephase.configuration_checking_minimum_step_budget);
   tactix_online_parameters profile =
       walk_profile(t, allowance, c->rephase.configuration_checking_random_seed);
   tactix_online_walk_parameters *w = &profile.value.walk;
@@ -606,8 +605,7 @@ static int configuration_checking_walk(strategy *t) {
   return OK;
 }
 
-/* ------------------------------------------------------------------------ */
-/* Search.                                                                   */
+/* Search. */
 
 int ds_search(strategy *t) {
   const settings *c = &t->set;
@@ -662,16 +660,14 @@ int ds_search(strategy *t) {
       if (rephase(t) == UNSAT) return UNSAT;
       continue;
     }
-    int verdict;
-    if (!t->cc_deferred && ds_want_phase(t, PROBE)) {
+    const int group = t->cc_deferred               ? -1
+                      : ds_want_phase(t, PROBE)     ? PROBE
+                      : ds_want_phase(t, ELIMINATE) ? ELIMINATE
+                                                    : -1;
+    if (group >= 0) {
       ds_end_search_interval(t);
-      if ((verdict = ds_run_phase(t, PROBE))) return verdict;
-      ds_update_formula_classification(t);
-      continue;
-    }
-    if (!t->cc_deferred && ds_want_phase(t, ELIMINATE)) {
-      ds_end_search_interval(t);
-      if ((verdict = ds_run_phase(t, ELIMINATE))) return verdict;
+      const int verdict = ds_run_phase(t, group);
+      if (verdict) return verdict;
       ds_update_formula_classification(t);
       continue;
     }

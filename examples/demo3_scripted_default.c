@@ -1,16 +1,13 @@
 /* Demo 3 drives restart, reduction, mode changes, rephasing and Lucky through
- * the shared public C search scheduler. See examples/default_strategy/ for
- * the complete default strategy. */
+ * the shared public C search scheduler; examples/default_strategy/ is the
+ * complete default strategy. */
 #undef NDEBUG
 #include "tactix.h"
+#include "tactix_scripted_default.h"
 
 #include <assert.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-
-#include "tactix_scripted_default.h"
 
 static int scripted_solve(tactix *s) {
   tactix_scripted_default program;
@@ -49,15 +46,8 @@ static void add_random3sat(tactix *s, int nvars, int nclauses,
   }
 }
 
-static const int STATS[] = {
-    TACTIX_STAT_CONFLICTS, TACTIX_STAT_DECISIONS, TACTIX_STAT_PROPAGATIONS,
-    TACTIX_STAT_LEARNED,   TACTIX_STAT_RESTARTS,  TACTIX_STAT_REDUCTIONS,
-    TACTIX_STAT_SWITCHES,  TACTIX_STAT_TICKS};
-#define NSTATS (int)(sizeof(STATS) / sizeof(STATS[0]))
-
 int main(int argc, char **argv) {
-  /* Lucky can refute a formula as well as find a model. Ignoring its UNSAT
-   * result used to fall through to the unassigned-variable SAT shortcut. */
+  /* Lucky can refute a formula as well as find a model. */
   for (int guidance = TACTIX_GUIDANCE_DISCARD;
        guidance <= TACTIX_GUIDANCE_NATIVE; ++guidance) {
     tactix *s = tactix_init();
@@ -69,15 +59,10 @@ int main(int argc, char **argv) {
     assert(scripted_solve(s) == 20);
     tactix_release(s);
   }
-  /* Pinned formula: every schedule component fires on BOTH runs (first mode
-   * switch at 1000 conflicts, first reduce at REDUCE_INTERVAL_INIT = 2000,
-   * restart floor 50) while the stepped side remains practical under the
-   * per-application invariant checker of Debug builds.  The earlier seed
-   * drove the external schedule through about 75,000 conflicts and made this
-   * conformance test take tens of minutes without covering another API state.
-   * This seed retains every asserted schedule transition with about 4,000
-   * external conflicts.  A trajectory that loses one remains a test failure.
-   * argv overrides for exploration: demo3 [N M SEED] */
+  /* Pinned formula: every schedule component fires on both runs (first mode
+   * switch at 1000 conflicts, first reduce at 2000, restart floor 50) within
+   * about 4,000 external conflicts, practical under the per-application
+   * invariant checker of Debug builds. argv overrides: demo3 [N M SEED] */
   int N = 140, M = 596; /* m/n = 4.26 */
   uint64_t SEED = 75;
   if (argc == 4) {
@@ -96,9 +81,8 @@ int main(int argc, char **argv) {
   const int got = scripted_solve(scripted);
   assert(got == expect);
 
-  /* This search-only fixture checks the verdict and effective scheduler
-   * coverage below. Full native/public-policy trajectory and certificate
-   * equality belongs to the separate DefaultPolicy correspondence gate. */
+  /* The verdict and scheduler coverage; trajectory and certificate equality
+   * belong to the DefaultPolicy correspondence test. */
   printf("demo3: verdict %d — builtin{confl %llu rst %llu red %llu sw %llu rp %llu}"
          "  scripted{confl %llu rst %llu red %llu sw %llu rp %llu}\n",
          expect,
@@ -119,7 +103,6 @@ int main(int argc, char **argv) {
     assert(tactix_stat(t, TACTIX_STAT_REDUCTIONS) > 0);
     assert(tactix_stat(t, TACTIX_STAT_REPHASED) > 0);
   }
-  (void)STATS;
 
   tactix_release(builtin);
   tactix_release(scripted);

@@ -16,8 +16,7 @@ int ds_unported(strategy *t, const char *what) {
   return 0;
 }
 
-/* ------------------------------------------------------------------------ */
-/* Session access.                                                           */
+/* Session access. */
 
 int ds_rule(const char *name) {
   for (int id = 0; id < tactix_rule_count(); ++id)
@@ -35,8 +34,7 @@ const uint64_t *ds_counter(tactix *s, const char *name) {
   return view;
 }
 
-/* ------------------------------------------------------------------------ */
-/* Startup.                                                                  */
+/* Startup. */
 
 /* One Lucky opportunity behind its admission predicate: the terminal verdict
  * it proves (10 or 20, as `terminal` allows), else 0. */
@@ -59,8 +57,8 @@ int ds_affine_operation(strategy *t, tactix_online_affine_matrix_initialize_para
                             const tactix_online_parameters *basis, tactix_affine_matrix_result *out) {
   const int matrix = ds_rule("AffineMatrixInitialize");
   tactix_install_affine_matrix_profile(t->s, &profile);
-  /* DefaultPolicy runs the matrix service directly: the root units it
-   * publishes reach H only through a later consumer, not this application. */
+  /* DefaultPolicy runs the matrix service directly: its published root units
+   * reach H only through a later consumer. */
   tactix_set_guidance_publication(t->s, TACTIX_GUIDANCE_DISCARD);
   const int code = tactix_apply(t->s, matrix);
   tactix_set_guidance_publication(t->s, TACTIX_GUIDANCE_NATIVE);
@@ -429,9 +427,8 @@ int tactix_default_solve(tactix *s, volatile sig_atomic_t *stop) {
     install_profiles(t);
     for (int mode = 0; mode != 2; ++mode) {
       t->retier.tier1_by_mode[mode] = (uint32_t)t->set.reduction.tier1_default;
-      t->retier.tier2_by_mode[mode] = (uint32_t)(t->set.reduction.tier2_default > t->set.reduction.tier1_default
-                                                     ? t->set.reduction.tier2_default
-                                                     : t->set.reduction.tier1_default);
+      t->retier.tier2_by_mode[mode] =
+          (uint32_t)max_u64(t->set.reduction.tier2_default, t->set.reduction.tier1_default);
     }
     ds_pose_vivify_tiers(t);
     reset_schedule(t);

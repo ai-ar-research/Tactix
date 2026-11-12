@@ -39,8 +39,7 @@ static void judge_run(root_service_schedule *s, int fruitful) {
   s->delay_count = s->delay_current;
 }
 
-/* ------------------------------------------------------------------------ */
-/* Graph labeling.                                                           */
+/* Graph labeling. */
 
 enum { SLICE_NONE = 1, SLICE_PENDING = 2, SLICE_SAT = 4, SLICE_INTERRUPTED = 5 };
 
@@ -107,8 +106,7 @@ int ds_run_graph_labeling(strategy *t) {
   return result == SLICE_SAT ? SAT : 0;
 }
 
-/* ------------------------------------------------------------------------ */
-/* Persistent affine search.                                                 */
+/* Persistent affine search. */
 
 static tactix_affine_search_state affine_state(strategy *t) {
   tactix_affine_search_state state;
@@ -133,18 +131,15 @@ static int affine_search_parameters(strategy *t, tactix_online_parameters *basis
   if (variables < 2 || observe(t, TACTIX_OBSERVE_EXTERNAL_VARIABLES) >= (uint64_t)INT32_MAX) return 0;
 #define SEARCH(key) ds_integer_setting(t->s, "affine_search." #key)
 #define CLOSURE(key) ds_integer_setting(t->s, "affine_root_closure." #key)
-  const uint64_t bytes = SEARCH(maximum_retained_bytes) ? SEARCH(maximum_retained_bytes)
-                                                        : CLOSURE(maximum_journal_bytes);
-  const uint64_t initialization = SEARCH(maximum_initialization_work)
-                                      ? SEARCH(maximum_initialization_work)
-                                      : t->set.inprocess.preprocess_initial_ticks;
-  const uint64_t service = SEARCH(maximum_service_work) ? SEARCH(maximum_service_work)
-                                                        : t->set.inprocess.minimum_effort_ticks;
+  const uint64_t bytes = nonzero_or(SEARCH(maximum_retained_bytes), CLOSURE(maximum_journal_bytes));
+  const uint64_t initialization =
+      nonzero_or(SEARCH(maximum_initialization_work), t->set.inprocess.preprocess_initial_ticks);
+  const uint64_t service = nonzero_or(SEARCH(maximum_service_work), t->set.inprocess.minimum_effort_ticks);
   /* Count caps follow the retained storage each source costs. */
   const uint64_t per_source = observe(t, TACTIX_OBSERVE_AFFINE_SOURCE_BYTES);
-  const uint64_t clauses = bytes / per_source < UINT32_MAX ? bytes / per_source : UINT32_MAX;
-  const uint64_t rows = SEARCH(maximum_rows) < clauses ? SEARCH(maximum_rows) : clauses;
-  const uint64_t width = SEARCH(maximum_row_width) < variables ? SEARCH(maximum_row_width) : variables;
+  const uint64_t clauses = min_u64(bytes / per_source, UINT32_MAX);
+  const uint64_t rows = min_u64(SEARCH(maximum_rows), clauses);
+  const uint64_t width = min_u64(SEARCH(maximum_row_width), variables);
   if (!clauses || !rows || width < 2 || !initialization || !service || !CLOSURE(maximum_proof_deletions))
     return 0;
   memset(basis, 0, sizeof *basis);
@@ -153,7 +148,7 @@ static int affine_search_parameters(strategy *t, tactix_online_parameters *basis
   b->maximum_clauses = b->maximum_groups = b->maximum_patterns = b->maximum_session_keys = clauses;
   b->maximum_snapshot_literals = bytes / sizeof(int32_t);
   b->maximum_snapshot_work = b->maximum_elimination_work = initialization;
-  b->maximum_arity = (uint32_t)(SEARCH(maximum_arity) < width ? SEARCH(maximum_arity) : width);
+  b->maximum_arity = (uint32_t)min_u64(SEARCH(maximum_arity), width);
   b->maximum_intermediate_width = b->basis_maximum_intermediate_width = (uint32_t)width;
   b->maximum_sources = b->basis_maximum_sources = b->basis_maximum_nodes = (uint32_t)rows;
   b->maximum_output_width = 4; /* the V2 typed compatibility field */
@@ -168,7 +163,7 @@ static int affine_search_parameters(strategy *t, tactix_online_parameters *basis
   b->maximum_external_extent = INT32_MAX;
   /* A lifetime allowance from the retained-state budget, at least one
    * complete service quantum. */
-  b->maximum_session_work = service > bytes ? service : bytes;
+  b->maximum_session_work = max_u64(service, bytes);
 #undef SEARCH
 #undef CLOSURE
   *retained_bytes = bytes;
@@ -344,8 +339,7 @@ static uint64_t root_service_effort(strategy *t, const root_service_schedule *s,
     reference = t->set.inprocess.preprocess_initial_ticks;
   } else {
     const uint64_t now = *t->search_ticks;
-    reference = now >= s->last_ticks ? now - s->last_ticks : 0;
-    if (reference < t->set.inprocess.minimum_effort_ticks) reference = t->set.inprocess.minimum_effort_ticks;
+    reference = max_u64(now >= s->last_ticks ? now - s->last_ticks : 0, t->set.inprocess.minimum_effort_ticks);
   }
   return scale_permille(reference, permille);
 }
@@ -355,11 +349,10 @@ static uint64_t root_service_effort(strategy *t, const root_service_schedule *s,
 static int additional_recognition_due(strategy *t) {
   const tactix_affine_search_state state = affine_state(t);
   if (state.enabled && state.persistent) return 0;
-  const uint64_t quantum = ds_integer_setting(t->s, "affine_search.maximum_initialization_work")
-                               ? ds_integer_setting(t->s, "affine_search.maximum_initialization_work")
-                               : t->set.inprocess.preprocess_initial_ticks;
+  const uint64_t quantum = nonzero_or(ds_integer_setting(t->s, "affine_search.maximum_initialization_work"),
+                                     t->set.inprocess.preprocess_initial_ticks);
   const uint64_t ticks = *t->search_ticks;
-  const uint64_t needed = quantum > t->affine.refresh_work ? quantum : t->affine.refresh_work;
+  const uint64_t needed = max_u64(quantum, t->affine.refresh_work);
   return ticks >= t->affine.refresh_ticks && ticks - t->affine.refresh_ticks >= needed;
 }
 

@@ -1,65 +1,30 @@
-/* §8.4 demo policy 1 — pure DPLL (no learning): decomposition sanity.
- *
- * Expressed with phase-≤2 rules only, through the frozen v1 API: conflict
- * handling is the single atomic ConflictAnalysis rule (Analyze+Backjump
- * fused), and "no learning" is Reduce with an everything-sized
- * victim count right after every conflict. The
- * learned clause exists transiently — N2: it is still in the proof, and
- * clauses locked as reasons survive until the next purge — so this is
- * DPLL in search shape, not a bit-exact replica of the textbook loop.
- * That is the point of the demo: the rule vocabulary expresses the
- * ancestor algorithm without touching the kernel. */
+/* Demo 1, pure DPLL without learning, through the public API: conflict
+ * handling is the atomic ConflictAnalysis rule, and "no learning" is Reduce
+ * with an everything-sized victim count after every conflict. The learned
+ * clause still exists transiently (it is in the proof, and reason-locked
+ * clauses survive until the next purge), so this is DPLL in search shape
+ * rather than a bit-exact replica of the textbook loop. */
 #undef NDEBUG
-#include "tactix.h"
-#include "tactix_search_demo.h"
-
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-
-static void add_clause(tactix *s, const int *lits) {
-  for (; *lits; lits++)
-    tactix_add(s, *lits);
-  tactix_add(s, 0);
-}
-
-static int dpll_solve(tactix *s) {
-  tactix_search_demo program;
-  assert(tactix_search_demo_begin(&program,TACTIX_DEMO_DPLL));
-  program.step_limit=2000000; /* Original toy-only nontermination guard. */
-  return tactix_search_demo_run(&program,s,NULL,NULL);
-}
+#include "example_support.h"
 
 int main(void) {
   /* SAT: implication chain */
   tactix *s = tactix_init();
-  add_clause(s, (const int[]){1, 2, 0});
-  add_clause(s, (const int[]){-1, 2, 0});
-  add_clause(s, (const int[]){-2, 3, 0});
-  assert(dpll_solve(s) == 10);
+  EXAMPLE_ADD(s, 1, 2, 0, -1, 2, 0, -2, 3, 0);
+  assert(example_search_demo(s, TACTIX_DEMO_DPLL) == 10);
   tactix_release(s);
 
   /* UNSAT: full enumeration over two vars */
   s = tactix_init();
-  add_clause(s, (const int[]){1, 2, 0});
-  add_clause(s, (const int[]){1, -2, 0});
-  add_clause(s, (const int[]){-1, 2, 0});
-  add_clause(s, (const int[]){-1, -2, 0});
-  assert(dpll_solve(s) == 20);
+  EXAMPLE_ADD(s, 1, 2, 0, 1, -2, 0, -1, 2, 0, -1, -2, 0);
+  assert(example_search_demo(s, TACTIX_DEMO_DPLL) == 20);
   tactix_release(s);
 
   /* UNSAT: PHP(3->2), needs real search */
   s = tactix_init();
-  add_clause(s, (const int[]){1, 2, 0});
-  add_clause(s, (const int[]){3, 4, 0});
-  add_clause(s, (const int[]){5, 6, 0});
-  add_clause(s, (const int[]){-1, -3, 0});
-  add_clause(s, (const int[]){-1, -5, 0});
-  add_clause(s, (const int[]){-3, -5, 0});
-  add_clause(s, (const int[]){-2, -4, 0});
-  add_clause(s, (const int[]){-2, -6, 0});
-  add_clause(s, (const int[]){-4, -6, 0});
-  assert(dpll_solve(s) == 20);
+  EXAMPLE_ADD(s, 1, 2, 0, 3, 4, 0, 5, 6, 0, -1, -3, 0, -1, -5, 0, -3, -5, 0, -2, -4, 0, -2, -6, 0,
+              -4, -6, 0);
+  assert(example_search_demo(s, TACTIX_DEMO_DPLL) == 20);
   /* Conflict reuse can make the post-analysis purge a no-op; either way the
    * external policy traversed a genuine conflict rather than preprocessing. */
   assert(tactix_stat(s, TACTIX_STAT_CONFLICTS) > 0);
