@@ -37,11 +37,15 @@ static void unset_environment(Environment environment) {
     unsetenv(name);
 }
 
-// The contents of `path`, which is then removed.
+// The contents of `path` (empty if absent), which is then removed.
 static std::string take_file(const std::string &path) {
-  std::ifstream input(path);
-  std::string text((std::istreambuf_iterator<char>(input)),
-                   std::istreambuf_iterator<char>());
+  std::string text;
+  if (FILE *file = std::fopen(path.c_str(), "rb")) {
+    char bytes[4096];
+    while (const size_t count = std::fread(bytes, 1, sizeof bytes, file))
+      text.append(bytes, count);
+    std::fclose(file);
+  }
   std::remove(path.c_str());
   return text;
 }
