@@ -39,75 +39,63 @@ answer against a reference solver and the proof checkers:
 ```sh
 tools/checkers/setup.sh          # proof checkers
 tools/solvers/setup.sh           # reference solvers (Kissat, CaDiCaL)
-tools/fuzz/run.sh --quick --solver 'build/release/examples/tactix-default --pbp'
+tools/fuzz/run.sh --quick --solver 'build/release/examples/tactix-default --auto-proof'
 tools/fuzz/run.sh --public-random --quick \
-  --solver 'build/release/tests/tactix-public-random --pbp --random-policy={seed}'
+  --solver 'build/release/tests/tactix-public-random --auto-proof --random-policy={seed}'
 ```
 
 `--quick` runs about 10,000 cases plus the regression corpus in
 `tools/fuzz/corpus/`; see [tools/fuzz/README.md](tools/fuzz/README.md) for the
 other modes. A formula that exposes a bug belongs in the regression corpus.
 
+Routine fuzzing also includes retained/generated incremental C API traces with
+minimization and C/Python binding regressions. Full CI runs 16 traces per
+Debug/Release build; Python coverage is deterministic. See the
+[fuzz harness](tools/fuzz/README.md#routine-fuzzing-bundle).
+
 ## Release gates
 
-The 0.2.0 release establishes the first default-PBP operational baseline.
-Because the paper release used a different proof route, its PBP production and
-checking time is characterized and reported, not forced under the paper +10%
-solver-time ceiling. For this transition release only, that incompatible
-paper-comparable ceiling is not an applicable release gate; the absence of a
-same-route comparison is not by itself an incomplete gate. The proof-free CMS
-target remains a separate algebraic-development target, not a whole-run PBP
-release ceiling. The baseline still requires valid independently checked
-proofs, complete result and cleanup records, and predeclared solver/checker time
-and memory caps; a timeout is a measured baseline outcome rather than a proof
-failure. Beginning with the release after that baseline, every release candidate
-pins the preceding published release, immutable build and checker hashes,
-benchmark manifests, resources, and solver arguments. Pending, censored, or
-missing evidence does not pass a required gate.
+Pin the candidate, preceding release, binaries, inputs, flags, checkers and
+resources. Reuse passing evidence after an immutable scope/risk audit; rerun
+affected, missing or censored checks. Commit labels alone invalidate nothing.
+Performance reuse requires matching measurement keys or established equivalence.
+Preserve original grades, failures and reach obligations: passing cells do not
+qualify an incomplete campaign. Missing or pending required evidence blocks release.
 
-- A performance release predeclares its target and metric, then demonstrates at
-  least a 5% paired-median solver-time or PAR-2 improvement outside the measured
-  noise range, without losing an independently checked solve. During the
-  algebraic milestone it must also add at least one retained CG instance within
-  2x its matched CryptoMiniSat time in the paper-comparable proof mode.
-  Whole-run PBP wall time is not compared directly with that proof-free CMS
-  target; it passes the separate verified-completion and like-for-like PBP gate
-  below. A functionality release need not claim a gain, but must pass the
-  preservation gates and must not be advertised as faster.
-- Release fuzzing requires at least 100,000 independently checked fresh PBP
-  verdicts and at most 5% nonterminating generated cases under each of
-  DefaultPolicy and the public-interface random policy, plus the retained
-  corpus and targeted action/configuration coverage. Every SAT model and UNSAT
-  proof is independently checked; any crash, sanitizer, invariant, verdict,
-  model, or proof failure rejects the candidate. Missing required reach is
-  incomplete, even when no generated case fails. Large feature-specific
-  campaigns are change-scoped: they are required when the candidate changes
-  the owning feature, its scheduling or guards, or its feature-specific harness
-  or oracle. An unchanged feature instead keeps its compact deterministic
-  regression and may reuse compatible prior campaign evidence. Retired one-off
-  controller/stress scripts are not release legs; promote stable failures into
-  the corpus or compact deterministic tests.
-- Regression acceptance requires the full Debug and Release suites, retained
-  rows and aggregate limits on B28+C5, Rank 1--50, WV100, and WV2--89, and at
-  most 10% aggregate solver-time regression from the paper release. Measure
-  that ceiling in the paper-comparable proof mode when the candidate is on the
-  paper-compatible route. It is not applied to 0.2.0's transition to default
-  whole-run PBP. Measure default-PBP production and checking separately. After
-  0.2.0, compare it like-for-like with the preceding default-PBP release: no
-  lost independently checked solve at the same cap and at most 10% aggregate
-  production or checking-time regression unless a stricter predeclared
-  performance claim applies. PBP cost cannot be used to absorb a search
-  regression inside a compatible route. Correctness, memory, cleanup, and
-  per-instance limits remain strict.
-- Keep the C default strategy (`examples/default_strategy`) complete.
-  `c_default_correspondence` must report no unported path and byte-identical
-  proofs, models, verdicts, and trajectory counters against DefaultPolicy. In
-  matched measurements `tactix-default` must remain within 5% of production on
-  each fixed regression set, and production must remain within 5% of the
-  hardcoded twin.
+- **Fuzz:** at least 100,000 independently checked verdicts and at most 5%
+  nontermination per DefaultPolicy/public-random leg, plus retained corpus and
+  targeted action/configuration reach. Use shipped `--auto-proof` (DSR first,
+  converting to PBP when required), with explicit `--dsr`/`--pbp` backend and
+  conversion coverage. Independently check original-CNF models and each proof's
+  declared content route. Crashes, sanitizer/invariant findings, wrong verdicts,
+  invalid models/proofs fail; missing reach is incomplete. Large targeted
+  campaigns cover changed features, scheduling, guards, harnesses or oracles;
+  unchanged features retain compact regressions and compatible evidence.
+  Retired one-off stress scripts do not replace qualification legs.
+- **Performance:** a performance release predeclares its target/metric and
+  demonstrates at least 5% paired-median solver-time or PAR-2 improvement outside
+  noise, with no lost checked solve. During the algebraic milestone, add a CG
+  closure within 2x matched CryptoMiniSat time without losing a retained closure.
+  That proof-free target is separate from whole-run PBP cost. A functionality
+  release passes preservation gates without claiming a gain.
+- **Regression:** full Debug/Release suites and B28+C5, Rank1–50, WV100 and
+  WV2–89, retaining checked rows and strict memory, cleanup and per-instance
+  limits. Paper-comparable solver time may regress at most 10%; proof cost
+  cannot absorb search regressions. Compare proof production/checking like for
+  like with the previous release: retain solves at the same cap and limit
+  aggregate production or checking-time regression to 10% (or a stricter
+  declared threshold). Measure automatic selection, conversion and route costs.
+  Release 0.2.0 established the PBP baseline without an incompatible paper
+  ceiling. The automatic-default transition retains solves against that PBP
+  predecessor and reports per-route sizes/checking times; later releases retain
+  the automatic baseline. A timeout is recorded, not a rejected proof; missing,
+  invalid or unchecked required evidence does not pass.
+- **C default:** keep `examples/default_strategy` complete.
+  `c_default_correspondence` requires zero unported paths and identical verdicts,
+  proof bytes, models and trajectory counters. On each fixed set, the C default
+  stays within 5% of production, and production within 5% of the hardcoded twin.
 
-A version bump, tag, or release publication waits for every applicable gate
-to pass.
+Every applicable gate must pass before a version bump, tag or publication.
 
 ## Adding a rule or changing one
 
