@@ -1,10 +1,10 @@
 # Tactix — A Programmable Strategy Interface for Flexible SAT Solving
 
-We are exploring a paradigm shift from *solvers as black boxes* to *solvers as libraries*. The goal is to unleash the full potential of the rich, growing repertoire of techniques that have been actively developed for decades. To this end, we introduce Tactix, an inprocessing CDCL SAT solver with a **public strategy interface** that enables humans and AI to define custom solving strategies for orchestrating search and inprocessing rules.
-
-Tactix incorporates a wide range of techniques from existing SAT solvers and exposes them through a public interface where the user can define specialized solving strategies by writing a program that iteratively selects particular techniques, observes their effects, and decides the next strategy to apply.
-
-Tactix binary also comes with a default strategy that achieves competitive performance against state-of-the-art solvers.
+Tactix is an inprocessing CDCL SAT solver that treats the solver as a library.
+It collects decades of SAT techniques as proof-producing rules behind a
+**public strategy interface**, so humans and AI can write programs that select
+techniques, observe their effects and decide what to apply next. Its built-in
+default strategy is competitive with state-of-the-art solvers.
 
 ## Quick start
 
@@ -12,25 +12,15 @@ Tactix binary also comes with a default strategy that achieves competitive perfo
 cmake --preset release
 cmake --build --preset release --parallel 8
 build/release/tactix formula.cnf             # s SATISFIABLE / s UNSATISFIABLE
+build/release/tactix formula.cnf proof       # also write an UNSAT proof
 ```
-
-Replace `8` with the maximum number of concurrent build jobs appropriate for
-your machine.
 
 See [docs/cli.md](docs/cli.md) for requirements and checking answers, and
 [docs/strategies.md](docs/strategies.md) for writing your own strategy.
-
-To generate an UNSAT proof, supply an output file:
-
-```sh
-build/release/tactix formula.cnf proof
-```
-
-You can choose the proof format with `--dsr` or `--pbp`. If you don't specify it, Tactix
-selects it automatically: it writes a DSR proof, and writes a pseudo-Boolean (PBP) proof instead
-when the formula is refuted by algebraic reasoning alone or when the search relies on
-enough algebraic reasoning. Building Tactix, solving formulas, and generating proofs do
-not require external proof checkers.
+By default Tactix writes a DSR proof and switches to pseudo-Boolean (PBP) proof
+when algebraic reasoning needs it; `--dsr` or `--pbp` fixes the format (see
+[proof generation](docs/cli.md#generate-a-proof)). Building Tactix, solving
+formulas, and generating proofs do not require external proof checkers.
 
 <details>
 <summary>Optional: install proof checkers and verify a proof</summary>
@@ -40,11 +30,8 @@ tools/checkers/setup.sh                     # install the external checker toolc
 python3 tools/bench/proof_oracle.py check formula.cnf proof
 ```
 
-The current setup script targets Linux x86-64 for the complete checker
-toolchain. Some individual checkers support other platforms, but the script
-does not provide a complete native macOS installation. Proofs generated on
-macOS can be checked on a supported platform together with the original CNF.
-See [the checking guide](docs/cli.md#optional-proof-checking) for details.
+The checker toolchain targets Linux x86-64; see
+[the checking guide](docs/cli.md#optional-proof-checking) for other platforms.
 
 </details>
 
@@ -52,25 +39,19 @@ See [the checking guide](docs/cli.md#optional-proof-checking) for details.
 
 | Program | Source | Strategy |
 |---|---|---|
-| `tactix-default` | `examples/default_strategy/` | The default strategy written in C over `tactix.h`: every decision is made in C from public reads, and every action is issued through the public interface. On the same session it makes the same decisions and writes the same proofs as the built-in strategy (`--reference` runs that one instead). |
-| `tactix-public-random` | `tools/fuzz/public_random_main.cpp` | The sole random qualification strategy; it generates varied one-action-at-a-time trajectories exclusively through `tactix.h`. |
-| `tactix-cruxmiter-policy` | `examples/cruxmiter_policy.c` | A strategy developed for a set of multiplier-miter benchmarks: four bounded congruence/substitution rounds, Backbone, then the fixed stable default search with vivification as its only inprocessing. |
-| `tactix-chvatal-policy` | `examples/chvatal_policy.c` | A strategy developed for tackling sub-problems of the Chvátal's conjectures: merge duplicated totalizer counters with bidirectional substitution-redundancy steps, collapse after each round, then run the default strategy with a DSR proof. |
+| `tactix-default` | `examples/default_strategy/` | The default strategy in C over `tactix.h`; it makes the same decisions and writes the same proofs as the built-in strategy (`--reference` runs that one instead). |
+| `tactix-public-random` | `tools/fuzz/public_random_main.cpp` | The random qualification strategy: varied one-action-at-a-time trajectories through `tactix.h`. |
+| `tactix-cruxmiter-policy` | `examples/cruxmiter_policy.c` | Multiplier miters: four bounded congruence/substitution rounds, Backbone, then stable default search with vivification as its only inprocessing. |
+| `tactix-chvatal-policy` | `examples/chvatal_policy.c` | Sub-problems of Chvátal's conjectures: merge duplicated totalizer counters with bidirectional substitution-redundancy steps, then run the default strategy with a DSR proof. |
 
-```sh
-build/release/examples/tactix-default formula.cnf proof
-build/release/tests/tactix-public-random --random-policy=7 formula.cnf proof
-build/release/examples/tactix-cruxmiter-policy formula.cnf proof
-build/release/examples/tactix-chvatal-policy formula.cnf proof
-```
+Each runs as `build/release/examples/<program> formula.cnf proof`;
+`tactix-public-random` is built in `build/release/tests/` and takes
+`--random-policy=SEED`.
 
-`examples/` also holds smaller teaching strategies (plain DPLL, CDCL without
-restarts and the demo3 search scheduler) and
-strategies for binarized-neural-network and random 3-SAT encodings.
-
-The experimental [persistent Python API](python/README.md) adds runtime strategy
-control, IPASIR sessions and certified cores over one reusable shared library.
-Full integration qualification remains pending.
+`examples/` also holds teaching strategies (DPLL, CDCL without restarts, the
+demo3 search scheduler) and an extended-resolution strategy for pigeonhole
+formulas. The experimental [Python API](python/README.md) adds IPASIR sessions,
+runtime strategies and certified cores.
 
 ## Documentation and paper
 
@@ -95,11 +76,10 @@ User-visible release changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Layout
 
-`include/tactix.h` is the public C interface; `src/` contains the solver.
-`examples/` contains client strategies, while `tests/` and `tools/` contain
-the test, checker, fuzzing and benchmark infrastructure. Frozen datasets live
-under `benchmarks/`; user guides live under `docs/`; vendored code is under
-`third_party/`.
+`include/` holds the public C interfaces, `src/` the solver, `examples/` client
+strategies, `tests/` and `tools/` the test, checker, fuzzing and benchmark
+infrastructure, `benchmarks/` frozen datasets, `docs/` user guides and
+`third_party/` vendored code.
 
 ## License
 

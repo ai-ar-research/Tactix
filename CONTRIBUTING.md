@@ -11,12 +11,10 @@ cmake --build --preset debug --parallel
 ctest --preset debug                       # unit, API, proof and example tests
 ```
 
-The release preset (`--preset release`) is the one to measure performance
-with. Every change should keep the debug test suite green.
-
-Routine test presets exclude the `extended` label. Keep individual CI tests
-under ten seconds by limiting their workload; exhaustive sweeps, large solver fixtures and
-long external proof checks belong in explicit extended runs:
+Measure performance with the release preset. Every change keeps the debug
+suite green. Routine presets exclude the `extended` label: keep each CI test
+under ten seconds, and put exhaustive sweeps, large solver fixtures and long
+external proof checks in explicit extended runs:
 
 ```sh
 ctest --test-dir build/debug -L extended --output-on-failure
@@ -24,17 +22,13 @@ ctest --test-dir build/debug -L extended --output-on-failure
 
 ## Correctness checks
 
-Tactix's correctness rests on independent checking, not on trusting the
-solver:
-
-- every UNSAT answer must come with a proof that the external checkers accept
-  (`tools/bench/proof_oracle.py check`, see
-  [docs/cli.md](docs/cli.md));
-- every SAT answer must satisfy the original formula (`tools/fuzz/checkmodel`).
-
-`tools/fuzz/` is a differential fuzzer that generates formulas, runs Tactix
-through its public DefaultPolicy and public-random clients, and checks every
-answer against a reference solver and the proof checkers:
+Tactix's correctness rests on independent checking: every UNSAT answer must
+come with a proof that the external checkers accept
+(`tools/bench/proof_oracle.py check`, see [docs/cli.md](docs/cli.md)), and
+every SAT answer must satisfy the original formula (`tools/fuzz/checkmodel`).
+The differential fuzzer in `tools/fuzz/` generates formulas, runs them through
+the public DefaultPolicy and public-random clients, and checks every answer
+against a reference solver and the proof checkers:
 
 ```sh
 tools/checkers/setup.sh          # proof checkers
@@ -44,70 +38,57 @@ tools/fuzz/run.sh --public-random --quick \
   --solver 'build/release/tests/tactix-public-random --pbp --random-policy={seed}'
 ```
 
-`--quick` runs about 10,000 cases plus the regression corpus in
-`tools/fuzz/corpus/`; see [tools/fuzz/README.md](tools/fuzz/README.md) for the
-other modes. A formula that exposes a bug belongs in the regression corpus.
+`--quick` runs 10,000 cases plus the regression corpus in `tools/fuzz/corpus/`,
+where every formula that exposes a bug belongs; see
+[tools/fuzz/README.md](tools/fuzz/README.md) for the other modes.
 
 ## Release gates
 
-The 0.2.0 release establishes the first default-PBP operational baseline.
-Because the paper release used a different proof route, its PBP production and
-checking time is characterized and reported, not forced under the paper +10%
-solver-time ceiling. For this transition release only, that incompatible
-paper-comparable ceiling is not an applicable release gate; the absence of a
-same-route comparison is not by itself an incomplete gate. The proof-free CMS
-target remains a separate algebraic-development target, not a whole-run PBP
-release ceiling. The baseline still requires valid independently checked
-proofs, complete result and cleanup records, and predeclared solver/checker time
-and memory caps; a timeout is a measured baseline outcome rather than a proof
-failure. Beginning with the release after that baseline, every release candidate
-pins the preceding published release, immutable build and checker hashes,
-benchmark manifests, resources, and solver arguments. Pending, censored, or
-missing evidence does not pass a required gate.
+Every release candidate pins the preceding published release, immutable build
+and checker hashes, benchmark manifests, resources and solver arguments.
+Pending, censored or missing evidence does not pass a required gate. A version
+bump, tag or release publication waits for every applicable gate to pass.
 
-- A performance release predeclares its target and metric, then demonstrates at
-  least a 5% paired-median solver-time or PAR-2 improvement outside the measured
-  noise range, without losing an independently checked solve. During the
-  algebraic milestone it must also add at least one retained CG instance within
-  2x its matched CryptoMiniSat time in the paper-comparable proof mode.
-  Whole-run PBP wall time is not compared directly with that proof-free CMS
-  target; it passes the separate verified-completion and like-for-like PBP gate
-  below. A functionality release need not claim a gain, but must pass the
-  preservation gates and must not be advertised as faster.
-- Release fuzzing requires at least 100,000 independently checked fresh PBP
-  verdicts and at most 5% nonterminating generated cases under each of
-  DefaultPolicy and the public-interface random policy, plus the retained
-  corpus and targeted action/configuration coverage. Every SAT model and UNSAT
-  proof is independently checked; any crash, sanitizer, invariant, verdict,
-  model, or proof failure rejects the candidate. Missing required reach is
-  incomplete, even when no generated case fails. Large feature-specific
-  campaigns are change-scoped: they are required when the candidate changes
-  the owning feature, its scheduling or guards, or its feature-specific harness
-  or oracle. An unchanged feature instead keeps its compact deterministic
-  regression and may reuse compatible prior campaign evidence. Retired one-off
-  controller/stress scripts are not release legs; promote stable failures into
-  the corpus or compact deterministic tests.
-- Regression acceptance requires the full Debug and Release suites, retained
-  rows and aggregate limits on B28+C5, Rank 1--50, WV100, and WV2--89, and at
-  most 10% aggregate solver-time regression from the paper release. Measure
-  that ceiling in the paper-comparable proof mode when the candidate is on the
-  paper-compatible route. It is not applied to 0.2.0's transition to default
-  whole-run PBP. Measure default-PBP production and checking separately. After
-  0.2.0, compare it like-for-like with the preceding default-PBP release: no
-  lost independently checked solve at the same cap and at most 10% aggregate
-  production or checking-time regression unless a stricter predeclared
-  performance claim applies. PBP cost cannot be used to absorb a search
-  regression inside a compatible route. Correctness, memory, cleanup, and
-  per-instance limits remain strict.
-- Keep the C default strategy (`examples/default_strategy`) complete.
-  `c_default_correspondence` must report no unported path and byte-identical
-  proofs, models, verdicts, and trajectory counters against DefaultPolicy. In
-  matched measurements `tactix-default` must remain within 5% of production on
-  each fixed regression set, and production must remain within 5% of the
-  hardcoded twin.
-
-A version bump, tag, or release publication waits for every applicable gate
-to pass.
+- **Performance:** a performance release predeclares its target and metric,
+  then demonstrates at least a 5% paired-median solver-time or PAR-2
+  improvement outside the measured noise range, without losing an
+  independently checked solve. During the algebraic milestone it also adds at
+  least one retained CG instance within 2x its matched CryptoMiniSat time in
+  the paper-comparable proof mode. That proof-free CMS target is a separate
+  algebraic-development target and never bounds whole-run PBP wall time, which
+  passes the verified-completion and like-for-like proof gates below. A
+  functionality release need not claim a gain, but passes the preservation
+  gates and is not advertised as faster.
+- **Fuzzing:** at least 100,000 independently checked fresh PBP verdicts and at
+  most 5% nonterminating generated cases under each of DefaultPolicy and the
+  public-interface random policy, plus the retained corpus and targeted
+  action/configuration coverage. Every SAT model and UNSAT proof is
+  independently checked; any crash, sanitizer, invariant, verdict, model or
+  proof failure rejects the candidate, and missing required reach is incomplete
+  even when no case fails. Large feature-specific campaigns are required when
+  the candidate changes the owning feature, its scheduling or guards, or its
+  feature-specific harness or oracle; an unchanged feature keeps its compact
+  deterministic regression and may reuse compatible prior campaign evidence.
+  Retired one-off controller/stress scripts are not release legs; stable
+  failures become corpus entries or compact deterministic tests.
+- **Regression:** the full Debug and Release suites pass; B28+C5, Rank 1--50,
+  WV100 and WV2--89 keep their retained rows and aggregate limits; aggregate
+  solver time stays within 10% of the paper release, measured in the
+  paper-comparable proof mode when the candidate is on the paper-compatible
+  route. Default proof production and checking are measured separately and
+  like-for-like against the preceding release: no lost independently checked
+  solve at the same cap and at most 10% aggregate production or checking-time
+  regression, unless a stricter predeclared performance claim applies. The
+  release that makes automatic proof selection the default compares against
+  the preceding default-PBP release, whose trajectory is that of `--pbp`, and
+  reports per-route certificate sizes and checking times. PBP cost never
+  absorbs a search regression inside a compatible route. Correctness, memory,
+  cleanup and per-instance limits remain strict.
+- **C default strategy:** `examples/default_strategy` stays complete.
+  `c_default_correspondence` reports no unported path and byte-identical
+  proofs, models, verdicts and trajectory counters against DefaultPolicy. In
+  matched measurements `tactix-default` stays within 5% of production on each
+  fixed regression set, and production within 5% of the hardcoded twin.
 
 ## Adding a rule or changing one
 
