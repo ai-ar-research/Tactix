@@ -47,6 +47,15 @@ def write_leg(base, leg, payload):
 
 
 def main():
+    command = ["tactix", "{proof}", "--random-policy={seed}"]
+    selected = [fuzz.substitute_seed(command, seed) for seed in range(48)]
+    assert {cmd[1] for cmd in selected} == {"--dsr", "--pbp", "--auto-proof"}
+    # Shard/order independence and fixed-mode replays, including shrinking.
+    for seed in reversed(range(48)):
+        assert fuzz.substitute_seed(command, seed) == selected[seed]
+        assert selected[seed][2] == f"--random-policy={seed}"
+        assert fuzz.substitute_seed(selected[seed], seed + 1) == selected[seed]
+    assert fuzz.substitute_seed(["tactix", "--dsr"], 0) == ["tactix", "--dsr"]
     with tempfile.TemporaryDirectory(prefix="fuzz-artifact-isolation-") as tmp:
         base = pathlib.Path(tmp)
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
