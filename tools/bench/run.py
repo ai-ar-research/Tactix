@@ -21,7 +21,7 @@ Usage:
 
 - Tier lists are frozen files `tools/bench/tiers/<tier>.list`; each
   non-comment line is `<relpath> <SAT|UNSAT|UNKNOWN> <ref_seconds>` with
-  paths relative to `benchmarks/cache/`.
+  paths relative to `benchmarks/cache/`, plus the GBD hash for fetched tiers.
 - For the solver under test, every UNSAT answer's proof is checked; a rejected
   (or missing) proof counts as UNSOLVED, competition-style. The arm's own
   command picks the requested format: Tactix automatic output is routed by
@@ -99,10 +99,9 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           check_witness_free_dsr_as_drat,
                           stage_environment, solver_reported_route_text,
                           REPORTED_DSR_ROUTES)
-# Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
-# verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
-# exhibit was caught only by the expected-verdict column; an instance without
-# a recorded verdict would have scored a bogus model as a solve.
+# Oracle 1 of the fuzz harness (§8.2): a SAT verdict's v-lines are checked
+# against the ORIGINAL formula, so an instance without a recorded verdict
+# cannot score a bogus model as a solve.
 CHECKMODEL = os.path.join(ROOT, "tools", "fuzz", "checkmodel")
 MODEL_CHECK_BUDGET = 600  # linear scan; Tier-scale instances finish in seconds
 
@@ -215,7 +214,7 @@ def read_tier_list(tier):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            rel, status, ref = line.split()
+            rel, status, ref = line.split()[:3]
             entries.append((rel, status, float(ref)))
     return entries
 
@@ -262,12 +261,9 @@ def checker_budget(timeout):
 def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
     """Verify one certificate. Returns (ok, message, kind, detail).
 
-    The KIND matters and used to be lost: a checker that OOMs or times out is
-    otherwise INDISTINGUISHABLE from one that REJECTS. cake_lpr needs several GB
-    on a gigabyte-scale LRAT, so an under-provisioned array task dies at malloc
-    and looks exactly like a rejected proof -- and the converse misreading, a
-    genuine `s NOT VERIFIED` taken for an OOM, is just as easy. See
-    classify_checker_output."""
+    KIND separates a checker that ran out of memory or time from one that
+    rejected: an under-provisioned cake_lpr dies at malloc and otherwise looks
+    exactly like a rejected proof. See classify_checker_output."""
     if fmt == "pbp":
         if route != "pbp":
             return False, "rejected: missing PBP proof-route", CHK_REJECTED, []
@@ -512,8 +508,8 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
            # `proof_check_kind` is the machine-readable fact separating an
            # invalid certificate from a checker that gave up.
            "proof_check_kind": None, "proof_check_detail": None,
-           # §8.2 oracle 1 on the bench path (2026-08-08): SAT verdicts carry
-           # a checkmodel result. None = not run (baseline / timeout / UNSAT).
+           # §8.2 oracle 1: SAT verdicts carry a checkmodel result.
+           # None = not run (baseline / timeout / UNSAT).
            "model_ok": None, "model_msg": None}
     if cnf is None or not os.path.exists(cnf):
         res["verdict"] = "MISSING"

@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "temporary_file.hpp"
 #include "proof/proof.hpp"
 #include "rules/bce/bce.hpp"
 #include "rules/factor/factor.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
 
 static void run(const std::string &which, const std::string &prefix, const std::string &mode) {

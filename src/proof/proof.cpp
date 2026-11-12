@@ -1156,17 +1156,6 @@ void Proof::track_pbp_derived_constraint(uint64_t id, uint32_t clause_size) {
     abandon_pbp_id_deletions();
 }
 
-size_t Proof::PbpLiteralKeyHash::operator()(
-    const std::vector<int32_t> &key) const noexcept {
-  uint64_t hash = 0x9e3779b97f4a7c15ull ^ key.size();
-  for (const int32_t literal : key) {
-    hash ^= static_cast<uint32_t>(literal);
-    hash *= 0xff51afd7ed558ccdull;
-    hash ^= hash >> 32;
-  }
-  return static_cast<size_t>(hash);
-}
-
 namespace {
 // The exact registry key: sorted literals. Clauses with a repeated or
 // complementary literal have no unique VeriPB constraint and get no key.
@@ -1771,6 +1760,25 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
   const bool default_pivot = plan.form == DsrWitnessForm::Direct;
   const bool needs_auxiliary = plan.form == DsrWitnessForm::Extension ||
                                ((propagates || query_names_enabled_ || certificate_offset_) && plan.form != DsrWitnessForm::Rup);
+  // The DSR witness: a marker, the default pivot image, the true literals,
+  // then a second marker and the literal mappings, skipping `dropped`.
+  const auto put_witness = [&](const auto &put_marker, bool pivot_image,
+                               Var dropped) {
+    put_marker();
+    if (pivot_image) put_lit(lits[0]);
+    for (uint32_t i = 0; i < ntrue; ++i)
+      if (var_of(true_lits[i]) != dropped) put_lit(true_lits[i]);
+    uint32_t kept_mappings = 0;
+    for (uint32_t i = 0; i < nmappings; ++i)
+      kept_mappings += var_of(mappings[i].from) != dropped;
+    if (!kept_mappings) return;
+    put_marker();
+    for (uint32_t i = 0; i < nmappings; ++i)
+      if (var_of(mappings[i].from) != dropped) {
+        put_lit(mappings[i].from);
+        put_lit(mappings[i].to);
+      }
+  };
   flush_pending_dsr_units();
   if ((query_names_enabled_ || certificate_offset_ || certificate_raw_) && plan.form != DsrWitnessForm::Rup) {
     // Two fresh, permanently reserved guards keep every witnessed line nonunit
@@ -1798,15 +1806,7 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
     }
     for (int32_t second : {w, -w}) {
       guarded(false, z, second);
-      put_checker_literal(z);
-      if (default_pivot) put_lit(lits[0]);
-      for (uint32_t at = 0; at < ntrue; ++at) put_lit(true_lits[at]);
-      if (nmappings) {
-        put_checker_literal(z);
-        for (uint32_t at = 0; at < nmappings; ++at) {
-          put_lit(mappings[at].from); put_lit(mappings[at].to);
-        }
-      }
+      put_witness([&] { put_checker_literal(z); }, default_pivot, INVALID_VAR);
       end_line();
       helper_event(false, z, second);
     }
@@ -1845,18 +1845,8 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                     CheckerClauseRole::DsrSubstitutionHelper, 0, 0,
                     negative_helper, true);
     temporary(false, false);
-    put_external_lit(auxiliary);
-    if (default_pivot)
-      put_lit(lits[0]);
-    for (uint32_t i = 0; i < ntrue; ++i)
-      put_lit(true_lits[i]);
-    if (nmappings) {
-      put_external_lit(auxiliary);
-      for (uint32_t i = 0; i < nmappings; ++i) {
-        put_lit(mappings[i].from);
-        put_lit(mappings[i].to);
-      }
-    }
+    put_witness([&] { put_external_lit(auxiliary); }, default_pivot,
+                INVALID_VAR);
     end_line();
     PopulationClauseView positive_helper = internal_view(lits, size);
     positive_helper.prefix = external_auxiliary;
@@ -1897,35 +1887,27 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
       put_lit(plan.lemma);
   };
 
+  const auto observe_lemma = [&](CheckerPopulationEventKind kind) {
+    PopulationClauseView lemma = emitted_clause;
+    lemma.suffix = externalize(checker_lit(plan.lemma));
+    observe_checker(kind, CheckerClauseRole::DsrSubstitutionHelper, 0, 0, lemma,
+                    true);
+  };
+
   if (plan.form == DsrWitnessForm::Lemma) {
     put_emitted(false, true);
     end_line();
-    PopulationClauseView lemma = emitted_clause;
-    lemma.suffix = externalize(checker_lit(plan.lemma));
-    observe_checker(CheckerPopulationEventKind::Add,
-                    CheckerClauseRole::DsrSubstitutionHelper, 0, 0, lemma,
-                    true);
+    observe_lemma(CheckerPopulationEventKind::Add);
   }
   put_emitted(false, false);
   if (plan.form != DsrWitnessForm::Rup) {
+    // The emitted pivot is the witness marker and is mapped true, so no pivot
+    // image follows; other forms drop its variable from the witness body.
+    const bool pivot_image = false;
     const Var dropped = plan.form == DsrWitnessForm::Direct
                             ? INVALID_VAR
                             : var_of(emitted_pivot);
-    uint32_t kept_mappings = 0;
-    for (uint32_t i = 0; i < nmappings; ++i)
-      kept_mappings += var_of(mappings[i].from) != dropped;
-    put_lit(emitted_pivot); // begin witness; the pivot is mapped true
-    for (uint32_t i = 0; i < ntrue; ++i)
-      if (var_of(true_lits[i]) != dropped)
-        put_lit(true_lits[i]);
-    if (kept_mappings) {
-      put_lit(emitted_pivot); // separate true literals from literal mappings
-      for (uint32_t i = 0; i < nmappings; ++i)
-        if (var_of(mappings[i].from) != dropped) {
-          put_lit(mappings[i].from);
-          put_lit(mappings[i].to);
-        }
-    }
+    put_witness([&] { put_lit(emitted_pivot); }, pivot_image, dropped);
   }
   end_line();
   observe_checker(CheckerPopulationEventKind::Add,
@@ -1938,11 +1920,7 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
   if (plan.form == DsrWitnessForm::Lemma) {
     put_emitted(true, true);
     end_line();
-    PopulationClauseView lemma = emitted_clause;
-    lemma.suffix = externalize(checker_lit(plan.lemma));
-    observe_checker(CheckerPopulationEventKind::DeleteRequested,
-                    CheckerClauseRole::DsrSubstitutionHelper, 0, 0, lemma,
-                    true);
+    observe_lemma(CheckerPopulationEventKind::DeleteRequested);
   }
   population_add(id, lits, size);
   return true;

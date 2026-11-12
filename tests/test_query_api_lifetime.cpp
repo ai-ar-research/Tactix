@@ -1,17 +1,11 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "api/api_internal.hpp"
 #include "policies/default_policy.hpp"
 #include "query_test_support.hpp"
 
-#include <cassert>
-#include <string>
 #include <unordered_set>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::session;
 
 int main() {

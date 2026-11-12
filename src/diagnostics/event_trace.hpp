@@ -170,55 +170,24 @@ void event_trace_bve_schedule(const Kernel &, const Var *members,
   void event_trace_##name parameters;
 #include "diagnostics/event_trace_forwarders.inc"
 #else
+// Production no-ops: every argument is consumed so -Wextra stays quiet.
+template <class... Arguments>
+inline void event_trace_ignore(const Arguments &...) {}
 inline void event_trace_detail(const Kernel &, const char *, int64_t) {}
-inline void event_trace_vivify_counts(const Kernel &, const uint32_t *,
-                                      size_t) {}
-inline void event_trace_watch_scan(const Kernel &, Lit) {}
-inline void event_trace_watch_move(const Kernel &, Lit, Lit, Lit,
-                                   const Clause *) {}
-inline void event_trace_watch_cost(const Kernel &, Lit, uint64_t, uint64_t,
-                                   uint64_t, uint64_t, uint64_t, uint64_t,
-                                   uint64_t, uint64_t) {}
-inline void event_trace_learned_stage(const Kernel &, const char *,
-                                      const std::vector<Lit> &) {}
-inline void event_trace_clause_glue(const Kernel &, const char *,
-                                    const Clause *, uint32_t, uint32_t) {}
-inline void event_trace_clause_used(const Kernel &, const Clause *, uint32_t) {}
-inline void event_trace_retier(const Kernel &, const RetierSchedule &,
-                               uint32_t, const uint64_t *) {}
-inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
-                                 const std::vector<uint8_t> &, uint8_t) {}
-inline void event_trace_analyzed_post(const Kernel &,
-                                      const std::vector<Var> &) {}
-inline void event_trace_heap_scores(const Kernel &) {}
-inline void event_trace_heap_insert(const Kernel &, Var, uint32_t, uint32_t) {}
-inline void event_trace_heap_remove(const Kernel &, Var, Var, uint32_t,
-                                    uint32_t, uint32_t) {}
-inline void event_trace_heap_pop(const Kernel &, const char *, Var, Var,
-                                 uint32_t, uint32_t) {}
-inline void event_trace_binary_add(const Kernel &, Lit, Lit) {}
 inline void event_trace_randec_draw(const Kernel &, uint32_t, uint32_t, Var,
                                     bool) {}
-inline void event_trace_randec_state(const Kernel &, const char *, uint64_t,
-                                     uint64_t, uint64_t, uint64_t) {}
-inline void event_trace_phase_pick(const Kernel &, Var, int8_t, int8_t,
-                                   int8_t) {}
-inline void event_trace_target_save(const Kernel &) {}
 inline void event_trace_slot_boundary(const Kernel &, const char *,
                                       const char *) {}
 inline void event_trace_bve_definition(const Kernel &, Var, uint64_t,
                                        uint32_t, const char *, uint64_t,
                                        uint64_t, uint64_t, uint32_t, uint32_t,
                                        uint32_t, const uint32_t *, uint32_t) {}
-inline void event_trace_bve_plan(const Kernel &, Var, uint32_t, uint32_t,
-                                 uint32_t, uint32_t, uint32_t, uint64_t,
-                                 bool) {}
 inline void event_trace_bve_schedule(const Kernel &, const Var *,
                                      const double *, uint32_t, uint32_t,
                                      uint64_t) {}
-inline void event_trace_bve_pop(const Kernel &, uint64_t, uint64_t, Var,
-                                double, Var, uint32_t) {}
-inline void event_trace_eliminate_cleanup(const Kernel &, const char *) {}
+#define TACTIX_TRACE_FORWARD(name, parameters, arguments)                     \
+  inline void event_trace_##name parameters { event_trace_ignore arguments; }
+#include "diagnostics/event_trace_forwarders.inc"
 #endif
 
 } // namespace tactix

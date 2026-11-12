@@ -1,10 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/substitution_redundancy/row_feasibility.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <set>
-using namespace tactix;
 using namespace tactix::symmetry_backend;
 
 struct Meter { uint64_t spent=0, limit=UINT64_MAX; };

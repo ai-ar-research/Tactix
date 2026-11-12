@@ -3,33 +3,24 @@
 // PBP. Runs that keep DSR compare with a single-format writer byte for byte; a
 // conversion compares with its expected lines here, and tests/cli_auto_proof.sh
 // and test_dsr_to_pbp check the semantics through the real checkers.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/proof.hpp"
 #include "rule_test_utils.hpp"
 #include "test_io.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <cerrno>
 #include <climits>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
 #include <functional>
 #include <filesystem>
 #include <set>
 #include <sstream>
-#include <string>
 #include <csignal>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -179,7 +170,7 @@ void expect_abort(const std::function<void()> &body) {
   assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
 }
 
-void no_trigger_selects_dsr() {
+TEST(no_trigger_selects_dsr) {
   const Events events = [](Proof &p) { inputs(p); refutation(p); };
   for (const bool binary : {true, false}) {
     TemporaryDirectory directory;
@@ -210,7 +201,7 @@ void no_trigger_selects_dsr() {
   }
 }
 
-void startup_pb_keeps_pbp() {
+TEST(startup_pb_keeps_pbp) {
   const Events events = [](Proof &p) {
     inputs(p);
     FILE *terminal = p.begin_pb();
@@ -236,7 +227,7 @@ void startup_pb_keeps_pbp() {
 // A witnessed line deletes the affine support its witness would have to hold
 // against, in every stream, so the DSR copy follows it. A witness-free line
 // transforms nothing and deletes nothing.
-void sr_under_affine_support() {
+TEST(sr_under_affine_support) {
   const Events lease = [](Proof &p) {
     p.arm_population_shadow();
     std::vector<uint64_t> handles;
@@ -302,7 +293,7 @@ void sr_under_affine_support() {
 
 // A line DSR cannot spell, for want of an auxiliary variable, converts before either
 // stream deletes anything for it, so the support is deleted once.
-void sr_beyond_the_auxiliary_limit() {
+TEST(sr_beyond_the_auxiliary_limit) {
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
   {
@@ -382,7 +373,7 @@ uint32_t parity_helpers() {
 // The auxiliary of an SR line takes the checker name above every helper. One
 // that would pass the bound converts under --auto-proof; one at the bound is
 // written.
-void sr_auxiliary_name_counts_helpers() {
+TEST(sr_auxiliary_name_counts_helpers) {
   const uint32_t helpers = parity_helpers();
   assert(helpers > 0);
   const auto sr = lits_of({1, 6});
@@ -414,7 +405,7 @@ void sr_auxiliary_name_counts_helpers() {
 // --dsr writes every name up to the bound and stops, naming the bound, at a
 // line that would pass it: an SR auxiliary, a solver variable above the
 // helpers, or a new helper.
-void dsr_only_stops_at_the_name_bound() {
+TEST(dsr_only_stops_at_the_name_bound) {
   const uint32_t helpers = parity_helpers();
   const auto sr = lits_of({1, 6});
   const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
@@ -462,7 +453,7 @@ void dsr_only_stops_at_the_name_bound() {
 }
 
 // A RAT line deletes retained support even with no lease left.
-void rat_line_deletes_retained_support() {
+TEST(rat_line_deletes_retained_support) {
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
   Proof p;
@@ -475,7 +466,7 @@ void rat_line_deletes_retained_support() {
   assert(p.persistent_external_epoch() == 1);
 }
 
-void witnessed_sr_selects_trestle_route() {
+TEST(witnessed_sr_selects_trestle_route) {
   const Events events = [](Proof &p) {
     inputs(p);
     const auto sr = lits_of({6, 1});
@@ -499,7 +490,7 @@ void witnessed_sr_selects_trestle_route() {
 }
 
 // A symlinked destination is rewritten through the link, never replaced.
-void symlink_destination_is_copied() {
+TEST(symlink_destination_is_copied) {
   const Events events = [](Proof &p) { inputs(p); refutation(p); };
   TemporaryDirectory directory;
   const std::string target = directory / "target", link = directory / "link";
@@ -519,7 +510,7 @@ void symlink_destination_is_copied() {
 }
 
 // A caller-owned stage is copied from and emptied, never renamed or removed.
-void caller_stage_is_copied() {
+TEST(caller_stage_is_copied) {
   const Events events = [](Proof &p) { inputs(p); refutation(p); };
   TemporaryDirectory directory;
   const std::string path = directory / "proof", stage = directory / "stage";
@@ -535,7 +526,7 @@ void caller_stage_is_copied() {
 }
 
 // A copy that cannot be written is discarded; the PBP stream is unaffected.
-void failed_copy_aborts() {
+TEST(failed_copy_aborts) {
   if (access("/proc/self/fd", R_OK) || access("/dev/full", W_OK))
     return;
   expect_abort([] {
@@ -552,7 +543,7 @@ void failed_copy_aborts() {
 
 // The stage's last buffer fails during the conversion at the empty clause: no
 // proof remains, so the run must not go on to claim UNSAT.
-void failed_stage_at_the_switch_aborts() {
+TEST(failed_stage_at_the_switch_aborts) {
   if (access("/proc/self/fd", R_OK) || access("/dev/full", W_OK))
     return;
   expect_abort([] {
@@ -569,7 +560,7 @@ void failed_stage_at_the_switch_aborts() {
 
 // A conversion that cannot be written at the empty clause keeps the complete
 // DSR proof, which is smaller than the PBP text this file limit stops.
-void failed_conversion_keeps_dsr() {
+TEST(failed_conversion_keeps_dsr) {
   const Events events = [](Proof &p) { inputs(p); refutation(p); };
   const std::string want = single(ProofFormat::DsrBinary, events);
   assert(want.size() < 40);
@@ -604,7 +595,7 @@ void failed_conversion_keeps_dsr() {
 }
 
 // No handler runs on SIGKILL, and the destination already holds what was flushed.
-void killed_run_leaves_dsr_prefix() {
+TEST(killed_run_leaves_dsr_prefix) {
   const Events events = [](Proof &p) {
     inputs(p);
     p.add_rup(7, lits_of({-3, 4}).data(), 2);
@@ -630,7 +621,7 @@ void killed_run_leaves_dsr_prefix() {
 }
 
 // A switch replaces the DSR file whole, with a new file of the same mode.
-void switch_replaces_the_destination() {
+TEST(switch_replaces_the_destination) {
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
   FILE *const created = std::fopen(path.c_str(), "wb");
@@ -657,7 +648,7 @@ void switch_replaces_the_destination() {
 // With nowhere to put a sibling the DSR stays out of the destination, as a stage
 // that can be rewritten over it; if the directory closes later, a conversion
 // fails and the DSR stays the proof.
-void unwritable_directory() {
+TEST(unwritable_directory) {
   if (!geteuid())
     return; // root ignores the mode
   const Events events = [](Proof &p) { inputs(p); refutation(p); };
@@ -698,7 +689,7 @@ void unwritable_directory() {
 
 // DSR rejects a tautological RAT line: the conversion runs first, and the line
 // is written once, on PBP.
-void tautological_rat_converts_first() {
+TEST(tautological_rat_converts_first) {
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
   {
@@ -719,7 +710,7 @@ void tautological_rat_converts_first() {
 
 // Past the DSR limit a run stays on DSR with the same answers: a parity reason is
 // spelled in clauses. Only an event DSR cannot follow still converts.
-void dsr_limit_stays_on_dsr() {
+TEST(dsr_limit_stays_on_dsr) {
   const PbpParityEquation equation{{1, 2}, false};
   const int32_t reason[] = {-1, 2};
   TemporaryDirectory directory;
@@ -758,7 +749,7 @@ void dsr_limit_stays_on_dsr() {
 
 // --dsr answers the solver as --pbp does and writes only DSR, to any destination,
 // giving parity helpers names no later solver variable takes.
-void dsr_only_writes_dsr_with_the_same_answers() {
+TEST(dsr_only_writes_dsr_with_the_same_answers) {
   const PbpParityEquation equation{{1, 2}, false};
   const int32_t reason[] = {-1, 2};
   TemporaryDirectory directory;
@@ -806,7 +797,7 @@ void dsr_only_writes_dsr_with_the_same_answers() {
 // event. The first clausal event publishes the whole prefix at once, and a
 // refutation inside the input transaction publishes it at selection; either
 // way the destination receives the bytes of a DSR writer.
-void dsr_only_keeps_the_input_private() {
+TEST(dsr_only_keeps_the_input_private) {
   constexpr uint64_t duplicates = 300000; // 5 bytes each in binary DSR
   const Events normalized = [](Proof &p) {
     const auto duplicate = lits_of({1, 2, 3});
@@ -882,7 +873,7 @@ void dsr_only_keeps_the_input_private() {
 
 // --dsr never converts, so its copy keeps no RAT marks: a validation switch at
 // the empty clause finds no stage to read and keeps the DSR, byte for byte.
-void dsr_only_switch_at_the_end_keeps_dsr() {
+TEST(dsr_only_switch_at_the_end_keeps_dsr) {
   const Events events = [](Proof &p) {
     inputs(p);
     p.add_rat(20, lits_of({6, -1}).data(), 2);
@@ -913,7 +904,7 @@ void dsr_only_switch_at_the_end_keeps_dsr() {
 // The DSR limit counts binary DSR bytes in either spelling, names of one to
 // five varint bytes included: a parity reason once the DSR has reached the
 // limit stays on DSR, and one a byte below it converts.
-void dsr_limit_counts_binary_bytes() {
+TEST(dsr_limit_counts_binary_bytes) {
   const auto lines = [](Proof &p) {
     inputs(p);
     const int32_t wide[][2] = {{1, 70}, {-2, 9000}, {3, -1100000}, {-4, 300000000}};
@@ -941,7 +932,7 @@ void dsr_limit_counts_binary_bytes() {
 
 // A deletion block spilled behind a pending root unit is copied into the stage
 // when the batch flushes; a failure there is a failure of the only proof.
-void failed_spill_aborts() {
+TEST(failed_spill_aborts) {
   if (access("/proc/self/fd", R_OK) || access("/dev/full", W_OK))
     return;
   expect_abort([] {
@@ -965,7 +956,7 @@ void failed_spill_aborts() {
 
 // A caller stage must be a regular file other than the destination: a device
 // would read back nothing (or forever) when the copy is installed.
-void unusable_stage_is_pbp_only() {
+TEST(unusable_stage_is_pbp_only) {
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
   for (const std::string &stage : {std::string("/dev/null"), path}) {
@@ -983,7 +974,7 @@ void unusable_stage_is_pbp_only() {
 // copy's prefix, and neither the stage nor the journal remains. The prefix is
 // placed like a complete copy: by rename, by rewriting a destination that
 // cannot be renamed over (a second hard link), or from a caller's stage.
-void unfinished_run_leaves_dsr_prefix() {
+TEST(unfinished_run_leaves_dsr_prefix) {
   const Events events = [](Proof &p) {
     inputs(p);
     p.add_rup(7, lits_of({-3, 4}).data(), 2);
@@ -1038,7 +1029,7 @@ void unfinished_run_leaves_dsr_prefix() {
 
 // A stage that fails during the final flush of an unfinished run loses the
 // prefix: no abort (the verdict may be SAT), no PBP, an empty destination.
-void unfinished_run_with_a_failed_stage_stays_empty() {
+TEST(unfinished_run_with_a_failed_stage_stays_empty) {
   if (access("/proc/self/fd", R_OK) || access("/dev/full", W_OK))
     return; // no fault injection on this system
   TemporaryDirectory directory;
@@ -1054,7 +1045,7 @@ void unfinished_run_with_a_failed_stage_stays_empty() {
 }
 
 // Non-regular destinations cannot be rewritten: whole-run PBP, no copy.
-void device_destination_is_pbp_only() {
+TEST(device_destination_is_pbp_only) {
   Proof p;
   assert(p.open_automatic("/dev/null", true));
   assert(p.automatic_reason() == AutomaticProofReason::DestinationUnsupported);
@@ -1163,7 +1154,7 @@ size_t long_script(Proof &p) {
 }
 
 // The marks stay aligned across the buffer, spills and every addition path.
-void long_conversion_marks_every_rat_line() {
+TEST(long_conversion_marks_every_rat_line) {
   setenv("TACTIX_AUTO_PROOF_SWITCH_AT", "end", 1);
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
@@ -1183,7 +1174,7 @@ void long_conversion_marks_every_rat_line() {
 
 // A switch at any point of a run yields one complete proof; nothing is lost
 // around the switch.
-void conversion_at_every_point() {
+TEST(conversion_at_every_point) {
   static constexpr int total = 400;
   size_t additions = 0;
   {
@@ -1229,35 +1220,7 @@ int main() {
   // destructors cannot run; the parent owns their entire temporary tree.
   TemporaryDirectory temporary;
   assert(!setenv("TMPDIR",temporary.path.c_str(),1));
-  no_trigger_selects_dsr();
-  startup_pb_keeps_pbp();
-  sr_under_affine_support();
-  sr_beyond_the_auxiliary_limit();
-  sr_auxiliary_name_counts_helpers();
-  dsr_only_stops_at_the_name_bound();
-  rat_line_deletes_retained_support();
-  witnessed_sr_selects_trestle_route();
-  symlink_destination_is_copied();
-  caller_stage_is_copied();
-  failed_copy_aborts();
-  failed_spill_aborts();
-  failed_stage_at_the_switch_aborts();
-  failed_conversion_keeps_dsr();
-  tautological_rat_converts_first();
-  dsr_limit_stays_on_dsr();
-  dsr_only_writes_dsr_with_the_same_answers();
-  dsr_only_keeps_the_input_private();
-  dsr_only_switch_at_the_end_keeps_dsr();
-  dsr_limit_counts_binary_bytes();
-  conversion_at_every_point();
-  long_conversion_marks_every_rat_line();
-  unusable_stage_is_pbp_only();
-  unfinished_run_leaves_dsr_prefix();
-  killed_run_leaves_dsr_prefix();
-  switch_replaces_the_destination();
-  unwritable_directory();
-  unfinished_run_with_a_failed_stage_stays_empty();
-  device_destination_is_pbp_only();
+  run_tests();
   std::puts("automatic proof: DSR, converted once to PBP at a startup refutation, "
             "a parity limit or an event DSR cannot follow");
   return 0;

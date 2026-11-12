@@ -12,17 +12,8 @@
 namespace tactix::gf3_gaussian_live {
 
 enum class Status : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoSupportedOutcome,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Duplicate,
-  Prepared,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoSupportedOutcome, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, Duplicate, Prepared, Applied
 };
 
 struct Request {

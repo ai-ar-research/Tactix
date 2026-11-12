@@ -58,30 +58,6 @@ bool Gf3AffineConsequenceParameters::valid() const {
   return action_limits(*this).valid();
 }
 
-DirectCspGuardedCoverActionLimits action_limits(
-    const DirectCspGuardedCoverParameters &p) {
-  return p;
-}
-
-DirectCspSupportActionLimits action_limits(
-    const DirectCspSupportParameters &p) {
-  return p;
-}
-
-NaryCspEqualityLimits action_limits(const NaryCspEqualityParameters &p) {
-  return p;
-}
-
-NaryCspEqualityAmoLimits action_limits(
-    const NaryCspEqualityAmoParameters &p) {
-  return p;
-}
-
-NaryCspEqualityTransitivityLimits action_limits(
-    const NaryCspEqualityTransitivityParameters &p) {
-  return p;
-}
-
 DirectPhpActionLimits action_limits(const DirectPhpRefutationParameters &p) {
   return DirectPhpActionLimits{
       {p.maximum_snapshot_clauses, p.maximum_snapshot_literals,

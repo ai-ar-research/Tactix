@@ -155,12 +155,21 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
   if (!collector.finish(equations))
     return stop(meter, Status::InvalidInput, Reason::InvalidSnapshot,
                 snapshot.clauses.size(), collector.groups_seen());
+  uint64_t legal_components = 0;
+  // Stops with the grouped equations and the legal components found so far.
+  const auto grouped_stop = [&](Status status, Reason reason) {
+    return stop(meter, status, reason, snapshot.clauses.size(),
+                equations.size(), legal_components);
+  };
+  const auto grouped_metered_stop = [&] {
+    return metered_stop(meter, snapshot.clauses.size(), equations.size(),
+                        legal_components);
+  };
   if (std::any_of(equations.begin(), equations.end(), [&](const auto &item) {
         return item.equation.size > limits.maximum_width &&
                item.equation.size <= 4;
       }))
-    return stop(meter, Status::ResourceExhausted, Reason::GroupLimit,
-                snapshot.clauses.size(), equations.size());
+    return grouped_stop(Status::ResourceExhausted, Reason::GroupLimit);
   equations.erase(
       std::remove_if(equations.begin(), equations.end(), [&](const auto &item) {
         return item.equation.size > limits.maximum_width;
@@ -170,13 +179,11 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
     return stop(meter, Status::Inapplicable, Reason::NoCompleteEquations,
                 snapshot.clauses.size());
   if (equations.size() > limits.maximum_groups)
-    return stop(meter, Status::ResourceExhausted, Reason::GroupLimit,
-                snapshot.clauses.size(), equations.size());
+    return grouped_stop(Status::ResourceExhausted, Reason::GroupLimit);
 
   std::vector<uint8_t> ambiguous(equations.size(), 0);
   for (size_t i = 1; i < equations.size(); ++i) {
-    if (!meter.spend())
-      return metered_stop(meter, snapshot.clauses.size(), equations.size());
+    if (!meter.spend()) return grouped_metered_stop();
     if (same_scope(equations[i - 1], equations[i]) &&
         equations[i - 1].equation.rhs != equations[i].equation.rhs) {
       ambiguous[i - 1] = 1;
@@ -188,19 +195,16 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
   groups.reserve(equations.size());
   std::map<External, std::vector<size_t>> incident;
   for (size_t index = 0; index < equations.size(); ++index) {
-    if (!meter.spend())
-      return metered_stop(meter, snapshot.clauses.size(), equations.size());
+    if (!meter.spend()) return grouped_metered_stop();
     const auto &equation = equations[index];
     tseitin_cycle::CertifiedGroup group;
     group.identity = index + 1;
     group.certified = equation;
     for (uint64_t occurrence : equation.premises) {
-      if (!meter.spend())
-        return metered_stop(meter, snapshot.clauses.size(), equations.size());
+      if (!meter.spend()) return grouped_metered_stop();
       const auto found = proof_by_occurrence.find(occurrence);
       if (found == proof_by_occurrence.end())
-        return stop(meter, Status::InvalidInput, Reason::InvalidSnapshot,
-                    snapshot.clauses.size(), equations.size());
+        return grouped_stop(Status::InvalidInput, Reason::InvalidSnapshot);
       group.premise_proofs.push_back(found->second);
     }
     for (uint32_t i = 0; i < equation.equation.size; ++i)
@@ -214,12 +218,10 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
   uint64_t retained_bytes = 0;
   if (!retained_snapshot_bytes(snapshot, limits.maximum_retained_bytes,
                                retained_bytes))
-    return stop(meter, Status::ResourceExhausted, Reason::WorkLimit,
-                snapshot.clauses.size(), equations.size());
+    return grouped_stop(Status::ResourceExhausted, Reason::WorkLimit);
   auto shared_snapshot =
       std::make_shared<const tseitin_cycle_live::Snapshot>(snapshot);
   Reason first_decline = Reason::None;
-  uint64_t legal_components = 0;
   for (size_t seed = 0; seed < groups.size(); ++seed) {
     if (reached[seed]) continue;
     std::vector<size_t> component;
@@ -227,9 +229,7 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
     reached[seed] = 1;
     pending.push(seed);
     while (!pending.empty()) {
-      if (!meter.spend())
-        return metered_stop(meter, snapshot.clauses.size(), equations.size(),
-                            legal_components);
+      if (!meter.spend()) return grouped_metered_stop();
       const size_t current = pending.front();
       pending.pop();
       component.push_back(current);
@@ -252,9 +252,7 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
     std::set<External> edges;
     std::set<uint64_t> claimed;
     for (size_t index : component) {
-      if (!meter.spend())
-        return metered_stop(meter, snapshot.clauses.size(), equations.size(),
-                            legal_components);
+      if (!meter.spend()) return grouped_metered_stop();
       const auto &group = groups[index];
       odd_charge ^= group.certified.equation.rhs;
       for (uint32_t i = 0; i < group.certified.equation.size; ++i)
@@ -264,9 +262,7 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
     }
     bool degree_two = true;
     for (External edge : edges) {
-      if (!meter.spend())
-        return metered_stop(meter, snapshot.clauses.size(), equations.size(),
-                            legal_components);
+      if (!meter.spend()) return grouped_metered_stop();
       const auto found = incident.find(edge);
       if (found == incident.end() || found->second.size() != 2 ||
           found->second[0] == found->second[1]) {
@@ -285,14 +281,10 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
     }
     bool residual = false;
     for (const auto &clause : snapshot.clauses) {
-      if (!meter.spend())
-        return metered_stop(meter, snapshot.clauses.size(), equations.size(),
-                            legal_components);
+      if (!meter.spend()) return grouped_metered_stop();
       if (claimed.count(clause.occurrence)) continue;
       for (External literal : clause.literals) {
-        if (!meter.spend())
-          return metered_stop(meter, snapshot.clauses.size(), equations.size(),
-                              legal_components);
+        if (!meter.spend()) return grouped_metered_stop();
         const External variable =
             static_cast<External>(external_variable_of(literal));
         if (edges.count(variable)) {
@@ -321,26 +313,18 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
                        limits.maximum_retained_bytes, group_bytes) ||
           !add_bytes(group_bytes, limits.maximum_retained_bytes,
                      component_bytes))
-        return stop(meter, Status::ResourceExhausted, Reason::WorkLimit,
-                    snapshot.clauses.size(), equations.size(),
-                    legal_components);
+        return grouped_stop(Status::ResourceExhausted, Reason::WorkLimit);
       plan.groups_.push_back(group);
     }
     if (legal_components > limits.maximum_components)
-      return stop(meter, Status::ResourceExhausted, Reason::GroupLimit,
-                  snapshot.clauses.size(), equations.size(),
-                  legal_components);
+      return grouped_stop(Status::ResourceExhausted, Reason::GroupLimit);
     if (selector) {
       uint64_t peak = retained_bytes;
       if (!add_bytes(component_bytes, limits.maximum_retained_bytes, peak))
-        return stop(meter, Status::ResourceExhausted, Reason::WorkLimit,
-                    snapshot.clauses.size(), equations.size(),
-                    legal_components);
+        return grouped_stop(Status::ResourceExhausted, Reason::WorkLimit);
       if (selector(plan, selector_state)) {
         *selected = std::move(plan);
-        Result result = stop(meter, Status::Discovered, Reason::None,
-                             snapshot.clauses.size(), equations.size(),
-                             legal_components);
+        Result result = grouped_stop(Status::Discovered, Reason::None);
         result.selected_groups = selected->groups().size();
         result.retained_bytes = peak;
         return result;
@@ -349,9 +333,7 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
     }
     if (!add_bytes(component_bytes, limits.maximum_retained_bytes,
                    retained_bytes))
-      return stop(meter, Status::ResourceExhausted, Reason::WorkLimit,
-                  snapshot.clauses.size(), equations.size(),
-                  legal_components);
+      return grouped_stop(Status::ResourceExhausted, Reason::WorkLimit);
     local.push_back(std::move(plan));
   }
   if (local.empty())

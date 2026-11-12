@@ -1,14 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel_image.hpp"
 #include "dimacs_text.hpp"
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -84,7 +77,7 @@ DirectCspSupportLiveResult decline_unchanged(
   return result;
 }
 
-void capture_and_direct_publish() {
+TEST(capture_and_direct_publish) {
   Kernel kernel = parse();
   Records records;
   auto candidate = request(records);
@@ -112,7 +105,7 @@ void capture_and_direct_publish() {
   assert(std::ftell(records) > 0);
 }
 
-void unit_support_records_pending_propagation() {
+TEST(unit_support_records_pending_propagation) {
   Kernel kernel = parse(true);
   Records records;
   auto candidate = request(records, 0);
@@ -123,7 +116,7 @@ void unit_support_records_pending_propagation() {
   assert(kernel.value(kernel_internalize(kernel, -1)) > 0);
 }
 
-void stale_owner_and_clean_limits() {
+TEST(stale_owner_and_clean_limits) {
   Kernel kernel = parse();
   Records records;
   auto candidate = request(records);
@@ -160,7 +153,7 @@ void stale_owner_and_clean_limits() {
 }
 
 // A live duplicate scan is exact at its recognition-work boundary.
-void duplicate_scans_have_exact_work_boundaries() {
+TEST(duplicate_scans_have_exact_work_boundaries) {
   for (uint32_t selected : {0u, 1u}) {
     Kernel kernel = parse();
     Records records;
@@ -195,11 +188,3 @@ void duplicate_scans_have_exact_work_boundaries() {
 }
 
 } // namespace
-
-int main() {
-  capture_and_direct_publish();
-  unit_support_records_pending_propagation();
-  stale_owner_and_clean_limits();
-  duplicate_scans_have_exact_work_boundaries();
-  std::puts("test_direct_csp_support_live: passed");
-}

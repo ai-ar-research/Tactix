@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <string_view>
 
 using namespace tactix;
 
@@ -308,23 +309,23 @@ int main(int argc, char **argv) {
         return fail_unknown("tactix: --default-affine-search requires on or off\n");
     } else if (!strncmp(a, "--default-affine-reasons=", 25)) {
       using ReasonMode = DefaultStrategyConfig::AffineSearch::ReasonMode;
-      if (!strcmp(a + 25, "eager"))
-        default_affine_reason_mode = ReasonMode::EagerSourceSupport;
-      else if (!strcmp(a + 25, "deferred"))
-        default_affine_reason_mode = ReasonMode::Deferred;
-      else if (!strcmp(a + 25, "detached-minimal"))
-        default_affine_reason_mode = ReasonMode::DetachedMinimal;
-      else if (!strcmp(a + 25, "detached-source"))
-        default_affine_reason_mode = ReasonMode::DetachedSource;
-      else if (!strcmp(a + 25, "lazy-source"))
-        default_affine_reason_mode = ReasonMode::LazySource;
-      else if (!strcmp(a + 25, "lazy-minimal"))
-        default_affine_reason_mode = ReasonMode::LazyMinimal;
-      else
+      static constexpr std::pair<std::string_view, ReasonMode> modes[] = {
+          {"eager", ReasonMode::EagerSourceSupport},
+          {"deferred", ReasonMode::Deferred},
+          {"detached-minimal", ReasonMode::DetachedMinimal},
+          {"detached-source", ReasonMode::DetachedSource},
+          {"lazy-source", ReasonMode::LazySource},
+          {"lazy-minimal", ReasonMode::LazyMinimal},
+      };
+      const auto mode = std::find_if(
+          std::begin(modes), std::end(modes),
+          [&](const auto &m) { return m.first == a + 25; });
+      if (mode == std::end(modes))
         return fail_unknown(
             "tactix: --default-affine-reasons requires eager, deferred, "
             "detached-minimal, detached-source, lazy-source, or "
             "lazy-minimal\n");
+      default_affine_reason_mode = mode->second;
     } else if (!strncmp(a, "--default-graph-labeling=", 25)) {
       if (!on_off(a + 25, default_graph_labeling))
         return fail_unknown("tactix: --default-graph-labeling requires on or off\n");
@@ -348,25 +349,23 @@ int main(int argc, char **argv) {
       } else if (!strcmp(spec, "none")) {
         bve_gate_mask = 0u;
       } else {
+        static constexpr std::pair<std::string_view, uint32_t> gates[] = {
+            {"equiv", BVE_GATE_EQUIV},
+            {"andor", BVE_GATE_AND_OR},
+            {"ite", BVE_GATE_ITE},
+            {"xor", BVE_GATE_XOR},
+            {"def", BVE_GATE_DEFINITION},
+        };
         bve_gate_mask = 0u;
-        for (const char *p = spec; *p;) {
-          if (!strncmp(p, "equiv", 5)) {
-            bve_gate_mask |= BVE_GATE_EQUIV;
-            p += 5;
-          } else if (!strncmp(p, "andor", 5)) {
-            bve_gate_mask |= BVE_GATE_AND_OR;
-            p += 5;
-          } else if (!strncmp(p, "ite", 3)) {
-            bve_gate_mask |= BVE_GATE_ITE;
-            p += 3;
-          } else if (!strncmp(p, "xor", 3)) {
-            bve_gate_mask |= BVE_GATE_XOR;
-            p += 3;
-          } else if (!strncmp(p, "def", 3)) {
-            bve_gate_mask |= BVE_GATE_DEFINITION;
-            p += 3;
-          } else if (*p == ',') {
-            p++;
+        for (std::string_view rest = spec; !rest.empty();) {
+          const auto gate = std::find_if(
+              std::begin(gates), std::end(gates),
+              [&](const auto &g) { return rest.starts_with(g.first); });
+          if (gate != std::end(gates)) {
+            bve_gate_mask |= gate->second;
+            rest.remove_prefix(gate->first.size());
+          } else if (rest.front() == ',') {
+            rest.remove_prefix(1);
           } else {
             return fail_unknown("tactix: bad --bve-gates spec '%s'\n", spec);
           }

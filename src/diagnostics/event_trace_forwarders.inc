@@ -1,8 +1,9 @@
 // The EventTrace events whose free `event_trace_<name>` function only
 // forwards to the active trace, as TACTIX_TRACE_FORWARD(name, (parameters),
 // (arguments)).  event_trace.hpp expands the list into the member and free
-// declarations and event_trace.cpp into the forwarders; each includer defines
-// TACTIX_TRACE_FORWARD, and this file undefines it.  Diagnostic builds only.
+// declarations (production builds: inline no-ops) and event_trace.cpp into the
+// forwarders; each includer defines TACTIX_TRACE_FORWARD, and this file
+// undefines it.
 TACTIX_TRACE_FORWARD(watch_scan, (const Kernel &k, Lit propagated),
                      (k, propagated))
 TACTIX_TRACE_FORWARD(watch_move, (const Kernel &k, Lit propagated, Lit target,

@@ -179,13 +179,8 @@ bool duplicate_key(const AffineBasisActionSession &session,
 }
 
 enum class OfferStatus : uint8_t {
-  Complete,
-  NoStructure,
-  Inapplicable,
-  ResourceExhausted,
-  Interrupted,
-  Stale,
-  Invalid,
+  Complete, NoStructure, Inapplicable, ResourceExhausted, Interrupted, Stale,
+  Invalid
 };
 
 struct Offer {

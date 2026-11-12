@@ -1,15 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/substitution_redundancy/orbitopal_group.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <deque>
 #include <random>
 #include <numeric>
 #include <set>
-#include <string>
-#include <vector>
 
 using namespace tactix::orbitopal_group;
 

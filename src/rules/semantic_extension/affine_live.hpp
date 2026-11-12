@@ -63,14 +63,8 @@ inline uint64_t affine_binary_body_identity(int32_t a,int32_t b) {
 }
 
 enum class AffineLiveStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Applied,
+  Invalid, Inapplicable, NoStructure, ResourceExhausted, Interrupted,
+  UnsupportedProof, Stale, Applied
 };
 
 struct AffineLiveResult {
@@ -116,9 +110,7 @@ std::optional<Status> affine_live_decline(const Kernel &k) {
 }
 
 enum class AffineSnapshotPayload : uint8_t {
-  Complete,
-  Invalid,
-  ResourceExhausted
+  Complete, Invalid, ResourceExhausted
 };
 
 // Replay a cached view's occurrence payload against the clause, literal and

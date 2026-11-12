@@ -1,15 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/proof.hpp"
 #include "temporary_file.hpp"
 #include "query_test_support.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <numeric>
 #include <sstream>
-#include <string>
-using namespace tactix;
 
 struct Observer final : PopulationObserver {
   struct Event { bool deletion; std::vector<int32_t> named; CheckerClauseRole role; };

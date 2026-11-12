@@ -1,18 +1,13 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <memory>
 #include <sstream>
-#include <string>
 #include <unistd.h>
-
-using namespace tactix;
 
 // A recorded conflict with one nonroot literal; the final binaries make the
 // root implication refute F.

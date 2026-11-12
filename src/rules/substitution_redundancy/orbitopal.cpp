@@ -18,6 +18,7 @@ namespace {
 
 using sr_detail::backend_stop;
 using sr_detail::fail;
+using sr_detail::LiteralGraph;
 using sr_detail::saturating_add;
 using sr_detail::stop_requested;
 using sr_detail::StopContext;
@@ -383,14 +384,6 @@ struct FormulaRefinement {
   ~FormulaRefinement() { symmetry_backend::release(session); }
 };
 
-struct DirectBinaryGraph {
-  uint32_t vertex_count = 0;
-  uint64_t edge_count = 0;
-  std::vector<uint32_t> colors;
-  std::vector<uint32_t> degrees;
-  std::vector<uint32_t> edges;
-};
-
 struct FormulaAutomorphisms {
   bool initialized = false;
   symmetry_backend::Status detection_status = symmetry_backend::Status::Failed;
@@ -424,7 +417,7 @@ struct OrbitopalPass {
   bool exact_full_row_group(const Matrix &matrix);
   bool exact_dimension(const Matrix &matrix, Matrix &permutations);
   bool order_columns_by_maximum_clique(Matrix &matrix);
-  bool admit_direct_graph(DirectBinaryGraph &storage, const char *function,
+  bool admit_direct_graph(LiteralGraph &storage, const char *function,
                           unsigned line);
   bool prepare_formula_refinement();
   bool complete_matrix_by_refinement(Matrix &matrix, bool unique_first = false);
@@ -1035,7 +1028,7 @@ bool OrbitopalPass::order_columns_by_maximum_clique(Matrix &matrix) {
 bool build_direct_binary_graph(const Kernel &kernel,
                                const LogicalFormula &formula,
                                const GraphSymmetryParameters &settings,
-                               DirectBinaryGraph &graph) {
+                               LiteralGraph &graph) {
   const uint64_t literal_count = 2ull * kernel.nvars;
   uint64_t nonbinary_clauses = 0;
   uint64_t edge_count = 2ull * kernel.nvars;
@@ -1062,66 +1055,32 @@ bool build_direct_binary_graph(const Kernel &kernel,
       edge_count > SIZE_MAX / (2 * sizeof(uint32_t)))
     return false;
 
-  graph.vertex_count = static_cast<uint32_t>(vertex_count);
-  graph.edge_count = edge_count;
-  graph.colors.assign(graph.vertex_count, 1);
-  graph.degrees.assign(graph.vertex_count, 0);
-  graph.edges.clear();
-  graph.edges.reserve(2 * edge_count);
-  for (Lit literal = 0; literal < literal_count; ++literal)
-    graph.colors[literal] = (kernel_var_retired(kernel, var_of(literal)) ||
-                            (settings.pointwise_root_stabilizer &&
-                             kernel.value(literal)))
-                                ? 3 + literal
-                                : 0;
-  sr_detail::stabilize_query_coordinates(kernel, settings.pointwise_root_stabilizer,
-                                          graph.colors, literal_count);
-
+  graph.reset(kernel, settings.pointwise_root_stabilizer,
+              static_cast<uint32_t>(vertex_count), edge_count,
+              static_cast<uint32_t>(literal_count));
   // Binary clauses are direct literal edges, as in Satsuma; a color-2 vertex
   // joins each variable's two literals.
-  for (Var variable = 0; variable < kernel.nvars; ++variable) {
-    const uint32_t vertex =
-        static_cast<uint32_t>(literal_count) + variable;
-    graph.colors[vertex] = 2;
-    graph.degrees[vertex] = 2;
-    for (const Lit literal : {make_lit(variable, false),
-                              make_lit(variable, true)}) {
-      ++graph.degrees[literal];
-      graph.edges.push_back(literal);
-      graph.edges.push_back(vertex);
-    }
-  }
-
-  uint32_t clause_vertex =
-      static_cast<uint32_t>(literal_count + kernel.nvars);
+  uint32_t next_vertex = static_cast<uint32_t>(literal_count);
+  for (Var variable = 0; variable < kernel.nvars; ++variable)
+    graph.add_negation_gadget(variable, next_vertex++);
   for (const auto &clause : formula.clauses) {
     if (clause.size() == 2) {
-      uint32_t first = clause[0], second = clause[1];
-      if (first > second)
-        std::swap(first, second);
-      if (first == second)
+      if (clause[0] == clause[1])
         return false;
-      ++graph.degrees[first];
-      ++graph.degrees[second];
-      graph.edges.push_back(first);
-      graph.edges.push_back(second);
+      graph.add_edge(clause[0], clause[1]);
       continue;
     }
-    graph.degrees[clause_vertex] = clause.size();
-    for (const Lit literal : clause) {
-      ++graph.degrees[literal];
-      graph.edges.push_back(literal);
-      graph.edges.push_back(clause_vertex);
-    }
-    ++clause_vertex;
+    for (const Lit literal : clause)
+      graph.add_edge(literal, next_vertex);
+    ++next_vertex;
   }
-  return clause_vertex == graph.vertex_count &&
+  return next_vertex == graph.vertex_count &&
          graph.edges.size() == 2 * graph.edge_count;
 }
 
 // Build the direct binary graph within the graph limits and charge its size.
 // A limit is traced at the caller's site.
-bool OrbitopalPass::admit_direct_graph(DirectBinaryGraph &storage,
+bool OrbitopalPass::admit_direct_graph(LiteralGraph &storage,
                                        const char *function, unsigned line) {
   const GraphSymmetryParameters &limits = parameters.graph_symmetry;
   if (!build_direct_binary_graph(kernel, formula, limits, storage) ||
@@ -1137,12 +1096,10 @@ bool OrbitopalPass::prepare_formula_refinement() {
     return fail(result, traced_orbitopal_limit(__func__, __LINE__));
   if (!refinement.initialized) {
     refinement.initialized = true;
-    DirectBinaryGraph storage;
+    LiteralGraph storage;
     if (!admit_direct_graph(storage, __func__, __LINE__))
       return false;
-    const symmetry_backend::Graph graph{
-        storage.vertex_count, storage.edge_count, storage.colors.data(),
-        storage.degrees.data(), storage.edges.data()};
+    const symmetry_backend::Graph graph = storage.backend();
     StopContext context{&kernel, stop};
     uint64_t preparation_ticks = 0;
     const uint64_t remaining =
@@ -1255,16 +1212,14 @@ bool OrbitopalPass::prepare_formula_automorphisms() {
   automorphisms.initialized = true;
   const uint64_t literal_count = 2ull * kernel.nvars;
   const GraphSymmetryParameters &settings = parameters.graph_symmetry;
-  DirectBinaryGraph storage;
+  LiteralGraph storage;
   if (!admit_direct_graph(storage, __func__, __LINE__))
     return false;
 
   const symmetry_backend::DetectionSettings detection =
       sr_detail::detection_settings(settings,
                                     static_cast<uint32_t>(literal_count));
-  const symmetry_backend::Graph graph{
-      storage.vertex_count, storage.edge_count, storage.colors.data(),
-      storage.degrees.data(), storage.edges.data()};
+  const symmetry_backend::Graph graph = storage.backend();
   StopContext context{&kernel, stop};
   BackendOwner<symmetry_backend::Permutations> owned_proposed;
   auto &proposed = owned_proposed.value;

@@ -1,15 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "cardinality_test_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/cardinality_search.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <climits>
-#include <cstdio>
-#include <cstdlib>
 #include <set>
-#include <string>
 
 using namespace tactix::cardinality_search;
 

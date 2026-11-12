@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "kernel_image.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "proof/proof.hpp"
-#include <cassert>
-#include <cstdio>
 #include <csignal>
-using namespace tactix;
 int main(int argc, char **argv) {
   DirectCspGuardedCoverActionSelection selection{
       {{1,2,3},{4,5},{11,12}}, {0,0,0}, {8,9,10},

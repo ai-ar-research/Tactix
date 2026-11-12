@@ -29,15 +29,8 @@ struct IndependentSetOwnerSnapshot {
 };
 
 enum class IndependentSetLiveStatus : uint8_t {
-  Applied,
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
+  Applied, Invalid, Inapplicable, NoStructure, Duplicate, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale
 };
 
 // One caller-selected positive cover over external vertex identities.

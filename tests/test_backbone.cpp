@@ -1,6 +1,6 @@
 // Backbone: binary-implication failed literals, the binary-only restriction
 // that distinguishes it from Probe, Kissat's meters, and the instance surface.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
@@ -11,14 +11,8 @@
 #include "temporary_file.hpp"
 #include "test_io.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <string>
-
-using namespace tactix;
-
 // Binary propagation alone conflicts, so ¬1 is derived as a root unit.
-static void test_binary_failed_literal() {
+TEST(test_binary_failed_literal) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   add_external_clause(k, {-1, 2});
@@ -36,7 +30,7 @@ static void test_binary_failed_literal() {
 // 1 implies 2, which forks to 3 and ¬3. Binary-UIP analysis learns ¬2 (the
 // reference algorithm's UIP unit), whose root replay propagates ¬1. The
 // replay is charged to the global ticks only, as in Kissat.
-static void test_chained_binary_uip_learns_internal_predecessor() {
+TEST(test_chained_binary_uip_learns_internal_predecessor) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {-1, 2});
@@ -53,7 +47,7 @@ static void test_chained_binary_uip_learns_internal_predecessor() {
   assert(k.level == 0 && !k.conflict_valid);
 }
 
-static void test_root_replay_propagates_large_clause_closure() {
+TEST(test_root_replay_propagates_large_clause_closure) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   add_external_clause(k, {-1, 2});
@@ -72,7 +66,7 @@ static void test_root_replay_propagates_large_clause_closure() {
 
 // Binary-only propagation skips large watches, so a literal it covers stays
 // pending for the next full propagation.
-static void test_binary_propagation_leaves_full_propagation_pending() {
+TEST(test_binary_propagation_leaves_full_propagation_pending) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {-1, 2});
@@ -94,7 +88,7 @@ static void test_binary_propagation_leaves_full_propagation_pending() {
 
 // The replayed unit batch propagates from its own trail position, so a large
 // clause watched only by literals the round derived first is revisited.
-static void test_round_exit_rescans_every_speculative_root_literal() {
+TEST(test_round_exit_rescans_every_speculative_root_literal) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   add_external_clause(k, {-1, 3});
@@ -122,7 +116,7 @@ static void second_round_failure(Kernel &k) {
   add_external_clause(k, {1, -3});
 }
 
-static void test_falsified_candidate_survives_to_next_round() {
+TEST(test_falsified_candidate_survives_to_next_round) {
   Kernel k;
   second_round_failure(k);
   assert(backbone_apply(k) == ApplyResult::Ok);
@@ -130,7 +124,7 @@ static void test_falsified_candidate_survives_to_next_round() {
   assert(k.stats.backbone_rounds >= 2);
 }
 
-static void test_round_limits_are_strategy_parameters() {
+TEST(test_round_limits_are_strategy_parameters) {
   for (uint32_t maximum : {0u, 1u, 2u}) {
     Kernel k;
     second_round_failure(k);
@@ -159,7 +153,7 @@ static void test_round_limits_are_strategy_parameters() {
 // A chained-UIP unit stays speculative until the round ends: candidate 2
 // fails and derives -2, which implies 3, and under a one-round budget the
 // now-false -3 candidate is retained with priority (as in Kissat).
-static void test_chained_unit_stays_speculative_until_round_end() {
+TEST(test_chained_unit_stays_speculative_until_round_end) {
   bool exercised = false;
   for (uint64_t budget = 1; budget <= 256 && !exercised; budget++) {
     Kernel k;
@@ -182,7 +176,7 @@ static void test_chained_unit_stays_speculative_until_round_end() {
   assert(exercised);
 }
 
-static void test_candidate_priority_persists_between_computations() {
+TEST(test_candidate_priority_persists_between_computations) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   add_external_clause(k, {-1, 2});
@@ -195,7 +189,7 @@ static void test_candidate_priority_persists_between_computations() {
   assert(!(k.backbone_priority[1] & 1u));
 }
 
-static void test_candidate_priority_survives_variable_compaction() {
+TEST(test_candidate_priority_survives_variable_compaction) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   k.backbone_priority = {1, 2, 3};
@@ -207,7 +201,7 @@ static void test_candidate_priority_survives_variable_compaction() {
   assert(k.backbone_priority[1] == 3);
 }
 
-static void test_chained_binary_uip_proof_order() {
+TEST(test_chained_binary_uip_proof_order) {
   TemporaryFile file;
   {
     Kernel k;
@@ -228,7 +222,7 @@ static void test_chained_binary_uip_proof_order() {
 
 // The binary-only restriction: 1 fails only through the size-3 clauses, so
 // Backbone finds nothing where Probe finds 1 failed — opposite by design.
-static void test_binary_only_misses_large_clause_failure() {
+TEST(test_binary_only_misses_large_clause_failure) {
   for (bool probe : {false, true}) {
     Kernel k;
     kernel_reserve_vars(k, 3);
@@ -248,7 +242,7 @@ static void test_binary_only_misses_large_clause_failure() {
   }
 }
 
-static void test_no_failed_literal_noop() {
+TEST(test_no_failed_literal_noop) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {-1, 2}); // 1 → 2
@@ -259,7 +253,7 @@ static void test_no_failed_literal_noop() {
   assert(default_solve(k) == 10);
 }
 
-static void test_binary_meter_charges_scanned_prefix() {
+TEST(test_binary_meter_charges_scanned_prefix) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add_external_clause(k, {-1, 2});
@@ -278,7 +272,7 @@ static void test_binary_meter_charges_scanned_prefix() {
   assert(k.stats.ticks - before == 3); // two-word prefix, then an empty scan
 }
 
-static void test_binary_meter_charges_first_large_word() {
+TEST(test_binary_meter_charges_first_large_word) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {-1, 2, 3});
@@ -291,7 +285,7 @@ static void test_binary_meter_charges_first_large_word() {
   assert(k.stats.ticks - before == 2);
 }
 
-static void test_binary_meter_skips_conflicting_scan() {
+TEST(test_binary_meter_skips_conflicting_scan) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   add_external_clause(k, {-1, 2});
@@ -310,7 +304,7 @@ static void test_binary_meter_skips_conflicting_scan() {
   assert(k.stats.binprop_words == words_before);
 }
 
-static void test_binary_order_is_per_list() {
+TEST(test_binary_order_is_per_list) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   add_external_clause(k, {-1, 3, 4});
@@ -326,7 +320,7 @@ static void test_binary_order_is_per_list() {
   assert(k.value(internalize(2)) > 0); // binary behind the large was scanned
 }
 
-static void test_chained_binary_implication_uses_current_level() {
+TEST(test_chained_binary_implication_uses_current_level) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {-1, 3});
@@ -339,7 +333,7 @@ static void test_chained_binary_implication_uses_current_level() {
 }
 
 // both polarities fail via binaries: UNSAT once the derived batch propagates
-static void test_both_polarities_fail_unsat() {
+TEST(test_both_polarities_fail_unsat) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {-1, 2});
@@ -351,7 +345,7 @@ static void test_both_polarities_fail_unsat() {
   assert(k.inconsistent);
 }
 
-static void test_instance_surface() {
+TEST(test_instance_surface) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   add_external_clause(k, {-1, 2});
@@ -379,7 +373,7 @@ static void test_instance_surface() {
 
 // Backbone retracts even temporary level-zero implications. Their cached
 // unit ids name the retracted polarity and cannot be reused for a later value.
-static void test_speculative_unwind_invalidates_unit_ids() {
+TEST(test_speculative_unwind_invalidates_unit_ids) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   k.unit_ids[0] = 10;
@@ -395,7 +389,7 @@ static void test_speculative_unwind_invalidates_unit_ids() {
 // A root literal published to the DSR proof inside a speculative round is
 // retracted with the round; the invariants accept that state once the
 // round's replay has refuted the formula.
-static void test_refuted_replay_may_leave_a_published_root_retracted() {
+TEST(test_refuted_replay_may_leave_a_published_root_retracted) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   TemporaryFile file;
@@ -411,31 +405,4 @@ static void test_refuted_replay_may_leave_a_published_root_retracted() {
   k.inconsistent = true; // the replay closed the refutation first
   kernel_check_invariants(k);
   k.proof = nullptr;
-}
-
-int main() {
-  test_speculative_unwind_invalidates_unit_ids();
-  test_refuted_replay_may_leave_a_published_root_retracted();
-  test_binary_failed_literal();
-  test_chained_binary_uip_learns_internal_predecessor();
-  test_root_replay_propagates_large_clause_closure();
-  test_binary_propagation_leaves_full_propagation_pending();
-  test_round_exit_rescans_every_speculative_root_literal();
-  test_falsified_candidate_survives_to_next_round();
-  test_round_limits_are_strategy_parameters();
-  test_chained_unit_stays_speculative_until_round_end();
-  test_candidate_priority_persists_between_computations();
-  test_candidate_priority_survives_variable_compaction();
-  test_chained_binary_uip_proof_order();
-  test_binary_only_misses_large_clause_failure();
-  test_no_failed_literal_noop();
-  test_binary_meter_charges_scanned_prefix();
-  test_binary_meter_charges_first_large_word();
-  test_binary_meter_skips_conflicting_scan();
-  test_binary_order_is_per_list();
-  test_chained_binary_implication_uses_current_level();
-  test_both_polarities_fail_unsat();
-  test_instance_surface();
-  puts("test_backbone OK");
-  return 0;
 }

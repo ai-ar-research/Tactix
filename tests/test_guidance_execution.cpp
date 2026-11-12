@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rule_test_utils.hpp"
@@ -6,10 +6,8 @@
 #include "strategy/reduction_execution.hpp"
 #include "strategy/root_execution.hpp"
 
-#include <cassert>
 #include <sstream>
 
-using namespace tactix;
 using namespace tactix::execution;
 
 static void fixture(Kernel &k) {

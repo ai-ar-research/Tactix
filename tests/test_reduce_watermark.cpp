@@ -1,13 +1,9 @@
 // Historical collection boundaries survive promotion, not genuine collection.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-using namespace tactix;
 
 static Ref add(Kernel &k, unsigned tag, bool red, bool ids) {
   const Lit lits[] = {internalize(1), internalize(tag), internalize(20),

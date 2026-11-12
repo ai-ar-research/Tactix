@@ -1773,16 +1773,13 @@ static SweepPairSelection sweep_select_pair(const SweepRound &round,
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 static const char *sweep_pair_decline_name(SweepPairDecline decline) {
   switch (decline) {
-  case SweepPairDecline::None:
-    return "none";
-  case SweepPairDecline::ProofIndexMissing:
-    return "proof-index-missing";
+  case SweepPairDecline::None: return "none";
+  case SweepPairDecline::ProofIndexMissing: return "proof-index-missing";
   case SweepPairDecline::ForwardCaptureMissing:
     return "forward-capture-missing";
   case SweepPairDecline::ReverseCaptureMissing:
     return "reverse-capture-missing";
-  case SweepPairDecline::TargetMismatch:
-    return "captured-target-mismatch";
+  case SweepPairDecline::TargetMismatch: return "captured-target-mismatch";
   }
   return "unknown";
 }
@@ -1825,26 +1822,16 @@ static SweepGeneralStepPlan sweep_translate_general_step(
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 static const char *sweep_general_decline_name(SweepGeneralDecline decline) {
   switch (decline) {
-  case SweepGeneralDecline::None:
-    return "none";
-  case SweepGeneralDecline::Interrupted:
-    return "interrupted";
-  case SweepGeneralDecline::CaptureMissing:
-    return "capture-missing";
-  case SweepGeneralDecline::SubVariable:
-    return "sub-variable-out-of-range";
-  case SweepGeneralDecline::EmptyStep:
-    return "empty-step";
-  case SweepGeneralDecline::TautologicalStep:
-    return "tautological-step";
-  case SweepGeneralDecline::AntecedentMissing:
-    return "antecedent-missing";
-  case SweepGeneralDecline::FixedTarget:
-    return "fixed-target-mismatch";
-  case SweepGeneralDecline::FinalShape:
-    return "final-shape";
-  case SweepGeneralDecline::FinalTarget:
-    return "final-target-mismatch";
+  case SweepGeneralDecline::None: return "none";
+  case SweepGeneralDecline::Interrupted: return "interrupted";
+  case SweepGeneralDecline::CaptureMissing: return "capture-missing";
+  case SweepGeneralDecline::SubVariable: return "sub-variable-out-of-range";
+  case SweepGeneralDecline::EmptyStep: return "empty-step";
+  case SweepGeneralDecline::TautologicalStep: return "tautological-step";
+  case SweepGeneralDecline::AntecedentMissing: return "antecedent-missing";
+  case SweepGeneralDecline::FixedTarget: return "fixed-target-mismatch";
+  case SweepGeneralDecline::FinalShape: return "final-shape";
+  case SweepGeneralDecline::FinalTarget: return "final-target-mismatch";
   }
   return "unknown";
 }

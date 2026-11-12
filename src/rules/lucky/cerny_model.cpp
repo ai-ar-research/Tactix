@@ -1,7 +1,6 @@
 #include "rules/lucky/opportunities.hpp"
 
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -234,10 +233,6 @@ bool build_assignment(Kernel &k, const Automaton &automaton,
 }
 
 } // namespace
-
-RuleEligibility cerny_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult cerny_model_apply(Kernel &k) {
   assert(cerny_model_guard(k));

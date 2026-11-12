@@ -1,21 +1,14 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <fstream>
-#include <string>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 namespace {
@@ -64,7 +57,7 @@ OnlineInvocation equality_invocation() {
   return result;
 }
 
-void wire_format_and_validation() {
+TEST(wire_format_and_validation) {
   OnlineStrategyProgram program;
   program.sequence = {equality_invocation()};
   std::string error;
@@ -78,7 +71,7 @@ void wire_format_and_validation() {
   assert(!validate_online_strategy_program(malformed, &error));
 }
 
-void executor_feedback_and_candidate_followup() {
+TEST(executor_feedback_and_candidate_followup) {
   Kernel kernel = parse();
   FILE *records = std::tmpfile();
   assert(records);
@@ -113,7 +106,7 @@ void executor_feedback_and_candidate_followup() {
   kernel.structural_provenance = nullptr;
   std::fclose(records);
 }
-void owner_acquisition_is_transactional() {
+TEST(owner_acquisition_is_transactional) {
   Kernel kernel = parse();
   FILE *records = std::tmpfile();
   assert(records);
@@ -140,7 +133,7 @@ void add_formula(tactix_c_handle *solver) {
   }
 }
 
-void c_v10_deep_copies_and_executes_exact_payload() {
+TEST(c_v10_deep_copies_and_executes_exact_payload) {
   tactix_c_handle *solver = tactix_init();
   FILE *records = std::tmpfile();
   assert(records && tactix_bind_structural_provenance(solver, records) == 0);
@@ -240,9 +233,6 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  wire_format_and_validation();
-  executor_feedback_and_candidate_followup();
-  owner_acquisition_is_transactional();
-  c_v10_deep_copies_and_executes_exact_payload();
+  run_tests();
   std::puts("test_nary_csp_equality_public: passed");
 }

@@ -4,7 +4,7 @@
 // list for the current refactor step; and each record's observed dispatch must
 // agree with its declared route: Public records advance strategy_epoch through
 // registry dispatch, internal records naming a registry rule do not.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "default_action_map.hpp"
 #include "strategy/policy_completion.hpp"
 

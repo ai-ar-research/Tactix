@@ -1,5 +1,13 @@
 # Example strategies: clients of the public C API only.
 
+# The example formulas, written byte for byte by cnf/generate.py.
+set(TACTIX_EXAMPLE_CNFS random3sat-sat.cnf pigeonhole-9-8.cnf tseitin-40.cnf)
+list(TRANSFORM TACTIX_EXAMPLE_CNFS PREPEND ${CMAKE_CURRENT_BINARY_DIR}/cnf/)
+add_custom_command(OUTPUT ${TACTIX_EXAMPLE_CNFS}
+  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/cnf/generate.py ${CMAKE_CURRENT_BINARY_DIR}/cnf
+  DEPENDS cnf/generate.py)
+add_custom_target(example_cnfs ALL DEPENDS ${TACTIX_EXAMPLE_CNFS})
+
 foreach(demo demo1_dpll demo2_no_restarts demo3_scripted_default)
   add_executable(${demo} ${demo}.c)
   target_link_libraries(${demo} PRIVATE tactix_lib)

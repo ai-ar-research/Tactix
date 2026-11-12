@@ -2177,78 +2177,64 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  * argument or an unmet precondition; otherwise 0 when the transition changed
  * state, 1 when it found nothing to do, 2 when SPARSE_COLLECT left root units
  * for a following Propagate, and 20 when the root is refuted.
- *   CLOSE_STARTUP_CERTIFICATE  end the original-input certificate window.
- *   PREPARATION_RESTART        argument = keep level: backtrack without
- *                              consuming a scheduled-restart occasion, and
- *                              retire a recorded conflict that no longer holds
- *                              and discard the reconstructed-model cache.
- *   ROOT_PREPARATION           ROOT_PREPARATION_* flags: optional target-phase
- *                              capture, preparation restart to level zero, root
- *                              Propagate (in the probing context if PROBING),
- *                              optional root-prefix consumption.
- *   SPARSE_COLLECT             collect root-satisfied/false-literal clause
- *                              state at a consistent root; Propagate drains
- *                              any pending or newly derived root units.
- *   COMPACT_RANDOM_ORDER       fold root-fixed variables of the random
- *                              branching order onto one representative (H).
- *   COMPACT_VARIABLES          COMPACT_* flags: compact variable storage at
- *                              any consistent state (also above the root, as
- *                              Reduce does), optionally folding fixed variables
- *                              and republishing the random order.
- *   REDUCTION_PREPARATION      Reduce's root preparation (flush pending root
- *                              units before collection).
- *   COLLECT_GARBAGE            COLLECT_* flags: arena collection at the root,
- *                              also inside an open occurrence session (the
- *                              session's lists are remapped), as Kissat collects
- *                              after each completed elimination round.
- *   FLUSH_RETIRED_REDUNDANT    delete redundant clauses on retired variables.
- *   BEGIN_BVE_DEFINITION_SESSION  start a new BVE definition-discovery
- *                              generator session.
- *   WARMUP                     argument = WARMUP_PHASE_*: complete a temporary
- *                              assignment in H's decision order, propagating
- *                              beyond conflicts, then return to the root;
- *                              assignment-time phase saving is the output (H).
- *   RESEED_GUIDANCE            replace H by a fresh one seeded from the live
- *                              formula's residual activation and import order.
- *   RESET_GRAPH_LABELING_SESSION  clear the graph-labeling session.
- *   RELEASE_INPUT_ORDER        release the parser's retained binary order.
- *   CONSUME_ROOT_PREFIX        mark the propagated root prefix consumed.
- *   ENTER_CONTEXT              argument = CONTEXT_*: enter an execution
- *                              context (tick attribution, phase saving);
- *   LEAVE_CONTEXT              leave the innermost one.
- *   ENTER_INPROCESS_PHASE      argument = PHASE_ELIMINATE flag | (Factor
- *                              bound << PHASE_FACTOR_BOUND_SHIFT): open the
- *                              inprocessing phase bracket at a quiescent root:
- *                              the inprocessing context, the sparse-resume
- *                              cursor, large-watch disconnection (Eliminate)
- *                              and the default Factor selection (accept a grid
- *                              whose clause saving is positive and exceeds
- *                              the bound). One bracket at a time.
- *   OPEN_OCCURRENCE_SESSION    build the bracket's occurrence index (ordered
- *                              for Eliminate); rule applications then use it.
- *   LEAVE_INPROCESS_PHASE      close the bracket at the root: flush redundant
- *                              clauses on retired variables (Probe, unless
- *                              refuted), publish retirements (H), close the
- *                              session, reconnect large watches (Eliminate, or
- *                              if left disconnected), resume sparse Propagate
- *                              from the cursor (Eliminate), clear the Factor
- *                              selection and leave the context. A terminal
- *                              Probe bracket without a session only clears the
- *                              selection and leaves the context with watches
- *                              connected; a complete active-formula assignment
- *                              may remain above root there. This publishes no
- *                              query verdict: assumptions still govern status.
- *                              Nonterminal root Probe exits first open a
- *                              session and use ordinary cleanup.
- *                              Other exits require level zero. Contexts
- *                              entered inside the bracket must be left first;
- *                              tactix_solve leaves a quiescent open bracket;
- *                              unresolved nested contexts/conflicts or reason
- *                              debt return UNKNOWN without starting search.
- *   BEGIN_FORWARD_ROUND        start a forward-subsumption round:
- *                              SubsumeForward and Strengthen completeness
- *                              flags set (an interrupted pass clears its own).
- *   RESCHEDULE_BVE             make every variable a BVE candidate again. */
+ *   CLOSE_STARTUP_CERTIFICATE: end the original-input certificate window.
+ *   PREPARATION_RESTART: argument = keep level: backtrack without consuming a
+ *     scheduled-restart occasion, and retire a recorded conflict that no longer
+ *     holds and discard the reconstructed-model cache.
+ *   ROOT_PREPARATION: ROOT_PREPARATION_* flags: optional target-phase capture,
+ *     preparation restart to level zero, root Propagate (in the probing context
+ *     if PROBING), optional root-prefix consumption.
+ *   SPARSE_COLLECT: collect root-satisfied/false-literal clause state at a
+ *     consistent root; Propagate drains any pending or newly derived root
+ *     units.
+ *   COMPACT_RANDOM_ORDER: fold root-fixed variables of the random branching
+ *     order onto one representative (H).
+ *   COMPACT_VARIABLES: COMPACT_* flags: compact variable storage at any
+ *     consistent state (also above the root, as Reduce does), optionally
+ *     folding fixed variables and republishing the random order.
+ *   REDUCTION_PREPARATION: Reduce's root preparation (flush pending root units
+ *     before collection).
+ *   COLLECT_GARBAGE: COLLECT_* flags: arena collection at the root, also inside
+ *     an open occurrence session (the session's lists are remapped), as Kissat
+ *     collects after each completed elimination round.
+ *   FLUSH_RETIRED_REDUNDANT: delete redundant clauses on retired variables.
+ *   BEGIN_BVE_DEFINITION_SESSION: start a new BVE definition-discovery
+ *     generator session.
+ *   WARMUP: argument = WARMUP_PHASE_*: complete a temporary assignment in H's
+ *     decision order, propagating beyond conflicts, then return to the root;
+ *     assignment-time phase saving is the output (H).
+ *   RESEED_GUIDANCE: replace H by a fresh one seeded from the live formula's
+ *     residual activation and import order.
+ *   RESET_GRAPH_LABELING_SESSION: clear the graph-labeling session.
+ *   RELEASE_INPUT_ORDER: release the parser's retained binary order.
+ *   CONSUME_ROOT_PREFIX: mark the propagated root prefix consumed.
+ *   ENTER_CONTEXT: argument = CONTEXT_*: enter an execution context (tick
+ *     attribution, phase saving);
+ *   LEAVE_CONTEXT: leave the innermost one.
+ *   ENTER_INPROCESS_PHASE: argument = PHASE_ELIMINATE flag | (Factor bound <<
+ *     PHASE_FACTOR_BOUND_SHIFT): open the inprocessing phase bracket at a
+ *     quiescent root: the inprocessing context, the sparse-resume cursor,
+ *     large-watch disconnection (Eliminate) and the default Factor selection
+ *     (accept a grid whose clause saving is positive and exceeds the bound).
+ *     One bracket at a time.
+ *   OPEN_OCCURRENCE_SESSION: build the bracket's occurrence index (ordered for
+ *     Eliminate); rule applications then use it.
+ *   LEAVE_INPROCESS_PHASE: close the bracket at the root: flush redundant
+ *     clauses on retired variables (Probe, unless refuted), publish retirements
+ *     (H), close the session, reconnect large watches (Eliminate, or if left
+ *     disconnected), resume sparse Propagate from the cursor (Eliminate), clear
+ *     the Factor selection and leave the context. A terminal Probe bracket
+ *     without a session only clears the selection and leaves the context with
+ *     watches connected; a complete active-formula assignment may remain above
+ *     root there. This publishes no query verdict: assumptions still govern
+ *     status. Nonterminal root Probe exits first open a session and use
+ *     ordinary cleanup. Other exits require level zero. Contexts entered inside
+ *     the bracket must be left first; tactix_solve leaves a quiescent open
+ *     bracket; unresolved nested contexts/conflicts or reason debt return
+ *     UNKNOWN without starting search.
+ *   BEGIN_FORWARD_ROUND: start a forward-subsumption round: SubsumeForward and
+ *     Strengthen completeness flags set (an interrupted pass clears its own).
+ *   RESCHEDULE_BVE: make every variable a BVE candidate again. */
 #define TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE 1
 #define TACTIX_SUPPORT_PREPARATION_RESTART 2
 #define TACTIX_SUPPORT_ROOT_PREPARATION 3

@@ -1,21 +1,13 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/congruence/congruence.hpp"
-#include "strategy/congruence_parameters.hpp"
-#define tactix tactix_handle
-#include "tactix.h"
-#undef tactix
+#include "strategy/rule_parameters.hpp"
+#include "tactix_c_api.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstring>
 #include <initializer_list>
 #include <set>
-#include <vector>
-
-using namespace tactix;
 
 static void add(Kernel &k, std::initializer_list<int> lits) {
   std::vector<Lit> internal;
@@ -48,7 +40,7 @@ static size_t kind_count(const Kernel &k, GateKind kind) {
   return result;
 }
 
-static void discovery_limits_are_effective_and_unbounded() {
+TEST(discovery_limits_are_effective_and_unbounded) {
   {
     Kernel k;
     kernel_reserve_vars(k, 6);
@@ -78,8 +70,8 @@ static void discovery_limits_are_effective_and_unbounded() {
   }
 }
 
-static void scope_and_c_api_validate_without_partial_update() {
-  tactix_handle *solver = tactix_init();
+TEST(scope_and_c_api_validate_without_partial_update) {
+  tactix_c_handle *solver = tactix_init();
   assert(tactix_config(solver, TACTIX_CFG_CONGRUENCE_AND_ARITY) == 1000000);
   assert(tactix_config(solver, TACTIX_CFG_CONGRUENCE_GATE_COUNT) == 20000000);
   assert(tactix_config(solver, TACTIX_CFG_CONGRUENCE_XOR_ARITY) == 4);
@@ -122,7 +114,7 @@ static void scope_and_c_api_validate_without_partial_update() {
   tactix_release(solver);
 }
 
-static void optional_entry_order_preserves_inference() {
+TEST(optional_entry_order_preserves_inference) {
   using Order = strategy::CongruenceBinaryWatchOrder;
   Kernel quiet;
   kernel_reserve_vars(quiet, 10);
@@ -171,7 +163,7 @@ static void optional_entry_order_preserves_inference() {
   assert(!config.valid());
 }
 
-static void sparse_and_membership_matches_physical_formula() {
+TEST(sparse_and_membership_matches_physical_formula) {
   Kernel k;
   kernel_reserve_vars(k, 48);
   and3(k, 31, 1, 2, 3);
@@ -258,12 +250,4 @@ static void sparse_and_membership_matches_physical_formula() {
     }
   }
   kernel_check_invariants(k);
-}
-
-int main() {
-  optional_entry_order_preserves_inference();
-  sparse_and_membership_matches_physical_formula();
-  discovery_limits_are_effective_and_unbounded();
-  scope_and_c_api_validate_without_partial_update();
-  std::puts("Congruence typed discovery limits and unbounded paths PASS");
 }

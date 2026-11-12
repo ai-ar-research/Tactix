@@ -2,7 +2,6 @@
 
 #include "rules/lucky/graph_labeling_completion.hpp"
 #include "rules/lucky/graph_labeling_repair.hpp"
-#include "rules/lucky/root_guard.hpp"
 #include "rules/lucky/graph_labeling_window_cursor.hpp"
 #include "strategy/rule_parameters.hpp"
 
@@ -139,10 +138,6 @@ std::vector<int8_t> graph_partial_assignment(
 }
 
 } // namespace
-
-RuleEligibility graph_labeling_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k, true);
-}
 
 GraphLabelingAuthenticationResult graph_labeling_model_authenticate(
     Kernel &k, GraphLabelingModelSession &session) {
@@ -320,14 +315,12 @@ GraphLabelingSliceResult graph_labeling_model_slice(
     case WindowCursorStatus::Pending:
     case WindowCursorStatus::Interrupted:
       break;
+    case WindowCursorStatus::TotalWorkExhausted:
+      ++k.stats.graph_labeling_budget;
+      [[fallthrough]];
     case WindowCursorStatus::Found:
     case WindowCursorStatus::NoCandidate:
     case WindowCursorStatus::SearchLimit:
-      state.window.reset();
-      state.stage = SessionStage::Repair;
-      break;
-    case WindowCursorStatus::TotalWorkExhausted:
-      ++k.stats.graph_labeling_budget;
       state.window.reset();
       state.stage = SessionStage::Repair;
       break;

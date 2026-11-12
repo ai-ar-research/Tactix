@@ -1,6 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/lucky/parity_selection.hpp"
-#include <cstdio>
 #include <set>
 using namespace tactix::parity_premises;
 static void validate(const std::vector<CertifiedEquation> &inputs,const Selection &result) {

@@ -426,11 +426,7 @@ Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
 namespace {
 
 enum class Gf3AffinePreflightStatus : uint8_t {
-  Invalid,
-  Ready,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
+  Invalid, Ready, Duplicate, ResourceExhausted, Interrupted
 };
 
 struct Gf3AffinePreflightResult {

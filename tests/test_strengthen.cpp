@@ -1,18 +1,13 @@
 // C2 Strengthen: fused one-action-per-candidate rounds, unit-producing
 // strengthen, the instance surfaces, budgets, root flushes and interrupts.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/strengthen/strengthen.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-
-using namespace tactix;
 
 // Pinned occurrence limits (Kissat's subsumeocclim is 1000).
 static constexpr uint32_t TEST_STRENGTHEN_OCCLIM =
@@ -21,7 +16,7 @@ static_assert(TEST_STRENGTHEN_OCCLIM == 1000 &&
               strategy::SubsumeForwardParameters::BINARY_OCCURRENCE_DEFAULT ==
                   10000);
 
-static void test_round_entry_deduplicates_binaries() {
+TEST(test_round_entry_deduplicates_binaries) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -37,7 +32,7 @@ static void test_round_entry_deduplicates_binaries() {
   kernel_check_invariants(k);
 }
 
-static void test_round_entry_hyper_unary_binary_pair() {
+TEST(test_round_entry_hyper_unary_binary_pair) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   const Lit x = internalize(1), a = internalize(2);
@@ -49,7 +44,7 @@ static void test_round_entry_hyper_unary_binary_pair() {
   kernel_check_invariants(k);
 }
 
-static void test_binary_strengthens_large() {
+TEST(test_binary_strengthens_large) {
   // resolving c = (1 2 3) on 1 against (-1 2) leaves the binary (2 3)
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -66,7 +61,7 @@ static void test_binary_strengthens_large() {
   assert(default_solve(k) == 10);
 }
 
-static void test_kissat_mixed_occurrence_limit_admits_binary_strengthener() {
+TEST(test_kissat_mixed_occurrence_limit_admits_binary_strengthener) {
   // Kissat's subsumeocclim (1000) bounds the whole mixed watch stream, so a
   // stream above CaDiCaL's 100-entry default is still scanned.
   Kernel k;
@@ -82,7 +77,7 @@ static void test_kissat_mixed_occurrence_limit_admits_binary_strengthener() {
   assert(has_binary(k, internalize(1), internalize(3)));
 }
 
-static void test_binary_partner_uses_kissat_last_strengthener() {
+TEST(test_binary_partner_uses_kissat_last_strengthener) {
   // Kissat carries `remove` across the scan: the later literal-3 walk
   // overwrites the literal-2 result and removes 1.
   Kernel k;
@@ -95,7 +90,7 @@ static void test_binary_partner_uses_kissat_last_strengthener() {
   assert(!has_binary(k, internalize(1), internalize(2)));
 }
 
-static void test_opposite_phase_binary_does_not_override_later_result() {
+TEST(test_opposite_phase_binary_does_not_override_later_result) {
   // (-1,2) removes 1, the later (-2,3) removes 2; Kissat does not rescan
   // opposite-phase binaries at literal 1, so the later result stands.
   Kernel k;
@@ -108,7 +103,7 @@ static void test_opposite_phase_binary_does_not_override_later_result() {
   assert(!has_binary(k, internalize(2), internalize(3)));
 }
 
-static void test_fused_subsumption() {
+TEST(test_fused_subsumption) {
   // c = (1 2 3) subsumed by the binary (1 2): fused round deletes it
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -123,7 +118,7 @@ static void test_fused_subsumption() {
   assert(k.arena_generation == arena_generation + 1);
 }
 
-static void test_large_partner_without_same_round_cascade() {
+TEST(test_large_partner_without_same_round_cascade) {
   // Kissat checks each candidate once: (-1 2 3) becomes (-1 3), the size-4
   // candidate meets the older (-2 3) first and becomes (1 3 4), and the new
   // (-1 3) opportunity waits for the next round.
@@ -142,7 +137,7 @@ static void test_large_partner_without_same_round_cascade() {
   assert(default_solve(k) == 10);
 }
 
-static void test_equal_size_candidates_use_inherited_arena_position() {
+TEST(test_equal_size_candidates_use_inherited_arena_position) {
   // An appended replacement inherits the shrunk record's position (Kissat
   // shrinks in place), so the source becomes (1,3) and subsumes the
   // equal-size victim (1,3,4) in the same pass.
@@ -168,7 +163,7 @@ static void test_equal_size_candidates_use_inherited_arena_position() {
   kernel_check_invariants(k);
 }
 
-static void test_connection_uses_growing_forward_population() {
+TEST(test_connection_uses_growing_forward_population) {
   Kernel k;
   kernel_reserve_vars(k, 12 * (TEST_STRENGTHEN_OCCLIM + 1) + 4);
   add_external_clause(k, {1, 2, 3});
@@ -187,7 +182,7 @@ static void test_connection_uses_growing_forward_population() {
   kernel_dense_disconnect(k);
 }
 
-static void test_binary_watches_count_toward_connection_cap() {
+TEST(test_binary_watches_count_toward_connection_cap) {
   Kernel k;
   kernel_reserve_vars(k, 3 * (TEST_STRENGTHEN_OCCLIM + 1) + 4);
   add_external_clause(k, {1, 2, 3});
@@ -208,7 +203,7 @@ static void test_binary_watches_count_toward_connection_cap() {
 
 // Kissat schedules clauses with at least two armed variables, and
 // connect_subsuming needs every active variable of the partner armed.
-static void test_kissat_touch_candidate_and_connection_predicates() {
+TEST(test_kissat_touch_candidate_and_connection_predicates) {
   for (int armed = 1; armed <= 3; ++armed) {
     Kernel k;
     kernel_reserve_vars(k, 4);
@@ -232,7 +227,7 @@ static void test_kissat_touch_candidate_and_connection_predicates() {
   }
 }
 
-static void test_root_entry_unit_then_satisfied_deletion() {
+TEST(test_root_entry_unit_then_satisfied_deletion) {
   // Root propagation derives the unit first; discovery then retires the
   // satisfied clause.
   Kernel k;
@@ -250,7 +245,7 @@ static void test_root_entry_unit_then_satisfied_deletion() {
   assert(live_large(k) == 0);
 }
 
-static void test_forward_step_budget_cuts_between_candidates() {
+TEST(test_forward_step_budget_cuts_between_candidates) {
   Kernel k;
   kernel_reserve_vars(k, 12);
   add_external_clause(k, {1, 2, 3});
@@ -277,7 +272,7 @@ static void test_forward_step_budget_cuts_between_candidates() {
   kernel_check_invariants(k);
 }
 
-static void test_instance_surface() {
+TEST(test_instance_surface) {
   // instances() lists candidates size-ascending; apply_instance does one step
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -295,7 +290,7 @@ static void test_instance_surface() {
   assert(rules[id].apply_instance(k, 999999) == ApplyResult::NoOp); // junk
 }
 
-static void test_semantic_outcomes_include_every_removed_literal() {
+TEST(test_semantic_outcomes_include_every_removed_literal) {
   const int id = tactix_rule_id("Strengthen");
   assert(id >= 0);
   const RuleVTable &rule = tactix_rules()[id];
@@ -327,7 +322,7 @@ static void test_semantic_outcomes_include_every_removed_literal() {
   }
 }
 
-static void test_root_flush() {
+TEST(test_root_flush) {
   // Kissat's forward discovery retires a root-satisfied clause but keeps a
   // root-false literal of another clause for the next BVE round.
   Kernel k;
@@ -363,7 +358,7 @@ static Ref subsumed_case(Kernel &k) {
   return ref;
 }
 
-static void test_interrupt() {
+TEST(test_interrupt) {
   volatile sig_atomic_t stop = 1;
   { // (1) the round-entry poll
     Kernel k;
@@ -431,7 +426,7 @@ static void test_interrupt() {
 
 // Kissat's generic root flush (collect.c) drops a root-false literal without
 // touching glue; only OTFS, Sweep and Vivify shrinks clamp to size-1.
-static void test_root_flush_preserves_glue() {
+TEST(test_root_flush_preserves_glue) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add_external_clause(k, {1, 2, 3, 4}, true, 4);
@@ -453,28 +448,4 @@ static void test_root_flush_preserves_glue() {
   }
   assert(found);
   kernel_check_invariants(k);
-}
-
-int main() {
-  test_root_flush_preserves_glue();
-  test_round_entry_deduplicates_binaries();
-  test_round_entry_hyper_unary_binary_pair();
-  test_binary_strengthens_large();
-  test_kissat_mixed_occurrence_limit_admits_binary_strengthener();
-  test_binary_partner_uses_kissat_last_strengthener();
-  test_opposite_phase_binary_does_not_override_later_result();
-  test_fused_subsumption();
-  test_large_partner_without_same_round_cascade();
-  test_equal_size_candidates_use_inherited_arena_position();
-  test_connection_uses_growing_forward_population();
-  test_binary_watches_count_toward_connection_cap();
-  test_kissat_touch_candidate_and_connection_predicates();
-  test_root_entry_unit_then_satisfied_deletion();
-  test_forward_step_budget_cuts_between_candidates();
-  test_instance_surface();
-  test_semantic_outcomes_include_every_removed_literal();
-  test_root_flush();
-  test_interrupt();
-  puts("test_strengthen OK");
-  return 0;
 }

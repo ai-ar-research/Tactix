@@ -1,14 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "gf3_formula_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/gf3_general_row.hpp"
 
-#include <cassert>
-#include <cstdint>
 #include <iostream>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -97,7 +92,7 @@ Prepared prepare() {
   return prepared;
 }
 
-void test_nonunit_row_clause_is_bounded_rup_and_model_preserving() {
+TEST(test_nonunit_row_clause_is_bounded_rup_and_model_preserving) {
   Prepared prepared = prepare();
   const auto &plan = prepared.result.plan;
   assert(plan.duplicate_key.row.size() == 2);
@@ -122,7 +117,7 @@ void test_nonunit_row_clause_is_bounded_rup_and_model_preserving() {
   check_models(prepared.theory, plan.consequence);
 }
 
-void test_predicate_declines_satisfying_nonrow_and_duplicate_requests() {
+TEST(test_predicate_declines_satisfying_nonrow_and_duplicate_requests) {
   Prepared prepared = prepare();
   const auto &row = prepared.result.plan.duplicate_key.row;
   uint64_t satisfying = 0;
@@ -159,7 +154,7 @@ void test_predicate_declines_satisfying_nonrow_and_duplicate_requests() {
          gf3_general_row::Status::Duplicate);
 }
 
-void test_limits_interruptions_and_tampering_are_atomic() {
+TEST(test_limits_interruptions_and_tampering_are_atomic) {
   Prepared prepared = prepare();
   auto bounded = limits();
   bounded.maximum_row_width = 1;
@@ -202,8 +197,6 @@ void test_limits_interruptions_and_tampering_are_atomic() {
 } // namespace
 
 int main() {
-  test_nonunit_row_clause_is_bounded_rup_and_model_preserving();
-  test_predicate_declines_satisfying_nonrow_and_duplicate_requests();
-  test_limits_interruptions_and_tampering_are_atomic();
+  run_tests();
   std::cout << "GF(3) general-row consequence tests passed\n";
 }

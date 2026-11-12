@@ -1,7 +1,5 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "cardinality_test_support.hpp"
 #include "dimacs_text.hpp"
 #include "proof/proof.hpp"
@@ -10,12 +8,8 @@
 #include "rules/semantic_extension/cardinality_search_live.hpp"
 #include "strategy/online_inprocess.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <fstream>
-#include <string>
 
-using namespace tactix;
 using namespace tactix::cardinality_search;
 using CardinalityClause = tactix::cardinality_search::Clause;
 
@@ -62,7 +56,7 @@ CardinalitySearchLiveRequest request(const std::vector<Constraint> &constraints,
   return result;
 }
 
-void nonroot_implication_and_failure_atomicity() {
+TEST(nonroot_implication_and_failure_atomicity) {
   Kernel kernel = install(overlap, false);
   FILE *records = std::tmpfile();
   assert(records);
@@ -105,7 +99,7 @@ void nonroot_implication_and_failure_atomicity() {
 }
 
 // A bound that repeats a literal is rejected before any identity is used.
-void typed_action_rejects_invalid_bounds() {
+TEST(typed_action_rejects_invalid_bounds) {
   Kernel kernel = install(overlap, false);
   FILE *records = std::tmpfile();
   assert(records);
@@ -120,7 +114,7 @@ void typed_action_rejects_invalid_bounds() {
   std::fclose(records);
 }
 
-void public_online_action_requires_exact_bounds_and_followup() {
+TEST(public_online_action_requires_exact_bounds_and_followup) {
   using namespace tactix::strategy;
   OnlineInvocation step;
   step.id = 35;
@@ -202,7 +196,7 @@ tactix_c_handle *c17_solver(const std::vector<Constraint> &constraints,
   return solver;
 }
 
-void c17_deep_copies_bounds_and_executes_search_action() {
+TEST(c17_deep_copies_bounds_and_executes_search_action) {
   FILE *records = std::tmpfile();
   int64_t first[] = {1, 2, 3, 4};
   int64_t second[] = {2, 3, 4, 5};
@@ -308,10 +302,7 @@ void proof_fixture(const std::string &cnf_path,
 } // namespace
 
 int main(int argc, char **argv) {
-  nonroot_implication_and_failure_atomicity();
-  typed_action_rejects_invalid_bounds();
-  public_online_action_requires_exact_bounds_and_followup();
-  c17_deep_copies_bounds_and_executes_search_action();
+  run_tests();
   if (argc == 2) {
     proof_fixture(std::string(argv[1]) + "/implication.cnf",
                   std::string(argv[1]) + "/implication.dsr", false);

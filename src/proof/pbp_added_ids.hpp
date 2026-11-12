@@ -8,6 +8,23 @@
 
 namespace tactix {
 
+// Hash of a sorted external-literal key.
+struct PbpLiteralKeyHash {
+  size_t operator()(const std::vector<int32_t> &key) const noexcept {
+    uint64_t hash = 0x9e3779b97f4a7c15ull ^ key.size();
+    for (const int32_t literal : key) {
+      hash ^= static_cast<uint32_t>(literal);
+      hash *= 0xff51afd7ed558ccdull;
+      hash ^= hash >> 32;
+    }
+    return static_cast<size_t>(hash);
+  }
+};
+// Stacks of proof ids keyed by sorted external literals.
+using PbpLiteralKeyIds = std::unordered_map<std::vector<int32_t>,
+                                            std::vector<uint64_t>,
+                                            PbpLiteralKeyHash>;
+
 // Proof ids of an emitter's own additions keyed by sorted external literals,
 // for later erasure by literals (an id-0 deletion would switch off PBP
 // identity deletion). Each key stacks ids; an erase names the newest.
@@ -30,25 +47,13 @@ public:
   }
 
 private:
-  struct Hash {
-    size_t operator()(const std::vector<int32_t> &key) const noexcept {
-      uint64_t hash = 0x9e3779b97f4a7c15ull ^ key.size();
-      for (const int32_t literal : key) {
-        hash ^= static_cast<uint32_t>(literal);
-        hash *= 0xff51afd7ed558ccdull;
-        hash ^= hash >> 32;
-      }
-      return static_cast<size_t>(hash);
-    }
-  };
-
   const std::vector<int32_t> &key(const int32_t *lits, uint32_t size) {
     scratch_.assign(lits, lits + size);
     std::sort(scratch_.begin(), scratch_.end());
     return scratch_;
   }
 
-  std::unordered_map<std::vector<int32_t>, std::vector<uint64_t>, Hash> ids_;
+  PbpLiteralKeyIds ids_;
   std::vector<int32_t> scratch_;
 };
 

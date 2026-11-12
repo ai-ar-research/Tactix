@@ -2,7 +2,7 @@
 // the public actions: recognition, private model completion, the scored
 // local moves, seed/Window search against brute-force permutation oracles,
 // and the resumable Window cursor, each under every work cutoff.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/lucky/graph_labeling_completion.hpp"
 #include "rules/lucky/graph_labeling_recognition.hpp"
@@ -10,11 +10,8 @@
 #include "rules/lucky/graph_labeling_search.hpp"
 #include "rules/lucky/graph_labeling_window_cursor.hpp"
 
-#include <cassert>
 #include <numeric>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::graph_labeling;
 
 // A work callback admitting at most `limit` units in total, counted in `used`.
@@ -63,7 +60,7 @@ static Score oracle(const Shape &shape, const Candidate &candidate) {
   return result;
 }
 
-static void repair_and_anneal() {
+TEST(repair_and_anneal) {
   auto always = [](uint64_t) { return true; };
   for (uint32_t mask = 0; mask < 64; ++mask) {
     Shape s = graph(mask, 2);
@@ -122,7 +119,7 @@ static void repair_and_anneal() {
   }
 }
 
-static void seeds_and_window_search() {
+TEST(seeds_and_window_search) {
   {
     // Final repair can undo the seed's reflection convention. Recover it
     // without changing any pairwise distance or partially mutating on a cut.
@@ -239,7 +236,7 @@ static void rectangle(Kernel &k, bool signed_encoding, bool malformed = false,
   }
 }
 
-static void recognition_cases() {
+TEST(recognition_cases) {
   for (bool signs : {false, true}) {
     Kernel k;
     rectangle(k, signs);
@@ -313,7 +310,7 @@ static void chain(Kernel &k) {
   kernel_add_large_clause(k, large, 3, false, 0);
 }
 
-static void completion_cases() {
+TEST(completion_cases) {
   Kernel k;
   ScopedHeuristics h(k);
   chain(k);
@@ -387,7 +384,7 @@ static WindowCursorStatus finish(WindowCursor &cursor, const Shape &shape,
   return WindowCursorStatus::NoCandidate;
 }
 
-static void window_cursor_cases() {
+TEST(window_cursor_cases) {
   const Shape shape = complete_shape(7);
   const WindowLimits limits{100000, 4, 4, 0x51a7e};
   Candidate reference;
@@ -474,12 +471,4 @@ static void window_cursor_cases() {
   assert(capped_candidate.labels == reference_capped_candidate.labels);
   assert(capped_candidate.score == reference_capped_candidate.score);
   assert(capped.terminal());
-}
-
-int main() {
-  recognition_cases();
-  completion_cases();
-  repair_and_anneal();
-  seeds_and_window_search();
-  window_cursor_cases();
 }

@@ -10,16 +10,8 @@
 namespace tactix::affine_semantic_extension {
 
 enum class MatrixLiveStatus : uint8_t {
-  Prepared,
-  Applied,
-  AlreadyApplied,
-  Invalid,
-  Inapplicable,
-  UnsupportedOutcome,
-  UnsupportedProof,
-  ResourceExhausted,
-  Interrupted,
-  Stale,
+  Prepared, Applied, AlreadyApplied, Invalid, Inapplicable, UnsupportedOutcome,
+  UnsupportedProof, ResourceExhausted, Interrupted, Stale
 };
 
 struct MatrixLiveRequest {

@@ -4,17 +4,13 @@ static constexpr bool library_assertions = false;
 #else
 static constexpr bool library_assertions = true;
 #endif
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
-#include <cassert>
 #include <csignal>
-#include <cstdio>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
-using namespace tactix;
 
 static unsigned copies(const Kernel &k, Lit lit, Ref ref) {
   unsigned n = 0;

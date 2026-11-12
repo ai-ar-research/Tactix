@@ -29,35 +29,19 @@ enum class AffineMatrixInitStatus : uint8_t {
 
 // Diagnostic attribution for initialization declines.
 enum class AffineMatrixInitResourceStage : uint8_t {
-  None,
-  Snapshot,
-  RootImage,
-  RootCensus,
-  RootPreflight,
-  Matrix,
-  Retained,
+  None, Snapshot, RootImage, RootCensus, RootPreflight, Matrix, Retained
 };
 
 // Actions admit any authenticated affine subimage and may keep a partial
 // matrix. A policy may require that every captured clause belongs to the image
 // and every equation enters the matrix; this affects scheduling only.
 enum class AffineMatrixAdmission : uint8_t {
-  AuthenticatedSubimage,
-  CompleteSnapshot,
+  AuthenticatedSubimage, CompleteSnapshot
 };
 
 enum class AffineMatrixServiceStatus : uint8_t {
-  Disabled,
-  NoEvent,
-  Duplicate,
-  Applied,
-  Inapplicable,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Invalid,
-  Pending,
+  Disabled, NoEvent, Duplicate, Applied, Inapplicable, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, Invalid, Pending
 };
 
 

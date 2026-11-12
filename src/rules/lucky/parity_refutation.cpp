@@ -1,5 +1,4 @@
 #include "rules/lucky/opportunities.hpp"
-#include "rules/lucky/root_guard.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
 #include "rules/lucky/startup_pb_writer.hpp"
@@ -297,10 +296,6 @@ public:
 };
 
 } // namespace
-
-RuleEligibility startup_parity_guard(const Kernel &k) {
-  return lucky_startup_eligibility(k);
-}
 
 ApplyResult startup_parity_apply(Kernel &k) {
   if (!startup_parity_guard(k) ||

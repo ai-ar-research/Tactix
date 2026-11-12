@@ -1,7 +1,5 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "api/api_internal.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -11,14 +9,8 @@
 #include "strategy/bve_invocation.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
 #include <climits>
-#include <cstdlib>
-#include <cstring>
-
-using namespace tactix;
 
 static int define(Kernel &k, ExtensionDefinition definition) {
   int output = 0;
@@ -34,7 +26,7 @@ static bool value(int literal, unsigned assignment) {
   return bool(assignment & (1u << (std::abs(literal) - 1))) == (literal > 0);
 }
 
-static void truth_tables() {
+TEST(truth_tables) {
   // Complete enumeration, including signed, repeated and complementary inputs.
   for (int gate = 1; gate <= 3; ++gate)
     for (int a : {-2, -1, 1, 2})
@@ -63,7 +55,7 @@ static tactix_c_handle *fixture() {
   return s;
 }
 
-static void public_composition_and_advice() {
+TEST(public_composition_and_advice) {
   auto *s = fixture();
   auto &k = api_detail::kernel_for_fixed_testing(s);
   const int rule = tactix_rule_id("ExtendedResolution");
@@ -103,7 +95,7 @@ static void public_composition_and_advice() {
   tactix_release(s);
 }
 
-static void decline_and_namespace() {
+TEST(decline_and_namespace) {
   auto *s = fixture();
   auto &k = api_detail::kernel_for_fixed_testing(s);
   const auto n = k.nvars;
@@ -124,7 +116,7 @@ static void decline_and_namespace() {
   tactix_release(s);
 }
 
-static void assigned_root_rearmed() {
+TEST(assigned_root_rearmed) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   kernel_assign_unit(k, internalize(1));
@@ -143,7 +135,7 @@ static tactix_c_handle *advice_fixture() {
  auto *s=tactix_init();for(int l:{1,2,3,0})tactix_add(s,l);
  assert(tactix_status(s)==0);return s;
 }
-static void advice_and_selected_substitution() {
+TEST(advice_and_selected_substitution) {
  auto *s=advice_fixture();auto &k=api_detail::kernel_for_fixed_testing(s);
  int q=tactix_define_extension(s,TACTIX_EXTENSION_OR,1,1);assert(q==4);
  assert(tactix_variable_retained(s,q)==1);
@@ -170,7 +162,7 @@ static void advice_and_selected_substitution() {
  assert(substitute_apply(k)!=ApplyResult::Unsat);assert(kernel_var_retired(k,v));
  tactix_release(s);
 }
-static void initial_elimination() {
+TEST(initial_elimination) {
  auto *s=advice_fixture();auto &k=api_detail::kernel_for_fixed_testing(s);
  int q=tactix_define_extension(s,TACTIX_EXTENSION_AND,1,2);assert(q==4);
  const Var v=var_of(kernel_internalize(k,q));
@@ -184,7 +176,7 @@ static void initial_elimination() {
  assert(kernel_var_retired(k,v));
  tactix_release(s);
 }
-static void compact_retention() {
+TEST(compact_retention) {
  auto *s=tactix_init();for(int l:{1,0,2,0,3,4,5,0})tactix_add(s,l);
  assert(tactix_status(s)==0);auto &k=api_detail::kernel_for_fixed_testing(s);
  const int q=tactix_define_extension(s,TACTIX_EXTENSION_XOR,3,4);assert(q==6);
@@ -197,7 +189,7 @@ static void compact_retention() {
  assert(tactix_solve(s)==10);assert(tactix_variable_retained(s,q)==0);
  tactix_release(s);
 }
-static void generated_elimination() {
+TEST(generated_elimination) {
  auto *s=advice_fixture();auto &k=api_detail::kernel_for_fixed_testing(s);
  const int q=tactix_define_extension(s,TACTIX_EXTENSION_AND,1,-1);assert(q==4);
  const Lit literal=kernel_internalize(k,q);const uint64_t instance=lit_instance(k,literal);
@@ -217,23 +209,11 @@ static void generated_elimination() {
  (void)bve.apply_instance(k,instance);assert(kernel_var_retired(k,var_of(literal)));
  k.substitute_retention=nullptr;tactix_release(s);
 }
-static void interrupted_startup() {
+TEST(interrupted_startup) {
  auto *s=advice_fixture();auto &k=api_detail::kernel_for_fixed_testing(s);
  const int q=tactix_define_extension(s,TACTIX_EXTENSION_AND,1,2);assert(q==4);
  volatile sig_atomic_t stop=1;DefaultPolicy p;assert(p.solve(k,&stop)==0);
  assert(!k.substitute_retention&&tactix_variable_retained(s,q)==1);
  assert(tactix_solve(s)==10);assert(tactix_variable_retained(s,q)==0);
  tactix_release(s);
-}
-
-int main() {
-  truth_tables();
-  public_composition_and_advice();
-  decline_and_namespace();
-  assigned_root_rearmed();
-  advice_and_selected_substitution();
-  initial_elimination();
-  compact_retention();
-  generated_elimination();
-  interrupted_startup();
 }

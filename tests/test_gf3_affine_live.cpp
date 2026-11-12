@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "gf3_formula_support.hpp"
 #include "kernel_image.hpp"
 #include "test_io.hpp"
@@ -6,14 +6,7 @@
 
 #include "rules/propagate/propagate.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -62,7 +55,7 @@ Gf3AffineLiveResult decline_unchanged(
   return result;
 }
 
-void capture_publish_continue_and_duplicate() {
+TEST(capture_publish_continue_and_duplicate) {
   Kernel kernel = parse();
   FILE *records = std::tmpfile();
   assert(records);
@@ -143,7 +136,7 @@ void retained_owner_declines(Gf3AffineLiveStatus expected, Corrupt corrupt) {
   std::fclose(records);
 }
 
-void incomplete_and_stale_declines() {
+TEST(incomplete_and_stale_declines) {
   {
     Kernel kernel = parse(false);
     FILE *records = std::tmpfile();
@@ -167,7 +160,7 @@ void incomplete_and_stale_declines() {
   });
 }
 
-void resource_and_interruption_declines() {
+TEST(resource_and_interruption_declines) {
   for (int mode = 0; mode < 11; ++mode) {
     Kernel kernel = parse();
     FILE *records = std::tmpfile();
@@ -231,10 +224,3 @@ void resource_and_interruption_declines() {
 }
 
 } // namespace
-
-int main() {
-  capture_publish_continue_and_duplicate();
-  incomplete_and_stale_declines();
-  resource_and_interruption_declines();
-  std::puts("test_gf3_affine_live: passed");
-}

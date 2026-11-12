@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <random>
 #include <utility>
 #include <vector>
@@ -173,29 +174,26 @@ public:
     if (phase_ == Phase::TotalExhausted)
       return result(WindowCursorStatus::TotalWorkExhausted);
 
-    enum class Spend { Ok, Slice, Total, Interrupted };
-    const auto spend = [&](uint64_t amount) {
-      if (poll()) return Spend::Interrupted;
-      if (amount > total_work_allowance_ - work_) return Spend::Total;
-      if (amount > slice_remaining) return Spend::Slice;
+    // Charges `amount` to the slice and the total allowance, or returns the
+    // step result that ends this slice instead.
+    const auto charge =
+        [&](uint64_t amount) -> std::optional<WindowCursorStepResult> {
+      if (poll()) return result(WindowCursorStatus::Interrupted);
+      if (amount > total_work_allowance_ - work_) {
+        phase_ = Phase::TotalExhausted;
+        return result(WindowCursorStatus::TotalWorkExhausted);
+      }
+      if (amount > slice_remaining) return result(WindowCursorStatus::Pending);
       work_ += amount;
       slice_remaining -= amount;
-      return Spend::Ok;
-    };
-    const auto stopped = [&](Spend status) -> WindowCursorStepResult {
-      if (status == Spend::Interrupted)
-        return result(WindowCursorStatus::Interrupted);
-      if (status == Spend::Slice)
-        return result(WindowCursorStatus::Pending);
-      phase_ = Phase::TotalExhausted;
-      return result(WindowCursorStatus::TotalWorkExhausted);
+      return std::nullopt;
     };
 
     while (true) {
       switch (phase_) {
       case Phase::InitialCharge: {
-        const Spend charged = spend(uint64_t(n_) * words_ + 3 * uint64_t(n_));
-        if (charged != Spend::Ok) return stopped(charged);
+        if (const auto stop = charge(uint64_t(n_) * words_ + 3 * uint64_t(n_)))
+          return *stop;
         phase_ = Phase::BuildAdjacency;
         break;
       }
@@ -211,8 +209,7 @@ public:
           prepare_neighbor_ = 0;
           break;
         } else {
-          const Spend charged = spend(1);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(1)) return *stop;
           const uint32_t other =
               shape.adjacency[prepare_vertex_][prepare_neighbor_++];
           adjacent_[uint64_t(prepare_vertex_) * words_ + other / 64] |=
@@ -236,8 +233,7 @@ public:
           sort_holding_ = false;
           break;
         } else {
-          const Spend charged = spend(1);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(1)) return *stop;
           const uint32_t previous = starts_[sort_j_ - 1];
           const size_t dc = shape.adjacency[sort_current_].size();
           const size_t dp = shape.adjacency[previous].size();
@@ -257,8 +253,7 @@ public:
           phase_ = Phase::NoCandidate;
           return result(WindowCursorStatus::NoCandidate);
         } else {
-          const Spend charged = spend(n_);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(n_)) return *stop;
           std::fill(used_.begin(), used_.end(), 0);
           order_.assign(1, starts_[start_index_]);
           used_[starts_[start_index_]] = 1;
@@ -270,8 +265,7 @@ public:
           phase_ = Phase::SearchLimit;
           return result(WindowCursorStatus::SearchLimit);
         } else {
-          const Spend charged = spend(1);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(1)) return *stop;
           ++nodes_;
           depth_ = static_cast<uint32_t>(order_.size());
           if (depth_ == n_)
@@ -281,8 +275,7 @@ public:
           break;
         }
       case Phase::BuildLeaf: {
-        const Spend charged = spend(n_);
-        if (charged != Spend::Ok) return stopped(charged);
+        if (const auto stop = charge(n_)) return *stop;
         for (uint32_t i = 0; i < n_; ++i) leaf_.labels[order_[i]] = i;
         phase_ = leaf_.labels[0] + 1 > n_ / 2 ? Phase::ReflectLeaf
                                                : Phase::ScoreLeaf;
@@ -291,8 +284,7 @@ public:
         break;
       }
       case Phase::ReflectLeaf: {
-        const Spend charged = spend(n_);
-        if (charged != Spend::Ok) return stopped(charged);
+        if (const auto stop = charge(n_)) return *stop;
         for (uint32_t &label : leaf_.labels) label = n_ - 1 - label;
         phase_ = Phase::ScoreLeaf;
         break;
@@ -303,8 +295,7 @@ public:
           phase_ = Phase::Found;
           return result(WindowCursorStatus::Found);
         } else {
-          const Spend charged = spend(1);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(1)) return *stop;
           const auto [a, b] = shape.edges[leaf_edge_++];
           const uint32_t distance = leaf_.labels[a] > leaf_.labels[b]
                                         ? leaf_.labels[a] - leaf_.labels[b]
@@ -317,8 +308,7 @@ public:
           break;
         }
       case Phase::ClearForbidden: {
-        const Spend charged = spend(words_);
-        if (charged != Spend::Ok) return stopped(charged);
+        if (const auto stop = charge(words_)) return *stop;
         std::fill(forbidden_.begin(), forbidden_.end(), 0);
         recent_index_ = depth_ >= separation_ ? depth_ - separation_ + 1 : 0;
         recent_word_ = 0;
@@ -332,8 +322,7 @@ public:
           phase_ = Phase::ScanChoices;
           break;
         } else {
-          const Spend charged = spend(1);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(1)) return *stop;
           forbidden_[recent_word_] |=
               adjacent_[uint64_t(order_[recent_index_]) * words_ + recent_word_];
           if (++recent_word_ == words_) {
@@ -348,8 +337,7 @@ public:
           phase_ = Phase::ShuffleChoices;
           break;
         } else {
-          const Spend charged = spend(1);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(1)) return *stop;
           if (used_[choice_vertex_] ||
               (forbidden_[choice_vertex_ / 64] &
                (uint64_t{1} << (choice_vertex_ % 64)))) {
@@ -369,8 +357,7 @@ public:
           phase_ = Phase::ScanChoices;
           break;
         } else {
-          const Spend charged = spend(1);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(1)) return *stop;
           const uint32_t other =
               shape.adjacency[choice_vertex_][degree_neighbor_++];
           remaining_degree_[choice_vertex_] += !used_[other];
@@ -383,8 +370,7 @@ public:
           phase_ = Phase::SortChoices;
           break;
         } else {
-          const Spend charged = spend(1);
-          if (charged != Spend::Ok) return stopped(charged);
+          if (const auto stop = charge(1)) return *stop;
           const uint64_t base = uint64_t(depth_ - 1) * n_;
           std::swap(frame_choices_[base + shuffle_i_ - 1],
                     frame_choices_[base + random_() % shuffle_i_]);
@@ -409,8 +395,7 @@ public:
           sort_holding_ = false;
           break;
         }
-        const Spend charged = spend(1);
-        if (charged != Spend::Ok) return stopped(charged);
+        if (const auto stop = charge(1)) return *stop;
         const uint32_t previous = frame_choices_[base + sort_j_ - 1];
         const uint32_t recent =
             std::min(depth_, separation_ >= 2 ? separation_ - 2 : 0);

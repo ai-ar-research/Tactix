@@ -1,13 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/direct_php_recognition.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <numeric>
 #include <set>
-#include <vector>
 
 using namespace tactix::direct_php_recognition;
 using DirectMatrix = tactix::direct_php_certificate::Matrix;
@@ -92,7 +87,7 @@ void check_image(const Image &image, unsigned holes) {
   }
 }
 
-void exhaustive_small_isomorphisms() {
+TEST(exhaustive_small_isomorphisms) {
   for (unsigned holes = 1; holes <= 3; ++holes) {
     std::vector<unsigned> rows(holes + 1), columns(holes);
     std::iota(rows.begin(), rows.end(), 0);
@@ -132,7 +127,7 @@ void exhaustive_small_isomorphisms() {
   }
 }
 
-void noise_and_exact_census() {
+TEST(noise_and_exact_census) {
   Fixture fixture = php(4, 20);
   const size_t core_size = fixture.source.size();
   fixture.add({900});
@@ -150,7 +145,7 @@ void noise_and_exact_census() {
   assert(image.census.premises.size() == core_size);
 }
 
-void ambiguity_and_near_misses() {
+TEST(ambiguity_and_near_misses) {
   Image sentinel;
   sentinel.variables = {{77}};
 
@@ -194,7 +189,7 @@ void ambiguity_and_near_misses() {
   assert(sentinel.variables == DirectMatrix{{77}});
 }
 
-void malformed_inputs() {
+TEST(malformed_inputs) {
   Image sentinel;
   sentinel.variables = {{88}};
   auto expect = [&](Fixture fixture) {
@@ -228,7 +223,7 @@ void malformed_inputs() {
   }
 }
 
-void limits_and_interruption_are_transactional() {
+TEST(limits_and_interruption_are_transactional) {
   const Fixture fixture = php(4);
   Image sentinel;
   sentinel.variables = {{99}};
@@ -260,7 +255,7 @@ void limits_and_interruption_are_transactional() {
   assert(sentinel.variables == DirectMatrix{{99}});
 }
 
-void target_scale_recognition() {
+TEST(target_scale_recognition) {
   const Fixture fixture = php(22);
   Image image;
   assert(recognize(fixture.source, limits(), nullptr, nullptr, image) ==
@@ -270,13 +265,3 @@ void target_scale_recognition() {
 }
 
 } // namespace
-
-int main() {
-  exhaustive_small_isomorphisms();
-  noise_and_exact_census();
-  ambiguity_and_near_misses();
-  malformed_inputs();
-  limits_and_interruption_are_transactional();
-  target_scale_recognition();
-  std::puts("test_direct_php_recognition: passed");
-}

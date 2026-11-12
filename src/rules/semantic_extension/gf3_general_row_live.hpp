@@ -42,17 +42,8 @@ struct Gf3GeneralRowActionSelection {
 };
 
 enum class Gf3GeneralRowLiveStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Ready,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoConsequence, Duplicate,
+  ResourceExhausted, Interrupted, UnsupportedProof, Stale, Ready, Applied
 };
 
 struct Gf3GeneralRowLiveEffort {

@@ -35,16 +35,8 @@ private:
 };
 
 enum class Gf3GeneralRowActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoConsequence, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, AlreadyPublished, Applied
 };
 
 struct Gf3GeneralRowActionResult {

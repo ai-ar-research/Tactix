@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_persistent_support.hpp"
 #include "rules/semantic_extension/affine_matrix.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
@@ -6,10 +6,7 @@
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
 #include <unistd.h>
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 namespace tactix {
 struct DefaultAffineSearchTestAccess {

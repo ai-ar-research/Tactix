@@ -1,19 +1,11 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "gf3_formula_support.hpp"
 #include "temporary_file.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "strategy/online_inprocess.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 using namespace tactix::strategy;
 
 namespace {
@@ -36,7 +28,7 @@ struct Bound {
   ~Bound() { std::fclose(records); }
 };
 
-void singular_batch_and_atomic_publication() {
+TEST(singular_batch_and_atomic_publication) {
   Bound b;
   const std::string identity = gf3_gaussian_identity(b.kernel);
   assert(identity.rfind("g3b1:", 0) == 0);
@@ -57,7 +49,7 @@ void singular_batch_and_atomic_publication() {
   assert(!b.kernel.trail.empty());
 }
 
-void corruption_rebinding_and_limits_decline_without_mutation() {
+TEST(corruption_rebinding_and_limits_decline_without_mutation) {
   Bound b;
   const std::string identity = gf3_gaussian_identity(b.kernel);
   const auto before_id = b.kernel.next_clause_id;
@@ -96,7 +88,7 @@ void corruption_rebinding_and_limits_decline_without_mutation() {
 }
 
 // The action guard accepts the default DSR proof on the Ok path.
-void public_wrapper_applies_with_dsr() {
+TEST(public_wrapper_applies_with_dsr) {
   Bound b;
   const std::string identity = gf3_gaussian_identity(b.kernel);
   TemporaryFile file;
@@ -114,7 +106,7 @@ void public_wrapper_applies_with_dsr() {
   assert(!read_file(file.path).empty());
 }
 
-void c_v6_replays_the_exact_batch_identity() {
+TEST(c_v6_replays_the_exact_batch_identity) {
   Bound source;
   source.kernel = gf3_parsed_kernel(gf3_chained_units());
   source.kernel.structural_provenance = source.records;
@@ -161,11 +153,3 @@ void c_v6_replays_the_exact_batch_identity() {
 }
 
 } // namespace
-
-int main() {
-  singular_batch_and_atomic_publication();
-  corruption_rebinding_and_limits_decline_without_mutation();
-  public_wrapper_applies_with_dsr();
-  c_v6_replays_the_exact_batch_identity();
-  std::puts("test_gf3_gaussian_public: passed");
-}

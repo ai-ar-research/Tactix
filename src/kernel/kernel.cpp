@@ -594,30 +594,66 @@ static bool retire_binary_root_reasons(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
-// Removes one physical copy from both mirror lists (and the dense traversal),
-// preserving survivor order, and retires its two BVE occurrence counts.
-static void remove_one_binary_watch_pair(Kernel &k, Lit a, Lit b) {
+// Which of the identical physical copies of one binary a compaction drops,
+// counted in list order.
+enum class BinaryCopies { First, AllButFirst, All };
+
+static bool drops_binary_copy(BinaryCopies which, uint32_t index) {
+  switch (which) {
+  case BinaryCopies::First:
+    return index == 0;
+  case BinaryCopies::AllButFirst:
+    return index > 0;
+  case BinaryCopies::All:
+    break;
+  }
+  return true;
+}
+
+// Drops the selected copies of binary (x, other) from x's watch list,
+// preserving survivor order; x watches exactly `copies` copies.
+static void drop_watched_binary_copies(Kernel &k, Lit x, Lit other,
+                                       BinaryCopies which,
+                                       [[maybe_unused]] uint32_t copies) {
+  uint32_t seen = 0;
+  k.watches.compact(x, [&](WatchEntry w) {
+    return !w.binary() || w.other() != other ||
+           !drops_binary_copy(which, seen++);
+  });
+  assert(seen == copies);
+}
+
+// The same for x's ordered occurrences in mixed dense mode.
+static void drop_ordered_binary_copies(Kernel &k, Lit x, Lit other,
+                                       BinaryCopies which,
+                                       [[maybe_unused]] uint32_t copies) {
+  if (!k.dense || !k.dense->track_order)
+    return;
+  uint32_t seen = 0;
+  k.dense->ordered.compact(x, [&](OccIndex::Entry entry) {
+    return !entry.binary || entry.payload != other ||
+           !drops_binary_copy(which, seen++);
+  });
+  assert(seen == copies);
+}
+
+// Drops the selected copies of binary (a, b) from both mirror watch lists and
+// the dense traversal.
+static void drop_binary_copies(Kernel &k, Lit a, Lit b, BinaryCopies which,
+                               uint32_t copies) {
   for (const Lit x : {a, b}) {
     const Lit other = x == a ? b : a;
-    bool removed = false;
-    k.watches.compact(x, [&](WatchEntry w) {
-      if (removed || !w.binary() || w.other() != other)
-        return true;
-      removed = true;
-      return false;
-    });
-    assert(removed);
-    if (k.dense && k.dense->track_order) {
-      const auto ordered = k.dense->ordered[x];
-      const auto at = std::find_if(ordered.begin(), ordered.end(),
-                                   [other](const OccIndex::Entry &entry) {
-                                     return entry.binary &&
-                                            entry.payload == other;
-                                   });
-      assert(at != ordered.end());
-      k.dense->ordered.erase_at(x, static_cast<size_t>(at - ordered.begin()));
-    }
+    drop_watched_binary_copies(k, x, other, which, copies);
+    drop_ordered_binary_copies(k, x, other, which, copies);
   }
+}
+
+// Removes the first of `copies` physical copies from both mirror lists (and
+// the dense traversal), preserving survivor order, and retires its two BVE
+// occurrence counts.
+static void remove_one_binary_watch_pair(Kernel &k, Lit a, Lit b,
+                                         uint32_t copies) {
+  drop_binary_copies(k, a, b, BinaryCopies::First, copies);
   kernel_bve_occurrence_remove(k, a);
   kernel_bve_occurrence_remove(k, b);
 }
@@ -642,7 +678,7 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   if (!retire_binary_root_reasons(k, a, b))
     return false;
   // (3) Remove the mirror watch entries by in-place compaction.
-  remove_one_binary_watch_pair(k, a, b);
+  remove_one_binary_watch_pair(k, a, b, 1);
   if (k.binary_liveness)
     k.binary_liveness->remove(kernel_binary_key(a, b));
   // (4) proof delete (chain-free; deletions do not consume an id).
@@ -667,7 +703,7 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
     return copies && kernel_delete_binary(k, a, b);
   // An identical clause remains, so reasons and the retained proof id stay
   // valid; remove one slot per mirror, preserving survivor order (Kissat).
-  remove_one_binary_watch_pair(k, a, b);
+  remove_one_binary_watch_pair(k, a, b, copies);
   // DSR and streaming PBP track every physical copy.
   if (k.proof && !k.proof->startup_pb_written()) {
     const Lit clause[2] = {a, b};
@@ -702,38 +738,7 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
   const uint32_t removed_copies = copies - 1;
   // forward.c compacts each directed watch vector in place keeping the first
   // occurrence; one-at-a-time deletion would keep the last.
-  for (const Lit x : {a, b}) {
-    const Lit other = x == a ? b : a;
-    bool kept = false;
-    uint32_t removed = 0;
-    k.watches.compact(x, [&](WatchEntry w) {
-      if (!w.binary() || w.other() != other)
-        return true;
-      if (!kept) {
-        kept = true;
-        return true;
-      }
-      removed++;
-      return false;
-    });
-    assert(kept && removed == removed_copies);
-    if (k.dense && k.dense->track_order) {
-      bool retained = false;
-      uint32_t retired = 0;
-      k.dense->ordered.compact(x, [&](OccIndex::Entry entry) {
-        if (entry.binary && entry.payload == other) {
-          if (!retained) {
-            retained = true;
-          } else {
-            retired++;
-            return false;
-          }
-        }
-        return true;
-      });
-      assert(retained && retired == removed_copies);
-    }
-  }
+  drop_binary_copies(k, a, b, BinaryCopies::AllButFirst, copies);
   kernel_bve_occurrence_remove(k, a, removed_copies);
   kernel_bve_occurrence_remove(k, b, removed_copies);
   // One deletion per retired copy, named by literals (Kissat).
@@ -784,21 +789,9 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
       k.watches.resize_live(x, head.size - 1);
       head.set_layout(head.size, true);
     } else {
-      k.watches.compact(x, [&](WatchEntry w) { // drop every matching copy
-        return !(w.binary() && w.other() == other);
-      });
+      drop_watched_binary_copies(k, x, other, BinaryCopies::All, copies);
     }
-    if (k.dense && k.dense->track_order) {
-      uint32_t retired = 0;
-      k.dense->ordered.compact(x, [&](OccIndex::Entry entry) {
-        if (entry.binary && entry.payload == other) {
-          retired++;
-          return false;
-        }
-        return true;
-      });
-      assert(retired == copies);
-    }
+    drop_ordered_binary_copies(k, x, other, BinaryCopies::All, copies);
   }
   kernel_bve_occurrence_remove(k, a, copies);
   kernel_bve_occurrence_remove(k, b, copies);
@@ -2248,10 +2241,8 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // (collect.c:274/514/702); an implementation-only packing pass forwards its
   // live entries instead. Garbage entries are invalidated below.
   if (!preserve_eager_recent) {
-#ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_detail(k, "eager_reset_collect",
                        static_cast<int>(sparse_collection));
-#endif
     for (Ref &r : k.eager_recent)
       r = INVALID_REF;
   }
@@ -2309,16 +2300,20 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
       order.push_back(ref);
     }
   assert(retained_words <= UINT32_MAX);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_memory_checkpoint(k, "Collect", "before-reserve");
-#endif
   Arena fresh;
+  // Event-trace memory sample, charging the new arena's reservation.
+  const auto checkpoint = [&](const char *stage) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_memory_checkpoint(k, "Collect", stage,
+                                  fresh.capacity() * sizeof(Arena::value_type));
+#else
+    (void)stage;
+#endif
+  };
+  checkpoint("before-reserve");
   // Reserve exactly the live words: the compacted image.
   fresh.reserve(retained_words);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_memory_checkpoint(k, "Collect", "before-sort",
-                                fresh.capacity() * sizeof(Arena::value_type));
-#endif
+  checkpoint("before-sort");
   uint32_t packed_watch_start = 0;
   // Kissat's sparse collector keeps the prefix, sweeps the tail in order,
   // then stably moves surviving redundant clauses behind irredundant ones
@@ -2341,10 +2336,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     // emulating Kissat's in-place replacement.
     kernel_sort_refs_by_logical_clause_position(k, order);
   }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_memory_checkpoint(k, "Collect", "after-sort",
-                                fresh.capacity() * sizeof(Arena::value_type));
-#endif
+  checkpoint("after-sort");
 #ifndef NDEBUG
   std::vector<uint8_t> seen(k.arena.size());
   for (const Ref ref : order) {
@@ -2385,10 +2377,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
         (dense_collection || retained_sparse_watch) ? c->searched : 2;
     c->searched = nref;
   }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_memory_checkpoint(k, "Collect", "after-copy",
-                                fresh.capacity() * sizeof(Arena::value_type));
-#endif
+  checkpoint("after-copy");
   for (const Lit lit : k.trail) {
     Assigned &a = k.assigned[var_of(lit)];
     if (a.affine) {
@@ -2469,10 +2458,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     // The compaction is stable: entries keep position and cached blocker.
   }
   k.arena.swap(fresh);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_memory_checkpoint(k, "Collect", "after-swap",
-                                fresh.capacity() * sizeof(Arena::value_type));
-#endif
+  checkpoint("after-swap");
   // The packed arena embodies the selected order; old aliases are void.
   k.clause_position_alias.clear();
   k.first_reducible = packed_reducible;
@@ -2490,10 +2476,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // order; sparse watches wait for sparse resume.
   if (k.dense)
     rebuild_dense_large_occurrences(k, *k.dense);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_memory_checkpoint(k, "Collect", "after-reindex",
-                                fresh.capacity() * sizeof(Arena::value_type));
-#endif
+  checkpoint("after-reindex");
   // Surviving binaries stayed in place and large entries were appended, so
   // the binary-first layout holds (as kissat_watch_large_clauses,
   // substitute.c:594-596).
@@ -2644,20 +2627,21 @@ void kernel_resume_walk_watches(Kernel &k) {
   std::vector<uint64_t> lit_rank(2 * static_cast<size_t>(k.nvars));
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
     lit_rank[l] = kernel_import_lit_order(k, l);
-  for (const Var variable : ordered_variables)
-    for (uint32_t sign = 0; sign < 2; sign++) {
-      const Lit lit = make_lit(variable, sign != 0);
-      for (const WatchEntry watch : k.watches.entries(lit)) {
-        if (!watch.binary())
-          continue;
-        const Lit other = watch.other();
-        if (lit_rank[lit] >= lit_rank[other])
-          continue;
-        if (kernel_root_value(k, lit) > 0 ||
-            kernel_root_value(k, other) > 0)
-          satisfied.emplace_back(lit, other);
+  // Visits each binary from its lower-ranked endpoint, watching literals in
+  // import order.
+  const auto for_each_binary = [&](auto visit) {
+    for (const Var variable : ordered_variables)
+      for (uint32_t sign = 0; sign < 2; sign++) {
+        const Lit lit = make_lit(variable, sign != 0);
+        for (const WatchEntry watch : k.watches.entries(lit))
+          if (watch.binary() && lit_rank[lit] < lit_rank[watch.other()])
+            visit(lit, watch.other());
       }
-    }
+  };
+  for_each_binary([&](Lit lit, Lit other) {
+    if (kernel_root_value(k, lit) > 0 || kernel_root_value(k, other) > 0)
+      satisfied.emplace_back(lit, other);
+  });
   // The scan met every copy, so the count travels with the pair; deletions
   // run in sorted encounter order.
   {
@@ -2683,13 +2667,8 @@ void kernel_resume_walk_watches(Kernel &k) {
   // Save surviving pairs in that encounter order; Walk does not sort
   // equal-first runs.
   std::vector<std::pair<Lit, Lit>> binaries;
-  for (const Var variable : ordered_variables)
-    for (uint32_t sign = 0; sign < 2; sign++) {
-      const Lit lit = make_lit(variable, sign != 0);
-      for (const WatchEntry watch : k.watches.entries(lit))
-        if (watch.binary() && lit_rank[lit] < lit_rank[watch.other()])
-          binaries.emplace_back(lit, watch.other());
-    }
+  for_each_binary(
+      [&](Lit lit, Lit other) { binaries.emplace_back(lit, other); });
 
   begin_packed_watches(k, binaries);
   std::vector<Ref> large_order;
@@ -3353,9 +3332,7 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   k.otfs_scratch.clear();
   k.otfs_retired.clear();
   k.radix_scratch.clear();
-#ifdef TACTIX_ENABLE_EVENT_TRACE
   event_trace_detail(k, "eager_reset_compact", 0);
-#endif
   for (Ref &ref : k.eager_recent)
     ref = INVALID_REF;
   k.model_values.clear();

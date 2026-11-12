@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -6,11 +6,6 @@
 #include "test_io.hpp"
 
 #include <array>
-#include <cassert>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 static Var indicator(unsigned domain, unsigned value) {
   return static_cast<Var>(3 * domain + value);

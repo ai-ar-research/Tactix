@@ -78,10 +78,7 @@ bool recognize(const std::vector<Premise> &source,
                uint32_t external_variables, const Limits &limits,
                Charge charge, void *charge_context, Image &out);
 
-enum class CertificateStepKind : uint8_t {
-  ForbiddenAssignment,
-  Resolution,
-};
+enum class CertificateStepKind : uint8_t { ForbiddenAssignment, Resolution };
 
 struct CertificateStep {
   CertificateStepKind kind = CertificateStepKind::ForbiddenAssignment;

@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "session/query_projection.hpp"
 #include "policies/default_policy.hpp"
@@ -14,14 +14,6 @@
 #include "strategy/rule_parameters.hpp"
 #include "strategy/scoped_rule_parameters.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
 using Cnf = std::vector<std::vector<int>>;
 
 static void load(Kernel &k, unsigned variables, const Cnf &formula) {

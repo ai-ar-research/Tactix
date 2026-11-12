@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "session/core_certificate.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
 static const auto limits = query_test::large_limits;
 using query_test::writer;

@@ -1,17 +1,11 @@
 // Sweep's resumable schedule: retained admission is scheduling advice, never a
 // public Sweep precondition; small environments still own the initial solve,
 // model and exact effort under every enclosing budget.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/sweep/sweep.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 static void binary(Kernel &k, int a, int b) {
   kernel_add_binary_clause(k, internalize(a), internalize(b),
@@ -54,7 +48,7 @@ static void mark_retained(Kernel &k) {
       k.sweep_marked[external] = 1;
 }
 
-static void pure_seed() {
+TEST(pure_seed) {
   Kernel k;
   kernel_reserve_vars(k, 8);
   binary(k, 1, 6);
@@ -100,7 +94,7 @@ static void completed_tail_admits_fresh(bool filtered) {
   }
 }
 
-static void completed_pass_keeps_unmarked_representative() {
+TEST(completed_pass_keeps_unmarked_representative) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   binary(k, 1, 2);
@@ -123,7 +117,7 @@ static void completed_pass_keeps_unmarked_representative() {
   assert(k.stats.sweep_scheduled > scheduled);
 }
 
-static void front_tail_order() {
+TEST(front_tail_order) {
   Kernel k;
   kernel_reserve_vars(k, 16);
   binary(k, 1, 12); // pure front
@@ -153,7 +147,7 @@ static void front_tail_order() {
   assert(k.sweep_slot[3] == 0 && k.sweep_slot[4] == 4);
 }
 
-static void occurrence_boundary() {
+TEST(occurrence_boundary) {
   for (bool negative : {false, true})
     for (uint32_t count : {1u, 2u, 3u})
       for (uint32_t completed : {0u, 1u}) {
@@ -174,7 +168,7 @@ static void occurrence_boundary() {
       }
 }
 
-static void invalid_and_duplicate_entries() {
+TEST(invalid_and_duplicate_entries) {
   Kernel k;
   kernel_reserve_vars(k, 8);
   binary(k, 1, 7);
@@ -186,7 +180,7 @@ static void invalid_and_duplicate_entries() {
   assert(k.sweep_slot.empty() && k.sweep_passes_completed == 2);
 }
 
-static void entry_not_pop() {
+TEST(entry_not_pop) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   binary(k, 1, 2); binary(k, -1, 3);
@@ -209,7 +203,7 @@ static void entry_not_pop() {
   kernel_dense_disconnect(k);
 }
 
-static void fixed_and_retired() {
+TEST(fixed_and_retired) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   k.unit_ids[0] = ++k.next_clause_id;
@@ -224,7 +218,7 @@ static void fixed_and_retired() {
   assert(k.sweep_slot.empty() && k.stats.sweep_completed == 2);
 }
 
-static void large_occurrences() {
+TEST(large_occurrences) {
   for (bool dense : {false, true})
     for (uint32_t count : {1u, 2u}) {
       Kernel k;
@@ -294,7 +288,7 @@ static uint64_t single_clause(uint32_t size, uint64_t budget = 0) {
   return k.stats.sweep_ticks_sub;
 }
 
-static void empty_and_singleton() {
+TEST(empty_and_singleton) {
   Kernel k;
   kernel_reserve_vars(k, 1);
   SweepRound round;
@@ -311,7 +305,7 @@ static void empty_and_singleton() {
   assert(empty.stats.sweep_solves == 0);
 }
 
-static void root_and_retired_still_decline() {
+TEST(root_and_retired_still_decline) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   k.unit_ids[0] = ++k.next_clause_id;
@@ -326,7 +320,7 @@ static void root_and_retired_still_decline() {
   assert(k.stats.sweep_solves == 0 && k.stats.sweep_environments == 0);
 }
 
-static void enclosing_budget() {
+TEST(enclosing_budget) {
   Kernel k;
   positive_clause(k, 270);
   clause(k, {make_lit(0, true), make_lit(270, false)});
@@ -352,7 +346,7 @@ static void enclosing_budget() {
   kernel_dense_disconnect(k);
 }
 
-static void repeated_session() {
+TEST(repeated_session) {
   Kernel k;
   positive_clause(k, 270);
   SweepRound round;
@@ -368,7 +362,7 @@ static void repeated_session() {
   }
 }
 
-static void selected_seed_budget() {
+TEST(selected_seed_budget) {
   for (bool selected : {false, true})
     for (bool bounded : {false, true}) {
       Kernel k;
@@ -403,7 +397,7 @@ static void selected_seed_budget() {
   }
 }
 
-static void test_resumable_schedule() {
+TEST(test_resumable_schedule) {
   const std::vector<std::vector<int>> cls = {
       {1, 2}, {-1, 3}, {-2, 4}, {-3, -4}};
   SweepLimits one_seed;
@@ -477,7 +471,7 @@ static void test_resumable_schedule() {
 // Kissat's `sweep_equivalence_candidates` reschedules the pair's
 // representative, the smaller internal (import-order) index; both import
 // orders are exercised.
-static void test_reschedules_pair_representative_by_import_order() {
+TEST(test_reschedules_pair_representative_by_import_order) {
   SweepLimits limits;
   limits.max_seeds = 1;
   for (uint32_t flipped = 0; flipped < 2; flipped++) {
@@ -504,7 +498,7 @@ static void test_reschedules_pair_representative_by_import_order() {
 
 // The chain x1 = x2 = x3 from one environment: Kissat's `schedule_inner`
 // declines the intermediate representative x2, retired by the same batch.
-static void test_reschedule_declines_a_retired_representative() {
+TEST(test_reschedule_declines_a_retired_representative) {
   SweepLimits limits;
   limits.max_seeds = 1;
   Kernel k;
@@ -538,7 +532,7 @@ static void test_reschedule_declines_a_retired_representative() {
 
 // Kissat propagates a productive environment's units before building the
 // next seed, so variables they fix never become later environments.
-static void test_resumable_closes_root_between_environments() {
+TEST(test_resumable_closes_root_between_environments) {
   Kernel k;
   build(k, 6,
         {{1, 2}, {-1, 2}, {-2, 3}, {-3, 4}, {-4, 5}, {-5, 6}});
@@ -552,28 +546,12 @@ static void test_resumable_closes_root_between_environments() {
 }
 
 int main() {
-  pure_seed();
+  run_tests();
   completed_tail_admits_fresh(false);
   completed_tail_admits_fresh(true);
-  completed_pass_keeps_unmarked_representative();
-  front_tail_order();
-  occurrence_boundary();
-  invalid_and_duplicate_entries();
-  entry_not_pop();
-  fixed_and_retired();
-  large_occurrences();
   for (uint32_t size : {2u, 3u, 17u, 270u}) {
     (void)single_clause(size);
     (void)single_clause(size, 1);
   }
-  empty_and_singleton();
-  root_and_retired_still_decline();
-  enclosing_budget();
-  repeated_session();
-  selected_seed_budget();
-  test_resumable_schedule();
-  test_reschedules_pair_representative_by_import_order();
-  test_reschedule_declines_a_retired_representative();
-  test_resumable_closes_root_between_environments();
   std::puts("Sweep resumable schedule and small environments: PASS");
 }

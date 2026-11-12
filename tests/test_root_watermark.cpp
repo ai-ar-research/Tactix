@@ -1,14 +1,9 @@
 // Actual scheduler admission and trail-prefix consumers across root folding.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-
-using namespace tactix;
 
 static void scheduling_watermark() {
   for (bool fold : {false, true}) {

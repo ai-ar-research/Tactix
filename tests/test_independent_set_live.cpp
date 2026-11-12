@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "independent_set_test_support.hpp"
 #include "dimacs_text.hpp"
 #include "temporary_file.hpp"
@@ -10,16 +10,9 @@
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <climits>
 #include <csignal>
-#include <cstdio>
-#include <string>
 #include <utility>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 

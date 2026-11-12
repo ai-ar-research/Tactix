@@ -1,14 +1,8 @@
 // Compile this same fixture against the actual parent and candidate libraries.
 // Compare capacities, initialized clause words/IDs and all post-GC words/refs.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <utility>
-#include <vector>
-using namespace tactix;
 static uint64_t digest = UINT64_C(1469598103934665603);
 static void hash(uint64_t n) { digest = (digest ^ n) * UINT64_C(1099511628211); }
 

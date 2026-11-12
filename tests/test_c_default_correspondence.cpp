@@ -4,16 +4,14 @@
 // agree on verdict, model, certificate bytes and trajectory counters. A
 // fixture whose schedule reaches a path the C port does not cover yet is
 // listed below; the list is ratcheted both ways.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "default_correspondence.hpp"
 
 #define tactix tactix_c_handle
 #include "tactix_default.h"
 #undef tactix
 
-#include <algorithm>
 #include <chrono>
-#include <cstring>
 #include <iostream>
 #include <map>
 
@@ -262,7 +260,7 @@ std::vector<Fixture> all_fixtures(bool extended) {
       add_program("equivalences-3cnf-" + std::to_string(seed),
                   equivalences_3cnf(200, 820, 60, seed));
     for (const char *name : {"pigeonhole-9-8.cnf", "random3sat-sat.cnf", "tseitin-40.cnf"})
-      add_program(name, file_dimacs(std::string(TACTIX_SOURCE_DIR "/examples/cnf/") + name));
+      add_program(name, file_dimacs(std::string(TACTIX_EXAMPLE_CNF_DIR) + name));
     // XOR structure under the shipped configuration with structural provenance
     // bound (an "affine-" fixture), as the command line binds it: the
     // persistent affine search admits its matrix.

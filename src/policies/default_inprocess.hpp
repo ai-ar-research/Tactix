@@ -1,7 +1,7 @@
 #pragma once
 
 #include "policies/default_strategy_config.hpp"
-#include "policies/subpolicy.hpp"
+#include "policies/policy.hpp"
 #include "rules/registry.hpp"
 #include "strategy/bve_schedule.hpp"
 
@@ -48,7 +48,6 @@ using CandidateOrder = strategy::CandidateOrder;
 const char *candidate_order_name(CandidateOrder);
 bool parse_candidate_order(const char *, CandidateOrder *);
 
-
 class DefaultCandidateOrder final : public CandidateOrderPolicy {
 public:
   const char *name() const override { return "per-rule-arms"; }
@@ -78,12 +77,8 @@ public:
   void order(const Kernel &, std::vector<Ref> &) override;
 };
 
-enum class SlotGroup : uint8_t { Probe, Eliminate };
-enum class FollowupKind : uint8_t {
-  None,
-  AfterCongruence,
-  AfterSweepOrFinal,
-};
+using SlotGroup = strategy::InprocessPhase;
+using FollowupKind = strategy::Followup;
 enum class FollowupMode : uint8_t { None, Eager, Final };
 
 struct SlotOrderRow {

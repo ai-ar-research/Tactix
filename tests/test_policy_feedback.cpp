@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/restart_controller.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
@@ -12,11 +12,9 @@
 #include "policies/ops/rephase/rephase.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <cassert>
 #include <functional>
 #include <sstream>
 
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 
@@ -80,7 +78,7 @@ static std::string state(const Kernel &k) {
   return out.str();
 }
 
-static void test_disabled_and_read_only() {
+TEST(test_disabled_and_read_only) {
   Kernel k;
   unsigned reads = 0, applications = 0;
   FeedbackSession disabled;
@@ -98,7 +96,7 @@ static void test_disabled_and_read_only() {
   assert(state(k) == before);
 }
 
-static void test_outcomes_and_intervals() {
+TEST(test_outcomes_and_intervals) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   Capture capture;
@@ -162,7 +160,7 @@ static void test_outcomes_and_intervals() {
 }
 
 
-static void test_native_effort_and_interruption() {
+TEST(test_native_effort_and_interruption) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -195,9 +193,4 @@ static void test_native_effort_and_interruption() {
   assert(!capture.actions.back().outcome.invocation.applications);
   assert(state(k) == before);
   controller.finish_feedback(0);
-}
-int main() {
-  test_disabled_and_read_only();
-  test_outcomes_and_intervals();
-  test_native_effort_and_interruption();
 }

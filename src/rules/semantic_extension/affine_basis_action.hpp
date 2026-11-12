@@ -49,15 +49,8 @@ bool affine_basis_row_selection_within_limits(
     const AffineBasisRowSelection &, const AffineBasisActionLimits &);
 
 enum class AffineBasisActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
+  Invalid, Inapplicable, NoStructure, ResourceExhausted, Interrupted,
+  UnsupportedProof, Stale, AlreadyPublished, Applied
 };
 
 struct AffineBasisActionResult {

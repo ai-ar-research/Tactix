@@ -1,18 +1,11 @@
 // Actual scheduler contract at the ordinary/skip-sort population boundary.
 // No alternative sorter or solver implementation is supplied by this test.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "fnv_digest.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/vivify/vivify.hpp"
 
-#include <algorithm>
 #include <array>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 static std::vector<unsigned> models(const Kernel &k) {
   std::vector<unsigned> result;

@@ -1,16 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
 
 static std::vector<uint64_t> fixture(bool fold, bool reverse, bool stable) {
   Kernel k;

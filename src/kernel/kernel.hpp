@@ -10,17 +10,10 @@
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/graph_labeling_session.hpp"
-#include "strategy/analyze_parameters.hpp"
-#include "strategy/congruence_parameters.hpp"
-#include "strategy/parity_consequence_parameters.hpp"
-#include "strategy/forward_parameters.hpp"
-#include "strategy/failed_literal_parameters.hpp"
-#include "strategy/instantiate_parameters.hpp"
 #include "strategy/local_search.hpp"
 #include "strategy/rule_parameters.hpp"
 #include "strategy/semantic_variable.hpp"
 #include "strategy/theory_action_parameters.hpp"
-#include "strategy/vivify_parameters.hpp"
 
 #include <cassert>
 #include <array>

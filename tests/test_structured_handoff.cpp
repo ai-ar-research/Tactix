@@ -1,14 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <numeric>
-
-using namespace tactix;
 
 // Three interchangeable rows, with no unique literal column: every clause
 // occurs twice. The snapshot retains those physical copies.

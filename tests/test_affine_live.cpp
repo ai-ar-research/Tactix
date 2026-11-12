@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_formula_support.hpp"
 #include "kernel_image.hpp"
 #include "test_io.hpp"
@@ -7,12 +7,6 @@
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <string>
-
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 
 static AffineLiveRequest request(FILE *records) {
@@ -56,7 +50,7 @@ static void assert_model(const Kernel &k) {
         assert(k.value(first) > 0 || k.value(watch.other()) > 0);
 }
 
-static void positive_and_continuing() {
+TEST(positive_and_continuing) {
   Kernel k;
   install(k, affine_formula());
   FILE *records = temporary_records();
@@ -98,7 +92,7 @@ static void positive_and_continuing() {
 }
 
 // Each resource bound declines at its own boundary.
-static void resource_declines() {
+TEST(resource_declines) {
   for (int mode : {0, 1, 2}) {
     Kernel k;
     install(k, affine_formula());
@@ -118,7 +112,7 @@ static void resource_declines() {
   }
 }
 
-static void interruption_boundaries() {
+TEST(interruption_boundaries) {
   bool saw_after_snapshot = false, saw_after_preflight = false;
   for (uint64_t seed = 1; seed <= 512 && !saw_after_preflight; ++seed) {
     Kernel k;
@@ -143,7 +137,7 @@ static void interruption_boundaries() {
   assert(saw_after_snapshot && saw_after_preflight);
 }
 
-static void stale_snapshots() {
+TEST(stale_snapshots) {
   {
     // A deleted binary source.
     Kernel k;
@@ -194,7 +188,7 @@ static void stale_snapshots() {
 
 // A retained snapshot's literal and work counters are recomputed from its
 // premises, both for accounting and for the snapshot-literal bound.
-static void cached_snapshot_counters() {
+TEST(cached_snapshot_counters) {
   for (bool bounded : {false, true}) {
     Kernel k;
     install(k, affine_formula());
@@ -224,7 +218,7 @@ static void cached_snapshot_counters() {
   }
 }
 
-static void uninstalled_target_cleanup() {
+TEST(uninstalled_target_cleanup) {
   Kernel k;
   install(k, affine_formula());
   add_clause(k, {5, 6});
@@ -242,7 +236,7 @@ static void uninstalled_target_cleanup() {
   std::fclose(records);
 }
 
-static void false_unit() {
+TEST(false_unit) {
   Kernel k;
   install(k, xor_cnf({{{1, 2}, false}, {{1, 2, 3}, true}}), 3);
   kernel_assign_unit(k, kernel_internalize(k, -3));
@@ -257,7 +251,7 @@ static void false_unit() {
   std::fclose(records);
 }
 
-static void status_and_decline_effort() {
+TEST(status_and_decline_effort) {
   for (int mode = 0; mode < 3; ++mode) {
     Kernel k;
     install(k, affine_formula());
@@ -283,16 +277,4 @@ static void status_and_decline_effort() {
     }
     std::fclose(records);
   }
-}
-
-int main() {
-  positive_and_continuing();
-  resource_declines();
-  interruption_boundaries();
-  stale_snapshots();
-  cached_snapshot_counters();
-  uninstalled_target_cleanup();
-  false_unit();
-  status_and_decline_effort();
-  std::puts("affine live adapter: atomic recognition, proof, liveness, and continuing CDCL PASS");
 }

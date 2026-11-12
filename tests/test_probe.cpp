@@ -1,21 +1,15 @@
 // Probe unit tests: failed-literal unit derivation, the both-polarity
 // refutation, the BIG-head candidate schedule, and the instance surface.
 // probe_apply leaves a clean root with the derived units un-propagated.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/probe/probe.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/support/failed_literal.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
 // Assuming 1 conflicts, so 1 is a failed literal and ¬1 becomes a root unit.
-static void test_failed_literal_derives_unit() {
+TEST(test_failed_literal_derives_unit) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -31,7 +25,7 @@ static void test_failed_literal_derives_unit() {
 
 // Both polarities of 1 fail. Probing 1 forces ¬1 and skips the variable;
 // propagating that unit reproduces the ¬1 failure and refutes the formula.
-static void test_both_polarities_fail_unsat() {
+TEST(test_both_polarities_fail_unsat) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -46,7 +40,7 @@ static void test_both_polarities_fail_unsat() {
 }
 
 // binaries with no failed literal → NoOp, nothing asserted.
-static void test_no_failed_literal_noop() {
+TEST(test_no_failed_literal_noop) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 → 2 only
@@ -58,7 +52,7 @@ static void test_no_failed_literal_noop() {
 }
 
 // A cascade through large clauses: exercises the conflict / reason-walk path.
-static void test_failed_literal_through_large_clause() {
+TEST(test_failed_literal_through_large_clause) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 → 2
@@ -74,7 +68,7 @@ static void test_failed_literal_through_large_clause() {
 
 // Only a literal whose negation carries a binary watch is a probe candidate,
 // so a variable appearing solely in large clauses is never probed.
-static void test_candidate_schedule() {
+TEST(test_candidate_schedule) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // ¬1,2 watch bin
@@ -95,7 +89,7 @@ static void test_candidate_schedule() {
 
 // A root-false literal can make a physical large clause act as a binary
 // reason. Public enumeration must still offer the failed assumption.
-static void test_large_clause_failed_literal_instance() {
+TEST(test_large_clause_failed_literal_instance) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a[3] = {internalize(-1), internalize(2), internalize(3)};
@@ -129,15 +123,4 @@ static void test_large_clause_failed_literal_instance() {
   assert(tactix_rules()[id].apply_instance(k, 999999) == ApplyResult::NoOp);
   assert(tactix_rules()[id].apply_instance(k, 0) == ApplyResult::NoOp);
   assert(default_solve(k) == 10);
-}
-
-int main() {
-  test_failed_literal_derives_unit();
-  test_both_polarities_fail_unsat();
-  test_no_failed_literal_noop();
-  test_failed_literal_through_large_clause();
-  test_candidate_schedule();
-  test_large_clause_failed_literal_instance();
-  puts("test_probe OK");
-  return 0;
 }

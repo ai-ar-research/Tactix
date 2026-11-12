@@ -1,6 +1,6 @@
 // BCE (rule X1). Deleting a blocked clause preserves satisfiability only, so
 // every original clause must still hold after `kernel_extend_model`.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "clause_load_support.hpp"
@@ -9,12 +9,7 @@
 #include "rules/bce/bce.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 static void binaries(Kernel &k, uint32_t vars,
                      std::initializer_list<std::pair<int, int>> clauses) {
@@ -35,7 +30,7 @@ static void begin_query(session::QueryHistory &history,
 
 
 // The only resolvent on 1 is (2 ∨ ¬2), so (1 ∨ 2) is blocked on 1.
-static void test_blocked_binary() {
+TEST(test_blocked_binary) {
   Kernel k;
   blocked_pair(k);
   assert(bce_guard(k));
@@ -45,7 +40,7 @@ static void test_blocked_binary() {
 
 // The resolvent (2 ∨ 3) is not tautological, so nothing is blocked on 1 —
 // without a working tautology test this case would delete.
-static void test_not_blocked() {
+TEST(test_not_blocked) {
   Kernel k;
   binaries(k, 3, {{1, 2}, {-1, 3}});
   assert(bce_try(k, internalize(1)) == ApplyResult::NoOp);
@@ -53,7 +48,7 @@ static void test_not_blocked() {
 }
 
 // A pure literal blocks vacuously: BCE subsumes that rule (deviation 4).
-static void test_pure_literal() {
+TEST(test_pure_literal) {
   Kernel k;
   binaries(k, 3, {{1, 2}, {1, 3}});
   assert(bce_try(k, internalize(1)) == ApplyResult::Ok);
@@ -61,7 +56,7 @@ static void test_pure_literal() {
 }
 
 // Redundant clauses are not candidates (deviation 1): Reduce drops them free.
-static void test_redundant_skipped() {
+TEST(test_redundant_skipped) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {1, 2, 3}, true, 3);
@@ -70,7 +65,7 @@ static void test_redundant_skipped() {
 }
 
 // The reconstruction obligation, end to end through a solve.
-static void test_model_reconstruction() {
+TEST(test_model_reconstruction) {
   Kernel k;
   blocked_pair(k);
   assert(bce_apply(k) == ApplyResult::Ok);
@@ -78,7 +73,7 @@ static void test_model_reconstruction() {
   assert_extended_model(k, {{1, 2}, {-1, -2}});
 }
 
-static void test_explicit_instance_bypasses_canonical_occurrence_limit() {
+TEST(test_explicit_instance_bypasses_canonical_occurrence_limit) {
   Kernel k;
   // Only the dense blocking literal 1 (over the occurrence limit) can block.
   binaries(k, 4, {{1, 2}, {1, 3}, {-2, 4}, {-3, 4}});
@@ -88,7 +83,7 @@ static void test_explicit_instance_bypasses_canonical_occurrence_limit() {
   assert(k.stats.bce_deleted == 2);
 }
 
-static void test_semantic_instance_deletes_one_clause() {
+TEST(test_semantic_instance_deletes_one_clause) {
   Kernel k;
   binaries(k, 3, {{1, 2}, {1, 3}});
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("BCE")];
@@ -102,7 +97,7 @@ static void test_semantic_instance_deletes_one_clause() {
          "the unselected blocked clause was deleted");
 }
 
-static void test_semantic_negative_control() {
+TEST(test_semantic_negative_control) {
   Kernel k;
   binaries(k, 3, {{1, 2}, {-1, 3}});
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("BCE")];
@@ -115,7 +110,7 @@ static void test_semantic_negative_control() {
 
 // Reconstruction regression: root propagation assigns 39, 9, 33, so the two
 // ternaries carry an assigned literal while (19 ∨ 4) does not.
-static void test_regression_fuzz_2204() {
+TEST(test_regression_fuzz_2204) {
   const Cnf orig = {{19, 4}, {33, -9}, {-34, -33, -4}, {34, -33, 4}, {39, 9}, {-39}};
   Kernel k;
   load_cnf(k, 39, orig);
@@ -125,7 +120,7 @@ static void test_regression_fuzz_2204() {
 
 // N1: the touched-epoch filter is policy-only. With the watermark advanced the
 // round declines, but `instances()` and `apply_instance` stay complete.
-static void test_touch_filter_is_policy_only() {
+TEST(test_touch_filter_is_policy_only) {
   Kernel k;
   blocked_pair(k);
   k.bce_touch_mark = k.touch_epoch;
@@ -152,7 +147,7 @@ static void test_touch_filter_is_policy_only() {
 }
 
 // Both interrupt sites, each entry point driven separately.
-static void test_interrupt() {
+TEST(test_interrupt) {
   volatile sig_atomic_t stop = 1;
   // (1) the round loop: cut at the first literal, so nothing is deleted
   {
@@ -182,7 +177,7 @@ static void test_interrupt() {
   }
 }
 
-static void test_query_domain_keeps_complete_round_watermark() {
+TEST(test_query_domain_keeps_complete_round_watermark) {
   using namespace tactix::session;
   QueryHistory history;
   begin_query(history, {1, 2, 0, -1, 3, 0}, 1);
@@ -214,7 +209,7 @@ static void test_query_domain_keeps_complete_round_watermark() {
   assert(model[internalize(-1)] > 0 || model[internalize(3)] > 0);
 }
 
-static void test_budgeted_query_bce_reaches_unchanged_prefix_tail() {
+TEST(test_budgeted_query_bce_reaches_unchanged_prefix_tail) {
   using namespace tactix::session;
   QueryHistory history;
   begin_query(history, {1, 2, 0, -1, 3, 0, -2, -3, 0, 4, 5, 0}, 1);
@@ -235,7 +230,7 @@ static void test_budgeted_query_bce_reaches_unchanged_prefix_tail() {
   k.query_projection = nullptr;
 }
 
-static void test_query_bce_rekeys_its_completed_domain() {
+TEST(test_query_bce_rekeys_its_completed_domain) {
   using namespace tactix::session;
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -256,7 +251,7 @@ static void test_query_bce_rekeys_its_completed_domain() {
   }
 }
 
-static void test_explicit_query_bce_still_requests_repair() {
+TEST(test_explicit_query_bce_still_requests_repair) {
   using namespace tactix::session;
   unsigned semantic_repairs = 0;
   for (unsigned choice = 0; choice <= 4; ++choice) {
@@ -281,24 +276,4 @@ static void test_explicit_query_bce_still_requests_repair() {
     k.query_projection = nullptr;
   }
   assert(semantic_repairs > 0); // semantic requests keep the full legal surface
-}
-
-int main() {
-  test_query_domain_keeps_complete_round_watermark();
-  test_budgeted_query_bce_reaches_unchanged_prefix_tail();
-  test_query_bce_rekeys_its_completed_domain();
-  test_explicit_query_bce_still_requests_repair();
-  test_interrupt();
-  test_regression_fuzz_2204();
-  test_touch_filter_is_policy_only();
-  test_blocked_binary();
-  test_not_blocked();
-  test_pure_literal();
-  test_redundant_skipped();
-  test_model_reconstruction();
-  test_explicit_instance_bypasses_canonical_occurrence_limit();
-  test_semantic_instance_deletes_one_clause();
-  test_semantic_negative_control();
-  std::printf("test_bce: all passed\n");
-  return 0;
 }

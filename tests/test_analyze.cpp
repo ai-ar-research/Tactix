@@ -1,5 +1,5 @@
 // Analyze/Backjump: forced scenarios with a known 1-UIP clause and jump level.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
@@ -8,17 +8,9 @@
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
 #include "rules/propagate/propagate.hpp"
-#define tactix tactix_handle // the C handle typedef collides with the namespace
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
-static void test_uip() {
+TEST(test_uip) {
   // At level 2, 4 and 5 follow decision 2; (-3,-4,-5) resolves through their
   // binary reasons to (-2,-3).
   Kernel k;
@@ -55,7 +47,7 @@ static void test_uip() {
   assert(default_solve(k) == 10); // still satisfiable: 1, -2, 3
 }
 
-static void test_detached_large_reason_in_conflict_analysis() {
+TEST(test_detached_large_reason_in_conflict_analysis) {
   // The GF(2) reason (3, -1, -2) is not in the watched formula; resolving it with
   // the conflict (-3, -2, -1) learns (-2, -1).
   Kernel k;
@@ -103,7 +95,7 @@ static void test_detached_large_reason_in_conflict_analysis() {
 
 // D-SPLIT: ConflictAnalysis fuses Analyze and Backjump, so `pending` never
 // outlives one apply.
-static void test_conflictanalysis_atomic() {
+TEST(test_conflictanalysis_atomic) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {-1, -2, 3});
@@ -124,7 +116,7 @@ static void test_conflictanalysis_atomic() {
   assert(k.level == 1);
 }
 
-static void test_learned_unit() {
+TEST(test_learned_unit) {
   // (-1 2), (-1 -2): deciding 1 conflicts and learns unit -1
   Kernel k;
   ScopedHeuristics hg(k);
@@ -148,7 +140,7 @@ static void test_learned_unit() {
   assert(k.h->scores.score[0] == unit_score);
 }
 
-static void test_bump_admission_order_is_not_cleanup_order() {
+TEST(test_bump_admission_order_is_not_cleanup_order) {
   Kernel k;
   ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 4);
@@ -173,7 +165,7 @@ static void test_bump_admission_order_is_not_cleanup_order() {
 
 // Kissat's level-one failed-literal analysis walks past every singleton
 // frontier: -2 and then -1 become root units before bumping.
-static void test_level_one_failed_literal_batch() {
+TEST(test_level_one_failed_literal_batch) {
   Kernel k;
   ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 5); // variable 5 remains as a decision witness
@@ -237,7 +229,7 @@ static void write_level_one_failed_literal_proof(const char *path) {
   k.proof = nullptr;
 }
 
-static void test_shrink() {
+TEST(test_shrink) {
   // The block {-2, -3} is not minimizable but converges on decision 1, so
   // shrinking learns (-4 -1).
   Kernel k;
@@ -263,7 +255,7 @@ static void test_shrink() {
   assert(default_solve(k) == 10); // still satisfiable (1 2 3, -4)
 }
 
-static void test_shrink_accepts_lower_learned_literal() {
+TEST(test_shrink_accepts_lower_learned_literal) {
   // Block {-b,-c} converges to b; c's walk reaches the learned -a (Kissat marks
   // learned literals removable before shrink=3).
   Kernel k;
@@ -285,7 +277,7 @@ static void test_shrink_accepts_lower_learned_literal() {
   assert(k.pending.jump_level == 2);
 }
 
-static void test_shrink_crosses_unmarked_lower_level() {
+TEST(test_shrink_crosses_unmarked_lower_level) {
   // Block {-b,-c} converges to b through level-2 -y, whose reason reaches the
   // learned -a: Kissat follows the chain across the intermediate level.
   Kernel k;
@@ -310,7 +302,7 @@ static void test_shrink_crosses_unmarked_lower_level() {
   assert(k.pending.jump_level == 3);
 }
 
-static void test_shrink_processes_lower_blocks_first() {
+TEST(test_shrink_processes_lower_blocks_first) {
   // The lower block {-q,-r} converges first, enabling the higher block; Kissat's
   // tail-to-head order learns {-d,-b,-y}.
   Kernel k;
@@ -356,7 +348,7 @@ static Kernel singleton_block_fixture() {
   return k;
 }
 
-static void test_singleton_block_skips_minimization() {
+TEST(test_singleton_block_skips_minimization) {
   Kernel k = singleton_block_fixture();
   assert(k.pending.lits.size() == 3);
   assert(k.pending.lits[0] == internalize(-4));
@@ -417,7 +409,7 @@ static Kernel minimization_depth_fixture(
   return k;
 }
 
-static void test_minimization_depth_matches_kissat() {
+TEST(test_minimization_depth_matches_kissat) {
   // Binary runs do not spend recursive depth in Kissat.  This exceeds the
   // recursive cap yet must still reach -a and remove the chain literal.
   Kernel binary = minimization_depth_fixture(1100, true);
@@ -459,7 +451,7 @@ static Kernel learned_stable_order_fixture() {
   return k;
 }
 
-static void test_learned_level_stable_order() {
+TEST(test_learned_level_stable_order) {
   Kernel k = learned_stable_order_fixture();
   assert(k.pending.lits.size() == 3);
   assert(k.pending.lits[0] == internalize(-4));
@@ -467,7 +459,7 @@ static void test_learned_level_stable_order() {
   assert(k.pending.lits[2] == internalize(-3));
 }
 
-static void test_otfs() {
+TEST(test_otfs) {
   // d = (-1 -2 -3) and r = (-1 -2 3) resolve to (-1 -2): OTFS strengthens r,
   // subsumes d and reuses the replacement as driver.
   Kernel k;
@@ -496,7 +488,7 @@ static void test_otfs() {
   assert(default_solve(k) == 10); // satisfiable: 1, -2
 }
 
-static void test_otfs_reuse_honors_chronological_gap() {
+TEST(test_otfs_reuse_honors_chronological_gap) {
   // Asserting at level 103 with jump level 1: Kissat's 100-level reuse
   // threshold retains level 102 (Fmla conflict 844).
   Kernel k;
@@ -524,7 +516,7 @@ static void test_otfs_reuse_honors_chronological_gap() {
   assert(k.assigned[var_of(internalize(2))].level == 1);
 }
 
-static void test_large_otfs_shrinks_reason_in_place() {
+TEST(test_large_otfs_shrinks_reason_in_place) {
   // In-place OTFS strengthening (kissat large_on_the_fly_strengthen): same record,
   // first watch retained; added material covers only the surviving tail.
   Kernel k;
@@ -592,7 +584,7 @@ static void test_large_otfs_shrinks_reason_in_place() {
   assert(default_solve(k) == 10);
 }
 
-static void test_large_otfs_retains_root_false_first_watch() {
+TEST(test_large_otfs_retains_root_false_first_watch) {
   // Kissat's large OTFS path keeps a root-false first watch; only the binary
   // path drops root literals, chosen by the non-root antecedent size.
   Kernel k;
@@ -676,7 +668,7 @@ static const Clause *otfs_glue_fixture(Kernel &k, uint32_t reason_glue,
 
 // kissat_on_the_fly_subsume (strengthen.c) transfers the conflict's better
 // glue 3 to the reason whose exact LBD is 4.
-static void test_otfs_subsumption_inherits_better_conflict_glue() {
+TEST(test_otfs_subsumption_inherits_better_conflict_glue) {
   Kernel k;
   assert(otfs_glue_fixture(k, 4, 3, false)->glue() == 3);
   assert(k.stats.promoted == 1);
@@ -685,14 +677,14 @@ static void test_otfs_subsumption_inherits_better_conflict_glue() {
 
 // kissat large_on_the_fly_strengthen keeps an existing glue below the new size
 // even when the levels would recompute a worse LBD.
-static void test_otfs_strengthening_preserves_better_reason_glue() {
+TEST(test_otfs_strengthening_preserves_better_reason_glue) {
   Kernel k;
   const Clause *c = otfs_glue_fixture(k, 2, 6, true);
   assert(c->glue() == 2 && c->vivify());
   assert(default_solve(k) == 10);
 }
 
-static void test_chrono_backjump_clamps_to_jump_level() {
+TEST(test_chrono_backjump_clamps_to_jump_level) {
   // D-LEVEL-2: a chronological target above the assertion level is honored and
   // the UIP is stamped at jump_level.
   Kernel k;
@@ -724,7 +716,7 @@ static void test_chrono_backjump_clamps_to_jump_level() {
   assert(default_solve(k) == 10); // still satisfiable
 }
 
-static void test_backjump_target_clamps() {
+TEST(test_backjump_target_clamps) {
   // a target below the assertion level clamps up: the clause must stay
   // asserting
   Kernel k;
@@ -753,7 +745,7 @@ static void test_backjump_target_clamps() {
 
 // A reused conflict whose watches are not on its two highest-level literals
 // has its watches repaired (built white-box, as only chrono produces it).
-static void test_conflict_reuse_repairs_watches() {
+TEST(test_conflict_reuse_repairs_watches) {
   Kernel k;
   ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 4);
@@ -810,7 +802,7 @@ static void test_conflict_reuse_repairs_watches() {
   assert(k.stats.backjump_stale == 0);
 }
 
-static void test_conflict_repair_after_fixed_prefix_watch_flush() {
+TEST(test_conflict_repair_after_fixed_prefix_watch_flush) {
   // Sparse collection drops the root-fixed watch; N1 decisions before
   // propagation then need the absent watch promoted.
   for (unsigned fixed_slot = 0; fixed_slot < 2; ++fixed_slot) {
@@ -851,7 +843,7 @@ static void test_conflict_repair_after_fixed_prefix_watch_flush() {
   }
 }
 
-static void test_binary_conflict_reuse_jumps_reason() {
+TEST(test_binary_conflict_reuse_jumps_reason) {
   // Binary conflict reuse jumps reasons unconditionally (Kissat): asserting -3
   // at level 1 records the direct reason -1.
   Kernel k;
@@ -876,7 +868,7 @@ static void test_binary_conflict_reuse_jumps_reason() {
   assert(k.jumped_over[v] == internalize(-2));
 }
 
-static void test_nonreusable_conflict_repairs_watches() {
+TEST(test_nonreusable_conflict_repairs_watches) {
   // Kissat promotes the two highest-level literals even when the conflict
   // cannot be reused.
   Kernel k;
@@ -898,7 +890,7 @@ static void test_nonreusable_conflict_repairs_watches() {
   assert(k.stats.conflict_watch_repaired > 0);
 }
 
-static void test_forced_conflict_unwind_preserves_two_stage_heap_pose() {
+TEST(test_forced_conflict_unwind_preserves_two_stage_heap_pose) {
   Kernel k;
   ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 6);
@@ -926,7 +918,7 @@ static void test_forced_conflict_unwind_preserves_two_stage_heap_pose() {
 }
 
 // The reuse shortcut leaves no pending record; `backjump_stale` stays 0.
-static void test_conflict_reuse_under_default_policy() {
+TEST(test_conflict_reuse_under_default_policy) {
   // Chrono is required to reach reuse; the reachability asserts below check it.
   uint64_t total_reused = 0, total_repaired = 0;
   for (int seed = 1; seed <= 6; seed++) {
@@ -967,7 +959,7 @@ static void test_conflict_reuse_under_default_policy() {
 
 // analyze_eager_subsume on a hand-built register: a clause naming a trail
 // reason is not deleted.
-static void test_eager_subsume() {
+TEST(test_eager_subsume) {
   auto fresh = [](Kernel &k, uint32_t nvars) { kernel_reserve_vars(k, nvars); };
 
   { // (a) a strictly smaller learned clause deletes the register entry
@@ -1111,8 +1103,8 @@ static void test_eager_subsume() {
 }
 
 // The public per-call minimization depth: Kissat's minimizedepth default 1e3.
-static void test_minimize_depth_public_config() {
-  tactix_handle *solver = tactix_init();
+TEST(test_minimize_depth_public_config) {
+  tactix_c_handle *solver = tactix_init();
   assert(tactix_config(solver, TACTIX_CFG_ANALYZE_MINIMIZE_DEPTH) == 1000);
   for (uint32_t value : {0u, 1001u, UINT32_MAX}) {
     tactix_set_analyze_minimize_depth(solver, value);
@@ -1122,37 +1114,9 @@ static void test_minimize_depth_public_config() {
 }
 
 int main(int argc, char **argv) {
-  test_minimize_depth_public_config();
-  test_uip();
-  test_detached_large_reason_in_conflict_analysis();
-  test_conflictanalysis_atomic();
-  test_learned_unit();
-  test_bump_admission_order_is_not_cleanup_order();
-  test_level_one_failed_literal_batch();
+  run_tests();
   if (argc == 2)
     write_level_one_failed_literal_proof(argv[1]);
-  test_shrink();
-  test_shrink_accepts_lower_learned_literal();
-  test_shrink_crosses_unmarked_lower_level();
-  test_shrink_processes_lower_blocks_first();
-  test_singleton_block_skips_minimization();
-  test_minimization_depth_matches_kissat();
-  test_learned_level_stable_order();
-  test_otfs();
-  test_otfs_reuse_honors_chronological_gap();
-  test_large_otfs_shrinks_reason_in_place();
-  test_large_otfs_retains_root_false_first_watch();
-  test_otfs_subsumption_inherits_better_conflict_glue();
-  test_otfs_strengthening_preserves_better_reason_glue();
-  test_chrono_backjump_clamps_to_jump_level();
-  test_backjump_target_clamps();
-  test_conflict_reuse_repairs_watches();
-  test_conflict_repair_after_fixed_prefix_watch_flush();
-  test_binary_conflict_reuse_jumps_reason();
-  test_nonreusable_conflict_repairs_watches();
-  test_forced_conflict_unwind_preserves_two_stage_heap_pose();
-  test_conflict_reuse_under_default_policy();
-  test_eager_subsume();
   puts("test_analyze OK");
   return 0;
 }

@@ -1,6 +1,6 @@
 // Lucky unit tests: constant and sweep probes, abandonment restoring the entry
 // state with phases untouched, the lifecycle calls and the registry surface.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -10,14 +10,7 @@
 #include "rules/registry.hpp"
 #include "rules/restart/restart.hpp"
 
-#include <algorithm>
 #include <array>
-#include <cassert>
-#include <cstring>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 // These reference-lifecycle controls isolate the two Kissat Lucky calls.
 static int solve_reference_startup(Kernel &k, bool late_lucky = true) {
@@ -46,7 +39,7 @@ static void add_php32(Kernel &k) {
                                  internalize(-var(p2, h)));
 }
 
-static void test_all_true() {
+TEST(test_all_true) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
@@ -64,7 +57,7 @@ static void test_all_true() {
 // structured-root program, or a terminal refutation) materializes neither
 // deferred rule state nor search guidance, and needs no later Propagate to
 // notice the inconsistency.
-static void test_early_lucky_verdict_keeps_cold_state() {
+TEST(test_early_lucky_verdict_keeps_cold_state) {
   for (const unsigned mode : {0u, 1u, 2u}) {
     const bool unsat = mode == 2;
     Kernel k;
@@ -87,7 +80,7 @@ static void test_early_lucky_verdict_keeps_cold_state() {
   }
 }
 
-static void test_cold_state_materialization_preserves_first_round_predicates() {
+TEST(test_cold_state_materialization_preserves_first_round_predicates) {
   Kernel eager, deferred;
   kernel_defer_cold_state(deferred);
   kernel_reserve_vars(eager, 4);
@@ -112,7 +105,7 @@ static void test_cold_state_materialization_preserves_first_round_predicates() {
   }
 }
 
-static void test_all_false() {
+TEST(test_all_false) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
@@ -125,7 +118,7 @@ static void test_all_false() {
     assert(k.values[make_lit(v, true)] > 0);
 }
 
-static void test_sweep() {
+TEST(test_sweep) {
   // mixed polarity defeats both constants; the forward-false sweep succeeds
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -139,7 +132,7 @@ static void test_sweep() {
   assert(k.values[internalize(2)] > 0);  // 2 propagated by (1 2)
 }
 
-static void test_first_level_conflict_commits_failed_literal() {
+TEST(test_first_level_conflict_commits_failed_literal) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
@@ -153,7 +146,7 @@ static void test_first_level_conflict_commits_failed_literal() {
   assert(k.unit_ids[var_of(internalize(1))] != 0);
 }
 
-static void test_unsat_probes_commit_root_consequences() {
+TEST(test_unsat_probes_commit_root_consequences) {
   // Speculation leaves saved phases untouched while committing root units.
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -172,7 +165,7 @@ static void test_unsat_probes_commit_root_consequences() {
 
 // A published model is a terminal SAT state, not a BCP-derived trail: a
 // partial Restart must rescan its retained prefix.
-static void test_published_model_rescans_after_partial_restart() {
+TEST(test_published_model_rescans_after_partial_restart) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
@@ -208,7 +201,7 @@ static void build_retired_head_fixture(Kernel &k) {
 
 // Kissat lucky.c:203-208 skips eliminated and inactive identities before
 // assuming; probing one would push the next failed literal past level one.
-static void test_backward_sweep_skips_retired_identity() {
+TEST(test_backward_sweep_skips_retired_identity) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   build_retired_head_fixture(k);
@@ -231,7 +224,7 @@ static void test_backward_sweep_skips_retired_identity() {
 
 // Kissat lucky.c:29,37: a binary satisfied by an inactive endpoint does not
 // veto a constant probe.
-static void test_constant_scan_skips_inactive_binary_endpoint() {
+TEST(test_constant_scan_skips_inactive_binary_endpoint) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
@@ -416,7 +409,7 @@ static void test_lucky_roots_leave_the_queue(unsigned roots, bool reverse,
   kernel_check_invariants(k);
 }
 
-static void test_registry_surface() {
+TEST(test_registry_surface) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
@@ -436,7 +429,7 @@ static void test_registry_surface() {
   assert(!r.guard(k)); // no longer quiescent-with-work: all assigned
 }
 
-static void test_guard_needs_quiescent_root() {
+TEST(test_guard_needs_quiescent_root) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
@@ -446,7 +439,7 @@ static void test_guard_needs_quiescent_root() {
   assert(!lucky_guard(k)); // not at the root (and unpropagated)
 }
 
-static void test_sat_constructors_do_not_refute_root_conflicts() {
+TEST(test_sat_constructors_do_not_refute_root_conflicts) {
   const int id = tactix_rule_id("Lucky");
   assert(id >= 0);
   const RuleVTable &r = tactix_rules()[id];
@@ -470,25 +463,13 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  test_all_true();
-  test_early_lucky_verdict_keeps_cold_state();
-  test_cold_state_materialization_preserves_first_round_predicates();
-  test_all_false();
-  test_sweep();
-  test_first_level_conflict_commits_failed_literal();
-  test_unsat_probes_commit_root_consequences();
-  test_published_model_rescans_after_partial_restart();
+  run_tests();
   // One root leaves the fold archive empty; several roots exercise folding
   // and stamp renumbering in both import orders.
   test_lucky_roots_leave_the_queue(1, false, false);
   test_lucky_roots_leave_the_queue(5, true, true);
   test_lucky_roots_leave_the_queue(29, false, true);
   test_lucky_roots_leave_the_queue(29, true, false);
-  test_backward_sweep_skips_retired_identity();
-  test_constant_scan_skips_inactive_binary_endpoint();
-  test_registry_surface();
-  test_guard_needs_quiescent_root();
-  test_sat_constructors_do_not_refute_root_conflicts();
   puts("test_lucky OK");
   return 0;
 }

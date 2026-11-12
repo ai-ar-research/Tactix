@@ -1,6 +1,6 @@
 // CCE (rule calculus X3): clauses blocked only after covered-literal addition,
 // and model reconstruction over a sequence of witness segments.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "clause_load_support.hpp"
@@ -8,19 +8,11 @@
 #include "rules/cce/cce.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstdint>
-#include <string>
-#include <vector>
-
-using namespace tactix;
-
 static void load(Kernel &k, uint32_t nvars, const Cnf &f) { load_cnf(k, nvars, f); }
 
 // The covered-literal path: (1∨2∨3) is blocked on nothing, but adding the
 // covered literal 4 (found on pivot 1) makes (1∨2∨3∨4) blocked on 2.
-static void test_covered_then_blocked() {
+TEST(test_covered_then_blocked) {
   Kernel k;
   load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
   assert(cce_guard(k));
@@ -36,7 +28,7 @@ static void test_covered_then_blocked() {
 
 // The negative case: every literal of (1∨2∨3) has two opposite occurrences
 // sharing no literal, so nothing is covered and nothing is blocked.
-static void test_empty_intersection() {
+TEST(test_empty_intersection) {
   Kernel k;
   load(k, 7, {{1, 2, 3},
               {-1, 4, 6}, {-1, 5, 7},
@@ -50,7 +42,7 @@ static void test_empty_intersection() {
 
 // The asymmetric-tautology exit: the candidate is RUP against the rest, so it
 // is deleted with no witness segment at all.
-static void test_asymmetric_tautology() {
+TEST(test_asymmetric_tautology) {
   Kernel k;
   load(k, 3, {{1, 2, 3}, {1, 2}});
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
@@ -61,7 +53,7 @@ static void test_asymmetric_tautology() {
 }
 
 // Redundant clauses are not candidates (deviation 1).
-static void test_redundant_skipped() {
+TEST(test_redundant_skipped) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add_external_clause(k, {1, 2, 3}, true, 3);
@@ -74,7 +66,7 @@ static void test_redundant_skipped() {
 
 // Instance surface (N1): the single-literal entry reaches the round's own
 // elimination, and an unrelated payload is a NoOp.
-static void test_instances() {
+TEST(test_instances) {
   Kernel k;
   load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
   std::vector<Lit> lits;
@@ -93,7 +85,7 @@ static void test_instances() {
          ApplyResult::NoOp);
 }
 
-static void test_binary_semantic_instance() {
+TEST(test_binary_semantic_instance) {
   for (bool duplicated : {false, true}) {
     Kernel k;
     load(k, 2, duplicated ? Cnf{{1, 2}, {1, 2}, {-1, -2}}
@@ -138,7 +130,7 @@ static void test_binary_semantic_instance() {
 
 // The round's repetition filter and its resume: a filter that skips nothing is
 // inert, and one that skips everything has wedged.
-static void test_filter_and_resume() {
+TEST(test_filter_and_resume) {
   { // a first round works and ADVANCES the watermark
     Kernel k;
     load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
@@ -187,7 +179,7 @@ static void test_filter_and_resume() {
 
 // Every assignment satisfying what survives a CCE round extends to a model of
 // the original formula.
-static void test_reconstruction_exhaustive() {
+TEST(test_reconstruction_exhaustive) {
   const uint32_t nvars = 8;
   uint64_t rng = 0x9e3779b97f4a7c15ull;
   const auto next = [&rng]() {
@@ -279,7 +271,7 @@ static void test_reconstruction_exhaustive() {
 
 // The structured-root program simplifies again after CCE; its model still
 // replays the CCE witnesses against every original clause.
-static void test_model_reconstruction_after_structured_root() {
+TEST(test_model_reconstruction_after_structured_root) {
   const Cnf orig = {
       {-17, 22}, {-9, -3, 8, 11}, {19, 16}, {24, -11}, {-23, 4},
       {4, 3}, {-11, 21}, {5, -15}, {4, 9}, {9, 19},
@@ -328,15 +320,7 @@ static void test_caller_budget(uint64_t budget, bool expected) {
 }
 
 int main() {
-  test_covered_then_blocked();
-  test_empty_intersection();
-  test_asymmetric_tautology();
-  test_redundant_skipped();
-  test_instances();
-  test_binary_semantic_instance();
-  test_filter_and_resume();
-  test_model_reconstruction_after_structured_root();
-  test_reconstruction_exhaustive();
+  run_tests();
   test_caller_budget(1, false);
   test_caller_budget(0, true);
   test_caller_budget(UINT64_MAX, true);

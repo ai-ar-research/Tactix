@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -8,12 +8,6 @@
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include "session/weakening_history.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <string>
-
-using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
 using query_test::drive;
@@ -43,7 +37,7 @@ static void result(QueryKernel &s, QueryHistory &h, int expected,
   assert(h.finish_query(h.active_query()->id, expected == 10 ? QueryResult::Sat : QueryResult::Unsat) == InputStatus::Ok);
 }
 
-static void signed_forward_planning() {
+TEST(signed_forward_planning) {
   Kernel k;
   WeakeningHistory history(k, limits().weakening);
   ScopedPopulationObserverBinding binding(k, history);
@@ -165,7 +159,7 @@ static void scenario(const std::string &name, const std::string &prefix,
   }
 }
 
-static void refused_before_mutation() {
+TEST(refused_before_mutation) {
   QueryHistory h, other;
   QueryKernel s(limits());
   assert(s.advance(h).status == NativeAdvanceStatus::NoActiveQuery);
@@ -229,7 +223,7 @@ static void refused_before_mutation() {
   assert(b.advance(bounded).status == NativeAdvanceStatus::Exhausted && bk.next_clause_id == bid);
 }
 
-static void default_continues() {
+TEST(default_continues) {
   QueryHistory h;
   clause(h, {1, 2});
   QueryKernel s(limits());
@@ -249,7 +243,7 @@ static void default_continues() {
   }
 }
 
-static void unsupported_and_id_capacity() {
+TEST(unsupported_and_id_capacity) {
   for (int kind = 0; kind != 5; ++kind) {
     QueryHistory h;
     QueryKernel s(limits());
@@ -296,10 +290,7 @@ static void unsupported_and_id_capacity() {
 int main(int argc, char **argv) {
   if (argc == 5) { scenario(argv[1], argv[2], argv[3], std::string(argv[4]) == "dynamic"); return 0; }
   assert(argc == 1);
-  signed_forward_planning();
+  run_tests();
   for (bool dynamic : {false, true})
     for (const char *name : {"chain", "compact", "large", "shrink", "root", "archive"}) scenario(name, "", "none", dynamic);
-  refused_before_mutation();
-  unsupported_and_id_capacity();
-  default_continues();
 }

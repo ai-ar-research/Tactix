@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -8,11 +8,7 @@
 #include "rules/condition/condition.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "session/weakening_history.hpp"
-#include <algorithm>
-#include <cstdio>
 #include <memory>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
 static const auto limits = query_test::medium_limits;

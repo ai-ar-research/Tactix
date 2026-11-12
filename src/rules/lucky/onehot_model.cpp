@@ -1,6 +1,5 @@
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -567,10 +566,6 @@ bool direct_csp_model(Kernel &k,
 
 
 } // namespace
-
-RuleEligibility onehot_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult direct_csp_model_apply(Kernel &k) {
   assert(onehot_model_guard(k));

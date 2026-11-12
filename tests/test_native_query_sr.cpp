@@ -1,12 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "temporary_file.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <string>
-#include <cstdio>
-using namespace tactix;
 using namespace tactix::session;
 static void fixture(const std::string &prefix, const std::string &mode) {
   QueryHistory h;

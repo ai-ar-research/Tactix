@@ -3,7 +3,6 @@
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -641,10 +640,6 @@ bool collect_formula(Kernel &k, Formula &formula) {
 }
 
 } // namespace
-
-RuleEligibility stconn_proof_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult stconn_proof_apply(Kernel &k) {
   assert(stconn_proof_guard(k));

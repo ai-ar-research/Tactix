@@ -20,28 +20,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - name: Cache third-party toolchain builds
-        uses: actions/cache@v4
-        with:
-          path: |
-            kissat
-            cadical
-            drat-trim
-            cake_lpr
-            dsr-trim-sr
-            trestle
-            ~/.elan
-          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh', 'tools/checkers/patches/**') }}
-      - name: Install missing verified-checker build tools
-        run: |
-          if ! command -v zstd >/dev/null || [ ! -x trestle/.lake/build/bin/srcheck ]; then
-            sudo apt-get update
-            sudo apt-get install --yes elan zstd
-          fi
-      - name: Build baseline solvers (kissat, cadical — pinned)
-        run: tools/solvers/setup.sh
-      - name: Build checker toolchain (drat-trim, lrat-check, cake_lpr — pinned)
-        run: tools/checkers/setup.sh
+      - uses: ./.github/actions/toolchain
       - name: Fuzz harness self-test (stand-ins + broken wrappers + ddmin)
         run: tools/fuzz/selftest.sh
 
@@ -54,32 +33,9 @@ jobs:
         mode: [debug, release]
     steps:
       - uses: actions/checkout@v4
-      - name: Cache third-party toolchain builds
-        uses: actions/cache@v4
+      - uses: ./.github/actions/toolchain
         with:
-          path: |
-            kissat
-            cadical
-            drat-trim
-            cake_lpr
-            dsr-trim-sr
-            trestle
-            ~/.elan
-            tools/checkers/src
-          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh', 'tools/checkers/patches/**') }}
-      - name: Install missing verified-checker build tools
-        run: |
-          if ! command -v zstd >/dev/null || [ ! -x trestle/.lake/build/bin/srcheck ]; then
-            sudo apt-get update
-            sudo apt-get install --yes elan zstd
-          fi
-      - name: Install sanitizer compiler
-        if: matrix.mode == 'debug'
-        run: sudo apt-get update && sudo apt-get install --yes clang-18 llvm-18 libclang-rt-18-dev
-      - name: Build baseline solvers (kissat, cadical — pinned)
-        run: tools/solvers/setup.sh
-      - name: Build checker toolchain (clausal + VeriPB/CakePB — pinned)
-        run: tools/checkers/setup.sh
+          sanitizer: ${{ matrix.mode == 'debug' }}
       # Each test links the full solver. Clang and compressed debug sections
       # bound disk usage while retaining ASan/UBSan, assertions and symbols.
       - name: Build tactix

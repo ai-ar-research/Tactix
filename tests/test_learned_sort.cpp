@@ -1,11 +1,7 @@
 // Fixed private-sort differential cases, not real-instance solver execution.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/analyze/learned_sort.hpp"
 #include <array>
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
 
 int main() {
   Kernel k;

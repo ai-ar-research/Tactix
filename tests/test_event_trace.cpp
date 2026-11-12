@@ -1,20 +1,14 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "policies/heuristics.hpp"
 
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <initializer_list>
-#include <string>
 #include <utility>
 
 #include <sys/wait.h>
 #include <unistd.h>
-
-using namespace tactix;
 
 using Environment = std::initializer_list<std::pair<const char *, const char *>>;
 

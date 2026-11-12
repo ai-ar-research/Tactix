@@ -59,30 +59,13 @@ struct Limits {
 };
 
 enum class LimitKind : uint8_t {
-  None,
-  Bridge,
-  Work,
-  Events,
-  EventLiterals,
-  ActiveClauses,
-  RetainedSourceReferences,
-  RowTuples,
-  EventWidth,
-  BranchDomains,
-  RowWidth,
+  None, Bridge, Work, Events, EventLiterals, ActiveClauses,
+  RetainedSourceReferences, RowTuples, EventWidth, BranchDomains, RowWidth
 };
 
 enum class Status : uint8_t {
-  Planned,
-  NoConsequence,
-  Duplicate,
-  InvalidRequest,
-  InvalidTheory,
-  InvalidBridge,
-  InvalidCertificate,
-  Uncertifiable,
-  LimitExceeded,
-  Interrupted,
+  Planned, NoConsequence, Duplicate, InvalidRequest, InvalidTheory,
+  InvalidBridge, InvalidCertificate, Uncertifiable, LimitExceeded, Interrupted
 };
 
 struct Statistics {

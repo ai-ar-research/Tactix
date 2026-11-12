@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
-#include <cassert>
-#include <cstdio>
-using namespace tactix;
 namespace {
 using Selection=NaryCspEqualityTransitivitySelection;
 using Status=NaryCspEqualityTransitivityStatus;

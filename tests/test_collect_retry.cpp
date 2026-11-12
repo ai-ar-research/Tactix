@@ -1,11 +1,7 @@
 // Sparse collection arms BCE/CCE removal advice without producing BVE retries.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-using namespace tactix;
 
 static unsigned calls;
 static void notify(Kernel &, void *, Var, bool reinsert) {

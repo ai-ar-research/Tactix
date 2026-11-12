@@ -82,10 +82,7 @@ enum class MatrixStatus : uint8_t {
 };
 
 enum class MatrixSynchronizationKind : uint8_t {
-  Extension,
-  Backtrack,
-  Reassignment,
-  PriorPartial,
+  Extension, Backtrack, Reassignment, PriorPartial
 };
 
 // Telemetry for an Invalid synchronization; never affects admission or work.

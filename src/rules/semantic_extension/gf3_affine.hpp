@@ -59,11 +59,7 @@ struct RecognitionBounds {
 };
 
 enum class RecognitionStatus : uint8_t {
-  Recognized,
-  InvalidRequest,
-  IncompleteTheory,
-  BoundExceeded,
-  EffortExhausted,
+  Recognized, InvalidRequest, IncompleteTheory, BoundExceeded, EffortExhausted
 };
 
 struct RecognitionResult {
@@ -89,13 +85,8 @@ struct PairEliminationBounds {
 };
 
 enum class PlanStatus : uint8_t {
-  Planned,
-  NoConsequence,
-  InvalidRequest,
-  UnsupportedOverlap,
-  IncompleteTheory,
-  BoundExceeded,
-  EffortExhausted,
+  Planned, NoConsequence, InvalidRequest, UnsupportedOverlap, IncompleteTheory,
+  BoundExceeded, EffortExhausted
 };
 
 struct SourceReference {

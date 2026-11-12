@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "proof/proof.hpp"
 #include "policies/heuristics.hpp"
 
-#include <cstdio>
 #include <memory>
-#include <string>
 #include <type_traits>
-using namespace tactix;
 using namespace tactix::session;
 static_assert(!std::is_move_constructible_v<DerivationHistory>);
 

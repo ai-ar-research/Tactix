@@ -54,15 +54,8 @@ struct NaryCspEqualityRequest {
 };
 
 enum class NaryCspEqualityLiveStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoConsequence,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Duplicate,
-  Applied,
+  Invalid, Inapplicable, NoConsequence, ResourceExhausted, Interrupted,
+  UnsupportedProof, Stale, Duplicate, Applied
 };
 
 struct NaryCspEqualityProjection {

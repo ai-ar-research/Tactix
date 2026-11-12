@@ -1,14 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/opportunities.hpp"
 
-#include <cassert>
 #include <sstream>
-#include <vector>
-
-using namespace tactix;
 
 struct Generator {
   int width = 3, columns = 3;

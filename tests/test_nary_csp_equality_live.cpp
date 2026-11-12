@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
@@ -6,14 +6,7 @@
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <fstream>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -91,7 +84,7 @@ bool large_clause_live(const Kernel &kernel, std::vector<int32_t> wanted) {
   return false;
 }
 
-void publish_duplicate_and_records() {
+TEST(publish_duplicate_and_records) {
   Kernel kernel = parse();
   NaryCspRelationOwnerSnapshot owner;
   assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
@@ -136,7 +129,7 @@ void publish_duplicate_and_records() {
 }
 
 // A journal that does not fit declines before any publication.
-void journal_limit_declines() {
+TEST(journal_limit_declines) {
   Kernel kernel = parse();
   NaryCspRelationOwnerSnapshot owner;
   assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
@@ -152,7 +145,7 @@ void journal_limit_declines() {
   std::fclose(records);
 }
 
-void changed_owner_declines_without_publication() {
+TEST(changed_owner_declines_without_publication) {
   for (bool assigned : {false, true}) {
     Kernel kernel = parse();
     NaryCspRelationOwnerSnapshot owner;
@@ -236,8 +229,6 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  publish_duplicate_and_records();
-  journal_limit_declines();
-  changed_owner_declines_without_publication();
+  run_tests();
   std::puts("test_nary_csp_equality_live: passed");
 }

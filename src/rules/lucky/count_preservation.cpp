@@ -1,5 +1,4 @@
 #include "rules/lucky/opportunities.hpp"
-#include "rules/lucky/root_guard.hpp"
 #include "rules/lucky/startup_pb_writer.hpp"
 
 #include "kernel/types.hpp"
@@ -462,9 +461,6 @@ public:
 };
 } // namespace
 
-RuleEligibility count_preservation_guard(const Kernel &k) {
-  return lucky_startup_eligibility(k);
-}
 ApplyResult count_preservation_apply(Kernel &k) {
   if (!count_preservation_guard(k) || k.trail.empty() ||
       k.startup_input.empty() || (k.proof && !k.proof->startup_pb_available()))

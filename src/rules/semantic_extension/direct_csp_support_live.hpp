@@ -26,22 +26,12 @@ inline bool direct_csp_support_same_live_owner(
 }
 
 enum class DirectCspSupportLiveStatus : uint8_t {
-  Applied,
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
+  Applied, Invalid, Inapplicable, NoStructure, NoConsequence, Duplicate,
+  ResourceExhausted, Interrupted, UnsupportedProof, Stale
 };
 
 enum class DirectCspSemanticRole : uint8_t {
-  SelectedDomainValue,
-  CompatibleDomainValue,
-  SupportDisjunction,
+  SelectedDomainValue, CompatibleDomainValue, SupportDisjunction
 };
 
 // Controller-visible meaning only.  The adapter does not alter VMTF, EVSIDS,

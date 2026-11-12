@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_persistent_support.hpp"
 #include "kernel/clause.hpp"
 #include "proof/proof.hpp"
@@ -7,12 +7,7 @@
 #include "rules/substitute/substitute.hpp"
 #include "rules/bve/bve.hpp"
 #include "rules/sweep/sweep.hpp"
-#include <cassert>
-#include <cstdio>
-#include <string>
-#include <vector>
 #include <unistd.h>
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 namespace {
 void write_original(const std::string &path,const std::vector<std::vector<int32_t>> &clauses) {

@@ -1,8 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/affine_basis_plan.hpp"
-
-#include <cassert>
-#include <cstdio>
 
 using namespace tactix::affine_semantic_extension;
 
@@ -48,7 +45,7 @@ static bool row_value(const BasisRow &row, uint64_t assignment) {
   return true;
 }
 
-static void direct_rows() {
+TEST(direct_rows) {
   const std::vector<Equation> input = {
       equation({1}, true, {10}), equation({2, 3}, false, {20, 21}),
       equation({4, 5, 6}, true, {30, 31, 32, 33})};
@@ -64,7 +61,7 @@ static void direct_rows() {
              (parity(row.variables, assignment) == row.rhs));
 }
 
-static void cancellation_provenance_and_contradiction() {
+TEST(cancellation_provenance_and_contradiction) {
   std::vector<Equation> input = {
       equation({1, 2, 3, 4}, false, {10}),
       equation({1, 2, 5}, true, {11, 12})};
@@ -97,7 +94,7 @@ static void cancellation_provenance_and_contradiction() {
   assert(conflict.clauses.size() == 1 && conflict.clauses[0].empty());
 }
 
-static void transactional_failures() {
+TEST(transactional_failures) {
   BasisPlan sentinel;
   sentinel.input_rows = 777;
   const auto good = std::vector<Equation>{equation({1, 2, 3, 4}, true, {1})};
@@ -116,9 +113,7 @@ static void transactional_failures() {
 }
 
 int main() {
-  direct_rows();
-  cancellation_provenance_and_contradiction();
-  transactional_failures();
+  run_tests();
   std::puts("affine basis plan: provenance, direct rows, wide metadata, and "
             "transactional bounds PASS");
 }

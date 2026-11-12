@@ -1,21 +1,14 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "kernel_image.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 
 #include "proof/proof.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
 #include <filesystem>
-#include <string>
 #include <unistd.h>
 #include <utility>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -90,7 +83,7 @@ NaryCspRelationOwnerSnapshot sentinel_snapshot() {
   return result;
 }
 
-void exact_capture_is_observational() {
+TEST(exact_capture_is_observational) {
   Kernel kernel = parse(relation_clauses(1), 9);
   const OwnerImage before = owner_image(kernel);
   const std::string proof_path =
@@ -131,7 +124,7 @@ void exact_capture_is_observational() {
   std::filesystem::remove(proof_path);
 }
 
-void exact_authentication_and_capture_bounds() {
+TEST(exact_authentication_and_capture_bounds) {
   for (const auto &[clauses, expected] :
        std::vector<std::pair<Clauses, NaryCspRelationCaptureStatus>>{
            {relation_clauses(1, true),
@@ -183,7 +176,7 @@ void exact_authentication_and_capture_bounds() {
 }
 
 // Every decline leaves the caller's output session untouched.
-void transactional_session_and_staleness() {
+TEST(transactional_session_and_staleness) {
   Clauses clauses = relation_clauses(1);
   const Clauses second = relation_clauses(10);
   clauses.insert(clauses.end(), second.begin(), second.end());
@@ -241,10 +234,3 @@ void transactional_session_and_staleness() {
 }
 
 } // namespace
-
-int main() {
-  exact_capture_is_observational();
-  exact_authentication_and_capture_bounds();
-  transactional_session_and_staleness();
-  std::puts("test_nary_csp_relation_owner: passed");
-}

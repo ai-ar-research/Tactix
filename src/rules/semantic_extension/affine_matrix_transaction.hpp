@@ -12,12 +12,7 @@
 namespace tactix::affine_semantic_extension {
 
 enum class MatrixTransactionStatus : uint8_t {
-  Prepared,
-  Invalid,
-  Stale,
-  UnsupportedProof,
-  ResourceExhausted,
-  Interrupted,
+  Prepared, Invalid, Stale, UnsupportedProof, ResourceExhausted, Interrupted
 };
 
 enum class MatrixTransactionFailureStage : uint8_t {

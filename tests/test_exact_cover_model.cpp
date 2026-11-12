@@ -1,17 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/model.hpp"
 #include "strategy/rule_parameters.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <sstream>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 // An sgen-shaped formula: `blocks` at-most-one blocks of five consecutive
 // variables, then 2*blocks positive 5-clauses covering every variable twice.

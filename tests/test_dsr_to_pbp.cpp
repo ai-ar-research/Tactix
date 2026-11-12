@@ -1,16 +1,10 @@
 // The DSR-to-PBP conversion of the automatic proof's switch (plan §5): each DSR
 // line form, in the binary and ASCII spellings, and malformed streams.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/dsr_to_pbp.hpp"
 #include "test_io.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <string>
 #include <unistd.h>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 

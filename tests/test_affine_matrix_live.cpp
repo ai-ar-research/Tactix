@@ -1,19 +1,12 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_formula_support.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/affine_matrix_live.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <string>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 
 static AffineLiveRequest capture_request(FILE *records) {
@@ -125,7 +118,7 @@ struct Unchanged {
   }
 };
 
-static void implication_is_assigned_without_prefix_rescan() {
+TEST(implication_is_assigned_without_prefix_rescan) {
   Scenario scenario;
   Kernel &kernel = scenario.kernel;
   const auto &event = scenario.fixture.event;
@@ -156,7 +149,7 @@ static void implication_is_assigned_without_prefix_rescan() {
     assert(provenance.find(field) != std::string::npos);
 }
 
-static void compact_provenance_keeps_authenticated_reason() {
+TEST(compact_provenance_keeps_authenticated_reason) {
   Scenario scenario;
   Kernel &kernel = scenario.kernel;
   auto request = scenario.request();
@@ -182,7 +175,7 @@ static void compact_provenance_keeps_authenticated_reason() {
   assert(provenance.find("\"proof_events\":[") == std::string::npos);
 }
 
-static void historical_implication_can_be_preflighted_after_tableau_advance() {
+TEST(historical_implication_can_be_preflighted_after_tableau_advance) {
   Scenario scenario;
   Kernel &kernel = scenario.kernel;
   Fixture &fixture = scenario.fixture;
@@ -232,7 +225,7 @@ static void historical_implication_can_be_preflighted_after_tableau_advance() {
          MatrixLiveStatus::Prepared);
 }
 
-static void retained_implication_can_be_published_at_conflict() {
+TEST(retained_implication_can_be_published_at_conflict) {
   Scenario scenario;
   Kernel &kernel = scenario.kernel;
   assert(scenario.fixture.event.kind == MatrixEventKind::Implication &&
@@ -270,7 +263,7 @@ static void retained_implication_can_be_published_at_conflict() {
          !written_bytes(scenario.journal).empty());
 }
 
-static void source_clause_order_is_not_identity() {
+TEST(source_clause_order_is_not_identity) {
   Scenario scenario;
   for (AffineLiveSource &source : scenario.fixture.owner.sources)
     std::reverse(source.clause.begin(), source.clause.end());
@@ -280,7 +273,7 @@ static void source_clause_order_is_not_identity() {
   assert(!kernel_propagate(scenario.kernel));
 }
 
-static void conflict_is_consumed_by_ordinary_bcp() {
+TEST(conflict_is_consumed_by_ordinary_bcp) {
   Scenario scenario({-1, -2, 5});
   Kernel &kernel = scenario.kernel;
   assert(scenario.fixture.event.kind == MatrixEventKind::Conflict);
@@ -291,7 +284,7 @@ static void conflict_is_consumed_by_ordinary_bcp() {
   assert(kernel_propagate(kernel) && kernel.conflict_valid);
 }
 
-static void unit_above_root_declines() {
+TEST(unit_above_root_declines) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 6);
   add_equation(kernel, {3, 4}, false);
@@ -314,7 +307,7 @@ static void unit_above_root_declines() {
 
 enum class StaleKind { Trail, Source, Namespace, ProofId, Arena, ProofMode };
 
-static void stale_publication_boundaries() {
+TEST(stale_publication_boundaries) {
   for (StaleKind kind : {StaleKind::Trail, StaleKind::Source,
                          StaleKind::Namespace, StaleKind::ProofId,
                          StaleKind::Arena, StaleKind::ProofMode}) {
@@ -361,7 +354,7 @@ static void stale_publication_boundaries() {
   }
 }
 
-static void resource_and_interruption_are_atomic() {
+TEST(resource_and_interruption_are_atomic) {
   for (unsigned mode = 0; mode < 4; ++mode) {
     Scenario scenario;
     auto request = scenario.request();
@@ -417,7 +410,7 @@ static void resource_and_interruption_are_atomic() {
   unchanged.check();
 }
 
-static void helper_namespace_is_monotone() {
+TEST(helper_namespace_is_monotone) {
   Scenario scenario;
   Kernel &kernel = scenario.kernel;
   const uint32_t before = kernel.external_to_internal.size();
@@ -653,7 +646,7 @@ static void commit_unrelated_entry(AffineMatrixProofCache &cache) {
 // compact streaming-PBP plan never reads it, so a later commit there must
 // not make the compact publication stale (it made Analyze abort on a lazy
 // affine reason, Tier D linvrinv5).
-static void compact_pbp_publication_ignores_unconsulted_matrix_cache() {
+TEST(compact_pbp_publication_ignores_unconsulted_matrix_cache) {
   {
     Scenario scenario;
     AffineMatrixProofCache cache;
@@ -699,16 +692,6 @@ int main(int argc, char **argv) {
     return proof_fixture(argv[2], argv[3], true);
   if (argc == 3 && std::strcmp(argv[1], "--resume-proofs") == 0)
     return resume_proofs(argv[2]);
-  implication_is_assigned_without_prefix_rescan();
-  compact_provenance_keeps_authenticated_reason();
-  historical_implication_can_be_preflighted_after_tableau_advance();
-  retained_implication_can_be_published_at_conflict();
-  source_clause_order_is_not_identity();
-  conflict_is_consumed_by_ordinary_bcp();
-  unit_above_root_declines();
-  stale_publication_boundaries();
-  compact_pbp_publication_ignores_unconsulted_matrix_cache();
-  resource_and_interruption_are_atomic();
-  helper_namespace_is_monotone();
+  run_tests();
   std::puts("test_affine_matrix_live: passed");
 }

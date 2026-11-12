@@ -32,7 +32,7 @@ from source_root import source_root
 ROOT = source_root(__file__)
 KERNEL_H = os.path.join(ROOT, "src", "kernel", "kernel.hpp")
 POLICY = ["src/policies/default_policy.cpp", "src/policies/default_policy.hpp",
-          "src/policies/subpolicy.hpp", "src/policies/subpolicy.cpp"]
+          "src/policies/policy.hpp"]
 # Scoped typed invocations are policy writers even though their save/install/
 # restore mechanics live in the strategy layer. Keep these exceptions named so
 # broad strategy code cannot accidentally satisfy a POLICY row.
@@ -146,7 +146,7 @@ PROFILE_FAMILIES = [
         "transitive_early_exit": "early_exit", "transitive_live_meter": "live_meter",
         "transitive_budget_checked": "checked_budget_meter"}),
     ("config().substitute_parameters", RULE_PARAMETERS, {"subst_demote": "demote_substituted"}),
-    ("config().vivify_parameters", "src/strategy/vivify_parameters.cpp", {
+    ("config().vivify_parameters", RULE_PARAMETERS, {
         "vivify_scope": "scope", "vivify_reuse": "reuse", "vivify_flush": "flush",
         "vivify_irredundant_sort_ratio": "irredundant_sort_ratio"}),
 ]
@@ -185,7 +185,7 @@ PARTIAL_PROFILES = [
         "bve_backward": ("backward", "config().bve_backward"),
         "bve_on_the_fly_strengthening":
             ("on_the_fly_strengthening", "config().bve_on_the_fly_strengthening")}),
-    ("analysis", "src/strategy/analyze_parameters.cpp", {
+    ("analysis", RULE_PARAMETERS, {
         "conflict_reuse_chrono_levels": ("chronological_levels", "chrono_levels"),
         "conflict_reuse": ("conflict_reuse", "config_.analysis.conflict_reuse"),
         "jump_reasons": ("jump_reasons", "config_.analysis.jump_reasons"),
@@ -206,11 +206,11 @@ for profile, installer, fields in PARTIAL_PROFILES:
             (POLICY[0], profile + r"\." + member + r"\s*=\s*" + re.escape(value)),
             request, PARAMETER_INSTALL, (installer, r"k\." + field + r"\s*=\s*p\." + member)]
 
-POLICY_ADAPTERS["no_ext_reason_bump"] = ["src/strategy/analyze_parameters.cpp"]
+POLICY_ADAPTERS["no_ext_reason_bump"] = [RULE_PARAMETERS]
 POLICY_BINDINGS["no_ext_reason_bump"] = [
     (POLICY[0], r"analysis\.bump_extension_reasons\s*=\s*config_\.analysis\.bump_extension_reasons"),
     (POLICY[0], r"execution::ParameterInstallationRequest\{analysis\}"), PARAMETER_INSTALL,
-    ("src/strategy/analyze_parameters.cpp", r"k\.no_ext_reason_bump\s*=\s*!p\.bump_extension_reasons")]
+    (RULE_PARAMETERS, r"k\.no_ext_reason_bump\s*=\s*!p\.bump_extension_reasons")]
 POLICY_ADAPTERS["walk_even_break_base_milli"] = [RULE_PARAMETERS]
 POLICY_ADAPTERS["walk_seed_candidate"] = [GUIDANCE_EXECUTION, RULE_PARAMETERS]
 for field, member, request_member in [

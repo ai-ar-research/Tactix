@@ -1,15 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "proof/proof.hpp"
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
 #include <sys/stat.h>
 
-using namespace tactix;
 namespace {
 using Selection=DirectCspGuardedCoverActionSelection;
 using ActionStatus=DirectCspSupportActionStatus;

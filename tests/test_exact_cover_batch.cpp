@@ -1,12 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "exact_cover_test_support.hpp"
 #include "rules/semantic_extension/exact_cover_batch.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
 using namespace tactix::exact_cover_semantic;
 
 static std::vector<Premise> source_formula(bool missing_edge = false) {
@@ -44,7 +39,7 @@ static BatchPlan make_plan(const std::vector<Premise> &source = source_formula()
 
 // Planning is deterministic, and each retained definition is an exact
 // conservative definition output <-> OR(inputs) for every assignment.
-static void deterministic_complete_plan() {
+TEST(deterministic_complete_plan) {
   const BatchPlan first = make_plan();
   assert(first == make_plan());
   assert(first.definitions().size() == 3);
@@ -74,7 +69,7 @@ static void deterministic_complete_plan() {
   }
 }
 
-static void no_partial_plan() {
+TEST(no_partial_plan) {
   BatchPlan sentinel = make_plan();
   const BatchPlan expected = sentinel;
   auto bounded_request = planning_request();
@@ -100,10 +95,4 @@ static void no_partial_plan() {
                      &status));
   assert(status == BatchPlanningStatus::ResourceExhausted);
   assert(sentinel == expected);
-}
-
-int main() {
-  deterministic_complete_plan();
-  no_partial_plan();
-  std::puts("test_exact_cover_batch: passed");
 }

@@ -1,8 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "strategy/feedback_provenance.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <regex>

@@ -80,21 +80,11 @@ struct Limits {
 };
 
 enum class LimitKind : uint8_t {
-  None,
-  Work,
-  Fill,
-  IntermediateWidth,
-  Provenance,
-  Derivations,
-  RetainedPlan,
+  None, Work, Fill, IntermediateWidth, Provenance, Derivations, RetainedPlan
 };
 
 enum class PlanStatus : uint8_t {
-  Complete,
-  NoStructure,
-  InvalidInput,
-  LimitExceeded,
-  Interrupted,
+  Complete, NoStructure, InvalidInput, LimitExceeded, Interrupted
 };
 
 struct Statistics {

@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
@@ -12,14 +12,10 @@
 #include "session/query_history.hpp"
 #include "session/query_kernel.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <set>
 #include <memory>
-#include <string>
 #include <type_traits>
 
-using namespace tactix;
 using namespace tactix::session;
 static_assert(!std::is_copy_constructible_v<WeakeningHistory>);
 static_assert(!std::is_move_constructible_v<WeakeningHistory>);
@@ -41,7 +37,7 @@ static void eliminate(Kernel &k, int32_t lit) {
   assert(rule.apply_instance(k, lit_instance(k, kernel_internalize(k, lit))) == ApplyResult::Ok);
 }
 
-static void full_large_sources_survive_compaction() {
+TEST(full_large_sources_survive_compaction) {
   Kernel k;
   WeakeningHistory history(k, bounds);
   ScopedPopulationObserverBinding binding(k, history);
@@ -66,7 +62,7 @@ static void full_large_sources_survive_compaction() {
   kernel_check_invariants(k);
 }
 
-static void newly_false_resolvent_literals_preserve_capture() {
+TEST(newly_false_resolvent_literals_preserve_capture) {
   Kernel k;WeakeningHistory history(k,bounds);
   ScopedPopulationObserverBinding binding(k,history);
   input(k,{-3,-6,0,3,6,0,-6,3,0,-7,2,0});
@@ -89,7 +85,7 @@ static void newly_false_resolvent_literals_preserve_capture() {
   }
 }
 
-static void false_literals_do_not_license_arbitrary_repairs() {
+TEST(false_literals_do_not_license_arbitrary_repairs) {
   struct Case { std::vector<int32_t> roots,rest;bool accepted; };
   const std::vector<Case> cases{
     {{-4},{2,4},true}, {{-4},{2},true}, // Full and root-shortened valid twins.
@@ -125,7 +121,7 @@ static void false_literals_do_not_license_arbitrary_repairs() {
   }
 }
 
-static void full_witness_is_consumed_by_native_restoration() {
+TEST(full_witness_is_consumed_by_native_restoration) {
   QueryHistory history;
   for(int literal:{-3,-6,0,3,6,0,-6,3,0,-7,2,0})assert(history.add(literal)==InputStatus::Ok);
   assert(history.begin_query()==InputStatus::Ok);
@@ -144,7 +140,7 @@ static void full_witness_is_consumed_by_native_restoration() {
   assert(owner.flush_proof(owner.ticket()));
 }
 
-static void forwarding_capture_and_real_gap() {
+TEST(forwarding_capture_and_real_gap) {
   struct Layer final : ForwardingPopulationObserver {
     explicit Layer(PopulationObserver *p):ForwardingPopulationObserver(p) {}
   };
@@ -167,7 +163,7 @@ static void forwarding_capture_and_real_gap() {
   assert(!history.capture_complete()); // Rebinding cannot repair missed provenance.
 }
 
-static void bce_batch_and_duplicate_sources() {
+TEST(bce_batch_and_duplicate_sources) {
   Kernel k;
   WeakeningHistory history(k, bounds);
   ScopedPopulationObserverBinding binding(k, history);
@@ -190,7 +186,7 @@ static void bce_batch_and_duplicate_sources() {
   kernel_check_invariants(k);
 }
 
-static void many_reserved_copies_survive_storage_compaction() {
+TEST(many_reserved_copies_survive_storage_compaction) {
   Kernel k;
   WeakeningHistory history(k, bounds);
   ScopedPopulationObserverBinding binding(k, history);
@@ -211,7 +207,7 @@ static void many_reserved_copies_survive_storage_compaction() {
   kernel_check_invariants(k);
 }
 
-static void cancelled_preparation_and_uncommitted_delete() {
+TEST(cancelled_preparation_and_uncommitted_delete) {
   Kernel k;
   WeakeningHistory history(k, bounds);
   ScopedPopulationObserverBinding binding(k, history);
@@ -239,7 +235,7 @@ static void cancelled_preparation_and_uncommitted_delete() {
   assert(!missing.capture_complete() && missing.records().empty());
 }
 
-static void bce_semantic_choice() {
+TEST(bce_semantic_choice) {
   Kernel k;
   WeakeningHistory history(k, bounds);
   ScopedPopulationObserverBinding binding(k, history);
@@ -254,7 +250,7 @@ static void bce_semantic_choice() {
   assert(kernel_binary_live(k, internalize(1), internalize(3)));
 }
 
-static void staged_binary_replacement() {
+TEST(staged_binary_replacement) {
   Kernel k;
   WeakeningHistory history(k, bounds);
   ScopedPopulationObserverBinding binding(k, history);
@@ -275,7 +271,7 @@ static void staged_binary_replacement() {
   assert(history.records()[0].sources[0].proof_id == replacement_id);
 }
 
-static void full_width_id_and_capture_gaps() {
+TEST(full_width_id_and_capture_gaps) {
   for (uint64_t id : {uint64_t(INT32_MAX), uint64_t(UINT32_MAX),
                       uint64_t(UINT32_MAX) + 1, uint64_t(INT64_MAX)}) {
     Kernel k;
@@ -306,7 +302,7 @@ static void full_width_id_and_capture_gaps() {
   assert(!history.capture_complete() && history.records().empty());
 }
 
-static void mismatched_reconstruction_is_a_gap() {
+TEST(mismatched_reconstruction_is_a_gap) {
   Kernel k;
   WeakeningHistory history(k, bounds);
   ScopedPopulationObserverBinding binding(k, history);
@@ -379,16 +375,5 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  newly_false_resolvent_literals_preserve_capture();
-  false_literals_do_not_license_arbitrary_repairs();
-  full_witness_is_consumed_by_native_restoration();
-  forwarding_capture_and_real_gap();
-  full_large_sources_survive_compaction();
-  bce_batch_and_duplicate_sources();
-  many_reserved_copies_survive_storage_compaction();
-  cancelled_preparation_and_uncommitted_delete();
-  bce_semantic_choice();
-  staged_binary_replacement();
-  full_width_id_and_capture_gaps();
-  mismatched_reconstruction_is_a_gap();
+  run_tests();
 }

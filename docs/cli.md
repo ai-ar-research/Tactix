@@ -88,7 +88,9 @@ build/release/tactix formula.cnf > out.txt
 python3 tools/fuzz/checkmodel formula.cnf out.txt
 ```
 
-`examples/cnf/` has three small formulas to try, with their expected answers.
+A build with tests enabled writes three small formulas to try into
+`build/release/examples/cnf/`; [`examples/cnf/`](../examples/cnf/) lists their
+expected answers and how to generate them without a build.
 
 ## A set of formulas
 

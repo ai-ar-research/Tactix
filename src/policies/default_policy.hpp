@@ -251,7 +251,6 @@ public:
   uint32_t chrono_levels = DefaultStrategyConfig::CHRONOLOGICAL_LEVELS_DEFAULT;
   ReductionPolicy *reduction = nullptr;
 
-
   // Kissat owns this delay at the finalized-clause reason gate.
   struct ReasonBumpDelay {
     uint32_t count = 0, current = 0;

@@ -1,17 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "independent_set_test_support.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "strategy/rule_parameters.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <sstream>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 static std::string independent_set(
     uint32_t n, uint32_t k, std::vector<std::pair<uint32_t, uint32_t>> edges) {

@@ -1,14 +1,12 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/feedback_trace.hpp"
 
-#include <cassert>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 static std::string fixture(Kernel &k, unsigned scenario) {

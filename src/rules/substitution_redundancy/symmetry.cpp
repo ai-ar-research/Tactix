@@ -22,6 +22,7 @@ namespace {
 using sr_detail::backend_stop;
 using sr_detail::fail;
 using sr_detail::finish;
+using sr_detail::LiteralGraph;
 using sr_detail::saturating_add;
 using sr_detail::stop_requested;
 using sr_detail::StopContext;
@@ -29,15 +30,6 @@ using sr_detail::StopContext;
 struct FormulaSnapshot {
   SymmetryClauseMultiset clause_index;
   std::vector<uint32_t> occurrences;
-};
-
-struct SymmetryGraphStorage {
-  std::vector<uint32_t> colors;
-  std::vector<uint32_t> degrees;
-  std::vector<uint32_t> edges;
-  uint32_t vertices = 0;
-  uint64_t edge_count = 0;
-  bool direct_binary_edges = false;
 };
 
 uint64_t saturating_twice(uint64_t value) {
@@ -93,7 +85,7 @@ struct SymmetryPass {
   bool charge(uint64_t amount) const;
   bool snapshot_formula(FormulaSnapshot &snapshot) const;
   bool build_symmetry_graph(const FormulaSnapshot &snapshot,
-                            SymmetryGraphStorage &storage) const;
+                            LiteralGraph &storage) const;
   bool exact_automorphism(const FormulaSnapshot &snapshot,
                           const std::vector<Lit> &mapping) const;
   bool exact_sparse_automorphism(const FormulaSnapshot &snapshot,
@@ -159,7 +151,7 @@ bool SymmetryPass::snapshot_formula(FormulaSnapshot &snapshot) const {
 }
 
 bool SymmetryPass::build_symmetry_graph(const FormulaSnapshot &snapshot,
-                                        SymmetryGraphStorage &storage) const {
+                                        LiteralGraph &storage) const {
   const GraphSymmetryParameters &settings = parameters.graph_symmetry;
   // A uniquely colored assigned literal fixes its unit clause, so that leaf is
   // omitted; the full snapshot stays the exact-check oracle.
@@ -185,8 +177,9 @@ bool SymmetryPass::build_symmetry_graph(const FormulaSnapshot &snapshot,
       nonbinary_support += clause.size();
     }
   }
+  bool direct_binary_edges = false;
   if (settings.binary_graph_mode == SymmetryBinaryGraphMode::DirectEdges) {
-    storage.direct_binary_edges = true;
+    direct_binary_edges = true;
   } else if (settings.binary_graph_mode ==
              SymmetryBinaryGraphMode::Automatic) {
     const uint64_t threshold =
@@ -194,7 +187,7 @@ bool SymmetryPass::build_symmetry_graph(const FormulaSnapshot &snapshot,
         settings.binary_graph_density_permille;
     const uint64_t required =
         threshold / 1000 + static_cast<uint64_t>(threshold % 1000 != 0);
-    storage.direct_binary_edges = binaries >= required;
+    direct_binary_edges = binaries >= required;
   }
 
   const uint64_t literal_vertices = 2ull * kernel.nvars;
@@ -213,7 +206,7 @@ bool SymmetryPass::build_symmetry_graph(const FormulaSnapshot &snapshot,
   // scan, which charges one tick per binary clause.
   std::vector<bool> repeated_binary;
   uint64_t repeated_binaries = 0;
-  if (storage.direct_binary_edges) {
+  if (direct_binary_edges) {
     const uint64_t minimum_vertices =
         3ull * kernel.nvars + nonbinary;
     const uint64_t minimum_edges =
@@ -243,20 +236,20 @@ bool SymmetryPass::build_symmetry_graph(const FormulaSnapshot &snapshot,
   }
 
   const uint64_t negation_vertices =
-      storage.direct_binary_edges ? kernel.nvars : 0;
+      direct_binary_edges ? kernel.nvars : 0;
   const uint64_t clause_vertices =
-      storage.direct_binary_edges ? nonbinary + repeated_binaries
-                                  : snapshot.clause_index.clauses().size() -
-                                        fixed_units;
+      direct_binary_edges
+          ? nonbinary + repeated_binaries
+          : snapshot.clause_index.clauses().size() - fixed_units;
   if (literal_vertices > UINT64_MAX - negation_vertices ||
       literal_vertices + negation_vertices > UINT64_MAX - clause_vertices)
     return fail(result, SymmetryEnumerationStatus::ResourceExhausted);
   const uint64_t vertex_count =
       literal_vertices + negation_vertices + clause_vertices;
   const uint64_t negation_edges =
-      storage.direct_binary_edges ? 2ull * kernel.nvars : kernel.nvars;
+      direct_binary_edges ? 2ull * kernel.nvars : kernel.nvars;
   const uint64_t clause_edges =
-      storage.direct_binary_edges
+      direct_binary_edges
           ? binaries + repeated_binaries + nonbinary_support
           : support;
   if (negation_edges > UINT64_MAX - clause_edges)
@@ -269,69 +262,45 @@ bool SymmetryPass::build_symmetry_graph(const FormulaSnapshot &snapshot,
     return false;
   }
 
-  storage.vertices = static_cast<uint32_t>(vertex_count);
-  storage.edge_count = edge_count;
-  storage.colors.assign(storage.vertices, 1);
-  storage.degrees.assign(storage.vertices, 0);
-  storage.edges.reserve(static_cast<size_t>(2 * edge_count));
-  for (Lit literal = 0; literal < literal_vertices; ++literal)
-    storage.colors[literal] = (kernel_var_retired(kernel, var_of(literal)) ||
-                              (settings.pointwise_root_stabilizer &&
-                               kernel.value(literal)))
-                                  ? 3 + literal
-                                  : 0;
-  sr_detail::stabilize_query_coordinates(kernel, settings.pointwise_root_stabilizer,
-                                          storage.colors, literal_vertices);
-
-  const auto add_edge = [&](uint32_t first, uint32_t second) {
-    if (first > second)
-      std::swap(first, second);
-    storage.edges.push_back(first);
-    storage.edges.push_back(second);
-    ++storage.degrees[first];
-    ++storage.degrees[second];
-  };
+  storage.reset(kernel, settings.pointwise_root_stabilizer,
+                static_cast<uint32_t>(vertex_count), edge_count,
+                static_cast<uint32_t>(literal_vertices));
   uint32_t next_vertex = static_cast<uint32_t>(literal_vertices);
-  if (storage.direct_binary_edges) {
+  if (direct_binary_edges) {
     for (Var var = 0; var < kernel.nvars; ++var) {
       if (!(var & 1023u) && !charge(0))
         return false;
-      const uint32_t gadget = next_vertex++;
-      storage.colors[gadget] = 2;
-      add_edge(make_lit(var, false), gadget);
-      add_edge(make_lit(var, true), gadget);
+      storage.add_negation_gadget(var, next_vertex++);
     }
     const auto &clauses = snapshot.clause_index.clauses();
     for (size_t i = 0; i < clauses.size(); ++i) {
       const auto &clause = clauses[i];
       if (fixed_unit(clause))
         continue;
-      if (!(storage.edges.size() & 2047u) &&
-          !charge(0))
+      if (!(storage.edges.size() & 2047u) && !charge(0))
         return false;
       if (clause.size() == 2 && !repeated_binary[i]) {
-        add_edge(clause[0], clause[1]);
+        storage.add_edge(clause[0], clause[1]);
         continue;
       }
       const uint32_t vertex = next_vertex++;
       for (const Lit literal : clause)
-        add_edge(literal, vertex);
+        storage.add_edge(literal, vertex);
     }
   } else {
     for (Var var = 0; var < kernel.nvars; ++var)
-      add_edge(make_lit(var, false), make_lit(var, true));
+      storage.add_edge(make_lit(var, false), make_lit(var, true));
     for (const auto &clause : snapshot.clause_index.clauses()) {
       if (fixed_unit(clause))
         continue;
-      if (!(storage.edges.size() & 2047u) &&
-          !charge(0))
+      if (!(storage.edges.size() & 2047u) && !charge(0))
         return false;
       const uint32_t vertex = next_vertex++;
       for (const Lit literal : clause)
-        add_edge(literal, vertex);
+        storage.add_edge(literal, vertex);
     }
   }
-  if (next_vertex != storage.vertices ||
+  if (next_vertex != storage.vertex_count ||
       storage.edges.size() != 2 * storage.edge_count)
     return fail(result, SymmetryEnumerationStatus::Failed);
   for (const uint32_t degree : storage.degrees)
@@ -647,21 +616,17 @@ SubstitutionRedundancyInstance representative_unit_instance(
 }
 
 SymmetryEnumerationStatus convert(symmetry_backend::Status status) {
+  using Backend = symmetry_backend::Status;
+  using Pass = SymmetryEnumerationStatus;
   switch (status) {
-  case symmetry_backend::Status::Complete:
-    return SymmetryEnumerationStatus::Complete;
-  case symmetry_backend::Status::Incomplete:
-    return SymmetryEnumerationStatus::LimitReached;
-  case symmetry_backend::Status::Interrupted:
-    return SymmetryEnumerationStatus::Interrupted;
-  case symmetry_backend::Status::Invalid:
-    return SymmetryEnumerationStatus::Invalid;
-  case symmetry_backend::Status::ResourceExhausted:
-    return SymmetryEnumerationStatus::ResourceExhausted;
-  case symmetry_backend::Status::Failed:
-    return SymmetryEnumerationStatus::Failed;
+  case Backend::Complete: return Pass::Complete;
+  case Backend::Incomplete: return Pass::LimitReached;
+  case Backend::Interrupted: return Pass::Interrupted;
+  case Backend::Invalid: return Pass::Invalid;
+  case Backend::ResourceExhausted: return Pass::ResourceExhausted;
+  case Backend::Failed: return Pass::Failed;
   }
-  return SymmetryEnumerationStatus::Failed;
+  return Pass::Failed;
 }
 
 } // namespace
@@ -793,7 +758,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
   structured.generators.clear();
   trace.event("symmetry_structured_handoff", "generators\t%zu\tfixed_variables\t%zu",
               generators.size(), fixed_variables.size());
-  SymmetryGraphStorage graph_storage;
+  LiteralGraph graph_storage;
   if (!trace.measure("symmetry_graph", [&] {
         return pass.build_symmetry_graph(snapshot, graph_storage);
       }))
@@ -806,9 +771,11 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
   }
 
   trace.event("symmetry_graph_ready", "clauses\t%zu\tvertices\t%u\tedges\t%llu",
-              snapshot.clause_index.clauses().size(), graph_storage.vertices,
+              snapshot.clause_index.clauses().size(),
+              graph_storage.vertex_count,
               static_cast<unsigned long long>(graph_storage.edge_count));
-  diagnostics::capture_graph(graph_storage.vertices, graph_storage.edge_count,
+  diagnostics::capture_graph(
+      graph_storage.vertex_count, graph_storage.edge_count,
       [&](uint64_t vertex) { return graph_storage.colors[vertex]; },
       [&](auto edge) {
         for (size_t i = 0; i < graph_storage.edges.size(); i += 2)
@@ -872,10 +839,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
               static_cast<unsigned long long>(settings.maximum_generators),
               static_cast<unsigned long long>(
                   settings.progress_generators_per_generator));
-  const symmetry_backend::Graph graph{
-      graph_storage.vertices, graph_storage.edge_count,
-      graph_storage.colors.data(), graph_storage.degrees.data(),
-      graph_storage.edges.data()};
+  const symmetry_backend::Graph graph = graph_storage.backend();
   StopContext context{&kernel, stop};
   symmetry_backend::Permutations proposed;
   const symmetry_backend::Status detection = trace.measure("symmetry_detect", [&] {

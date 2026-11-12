@@ -1,7 +1,7 @@
 // Forward subsumption (C1) and strengthening (C2): the public limit surface,
 // scoped parameters, canonical admission versus explicit actions, mid-round
 // units, the post-forward closure before the next scheduler slot, and proofs.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -9,21 +9,11 @@
 #include "rule_test_utils.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/strengthen/strengthen.hpp"
-#include "strategy/forward_parameters.hpp"
-#define tactix tactix_handle // the C handle typedef collides with the namespace
-#include "tactix.h"
-#undef tactix
+#include "strategy/rule_parameters.hpp"
+#include "tactix_c_api.hpp"
 #include "temporary_file.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
 #include <initializer_list>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 // Input clauses with fresh ids (units at the root), checked against the model.
 struct Fixture {
@@ -103,19 +93,19 @@ static int rule(const char *name) {
   return -1;
 }
 
-static void add(tactix_handle *s, std::initializer_list<int> lits) {
+static void add(tactix_c_handle *s, std::initializer_list<int> lits) {
   for (int lit : lits) tactix_add(s, lit);
   tactix_add(s, 0);
 }
 
-static bool applicable(tactix_handle *s, int id) {
+static bool applicable(tactix_c_handle *s, int id) {
   std::vector<int> ids(tactix_rule_count());
   const int count = tactix_rules_applicable(s, ids.data(), ids.size());
   return std::find(ids.begin(), ids.begin() + count, id) != ids.begin() + count;
 }
 
-static void readback() {
-  tactix_handle *s = tactix_init();
+TEST(readback) {
+  tactix_c_handle *s = tactix_init();
   const uint64_t defaults[] = {1000, 100, 10000, 1000, 1000};
   for (int i = 0; i < 5; ++i)
     assert(tactix_config(s, TACTIX_CFG_SUBSUME_CLAUSE_SIZE + i) == defaults[i]);
@@ -134,7 +124,7 @@ static void readback() {
   tactix_release(s);
 }
 
-static void scoped_parameters() {
+TEST(scoped_parameters) {
   Kernel k;
   const strategy::SubsumeForwardParameters c1 = k.subsume_forward_parameters;
   const strategy::StrengthenParameters c2 = k.strengthen_parameters;
@@ -159,7 +149,7 @@ static void scoped_parameters() {
 
 // Canonical strategy limits restrict the canonical producer only.
 static void canonical(bool c2, int field, uint32_t value, bool changed) {
-  tactix_handle *s = tactix_init();
+  tactix_c_handle *s = tactix_init();
   if (field == 2) {
     add(s, {1, 2});
     add(s, {1, 2, 3});
@@ -180,7 +170,7 @@ static void canonical(bool c2, int field, uint32_t value, bool changed) {
 
 // Explicit legal C1/C2 instances are uncapped by the canonical limits.
 static void explicit_size(bool c2, unsigned size, bool restricted) {
-  tactix_handle *s = tactix_init();
+  tactix_c_handle *s = tactix_init();
   if (c2)
     add(s, {1, -2});
   else
@@ -201,7 +191,7 @@ static void explicit_size(bool c2, unsigned size, bool restricted) {
 }
 
 static void explicit_population(bool c2, bool binary) {
-  tactix_handle *s = tactix_init();
+  tactix_c_handle *s = tactix_init();
   const unsigned copies = binary ? 10001 : 1001;
   for (unsigned i = 0; i < copies; ++i) {
     if (binary)
@@ -369,7 +359,7 @@ static void quota_equality_admits_tail(bool dense) {
   assert(f.finish(dense) == 10);
 }
 
-static void explicit_instance_stays_single_action() {
+TEST(explicit_instance_stays_single_action) {
   Fixture f;
   f.seed(); f.add({4, 5, 6}); f.add({4, 5});
   f.enter(false);
@@ -443,7 +433,7 @@ static uint64_t observe_next_slot(const Kernel &k) {
 }
 
 // The post-forward closure is visible before the next actual scheduler slot.
-static void scheduler_chain() {
+TEST(scheduler_chain) {
   Fixture f;
   f.seed(); f.add({-3, 4, 5}); f.add({-4});
   f.add({-5, 6, 7}); f.add({-6});
@@ -470,7 +460,7 @@ static void scheduler_chain() {
   f.model();
 }
 
-static void direct_chain_and_empty_suffix() {
+TEST(direct_chain_and_empty_suffix) {
   Fixture f;
   f.seed(); f.add({-3, 4, 5}); f.add({-4});
   f.add({-5, 6}); f.add({-6, 7, 8}); f.add({-7});
@@ -509,8 +499,7 @@ static void reconnect_conflict_proof(unsigned kind) {
 }
 
 int main() {
-  readback();
-  scoped_parameters();
+  run_tests();
   for (bool c2 : {false, true}) {
     for (uint32_t n : {0u, 3u}) canonical(c2, 0, n, false);
     for (uint32_t n : {4u, 5u, UINT32_MAX}) canonical(c2, 0, n, true);
@@ -533,9 +522,6 @@ int main() {
     quota_equality_admits_tail(dense);
     for (unsigned chain = 0; chain != 4; ++chain) unit_proof(dense, chain);
   }
-  explicit_instance_stays_single_action();
-  scheduler_chain();
-  direct_chain_and_empty_suffix();
   for (unsigned kind = 0; kind < 3; ++kind) reconnect_conflict_proof(kind);
   std::puts("Forward C1/C2 surface, admission, units, closure and proofs PASS");
 }

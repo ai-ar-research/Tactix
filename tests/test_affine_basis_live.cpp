@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_formula_support.hpp"
 #include "clause_oracle.hpp"
 #include "test_io.hpp"
@@ -7,14 +7,8 @@
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdlib>
-#include <cstdio>
 #include <map>
-#include <string>
 
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 
 static Kernel cancellation_fixture() {
@@ -123,7 +117,7 @@ static void verify_transaction_proof(
 
 // Resource declines are atomic; a prepared transaction is stale after a new
 // clause id or a retired source.
-static void atomic_declines() {
+TEST(atomic_declines) {
   for (int mode = 0; mode < 4; ++mode) {
     Kernel kernel = cancellation_fixture();
     FILE *records = temporary_records();
@@ -157,7 +151,7 @@ static void atomic_declines() {
 
 // A selected direct row whose source equations span more than the bounded
 // proof scope (16 variables) declines atomically.
-static void bounded_proof_scope() {
+TEST(bounded_proof_scope) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 17);
   // Ascending pivots chain all four sources into the binary row {16, 17}.
@@ -185,7 +179,7 @@ static void bounded_proof_scope() {
   std::fclose(records);
 }
 
-static void exact_owned_row_selection() {
+TEST(exact_owned_row_selection) {
   Kernel kernel = cancellation_fixture();
   FILE *records = temporary_records();
   auto configured = request(records);
@@ -314,9 +308,7 @@ static void contradiction(const char *proof_path) {
 }
 
 int main() {
-  atomic_declines();
-  bounded_proof_scope();
-  exact_owned_row_selection();
+  run_tests();
   exact_owned_wide_row_selection("/tmp/affine-basis-wide.dsr");
   contradiction("/tmp/affine-basis-unsat.dsr");
   std::puts("affine basis live: selected rows, wide definitions, stale/resource "

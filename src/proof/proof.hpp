@@ -5,6 +5,7 @@
 
 #include "kernel/types.hpp"
 #include "proof/dsr_to_pbp.hpp"
+#include "proof/pbp_added_ids.hpp"
 #include "population/population_observer.hpp"
 #include "proof/derivation_observer.hpp"
 #include "proof/parity_equation.hpp"
@@ -713,12 +714,7 @@ private:
   // Anonymous (id-0) derived constraints keyed by sorted checker literals,
   // each a stack of IDs (high bit: ordinal). An ID lives in exactly one of
   // this registry and `pbp_constraint_ids_`.
-  struct PbpLiteralKeyHash {
-    size_t operator()(const std::vector<int32_t> &key) const noexcept;
-  };
-  std::unordered_map<std::vector<int32_t>, std::vector<uint64_t>,
-                     PbpLiteralKeyHash>
-      pbp_anonymous_constraints_;
+  PbpLiteralKeyIds pbp_anonymous_constraints_;
   std::vector<int32_t> pbp_key_scratch_;
   // Input restatement keeps the input's Tactix id. The most recent raw input
   // and, at most, one replacement awaiting deletion of that raw original.

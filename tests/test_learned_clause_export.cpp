@@ -1,11 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "session/learned_clause_export.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
 static NativeQueryLimits limits() {return {{4096,65536,4096},{128,65536,4096,65536,128,4096,65536},16000000};}
 struct Collected {

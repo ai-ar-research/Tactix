@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -9,14 +9,7 @@
 
 #include <array>
 #include <bit>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
 #include <limits>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 static void add_root_affine_contradiction(Kernel &k) {
   kernel_reserve_vars(k, 4);

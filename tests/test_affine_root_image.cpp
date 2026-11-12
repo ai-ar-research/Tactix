@@ -1,11 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <fstream>
-#include <string>
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 static RootImageLimits limits() {
   RootImageLimits l;
@@ -94,7 +89,7 @@ static void controls(int32_t guard,const std::vector<int32_t> &vars) {
   assert(prepare_affine_root_image(sources,{guard},limits(),[&](uint64_t){return ++calls<25;},plan)==RootImageStatus::Interrupted);
   assert(plan.work==saved_work && plan.certification_sources.size()==saved_sources);
 }
-static void identity_controls() {
+TEST(identity_controls) {
   auto sources=fixture(4,{1,2,3});
   const auto charge=[](uint64_t){return true;};
   RootImagePlan plan;
@@ -131,7 +126,7 @@ static void identity_controls() {
   assert(prepare_affine_root_image(sources,{4},limits(),charge,plan)==RootImageStatus::UncertifiedRoot);
 }
 
-static void forty_equations() {
+TEST(forty_equations) {
   std::vector<AffineLiveSource> sources;
   std::vector<int32_t> roots;
   for (int32_t row=0;row<40;++row) {
@@ -159,7 +154,7 @@ static void forty_equations() {
   assert(plan.work==old_work && plan.image.equations.size()==40);
 }
 
-static void census_controls() {
+TEST(census_controls) {
   const auto charge=[](uint64_t){return true;};
   auto sources=fixture(4,{1,2,3});
   RootImagePlan p; RootScopeCensus first;
@@ -211,7 +206,7 @@ static bool same_census(const RootScopeCensus &left,const RootScopeCensus &right
   return true;
 }
 
-static void census_scale_controls() {
+TEST(census_scale_controls) {
   constexpr int groups=2048;
   std::vector<AffineLiveSource> sources;sources.reserve(groups);
   for(int i=0;i<groups;++i) {
@@ -236,7 +231,7 @@ static void census_scale_controls() {
       repeated_charged<=l.maximum_work);
 }
 
-static void oracle_only_controls() {
+TEST(oracle_only_controls) {
   auto sources=fixture(2,{3,4,5});
   sources.back().kind=AffineSourceKind::RootUnit;
   sources.back().clause={1};sources.back().recognition_candidate=false;
@@ -257,11 +252,7 @@ static void oracle_only_controls() {
 int main(int argc,char **argv){
   assert(argc==1 || argc==2);
   controls(4,{1,2,3});controls(-97,{-11,23,-61});
-  forty_equations();
-  identity_controls();
-  census_controls();
-  census_scale_controls();
-  oracle_only_controls();
+  run_tests();
   if(argc==2){
     const auto sources=fixture(4,{1,2,3});RootImagePlan p;
     assert(prepare_affine_root_image(sources,{4},limits(),[](uint64_t){return true;},p)==RootImageStatus::Prepared);

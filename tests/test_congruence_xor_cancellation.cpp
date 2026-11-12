@@ -2,7 +2,7 @@
 // cancelled inputs disappeared, and root values do not justify erasing an
 // independently cancelled pair. Every emitted DSR line, including unused
 // lemmas, is replayed against an independent clause-multiset RUP oracle.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "dimacs_text.hpp"
 #include "rules/congruence/congruence.hpp"
@@ -10,15 +10,9 @@
 #include "temporary_file.hpp"
 #include "test_io.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <map>
 #include <sstream>
-#include <string>
-#include <vector>
 
-using namespace tactix;
 using Row = std::vector<int>;
 using Population = std::map<Row, unsigned>;
 

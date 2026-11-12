@@ -1,11 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 // The pure Tseitin-cycle stages: planning, admission and transaction preflight.
 #include "tseitin_test_support.hpp"
 #include "rules/lucky/tseitin_cycle_transaction.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <map>
 
 using namespace tactix::tseitin_cycle;

@@ -3,7 +3,6 @@
 #include "kernel/splitmix64.hpp"
 #include "rules/disjoint_sets.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <algorithm>
@@ -265,10 +264,6 @@ bool solve(Kernel &k, const strategy::ExactCoverModelParameters &p,
 }
 
 } // namespace
-
-RuleEligibility exact_cover_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult exact_cover_model_apply(Kernel &k) {
   assert(exact_cover_model_guard(k));

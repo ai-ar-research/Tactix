@@ -1,10 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <span>
 
 using namespace tactix::affine_semantic_extension;

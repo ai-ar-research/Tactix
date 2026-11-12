@@ -2,7 +2,6 @@
 #include "proof/proof.hpp"
 
 #include "rules/semantic_extension/csp_physical_scan.hpp"
-#include "rules/semantic_extension/direct_csp_guarded_cover_work.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 #include "rules/semantic_extension/live_adapter.hpp"
 #include "rules/structural_text.hpp"

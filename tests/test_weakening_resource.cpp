@@ -1,14 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/bce/bce.hpp"
 #include "session/weakening_history.hpp"
 
-#include <cassert>
-
 extern "C" void tactix_test_fail_allocations(bool);
 
-using namespace tactix;
 using namespace tactix::session;
 
 int main() {

@@ -1,16 +1,11 @@
 // Substitute's removal advice: a canonical binary disappearance or a retained
 // binary-collapse endpoint re-arms BVE retry, independently of proof mode,
 // duplicate copies and the caller's instance choice; surviving rewrites do not.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitute/substitute.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <vector>
-using namespace tactix;
 
 // Opens a discarded DSR stream when `mode` is set.
 static void attach_proof(Kernel &k, Proof &proof, int mode) {

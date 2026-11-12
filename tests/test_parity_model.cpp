@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "test_io.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -7,14 +7,8 @@
 #include "proof/proof.hpp"
 
 #include <bit>
-#include <cassert>
-#include <cstdio>
 #include <initializer_list>
 #include <limits>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 static void add_mask_on(Kernel &k, Var a, Var b, Var c, unsigned mask) {
   Lit clause[3];

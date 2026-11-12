@@ -1,6 +1,6 @@
 // SubsumeForward: root-modulo semantics, redundant exclusion, reason safety,
 // the instance surface, the touch filter, and interrupts.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
@@ -8,12 +8,7 @@
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
 
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 // Pinned large/binary occurrence limits (CaDiCaL's large default is 100).
 static constexpr uint32_t TEST_SUBSUME_OCCLIM =
@@ -37,7 +32,7 @@ static Ref add(Kernel &k, std::initializer_list<int> elits,
                                  ++k.next_clause_id);
 }
 
-static void test_basic_subsume() {
+TEST(test_basic_subsume) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add(k, {1, 2, 3, 4}); // checked after the smaller clause
@@ -56,7 +51,7 @@ static void test_basic_subsume() {
   assert(k.stats.forward_subsumed == 1);
 }
 
-static void test_duplicates_and_binary() {
+TEST(test_duplicates_and_binary) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add(k, {1, 2, 3});
@@ -70,7 +65,7 @@ static void test_duplicates_and_binary() {
   kernel_check_invariants(k);
 }
 
-static void test_fastel_record_high_marking() {
+TEST(test_fastel_record_high_marking) {
   { // Only strict occurrence-population record highs are marked: literal 1
     // is the sole record and the (2,3) binary is missed.
     Kernel k;
@@ -111,7 +106,7 @@ static void test_fastel_record_high_marking() {
   }
 }
 
-static void test_redundant_excluded() {
+TEST(test_redundant_excluded) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add(k, {1, 2, 3}, /*redundant=*/true); // would subsume, but Reduce may
@@ -128,7 +123,7 @@ static void test_redundant_excluded() {
   assert(live_large(k2) == 2);
 }
 
-static void test_complete_dense_population_caps_connection() {
+TEST(test_complete_dense_population_caps_connection) {
   Kernel k;
   kernel_reserve_vars(k, 1300);
   add(k, {1, 2, 3});
@@ -146,7 +141,7 @@ static void test_complete_dense_population_caps_connection() {
   kernel_dense_disconnect(k);
 }
 
-static void test_root_modulo_semantics() {
+TEST(test_root_modulo_semantics) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Ref d = add(k, {1, 2, 4});    // free part {1,2} once 4 is false
@@ -167,7 +162,7 @@ static void test_root_modulo_semantics() {
   kernel_check_invariants(k);
 }
 
-static void test_reason_never_victim() {
+TEST(test_reason_never_victim) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Ref r = add(k, {1, 2, 3});
@@ -183,7 +178,7 @@ static void test_reason_never_victim() {
   kernel_check_invariants(k);
 }
 
-static void test_registry_instance_surface() {
+TEST(test_registry_instance_surface) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Ref big = add(k, {1, 2, 3, 4});
@@ -211,7 +206,7 @@ static void test_registry_instance_surface() {
 
 // N1: the touched-epoch filter narrows the canonical round, never the public
 // instance surface (compare tests/test_factor_n1.cpp).
-static void test_touch_filter_is_policy_only() {
+TEST(test_touch_filter_is_policy_only) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Ref big = add(k, {1, 2, 3, 4});
@@ -250,7 +245,7 @@ static void test_touch_filter_is_policy_only() {
 
 // Why the filter cannot wedge: a cut round re-arms the current candidate and
 // every candidate it never reached, so the next dose resumes from that tail.
-static void test_touch_resume_rearms_the_tail() {
+TEST(test_touch_resume_rearms_the_tail) {
   Kernel k;
   kernel_reserve_vars(k, 8);
   for (int t : {3, 4, 5, 6}) // four short clauses over shared literals ...
@@ -285,7 +280,7 @@ static void test_touch_resume_rearms_the_tail() {
 
 // The substrate's producers: every mutation that can create a new subsumer
 // raises the epoch, and a deletion does not (it can only remove one).
-static void test_touch_producers() {
+TEST(test_touch_producers) {
   Kernel k;
   k.touch_redundant = false; // the irredundant substrate only
   kernel_reserve_vars(k, 4); // fresh variables are touched
@@ -321,7 +316,7 @@ static void test_touch_producers() {
 
 // Production keeps Kissat's irredundant-only scope; the diagnostic CaDiCaL
 // redundant arm reads the live tier and the survivor envelope.
-static void test_touch_redundant_scope() {
+TEST(test_touch_redundant_scope) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   assert(!k.touch_redundant && "Kissat's irredundant-only scope is default");
@@ -364,7 +359,7 @@ static void test_touch_redundant_scope() {
 // SubsumeForward -> Substitute. A clause deleted on a binary's strength carries
 // no witness, and Substitute then deletes that binary too, so rho is the only
 // thing that can restore it under an adversarial model.
-static void test_binary_subsumer_then_substitute() {
+TEST(test_binary_subsumer_then_substitute) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit l1 = internalize(1), l2 = internalize(2), l4 = internalize(4);
@@ -400,7 +395,7 @@ static Ref subsumed_pair(Kernel &k) {
   return big;
 }
 
-static void test_interrupt() {
+TEST(test_interrupt) {
   volatile sig_atomic_t stop = 1;
   { // (1) the round's candidate loop, cut before the first candidate
     Kernel k;
@@ -434,23 +429,4 @@ static void test_interrupt() {
     assert(subsume_forward_try(t, big) == ApplyResult::Ok);
     assert(t.stats.forward_subsumed == 1 && t.stats.subsume_interrupted == 0);
   }
-}
-
-int main() {
-  test_basic_subsume();
-  test_duplicates_and_binary();
-  test_fastel_record_high_marking();
-  test_redundant_excluded();
-  test_complete_dense_population_caps_connection();
-  test_root_modulo_semantics();
-  test_reason_never_victim();
-  test_registry_instance_surface();
-  test_touch_filter_is_policy_only();
-  test_touch_resume_rearms_the_tail();
-  test_touch_producers();
-  test_touch_redundant_scope();
-  test_binary_subsumer_then_substitute();
-  test_interrupt();
-  printf("test_subsume: all ok\n");
-  return 0;
 }

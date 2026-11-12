@@ -1,11 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include <set>
-#include <cassert>
 #include "strategy/online_inprocess.hpp"
-#include <cstdint>
-#include <cstdio>
-#include <string>
-#include <cstring>
 #include <unistd.h>
 namespace capi {
 extern "C" {
@@ -19,7 +14,6 @@ extern "C" {
 #include "strategy/online_sequence.hpp"
 #include "api/api_internal.hpp"
 #include "test_io.hpp"
-using namespace tactix;
 using namespace tactix::strategy;
 
 static AffineMatrixInitializeParameters profile() {

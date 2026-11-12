@@ -2,21 +2,14 @@
 // signs, both import orders and the direct/public action surfaces (collapse
 // and valued-side representation), plus the ITE constant unit whose original
 // ternaries need a condition split; no DefaultPolicy solve.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
 #include <initializer_list>
-#include <vector>
-
-using namespace tactix;
 
 // A seven-variable fixture: clauses are added under a literal sign pattern,
 // closure runs through the direct or the public action, and every assignment's
@@ -118,7 +111,7 @@ struct IteFixture {
   }
 };
 
-static void collapse() {
+TEST(collapse) {
   unsigned closed = 0;
   for (unsigned signs = 0; signs < 128; ++signs)
   for (bool reverse_import : {false, true})
@@ -150,7 +143,7 @@ static void collapse() {
   std::printf("ITE closure: %u cases; all 458752 original/final assignments agree\n", closed);
 }
 
-static void valued_sides() {
+TEST(valued_sides) {
   unsigned closed = 0;
   for (unsigned signs = 0; signs < 128; ++signs)
   for (bool reverse_import : {false, true})
@@ -204,7 +197,7 @@ static void valued_sides() {
   std::printf("ITE valued-side representation: %u cases; all 262144 original/final assignments agree\n", closed);
 }
 
-static void unit_proof() {
+TEST(unit_proof) {
   unsigned checked = 0;
   for (unsigned signs = 0; signs < 64; ++signs)
   for (bool truth : {false, true})
@@ -274,10 +267,4 @@ static void unit_proof() {
   }
   assert(checked == 768);
   std::printf("ITE unit proof: %u signed/order/mode cases with exhaustive models\n", checked);
-}
-
-int main() {
-  collapse();
-  valued_sides();
-  unit_proof();
 }

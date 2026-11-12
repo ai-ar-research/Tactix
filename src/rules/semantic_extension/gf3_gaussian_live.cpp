@@ -490,9 +490,7 @@ Result prepare_internal(Kernel &kernel, const Request &request,
     result.status = Status::Stale;
     return result;
   }
-  if (!plan_events(kernel, request, prepared, result)) {
-    return result;
-  }
+  if (!plan_events(kernel, request, prepared, result)) return result;
   prepared.prepared_ = result;
   if (!make_journal(request, prepared)) {
     result.status = Status::ResourceExhausted;

@@ -1,14 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/registry.hpp"
-
-#include <cassert>
-#include <cstdlib>
-#include <string>
-
-using namespace tactix;
 
 int main() {
   Kernel k;

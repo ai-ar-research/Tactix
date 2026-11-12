@@ -26,16 +26,8 @@ class NaryCspEqualityAmoSession
                                 NaryCspEqualityAmoSessionAccess> {};
 
 enum class NaryCspEqualityAmoStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  MissingEquality,
-  Stale,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Applied,
+  Invalid, Inapplicable, NoStructure, MissingEquality, Stale, Duplicate,
+  ResourceExhausted, Interrupted, UnsupportedProof, Applied
 };
 
 struct NaryCspEqualityAmoResult {

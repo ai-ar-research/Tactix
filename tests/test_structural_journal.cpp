@@ -1,13 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/structural_text.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <limits>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 

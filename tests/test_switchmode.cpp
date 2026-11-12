@@ -1,7 +1,7 @@
 // SwitchMode / stable-mode unit tests: score heap, EVSIDS bump/decay/rescale,
 // mode flip, target phases, trail reuse, and the policy-side schedule.
 // ScopedHeuristics attaches k.h: the session, not the kernel, owns it.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -10,12 +10,7 @@
 #include "rules/restart/restart.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
 
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
-static void test_heap_basic() {
+TEST(test_heap_basic) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -38,7 +33,7 @@ static void test_heap_basic() {
   assert(heuristics_heap_next_unassigned(k) == 1);
 }
 
-static void test_heap_uses_import_not_activation_order_for_ties() {
+TEST(test_heap_uses_import_not_activation_order_for_ties) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -58,7 +53,7 @@ static void test_heap_uses_import_not_activation_order_for_ties() {
   assert(heuristics_heap_next_unassigned(k) == 0);
 }
 
-static void test_rescale() {
+TEST(test_rescale) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
@@ -74,7 +69,7 @@ static void test_rescale() {
   assert(heuristics_heap_next_unassigned(k) == 1);
 }
 
-static void test_switchmode_rule() {
+TEST(test_switchmode_rule) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
@@ -90,7 +85,7 @@ static void test_switchmode_rule() {
   assert(k.h->search_idx == k.h->queue_last); // search cache reset
 }
 
-static void test_stable_decide_and_target_phases() {
+TEST(test_stable_decide_and_target_phases) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
@@ -116,7 +111,7 @@ static void test_stable_decide_and_target_phases() {
   assert(heuristics_decide_lit(k, 0) == internalize(-1));
 }
 
-static void test_target_high_water_uses_compact_assigned_count() {
+TEST(test_target_high_water_uses_compact_assigned_count) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -145,7 +140,7 @@ static void test_target_high_water_uses_compact_assigned_count() {
   assert(k.stats.target_saved == 2 && k.stats.best_saved == 2);
 }
 
-static void test_root_collapse_recomputes_phase_high_water() {
+TEST(test_root_collapse_recomputes_phase_high_water) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -165,7 +160,7 @@ static void test_root_collapse_recomputes_phase_high_water() {
   assert(k.h->best_assigned == 3);
 }
 
-static void test_stable_trail_reuse() {
+TEST(test_stable_trail_reuse) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
@@ -192,7 +187,7 @@ static void test_stable_trail_reuse() {
   assert(k.stats.restarts_reused == 1);
 }
 
-static void test_policy_schedule() {
+TEST(test_policy_schedule) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
@@ -217,18 +212,4 @@ static void test_policy_schedule() {
     p.tick_reluctant();
   assert(p.reluctant.trigger);
   assert(p.want_restart(k));
-}
-
-int main() {
-  test_heap_basic();
-  test_heap_uses_import_not_activation_order_for_ties();
-  test_rescale();
-  test_switchmode_rule();
-  test_stable_decide_and_target_phases();
-  test_target_high_water_uses_compact_assigned_count();
-  test_root_collapse_recomputes_phase_high_water();
-  test_stable_trail_reuse();
-  test_policy_schedule();
-  printf("test_switchmode: all passed\n");
-  return 0;
 }

@@ -123,12 +123,9 @@ Status load_graph(const Graph &input, dejavu::static_graph &graph,
     graph.add_edge(first, second);
   }
   switch (graph_shape(*graph.get_sgraph(), stop, stop_context)) {
-  case GraphShape::Simple:
-    return Status::Complete;
-  case GraphShape::RepeatedEdge:
-    return Status::Invalid;
-  case GraphShape::Stopped:
-    return Status::Interrupted;
+  case GraphShape::Simple: return Status::Complete;
+  case GraphShape::RepeatedEdge: return Status::Invalid;
+  case GraphShape::Stopped: return Status::Interrupted;
   }
   return Status::Failed;
 }

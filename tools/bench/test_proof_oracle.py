@@ -1,15 +1,24 @@
-from pathlib import Path
+import builtins
+import importlib.util
 import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
+from unittest.mock import patch
 
-from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
+import proof_oracle as oracle
+from proof_oracle import (bridge_trivial_input_binary_lsr, bridge_trivial_input_lrat,
+                          canonical_checker_cnf, complete_final_empty_rup_units,
+                          proof_check_status, restate_duplicate_input_lrat,
+                          solver_reported_route_text)
 
 
 class ProofOracleTests(unittest.TestCase):
     def test_forward_final_unit_completion_preserves_clauses_and_needs_checker(self):
-        from proof_oracle import complete_final_empty_rup_units
-        import subprocess
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, lsr, fixed = (work/name for name in ('in.cnf', 'in.lsr', 'fixed.lsr'))
@@ -33,8 +42,6 @@ class ProofOracleTests(unittest.TestCase):
             self.assertFalse(fixed.exists())
 
     def test_tier_runner_freezes_native_dsr_checker_bytes(self):
-        import importlib.util
-        from unittest.mock import patch
         root = Path(__file__).resolve().parents[2]
         spec = importlib.util.spec_from_file_location(
             'pinned_tier_runner', root/'tools/bench/run.py')
@@ -58,10 +65,6 @@ class ProofOracleTests(unittest.TestCase):
                 runner.use_dsr_checker_pins(pins)
 
     def test_captured_wait_chunks_preserve_output_and_exit_status(self):
-        import proof_oracle as oracle
-        import subprocess
-        import sys
-        from unittest.mock import patch
         calls = []
         communicate = subprocess.Popen.communicate
         def observed(process, *args, **kwargs):
@@ -82,11 +85,6 @@ class ProofOracleTests(unittest.TestCase):
         self.assertTrue(all(0 <= delay <= .04 for delay in calls), calls)
 
     def test_captured_wait_timeout_kills_reaps_and_preserves_output(self):
-        import proof_oracle as oracle
-        import subprocess
-        import sys
-        import time
-        from unittest.mock import patch
         children = []
         popen = subprocess.Popen
         def start(*args, **kwargs):
@@ -110,12 +108,6 @@ class ProofOracleTests(unittest.TestCase):
             os.waitpid(children[0].pid, os.WNOHANG)
 
     def test_captured_wait_deadline_ignores_descendant_held_pipes(self):
-        import proof_oracle as oracle
-        import signal
-        import subprocess
-        import sys
-        import time
-        from unittest.mock import patch
         for parent_waits in (True, False):
             with self.subTest(parent_waits=parent_waits), \
                  tempfile.TemporaryDirectory() as directory:
@@ -145,9 +137,6 @@ class ProofOracleTests(unittest.TestCase):
                             pass
 
     def test_captured_wait_preserves_normal_path_and_missing_command_errors(self):
-        import proof_oracle as oracle
-        import subprocess
-        from unittest.mock import patch
         for timeout in (None, .1, 57600):
             with patch('subprocess.run', return_value='delegated') as run:
                 self.assertEqual(oracle.run_captured(['checker'], timeout, env={}), 'delegated')
@@ -157,9 +146,6 @@ class ProofOracleTests(unittest.TestCase):
             oracle.run_captured(['/no-such-tactix-checker'], 2147483647)
 
     def test_large_allowance_reaches_real_routed_and_tier_checkers(self):
-        import importlib.util
-        import proof_oracle as oracle
-        from unittest.mock import patch
         root = Path(__file__).resolve().parents[2]
         pins = root/'benchmarks/runs/20260923-am341-unwatch/pins'
         spec = importlib.util.spec_from_file_location('large_wait_runner', root/'tools/bench/run.py')
@@ -181,8 +167,6 @@ class ProofOracleTests(unittest.TestCase):
                     self.assertTrue(checked[0], checked)
 
     def test_tier_runner_routes_default_pbp_and_witness_free_dsr(self):
-        import importlib.util
-        from unittest.mock import patch
         root = Path(__file__).resolve().parents[2]
         pins = root/'benchmarks/runs/20260923-am341-unwatch/pins'
         spec = importlib.util.spec_from_file_location('routed_tier_runner',
@@ -251,7 +235,6 @@ class ProofOracleTests(unittest.TestCase):
                                                     route='dsr-cake_lpr')[0])
 
     def test_duplicate_restatement_preserves_noop_and_input_paths(self):
-        from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, checker, lrat, lifted = (work/name for name in ('in.cnf','check.cnf','p.lrat','lift.lrat'))
@@ -275,7 +258,6 @@ class ProofOracleTests(unittest.TestCase):
                 restate_duplicate_input_lrat(checker, spelling, lrat, lifted)
 
     def test_routing_does_not_misclassify_missing_files_as_bad_proofs(self):
-        import proof_oracle as oracle
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             with self.assertRaises(OSError):
@@ -283,7 +265,6 @@ class ProofOracleTests(unittest.TestCase):
                                     work/'input.cnf', work/'absent.dsr', work)
 
     def test_solver_route_comment_is_unique_and_exact(self):
-        from proof_oracle import solver_reported_route_text
         self.assertEqual(solver_reported_route_text(
             'c proof-route dsr-cake_lpr\ns UNSATISFIABLE\n'), 'dsr-cake_lpr')
         self.assertIsNone(solver_reported_route_text('s UNSATISFIABLE\n'))
@@ -291,7 +272,6 @@ class ProofOracleTests(unittest.TestCase):
             'c proof-route dsr-cake_lpr\nc proof-route dsr-trestle\n'))
 
     def test_dsr_tabs_and_binary_token_boundaries(self):
-        import proof_oracle as oracle
         with tempfile.TemporaryDirectory() as directory:
             proof = Path(directory)/'proof.dsr'
             proof.write_bytes(b'1\t2\t0\r\nd\t1 2 0\n0\n')
@@ -309,9 +289,6 @@ class ProofOracleTests(unittest.TestCase):
                 self.assertEqual((Path(directory)/'out.drat').read_bytes(), b'a' + encoded + b'\x00')
 
     def test_binary_dsr_routing_and_conversion_are_chunk_bounded(self):
-        import builtins
-        import proof_oracle as oracle
-        from unittest.mock import patch
         with tempfile.TemporaryDirectory() as directory:
             proof, drat = Path(directory)/'proof.dsr', Path(directory)/'proof.drat'
             original = b'\x01\x02\x00\x01\x80\x01\x00\x02\x04\x00'
@@ -364,8 +341,6 @@ class ProofOracleTests(unittest.TestCase):
             self.assertFalse(drat.exists())
 
     def test_malformed_dsr_is_a_routing_rejection(self):
-        import proof_oracle as oracle
-        from unittest.mock import patch
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, proof = work/'input.cnf', work/'proof.dsr'
@@ -385,19 +360,17 @@ class ProofOracleTests(unittest.TestCase):
                     self.assertFalse((work/'out.drat').exists())
 
     def test_drat_internal_timeout_tracks_the_requested_window(self):
-        import proof_oracle
         command = ['drat-trim', 'original.cnf', 'proof.drat', '-L', 'proof.lrat']
         for seconds, value in ((57600, '57600'), (0.5, '1'), (31.1, '32')):
-            self.assertEqual(proof_oracle.drat_command_with_timeout(command, seconds),
+            self.assertEqual(oracle.drat_command_with_timeout(command, seconds),
                              command[:3] + ['-t', value] + command[3:])
         self.assertEqual(command, ['drat-trim', 'original.cnf', 'proof.drat', '-L', 'proof.lrat'])
-        self.assertEqual(proof_oracle.drat_command_with_timeout(command, None), command)
+        self.assertEqual(oracle.drat_command_with_timeout(command, None), command)
         for invalid in (0, -1, float('inf'), float('nan'), True, 2147483648):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
-                proof_oracle.drat_command_with_timeout(command, invalid)
+                oracle.drat_command_with_timeout(command, invalid)
 
     def test_input_empty_lrat_bridge_is_narrow(self):
-        from proof_oracle import bridge_trivial_input_lrat, canonical_checker_cnf
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, lrat = work/'input.cnf', work/'proof.lrat'

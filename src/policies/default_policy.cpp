@@ -2265,7 +2265,6 @@ const char *effort_currency(const char *name) {
   return "probing-rule-ticks";
 }
 
-
 execution::NativeFeedbackSpec slot_feedback(
     const Kernel &k, const DefaultInprocessScheduler::SlotEntry &entry,
     const RuleVTable &rule, uint64_t instance, strategy::WorkLimit allowance,
@@ -2308,23 +2307,6 @@ uint64_t (*journal_effort_meter(
   return e.meter;
 }
 
-SlotGroup slot_group(strategy::InprocessPhase phase) {
-  return phase == strategy::InprocessPhase::Probe ? SlotGroup::Probe
-                                                   : SlotGroup::Eliminate;
-}
-
-FollowupKind followup_kind(strategy::Followup followup) {
-  switch (followup) {
-  case strategy::Followup::AfterCongruence:
-    return FollowupKind::AfterCongruence;
-  case strategy::Followup::AfterSweepOrFinal:
-    return FollowupKind::AfterSweepOrFinal;
-  default:
-    return FollowupKind::None;
-  }
-}
-
-
 } // namespace
 
 DefaultRuleSchedule default_rule_schedule(const DefaultStrategyConfig &config,
@@ -2363,7 +2345,7 @@ const SlotOrderRow *default_slot_order(size_t *count) {
     ReferenceRows() {
       rows.reserve(program.size());
       for (const strategy::InprocessStep &step : program)
-        rows.push_back({step.rule.c_str(), slot_group(step.phase)});
+        rows.push_back({step.rule.c_str(), step.phase});
     }
   };
   static const ReferenceRows reference;
@@ -2371,7 +2353,6 @@ const SlotOrderRow *default_slot_order(size_t *count) {
     *count = reference.rows.size();
   return reference.rows.data();
 }
-
 
 namespace {
 constexpr struct {
@@ -2591,7 +2572,6 @@ bool rank_transitive_reference(const Kernel &k, uint64_t *insts,
   assert(out == n);
   return true;
 }
-
 
 bool rank_bve_reference(const Kernel &k, uint64_t *insts, uint32_t n) {
   if (!k.h)
@@ -3304,9 +3284,9 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
           e.order = CandidateOrder::Heuristic;
         e.enabled = on;
         if (planned) {
-          e.group = slot_group(planned->phase);
+          e.group = planned->phase;
           e.preprocess = planned->preprocessing;
-          e.followup = followup_kind(planned->followup);
+          e.followup = planned->followup;
           e.parameters = planned->parameters;
           e.max_applies = planned->max_applications;
           if (planned->candidate_order)
@@ -5401,7 +5381,6 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     event_trace.heap_scores(k);
   }
 }
-
 
 namespace {
 void slot_trace_entry(const Kernel &k, const DefaultInprocessScheduler::SlotEntry &e,

@@ -1,13 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
 #include <iostream>
 #include <set>
-#include <vector>
 
 using namespace tactix::direct_csp_support;
 
@@ -73,7 +69,7 @@ void check_semantic_entailment(const Fixture &fixture,
   }
 }
 
-void test_direct_support_and_source_identity() {
+TEST(test_direct_support_and_source_identity) {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4, 5},
                 {// left 1 is compatible only with 3
@@ -99,7 +95,7 @@ void test_direct_support_and_source_identity() {
   assert(!plan.projection.extension_variable);
 }
 
-void test_exact_or_extension_and_projection() {
+TEST(test_exact_or_extension_and_projection) {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4, 5, 6},
                 {0, 0, 0, 1,
@@ -150,7 +146,7 @@ void test_exact_or_extension_and_projection() {
   }
 }
 
-void test_signed_selection_literals() {
+TEST(test_signed_selection_literals) {
   Fixture fixture;
   fixture.build({-1, 2}, {3, -4}, {1, 0, 0, 0});
   Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(), unbounded);
@@ -159,7 +155,7 @@ void test_signed_selection_literals() {
   check_semantic_entailment(fixture, plan.additions[0].clause, 4);
 }
 
-void test_declines_are_empty_and_exact() {
+TEST(test_declines_are_empty_and_exact) {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4, 5}, {0, 1, 1, 1, 0, 0});
 
@@ -220,7 +216,7 @@ void test_declines_are_empty_and_exact() {
   assert(stopped.additions.empty());
 }
 
-void test_no_forbidden_pair_is_no_consequence() {
+TEST(test_no_forbidden_pair_is_no_consequence) {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4}, {0, 0, 1, 0});
   Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(), unbounded);
@@ -232,10 +228,6 @@ void test_no_forbidden_pair_is_no_consequence() {
 } // namespace
 
 int main() {
-  test_direct_support_and_source_identity();
-  test_exact_or_extension_and_projection();
-  test_signed_selection_literals();
-  test_declines_are_empty_and_exact();
-  test_no_forbidden_pair_is_no_consequence();
+  run_tests();
   std::cout << "direct CSP support planner tests passed\n";
 }

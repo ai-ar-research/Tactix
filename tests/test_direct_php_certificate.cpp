@@ -1,15 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "proof/direct_php_certificate.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <limits>
 #include <set>
 #include <utility>
-#include <vector>
 
 using namespace tactix::direct_php_certificate;
 
@@ -122,7 +117,7 @@ uint64_t paper_additions(unsigned holes) {
   return total;
 }
 
-void exhaustive_tiny_certificates() {
+TEST(exhaustive_tiny_certificates) {
   // Every RUP/RAT event is checked against the exact formula state, including
   // deletion replay. Extra pigeons exercise core selection.
   for (unsigned holes = 1; holes <= 5; ++holes) {
@@ -146,7 +141,7 @@ void exhaustive_tiny_certificates() {
   }
 }
 
-void exact_accounting_and_limits() {
+TEST(exact_accounting_and_limits) {
   const Matrix x = make_matrix(23, 22);
   const int32_t first_fresh = 507;
   Accounting accounting;
@@ -184,7 +179,7 @@ void exact_accounting_and_limits() {
   assert(preflight(x, first_fresh, limits, untouched) == Status::LimitExceeded);
 }
 
-void negative_normalization() {
+TEST(negative_normalization) {
   Accounting accounting;
   assert(preflight({}, 1, Limits{}, accounting) == Status::NotOverfull);
   assert(preflight(Matrix(1), 1, Limits{}, accounting) == Status::NoHoles);
@@ -212,7 +207,7 @@ void negative_normalization() {
                    accounting) == Status::ArithmeticOverflow);
 }
 
-void atomic_output() {
+TEST(atomic_output) {
   const Matrix x = make_matrix(5, 4);
   Plan output;
   output.holes = 91;
@@ -224,11 +219,3 @@ void atomic_output() {
 }
 
 } // namespace
-
-int main() {
-  exhaustive_tiny_certificates();
-  exact_accounting_and_limits();
-  negative_normalization();
-  atomic_output();
-  std::puts("test_direct_php_certificate: passed");
-}

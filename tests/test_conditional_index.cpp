@@ -1,14 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/congruence/conditional_index.hpp"
 
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <random>
 #include <utility>
-#include <vector>
-
-using namespace tactix;
 
 using Pair = std::pair<size_t, size_t>;
 

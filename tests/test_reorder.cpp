@@ -1,18 +1,13 @@
 // S7 Reorder: the weight formula and its exclusions, the two rankings it
 // rewrites (VMTF queue, EVSIDS heap), the instance surface, and the guard.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/reorder/reorder.hpp"
 #include "rules/registry.hpp"
 
-#include <cassert>
 #include <cmath>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 static void addn(Kernel &k, std::vector<int> ds, bool redundant = false) {
   std::vector<Lit> l;
@@ -29,7 +24,7 @@ static bool near(double a, double b) { return std::fabs(a - b) < 1e-12; }
 
 // Weight: binary 1, ternary 1/2, quaternary 1/4 per literal; variable weight
 // max(w+,w-) + 2*min(w+,w-).
-static void test_weight_formula() {
+TEST(test_weight_formula) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 6);
@@ -47,7 +42,7 @@ static void test_weight_formula() {
   assert(w[var_of(internalize(1))] > w[var_of(internalize(2))]);
 }
 
-static void test_configurable_weight_formula() {
+TEST(test_configurable_weight_formula) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 4);
@@ -74,7 +69,7 @@ static void test_configurable_weight_formula() {
 }
 
 // Redundant clauses and clauses satisfied under the assignment contribute 0.
-static void test_exclusions() {
+TEST(test_exclusions) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 5);
@@ -96,7 +91,7 @@ static void test_exclusions() {
 
 // Kissat stops inspecting a large clause at its 100th open literal; a later
 // satisfying root literal is unseen and the clause contributes table[100].
-static void test_max_size_stops_before_late_satisfaction() {
+TEST(test_max_size_stops_before_late_satisfaction) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 101);
@@ -112,7 +107,7 @@ static void test_max_size_stops_before_late_satisfaction() {
 }
 
 // Focused: the heaviest variable must become the next decision.
-static void test_queue_ranking() {
+TEST(test_queue_ranking) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 4);
@@ -140,7 +135,7 @@ static void test_queue_ranking() {
 }
 
 // Stable: scores are rescaled and the weight added, so a prior score only ties.
-static void test_heap_ranking() {
+TEST(test_heap_ranking) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 4);
@@ -161,7 +156,7 @@ static void test_heap_ranking() {
 
 // Kissat rescales before sorting stable Reorder candidates, so underflowed
 // scores tie on internal index.
-static void test_heap_sort_observes_rescaled_scores() {
+TEST(test_heap_sort_observes_rescaled_scores) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 3);
@@ -186,7 +181,7 @@ static void test_heap_sort_observes_rescaled_scores() {
 }
 
 // Stable Reorder's final tie is Kissat's internal (first-import) index.
-static void test_heap_tie_uses_import_order() {
+TEST(test_heap_tie_uses_import_order) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 3);
@@ -206,7 +201,7 @@ static void test_heap_tie_uses_import_order() {
 
 // An identity from a discarded input clause is never Kissat ACTIVE and keeps
 // its score outside Reorder's candidate population.
-static void test_inactive_import_is_not_reordered() {
+TEST(test_inactive_import_is_not_reordered) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 3);
@@ -223,7 +218,7 @@ static void test_inactive_import_is_not_reordered() {
 }
 
 // Kissat reorders ACTIVE variables only; retired ones stay disconnected.
-static void test_retired_variables_stay_disconnected() {
+TEST(test_retired_variables_stay_disconnected) {
   for (const bool stable : {false, true}) {
     Kernel k;
     ScopedHeuristics _h(k);
@@ -271,7 +266,7 @@ static void test_retired_variables_stay_disconnected() {
 }
 
 // After a mid-trail reorder every variable past search_idx stays assigned.
-static void test_search_cache_survives_mid_trail() {
+TEST(test_search_cache_survives_mid_trail) {
   for (int assign = 0; assign <= 3; assign++) {
     Kernel k;
     ScopedHeuristics _h(k);
@@ -298,7 +293,7 @@ static void test_search_cache_survives_mid_trail() {
 }
 
 // Instance surface: the active mode's ranking first; both always applicable.
-static void test_instance_surface() {
+TEST(test_instance_surface) {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 3);
@@ -322,7 +317,7 @@ static void test_instance_surface() {
 
 // Guard: `H` is a genuine precondition (the op rewrites H state) and a refuted
 // kernel is not reorderable; the trail level is not constrained (N1).
-static void test_guard() {
+TEST(test_guard) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   assert(!reorder_guard(k)); // no H attached
@@ -333,22 +328,4 @@ static void test_guard() {
   assert(reorder_apply(k) == ApplyResult::Ok);
   k.inconsistent = true;
   assert(!reorder_guard(k));
-}
-
-int main() {
-  test_weight_formula();
-  test_configurable_weight_formula();
-  test_exclusions();
-  test_max_size_stops_before_late_satisfaction();
-  test_queue_ranking();
-  test_search_cache_survives_mid_trail();
-  test_heap_ranking();
-  test_heap_sort_observes_rescaled_scores();
-  test_heap_tie_uses_import_order();
-  test_inactive_import_is_not_reordered();
-  test_retired_variables_stay_disconnected();
-  test_instance_surface();
-  test_guard();
-  printf("test_reorder: all passed\n");
-  return 0;
 }

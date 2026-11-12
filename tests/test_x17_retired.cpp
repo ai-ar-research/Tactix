@@ -1,16 +1,11 @@
 // The retired catalog slot 39, step id 28, the reserved n-ary CSP producer and
 // the legacy n-ary CSP prefix payload are rejected by their validators and at
 // every public C entry point.
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/semantic_variable_advice.hpp"
-#include <cassert>
-#include <cstring>
 #include <type_traits>
-using namespace tactix;
 using namespace tactix::strategy;
 
 template<class T> tactix_online_step &base(T &step) {

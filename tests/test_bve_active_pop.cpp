@@ -1,16 +1,11 @@
 // Root-producing elimination can reinsert its pivot before retiring it.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/registry.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <string>
 #include <unistd.h>
-using namespace tactix;
 static uint64_t zero_meter(const Kernel &) { return 0; }
 static void run(unsigned sides,bool negative,bool reverse,bool stable) {
   const std::string path="/tmp/tactix-bve-active-"+std::to_string(getpid())+".proof";

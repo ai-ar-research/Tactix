@@ -1,18 +1,12 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "gf3_formula_support.hpp"
 #include "rules/semantic_extension/gf3_gaussian_certificate.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <climits>
-#include <cstdint>
 #include <functional>
 #include <iostream>
 #include <set>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -138,7 +132,7 @@ void independently_check_semantics(
   assert(found_model == expect_source_model);
 }
 
-void test_units_are_pure_rup_and_semantic() {
+TEST(test_units_are_pure_rup_and_semantic) {
   const auto theory = recognize(unit_fixture());
   const auto gaussian = bridge(theory);
   const auto result = gf3_gaussian_certificate::build(
@@ -166,7 +160,7 @@ void test_units_are_pure_rup_and_semantic() {
   assert(replayed.plan == result.plan);
 }
 
-void test_conflict_is_terminal_empty_rup() {
+TEST(test_conflict_is_terminal_empty_rup) {
   const auto theory = recognize(gf3_conflict());
   const auto gaussian = bridge(theory);
   const auto result = gf3_gaussian_certificate::build(
@@ -187,7 +181,7 @@ void test_conflict_is_terminal_empty_rup() {
   independently_check_semantics(theory, result.plan, false);
 }
 
-void test_nonunit_basis_declines_explicitly() {
+TEST(test_nonunit_basis_declines_explicitly) {
   const auto theory = recognize(gf3_chain());
   const auto gaussian = bridge(theory);
   const auto result = gf3_gaussian_certificate::build(
@@ -199,7 +193,7 @@ void test_nonunit_basis_declines_explicitly() {
   assert(result.plan.events.empty() && result.plan.consequences.empty());
 }
 
-void test_exact_boundaries_and_atomic_declines() {
+TEST(test_exact_boundaries_and_atomic_declines) {
   const auto theory = recognize(unit_fixture());
   const auto gaussian = bridge(theory);
   const auto baseline = gf3_gaussian_certificate::build(
@@ -328,7 +322,7 @@ void test_exact_boundaries_and_atomic_declines() {
          gf3_gaussian_certificate::Status::InvalidRequest);
 }
 
-void test_adversarial_identity_and_certificate_corruption() {
+TEST(test_adversarial_identity_and_certificate_corruption) {
   const auto theory = recognize(unit_fixture());
   const auto gaussian = bridge(theory);
   const auto baseline = gf3_gaussian_certificate::build(
@@ -374,10 +368,6 @@ void test_adversarial_identity_and_certificate_corruption() {
 } // namespace
 
 int main() {
-  test_units_are_pure_rup_and_semantic();
-  test_conflict_is_terminal_empty_rup();
-  test_nonunit_basis_declines_explicitly();
-  test_exact_boundaries_and_atomic_declines();
-  test_adversarial_identity_and_certificate_corruption();
+  run_tests();
   std::cout << "test_gf3_gaussian_certificate: all passed\n";
 }

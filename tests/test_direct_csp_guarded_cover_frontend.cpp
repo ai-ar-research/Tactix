@@ -1,18 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
-#include <cassert>
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-#include <string>
-#include <vector>
 namespace capi {
 extern "C" {
 #include "tactix.h"
 }
 }
 #include "strategy/online_inprocess.hpp"
-using namespace tactix;
 using namespace tactix::strategy;
 
 static bool same_formula_version(const StateVersion &a,const StateVersion &b) {

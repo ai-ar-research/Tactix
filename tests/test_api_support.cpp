@@ -7,10 +7,8 @@
 // bracket matches DefaultPolicy's shared bracket and nests with contexts, and
 // an SR profile in complete-profile mode converts every field whatever the
 // producer.
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 
 #include "api/api_internal.hpp"
 #include "policies/default_policy.hpp"
@@ -26,12 +24,6 @@
 #include "strategy/reduction_execution.hpp"
 #include "strategy/representation_execution.hpp"
 #include "strategy/root_execution.hpp"
-
-#include <cassert>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -110,7 +102,7 @@ void decide_both(tactix_c_handle *a, tactix_c_handle *b, int count) {
   }
 }
 
-void test_pending_root_collection() {
+TEST(test_pending_root_collection) {
   tactix_c_handle *pub = load(), *nat = load();
   Kernel &p = kernel(pub), &n = kernel(nat);
   // Replay/retraction can reopen an existing root prefix without changing
@@ -134,7 +126,7 @@ void test_pending_root_collection() {
   tactix_release(nat);
 }
 
-void test_twins() {
+TEST(test_twins) {
   tactix_c_handle *pub = load(), *nat = load();
   Kernel &p = kernel(pub), &n = kernel(nat);
   same(p, n);
@@ -233,7 +225,7 @@ void test_twins() {
   tactix_release(nat);
 }
 
-void test_contexts() {
+TEST(test_contexts) {
   tactix_c_handle *s = load();
   Kernel &k = kernel(s);
   assert(!k.inprocessing && !k.phase_saving_suppressed);
@@ -255,7 +247,7 @@ void test_contexts() {
   tactix_release(s);
 }
 
-void test_rejections() {
+TEST(test_rejections) {
   tactix_c_handle *s = load();
   Kernel &k = kernel(s);
   const auto trail = k.trail;
@@ -291,7 +283,7 @@ void test_rejections() {
   tactix_release(s);
 }
 
-void test_reseed() {
+TEST(test_reseed) {
   tactix_c_handle *s = load();
   Kernel &k = kernel(s);
   assert(tactix_support(s, TACTIX_SUPPORT_WARMUP, TACTIX_WARMUP_PHASE_HEURISTIC) == 0);
@@ -310,7 +302,7 @@ void test_reseed() {
 
 // The phase bracket: the public session against DefaultPolicy's shared
 // bracket with its default Factor selection, H publication and Propagate.
-void test_terminal_probe_bracket() {
+TEST(test_terminal_probe_bracket) {
   auto *s = tactix_init();
   assert(s);
   for (int literal : {1, 2, 0}) tactix_add(s, literal);
@@ -331,7 +323,7 @@ void test_terminal_probe_bracket() {
   tactix_release(s);
 }
 
-void test_foreign_occurrence_owner() {
+TEST(test_foreign_occurrence_owner) {
   auto *s = tactix_init();
   assert(s);
   for (int literal : {1, 2, 3, 0}) tactix_add(s, literal);
@@ -353,7 +345,7 @@ void test_foreign_occurrence_owner() {
   tactix_release(s);
 }
 
-void test_solve_unopened_eliminate() {
+TEST(test_solve_unopened_eliminate) {
   for (bool unsat : {false, true}) for (bool nested : {false, true}) {
     auto *s = tactix_init();
     assert(s);
@@ -386,7 +378,7 @@ void test_solve_unopened_eliminate() {
   }
 }
 
-void test_phase_bracket() {
+TEST(test_phase_bracket) {
   tactix_c_handle *pub = load(), *nat = load();
   Kernel &p = kernel(pub), &n = kernel(nat);
   const int propagate = tactix_rule_id("Propagate"), bve = tactix_rule_id("BVE");
@@ -456,7 +448,7 @@ void test_phase_bracket() {
 
 // complete_profile_mode: a GraphSymmetry profile carries the orbitopal
 // fields its structured-generator handoff reads.
-void test_complete_sr_profile() {
+TEST(test_complete_sr_profile) {
   tactix_c_handle *s = load();
   tactix_online_step step{};
   step.step_id = 1;
@@ -508,7 +500,7 @@ void test_complete_sr_profile() {
 
 } // namespace
 
-void test_open_input_observations() {
+TEST(test_open_input_observations) {
   auto *s = tactix_init(); assert(s);
   for (int literal : {1, 2, 3}) tactix_add(s, literal);
   Kernel &k = api_detail::kernel_for_fixed_testing(s);
@@ -524,7 +516,7 @@ void test_open_input_observations() {
   tactix_release(s);
 }
 
-void test_work_settings() {
+TEST(test_work_settings) {
   tactix_c_handle *s = load();
   Kernel &k = kernel(s);
   const uint64_t epoch = k.strategy_epoch;
@@ -552,7 +544,7 @@ void test_work_settings() {
   tactix_release(s);
 }
 
-void test_native_scheduling_observations() {
+TEST(test_native_scheduling_observations) {
   auto *s = tactix_init();
   assert(tactix_set_guidance_publication(s, TACTIX_GUIDANCE_NATIVE) == 0);
   for (int v = 1; v < 5; ++v) {
@@ -606,21 +598,4 @@ void test_native_scheduling_observations() {
   assert(tactix_status(s) == 0);
   assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 4);
   tactix_release(s);
-}
-
-int main() {
-  test_open_input_observations();
-  test_native_scheduling_observations();
-  test_pending_root_collection();
-  test_twins();
-  test_contexts();
-  test_rejections();
-  test_reseed();
-  test_phase_bracket();
-  test_terminal_probe_bracket();
-  test_solve_unopened_eliminate();
-  test_foreign_occurrence_owner();
-  test_complete_sr_profile();
-  test_work_settings();
-  return 0;
 }

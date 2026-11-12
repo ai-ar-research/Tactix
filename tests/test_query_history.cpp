@@ -1,13 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "session/query_history.hpp"
 #include "test_io.hpp"
 
-#include <cassert>
-#include <cstdint>
 #include <limits>
 #include <sstream>
-#include <string>
-#include <vector>
 
 using namespace tactix::session;
 
@@ -63,7 +59,7 @@ static uint64_t models(const std::string &text) {
   return result;
 }
 
-static void query_scope_and_prefix() {
+TEST(query_scope_and_prefix) {
   QueryHistory history;
   assert(history.state() == InputState::Input && history.queries() == 0);
   assert(!history.query(0) && !history.query(1));
@@ -127,7 +123,7 @@ static void query_scope_and_prefix() {
   assert(history.finish_query(7, QueryResult::Unsat) == InputStatus::Ok);
 }
 
-static void invalid_calls_are_transactional() {
+TEST(invalid_calls_are_transactional) {
   QueryHistory history;
   constexpr auto min = std::numeric_limits<int32_t>::min();
   assert(history.add(min) == InputStatus::InvalidLiteral);
@@ -172,7 +168,7 @@ static void invalid_calls_are_transactional() {
   assert(history.result_query()->id == 2);
 }
 
-static void bounds_and_lifetimes() {
+TEST(bounds_and_lifetimes) {
   QueryHistory history;
   const auto max = std::numeric_limits<int32_t>::max();
   clause(history, {-max, max});
@@ -195,7 +191,7 @@ static void bounds_and_lifetimes() {
   assert(!history.query(std::numeric_limits<uint64_t>::max()));
 }
 
-static void independent_histories_and_write_errors() {
+TEST(independent_histories_and_write_errors) {
   QueryHistory a, b;
   clause(a, {1});
   clause(b, {-1});
@@ -216,7 +212,7 @@ static void independent_histories_and_write_errors() {
   assert(b.finish_query(1, QueryResult::Sat) == InputStatus::Ok);
 }
 
-static void original_query_models() {
+TEST(original_query_models) {
   QueryHistory history;
   clause(history, {1, -2});
   clause(history, {2, -2});
@@ -255,13 +251,4 @@ static void original_query_models() {
   assert(history.begin_query() == InputStatus::Ok);
   const auto empty_clause = history.check_model(3, value(0));
   assert(empty_clause.status == ModelStatus::FalsifiedClause && empty_clause.index == 4);
-}
-
-int main() {
-  query_scope_and_prefix();
-  invalid_calls_are_transactional();
-  bounds_and_lifetimes();
-  independent_histories_and_write_errors();
-  original_query_models();
-  std::puts("query history: PASS");
 }

@@ -1,7 +1,5 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 
 #include "direct_php_test_support.hpp"
 #include "dimacs_text.hpp"
@@ -14,15 +12,9 @@
 #include "strategy/online_inprocess.hpp"
 #include "strategy/controller_observation.hpp"
 
-#include <cassert>
-#include <algorithm>
-#include <cstdio>
 #include <set>
-#include <string>
 #include <type_traits>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 namespace {
@@ -57,7 +49,7 @@ DirectPhpActionRequest request(uint64_t id = 37) {
 
 // The committed record recounts to the reported proof accounting, and the
 // session answers every later request without touching the kernel.
-void apply_accounts_and_commits_once() {
+TEST(apply_accounts_and_commits_once) {
   Kernel kernel = fixture();
   const auto internal_to_external = kernel.internal_to_external;
   const auto reconstruction = kernel.reconstruction;
@@ -146,7 +138,7 @@ void apply_accounts_and_commits_once() {
 }
 
 // Every decline before publication leaves the session and kernel untouched.
-void declines_are_atomic() {
+TEST(declines_are_atomic) {
   uint64_t replay_work = 0;
   {
     Kernel kernel = fixture();
@@ -216,7 +208,7 @@ void declines_are_atomic() {
 // A stop at any single poll, up to publish's final gate and recapture,
 // declines without committing. Poll i alone fires: the fuzz state is rewound
 // i generator steps from the firing state 0.
-void every_interruption_point_declines() {
+TEST(every_interruption_point_declines) {
   constexpr uint64_t a = 6364136223846793005ull, c = 1442695040888963407ull;
   uint64_t inverse = a; // Newton iteration: a * inverse == 1 (mod 2^64)
   for (int i = 0; i < 5; ++i) inverse *= 2 - a * inverse;
@@ -284,7 +276,7 @@ OnlineInvocation invocation(uint64_t id = 25) {
   return step;
 }
 
-void identity_guard_and_disabled_default() {
+TEST(identity_guard_and_disabled_default) {
   const int id = tactix_rule_id("DirectPhpRefutation");
   assert(id == 36);
   const auto &rule = tactix_rules().at(id);
@@ -301,7 +293,7 @@ void identity_guard_and_disabled_default() {
   assert(found != program.end() && found->id == 25 && !found->enabled);
 }
 
-void explicit_program_reaches_the_same_action() {
+TEST(explicit_program_reaches_the_same_action) {
   OnlineStrategyProgram program{{invocation()}, {RepeatMode::Once, 1}};
   std::string error;
   assert(validate_online_strategy_program(program, &error));
@@ -332,7 +324,7 @@ void explicit_program_reaches_the_same_action() {
          kernel.stats.direct_php_proof_events);
 }
 
-void allowance_declines_before_action() {
+TEST(allowance_declines_before_action) {
   OnlineInvocation step = invocation(26);
   step.budget = WorkLimit::bounded(0);
   OnlineStrategyProgram program{{step}, {RepeatMode::Once, 1}};
@@ -347,7 +339,7 @@ void allowance_declines_before_action() {
   assert(!session.committed() && kernel.stats.direct_php_attempts == 0);
 }
 
-void duplicate_binary_snapshot_is_not_invalid() {
+TEST(duplicate_binary_snapshot_is_not_invalid) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 3);
   kernel_add_binary_clause(kernel, internalize(1), internalize(2),
@@ -366,7 +358,7 @@ void add_c_clause(tactix_c_handle *solver, const std::vector<int32_t> &clause) {
   tactix_add(solver, 0);
 }
 
-void parser_surface_has_stable_source_ids() {
+TEST(parser_surface_has_stable_source_ids) {
   Kernel kernel;
   for (const auto &clause : php_clauses(3)) {
     std::vector<Lit> internal;
@@ -434,14 +426,7 @@ void c_api_executes_terminal_action(const char *directory) {
 
 int main(int argc, char **argv) {
   assert(argc <= 2);
-  apply_accounts_and_commits_once();
-  declines_are_atomic();
-  every_interruption_point_declines();
-  identity_guard_and_disabled_default();
-  explicit_program_reaches_the_same_action();
-  allowance_declines_before_action();
-  duplicate_binary_snapshot_is_not_invalid();
-  parser_surface_has_stable_source_ids();
+  run_tests();
   c_api_executes_terminal_action(argc == 2 ? argv[1] : nullptr);
   std::puts("test_direct_php_public: passed");
 }

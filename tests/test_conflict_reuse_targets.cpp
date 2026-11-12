@@ -1,16 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <memory>
 #include <unistd.h>
-
-using namespace tactix;
 
 enum Dispatch { Policy, Canonical, CanonicalInstance, Zero, Jump, Middle,
                 Last, Overshoot, Wide, U32Max, DispatchCount };

@@ -1,15 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 // Live Tseitin-cycle capture, component discovery, preparation and apply.
 #include "tseitin_test_support.hpp"
 #include "temporary_file.hpp"
 #include "rules/lucky/tseitin_cycle_discovery.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <string>
-
-using namespace tactix;
 using namespace tseitin_test;
 namespace discovery = tactix::tseitin_cycle_discovery;
 namespace live = tactix::tseitin_cycle_live;
@@ -91,7 +85,7 @@ void unchanged(const Kernel &kernel, uint64_t before_id) {
   assert(kernel.next_clause_id == before_id && !kernel.value(internalize(-3)));
 }
 
-void exact_snapshot_prepare_apply() {
+TEST(exact_snapshot_prepare_apply) {
   Kernel kernel = triangle();
   struct ProjectionProbe final : QueryProjectionService {
     unsigned restrictions = 0;
@@ -133,7 +127,7 @@ void exact_snapshot_prepare_apply() {
   assert(live::apply(kernel, prepared).status == live::Status::Inapplicable);
 }
 
-void compacted_external_mapping() {
+TEST(compacted_external_mapping) {
   const std::vector<Equation> equations = {
       {true, {2, 4}}, {false, {2, 3}}, {false, {3, 4}}};
   Kernel kernel = formula(equations, 4);
@@ -160,7 +154,7 @@ void compacted_external_mapping() {
   kernel_check_invariants(kernel);
 }
 
-void large_clause_population() {
+TEST(large_clause_population) {
   Kernel kernel = formula(width_three, 6);
   const live::Snapshot captured = snapshot(kernel);
   assert(captured.sources.size() == 16 && captured.literals == 48);
@@ -177,7 +171,7 @@ void large_clause_population() {
   kernel_check_invariants(kernel);
 }
 
-void resource_and_interrupt_boundaries() {
+TEST(resource_and_interrupt_boundaries) {
   Kernel kernel = triangle();
   const live::Snapshot baseline = snapshot(kernel);
   {
@@ -283,7 +277,7 @@ void resource_and_interrupt_boundaries() {
   }
 }
 
-void stale_and_invalid_declines_are_atomic() {
+TEST(stale_and_invalid_declines_are_atomic) {
   {
     Kernel kernel = triangle();
     live::Snapshot captured = snapshot(kernel);
@@ -319,7 +313,7 @@ void stale_and_invalid_declines_are_atomic() {
   }
 }
 
-void corrupted_prepared_transactions_decline() {
+TEST(corrupted_prepared_transactions_decline) {
   const auto run = [](live::Status expected_status, live::Reason expected_reason,
                       cycle::TransactionReason expected_transaction_reason,
                       auto corrupt) {
@@ -347,7 +341,7 @@ void corrupted_prepared_transactions_decline() {
   });
 }
 
-void proof_writer_replacement_is_stale() {
+TEST(proof_writer_replacement_is_stale) {
   TemporaryFile first_file, second_file;
   Kernel kernel = triangle();
   Proof first, second;
@@ -367,7 +361,7 @@ void proof_writer_replacement_is_stale() {
   second.flush();
 }
 
-void proof_route_transition_is_precommit() {
+TEST(proof_route_transition_is_precommit) {
   TemporaryFile file;
   Kernel kernel = triangle();
   Proof proof;
@@ -402,7 +396,7 @@ discovery::Result discover(const live::Snapshot &snapshot,
   return result;
 }
 
-void discovery_is_read_only_and_prepares() {
+TEST(discovery_is_read_only_and_prepares) {
   Kernel kernel = formula(tseitin_test::triangle, 8);
   const live::Snapshot before = snapshot(kernel);
   const uint64_t next_clause_id = kernel.next_clause_id;
@@ -435,7 +429,7 @@ void discovery_is_read_only_and_prepares() {
   }
 }
 
-void discovery_declines() {
+TEST(discovery_declines) {
   const auto declined = [](Kernel kernel, discovery::Status status,
                            discovery::Reason reason) {
     discovery::Plan plan;
@@ -471,7 +465,7 @@ void discovery_declines() {
   declined(std::move(residual), S::Declined, R::ResidualEdgeTouch);
 }
 
-void discovery_quarantines_ambiguity_and_enumerates_atomically() {
+TEST(discovery_quarantines_ambiguity_and_enumerates_atomically) {
   {
     Kernel kernel = formula(tseitin_test::triangle, 8);
     // Both XOR right-hand sides on this disjoint scope are complete.  This
@@ -506,7 +500,7 @@ void discovery_quarantines_ambiguity_and_enumerates_atomically() {
   assert(exhausted.components >= 1 && incomplete.empty());
 }
 
-void discovery_is_bounded_and_interruptible() {
+TEST(discovery_is_bounded_and_interruptible) {
   Kernel kernel = formula(tseitin_test::triangle, 8);
   const live::Snapshot captured = snapshot(kernel);
   discovery::Plan exact;
@@ -544,19 +538,3 @@ void discovery_is_bounded_and_interruptible() {
 }
 
 } // namespace
-
-int main() {
-  exact_snapshot_prepare_apply();
-  compacted_external_mapping();
-  large_clause_population();
-  resource_and_interrupt_boundaries();
-  stale_and_invalid_declines_are_atomic();
-  corrupted_prepared_transactions_decline();
-  proof_writer_replacement_is_stale();
-  proof_route_transition_is_precommit();
-  discovery_is_read_only_and_prepares();
-  discovery_declines();
-  discovery_quarantines_ambiguity_and_enumerates_atomically();
-  discovery_is_bounded_and_interruptible();
-  std::puts("test_tseitin_cycle_live: passed");
-}

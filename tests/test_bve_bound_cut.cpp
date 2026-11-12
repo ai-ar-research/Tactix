@@ -1,14 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
 #include "strategy/controller_observation.hpp"
 #include "strategy/policy_completion.hpp"
-#include <cassert>
-#include <cstdio>
-#include <vector>
-using namespace tactix;
 
 class Ladder final : public BveBoundPolicy {
   bool terminal_;

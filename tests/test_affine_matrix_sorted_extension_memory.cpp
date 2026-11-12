@@ -1,7 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/affine_matrix.hpp"
-#include <cassert>
-#include <cstdlib>
 #include <new>
 using namespace tactix::affine_semantic_extension;
 namespace {bool tracking=false;size_t watched_bytes=0,allocations=0;}

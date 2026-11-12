@@ -1,14 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "gf3_formula_support.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
 #include <functional>
 #include <iostream>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -52,7 +46,7 @@ void assert_invalid_plan(const gf3_affine::Theory &theory,
   assert(result.plan.sources.empty());
 }
 
-void test_bridge_and_exact_authentication() {
+TEST(test_bridge_and_exact_authentication) {
   const gf3_affine::Theory theory = recognize(gf3_chain());
   auto result = gf3_gaussian_bridge::build(
       theory, bridge_limits(), [](uint64_t) { return true; });
@@ -100,7 +94,7 @@ void test_bridge_and_exact_authentication() {
   assert(replayed.plan.gaussian.outcomes.size() == 2);
 }
 
-void test_validator_rejects_every_boundary_corruption() {
+TEST(test_validator_rejects_every_boundary_corruption) {
   const gf3_affine::Theory theory = recognize(gf3_chain());
   const auto built = gf3_gaussian_bridge::build(
       theory, bridge_limits(), [](uint64_t) { return true; });
@@ -145,7 +139,7 @@ void test_validator_rejects_every_boundary_corruption() {
   }
 }
 
-void test_inconsistent_system_requires_replayed_conflict() {
+TEST(test_inconsistent_system_requires_replayed_conflict) {
   const gf3_affine::Theory theory = recognize(gf3_conflict());
   const auto built = gf3_gaussian_bridge::build(
       theory, bridge_limits(), [](uint64_t) { return true; });
@@ -172,7 +166,7 @@ void test_inconsistent_system_requires_replayed_conflict() {
   assert_invalid_plan(theory, missing);
 }
 
-void test_theory_reauthentication() {
+TEST(test_theory_reauthentication) {
   using Theory = gf3_affine::Theory;
   const Theory original = recognize(gf3_chain());
   const std::vector<void (*)(Theory &)> corruptions = {
@@ -206,7 +200,7 @@ void test_theory_reauthentication() {
   assert(found);
 }
 
-void test_limits_and_interruption() {
+TEST(test_limits_and_interruption) {
   using Kind = gf3_gaussian_bridge::LimitKind;
   using Limits = gf3_gaussian_bridge::Limits;
   const gf3_affine::Theory theory = recognize(gf3_chain());
@@ -291,11 +285,7 @@ void test_limits_and_interruption() {
 } // namespace
 
 int main() {
-  test_bridge_and_exact_authentication();
-  test_validator_rejects_every_boundary_corruption();
-  test_inconsistent_system_requires_replayed_conflict();
-  test_theory_reauthentication();
-  test_limits_and_interruption();
+  run_tests();
   std::cout << "gf3 gaussian bridge tests passed\n";
   return 0;
 }

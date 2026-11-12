@@ -1,17 +1,11 @@
 // Aligned-domain equality planning for ternary diagonal nogoods: lemma and
 // projection oracles here; CTest nary_csp_equality_proof checks the emitted DSR.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/nary_csp_equality.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <fstream>
 #include <set>
-#include <string>
-#include <vector>
 
 using namespace tactix::nary_csp_equality;
 
@@ -128,7 +122,7 @@ void verify_projection(const Fixture &fixture, const Plan &plan,
   }
 }
 
-void planned_equality_and_transfer() {
+TEST(planned_equality_and_transfer) {
   Fixture fixture;
   fixture.build();
   const Plan plan = plan_equality(fixture.source, fixture.relation, {},
@@ -153,7 +147,7 @@ void planned_equality_and_transfer() {
   verify_projection(fixture, plan, 9);
 }
 
-void signed_values_and_coordinate_permutation() {
+TEST(signed_values_and_coordinate_permutation) {
   Fixture fixture;
   fixture.build({-1, 2, 3}, {4, -5, 6}, {7, 8, -9});
   const Selection selection{1, 0, 2};
@@ -167,7 +161,7 @@ void signed_values_and_coordinate_permutation() {
   verify_projection(fixture, plan, 9);
 }
 
-void exact_declines_and_bounds() {
+TEST(exact_declines_and_bounds) {
   Fixture fixture;
   fixture.build();
 
@@ -251,8 +245,6 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  planned_equality_and_transfer();
-  signed_values_and_coordinate_permutation();
-  exact_declines_and_bounds();
+  run_tests();
   std::puts("test_nary_csp_equality: passed");
 }

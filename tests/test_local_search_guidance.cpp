@@ -1,15 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/local_search/local_search.hpp"
 #include "strategy/controller_observation.hpp"
 #include "rules/registry.hpp"
 
-#include <cassert>
-
-using namespace tactix;
-
-static void publication_and_selection() {
+TEST(publication_and_selection) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 3);
@@ -84,7 +80,7 @@ static void publication_and_selection() {
   assert(!k.local_search_last_target_decision_matched);
 }
 
-static void identity_and_phase_lifecycle() {
+TEST(identity_and_phase_lifecycle) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 4);
@@ -124,7 +120,7 @@ static void identity_and_phase_lifecycle() {
   kernel_check_invariants(k);
 }
 
-static void partial_publication_and_identity_lifetime() {
+TEST(partial_publication_and_identity_lifetime) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 3);
@@ -156,10 +152,4 @@ static void partial_publication_and_identity_lifetime() {
   kernel_offer_local_search_partial_hint(k, kind, {1, 1, 1});
   assert(k.local_search_hints[1].id == second);
   assert(k.stats.local_search_hints_offered == 1);
-}
-
-int main() {
-  publication_and_selection();
-  identity_and_phase_lifecycle();
-  partial_publication_and_identity_lifetime();
 }

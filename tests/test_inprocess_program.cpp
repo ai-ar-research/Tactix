@@ -1,10 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/default_strategy_config.hpp"
-
-#include <algorithm>
-#include <cassert>
-#include <string>
-#include <vector>
 
 using namespace tactix::strategy;
 

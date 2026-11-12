@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_formula_support.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
@@ -6,14 +6,8 @@
 #include "rules/propagate/propagate.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
-#include <cassert>
-#include <algorithm>
-#include <cstdio>
 #include <limits>
-#include <string>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 
 static Kernel direct_fixture() {
@@ -63,7 +57,7 @@ static std::vector<AffineBasisRowSelection> rows(Kernel &kernel, FILE *records) 
 
 // The immutable owner publishes one row per action, in offer order, and
 // later non-owner clauses never extend it.
-static void immutable_owner_publishes_one_row_at_a_time() {
+TEST(immutable_owner_publishes_one_row_at_a_time) {
   Kernel kernel = double_direct_fixture();
   FILE *records = temporary_records();
   attach(kernel, records);
@@ -97,7 +91,7 @@ static void immutable_owner_publishes_one_row_at_a_time() {
   std::fclose(records);
 }
 
-static void source_local_invalidation_and_root_trail() {
+TEST(source_local_invalidation_and_root_trail) {
   Kernel kernel = double_direct_fixture();
   kernel_reserve_vars(kernel, 9);
   add_clause(kernel, {9});
@@ -130,7 +124,7 @@ static void source_local_invalidation_and_root_trail() {
   std::fclose(records);
 }
 
-static void exact_offer_selection_and_forgery_rejection() {
+TEST(exact_offer_selection_and_forgery_rejection) {
   Kernel kernel = double_direct_fixture();
   FILE *records = temporary_records();
   attach(kernel, records);
@@ -160,7 +154,7 @@ static void exact_offer_selection_and_forgery_rejection() {
   std::fclose(records);
 }
 
-static void retained_owner_accepts_wide_direct_wide_sequence() {
+TEST(retained_owner_accepts_wide_direct_wide_sequence) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 313);
   // The three selected consequences have the same shapes as the first three
@@ -201,7 +195,7 @@ static void retained_owner_accepts_wide_direct_wide_sequence() {
   std::fclose(records);
 }
 
-static void escaped_offer_cannot_rebind_to_recaptured_sources() {
+TEST(escaped_offer_cannot_rebind_to_recaptured_sources) {
   Kernel kernel = direct_fixture();
   FILE *records = temporary_records();
   attach(kernel, records);
@@ -241,7 +235,7 @@ static void escaped_offer_cannot_rebind_to_recaptured_sources() {
   std::fclose(records);
 }
 
-static void declines_do_not_commit_session_or_action() {
+TEST(declines_do_not_commit_session_or_action) {
   for (bool proof_bound : {false, true}) {
     Kernel kernel = direct_fixture();
     FILE *records = temporary_records();
@@ -279,7 +273,7 @@ static void declines_do_not_commit_session_or_action() {
 
 // A row beyond the bounded proof scope (its four sources span 17 variables)
 // is a per-row decline: the offer still tries the later row.
-static void unsupported_proof_row_does_not_hide_later_row() {
+TEST(unsupported_proof_row_does_not_hide_later_row) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 23);
   add_equation(kernel, {1, 2, 3, 4, 5, 6, 7, 8}, false);
@@ -304,7 +298,7 @@ static void unsupported_proof_row_does_not_hide_later_row() {
   std::fclose(records);
 }
 
-static void both_parities_fit_one_recognition_group() {
+TEST(both_parities_fit_one_recognition_group) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 3);
   add_equation(kernel, {1, 2, 3}, false);
@@ -322,16 +316,4 @@ static void both_parities_fit_one_recognition_group() {
   one_group.image.maximum_groups = 1;
   assert(affine_basis_row_selection_within_limits(applied.selection, one_group));
   std::fclose(records);
-}
-
-int main() {
-  immutable_owner_publishes_one_row_at_a_time();
-  source_local_invalidation_and_root_trail();
-  exact_offer_selection_and_forgery_rejection();
-  retained_owner_accepts_wide_direct_wide_sequence();
-  escaped_offer_cannot_rebind_to_recaptured_sources();
-  declines_do_not_commit_session_or_action();
-  unsupported_proof_row_does_not_hide_later_row();
-  both_parities_fit_one_recognition_group();
-  std::puts("test_affine_basis_action: passed");
 }

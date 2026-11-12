@@ -75,20 +75,7 @@ ExactCoverExtensionActionResult exact_cover_extension_action_apply(
       k.structural_action_sequence + 1;
 
   ExactCoverLiveRequest request;
-  request.arity = parameters.arity;
-  request.maximum_items = parameters.maximum_items;
-  request.maximum_source_clauses = parameters.maximum_source_clauses;
-  request.maximum_source_literals = parameters.maximum_source_literals;
-  request.maximum_recognition_work = parameters.maximum_recognition_work;
-  request.maximum_premise_references =
-      parameters.maximum_premise_references;
-  request.maximum_definitions = parameters.maximum_definitions;
-  request.maximum_additions = parameters.maximum_additions;
-  request.maximum_literal_occurrences =
-      parameters.maximum_literal_occurrences;
-  request.maximum_journal_bytes = parameters.maximum_journal_bytes;
-  request.maximum_extent_growth = parameters.maximum_extent_growth;
-  request.maximum_external_extent = parameters.maximum_external_extent;
+  request.limits = parameters;
   request.action_id = prospective_action_id;
   request.records = k.structural_provenance;
   request.session = &session.live_session;

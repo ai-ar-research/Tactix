@@ -1,8 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover.hpp"
-#include <cassert>
-#include <algorithm>
 using namespace tactix::direct_csp_guarded_cover;
 namespace {
 Selection fixture() {

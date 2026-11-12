@@ -1,10 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <vector>
-using namespace tactix;
 
 static uint64_t digest = 1469598103934665603ull;
 static void add(uint64_t n) { digest = (digest ^ n) * 1099511628211ull; }

@@ -52,10 +52,7 @@ struct BatchPlanningRequest;
 struct BatchPublicationRequest;
 struct BatchPublicationResult;
 enum class BatchPlanningStatus : uint8_t {
-  Complete,
-  Invalid,
-  NoStructure,
-  ResourceExhausted,
+  Complete, Invalid, NoStructure, ResourceExhausted
 };
 
 template <class Charge>
@@ -233,13 +230,8 @@ struct BatchPublicationRequest {
 };
 
 enum class BatchPublicationStatus : uint8_t {
-  Published,
-  Invalid,
-  Inapplicable,
-  Stale,
-  UnsupportedProof,
-  ResourceExhausted,
-  Interrupted,
+  Published, Invalid, Inapplicable, Stale, UnsupportedProof, ResourceExhausted,
+  Interrupted
 };
 
 struct BatchPublicationResult {

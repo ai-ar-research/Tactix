@@ -2,7 +2,7 @@
 // verbatim, a disabled entry is reached and declines as disabled, the
 // TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs land on the walked entry, and the
 // Substitute/BVE/Factor dosing contracts hold.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -10,14 +10,6 @@
 #include "rules/registry.hpp"
 #include "strategy/controller_observation.hpp"
 #include "strategy/policy_completion.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
 
 // Two identical AND gates over the same inputs, so Congruence has a real merge
 // to make at the conflicts==0 preprocessing phase. Satisfiable.
@@ -39,7 +31,7 @@ static uint32_t slot_index(const DefaultPolicy &p, const char *name) {
   return UINT32_MAX;
 }
 
-static void test_substitute_hand_rolled_budget() {
+TEST(test_substitute_hand_rolled_budget) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -59,7 +51,7 @@ static void test_substitute_hand_rolled_budget() {
 // A zero allowance suppresses only the optional second round (Kissat
 // substitute.c substitute_rounds); the first is mandatory, with no call-entry
 // gate. phase_rounds=1 isolates one call.
-static void test_substitute_budget_stops_second_round() {
+TEST(test_substitute_budget_stops_second_round) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -145,7 +137,7 @@ static DefaultInprocessScheduler::SlotEntry posed_bve_entry() {
   return bve;
 }
 
-static void test_bve_round_collects_once_even_without_elimination() {
+TEST(test_bve_round_collects_once_even_without_elimination) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -163,7 +155,7 @@ static void test_bve_round_collects_once_even_without_elimination() {
   std::printf("  BVE zero-yield round collects exactly once\n");
 }
 
-static void test_productive_bve_round_does_not_collect_again_at_phase_exit() {
+TEST(test_productive_bve_round_does_not_collect_again_at_phase_exit) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -191,7 +183,7 @@ static void test_productive_bve_round_does_not_collect_again_at_phase_exit() {
 
 // Kissat flushes after every BVE candidate, so a root unit learned by a
 // declined (NoOp) candidate is propagated before the next one.
-static void test_declined_bve_candidate_flushes_immediate_unit() {
+TEST(test_declined_bve_candidate_flushes_immediate_unit) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -224,7 +216,7 @@ static void test_declined_bve_candidate_flushes_immediate_unit() {
   std::printf("  declined BVE candidate flushes its immediate unit\n");
 }
 
-static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
+TEST(test_default_bve_ladder_reaches_kissat_terminal_bound) {
   DefaultStrategyConfig cfg;
   DefaultBveBoundRamp ramp(&cfg.inprocess);
   assert(cfg.inprocess.bve_default_ceiling == 16);
@@ -258,7 +250,7 @@ static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
   std::printf("  BVE default ladder: terminal watermark only after bound 16\n");
 }
 
-static void test_dynamic_bve_heap_rearms_all_at_later_bound() {
+TEST(test_dynamic_bve_heap_rearms_all_at_later_bound) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -288,7 +280,7 @@ static void test_dynamic_bve_heap_rearms_all_at_later_bound() {
   std::printf("  BVE dynamic heap: all candidates rearmed at bound 16\n");
 }
 
-static void test_cut_bve_phase_advances_and_rearms() {
+TEST(test_cut_bve_phase_advances_and_rearms) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -312,7 +304,7 @@ static void test_cut_bve_phase_advances_and_rearms() {
   std::printf("  cut BVE phase advances and rearms\n");
 }
 
-static void test_factor_bound_walks_posed_bve_ladder() {
+TEST(test_factor_bound_walks_posed_bve_ladder) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -370,7 +362,7 @@ static uint64_t pose_congruence(bool enabled, DefaultPolicy &p, Kernel &k) {
   return k.stats.congruence_merges;
 }
 
-static void test_pose_and_disable() {
+TEST(test_pose_and_disable) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -488,16 +480,7 @@ static void check_knobs(DefaultPolicy &p, Kernel &) {
 }
 
 int main() {
-  test_substitute_hand_rolled_budget();
-  test_substitute_budget_stops_second_round();
-  test_bve_round_collects_once_even_without_elimination();
-  test_productive_bve_round_does_not_collect_again_at_phase_exit();
-  test_declined_bve_candidate_flushes_immediate_unit();
-  test_default_bve_ladder_reaches_kissat_terminal_bound();
-  test_dynamic_bve_heap_rearms_all_at_later_bound();
-  test_cut_bve_phase_advances_and_rearms();
-  test_factor_bound_walks_posed_bve_ladder();
-  test_pose_and_disable();
+  run_tests();
 
   const char *disable[] = {"TACTIX_SLOT_DISABLE", "Congruence"};
   with_env(disable, 2, check_disable);

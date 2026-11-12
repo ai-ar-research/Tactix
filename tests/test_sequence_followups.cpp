@@ -1,12 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/online_sequence.hpp"
-#include <cassert>
-#include <cstdio>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 static Kernel fixture(bool rooted) {

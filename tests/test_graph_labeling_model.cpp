@@ -1,7 +1,5 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/graph_labeling_window_cursor.hpp"
 #include "rules/lucky/model.hpp"
@@ -12,10 +10,6 @@
 #include "strategy/online_inprocess.hpp"
 #include "strategy/work_execution.hpp"
 
-#include <algorithm>
-#include <cassert>
-
-using namespace tactix;
 using namespace tactix::strategy;
 
 // Column covers and row at-most-one over 16 variables, plus redundant
@@ -103,7 +97,7 @@ struct StopAfterGraphRoot final : controller::FeedbackReceiver {
   }
 };
 
-static void default_policy_runs_the_graph_root_before_search() {
+TEST(default_policy_runs_the_graph_root_before_search) {
   Kernel kernel;
   ScopedHeuristics heuristics(kernel);
   permutation(kernel, true);
@@ -135,7 +129,7 @@ static void default_policy_runs_the_graph_root_before_search() {
 }
 
 // Authentication one work unit short of its measured cost declines cleanly.
-static void authentication_is_bounded() {
+TEST(authentication_is_bounded) {
   Kernel measured;
   ScopedHeuristics measured_h(measured);
   permutation(measured, false);
@@ -162,7 +156,7 @@ static void authentication_is_bounded() {
 // The model defers Window setup it cannot afford: one unit short charges
 // nothing and keeps the candidate; an exact allowance charges exactly setup.
 // The workspace boundary covers graph plus cursor bytes to the byte.
-static void window_cursor_survives_bounded_slices() {
+TEST(window_cursor_survives_bounded_slices) {
   Kernel boundary;
   ScopedHeuristics boundary_h(boundary);
   permutation(boundary, true);
@@ -256,7 +250,7 @@ static void window_cursor_survives_bounded_slices() {
 }
 
 // The whole-run Lucky instance 21 through the public executor.
-static void public_whole_run_finds_a_model() {
+TEST(public_whole_run_finds_a_model) {
   Kernel k;
   ScopedHeuristics h(k);
   permutation(k, false);
@@ -279,7 +273,7 @@ static void public_whole_run_finds_a_model() {
   assert(!graph_labeling_model_guard(k));
 }
 
-static void bounded_apply_publishes_guidance_only() {
+TEST(bounded_apply_publishes_guidance_only) {
   {
     Kernel k;
     ScopedHeuristics h(k);
@@ -325,7 +319,7 @@ static void bounded_apply_publishes_guidance_only() {
   }
 }
 
-static void authenticate_and_continue_actions() {
+TEST(authenticate_and_continue_actions) {
   Kernel k;
   ScopedHeuristics h(k);
   permutation(k, false);
@@ -374,7 +368,7 @@ static void authenticate_and_continue_actions() {
 
 // The C online API: authenticate then continue until SAT; the model satisfies
 // every input clause.
-static void c_api_reaches_a_checked_model() {
+TEST(c_api_reaches_a_checked_model) {
   auto *solver = tactix_init();
   std::vector<std::vector<int>> clauses;
   const auto add = [&](std::vector<int> c) {
@@ -430,14 +424,4 @@ static void c_api_reaches_a_checked_model() {
     assert(satisfied);
   }
   tactix_release(solver);
-}
-
-int main() {
-  default_policy_runs_the_graph_root_before_search();
-  authentication_is_bounded();
-  window_cursor_survives_bounded_slices();
-  public_whole_run_finds_a_model();
-  bounded_apply_publishes_guidance_only();
-  authenticate_and_continue_actions();
-  c_api_reaches_a_checked_model();
 }

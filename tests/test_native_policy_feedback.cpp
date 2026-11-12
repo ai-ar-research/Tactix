@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/native_feedback.hpp"
@@ -6,13 +6,9 @@
 #include "strategy/execution_scope.hpp"
 #include "feedback_test_support.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstring>
 #include <functional>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 
@@ -41,23 +37,6 @@ struct Capture final : FeedbackReceiver {
   void session_end(const Observation &, int, StopReason) override { ++ended; }
 };
 
-static Kernel pigeonhole(bool cold = false) {
-  Kernel k;
-  if (cold) kernel_defer_cold_state(k);
-  constexpr unsigned pigeons = 5, holes = 4;
-  kernel_reserve_vars(k, pigeons * holes);
-  auto cell = [](unsigned p, unsigned h) { return make_lit(p * holes + h, false); };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    std::vector<Lit> clause;
-    for (unsigned h = 0; h < holes; ++h) clause.push_back(cell(p, h));
-    kernel_add_large_clause(k, clause.data(), holes, false, 0, ++k.next_clause_id);
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h)
-        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)), ++k.next_clause_id);
-  }
-  return k;
-}
-
 static Observation observe_plain(const Kernel &kernel, const void *) {
   return observe_kernel(kernel);
 }
@@ -85,7 +64,7 @@ static void select_entry(DefaultPolicy &policy, const char *name,
 static const std::vector<std::string> startup_support{
     "MaterializeColdState", "AttachHeuristics", "SparseCollect", "CompactRandomOrder"};
 
-static void test_completion_accounting() {
+TEST(test_completion_accounting) {
   Kernel k;
   Capture capture;
   unsigned reads = 0, builds = 0;
@@ -192,7 +171,7 @@ static void test_completion_accounting() {
   assert(capture.intervals.back().preceding_interval == 1);
 }
 
-static void test_graph_labeling_constructor_feedback() {
+TEST(test_graph_labeling_constructor_feedback) {
   Kernel k;
   ScopedHeuristics h(k);
   constexpr uint32_t n = 4;
@@ -275,7 +254,7 @@ static void test_graph_labeling_constructor_feedback() {
 
 // Leaf measurements precede the enclosing native publication, but receiver
 // code must only run after temporary parameters and watch scopes are restored.
-static void test_deferred_publication_and_native_units() {
+TEST(test_deferred_publication_and_native_units) {
   Kernel k;
   Capture capture;
   execution::PolicyCompletion *active = nullptr;
@@ -450,7 +429,7 @@ static void test_native_batches(bool vivify, bool budgeted) {
   }
 }
 
-static void test_partial_native_outcomes() {
+TEST(test_partial_native_outcomes) {
   Kernel k;
   k.factor_completed = false;
   auto outcome = execution::native_rule_outcome(k, "Factor", ApplyResult::Ok);
@@ -473,7 +452,7 @@ static void test_partial_native_outcomes() {
   assert(k.stop_fuzz_state == state && k.stats.stop_fuzz_fires == fires);
 }
 
-static void test_native_interruption_feedback_purity() {
+TEST(test_native_interruption_feedback_purity) {
   // Poll inside the actual native body. Describing its result must not add a
   // draw, even when stop-fuzz fires every time or when an action is terminal.
   Kernel original, observed;
@@ -500,7 +479,7 @@ static void test_native_interruption_feedback_purity() {
   completion.finish(20, StopReason::Unsat);
 }
 
-static void test_dosed_bve_publication() {
+TEST(test_dosed_bve_publication) {
   DefaultStrategyConfig config;
   config.inprocess.phase_rounds = 1;
   config.inprocess.minimum_effort_ticks = 1000;
@@ -554,7 +533,7 @@ static void test_dosed_bve_publication() {
   }
 }
 
-static void test_structured_root_feedback() {
+TEST(test_structured_root_feedback) {
   DefaultStrategyConfig config;
   OnlineStrategyStage affine;
   affine.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
@@ -714,7 +693,7 @@ static void test_default_observation_and_replay(const char *path) {
   }
 }
 
-static void test_early_terminal() {
+TEST(test_early_terminal) {
   Kernel k;
   k.inconsistent = true;
   DefaultPolicy policy;
@@ -724,7 +703,7 @@ static void test_early_terminal() {
   assert(capture.begun == 1 && capture.ended == 1 && capture.actions.empty());
 }
 
-static void test_interrupted_entry_and_fresh_session() {
+TEST(test_interrupted_entry_and_fresh_session) {
   Kernel k = pigeonhole();
   ScopedHeuristics h(k);
   assert(execution::execute_action(k, execution::DecisionRequest{make_lit(0, false)}) == ApplyResult::Ok);
@@ -745,7 +724,7 @@ static void test_interrupted_entry_and_fresh_session() {
   assert(resumed.actions.front().sequence == 1);
 }
 
-static void test_startup_support_feedback() {
+TEST(test_startup_support_feedback) {
   std::string preserved;
   for (bool feedback : {false, true}) {
     Kernel k = pigeonhole(true);
@@ -785,7 +764,7 @@ static void test_startup_support_feedback() {
            startup_support.end());
 }
 
-static void test_post_structured_bce_feedback() {
+TEST(test_post_structured_bce_feedback) {
   std::string preserved;
   for (bool feedback : {false, true}) {
     Kernel k;
@@ -853,20 +832,10 @@ int main() {
   char temporary[] = "/tmp/tactix-native-feedback-XXXXXX";
   const int fd = mkstemp(temporary);
   assert(fd >= 0 && close(fd) == 0);
-  test_completion_accounting();
-  test_graph_labeling_constructor_feedback();
-  test_deferred_publication_and_native_units();
+  run_tests();
   test_native_batches(true, true);
   test_native_batches(false, true);
   test_native_batches(false, false);
-  test_partial_native_outcomes();
-  test_native_interruption_feedback_purity();
-  test_dosed_bve_publication();
-  test_structured_root_feedback();
   test_default_observation_and_replay(temporary);
-  test_early_terminal();
-  test_interrupted_entry_and_fresh_session();
-  test_startup_support_feedback();
-  test_post_structured_bce_feedback();
   assert(unlink(temporary) == 0);
 }

@@ -22,14 +22,8 @@ struct NaryCspRelationOwnerSnapshot {
 };
 
 enum class NaryCspRelationCaptureStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  Stale,
-  Applied,
+  Invalid, Inapplicable, NoStructure, Duplicate, ResourceExhausted, Interrupted,
+  Stale, Applied
 };
 
 struct NaryCspRelationCaptureRequest {

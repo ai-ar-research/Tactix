@@ -1,7 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "parity_test_support.hpp"
-#include <cstdio>
-#include <cstring>
 #include <set>
 using namespace tactix::parity_certificate;
 using ClauseKey = std::vector<External>;

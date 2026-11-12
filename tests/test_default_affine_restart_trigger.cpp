@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 // DefaultPolicy's persistent affine search runs only in natural full-restart
 // root windows, due at Kissat's Eliminate conflict limit (NLOG2N occurrences,
 // kissat_scale_delta), which at expiry waits until the retained inputs
@@ -10,12 +10,7 @@
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
 #include "policies/default_policy.hpp"
-#include <cassert>
 #include <cmath>
-#include <cstdio>
-#include <string>
-#include <vector>
-using namespace tactix;
 
 namespace tactix {
 struct DefaultAffineSearchTestAccess {

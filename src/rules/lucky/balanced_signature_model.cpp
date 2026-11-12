@@ -1,7 +1,6 @@
 #include "rules/lucky/opportunities.hpp"
 
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -469,10 +468,6 @@ bool build_primary_assignment(const Kernel &k, const Shape &shape,
 }
 
 } // namespace
-
-RuleEligibility balanced_signature_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult balanced_signature_model_apply(Kernel &k) {
   const uint64_t steps_before = k.stats.balanced_signature_steps;

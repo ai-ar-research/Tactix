@@ -1,12 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 namespace tactix {
 SubstitutionRedundancyApplicationResult
@@ -56,7 +50,7 @@ bool completed_model(unsigned mask) {
   return (mask & (mask - 1)) == 0;
 }
 
-void exhaustive_private_repair() {
+TEST(exhaustive_private_repair) {
   for (unsigned original = 0; original < 8; ++original) {
     const bool source_model = original != 0;
     const unsigned repaired_assignment = original & (~original + 1);
@@ -67,7 +61,7 @@ void exhaustive_private_repair() {
     if (completed_model(model)) assert(model != 0);
 }
 
-void nol_scale_ulc_census() {
+TEST(nol_scale_ulc_census) {
   constexpr uint32_t domain_count = 363;
   Kernel kernel;
   kernel_reserve_vars(kernel, 3 * domain_count);
@@ -97,7 +91,7 @@ void nol_scale_ulc_census() {
          instances == 3 * domain_count);
 }
 
-void unsupported_and_ambiguous_are_atomic() {
+TEST(unsupported_and_ambiguous_are_atomic) {
   Kernel binary_source;
   kernel_reserve_vars(binary_source, 2);
   add(binary_source, {1, 2});
@@ -192,9 +186,7 @@ void certificate(const char *cnf_path, const char *proof_path,
 } // namespace
 
 int main(int argc, char **argv) {
-  exhaustive_private_repair();
-  nol_scale_ulc_census();
-  unsupported_and_ambiguous_are_atomic();
+  run_tests();
   if (argc == 3) {
     certificate(argv[1], argv[2], ProofFormat::DsrAscii);
   } else {

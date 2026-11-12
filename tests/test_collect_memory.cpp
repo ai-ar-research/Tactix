@@ -1,18 +1,12 @@
 // Fixed collector fixtures verify observer boundaries without changing GC.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "occurrence_test_utils.hpp"
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <sstream>
-#include <string>
-#include <vector>
 #include <unistd.h>
-using namespace tactix;
 
 struct Capacities { size_t old_bytes, new_bytes; };
 static Capacities fixture(bool dense_mode, bool empty) {

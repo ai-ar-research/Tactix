@@ -1,9 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/restart_controller.hpp"
 #include "proof/proof.hpp"
@@ -11,15 +9,9 @@
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "strategy/online_inprocess.hpp"
 
-#include <algorithm>
 #include <array>
-#include <cassert>
-#include <cstdio>
 #include <fstream>
-#include <string>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 
@@ -79,7 +71,7 @@ void prepare(Kernel &kernel, NaryCspRelationOwnerSession &relations,
     assert(record.definition_clauses.size() == 3 * domains.front().size());
 }
 
-void lifecycle() {
+TEST(lifecycle) {
   Kernel kernel;
   parse_into(kernel);
   FILE *records = std::tmpfile();
@@ -113,7 +105,7 @@ void lifecycle() {
 }
 
 // The serialized program is its identity; the payload must be encoded.
-void public_wire_format() {
+TEST(public_wire_format) {
   strategy::OnlineInvocation invocation;
   invocation.id = 33;
   invocation.rule = "NaryCspEqualityAmo";
@@ -131,7 +123,7 @@ void public_wire_format() {
 
 // Each decline cause through the controller: typed status, feedback, no
 // mutation, and for retryable causes a later commit of the same payload.
-void controller_decline_feedback() {
+TEST(controller_decline_feedback) {
   struct Receiver final : FeedbackReceiver {
     std::vector<ActionFeedback> actions;
     void after_action(const ActionFeedback &action) override {
@@ -246,7 +238,7 @@ void controller_decline_feedback() {
   }
 }
 
-void c_v12_deep_copies_and_executes_exact_payload() {
+TEST(c_v12_deep_copies_and_executes_exact_payload) {
   tactix_c_handle *solver = tactix_init();
   assert(solver);
   FILE *records = std::tmpfile();
@@ -361,9 +353,6 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  lifecycle();
-  public_wire_format();
-  controller_decline_feedback();
-  c_v12_deep_copies_and_executes_exact_payload();
+  run_tests();
   std::puts("test_nary_csp_equality_amo: passed");
 }

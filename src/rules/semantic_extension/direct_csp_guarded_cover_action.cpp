@@ -1,6 +1,5 @@
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 
-#include "rules/semantic_extension/direct_csp_guarded_cover_work.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>

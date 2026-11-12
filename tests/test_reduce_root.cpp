@@ -1,20 +1,14 @@
 // Reduce at the root: preparation consumes newly derived roots before ranking
 // again, and retained root reasons do not shrink the candidate population.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
 #include <initializer_list>
-#include <string>
 #include <unistd.h>
-using namespace tactix;
 
 using Cnf = std::vector<std::vector<int>>;
 

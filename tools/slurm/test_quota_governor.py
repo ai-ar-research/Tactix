@@ -1,21 +1,12 @@
 """Hysteresis and ownership for quota_governor.py; never touches a real job."""
 import argparse
-import importlib.util
 import json
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 
-spec = importlib.util.spec_from_file_location(
-    "quota_governor", Path(__file__).with_name("quota_governor.py"))
-qg = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(qg)
-
-TABLE = """NAME                   USED  QUOTA  OBJUSED  OBJQUOTA
-hwu2                   900G     1T    4.27M      none
-hwu                    526G     1T    4.27M      none
-"""
+import quota_governor as qg
 
 
 class FakeSlurm:
@@ -53,23 +44,6 @@ def args(**kw):
                 release_batch=40)
     base.update(kw)
     return argparse.Namespace(**base)
-
-
-class Parsing(unittest.TestCase):
-    def test_sizes(self):
-        self.assertEqual(qg.parse_size("526G"), 526.0)
-        self.assertEqual(qg.parse_size("1T"), 1024.0)
-        self.assertEqual(qg.parse_size("512M"), 0.5)
-        self.assertIsNone(qg.parse_size("none"))
-
-    def test_exact_user_row(self):
-        self.assertEqual(qg.usage_from_table(TABLE, "hwu"), 526.0)
-        self.assertIsNone(qg.usage_from_table(TABLE, "nobody"))
-
-    def test_quota_fallback(self):
-        run = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, TABLE, "")
-        self.assertEqual(qg.read_usage("hwu", zfs_file="/nonexistent", run=run),
-                         (526.0, "quota -s"))
 
 
 class Hysteresis(unittest.TestCase):

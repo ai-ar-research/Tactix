@@ -2,17 +2,11 @@
 // Kissat eliminate.c eliminate_variables compares eliminate_resolutions with
 // its limit (strictly greater) before every candidate and before another
 // forward-subsumption plus elimination round.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-
-using namespace tactix;
 
 // Pivot 5 has two binaries per side: bound 0 admits it after exactly four
 // counted resolutions (k.stats.bve_resolutions).

@@ -6,12 +6,12 @@
 namespace tactix::tseitin_cycle {
 namespace {
 
-using Meter = CallbackWorkMeter<
-    TransactionLimits, TransactionStatus, TransactionStatus::Ready,
-    TransactionStatus::Interrupted, TransactionStatus::ResourceExhausted>;
+using Status = TransactionStatus;
+using Reason = TransactionReason;
+using Meter = CallbackWorkMeter<TransactionLimits, Status, Status::Ready,
+                                Status::Interrupted, Status::ResourceExhausted>;
 
-TransactionResult stop(const Meter &meter, TransactionStatus status,
-                       TransactionReason reason) {
+TransactionResult stop(const Meter &meter, Status status, Reason reason) {
   TransactionResult result;
   result.status = status;
   result.reason = reason;
@@ -20,11 +20,9 @@ TransactionResult stop(const Meter &meter, TransactionStatus status,
 }
 
 TransactionResult metered_stop(const Meter &meter) {
-  if (meter.stopped() == TransactionStatus::Interrupted)
-    return stop(meter, TransactionStatus::Interrupted,
-                TransactionReason::Interrupted);
-  return stop(meter, TransactionStatus::ResourceExhausted,
-              TransactionReason::WorkLimit);
+  if (meter.stopped() == Status::Interrupted)
+    return stop(meter, Status::Interrupted, Reason::Interrupted);
+  return stop(meter, Status::ResourceExhausted, Reason::WorkLimit);
 }
 
 bool valid_source_ledger(const AdmissionResult &admission, Meter &meter) {
@@ -62,11 +60,9 @@ TransactionResult build_transaction(const AdmissionResult &admission,
                                     TransactionLimits limits) {
   Meter meter(limits);
   if (!admission.admitted())
-    return stop(meter, TransactionStatus::Declined,
-                TransactionReason::AdmissionNotCommitted);
+    return stop(meter, Status::Declined, Reason::AdmissionNotCommitted);
   if (!plan.planned())
-    return stop(meter, TransactionStatus::Declined,
-                TransactionReason::PlanNotCommitted);
+    return stop(meter, Status::Declined, Reason::PlanNotCommitted);
   uint64_t validation_work = 0;
   bool validation_exhausted = false;
   bool validation_interrupted = false;
@@ -78,19 +74,15 @@ TransactionResult build_transaction(const AdmissionResult &admission,
   if (!meter.spend(validation_work))
     return metered_stop(meter);
   if (validation_interrupted)
-    return stop(meter, TransactionStatus::Interrupted,
-                TransactionReason::Interrupted);
+    return stop(meter, Status::Interrupted, Reason::Interrupted);
   if (validation_exhausted)
-    return stop(meter, TransactionStatus::ResourceExhausted,
-                TransactionReason::WorkLimit);
+    return stop(meter, Status::ResourceExhausted, Reason::WorkLimit);
   if (!candidate_valid)
-    return stop(meter, TransactionStatus::InvalidInput,
-                TransactionReason::InvalidCandidate);
+    return stop(meter, Status::InvalidInput, Reason::InvalidCandidate);
   if (!valid_source_ledger(admission, meter)) {
-    if (meter.stopped() != TransactionStatus::Ready)
+    if (meter.stopped() != Status::Ready)
       return metered_stop(meter);
-    return stop(meter, TransactionStatus::InvalidInput,
-                TransactionReason::InvalidSourceLedger);
+    return stop(meter, Status::InvalidInput, Reason::InvalidSourceLedger);
   }
 
   ProofTransaction transaction;
@@ -99,14 +91,12 @@ TransactionResult build_transaction(const AdmissionResult &admission,
   transaction.identity.cycle_edges = plan.candidate.cycle_edges;
   transaction.identity.sources = admission.provenance;
 
-  if (!meter.spend())
-    return metered_stop(meter);
+  if (!meter.spend()) return metered_stop(meter);
   transaction.x7.clause.push_back(-plan.candidate.pivot);
   // The negative unit is the semantic pivot.  Its implicit X7 image is true,
   // which maps the pivot variable to false.  Every remaining cycle edge flips.
   for (size_t i = 1; i < plan.candidate.cycle_edges.size(); ++i) {
-    if (!meter.spend())
-      return metered_stop(meter);
+    if (!meter.spend()) return metered_stop(meter);
     const Edge edge = plan.candidate.cycle_edges[i];
     transaction.x7.substitution.push_back({edge, -edge});
   }
@@ -121,17 +111,13 @@ TransactionResult build_transaction(const AdmissionResult &admission,
   transaction.accounting.witness_literals =
       1 + 2 * transaction.x7.substitution.size();
   if (transaction.accounting.preflight_additions > limits.additions)
-    return stop(meter, TransactionStatus::ResourceExhausted,
-                TransactionReason::AdditionLimit);
+    return stop(meter, Status::ResourceExhausted, Reason::AdditionLimit);
   if (transaction.accounting.preflight_deletions > limits.deletions)
-    return stop(meter, TransactionStatus::ResourceExhausted,
-                TransactionReason::DeletionLimit);
+    return stop(meter, Status::ResourceExhausted, Reason::DeletionLimit);
   if (transaction.accounting.temporary_helpers > limits.helpers)
-    return stop(meter, TransactionStatus::ResourceExhausted,
-                TransactionReason::HelperLimit);
+    return stop(meter, Status::ResourceExhausted, Reason::HelperLimit);
   if (transaction.accounting.witness_literals > limits.witness_literals)
-    return stop(meter, TransactionStatus::ResourceExhausted,
-                TransactionReason::WitnessLimit);
+    return stop(meter, Status::ResourceExhausted, Reason::WitnessLimit);
   const ProofEventKind events[] = {
       ProofEventKind::AddNegativeHelper,
       ProofEventKind::AddPositiveHelper,
@@ -140,16 +126,14 @@ TransactionResult build_transaction(const AdmissionResult &admission,
       ProofEventKind::DeleteNegativeHelper,
   };
   for (ProofEventKind event : events) {
-    if (!meter.spend())
-      return metered_stop(meter);
+    if (!meter.spend()) return metered_stop(meter);
     transaction.events.push_back(event);
   }
   transaction.requires_unassigned_pivot = true;
   transaction.requires_live_x7_validation = true;
   transaction.requires_post_apply_replan = true;
 
-  TransactionResult result =
-      stop(meter, TransactionStatus::Ready, TransactionReason::None);
+  TransactionResult result = stop(meter, Status::Ready, Reason::None);
   result.transaction_work = result.work;
   result.transaction = std::move(transaction);
   return result;
@@ -164,13 +148,13 @@ TransactionResult replay_transaction(const AdmissionRequest &request,
     TransactionResult result;
     result.admission_work = admission.work;
     result.status = admission.status == AdmissionStatus::Interrupted
-                        ? TransactionStatus::Interrupted
+                        ? Status::Interrupted
                     : admission.status == AdmissionStatus::ResourceExhausted
-                        ? TransactionStatus::ResourceExhausted
-                        : TransactionStatus::Declined;
+                        ? Status::ResourceExhausted
+                        : Status::Declined;
     result.reason = admission.status == AdmissionStatus::Interrupted
-                        ? TransactionReason::Interrupted
-                        : TransactionReason::ReplayAdmissionFailed;
+                        ? Reason::Interrupted
+                        : Reason::ReplayAdmissionFailed;
     return result;
   }
   const Result plan = plan_one(admission.input, limits.plan);
@@ -179,13 +163,13 @@ TransactionResult replay_transaction(const AdmissionRequest &request,
     result.admission_work = admission.work;
     result.planning_work = plan.work;
     result.status = plan.decline == DeclineReason::Interrupted
-                        ? TransactionStatus::Interrupted
+                        ? Status::Interrupted
                     : plan.decline == DeclineReason::WorkLimit
-                        ? TransactionStatus::ResourceExhausted
-                        : TransactionStatus::Declined;
+                        ? Status::ResourceExhausted
+                        : Status::Declined;
     result.reason = plan.decline == DeclineReason::Interrupted
-                        ? TransactionReason::Interrupted
-                        : TransactionReason::ReplayPlanFailed;
+                        ? Reason::Interrupted
+                        : Reason::ReplayPlanFailed;
     return result;
   }
   TransactionResult rebuilt =
@@ -197,8 +181,8 @@ TransactionResult replay_transaction(const AdmissionRequest &request,
     return rebuilt;
   if (!(rebuilt.transaction == recorded)) {
     // Keep every work counter; only the mismatched transaction is dropped.
-    rebuilt.status = TransactionStatus::InvalidInput;
-    rebuilt.reason = TransactionReason::ReplayMismatch;
+    rebuilt.status = Status::InvalidInput;
+    rebuilt.reason = Reason::ReplayMismatch;
     rebuilt.transaction = {};
   }
   return rebuilt;

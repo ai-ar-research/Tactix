@@ -2,21 +2,13 @@
 // trajectory and exact proof bytes of a fresh policy's solve. Both references
 // re-base every limit at search entry: kissat search.c:45-70 with
 // kimits.c:99-136, cadical internal.cpp:499-608.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "test_io.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 // A deterministic random 3-SAT at the phase transition, big enough that every
 // schedule fires and small enough for ctest.

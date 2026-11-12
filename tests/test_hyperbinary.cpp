@@ -1,20 +1,13 @@
 // HyperBinaryRes unit tests: the resolvent and its dominator, the two cases
 // cadical declines, the subsumption deletion, the instance surface, and
 // entailment of the emitted binary.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/hyperbinary/hyperbinary.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
 
 static void bin(Kernel &k, int a, int b) {
   kernel_add_binary_clause(k, internalize(a), internalize(b), 0);
@@ -50,7 +43,7 @@ static uint64_t semantic_with_dominator(Kernel &k, int dominator) {
 }
 
 // 3 and 4 are dominated by 2, so the resolvent must be the tight (¬2 ∨ 5).
-static void test_dominator_resolvent() {
+TEST(test_dominator_resolvent) {
   Kernel k;
   dominator_fixture(k);
   assert(hyperbinary_guard(k));
@@ -62,7 +55,7 @@ static void test_dominator_resolvent() {
 }
 
 // A dominator equal to the probe root gains nothing, so it is declined.
-static void test_root_dominator_declined() {
+TEST(test_root_dominator_declined) {
   Kernel k;
   k.jump_reasons = false;
   kernel_reserve_vars(k, 4);
@@ -75,7 +68,7 @@ static void test_root_dominator_declined() {
 }
 
 // cadical's case (A): a clause already binary in effect gains no resolvent.
-static void test_root_fixed_rest_declined() {
+TEST(test_root_fixed_rest_declined) {
   Kernel k2;
   k2.jump_reasons = false;
   kernel_reserve_vars(k2, 4);
@@ -89,7 +82,7 @@ static void test_root_fixed_rest_declined() {
 
 // With ¬dom in the clause the resolvent subsumes its reason, which is then
 // deleted (cadical `stats.hbrsubs`).
-static void test_subsumption_deletes_reason() {
+TEST(test_subsumption_deletes_reason) {
   Kernel k;
   k.jump_reasons = false;
   kernel_reserve_vars(k, 5);
@@ -104,7 +97,7 @@ static void test_subsumption_deletes_reason() {
 }
 
 // Nothing to resolve: no long clause ever becomes unit at level 1.
-static void test_no_opportunity() {
+TEST(test_no_opportunity) {
   Kernel k;
   k.jump_reasons = false;
   kernel_reserve_vars(k, 4);
@@ -116,7 +109,7 @@ static void test_no_opportunity() {
 
 // N1: a per-instance payload from the registry must really do the work — a
 // surface only the rule's own round can drive is not an instance surface.
-static void test_instance_surface() {
+TEST(test_instance_surface) {
   Kernel k;
   dominator_fixture(k);
   const RuleVTable *rule = &hbr_rule();
@@ -134,7 +127,7 @@ static void test_instance_surface() {
 
 // The semantic surface names individual resolvents.  Applying a later payload
 // first must not shift the earlier payload to a different consequence.
-static void test_individual_semantic_resolvents_keep_identity() {
+TEST(test_individual_semantic_resolvents_keep_identity) {
   Kernel k;
   dominator_fixture(k, 8);
   bin(k, -2, 6);
@@ -160,7 +153,7 @@ static void test_individual_semantic_resolvents_keep_identity() {
 
 // The canonical probe chooses the closest dominator (2); N1 also reaches the
 // weaker legal dominator 1.
-static void test_nonclosest_dominator_is_semantically_reachable() {
+TEST(test_nonclosest_dominator_is_semantically_reachable) {
   Kernel k;
   dominator_fixture(k);
   const uint64_t selected = semantic_with_dominator(k, 1);
@@ -169,7 +162,7 @@ static void test_nonclosest_dominator_is_semantically_reachable() {
   assert(!has_bin(k, -2, 5));
 }
 
-static void test_semantic_resolvent_can_collapse_to_unit() {
+TEST(test_semantic_resolvent_can_collapse_to_unit) {
   Kernel k;
   k.jump_reasons = false;
   kernel_reserve_vars(k, 4);
@@ -182,7 +175,7 @@ static void test_semantic_resolvent_can_collapse_to_unit() {
   assert(k.stats.hbr_units == 1 && k.stats.hbr_binaries == 0);
 }
 
-static void test_invalid_semantic_payload_is_noop() {
+TEST(test_invalid_semantic_payload_is_noop) {
   Kernel k;
   k.jump_reasons = false;
   kernel_reserve_vars(k, 2);
@@ -194,7 +187,7 @@ static void test_invalid_semantic_payload_is_noop() {
   assert(k.stats.hbr_binaries == 0);
 }
 
-static void test_semantic_enumeration_observes_published_stop() {
+TEST(test_semantic_enumeration_observes_published_stop) {
   Kernel k;
   kernel_reserve_vars(k, 500000);
   bin(k, 1, -500000);
@@ -206,7 +199,7 @@ static void test_semantic_enumeration_observes_published_stop() {
 }
 
 // `apply_instance` is total: an off-schedule literal is a NoOp, not a trap.
-static void test_apply_off_schedule_is_total() {
+TEST(test_apply_off_schedule_is_total) {
   Kernel k;
   k.jump_reasons = false;
   kernel_reserve_vars(k, 5);
@@ -216,21 +209,4 @@ static void test_apply_off_schedule_is_total() {
     for (int s = -1; s <= 1; s += 2)
       hyperbinary_try(k, internalize(s * v)); // must not trap
   assert(default_solve(k) == 10);
-}
-
-int main() {
-  test_dominator_resolvent();
-  test_root_dominator_declined();
-  test_root_fixed_rest_declined();
-  test_subsumption_deletes_reason();
-  test_no_opportunity();
-  test_instance_surface();
-  test_individual_semantic_resolvents_keep_identity();
-  test_nonclosest_dominator_is_semantically_reachable();
-  test_semantic_resolvent_can_collapse_to_unit();
-  test_invalid_semantic_payload_is_noop();
-  test_semantic_enumeration_observes_published_stop();
-  test_apply_off_schedule_is_total();
-  printf("test_hyperbinary: all passed\n");
-  return 0;
 }

@@ -9,6 +9,9 @@ window they came from. So: run Tier C once with every arm, then score it twice.
 
     tools/bench/subset_score.py benchmarks/runs/<stamp>-C-<name> [--subset C-ruleneutral]
 
+Gate T4's SC 2025 set is the same kind of view over a full Tier D window:
+`--subset D-sc25` keeps D.list's `shared` and `main_2025 only` blocks.
+
 Prints PAR-2 + #solved per arm over the subset and over the full tier, plus the
 ratio to each baseline arm, so both halves of T3 are readable from one window.
 
@@ -19,6 +22,7 @@ scored arm includes the proof check (plan §8.1).
 import argparse
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -65,16 +69,29 @@ def split_arms(rundir, run, arms):
             "solver-name fallback (run predates the score_proofs flag)")
 
 
+# Subsets kept as `# --- <block> ...` sections of a tier list instead of a list
+# of their own: name -> (tier, names of the blocks it keeps).
+BLOCK_SUBSETS = {"D-sc25": ("D", {"shared", "main_2025 only"})}
+
+
 def read_subset(name):
-    path = os.path.join(TIERS, f"{name}.list")
+    tier, blocks = BLOCK_SUBSETS.get(name, (name, None))
+    path = os.path.join(TIERS, f"{tier}.list")
     if not os.path.exists(path):
         sys.exit(f"error: subset list {path} does not exist")
-    keep = set()
+    keep, seen, block = set(), set(), None
     for line in open(path):
         line = line.strip()
+        header = re.match(r"# --- (\w+(?: \w+)*)", line)
+        if header:
+            block = header.group(1)
+            seen.add(block)
         if not line or line.startswith("#"):
             continue
-        keep.add(line.split()[0])
+        if blocks is None or block in blocks:
+            keep.add(line.split()[0])
+    if blocks is not None and not blocks <= seen:
+        sys.exit(f"error: {path} has no block {', '.join(sorted(blocks - seen))}")
     return keep
 
 

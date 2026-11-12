@@ -1,16 +1,9 @@
 #pragma once
 
-#include "strategy/analyze_parameters.hpp"
 #include "strategy/bve_invocation.hpp"
-#include "strategy/congruence_parameters.hpp"
-#include "strategy/parity_consequence_parameters.hpp"
 #include "strategy/theory_action_parameters.hpp"
-#include "strategy/forward_parameters.hpp"
-#include "strategy/failed_literal_parameters.hpp"
-#include "strategy/instantiate_parameters.hpp"
 #include "strategy/rule_parameters.hpp"
 #include "strategy/sweep_parameters.hpp"
-#include "strategy/vivify_parameters.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include "rules/semantic_extension/cardinality_search_action.hpp"
 

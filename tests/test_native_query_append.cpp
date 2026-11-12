@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -7,12 +7,8 @@
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include "strategy/representation_execution.hpp"
 
-#include <algorithm>
-#include <cstdio>
 #include <memory>
-#include <string>
 
-using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
 

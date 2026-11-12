@@ -2,7 +2,7 @@
 // constraint survives anonymous (id-0) additions, input restatement and
 // lazily published root units, so deletions stay compact `del id` lines.
 // Proof bytes are checked exactly; kernel cases also pin solver identities.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "temporary_file.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
@@ -13,15 +13,7 @@
 #include "rules/lucky/refutation_proof_sink.hpp"
 #include "rules/registry.hpp"
 
-#include <cassert>
 #include <cinttypes>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -73,7 +65,7 @@ size_t identity_specifications(const std::string &text) {
 }
 
 // (b) Anonymous constraints: exact literal-set registry, newest copy first.
-void test_anonymous_registry() {
+TEST(test_anonymous_registry) {
   TemporaryFile file;
   {
     Proof p;
@@ -114,7 +106,7 @@ void test_anonymous_registry() {
 
 // (b) A miss still abandons: a later tracked deletion falls back to the
 // specification, and the registry never offers a different literal set.
-void test_anonymous_registry_miss_abandons() {
+TEST(test_anonymous_registry_miss_abandons) {
   TemporaryFile file;
   {
     Proof p;
@@ -146,7 +138,7 @@ void test_anonymous_registry_miss_abandons() {
 // deleted by its exact input constraint and the id then names the
 // replacement; ID deletion stays enabled. Covers a wide replacement, a unit
 // replacing a repeated raw binary, and an identity prefix that continues.
-void test_restatement_rebinds_identity() {
+TEST(test_restatement_rebinds_identity) {
   TemporaryFile file;
   {
     Proof p;
@@ -185,7 +177,7 @@ void test_restatement_rebinds_identity() {
 
 // (c) Divergent input ids (an earlier derived unit consumed one) use the
 // explicit input map; the rebind names the raw clause's input ordinal.
-void test_restatement_rebinds_divergent_identity() {
+TEST(test_restatement_rebinds_divergent_identity) {
   TemporaryFile file;
   {
     Proof p;
@@ -217,7 +209,7 @@ void test_restatement_rebinds_divergent_identity() {
 }
 
 // (c) An unresolved restatement at the end of input abandons exact deletion.
-void test_unresolved_restatement_abandons() {
+TEST(test_unresolved_restatement_abandons) {
   TemporaryFile file;
   {
     Proof p;
@@ -241,7 +233,7 @@ void test_unresolved_restatement_abandons() {
 
 // (d) Staged root units: dropped before the empty clause, written in order
 // before any other event, and written when the stream ends unfinished.
-void test_deferred_root_units() {
+TEST(test_deferred_root_units) {
   {
     TemporaryFile file;
     {
@@ -325,7 +317,7 @@ void test_deferred_root_units() {
 
 // A repeated binary canonicalizes to a unit, so it is never a binary
 // specification that could match a tracked unit constraint.
-void test_repeated_binary_is_exact() {
+TEST(test_repeated_binary_is_exact) {
   TemporaryFile file;
   {
     Proof p;
@@ -345,7 +337,7 @@ void test_repeated_binary_is_exact() {
 
 // After the input identities diverge, a raw repeated binary is still tracked:
 // it canonicalizes to a unit, so its deletion is exact and keeps ID deletion.
-void test_repeated_binary_after_divergence() {
+TEST(test_repeated_binary_after_divergence) {
   TemporaryFile file;
   {
     Proof p;
@@ -372,7 +364,7 @@ void test_repeated_binary_after_divergence() {
 // Two input-time derivations split the input ids into two runs after the
 // identity prefix; each run names its inputs exactly, and a divergent ordinary
 // binary is still deleted by specification.
-void test_divergent_input_runs() {
+TEST(test_divergent_input_runs) {
   TemporaryFile file;
   {
     Proof p;
@@ -407,7 +399,7 @@ void test_divergent_input_runs() {
 // Each run's first and last input, the split ids between runs and the first id
 // past the last run resolve exactly; an ordinary binary of a later run stays
 // by specification; a deleted input's id may be reused by a derived constraint.
-void test_multiple_input_runs() {
+TEST(test_multiple_input_runs) {
   TemporaryFile file;
   {
     Proof p;
@@ -463,7 +455,7 @@ void test_multiple_input_runs() {
 
 // A stream whose ID deletion is disabled (a proof attached after replayed
 // input) deletes even tracked and input identities by specification.
-void test_disabled_id_deletions() {
+TEST(test_disabled_id_deletions) {
   TemporaryFile file;
   {
     Proof p;
@@ -490,7 +482,7 @@ void test_disabled_id_deletions() {
 
 // (a) A Lucky refutation sink erases its own additions by the ids they were
 // added with, so a terminal certificate keeps ID deletion.
-void test_refutation_sink_erases_by_id() {
+TEST(test_refutation_sink_erases_by_id) {
   TemporaryFile file;
   {
     Kernel k;
@@ -586,7 +578,7 @@ Parsed parse_with(const char *cnf, ProofFormat format) {
 
 // (d) A conflicting root propagation during input: no root unit is written
 // before the empty clause, while solver ids advance exactly as on DSR.
-void test_root_conflict_publishes_no_units() {
+TEST(test_root_conflict_publishes_no_units) {
   const char *cnf = "p cnf 4 5\n-1 2 0\n-2 3 0\n-3 4 0\n-4 -1 0\n1 0\n";
   const Parsed pbp = parse_with(cnf, ProofFormat::PbpStreaming);
   const Parsed dsr = parse_with(cnf, ProofFormat::DsrAscii);
@@ -603,7 +595,7 @@ void test_root_conflict_publishes_no_units() {
 // (c) Real input restatement through the parser: repeated literals and a
 // root-false literal. Both raw originals are deleted by exact input id and ID
 // deletion is never abandoned.
-void test_parser_restatement_keeps_ids() {
+TEST(test_parser_restatement_keeps_ids) {
   const char *cnf = "p cnf 6 4\n1 2 2 3 0\n4 0\n-4 5 6 1 0\n2 3 5 0\n";
   const Parsed pbp = parse_with(cnf, ProofFormat::PbpStreaming);
   assert(!pbp.inconsistent);
@@ -618,7 +610,7 @@ void test_parser_restatement_keeps_ids() {
 
 // (a) BVE definition: the lifted one-sided refutation's transient lemmas
 // (width >= 3 here) are retired by their tracked ids.
-void test_bve_definition_transients_by_id() {
+TEST(test_bve_definition_transients_by_id) {
   TemporaryFile proof_file;
   Kernel k;
   Proof proof;
@@ -659,21 +651,7 @@ int main(int argc, char **argv) {
     write_written_back_units(argv[1]);
     return 0;
   }
-  test_anonymous_registry();
-  test_anonymous_registry_miss_abandons();
-  test_restatement_rebinds_identity();
-  test_restatement_rebinds_divergent_identity();
-  test_unresolved_restatement_abandons();
-  test_deferred_root_units();
-  test_repeated_binary_is_exact();
-  test_repeated_binary_after_divergence();
-  test_divergent_input_runs();
-  test_multiple_input_runs();
-  test_disabled_id_deletions();
-  test_refutation_sink_erases_by_id();
-  test_root_conflict_publishes_no_units();
-  test_parser_restatement_keeps_ids();
-  test_bve_definition_transients_by_id();
+  run_tests();
   std::printf("test_pbp_deletion_identity: all cases passed\n");
   return 0;
 }

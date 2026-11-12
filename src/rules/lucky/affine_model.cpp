@@ -16,9 +16,6 @@ struct AffineScopeHash {
   }
 };
 }
-RuleEligibility affine_model_guard(const Kernel &k) {
-  return parity_model_guard(k);
-}
 ApplyResult affine_model_apply(Kernel &k) {
   const strategy::AffineModelParameters &s = k.affine_model_parameters;
   ++k.stats.affine_model_calls;

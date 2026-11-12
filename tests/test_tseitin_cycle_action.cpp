@@ -1,25 +1,14 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "tseitin_test_support.hpp"
 #include "temporary_file.hpp"
 #include "test_io.hpp"
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/online_inprocess.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tseitin_test;
 using CycleStatus = TseitinCycleBreakingStatus;
@@ -122,7 +111,7 @@ tseitin_cycle_live::Request request() {
 
 bool interrupted(void *) { return true; }
 
-void offers_all_components_and_applies_exact_selection() {
+TEST(offers_all_components_and_applies_exact_selection) {
   Fixture fixture(true);
   const auto first = fixture.offer();
   assert(first.status == CycleStatus::Applied);
@@ -151,7 +140,7 @@ void offers_all_components_and_applies_exact_selection() {
   assert(fixture.apply(first.offers[0]).status == CycleStatus::Inapplicable);
 }
 
-void stale_corrupt_rebound_and_limits_are_nonmutating() {
+TEST(stale_corrupt_rebound_and_limits_are_nonmutating) {
   {
     Journaled empty(0);
     const auto none = empty.offer();
@@ -208,7 +197,7 @@ void stale_corrupt_rebound_and_limits_are_nonmutating() {
   touched.unchanged();
 }
 
-void every_precommit_phase_is_interruptible() {
+TEST(every_precommit_phase_is_interruptible) {
   for (int phase = 0; phase < 3; ++phase) {
     Fixture fixture;
     auto bounded = limits();
@@ -263,7 +252,7 @@ void every_precommit_phase_is_interruptible() {
   assert(journal_stopped);
 }
 
-void selected_apply_is_independent_of_offer_aggregate_limits() {
+TEST(selected_apply_is_independent_of_offer_aggregate_limits) {
   Fixture fixture(true);
   const auto offered = fixture.offer();
   assert(offered.offers.size() == 2);
@@ -278,7 +267,7 @@ void selected_apply_is_independent_of_offer_aggregate_limits() {
          CycleStatus::Applied);
 }
 
-void semantic_duplicate_key_is_storage_order_independent() {
+TEST(semantic_duplicate_key_is_storage_order_independent) {
   Fixture ordered(false, false), reversed(false, true);
   assert(ordered.apply(ordered.only_offer()).status == CycleStatus::Applied);
   assert(reversed.apply(reversed.only_offer()).status == CycleStatus::Applied);
@@ -314,7 +303,7 @@ ProofRun apply_with_proof(ProofFormat format, const char *export_variable) {
   return {applied, fixture.kernel.stats, journal};
 }
 
-void dsr_and_unsupported_proof_contract() {
+TEST(dsr_and_unsupported_proof_contract) {
   const auto run = apply_with_proof(ProofFormat::DsrAscii,
                                     "TACTIX_TEST_TSEITIN_DSR_ASCII");
   // The planned accounting matches the helper route the DSR checkers replay.
@@ -367,7 +356,7 @@ void add_triangle(tactix_c_handle *solver) {
     }
 }
 
-void c_v7_is_backward_compatible_and_deep_copies_identity() {
+TEST(c_v7_is_backward_compatible_and_deep_copies_identity) {
   assert(std::strcmp(tactix_rule_name(38), "TseitinCycleBreaking") == 0);
   const auto reference = reference_inprocess_program();
   const auto reference_step = std::find_if(
@@ -487,7 +476,7 @@ void c_v7_is_backward_compatible_and_deep_copies_identity() {
   std::fclose(source_records);
 }
 
-void propagated_root_rebuilds_the_complete_component_census() {
+TEST(propagated_root_rebuilds_the_complete_component_census) {
   Journaled fixture(20);
   Kernel &kernel = fixture.kernel;
   add_equations(kernel, wide_cycle);
@@ -535,7 +524,7 @@ std::vector<int32_t> prepared_cycle(Kernel &kernel) {
 
 // With one edge assigned at the root, the action still offers and applies a
 // cycle; an assigned cycle edge moves preparation to an alternative cycle.
-void assigned_edges_select_an_available_cycle() {
+TEST(assigned_edges_select_an_available_cycle) {
   Kernel probe;
   kernel_reserve_vars(probe, 12);
   add_equations(probe, wide_cycle);
@@ -560,7 +549,7 @@ void assigned_edges_select_an_available_cycle() {
   }
 }
 
-void failed_component_encoding_consumes_identity_work() {
+TEST(failed_component_encoding_consumes_identity_work) {
   Journaled fixture(20);
   add_equations(fixture.kernel, wide_cycle);
   add_equations(fixture.kernel, tseitin_test::triangle, 6);
@@ -578,17 +567,3 @@ void failed_component_encoding_consumes_identity_work() {
 }
 
 } // namespace
-
-int main() {
-  offers_all_components_and_applies_exact_selection();
-  stale_corrupt_rebound_and_limits_are_nonmutating();
-  every_precommit_phase_is_interruptible();
-  selected_apply_is_independent_of_offer_aggregate_limits();
-  semantic_duplicate_key_is_storage_order_independent();
-  dsr_and_unsupported_proof_contract();
-  c_v7_is_backward_compatible_and_deep_copies_identity();
-  propagated_root_rebuilds_the_complete_component_census();
-  assigned_edges_select_an_available_cycle();
-  failed_component_encoding_consumes_identity_work();
-  std::puts("test_tseitin_cycle_action: passed");
-}

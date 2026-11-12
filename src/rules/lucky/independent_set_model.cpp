@@ -2,7 +2,6 @@
 
 #include "kernel/splitmix64.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 #include "strategy/configuration_checking_model.hpp"
 #include "strategy/rule_parameters.hpp"
 
@@ -367,10 +366,6 @@ bool build_assignment(Kernel &k,
 }
 
 } // namespace
-
-RuleEligibility independent_set_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult independent_set_model_apply(Kernel &k) {
   assert(independent_set_model_guard(k));

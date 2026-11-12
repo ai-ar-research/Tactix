@@ -60,16 +60,8 @@ struct Gf3AffineActionLimits {
 };
 
 enum class Gf3AffineActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoConsequence, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, AlreadyPublished, Applied
 };
 
 struct Gf3AffineActionEffort {

@@ -27,12 +27,7 @@ struct Limits {
 };
 
 enum class Status : uint8_t {
-  Invalid,
-  ResourceExhausted,
-  Interrupted,
-  NoEvent,
-  Conflict,
-  Implication,
+  Invalid, ResourceExhausted, Interrupted, NoEvent, Conflict, Implication
 };
 
 struct Result {

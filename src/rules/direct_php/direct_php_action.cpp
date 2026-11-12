@@ -1,5 +1,6 @@
 #include "rules/direct_php/direct_php_action.hpp"
 
+#include "rules/semantic_extension/interruptible_work.hpp"
 #include "rules/structural_action_guard.hpp"
 #include "strategy/action_status_mapping.hpp"
 #include "strategy/action_status_statistics.hpp"
@@ -56,39 +57,11 @@ void copy_effort(const direct_php_live::Result &live,
   effort.recognition_work = live.recognition_work;
 }
 
-struct ReplayMeter {
-  Kernel &kernel;
-  uint64_t maximum = 0;
-  uint64_t work = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (work > maximum || amount > maximum - work) {
-      exhausted = true;
-      return false;
-    }
-    work += amount;
-    return true;
-  }
-  // The status of a failed metered step: `otherwise` unless this meter was
-  // interrupted or ran out of budget.
-  DirectPhpActionStatus failure(DirectPhpActionStatus otherwise) const {
-    return interrupted ? DirectPhpActionStatus::Interrupted
-           : exhausted ? DirectPhpActionStatus::ResourceExhausted
-                       : otherwise;
-  }
-};
-
 // Prepared, or the reason the replay record could not be built.
 DirectPhpActionStatus build_record(
     const DirectPhpActionRequest &request,
     const direct_php_live::Admission &admission,
-    const direct_php_live::Transaction &transaction, ReplayMeter &meter,
+    const direct_php_live::Transaction &transaction, InterruptibleWork &meter,
     DirectPhpActionRecord &output) {
   DirectPhpActionRecord local;
   local.version = request.version;
@@ -96,20 +69,21 @@ DirectPhpActionStatus build_record(
   local.limits = request.limits;
 
   const auto &snapshot = admission.snapshot();
-  if (!meter.charge(1)) return meter.failure(DirectPhpActionStatus::Invalid);
+  if (!meter.charge(1))
+    return stopped_status(meter, DirectPhpActionStatus::Invalid);
   for (const auto &source : snapshot.sources)
     if (!meter.charge(uint64_t{1} + source.clause.size()))
-      return meter.failure(DirectPhpActionStatus::Invalid);
+      return stopped_status(meter, DirectPhpActionStatus::Invalid);
   for (const auto &premise : snapshot.premises)
     if (!meter.charge(uint64_t{1} + premise.literals.size()))
-      return meter.failure(DirectPhpActionStatus::Invalid);
+      return stopped_status(meter, DirectPhpActionStatus::Invalid);
 
   // Recount the replay events with the planner's own accounting rule; each
   // addition carries a fresh id and each deletion only the id it retires.
   direct_php_certificate::Accounting observed;
   for (const direct_php_live::ReplayEvent &event : transaction.events()) {
     if (!meter.charge(uint64_t{1} + event.clause.size()))
-      return meter.failure(DirectPhpActionStatus::Invalid);
+      return stopped_status(meter, DirectPhpActionStatus::Invalid);
     if ((event.kind == direct_php_certificate::EventKind::Delete
              ? !event.deleted_id || event.id
              : !event.id || event.deleted_id || event.source_occurrence) ||
@@ -191,11 +165,11 @@ DirectPhpActionResult direct_php_action_apply(
   if (live.status != LiveStatus::Prepared)
     return stopped_result(action_status(live.status), request, effort);
 
-  ReplayMeter meter{kernel, request.limits.maximum_replay_work};
+  InterruptibleWork meter{kernel, request.limits.maximum_replay_work};
   DirectPhpActionRecord record;
   const DirectPhpActionStatus built =
       build_record(request, admission, transaction, meter, record);
-  effort.replay_work = meter.work;
+  effort.replay_work = meter.used;
   if (built != DirectPhpActionStatus::Prepared)
     return stopped_result(built, request, effort, &transaction.accounting());
 

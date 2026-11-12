@@ -1,11 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
 
 static void fixture(bool hard,const std::string &prefix,const std::string &mode,bool dynamic) {

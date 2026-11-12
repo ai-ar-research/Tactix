@@ -1,6 +1,6 @@
 // Scheduling regression tests: each pins a Kissat/CaDiCaL reference formula
 // or an N1 obligation.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -8,14 +8,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
 
 static const RuleVTable *find_rule(const char *name) {
   for (const RuleVTable &r : tactix_rules())
@@ -42,7 +35,7 @@ enable_only(DefaultPolicy &p, Kernel &k, const char *name,
 }
 
 // Kissat mode.c:90, kimits.c:27: focused interval = modeint * nlogpown(count/2, 4).
-static void test_mode_growth_key_matches_kissat(void) {
+TEST(test_mode_growth_key_matches_kissat) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
@@ -72,13 +65,13 @@ static void test_mode_growth_key_matches_kissat(void) {
 }
 
 // Kissat bumpreasons: direct reasons only, bumpreasonsrate=10.
-static void test_reason_bump_defaults_match_kissat(void) {
+TEST(test_reason_bump_defaults_match_kissat) {
   DefaultPolicy p;
   assert(p.strategy_config().analysis.reason_depth == 1);
   assert(DefaultStrategyConfig::BUMP_REASON_RATE_DEFAULT == 10.0);
 }
 
-static void test_reason_bump_delay_lives_at_final_clause_gate(void) {
+TEST(test_reason_bump_delay_lives_at_final_clause_gate) {
   DefaultPolicy::ReasonBumpDelay delay{2, 2};
   // Conflict reuse and failed-literal analysis exit before Kissat calls
   // DELAYING(bumpreasons), so neither consumes the delay.
@@ -96,7 +89,7 @@ static void test_reason_bump_delay_lives_at_final_clause_gate(void) {
   assert(delay.count == 2 && delay.current == 2);
 }
 
-static void test_factor_material_gate_uses_literal_marks(void) {
+TEST(test_factor_material_gate_uses_literal_marks) {
   Kernel k;
   kernel_reserve_vars(k, 8);
   k.stats.conflicts = 1; // search-time call: the material gate is live
@@ -124,7 +117,7 @@ static void test_factor_material_gate_uses_literal_marks(void) {
   assert(factor->tm.dec_material == 2 && factor->tm.admitted == 1);
 }
 
-static void test_large_formula_factor_decline_is_solve_latched(void) {
+TEST(test_large_formula_factor_decline_is_solve_latched) {
   Kernel k;
   kernel_reserve_vars(k, 8);
   DefaultStrategyConfig cfg;
@@ -143,7 +136,7 @@ static void test_large_formula_factor_decline_is_solve_latched(void) {
   assert(factor->tm.dec_warmup == 2 && factor->tm.admitted == 0);
 }
 
-static void test_retier_schedule_advances_only_on_otfs_conflicts(void) {
+TEST(test_retier_schedule_advances_only_on_otfs_conflicts) {
   // The retier schedule step itself: deadline, geometric interval, pose.
   Kernel k;
   kernel_reserve_vars(k, 1);
@@ -214,7 +207,7 @@ static bool same_multiset(std::vector<uint64_t> a, std::vector<uint64_t> b) {
   return a == b;
 }
 
-static void test_slot_cursor_rotates(void) {
+TEST(test_slot_cursor_rotates) {
   Kernel k;
   build_transitive_fan_fixture(k);
   const RuleVTable *v4 = find_rule("TransitiveReduce");
@@ -262,7 +255,7 @@ static void test_slot_cursor_rotates(void) {
 }
 
 // N1: the cursor moves the start, never the set, and every order arm permutes.
-static void test_cursor_preserves_n1(void) {
+TEST(test_cursor_preserves_n1) {
   const RuleVTable *v4 = find_rule("TransitiveReduce");
   assert(v4 && v4->instances && v4->apply_instance);
 
@@ -325,7 +318,7 @@ static void test_cursor_preserves_n1(void) {
 }
 
 // Every arm moves something on a non-constant key; Native moves nothing.
-static void test_order_arms_reorder(void) {
+TEST(test_order_arms_reorder) {
   const RuleVTable *v4 = find_rule("TransitiveReduce");
   assert(v4 && v4->instances);
   Kernel k;
@@ -453,7 +446,7 @@ static void test_order_arms_reorder(void) {
 }
 
 // CaDiCaL subsume.cpp:86: subchecks counts partner visits, not candidates.
-static void test_subsume_meters_partner_visits(void) {
+TEST(test_subsume_meters_partner_visits) {
   Kernel k;
   kernel_reserve_vars(k, 8);
   // All 4-subsets of eight literals: 35 clauses sharing literals with partners.
@@ -483,7 +476,7 @@ static void test_subsume_meters_partner_visits(void) {
 
 // Kissat vivify.c:132: vivifyfocusedtiers=1 reads tier2, so Vivify's redundant
 // scope tracks Kernel::tier2.
-static void test_vivify_scope_tracks_tier2(void) {
+TEST(test_vivify_scope_tracks_tier2) {
   const RuleVTable *viv = find_rule("Vivify");
   assert(viv);
   auto candidates_at = [&](uint32_t tier2) {
@@ -512,7 +505,7 @@ static void test_vivify_scope_tracks_tier2(void) {
 
 // Kissat vivifyfocusedtiers=1: a Vivify dose reads the focused tier snapshot
 // even after a stable-mode OTFS retier.
-static void test_vivify_dose_poses_focused_tiers(void) {
+TEST(test_vivify_dose_poses_focused_tiers) {
   Kernel k;
   kernel_reserve_vars(k, 64);
   ScopedHeuristics h(k);
@@ -563,7 +556,7 @@ static void test_vivify_dose_poses_focused_tiers(void) {
 }
 
 // Kissat tier limits are cumulative: unused tier-1/tier-2 shares go to tier 3.
-static void test_vivify_dose_carries_early_tier_budget(void) {
+TEST(test_vivify_dose_carries_early_tier_budget) {
   Kernel k;
   kernel_reserve_vars(k, 160);
   ScopedHeuristics h(k);
@@ -588,7 +581,7 @@ static void test_vivify_dose_carries_early_tier_budget(void) {
 }
 
 // Equal tier-1/tier-2 limits fold tier 2 into tier 1 (vivify.c:kissat_vivify).
-static void test_vivify_dose_merges_tier2_into_tier1(void) {
+TEST(test_vivify_dose_merges_tier2_into_tier1) {
   Kernel k;
   kernel_reserve_vars(k, 160);
   ScopedHeuristics h(k);
@@ -619,7 +612,7 @@ static void test_vivify_dose_merges_tier2_into_tier1(void) {
 }
 
 // Kissat counts a pure subsumption as Vivify irredundant productivity.
-static void test_vivify_subsumption_reduces_irredundant_delay(void) {
+TEST(test_vivify_subsumption_reduces_irredundant_delay) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
@@ -643,7 +636,7 @@ static void test_vivify_subsumption_reduces_irredundant_delay(void) {
 
 // Kissat rates Sweep by kissat_average(eliminated, swept) over swept variables,
 // not candidate pairs.
-static void test_sweep_delay_rates_per_swept_variable(void) {
+TEST(test_sweep_delay_rates_per_swept_variable) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   ScopedHeuristics h(k);
@@ -722,7 +715,7 @@ enable_only_first_substitute(DefaultPolicy &p, Kernel &k) {
   return first;
 }
 
-static void test_substitute_budget_is_per_round_and_per_call(void) {
+TEST(test_substitute_budget_is_per_round_and_per_call) {
   Kernel k;
   ScopedHeuristics h(k);
   add_substitute_second_round_fixture(k);
@@ -741,7 +734,7 @@ static void test_substitute_budget_is_per_round_and_per_call(void) {
   assert(kernel_var_retired(k, 1) && kernel_var_retired(k, 2));
 }
 
-static void test_substitute_overshoot_stops_only_optional_round(void) {
+TEST(test_substitute_overshoot_stops_only_optional_round) {
   Kernel k;
   ScopedHeuristics h(k);
   add_substitute_second_round_fixture(k);
@@ -760,7 +753,7 @@ static void test_substitute_overshoot_stops_only_optional_round(void) {
   assert(kernel_var_retired(k, 1) && !kernel_var_retired(k, 2));
 }
 
-static void test_rule_boundary_deactivates_root_before_substitute_member(void) {
+TEST(test_rule_boundary_deactivates_root_before_substitute_member) {
   Kernel k;
   ScopedHeuristics h(k);
   k.h->stable = true;
@@ -791,7 +784,7 @@ static void test_rule_boundary_deactivates_root_before_substitute_member(void) {
 }
 
 // Every default Inprocess-tier rule has an authored slot or startup position.
-static void test_authored_slot_order_covers_registry(void) {
+TEST(test_authored_slot_order_covers_registry) {
   size_t norder = 0;
   const SlotOrderRow *order = default_slot_order(&norder);
   const DefaultStrategyConfig defaults;
@@ -836,7 +829,7 @@ static void test_authored_slot_order_covers_registry(void) {
 }
 
 // Inprocessing, Lucky and Walk need the root; other H-only operations do not.
-static void test_inprocess_registry_requires_root(void) {
+TEST(test_inprocess_registry_requires_root) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   ScopedHeuristics heuristics(k);
@@ -880,7 +873,7 @@ static void test_inprocess_registry_requires_root(void) {
   assert(switchmode.guard(k));
 }
 
-static void test_typed_program_preserves_default_and_composes_occurrences() {
+TEST(test_typed_program_preserves_default_and_composes_occurrences) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultStrategyConfig defaults;
@@ -955,7 +948,7 @@ static void test_typed_program_preserves_default_and_composes_occurrences() {
          forward->occurrence_limit == 13);
 }
 
-static void test_default_slot_membership_matches_kissat(void) {
+TEST(test_default_slot_membership_matches_kissat) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
@@ -1018,7 +1011,7 @@ static void test_default_slot_membership_matches_kissat(void) {
            "startup Probe interleaving diverged from Kissat");
 }
 
-static void test_default_structured_root_sequence_is_effective() {
+TEST(test_default_structured_root_sequence_is_effective) {
   for (const bool before_lucky : {false, true}) {
   Kernel k;
   kernel_defer_cold_state(k);
@@ -1062,7 +1055,7 @@ static void test_default_structured_root_sequence_is_effective() {
   }
 }
 
-static void test_structured_root_exhaustion_finishes_selected_scope() {
+TEST(test_structured_root_exhaustion_finishes_selected_scope) {
   using namespace strategy;
   for (const auto disposition : {BudgetExhaustionPolicy::Stop,
                                  BudgetExhaustionPolicy::Continue,
@@ -1112,7 +1105,7 @@ static void test_structured_root_exhaustion_finishes_selected_scope() {
   }
 }
 
-static void test_structured_root_publishes_before_probe_slots() {
+TEST(test_structured_root_publishes_before_probe_slots) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const auto add_binary = [&](int first, int second) {
@@ -1147,7 +1140,7 @@ static void test_structured_root_publishes_before_probe_slots() {
 
 // Kissat probe.c:85 (probeint NLOGN) and eliminate.c:600 (eliminateint NLOG2N):
 // the probe clock fires sooner and the gap widens.
-static void test_two_slot_clocks_diverge(void) {
+TEST(test_two_slot_clocks_diverge) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
@@ -1182,7 +1175,7 @@ static void test_two_slot_clocks_diverge(void) {
 
 // Kissat start_search: the first Eliminate deadline (eliminateinit=500) is
 // scaled after preprocessing and due at equality.
-static void test_initial_elimination_deadline_matches_kissat(void) {
+TEST(test_initial_elimination_deadline_matches_kissat) {
   Kernel k;
   kernel_reserve_vars(k, 12);
   const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
@@ -1214,7 +1207,7 @@ static void test_initial_elimination_deadline_matches_kissat(void) {
          "Kissat Eliminate enters at the stored conflict limit");
 }
 
-static void test_bve_default_order_adds_search_relevancy() {
+TEST(test_bve_default_order_adds_search_relevancy) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
@@ -1248,7 +1241,7 @@ static void test_bve_default_order_adds_search_relevancy() {
   assert(kernel_externalize(k, third) == 1);
 }
 
-static void test_bve_score_preserves_kissat_binary64_pose() {
+TEST(test_bve_score_preserves_kissat_binary64_pose) {
   // Kissat's named-intermediate binary64 pose rounds these two scores equal.
   constexpr double relevance_a = 0x1.800cf1d2bfffep+2;
   constexpr double relevance_b = 0x1.800cf1d2bfffdp+2;
@@ -1259,7 +1252,7 @@ static void test_bve_score_preserves_kissat_binary64_pose() {
 }
 
 // kissat_scale_delta(C+1) through kissat_logn adds nine: log10(C+10).
-static void test_inprocess_scale_keeps_kissat_logn_offset(void) {
+TEST(test_inprocess_scale_keeps_kissat_logn_offset) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
@@ -1277,7 +1270,7 @@ static void test_inprocess_scale_keeps_kissat_logn_offset(void) {
 }
 
 // Kimits BINIRR_CLAUSES counts live binaries, not archived binary ids.
-static void test_inprocess_scale_ignores_deleted_binary_ids(void) {
+TEST(test_inprocess_scale_ignores_deleted_binary_ids) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -1289,7 +1282,7 @@ static void test_inprocess_scale_ignores_deleted_binary_ids(void) {
          "scaled inprocessing deadlines count live binaries only");
 }
 
-static void test_congruence_preprocess_bumps_first_search_delay(void) {
+TEST(test_congruence_preprocess_bumps_first_search_delay) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   // Isolate the Congruence delay from structured startup.
@@ -1320,7 +1313,7 @@ static void test_congruence_preprocess_bumps_first_search_delay(void) {
 
 // Kissat eliminate.c:33-38, CaDiCaL elim.cpp:75-81 and probe.cpp:23: a phase
 // needs new material (or a reduce for probing) besides the elapsed interval.
-static void test_slot_gates_decline_without_new_material(void) {
+TEST(test_slot_gates_decline_without_new_material) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
@@ -1365,7 +1358,7 @@ static void test_slot_gates_decline_without_new_material(void) {
 }
 
 // Kissat's Reduce timestamp suppresses both phases only at that conflict.
-static void test_reduce_suppresses_same_conflict_phases(void) {
+TEST(test_reduce_suppresses_same_conflict_phases) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
@@ -1396,7 +1389,7 @@ static void test_reduce_suppresses_same_conflict_phases(void) {
 
 // Kissat kimits.h:135-170 SET_EFFORT_LIMIT: limit = counter + effort/1000 *
 // max(search ticks since the phase anchor, mineffort), no clamps.
-static void test_effort_limit_is_kissats(void) {
+TEST(test_effort_limit_is_kissats) {
   const RuleVTable *bve = find_rule("BVE");
   assert(bve);
   Kernel k;
@@ -1435,7 +1428,7 @@ static void test_effort_limit_is_kissats(void) {
          "per-mille scaling truncated the reference before multiplication");
 }
 
-static void test_first_search_effort_keeps_input_propagation_ticks(void) {
+TEST(test_first_search_effort_keeps_input_propagation_ticks) {
   Kernel k;
   kernel_reserve_vars(k, 64);
   // Pre-solve input propagation ticks belong to the first effort reference.
@@ -1464,7 +1457,7 @@ static void test_first_search_effort_keeps_input_propagation_ticks(void) {
          "first Eliminate dose dropped pre-solve input-propagation ticks");
 }
 
-static void test_eliminate_sparse_resume_replays_root_suffix_as_search(void) {
+TEST(test_eliminate_sparse_resume_replays_root_suffix_as_search) {
   const auto run = [](bool charge_search_ticks) {
     Kernel k;
     kernel_reserve_vars(k, 3);
@@ -1492,7 +1485,7 @@ static void test_eliminate_sparse_resume_replays_root_suffix_as_search(void) {
          "probing resume must keep its scans out of search tick currency");
 }
 
-static void test_preprocess_is_reduced_and_bounded(void) {
+TEST(test_preprocess_is_reduced_and_bounded) {
   Kernel k;
   kernel_reserve_vars(k, 64);
   ScopedHeuristics heuristics(k);
@@ -1528,7 +1521,7 @@ static void test_preprocess_is_reduced_and_bounded(void) {
          "preprocessing Factor must receive Kissat's first-dose allowance");
 }
 
-static void test_initial_fast_elimination_composes_only_proof_rules(void) {
+TEST(test_initial_fast_elimination_composes_only_proof_rules) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -1577,7 +1570,7 @@ static int fastel_owning_all(DefaultPolicy &p, Kernel &k, bool grew_root,
        static_cast<uint32_t>(k.external_to_internal.size()), symmetry});
 }
 
-static void test_initial_fast_elimination_budgets_discovery_before_mutation(void) {
+TEST(test_initial_fast_elimination_budgets_discovery_before_mutation) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -1613,7 +1606,7 @@ static void test_initial_fast_elimination_budgets_discovery_before_mutation(void
   kernel_check_invariants(owned);
 }
 
-static void test_structured_startup_records_coupled_factor_range(void) {
+TEST(test_structured_startup_records_coupled_factor_range) {
   Kernel k;
   kernel_reserve_vars(k, 7);
   ScopedHeuristics heuristics(k);
@@ -1667,7 +1660,7 @@ static void test_structured_startup_records_coupled_factor_range(void) {
   kernel_check_invariants(k);
 }
 
-static void test_initial_fast_elimination_defers_solver_extensions(void) {
+TEST(test_initial_fast_elimination_defers_solver_extensions) {
   {
     Kernel plain;
     kernel_reserve_vars(plain, 4);
@@ -1857,7 +1850,7 @@ static void test_initial_fast_elimination_defers_solver_extensions(void) {
   }
 }
 
-static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
+TEST(test_initial_fast_elimination_keeps_owner_candidate_order) {
   Kernel k;
   kernel_reserve_vars(k, 10);
 
@@ -1907,7 +1900,7 @@ static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
   kernel_check_invariants(k);
 }
 
-static void test_preprocess_followup_truth_table(void) {
+TEST(test_preprocess_followup_truth_table) {
   using M = FollowupMode;
   using K = FollowupKind;
   const auto mode = DefaultInprocessScheduler::preprocessing_followup_mode;
@@ -1921,7 +1914,7 @@ static void test_preprocess_followup_truth_table(void) {
   assert(mode(K::AfterSweepOrFinal, true, true) == M::Eager);
 }
 
-static void test_preprocess_final_followup_is_observed(void) {
+TEST(test_preprocess_final_followup_is_observed) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
@@ -1942,7 +1935,7 @@ static void test_preprocess_final_followup_is_observed(void) {
   assert(seen == 2);
 }
 
-static void test_inprocess_does_not_save_probe_phases(void) {
+TEST(test_inprocess_does_not_save_probe_phases) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 3);
@@ -1968,7 +1961,7 @@ static void test_inprocess_does_not_save_probe_phases(void) {
          "DefaultPolicy must wire the named BVE antecedent-size limit");
 }
 
-static void test_probe_entry_does_not_snapshot_target_phases(void) {
+TEST(test_probe_entry_does_not_snapshot_target_phases) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 3);
@@ -1995,7 +1988,7 @@ static void test_probe_entry_does_not_snapshot_target_phases(void) {
          "must not overwrite target phases");
 }
 
-static void test_jump_reason_formula_classification(void) {
+TEST(test_jump_reason_formula_classification) {
   const auto add_chain = [](Kernel &k) {
     kernel_reserve_vars(k, 3);
     const Lit p = internalize(1), q = internalize(2), r = internalize(3);
@@ -2046,7 +2039,7 @@ static void test_jump_reason_formula_classification(void) {
   assert(learned.assigned[var_of(r)].reason == p);
 }
 
-static void test_preprocess_followup_typed_arm(void) {
+TEST(test_preprocess_followup_typed_arm) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultStrategyConfig config;
@@ -2065,7 +2058,7 @@ static void test_preprocess_followup_typed_arm(void) {
   assert(seen == 2);
 }
 
-static void test_reorder_ships_in_both_modes(void) {
+TEST(test_reorder_ships_in_both_modes) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   ScopedHeuristics h(k);
@@ -2080,7 +2073,7 @@ static void test_reorder_ships_in_both_modes(void) {
   assert(!p.want_reorder(k) && "the scheduled event remains root-only");
 }
 
-static void test_startup_sparse_collection_precedes_probe(void) {
+TEST(test_startup_sparse_collection_precedes_probe) {
   Kernel k;
   kernel_reserve_vars(k, 7);
   kernel_assign_unit(k, internalize(1));
@@ -2112,7 +2105,7 @@ static void test_startup_sparse_collection_precedes_probe(void) {
          "startup collection is scaffolding, not an authored C2 slot");
 }
 
-static void test_eliminate_owns_physical_dense_transition() {
+TEST(test_eliminate_owns_physical_dense_transition) {
   struct Observe : CandidateOrderPolicy {
     bool called = false, connected = false;
     uint32_t large_words = 0;
@@ -2169,62 +2162,4 @@ static void test_eliminate_owns_physical_dense_transition() {
   assert(large_after == large_before && binary_after == binary_before &&
          "phase exit must restore the ordinary sparse watches");
   kernel_check_invariants(k);
-}
-
-int main() {
-  test_eliminate_owns_physical_dense_transition();
-  test_mode_growth_key_matches_kissat();
-  test_reason_bump_defaults_match_kissat();
-  test_reason_bump_delay_lives_at_final_clause_gate();
-  test_factor_material_gate_uses_literal_marks();
-  test_large_formula_factor_decline_is_solve_latched();
-  test_retier_schedule_advances_only_on_otfs_conflicts();
-  test_effort_limit_is_kissats();
-  test_first_search_effort_keeps_input_propagation_ticks();
-  test_eliminate_sparse_resume_replays_root_suffix_as_search();
-  test_preprocess_is_reduced_and_bounded();
-  test_initial_fast_elimination_composes_only_proof_rules();
-  test_initial_fast_elimination_budgets_discovery_before_mutation();
-  test_structured_startup_records_coupled_factor_range();
-  test_initial_fast_elimination_defers_solver_extensions();
-  test_initial_fast_elimination_keeps_owner_candidate_order();
-  test_preprocess_followup_truth_table();
-  test_preprocess_final_followup_is_observed();
-  test_inprocess_does_not_save_probe_phases();
-  test_probe_entry_does_not_snapshot_target_phases();
-  test_jump_reason_formula_classification();
-  test_preprocess_followup_typed_arm();
-  test_reorder_ships_in_both_modes();
-  test_startup_sparse_collection_precedes_probe();
-  test_slot_cursor_rotates();
-  test_cursor_preserves_n1();
-  test_order_arms_reorder();
-  test_subsume_meters_partner_visits();
-  test_vivify_scope_tracks_tier2();
-  test_vivify_dose_poses_focused_tiers();
-  test_vivify_dose_merges_tier2_into_tier1();
-  test_vivify_dose_carries_early_tier_budget();
-  test_vivify_subsumption_reduces_irredundant_delay();
-  test_sweep_delay_rates_per_swept_variable();
-  test_substitute_budget_is_per_round_and_per_call();
-  test_substitute_overshoot_stops_only_optional_round();
-  test_rule_boundary_deactivates_root_before_substitute_member();
-  test_authored_slot_order_covers_registry();
-  test_inprocess_registry_requires_root();
-  test_typed_program_preserves_default_and_composes_occurrences();
-  test_default_slot_membership_matches_kissat();
-  test_default_structured_root_sequence_is_effective();
-  test_structured_root_exhaustion_finishes_selected_scope();
-  test_structured_root_publishes_before_probe_slots();
-  test_two_slot_clocks_diverge();
-  test_initial_elimination_deadline_matches_kissat();
-  test_bve_default_order_adds_search_relevancy();
-  test_bve_score_preserves_kissat_binary64_pose();
-  test_inprocess_scale_keeps_kissat_logn_offset();
-  test_inprocess_scale_ignores_deleted_binary_ids();
-  test_congruence_preprocess_bumps_first_search_delay();
-  test_slot_gates_decline_without_new_material();
-  test_reduce_suppresses_same_conflict_phases();
-  std::printf("test_scheduling: all passed\n");
-  return 0;
 }

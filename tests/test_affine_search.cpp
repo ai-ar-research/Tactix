@@ -1,8 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "engine/affine/syndrome_search.hpp"
-#include <cassert>
 #include <set>
-#include <cstdio>
 using namespace tactix::strategy::affine;
 struct TestLimits : SearchLimits {
   TestLimits(size_t split,size_t left,size_t right,size_t total,uint64_t entries,

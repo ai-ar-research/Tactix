@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "population/population_observer.hpp"
@@ -7,14 +7,7 @@
 #include "rules/substitute/substitute.hpp"
 
 #include <array>
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
 #include <unistd.h>
-
-using namespace tactix;
 
 namespace {
 
@@ -226,7 +219,7 @@ Lit lit(int dimacs) {
   return internalize(dimacs);
 }
 
-void test_no_proof_raw_and_solver_population() {
+TEST(test_no_proof_raw_and_solver_population) {
   Kernel kernel;
   Recorder recorder;
   {
@@ -299,7 +292,7 @@ void test_no_proof_raw_and_solver_population() {
          0);
 }
 
-void test_raw_empty_and_long_tautology_classification() {
+TEST(test_raw_empty_and_long_tautology_classification) {
   {
     Kernel kernel;
     Recorder recorder;
@@ -335,7 +328,7 @@ void test_raw_empty_and_long_tautology_classification() {
   }
 }
 
-void test_duplicate_unit_and_large_input_classification() {
+TEST(test_duplicate_unit_and_large_input_classification) {
   Kernel kernel;
   Recorder recorder;
   {
@@ -377,7 +370,7 @@ void test_duplicate_unit_and_large_input_classification() {
   assert(large_adds == 2);
 }
 
-void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
+TEST(test_proof_route_lifecycle_and_streaming_pbp_unbind) {
   {
     Proof proof;
     Recorder recorder;
@@ -449,7 +442,7 @@ void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
   }
 }
 
-void test_explicit_route_rebind_settles_the_original_observer() {
+TEST(test_explicit_route_rebind_settles_the_original_observer) {
   Kernel kernel;
   Recorder first, second;
   const std::string path = proof_path("explicit-rebind");
@@ -492,7 +485,7 @@ void test_explicit_route_rebind_settles_the_original_observer() {
   assert(std::remove(path.c_str()) == 0);
 }
 
-void test_nested_scoped_rebind_settles_each_observer() {
+TEST(test_nested_scoped_rebind_settles_each_observer) {
   Kernel kernel;
   Recorder outer, inner;
   const std::string path = proof_path("nested-rebind");
@@ -536,7 +529,7 @@ void test_nested_scoped_rebind_settles_each_observer() {
              CheckerPopulationEventKind::ObserverUnboundIncomplete) == 0);
 }
 
-void test_dsr_checker_transactions_and_exact_clauses() {
+TEST(test_dsr_checker_transactions_and_exact_clauses) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 6);
   Recorder recorder;
@@ -685,7 +678,7 @@ void test_dsr_checker_transactions_and_exact_clauses() {
   assert(solver_materialized);
 }
 
-void test_external_clauses() {
+TEST(test_external_clauses) {
   Kernel kernel;
   Recorder recorder;
   const std::string path = proof_path("external");
@@ -717,7 +710,7 @@ void test_external_clauses() {
   assert(external_add && external_delete);
 }
 
-void test_kernel_mutation_endpoints_and_representation_silence() {
+TEST(test_kernel_mutation_endpoints_and_representation_silence) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 8);
   Recorder recorder;
@@ -796,7 +789,7 @@ void test_kernel_mutation_endpoints_and_representation_silence() {
   assert(one_copy && two_duplicate_copies && two_all_copies);
 }
 
-void test_metadata_promotion_and_empty_unit_replacements() {
+TEST(test_metadata_promotion_and_empty_unit_replacements) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 9);
   Recorder recorder;
@@ -849,7 +842,7 @@ void test_metadata_promotion_and_empty_unit_replacements() {
   assert(empty_end && unit_end);
 }
 
-void test_rebuilt_binary_publication_endpoints() {
+TEST(test_rebuilt_binary_publication_endpoints) {
   for (const BinaryPopulationEffect effect : {
            BinaryPopulationEffect::RepresentationOnly,
            BinaryPopulationEffect::LogicalAdd}) {
@@ -876,7 +869,7 @@ void test_rebuilt_binary_publication_endpoints() {
   }
 }
 
-void test_variable_compaction_is_population_silent() {
+TEST(test_variable_compaction_is_population_silent) {
   Kernel kernel;
   ScopedHeuristics heuristics(kernel);
   kernel_reserve_vars(kernel, 3);
@@ -898,7 +891,7 @@ void test_variable_compaction_is_population_silent() {
                             kernel_internalize(kernel, 3)));
 }
 
-void test_substitute_binary_population_rewrite() {
+TEST(test_substitute_binary_population_rewrite) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 3);
   // x1 <-> x2, plus a payload clause that must become (x1 v x3).
@@ -965,7 +958,7 @@ void assert_one_committed_binary_transaction(const Recorder &recorder) {
   assert(begin < commit && transaction != 0);
 }
 
-void test_substitute_transaction_preexisting_coalescing_and_duplicates() {
+TEST(test_substitute_transaction_preexisting_coalescing_and_duplicates) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 3);
   kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
@@ -997,7 +990,7 @@ void test_substitute_transaction_preexisting_coalescing_and_duplicates() {
   assert(kernel_binary_copies(kernel, lit(1), lit(3)) == 3);
 }
 
-void test_substitute_proof_transaction() {
+TEST(test_substitute_proof_transaction) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 3);
   Recorder recorder;
@@ -1023,7 +1016,7 @@ void test_substitute_proof_transaction() {
   assert_one_committed_binary_transaction(recorder);
 }
 
-void test_substitute_transaction_collapse_and_tautology() {
+TEST(test_substitute_transaction_collapse_and_tautology) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 2);
   kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
@@ -1057,7 +1050,7 @@ void test_substitute_transaction_collapse_and_tautology() {
   assert(kernel.value(lit(1)) > 0);
 }
 
-void test_substitute_sweep_session_callbacks_see_mirrored_watches() {
+TEST(test_substitute_sweep_session_callbacks_see_mirrored_watches) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 4);
   // Two independently retired endpoints force the session path to rebuild
@@ -1098,7 +1091,7 @@ void test_substitute_sweep_session_callbacks_see_mirrored_watches() {
   kernel_dense_disconnect(kernel);
 }
 
-void test_scope_flushes_before_unbinding() {
+TEST(test_scope_flushes_before_unbinding) {
   Kernel kernel;
   Recorder recorder;
   const std::string path = proof_path("scope");
@@ -1124,7 +1117,7 @@ void test_scope_flushes_before_unbinding() {
          CheckerPopulationEventKind::ObserverUnbound);
 }
 
-static void test_forwarding_binding_and_all_seams() {
+TEST(test_forwarding_binding_and_all_seams) {
   struct Owner final : PopulationObserver {
     unsigned binds=0, unbinds=0, raw=0, checker=0, solver=0, replacements=0, weakening=0;
     void observe_binding(const Kernel &,bool bound) noexcept override {bound?++binds:++unbinds;}
@@ -1159,26 +1152,3 @@ static void test_forwarding_binding_and_all_seams() {
 }
 
 } // namespace
-
-int main() {
-  test_forwarding_binding_and_all_seams();
-  test_no_proof_raw_and_solver_population();
-  test_raw_empty_and_long_tautology_classification();
-  test_duplicate_unit_and_large_input_classification();
-  test_proof_route_lifecycle_and_streaming_pbp_unbind();
-  test_explicit_route_rebind_settles_the_original_observer();
-  test_nested_scoped_rebind_settles_each_observer();
-  test_dsr_checker_transactions_and_exact_clauses();
-  test_external_clauses();
-  test_kernel_mutation_endpoints_and_representation_silence();
-  test_metadata_promotion_and_empty_unit_replacements();
-  test_rebuilt_binary_publication_endpoints();
-  test_variable_compaction_is_population_silent();
-  test_substitute_binary_population_rewrite();
-  test_substitute_transaction_preexisting_coalescing_and_duplicates();
-  test_substitute_proof_transaction();
-  test_substitute_transaction_collapse_and_tautology();
-  test_substitute_sweep_session_callbacks_see_mirrored_watches();
-  test_scope_flushes_before_unbinding();
-  return 0;
-}

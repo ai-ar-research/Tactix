@@ -1,19 +1,11 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "api/api_internal.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/online_sequence.hpp"
 #include "policies/strategy_settings.hpp"
 #include "query_test_support.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
 #include <iostream>
-#include <string>
-using namespace tactix;
 using namespace tactix::strategy;
 
 static void readers() {

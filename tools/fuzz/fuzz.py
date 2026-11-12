@@ -460,10 +460,8 @@ REACH_SPECS = [
     ("Reorder", r"^c reordered\s+\d+ eligible, (\d+) decision"),
     ("SwitchMode", r"^c mode\s+\S+ after (\d+) switches"),
     # PATH rows, not registry rules (the conformance check only requires the
-    # registry->row direction). Added after the 2026-08-08 wrong-SAT: the
-    # backward pass's strengthen-to-unit branch dropped its unit while every
-    # leg was green, because nothing counted the branch at the source — a
-    # green leg proves nothing about a path no counter shows was reached.
+    # registry->row direction): a green leg proves nothing about a path no
+    # counter shows was reached, such as BVE's strengthen-to-unit branch.
     ("BveBackward", r"^c bve-bwd\s+(\d+) subsumers"),
     ("BveBackwardUnit",
      r"^c bve-bwd\s+\d+ subsumers, \d+ subsumed, \d+ strengthened, (\d+) units"),

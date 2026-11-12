@@ -54,15 +54,16 @@ struct Meter {
   bool operator()(uint64_t amount) { return charge(amount); }
 };
 
-bool capture_source(Kernel &k, const ExactCoverLiveRequest &request,
+bool capture_source(Kernel &k,
+                    const strategy::ExactCoverExtensionParameters &limits,
                     uint64_t &work, std::vector<Premise> &source,
                     uint64_t &clause_count, uint64_t &literal_count,
                     ExactCoverLiveStatus &failure) {
   std::vector<SourceClause> captured;
-  Meter charge{k, request.maximum_recognition_work, work, failure};
+  Meter charge{k, limits.maximum_recognition_work, work, failure};
   const auto take = [&](const Lit *literals, uint32_t size, uint64_t id) {
-    if (captured.size() == request.maximum_source_clauses ||
-        size > request.maximum_source_literals - literal_count) {
+    if (captured.size() == limits.maximum_source_clauses ||
+        size > limits.maximum_source_literals - literal_count) {
       failure = ExactCoverLiveStatus::ResourceExhausted;
       return false;
     }
@@ -99,13 +100,13 @@ bool capture_source(Kernel &k, const ExactCoverLiveRequest &request,
 ExactCoverLiveResult exact_cover_live_apply(
     Kernel &k, const ExactCoverLiveRequest &request) {
   ExactCoverLiveResult result;
-  if (request.arity < 3 || !request.maximum_items ||
-      !request.maximum_source_clauses || !request.maximum_source_literals ||
-      !request.maximum_recognition_work ||
-      !request.maximum_premise_references || !request.maximum_definitions ||
-      !request.maximum_additions || !request.maximum_literal_occurrences ||
-      !request.maximum_journal_bytes ||
-      !request.maximum_extent_growth || !request.maximum_external_extent ||
+  const auto &limits = request.limits;
+  if (limits.arity < 3 || !limits.maximum_items ||
+      !limits.maximum_source_clauses || !limits.maximum_source_literals ||
+      !limits.maximum_recognition_work || !limits.maximum_premise_references ||
+      !limits.maximum_definitions || !limits.maximum_additions ||
+      !limits.maximum_literal_occurrences || !limits.maximum_journal_bytes ||
+      !limits.maximum_extent_growth || !limits.maximum_external_extent ||
       !request.action_id || !request.records || !request.session)
     return result;
   if (k.proof && k.proof->startup_pb_written()) {
@@ -127,7 +128,7 @@ ExactCoverLiveResult exact_cover_live_apply(
   uint64_t work = 0, source_clauses = 0, source_literals = 0;
   std::vector<Premise> source;
   ExactCoverLiveStatus failure = ExactCoverLiveStatus::NoStructure;
-  if (!capture_source(k, request, work, source, source_clauses,
+  if (!capture_source(k, limits, work, source, source_clauses,
                       source_literals, failure) || source.empty()) {
     result.status = failure;
     result.source_clauses = source_clauses;
@@ -139,23 +140,23 @@ ExactCoverLiveResult exact_cover_live_apply(
   result.source_literals = source_literals;
 
   BatchPlanningRequest planning;
-  planning.arity = request.arity;
-  planning.maximum_items = request.maximum_items;
-  planning.maximum_source_clauses = request.maximum_source_clauses;
-  planning.maximum_source_literals = request.maximum_source_literals;
-  planning.maximum_premise_references = request.maximum_premise_references;
-  planning.maximum_definitions = request.maximum_definitions;
-  planning.maximum_additions = request.maximum_additions;
-  planning.maximum_literal_occurrences = request.maximum_literal_occurrences;
-  planning.maximum_extent_growth = request.maximum_extent_growth;
+  planning.arity = limits.arity;
+  planning.maximum_items = limits.maximum_items;
+  planning.maximum_source_clauses = limits.maximum_source_clauses;
+  planning.maximum_source_literals = limits.maximum_source_literals;
+  planning.maximum_premise_references = limits.maximum_premise_references;
+  planning.maximum_definitions = limits.maximum_definitions;
+  planning.maximum_additions = limits.maximum_additions;
+  planning.maximum_literal_occurrences = limits.maximum_literal_occurrences;
+  planning.maximum_extent_growth = limits.maximum_extent_growth;
   planning.first_output_external =
       static_cast<uint32_t>(k.external_to_internal.size() + 1);
-  planning.maximum_external_extent = request.maximum_external_extent;
+  planning.maximum_external_extent = limits.maximum_external_extent;
   planning.action_id = request.action_id;
   BatchPlan plan;
   exact_cover_semantic::BatchPlanningStatus planning_status =
       exact_cover_semantic::BatchPlanningStatus::Invalid;
-  Meter charge{k, request.maximum_recognition_work, work, failure};
+  Meter charge{k, limits.maximum_recognition_work, work, failure};
   const auto decline = [&](ExactCoverLiveStatus status) {
     result.status = status;
     result.recognition_work = work;
@@ -210,7 +211,7 @@ ExactCoverLiveResult exact_cover_live_apply(
   std::vector<Premise> current_source;
   uint64_t current_clauses = 0, current_literals = 0;
   failure = ExactCoverLiveStatus::Stale;
-  if (!capture_source(k, request, work, current_source, current_clauses,
+  if (!capture_source(k, limits, work, current_source, current_clauses,
                       current_literals, failure)) {
     result.status = failure;
     result.recognition_work = work;
@@ -225,7 +226,7 @@ ExactCoverLiveResult exact_cover_live_apply(
   }
 
   const auto published = exact_cover_semantic::publish_batch(
-      k, plan, {request.action_id, request.maximum_journal_bytes,
+      k, plan, {request.action_id, limits.maximum_journal_bytes,
                 request.records});
   if (published.result != ApplyResult::Ok) {
     using enum exact_cover_semantic::BatchPublicationStatus;

@@ -1,7 +1,5 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "gf3_formula_support.hpp"
 #include "temporary_file.hpp"
 #include "dimacs_text.hpp"
@@ -10,13 +8,8 @@
 #include "rules/propagate/propagate.hpp"
 #include "strategy/online_inprocess.hpp"
 
-#include <cassert>
 #include <fstream>
-#include <algorithm>
-#include <string>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 namespace {
@@ -46,7 +39,7 @@ Gf3GeneralRowActionSelection first_selection(Kernel &kernel) {
   return candidates.front().selection;
 }
 
-void executor_requires_propagate_and_emits_dsr() {
+TEST(executor_requires_propagate_and_emits_dsr) {
   Bound source;
   OnlineInvocation step;
   step.id = 32;
@@ -114,7 +107,7 @@ bool apply_search_implication(Kernel &kernel,
   return implied;
 }
 
-void replay_atomic_apply_and_search_implication() {
+TEST(replay_atomic_apply_and_search_implication) {
   Bound b;
   const auto first = first_selection(b.kernel);
   const uint64_t before = b.kernel.next_clause_id;
@@ -138,7 +131,7 @@ void replay_atomic_apply_and_search_implication() {
   assert(apply_search_implication(b.kernel, b.session));
 }
 
-void c_v11_deep_copies_typed_selection() {
+TEST(c_v11_deep_copies_typed_selection) {
   Bound source;
   const auto first = first_selection(source.kernel);
   std::string identity = first.identity;
@@ -245,9 +238,7 @@ int main(int argc, char **argv) {
   });
   assert(step != reference.end() &&
          step->rule == "Gf3GeneralRowConsequence" && !step->enabled);
-  replay_atomic_apply_and_search_implication();
-  executor_requires_propagate_and_emits_dsr();
-  c_v11_deep_copies_typed_selection();
+  run_tests();
   if (argc == 3) emit_public_fixture(argv[1], argv[2], false);
   else if (argc == 4 && std::string(argv[1]) == "--proof-search")
     emit_public_fixture(argv[2], argv[3], true);

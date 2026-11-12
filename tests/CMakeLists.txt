@@ -1,7 +1,12 @@
-# Unit tests: plain asserts, no framework. A conventional C++ test
-# (test_<name>.cpp -> executable test_<name> linked to tactix_lib, CTest <name>)
-# is registered by the glob at the end; only targets with extra sources, include
-# paths, properties, arguments or a special name are declared explicitly.
+# Unit tests: plain asserts and the TEST registry of unit_test.hpp. A
+# conventional C++ test (test_<name>.cpp -> executable test_<name> linked to
+# tactix_lib, CTest <name>) is registered by the glob at the end; only targets
+# with extra sources, include paths, properties, arguments or a special name are
+# declared explicitly.
+
+# The main() of a test file that defines none; an archive, so a test's own
+# main() takes precedence.
+add_library(tactix_test_main STATIC unit_test_main.cpp)
 
 set(TACTIX_PYTHON ${CMAKE_COMMAND} -E env python3)
 
@@ -172,7 +177,8 @@ target_include_directories(test_symmetry_backend PRIVATE ${CMAKE_SOURCE_DIR}/src
 target_include_directories(test_symmetry_backend SYSTEM PRIVATE
   ${CMAKE_SOURCE_DIR}/third_party/dejavu-4c275e9)
 target_compile_options(test_symmetry_backend PRIVATE -fexceptions -frtti)
-target_link_libraries(test_symmetry_backend PRIVATE tactix_symmetry_backend)
+target_link_libraries(test_symmetry_backend PRIVATE tactix_symmetry_backend
+                      tactix_test_main)
 add_test(NAME symmetry_backend COMMAND test_symmetry_backend)
 add_executable(test_symmetry_clause_multiset test_symmetry_clause_multiset.cpp)
 target_include_directories(test_symmetry_clause_multiset PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -216,31 +222,13 @@ add_test(NAME api_n1 COMMAND test_api_c)
 
 # Real incremental client: only the C headers and the separate transport
 # archive, retaining the registry's static registration translation units.
-add_executable(test_ipasir_query test_ipasir_query.c)
-target_link_libraries(test_ipasir_query PRIVATE
-  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_query COMMAND test_ipasir_query)
-add_executable(test_ipasir_termination test_ipasir_termination.c)
-target_link_libraries(test_ipasir_termination PRIVATE
-  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_termination COMMAND test_ipasir_termination)
-add_executable(test_ipasir_learning test_ipasir_learning.c)
-target_link_libraries(test_ipasir_learning PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_learning COMMAND test_ipasir_learning)
-add_executable(test_ipasir_core test_ipasir_core.c)
-target_link_libraries(test_ipasir_core PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_core COMMAND test_ipasir_core)
-add_executable(test_ipasir_owned_result test_ipasir_owned_result.c)
-target_link_libraries(test_ipasir_owned_result PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_owned_result COMMAND test_ipasir_owned_result)
-add_executable(test_ipasir_programmable test_ipasir_programmable.c)
-target_link_libraries(test_ipasir_programmable PRIVATE
-  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_programmable COMMAND test_ipasir_programmable)
-add_executable(test_ipasir_cruxmiter test_ipasir_cruxmiter.c)
-target_link_libraries(test_ipasir_cruxmiter PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+foreach(client query termination learning core owned_result programmable cruxmiter)
+  add_executable(test_ipasir_${client} test_ipasir_${client}.c)
+  target_link_libraries(test_ipasir_${client} PRIVATE
+    "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+  add_test(NAME ipasir_${client} COMMAND test_ipasir_${client})
+endforeach()
 target_include_directories(test_ipasir_cruxmiter PRIVATE ${CMAKE_SOURCE_DIR}/src)
-add_test(NAME ipasir_cruxmiter COMMAND test_ipasir_cruxmiter)
 foreach(driver dpll cdcl-no-restarts scripted-default chvatal)
   add_test(NAME ipasir_${driver} COMMAND test_ipasir_cruxmiter ${driver})
   tactix_proof_fixture_test(ipasir_${driver}_proof ipasir_cruxmiter_proof ${driver})
@@ -472,7 +460,8 @@ add_test(NAME default_port_correspondence
 add_executable(test_c_default_correspondence test_c_default_correspondence.cpp)
 target_link_libraries(test_c_default_correspondence PRIVATE tactix_default tactix_lib)
 target_compile_definitions(test_c_default_correspondence PRIVATE
-                           TACTIX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+                           TACTIX_EXAMPLE_CNF_DIR="${PROJECT_BINARY_DIR}/examples/cnf/")
+add_dependencies(test_c_default_correspondence example_cnfs)
 add_test(NAME c_default_correspondence COMMAND test_c_default_correspondence)
 # The generated, profile and structured fixture families (extended).
 add_test(NAME c_default_correspondence_extended
@@ -512,7 +501,7 @@ foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
   if(NOT TARGET "${test_target}")
     string(REGEX REPLACE "^test_" "" test_name "${test_target}")
     add_executable("${test_target}" "${test_source}")
-    target_link_libraries("${test_target}" PRIVATE tactix_lib)
+    target_link_libraries("${test_target}" PRIVATE tactix_lib tactix_test_main)
     add_test(NAME "${test_name}" COMMAND "${test_target}")
   endif()
 endforeach()

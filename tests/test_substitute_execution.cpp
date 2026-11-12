@@ -1,14 +1,10 @@
 // Shared round execution must respect a caller-owned disconnected watch
 // session, and publish retirements before another round observes the state.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "strategy/substitute_execution.hpp"
 
-#include <cassert>
-#include <vector>
-
-using namespace tactix;
 using namespace tactix::execution;
 
 static void exposed_equivalence(Kernel &k) {

@@ -1,7 +1,6 @@
 #include "rules/lucky/opportunities.hpp"
 
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -797,10 +796,6 @@ private:
 };
 
 } // namespace
-
-RuleEligibility lookup_circuit_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult lookup_circuit_model_apply(Kernel &k) {
   assert(lookup_circuit_model_guard(k));

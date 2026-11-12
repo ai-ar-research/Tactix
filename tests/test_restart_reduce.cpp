@@ -1,6 +1,6 @@
 // Restart / Reduce / arena-collection unit tests. Each test attaches a
 // ScopedHeuristics guard: the session, not the kernel, owns k.h.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -9,14 +9,7 @@
 #include "rules/reduce/reduce.hpp"
 #include "rules/restart/restart.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <string>
-
 #include <unistd.h>
-
-using namespace tactix;
 
 struct ReverseArenaOrder final : ArenaOrdering {
   void order(const Kernel &, std::vector<Ref> &refs) override {
@@ -39,7 +32,7 @@ static void add_php43(Kernel &k) {
                                  internalize(-var(p2, h)));
 }
 
-static void test_restart() {
+TEST(test_restart) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
@@ -62,7 +55,7 @@ static void test_restart() {
   assert(restart_guard(k)); // a level-zero Restart is a legal explicit no-op
 }
 
-static void test_restart_at_root_is_explicitly_applicable() {
+TEST(test_restart_at_root_is_explicitly_applicable) {
   Kernel k;
   ScopedHeuristics h(k);
   assert(k.level == 0 && restart_guard(k));
@@ -76,7 +69,7 @@ static void test_restart_at_root_is_explicitly_applicable() {
   assert(!restart_guard(k));
 }
 
-static void test_restart_can_abandon_or_retain_a_conflict() {
+TEST(test_restart_can_abandon_or_retain_a_conflict) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 2);
@@ -103,7 +96,7 @@ static void test_restart_can_abandon_or_retain_a_conflict() {
   kernel_check_invariants(k);
 }
 
-static void test_reduce_preserves_recorded_large_conflict() {
+TEST(test_reduce_preserves_recorded_large_conflict) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 6);
@@ -136,7 +129,7 @@ static void test_reduce_preserves_recorded_large_conflict() {
   kernel_check_invariants(k);
 }
 
-static void test_conflict_reduce_preserves_root_fixed_prefix_watches() {
+TEST(test_conflict_reduce_preserves_root_fixed_prefix_watches) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 6);
@@ -170,7 +163,7 @@ static void test_conflict_reduce_preserves_root_fixed_prefix_watches() {
   kernel_check_invariants(k);
 }
 
-static void test_reduce_strategy_parameters_control_canonical_selection() {
+TEST(test_reduce_strategy_parameters_control_canonical_selection) {
   assert(reduce_fractional_victims(101, 2, 5) == 40);
   Kernel k;
   ScopedHeuristics h(k);
@@ -199,7 +192,7 @@ static void test_reduce_strategy_parameters_control_canonical_selection() {
   assert(instances[0] == 1);
 }
 
-static void test_collect_preserves_propagation() {
+TEST(test_collect_preserves_propagation) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
@@ -216,7 +209,7 @@ static void test_collect_preserves_propagation() {
   assert(k.values[internalize(3)] == 0); // c1 is gone
 }
 
-static void test_collect_accepts_policy_order() {
+TEST(test_collect_accepts_policy_order) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
@@ -236,7 +229,7 @@ static void test_collect_accepts_policy_order() {
   assert(clause_at(k.arena, second)->lits[0] == first[0]);
 }
 
-static void test_sparse_collect_preserves_prefix_watch_order() {
+TEST(test_sparse_collect_preserves_prefix_watch_order) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 8);
@@ -277,7 +270,7 @@ static void test_sparse_collect_preserves_prefix_watch_order() {
          "rewatching the relocated tail must reset its replacement cursor");
 }
 
-static void test_sparse_collect_retains_garbage_prefix_watches() {
+TEST(test_sparse_collect_retains_garbage_prefix_watches) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 10);
@@ -322,7 +315,7 @@ static void test_sparse_collect_retains_garbage_prefix_watches() {
   kernel_check_invariants(k);
 }
 
-static void test_collect_reselects_watches_by_assignment(void) {
+TEST(test_collect_reselects_watches_by_assignment) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
@@ -339,7 +332,7 @@ static void test_collect_reselects_watches_by_assignment(void) {
          "among false literals Kissat selects the higher level");
 }
 
-static void test_cadical_arena_order_tracks_search() {
+TEST(test_cadical_arena_order_tracks_search) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
@@ -354,7 +347,7 @@ static void test_cadical_arena_order_tracks_search() {
   assert(refs.size() == 2 && refs[0] == rf && refs[1] == ro);
 }
 
-static void test_reduce_deletes_and_logs() {
+TEST(test_reduce_deletes_and_logs) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   Proof proof;
@@ -397,7 +390,7 @@ static void test_reduce_deletes_and_logs() {
   assert(!rp.want_reduce(k)); // budget pushed out (guard still holds)
 }
 
-static void test_reduce_flushes_new_root_units_before_selection() {
+TEST(test_reduce_flushes_new_root_units_before_selection) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
@@ -420,7 +413,7 @@ static void test_reduce_flushes_new_root_units_before_selection() {
   assert(k.level == 1);
 }
 
-static void test_reduce_prepare_propagates_root_before_collection() {
+TEST(test_reduce_prepare_propagates_root_before_collection) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 3);
@@ -435,7 +428,7 @@ static void test_reduce_prepare_propagates_root_before_collection() {
   kernel_check_invariants(k);
 }
 
-static void test_reduce_prepare_reports_root_conflict() {
+TEST(test_reduce_prepare_reports_root_conflict) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 2);
@@ -447,7 +440,7 @@ static void test_reduce_prepare_reports_root_conflict() {
   assert(k.stats.conflicts == 1);
 }
 
-static void test_root_propagation_consumes_unflushed_marker() {
+TEST(test_root_propagation_consumes_unflushed_marker) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   kernel_assign_unit(k, internalize(1));
@@ -456,7 +449,7 @@ static void test_root_propagation_consumes_unflushed_marker() {
   assert(k.unflushed_root == 0);
 }
 
-static void test_reduce_used_retention() {
+TEST(test_reduce_used_retention) {
   // kissat reduce.c recency: tier2 survives two reductions, aged per apply
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -482,7 +475,7 @@ static void test_reduce_used_retention() {
   assert(cands.size() == 2); // protection lapsed; both are candidates
 }
 
-static void test_reduce_equal_rank_preserves_arena_order() {
+TEST(test_reduce_equal_rank_preserves_arena_order) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
@@ -497,7 +490,7 @@ static void test_reduce_equal_rank_preserves_arena_order() {
          "equal Kissat ranks must retain the arena scan order");
 }
 
-static void test_reduce_equal_rank_uses_pending_replacement_position() {
+TEST(test_reduce_equal_rank_uses_pending_replacement_position) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 9);
@@ -520,7 +513,7 @@ static void test_reduce_equal_rank_uses_pending_replacement_position() {
          "Reduce rank ties follow Kissat's current clause position");
 }
 
-static void test_compacting_reduce_collects_irredundant_prefix() {
+TEST(test_compacting_reduce_collects_irredundant_prefix) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
@@ -539,7 +532,7 @@ static void test_compacting_reduce_collects_irredundant_prefix() {
 
 // The retention-band instrument tracks the live tier: moving `k.tier2` moves
 // the dynamic count and leaves the static one alone.
-static void test_tier2_band_tracks_the_live_tier() {
+TEST(test_tier2_band_tracks_the_live_tier) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
@@ -560,7 +553,7 @@ static void test_tier2_band_tracks_the_live_tier() {
   assert(k.stats.tier2_band_static == 2);  // +1: the static 6 still admits one
 }
 
-static void test_retier_uses_kissat_truncation() {
+TEST(test_retier_uses_kissat_truncation) {
   Kernel k;
   uint64_t used[Stats::MAX_GLUE_USED + 1] = {};
   // Kissat truncates the 90% threshold of 11 observations to 9 (glue 5).
@@ -574,7 +567,7 @@ static void test_retier_uses_kissat_truncation() {
   assert(tiers.tier2_by_mode[1] == 5);
 }
 
-static void test_solve_with_restarts_still_correct() {
+TEST(test_solve_with_restarts_still_correct) {
   Kernel k; // PHP(4,3): UNSAT even under tiny restart intervals
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 12);
@@ -594,7 +587,7 @@ static void test_solve_with_restarts_still_correct() {
 
 // Kissat compacts variables only in the initial sparse collector and at
 // Reduce, never after late Lucky.
-static void test_variable_compaction_waits_for_reduce() {
+TEST(test_variable_compaction_waits_for_reduce) {
   // PHP(4,3) survives both Lucky probes and needs fewer than 1000 conflicts.
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -616,7 +609,7 @@ static void test_variable_compaction_waits_for_reduce() {
          "variable compaction is admitted at Reduce, not after late Lucky");
 }
 
-static void test_restart_reuses_trail() {
+TEST(test_restart_reuses_trail) {
   // A restart keeps every level whose decision outranks the next candidate:
   // here var 0 (stamp 4) beats var 2 (stamp 3) and var 1 (stamp 2) does not.
   Kernel k;
@@ -642,7 +635,7 @@ static void test_restart_reuses_trail() {
   assert(k.stats.restarts == 2);
 }
 
-static void test_restart_apply_to() {
+TEST(test_restart_apply_to) {
   // N1: the keep-level is the policy's choice, not the rule's
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -693,33 +686,7 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  test_restart();
-  test_restart_at_root_is_explicitly_applicable();
-  test_restart_can_abandon_or_retain_a_conflict();
-  test_restart_apply_to();
-  test_restart_reuses_trail();
-  test_collect_preserves_propagation();
-  test_collect_accepts_policy_order();
-  test_sparse_collect_preserves_prefix_watch_order();
-  test_sparse_collect_retains_garbage_prefix_watches();
-  test_collect_reselects_watches_by_assignment();
-  test_cadical_arena_order_tracks_search();
-  test_reduce_deletes_and_logs();
-  test_reduce_flushes_new_root_units_before_selection();
-  test_reduce_prepare_propagates_root_before_collection();
-  test_reduce_prepare_reports_root_conflict();
-  test_reduce_preserves_recorded_large_conflict();
-  test_conflict_reduce_preserves_root_fixed_prefix_watches();
-  test_reduce_strategy_parameters_control_canonical_selection();
-  test_root_propagation_consumes_unflushed_marker();
-  test_reduce_used_retention();
-  test_reduce_equal_rank_preserves_arena_order();
-  test_reduce_equal_rank_uses_pending_replacement_position();
-  test_compacting_reduce_collects_irredundant_prefix();
-  test_tier2_band_tracks_the_live_tier();
-  test_retier_uses_kissat_truncation();
-  test_solve_with_restarts_still_correct();
-  test_variable_compaction_waits_for_reduce();
+  run_tests();
   puts("test_restart_reduce OK");
   return 0;
 }

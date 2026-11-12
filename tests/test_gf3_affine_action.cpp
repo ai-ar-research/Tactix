@@ -1,15 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "gf3_formula_support.hpp"
 #include "kernel_image.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
-
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -80,7 +73,7 @@ void delete_published(Kernel &kernel, const std::vector<uint64_t> &ids) {
   assert(deleted == ids.size());
 }
 
-void success_replay_advice_and_repeated_pairs() {
+TEST(success_replay_advice_and_repeated_pairs) {
   Bound b;
   Kernel &kernel = b.kernel;
   FILE *records = b.records;
@@ -186,7 +179,7 @@ void success_replay_advice_and_repeated_pairs() {
          action_image(kernel) == before && position(records) == journal);
 }
 
-void declines_are_atomic_and_sessions_are_kernel_local() {
+TEST(declines_are_atomic_and_sessions_are_kernel_local) {
   {
     Bound first, second;
     assert(gf3_affine_action_apply(first.kernel, first.session, limits(), 0, 1)
@@ -225,9 +218,3 @@ void declines_are_atomic_and_sessions_are_kernel_local() {
 }
 
 } // namespace
-
-int main() {
-  success_replay_advice_and_repeated_pairs();
-  declines_are_atomic_and_sessions_are_kernel_local();
-  std::puts("test_gf3_affine_action: passed");
-}

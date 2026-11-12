@@ -1,13 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
 #include "kernel/clause.hpp"
 #include "rules/semantic_extension/affine_matrix_transaction.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <string>
 #include <utility>
 
 using namespace tactix::affine_semantic_extension;
@@ -104,7 +100,7 @@ static void single_install(const AffineMatrixTransaction &transaction,
   assert(installs == 1);
 }
 
-static void historical_event_requires_explicit_authentication_mode() {
+TEST(historical_event_requires_explicit_authentication_mode) {
   AffineMatrix matrix;
   MatrixEvent historical;
   event_fixture(matrix, historical);
@@ -125,7 +121,7 @@ static void historical_event_requires_explicit_authentication_mode() {
   assert(retained.reason() == historical.reason && retained.ready());
 }
 
-static void compact_one_shot_may_borrow_source_identity() {
+TEST(compact_one_shot_may_borrow_source_identity) {
   AffineMatrix matrix;
   MatrixEvent event;
   event_fixture(matrix, event);
@@ -148,7 +144,7 @@ static void compact_one_shot_may_borrow_source_identity() {
          retained.source_identity().size() == event.row.source_equations.size());
 }
 
-static void complete_plan_accounts_and_retains_only_reason() {
+TEST(complete_plan_accounts_and_retains_only_reason) {
   const auto transaction = prepared();
   assert(transaction.ready());
   assert(transaction.owner_identity() == 991);
@@ -171,7 +167,7 @@ static void complete_plan_accounts_and_retains_only_reason() {
   single_install(transaction, transaction.reason());
 }
 
-static void retained_source_authentication_preserves_work() {
+TEST(retained_source_authentication_preserves_work) {
   AffineMatrix matrix;
   MatrixEvent event;
   event_fixture(matrix, event);
@@ -198,7 +194,7 @@ static void retained_source_authentication_preserves_work() {
   assert(retained_charges < copied_charges);
 }
 
-static void root_unit_reuses_the_accumulated_clause() {
+TEST(root_unit_reuses_the_accumulated_clause) {
   const std::vector<Equation> input = {
       authenticated_equation({1, 2, 3}, false, 500),
       authenticated_equation({1, 2, 4}, false, 504),
@@ -312,7 +308,7 @@ static void isolated_removed_source_resume(
   if (new_out) *new_out = std::move(new_tx);
 }
 
-static void empty_root_conflict_is_a_publishable_reason() {
+TEST(empty_root_conflict_is_a_publishable_reason) {
   const std::vector<Equation> input = {
       authenticated_equation({1, 2, 3}, false, 600),
       authenticated_equation({1, 2, 3}, true, 604)};
@@ -345,7 +341,7 @@ static void empty_root_conflict_is_a_publishable_reason() {
          transaction.proof_cache_entry().proof_epoch == 7);
 }
 
-static void exact_identity_and_atomic_failure() {
+TEST(exact_identity_and_atomic_failure) {
   AffineMatrix matrix;
   MatrixEvent event;
   event_fixture(matrix, event);
@@ -426,7 +422,7 @@ static void exact_identity_and_atomic_failure() {
   }
 }
 
-static void incomplete_or_forged_premises_are_unsupported() {
+TEST(incomplete_or_forged_premises_are_unsupported) {
   auto reject = [](std::vector<Equation> input) {
     AffineMatrix matrix = built(input, 818);
     const auto trail = zero_trail();
@@ -480,7 +476,7 @@ static void incomplete_or_forged_premises_are_unsupported() {
 }
 
 // A matrix built from malformed premises never certifies its own sources.
-static void matrix_source_authentication_certificate_is_exact() {
+TEST(matrix_source_authentication_certificate_is_exact) {
   assert(built(sources(), 991).proof_sources_authenticated());
   const auto trail = zero_trail();
   auto malformed = sources();
@@ -551,16 +547,8 @@ int main(int argc, char **argv) {
     return write_proof(argv[2], argv[3]);
   if (argc == 3 && std::strcmp(argv[1], "--resume-proofs") == 0)
     return write_resume_proofs(argv[2]);
-  complete_plan_accounts_and_retains_only_reason();
-  historical_event_requires_explicit_authentication_mode();
-  retained_source_authentication_preserves_work();
-  compact_one_shot_may_borrow_source_identity();
+  run_tests();
   isolated_symmetric_difference_resume();
   isolated_removed_source_resume();
-  root_unit_reuses_the_accumulated_clause();
-  empty_root_conflict_is_a_publishable_reason();
-  exact_identity_and_atomic_failure();
-  incomplete_or_forged_premises_are_unsupported();
-  matrix_source_authentication_certificate_is_exact();
   std::puts("test_affine_matrix_transaction: passed");
 }

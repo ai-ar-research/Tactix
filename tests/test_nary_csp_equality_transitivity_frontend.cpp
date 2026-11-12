@@ -1,6 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
-#include <cstdint>
 #include "strategy/online_inprocess.hpp"
 namespace capi {
 extern "C" {
@@ -14,7 +13,6 @@ extern "C" {
 #include <csignal>
 #include <cstdio>
 #include <type_traits>
-using namespace tactix;
 using namespace tactix::strategy;
 namespace {
 using Selection=NaryCspEqualityTransitivitySelection;

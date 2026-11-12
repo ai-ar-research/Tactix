@@ -1,21 +1,12 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/opportunities.hpp"
-#define tactix tactix_handle
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 
-#include <algorithm>
 #include <bit>
-#include <cassert>
-#include <cstdio>
-#include <string>
 #include <sstream>
-#include <vector>
-
-using namespace tactix;
 
 static constexpr uint64_t ACTIVE_LUCKY_INSTANCES[] = {
     0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
@@ -115,7 +106,7 @@ int main(int argc, char **argv) {
   }
   // The C convenience API and typed rule dispatch consume one shared boundary.
   for (bool decide : {false, true}) {
-    tactix_handle *solver = tactix_init();
+    tactix_c_handle *solver = tactix_init();
     std::istringstream input(graph_formula(4, true, false));
     std::string header;
     std::getline(input, header);
@@ -132,8 +123,8 @@ int main(int argc, char **argv) {
   }
   if (argc > 1) {
     const int lucky_id = tactix_rule_id("Lucky");
-    tactix_handle *proofless = tactix_init();
-    tactix_handle *strict = tactix_init();
+    tactix_c_handle *proofless = tactix_init();
+    tactix_c_handle *strict = tactix_init();
     const std::string path = std::string(argv[1]) + "/lucky-strict.dsr";
     assert(tactix_proof(strict, path.c_str(), TACTIX_PROOF_DSR_BINARY) == 0);
     uint64_t no_proof_instances[LUCKY_INSTANCE_COUNT];

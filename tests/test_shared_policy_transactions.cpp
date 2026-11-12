@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "test_io.hpp"
 #include "frontend/parse.hpp"
@@ -8,13 +8,10 @@
 #include "strategy/action_execution.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::execution;
 
 static void parse(Kernel &k, const char *cnf) {

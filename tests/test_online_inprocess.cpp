@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "session/query_projection.hpp"
@@ -15,23 +15,16 @@
 #include "strategy/online_sequence.hpp"
 
 #include <cmath>
-#include <algorithm>
 #include <array>
-#include <cassert>
 #include <charconv>
 #include <chrono>
-#include <cstdio>
-#include <cstdlib>
 #include <csignal>
-#include <cstring>
 #include <fstream>
 #include <iterator>
 #include <numeric>
 #include <unistd.h>
-#include <string>
 #include <unordered_set>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 namespace tactix {
@@ -56,6 +49,33 @@ static OnlineInvocation invocation(StepId id, std::string rule,
   step.repeat = repeat;
   step.budget = budget;
   return step;
+}
+
+// The SR fixture formula over four variables: (1 ∨ 2), (3 ∨ 4), (¬1 ∨ ¬3)
+// and (¬2 ∨ ¬4), each binary with a fresh clause id.
+static void add_sr_fixture_clauses(Kernel &k) {
+  kernel_reserve_vars(k, 4);
+  const int clauses[][2] = {{1, 2}, {3, 4}, {-1, -3}, {-2, -4}};
+  for (const auto &clause : clauses)
+    kernel_add_binary_clause(k, internalize(clause[0]), internalize(clause[1]),
+                             ++k.next_clause_id);
+}
+
+// Enumeration visitors that never stop the enumeration: one appends each
+// instance to out, the other counts them.
+static OrbitopalInstanceVisitor
+collect_into(std::vector<SubstitutionRedundancyInstance> &out) {
+  return [&out](const SubstitutionRedundancyInstance &instance) {
+    out.push_back(instance);
+    return true;
+  };
+}
+
+static OrbitopalInstanceVisitor count_into(uint64_t &count) {
+  return [&count](const SubstitutionRedundancyInstance &) {
+    ++count;
+    return true;
+  };
 }
 
 // Enumerates orbitopal SR instances, appending each to *out when given.
@@ -94,7 +114,7 @@ static Kernel sweep_fixture() {
   return k;
 }
 
-static void validation_is_transactional() {
+TEST(validation_is_transactional) {
   OnlineInprocessProgram good;
   good.sequence.push_back(invocation(
       1, "Strengthen", StrengthenParameters{0, 0},
@@ -135,7 +155,7 @@ static void validation_is_transactional() {
   assert(executor.revision() == 7);
 }
 
-static void invalid_discriminants_do_not_replace_configuration() {
+TEST(invalid_discriminants_do_not_replace_configuration) {
   OnlineInprocessProgram good;
   OnlineInvocation step;
   step.id = 1;
@@ -185,7 +205,7 @@ static void invalid_discriminants_do_not_replace_configuration() {
   assert(executor.revision() == 7);
 }
 
-static void material_settings_are_per_call_and_scoped() {
+TEST(material_settings_are_per_call_and_scoped) {
   Kernel k = forward_fixture();
   k.touch_filter = true;
   k.touch_redundant = true;
@@ -210,7 +230,7 @@ static void material_settings_are_per_call_and_scoped() {
   kernel_check_invariants(k);
 }
 
-static void rule_work_budget_is_per_call_and_scoped() {
+TEST(rule_work_budget_is_per_call_and_scoped) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   for (int output = 3; output <= 6; ++output)
@@ -279,7 +299,7 @@ static void rule_work_budget_is_per_call_and_scoped() {
   kernel_check_invariants(walk);
 }
 
-static void complete_pass_reaches_a_scoped_fixpoint() {
+TEST(complete_pass_reaches_a_scoped_fixpoint) {
   Kernel k = forward_fixture();
   OnlineInprocessProgram program;
   program.sequence.push_back(invocation(
@@ -299,7 +319,7 @@ static void complete_pass_reaches_a_scoped_fixpoint() {
   kernel_check_invariants(k);
 }
 
-static void caller_selected_fixpoint_is_scoped_and_budgeted() {
+TEST(caller_selected_fixpoint_is_scoped_and_budgeted) {
   for (bool sequence_fixpoint : {false, true}) {
     for (auto granularity : {InvocationGranularity::OneInstance,
                              InvocationGranularity::SelectedBatch}) {
@@ -343,7 +363,7 @@ static void caller_selected_fixpoint_is_scoped_and_budgeted() {
   }
 }
 
-static void budget_survives_compatible_online_reconfiguration() {
+TEST(budget_survives_compatible_online_reconfiguration) {
   Kernel k = forward_fixture();
   std::vector<Ref> candidates;
   strengthen_candidates(k, candidates, true);
@@ -386,7 +406,7 @@ static void budget_survives_compatible_online_reconfiguration() {
   assert(executor.step_consumed(21) == 0);
 }
 
-static void complete_pass_reaches_beyond_a_fixed_prefix() {
+TEST(complete_pass_reaches_beyond_a_fixed_prefix) {
   Kernel k;
   kernel_reserve_vars(k, 22);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -422,7 +442,7 @@ static void complete_pass_reaches_beyond_a_fixed_prefix() {
 
 // Exercise both in-place large shrink and large-to-binary collapse while
 // later selected offsets remain live. Counting attempts alone misses this bug.
-static void selected_strengthening_preserves_pending_offsets() {
+TEST(selected_strengthening_preserves_pending_offsets) {
   for (unsigned size : {3u, 4u}) {
     Kernel k;
     kernel_reserve_vars(k, 23);
@@ -469,7 +489,7 @@ static void selected_strengthening_preserves_pending_offsets() {
   }
 }
 
-static void interruption_and_inapplicability_do_not_consume_scope() {
+TEST(interruption_and_inapplicability_do_not_consume_scope) {
   Kernel k = forward_fixture();
   OnlineInprocessProgram program;
   program.sequence.push_back(invocation(
@@ -492,7 +512,7 @@ static void interruption_and_inapplicability_do_not_consume_scope() {
 static volatile sig_atomic_t empty_repeat_stop = 0;
 static void stop_empty_repeat(int) { empty_repeat_stop = 1; }
 
-static void empty_repeated_scopes_observe_stop() {
+TEST(empty_repeated_scopes_observe_stop) {
   Kernel k;
   OnlineInvocation step;
   step.id = 73;
@@ -520,7 +540,7 @@ static void empty_repeated_scopes_observe_stop() {
   assert(executor.advance(k).status == InvocationStatus::Completed);
 }
 
-static void pending_selection_rechecks_guard_and_kernel_stop() {
+TEST(pending_selection_rechecks_guard_and_kernel_stop) {
   Kernel k = forward_fixture();
   std::vector<Ref> candidates;
   strengthen_candidates(k, candidates, true);
@@ -553,7 +573,7 @@ static void pending_selection_rechecks_guard_and_kernel_stop() {
   kernel_check_invariants(k);
 }
 
-static void pending_selection_rejects_collection_and_external_mutation() {
+TEST(pending_selection_rejects_collection_and_external_mutation) {
   for (bool collect : {false, true}) {
     Kernel k = forward_fixture();
     std::vector<Ref> candidates;
@@ -595,7 +615,7 @@ static void pending_selection_rejects_collection_and_external_mutation() {
   }
 }
 
-static void semantic_instances_and_parameters_compose() {
+TEST(semantic_instances_and_parameters_compose) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Lit candidate[] = {internalize(1), internalize(2), internalize(3),
@@ -658,7 +678,7 @@ static void semantic_instances_and_parameters_compose() {
   kernel_check_invariants(k);
 }
 
-static void congruence_semantic_actions_reach_online_fixpoint() {
+TEST(congruence_semantic_actions_reach_online_fixpoint) {
   const auto build = [] {
     Kernel k;
     kernel_reserve_vars(k, 5);
@@ -712,7 +732,7 @@ static void congruence_semantic_actions_reach_online_fixpoint() {
   kernel_check_invariants(stopped);
 }
 
-static void complete_pass_reenumerates_after_its_own_collection() {
+TEST(complete_pass_reenumerates_after_its_own_collection) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Lit candidate[] = {internalize(1), internalize(2), internalize(3),
@@ -744,7 +764,7 @@ static void complete_pass_reenumerates_after_its_own_collection() {
   assert(executor.complete());
 }
 
-static void budget_continuation_preserves_limits_and_stops() {
+TEST(budget_continuation_preserves_limits_and_stops) {
   OnlineInvocation limited;
   limited.id = 901;
   limited.rule = "SubstitutionRedundancy";
@@ -846,7 +866,7 @@ static void budget_continuation_preserves_limits_and_stops() {
   kernel_check_invariants(prefix);
 }
 
-static void shared_sr_discovery_budget_does_not_refill() {
+TEST(shared_sr_discovery_budget_does_not_refill) {
   OnlineInvocation limited;
   limited.id = 903;
   limited.rule = "SubstitutionRedundancy";
@@ -913,7 +933,7 @@ static void shared_sr_discovery_budget_does_not_refill() {
          "a window below the exact binary snapshot lower bound cannot yield detector feedback");
 }
 
-static void finish_round_budget_policy_preserves_tail_and_resume() {
+TEST(finish_round_budget_policy_preserves_tail_and_resume) {
   for (const auto repeat : {RepeatSpec{RepeatMode::Once, 1},
                             RepeatSpec{RepeatMode::Count, 4},
                             RepeatSpec{RepeatMode::UntilScopedFixpoint, 0}}) {
@@ -976,7 +996,7 @@ static void finish_round_budget_policy_preserves_tail_and_resume() {
   }
 }
 
-static void sequence_configuration_is_transactional() {
+TEST(sequence_configuration_is_transactional) {
   Kernel k = forward_fixture();
   kernel_reserve_vars(k, 4);
   const Lit other[] = {internalize(1), internalize(2), internalize(4)};
@@ -1034,7 +1054,7 @@ static void sequence_configuration_is_transactional() {
   assert(executor.dispatches(0) == 2);
 }
 
-static void sweep_parameters_are_exact_per_invocation() {
+TEST(sweep_parameters_are_exact_per_invocation) {
   Kernel selected = sweep_fixture();
   const int id = tactix_rule_id("Sweep");
   assert(id >= 0);
@@ -1080,7 +1100,7 @@ static InvocationResult apply_parameterized(Kernel &k, const char *rule,
   return executor.advance(k);
 }
 
-static void zero_victim_compaction_reports_semantic_progress() {
+TEST(zero_victim_compaction_reports_semantic_progress) {
   for (unsigned kind = 0; kind < 3; ++kind) {
     Kernel k;
     kernel_reserve_vars(k, 4);
@@ -1161,7 +1181,7 @@ static void zero_victim_compaction_reports_semantic_progress() {
   }
 }
 
-static void condition_online_uses_external_clause_after_compaction() {
+TEST(condition_online_uses_external_clause_after_compaction) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   kernel_add_binary_clause(k, internalize(4), internalize(5));
@@ -1193,7 +1213,7 @@ static void condition_online_uses_external_clause_after_compaction() {
   kernel_check_invariants(k);
 }
 
-static void collection_does_not_age_the_search_database() {
+TEST(collection_does_not_age_the_search_database) {
   for (bool bookkeeping : {false, true}) {
     Kernel k;
     kernel_reserve_vars(k, 5);
@@ -1220,7 +1240,7 @@ static void collection_does_not_age_the_search_database() {
   }
 }
 
-static void rule_parameters_are_scoped_per_call() {
+TEST(rule_parameters_are_scoped_per_call) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 3);
@@ -1341,7 +1361,7 @@ static void rule_parameters_are_scoped_per_call() {
   kernel_check_invariants(a);
 }
 
-static void exact_factor_grids_compose_as_a_selected_batch() {
+TEST(exact_factor_grids_compose_as_a_selected_batch) {
   Kernel k;
   kernel_reserve_vars(k, 10);
   const auto add_grid = [&](int a, int b, int p, int q, int r) {
@@ -1386,7 +1406,7 @@ static Kernel complete_factor_fixture() {
   return k;
 }
 
-static void complete_factor_pass_uses_exact_grid_enumeration() {
+TEST(complete_factor_pass_uses_exact_grid_enumeration) {
   Kernel k = complete_factor_fixture();
   OnlineInvocation step;
   step.id = 62;
@@ -1429,17 +1449,9 @@ static void complete_factor_pass_uses_exact_grid_enumeration() {
   assert(!exhausted.selection_complete && limited.step_consumed(63) == 2);
 }
 
-static void post_application_propagates_and_publishes_root_units() {
+TEST(post_application_propagates_and_publishes_root_units) {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  const auto add_binary = [&](int a, int b) {
-    kernel_add_binary_clause(k, internalize(a), internalize(b),
-                             ++k.next_clause_id);
-  };
-  add_binary(1, 2);
-  add_binary(3, 4);
-  add_binary(-1, -3);
-  add_binary(-2, -4);
+  add_sr_fixture_clauses(k);
   ScopedHeuristics heuristics(k);
 
   SubstitutionRedundancyInstance sr;
@@ -1481,17 +1493,9 @@ static void post_application_propagates_and_publishes_root_units() {
   assert(error == "parameters do not match rule");
 }
 
-static void signed_sr_sources_emit_canonical_dsr_mappings() {
+TEST(signed_sr_sources_emit_canonical_dsr_mappings) {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  const auto add_binary = [&](int a, int b) {
-    kernel_add_binary_clause(k, internalize(a), internalize(b),
-                             ++k.next_clause_id);
-  };
-  add_binary(1, 2);
-  add_binary(3, 4);
-  add_binary(-1, -3);
-  add_binary(-2, -4);
+  add_sr_fixture_clauses(k);
 
   char path[] = "/tmp/tactix-sr-signed-source-XXXXXX";
   const int descriptor = mkstemp(path);
@@ -1525,17 +1529,9 @@ static void signed_sr_sources_emit_canonical_dsr_mappings() {
          "-5 -1 0\n5 -1 5 -1 3 5 2 4 4 2 0\n-1 0\nd 5 -1 0\nd -5 -1 0\n");
 }
 
-static void sr_failure_statuses_preserve_the_pending_application() {
+TEST(sr_failure_statuses_preserve_the_pending_application) {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  const auto add_binary = [&](int a, int b) {
-    kernel_add_binary_clause(k, internalize(a), internalize(b),
-                             ++k.next_clause_id);
-  };
-  add_binary(1, 2);
-  add_binary(3, 4);
-  add_binary(-1, -3);
-  add_binary(-2, -4);
+  add_sr_fixture_clauses(k);
 
   SubstitutionRedundancyInstance sr;
   sr.clause = {internalize(-1)};
@@ -1586,7 +1582,7 @@ static void sr_failure_statuses_preserve_the_pending_application() {
   assert(rejected.applications == 0 && invalid.step_consumed(67) == 0);
 }
 
-static void unique_literal_amo_phase_is_checked_bounded_and_composable() {
+TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   Kernel enumerated;
   kernel_reserve_vars(enumerated, 3);
   const Lit source[] = {internalize(1), internalize(2), internalize(3)};
@@ -1613,11 +1609,7 @@ static void unique_literal_amo_phase_is_checked_bounded_and_composable() {
   uint64_t bounded_instances = 0;
   const OrbitopalEnumerationResult bounded =
       substitution_redundancy_enumerate_orbitopal(
-          enumerated, parameters,
-          [&](const SubstitutionRedundancyInstance &) {
-            ++bounded_instances;
-            return true;
-          });
+          enumerated, parameters, count_into(bounded_instances));
   assert(bounded.status == OrbitopalEnumerationStatus::LimitReached &&
          bounded.instances == 2 && bounded_instances == 2);
 
@@ -1793,7 +1785,7 @@ static Kernel symmetry_fixture() {
   return k;
 }
 
-static void orbitopal_column_orientation_is_typed_and_effective() {
+TEST(orbitopal_column_orientation_is_typed_and_effective) {
   Kernel k = symmetry_fixture();
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
@@ -1865,7 +1857,7 @@ static Kernel orbitopal_product_union_fixture() {
   return k;
 }
 
-static void orbitopal_product_refinement_requires_exact_two_axis_action() {
+TEST(orbitopal_product_refinement_requires_exact_two_axis_action) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Both;
@@ -1911,11 +1903,7 @@ static void orbitopal_product_refinement_requires_exact_two_axis_action() {
   uint64_t bounded_instances = 0;
   const OrbitopalEnumerationResult bounded_nested_result =
       substitution_redundancy_enumerate_orbitopal(
-          bounded_nested, bounded_parameters,
-          [&](const SubstitutionRedundancyInstance &) {
-            ++bounded_instances;
-            return true;
-          });
+          bounded_nested, bounded_parameters, count_into(bounded_instances));
   assert(bounded_nested_result.status ==
          OrbitopalEnumerationStatus::LimitReached);
   assert(bounded_nested_result.refinement_orbits == 1 &&
@@ -1945,17 +1933,13 @@ static void orbitopal_product_refinement_requires_exact_two_axis_action() {
   OrbitopalEnumerationResult rejected;
   uint64_t rejected_instances = 0;
   rejected = substitution_redundancy_enumerate_orbitopal(
-      asymmetric, parameters,
-      [&](const SubstitutionRedundancyInstance &) {
-        ++rejected_instances;
-        return true;
-      });
+      asymmetric, parameters, count_into(rejected_instances));
   assert(rejected.status == OrbitopalEnumerationStatus::Complete);
   assert(rejected.matrices == 0 && rejected_instances == 0);
   kernel_check_invariants(asymmetric);
 }
 
-static void orbitopal_product_extends_coupled_variables() {
+TEST(orbitopal_product_extends_coupled_variables) {
   for (const int sign : {1, -1}) {
     const auto fixture = [&] {
       Kernel k;
@@ -2056,7 +2040,7 @@ static void orbitopal_product_extends_coupled_variables() {
   }
 }
 
-static void orbitopal_certificate_rechecks_propagated_root_closure() {
+TEST(orbitopal_certificate_rechecks_propagated_root_closure) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_assign_unit(k, internalize(-3));
@@ -2087,7 +2071,7 @@ static bool root_assignments_match(const Kernel &k,
   return true;
 }
 
-static void orbitopal_certified_prefix_preserves_small_sat_fixture() {
+TEST(orbitopal_certified_prefix_preserves_small_sat_fixture) {
   // Certified prefixes retain a model of this two-model formula across
   // reconfiguration and every generated pass.
   const std::array<int, 4> first_model{-1, 2, 3, -4};
@@ -2146,7 +2130,7 @@ static void orbitopal_certified_prefix_preserves_small_sat_fixture() {
   assert(productive_profiles >= 2);
 }
 
-static void orbitopal_alignment_spans_connected_columns() {
+TEST(orbitopal_alignment_spans_connected_columns) {
   Kernel k;
   kernel_reserve_vars(k, 9);
   const auto add_binary = [&](int first, int second) {
@@ -2185,7 +2169,7 @@ static void orbitopal_alignment_spans_connected_columns() {
   kernel_check_invariants(k);
 }
 
-static void orbitopal_row_group_certificate_rejects_missing_images() {
+TEST(orbitopal_row_group_certificate_rejects_missing_images) {
   const auto fixture = [](bool complete, bool outside_clauses) {
     Kernel k;
     kernel_reserve_vars(k, 8);
@@ -2223,11 +2207,7 @@ static void orbitopal_row_group_certificate_rejects_missing_images() {
     parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
     uint64_t instances = 0;
     const auto enumeration = substitution_redundancy_enumerate_orbitopal(
-        k, parameters,
-        [&](const SubstitutionRedundancyInstance &) {
-          ++instances;
-          return true;
-        });
+        k, parameters, count_into(instances));
     assert(enumeration.status == OrbitopalEnumerationStatus::Complete);
     kernel_check_invariants(k);
     return std::pair{enumeration.matrices, instances};
@@ -2258,7 +2238,7 @@ static void orbitopal_row_group_certificate_rejects_missing_images() {
   assert(matrices(asymmetric_with_fixed) == rejected);
 }
 
-static void orbitopal_reuses_only_equivalent_failed_matrices() {
+TEST(orbitopal_reuses_only_equivalent_failed_matrices) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
@@ -2288,10 +2268,7 @@ static void orbitopal_reuses_only_equivalent_failed_matrices() {
     binary(1, 25); // Outside variable breaks the first component's row action.
     columns(26, 3, 4); // Three columns avoid opposite-polarity binary ULCs.
     std::vector<SubstitutionRedundancyInstance> instances;
-    const auto collect = [&](const SubstitutionRedundancyInstance &instance) {
-      instances.push_back(instance);
-      return true;
-    };
+    const auto collect = collect_into(instances);
     const auto first = substitution_redundancy_enumerate_orbitopal(
         k, parameters, collect);
     assert(first.status == OrbitopalEnumerationStatus::Complete);
@@ -2344,16 +2321,13 @@ static void orbitopal_reuses_only_equivalent_failed_matrices() {
   }
   uint64_t visited = 0;
   const auto distinct = substitution_redundancy_enumerate_orbitopal(
-      cycle, parameters, [&](const SubstitutionRedundancyInstance &) {
-        ++visited;
-        return true;
-      });
+      cycle, parameters, count_into(visited));
   assert(distinct.status == OrbitopalEnumerationStatus::Complete);
   assert(!visited && !distinct.reused_inexact_matrices);
   kernel_check_invariants(cycle);
 }
 
-static void orbitopal_column_transport_requires_a_bijection() {
+TEST(orbitopal_column_transport_requires_a_bijection) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
@@ -2491,7 +2465,7 @@ static bool apply_all_orbitopal(Kernel &kernel,
   return false;
 }
 
-static void orbitopal_clique_order_is_typed_exact_and_budgeted() {
+TEST(orbitopal_clique_order_is_typed_exact_and_budgeted) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
@@ -2568,7 +2542,7 @@ static void orbitopal_clique_order_is_typed_exact_and_budgeted() {
   }
 }
 
-static void orbitopal_refinement_completes_hidden_columns() {
+TEST(orbitopal_refinement_completes_hidden_columns) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
@@ -2624,7 +2598,7 @@ static void orbitopal_refinement_completes_hidden_columns() {
          bounded.stats.sr_applications == 0 && !bounded.inconsistent);
 }
 
-static void orbitopal_refinement_cells_need_no_generic_generators() {
+TEST(orbitopal_refinement_cells_need_no_generic_generators) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
@@ -2691,7 +2665,7 @@ static void orbitopal_refinement_cells_need_no_generic_generators() {
   assert(parameters.valid());
 }
 
-static void orbitopal_discovery_scopes_are_independent() {
+TEST(orbitopal_discovery_scopes_are_independent) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
@@ -2747,7 +2721,7 @@ static void orbitopal_discovery_scopes_are_independent() {
          amo_result.instances > 0 && amo.stats.sr_applied > 0);
 }
 
-static void orbitopal_refinement_starts_from_one_unique_column() {
+TEST(orbitopal_refinement_starts_from_one_unique_column) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
@@ -2771,7 +2745,7 @@ static void orbitopal_refinement_starts_from_one_unique_column() {
   kernel_check_invariants(completed);
 }
 
-static void orbitopal_clique_order_matches_exhaustive_connected_graphs() {
+TEST(orbitopal_clique_order_matches_exhaustive_connected_graphs) {
   constexpr unsigned vertices = 5, colors = 6, possible_edges = 10;
   uint64_t noncanonical_incumbents = 0, connected_graphs = 0;
   const auto edge_bit = [](unsigned first, unsigned second) {
@@ -2937,11 +2911,7 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
   parameters.graph_symmetry.maximum_group_ticks = 100'000;
   std::vector<SubstitutionRedundancyInstance> instances;
   const auto enumeration = substitution_redundancy_enumerate_symmetry(
-      k, parameters,
-      [&](const SubstitutionRedundancyInstance &instance) {
-        instances.push_back(instance);
-        return true;
-      });
+      k, parameters, collect_into(instances));
   assert(enumeration.status == SymmetryEnumerationStatus::Complete);
   assert(enumeration.generators_proposed > 0);
   assert(enumeration.generators_proposed ==
@@ -2956,32 +2926,20 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
   parameters.graph_symmetry.maximum_graph_vertices = 1;
   uint64_t visited = 0;
   const auto limited = substitution_redundancy_enumerate_symmetry(
-      bounded, parameters,
-      [&](const SubstitutionRedundancyInstance &) {
-        ++visited;
-        return true;
-      });
+      bounded, parameters, count_into(visited));
   assert(limited.status == SymmetryEnumerationStatus::LimitReached);
   assert(!visited);
 
   parameters.graph_symmetry.maximum_graph_vertices = 0;
   const auto disabled = substitution_redundancy_enumerate_symmetry(
-      bounded, parameters,
-      [&](const SubstitutionRedundancyInstance &) {
-        ++visited;
-        return true;
-      });
+      bounded, parameters, count_into(visited));
   assert(disabled.status == SymmetryEnumerationStatus::Complete);
   assert(!visited && !disabled.instances);
 
   parameters.graph_symmetry.maximum_graph_vertices = 128;
   volatile sig_atomic_t stop = 1;
   const auto interrupted = substitution_redundancy_enumerate_symmetry(
-      bounded, parameters,
-      [&](const SubstitutionRedundancyInstance &) {
-        ++visited;
-        return true;
-      },
+      bounded, parameters, count_into(visited),
       &stop);
   assert(interrupted.status == SymmetryEnumerationStatus::Interrupted);
   assert(!visited);
@@ -3011,11 +2969,7 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
   visited = 0;
   const auto clause_vertex_limited =
       substitution_redundancy_enumerate_symmetry(
-          dense, parameters,
-          [&](const SubstitutionRedundancyInstance &) {
-            ++visited;
-            return true;
-          });
+          dense, parameters, count_into(visited));
   assert(clause_vertex_limited.status ==
              SymmetryEnumerationStatus::LimitReached &&
          !visited);
@@ -3023,11 +2977,7 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
       SymmetryBinaryGraphMode::Automatic;
   parameters.graph_symmetry.binary_graph_density_permille = 1000;
   const auto direct_binary = substitution_redundancy_enumerate_symmetry(
-      dense, parameters,
-      [&](const SubstitutionRedundancyInstance &) {
-        ++visited;
-        return true;
-      });
+      dense, parameters, count_into(visited));
   assert(direct_binary.generators_proposed > 0 &&
          direct_binary.generators_proposed ==
              direct_binary.generators_validated &&
@@ -3074,7 +3024,7 @@ static SubstitutionRedundancyParameters sst_parameters() {
   return parameters;
 }
 
-static void large_domain_generator_fixing_uses_units_without_a_chain() {
+TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
   const auto enumerate = [](Kernel k, std::vector<std::vector<Lit>> images) {
     SubstitutionRedundancyParameters parameters = sst_parameters();
     parameters.graph_symmetry.maximum_generators = images.size();
@@ -3088,10 +3038,7 @@ static void large_domain_generator_fixing_uses_units_without_a_chain() {
     std::vector<SubstitutionRedundancyInstance> instances;
     const auto enumeration = substitution_redundancy_enumerate_symmetry(
         k, parameters,
-        [&](const SubstitutionRedundancyInstance &instance) {
-          instances.push_back(instance);
-          return true;
-        }, nullptr, &hints);
+        collect_into(instances), nullptr, &hints);
     // Supplying the complete test generator consumes the configured detector
     // prefix, so group completeness is deliberately not claimed.
     assert(enumeration.status == SymmetryEnumerationStatus::LimitReached);
@@ -3155,7 +3102,7 @@ static void large_domain_generator_fixing_uses_units_without_a_chain() {
         {internalize(1), internalize(4)});
 }
 
-static void compound_admission_publishes_a_singleton_forcing_unit() {
+TEST(compound_admission_publishes_a_singleton_forcing_unit) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2),
@@ -3176,10 +3123,7 @@ static void compound_admission_publishes_a_singleton_forcing_unit() {
   std::vector<SubstitutionRedundancyInstance> instances;
   const auto enumeration = substitution_redundancy_enumerate_symmetry(
       k, parameters,
-      [&](const SubstitutionRedundancyInstance &instance) {
-        instances.push_back(instance);
-        return true;
-      }, nullptr, &hints);
+      collect_into(instances), nullptr, &hints);
   assert(enumeration.status == SymmetryEnumerationStatus::Complete ||
          enumeration.status == SymmetryEnumerationStatus::LimitReached);
   assert(instances.size() == 1 && instances.front().clause.size() == 1);
@@ -3193,18 +3137,14 @@ static void compound_admission_publishes_a_singleton_forcing_unit() {
   kernel_check_invariants(k);
 }
 
-static void stabilizer_chain_adds_all_cuts_before_rup_unit() {
+TEST(stabilizer_chain_adds_all_cuts_before_rup_unit) {
   Kernel k = sst_clause_fixture(false);
   SubstitutionRedundancyParameters parameters = sst_parameters();
   parameters.graph_symmetry.nonforcing_cut_admission =
       SymmetryNonforcingCutAdmission::RequireForcingMember;
   std::vector<SubstitutionRedundancyInstance> instances;
   const auto enumeration = substitution_redundancy_enumerate_symmetry(
-      k, parameters,
-      [&](const SubstitutionRedundancyInstance &instance) {
-        instances.push_back(instance);
-        return true;
-      });
+      k, parameters, collect_into(instances));
   assert(enumeration.status == SymmetryEnumerationStatus::Complete);
   assert(enumeration.generators_validated > 0 && instances.size() == 3);
   assert(!enumeration.nonforcing_orbit_cuts_declined);
@@ -3236,7 +3176,7 @@ static void stabilizer_chain_adds_all_cuts_before_rup_unit() {
   kernel_check_invariants(k);
 }
 
-static void fix_and_cut_reaches_nonclausal_orbits() {
+TEST(fix_and_cut_reaches_nonclausal_orbits) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Lit clauses[][2] = {
@@ -3255,11 +3195,7 @@ static void fix_and_cut_reaches_nonclausal_orbits() {
   std::vector<SubstitutionRedundancyInstance> instances;
   const SymmetryEnumerationResult enumeration =
       substitution_redundancy_enumerate_symmetry(
-          k, parameters,
-          [&](const SubstitutionRedundancyInstance &instance) {
-            instances.push_back(instance);
-            return true;
-          });
+          k, parameters, collect_into(instances));
   assert(enumeration.status == SymmetryEnumerationStatus::Complete);
   assert(enumeration.generators_validated > 0 && !instances.empty());
   // No clause lies in one literal orbit; the complete producer reaches the group
@@ -3275,11 +3211,7 @@ static void fix_and_cut_reaches_nonclausal_orbits() {
   uint64_t admitted = 0;
   const SymmetryEnumerationResult declined =
       substitution_redundancy_enumerate_symmetry(
-          k, forcing_only,
-          [&](const SubstitutionRedundancyInstance &) {
-            ++admitted;
-            return true;
-          });
+          k, forcing_only, count_into(admitted));
   assert(declined.status == SymmetryEnumerationStatus::Complete && !admitted &&
          declined.nonforcing_orbit_cuts_declined == instances.size());
 
@@ -3289,10 +3221,7 @@ static void fix_and_cut_reaches_nonclausal_orbits() {
   uint64_t compound_admitted = 0;
   const SymmetryEnumerationResult compound_result =
       substitution_redundancy_enumerate_symmetry(
-          k, compound, [&](const SubstitutionRedundancyInstance &) {
-            ++compound_admitted;
-            return true;
-          });
+          k, compound, count_into(compound_admitted));
   assert(instances.size() > 1);
   assert(compound_result.status == SymmetryEnumerationStatus::Complete &&
          compound_admitted == instances.size() &&
@@ -3303,17 +3232,13 @@ static void fix_and_cut_reaches_nonclausal_orbits() {
   uint64_t legacy_instances = 0;
   const SymmetryEnumerationResult stopped =
       substitution_redundancy_enumerate_symmetry(
-          k, legacy,
-          [&](const SubstitutionRedundancyInstance &) {
-            ++legacy_instances;
-            return true;
-          });
+          k, legacy, count_into(legacy_instances));
   assert(stopped.status == SymmetryEnumerationStatus::Complete &&
          !legacy_instances);
   kernel_check_invariants(k);
 }
 
-static void amo_stabilizer_chain_propagates_complements_online() {
+TEST(amo_stabilizer_chain_propagates_complements_online) {
   Kernel k = sst_clause_fixture(true);
   OnlineInvocation step;
   step.id = 1003;
@@ -3341,7 +3266,7 @@ static void amo_stabilizer_chain_propagates_complements_online() {
   kernel_check_invariants(k);
 }
 
-static void every_root_assignment_constrains_graph_symmetry() {
+TEST(every_root_assignment_constrains_graph_symmetry) {
   Kernel k = symmetry_fixture();
   assert(!k.unit_ids[0]);
   kernel_assign_unit(k, internalize(1));
@@ -3357,17 +3282,13 @@ static void every_root_assignment_constrains_graph_symmetry() {
   parameters.graph_symmetry.maximum_group_ticks = 100'000;
   uint64_t visited = 0;
   const auto enumeration = substitution_redundancy_enumerate_symmetry(
-      k, parameters,
-      [&](const SubstitutionRedundancyInstance &) {
-        ++visited;
-        return true;
-      });
+      k, parameters, count_into(visited));
   assert(enumeration.status == SymmetryEnumerationStatus::Complete);
   assert(!enumeration.generators_validated && !enumeration.instances &&
          !visited);
 }
 
-static void explicit_pivot_mapping_must_repair_candidate() {
+TEST(explicit_pivot_mapping_must_repair_candidate) {
   for (const int phase : {1, -1}) {
     Kernel k;
     kernel_reserve_vars(k, 2);
@@ -3410,7 +3331,7 @@ static void explicit_pivot_mapping_must_repair_candidate() {
 
 // Explicit pivot mappings remain legal with any number of open images.
 // Proof serialization may expand one application into temporary proof clauses.
-static void explicit_pivot_mappings_remain_applicable() {
+TEST(explicit_pivot_mappings_remain_applicable) {
   {
     Kernel k;
     kernel_reserve_vars(k, 2);
@@ -3444,7 +3365,7 @@ static void explicit_pivot_mappings_remain_applicable() {
   kernel_check_invariants(k);
 }
 
-static void fixed_root_units_do_not_consume_graph_admission() {
+TEST(fixed_root_units_do_not_consume_graph_admission) {
   for (const auto mode : {SymmetryBinaryGraphMode::ClauseVertices,
                           SymmetryBinaryGraphMode::DirectEdges})
     for (const int phase : {1, -1})
@@ -3476,10 +3397,7 @@ static void fixed_root_units_do_not_consume_graph_admission() {
         const auto enumerate = [&](volatile sig_atomic_t *stop = nullptr) {
           instances.clear();
           return substitution_redundancy_enumerate_symmetry(
-              k, p, [&](const SubstitutionRedundancyInstance &instance) {
-                instances.push_back(instance);
-                return true;
-              }, stop);
+              k, p, collect_into(instances), stop);
         };
         volatile sig_atomic_t stop = 1;
         assert(enumerate(&stop).status == SymmetryEnumerationStatus::Interrupted);
@@ -3514,7 +3432,7 @@ static void fixed_root_units_do_not_consume_graph_admission() {
       }
 }
 
-static void pointwise_root_discovery_preserves_explicit_sr() {
+TEST(pointwise_root_discovery_preserves_explicit_sr) {
   // Interchangeable assigned variables consume a finite generator allowance.
   // Restricted discovery must retain the open symmetry with no root-only maps.
   for (const int phase : {1, -1}) {
@@ -3535,10 +3453,7 @@ static void pointwise_root_discovery_preserves_explicit_sr() {
     const auto enumerate = [&](volatile sig_atomic_t *stop = nullptr) {
       instances.clear();
       return substitution_redundancy_enumerate_symmetry(
-          k, parameters, [&](const SubstitutionRedundancyInstance &instance) {
-            instances.push_back(instance);
-            return true;
-          }, stop);
+          k, parameters, collect_into(instances), stop);
     };
     const auto unrestricted = enumerate();
     assert(unrestricted.generators_validated == 128 &&
@@ -3595,7 +3510,7 @@ static void pointwise_root_discovery_preserves_explicit_sr() {
   assert(full.generators_validated > 0 && fixed.generators_validated == 0);
 }
 
-static void generated_sr_noops_do_not_stall_complete_passes() {
+TEST(generated_sr_noops_do_not_stall_complete_passes) {
   Kernel k = symmetry_fixture();
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
@@ -3683,7 +3598,7 @@ repeated_binary_run(unsigned first_copies, unsigned second_copies,
   return run;
 }
 
-static void direct_binary_edges_encode_repeated_binary_clauses() {
+TEST(direct_binary_edges_encode_repeated_binary_clauses) {
   // Every multiplicity and watch order yields multiset-preserving generators
   // and the clause-vertex encoding's fixing instances.
   for (unsigned first = 1; first <= 3; ++first)
@@ -3781,7 +3696,7 @@ static void direct_binary_edges_encode_repeated_binary_clauses() {
          finalized.result.complete_group == full.result.complete_group);
 }
 
-static void uncertified_generated_sr_preserves_query_domain() {
+TEST(uncertified_generated_sr_preserves_query_domain) {
   using namespace tactix::session;
   for (bool generated : {true, false}) {
     QueryHistory history;
@@ -3830,7 +3745,7 @@ static void uncertified_generated_sr_preserves_query_domain() {
   }
 }
 
-static void general_sr_cursor_is_lazy_complete_and_resumable() {
+TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
   Kernel k;
   kernel_reserve_vars(k, 1);
   SubstitutionRedundancyParameters parameters;
@@ -3881,7 +3796,7 @@ static void general_sr_cursor_is_lazy_complete_and_resumable() {
          cursor.complete);
 }
 
-static void root_simplified_sr_noop_is_format_independent() {
+TEST(root_simplified_sr_noop_is_format_independent) {
   for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DsrBinary}) {
     Kernel k;
     kernel_reserve_vars(k, 3);
@@ -3925,7 +3840,7 @@ static void root_simplified_sr_noop_is_format_independent() {
 
 // A program may retire a variable before its later explicit SR step begins.
 // The immutable payload remains syntactically valid, but is no longer live.
-static void retired_sr_payload_is_inapplicable_and_reconfigurable() {
+TEST(retired_sr_payload_is_inapplicable_and_reconfigurable) {
   for (unsigned location = 0; location < 4; ++location) {
     Kernel k;
     kernel_reserve_vars(k, 4);
@@ -3998,7 +3913,7 @@ static void retired_sr_payload_is_inapplicable_and_reconfigurable() {
   }
 }
 
-static void root_fixing_after_amo_completion_is_recorded() {
+TEST(root_fixing_after_amo_completion_is_recorded) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(-1), internalize(2),
@@ -4021,7 +3936,7 @@ static void root_fixing_after_amo_completion_is_recorded() {
   kernel_check_invariants(k);
 }
 
-static void malformed_sr_is_rejected_before_true_clause_noop() {
+TEST(malformed_sr_is_rejected_before_true_clause_noop) {
   Kernel k;
   kernel_reserve_vars(k, 1);
   k.unit_ids[0] = ++k.next_clause_id;
@@ -4044,17 +3959,9 @@ static void malformed_sr_is_rejected_before_true_clause_noop() {
   assert(k.stats.sr_applications == applications_before);
 }
 
-static void unsupported_sr_proof_format_is_transactional() {
+TEST(unsupported_sr_proof_format_is_transactional) {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  const auto add_binary = [&](int a, int b) {
-    kernel_add_binary_clause(k, internalize(a), internalize(b),
-                             ++k.next_clause_id);
-  };
-  add_binary(1, 2);
-  add_binary(3, 4);
-  add_binary(-1, -3);
-  add_binary(-2, -4);
+  add_sr_fixture_clauses(k);
 
   char path[] = "/tmp/tactix-sr-terminal-XXXXXX";
   const int descriptor = mkstemp(path);
@@ -4095,17 +4002,9 @@ static void unsupported_sr_proof_format_is_transactional() {
   unlink(path);
 }
 
-static void later_sr_batch_member_can_become_inapplicable() {
+TEST(later_sr_batch_member_can_become_inapplicable) {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  const auto add_binary = [&](int a, int b) {
-    kernel_add_binary_clause(k, internalize(a), internalize(b),
-                             ++k.next_clause_id);
-  };
-  add_binary(1, 2);
-  add_binary(3, 4);
-  add_binary(-1, -3);
-  add_binary(-2, -4);
+  add_sr_fixture_clauses(k);
 
   SubstitutionRedundancyInstance first;
   first.clause = {internalize(-1)};
@@ -4140,7 +4039,7 @@ static void later_sr_batch_member_can_become_inapplicable() {
 
 // satsuma.h iteration_max: one pass plus clamp(ceil((2^23 / size)^1.5), 1, limit)
 // repetitions, size = literals + variables of the live formula.
-static void size_scaled_fixpoint_follows_the_owner_scale() {
+TEST(size_scaled_fixpoint_follows_the_owner_scale) {
   using namespace tactix::strategy;
   Kernel small;
   kernel_reserve_vars(small, 4);
@@ -4174,7 +4073,7 @@ static void size_scaled_fixpoint_follows_the_owner_scale() {
          !fixpoint_repeat(RepeatMode::Count));
 }
 
-static void sr_producer_settings_are_validated() {
+TEST(sr_producer_settings_are_validated) {
   OnlineInprocessProgram program;
   OnlineInvocation step;
   step.id = 69;
@@ -4464,11 +4363,7 @@ static int proof_witness(const char *input, const char *output,
       uint64_t post_instances = 0;
       const OrbitopalEnumerationResult post =
           substitution_redundancy_enumerate_orbitopal(
-              k, orbitopal_parameters,
-              [&](const SubstitutionRedundancyInstance &) {
-                ++post_instances;
-                return true;
-              });
+              k, orbitopal_parameters, count_into(post_instances));
       std::printf("c structured post-enumeration status %u matrices %llu "
                   "instances %llu ticks %llu refinement-orbits %llu "
                   "reduced %llu max-orbit %llu max-reduced %llu "
@@ -4599,10 +4494,7 @@ static int compound_singleton_proof(const char *input, const char *output) {
   std::vector<SubstitutionRedundancyInstance> instances;
   const auto enumeration = substitution_redundancy_enumerate_symmetry(
       k, parameters,
-      [&](const SubstitutionRedundancyInstance &instance) {
-        instances.push_back(instance);
-        return true;
-      }, nullptr, &hints);
+      collect_into(instances), nullptr, &hints);
   assert((enumeration.status == SymmetryEnumerationStatus::Complete ||
           enumeration.status == SymmetryEnumerationStatus::LimitReached) &&
          instances.size() == 1 && instances.front().clause.size() == 1 &&
@@ -4619,7 +4511,7 @@ static int compound_singleton_proof(const char *input, const char *output) {
   return result;
 }
 
-static void seeded_walk_reports_exact_failure_status() {
+TEST(seeded_walk_reports_exact_failure_status) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 2);
@@ -4648,7 +4540,6 @@ static void seeded_walk_reports_exact_failure_status() {
 }
 
 int main(int argc, char **argv) {
-  seeded_walk_reports_exact_failure_status();
   if (argc == 4 && !std::strcmp(argv[1], "--compound-singleton-proof"))
     return compound_singleton_proof(argv[2], argv[3]);
   std::optional<uint64_t> generator_cap;
@@ -4673,75 +4564,8 @@ int main(int argc, char **argv) {
                          argc >= 6 ? argv[5] : "unique", generator_cap,
                          root_stabilizer);
   assert(argc == 1);
-  validation_is_transactional();
-  invalid_discriminants_do_not_replace_configuration();
-  rule_work_budget_is_per_call_and_scoped();
-  material_settings_are_per_call_and_scoped();
-  complete_pass_reaches_a_scoped_fixpoint();
-  caller_selected_fixpoint_is_scoped_and_budgeted();
-  budget_survives_compatible_online_reconfiguration();
-  budget_continuation_preserves_limits_and_stops();
-  shared_sr_discovery_budget_does_not_refill();
-  finish_round_budget_policy_preserves_tail_and_resume();
-  sequence_configuration_is_transactional();
-  complete_pass_reaches_beyond_a_fixed_prefix();
-  selected_strengthening_preserves_pending_offsets();
-  interruption_and_inapplicability_do_not_consume_scope();
-  pending_selection_rejects_collection_and_external_mutation();
-  pending_selection_rechecks_guard_and_kernel_stop();
-  empty_repeated_scopes_observe_stop();
-  semantic_instances_and_parameters_compose();
-  congruence_semantic_actions_reach_online_fixpoint();
-  exact_factor_grids_compose_as_a_selected_batch();
-  complete_factor_pass_uses_exact_grid_enumeration();
-  post_application_propagates_and_publishes_root_units();
-  signed_sr_sources_emit_canonical_dsr_mappings();
-  sr_failure_statuses_preserve_the_pending_application();
-  unique_literal_amo_phase_is_checked_bounded_and_composable();
-  orbitopal_column_orientation_is_typed_and_effective();
-  orbitopal_product_refinement_requires_exact_two_axis_action();
-  orbitopal_product_extends_coupled_variables();
-  orbitopal_certificate_rechecks_propagated_root_closure();
-  orbitopal_certified_prefix_preserves_small_sat_fixture();
-  orbitopal_alignment_spans_connected_columns();
-  orbitopal_row_group_certificate_rejects_missing_images();
-  orbitopal_reuses_only_equivalent_failed_matrices();
-  orbitopal_column_transport_requires_a_bijection();
-  orbitopal_clique_order_is_typed_exact_and_budgeted();
-  orbitopal_clique_order_matches_exhaustive_connected_graphs();
-  orbitopal_refinement_completes_hidden_columns();
-  orbitopal_refinement_starts_from_one_unique_column();
-  orbitopal_discovery_scopes_are_independent();
-  orbitopal_refinement_cells_need_no_generic_generators();
+  run_tests();
   for (bool preserve : {false, true})
     graph_symmetry_is_exact_bounded_and_interruptible(preserve);
-  stabilizer_chain_adds_all_cuts_before_rup_unit();
-  large_domain_generator_fixing_uses_units_without_a_chain();
-  compound_admission_publishes_a_singleton_forcing_unit();
-  fix_and_cut_reaches_nonclausal_orbits();
-  amo_stabilizer_chain_propagates_complements_online();
-  every_root_assignment_constrains_graph_symmetry();
-  explicit_pivot_mapping_must_repair_candidate();
-  explicit_pivot_mappings_remain_applicable();
-  pointwise_root_discovery_preserves_explicit_sr();
-  fixed_root_units_do_not_consume_graph_admission();
-  generated_sr_noops_do_not_stall_complete_passes();
-  direct_binary_edges_encode_repeated_binary_clauses();
-  uncertified_generated_sr_preserves_query_domain();
-  general_sr_cursor_is_lazy_complete_and_resumable();
-  root_simplified_sr_noop_is_format_independent();
-  retired_sr_payload_is_inapplicable_and_reconfigurable();
-  root_fixing_after_amo_completion_is_recorded();
-  malformed_sr_is_rejected_before_true_clause_noop();
-  unsupported_sr_proof_format_is_transactional();
-  later_sr_batch_member_can_become_inapplicable();
-  size_scaled_fixpoint_follows_the_owner_scale();
-  sr_producer_settings_are_validated();
-  complete_pass_reenumerates_after_its_own_collection();
-  sweep_parameters_are_exact_per_invocation();
-  zero_victim_compaction_reports_semantic_progress();
-  condition_online_uses_external_clause_after_compaction();
-  rule_parameters_are_scoped_per_call();
-  collection_does_not_age_the_search_database();
   std::puts("Online sequence, granularity, fixpoint, budget and reconfigure PASS");
 }

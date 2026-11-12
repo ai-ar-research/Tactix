@@ -1,7 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "session/retained_clauses.hpp"
-#include <cassert>
-using namespace tactix;
 using namespace tactix::session;
 static RetentionLimits limits() {return {64,8192,64,4096,16,64,4096};}
 static const std::vector<PbpParityEquation> equations{{{1,2,3},false},{{1,2,4},false}};

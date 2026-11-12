@@ -21,14 +21,8 @@ struct CardinalitySearchLiveRequest {
 };
 
 enum class CardinalitySearchLiveStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  UnsupportedProof,
-  NoSource,
-  NoEvent,
-  ResourceExhausted,
-  Interrupted,
-  Applied,
+  Invalid, Inapplicable, UnsupportedProof, NoSource, NoEvent, ResourceExhausted,
+  Interrupted, Applied
 };
 
 struct CardinalitySearchLiveResult {

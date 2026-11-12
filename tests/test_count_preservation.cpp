@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "temporary_file.hpp"
 #include "api/api_internal.hpp"
@@ -6,18 +6,10 @@
 #include "frontend/parse.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
-#define tactix tactix_handle
-#include "tactix.h"
-#undef tactix
-#include <algorithm>
-#include <cassert>
+#include "tactix_c_api.hpp"
 #include <csignal>
-#include <cstdio>
 #include <sstream>
-#include <string>
 #include <sys/stat.h>
-#include <vector>
-using namespace tactix;
 
 // Two complete permutation selector layers, with arbitrary signed relabeling.
 // Adjacent count-preserving stars share the middle leaf variables.
@@ -167,7 +159,7 @@ int main(int argc, char **argv) {
     assert(k.startup_input == original && k.arena.size() == arena_size);
     assert(!k.stats.counting_unsat);
   }
-  const auto add_input = [&](tactix_handle *solver) {
+  const auto add_input = [&](tactix_c_handle *solver) {
     std::istringstream input(cnf);
     std::string header;
     std::getline(input, header);
@@ -176,7 +168,7 @@ int main(int argc, char **argv) {
       tactix_add(solver, literal);
   };
   for (bool ordinary : {false, true}) {
-    tactix_handle *solver = tactix_init();
+    tactix_c_handle *solver = tactix_init();
     add_input(solver);
     if (ordinary)
       assert(tactix_apply(solver, tactix::tactix_rule_id("Restart")) >= 0);
@@ -192,7 +184,7 @@ int main(int argc, char **argv) {
     const std::string path = argc > 1 ? std::string(argv[1]) + "/count3r-" +
                                             (solve ? "solve" : "apply") + ".dsr"
                                       : scratch.path;
-    tactix_handle *solver = tactix_init();
+    tactix_c_handle *solver = tactix_init();
     assert(!tactix_proof(solver, path.c_str(), TACTIX_PROOF_DSR_BINARY));
     add_input(solver);
     const int result =

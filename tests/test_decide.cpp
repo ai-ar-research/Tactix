@@ -1,7 +1,7 @@
 // Decide's guard has no propagation-fixpoint conjunct, so decisions may stack
 // without propagation (N1), and backtracking from such a state leaves no
 // escaped unit. Ledger row D-LEVEL-1 in the implementation notes.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
@@ -10,13 +10,8 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
 // The guard holds on an un-propagated trail: off-fixpoint decisions are legal.
-static void test_decide_guard_is_pure_off_fixpoint() {
+TEST(test_decide_guard_is_pure_off_fixpoint) {
   Kernel k;
   kernel_reserve_vars(k, 4); // var 4 stays free so Decide always has work
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 -> 2
@@ -32,7 +27,7 @@ static void test_decide_guard_is_pure_off_fixpoint() {
 
 // A watch scan treats its clause as satisfied by an ahead decision that a
 // later backtrack unassigns; `trail_tainted` forces full re-propagation.
-static void test_off_fixpoint_decide_then_backtrack_no_escape() {
+TEST(test_off_fixpoint_decide_then_backtrack_no_escape) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_external_clause(k, {1, 2, 3}); // watched on 1 and 2
@@ -63,7 +58,7 @@ static void test_off_fixpoint_decide_then_backtrack_no_escape() {
 
 // N1-RETIRED-DECIDE: a retired unassigned variable stays a Decide instance,
 // even as the last one left, which ranked pickers cannot answer.
-static void test_retired_unassigned_var_stays_selectable() {
+TEST(test_retired_unassigned_var_stays_selectable) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
@@ -91,7 +86,7 @@ static void test_retired_unassigned_var_stays_selectable() {
   assert(k.level == 1 && k.unassigned == k.nvars - 1);
 }
 
-static void test_canonical_decide_is_policy_independent() {
+TEST(test_canonical_decide_is_policy_independent) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
@@ -104,7 +99,7 @@ static void test_canonical_decide_is_policy_independent() {
 
 // DefaultPolicy removes each new root implication from both rankings, as
 // Kissat's fixed-variable lifecycle does.
-static void test_policy_consumes_root_implications() {
+TEST(test_policy_consumes_root_implications) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
@@ -122,7 +117,7 @@ static void test_policy_consumes_root_implications() {
 
 // An input unit fixed before attach leaves both rankings (kissat flags.c
 // deactivate_variable) but consumes its import-order stamp slot.
-static void test_attach_deactivates_prefixed_input_unit() {
+TEST(test_attach_deactivates_prefixed_input_unit) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -135,15 +130,4 @@ static void test_attach_deactivates_prefixed_input_unit() {
   assert(heuristics_var_active(k, var_of(internalize(4))));
   // The stamp slot of the fixed identity is consumed, not skipped.
   assert(k.h->links[var_of(internalize(4))].stamp == 4);
-}
-
-int main() {
-  test_decide_guard_is_pure_off_fixpoint();
-  test_off_fixpoint_decide_then_backtrack_no_escape();
-  test_retired_unassigned_var_stays_selectable();
-  test_canonical_decide_is_policy_independent();
-  test_policy_consumes_root_implications();
-  test_attach_deactivates_prefixed_input_unit();
-  puts("test_decide OK");
-  return 0;
 }

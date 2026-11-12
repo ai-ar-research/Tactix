@@ -1,11 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/lucky/parity_live.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::parity_certificate;
 // root_conflict adds the root unit x1; contradiction expects UNSAT from the
 // equations alone.

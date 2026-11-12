@@ -212,33 +212,22 @@ struct GraphSymmetryParameters {
   SymmetryNonforcingCutAdmission nonforcing_cut_admission =
       SymmetryNonforcingCutAdmission::Publish;
 
+  // Every enum here is uint8_t from zero: its last enumerator bounds the range.
   bool valid() const {
-    return error_bound > 0 && fixing_mode >= SymmetryFixingMode::StabilizerOnly &&
+    return error_bound > 0 &&
            fixing_mode <= SymmetryFixingMode::StabilizerThenGenerators &&
-           generator_order >= SymmetryTraversalOrder::Canonical &&
            generator_order <= SymmetryTraversalOrder::Seeded &&
-           clause_order >= SymmetryTraversalOrder::Canonical &&
            clause_order <= SymmetryTraversalOrder::Seeded &&
-           literal_order >= SymmetryTraversalOrder::Canonical &&
            literal_order <= SymmetryTraversalOrder::Seeded &&
-           clause_scope >= SymmetryClauseScope::All &&
            clause_scope <= SymmetryClauseScope::UniqueLiteralsOnly &&
-           pair_orientation >= SymmetryPairOrientation::Canonical &&
            pair_orientation <= SymmetryPairOrientation::Seeded &&
-           binary_graph_mode >= SymmetryBinaryGraphMode::ClauseVertices &&
            binary_graph_mode <= SymmetryBinaryGraphMode::Automatic &&
-           clause_selection >= SymmetryClauseSelection::InputOrder &&
            clause_selection <= SymmetryClauseSelection::AmoThenShortest &&
-           chain_mode >= SymmetryChainMode::ClausalFixing &&
            chain_mode <= SymmetryChainMode::FixAndCutResift &&
-           base_selection >= SymmetryBaseSelection::ClauseOrder &&
-           base_selection <= SymmetryBaseSelection::FirstShortestThenForwardRemainder &&
-           cut_point >= SymmetryCutPoint::FirstOpen &&
+           base_selection <=
+               SymmetryBaseSelection::FirstShortestThenForwardRemainder &&
            cut_point <= SymmetryCutPoint::LargestOrbitLast &&
-           structured_scope >= SymmetryStructuredScope::WholeMatrix &&
            structured_scope <= SymmetryStructuredScope::AxisAnchors &&
-           nonforcing_cut_admission >=
-               SymmetryNonforcingCutAdmission::Publish &&
            nonforcing_cut_admission <=
                SymmetryNonforcingCutAdmission::RequireCompoundProgress;
   }
@@ -290,37 +279,23 @@ struct SubstitutionRedundancyParameters {
       OrbitopalRowOrbitSource::DetectedGenerators;
   GraphSymmetryParameters graph_symmetry;
 
+  // Every enum here is uint8_t from zero: its last enumerator bounds the range.
   bool valid() const {
-    const bool valid_producer =
-        producer >= SubstitutionRedundancyProducer::ExplicitOnly &&
-        producer <= SubstitutionRedundancyProducer::GraphSymmetry;
-    const bool valid_orientation =
-        orbitopal_orientation >= OrbitopalOrientation::Rows &&
-        orbitopal_orientation <= OrbitopalOrientation::Both;
-    const bool valid_column_order =
-        orbitopal_column_order >= OrbitopalColumnOrder::Canonical &&
+    const bool valid_orbitopal_enums =
+        orbitopal_orientation <= OrbitopalOrientation::Both &&
         orbitopal_column_order <=
-            OrbitopalColumnOrder::CooccurrenceBoundedGreedyClique;
-    const bool valid_completion =
-        orbitopal_completion >= OrbitopalCompletion::MatrixOnly &&
+            OrbitopalColumnOrder::CooccurrenceBoundedGreedyClique &&
         orbitopal_completion <=
-            OrbitopalCompletion::IndividualizedGraphCompletion;
-    const bool valid_discovery_order =
-        orbitopal_discovery_order >=
-            OrbitopalDiscoveryOrder::RefinementThenUniqueLiteral &&
+            OrbitopalCompletion::IndividualizedGraphCompletion &&
         orbitopal_discovery_order <=
-            OrbitopalDiscoveryOrder::UniqueLiteralOnly;
-    const bool valid_row_orbit_source =
-        orbitopal_row_orbit_source >= OrbitopalRowOrbitSource::DetectedGenerators &&
+            OrbitopalDiscoveryOrder::UniqueLiteralOnly &&
         orbitopal_row_orbit_source <= OrbitopalRowOrbitSource::RefinementCells;
-    return valid_producer &&
+    return producer <= SubstitutionRedundancyProducer::GraphSymmetry &&
            ((producer != SubstitutionRedundancyProducer::Orbitopal &&
              !(producer == SubstitutionRedundancyProducer::GraphSymmetry &&
                (graph_symmetry.use_structured_generators ||
                 graph_symmetry.stabilize_structured_variables))) ||
-            (valid_orientation && valid_column_order && valid_completion &&
-             valid_discovery_order && valid_row_orbit_source &&
-             minimum_orbitopal_rows >= 2 &&
+            (valid_orbitopal_enums && minimum_orbitopal_rows >= 2 &&
              minimum_orbitopal_columns >= 2 &&
              orbitopal_base_probe_factor >= 1 &&
              minimum_orbitopal_clique_columns >= 2 &&

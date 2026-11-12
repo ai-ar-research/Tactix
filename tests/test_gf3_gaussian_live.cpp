@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "gf3_formula_support.hpp"
 #include "temporary_file.hpp"
 #include "test_io.hpp"
@@ -6,13 +6,6 @@
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/gf3_gaussian_live.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 namespace live = tactix::gf3_gaussian_live;
 
 namespace {
@@ -83,7 +76,7 @@ void attach(Proof &proof, Kernel &kernel) {
 }
 
 // Source/Scale/Add closure publishes every unit of x=2, y=1, z=2 at once.
-void chained_units_and_journal() {
+TEST(chained_units_and_journal) {
   Fixture f;
   // inspect() is mutation-free; its certificate fixes the proof accounting.
   live::Prepared prepared;
@@ -112,7 +105,7 @@ void chained_units_and_journal() {
     assert(journal.find(field) != std::string::npos);
 }
 
-void budgets_interruptions_and_formats() {
+TEST(budgets_interruptions_and_formats) {
   uint64_t events = 0;
   {
     Fixture baseline;
@@ -163,7 +156,7 @@ void budgets_interruptions_and_formats() {
   }
 }
 
-void dsr_conflict() {
+TEST(dsr_conflict) {
   TemporaryFile file;
   Kernel kernel = install(gf3_conflict());
   Proof proof;
@@ -182,10 +175,3 @@ void dsr_conflict() {
 }
 
 } // namespace
-
-int main() {
-  chained_units_and_journal();
-  budgets_interruptions_and_formats();
-  dsr_conflict();
-  std::puts("test_gf3_gaussian_live: passed");
-}

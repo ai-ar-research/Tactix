@@ -1,6 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/cardinality_certificate.hpp"
-#include <cstdio>
 #include <limits>
 #include <map>
 

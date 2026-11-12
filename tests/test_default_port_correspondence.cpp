@@ -4,7 +4,7 @@
 // it and requires identical verdicts, certificate bytes, models and trajectory
 // counters. The C default strategy's correspondence with the static arm is
 // test_c_default_correspondence.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "default_correspondence.hpp"
 
 #include <iostream>

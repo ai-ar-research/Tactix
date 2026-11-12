@@ -1,12 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/default_policy.hpp"
 #include "session/query_kernel.hpp"
 #include "query_test_support.hpp"
 #include "proof/proof.hpp"
 
-#include <string>
-
-using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
 
@@ -15,7 +12,7 @@ static void guarded_unsat(QueryHistory &h) {
   clause(h, {-1, -2, 3}); clause(h, {-1, -2, -3});
 }
 
-static void repeated_default_queries() {
+TEST(repeated_default_queries) {
   QueryHistory h;
   clause(h, {1, 2});
   QueryKernel session;
@@ -43,7 +40,7 @@ static void repeated_default_queries() {
   }
 }
 
-static void interrupted_and_invalid_entry() {
+TEST(interrupted_and_invalid_entry) {
   DefaultPolicy policy;
   QueryKernel session;
   assert(policy.solve_query(session).status == QuerySolveStatus::InvalidState);
@@ -63,7 +60,7 @@ static void interrupted_and_invalid_entry() {
   assert(next.status == QuerySolveStatus::Complete && next.result == 10);
 }
 
-static void contradictory_assumptions() {
+TEST(contradictory_assumptions) {
   QueryHistory h;
   assert(h.assume(1) == InputStatus::Ok);
   assert(h.assume(-1) == InputStatus::Ok);
@@ -81,7 +78,7 @@ static void contradictory_assumptions() {
   assert(next.status == QuerySolveStatus::Complete && next.result == 10);
 }
 
-static void callback_interrupts_search() {
+TEST(callback_interrupts_search) {
   QueryHistory h;guarded_unsat(h);
   assert(h.assume(1)==InputStatus::Ok&&h.begin_query()==InputStatus::Ok);
   QueryKernel owner;assert(owner.replay(h)==ReplayStatus::Ok);
@@ -112,7 +109,7 @@ static void callback_interrupts_search() {
   assert(owner.check_model(owner.ticket()).status==ModelStatus::Valid);
 }
 
-static void disconnected_query_components() {
+TEST(disconnected_query_components) {
   QueryHistory h;
   clause(h, {8, -8});
   clause(h, {1, 2});
@@ -135,7 +132,7 @@ static void disconnected_query_components() {
   assert(session.check_model(session.ticket()).status == ModelStatus::Valid);
 }
 
-static void assumptions_preclude_amo_completion() {
+TEST(assumptions_preclude_amo_completion) {
   QueryHistory h;
   clause(h, {1, 2});
   assert(h.assume(1) == InputStatus::Ok);
@@ -149,7 +146,7 @@ static void assumptions_preclude_amo_completion() {
   assert(session.check_model(session.ticket()).status == ModelStatus::Valid);
 }
 
-static void root_fixed_amo_pivot_query() {
+TEST(root_fixed_amo_pivot_query) {
   for (bool permanent_one : {false, true}) {
     QueryHistory h;
     clause(h, {6, -6});
@@ -200,7 +197,7 @@ static void fixture(const std::string &prefix, const std::string &mode) {
       (unsigned long long)session.projection_state(session.ticket()).translated_assumptions,polls);
 }
 
-static void orbitopal_prefix_preserves_assumptions() {
+TEST(orbitopal_prefix_preserves_assumptions) {
   QueryHistory h;
   // Retained seed 50128, fresh query 12: refinement-derived prefixes used to
   // undo the cube and cause an endless adapter repair/replay/startup cycle.
@@ -221,12 +218,5 @@ static void orbitopal_prefix_preserves_assumptions() {
 int main(int argc, char **argv) {
   if (argc == 3) { fixture(argv[1], argv[2]); return 0; }
   assert(argc == 1);
-  repeated_default_queries();
-  interrupted_and_invalid_entry();
-  contradictory_assumptions();
-  callback_interrupts_search();
-  disconnected_query_components();
-  assumptions_preclude_amo_completion();
-  root_fixed_amo_pivot_query();
-  orbitopal_prefix_preserves_assumptions();
+  run_tests();
 }

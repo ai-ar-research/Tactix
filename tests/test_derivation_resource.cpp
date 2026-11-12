@@ -1,9 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "session/derivation_history.hpp"
 #include "proof/proof.hpp"
-#include <cassert>
 extern "C" void tactix_test_fail_allocations(bool);
-using namespace tactix;
 using namespace tactix::session;
 int main() {
   DerivationHistory history(1, 8);

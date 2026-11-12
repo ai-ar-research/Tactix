@@ -58,24 +58,12 @@ struct Limits {
 };
 
 enum class LimitKind : uint8_t {
-  None,
-  Work,
-  SourceClauses,
-  SourceLiterals,
-  Domains,
-  Equations,
-  Terms,
-  AuthenticationReferences,
-  ReferencesPerEquation,
-  Gaussian,
+  None, Work, SourceClauses, SourceLiterals, Domains, Equations, Terms,
+  AuthenticationReferences, ReferencesPerEquation, Gaussian
 };
 
 enum class Status : uint8_t {
-  Complete,
-  InvalidTheory,
-  InvalidPlan,
-  LimitExceeded,
-  Interrupted,
+  Complete, InvalidTheory, InvalidPlan, LimitExceeded, Interrupted
 };
 
 struct Statistics {

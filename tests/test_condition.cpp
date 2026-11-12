@@ -1,17 +1,10 @@
 // X5 conditional-autarky legality, all-copy deletion and reconstruction.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/condition/condition.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <initializer_list>
-#include <vector>
-
-using namespace tactix;
 
 static ConditionInstance cube(std::initializer_list<int> clause,
                               std::initializer_list<int> witness) {
@@ -23,7 +16,7 @@ static ConditionInstance cube(std::initializer_list<int> clause,
   return result;
 }
 
-static void test_binary_cube_and_model() {
+TEST(test_binary_cube_and_model) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c[2] = {internalize(1), internalize(2)};
@@ -58,7 +51,7 @@ static void test_binary_cube_and_model() {
          k.model_values[internalize(4)] > 0);
 }
 
-static void test_large_and_negative_cases() {
+TEST(test_large_and_negative_cases) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add_external_clause(k, {1, 2, 4});
@@ -79,7 +72,7 @@ static void test_large_and_negative_cases() {
 // Exhaust the non-unit three-variable clause shapes and every finite cube on
 // those variables.  The oracle evaluates the overwrite on total assignments;
 // it does not reuse condition_prepare's local-implication calculation.
-static void test_exhaustive_cube_implication_oracle() {
+TEST(test_exhaustive_cube_implication_oracle) {
   const std::vector<std::vector<int>> candidates = {{1, 2}, {1, 2, 3}};
   unsigned checked = 0;
   for (const auto &candidate : candidates)
@@ -156,7 +149,7 @@ static void test_exhaustive_cube_implication_oracle() {
   assert(checked == 1080);
 }
 
-static void test_root_false_candidate_literal() {
+TEST(test_root_false_candidate_literal) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add_external_clause(k, {1, 2, 3});
@@ -168,7 +161,7 @@ static void test_root_false_candidate_literal() {
   assert(clause_at(k.arena, 0)->garbage());
 }
 
-static void test_root_true_reason_candidates() {
+TEST(test_root_true_reason_candidates) {
   {
     Kernel k;
     kernel_reserve_vars(k, 2);
@@ -231,7 +224,7 @@ static void test_cube_on_compacted_external_identity(bool emit_model = false) {
   }
 }
 
-static void test_cube_respects_archived_root_value() {
+TEST(test_cube_respects_archived_root_value) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -253,12 +246,7 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  test_binary_cube_and_model();
-  test_large_and_negative_cases();
-  test_exhaustive_cube_implication_oracle();
-  test_root_false_candidate_literal();
-  test_root_true_reason_candidates();
+  run_tests();
   test_cube_on_compacted_external_identity();
-  test_cube_respects_archived_root_value();
   std::puts("condition OK");
 }

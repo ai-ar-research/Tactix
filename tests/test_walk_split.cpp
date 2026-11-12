@@ -1,19 +1,13 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/restart_controller.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/guidance_execution.hpp"
-#include <cassert>
-#include <cstdio>
 #include <sstream>
-#include <string>
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 

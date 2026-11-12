@@ -1,14 +1,8 @@
 // Public C API regressions: policy disabling/protection cannot hide legal acts.
-#undef NDEBUG
-#define tactix tactix_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "policies/default_inprocess.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <initializer_list>
 
 static int rule(const char *name) {
@@ -19,7 +13,7 @@ static int rule(const char *name) {
   return -1;
 }
 
-static void clause(tactix_handle *s, std::initializer_list<int> lits) {
+static void clause(tactix_c_handle *s, std::initializer_list<int> lits) {
   for (int lit : lits)
     tactix_add(s, lit);
   tactix_add(s, 0);
@@ -30,7 +24,7 @@ static void sweep(bool disabled, bool explicit_seed) {
     setenv("TACTIX_NO_SWEEP", "1", 1);
   else
     unsetenv("TACTIX_NO_SWEEP");
-  tactix_handle *s = tactix_init();
+  tactix_c_handle *s = tactix_init();
   clause(s, {1, 2});
   clause(s, {1, -2});
   const int id = rule("Sweep");
@@ -46,7 +40,7 @@ static void sweep(bool disabled, bool explicit_seed) {
 }
 
 static void reduce(bool locked) {
-  tactix_handle *s = tactix_init();
+  tactix_c_handle *s = tactix_init();
   clause(s, {-1, -3, 4});
   clause(s, {-2, -3, 5});
   clause(s, {-4, -5});

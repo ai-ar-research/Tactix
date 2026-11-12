@@ -1,23 +1,16 @@
 // DIMACS ingestion regressions: stable clause storage and the decision seed
 // both preserve the file-literal order used by Kissat's default `tumble=1`.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/decide/decide.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <fstream>
 #include <map>
 #include <sstream>
-#include <cstdio>
-#include <string>
-#include <vector>
 
 #include <unistd.h>
-
-using namespace tactix;
 
 static FILE *dimacs_file(const char *text) {
   FILE *file = std::tmpfile();
@@ -33,7 +26,7 @@ static void parse_text(Kernel &k, const char *text) {
   std::fclose(file);
 }
 
-static void test_compact_input_filter_grows_and_deduplicates_exactly() {
+TEST(test_compact_input_filter_grows_and_deduplicates_exactly) {
   Kernel k;
   FILE *file = std::tmpfile();
   assert(file);
@@ -95,7 +88,7 @@ static std::string parse_with_block(const char *text, size_t block,
   return err ? std::string("error:") + err : import_fingerprint(k);
 }
 
-static void test_advisory_headers_preserve_binary_liveness() {
+TEST(test_advisory_headers_preserve_binary_liveness) {
   const char *canonical =
       "p cnf 3 6\n1 2 0\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n";
   // Advisory and late headers: re-arming the exact index keeps every earlier
@@ -123,7 +116,7 @@ static void test_advisory_headers_preserve_binary_liveness() {
 }
 
 // Every block size imports the same formula and reports the same error text.
-static void test_block_boundaries_do_not_change_the_import() {
+TEST(test_block_boundaries_do_not_change_the_import) {
   const char *text =
       "c leading comment\r\n"
       "p cnf 12 9\r\n"
@@ -178,7 +171,7 @@ static void test_block_boundaries_do_not_change_the_import() {
     assert(parse_with_block(odd, block) == odd_reference);
 }
 
-static void test_streaming_pbp_uses_compact_binary_filter() {
+TEST(test_streaming_pbp_uses_compact_binary_filter) {
   Kernel k;
   const std::string path = "/tmp/tactix-test-parse-pbp-" +
                            std::to_string(static_cast<long>(getpid())) +
@@ -198,7 +191,7 @@ static void test_streaming_pbp_uses_compact_binary_filter() {
 
 // Replaying the import proof over the raw input yields exactly the stored
 // clause population, including a shrinking duplicate.
-static void test_literal_proof_import_retires_raw_replacements() {
+TEST(test_literal_proof_import_retires_raw_replacements) {
   const std::vector<std::vector<int>> raw = {
       {1}, {-1, 2, 2, 3}, {3, 2}, {2, -1, 3},
       {4, 5, 4, -1, 6}, {7, -1, 7}, {1, 8}, {9, -9}};
@@ -260,7 +253,7 @@ static void test_literal_proof_import_retires_raw_replacements() {
   }
 }
 
-static void test_tumble_preserves_file_literal_order() {
+TEST(test_tumble_preserves_file_literal_order) {
   Kernel k;
   ScopedHeuristics hg(k);
   // First surviving occurrences: 3,1,2,6,4,7; the tautology activates
@@ -308,7 +301,7 @@ static void test_tumble_preserves_file_literal_order() {
   kernel_check_invariants(k);
 }
 
-static void test_root_units_normalize_later_input_clauses() {
+TEST(test_root_units_normalize_later_input_clauses) {
   Kernel k;
   ScopedHeuristics hg(k);
   const char *dimacs =
@@ -332,7 +325,7 @@ static void test_root_units_normalize_later_input_clauses() {
   kernel_check_invariants(k);
 }
 
-static void test_input_units_propagate_before_later_clauses() {
+TEST(test_input_units_propagate_before_later_clauses) {
   Kernel k;
   ScopedHeuristics hg(k);
   const char *dimacs =
@@ -358,7 +351,7 @@ static void test_input_units_propagate_before_later_clauses() {
 }
 
 // Every proof mode keeps the same input clauses: (2 3) is root-satisfied.
-static void test_proof_mode_preserves_import_liveness() {
+TEST(test_proof_mode_preserves_import_liveness) {
   const char *dimacs =
       "p cnf 3 3\n"
       "-1 2 0\n"
@@ -394,7 +387,7 @@ static void test_proof_mode_preserves_import_liveness() {
   assert(import(ProofFormat::DsrBinary, true) == baseline);
 }
 
-static void test_header_only_variables_are_not_search_variables() {
+TEST(test_header_only_variables_are_not_search_variables) {
   Kernel k;
   ScopedHeuristics hg(k);
   const char *dimacs =
@@ -417,7 +410,7 @@ static void test_header_only_variables_are_not_search_variables() {
   kernel_check_invariants(k);
 }
 
-static void test_discarded_only_variables_are_not_search_variables() {
+TEST(test_discarded_only_variables_are_not_search_variables) {
   const char *dimacs =
       "p cnf 7 5\n"
       "1 -1 3 0\n" // x1/x3 occur only in a tautology
@@ -451,20 +444,4 @@ static void test_discarded_only_variables_are_not_search_variables() {
            candidates + count);
     kernel_check_invariants(k);
   }
-}
-
-int main() {
-  test_compact_input_filter_grows_and_deduplicates_exactly();
-  test_streaming_pbp_uses_compact_binary_filter();
-  test_literal_proof_import_retires_raw_replacements();
-  test_tumble_preserves_file_literal_order();
-  test_root_units_normalize_later_input_clauses();
-  test_input_units_propagate_before_later_clauses();
-  test_proof_mode_preserves_import_liveness();
-  test_header_only_variables_are_not_search_variables();
-  test_discarded_only_variables_are_not_search_variables();
-  test_block_boundaries_do_not_change_the_import();
-  test_advisory_headers_preserve_binary_liveness();
-  puts("test_parse OK");
-  return 0;
 }

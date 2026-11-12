@@ -1,15 +1,11 @@
 // Binary Vivify retires a large source: surviving original endpoints also
 // need retry advice. Cover public instances, both terminal paths and modes.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/vivify/vivify.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <unistd.h>
-using namespace tactix;
 
 static bool fixture(bool redundant, bool instantiate, bool reuse, bool preset, int mode) {
   Kernel k; kernel_reserve_vars(k, 4); k.vivify_reuse = reuse;

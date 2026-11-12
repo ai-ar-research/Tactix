@@ -1,15 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 
 #include "independent_set_test_support.hpp"
 #include "dimacs_text.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/semantic_variable_advice.hpp"
-
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
 
 namespace {
 
@@ -54,7 +49,7 @@ void publish_staged_candidate(Kernel &kernel, uint64_t action_id) {
          !candidates[0].introduced_variables);
 }
 
-void exercise() {
+TEST(exercise) {
   Kernel kernel;
   load(kernel);
   FILE *records = std::tmpfile();
@@ -175,9 +170,3 @@ void exercise() {
 }
 
 } // namespace
-
-int main() {
-  exercise();
-  std::puts("test_independent_set_cover_action OK");
-  return 0;
-}

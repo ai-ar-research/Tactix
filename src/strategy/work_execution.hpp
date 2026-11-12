@@ -2,7 +2,7 @@
 
 #include "diagnostics/rule_journal.hpp"
 #include "rules/registry.hpp"
-#include "strategy/work_settings.hpp"
+#include "strategy/rule_invocation.hpp"
 
 #include <optional>
 

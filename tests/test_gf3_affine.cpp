@@ -1,15 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "gf3_formula_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/gf3_affine.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
 #include <iostream>
 #include <map>
 #include <set>
-#include <vector>
 
 using namespace tactix::gf3_affine;
 
@@ -52,7 +48,7 @@ void check_decline(const PairEliminationPlan &plan, PlanStatus status) {
   assert(!plan.projection.reconstruction_witness_required);
 }
 
-void test_exact_recognition_and_pair_elimination() {
+TEST(test_exact_recognition_and_pair_elimination) {
   const Fixture fixture = small_fixture();
   const RecognitionResult recognized = recognition_of(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
@@ -113,7 +109,7 @@ void test_exact_recognition_and_pair_elimination() {
   }
 }
 
-void test_signed_selection_literals() {
+TEST(test_signed_selection_literals) {
   const Fixture fixture = small_fixture(true);
   const RecognitionResult recognized = recognition_of(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
@@ -125,7 +121,7 @@ void test_signed_selection_literals() {
     assert(rup_implied(fixture.clauses, addition.clause));
 }
 
-void test_target_arity_shape_and_complete_rup_replay() {
+TEST(test_target_arity_shape_and_complete_rup_replay) {
   Fixture fixture = gf3_domains(7);
   fixture.equation({0, 1, 2, 3}, {1, 2, 1, 2}, 1);
   fixture.equation({3, 4, 5, 6}, {1, 1, 2, 1}, 2);
@@ -143,7 +139,7 @@ void test_target_arity_shape_and_complete_rup_replay() {
     assert(rup_implied(source_formula, addition.clause));
 }
 
-void test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources() {
+TEST(test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources) {
   Fixture fixture = small_fixture();
   fixture.source.pop_back();
   RecognitionResult result = recognition_of(fixture);
@@ -180,7 +176,7 @@ void test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources() {
   assert(result.theory.source.empty());
 }
 
-void test_overlap_and_stale_theory_declines() {
+TEST(test_overlap_and_stale_theory_declines) {
   Fixture fixture = gf3_domains(4);
   fixture.equation({0, 1, 2}, {1, 1, 2}, 0);
   fixture.equation({1, 2, 3}, {1, 2, 1}, 1);
@@ -214,7 +210,7 @@ void test_overlap_and_stale_theory_declines() {
                 PlanStatus::IncompleteTheory);
 }
 
-void test_recognition_and_planning_bounds_are_atomic() {
+TEST(test_recognition_and_planning_bounds_are_atomic) {
   const Fixture fixture = small_fixture();
   const auto ample = [](uint64_t) { return true; };
   for (int bound = 0; bound < 5; ++bound) {
@@ -268,11 +264,6 @@ void test_recognition_and_planning_bounds_are_atomic() {
 } // namespace
 
 int main() {
-  test_exact_recognition_and_pair_elimination();
-  test_signed_selection_literals();
-  test_target_arity_shape_and_complete_rup_replay();
-  test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources();
-  test_overlap_and_stale_theory_declines();
-  test_recognition_and_planning_bounds_are_atomic();
+  run_tests();
   std::cout << "GF(3) affine recognition and consequence tests passed\n";
 }

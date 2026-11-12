@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "rules/lucky/ramsey_startup.hpp"
 #include "policies/default_policy.hpp"
@@ -14,16 +14,9 @@
 #include "strategy/feedback_trace.hpp"
 #include "strategy/native_feedback.hpp"
 #include "proof/proof.hpp"
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
+#include "tactix_c_api.hpp"
 #include <fstream>
 #include <sstream>
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 

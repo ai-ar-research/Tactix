@@ -2,6 +2,7 @@
 
 #include "rules/semantic_extension/csp_exact_theory.hpp"
 #include "rules/semantic_extension/csp_physical_scan.hpp"
+#include "rules/semantic_extension/declined.hpp"
 
 #include <algorithm>
 
@@ -74,10 +75,8 @@ NaryCspRelationCaptureResult nary_csp_relation_prepare_owner(
     NaryCspRelationOwnerSession &output) {
   NaryCspRelationCaptureResult result;
   if (!request.valid() || !limits.valid()) return result;
-  if (session.retained() && !session.belongs_to(kernel)) {
-    result.status = NaryCspRelationCaptureStatus::Stale;
-    return result;
-  }
+  if (session.retained() && !session.belongs_to(kernel))
+    return declined(result, NaryCspRelationCaptureStatus::Stale);
 
   const auto *previous = session.snapshot(request.domains);
   const csp_physical_scan::FormulaMark before =
@@ -109,10 +108,8 @@ NaryCspRelationCaptureResult nary_csp_relation_prepare_owner(
   uint64_t added_work = 0;
   if (!session_work(session.snapshots_, retained_work) ||
       !owner_work(captured, added_work) ||
-      !add_count(added_work, retained_work)) {
-    result.status = NaryCspRelationCaptureStatus::ResourceExhausted;
-    return result;
-  }
+      !add_count(added_work, retained_work))
+    return declined(result, NaryCspRelationCaptureStatus::ResourceExhausted);
   result.session_work = retained_work;
   if (retained_work > limits.maximum_work) {
     result.status = NaryCspRelationCaptureStatus::ResourceExhausted;

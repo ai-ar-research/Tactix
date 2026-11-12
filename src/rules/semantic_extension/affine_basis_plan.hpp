@@ -19,11 +19,7 @@ struct BasisLiteral {
 using BasisClause = std::vector<BasisLiteral>;
 
 enum class BasisRowKind : uint8_t {
-  DirectContradiction,
-  DirectUnit,
-  DirectBinary,
-  DirectSmall,
-  Extended,
+  DirectContradiction, DirectUnit, DirectBinary, DirectSmall, Extended
 };
 
 struct BasisRow {
@@ -58,11 +54,7 @@ struct BasisPlan {
 };
 
 enum class BasisPlanStatus : uint8_t {
-  Complete,
-  NoStructure,
-  Exhausted,
-  Interrupted,
-  Invalid,
+  Complete, NoStructure, Exhausted, Interrupted, Invalid
 };
 
 // Reduce equations to an ascending-pivot basis and plan its direct rows' CNF;

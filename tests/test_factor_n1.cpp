@@ -1,7 +1,7 @@
 // N1 regression: Factor admission lives wholly in the calling policy. A rule
 // that guards true, advertises an instance and then NoOps on a strategy
 // predicate removes a capability from every external policy.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -9,15 +9,8 @@
 #include "rules/factor/factor.hpp"
 #include "rules/registry.hpp"
 
-#include <cassert>
-#include <algorithm>
 #include <csignal>
-#include <cstdio>
-#include <cstring>
 #include <set>
-#include <string>
-
-using namespace tactix;
 
 static int zero_gain_proof_witness(const char *input, const char *output) {
   Kernel k;
@@ -67,7 +60,7 @@ static void build_sparse_factorable(Kernel &k, uint32_t pad_vars) {
       kernel_add_binary_clause(k, f, r);
 }
 
-static void test_exact_subgrid_selection() {
+TEST(test_exact_subgrid_selection) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Lit a = internalize(-1), b = internalize(-2), c = internalize(-3);
@@ -97,7 +90,7 @@ static void square(Kernel &k) {
       kernel_add_binary_clause(k, internalize(factor), internalize(remainder));
 }
 
-static void test_exact_zero_gain_grid_is_legal() {
+TEST(test_exact_zero_gain_grid_is_legal) {
   Kernel k;
   square(k);
   FactorGrid grid;
@@ -107,7 +100,7 @@ static void test_exact_zero_gain_grid_is_legal() {
   assert(k.stats.factorings == 1 && k.nvars == 5);
 }
 
-static void test_zero_gain_grid_does_not_expand_canonical_frontier() {
+TEST(test_zero_gain_grid_does_not_expand_canonical_frontier) {
   Kernel k;
   square(k);
   assert(factor_apply(k) == ApplyResult::NoOp);
@@ -115,7 +108,7 @@ static void test_zero_gain_grid_does_not_expand_canonical_frontier() {
          "exact completeness must not add zero-gain work to the shipped matcher");
 }
 
-static void test_exact_large_grid_selection() {
+TEST(test_exact_large_grid_selection) {
   Kernel k;
   kernel_reserve_vars(k, 8);
   const Lit a = internalize(1), b = internalize(2);
@@ -142,7 +135,7 @@ static std::set<Lit> literal_set(const std::vector<Lit> &literals) {
   return {literals.begin(), literals.end()};
 }
 
-static void test_complete_grid_enumeration_includes_subgrids() {
+TEST(test_complete_grid_enumeration_includes_subgrids) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Lit a = internalize(1), b = internalize(2);
@@ -176,7 +169,7 @@ static void test_complete_grid_enumeration_includes_subgrids() {
   assert(matching == 11 && selected_columns.size() == 11);
 }
 
-static void test_complete_grid_enumeration_controls() {
+TEST(test_complete_grid_enumeration_controls) {
   Kernel two;
   square(two);
   const FactorEnumerationResult none =
@@ -203,7 +196,7 @@ static void test_complete_grid_enumeration_controls() {
          stopped.grids == 0);
 }
 
-static void test_complete_grid_enumeration_names_large_occurrences() {
+TEST(test_complete_grid_enumeration_names_large_occurrences) {
   Kernel k;
   kernel_reserve_vars(k, 7);
   const std::vector<Lit> factors = {internalize(1), internalize(2),
@@ -237,13 +230,7 @@ int main(int argc, char **argv) {
   if (argc == 3)
     return zero_gain_proof_witness(argv[1], argv[2]);
   assert(argc == 1);
-  test_exact_subgrid_selection();
-  test_exact_zero_gain_grid_is_legal();
-  test_zero_gain_grid_does_not_expand_canonical_frontier();
-  test_exact_large_grid_selection();
-  test_complete_grid_enumeration_includes_subgrids();
-  test_complete_grid_enumeration_controls();
-  test_complete_grid_enumeration_names_large_occurrences();
+  run_tests();
   Kernel k; // orders of magnitude under the gate: not a lucky pass
   build_sparse_factorable(k, 200);
   assert(k.binary_ids.size() < 6ull * kernel_num_output_vars(k) &&

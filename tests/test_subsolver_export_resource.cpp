@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "engine/subsolver.hpp"
 #include "rules/sweep/sweep.hpp"
-
-#include <cassert>
 
 extern "C" void tactix_test_fail_allocations(bool);
 extern "C" void tactix_test_fail_allocation_after(size_t);
 
-using namespace tactix;
 
 int main() {
   SubSolver solver;

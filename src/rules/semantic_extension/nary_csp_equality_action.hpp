@@ -22,16 +22,8 @@ bool nary_csp_equality_action_selection_within_limits(
     const NaryCspEqualityActionSelection &, const NaryCspEqualityLimits &);
 
 enum class NaryCspEqualityActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoConsequence, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, AlreadyPublished, Applied
 };
 
 struct NaryCspEqualityActionResult {

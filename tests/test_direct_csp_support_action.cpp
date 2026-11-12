@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "checker_certificate.hpp"
 #include "clause_oracle.hpp"
 #include "dimacs_text.hpp"
@@ -8,15 +8,8 @@
 
 #include "proof/proof.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-#include <string>
 #include <utility>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -104,7 +97,7 @@ struct Fixture {
   }
 };
 
-void direct_then_extension_and_durable_replay() {
+TEST(direct_then_extension_and_durable_replay) {
   Fixture f;
   Kernel &kernel = f.kernel;
   DirectCspSupportActionSession &session = f.session;
@@ -175,7 +168,7 @@ void direct_then_extension_and_durable_replay() {
          position(f.records) == journal);
 }
 
-void ordered_domain_pairs_have_distinct_durable_keys() {
+TEST(ordered_domain_pairs_have_distinct_durable_keys) {
   Fixture f;
   const auto forward = selection(1);
   const auto reverse = reversed_selection(1);
@@ -219,7 +212,7 @@ DirectCspSupportActionResult fresh_declines_are_atomic(
   return result;
 }
 
-void declines_are_atomic_and_sessions_are_kernel_local() {
+TEST(declines_are_atomic_and_sessions_are_kernel_local) {
   {
     Fixture f;
     fresh_declines_are_atomic(f, limits(), selection(3),
@@ -271,7 +264,7 @@ void declines_are_atomic_and_sessions_are_kernel_local() {
   }
 }
 
-void retained_payload_and_source_are_exact() {
+TEST(retained_payload_and_source_are_exact) {
   Fixture f;
   assert(f.apply(limits(), selection(1)).status ==
          DirectCspSupportActionStatus::Applied);
@@ -297,7 +290,7 @@ void retained_payload_and_source_are_exact() {
          f.session.committed_keys() == 1);
 }
 
-void smaller_later_limits_exhaust_valid_retained_state() {
+TEST(smaller_later_limits_exhaust_valid_retained_state) {
   Fixture f;
   assert(f.apply(limits(), selection(1)).status ==
          DirectCspSupportActionStatus::Applied);
@@ -329,7 +322,7 @@ void smaller_later_limits_exhaust_valid_retained_state() {
   }
 }
 
-void unsupported_proof_is_inapplicable() {
+TEST(unsupported_proof_is_inapplicable) {
   const char *const path = "/tmp/direct-csp-action-decline.pbp";
   Fixture f;
   Proof proof;
@@ -365,12 +358,7 @@ void write_certificate(const char *cnf_path, const char *proof_path,
 // CTest direct_csp_support_proof_model passes UNSAT.cnf UNSAT.dsr SAT.cnf
 // SAT.model to check the emitted certificate and a model of the formula.
 int main(int argc, char **argv) {
-  direct_then_extension_and_durable_replay();
-  ordered_domain_pairs_have_distinct_durable_keys();
-  declines_are_atomic_and_sessions_are_kernel_local();
-  retained_payload_and_source_are_exact();
-  smaller_later_limits_exhaust_valid_retained_state();
-  unsupported_proof_is_inapplicable();
+  run_tests();
   if (argc == 5) {
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
     write_file(argv[3], dimacs(false));

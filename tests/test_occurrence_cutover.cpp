@@ -1,14 +1,11 @@
 // Deterministic kernel/rule boundary oracle, linked against both real lineages.
 // No mirror solver, random generator, timing claim, or proof-validity claim.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "occurrence_test_utils.hpp"
 #include "rules/registry.hpp"
 #include "rules/bve/bve.hpp"
-#include <algorithm>
-#include <cstdio>
 #include <string_view>
 
-using namespace tactix;
 static uint64_t digest = UINT64_C(1469598103934665603);
 static unsigned boundaries = 0;
 static void mix(uint64_t x) { digest = (digest ^ x) * UINT64_C(1099511628211); }

@@ -1,15 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/semantic_variable_advice/semantic_variable_advice.hpp"
 #include "strategy/controller_observation.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
-#include <cassert>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 using namespace tactix::strategy;
 
 static std::vector<double> scores(const Kernel &k) {

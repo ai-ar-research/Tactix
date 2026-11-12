@@ -1,9 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/affine_matrix.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <initializer_list>
 #include <set>
 #include <utility>
@@ -48,7 +46,7 @@ static void check_reason(const std::vector<Equation> &input,
   }
 }
 
-static void derived_implication_conflict_and_backtrack() {
+TEST(derived_implication_conflict_and_backtrack) {
   // Neither source row is unit after x1=x2=0. Their exact XOR is x5=0.
   const std::vector<Equation> input = {
       equation({1, 3, 4}, false), equation({2, 3, 4, 5}, false)};
@@ -95,7 +93,7 @@ static void derived_implication_conflict_and_backtrack() {
   check_reason(input, event);
 }
 
-static void reason_excludes_unrelated_assignments() {
+TEST(reason_excludes_unrelated_assignments) {
   const std::vector<Equation> input = {equation({1, 2}, true)};
   AffineMatrix matrix = built(input, 7);
   MatrixEvent event;
@@ -107,7 +105,7 @@ static void reason_excludes_unrelated_assignments() {
   check_reason(input, event);
 }
 
-static void exact_core_reason_is_direct_and_mode_stable() {
+TEST(exact_core_reason_is_direct_and_mode_stable) {
   // Variables 3,4,6,7 occur in the source union but cancel from the selected
   // XOR. SourceSupport deliberately retains assigned canceled variables as a
   // clausal weakening; ExactCore must omit them even when the identical
@@ -165,7 +163,7 @@ static void exact_core_reason_is_direct_and_mode_stable() {
   check_reason(input, deferred);
 }
 
-static void bounded_partial_admission_is_deterministic() {
+TEST(bounded_partial_admission_is_deterministic) {
   const std::vector<Equation> width_input = {
       equation({1, 2, 3}, false), equation({1, 4, 5}, true),
       equation({6, 7}, false)};
@@ -211,7 +209,7 @@ static void bounded_partial_admission_is_deterministic() {
   assert(!sentinel.owner_identity() && sentinel.rows().empty());
 }
 
-static void transactional_limits_and_validation() {
+TEST(transactional_limits_and_validation) {
   const std::vector<Equation> input = {
       equation({1, 3, 4}, false), equation({2, 3, 4, 5}, false)};
   AffineMatrix sentinel;
@@ -257,7 +255,7 @@ static uint64_t synchronize_work(AffineMatrix &matrix,
   return work;
 }
 
-static void incremental_multiple_events_backtrack_and_interruption() {
+TEST(incremental_multiple_events_backtrack_and_interruption) {
   const std::vector<Equation> input = {
       equation({1, 3}, false), equation({2, 4}, false)};
   AffineMatrix matrix = built(input, 74);
@@ -319,7 +317,7 @@ static void incremental_multiple_events_backtrack_and_interruption() {
              MatrixSynchronizationKind::Reassignment);
 }
 
-static void partial_synchronization_forces_next_rebuild() {
+TEST(partial_synchronization_forces_next_rebuild) {
   const std::vector<Equation> input = {
       equation({1}, false), equation({3}, false), equation({2, 3}, false)};
   auto bounded = limits();
@@ -342,7 +340,7 @@ static void partial_synchronization_forces_next_rebuild() {
          matrix.last_synchronization_conditioned() == 1);
 }
 
-static void retained_rows_reduce_extension_work() {
+TEST(retained_rows_reduce_extension_work) {
   std::vector<Equation> input;
   for (External row = 0; row < 16; ++row) {
     Equation item;
@@ -392,7 +390,7 @@ static bool literal_value(External literal,
   return false;
 }
 
-static void bounded_predecessor_restore() {
+TEST(bounded_predecessor_restore) {
   const std::vector<Equation> input = {
       equation({1, 3, 4}, false), equation({2, 3, 4, 5}, false)};
   for (bool row_budget : {false, true})
@@ -481,7 +479,7 @@ static void bounded_predecessor_restore() {
   assert(!matrix.last_synchronization_restored_predecessor());
 }
 
-static void nonmatching_predecessor_failure_is_atomic() {
+TEST(nonmatching_predecessor_failure_is_atomic) {
   const std::vector<Equation> input = {equation({1, 2}, false)};
   for (const bool interrupt : {false, true}) {
     auto bounded = limits();
@@ -539,7 +537,7 @@ static void nonmatching_predecessor_failure_is_atomic() {
   }
 }
 
-static void sliced_reduction_controls() {
+TEST(sliced_reduction_controls) {
   const std::vector<Equation> input={equation({1,3,4},false),equation({2,3,4,5},false)};
   auto l=limits();l.maximum_sources=8;l.maximum_row_width=8;
   AffineMatrix original;
@@ -677,7 +675,7 @@ static bool rows_satisfied(const std::vector<MatrixRow> &rows,
   return true;
 }
 
-static void gauss_jordan_completeness_oracle() {
+TEST(gauss_jordan_completeness_oracle) {
   uint64_t seed = 0x9e3779b97f4a7c15ull;
   const auto next = [&] { seed = seed * 6364136223846793005ull + 1442695040888963407ull; return seed >> 33; };
   const External variables = 5;
@@ -795,7 +793,7 @@ static void gauss_jordan_completeness_oracle() {
   }
 }
 
-static void packed_provenance_crosses_words() {
+TEST(packed_provenance_crosses_words) {
   std::vector<Equation> input;
   input.reserve(130);
   for (size_t source = 0; source < 130; ++source) {
@@ -831,7 +829,7 @@ static void packed_provenance_crosses_words() {
     assert(seen[source]);
 }
 
-static void source_components_are_exact_and_stable() {
+TEST(source_components_are_exact_and_stable) {
   const std::vector<Equation> disconnected = {
       equation({1, 2}, false), equation({1, 3}, true),
       equation({4, 5}, false), equation({4, 6}, true)};
@@ -858,7 +856,7 @@ static void source_components_are_exact_and_stable() {
 // Difference staging and conditioning fit, but Gauss-Jordan back-substitution
 // exceeds the allowance: the partial private basis must not replace the
 // complete owner.
-static void sorted_extension_budget_is_atomic() {
+TEST(sorted_extension_budget_is_atomic) {
   const std::vector<Equation> sources = {equation({1, 2, 3}, false),
                                          equation({4, 5, 6}, true)};
   AffineMatrix matrix;
@@ -878,7 +876,7 @@ static void sorted_extension_budget_is_atomic() {
 
 // Incremental work exhaustion, a tiny allowance and interruption all leave the
 // matrix and event untouched; sliced synchronization resumes across doses.
-static void synchronization_exhaustion_is_atomic() {
+TEST(synchronization_exhaustion_is_atomic) {
   const std::vector<Equation> equations = {equation({1, 2, 3}, false),
                                            equation({2, 3, 4}, true)};
   MatrixLimits caps{100, 32, 32, 32, 32, 32};
@@ -919,7 +917,7 @@ static void synchronization_exhaustion_is_atomic() {
 
 // A newly assigned lower coordinate is a set extension; interruption and
 // assignment-capacity exhaustion are atomic.
-static void sorted_extension_is_atomic() {
+TEST(sorted_extension_is_atomic) {
   const std::vector<Equation> sources = {equation({1, 3, 4}, false),
                                          equation({2, 3, 4, 5}, false)};
   const MatrixLimits forward{1000000, 64, 64, 64, 64, 64};
@@ -998,7 +996,7 @@ static void sorted_extension_is_atomic() {
 
 // Projection eliminates the named columns and keeps the signed relation;
 // a failed or invalid projection is atomic.
-static void projection_is_exact_and_atomic() {
+TEST(projection_is_exact_and_atomic) {
   const MatrixLimits caps{100000, 32, 32, 32, 32, 32};
   {
     const std::vector<Equation> sources = {equation({2, 3, 4}, false),
@@ -1040,24 +1038,7 @@ static void projection_is_exact_and_atomic() {
 }
 
 int main() {
-  sliced_reduction_controls();
-  derived_implication_conflict_and_backtrack();
-  reason_excludes_unrelated_assignments();
-  exact_core_reason_is_direct_and_mode_stable();
-  bounded_partial_admission_is_deterministic();
-  transactional_limits_and_validation();
-  incremental_multiple_events_backtrack_and_interruption();
-  partial_synchronization_forces_next_rebuild();
-  retained_rows_reduce_extension_work();
-  bounded_predecessor_restore();
-  nonmatching_predecessor_failure_is_atomic();
-  gauss_jordan_completeness_oracle();
-  packed_provenance_crosses_words();
-  source_components_are_exact_and_stable();
-  sorted_extension_budget_is_atomic();
-  synchronization_exhaustion_is_atomic();
-  sorted_extension_is_atomic();
-  projection_is_exact_and_atomic();
+  run_tests();
   std::puts("affine matrix: exact sources, implication/conflict reasons, "
             "backtrack, and transactional bounds PASS");
 }

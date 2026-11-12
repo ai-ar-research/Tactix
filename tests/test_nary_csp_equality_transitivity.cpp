@@ -1,9 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdlib>
 using namespace tactix::equality_transitivity;
 namespace {
 void schema(size_t n,bool signed_values){

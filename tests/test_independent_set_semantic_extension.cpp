@@ -1,15 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "independent_set_test_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <set>
 #include <utility>
-#include <vector>
 
 using namespace tactix::independent_set_extension;
 

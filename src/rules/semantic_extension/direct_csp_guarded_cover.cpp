@@ -1,7 +1,5 @@
 #include "rules/semantic_extension/direct_csp_guarded_cover.hpp"
 
-#include "rules/semantic_extension/direct_csp_guarded_cover_work.hpp"
-
 #include <algorithm>
 #include <climits>
 #include <map>

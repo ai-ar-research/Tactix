@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/affine_matrix_live.hpp"
 
+#include "rules/semantic_extension/declined.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 #include "rules/structural_text.hpp"
 
@@ -43,6 +44,14 @@ uint64_t AffineMatrixLivePrepared::retained_bytes() const {
 namespace {
 
 using Work = InterruptibleWork;
+using Stage = MatrixLiveResult::AuditStage;
+
+// A decline that also names the audit stage that refused it.
+MatrixLiveResult declined_at(MatrixLiveResult &result, Stage stage,
+                             MatrixLiveStatus status) {
+  result.audit_stage = stage;
+  return declined(result, status);
+}
 
 bool valid(const MatrixLiveRequest &request) {
   return request.owner && request.matrix && request.exact_sources &&
@@ -479,21 +488,17 @@ MatrixLiveResult prepare_affine_matrix_live(
     AffineMatrixLivePrepared &output) {
   MatrixLiveResult result;
   if (!valid(request)) {
-    result.audit_stage = MatrixLiveResult::AuditStage::PreparedContract;
+    result.audit_stage = Stage::PreparedContract;
     return result;
   }
-  if (!proof_supported(kernel)) {
-    result.audit_stage = MatrixLiveResult::AuditStage::ProofSupport;
-    result.status = MatrixLiveStatus::UnsupportedProof;
-    return result;
-  }
-  if (!applicable(kernel, request.historical_event)) {
-    result.audit_stage = MatrixLiveResult::AuditStage::Applicability;
-    result.status = request.honor_termination && kernel_terminating(kernel)
-                        ? MatrixLiveStatus::Interrupted
-                        : MatrixLiveStatus::Inapplicable;
-    return result;
-  }
+  if (!proof_supported(kernel))
+    return declined_at(result, Stage::ProofSupport,
+                       MatrixLiveStatus::UnsupportedProof);
+  if (!applicable(kernel, request.historical_event))
+    return declined_at(result, Stage::Applicability,
+                       request.honor_termination && kernel_terminating(kernel)
+                           ? MatrixLiveStatus::Interrupted
+                           : MatrixLiveStatus::Inapplicable);
 
   AffineMatrixLivePrepared candidate;
   // The one-shot adapter publishes on this stack, so it keeps no snapshots.
@@ -502,10 +507,8 @@ MatrixLiveResult prepare_affine_matrix_live(
   candidate.starting_clause_id_ = kernel.next_clause_id;
   candidate.arena_generation_ = kernel.arena_generation;
   candidate.starting_nvars_ = kernel.nvars;
-  if (kernel.external_to_internal.size() > UINT32_MAX) {
-    result.status = MatrixLiveStatus::ResourceExhausted;
-    return result;
-  }
+  if (kernel.external_to_internal.size() > UINT32_MAX)
+    return declined(result, MatrixLiveStatus::ResourceExhausted);
   candidate.starting_extent_ = kernel.external_to_internal.size();
   candidate.starting_level_ = kernel.level;
   candidate.proof_ = kernel.proof;
@@ -519,22 +522,17 @@ MatrixLiveResult prepare_affine_matrix_live(
                         support_trail) ||
       (!request.historical_event &&
        candidate.trail_ != request.matrix->trail() &&
-       support_trail != request.matrix->trail())) {
-    result.audit_stage = MatrixLiveResult::AuditStage::TrailOrEvent;
-    result.status = MatrixLiveStatus::Stale;
-    return result;
-  }
+       support_trail != request.matrix->trail()))
+    return declined_at(result, Stage::TrailOrEvent, MatrixLiveStatus::Stale);
   candidate.event_ = *request.event;
   if (!candidate.immediate_ && request.retained_publication)
     candidate.matrix_trail_ = request.matrix->trail();
   if (!candidate.immediate_ && !request.retained_publication)
     candidate.owner_ = *request.owner;
   if (!reason_order(kernel, candidate.event_, candidate.physical_reason_,
-                    request.historical_event)) {
-    result.audit_stage = MatrixLiveResult::AuditStage::ReasonOrder;
-    result.status = MatrixLiveStatus::UnsupportedOutcome;
-    return result;
-  }
+                    request.historical_event))
+    return declined_at(result, Stage::ReasonOrder,
+                       MatrixLiveStatus::UnsupportedOutcome);
 
   const bool same_stack_retained_sources =
       candidate.immediate_ && request.retained_source_provenance;
@@ -567,10 +565,8 @@ MatrixLiveResult prepare_affine_matrix_live(
                         *request.pbp_parity_cache, candidate.pbp_plan_)) {
       if (request.maximum_persistent_bytes &&
           candidate.pbp_plan_.retained_bytes >
-              request.maximum_persistent_bytes) {
-        result.status = MatrixLiveStatus::ResourceExhausted;
-        return result;
-      }
+              request.maximum_persistent_bytes)
+        return declined(result, MatrixLiveStatus::ResourceExhausted);
       compact_plan = &candidate.pbp_plan_;
     } else {
       candidate.pbp_equations_.clear();
@@ -601,11 +597,9 @@ MatrixLiveResult prepare_affine_matrix_live(
       request.historical_event || request.core_reason_authentication,
       &result.transaction_failure_stage);
   result.planner_work = candidate.transaction_.work();
-  if (planned != MatrixTransactionStatus::Prepared) {
-    result.audit_stage = MatrixLiveResult::AuditStage::TransactionPlan;
-    result.status = transaction_status(planned);
-    return result;
-  }
+  if (planned != MatrixTransactionStatus::Prepared)
+    return declined_at(result, Stage::TransactionPlan,
+                       transaction_status(planned));
 
   if (request.maximum_persistent_bytes && request.proof_cache &&
       candidate.transaction_.proof_cache_insert()) {
@@ -632,9 +626,8 @@ MatrixLiveResult prepare_affine_matrix_live(
       if (event.kind != MatrixProofEvent::Kind::Delete && !event.install)
         bytes += 2 * (sizeof(std::vector<External>) + sizeof(uint64_t) +
                      event.clause.size() * sizeof(External));
-    if (bytes > request.maximum_persistent_bytes) {
-      result.status = MatrixLiveStatus::ResourceExhausted; return result;
-    }
+    if (bytes > request.maximum_persistent_bytes)
+      return declined(result, MatrixLiveStatus::ResourceExhausted);
   }
   Work validation{kernel, request.maximum_revalidation_work, 0,
                   request.honor_termination};
@@ -654,29 +647,21 @@ MatrixLiveResult prepare_affine_matrix_live(
               candidate.transaction_.helper_extent() >
           request.maximum_external_extent ||
       candidate.transaction_.arena_words() >=
-          INVALID_REF - kernel.arena.size()) {
-    result.status = MatrixLiveStatus::ResourceExhausted;
-    return result;
-  }
+          INVALID_REF - kernel.arena.size())
+    return declined(result, MatrixLiveStatus::ResourceExhausted);
   JournalText journal(request.records);
   if (!make_journal(request, candidate.transaction_, candidate.event_,
                     candidate.source_occurrences_, candidate.source_clause_ids_,
                     candidate.starting_level_, candidate.starting_extent_,
-                    journal, result.journal_work)) {
-    result.status = MatrixLiveStatus::ResourceExhausted;
-    return result;
-  }
+                    journal, result.journal_work))
+    return declined(result, MatrixLiveStatus::ResourceExhausted);
   candidate.prepared_.preflight_journal_bytes = journal.size();
   candidate.journal_ = std::move(journal).take();
   if (request.retained_publication && request.maximum_persistent_bytes &&
-      candidate.retained_bytes() > request.maximum_persistent_bytes) {
-    result.status = MatrixLiveStatus::ResourceExhausted;
-    return result;
-  }
-  if (request.honor_termination && kernel_terminating(kernel)) {
-    result.status = MatrixLiveStatus::Interrupted;
-    return result;
-  }
+      candidate.retained_bytes() > request.maximum_persistent_bytes)
+    return declined(result, MatrixLiveStatus::ResourceExhausted);
+  if (request.honor_termination && kernel_terminating(kernel))
+    return declined(result, MatrixLiveStatus::Interrupted);
 
   candidate.ready_ = true;
   result.status = MatrixLiveStatus::Prepared;
@@ -704,28 +689,20 @@ MatrixLiveResult publish_affine_matrix_live(
   MatrixLiveResult result = prepared.prepared_;
   result.result = ApplyResult::NoOp;
   result.journal_bytes = 0;
-  if (!prepared.ready_ || !valid(request) || request != prepared.request_) {
-    result.audit_stage = MatrixLiveResult::AuditStage::PreparedContract;
-    result.status = MatrixLiveStatus::Invalid;
-    return result;
-  }
-  if (prepared.spent_) {
-    result.status = MatrixLiveStatus::AlreadyApplied;
-    return result;
-  }
-  if (!proof_supported(kernel)) {
-    result.audit_stage = MatrixLiveResult::AuditStage::ProofSupport;
-    result.status = MatrixLiveStatus::UnsupportedProof;
-    return result;
-  }
+  if (!prepared.ready_ || !valid(request) || request != prepared.request_)
+    return declined_at(result, Stage::PreparedContract,
+                       MatrixLiveStatus::Invalid);
+  if (prepared.spent_)
+    return declined(result, MatrixLiveStatus::AlreadyApplied);
+  if (!proof_supported(kernel))
+    return declined_at(result, Stage::ProofSupport,
+                       MatrixLiveStatus::UnsupportedProof);
   if (!applicable(kernel,
-                  request.historical_event || request.retained_publication)) {
-    result.audit_stage = MatrixLiveResult::AuditStage::Applicability;
-    result.status = request.honor_termination && kernel_terminating(kernel)
-                        ? MatrixLiveStatus::Interrupted
-                        : MatrixLiveStatus::Inapplicable;
-    return result;
-  }
+                  request.historical_event || request.retained_publication))
+    return declined_at(result, Stage::Applicability,
+                       request.honor_termination && kernel_terminating(kernel)
+                           ? MatrixLiveStatus::Interrupted
+                           : MatrixLiveStatus::Inapplicable);
   // Only the clausal bridge records the matrix proof-cache generation and
   // support epoch; a PBP plan is audited below.
   if (kernel.next_clause_id != prepared.starting_clause_id_ ||
@@ -741,11 +718,8 @@ MatrixLiveResult publish_affine_matrix_live(
         (kernel.proof &&
          kernel.proof->persistent_external_epoch() !=
              prepared.transaction_.proof_cache_entry().proof_epoch))) ||
-      request.records.tell() != prepared.records_position_) {
-    result.audit_stage = MatrixLiveResult::AuditStage::KernelSnapshot;
-    result.status = MatrixLiveStatus::Stale;
-    return result;
-  }
+      request.records.tell() != prepared.records_position_)
+    return declined_at(result, Stage::KernelSnapshot, MatrixLiveStatus::Stale);
 
   // The one-shot path publishes right after prepare; two-phase calls audit.
   if (!prepared.immediate_) {
@@ -756,11 +730,8 @@ MatrixLiveResult publish_affine_matrix_live(
     if (!snapshot_trail(kernel, trail, &levels) ||
         (!historical &&
          (trail != prepared.trail_ || levels != prepared.trail_levels_)) ||
-        !same_event(*request.event, prepared.event_)) {
-      result.audit_stage = MatrixLiveResult::AuditStage::TrailOrEvent;
-      result.status = MatrixLiveStatus::Stale;
-      return result;
-    }
+        !same_event(*request.event, prepared.event_))
+      return declined_at(result, Stage::TrailOrEvent, MatrixLiveStatus::Stale);
     Work validation{kernel, request.maximum_revalidation_work, 0,
                     request.honor_termination};
     std::vector<uint64_t> occurrences;
@@ -785,15 +756,12 @@ MatrixLiveResult publish_affine_matrix_live(
           request.owner_identity, *request.exact_sources, *request.event,
           [&](uint64_t amount) { return validation.charge(amount); });
     }
-    const auto fail_validation = [&](MatrixLiveResult::AuditStage stage) {
-      result.audit_stage = stage;
+    const auto fail_validation = [&](Stage stage) {
       result.revalidation_work = validation.used;
-      result.status = stopped_status(validation, MatrixLiveStatus::Stale);
+      return declined_at(result, stage,
+                         stopped_status(validation, MatrixLiveStatus::Stale));
     };
-    if (!authenticated) {
-      fail_validation(MatrixLiveResult::AuditStage::MatrixAuthentication);
-      return result;
-    }
+    if (!authenticated) return fail_validation(Stage::MatrixAuthentication);
     bool resume_failed = false;
     if (!validate_transaction_sources(
             kernel, request.retained_publication ? *request.owner
@@ -801,29 +769,21 @@ MatrixLiveResult publish_affine_matrix_live(
             *request.exact_sources, *request.exact_sources,
             prepared.transaction_, validation, request.premise_leases,
             occurrences, clause_ids, resume_occurrences, resume_clause_ids,
-            &resume_failed)) {
-      fail_validation(resume_failed
-                          ? MatrixLiveResult::AuditStage::ResumeSources
-                          : MatrixLiveResult::AuditStage::SelectedSources);
-      return result;
-    }
+            &resume_failed))
+      return fail_validation(resume_failed ? Stage::ResumeSources
+                                           : Stage::SelectedSources);
     result.revalidation_work = validation.used;
     if (occurrences != prepared.source_occurrences_ ||
         clause_ids != prepared.source_clause_ids_ ||
         resume_occurrences != prepared.resume_source_occurrences_ ||
-        resume_clause_ids != prepared.resume_source_clause_ids_) {
-      result.audit_stage = MatrixLiveResult::AuditStage::SourceIdentity;
-      result.status = MatrixLiveStatus::Stale;
-      return result;
-    }
+        resume_clause_ids != prepared.resume_source_clause_ids_)
+      return declined_at(result, Stage::SourceIdentity,
+                         MatrixLiveStatus::Stale);
     result.revalidation_work = validation.used;
     std::vector<Lit> physical;
     if (!reason_order(kernel, prepared.event_, physical, historical) ||
-        physical != prepared.physical_reason_) {
-      result.audit_stage = MatrixLiveResult::AuditStage::ReasonOrder;
-      result.status = MatrixLiveStatus::Stale;
-      return result;
-    }
+        physical != prepared.physical_reason_)
+      return declined_at(result, Stage::ReasonOrder, MatrixLiveStatus::Stale);
     if (prepared.transaction_.compact_pbp()) {
       PbpParityReasonPlan current;
       if (!kernel.proof || !request.pbp_parity_cache ||
@@ -837,11 +797,8 @@ MatrixLiveResult publish_affine_matrix_live(
           current.cache_generation != prepared.pbp_plan_.cache_generation ||
           current.proof_constraints != prepared.pbp_plan_.proof_constraints ||
           current.retained_bytes != prepared.pbp_plan_.retained_bytes ||
-          current.helper_variables != prepared.pbp_plan_.helper_variables) {
-        result.audit_stage = MatrixLiveResult::AuditStage::PbpPlan;
-        result.status = MatrixLiveStatus::Stale;
-        return result;
-      }
+          current.helper_variables != prepared.pbp_plan_.helper_variables)
+        return declined_at(result, Stage::PbpPlan, MatrixLiveStatus::Stale);
     }
   } else {
     // Re-authenticate the event, then charge the recorded source-validation
@@ -885,14 +842,10 @@ MatrixLiveResult publish_affine_matrix_live(
               prepared.transaction_.helper_extent() >
           request.maximum_external_extent ||
       prepared.transaction_.arena_words() >=
-          INVALID_REF - kernel.arena.size()) {
-    result.status = MatrixLiveStatus::ResourceExhausted;
-    return result;
-  }
-  if (request.honor_termination && kernel_terminating(kernel)) {
-    result.status = MatrixLiveStatus::Interrupted;
-    return result;
-  }
+          INVALID_REF - kernel.arena.size())
+    return declined(result, MatrixLiveStatus::ResourceExhausted);
+  if (request.honor_termination && kernel_terminating(kernel))
+    return declined(result, MatrixLiveStatus::Interrupted);
 
   kernel.close_startup_certificate();
   Var first = INVALID_VAR;

@@ -1,13 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/realloc_words.hpp"
 #include "kernel/connected_occurrence.hpp"
 
-#include <cstdio>
 #include <string_view>
 #include <sys/resource.h>
-#include <vector>
-
-using namespace tactix;
 
 static_assert(sizeof(ReallocWords<uint32_t>) == sizeof(std::vector<uint32_t>));
 static_assert(alignof(ReallocWords<uint32_t>) == alignof(std::vector<uint32_t>));

@@ -1,7 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/lucky/parity_certificate.hpp"
-#include <cstdio>
-#include <cstdlib>
 #include <limits>
 using namespace tactix::parity_certificate;
 struct Sink {

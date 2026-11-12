@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "parity_test_support.hpp"
 #include "test_io.hpp"
 #include "rules/parity_consequence/parity_consequence.hpp"
@@ -6,14 +6,8 @@
 #include "policies/restart_controller.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "proof/proof.hpp"
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 #include "strategy/online_inprocess.hpp"
-#include <cassert>
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 using namespace tactix::parity_certificate;

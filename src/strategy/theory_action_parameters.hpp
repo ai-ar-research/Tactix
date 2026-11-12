@@ -268,7 +268,6 @@ auto visit_parameter_fields(FieldsOf<DirectCspSupportParameters>,
                p.maximum_session_work, p.allow_extension);
 }
 
-
 struct NaryCspEqualityParameters : NaryCspEqualityLimits {
   static NaryCspEqualityParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityParameters &) const = default;
@@ -524,13 +523,17 @@ auto visit_parameter_fields(FieldsOf<SemanticVariableAdviceParameters>,
 // Pure public-parameter to native-limit conversions, no validation.
 AffineBasisActionLimits action_limits(const AffineConsequenceParameters &);
 Gf3AffineActionLimits action_limits(const Gf3AffineConsequenceParameters &);
-DirectCspGuardedCoverActionLimits
-action_limits(const DirectCspGuardedCoverParameters &);
-DirectCspSupportActionLimits action_limits(const DirectCspSupportParameters &);
-NaryCspEqualityLimits action_limits(const NaryCspEqualityParameters &);
-NaryCspEqualityAmoLimits action_limits(const NaryCspEqualityAmoParameters &);
-NaryCspEqualityTransitivityLimits
-action_limits(const NaryCspEqualityTransitivityParameters &);
+// These profiles are their native limits.
+inline DirectCspGuardedCoverActionLimits
+action_limits(const DirectCspGuardedCoverParameters &p) { return p; }
+inline DirectCspSupportActionLimits
+action_limits(const DirectCspSupportParameters &p) { return p; }
+inline NaryCspEqualityLimits
+action_limits(const NaryCspEqualityParameters &p) { return p; }
+inline NaryCspEqualityAmoLimits
+action_limits(const NaryCspEqualityAmoParameters &p) { return p; }
+inline NaryCspEqualityTransitivityLimits
+action_limits(const NaryCspEqualityTransitivityParameters &p) { return p; }
 DirectPhpActionLimits action_limits(const DirectPhpRefutationParameters &);
 Gf3GaussianActionLimits
 action_limits(const Gf3GaussianConsequenceParameters &);

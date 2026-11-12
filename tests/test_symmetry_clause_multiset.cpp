@@ -1,11 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/substitution_redundancy/clause_multiset.hpp"
 #include "rules/substitution_redundancy/literal_permutation.hpp"
 
 #include <array>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
 #include <numeric>
 #include <random>
 #include <set>
@@ -57,7 +55,7 @@ struct CountedBinaryHash {
   size_t operator()(uint64_t) const { ++calls; return 0; }
 };
 
-static void binary_representation_oracles() {
+TEST(binary_representation_oracles) {
   const auto unlimited = [](uint64_t) { return true; };
   tactix::BasicSymmetryClauseMultiset<ConstantViewHash, CountedBinaryHash> index;
   // Relabel the same formulas into compact and sparse domains. All 6!
@@ -113,7 +111,7 @@ static tactix::SparseLiteralPermutation compact(const std::vector<Lit> &dense) {
   return result;
 }
 
-static void sparse_permutation_controls() {
+TEST(sparse_permutation_controls) {
   const auto unlimited = [](uint64_t) { return true; };
   // Independent exhaustive total-function oracle includes non-injective and
   // unsigned permutations, then checks every possible retired-variable set.
@@ -162,7 +160,7 @@ static void sparse_permutation_controls() {
 
 // The lookup table must own stable key bytes after mapped scratch, original
 // snapshots and copied/rebuilt siblings have all changed or been destroyed.
-static void pooled_key_lifetimes() {
+TEST(pooled_key_lifetimes) {
   const auto unlimited = [](uint64_t) { return true; };
   std::vector<Lit> mapping = {2, 3, 0, 1, 4, 5, 6, 7};
   Formula formula = {{}, {0}, {2}, {0, 4, 6}, {2, 4, 6},
@@ -210,7 +208,7 @@ static void pooled_key_lifetimes() {
   assert(!collisions.preserves_set_support(mapping, unlimited));
 }
 
-static void collision_population_rebuilds() {
+TEST(collision_population_rebuilds) {
   const auto unlimited = [](uint64_t) { return true; };
   tactix::BasicSymmetryClauseMultiset<ConstantViewHash, ConstantBinaryHash> index;
   // Reuse the same tables across large, tiny and empty snapshots. Every
@@ -257,7 +255,7 @@ static void collision_population_rebuilds() {
   }
 }
 
-static void sparse_generator_accounting_matches_dense() {
+TEST(sparse_generator_accounting_matches_dense) {
   const std::vector<Formula> formulas = {
       {}, {{}}, {{0, 2}, {1, 3}, {4, 5}}, {{0}, {0, 2}},
       {{0, 2}, {0, 2}, {1, 3}}, {{0, 0, 2}, {2, 0}, {1, 3, 5}},
@@ -316,11 +314,7 @@ static void sparse_generator_accounting_matches_dense() {
 }
 
 int main() {
-  binary_representation_oracles();
-  sparse_generator_accounting_matches_dense();
-  pooled_key_lifetimes();
-  collision_population_rebuilds();
-  sparse_permutation_controls();
+  run_tests();
   tactix::SymmetryClauseVisitWorkspace sparse_workspace, collision_workspace, view_collision_workspace;
   std::vector<Formula> formulas = {
       {}, {{}}, {{}, {}}, {{0}}, {{0}, {2}}, {{0}, {0}, {2}},

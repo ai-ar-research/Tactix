@@ -57,15 +57,8 @@ struct AffineBasisRowSelection {
 };
 
 enum class AffineBasisLiveStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Prepared,
-  Applied,
+  Invalid, Inapplicable, NoStructure, ResourceExhausted, Interrupted,
+  UnsupportedProof, Stale, Prepared, Applied
 };
 
 struct AffineBasisLiveRequest {

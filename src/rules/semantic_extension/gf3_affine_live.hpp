@@ -34,16 +34,8 @@ struct Gf3AffineOwnerSnapshot {
 };
 
 enum class Gf3AffineLiveStatus : uint8_t {
-  Applied,
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
+  Applied, Invalid, Inapplicable, NoStructure, NoConsequence, Duplicate,
+  ResourceExhausted, Interrupted, UnsupportedProof, Stale
 };
 
 struct Gf3AffineLiveRequest {

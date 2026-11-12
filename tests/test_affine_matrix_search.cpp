@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_formula_support.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
@@ -16,17 +16,10 @@
 #include "rules/reduce/reduce.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
-#include <algorithm>
 #include <array>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <sstream>
-#include <string>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
@@ -211,7 +204,7 @@ void install_partial_formula(Kernel &kernel) {
   assert(kernel_propagation_fixpoint(kernel));
 }
 
-void complete_snapshot_policy_admission() {
+TEST(complete_snapshot_policy_admission) {
   {
     SearchFixture fixture;
     Kernel &kernel = fixture.kernel;
@@ -284,7 +277,7 @@ void complete_snapshot_policy_admission() {
   }
 }
 
-void deferred_reason_has_public_materialization_boundary() {
+TEST(deferred_reason_has_public_materialization_boundary) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -331,7 +324,7 @@ void deferred_reason_has_public_materialization_boundary() {
   proof.flush();
 }
 
-void detached_minimal_reason_is_public_and_unwatched() {
+TEST(detached_minimal_reason_is_public_and_unwatched) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -368,7 +361,7 @@ void detached_minimal_reason_is_public_and_unwatched() {
   proof.flush();
 }
 
-void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
+TEST(lazy_source_handles_are_multiple_public_and_consumed_on_demand) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -439,7 +432,7 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
   proof.flush();
 }
 
-void lazy_minimal_handle_is_public_and_consumed_on_demand() {
+TEST(lazy_minimal_handle_is_public_and_consumed_on_demand) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -473,7 +466,7 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   proof.flush();
 }
 
-void lazy_minimal_materializes_only_analyze_ancestor() {
+TEST(lazy_minimal_materializes_only_analyze_ancestor) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -525,7 +518,7 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
 // When no budget remains for a handle's clauses, ConflictAnalysis withdraws
 // every handle and ends parity reasoning instead of aborting the run. Nothing
 // is learned and the search continues from below the lowest handle.
-void unaffordable_lazy_reasons_are_withdrawn() {
+TEST(unaffordable_lazy_reasons_are_withdrawn) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -567,7 +560,7 @@ void unaffordable_lazy_reasons_are_withdrawn() {
 // proof cache entry. An outstanding compact lazy handle must stay
 // publishable when ConflictAnalysis needs it (it was misjudged Stale and the
 // solver aborted on Tier D linvrinv5).
-void lazy_compact_pbp_reason_survives_matrix_cache_commit() {
+TEST(lazy_compact_pbp_reason_survives_matrix_cache_commit) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -628,7 +621,7 @@ void lazy_compact_pbp_reason_survives_matrix_cache_commit() {
   proof.flush();
 }
 
-void lazy_source_backtrack_discards_without_publication() {
+TEST(lazy_source_backtrack_discards_without_publication) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -685,7 +678,7 @@ void deferred_reason_materializes_at_later_conflict(bool pbp) {
          materialized.reason_materialized && !session.has_deferred_reason());
 }
 
-void repeated_deferred_pbp_reasons_preserve_cache_generation() {
+TEST(repeated_deferred_pbp_reasons_preserve_cache_generation) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -712,7 +705,7 @@ void repeated_deferred_pbp_reasons_preserve_cache_generation() {
   }
 }
 
-void deferred_pbp_reason_survives_backtrack_and_cache_resume() {
+TEST(deferred_pbp_reason_survives_backtrack_and_cache_resume) {
   SearchFixture fixture;
   Kernel &kernel = fixture.kernel;
   AffineMatrixSearchSession &session = fixture.session;
@@ -797,7 +790,7 @@ static std::string initialize_partial_fixture() {
   return deterministic_record;
 }
 
-void partial_admission_feedback_provenance_and_replay() {
+TEST(partial_admission_feedback_provenance_and_replay) {
   const std::string first = initialize_partial_fixture();
   const std::string replay = initialize_partial_fixture();
   assert(first == replay);
@@ -1113,19 +1106,8 @@ int main(int argc,char **argv){
   if(argc==5&&!std::strcmp(argv[1],"--proof-search-chain-seed"))
     return search_chain_proof_fixture(argv[3],argv[4],
                                       static_cast<uint32_t>(std::stoul(argv[2])));
-  complete_snapshot_policy_admission();
-  deferred_reason_has_public_materialization_boundary();
-  detached_minimal_reason_is_public_and_unwatched();
-  lazy_source_handles_are_multiple_public_and_consumed_on_demand();
-  lazy_minimal_handle_is_public_and_consumed_on_demand();
-  lazy_minimal_materializes_only_analyze_ancestor();
-  unaffordable_lazy_reasons_are_withdrawn();
-  lazy_compact_pbp_reason_survives_matrix_cache_commit();
-  lazy_source_backtrack_discards_without_publication();
+  run_tests();
   deferred_reason_materializes_at_later_conflict(false);
   deferred_reason_materializes_at_later_conflict(true);
-  repeated_deferred_pbp_reasons_preserve_cache_generation();
-  deferred_pbp_reason_survives_backtrack_and_cache_resume();
-  partial_admission_feedback_provenance_and_replay();
   root_decline_atomicity();std::puts("test_affine_matrix_search: passed");
 }

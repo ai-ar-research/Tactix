@@ -1,17 +1,170 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
 #include "strategy/local_search.hpp"
 #include "strategy/scoped_rule_parameters.hpp"
-#include "strategy/graph_labeling_parameters.hpp"
-#include "strategy/ramsey_startup_parameters.hpp"
 
 namespace tactix {
 struct Kernel;
 
 namespace strategy {
+
+struct AnalyzeParameters {
+  // Kissat minimizedepth; zero disables recursive minimization.
+  static constexpr uint32_t MINIMIZE_DEPTH_DEFAULT = 1000;
+  // The eager register has four slots; larger values are unrepresentable.
+  static constexpr uint32_t EAGER_SUBSUME_CAPACITY = 4;
+  uint32_t minimize_depth_limit = MINIMIZE_DEPTH_DEFAULT;
+  bool conflict_reuse = true;
+  uint32_t chronological_levels = 100;
+  uint32_t bump_reason_limit = 0;
+  uint32_t bump_reason_depth = 1;
+  uint32_t eager_subsume = EAGER_SUBSUME_CAPACITY;
+  bool jump_reasons = true;
+  bool jump_reasons_bigbig = false;
+  bool shrink_glue_promote = true;
+  bool bump_extension_reasons = true;
+
+  constexpr bool valid() const {
+    return eager_subsume <= EAGER_SUBSUME_CAPACITY;
+  }
+  static AnalyzeParameters from_kernel(const Kernel &);
+};
+
+struct BackboneParameters {
+  static constexpr uint32_t INITIAL_ROUNDS_DEFAULT = 100;
+  static constexpr uint32_t MAXIMUM_ROUNDS_DEFAULT = 1000;
+
+  uint32_t initial_rounds = INITIAL_ROUNDS_DEFAULT;
+  uint32_t maximum_rounds = MAXIMUM_ROUNDS_DEFAULT;
+
+  static BackboneParameters from_kernel(const Kernel &);
+  constexpr bool valid() const { return true; }
+};
+
+// Canonical-round discovery costs (strategy only); UINT32_MAX uncaps.
+struct SubsumeForwardParameters {
+  static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 1000;
+  static constexpr uint32_t LARGE_OCCURRENCE_DEFAULT = 100;
+  static constexpr uint32_t BINARY_OCCURRENCE_DEFAULT = 10000;
+
+  uint32_t clause_size_limit = CLAUSE_SIZE_DEFAULT;
+  uint32_t large_occurrence_limit = LARGE_OCCURRENCE_DEFAULT;
+  uint32_t binary_occurrence_limit = BINARY_OCCURRENCE_DEFAULT;
+
+  static SubsumeForwardParameters from_kernel(const Kernel &);
+  constexpr bool valid() const { return true; }
+};
+
+// Kissat's fused-forward discovery costs; explicit C2 bypasses them.
+struct StrengthenParameters {
+  static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 1000;
+  static constexpr uint32_t OCCURRENCE_DEFAULT = 1000;
+
+  uint32_t clause_size_limit = CLAUSE_SIZE_DEFAULT;
+  uint32_t occurrence_limit = OCCURRENCE_DEFAULT;
+
+  static StrengthenParameters from_kernel(const Kernel &);
+  constexpr bool valid() const { return true; }
+};
+
+// Canonical X4 discovery policy; explicit instances bypass it.
+struct InstantiateParameters {
+  static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 3;
+  static constexpr uint32_t OCCURRENCE_DEFAULT = 1;
+  static constexpr uint32_t UNASSIGNED_DEFAULT = 3;
+  static constexpr uint32_t NEW_MATERIAL_DEFAULT = 1;
+
+  // Zero removes the size/unassigned lower bound. UINT32_MAX removes the
+  // occurrence upper bound. Learned clauses stay outside the reference
+  // canonical round unless the caller opts in.
+  uint32_t minimum_clause_size = CLAUSE_SIZE_DEFAULT;
+  uint32_t occurrence_limit = OCCURRENCE_DEFAULT;
+  uint32_t minimum_unassigned = UNASSIGNED_DEFAULT;
+  bool include_redundant = false;
+  uint32_t new_material_threshold = NEW_MATERIAL_DEFAULT;
+
+  static InstantiateParameters from_kernel(const Kernel &);
+  constexpr bool valid() const { return true; }
+};
+
+enum class CongruenceBinaryWatchOrder : uint8_t {
+  Canonical = 0,
+  PreserveExisting = 1,
+};
+
+struct CongruenceParameters {
+  static constexpr uint32_t AND_ARITY_DEFAULT = 1000000;
+  static constexpr size_t GATE_COUNT_DEFAULT = 20000000;
+  static constexpr uint32_t XOR_ARITY_DEFAULT = 4;
+  static constexpr uint32_t XOR_ARITY_CAPACITY = 4;
+
+  // Zero removes a discovery limit except xor_arity_limit, where zero disables
+  // XOR extraction. The fixed-key implementation currently validates against
+  // XOR_ARITY_CAPACITY rather than silently truncating a caller request.
+  uint32_t and_arity_limit = AND_ARITY_DEFAULT;
+  size_t gate_count_limit = GATE_COUNT_DEFAULT;
+  uint32_t xor_arity_limit = XOR_ARITY_DEFAULT;
+  // The ordinary pass keeps the reference dense-resume order.
+  CongruenceBinaryWatchOrder binary_watch_order =
+      CongruenceBinaryWatchOrder::Canonical;
+
+  static CongruenceParameters from_kernel(const Kernel &);
+  constexpr bool valid() const {
+    return xor_arity_limit <= XOR_ARITY_CAPACITY &&
+           (binary_watch_order == CongruenceBinaryWatchOrder::Canonical ||
+            binary_watch_order == CongruenceBinaryWatchOrder::PreserveExisting);
+  }
+};
+
+// A bounded discovery-and-proof request; zero limits disable work.
+struct ParityConsequenceParameters {
+  uint64_t maximum_clauses = 0, maximum_groups = 0, selection_work = 0;
+  uint32_t intermediate_width = 0, source_count = 0, output_width = 0;
+  bool descending = false;
+  uint64_t maximum_proof_additions = 0;
+  uint32_t maximum_tree_variables = 0;
+  uint64_t consequence = 0;
+  bool valid() const { return output_width <= 4; }
+  static ParityConsequenceParameters from_kernel(const Kernel &);
+};
+
+// Strategy-owned controls for one Vivify invocation.  They select the
+// candidate band, reuse/flush policy, and the reference population threshold;
+// none is a soundness precondition on an explicit clause action.
+struct VivifyParameters {
+  static constexpr uint32_t IRREDUNDANT_SORT_RATIO_DEFAULT = 10;
+
+  uint8_t scope = 0;
+  bool reuse = true;
+  bool flush = false;
+  uint32_t irredundant_sort_ratio = IRREDUNDANT_SORT_RATIO_DEFAULT;
+  // One band of a cumulative dose ledger (vivify.c: each tier's share joins
+  // one probing-tick ceiling). With `band`, the application is bounded by
+  // `band_budget` measured from a dose start `band_offset` ticks earlier, so
+  // unused work of an earlier band carries into later ones and an overrun is
+  // precharged. Per application only: installs and from_kernel leave it off.
+  bool band = false;
+  uint64_t band_budget = 0;
+  uint64_t band_offset = 0;
+
+  constexpr bool valid() const {
+    return scope <= 5 && irredundant_sort_ratio != 0 &&
+           (band || (!band_budget && !band_offset));
+  }
+
+  static VivifyParameters from_kernel(const Kernel &);
+};
+
+inline bool vivify_skip_global_order(uint64_t irredundant,
+                                     uint64_t redundant,
+                                     const VivifyParameters &parameters) {
+  return irredundant / parameters.irredundant_sort_ratio > redundant;
+}
 
 struct BceParameters {
   uint32_t occurrence_limit = 0;
@@ -478,6 +631,61 @@ auto visit_parameter_fields(FieldsOf<SignedCardinalityProofParameters>,
                p.maximum_proof_additions);
 }
 
+enum class GraphLabelingStage : uint8_t {
+  Recognition, Construction, Window, Repair, Anneal, FinalRepair,
+  Completion, Publication, Count
+};
+constexpr size_t GRAPH_LABELING_STAGES = static_cast<size_t>(GraphLabelingStage::Count);
+
+// A single constructor action has separately dosed algorithm stages. These
+// allowances sum to its effort ceiling; zero disables a stage. No wall-clock
+// calibration or solver-specific performance default is invented here. The
+// owning policy must install its reviewed nonzero effort profile explicitly.
+struct GraphLabelingParameters {
+  uint32_t maximum_vertices = UINT32_MAX;
+  uint64_t workspace_bytes = UINT64_MAX;
+  std::array<uint64_t, GRAPH_LABELING_STAGES> work{};
+  // LymphoSAT's bounded window-search profile.
+  uint32_t maximum_dfs_vertices = 140;
+  uint64_t maximum_dfs_nodes = 50000000;
+  uint32_t maximum_dfs_starts = 12;
+  uint32_t early_dfs_choices = 28;
+  uint64_t repair_rounds = UINT64_MAX;
+  uint64_t anneal_iterations = UINT64_MAX;
+  uint64_t stall_anneal_iterations = 0;
+  uint64_t seed = 0;
+
+  bool operator==(const GraphLabelingParameters &) const = default;
+  constexpr bool valid() const {
+    if (maximum_vertices < 3) return false;
+    uint64_t remaining = UINT64_MAX;
+    for (uint64_t allowance : work) {
+      if (allowance > remaining) return false;
+      remaining -= allowance;
+    }
+    return true;
+  }
+  static GraphLabelingParameters from_kernel(const Kernel &);
+};
+
+// Caller-owned bounds. Zero disables work; this is not a production profile.
+struct RamseyStartupParameters {
+  uint64_t recognition_clauses = 0, recognition_variables = 0;
+  uint64_t recognition_pair_cells = 0, recognition_work = 0;
+  uint64_t certificate_work = 0, maximum_nodes = 0, maximum_additions = 0;
+  uint32_t maximum_external_extent = 0;
+  bool valid() const {
+    return maximum_external_extent <= INT32_MAX &&
+           recognition_work <= UINT64_MAX - certificate_work;
+  }
+  bool enabled() const {
+    return valid() && recognition_clauses && recognition_variables &&
+           recognition_pair_cells && recognition_work && certificate_work &&
+           maximum_nodes && maximum_additions && maximum_external_extent;
+  }
+  static RamseyStartupParameters from_kernel(const Kernel &);
+};
+
 // SAT-only low-weight search of a projected affine image (DIMACS ids).
 enum class AffineProjectionMode : uint8_t { Boundary, AllParity, Explicit };
 struct AffineSearchScope {
@@ -509,6 +717,14 @@ struct AffineModelParameters {
   static AffineModelParameters from_kernel(const Kernel &);
 };
 
+void install_rule_parameters(Kernel &, const AnalyzeParameters &);
+void install_rule_parameters(Kernel &, const BackboneParameters &);
+void install_rule_parameters(Kernel &, const SubsumeForwardParameters &);
+void install_rule_parameters(Kernel &, const StrengthenParameters &);
+void install_rule_parameters(Kernel &, const InstantiateParameters &);
+void install_rule_parameters(Kernel &, const CongruenceParameters &);
+void install_rule_parameters(Kernel &, const ParityConsequenceParameters &);
+void install_rule_parameters(Kernel &, const VivifyParameters &);
 void install_rule_parameters(Kernel &, const BceParameters &);
 void install_rule_parameters(Kernel &, const TernaryParameters &);
 void install_rule_parameters(Kernel &, const FactorParameters &);
@@ -531,7 +747,14 @@ void install_rule_parameters(Kernel &, const GraphLabelingParameters &);
 void install_rule_parameters(Kernel &, const StconnProofParameters &);
 void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
+void install_rule_parameters(Kernel &, const RamseyStartupParameters &);
 
+using ScopedAnalyzeParameters = ScopedRuleParameters<AnalyzeParameters>;
+using ScopedBackboneParameters = ScopedRuleParameters<BackboneParameters>;
+using ScopedSubsumeForwardParameters = ScopedRuleParameters<SubsumeForwardParameters>;
+using ScopedStrengthenParameters = ScopedRuleParameters<StrengthenParameters>;
+using ScopedCongruenceParameters = ScopedRuleParameters<CongruenceParameters>;
+using ScopedVivifyParameters = ScopedRuleParameters<VivifyParameters>;
 using ScopedReduceParameters = ScopedRuleParameters<ReduceParameters>;
 
 // A Walk profile marks the budget bounded; restore the mark afterwards.

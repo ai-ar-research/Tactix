@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/graph_interval_equivalence/graph_interval_equivalence.hpp"
@@ -6,12 +6,6 @@
 #include "rules/registry.hpp"
 #include "strategy/native_feedback.hpp"
 #include "strategy/online_inprocess.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <string>
-#include <vector>
 
 extern "C" {
 struct tactix_solver;
@@ -27,7 +21,6 @@ int tactix_rule_semantic_instances(tactix_solver *, int, uint64_t *, int);
 int tactix_apply_instance(tactix_solver *, int, uint64_t);
 }
 
-using namespace tactix;
 
 namespace {
 
@@ -128,7 +121,7 @@ void positive(const char *proof_path) {
   kernel.proof = nullptr;
 }
 
-void conflicting_definition_is_rejected() {
+TEST(conflicting_definition_is_rejected) {
   Kernel kernel;
   fixture(kernel, true);
   add(kernel, {2, 3, 10});
@@ -142,7 +135,7 @@ void conflicting_definition_is_rejected() {
   assert(!kernel_binary_live(kernel, internalize(-10), internalize(11)));
 }
 
-void stop_accounting() {
+TEST(stop_accounting) {
   const RuleVTable &rule = graph_interval_rule();
   {
     Kernel kernel;
@@ -192,7 +185,7 @@ void stop_accounting() {
   }
 }
 
-void root_fixed_requires_separate_propagate() {
+TEST(root_fixed_requires_separate_propagate) {
   Kernel kernel;
   fixture(kernel, true);
   kernel.unit_ids[var_of(internalize(-10))] = ++kernel.next_clause_id;
@@ -217,7 +210,7 @@ int c_rule_id(const char *name) {
   return -1;
 }
 
-void c_api_surface() {
+TEST(c_api_surface) {
   tactix_solver *solver = tactix_init();
   FILE *records = std::tmpfile();
   assert(records && tactix_bind_structural_provenance(solver, records) == 0);
@@ -246,7 +239,7 @@ void c_api_surface() {
   std::fclose(records);
 }
 
-void replay_and_feedback() {
+TEST(replay_and_feedback) {
   OnlineInvocation step;
   step.id = 41;
   step.rule = "GraphIntervalEquivalence";
@@ -300,7 +293,7 @@ void replay_and_feedback() {
          2);
 }
 
-void negative_near_miss() {
+TEST(negative_near_miss) {
   Kernel kernel;
   fixture(kernel, false);
   Records records(kernel);
@@ -317,11 +310,6 @@ void negative_near_miss() {
 int main(int argc, char **argv) {
   const char *proof = argc > 1 ? argv[1] : "/tmp/graph-interval-equivalence.dsr";
   positive(proof);
-  negative_near_miss();
-  conflicting_definition_is_rejected();
-  stop_accounting();
-  root_fixed_requires_separate_propagate();
-  c_api_surface();
-  replay_and_feedback();
+  run_tests();
   std::puts("test_graph_interval_equivalence: all passed");
 }

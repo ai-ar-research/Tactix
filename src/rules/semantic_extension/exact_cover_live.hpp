@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rules/registry.hpp"
+#include "strategy/theory_action_parameters.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -23,33 +24,15 @@ private:
 
 // Limits and an expected arity; everything else comes from the live state.
 struct ExactCoverLiveRequest {
-  uint32_t arity = 0;
-  uint64_t maximum_items = 0;
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint64_t maximum_premise_references = 0;
-  uint32_t maximum_definitions = 0;
-  uint64_t maximum_additions = 0;
-  uint64_t maximum_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
+  strategy::ExactCoverExtensionParameters limits;
   uint64_t action_id = 0;
   StructuralJournal records;
   ExactCoverLiveSession *session = nullptr;
 };
 
 enum class ExactCoverLiveStatus : uint8_t {
-  Applied,
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  AlreadyPublished,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
+  Applied, Invalid, Inapplicable, NoStructure, AlreadyPublished,
+  ResourceExhausted, Interrupted, UnsupportedProof, Stale
 };
 
 struct ExactCoverLiveResult {

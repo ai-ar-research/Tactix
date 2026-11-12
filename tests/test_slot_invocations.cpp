@@ -6,10 +6,8 @@
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 
 #include "api/api_internal.hpp"
 #include "policies/default_policy.hpp"
@@ -24,12 +22,6 @@
 #include "strategy/substitute_execution.hpp"
 #include "strategy/vivify_execution.hpp"
 #include "strategy/work_execution.hpp"
-
-#include <cassert>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -77,7 +69,7 @@ int configure(tactix_c_handle *s, const tactix_online_step &step) {
   return tactix_online_configure(s, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET);
 }
 
-void test_conversion_and_rejections() {
+TEST(test_conversion_and_rejections) {
   tactix_c_handle *s = substitute_solver();
   // Substitute's round batch converts exactly.
   assert(configure(s, substitute_step(2, 1, TACTIX_ONLINE_RULE_BUDGET_BOUNDED, 7)) == 0);
@@ -163,7 +155,7 @@ void same_formula(const Kernel &a, const Kernel &b) {
   }
 }
 
-void test_substitute_rounds() {
+TEST(test_substitute_rounds) {
   for (const bool ceiling : {false, true}) {
     tactix_c_handle *pub = substitute_solver();
     tactix_c_handle *native = substitute_solver();
@@ -185,7 +177,7 @@ void test_substitute_rounds() {
   }
 }
 
-void test_rule_state_supports() {
+TEST(test_rule_state_supports) {
   tactix_c_handle *s = substitute_solver();
   Kernel &k = kernel(s);
   k.subsume_complete = false;
@@ -214,7 +206,7 @@ void vivify_fixture(Kernel &k) {
   k.tier1 = k.tier2 = 2;
 }
 
-void test_vivify_band() {
+TEST(test_vivify_band) {
   for (const uint64_t budget : {uint64_t{0}, uint64_t{1}, uint64_t{1000000}}) {
     Kernel online, native;
     vivify_fixture(online);
@@ -254,7 +246,7 @@ void test_vivify_band() {
 }
 
 // The session owns the score-heap ordering profile and its kernel hook.
-void test_bve_ordering_profile() {
+TEST(test_bve_ordering_profile) {
   tactix_c_handle *s = substitute_solver();
   Kernel &k = kernel(s);
   const RuleVTable &rule = tactix_rules()[static_cast<size_t>(rule_id("BVE"))];
@@ -286,7 +278,7 @@ void test_bve_ordering_profile() {
   tactix_release(s);
 }
 
-void test_serialization() {
+TEST(test_serialization) {
   using namespace strategy;
   OnlineStrategyProgram program;
   OnlineInvocation substitute;
@@ -327,13 +319,3 @@ void test_serialization() {
 }
 
 } // namespace
-
-int main() {
-  test_conversion_and_rejections();
-  test_substitute_rounds();
-  test_rule_state_supports();
-  test_vivify_band();
-  test_bve_ordering_profile();
-  test_serialization();
-  return 0;
-}

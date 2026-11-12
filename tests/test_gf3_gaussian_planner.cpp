@@ -1,14 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/gf3_gaussian_planner.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
 #include <iostream>
 #include <map>
 #include <set>
 #include <tuple>
-#include <vector>
 
 using namespace tactix::gf3_gaussian;
 
@@ -266,7 +262,7 @@ std::vector<SourceRow> all_nonzero_rows(uint32_t variables) {
   return result;
 }
 
-void test_units_reduced_basis_and_determinism() {
+TEST(test_units_reduced_basis_and_determinism) {
   const std::vector<SourceRow> source = {
       {20, {{1, 1}, {2, 2}}, 1},
       {10, {{1, 1}, {2, 1}}, 0},
@@ -301,7 +297,7 @@ void test_units_reduced_basis_and_determinism() {
   }
 }
 
-void test_zero_rows() {
+TEST(test_zero_rows) {
   Result tautology = build_plan({{1, {}, 0}}, generous_limits(),
                                 [](uint64_t) { return true; });
   assert_empty_decline(tautology, PlanStatus::NoStructure);
@@ -316,7 +312,7 @@ void test_zero_rows() {
   check_semantics(contradiction, conflict, 0);
 }
 
-void test_exhaustive_small_systems() {
+TEST(test_exhaustive_small_systems) {
   const std::vector<SourceRow> rows = all_nonzero_rows(2);
   uint64_t systems = 0;
   for (size_t first = 0; first < rows.size(); ++first)
@@ -346,7 +342,7 @@ void test_exhaustive_small_systems() {
   }
 }
 
-void test_invalid_inputs() {
+TEST(test_invalid_inputs) {
   const std::vector<std::vector<SourceRow>> invalid = {
       {{0, {{1, 1}}, 0}},
       {{1, {{2, 1}, {1, 1}}, 0}},
@@ -365,7 +361,7 @@ void test_invalid_inputs() {
                        PlanStatus::InvalidInput);
 }
 
-void test_every_resource_limit_and_interruption() {
+TEST(test_every_resource_limit_and_interruption) {
   const std::vector<SourceRow> source = {
       {10, {{1, 1}, {2, 1}}, 0},
       {20, {{1, 1}, {2, 2}}, 1},
@@ -416,11 +412,7 @@ void test_every_resource_limit_and_interruption() {
 } // namespace
 
 int main() {
-  test_units_reduced_basis_and_determinism();
-  test_zero_rows();
-  test_exhaustive_small_systems();
-  test_invalid_inputs();
-  test_every_resource_limit_and_interruption();
+  run_tests();
   std::cout << "gf3 gaussian planner tests passed\n";
   return 0;
 }

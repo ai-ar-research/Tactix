@@ -4,7 +4,7 @@
 // same payload and applies the public instance through registry dispatch.
 // Trail, arena, analysis counters, tiers, retier schedule and proof bytes
 // must stay identical.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "test_io.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -12,18 +12,13 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include "strategy/action_execution.hpp"
-#include "strategy/analyze_parameters.hpp"
+#include "strategy/rule_parameters.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <random>
 #include <sstream>
-#include <string>
 #include <unistd.h>
-
-using namespace tactix;
 
 namespace {
 

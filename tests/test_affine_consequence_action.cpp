@@ -1,16 +1,12 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_formula_support.hpp"
 #include "test_io.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <limits>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 
 static strategy::AffineConsequenceParameters parameters() {
@@ -49,7 +45,7 @@ static strategy::AffineConsequenceParameters basis_parameters() {
   return result;
 }
 
-static void state_only_guard() {
+TEST(state_only_guard) {
   Kernel kernel;
   install(kernel, affine_formula());
   assert(!affine_consequence_action_guard(kernel));
@@ -72,7 +68,7 @@ static void state_only_guard() {
   std::fclose(records);
 }
 
-static void declines_preserve_identity_and_state() {
+TEST(declines_preserve_identity_and_state) {
   Kernel kernel;
   install(kernel, affine_formula(false));
   FILE *records = temporary_records();
@@ -114,7 +110,7 @@ static void declines_preserve_identity_and_state() {
   std::fclose(records);
 }
 
-static void exhaustion_retries_same_identity() {
+TEST(exhaustion_retries_same_identity) {
   Kernel kernel;
   install(kernel, affine_formula());
   FILE *records = temporary_records();
@@ -173,7 +169,7 @@ static void exhaustion_retries_same_identity() {
   std::fclose(records);
 }
 
-static void propagation_is_deferred() {
+TEST(propagation_is_deferred) {
   Kernel kernel;
   install(kernel, affine_formula());
   kernel_assign_unit(kernel, kernel_internalize(kernel, -5));
@@ -194,7 +190,7 @@ static void propagation_is_deferred() {
   std::fclose(records);
 }
 
-static void terminal_result_commits_without_candidate() {
+TEST(terminal_result_commits_without_candidate) {
   Kernel kernel;
   install(kernel, xor_cnf({{{1, 2, 3}, false}, {{1, 2, 3}, true}}), 3);
   FILE *records = temporary_records();
@@ -212,7 +208,7 @@ static void terminal_result_commits_without_candidate() {
   std::fclose(records);
 }
 
-static void certified_basis_v2_uses_persistent_session() {
+TEST(certified_basis_v2_uses_persistent_session) {
   Kernel kernel;
   install(kernel, affine_formula());
   FILE *records = temporary_records();
@@ -253,7 +249,7 @@ static void certified_basis_v2_uses_persistent_session() {
   std::fclose(records);
 }
 
-static void certified_basis_v2_duplicate_keeps_identity() {
+TEST(certified_basis_v2_duplicate_keeps_identity) {
   Kernel kernel;
   install(kernel, xor_cnf({{{1, 2, 3}, false}, {{1, 2, 4}, true}}), 4);
   FILE *records = temporary_records();
@@ -288,15 +284,4 @@ static void certified_basis_v2_duplicate_keeps_identity() {
          kernel.stats.affine_consequence_applied == 1 &&
          kernel.stats.affine_consequence_already_published == 1);
   std::fclose(records);
-}
-
-int main() {
-  state_only_guard();
-  declines_preserve_identity_and_state();
-  exhaustion_retries_same_identity();
-  propagation_is_deferred();
-  terminal_result_commits_without_candidate();
-  certified_basis_v2_uses_persistent_session();
-  certified_basis_v2_duplicate_keeps_identity();
-  std::puts("affine consequence action: transactional identity, effort, advice, and deferred propagation PASS");
 }

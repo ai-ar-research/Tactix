@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "rules/lucky/model.hpp"
@@ -6,12 +6,9 @@
 #include "rules/propagate/propagate.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
-#include <algorithm>
 #include <bit>
-#include <cassert>
 #include <set>
 #include <iostream>
-using namespace tactix;
 using namespace tactix::strategy;
 
 static Kernel fixture(bool duplicate=false,bool incomplete=false) {

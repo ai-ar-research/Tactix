@@ -6,12 +6,10 @@
 // measured stop under NATIVE publication and every public install reproduces
 // its profile; with no blocking entry left, every stream replays to its end. A
 // lookahead pass assumes support transactions.
-#undef NDEBUG
+#include "unit_test.hpp"
 // Rename the public alias as api.cpp does: its `tactix` typedef would collide
 // with the internal namespace.
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 #include "default_action_map.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
 #include "public_online_encoding.hpp"

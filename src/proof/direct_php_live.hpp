@@ -67,18 +67,8 @@ struct Request {
 };
 
 enum class Status : uint8_t {
-  Invalid,
-  Inapplicable,
-  NotRecognized,
-  Malformed,
-  Ambiguous,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Admitted,
-  Prepared,
-  Applied,
+  Invalid, Inapplicable, NotRecognized, Malformed, Ambiguous, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, Admitted, Prepared, Applied
 };
 
 struct Result {

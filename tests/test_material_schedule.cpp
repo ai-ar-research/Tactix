@@ -1,14 +1,11 @@
 // Actual C2 and slot consumers, not a mirror of their implementation.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
-#include <cassert>
-#include <cstdio>
 #include <initializer_list>
-using namespace tactix;
 
 static Ref large(Kernel &k, std::initializer_list<int> values, bool red=false) {
   std::vector<Lit> lits;

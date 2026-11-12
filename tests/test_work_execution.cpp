@@ -1,13 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/vivify_execution.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <vector>
-
-using namespace tactix;
 using namespace tactix::execution;
 using namespace tactix::strategy;
 

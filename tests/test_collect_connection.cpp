@@ -1,11 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
-using namespace tactix;
 
 static void collect(bool disconnected, bool indexed, bool sparse) {
   Kernel k;

@@ -2,7 +2,6 @@
 
 #include "kernel/types.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -238,10 +237,6 @@ bool build_assignment(Kernel &k, const Simon &simon, uint32_t key,
 }
 
 } // namespace
-
-RuleEligibility simon_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult simon_model_apply(Kernel &k) {
   assert(simon_model_guard(k));

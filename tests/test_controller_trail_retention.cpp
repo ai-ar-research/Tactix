@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/restart_controller.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
@@ -9,12 +9,8 @@
 #include "rules/lucky/tseitin_cycle_action.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <string>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 

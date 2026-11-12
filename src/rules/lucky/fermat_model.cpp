@@ -1,7 +1,6 @@
 #include "rules/lucky/opportunities.hpp"
 
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -203,10 +202,6 @@ bool set_external(const Kernel &k, std::vector<int8_t> &assignment,
 }
 
 } // namespace
-
-RuleEligibility fermat_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult fermat_model_apply(Kernel &k) {
   assert(fermat_model_guard(k));

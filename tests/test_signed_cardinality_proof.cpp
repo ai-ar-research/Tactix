@@ -1,16 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <array>
-#include <cassert>
-#include <cstdio>
 #include <sstream>
-#include <string>
-
-using namespace tactix;
 
 static Kernel fixture(bool omit_last = false) {
   std::ostringstream dimacs;

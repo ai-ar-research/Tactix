@@ -1,8 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/watch.hpp"
-#include <cassert>
-#include <cstdio>
-using namespace tactix;
 
 // Actual predecessor append expressed solely through unchanged public methods.
 static void previous(WatchLists &w, Lit l, Lit blocker, Ref ref) {

@@ -12,7 +12,6 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/inprocess_program.hpp"
-#include "strategy/work_settings.hpp"
 #include "strategy/rule_invocation.hpp"
 #include "strategy/bve_occurrence_cache.hpp"
 

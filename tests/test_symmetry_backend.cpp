@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "symmetry_backend/dejavu_backend.hpp"
 #include "symmetry_backend/sparse_permutation.hpp"
 #include "symmetry_backend/group_input.hpp"
@@ -6,13 +6,8 @@
 #include "components.h"
 #include "dejavu.h"
 
-#include <algorithm>
 #include <array>
-#include <cassert>
-#include <cstdlib>
-#include <cstdio>
 #include <utility>
-#include <vector>
 
 using namespace tactix::symmetry_backend;
 
@@ -20,7 +15,7 @@ namespace {
 
 // Component adjacency must contain only translated component vertices. A
 // singleton-color bridge is omitted, while internal edges retain their degree.
-void decomposition_prunes_singleton_bridge_edges() {
+TEST(decomposition_prunes_singleton_bridge_edges) {
   for (const bool internal_edges : {false, true}) {
     dejavu::static_graph graph(5, internal_edges ? 6 : 4);
     for (int color = 0; color < 2; ++color)
@@ -54,7 +49,7 @@ void decomposition_prunes_singleton_bridge_edges() {
 
 // A root selector may return an empty first base even when preprocessing has
 // already found a nontrivial group. That is not a reusable DFS result yet.
-void empty_initial_base_runs_dfs_before_schreier_reuse() {
+TEST(empty_initial_base_runs_dfs_before_schreier_reuse) {
   constexpr std::array<int, 14> colors = {0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3};
   constexpr std::array<std::pair<int, int>, 9> edges = {
       {{1, 5}, {6, 7}, {6, 9}, {7, 8}, {8, 9},
@@ -86,7 +81,7 @@ void empty_initial_base_runs_dfs_before_schreier_reuse() {
 // Matching edges split one root cell; an unrelated cycle and many root
 // singletons remain untouched. Images must include exactly the split cell,
 // retaining discovery order even across repeated calls and prefix requests.
-void row_images_ignore_untouched_root_cells() {
+TEST(row_images_ignore_untouched_root_cells) {
   constexpr uint32_t n = 132;
   std::vector<uint32_t> colors(n), degrees(n), edges;
   const auto add = [&](uint32_t u, uint32_t v) {
@@ -145,7 +140,7 @@ void row_images_ignore_untouched_root_cells() {
 // Reduction and row completion may share a completed first individualization.
 // Compare a warmed session with a cold one at every small work prefix and
 // before/during/after interruption, including a different cached anchor.
-void reduced_first_row_preserves_prefixes_and_stops() {
+TEST(reduced_first_row_preserves_prefixes_and_stops) {
   const uint32_t colors[] = {0,0,0,0,0,0,0,0};
   const uint32_t degrees[] = {1,1,1,1,1,1,1,1};
   const uint32_t edges[] = {0,3,1,2,4,7,5,6};
@@ -202,7 +197,7 @@ void assert_same_fixings(const Fixings &a, const Fixings &b, uint32_t domain) {
   }
 }
 
-void sparse_group_input_preserves_results_and_budgets() {
+TEST(sparse_group_input_preserves_results_and_budgets) {
   size_t comparisons = 0, productive = 0, incomplete = 0;
   std::vector<uint64_t> budgets;
   for (uint64_t budget = 0; budget <= 1000; ++budget) budgets.push_back(budget);
@@ -335,7 +330,7 @@ void sparse_group_input_preserves_results_and_budgets() {
               comparisons,productive,incomplete);
 }
 
-void sparse_detector_storage_preserves_dense_semantics() {
+TEST(sparse_detector_storage_preserves_dense_semantics) {
   using detail::SparsePermutation;
   using detail::capture_permutation_prefix;
   std::array<int, 5> dense = {0, 1, 2, 3, 4};
@@ -437,7 +432,7 @@ void sparse_detector_storage_preserves_dense_semantics() {
               captures, comparisons, pair_order_disagreements);
 }
 
-void sparse_cut_checks_match_the_dense_predicate() {
+TEST(sparse_cut_checks_match_the_dense_predicate) {
   using tactix::CutOrbitIndex;
   using tactix::CutOrbitMember;
   using tactix::INVALID_LIT;
@@ -569,7 +564,7 @@ Graph two_isolated_vertices(uint32_t (&colors)[2],
   return Graph{2, 0, colors, degrees, nullptr};
 }
 
-void detection_owns_results_and_observes_stop() {
+TEST(detection_owns_results_and_observes_stop) {
   uint32_t colors[2], degrees[2];
   const Graph graph = two_isolated_vertices(colors, degrees);
   DetectionSettings settings;
@@ -594,7 +589,7 @@ void detection_owns_results_and_observes_stop() {
   assert(stopping.calls >= 4 && !permutations.images);
 }
 
-void detector_order_is_effective_reproducible_and_bounded() {
+TEST(detector_order_is_effective_reproducible_and_bounded) {
   // Independent color classes exercise multiple callbacks and projection;
   // compare exact maps.
   bool changed = false;
@@ -670,7 +665,7 @@ void detector_order_is_effective_reproducible_and_bounded() {
   assert(changed); // Negative control: ignoring the setting must fail.
 }
 
-void invalid_inputs_release_prior_results() {
+TEST(invalid_inputs_release_prior_results) {
   Permutations permutations;
   permutations.images = static_cast<uint32_t *>(std::malloc(sizeof(uint32_t)));
   permutations.count = 1;
@@ -713,7 +708,7 @@ void invalid_inputs_release_prior_results() {
 
 // DejaVu's partition refinement is defined only for simple graphs; a repeated
 // edge corrupts its cell sizes (a SIGFPE in refine_coloring_first).
-void parallel_edges_are_invalid() {
+TEST(parallel_edges_are_invalid) {
   const uint32_t colors[] = {0, 0, 0};
   const uint32_t degrees[] = {3, 2, 1};
   const uint32_t edges[] = {0, 1, 0, 2, 0, 1};
@@ -746,7 +741,7 @@ void parallel_edges_are_invalid() {
 // The owner's chain order (Satsuma negation_fixing_schreier, then fix_and_cut
 // with find_non_trivial_orbit): negation orbits are fixed before any cut, and
 // a cut takes the largest stabilizer orbit's highest variable.
-void owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit() {
+TEST(owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit) {
   constexpr uint32_t domain = 14; // variables 0..6
   std::vector<uint32_t> generators;
   const auto identity = [&] {
@@ -820,7 +815,7 @@ void owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit() {
 // A later clausal fix reads the root values its earlier levels publish. The
 // negation unit sets its base point true, so a clause holding that point is
 // satisfied and only a clause holding its complement shrinks to the pair.
-void negation_unit_value_matches_the_published_unit() {
+TEST(negation_unit_value_matches_the_published_unit) {
   constexpr uint32_t domain = 8; // variables 0..3
   std::vector<uint32_t> generators;
   for (int generator = 0; generator < 2; ++generator) {
@@ -868,7 +863,7 @@ void negation_unit_value_matches_the_published_unit() {
   assert((run(6, true, true) == Rows{{3, 7}, {0, 2}, {1, 2}}));
 }
 
-void clausal_base_extension_retains_known_generators() {
+TEST(clausal_base_extension_retains_known_generators) {
   constexpr uint32_t domain = 84;
   std::vector<uint32_t> generators;
   const auto swap_variables = [&](uint32_t first, uint32_t second) {
@@ -915,7 +910,7 @@ void clausal_base_extension_retains_known_generators() {
   }
 }
 
-void clausal_transversals_close_alternating_generator_words() {
+TEST(clausal_transversals_close_alternating_generator_words) {
   constexpr uint32_t domain = 88;
   std::vector<uint32_t> generators;
   const auto add_swap = [&](uint32_t a, uint32_t b) {
@@ -964,7 +959,7 @@ void clausal_transversals_close_alternating_generator_words() {
   }
 }
 
-void clausal_reverse_star_closes_known_targets() {
+TEST(clausal_reverse_star_closes_known_targets) {
   constexpr uint32_t domain = 12;
   std::vector<uint32_t> generators;
   for (uint32_t variable = 5; variable-- > 0;) {
@@ -1052,7 +1047,7 @@ std::vector<uint32_t> level_bases(const Fixings &fixings) {
   return bases;
 }
 
-void first_amo_selection_preserves_caller_order() {
+TEST(first_amo_selection_preserves_caller_order) {
   // Two independent orbits: a three-cycle and a two-cycle. Both clauses
   // are AMOs; the first clause has the larger orbit. Global orbit ranking
   // and first-AMO selection must therefore choose different first bases.
@@ -1086,7 +1081,7 @@ void first_amo_selection_preserves_caller_order() {
   release(fixings);
 }
 
-void shortest_clause_precedes_long_amo() {
+TEST(shortest_clause_precedes_long_amo) {
   const uint32_t images[] = {2,3,4,5,0,1,6,7,8,9,
                              0,1,2,3,4,5,8,9,6,7};
   const int8_t values[10] = {};
@@ -1112,7 +1107,7 @@ void shortest_clause_precedes_long_amo() {
   }
 }
 
-void first_shortest_retains_forward_remainder() {
+TEST(first_shortest_retains_forward_remainder) {
   // Independent cyclic orbits: a long AMO, then short and medium clauses.
   // The initial shortest choice must not hide the earlier AMO from the
   // remainder. Repeated shortest ranking instead chooses the medium next.
@@ -1138,7 +1133,7 @@ void first_shortest_retains_forward_remainder() {
     }
 }
 
-void ordered_remainder_starts_after_first_amo_free_scan() {
+TEST(ordered_remainder_starts_after_first_amo_free_scan) {
   // Independent cyclic orbits of sizes 2,4,2,3. The first is the sole AMO.
   // The first fallback chooses the smaller third orbit; later caller order
   // chooses the size-four second orbit before the size-three fourth orbit.
@@ -1162,7 +1157,7 @@ void ordered_remainder_starts_after_first_amo_free_scan() {
   }
 }
 
-void forward_scan_keeps_a_monotone_clause_frontier() {
+TEST(forward_scan_keeps_a_monotone_clause_frontier) {
   // Independent interchangeable pairs expose a partially built stabilizer.
   // A full rescan may revisit an earlier clause after a random sift reveals
   // its orbit. Forward scanning must keep completed clause choices monotone.
@@ -1221,7 +1216,7 @@ void forward_scan_keeps_a_monotone_clause_frontier() {
     assert(units[2][pair] == 4 * pair);
 }
 
-void fix_and_cut_emits_complete_orbit_and_negation_cuts() {
+TEST(fix_and_cut_emits_complete_orbit_and_negation_cuts) {
   for (uint8_t chain_mode : {uint8_t{1}, uint8_t{2}}) {
   const uint64_t offsets[] = {0};
   {
@@ -1296,7 +1291,7 @@ void fix_and_cut_emits_complete_orbit_and_negation_cuts() {
   }
 }
 
-void planning_limit_preserves_a_complete_prefix() {
+TEST(planning_limit_preserves_a_complete_prefix) {
   for (uint8_t chain_mode : {uint8_t{1}, uint8_t{2}}) {
   // Three independent signed flips need three stabilizer levels. A planning
   // threshold can stop between them while finalization still certifies a
@@ -1347,7 +1342,7 @@ void planning_limit_preserves_a_complete_prefix() {
   }
 }
 
-void bounded_resifting_preserves_overlapping_actions() {
+TEST(bounded_resifting_preserves_overlapping_actions) {
   constexpr uint32_t variables = 7, domain = 2 * variables;
   for (bool reverse : {false, true}) {
     std::vector<uint32_t> images;
@@ -1395,7 +1390,7 @@ void bounded_resifting_preserves_overlapping_actions() {
   }
 }
 
-void individualized_refinement_aligns_row_companions() {
+TEST(individualized_refinement_aligns_row_companions) {
   const uint32_t colors[] = {0, 0, 0, 0};
   const uint32_t degrees[] = {1, 1, 1, 1};
   const uint32_t edges[] = {0, 2, 1, 3};
@@ -1440,7 +1435,7 @@ void individualized_refinement_aligns_row_companions() {
   release(session);
 }
 
-void individualized_orbit_reduction_selects_largest_remainder() {
+TEST(individualized_orbit_reduction_selects_largest_remainder) {
   const uint32_t colors[] = {0, 0, 0, 0};
   const uint32_t degrees[] = {2, 2, 2, 2};
   const uint32_t edges[] = {0, 1, 1, 2, 2, 3, 0, 3};
@@ -1478,7 +1473,7 @@ void individualized_orbit_reduction_selects_largest_remainder() {
   assert(!session && preparation_ticks == 0);
 }
 
-void individualized_partition_exposes_product_remainders() {
+TEST(individualized_partition_exposes_product_remainders) {
   // A 3x3 incidence grid with differently colored row and column markers.
   // Individualizing cell (0,0) separates the other cells into the expected
   // product-action remainders: 1, 2, 2 and 4.
@@ -1546,7 +1541,7 @@ void individualized_partition_exposes_product_remainders() {
   release(session);
 }
 
-void support_components_preserve_group_and_clause_boundaries() {
+TEST(support_components_preserve_group_and_clause_boundaries) {
   constexpr uint32_t domain = 12;
   std::vector<uint32_t> generators(2 * domain);
   for (uint32_t g = 0; g < 2; ++g)
@@ -1672,7 +1667,7 @@ void support_components_preserve_group_and_clause_boundaries() {
   }
 }
 
-void compact_component_images_scale_with_support() {
+TEST(compact_component_images_scale_with_support) {
   const uint32_t domain = 20000;
   std::vector<uint32_t> generators(2 * domain);
   for (uint32_t p = 0; p < domain; ++p) {
@@ -1740,7 +1735,7 @@ void compact_component_images_scale_with_support() {
   assert(!rows.image_offsets && !rows.count && !rows.domain_size);
 }
 
-void fixing_images_have_sr_direction_for_non_involutions() {
+TEST(fixing_images_have_sr_direction_for_non_involutions) {
   // DejaVu's transversal maps the requested orbit point to the new base. That
   // is the direction used by Tactix's negative-fixed-literal SR witness. A
   // transposition cannot distinguish it from its inverse, hence this explicit
@@ -1776,37 +1771,3 @@ void fixing_images_have_sr_direction_for_non_involutions() {
 }
 
 } // namespace
-
-int main() {
-  decomposition_prunes_singleton_bridge_edges();
-  empty_initial_base_runs_dfs_before_schreier_reuse();
-  row_images_ignore_untouched_root_cells();
-  reduced_first_row_preserves_prefixes_and_stops();
-  sparse_group_input_preserves_results_and_budgets();
-  sparse_detector_storage_preserves_dense_semantics();
-  sparse_cut_checks_match_the_dense_predicate();
-  clausal_reverse_star_closes_known_targets();
-  clausal_transversals_close_alternating_generator_words();
-  clausal_base_extension_retains_known_generators();
-  owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit();
-  negation_unit_value_matches_the_published_unit();
-  compact_component_images_scale_with_support();
-  detection_owns_results_and_observes_stop();
-  detector_order_is_effective_reproducible_and_bounded();
-  invalid_inputs_release_prior_results();
-  parallel_edges_are_invalid();
-  individualized_refinement_aligns_row_companions();
-  individualized_orbit_reduction_selects_largest_remainder();
-  individualized_partition_exposes_product_remainders();
-  first_amo_selection_preserves_caller_order();
-  shortest_clause_precedes_long_amo();
-  first_shortest_retains_forward_remainder();
-  ordered_remainder_starts_after_first_amo_free_scan();
-  forward_scan_keeps_a_monotone_clause_frontier();
-  fix_and_cut_emits_complete_orbit_and_negation_cuts();
-  planning_limit_preserves_a_complete_prefix();
-  bounded_resifting_preserves_overlapping_actions();
-  fixing_images_have_sr_direction_for_non_involutions();
-  support_components_preserve_group_and_clause_boundaries();
-  std::puts("DejaVu backend boundary, ownership and fixing PASS");
-}

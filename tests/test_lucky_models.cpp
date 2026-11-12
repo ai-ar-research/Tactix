@@ -1,7 +1,7 @@
 // Lucky structured SAT constructors (Cerny, Fermat, balanced signature, lookup
 // circuit, SIMON): the positive case through the Lucky instance, a shape
 // rejection that leaves the trail untouched, and the parameter bounds.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rule_test_utils.hpp"
@@ -9,10 +9,7 @@
 #include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <cassert>
 #include <sstream>
-
-using namespace tactix;
 
 static Kernel cerny_fixture(bool extra_positive_binary = false) {
   constexpr uint32_t states = 3, length = 4, base = states * length;
@@ -68,7 +65,7 @@ static void assert_declines(Kernel &k, Apply apply, const uint64_t &recognized) 
   assert(recognized == 0 && k.trail.size() == trail);
 }
 
-static void cerny_cases() {
+TEST(cerny_cases) {
   {
     Kernel k = cerny_fixture();
     assert_instance_sat(k, 12);
@@ -120,7 +117,7 @@ static Kernel fermat_fixture(bool third_long = false) {
   return parse_dimacs_text(dimacs.str());
 }
 
-static void fermat_cases() {
+TEST(fermat_cases) {
   {
     Kernel k = fermat_fixture();
     assert_instance_sat(k, 11);
@@ -169,7 +166,7 @@ static const strategy::LocalSearchHint &balance_hint(const Kernel &k) {
       strategy::LocalSearchKind::BalancedSignature)];
 }
 
-static void balanced_signature_cases() {
+TEST(balanced_signature_cases) {
   {
     Kernel k = balance_fixture();
     assert_instance_sat(k, 10);
@@ -274,7 +271,7 @@ static bool avx2() {
 #endif
 }
 
-static void lookup_circuit_cases() {
+TEST(lookup_circuit_cases) {
   {
     Kernel k = lookup_fixture();
     assert_instance_sat(k, 13);
@@ -339,7 +336,7 @@ static Kernel simon_fixture(bool extra_binary = false) {
   return parse_dimacs_text(dimacs.str());
 }
 
-static void simon_cases() {
+TEST(simon_cases) {
   {
     Kernel k = simon_fixture();
     assert_instance_sat(k, 14);
@@ -355,12 +352,4 @@ static void simon_cases() {
   parameters.maximum_rounds = 0;
   strategy::ScopedRuleParameters<strategy::SimonModelParameters> posed(k, parameters);
   assert(simon_model_apply(k) == ApplyResult::NoOp);
-}
-
-int main() {
-  cerny_cases();
-  fermat_cases();
-  balanced_signature_cases();
-  lookup_circuit_cases();
-  simon_cases();
 }

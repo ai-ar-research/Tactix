@@ -228,11 +228,7 @@ struct DensePlanningSink {
 bool add_arena_words(uint64_t &, const std::vector<int32_t> &);
 
 enum class WideProofStatus : uint8_t {
-  Complete,
-  Invalid,
-  Exhausted,
-  Interrupted,
-  Unsupported,
+  Complete, Invalid, Exhausted, Interrupted, Unsupported
 };
 
 struct WideProofPlan {
@@ -625,12 +621,7 @@ bool make_consumed_key(const affine::Image &image,
   return true;
 }
 
-enum class FilterStatus : uint8_t {
-  Complete,
-  AllExcluded,
-  Invalid,
-  Exhausted,
-};
+enum class FilterStatus : uint8_t { Complete, AllExcluded, Invalid, Exhausted };
 
 bool exclusion_charge(uint64_t amount, uint64_t maximum, uint64_t &work) {
   if (amount > maximum - work) return false;

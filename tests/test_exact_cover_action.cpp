@@ -1,18 +1,12 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "exact_cover_test_support.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
 #include <limits>
-#include <string>
-#include <vector>
 
-using namespace tactix;
 using Parameters = strategy::ExactCoverExtensionParameters;
 
 namespace {
@@ -96,7 +90,7 @@ void remove_definitions(Kernel &kernel) {
   assert(binaries == 9 && large == 3);
 }
 
-void success_stages_candidate_and_commits_identity() {
+TEST(success_stages_candidate_and_commits_identity) {
   Fixture f;
   strategy::begin_semantic_variable_candidate_action(f.kernel);
   const auto applied = f.apply();
@@ -167,7 +161,7 @@ void success_stages_candidate_and_commits_identity() {
          f.kernel.stats.exact_cover_extension_already_published == 1);
 }
 
-void final_revalidation_obeys_recognition_limit() {
+TEST(final_revalidation_obeys_recognition_limit) {
   uint64_t complete_work = 0;
   {
     Fixture f;
@@ -183,7 +177,7 @@ void final_revalidation_obeys_recognition_limit() {
              .revalidation_work > 0);
 }
 
-void declines_do_not_consume_identity() {
+TEST(declines_do_not_consume_identity) {
   {
     // Eligibility is state-only: disabled parameters do not hide the action.
     Fixture f;
@@ -228,7 +222,7 @@ void declines_do_not_consume_identity() {
   }
 }
 
-void state_guard_rejects_assignments() {
+TEST(state_guard_rejects_assignments) {
   Fixture f;
   assert(exact_cover_extension_action_guard(f.kernel));
   kernel_assign_decision(f.kernel, kernel_internalize(f.kernel, 1));
@@ -236,11 +230,3 @@ void state_guard_rejects_assignments() {
 }
 
 } // namespace
-
-int main() {
-  success_stages_candidate_and_commits_identity();
-  final_revalidation_obeys_recognition_limit();
-  declines_do_not_consume_identity();
-  state_guard_rejects_assignments();
-  std::puts("test_exact_cover_action: passed");
-}

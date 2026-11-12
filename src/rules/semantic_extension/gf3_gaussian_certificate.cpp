@@ -138,9 +138,8 @@ Result build(const gf3_affine::Theory &theory,
             : ConsequenceKind::UnitEquation;
     if (!build_consequence(theory, bridge, outcome, kind,
                            static_cast<uint32_t>(plan.consequences.size()),
-                           limits, meter, consequence, plan.events)) {
+                           limits, meter, consequence, plan.events))
       return Outcome::stopped(meter, Status::Uncertifiable);
-    }
     ++meter.stats.supported_outcomes;
     plan.consequences.push_back(std::move(consequence));
   }

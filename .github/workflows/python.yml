@@ -19,29 +19,7 @@ jobs:
         mode: [Release, Debug]
     steps:
       - uses: actions/checkout@v4
-      - name: Cache third-party toolchain builds
-        uses: actions/cache@v4
-        with:
-          path: |
-            kissat
-            cadical
-            drat-trim
-            cake_lpr
-            dsr-trim-sr
-            trestle
-            ~/.elan
-            tools/checkers/src
-          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh', 'tools/checkers/patches/**') }}
-      - name: Install missing verified-checker build tools
-        run: |
-          if ! command -v zstd >/dev/null || [ ! -x trestle/.lake/build/bin/srcheck ]; then
-            sudo apt-get update
-            sudo apt-get install --yes elan zstd
-          fi
-      - name: Build pinned solvers and checkers
-        run: |
-          tools/solvers/setup.sh
-          tools/checkers/setup.sh
+      - uses: ./.github/actions/toolchain
       - name: Build the reusable Python library
         run: |
           cmake -S . -B build/python-api -DCMAKE_BUILD_TYPE=${{ matrix.mode }} "-DCMAKE_C_FLAGS_DEBUG=-O1 -g1" "-DCMAKE_CXX_FLAGS_DEBUG=-O1 -g1" -DTACTIX_BUILD_SHARED_IPASIR=ON

@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "affine_formula_support.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
@@ -8,10 +8,7 @@
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
 #include <fstream>
-#include <cstdio>
-using namespace tactix;
 
 namespace tactix {
 struct DefaultAffineSearchTestAccess {

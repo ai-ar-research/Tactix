@@ -1,20 +1,14 @@
 // Native candidate indexing retires visited root-satisfied records even when
 // no gate or equivalence exists. Public extraction must remain read-only.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "test_io.hpp"
 #include "temporary_file.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <iterator>
-#include <string>
-#include <vector>
 #include <unistd.h>
-using namespace tactix;
 
 static void fixture(unsigned width, unsigned position, int value, bool negative,
                     bool redundant, unsigned copies, ProofFormat format) {

@@ -1,6 +1,4 @@
-#undef NDEBUG
-#include <cstdint>
-#include <cstdio>
+#include "unit_test.hpp"
 
 namespace capi {
 extern "C" {
@@ -24,7 +22,6 @@ extern "C" {
 #include <string>
 #include <vector>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 namespace {
@@ -265,7 +262,7 @@ void productive_batch(const std::string &dimacs, Session *Kernel::*slot,
                                         100 + step.id);
 }
 
-void productive_batches_publish_distinct_candidates_and_refresh_generation() {
+TEST(productive_batches_publish_distinct_candidates_and_refresh_generation) {
   productive_batch(gf3_dimacs(), &Kernel::gf3_affine_action_session, gf3_step(),
                    SemanticVariableProducer::Gf3Affine,
                    [](const Gf3AffineActionSession &session, const auto &stats) {
@@ -284,7 +281,7 @@ void productive_batches_publish_distinct_candidates_and_refresh_generation() {
       });
 }
 
-void affine_followup_publishes_one_current_typed_candidate() {
+TEST(affine_followup_publishes_one_current_typed_candidate) {
   for (const bool stable : {false, true}) {
     Bound<AffineBasisActionSession> bound(
         affine_dimacs(), &Kernel::affine_basis_action_session, true);
@@ -344,7 +341,7 @@ void affine_followup_publishes_one_current_typed_candidate() {
   }
 }
 
-void invalid_is_consumed_and_resource_exhaustion_is_retryable() {
+TEST(invalid_is_consumed_and_resource_exhaustion_is_retryable) {
   {
     Bound<Gf3AffineActionSession> bound(
         gf3_dimacs(), &Kernel::gf3_affine_action_session, false);
@@ -459,7 +456,7 @@ void c_api_productive(const std::string &dimacs,
   std::fclose(records);
 }
 
-void public_c_api_executes_productive_v5_actions() {
+TEST(public_c_api_executes_productive_v5_actions) {
   {
     capi::tactix_online_step_v5 step{};
     capi::tactix_online_step &base = c_api_base(step, 201, "Gf3AffineConsequence");
@@ -489,11 +486,3 @@ void public_c_api_executes_productive_v5_actions() {
   }
 }
 } // namespace
-
-int main() {
-  productive_batches_publish_distinct_candidates_and_refresh_generation();
-  affine_followup_publishes_one_current_typed_candidate();
-  invalid_is_consumed_and_resource_exhaustion_is_retryable();
-  public_c_api_executes_productive_v5_actions();
-  std::puts("v5 theory action runtime PASS");
-}

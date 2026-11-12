@@ -4,19 +4,11 @@
 // ways: `chain_replay` replays every chain, `check_target_is_entailed` checks
 // entailment by enumeration, and the core may not under-report what the chains
 // cite. `--emit <dir>` writes the cases out for `sweep_proofs.sh`.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "engine/subsolver.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <map>
 #include <random>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -139,7 +131,7 @@ void test_against_brute_force(uint32_t iterations) {
 // Contradictory assumptions are refuted without touching the formula, and one
 // falsified by propagation ends the solve as Unsat rather than being learned
 // around.
-void test_assumption_paths() {
+TEST(test_assumption_paths) {
   SubSolver s;
   s.reset(3);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)}); // (x0 v x1)
@@ -159,7 +151,7 @@ void test_assumption_paths() {
 }
 
 // Degenerate inputs the environment extraction can hand it.
-void test_degenerate() {
+TEST(test_degenerate) {
   SubSolver s;
   s.reset(0);
   assert(s.solve({}, 0) == SubResult::Sat); // no variables: trivially SAT
@@ -192,7 +184,7 @@ void test_degenerate() {
 
 // The contract with the effort scheduler: exceeding the budget yields Budget,
 // never a guessed verdict, and the tick count is deterministic.
-void test_budget_and_determinism() {
+TEST(test_budget_and_determinism) {
   // pigeonhole PHP(6,5): small to state, expensive to refute
   const uint32_t holes = 5, pigeons = 6;
   const auto var = [&](uint32_t p, uint32_t h) { return p * holes + h; };
@@ -245,7 +237,7 @@ void test_budget_and_determinism() {
   assert(s.kitten_ticks() == 2);
 }
 
-void test_external_stop_is_budget_result() {
+TEST(test_external_stop_is_budget_result) {
   SubSolver s;
   s.reset(3, SubSearchMode::Kitten);
   s.add_clause(
@@ -258,7 +250,7 @@ void test_external_stop_is_budget_result() {
          SubResult::Sat);
 }
 
-void test_model_flip() {
+TEST(test_model_flip) {
   SubSolver s;
   s.reset(2);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
@@ -301,7 +293,7 @@ void test_model_flip() {
   assert(s.solve({}, 0) == SubResult::Sat);
 }
 
-void test_kitten_search_state() {
+TEST(test_kitten_search_state) {
   SubSolver s;
   s.start_kitten_session();
 
@@ -365,7 +357,7 @@ void test_kitten_search_state() {
   assert(s.kitten_phase_capacity() == 4);
 }
 
-void test_compact_kitten_identity() {
+TEST(test_compact_kitten_identity) {
   SubSolver mapped, compact;
   mapped.start_kitten_session();
   compact.start_kitten_session();
@@ -646,7 +638,7 @@ void test_derivations(uint32_t iterations,
 }
 
 // Refutations reached without search, and the one case with nothing to give.
-void test_derivation_edge_cases() {
+TEST(test_derivation_edge_cases) {
   SubSolver s;
   SubDerivation d;
   // a stated empty clause
@@ -770,7 +762,7 @@ void emit_cases(const char *dir) {
   assert(multi_step >= 15 && max_steps >= 10);
 }
 
-void test_assumption_only_propagation() {
+TEST(test_assumption_only_propagation) {
   SubSolver s;
   s.reset(3, SubSearchMode::Fixed);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
@@ -805,18 +797,10 @@ int main(int argc, char **argv) {
   // argv[1] overrides the iteration count.
   const uint32_t iterations =
       argc > 1 ? static_cast<uint32_t>(std::atoi(argv[1])) : 100000;
-  test_degenerate();
-  test_assumption_paths();
-  test_budget_and_determinism();
-  test_external_stop_is_budget_result();
-  test_model_flip();
-  test_kitten_search_state();
-  test_compact_kitten_identity();
-  test_assumption_only_propagation();
+  run_tests();
   test_rup_admission_chains(iterations / 100 + 1);
   test_kitten_against_brute_force(iterations / 5);
   test_against_brute_force(iterations);
-  test_derivation_edge_cases();
   test_derivations(iterations / 4);
   test_derivations(iterations / 10, SubSearchMode::Kitten);
   printf("test_subsolver: all passed\n");

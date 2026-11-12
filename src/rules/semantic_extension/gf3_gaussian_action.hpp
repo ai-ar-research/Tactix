@@ -32,16 +32,8 @@ class Gf3GaussianActionSession
 };
 
 enum class Gf3GaussianActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoSupportedOutcome,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoSupportedOutcome, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, AlreadyPublished, Applied
 };
 
 struct Gf3GaussianActionResult {

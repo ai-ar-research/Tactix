@@ -1,18 +1,14 @@
 // Factor (BVA) unit tests. Extension variables are assigned by search but
 // projected out of the model: the v-line ranges over original variables only.
-#undef NDEBUG
+// Density admission is DefaultPolicy's, not the rule's, so these
+// below-threshold grids factor through the rule's own surface.
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/factor/factor.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
 #include <optional>
-
-using namespace tactix;
 
 static void add_large(Kernel &k, std::initializer_list<Lit> lits) {
   const std::vector<Lit> clause(lits);
@@ -63,7 +59,7 @@ static void grid_2x3(Kernel &k, Var base) {
 
 // kernel_new_extension_vars grows all per-var state additively, records the
 // extension boundary, and leaves the model-output count at the originals.
-static void test_extension_var_boundary() {
+TEST(test_extension_var_boundary) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5); // 5 original vars: 0..4
@@ -94,7 +90,7 @@ static void test_extension_var_boundary() {
 }
 
 // A 2×3 grid factors to 2 dividers + 3 quotients over a fresh x.
-static void test_factoring_2x3() {
+TEST(test_factoring_2x3) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5); // a=0 b=1 p=2 q=3 r=4
@@ -125,7 +121,7 @@ static void test_factoring_2x3() {
 
 // Late heuristics attachment reconstructs a pre-attach Factor extension's
 // activation rank.
-static void test_late_heuristics_attach_keeps_factor_extension() {
+TEST(test_late_heuristics_attach_keeps_factor_extension) {
   const auto make_grid = [](Kernel &k) {
     kernel_reserve_vars(k, 5);
     k.input_activation_order = {0, 1, 2, 3, 4};
@@ -161,7 +157,7 @@ static void test_late_heuristics_attach_keeps_factor_extension() {
 // detachment ('D') and compaction of an eliminated, never-activated x0 ('C'):
 // the compact import population ends as exactly the active variables in
 // import order, and the target-phase update accepts it.
-static void test_factor_extension_with_heuristics_and_compaction() {
+TEST(test_factor_extension_with_heuristics_and_compaction) {
   for (const char *ops : {"FCA", "ADFA", "ADCFA", "AFDCA"}) {
     const bool compact = std::strchr(ops, 'C');
     const Var first = compact ? 1 : 0; // x0 is absent from every grid clause
@@ -207,7 +203,7 @@ static void test_factor_extension_with_heuristics_and_compaction() {
 
 // Kissat's dense-watch scan currency: budget 4 pays 3 (first_factor), 2
 // (quotient stack) and 2 (first remainder list), then declines the grid.
-static void test_dense_scan_budget_boundary() {
+TEST(test_dense_scan_budget_boundary) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -220,7 +216,7 @@ static void test_dense_scan_budget_boundary() {
 
 // After a match Kissat charges one quotient occurrence before its next_factor
 // budget checkpoint, then applies the best grid.
-static void test_next_factor_budget_check_follows_occurrence() {
+TEST(test_next_factor_budget_check_follows_occurrence) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -236,7 +232,7 @@ static void test_next_factor_budget_check_follows_occurrence() {
 
 // Kissat new_quotient(next) marks next first: a clause already containing it is
 // no remainder match.
-static void test_next_factor_mark_precedes_match_scan() {
+TEST(test_next_factor_mark_precedes_match_scan) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 10);
@@ -260,7 +256,7 @@ static void test_next_factor_mark_precedes_match_scan() {
 
 // factoring.initial is the literal universe at entry: an earlier extension
 // literal is a legal later factor.
-static void test_prior_extension_literal_is_a_later_factor() {
+TEST(test_prior_extension_literal_is_a_later_factor) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4); // a=0, p=1, q=2, r=3
@@ -283,7 +279,7 @@ static void test_prior_extension_literal_is_a_later_factor() {
 
 // Kissat's Factor dense mode keeps the sparse binary watch order for quotient
 // columns (no import-rank re-sort).
-static void test_binary_quotients_preserve_sparse_watch_order() {
+TEST(test_binary_quotients_preserve_sparse_watch_order) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -298,7 +294,7 @@ static void test_binary_quotients_preserve_sparse_watch_order() {
 
 // Binaries created while dense follow the connected large occurrences: the
 // later a/b grid emits its large columns before its new -x column.
-static void test_dynamic_binary_follows_initial_large_occurrences() {
+TEST(test_dynamic_binary_follows_initial_large_occurrences) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 11);
@@ -342,7 +338,7 @@ static void test_dynamic_binary_follows_initial_large_occurrences() {
 
 // Kissat Factor eligibility is per literal: opposite polarities can form the
 // two rows of one grid.
-static void test_opposite_polarities_can_share_a_grid() {
+TEST(test_opposite_polarities_can_share_a_grid) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4); // a=0 p=1 q=2 r=3
@@ -363,7 +359,7 @@ static void test_opposite_polarities_can_share_a_grid() {
 }
 
 // No dimension ceiling (as in Kissat): a grid above 4,096 columns is reachable.
-static void test_factoring_beyond_former_dimension_cap() {
+TEST(test_factoring_beyond_former_dimension_cap) {
   constexpr uint32_t columns = 4097;
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -382,7 +378,7 @@ static void test_factoring_beyond_former_dimension_cap() {
 
 // Kissat's null-stack dense path keeps root-satisfied binaries: root-true p
 // stays a column.
-static void test_satisfied_binary_remainder_is_retained() {
+TEST(test_satisfied_binary_remainder_is_retained) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -397,7 +393,7 @@ static void test_satisfied_binary_remainder_is_retained() {
   assert(!has_binary(k, a, p) && !has_binary(k, b, p));
 }
 
-static void test_retired_literal_is_not_a_factor_candidate() {
+TEST(test_retired_literal_is_not_a_factor_candidate) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -416,7 +412,7 @@ static void test_retired_literal_is_not_a_factor_candidate() {
            "a retired literal must never become a divider candidate");
 }
 
-static void test_assigned_large_remainder() {
+TEST(test_assigned_large_remainder) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 8);
@@ -441,7 +437,7 @@ static void test_assigned_large_remainder() {
 }
 
 // Kissat emits a large quotient in the last-factor clause's existing pose.
-static void test_large_quotient_preserves_last_factor_pose() {
+TEST(test_large_quotient_preserves_last_factor_pose) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 8);
@@ -464,7 +460,7 @@ static void test_large_quotient_preserves_last_factor_pose() {
 
 // Kissat's quotient stack is an occurrence multiset: equal large remainders
 // form a 2x3 grid, each proof-addressable.
-static void test_duplicate_large_remainder_occurrences() {
+TEST(test_duplicate_large_remainder_occurrences) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4); // a=0 b=1 p=2 q=3
@@ -492,7 +488,7 @@ static void test_duplicate_large_remainder_occurrences() {
 }
 
 // Kissat's dense transition flushes repeated binaries: copies make no grid.
-static void test_duplicate_binary_occurrences_are_flushed() {
+TEST(test_duplicate_binary_occurrences_are_flushed) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3); // a=0 b=1 p=2
@@ -511,7 +507,7 @@ static void test_duplicate_binary_occurrences_are_flushed() {
 
 // factorcandrounds=2 plus Kissat's final connection check: C0, C1 and C2 drop
 // in round one, round two and at connection.
-static void test_candidate_reduction_final_connection_check() {
+TEST(test_candidate_reduction_final_connection_check) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 11);
@@ -542,7 +538,7 @@ static void test_candidate_reduction_final_connection_check() {
 
 // kissat_resume_sparse_mode rebuilds every large watch in arena order, even
 // without a grid.
-static void test_sparse_resume_rebuilds_large_watch_order() {
+TEST(test_sparse_resume_rebuilds_large_watch_order) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -567,7 +563,7 @@ static void test_sparse_resume_rebuilds_large_watch_order() {
 
 // Kissat keeps factoring.initial fixed: a same-pass extension literal is never
 // a next factor.
-static void test_fresh_large_quotients_do_not_become_factors() {
+TEST(test_fresh_large_quotients_do_not_become_factors) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 11);
@@ -597,7 +593,7 @@ static void test_fresh_large_quotients_do_not_become_factors() {
 
 // Fresh extensions are demoted in creation order, newest least preferred
 // (kissat factor.c:867-882, cadical factor.cpp:799-802).
-static void test_empty_factor_restamps_only_when_advice_is_consumed() {
+TEST(test_empty_factor_restamps_only_when_advice_is_consumed) {
   for (const bool consume : {false, true}) {
     Kernel k;
     kernel_reserve_vars(k, 3);
@@ -632,7 +628,7 @@ static void test_empty_factor_restamps_only_when_advice_is_consumed() {
   }
 }
 
-static void test_demote_fresh_order() {
+TEST(test_demote_fresh_order) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 10); // two disjoint 2x3 grids over 0..4 and 5..9
@@ -662,7 +658,7 @@ static void test_demote_fresh_order() {
 
 // Kissat inserts a fresh variable with its cumulative score, then demotes it to
 // zero; the transient sift shapes the heap.
-static void test_demote_fresh_stable_heap_lifecycle() {
+TEST(test_demote_fresh_stable_heap_lifecycle) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   k.input_activation_order = {0, 1, 2, 3};
@@ -682,7 +678,7 @@ static void test_demote_fresh_stable_heap_lifecycle() {
   assert((k.h->scores.stack == std::vector<Var>{3, 2, 1, 0, 4}));
 }
 
-static void test_demote_fresh_uses_recorded_end() {
+TEST(test_demote_fresh_uses_recorded_end) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   k.input_activation_order = {0, 1};
@@ -701,7 +697,7 @@ static void test_demote_fresh_uses_recorded_end() {
 
 // The per-literal seed marks are policy and must not wedge: a watermark past
 // everything suppresses the round, and the next binary add re-arms it.
-static void test_touch_filter_is_policy_only() {
+TEST(test_touch_filter_is_policy_only) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -724,40 +720,8 @@ static void test_touch_filter_is_policy_only() {
   assert(k.stats.factorings == 1 && "a re-armed seed must be reachable again");
 }
 
-int main() {
-  {
-    Kernel k;
-    assert(k.factor_cand_rounds == 2 &&
-           "Factor candidate pruning follows both reference defaults");
-  }
-  // Density admission is DefaultPolicy's, not the rule's, so these
-  // below-threshold grids factor through the rule's own surface.
-  test_extension_var_boundary();
-  test_factoring_2x3();
-  test_late_heuristics_attach_keeps_factor_extension();
-  test_factor_extension_with_heuristics_and_compaction();
-  test_dense_scan_budget_boundary();
-  test_next_factor_budget_check_follows_occurrence();
-  test_next_factor_mark_precedes_match_scan();
-  test_prior_extension_literal_is_a_later_factor();
-  test_binary_quotients_preserve_sparse_watch_order();
-  test_dynamic_binary_follows_initial_large_occurrences();
-  test_opposite_polarities_can_share_a_grid();
-  test_factoring_beyond_former_dimension_cap();
-  test_satisfied_binary_remainder_is_retained();
-  test_retired_literal_is_not_a_factor_candidate();
-  test_assigned_large_remainder();
-  test_large_quotient_preserves_last_factor_pose();
-  test_duplicate_large_remainder_occurrences();
-  test_duplicate_binary_occurrences_are_flushed();
-  test_candidate_reduction_final_connection_check();
-  test_sparse_resume_rebuilds_large_watch_order();
-  test_fresh_large_quotients_do_not_become_factors();
-  test_touch_filter_is_policy_only();
-  test_demote_fresh_order();
-  test_empty_factor_restamps_only_when_advice_is_consumed();
-  test_demote_fresh_stable_heap_lifecycle();
-  test_demote_fresh_uses_recorded_end();
-  std::printf("test_factor: all passed\n");
-  return 0;
+TEST(test_candidate_pruning_follows_reference_defaults) {
+  Kernel k;
+  assert(k.factor_cand_rounds == 2 &&
+         "Factor candidate pruning follows both reference defaults");
 }

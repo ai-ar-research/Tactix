@@ -3,6 +3,7 @@
 Fake solvers and checkers only; nothing here runs a benchmark instance.
 UNKNOWN is a dataset label, not an oracle.
 """
+import errno
 import json
 import os
 from pathlib import Path
@@ -18,10 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "tools/bench"
 sys.path.insert(0, str(BENCH))
 import runtime_task as runner  # noqa: E402
-from runtime_task import (atomic_json, checked_verdict_valid,  # noqa: E402
-                          checker_timeout_for, expected_matches,
-                          positive_timeout, provisional_result, solver_command,
-                          scratch_incomplete, scratch_resource_reason)
+from runtime_task import (atomic_json, check_unsat_proof,  # noqa: E402
+                          checked_verdict_valid, checker_timeout_for,
+                          expected_matches, measured, positive_timeout,
+                          proof_stage, ProofPipelineDeadline,
+                          provisional_result, scratch_incomplete,
+                          scratch_resource_reason, ScratchCapacityError,
+                          solver_command, validate_runtime_pin_contract)
+from anonymous_scratch import AnonymousScratch  # noqa: E402
 
 
 class RuntimeTaskTest(unittest.TestCase):
@@ -175,7 +180,6 @@ class RuntimeTaskTest(unittest.TestCase):
         self.assertEqual(calls, [])
 
     def test_pb_spelling_on_anonymous_scratch(self):
-        from anonymous_scratch import AnonymousScratch
         checker_root = ROOT / 'tools/checkers/bin'
         checker_sources = {
             name: checker_root / name for name in ('veripb', 'cake-pb-cnf')
@@ -222,7 +226,6 @@ class RuntimeTaskTest(unittest.TestCase):
             self.assertFalse(scratch.exists())
 
     def test_scratch_resource_errors_are_classified(self):
-        import errno
         self.assertEqual(scratch_resource_reason(
             OSError(errno.ENOSPC, 'full')), 'scratch_enospc')
         self.assertEqual(scratch_resource_reason(
@@ -274,7 +277,6 @@ with tempfile.TemporaryDirectory() as tmp:
                          'file_size')
 
     def test_measured_file_limit_detection_never_reads_whole_stderr(self):
-        from runtime_task import measured
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             stdout, stderr, metrics = root/'out', root/'err', root/'time'
@@ -310,7 +312,6 @@ with tempfile.TemporaryDirectory() as tmp:
         self.assertIn(result['exit_code'], (153, -signal.SIGXFSZ))
 
     def test_recorded_route_rejection_is_not_hidden_by_deadline_during_return(self):
-        from runtime_task import check_unsat_proof, ProofPipelineDeadline
         for reported in (None, 'dsr-trestle'):
             with self.subTest(reported=reported), tempfile.TemporaryDirectory() as directory:
                 work = Path(directory)
@@ -333,7 +334,6 @@ with tempfile.TemporaryDirectory() as tmp:
                 self.assertTrue(result['deadline_expired'])
 
     def test_whole_deadline_includes_python_conversion_and_restores_signal(self):
-        from runtime_task import check_unsat_proof
         before = signal.getsignal(signal.SIGALRM)
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -351,7 +351,6 @@ with tempfile.TemporaryDirectory() as tmp:
         self.assertEqual(signal.getitimer(signal.ITIMER_REAL)[0], 0)
 
     def test_whole_deadline_kills_a_term_ignoring_checker_group_without_grace(self):
-        from runtime_task import check_unsat_proof, measured
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, proof, pid = work/'cnf', work/'proof', work/'checker.pid'
@@ -383,7 +382,6 @@ with tempfile.TemporaryDirectory() as tmp:
                 time.sleep(0.01)
 
     def test_stage_windows_share_precise_remaining_pipeline_allowance(self):
-        from runtime_task import check_unsat_proof
         windows = []
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -401,8 +399,6 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertLess(windows[0], 0.4)
             self.assertGreater(windows[0] - windows[1], 0.03)
     def test_malformed_dsr_preserves_proof_failure_classification(self):
-        from unittest.mock import patch
-        from runtime_task import check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, proof = work/'input.cnf', work/'proof.dsr'
@@ -420,8 +416,6 @@ with tempfile.TemporaryDirectory() as tmp:
                         run.assert_not_called()
 
     def test_declared_dsr_route_must_match_finished_certificate(self):
-        from unittest.mock import patch
-        from runtime_task import check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             cnf, proof = work/'input.cnf', work/'proof.dsr'
@@ -436,8 +430,6 @@ with tempfile.TemporaryDirectory() as tmp:
                     run.assert_not_called()
 
     def test_drat_stage_sets_inner_timeout_without_extending_outer_window(self):
-        from unittest.mock import patch
-        from runtime_task import proof_stage
         calls = []
         def measured(command, stdout, stderr, metrics, timeout, environment=None):
             calls.append((command, timeout))
@@ -454,8 +446,6 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(result['result'], 'verified')
 
     def test_anonymous_stage_release_preserves_diagnostics_and_output_size(self):
-        from anonymous_scratch import AnonymousScratch
-        from runtime_task import proof_stage
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
             self.addCleanup(scratch.close)
@@ -547,8 +537,6 @@ with tempfile.TemporaryDirectory() as tmp:
                                 dict(exit_code=code, timed_out=timeout), checked), want)
 
     def test_dsr_pin_contract_requires_both_possible_final_checkers(self):
-        import tempfile
-        from runtime_task import validate_runtime_pin_contract
         with tempfile.TemporaryDirectory() as d:
             campaign = Path(d); (campaign/'pins').mkdir()
             names = ['checkmodel', 'modelcheck.py', 'tactix', 'dsr-trim', 'dsr-compress', 'srcheck']
@@ -570,8 +558,6 @@ with tempfile.TemporaryDirectory() as tmp:
             validate_runtime_pin_contract(campaign, manifest)
 
     def test_automatic_pb_route_preserves_original_clauses_and_complete_pipeline(self):
-        from unittest.mock import patch
-        from runtime_task import check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             proof = work/'proof.out'
@@ -597,8 +583,6 @@ with tempfile.TemporaryDirectory() as tmp:
                 check_unsat_proof(work, 'dsr', cnf, proof, work, 10, 'pbp')
 
     def test_anonymous_witness_free_route_releases_at_checked_handoffs(self):
-        from anonymous_scratch import AnonymousScratch
-        from runtime_task import check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
             self.addCleanup(scratch.close)
@@ -646,8 +630,6 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertFalse(scratch.exists())
 
     def test_anonymous_witnessed_route_releases_each_finished_generation(self):
-        from anonymous_scratch import AnonymousScratch
-        from runtime_task import check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
             self.addCleanup(scratch.close)
@@ -693,8 +675,6 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertFalse(scratch.exists())
 
     def test_witnessed_resource_stop_keeps_completed_checker_stages(self):
-        from anonymous_scratch import AnonymousScratch
-        from runtime_task import ScratchCapacityError, check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
             self.addCleanup(scratch.close)
@@ -743,8 +723,6 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertFalse(scratch.exists())
 
     def test_ascii_witnessed_route_never_allocates_binary_intermediate(self):
-        from anonymous_scratch import AnonymousScratch
-        from runtime_task import check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
             self.addCleanup(scratch.close)
@@ -791,8 +769,6 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertFalse(scratch.exists())
 
     def test_anonymous_pbp_releases_proof_only_after_veripb_handoff(self):
-        from anonymous_scratch import AnonymousScratch
-        from runtime_task import check_unsat_proof
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
             self.addCleanup(scratch.close)
