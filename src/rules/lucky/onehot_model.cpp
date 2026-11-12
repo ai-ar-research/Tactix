@@ -238,8 +238,8 @@ bool recognize_direct_csp(const Kernel &k, DirectCsp &csp,
   return true;
 }
 
-void direct_csp_add_bad(const DirectCsp &csp, DirectCspState &state,
-                        uint32_t edge) {
+inline void direct_csp_add_bad(const DirectCsp &csp, DirectCspState &state,
+                               uint32_t edge) {
   if (state.bad_position[edge] >= 0)
     return;
   state.bad_position[edge] = static_cast<int32_t>(state.bad_edges.size());
@@ -249,8 +249,8 @@ void direct_csp_add_bad(const DirectCsp &csp, DirectCspState &state,
   state.weighted_conflicts[e.b] += state.edge_weight[edge];
 }
 
-void direct_csp_remove_bad(const DirectCsp &csp, DirectCspState &state,
-                           uint32_t edge) {
+inline void direct_csp_remove_bad(const DirectCsp &csp,
+                                  DirectCspState &state, uint32_t edge) {
   const int32_t position = state.bad_position[edge];
   if (position < 0)
     return;
