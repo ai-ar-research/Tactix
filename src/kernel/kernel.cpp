@@ -1581,7 +1581,7 @@ static inline bool region_allows(const Kernel &k, Lit l,
 
 template <bool RECORD, bool BEYOND = false, bool IGNORE = true,
           bool LOCAL = false>
-static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
+[[gnu::hot]] static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
                               uint64_t &total_ticks,
                               const PropagationRegion *region = nullptr) {
   const Lit not_lit = negate(lit);
@@ -1787,7 +1787,9 @@ static bool propagate_trail(Kernel &k, Ref ignore) {
   return conflict;
 }
 
-bool kernel_propagate(Kernel &k, Ref ignore) {
+// Propagation is the solver's hottest loop; `hot` keeps it in .text.hot so
+// unrelated code size changes do not move it across cache lines.
+[[gnu::hot]] bool kernel_propagate(Kernel &k, Ref ignore) {
   // Select the candidate-aware scan once per call; publish the cursor on
   // both exits as propsearch.c does.
   const size_t assigned_before = k.trail.size();
