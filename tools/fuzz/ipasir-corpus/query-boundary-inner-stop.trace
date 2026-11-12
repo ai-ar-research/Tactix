@@ -1,0 +1,16 @@
+# Stop inside next() status observation must return INTERRUPTED immediately.
+init 1
+terminate 1 64
+strategy 1 2
+add 1 1
+add 1 -17
+add 1 -17
+add 1 0
+add 1 -17
+add 1 -1
+add 1 3
+add 1 -7
+add 1 0
+add 1 -17
+add 1 0
+solve 1

@@ -8,6 +8,7 @@
 #include "frontend/dsr_follow_on.hpp"
 #include "frontend/parse.hpp"
 #include "api/api_internal.hpp"
+#include "session/query_kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -37,6 +38,7 @@
 #include "strategy/slot_execution.hpp"
 #include "strategy/structural_action_sessions.hpp"
 #include "strategy/work_execution.hpp"
+#include "strategy/bve_invocation.hpp"
 #include "policies/rule_publication.hpp"
 
 #include <algorithm>
@@ -53,23 +55,45 @@
 
 using namespace tactix;
 
+static_assert(TACTIX_SEQUENCE_BUDGET_STOP == static_cast<int>(strategy::BudgetExhaustionPolicy::Stop));
+static_assert(TACTIX_SEQUENCE_BUDGET_CONTINUE == static_cast<int>(strategy::BudgetExhaustionPolicy::Continue));
+static_assert(TACTIX_SEQUENCE_BUDGET_FINISH_ROUND == static_cast<int>(strategy::BudgetExhaustionPolicy::FinishRoundThenStop));
+static_assert(TACTIX_RULE_RESULT_NO_OP == static_cast<int>(ApplyResult::NoOp));
+static_assert(TACTIX_BUDGET_STATUS_EXHAUSTED == static_cast<int>(strategy::BudgetStatus::Exhausted));
+
 struct tactix_solver {
-  Kernel kernel;
+  Kernel owned_kernel;
   // Named settings of the default strategy (tactix_set_default_option).
-  StrategySettings default_options;
-  Heuristics heuristics; // the session owns H, Kernel holds a non-owning
+  StrategySettings owned_options;
+  Heuristics owned_heuristics; // the session owns H, Kernel holds a non-owning
                          // pointer. Outlives every solve(), so tactix_decide
                          // before any solve still has an H.
-  Proof proof;
-  StructuralActionSessions structural_action_sessions;
+  Proof owned_proof;
+  StructuralActionSessions owned_services{owned_kernel};
+  Kernel &kernel=owned_kernel;
+  StrategySettings &default_options=owned_options;
+  Heuristics &heuristics=owned_heuristics;
+  Proof &proof=owned_proof;
+  StructuralActionSessions &structural_action_sessions=owned_services;
+  session::QueryKernel *query_owner=nullptr;
+  session::KernelTicket query_ticket;
+  DefaultPolicy *query_policy=nullptr;
+  volatile sig_atomic_t *query_stop=nullptr;
+  volatile sig_atomic_t *saved_query_stop=nullptr;
+  uint64_t *saved_tick_sink=nullptr;
+  session::QuerySolveStatus query_status=session::QuerySolveStatus::Complete;
   std::vector<Lit> scratch;
   bool input_completed = false;
   bool pending_input_proof = false;
   uint64_t model_strategy_epoch = UINT64_MAX;
+  session::ModelStatus query_model_status=session::ModelStatus::InvalidValue;
   int guidance_publication = TACTIX_GUIDANCE_DISCARD;
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
+  // Created only for independent public online continuations. Weak owners
+  // reject stale handles even if a later execution view reuses this address.
+  std::shared_ptr<const int> online_lifetime;
   std::unique_ptr<strategy::RegionProgram> regions;
   // The encoding tactix_read_parameters last returned (api_observe.cpp).
   std::shared_ptr<void> observe_scratch;
@@ -79,7 +103,7 @@ struct tactix_solver {
       default_policy_configuration(DefaultStrategyConfig{});
   // The open BVE schedule (tactix_bve_schedule_*), which the kernel's BVE
   // score notifications update.
-  std::unique_ptr<strategy::BveCandidateHeap> bve_schedule;
+  std::unique_ptr<strategy::BveOrdering> bve_schedule;
   // The configured structured-root stage (tactix_stage_*) and the
   // SR-discovery allowance its advances charge.
   std::unique_ptr<strategy::OnlineStrategySequence> structured_stage;
@@ -101,22 +125,122 @@ struct tactix_solver {
   OccIndex phase_occurrences;
   size_t phase_contexts = 0;
   execution::InprocessPhase phase;
-  tactix_solver() : structural_action_sessions(kernel) {
+  tactix_solver() {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
     // Match the CLI/reference default; rule-level fixtures using a bare Kernel
     // can still exercise the non-reuse path explicitly.
     kernel.conflict_reuse = true;
   }
+  tactix_solver(session::QueryKernel &q,DefaultPolicy &policy,StrategySettings &options,
+      volatile sig_atomic_t *stop)
+      :kernel(*q.kernel(q.ticket())),default_options(options),heuristics(*kernel.h),
+       proof(*kernel.proof),structural_action_sessions(*q.execution_services(q.ticket())),
+       query_owner(&q),query_ticket(q.ticket()),query_policy(&policy),query_stop(stop),
+       saved_query_stop(kernel.stop),saved_tick_sink(kernel.tick_sink),input_completed(true) {
+    kernel.stop=stop;
+    pose_query_programs(strategy_configuration);
+  }
+  ~tactix_solver() {
+    bve_schedule.reset();
+    const auto leave_context = [&] {
+      execution::leave_execution_context(kernel, contexts.back().first,
+                                         contexts.back().second);
+      contexts.pop_back();
+    };
+    if (phase.open()) {
+      while (contexts.size() > phase_contexts) leave_context();
+      phase.abandon();
+    }
+    while (!contexts.empty()) leave_context();
+    if (startup_retention) kernel.substitute_retention=retention_before;
+    if (query_owner) {
+      kernel.stop=saved_query_stop;
+      kernel.tick_sink=saved_tick_sink;
+    }
+  }
 };
+
+struct tactix_online_executor {
+  const tactix_solver *owner;
+  std::weak_ptr<const int> lifetime;
+  strategy::OnlineStrategyExecutor executor;
+  bool configured = false;
+  bool valid(const tactix_solver *s) const {
+    return s && owner == s && !lifetime.expired();
+  }
+};
+
+struct tactix_bve_order {
+  const tactix_solver *owner;
+  std::weak_ptr<const int> lifetime;
+  uint64_t epoch;
+  strategy::BveParameters parameters;
+  bool stable;
+  bool active=false, release_pending=false;
+  strategy::BveOrdering ordering;
+  struct Operation {
+    tactix_bve_order &order;
+    explicit Operation(tactix_bve_order &o):order(o) {order.active=true;}
+    ~Operation();
+  };
+  struct Connection {
+    strategy::BveOrdering &ordering;
+    explicit Connection(tactix_bve_order &o):ordering(o.ordering) {ordering.connect();}
+    ~Connection() {ordering.disconnect();}
+  };
+  tactix_bve_order(tactix_solver *s,const uint64_t *instances,uint32_t count)
+      :owner(s),lifetime(s->online_lifetime),epoch(s->kernel.strategy_epoch),
+       parameters(strategy::BveParameters::from_kernel(s->kernel)),stable(s->kernel.h->stable),
+       ordering(s->kernel,instances,count,false) {}
+  bool valid(const tactix_solver *s) const {
+    return s&&owner==s&&!active&&!lifetime.expired()&&epoch==s->kernel.strategy_epoch&&
+        s->phase.open()&&s->phase.eliminate()&&s->phase.occurrences_open()&&
+        s->kernel.dense==&s->phase_occurrences&&!s->kernel.bve_score_update_hook&&
+        !s->kernel.bve_occurrence_count_image&&s->kernel.h&&stable==s->kernel.h->stable&&
+        parameters==strategy::BveParameters::from_kernel(s->kernel);
+  }
+};
+
+tactix_bve_order::Operation::~Operation() {
+  order.active=false;
+  if(order.release_pending)delete &order;
+}
 
 extern "C" {
 static void input_complete(tactix_solver *solver);
+static int result_code(tactix_solver *solver, ApplyResult result);
 }
 
 // Internal introspection of the opaque C handle, for fixed tests and for
 // api_work.cpp's additive entry points; neither depends on the handle layout.
 namespace tactix::api_detail {
+int set_strategy_option(StrategySettings &options,const char *name,const char *value) {
+  if(!name || std::strncmp(name,"TACTIX_",7)!=0)return -1;
+  for(auto it=options.begin();it!=options.end();++it)
+    if(it->first==name) {if(value)it->second=value;else options.erase(it);return 0;}
+  if(value)options.emplace_back(name,value);
+  return 0;
+}
+void *create_query_execution(session::QueryKernel &q,DefaultPolicy &policy,
+    StrategySettings &options,volatile sig_atomic_t *stop) {
+  if(!q.kernel(q.ticket()) || !q.execution_services(q.ticket()))return nullptr;
+  return new ::tactix_solver(q,policy,options,stop);
+}
+void destroy_query_execution(void *opaque) {delete static_cast<::tactix_solver *>(opaque);}
+bool query_execution_settled(void *opaque) {
+  const auto &s=*static_cast<::tactix_solver *>(opaque);
+  return s.contexts.empty() && !s.phase.open() && !s.bve_schedule &&
+      !s.startup_retention && !s.kernel.inprocessing &&
+      !s.kernel.warming && !s.kernel.phase_saving_suppressed &&
+      !s.kernel.probing.recording && s.kernel.large_watches_connected &&
+      !s.kernel.dense && !s.kernel.arena_ordering && !s.kernel.pending.valid &&
+      (!s.kernel.affine_matrix_search_session ||
+       !s.kernel.affine_matrix_search_session->has_deferred_reason());
+}
+session::QuerySolveStatus query_execution_status(void *opaque) {
+  return static_cast<::tactix_solver *>(opaque)->query_status;
+}
 Kernel &kernel_for_fixed_testing(void *opaque) {
   assert(opaque);
   return static_cast<::tactix_solver *>(opaque)->kernel;
@@ -133,7 +257,7 @@ DefaultStrategyConfig &strategy_configuration(void *opaque) {
   assert(opaque);
   return static_cast<::tactix_solver *>(opaque)->strategy_configuration;
 }
-std::unique_ptr<strategy::BveCandidateHeap> &bve_schedule(void *opaque) {
+std::unique_ptr<strategy::BveOrdering> &bve_schedule(void *opaque) {
   assert(opaque);
   return static_cast<::tactix_solver *>(opaque)->bve_schedule;
 }
@@ -192,6 +316,10 @@ const strategy::OnlineStrategyProgram *online_program_for_fixed_testing(void *op
   const auto &online = static_cast<::tactix_solver *>(opaque)->online;
   return online ? &online->program() : nullptr;
 }
+const strategy::OnlineStrategyProgram *online_executor_for_fixed_testing(void *opaque) {
+  const auto *e = static_cast<::tactix_online_executor *>(opaque);
+  return e && !e->lifetime.expired() && e->configured ? &e->executor.program() : nullptr;
+}
 }
 
 namespace {
@@ -202,7 +330,26 @@ bool has_sat_assignment(const Kernel &kernel) {
          kernel_propagation_fixpoint(kernel);
 }
 
+session::ModelStatus query_model(tactix_solver *solver) {
+  const auto projection=solver->query_owner->projection_state(solver->query_ticket);
+  if(!solver->query_owner->kernel(solver->query_ticket) || projection.restore)
+    return session::ModelStatus::InvalidQuery;
+  if(projection.invalid_model)return session::ModelStatus::InvalidValue;
+  if(!solver->kernel.model_extended || solver->model_strategy_epoch!=solver->kernel.strategy_epoch) {
+    solver->query_model_status=solver->query_owner->check_model(solver->query_ticket).status;
+    solver->model_strategy_epoch=solver->kernel.strategy_epoch;
+  }
+  return solver->query_model_status;
+}
+
 void prepare_external_model(tactix_solver *solver) {
+  if(solver->query_owner) {
+    const auto model=query_model(solver);
+    if(model!=session::ModelStatus::Valid && model!=session::ModelStatus::FalsifiedAssumption)
+      solver->query_status=model==session::ModelStatus::InvalidQuery?
+          session::QuerySolveStatus::RestorationRequired:session::QuerySolveStatus::InvalidModel;
+    return;
+  }
   Kernel &kernel = solver->kernel;
   if (kernel.model_extended &&
       solver->model_strategy_epoch == kernel.strategy_epoch)
@@ -217,12 +364,18 @@ void prepare_external_model(tactix_solver *solver) {
 
 void external_state_change(tactix_solver *solver) {
   ++solver->kernel.strategy_epoch;
+  if (solver->query_owner)
+    solver->query_owner->drain_learned(solver->query_ticket, solver->query_stop);
 }
 
 // An UNSAT answer rests on a complete proof. A DSR proof that met a startup
 // counting refutation is written first, by a follow-on solve of the original
 // formula under the session's strategy settings and the default configuration.
 void certify_unsat(tactix_solver *solver) {
+  if(solver->query_owner) {
+    if(!solver->query_owner->flush_proof(solver->query_ticket))solver->query_status=session::QuerySolveStatus::ProofFailure;
+    return;
+  }
   if (solver->proof.dsr_follow_on_pending()) {
     ScopedStrategySettings settings(&solver->default_options);
     const DsrFollowOn follow_on = run_dsr_follow_on(
@@ -614,6 +767,9 @@ bool online_parameters(const tactix_online_parameters &source,
     converted.backward = p.backward != 0;
     converted.on_the_fly_strengthening =
         p.on_the_fly_strengthening != 0;
+    if (p.candidate_scope < TACTIX_ONLINE_BVE_CANDIDATES_ALL ||
+        p.candidate_scope > TACTIX_ONLINE_BVE_CANDIDATES_QUERY_PURE_CLOSURE)
+      return false;
     converted.candidate_scope =
         static_cast<strategy::BveCandidateScope>(p.candidate_scope);
     converted.resolvent_count_limit =
@@ -759,7 +915,8 @@ bool online_parameters(const tactix_online_parameters &source,
     return true;
   }
   case TACTIX_ONLINE_PARAMETERS_BCE:
-    target = strategy::BceParameters{source.value.bce.occurrence_limit};
+    target = strategy::BceParameters{source.value.bce.occurrence_limit,
+                                     source.value.bce.preserve_query != 0};
     return true;
   case TACTIX_ONLINE_PARAMETERS_TERNARY:
     target = strategy::TernaryParameters{
@@ -1922,6 +2079,64 @@ void online_result(const strategy::InvocationResult &source,
   target.configuration_revision = source.configuration_revision;
 }
 
+bool convert_online_version(unsigned version, const void *source,
+                            const Kernel &kernel,
+                            strategy::OnlineStrategyProgram &program) {
+  if (!source) return false;
+  switch (version) {
+  case 1: return online_program(*static_cast<const tactix_online_program *>(source),
+                               kernel, program, true);
+#define TACTIX_CONVERT_ONLINE_VERSION(N) \
+  case N: return online_program_v##N( \
+      *static_cast<const tactix_online_program_v##N *>(source), kernel, program, true);
+  TACTIX_CONVERT_ONLINE_VERSION(2)
+  TACTIX_CONVERT_ONLINE_VERSION(3)
+  TACTIX_CONVERT_ONLINE_VERSION(4)
+  TACTIX_CONVERT_ONLINE_VERSION(5)
+  TACTIX_CONVERT_ONLINE_VERSION(6)
+  TACTIX_CONVERT_ONLINE_VERSION(7)
+  TACTIX_CONVERT_ONLINE_VERSION(8)
+  TACTIX_CONVERT_ONLINE_VERSION(9)
+  TACTIX_CONVERT_ONLINE_VERSION(10)
+  TACTIX_CONVERT_ONLINE_VERSION(11)
+  TACTIX_CONVERT_ONLINE_VERSION(12)
+  TACTIX_CONVERT_ONLINE_VERSION(13)
+  TACTIX_CONVERT_ONLINE_VERSION(14)
+  TACTIX_CONVERT_ONLINE_VERSION(15)
+  TACTIX_CONVERT_ONLINE_VERSION(16)
+  TACTIX_CONVERT_ONLINE_VERSION(17)
+#undef TACTIX_CONVERT_ONLINE_VERSION
+  default: return false;
+  }
+}
+
+template <class Executor>
+bool advance_online(tactix_solver *s, Executor &executor,
+                    strategy::InvocationResult &advanced,
+                    strategy::Allowance *discovery = nullptr,
+                    strategy::DiscoveryFeedbackPolicy feedback = {}) {
+  input_complete(s);
+  // Every online continuation uses the same publication/certification path.
+  (void)apply_published(s, [&] {
+    advanced = executor.advance(s->kernel, s->query_stop, discovery, feedback);
+    return advanced.rule_result;
+  });
+  kernel_check_invariants(s->kernel);
+  if (advanced.status == strategy::InvocationStatus::Sat) prepare_external_model(s);
+  if (advanced.status == strategy::InvocationStatus::Unsat) certify_unsat(s);
+  if (s->query_owner) s->query_owner->drain_learned(s->query_ticket, s->query_stop);
+  if (s->query_owner && (advanced.status == strategy::InvocationStatus::Sat ||
+                        advanced.status == strategy::InvocationStatus::Unsat) &&
+      !result_code(s, advanced.rule_result)) {
+    const bool rejected_model = advanced.status == strategy::InvocationStatus::Sat &&
+        s->query_status == session::QuerySolveStatus::Complete;
+    advanced.status = strategy::InvocationStatus::NoChange;
+    advanced.rule_result = ApplyResult::NoOp;
+    return rejected_model;
+  }
+  return false;
+}
+
 template <class Source, class Convert>
 int configure_online_program(tactix_solver *solver, const Source *source,
                              uint64_t revision, int reconfigure_mode,
@@ -1993,11 +2208,26 @@ auto visit_parameter_fields(strategy::FieldsOf<RetierScheduleFields>,
 
 } // namespace
 
+namespace tactix::api_detail {
+bool advance_structured_stage(void *opaque, strategy::InvocationResult &result,
+                              uint64_t ticks_per_generator, uint64_t hard_limit) {
+  auto *solver=static_cast<::tactix_solver *>(opaque);
+  if (!solver->structured_stage) return false;
+  (void)advance_online(solver, *solver->structured_stage, result,
+      solver->sr_discovery.get(),
+      strategy::DiscoveryFeedbackPolicy{ticks_per_generator, hard_limit});
+  return true;
+}
+}
+
 extern "C" {
 
 tactix_solver *tactix_init(void) { return new tactix_solver(); }
 
-void tactix_release(tactix_solver *s) { delete s; }
+void tactix_release(tactix_solver *s) {
+  if(s && s->query_owner) {s->query_status=session::QuerySolveStatus::InvalidState;return;}
+  delete s;
+}
 int tactix_bind_structural_provenance(tactix_solver *s, FILE *stream) {
   if (!s || (stream && std::ferror(stream))) return -1;
   s->kernel.structural_provenance = stream;
@@ -2114,16 +2344,16 @@ const char *tactix_proof_route(tactix_solver *s) {
   return s->proof.verification_route();
 }
 
-int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {
-  if (!s || !name || std::strncmp(name, "TACTIX_", 7) != 0) return -1;
-  auto &options = s->default_options;
-  for (auto it = options.begin(); it != options.end(); ++it)
-    if (it->first == name) {
-      if (value) it->second = value;
-      else options.erase(it);
-      return 0;
-    }
-  if (value) options.emplace_back(name, value);
+int tactix_read_strategy_state(tactix_solver *s, tactix_strategy_state *out) {
+  if (!s || !out) return -1;
+  const auto &k = s->kernel;
+  *out = {k.arena_generation, k.touch_epoch, k.strategy_epoch, k.trail.size(),
+      k.stats.sr_applied, k.stats.sr_unique_literal_amo_binaries,
+      k.stats.sr_nonforcing_cuts_declined, k.stats.sr_post_amo_nonhelper_applied,
+      k.stats.sr_post_amo_graph_root_units,
+      (k.stop && *k.stop) || (s->query_stop && *s->query_stop) ||
+          (s->query_owner && s->query_owner->termination_requested()) ? 1 : 0,
+      static_cast<int>(s->query_status)};
   return 0;
 }
 
@@ -2134,6 +2364,10 @@ int tactix_defer_startup_state(tactix_solver *s) {
   s->kernel.saved_phases = nullptr;
   kernel_defer_cold_state(s->kernel);
   return 0;
+}
+
+int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {
+  return s?api_detail::set_strategy_option(s->default_options,name,value):-1;
 }
 
 void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
@@ -2256,13 +2490,31 @@ int tactix_solve(tactix_solver *s) {
   input_complete(s);
   // Search runs outside the inprocessing phase bracket.
   if (s->phase.open()) {
+    Kernel &k = s->kernel;
+    const bool terminal_probe = !s->phase.eliminate() &&
+        !s->phase.occurrences_open() && k.large_watches_connected && has_sat_assignment(k);
+    if (s->contexts.size() != s->phase_contexts || k.conflict_valid ||
+        k.pending.valid || k.probing.recording || (k.level && !terminal_probe) ||
+        (k.dense && (!s->phase.occurrences_open() || k.dense != &s->phase_occurrences)) ||
+        (k.affine_matrix_search_session &&
+         k.affine_matrix_search_session->has_deferred_reason()))
+      return 0;
+    // Eliminate already disconnected large watches at entry. Complete its
+    // ordinary exit even if the caller never opened the occurrence session.
+    if (!s->phase.occurrences_open() &&
+        (s->phase.eliminate() || !k.large_watches_connected ||
+         (!k.inconsistent && !has_sat_assignment(k))))
+      s->phase.open_occurrences(k, s->phase_occurrences);
     if (s->phase.occurrences_open()) (void)leave_phase(s);
     else s->phase.exit_terminal(s->kernel);
   }
   int r;
   {
     ScopedStrategySettings settings(&s->default_options);
-    r = default_solve(s->kernel, nullptr, s->regions.get());
+    if(s->query_owner) {
+      const auto solved=s->query_policy->solve_query(*s->query_owner,s->query_stop,s->regions.get());
+      s->query_status=solved.status;r=solved.result;
+    } else r = default_solve(s->kernel, nullptr, s->regions.get());
   }
   rule_journal_flush();
   external_state_change(s);
@@ -2278,6 +2530,20 @@ int tactix_solve(tactix_solver *s) {
 }
 
 int tactix_value(tactix_solver *s, int elit) {
+  if(s->query_owner) {
+    if(!elit || elit==INT32_MIN)return 0;
+    if(!s->query_owner->kernel(s->query_ticket))return 0;
+    // Reads do not propose partial assignments as models. Explicit SAT
+    // candidates already have a checked cache, including rejected candidates.
+    const bool cached=s->kernel.model_extended&&s->model_strategy_epoch==s->kernel.strategy_epoch;
+    if(!cached&&(!has_sat_assignment(s->kernel)||
+       s->query_owner->next_assumption(s->query_ticket).status!=session::AssumptionStatus::Ready))return 0;
+    if(query_model(s)!=session::ModelStatus::Valid)return 0;
+    const Lit literal=internalize(elit);
+    if(var_of(literal)>=s->kernel.model_values.size()/2)return 0;
+    const auto value=s->kernel.model_values[literal];
+    return value>0?elit:value<0?-elit:0;
+  }
   // Direct rule applications can report SAT without an intervening status
   // query. Preserve partial-value reads outside a terminal state.
   if (s->input_completed && has_sat_assignment(s->kernel))
@@ -2322,6 +2588,14 @@ int tactix_rules_applicable(tactix_solver *s, int *out, int cap) {
 }
 
 static int result_code(tactix_solver *solver, ApplyResult res) {
+  if(solver->query_owner)
+    solver->query_owner->drain_learned(solver->query_ticket, solver->query_stop);
+  if(solver->query_owner && res==ApplyResult::Sat) {
+    prepare_external_model(solver);
+    return solver->query_status==session::QuerySolveStatus::Complete &&
+        query_model(solver)==session::ModelStatus::Valid?10:0;
+  }
+  if(solver->query_owner && res==ApplyResult::Unsat)return tactix_status(solver);
   switch (res) {
   case ApplyResult::Ok:
     return 0;
@@ -2629,22 +2903,93 @@ TACTIX_DEFINE_ONLINE_CONFIGURE(17)
 int tactix_online_advance(tactix_solver *s, tactix_online_result *result) {
   if (!s || !result || !s->online)
     return -1;
-  input_complete(s);
-  // The online executor publishes each application natively; the session
-  // profile governs only events left after the composed step.
   strategy::InvocationResult advanced;
-  (void)apply_published(s, [&] {
-    advanced = s->online->advance(s->kernel);
-    return advanced.rule_result;
-  });
-  kernel_check_invariants(s->kernel);
-  if (advanced.status == strategy::InvocationStatus::Sat) {
-    prepare_external_model(s);
-  }
-  if (advanced.status == strategy::InvocationStatus::Unsat)
-    certify_unsat(s);
+  (void)advance_online(s, *s->online, advanced);
   online_result(advanced, *result);
   return 0;
+}
+
+tactix_online_executor *tactix_online_executor_create(tactix_solver *s) {
+  if (!s) return nullptr;
+  if (!s->online_lifetime) s->online_lifetime = std::make_shared<const int>(0);
+  return new tactix_online_executor{s, s->online_lifetime, {}};
+}
+
+tactix_online_executor *tactix_online_executor_clone(const tactix_online_executor *e) {
+  return e && !e->lifetime.expired() ? new tactix_online_executor(*e) : nullptr;
+}
+
+void tactix_online_executor_release(tactix_online_executor *e) { delete e; }
+
+int tactix_online_executor_configure(tactix_solver *s, tactix_online_executor *e,
+    unsigned version, const void *source, uint64_t revision, int mode) {
+  if (!e || !e->valid(s) ||
+      (mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS)) return -1;
+  strategy::OnlineStrategyProgram program;
+  if (!convert_online_version(version, source, s->kernel, program) ||
+      !e->executor.configure(program, revision,
+          mode == TACTIX_ONLINE_RECONFIGURE_RESET ? strategy::ReconfigureMode::ResetRuntime
+              : strategy::ReconfigureMode::RetainMatchingStepBudgets)) return -1;
+  input_complete(s);
+  e->configured = true;
+  return 0;
+}
+
+int tactix_online_executor_rearm(tactix_solver *s, tactix_online_executor *e,
+    uint64_t revision, int mode) {
+  if (!e || !e->valid(s) || !e->configured ||
+      (mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS)) return -1;
+  const auto program = e->executor.program();
+  return e->executor.configure(program, revision,
+      mode == TACTIX_ONLINE_RECONFIGURE_RESET ? strategy::ReconfigureMode::ResetRuntime
+          : strategy::ReconfigureMode::RetainMatchingStepBudgets) ? 0 : -1;
+}
+
+int tactix_online_repeat_round_limit(tactix_solver *s, int mode,
+    uint64_t limit, uint64_t *out) {
+  if (!s || !out) return -1;
+  strategy::OnlineStrategyProgram program;
+  if (!online_repeat(mode, limit, program.repeat) ||
+      !strategy::validate_online_strategy_program(program)) return -1;
+  *out = strategy::repeat_round_limit(s->kernel, program.repeat);
+  return 0;
+}
+
+int tactix_online_executor_advance(tactix_solver *s, tactix_online_executor *e,
+    tactix_online_discovery_budget *pool, tactix_online_execution_result *result) {
+  if (!e || !e->valid(s) || !e->configured || !result ||
+      (pool && ((pool->unlimited != 0 && pool->unlimited != 1) ||
+                (pool->accounting_overflow != 0 && pool->accounting_overflow != 1)))) return -1;
+  strategy::Allowance discovery(strategy::WorkUnit::SrDiscoveryTicks,
+      !pool || pool->unlimited ? strategy::WorkLimit::unlimited()
+                              : strategy::WorkLimit::bounded(pool->limit),
+      pool ? pool->consumed : 0, pool && pool->accounting_overflow);
+  strategy::InvocationResult out;
+  const bool rejected = advance_online(s, e->executor, out, pool ? &discovery : nullptr,
+      pool ? strategy::DiscoveryFeedbackPolicy{pool->ticks_per_generator, pool->hard_limit}
+           : strategy::DiscoveryFeedbackPolicy{});
+  if (pool) {
+    pool->limit = discovery.limit().amount();
+    pool->unlimited = discovery.limit().is_unlimited();
+    pool->consumed = discovery.consumed();
+    pool->accounting_overflow = discovery.accounting_overflow();
+  }
+  online_result(out, result->base);
+  result->discovery_progress_units = out.discovery_progress_units;
+  result->discovery_entry_required = out.discovery_entry_required;
+  result->discovery_exhausted = out.discovery_exhausted;
+  result->query_rejected_model = rejected;
+  return 0;
+}
+
+uint64_t tactix_online_executor_consumed(const tactix_online_executor *e, uint64_t id) {
+  return e && !e->lifetime.expired() ? e->executor.step_consumed(id) : UINT64_MAX;
+}
+
+int tactix_online_executor_complete(const tactix_online_executor *e) {
+  return e && !e->lifetime.expired() ? e->executor.complete() : -1;
 }
 
 uint64_t tactix_online_step_consumed(tactix_solver *s, uint64_t step_id) {
@@ -2653,6 +2998,121 @@ uint64_t tactix_online_step_consumed(tactix_solver *s, uint64_t step_id) {
 
 int tactix_online_complete(tactix_solver *s) {
   return s && s->online ? (s->online->complete() ? 1 : 0) : -1;
+}
+
+tactix_bve_order *tactix_bve_order_create(tactix_solver *s,const uint64_t *instances,int count) {
+  if(!s||!c_array(instances,count))return nullptr;
+  input_complete(s);
+  const auto &k=s->kernel;
+  if(!s->phase.open()||!s->phase.eliminate()||!s->phase.occurrences_open()||
+      k.dense!=&s->phase_occurrences||k.level||k.inconsistent||k.conflict_valid||k.pending.valid||
+      !kernel_propagation_fixpoint(k)||k.bve_score_update_hook||k.bve_occurrence_count_image||!k.h)
+    return nullptr;
+  for(int i=0;i<count;++i) {
+    Lit literal;
+    if(!lit_of_instance(k,instances[i],&literal))return nullptr;
+  }
+  if(!s->online_lifetime)s->online_lifetime=std::make_shared<const int>(0);
+  return new tactix_bve_order(s,instances,static_cast<uint32_t>(count));
+}
+
+void tactix_bve_order_release(tactix_bve_order *o) {
+  if(o&&o->active)o->release_pending=true;
+  else delete o;
+}
+
+int tactix_bve_order_next(tactix_solver *s,tactix_bve_order *o,uint64_t *instance,uint32_t *propagation_begin) {
+  if(!o||!instance||!propagation_begin||!o->valid(s))return -1;
+  if(o->ordering.empty())return 0;
+  *instance=o->ordering.next();*propagation_begin=s->kernel.propagate_head;return 1;
+}
+
+int tactix_bve_order_apply(tactix_solver *s,tactix_bve_order *o,int rule_id,uint64_t instance) {
+  if(!o||!o->valid(s))return -1;
+  const RuleVTable *r=guarded_rule(s,rule_id);
+  if(!r||((std::strcmp(r->name,"BVE")||instance==INSTANCE_CANONICAL)&&
+      (std::strcmp(r->name,"Propagate")||instance!=INSTANCE_CANONICAL)))return -1;
+  tactix_bve_order::Operation operation(*o);
+  int result;
+  {
+    tactix_bve_order::Connection connected(*o);
+    result=tactix_apply_instance(s,rule_id,instance);
+  }
+  o->epoch=s->kernel.strategy_epoch;return result;
+}
+
+int tactix_bve_order_propagate(tactix_solver *s,tactix_bve_order *o) {
+  if(!o||!o->valid(s))return -1;
+  auto &k=s->kernel;
+  if(k.level||k.inconsistent||k.conflict_valid||k.pending.valid||k.probing.recording||
+      (k.affine_matrix_search_session&&k.affine_matrix_search_session->has_deferred_reason()))
+    return -1;
+  tactix_bve_order::Operation operation(*o);
+  int result;
+  {
+    tactix_bve_order::Connection connected(*o);
+    const auto propagated=apply_published(s,[&] {return propagate_service(k);});
+    external_state_change(s);
+    kernel_check_invariants(k);
+    result=result_code(s,propagated);
+  }
+  o->epoch=k.strategy_epoch;return result;
+}
+
+int tactix_bve_order_flush_units(tactix_solver *s,tactix_bve_order *o,uint32_t trail_from) {
+  if(!o||!o->valid(s))return -1;
+  auto &k=s->kernel;
+  if(k.level||k.inconsistent||k.conflict_valid||k.pending.valid||
+      !k.dense->track_order||trail_from>k.propagate_head)return -1;
+  tactix_bve_order::Operation operation(*o);
+  execution::execute_action(k,execution::CloseStartupCertificateRequest{});
+  {
+    tactix_bve_order::Connection connected(*o);
+    bve_flush_units_while_connected(k,trail_from);
+  }
+  external_state_change(s);o->epoch=k.strategy_epoch;
+  kernel_check_invariants(k);return 0;
+}
+
+int tactix_read_bve_candidate(tactix_solver *s,uint64_t instance,tactix_bve_candidate_state *out) {
+  if(!s||!out)return -1;
+  input_complete(s);
+  const auto &k=s->kernel;Lit literal;
+  if(!lit_of_instance(k,instance,&literal))return -1;
+  const Var v=var_of(literal);
+  uint32_t flags=0;
+  if(k.value(literal))flags|=TACTIX_BVE_CANDIDATE_ASSIGNED;
+  if(kernel_var_retired(k,v))flags|=TACTIX_BVE_CANDIDATE_RETIRED;
+  if(v<k.bve_retry.size()&&k.bve_retry[v])flags|=TACTIX_BVE_CANDIDATE_RETRY;
+  if(kernel_startup_retained(k,v))flags|=TACTIX_BVE_CANDIDATE_RETAINED;
+  if(strategy::bve_affine_support_protected(k,v))flags|=TACTIX_BVE_CANDIDATE_AFFINE;
+  if(k.query_projection&&k.query_projection->constrains(k.internal_to_external[v]))
+    flags|=TACTIX_BVE_CANDIDATE_QUERY;
+  *out={kernel_externalize(k,literal),flags,
+      bve_schedule_occurrence_count(k,make_lit(v,false)),
+      bve_schedule_occurrence_count(k,make_lit(v,true)),
+      k.h?(k.h->stable?k.h->scores.score[v]:double(k.h->links[v].stamp)):0.0};
+  return 0;
+}
+
+int tactix_query_assumption_floor(tactix_solver *s, uint32_t *out) {
+  if (!s || !out || !s->query_owner) return -1;
+  const auto floor=s->query_owner->assigned_assumption_floor(s->query_ticket);
+  if (!floor) return -1;
+  *out=*floor;
+  return 0;
+}
+
+int tactix_restart_reuse_level(tactix_solver *s, int next_literal,
+                               uint32_t floor, uint32_t *out) {
+  if (!s || !out || !next_literal || next_literal==std::numeric_limits<int>::min()) return -1;
+  if (s->query_owner && !s->query_owner->kernel(s->query_ticket)) return -1;
+  const Kernel &k=s->kernel;
+  const Lit literal=kernel_internalize(k,next_literal);
+  if (!k.h || literal==INVALID_LIT ||
+      k.value(literal) || floor>k.level) return -1;
+  *out=heuristics_restart_reuse_level_for(s->kernel,var_of(literal),floor);
+  return 0;
 }
 
 uint64_t tactix_stat(tactix_solver *s, int stat_id) {
@@ -2750,6 +3210,23 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   case TACTIX_STAT_REGION_TICKS: return k.stats.region_ticks;
   case TACTIX_STAT_REGION_BUDGET: return k.stats.region_budget;
   case TACTIX_STAT_REGION_INVALIDATED: return k.stats.region_invalidated;
+  case TACTIX_STAT_SEARCH_TICKS: return k.stats.search_ticks;
+  case TACTIX_STAT_ACTIVE_VARIABLES: return kernel_active_variables(k);
+  case TACTIX_STAT_SWEEP_UNITS: return k.stats.sweep_units;
+  case TACTIX_STAT_SWEEP_SWEPT: return k.stats.sweep_swept;
+  case TACTIX_STAT_LEARNED_GLUE_SUM: return k.stats.learned_glue_sum;
+  case TACTIX_STAT_REASON_BUMP_ROUNDS: return k.stats.reason_bump_rounds;
+  case TACTIX_STAT_REASON_BUMP_ABORTED: return k.stats.reason_bump_aborted;
+  case TACTIX_STAT_BVE_MARKS: return k.stats.bve_marks;
+  case TACTIX_STAT_SUBSUME_MATERIAL: return k.subsume_material_count;
+  case TACTIX_STAT_SUBSUME_COMPLETE: return k.subsume_complete;
+  case TACTIX_STAT_STRENGTHEN_COMPLETE: return k.strengthen_complete;
+  case TACTIX_STAT_FACTOR_LITERALS_MARKED: return k.factor_literals_marked;
+  case TACTIX_STAT_FACTOR_COMPLETED: return k.factor_completed;
+  case TACTIX_STAT_ARENA_WORDS: return k.arena.size();
+  case TACTIX_STAT_VARIABLES: return k.nvars;
+  case TACTIX_STAT_OUTPUT_VARIABLES: return kernel_num_output_vars(k);
+  case TACTIX_STAT_INPUT_CLOSED: return s->input_completed;
 
   default:
     return UINT64_MAX;
@@ -2942,6 +3419,7 @@ static ApplyResult propagate_publishing_roots(tactix_solver *s) {
 // Leave the open inprocessing phase bracket (DefaultPolicy's phase exit).
 int leave_phase(tactix_solver *s) {
   Kernel &k = s->kernel;
+  s->bve_schedule.reset();
   const ApplyResult left = s->phase.exit(
       k, k.inconsistent,
       [&] {
@@ -2966,6 +3444,19 @@ int support_result(tactix_solver *s, ApplyResult result) {
 
 } // namespace
 
+int tactix_propagate(tactix_solver *s) {
+  if (!s) return -1;
+  input_complete(s);
+  Kernel &k = s->kernel;
+  if (k.conflict_valid) return -1;
+  if (k.inconsistent) return tactix_status(s);
+  execution::execute_action(k, execution::CloseStartupCertificateRequest{});
+  const ApplyResult result = propagate_publishing_roots(s);
+  external_state_change(s);
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
 int tactix_support(tactix_solver *s, int support, uint64_t argument) {
   if (!s)
     return -1;
@@ -2989,9 +3480,14 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
   case TACTIX_SUPPORT_PREPARATION_RESTART:
     if (argument > UINT32_MAX || !restart_guard(k))
       return -1;
-    result = support_result(s, execution::execute_action(
-        k, execution::RestartRequest{static_cast<uint32_t>(argument),
-                                     execution::RestartPurpose::Preparation}));
+    {
+      const auto restarted = execution::execute_action(
+          k, execution::RestartRequest{static_cast<uint32_t>(argument),
+                                       execution::RestartPurpose::Preparation});
+      k.model_extended = false;
+      k.model_values.clear();
+      result = support_result(s, restarted);
+    }
     break;
   case TACTIX_SUPPORT_ROOT_PREPARATION: {
     if (!flags(TACTIX_ROOT_PREPARATION_PROBING |
@@ -3015,7 +3511,7 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     break;
   }
   case TACTIX_SUPPORT_SPARSE_COLLECT: {
-    if (argument || !support_root(k) || !kernel_propagation_fixpoint(k))
+    if (argument || !support_root(k))
       return -1;
     // Derived units stay on the propagation queue for the caller's Propagate,
     // which publishes the roots it assigns.
@@ -3177,6 +3673,7 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
         k.pending.valid || k.probing.recording || !k.dense ||
         !k.dense->track_order || k.large_watches_connected)
       return -1;
+    execution::execute_action(k,execution::CloseStartupCertificateRequest{});
     result = support_result(s, execution::execute_action(
         k, execution::ForwardClosureRequest{static_cast<uint32_t>(argument)}));
     break;
@@ -3184,7 +3681,8 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     if (!k.dense || !k.dense->track_order || argument > k.propagate_head)
       return -1;
     bve_flush_units_while_connected(k, static_cast<uint32_t>(argument));
-    return 0;
+    result = 0;
+    break;
   case TACTIX_SUPPORT_AFFINE_CENSUS:
     if (argument > 1)
       return -1;
@@ -3285,18 +3783,24 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     break;
   case TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE:
     if (argument || !s->phase.open() || s->contexts.size() != s->phase_contexts ||
-        k.level || k.conflict_valid || k.pending.valid || k.probing.recording)
+        k.conflict_valid || k.pending.valid || k.probing.recording)
+      return -1;
+    if (k.dense && (!s->phase.occurrences_open() || k.dense != &s->phase_occurrences))
       return -1;
     if (!s->phase.occurrences_open()) {
       // Without a session only a Probe bracket may close (a structured
       // startup terminal); an Eliminate bracket must reconnect its watches.
-      if (s->phase.eliminate())
+      if (s->phase.eliminate() || !k.large_watches_connected ||
+          (k.level && !has_sat_assignment(k)))
         return -1;
-      s->phase.exit_terminal(k);
-      result = 0;
-      break;
+      if (k.inconsistent || has_sat_assignment(k)) {
+        s->phase.exit_terminal(k);
+        result = support_result(s, k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok);
+        break;
+      }
+      s->phase.open_occurrences(k, s->phase_occurrences);
     }
-    if (k.dense != nullptr && k.dense != &s->phase_occurrences)
+    if (k.level || (k.dense != nullptr && k.dense != &s->phase_occurrences))
       return -1;
     result = leave_phase(s);
     break;
@@ -3350,6 +3854,27 @@ int tactix_status(tactix_solver *s) {
   // Also a verdict-reporting path: a caller that adds a contradictory input and
   // then only asks the status must still get the refutation written.
   input_complete(s);
+  if(s->query_owner) {
+    if(s->query_owner->poll_terminate(s->query_stop)) {s->query_status=session::QuerySolveStatus::Interrupted;return 0;}
+    const auto next=s->query_owner->next_assumption(s->query_ticket);
+    if(next.status==session::AssumptionStatus::Restore) {s->query_status=session::QuerySolveStatus::RestorationRequired;return 0;}
+    if(next.status==session::AssumptionStatus::BaseUnsat || next.status==session::AssumptionStatus::QueryUnsat) {
+      if(next.status==session::AssumptionStatus::QueryUnsat &&
+          !s->query_owner->publish_assumption_refutation(s->query_ticket)) {
+        s->query_status=session::QuerySolveStatus::ProofFailure;return 0;
+      }
+      certify_unsat(s);
+      return s->query_status==session::QuerySolveStatus::Complete?20:0;
+    }
+    if(next.status==session::AssumptionStatus::Ready && has_sat_assignment(s->kernel)) {
+      const auto model=query_model(s);
+      if(model==session::ModelStatus::Valid)return 10;
+      if(model!=session::ModelStatus::FalsifiedAssumption)
+        s->query_status=model==session::ModelStatus::InvalidQuery?
+            session::QuerySolveStatus::RestorationRequired:session::QuerySolveStatus::InvalidModel;
+    }
+    return 0;
+  }
   if (s->kernel.inconsistent) {
     certify_unsat(s);
     return 20;

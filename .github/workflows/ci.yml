@@ -1,9 +1,5 @@
-# CI (plan §5 build & CI, decided decision (b6287bc)). Two parallel jobs sharing the
-# pinned-toolchain cache:
-#   harness — fuzz-harness selftest (validates the validators)
-#   solver  — tactix debug(ASan/UBSan)+release builds, unit + micro-proof
-#             tests, competition compliance, quick fuzz of the debug build
-# The Tier A gate step joins the solver job once T1 is close.
+# CI checks the validator harness, native Debug/Release solver, and Python API
+# in parallel, using the pinned solver/checker toolchain.
 name: ci
 
 on:
@@ -32,7 +28,16 @@ jobs:
             cadical
             drat-trim
             cake_lpr
+            dsr-trim-sr
+            trestle
+            ~/.elan
           key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh', 'tools/checkers/patches/**') }}
+      - name: Install missing verified-checker build tools
+        run: |
+          if ! command -v zstd >/dev/null || [ ! -x trestle/.lake/build/bin/srcheck ]; then
+            sudo apt-get update
+            sudo apt-get install --yes elan zstd
+          fi
       - name: Build baseline solvers (kissat, cadical — pinned)
         run: tools/solvers/setup.sh
       - name: Build checker toolchain (drat-trim, lrat-check, cake_lpr — pinned)
@@ -42,7 +47,11 @@ jobs:
 
   solver:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [debug, release]
     steps:
       - uses: actions/checkout@v4
       - name: Cache third-party toolchain builds
@@ -53,30 +62,69 @@ jobs:
             cadical
             drat-trim
             cake_lpr
+            dsr-trim-sr
+            trestle
+            ~/.elan
             tools/checkers/src
           key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh', 'tools/checkers/patches/**') }}
+      - name: Install missing verified-checker build tools
+        run: |
+          if ! command -v zstd >/dev/null || [ ! -x trestle/.lake/build/bin/srcheck ]; then
+            sudo apt-get update
+            sudo apt-get install --yes elan zstd
+          fi
+      - name: Install sanitizer compiler
+        if: matrix.mode == 'debug'
+        run: sudo apt-get update && sudo apt-get install --yes clang-18 llvm-18 libclang-rt-18-dev
       - name: Build baseline solvers (kissat, cadical — pinned)
         run: tools/solvers/setup.sh
       - name: Build checker toolchain (clausal + VeriPB/CakePB — pinned)
         run: tools/checkers/setup.sh
-      - name: "Build tactix (debug: ASan/UBSan)"
-        run: cmake --preset debug && cmake --build build/debug -j
-      - name: Build tactix (release)
-        run: cmake --preset release && cmake --build build/release -j
-      - name: Unit + micro-proof tests (debug)
-        run: ctest --preset debug
-      - name: Unit + micro-proof tests (release)
-        run: ctest --preset release
+      # Each test links the full solver. Clang and compressed debug sections
+      # bound disk usage while retaining ASan/UBSan, assertions and symbols.
+      - name: Build tactix
+        run: |
+          tactix_compiler_args=()
+          if [ '${{ matrix.mode }}' = debug ]; then
+            tactix_compiler_args=(-DCMAKE_C_COMPILER=/usr/bin/clang-18 -DCMAKE_CXX_COMPILER=/usr/bin/clang++-18 -DCMAKE_EXE_LINKER_FLAGS=-Wl,--compress-debug-sections=zlib)
+            /usr/bin/clang++-18 --version
+          fi
+          df -h .
+          cmake --preset ${{ matrix.mode }} "${tactix_compiler_args[@]}" -DCMAKE_CXX_FLAGS_DEBUG=-g1 -DCMAKE_C_FLAGS_DEBUG=-g1
+          cmake --build build/${{ matrix.mode }} --parallel 2
+          du -sh build/${{ matrix.mode }}
+          df -h .
+      - name: Unit + micro-proof tests
+        run: |
+          # Clang-ASan inlines several fixture-local kernels into test main;
+          # the largest observed instrumented test frame is about 47 MiB.
+          if [ '${{ matrix.mode }}' = debug ]; then ulimit -s 65536; fi
+          ctest --preset ${{ matrix.mode }} --no-tests=error --output-log build/${{ matrix.mode }}/ctest.log
+          ! grep -E '\*\*\*Skipped|Not Run' build/${{ matrix.mode }}/ctest.log
       - name: Competition compliance
+        if: matrix.mode == 'release'
         run: tools/compete/check.sh ./build/release/tactix
       # 300 cases: the GH runner is ~4x slower than the reference machine;
       # the full 1000-case --quick gate runs locally per commit, volume
       # coverage is the nightly job's business (plan §8.2 cadence)
       - name: Quick fuzz (debug build, all oracles)
+        if: matrix.mode == 'debug'
         run: tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300
 
       # rule-order fuzzing (plan §8.2): random legal schedules + random
       # branching instances through the same four oracles — the modularity
       # property (N1) under continuous test
       - name: Quick fuzz, random rule schedule (debug build)
+        if: matrix.mode == 'debug'
         run: tools/fuzz/run.sh --public-random --quick --solver "./build/debug/tests/tactix-public-random --pbp --random-policy={seed}" --no-shrink --n 150
+
+      - name: Stateful IPASIR query integration fuzz
+        run: |
+          python3 tools/fuzz/ipasir_trace.py \
+            --driver "build/${{ matrix.mode }}/tests/tactix-ipasir-trace" \
+            --reference cadical/build/cadical \
+            --seed 0 --n 16 --minimize \
+            --out "build/${{ matrix.mode }}/ipasir-integration-fuzz"
+
+  python-api:
+    uses: ./.github/workflows/python.yml

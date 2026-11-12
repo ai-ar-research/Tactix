@@ -23,11 +23,26 @@ enum class BveCandidateScope : uint8_t {
   // would order it, so repeating PureOnly to a fixpoint selects the same
   // sequence; this scope does not rebuild the image once per layer.
   PureClosure = 2,
+  // Policy-generated passes preserving the current query interface. The
+  // corresponding explicit instances remain legal and unfiltered.
+  QueryAll = 3,
+  QueryPureOnly = 4,
+  QueryPureClosure = 5,
 };
 
+constexpr BveCandidateScope bve_base_scope(BveCandidateScope scope) {
+  return scope >= BveCandidateScope::QueryAll
+      ? static_cast<BveCandidateScope>(static_cast<unsigned>(scope)-3) : scope;
+}
+
+constexpr BveCandidateScope bve_query_scope(BveCandidateScope scope) {
+  return scope < BveCandidateScope::QueryAll
+      ? static_cast<BveCandidateScope>(static_cast<unsigned>(scope)+3) : scope;
+}
+
 constexpr bool pure_bve_candidate_scope(BveCandidateScope scope) {
-  return scope == BveCandidateScope::PureOnly ||
-         scope == BveCandidateScope::PureClosure;
+  return bve_base_scope(scope) == BveCandidateScope::PureOnly ||
+         bve_base_scope(scope) == BveCandidateScope::PureClosure;
 }
 
 // Ordinary Kissat elimination and SC2024 startup fast elimination own
@@ -45,13 +60,14 @@ constexpr bool valid_bve_traversal(BveTraversal traversal) {
 }
 
 constexpr bool valid_bve_candidate_scope(BveCandidateScope scope) {
-  return scope == BveCandidateScope::All || pure_bve_candidate_scope(scope);
+  return scope <= BveCandidateScope::QueryPureClosure;
 }
 
 // Every heuristic control consumed by BVE is supplied per invocation.  The
 // legacy Kernel fields remain the rule ABI during migration; ScopedParameters
 // poses these values only for the atomic request and restores them exactly.
 struct BveParameters {
+  bool operator==(const BveParameters &) const = default;
   static constexpr uint32_t GROWTH_BOUND_DEFAULT = 16;
   static constexpr uint32_t XOR_ARITY_DEFAULT = 5;
   static constexpr uint32_t RESOLVENT_SIZE_DEFAULT = 100;
@@ -114,10 +130,14 @@ struct BveParameters {
 // PureClosure's selection. It removes each layer from `occurrences` the way a
 // pure elimination removes it from the formula: every counted clause holding
 // the pure literal goes, and its other active literals lose one occurrence.
+template <bool Query = false>
 inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
                                        std::vector<uint64_t> &out) {
   const uint32_t literals = 2 * k.nvars;
   const auto pure_literal = [&](Var variable) {
+    if constexpr (Query)
+      if (k.query_projection->constrains(k.internal_to_external[variable]))
+        return INVALID_LIT;
     if (kernel_startup_retained(k, variable)) return INVALID_LIT;
     const Lit positive = make_lit(variable, false);
     const bool has_positive = occurrences.count(positive);
@@ -215,14 +235,20 @@ inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
 inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
                                    const BveParameters &parameters,
                                    std::vector<uint64_t> &out) {
-  if (parameters.candidate_scope == BveCandidateScope::All) {
+  const auto scope = bve_base_scope(parameters.candidate_scope);
+  const bool query = parameters.candidate_scope >= BveCandidateScope::QueryAll &&
+                     k.query_projection;
+  const auto constrained = [&](Var variable) {
+    return query && k.query_projection->constrains(k.internal_to_external[variable]);
+  };
+  if (scope == BveCandidateScope::All) {
     out.resize(k.nvars);
     out.resize(rule.instances(k, out.data(), k.nvars));
-    if (k.substitute_retention)
+    if (query || k.substitute_retention)
       out.erase(std::remove_if(out.begin(), out.end(), [&](uint64_t instance) {
         Lit literal;
         return lit_of_instance(k, instance, &literal) &&
-               kernel_startup_retained(k, var_of(literal));
+               (constrained(var_of(literal)) || kernel_startup_retained(k, var_of(literal)));
       }), out.end());
     return;
   }
@@ -230,14 +256,16 @@ inline void bve_complete_instances(Kernel &k, const RuleVTable &rule,
   BveOccurrences occurrences;
   bve_build_occurrences(k, occurrences);
   out.clear();
-  if (parameters.candidate_scope == BveCandidateScope::PureClosure) {
-    bve_pure_closure_instances(k, occurrences, out);
+  if (scope == BveCandidateScope::PureClosure) {
+    if (query) bve_pure_closure_instances<true>(k, occurrences, out);
+    else bve_pure_closure_instances(k, occurrences, out);
     return;
   }
   std::vector<Var> candidates;
   bve_schedule_from_occurrences(k, occurrences, candidates);
   out.reserve(candidates.size());
   for (const Var variable : candidates) {
+    if (constrained(variable)) continue;
     if (kernel_startup_retained(k, variable)) continue;
     const uint32_t positive =
         occurrences.count(make_lit(variable, false));
@@ -327,7 +355,8 @@ public:
         valid_(detail::bve_admissible(rule, parameters, budget)) {}
   BveInvocationSession(const BveInvocationSession &) = delete;
   BveInvocationSession &operator=(const BveInvocationSession &) = delete;
-  ~BveInvocationSession() { finish_ordering(); }
+  // heap_ is destroyed before posed_, disconnecting notifications before
+  // the invocation's parameters are restored.
 
   bool valid() const { return valid_; }
 
@@ -336,22 +365,12 @@ public:
   // publishes until finish_ordering().
   void order_by_score_heap(const uint64_t *instances, uint32_t n) {
     assert(!heap_ && !k_.bve_score_update_hook);
-    heap_.emplace();
-    heap_->initialize(k_, instances, n);
-    k_.bve_score_update_hook = BveCandidateHeap::update_hook;
-    k_.bve_score_update_state = &*heap_;
+    heap_.emplace(k_,instances,n);
   }
   bool ordered() const { return heap_.has_value(); }
   bool ordering_empty() const { return heap_->empty(); }
-  uint64_t next_ordered() { return heap_->pop_max(); }
-  void finish_ordering() {
-    if (!heap_) return;
-    k_.bve_score_update_hook = nullptr;
-    k_.bve_score_update_state = nullptr;
-    assert(k_.bve_occurrence_count_image);
-    k_.bve_occurrence_count_image = nullptr;
-    heap_.reset();
-  }
+  uint64_t next_ordered() { return heap_->next(); }
+  void finish_ordering() {heap_.reset();}
 
   // eliminate.c flush_units_while_connected: after a candidate's propagation,
   // the units from `propagation_begin` update the connected occurrence image.
@@ -451,7 +470,7 @@ private:
   uint64_t configuration_revision_;
   bool valid_ = false;
   std::optional<detail::ScopedBveParameters> posed_;
-  std::optional<BveCandidateHeap> heap_;
+  std::optional<BveOrdering> heap_;
 };
 
 } // namespace tactix::strategy

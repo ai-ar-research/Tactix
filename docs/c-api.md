@@ -71,6 +71,13 @@ those decisions depend on:
 strategy in C. On the same session it makes the same decisions and writes the
 same proof as `tactix_solve`.
 
+## Persistent queries
+
+Use [tactix_ipasir.h](../include/tactix_ipasir.h) to retain a solver across
+queries with new clauses and assumptions. Custom strategies can drive a query
+through the same typed C operations. The [Python API](../python/README.md)
+provides session, online continuation, BVE order, and restart clock wrappers.
+
 ## Proof production
 
 Before applying a rule, the solver checks that the rule is sound in the

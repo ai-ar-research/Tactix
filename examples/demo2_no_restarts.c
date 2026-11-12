@@ -5,17 +5,11 @@
  * micro-loop through the frozen v1 API, with canonical instances. */
 #undef NDEBUG
 #include "tactix.h"
+#include "tactix_search_demo.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-
-static int rule_id(const char *name) {
-  for (int i = 0; i < tactix_rule_count(); i++)
-    if (!strcmp(tactix_rule_name(i), name))
-      return i;
-  return -1;
-}
 
 static void add_clause(tactix *s, const int *lits) {
   for (; *lits; lits++)
@@ -24,29 +18,10 @@ static void add_clause(tactix *s, const int *lits) {
 }
 
 static int cdcl_no_restarts(tactix *s) {
-  const int propagate = rule_id("Propagate");
-  const int conflictanalysis = rule_id("ConflictAnalysis");
-  const int decide = rule_id("Decide");
-  long steps = 0;
-  for (;;) {
-    assert(++steps < 2000000);
-    const int st = tactix_status(s);
-    if (st)
-      return st;
-    int r = tactix_apply(s, propagate);
-    if (r == 20)
-      return 20;
-    if (r == 2) { /* conflict: one atomic learn+backjump step */
-      r = tactix_apply(s, conflictanalysis);
-      if (r == 20)
-        return 20;
-      continue;
-    }
-    if (tactix_status(s) == 10)
-      return 10;
-    r = tactix_apply(s, decide);
-    assert(r != -1);
-  }
+  tactix_search_demo program;
+  assert(tactix_search_demo_begin(&program,TACTIX_DEMO_NO_RESTARTS));
+  program.step_limit=2000000; /* Original toy-only nontermination guard. */
+  return tactix_search_demo_run(&program,s,NULL,NULL);
 }
 
 /* PHP(p -> p-1): every pigeon in a hole, no hole shared */

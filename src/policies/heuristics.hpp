@@ -245,7 +245,7 @@ uint32_t heuristics_decide_candidates(const Kernel &, Lit *out, uint32_t cap);
 
 // Restart trail-reuse ranking (kissat restart.c): keep the decision prefix
 // that outranks the next policy-selected variable.
-uint32_t heuristics_restart_reuse_level_for(Kernel &, Var next);
+uint32_t heuristics_restart_reuse_level_for(const Kernel &, Var next, uint32_t floor = 0);
 uint32_t heuristics_restart_reuse_level(Kernel &);
 
 #ifndef NDEBUG

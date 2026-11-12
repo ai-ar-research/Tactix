@@ -133,7 +133,8 @@ PARAMETER_INSTALL = (PARAMETER_EXECUTION,
                      r"strategy::install_rule_parameters\(k, request\.parameters\)")
 RULE_PARAMETERS = "src/strategy/rule_parameters.cpp"
 PROFILE_FAMILIES = [
-    ("config().bce_parameters", RULE_PARAMETERS, {"bce_occ_limit": "occurrence_limit"}),
+    ("config().bce_parameters", RULE_PARAMETERS, {"bce_occ_limit": "occurrence_limit",
+                                                "bce_preserve_query": "preserve_query"}),
     ("config().ternary_parameters", RULE_PARAMETERS, {
         "ternary_occ_limit": "occurrence_limit",
         "ternary_max_add_percent": "maximum_add_percent"}),
@@ -398,6 +399,7 @@ TABLE = {
                                 ("POLICY", "typed generation-time BVE "
                                            "self-subsuming-resolution setting"),
     "bce_occ_limit":           ("POLICY", "typed BCE occurrence limit"),
+    "bce_preserve_query":      ("POLICY", "typed BCE query-preserving domain"),
     "midround_budget":         ("POLICY", "typed default forward scheduling and "
                                            "per-invocation bounded rule-work pose"),
     "factor_size":             ("POLICY", "typed Factor clause-size limit"),
@@ -503,11 +505,12 @@ NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
               # Sweep's resumable-pass latch is written and cleared by the
               # rule's completion state machine, never configured by policy.
               "sweep_incomplete",
-              "touch_epoch", "touch_fixed_head",
+              "touch_epoch", "touch_fixed_head", "root_occurrence_head",
               "subsume_touch_mark", "strengthen_touch_mark",
-              "bce_touch_mark", "ternary_touch_mark",
+              "bce_touch_mark", "bce_query_touch_mark", "bce_rejected_occ_limit",
+              "ternary_touch_mark",
               "instantiate_touch_mark",
-              "cce_touch_mark",
+              "cce_touch_mark", "cce_rejected_budget",
               # rule outputs, read by the policy, never configured
               "subsume_complete", "strengthen_complete"}
 

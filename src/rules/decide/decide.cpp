@@ -25,7 +25,7 @@ ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
   if (k.propagate_head < k.trail.size())
     k.trail_tainted = true;
   k.stats.decisions++;
-  if (k.first_extension_var != UINT32_MAX && var_of(lit) >= k.first_extension_var)
+  if (var_of(lit) >= k.first_extension_var && kernel_is_solver_extension(k, var_of(lit)))
     k.stats.decisions_extension++; // task #11 diagnostic (see kernel.hpp)
   if (kernel_var_retired(k, var_of(lit)))
     k.stats.decisions_substituted++; // see Stats::decisions_substituted

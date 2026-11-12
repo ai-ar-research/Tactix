@@ -30,6 +30,7 @@ add_compile_options(-Wall -Wextra -fno-exceptions $<$<COMPILE_LANGUAGE:CXX>:-fno
 # Tests and examples are built when Tactix is the top-level project; a parent
 # project that adds it with add_subdirectory gets only the solver and library.
 option(TACTIX_BUILD_TESTS "Build the tests and example strategies" ${PROJECT_IS_TOP_LEVEL})
+option(TACTIX_BUILD_SHARED_IPASIR "Build the experimental shared IPASIR/Python library" OFF)
 
 # DejaVu is a pinned graph-automorphism backend whose public implementation
 # uses exceptions and RTTI.  Keep it in a separate translation unit with a
@@ -74,17 +75,38 @@ add_library(tactix_lib OBJECT
   ${TACTIX_STRATEGY_SOURCES}
   src/frontend/parse.cpp
   src/frontend/dsr_follow_on.cpp
+  src/session/query_history.cpp
+  src/session/failed_core.cpp
+  src/session/learned_clause_export.cpp
+  src/session/core_certificate.cpp
+  src/session/knowledge_proof.cpp
+  src/session/native_variables.cpp
+  src/session/weakening_history.cpp
+  src/session/derivation_history.cpp
+  src/session/query_kernel.cpp
+  src/session/query_projection.cpp
+  src/session/retained_clauses.cpp
+  src/session/restriction_knowledge.cpp
   src/api/api.cpp
   src/api/api_work.cpp
   src/api/api_observe.cpp
+  src/api/restart_clock.cpp
 )
 
-# Proof export can copy a huge learned core. Only this translation unit may
-# catch allocation failure; `SubSolver::derivation` is noexcept to callers.
+# Proof export can copy a huge learned core. This translation unit catches
+# allocation failure; `SubSolver::derivation` is noexcept to callers.
 # Keep this island optimized in Debug too (as in the debug preset). Apple
 # Clang 15 can otherwise coalesce libc++ vector constructors with copies from
 # -fno-exceptions objects and bypass the allocation-failure handler.
-set_source_files_properties(src/engine/subsolver_proof_export.cpp PROPERTIES
+set_source_files_properties(src/engine/subsolver_proof_export.cpp
+  src/rules/sweep/sweep_proof_capture.cpp PROPERTIES
+  COMPILE_OPTIONS "-fexceptions;$<$<CONFIG:Debug>:-O1>")
+# Optional weakening capture owns allocating copies behind noexcept callbacks.
+# Contain allocation failure in this cold module; kernel/rule code retains its
+# ordinary no-exceptions configuration and never changes a chosen action.
+set_source_files_properties(src/session/weakening_history.cpp PROPERTIES
+  COMPILE_OPTIONS "-fexceptions;$<$<CONFIG:Debug>:-O1>")
+set_source_files_properties(src/session/derivation_history.cpp PROPERTIES
   COMPILE_OPTIONS "-fexceptions;$<$<CONFIG:Debug>:-O1>")
 if(TACTIX_ENABLE_EVENT_TRACE)
   target_sources(tactix_lib PRIVATE src/diagnostics/event_trace.cpp)
@@ -140,10 +162,53 @@ add_library(tactix_archive STATIC $<TARGET_OBJECTS:tactix_lib>
                                   $<TARGET_OBJECTS:tactix_symmetry_backend>)
 set_target_properties(tactix_archive PROPERTIES OUTPUT_NAME tactix)
 
+# Staged incremental C transport. Keep its cold frontend outside the ordinary
+# CLI objects. The optional shared library preserves the ordinary CLI object flags.
+add_library(tactix_cruxmiter_program OBJECT src/strategy/presets/cruxmiter.c)
+target_include_directories(tactix_cruxmiter_program PUBLIC src include)
+add_library(tactix_ipasir STATIC src/api/ipasir.cpp src/session/query_certificate.cpp
+  $<TARGET_OBJECTS:tactix_cruxmiter_program>
+  $<TARGET_OBJECTS:tactix_lib> $<TARGET_OBJECTS:tactix_symmetry_backend>)
+target_include_directories(tactix_ipasir PUBLIC include PRIVATE src)
+target_link_libraries(tactix_ipasir PUBLIC ZLIB::ZLIB)
+
 include(GNUInstallDirs)
+if(TACTIX_BUILD_SHARED_IPASIR)
+  # Separate PIC objects preserve the ordinary CLI/archive compilation flags.
+  get_target_property(TACTIX_SHARED_SOURCES tactix_lib SOURCES)
+  add_library(tactix_shared_engine OBJECT ${TACTIX_SHARED_SOURCES})
+  set_target_properties(tactix_shared_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_include_directories(tactix_shared_engine PRIVATE src include)
+  target_link_libraries(tactix_shared_engine PRIVATE ZLIB::ZLIB)
+  target_compile_definitions(tactix_shared_engine PRIVATE
+    $<TARGET_PROPERTY:tactix_lib,COMPILE_DEFINITIONS>)
+  add_library(tactix_shared_symmetry OBJECT src/symmetry_backend/dejavu_backend.cpp)
+  set_target_properties(tactix_shared_symmetry PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_include_directories(tactix_shared_symmetry PRIVATE src)
+  target_include_directories(tactix_shared_symmetry SYSTEM PRIVATE third_party/dejavu-4c275e9)
+  target_compile_options(tactix_shared_symmetry PRIVATE -fexceptions -frtti -fvisibility=hidden)
+  add_library(tactix_shared SHARED src/api/ipasir.cpp src/session/query_certificate.cpp src/strategy/presets/cruxmiter.c
+    $<TARGET_OBJECTS:tactix_shared_engine> $<TARGET_OBJECTS:tactix_shared_symmetry>)
+  target_include_directories(tactix_shared PUBLIC include PRIVATE src)
+  target_link_libraries(tactix_shared PRIVATE ZLIB::ZLIB)
+  set_target_properties(tactix_shared PROPERTIES OUTPUT_NAME tactix_ipasir
+    VERSION ${PROJECT_VERSION} SOVERSION 0)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_options(tactix_shared PRIVATE
+      "LINKER:--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/tactix-ipasir.map")
+    set_property(TARGET tactix_shared APPEND PROPERTY LINK_DEPENDS
+      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/tactix-ipasir.map)
+  endif()
+  install(TARGETS tactix_shared LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+  install(FILES include/ipasir.h include/tactix_ipasir.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  install(DIRECTORY python/tactix DESTINATION ${CMAKE_INSTALL_DATADIR}/tactix/python
+    FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE)
+endif()
 install(TARGETS tactix RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(TARGETS tactix_archive ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES include/tactix.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES include/tactix.h include/tactix_search_demo.h include/tactix_scripted_default.h include/tactix_chvatal.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 include(CMakePackageConfigHelpers)
 configure_package_config_file(cmake/TactixConfig.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/TactixConfig.cmake

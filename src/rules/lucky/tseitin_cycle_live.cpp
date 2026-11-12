@@ -360,6 +360,7 @@ Result map_transaction(const Kernel &kernel,
 
 void detach_shadow(Kernel &shadow) {
   shadow.proof = nullptr;
+  shadow.query_projection = nullptr;
   shadow.h = nullptr;
   shadow.population_observer = nullptr;
   shadow.retier_schedule = {};

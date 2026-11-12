@@ -7,6 +7,12 @@
 # arguments or a special name are declared explicitly.
 
 set(TACTIX_PYTHON ${CMAKE_COMMAND} -E env python3)
+
+# Internal heap comparison plus real IPASIR callback/lifetime coverage.
+add_executable(test_bve_order test_bve_order.cpp)
+target_link_libraries(test_bve_order PRIVATE tactix_lib tactix_ipasir)
+add_test(NAME bve_order COMMAND test_bve_order)
+
 set(TACTIX_SKIP_UNLESS_PBP ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
     ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb
     ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --)
@@ -19,8 +25,34 @@ endfunction()
 
 # A Python test script run under `cmake -E env python3`.
 function(tactix_python_test name script)
-  add_test(NAME ${name} COMMAND ${TACTIX_PYTHON} ${script} ${ARGN})
+  tactix_skip77_test(${name} ${TACTIX_PYTHON} ${script} ${ARGN})
 endfunction()
+
+if(TACTIX_BUILD_SHARED_IPASIR)
+  tactix_python_test(python_online_sequence ${CMAKE_CURRENT_SOURCE_DIR}/test_python_sequence.py
+    $<TARGET_FILE:tactix_shared> $<TARGET_FILE:test_online_sequence> ${CMAKE_SOURCE_DIR})
+  tactix_python_test(python_bve_order ${CMAKE_CURRENT_SOURCE_DIR}/test_python_bve_order.py
+    $<TARGET_FILE:test_bve_order> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix_shared>)
+  tactix_python_test(python_extended_resolution
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_extended_resolution.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
+  tactix_python_test(python_capi ${CMAKE_CURRENT_SOURCE_DIR}/test_python_capi.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
+  tactix_python_test(python_policy_parity ${CMAKE_CURRENT_SOURCE_DIR}/test_python_policy_parity.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
+  tactix_skip77_test(python_session ${TACTIX_PYTHON}
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_session.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
+  tactix_skip77_test(python_restart_clock ${TACTIX_PYTHON}
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_restart_clock.py
+    $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
+endif()
+
+if(NOT TACTIX_BUILD_SHARED_IPASIR)
+  tactix_skip77_test(bve_order_proof ${TACTIX_PYTHON}
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_bve_order.py
+    $<TARGET_FILE:test_bve_order> ${CMAKE_SOURCE_DIR})
+endif()
 
 # A tests/<script> proof/model check over one fixture executable and the
 # source root; it exits 77 when a pinned checker is missing.
@@ -79,6 +111,12 @@ set_source_files_properties(failing_new.cpp PROPERTIES COMPILE_OPTIONS
                             -fexceptions)
 target_link_libraries(test_subsolver_export_resource PRIVATE tactix_lib)
 add_test(NAME subsolver_export_resource COMMAND test_subsolver_export_resource)
+add_executable(test_weakening_resource test_weakening_resource.cpp failing_new.cpp)
+target_link_libraries(test_weakening_resource PRIVATE tactix_lib)
+add_test(NAME weakening_resource COMMAND test_weakening_resource)
+add_executable(test_derivation_resource test_derivation_resource.cpp failing_new.cpp)
+target_link_libraries(test_derivation_resource PRIVATE tactix_lib)
+add_test(NAME derivation_resource COMMAND test_derivation_resource)
 
 # The production object library omits the event trace and rule journal in the
 # default build; these protocol tests then compile the implementation in.
@@ -163,6 +201,80 @@ set_tests_properties(lucky_late_parallel PROPERTIES PROCESSORS 3)
 add_executable(test_api_c test_api_c.c)
 target_link_libraries(test_api_c PRIVATE tactix_lib)
 add_test(NAME api_n1 COMMAND test_api_c)
+
+# Real incremental client: only the C headers and the separate transport
+# archive, retaining the registry's static registration translation units.
+add_executable(test_ipasir_query test_ipasir_query.c)
+target_link_libraries(test_ipasir_query PRIVATE
+  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+add_test(NAME ipasir_query COMMAND test_ipasir_query)
+add_executable(test_ipasir_termination test_ipasir_termination.c)
+target_link_libraries(test_ipasir_termination PRIVATE
+  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+add_test(NAME ipasir_termination COMMAND test_ipasir_termination)
+add_executable(test_ipasir_learning test_ipasir_learning.c)
+target_link_libraries(test_ipasir_learning PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+add_test(NAME ipasir_learning COMMAND test_ipasir_learning)
+tactix_skip77_test(ipasir_learning_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_learning_proof.py
+                   $<TARGET_FILE:test_ipasir_learning> ${CMAKE_SOURCE_DIR})
+add_executable(test_ipasir_core test_ipasir_core.c)
+target_link_libraries(test_ipasir_core PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+add_test(NAME ipasir_core COMMAND test_ipasir_core)
+add_executable(test_ipasir_owned_result test_ipasir_owned_result.c)
+target_link_libraries(test_ipasir_owned_result PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+add_test(NAME ipasir_owned_result COMMAND test_ipasir_owned_result)
+tactix_skip77_test(ipasir_owned_result_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_owned_result_proof.py
+                   $<TARGET_FILE:test_ipasir_owned_result> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(ipasir_core_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_core_proof.py
+                   $<TARGET_FILE:test_ipasir_core> ${CMAKE_SOURCE_DIR})
+add_executable(test_ipasir_programmable test_ipasir_programmable.c)
+target_link_libraries(test_ipasir_programmable PRIVATE
+  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+add_test(NAME ipasir_programmable COMMAND test_ipasir_programmable)
+add_executable(test_ipasir_cruxmiter test_ipasir_cruxmiter.c)
+target_link_libraries(test_ipasir_cruxmiter PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+target_include_directories(test_ipasir_cruxmiter PRIVATE ${CMAKE_SOURCE_DIR}/src)
+add_test(NAME ipasir_cruxmiter COMMAND test_ipasir_cruxmiter)
+tactix_skip77_test(ipasir_cruxmiter_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_cruxmiter_proof.py
+                   $<TARGET_FILE:test_ipasir_cruxmiter> ${CMAKE_SOURCE_DIR})
+foreach(driver dpll cdcl-no-restarts scripted-default chvatal)
+  add_test(NAME ipasir_${driver} COMMAND test_ipasir_cruxmiter ${driver})
+  tactix_skip77_test(ipasir_${driver}_proof ${TACTIX_PYTHON}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_cruxmiter_proof.py
+                    $<TARGET_FILE:test_ipasir_cruxmiter> ${CMAKE_SOURCE_DIR} ${driver})
+endforeach()
+tactix_skip77_test(ipasir_programmable_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_programmable_proof.py
+                   $<TARGET_FILE:test_ipasir_programmable> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(learned_clause_export_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_learned_clause_export_proof.py
+                   $<TARGET_FILE:test_learned_clause_export> ${CMAKE_SOURCE_DIR})
+add_executable(tactix-ipasir-trace ${CMAKE_SOURCE_DIR}/tools/fuzz/ipasir_trace_client.c
+               ${CMAKE_SOURCE_DIR}/tools/fuzz/public_random_main.cpp)
+target_compile_definitions(tactix-ipasir-trace PRIVATE TACTIX_PUBLIC_RANDOM_IPASIR=1)
+target_link_libraries(tactix-ipasir-trace PRIVATE
+  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+add_executable(test_ipasir_minimize test_ipasir_minimize.c
+               ${CMAKE_SOURCE_DIR}/tools/fuzz/public_random_main.cpp)
+target_compile_definitions(test_ipasir_minimize PRIVATE TACTIX_PUBLIC_RANDOM_IPASIR=1)
+target_link_libraries(test_ipasir_minimize PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+add_test(NAME ipasir_minimize COMMAND test_ipasir_minimize)
+tactix_skip77_test(ipasir_minimize_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_minimize_proof.py
+                   $<TARGET_FILE:test_ipasir_minimize> ${CMAKE_SOURCE_DIR})
+tactix_python_test(ipasir_trace_oracles
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_trace_oracles.py
+                   ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(ipasir_trace_regression ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_trace_regression.py
+                   $<TARGET_FILE:tactix-ipasir-trace> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(ipasir_query_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_query_proof.py
+                   $<TARGET_FILE:test_ipasir_query> ${CMAKE_SOURCE_DIR})
 
 add_executable(test_api_one_search test_api_one_search.c)
 target_link_libraries(test_api_one_search PRIVATE tactix_lib)
@@ -340,7 +452,9 @@ tactix_skip77_test(count_preservation_check ${TACTIX_SKIP_UNLESS_PBP}
                    $<TARGET_FILE:test_count_preservation> $<TARGET_FILE:tactix>)
 tactix_skip77_test(ramsey_cli
                    ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                   ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/dsr-trim --
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-trim
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-compress
+                   ${CMAKE_SOURCE_DIR}/tools/checkers/bin/srcheck --
                    ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_ramsey_cli.py
                    $<TARGET_FILE:tactix>)
@@ -413,6 +527,53 @@ add_test(NAME public_random_frontend
                  $<TARGET_FILE:tactix-public-random>
                  $<TARGET_FILE:tactix>
                  ${CMAKE_SOURCE_DIR})
+
+tactix_skip77_test(query_projection_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_projection_proof.py
+                   $<TARGET_FILE:test_query_projection> ${CMAKE_SOURCE_DIR}
+                   $<TARGET_FILE:test_default_query>)
+tactix_skip77_test(weakening_history_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_weakening_history_proof.py
+                   $<TARGET_FILE:test_weakening_history> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(native_query_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_query_proof.py
+                   $<TARGET_FILE:test_native_query> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(query_namespace_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_namespace_proof.py
+                   $<TARGET_FILE:test_query_namespace> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(query_proof_names_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_proof_names_proof.py
+                   $<TARGET_FILE:test_query_proof_names> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(native_query_sr_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_query_sr_proof.py
+                   $<TARGET_FILE:test_native_query_sr> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(native_query_append_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_query_append_proof.py
+                   $<TARGET_FILE:test_native_query_append> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(native_repair_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_repair_proof.py
+                   $<TARGET_FILE:test_native_repair> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(derivation_history_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_derivation_history_proof.py
+                   $<TARGET_FILE:test_derivation_history> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(derivation_sr_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_derivation_sr_proof.py
+                   $<TARGET_FILE:test_derivation_sr> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(native_parity_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_parity_proof.py
+                   $<TARGET_FILE:test_native_parity> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(native_restrictions_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_restrictions_proof.py
+                   $<TARGET_FILE:test_native_restrictions> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(native_rollback_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_rollback_proof.py
+                   $<TARGET_FILE:test_native_rollback> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(query_repair_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_repair_proof.py
+                   $<TARGET_FILE:test_query_repair> ${CMAKE_SOURCE_DIR})
+tactix_skip77_test(query_results_proof ${TACTIX_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_results_proof.py
+                   $<TARGET_FILE:test_query_results> ${CMAKE_SOURCE_DIR})
 
 # Conventional C++ tests are discovered automatically: a test_<name>.cpp
 # without an explicit target above gets a matching executable and CTest entry

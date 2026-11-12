@@ -53,6 +53,9 @@ POLICY_REL = "src/policies/default_policy.cpp"
 # counter the id is REQUIRED to return instead. One row per deviation, each
 # with its reason — the point is that the deviation is declared, not inferred.
 ALIAS = {
+    "TACTIX_STAT_VARIABLES": ("k.nvars", "internal variable extent"),
+    "TACTIX_STAT_OUTPUT_VARIABLES": ("kernel_num_output_vars(k)", "original model extent"),
+    "TACTIX_STAT_INPUT_CLOSED": ("s->input_completed", "input lifetime flag"),
     "TACTIX_STAT_SWITCHES": ("k.stats.switched",
                              "the counter is past-tense; the id is a count"),
     "TACTIX_STAT_LEVEL": ("k.level", "kernel state, not a Stats counter"),
@@ -64,6 +67,8 @@ ALIAS = {
                            "H's mode, and 0 for a null-H solver"),
     "TACTIX_STAT_BINARY_CLAUSES": ("k.binary_ids.size()",
                                    "the id SET is the counter"),
+    "TACTIX_STAT_ARENA_WORDS": ("k.arena.size()",
+                                "Arena is ReallocWords<uint32_t>; size counts stored words"),
 }
 
 # The (yield, effort) pair per rule family. The KEY set is checked against

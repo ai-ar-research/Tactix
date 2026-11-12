@@ -1,5 +1,6 @@
 #include "strategy/region_program.hpp"
 #include "policies/default_policy.hpp"
+#include "session/query_kernel.hpp"
 #include "kernel/splitmix64.hpp"
 #include "policies/strategy_settings.hpp"
 #include "policies/progress.hpp"
@@ -302,16 +303,6 @@ void pose_affine_structured_stage(DefaultStrategyConfig &config) {
 
 } // namespace
 
-// Admitted support of a persistent affine session (sorted externals).
-static bool affine_support_protected(const Kernel &kernel, Var variable) {
-  const auto *session = kernel.affine_matrix_search_session;
-  if (!session || !session->enabled() || !session->persistent())
-    return false;
-  const auto &support = session->support();
-  return std::binary_search(support.begin(), support.end(),
-                            kernel_externalize(kernel, make_lit(variable, false)));
-}
-
 std::optional<strategy::AffineConsequenceParameters>
 default_affine_search_parameters(const Kernel &kernel,
                                  const DefaultStrategyConfig &config) {
@@ -539,11 +530,17 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
 // helper's out-of-line -O0 symbols (event_trace_zero_overhead).
 // The result is the finish code of the reached terminal (Sat 10, Unsat 20),
 // otherwise 0.
-template <LuckyOpportunity Opportunity, typename TraceMacro>
+struct AcceptAllModels {
+  constexpr bool operator()() const { return true; }
+};
+
+template <LuckyOpportunity Opportunity, typename TraceMacro,
+          typename AcceptModel = AcceptAllModels>
 int default_traced_lucky_terminal(
     Kernel &k, const TraceMacro &trace, const char *candidate,
     const char *begin_event, const char *end_event, ApplyResult terminal,
-    PolicyCompletion *completion = nullptr) {
+    PolicyCompletion *completion = nullptr,
+    const AcceptModel &accept_model = {}) {
   assert(terminal == ApplyResult::Sat || terminal == ApplyResult::Unsat);
   trace(begin_event, "-");
   const ApplyResult result =
@@ -551,6 +548,10 @@ int default_traced_lucky_terminal(
   const bool sat = terminal == ApplyResult::Sat;
   if (result != terminal) {
     trace(end_event, "unknown");
+    return 0;
+  }
+  if (sat && !accept_model()) {
+    trace(end_event, "query-rejected");
     return 0;
   }
   trace(end_event, sat ? "sat" : "unsat");
@@ -1087,6 +1088,11 @@ DefaultStrategyConfig::reference_structured_root_program() {
   return result;
 }
 
+namespace {
+bool validate_scheduler_program(const std::vector<strategy::InprocessStep> &,
+                                std::string *);
+}
+
 bool DefaultStrategyConfig::valid(std::string *error) const {
   const auto reject = [error](const char *message) {
     if (error)
@@ -1112,12 +1118,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("analysis eager-subsumption size exceeds its representation");
   if (analysis.big_binary_fraction_permille > PERMILLE_SCALE)
     return reject("analysis binary fraction exceeds 1000 permille");
-  if (!positive_finite(restart.glue_margin) ||
-      !positive_finite(restart.fast_ema_window) ||
-      !positive_finite(restart.slow_ema_window) ||
-      !positive_finite(restart.logarithm_offset) ||
-      !positive_finite(restart.logarithm_bias) || !restart.initial_interval ||
-      !restart.reluctant_period || !restart.reluctant_limit)
+  if (!restart.valid())
     return reject("restart settings contain a zero or non-finite scale");
   if (mode.force > 2 || !mode.initial_conflicts || !mode.interval ||
       !positive_finite(mode.logarithm_offset) || !mode.logarithm_power)
@@ -1297,7 +1298,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       return reject("Vivify tier scope is invalid");
   if (ip.vivify_irredundant_productivity_percent > PERCENT_SCALE)
     return reject("Vivify productivity exceeds 100 percent");
-  if (!strategy::validate_inprocess_program(ip.program, error))
+  if (!validate_scheduler_program(ip.program, error))
     return false;
   for (const strategy::InprocessStep &step : ip.program)
     if (step.rule == "SubstitutionRedundancy")
@@ -2074,8 +2075,7 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   const uint64_t conflicts = k.stats.conflicts;
   const uint64_t ticks = search_ticks(k);
 
-  averages[0] = averages[1] = {};
-  update_restart_limit(k);
+  DefaultRestartControl::reset(k, config_.restart);
   // Kissat initializes Reduce from `reduceinit` independently of the cadence
   // used after a completed reduction (kimits.c:kissat_init_limits).  The
   // arithmetic interval is a recurrence delta, not an alternative first
@@ -2085,8 +2085,6 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   mode = {};
   mode.conflicts_limit = conflicts + config_.mode.initial_conflicts;
   mode.ticks_at_focus_entry = ticks;
-  reluctant = {};
-  reluctant.wait = config_.restart.reluctant_period;
   rephase = {};
   rephase.next_conflicts = conflicts + config_.rephase.initial_interval;
   reorder = {};
@@ -2315,6 +2313,28 @@ bool never_appended(const char *name) {
 bool appended_disabled(const char *name) {
   return named(name, {"HyperBinaryRes", "Probe", "HyperTernaryRes", "Instantiate", "BCE",
                       "CCE", "SubsumeForward"});
+}
+
+bool validate_scheduler_program(
+    const std::vector<strategy::InprocessStep> &program, std::string *error) {
+  if (!strategy::validate_inprocess_program(program, error))
+    return false;
+  const auto &rules = tactix_rules();
+  const auto reject = [error](const char *message) {
+    if (error) *error = message;
+    return false;
+  };
+  for (const auto &step : program) {
+    const int id = tactix_rule_id(step.rule.c_str());
+    if (id < 0 || rules[id].tier != RuleTier::Inprocess)
+      return reject("inprocess program requires a registered inprocessing action");
+    const EffortSpec *spec = effort_spec(step.rule.c_str());
+    if (step.effort_permille && !spec)
+      return reject("inprocess effort share requires a scheduler effort meter");
+    if ((step.cursor_enabled || step.candidate_order) && (!spec || !spec->dosed))
+      return reject("candidate traversal requires a dosed inprocessing action");
+  }
+  return true;
 }
 
 const char *effort_currency(const char *name) {
@@ -3050,6 +3070,20 @@ void DefaultBranching::start_random_sequence(Kernel &k) {
   k.stats.random_sequences++;
 }
 
+void pose_query_programs(DefaultStrategyConfig &config) {
+  config.inprocess.bce_parameters.preserve_query = true;
+  // Authored stages select query-compatible generated choices and BCE batches.
+  for (auto *stages : {&config.inprocess.structured_root_stages,
+                      &config.inprocess.structured_root_bounded_backtracking_stages,
+                      &config.inprocess.structured_root_large_domain_stages})
+    for (auto &stage : *stages)
+      for (auto &step : stage.program.sequence)
+        if (auto *p = std::get_if<strategy::BveParameters>(&step.parameters))
+          p->candidate_scope = strategy::bve_query_scope(p->candidate_scope);
+        else if (auto *p = std::get_if<strategy::BceParameters>(&step.parameters))
+          p->preserve_query = true;
+}
+
 void DefaultPolicy::configure_from_env(const Kernel &) {
   config_ = base_config_;
   // Preserve the pre-existing white-box policy pose surface: callers and
@@ -3390,7 +3424,11 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
 
 void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
   configure();
-  if (entries.empty()) {
+  // Refresh authored choices between queries, retaining runtime state only
+  // for the same named occurrence. New or retargeted steps start fresh.
+  auto previous = std::move(entries);
+  entries.clear();
+  {
     const std::vector<RuleVTable> &rules = tactix_rules();
     const auto add_entry = [&](int i,
                                const strategy::InprocessStep *planned = nullptr) {
@@ -3448,44 +3486,40 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
           e.cursor_enabled = std::strcmp(nm, "BVE") != 0;
         if (planned && planned->cursor_enabled)
           e.cursor_enabled = *planned->cursor_enabled;
+        const auto old = std::find_if(previous.begin(), previous.end(),
+            [&](const SlotEntry &entry) {
+              return entry.step_id == e.step_id && entry.rule == e.rule;
+            });
+        if (old != previous.end()) {
+          e.limit = old->limit;
+          e.applies = old->applies;
+          e.doses = old->doses;
+          e.cursor = old->cursor;
+          e.tm = old->tm;
+          e.ord = old->ord;
+          e.binaries_mark = old->binaries_mark;
+          e.root_fixed_mark = old->root_fixed_mark;
+          e.arena_mark = old->arena_mark;
+          e.delay_count = old->delay_count;
+          e.delay_current = old->delay_current;
+          e.followup_mode = old->followup_mode;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+          e.journal_reference = old->journal_reference;
+          e.journal_allowance = old->journal_allowance;
+          e.journal_last_round_spent = old->journal_last_round_spent;
+          e.journal_rounds = old->journal_rounds;
+          e.journal_round_budget_break = old->journal_round_budget_break;
+#endif
+        }
         entries.push_back(e);
       }
     };
     std::vector<bool> placed(rules.size(), false);
     std::string program_error;
-    if (!strategy::validate_inprocess_program(config().program,
-                                              &program_error)) {
+    if (!validate_scheduler_program(config().program, &program_error)) {
       std::fprintf(stderr, "c ERROR: invalid inprocess program: %s\n",
                    program_error.c_str());
       std::abort();
-    }
-    // Resolve and validate every occurrence before constructing any runtime
-    // entry, so a bad typed program cannot leave a usable prefix behind.
-    for (const strategy::InprocessStep &step : config().program) {
-      const int id = tactix_rule_id(step.rule.c_str());
-      if (id < 0 || rules[id].tier != RuleTier::Inprocess) {
-        std::fprintf(stderr,
-                     "c ERROR: inprocess program rule '%s' is not a "
-                     "registered inprocessing action\n",
-                     step.rule.c_str());
-        std::abort();
-      }
-      const EffortSpec *spec = effort_spec(step.rule.c_str());
-      if (step.effort_permille && !spec) {
-        std::fprintf(stderr,
-                     "c ERROR: inprocess step '%s' has an effort share but "
-                     "the action has no scheduler effort meter\n",
-                     step.rule.c_str());
-        std::abort();
-      }
-      if ((step.cursor_enabled || step.candidate_order) &&
-          (!spec || !spec->dosed)) {
-        std::fprintf(stderr,
-                     "c ERROR: inprocess step '%s' configures candidate "
-                     "traversal but the action runs as a batch\n",
-                     step.rule.c_str());
-        std::abort();
-      }
     }
     for (const strategy::InprocessStep &step : config().program) {
       const int id = tactix_rule_id(step.rule.c_str());
@@ -4291,8 +4325,41 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
                          strategy::RegionProgram *regions) {
+  return solve_impl<false>(k, stop, nullptr, nullptr, regions);
+}
+
+session::QuerySolveResult DefaultPolicy::solve_query(
+    session::QueryKernel &query, volatile sig_atomic_t *stop,
+    strategy::RegionProgram *regions) {
+  volatile sig_atomic_t callback_stop=0;
+  if(!stop && query.termination_enabled())stop=&callback_stop;
+  Kernel *k = query.kernel(query.ticket());
+  if (!k) return {};
+  if(query.poll_terminate(stop))
+    return {session::QuerySolveStatus::Interrupted,0};
+  if (query.projection_state(query.ticket()).invalid_model)
+    return {session::QuerySolveStatus::InvalidModel, 0};
+  if (query.projection_state(query.ticket()).restore)
+    return {session::QuerySolveStatus::RestorationRequired, 0};
+  if (stop && *stop)
+    return {session::QuerySolveStatus::Interrupted, 0};
+  auto status = session::QuerySolveStatus::Complete;
+  const int result = solve_impl<true>(*k, stop, &query, &status, regions);
+  query.drain_learned(query.ticket(), stop);
+  if (!result && status == session::QuerySolveStatus::Complete)
+    status = stop && *stop ? session::QuerySolveStatus::Interrupted
+                          : session::QuerySolveStatus::Unknown;
+  return {status, result};
+}
+
+template <bool Query>
+int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
+                              session::QueryKernel *query,
+                              session::QuerySolveStatus *query_status,
+                              strategy::RegionProgram *regions) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
+  if constexpr (Query) pose_query_programs(config_);
   // The policy selects an initial subset of substitution/elimination choices;
   // standalone explicit rule applications keep their complete action surface.
   struct InitialRetention {
@@ -4353,10 +4420,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   // Explicit public root work precedes elimination and uses the same native
   // publication as other default actions. No region state exists by default.
   if (regions) {
-    if (regions->run() == ApplyResult::Unsat) {
+    struct RegionStop { session::QueryKernel *query; volatile sig_atomic_t *stop; };
+    RegionStop state{query, stop};
+    const auto poll = [](void *context) {
+      auto &state = *static_cast<RegionStop *>(context);
+      return state.query->poll_terminate(state.stop);
+    };
+    if (regions->run(Query ? +poll : nullptr, &state) == ApplyResult::Unsat) {
       retention.release(); feedback.finish(20, StopReason::Unsat); return 20;
     }
-    if (regions->pending()) {
+    if constexpr (Query) query->poll_terminate(stop);
+    if (regions->pending() || (stop && *stop)) {
       progress_.finish(k, 0);
       feedback.finish(0, StopReason::Interrupted);
       return 0;
@@ -4484,6 +4558,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
 #endif
   event_trace.macro(k, "startup_begin");
   auto finish = [&](int verdict) {
+    if constexpr (Query) {
+      if (query->projection_state(query->ticket()).restore)
+        *query_status = session::QuerySolveStatus::RestorationRequired;
+      if (query->projection_state(query->ticket()).invalid_model)
+        *query_status = session::QuerySolveStatus::InvalidModel;
+      if (*query_status != session::QuerySolveStatus::Complete) verdict = 0;
+    }
     if (verdict) retention.release();
     progress_.finish(k, verdict);
     // These source/proof hook costs overlap ordinary structural actions and
@@ -4504,6 +4585,222 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
                                             : StopReason::Interrupted);
     return verdict;
   };
+
+  if constexpr (Query) {
+    if(query->poll_terminate(stop))return finish(0);
+  }
+
+  const auto query_restart = [&](const char *reason) {
+    return port::complete_action(completion_, FeedbackKind::Support,
+        "Restart", INSTANCE_CANONICAL, [&] { return support_feedback(reason); }, [&] {
+          return port::execute_action(k, execution::RestartRequest{
+              0, execution::RestartPurpose::Preparation});
+        });
+  };
+
+  // Early model constructors choose ordinary decisions. Rejecting a model
+  // that misses A returns through the shared root transition, then continues
+  // this strategy's existing startup/search schedule. It does not rerun a
+  // different strategy. The ordinary specialization compiles this away.
+  const auto accept_model = [&](bool may_reject = true) {
+    if constexpr (!Query) return true;
+    else {
+      const auto t = query->ticket();
+      if (query->projection_state(t).restore) {
+        *query_status = session::QuerySolveStatus::RestorationRequired;
+        return false;
+      }
+      const auto checked = query->check_model(t);
+      if (checked.status == session::ModelStatus::Valid) return true;
+      if (checked.status != session::ModelStatus::FalsifiedAssumption || !may_reject) {
+        *query_status = session::QuerySolveStatus::InvalidModel;
+        return false;
+      }
+      (void)query_restart("query-model-rejected");
+      k.model_extended = false;
+      k.model_values.clear();
+      return false;
+    }
+  };
+
+  // Query preflight and ordinary search execute one identical analysis
+  // transaction, including policy feedback, retiering and restart averages.
+  const auto analyze_conflict = [&] {
+    event_trace.conflict(k);
+    event_trace.detail(k, "analysis_begin", k.level);
+    event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
+                           mode.ticks_at_focus_entry, mode.count);
+    observe_decision_rate(k); // kissat: before the analysis, once per conflict
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace.detail(k, "reason_bump_delay_before",
+                       bump_reasons_delay_.count);
+    event_trace.detail(k, "reason_bump_rate_milli",
+                       static_cast<int64_t>(
+                           averages[k.h->stable].decision_rate.value * 1000));
+#endif
+    // The per-conflict payload, by value (gap plan Step 6): the public
+    // ANALYZE_TARGET_CHRONO instance.
+    execution::NativeConflictAnalysisRequest request;
+    request.bump_reason_limit = want_bump_reasons(k);
+    request.bump_reason_depth = config_.analysis.reason_depth;
+    request.target_mode = AnalysisTarget::Chrono;
+    request.retier_schedule = retier_;
+    assert(k.conflict_reuse_chrono_levels == chrono_levels);
+    event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
+    const uint64_t analysis_instance = ANALYZE_TARGET_CHRONO;
+    const uint64_t learned_before = k.stats.learned;
+    const uint64_t glue_sum_before = k.stats.learned_glue_sum;
+    const uint64_t backjumps_before = k.stats.backjumps;
+    const uint64_t br_rounds = k.stats.reason_bump_rounds;
+    const uint64_t br_aborted = k.stats.reason_bump_aborted;
+    const auto analysis = port::complete_action(
+        completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
+        [&] {
+          auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
+              analysis_instance, "native-target-chrono");
+          // The record names the request's whole payload: the profile with
+          // its bump fields, and the schedule it carries.
+          auto &profile = std::get<strategy::AnalyzeParameters>(
+              spec.description.invocation->parameters);
+          profile.bump_reason_limit = request.bump_reason_limit;
+          profile.bump_reason_depth = request.bump_reason_depth;
+          spec.description.description +=
+              ";retier=" + execution::retier_schedule_text(request.retier_schedule);
+          return spec;
+        }, [&] {
+      return port::execute_action(
+        k, request,
+        [&](auto &&apply) {
+          return default_direct_rule(
+              k, "ConflictAnalysis",
+              [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
+              apply);
+        },
+        [&](ApplyResult ar) -> uint32_t {
+          // Advice only traces; the policy's own updates read the completed
+          // transaction below.
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+          if (ar == ApplyResult::Unsat) {
+            event_trace.detail(k, "analysis_end", -1);
+          } else if (!k.pending.valid) {
+            event_trace.detail(k, "analysis_end", k.level);
+            event_trace_analysis_deletions(k);
+            event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
+                                   mode.ticks_at_focus_entry, mode.count);
+          } else {
+            event_trace.learned(k, k.pending.lits);
+            event_trace.detail(k, "analysis_tail_learned_emitted",
+                               k.pending.lits.size());
+            event_trace.detail(k, "analysis_tail_policy_updated",
+                               k.pending.glue);
+            const uint32_t chosen_back = k.level - 1;
+            event_trace.detail(
+                k, "analysis_tail_target",
+                chosen_back - k.pending.jump_level > chrono_levels
+                    ? chosen_back
+                    : k.pending.jump_level);
+          }
+#else
+          (void)ar;
+#endif
+          return 0;
+        });
+    }, [&](const execution::ConflictAnalysisExecutionResult &result,
+           strategy::controller::NativeActionDescription &description) {
+      // The realized target makes the native choice replayable as the
+      // public ConflictAnalysis instance (target clamped to [jump, level-1]).
+      // Conflict reuse and level-one unit batches end without Backjump at
+      // their own realized level.
+      if (result.backjumped)
+        description.description += ";target=" + std::to_string(result.target) +
+                                   ";jump=" + std::to_string(result.jump);
+      else if (result.result != ApplyResult::Unsat)
+        description.description += ";target=" + std::to_string(k.level) +
+                                   ";no-backjump=1";
+      description.description +=
+          ";retier-after=" + execution::retier_schedule_text(result.retier_schedule);
+      return strategy::controller::feedback_outcome(result.result);
+    });
+    retier_ = analysis.retier_schedule;
+    if (analysis.analysis == ApplyResult::Unsat)
+      return analysis;
+    // Post-transaction observation through public statistics only: a
+    // learned result (a backjumped clause, or a level-one unit batch, which
+    // Kissat observes as size one / glue zero, learn.c:120-130) feeds the
+    // glue averages and the reluctant clock; only a final learned clause
+    // (a counted backjump) reaches Kissat's DELAYING(bumpreasons) gate,
+    // never reuse or early exits.
+    const bool backjumped = k.stats.backjumps != backjumps_before;
+    assert(backjumped == analysis.backjumped);
+    if (k.stats.learned != learned_before) {
+      if (backjumped)
+        bump_reasons_delay_.reached_gate(
+            k.stats.reason_bump_rounds != br_rounds,
+            k.stats.reason_bump_aborted != br_aborted);
+      observe_glue(k, static_cast<uint32_t>(k.stats.learned_glue_sum -
+                                            glue_sum_before));
+      if (k.h->stable)
+        tick_reluctant(); // per learned clause (kissat learn.c)
+    }
+    assert(!backjumped || k.stats.learned == learned_before + 1);
+    return analysis;
+  };
+
+  const auto decide_query_assumption = [&](const session::AssumptionStep &next) {
+    const Lit literal = kernel_internalize(k, next.literal);
+    return port::complete_action(completion_, FeedbackKind::SearchService,
+        "Decide", lit_instance(k, literal), [&] {
+          return execution::native_rule_feedback(k, "Decide",
+              lit_instance(k, literal), "query-assumption="+std::to_string(next.index));
+        }, [&] {
+          return port::execute_action(k, execution::DecisionRequest{literal});
+        });
+  };
+
+  if constexpr (Query) {
+    // A contradictory cube needs no startup simplification. Try its ordinary
+    // decisions/propagation/analysis first, without an independent SAT engine
+    // or assumptions inserted as permanent units. A surviving query rewinds
+    // to root and retains every configured startup/inprocessing opportunity.
+    const auto ticket = query->ticket();
+    if (!query->effective_assumptions(ticket).empty()) {
+      for (;;) {
+        if (query->poll_terminate(stop)) return finish(0);
+        const auto next = query->next_assumption(ticket);
+        if (next.status == session::AssumptionStatus::BaseUnsat) return finish(20);
+        if (next.status == session::AssumptionStatus::QueryUnsat) {
+          if (!query->publish_assumption_refutation(ticket)) {
+            *query_status = session::QuerySolveStatus::ProofFailure;
+            return finish(0);
+          }
+          return finish(20);
+        }
+        if (next.status == session::AssumptionStatus::Restore) {
+          *query_status = session::QuerySolveStatus::RestorationRequired;
+          return finish(0);
+        }
+        auto boundary = next.status;
+        if (boundary == session::AssumptionStatus::Propagate) {
+          const auto propagated = default_propagate(k, "query-preflight", completion_);
+          if (propagated == ApplyResult::Ok) continue;
+          if (propagated == ApplyResult::Unsat) return finish(20);
+          if (propagated != ApplyResult::Conflict) break;
+          boundary = session::AssumptionStatus::Analyze;
+        }
+        if (boundary == session::AssumptionStatus::Analyze) {
+          if (!discharge_affine_reason(k)) return finish(0);
+          default_branching_.on_search_propagation_conflict();
+          const auto analyzed = analyze_conflict();
+          if (analyzed.analysis == ApplyResult::Unsat) return finish(20);
+          continue;
+        }
+        if (next.status != session::AssumptionStatus::Decide) break;
+        if (decide_query_assumption(next) != ApplyResult::Ok) break;
+      }
+      if (k.level || k.conflict_valid)
+        (void)query_restart("query-preflight-rewind");
+    }
+  }
 
   // Kissat's `search_ticks` is charged only by the ordinary CDCL search
   // propagator.  Startup propagation, both Lucky trials, sparse root collection,
@@ -4558,7 +4855,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
             k, lucky_trace, "signed-cardinality-proof",
             "signed_cardinality_proof_begin",
             "signed_cardinality_proof_end", ApplyResult::Unsat,
-            completion_))
+            completion_, accept_model))
       return finish(verdict);
   // Signed at-most-one block exact cover (the sgen owner): exact recognition
   // on the live clause set, then bounded search and whole-formula model check.
@@ -4566,7 +4863,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     const ApplyResult cover =
         default_lucky_opportunity<LuckyOpportunity::ExactCover>(
             k, "exact-cover-model", completion_);
-    if (cover == ApplyResult::Sat)
+    if (cover == ApplyResult::Sat && accept_model())
       return finish(10);
   }
   // Independent set under a layered exact-count encoding: construct and
@@ -4576,13 +4873,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     const ApplyResult independent =
         default_lucky_opportunity<LuckyOpportunity::IndependentSet>(
             k, "independent-set-model", completion_);
-    if (independent == ApplyResult::Sat)
+    if (independent == ApplyResult::Sat && accept_model())
       return finish(10);
   }
   if (config_.stconn_proof.enabled && stconn_proof_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Stconn>(
             k, lucky_trace, "stconn-proof", "stconn_proof_begin",
-            "stconn_proof_end", ApplyResult::Unsat, completion_))
+            "stconn_proof_end", ApplyResult::Unsat, completion_, accept_model))
       return finish(verdict);
   // The LymphoSAT Oddball owner constructs balanced ternary signatures at the
   // untouched imported root. A complete candidate is checked against the
@@ -4593,7 +4890,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::BalancedSignature>(
             k, lucky_trace, "balanced-signature-model",
             "balanced_signature_model_begin", "balanced_signature_model_end",
-            ApplyResult::Sat, completion_))
+            ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   // SAT-only LymphoSAT owners retain their bounded theory-specific model
   // constructors. Every completed assignment is checked against the whole live
@@ -4601,35 +4898,35 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (config_.fermat_model.enabled && fermat_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Fermat>(
             k, lucky_trace, "fermat-model", "fermat_model_begin",
-            "fermat_model_end", ApplyResult::Sat, completion_))
+            "fermat_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   if (config_.cerny_model.enabled && cerny_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Cerny>(
             k, lucky_trace, "cerny-model", "cerny_model_begin",
-            "cerny_model_end", ApplyResult::Sat, completion_))
+            "cerny_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   if (config_.lookup_circuit_model.enabled && lookup_circuit_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::LookupCircuit>(
             k, lucky_trace, "lookup-circuit-model",
             "lookup_circuit_model_begin", "lookup_circuit_model_end",
-            ApplyResult::Sat, completion_))
+            ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   if (config_.simon_model.enabled && simon_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Simon>(
             k, lucky_trace, "simon-model", "simon_model_begin",
-            "simon_model_end", ApplyResult::Sat, completion_))
+            "simon_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   // The proof-only parity action keeps the constructor's exact recognizer and
   // certificate path without entering its private assignment search.
   if (parity_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::ParityProof>(
             k, lucky_trace, "parity-proof", "parity_proof_begin",
-            "parity_proof_end", ApplyResult::Unsat, completion_))
+            "parity_proof_end", ApplyResult::Unsat, completion_, accept_model))
       return finish(verdict);
   if (config_.parity_model.enabled && parity_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Parity>(
             k, lucky_trace, "parity-model", "parity_model_begin",
-            "parity_model_end", ApplyResult::Sat, completion_))
+            "parity_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   // The exact-one proof compares a complete live incidence system with the
   // parser's stable binary order. Run it while both still describe the same
@@ -4678,7 +4975,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     k.stats.structured_root_nanos += structured_elapsed;
     k.stats.inprocess_nanos += structured_elapsed;
     structured_root_grew_trail = k.trail.size() > structured_trail_before;
-    if (structured_result == 10 || structured_result == 20)
+    if (structured_result == 20 || (structured_result == 10 && accept_model()))
       return finish(structured_result);
     if ((stop && *stop) || (k.stop && *k.stop))
       return finish(0);
@@ -4731,7 +5028,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (config_.onehot_model.enabled && onehot_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::DirectCsp>(
             k, lucky_trace, "direct-csp-model", "direct_csp_model_begin",
-            "direct_csp_model_end", ApplyResult::Sat, completion_))
+            "direct_csp_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   if (k.input_binary_order_captured)
     default_support_request(k, completion_, "ReleaseInputBinaryOrder",
@@ -4747,7 +5044,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     calls++;
     const ApplyResult lucky = default_lucky(k, candidate, completion_);
     const int verdict = lucky == ApplyResult::Unsat ? 20
-                        : lucky == ApplyResult::Sat ? 10 : 0;
+                        : lucky == ApplyResult::Sat && accept_model() ? 10 : 0;
     if (verdict == 10 && sat)
       ++*sat;
     event_trace.macro(k, end,
@@ -4762,7 +5059,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (config_.onehot_model.enabled && onehot_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Onehot>(
             k, lucky_trace, "onehot-model", "onehot_model_begin",
-            "onehot_model_end", ApplyResult::Sat, completion_))
+            "onehot_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer
@@ -4860,7 +5157,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (!configuration_checking_preprocessing_deferred_ &&
       inprocess_.want_phase(k, SlotGroup::Probe)) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
-    if (phase_result == 10 || phase_result == 20) return finish(phase_result);
+    if (phase_result == 20 || (phase_result == 10 && accept_model())) return finish(phase_result);
   }
   if (!configuration_checking_preprocessing_deferred_ &&
       config_.inprocess.initial_fast_elimination) {
@@ -4869,7 +5166,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
         inprocess_.run_initial_fast_elimination(
             k, stop, completion_, inprocess_.structured_fastel_ownership());
     event_trace.macro(k, "initial_fast_eliminate_end");
-    if (phase_result == 10 || phase_result == 20)
+    if (phase_result == 20 || (phase_result == 10 && accept_model()))
       return finish(phase_result);
   }
   event_trace.macro(k, "preprocess_end");
@@ -4893,7 +5190,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   if (config_.graph_labeling_model.enabled &&
       k.graph_labeling_session.authenticated()) {
     const auto graph = run_graph_labeling(k);
-    if (graph.status == GraphLabelingSliceStatus::Sat)
+    if (graph.status == GraphLabelingSliceStatus::Sat && accept_model())
       return finish(10);
   }
   retention.release();
@@ -4957,6 +5254,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
   feedback.resume(IntervalStart::ResumeSearch, "native-start-search");
 
   for (;;) {
+    if constexpr (Query) {
+      query->drain_learned(query->ticket(), stop);
+      if(query->poll_terminate(stop)) {
+        if(!discharge_affine_reason(k))return finish(0);
+        return finish(0);
+      }
+    }
     event_trace.checkpoint(k);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (k.propagate_head < k.trail.size()) {
@@ -4975,123 +5279,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     if (r == ApplyResult::Conflict) {
       if (!discharge_affine_reason(k)) return finish(0);
       default_branching_.on_search_propagation_conflict();
-      event_trace.conflict(k);
-      event_trace.detail(k, "analysis_begin", k.level);
-      event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
-                             mode.ticks_at_focus_entry, mode.count);
-      observe_decision_rate(k); // kissat: before the analysis, once per conflict
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      event_trace.detail(k, "reason_bump_delay_before",
-                         bump_reasons_delay_.count);
-      event_trace.detail(k, "reason_bump_rate_milli",
-                         static_cast<int64_t>(
-                             averages[k.h->stable].decision_rate.value * 1000));
-#endif
-      // The per-conflict payload, by value (gap plan Step 6): the public
-      // ANALYZE_TARGET_CHRONO instance.
-      execution::NativeConflictAnalysisRequest request;
-      request.bump_reason_limit = want_bump_reasons(k);
-      request.bump_reason_depth = config_.analysis.reason_depth;
-      request.target_mode = AnalysisTarget::Chrono;
-      request.retier_schedule = retier_;
-      assert(k.conflict_reuse_chrono_levels == chrono_levels);
-      event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
-      const uint64_t analysis_instance = ANALYZE_TARGET_CHRONO;
-      const uint64_t learned_before = k.stats.learned;
-      const uint64_t glue_sum_before = k.stats.learned_glue_sum;
-      const uint64_t backjumps_before = k.stats.backjumps;
-      const uint64_t br_rounds = k.stats.reason_bump_rounds;
-      const uint64_t br_aborted = k.stats.reason_bump_aborted;
-      const auto analysis = port::complete_action(
-          completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
-          [&] {
-            auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
-                analysis_instance, "native-target-chrono");
-            // The record names the request's whole payload: the profile with
-            // its bump fields, and the schedule it carries.
-            auto &profile = std::get<strategy::AnalyzeParameters>(
-                spec.description.invocation->parameters);
-            profile.bump_reason_limit = request.bump_reason_limit;
-            profile.bump_reason_depth = request.bump_reason_depth;
-            spec.description.description +=
-                ";retier=" + execution::retier_schedule_text(request.retier_schedule);
-            return spec;
-          }, [&] {
-        return port::execute_action(
-          k, request,
-          [&](auto &&apply) {
-            return default_direct_rule(
-                k, "ConflictAnalysis",
-                [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
-                apply);
-          },
-          [&](ApplyResult ar) -> uint32_t {
-            // Advice only traces; the policy's own updates read the completed
-            // transaction below.
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-            if (ar == ApplyResult::Unsat) {
-              event_trace.detail(k, "analysis_end", -1);
-            } else if (!k.pending.valid) {
-              event_trace.detail(k, "analysis_end", k.level);
-              event_trace_analysis_deletions(k);
-              event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
-                                     mode.ticks_at_focus_entry, mode.count);
-            } else {
-              event_trace.learned(k, k.pending.lits);
-              event_trace.detail(k, "analysis_tail_learned_emitted",
-                                 k.pending.lits.size());
-              event_trace.detail(k, "analysis_tail_policy_updated",
-                                 k.pending.glue);
-              const uint32_t chosen_back = k.level - 1;
-              event_trace.detail(
-                  k, "analysis_tail_target",
-                  chosen_back - k.pending.jump_level > chrono_levels
-                      ? chosen_back
-                      : k.pending.jump_level);
-            }
-#else
-            (void)ar;
-#endif
-            return 0;
-          });
-      }, [&](const execution::ConflictAnalysisExecutionResult &result,
-             strategy::controller::NativeActionDescription &description) {
-        // The realized target makes the native choice replayable as the
-        // public ConflictAnalysis instance (target clamped to [jump, level-1]).
-        // Conflict reuse and level-one unit batches end without Backjump at
-        // their own realized level.
-        if (result.backjumped)
-          description.description += ";target=" + std::to_string(result.target) +
-                                     ";jump=" + std::to_string(result.jump);
-        else if (result.result != ApplyResult::Unsat)
-          description.description += ";target=" + std::to_string(k.level) +
-                                     ";no-backjump=1";
-        description.description +=
-            ";retier-after=" + execution::retier_schedule_text(result.retier_schedule);
-        return strategy::controller::feedback_outcome(result.result);
-      });
-      retier_ = analysis.retier_schedule;
+      const auto analysis = analyze_conflict();
       if (analysis.analysis == ApplyResult::Unsat)
         return finish(20);
-      // Post-transaction observation through public statistics only: a
-      // learned result (a backjumped clause, or a level-one unit batch, which
-      // Kissat observes as size one / glue zero, learn.c:120-130) feeds the
-      // glue averages and the reluctant clock; only a final learned clause
-      // (a counted backjump) reaches Kissat's DELAYING(bumpreasons) gate,
-      // never reuse or early exits.
-      const bool backjumped = k.stats.backjumps != backjumps_before;
-      assert(backjumped == analysis.backjumped);
-      if (k.stats.learned != learned_before) {
-        if (backjumped)
-          bump_reasons_delay_.reached_gate(
-              k.stats.reason_bump_rounds != br_rounds,
-              k.stats.reason_bump_aborted != br_aborted);
-        observe_glue(k, static_cast<uint32_t>(k.stats.learned_glue_sum -
-                                              glue_sum_before));
-        if (k.h->stable)
-          tick_reluctant(); // per learned clause (kissat learn.c)
-      }
-      assert(!backjumped || k.stats.learned == learned_before + 1);
+      const bool backjumped = analysis.backjumped;
       if (!backjumped)
         continue;
       event_trace.detail(k, "analysis_tail_backjump_return", k.level);
@@ -5103,6 +5294,34 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                              mode.ticks_at_focus_entry, mode.count);
       continue;
+    }
+    if constexpr (Query) {
+      const auto t = query->ticket();
+      const auto next = query->next_assumption(t);
+      switch (next.status) {
+      case session::AssumptionStatus::QueryUnsat:
+        if (!query->publish_assumption_refutation(t)) {
+          *query_status = session::QuerySolveStatus::ProofFailure;
+          return finish(0);
+        }
+        return finish(20);
+      case session::AssumptionStatus::BaseUnsat: return finish(20);
+      case session::AssumptionStatus::Restore:
+        *query_status = session::QuerySolveStatus::RestorationRequired;
+        return finish(0);
+      case session::AssumptionStatus::Backtrack:
+        (void)query_restart("reinstall-query-assumptions");
+        continue;
+      case session::AssumptionStatus::Decide:
+        (void)decide_query_assumption(next);
+        continue;
+      case session::AssumptionStatus::Propagate:
+      case session::AssumptionStatus::Analyze: continue;
+      case session::AssumptionStatus::Ready: break;
+      default:
+        *query_status = session::QuerySolveStatus::InvalidState;
+        return finish(0);
+      }
     }
     // The retained matrix observes a completed Boolean propagation prefix.
     // A published conditional reason re-arms ordinary watched propagation,
@@ -5117,6 +5336,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
     }
     if (k.unassigned_active == 0) {
       if (!discharge_affine_reason(k)) return finish(0);
+      if (!accept_model(false)) return finish(0);
       return finish(10);
     }
     // One preflighted reason debt may span ordinary decisions.  The public
@@ -5282,11 +5502,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
         static const RuleVTable &switch_mode = registered_rule("SwitchMode");
         (void)port::apply_rule(switch_mode, k);
         mode.count++;
-        averages[k.h->stable].saved_decisions = k.stats.decisions;
-        if (k.h->stable) { // entering stable: fresh reluctant sequence
-          reluctant = {}; // kissat mode.c kissat_init_reluctant: the options
-          reluctant.wait = config_.restart.reluctant_period;
-        }
+        DefaultRestartControl::mode_entered(k, config_.restart);
         update_mode_limits(k);
         // Kissat mode.c calls `kissat_start_random_sequence` after every mode
         // transition.  It is a no-op on stable entry and starts (or continues)
@@ -5326,9 +5542,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
           heuristics_update_target_phases(k);
         static const RuleVTable &restart_rule = registered_rule("Restart");
         const ApplyResult restarted = port::apply_rule_instance(restart_rule, k, keep);
-        reluctant.trigger = false; // consumed (kissat reluctant.h)
-        if (!k.h->stable) // kissat restart.c: focused-only limit update
-          update_restart_limit(k);
+        DefaultRestartControl::restart_completed(k, config_.restart);
         return restarted;
       });
       feedback.end_interval(StopReason::Restart);
@@ -5352,7 +5566,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
           return finish(20);
         if (graph_labeling_due(k)) {
           const auto graph = run_graph_labeling(k);
-          if (graph.status == GraphLabelingSliceStatus::Sat)
+          if (graph.status == GraphLabelingSliceStatus::Sat && accept_model())
             return finish(10);
         }
       }
@@ -5458,7 +5672,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "probe_begin");
       feedback.end_interval(StopReason::RootPreparation);
       const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
-      if (phase_result == 10 || phase_result == 20) return finish(phase_result);
+      if (phase_result == 20 || (phase_result == 10 && accept_model())) return finish(phase_result);
       update_formula_classification(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-probe-search-continuation");
       event_trace.macro(k, "probe_end");
@@ -5469,7 +5683,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "eliminate_begin");
       feedback.end_interval(StopReason::RootPreparation);
       const int phase_result = inprocess_.run_phase(k, SlotGroup::Eliminate, stop, completion_);
-      if (phase_result == 10 || phase_result == 20) return finish(phase_result);
+      if (phase_result == 20 || (phase_result == 10 && accept_model())) return finish(phase_result);
       update_formula_classification(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-eliminate-search-continuation");
       event_trace.macro(k, "eliminate_end");
@@ -5853,8 +6067,15 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         // the persistent affine session's admitted support to BVE.
         if (lit_of_instance(k, payload, &candidate) &&
             var_of(candidate) < k.nvars &&
-            affine_support_protected(k, var_of(candidate)))
+            strategy::bve_affine_support_protected(k, var_of(candidate)))
           continue;
+        // Query scheduling preserves its live assumption interface. Explicit
+        // BVE instances remain available and the projection service records
+        // any required restoration; this is no rule guard or API restriction.
+        if (k.query_projection && lit_of_instance(k, payload, &candidate)) {
+          const Var external = k.internal_to_external[var_of(candidate)];
+          if (k.query_projection->constrains(external)) continue;
+        }
         // Resolvent generation can delete a newly satisfied large antecedent
         // and reinsert its still-active pivot before retiring it. Preserve
         // that physical ghost until pop, but do not apply/count BVE again.
@@ -6640,7 +6861,7 @@ int DefaultInprocessScheduler::run_structured_root(
         k.stats.sr_nonforcing_cuts_declined > nonforcing_cuts_before);
     auto &telem = structured_root.stages[index];
     ++telem.runs;
-    strategy::OnlineStrategySequence executor;
+    port::OnlineStrategySequence executor;
     std::string error;
     if (!executor.configure(stage, 1,
                             strategy::ReconfigureMode::ResetRuntime, &error)) {

@@ -110,6 +110,30 @@ void decide_both(tactix_c_handle *a, tactix_c_handle *b, int count) {
   }
 }
 
+void test_pending_root_collection() {
+  tactix_c_handle *pub = load(), *nat = load();
+  Kernel &p = kernel(pub), &n = kernel(nat);
+  // Replay/retraction can reopen an existing root prefix without changing
+  // its facts. Reproduce that valid cursor state on both sides.
+  assert(!p.trail.empty());
+  p.propagate_head = n.propagate_head = 0;
+  assert(!p.level && !kernel_propagation_fixpoint(p));
+  const int collected = tactix_support(pub, TACTIX_SUPPORT_SPARSE_COLLECT, 0);
+  const auto native = execution::execute_action(n, execution::SparseCollectRequest{});
+  assert(collected == (native == RootCollectOutcome::Refuted ? 20
+                       : native == RootCollectOutcome::Unit ? 2
+                       : native == RootCollectOutcome::NoChange ? 1 : 0));
+  same(p, n);
+  if (collected != 20) {
+    const auto propagated = native_propagate(n);
+    assert(tactix_apply(pub, tactix_rule_id("Propagate")) ==
+           (propagated == ApplyResult::Unsat ? 20 : 0));
+    same(p, n);
+  }
+  tactix_release(pub);
+  tactix_release(nat);
+}
+
 void test_twins() {
   tactix_c_handle *pub = load(), *nat = load();
   Kernel &p = kernel(pub), &n = kernel(nat);
@@ -286,6 +310,82 @@ void test_reseed() {
 
 // The phase bracket: the public session against DefaultPolicy's shared
 // bracket with its default Factor selection, H publication and Propagate.
+void test_terminal_probe_bracket() {
+  auto *s = tactix_init();
+  assert(s);
+  for (int literal : {1, 2, 0}) tactix_add(s, literal);
+  assert(tactix_status(s) == 0);
+  assert(tactix_support(s, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, 0) == 0);
+  assert(tactix_decide(s, 1) == 0);
+  assert(tactix_apply(s, tactix_rule_id("Propagate")) == 0);
+  auto &k = api_detail::kernel_for_fixed_testing(s);
+  assert(k.level == 1 && k.unassigned_active == 1);
+  assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == -1);
+  assert(k.inprocessing && k.factor_selection);
+  assert(tactix_decide(s, 2) == 0);
+  assert(tactix_apply(s, tactix_rule_id("Propagate")) == 0);
+  assert(tactix_status(s) == 10 && k.level == 2);
+  assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == 0);
+  assert(k.level == 2 && !k.inprocessing && !k.factor_selection && !k.dense);
+  assert(tactix_status(s) == 10 && tactix_value(s, 1) > 0 && tactix_value(s, 2) > 0);
+  tactix_release(s);
+}
+
+void test_foreign_occurrence_owner() {
+  auto *s = tactix_init();
+  assert(s);
+  for (int literal : {1, 2, 3, 0}) tactix_add(s, literal);
+  assert(tactix_status(s) == 0);
+  assert(tactix_support(s, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, 0) == 0);
+  auto &k = api_detail::kernel_for_fixed_testing(s);
+  OccIndex foreign;
+  {
+    execution::OccurrenceSession session(k, execution::OccurrenceSessionRequest{
+        foreign, execution::OccurrenceAttachment::Build, false});
+    assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == -1);
+    assert(tactix_solve(s) == 0);
+    assert(k.dense == &foreign && k.inprocessing);
+  }
+  assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == 0);
+  assert(!k.dense && !k.inprocessing && k.large_watches_connected);
+  assert(tactix_solve(s) == 10);
+  assert(tactix_value(s, 1) > 0 || tactix_value(s, 2) > 0 || tactix_value(s, 3) > 0);
+  tactix_release(s);
+}
+
+void test_solve_unopened_eliminate() {
+  for (bool unsat : {false, true}) for (bool nested : {false, true}) {
+    auto *s = tactix_init();
+    assert(s);
+    for (unsigned mask = 0; mask < (unsat ? 8u : 7u); ++mask) {
+      for (int v = 1; v <= 3; ++v) tactix_add(s, (mask & (1u << (v - 1))) ? v : -v);
+      tactix_add(s, 0);
+    }
+    assert(tactix_status(s) == 0);
+    auto &k = api_detail::kernel_for_fixed_testing(s);
+    assert(tactix_support(s, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, TACTIX_PHASE_ELIMINATE) == 0);
+    assert(!k.large_watches_connected && !k.dense);
+    if (nested) {
+      assert(tactix_support(s, TACTIX_SUPPORT_ENTER_CONTEXT, TACTIX_CONTEXT_SPECULATION) == 0);
+      assert(tactix_solve(s) == 0);
+      assert(k.inprocessing && !k.large_watches_connected);
+      assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_CONTEXT, 0) == 0);
+    }
+    assert(tactix_solve(s) == (unsat ? 20 : 10));
+    assert(k.large_watches_connected && !k.dense && !k.inprocessing && !k.factor_selection);
+    if (!unsat)
+      for (unsigned mask = 0; mask < 7; ++mask) {
+        bool satisfied = false;
+        for (int v = 1; v <= 3; ++v) {
+          const int literal = (mask & (1u << (v - 1))) ? v : -v;
+          satisfied |= tactix_value(s, literal) == literal;
+        }
+        assert(satisfied);
+      }
+    tactix_release(s);
+  }
+}
+
 void test_phase_bracket() {
   tactix_c_handle *pub = load(), *nat = load();
   Kernel &p = kernel(pub), &n = kernel(nat);
@@ -408,6 +508,22 @@ void test_complete_sr_profile() {
 
 } // namespace
 
+void test_open_input_observations() {
+  auto *s = tactix_init(); assert(s);
+  for (int literal : {1, 2, 3}) tactix_add(s, literal);
+  Kernel &k = api_detail::kernel_for_fixed_testing(s);
+  const auto vars = k.nvars, trail = static_cast<uint32_t>(k.trail.size());
+  for (unsigned i = 0; i < 3; ++i) {
+    assert(tactix_stat(s, TACTIX_STAT_FACTOR_LITERALS_MARKED) == k.factor_literals_marked);
+    assert(tactix_stat(s, TACTIX_STAT_FACTOR_COMPLETED) == k.factor_completed);
+    assert(tactix_stat(s, TACTIX_STAT_ARENA_WORDS) == k.arena.size());
+  }
+  assert(k.nvars == vars && k.trail.size() == trail && k.arena.empty());
+  tactix_add(s, 0); assert(tactix_status(s) == 0 && !k.arena.empty());
+  assert(tactix_stat(s, TACTIX_STAT_ARENA_WORDS) == k.arena.size());
+  tactix_release(s);
+}
+
 void test_work_settings() {
   tactix_c_handle *s = load();
   Kernel &k = kernel(s);
@@ -431,15 +547,79 @@ void test_work_settings() {
          k.tick_sink == &k.stats.vivify_ticks);
   assert(tactix_install_tick_attribution(s, TACTIX_TICK_ATTRIBUTION_NONE) == 0 && !k.tick_sink);
   assert(k.strategy_epoch == epoch);
+  tactix_set_work_budget(s,77);
+  assert(k.strategy_epoch!=epoch);
+  tactix_release(s);
+}
+
+void test_native_scheduling_observations() {
+  auto *s = tactix_init();
+  assert(tactix_set_guidance_publication(s, TACTIX_GUIDANCE_NATIVE) == 0);
+  for (int v = 1; v < 5; ++v) {
+    tactix_add(s, -v); tactix_add(s, v + 1); tactix_add(s, 0);
+  }
+  assert(tactix_status(s) == 0);
+  assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 5);
+  assert(tactix_decide(s, 1) == 0);
+  assert(tactix_apply(s, tactix_rule_id("Propagate")) >= 0);
+  const auto search = tactix_stat(s, TACTIX_STAT_SEARCH_TICKS);
+  assert(search > 0 && tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 5);
+  assert(tactix_apply_instance(s, tactix_rule_id("Restart"), 0) >= 0);
+  assert(tactix_support(s, TACTIX_SUPPORT_ENTER_CONTEXT, TACTIX_CONTEXT_STARTUP) == 0);
+  const auto total = tactix_stat(s, TACTIX_STAT_TICKS);
+  assert(tactix_decide(s, 1) == 0);
+  assert(tactix_apply(s, tactix_rule_id("Propagate")) >= 0);
+  assert(tactix_stat(s, TACTIX_STAT_TICKS) > total);
+  assert(tactix_stat(s, TACTIX_STAT_SEARCH_TICKS) == search);
+  assert(tactix_apply_instance(s, tactix_rule_id("Restart"), 0) >= 0);
+  assert(tactix_support(s, TACTIX_SUPPORT_LEAVE_CONTEXT, 0) == 0);
+  assert(tactix_apply_instance(s, tactix_rule_id("BVE"), TACTIX_LIT_INSTANCE(1)) >= 0);
+  assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 4);
+  Kernel &k = kernel(s);
+  // Distinct diagnostic values pin units/swept independently of the existing
+  // equivalence statistic; observing them must not advance the solver.
+  k.stats.sweep_equivalences = 11; k.stats.sweep_units = 3; k.stats.sweep_swept = 17;
+  k.stats.learned_glue_sum = 23; k.stats.reason_bump_rounds = 7;
+  k.stats.reason_bump_aborted = 2;
+  k.stats.bve_marks = 13; k.subsume_material_count = 19;
+  const auto epoch = k.strategy_epoch, touch = k.touch_epoch;
+  const auto trail = k.trail;
+  for (unsigned repeat = 0; repeat != 3; ++repeat) {
+    assert(tactix_stat(s, TACTIX_STAT_SWEEP_EQUIVALENCES) == 11);
+    assert(tactix_stat(s, TACTIX_STAT_SWEEP_UNITS) == 3);
+    assert(tactix_stat(s, TACTIX_STAT_SWEEP_SWEPT) == 17);
+    assert(tactix_stat(s, TACTIX_STAT_LEARNED_GLUE_SUM) == 23);
+    assert(tactix_stat(s, TACTIX_STAT_REASON_BUMP_ROUNDS) == 7);
+    assert(tactix_stat(s, TACTIX_STAT_REASON_BUMP_ABORTED) == 2);
+    assert(tactix_stat(s, TACTIX_STAT_BVE_MARKS) == 13);
+    assert(tactix_stat(s, TACTIX_STAT_SUBSUME_MATERIAL) == 19);
+    assert(tactix_stat(s, TACTIX_STAT_SEARCH_TICKS) == search);
+    assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 4);
+  }
+  assert(k.strategy_epoch == epoch && k.touch_epoch == touch && k.trail == trail);
+  tactix_release(s);
+  s = tactix_init();
+  for (int v = 1; v < 5; ++v) {
+    tactix_add(s, -v); tactix_add(s, v + 1); tactix_add(s, 0);
+  }
+  tactix_add(s, 5); tactix_add(s, 0);
+  assert(tactix_status(s) == 0);
+  assert(tactix_stat(s, TACTIX_STAT_ACTIVE_VARIABLES) == 4);
   tactix_release(s);
 }
 
 int main() {
+  test_open_input_observations();
+  test_native_scheduling_observations();
+  test_pending_root_collection();
   test_twins();
   test_contexts();
   test_rejections();
   test_reseed();
   test_phase_bracket();
+  test_terminal_probe_bracket();
+  test_solve_unopened_eliminate();
+  test_foreign_occurrence_owner();
   test_complete_sr_profile();
   test_work_settings();
   return 0;

@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <functional>
+#include <filesystem>
 #include <set>
 #include <sstream>
 #include <string>
@@ -78,9 +79,9 @@ struct TemporaryDirectory {
   }
   std::string operator/(const char *name) const { return path + "/" + name; }
   ~TemporaryDirectory() {
-    for (const auto &name : entries())
-      std::remove((path + "/" + name).c_str());
-    rmdir(path.c_str());
+    std::error_code error;
+    std::filesystem::remove_all(path,error);
+    assert(!error);
   }
 };
 
@@ -1241,6 +1242,10 @@ void conversion_at_every_point() {
 }
 
 int main() {
+  // Failure tests deliberately abort or _exit in children. Their local
+  // destructors cannot run; the parent owns their entire temporary tree.
+  TemporaryDirectory temporary;
+  assert(!setenv("TMPDIR",temporary.path.c_str(),1));
   no_trigger_selects_dsr();
   startup_pb_keeps_pbp();
   sr_under_affine_support();

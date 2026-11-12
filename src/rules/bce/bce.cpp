@@ -1,9 +1,11 @@
 #include "rules/bce/bce.hpp"
 
 #include "proof/proof.hpp"
+#include "kernel/query_projection.hpp"
 #include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/support/flat_occurrence.hpp"
+#include "rules/support/root_occurrence_changes.hpp"
 
 #include <algorithm>
 #include <unordered_set>
@@ -41,9 +43,11 @@ struct BceIndex {
   FlatOccurrenceIndex occ;
 };
 
-void build_index(const Kernel &k, BceIndex &idx) {
+void build_index(const Kernel &k, BceIndex &idx,
+                 RootOccurrenceChanges *roots = nullptr) {
   std::vector<Ref> relevant;
   for (const auto [ref, c] : arena_records(k.arena)) {
+    if (roots) roots->note(c);
     if (root_clause_relevant(k, c))
       relevant.push_back(ref);
   }
@@ -187,6 +191,10 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
   for (const Lit lit : lits)
     if (lit != blocking)
       rest.push_back(lit);
+  const bool binary = choice.candidate.ref == INVALID_REF;
+  ScopedWeakeningCapture capture(k, WeakeningFamily::Bce, lits.data(),
+      static_cast<uint32_t>(lits.size()), blocking,
+      binary ? 0 : clause_at(k.arena, choice.candidate.ref)->id(), binary, binary);
   if (choice.candidate.ref == INVALID_REF) {
     if (!kernel_delete_binary_all_copies(k, blocking,
                                          choice.candidate.partner))
@@ -199,6 +207,7 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
   }
   kernel_push_witness(k, blocking, rest.data(),
                       static_cast<uint32_t>(rest.size()));
+  capture.commit();
   ++k.stats.bce_deleted;
   return ApplyResult::Ok;
 }
@@ -216,7 +225,8 @@ void bce_literals(const Kernel &k, std::vector<Lit> &out) {
 // O(nvars) fill per call, the per-call linear-scratch hazard.
 ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
                             std::vector<uint8_t> &marked,
-                            bool apply_occurrence_limit) {
+                            bool apply_occurrence_limit,
+                            bool *interrupted = nullptr) {
   if (!root_literal_open(k, blocking))
     return ApplyResult::NoOp;
   // Occurrence ceiling (Kernel::bce_occ_limit, cadical `blockocclim`): a
@@ -230,8 +240,13 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
       k.watches.binary_size(negate(blocking));
   if (apply_occurrence_limit && k.bce_occ_limit &&
       (candidate_occurrences > k.bce_occ_limit ||
-       opposite_occurrences > k.bce_occ_limit))
+       opposite_occurrences > k.bce_occ_limit)) {
+    if (k.touch_filter)
+      k.bce_rejected_occ_limit = k.bce_rejected_occ_limit
+          ? std::min(k.bce_rejected_occ_limit, k.bce_occ_limit)
+          : k.bce_occ_limit;
     return ApplyResult::NoOp;
+  }
   std::vector<Occ> cands, opposite;
   collect_occs(k, idx, blocking, Side::Cand, cands);
   collect_occs(k, idx, negate(blocking), Side::Opposite, opposite);
@@ -247,8 +262,10 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
     // leaving now costs only un-applied candidates. The deletions already
     // collected stay valid — they were tested against the full opposite side,
     // and deleting can only shrink it.
-    if (kernel_rule_interrupt(k, k.stats.bce_interrupted))
+    if (kernel_rule_interrupt(k, k.stats.bce_interrupted)) {
+      if (interrupted) *interrupted = true;
       break;
+    }
     lits.clear();
     if (co.ref == INVALID_REF) {
       lits.push_back(blocking);
@@ -274,14 +291,19 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   for (const Occ &b : blocked) {
     rest.clear();
     if (b.ref == INVALID_REF) {
-      // The primitive refuses a duplicated pair (two live copies sharing one
-      // binary_ids id; see transitive_reduce.hpp). Skip it, and push no
-      // witness: a witness for a clause still in the formula is not wrong, but
-      // it misstates what ρ contains.
+      // A preceding duplicate candidate may already have removed the whole
+      // pair. There is no new source to prepare for that stale index entry.
+      if (kernel_records_weakening(k) && !kernel_binary_live(k, blocking, b.partner))
+        continue;
+      const Lit clause[2] = {blocking, b.partner};
+      ScopedWeakeningCapture capture(k, WeakeningFamily::Bce, clause, 2,
+          blocking, 0, true, true);
+      // Failed deletion publishes neither a witness nor a weakening record.
       if (!kernel_delete_binary_all_copies(k, blocking, b.partner))
         continue;
       rest.push_back(b.partner);
       kernel_push_witness(k, blocking, rest.data(), 1);
+      capture.commit();
     } else {
       Clause *c = clause_at(k.arena, b.ref);
       if (c->garbage())
@@ -289,9 +311,12 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
       for (const Lit l : *c)
         if (l != blocking)
           rest.push_back(l);
+      ScopedWeakeningCapture capture(k, WeakeningFamily::Bce, c->lits, c->size,
+          blocking, c->id(), false);
       kernel_push_witness(k, blocking, rest.data(),
                           static_cast<uint32_t>(rest.size()));
       kernel_delete_clause(k, c);
+      capture.commit();
     }
     k.stats.bce_deleted++;
   }
@@ -311,10 +336,24 @@ ApplyResult bce_try(Kernel &k, Lit blocking) {
 }
 
 ApplyResult bce_apply(Kernel &k) {
+  if (k.bce_rejected_occ_limit &&
+      (!k.bce_occ_limit || k.bce_occ_limit > k.bce_rejected_occ_limit)) {
+    k.bce_touch_mark = k.bce_query_touch_mark = 0;
+    k.bce_rejected_occ_limit = 0;
+  }
   std::vector<Lit> lits;
   bce_literals(k, lits);
+  const size_t full_size = lits.size();
+  if (k.bce_preserve_query && k.query_projection)
+    std::erase_if(lits, [&](Lit literal) {
+      return !k.query_projection->preserves_constant(
+          kernel_external_lit(k, literal));
+    });
+  const bool complete_domain = lits.size() == full_size;
   BceIndex idx;
-  build_index(k, idx); // ONE arena pass for the whole round
+  RootOccurrenceChanges roots(k);
+  build_index(k, idx, &roots); // ONE arena pass for the whole round
+  roots.finish();
   std::vector<uint8_t> marked(2 * k.nvars, 0);
   bool any = false;
   // Budget-aware batch rule (EffortSpec budget_aware): the policy hands the
@@ -322,16 +361,27 @@ ApplyResult bce_apply(Kernel &k) {
   // mid-way rather than being metered after the fact (Vivify's idiom).
   const uint64_t tick_start = k.stats.bce_ticks;
   // Repetition filter over the touched-epoch substrate; cadical keeps a
-  // per-literal `block` flag with the same lifecycle (block.cpp:730-733). This
-  // is the one consumer that needs the DELETION side, which is why
-  // `Kernel::removed` exists as a second array: a clause becomes blocked on l
+  // per-literal `block` flag with the same lifecycle (block.cpp:730-733).
+  // BCE and CCE consume the DELETION side, which is why `Kernel::removed`
+  // exists as a second array: a clause becomes blocked on l
   // either because it appeared or because an opposite occurrence went away, and
   // filtering on adds alone drops the second case — the one BCE mostly lives
   // on. Stamps are per variable, coarser than cadical's polarity, which is
   // conservative. N1: `bce_literals` and `bce_try` stay complete.
   const bool filter = k.touch_filter;
+  const bool query_domain = filter && !complete_domain;
+  if (query_domain) {
+    const auto cube = k.query_projection->constraints();
+    if (!std::equal(cube.begin(), cube.end(), k.bce_query_cube.begin(),
+                    k.bce_query_cube.end())) {
+      k.bce_query_cube.assign(cube.begin(), cube.end());
+      k.bce_query_touch_mark = k.bce_touch_mark;
+    }
+  }
   const uint64_t snapshot = k.touch_epoch;
-  const uint64_t wm = k.bce_touch_mark;
+  const uint64_t wm = query_domain
+      ? std::max(k.bce_touch_mark, k.bce_query_touch_mark)
+      : k.bce_touch_mark;
   size_t stopped_at = lits.size();
   for (size_t li = 0; li < lits.size(); li++) {
     const Lit l = lits[li];
@@ -351,11 +401,17 @@ ApplyResult bce_apply(Kernel &k) {
       k.stats.bce_mark_skipped++;
       continue;
     }
+    bool interrupted = false;
     const ApplyResult r = bce_try_indexed(k, l, idx, marked,
-                                          /*apply_occurrence_limit=*/true);
+                                          /*apply_occurrence_limit=*/true,
+                                          &interrupted);
     if (r == ApplyResult::Unsat)
       return r;
     any |= (r == ApplyResult::Ok);
+    if (interrupted) {
+      stopped_at = li;
+      break;
+    }
   }
   // Resume: re-arm the literals the budget never reached, then advance the
   // watermark. This rule is budget-cut in practice (budget_aware, a 20 per
@@ -363,11 +419,13 @@ ApplyResult bce_apply(Kernel &k) {
   for (size_t li = filter ? stopped_at : lits.size(); li < lits.size(); li++) {
     if (!kernel_changed_since(k, var_of(lits[li]), wm))
       continue;
-    kernel_touch_var(k, var_of(lits[li]));
+    kernel_removed_var(k, var_of(lits[li]));
     k.stats.bce_rearmed++;
   }
-  if (filter)
-    k.bce_touch_mark = snapshot;
+  if (filter) {
+    if (query_domain) k.bce_query_touch_mark = snapshot;
+    else k.bce_touch_mark = snapshot;
+  }
   if (any)
     k.stats.bce_rounds++;
   return any ? ApplyResult::Ok : ApplyResult::NoOp;

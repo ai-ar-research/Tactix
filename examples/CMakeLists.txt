@@ -12,7 +12,7 @@ target_link_libraries(demo3_scripted_default PRIVATE m)
 # A competition-shaped external policy client. It intentionally includes only
 # the public C API: this is an embedding example, not a privileged core policy.
 add_executable(tactix-cruxmiter-policy cruxmiter_policy.c)
-target_link_libraries(tactix-cruxmiter-policy PRIVATE tactix_lib)
+target_link_libraries(tactix-cruxmiter-policy PRIVATE tactix_lib tactix_cruxmiter_program)
 
 # Dedicated benchmark-family policies implemented against the same frozen
 # public interface.  EEVBNN accepts both plain and gzip-compressed DIMACS.

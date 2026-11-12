@@ -403,7 +403,7 @@ static void bump_and_reset_analyzed(Kernel &k) {
   const Var ext_first = k.first_extension_var;
   auto count_bump = [&](Var v) {
     k.stats.bumps++;
-    if (v >= ext_first) {
+    if (v >= ext_first && kernel_is_solver_extension(k, v)) {
       k.stats.bumps_extension++;
       if (!(k.seen[v] & SEEN))
         k.stats.bumps_ext_reason_only++;
@@ -467,7 +467,7 @@ static bool mark_reason_side(Kernel &k, Lit m) {
   // Optional arm (Kernel::no_ext_reason_bump): withhold extension vars from
   // this channel only, so they rise on conflict-side evidence rather than on
   // being a BVA hub.
-  if (k.no_ext_reason_bump && v >= k.first_extension_var)
+  if (k.no_ext_reason_bump && v >= k.first_extension_var && kernel_is_solver_extension(k, v))
     return false;
   if (k.seen[v] & BUMPED)
     return false; // already in the bump set (kissat `a->analyzed`)
@@ -606,21 +606,22 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   // dropped root-false tail literals are not marked, and the large path does
   // not semantically delete the reason.  Binary OTFS does delete the old
   // reason, handled below after publishing the new binary.
-  if (reason_irredundant) {
+  if (reason_irredundant)
     kernel_mark_bve_retry(k, var_of(t));
-    kernel_removed_var(k, var_of(t));
+  kernel_removed_var(k, var_of(t));
+  if (reason_irredundant)
     kernel_notify_bve_score(k, var_of(t), true);
-  }
 
   if (binary) {
     kernel_add_binary_clause(k, lits[0], lits[1], id);
-    if (reason_irredundant)
-      for (const Lit old : *reason)
-        if (old != t) {
+    for (const Lit old : *reason)
+      if (old != t) {
+        if (reason_irredundant)
           kernel_mark_bve_retry(k, var_of(old));
-          kernel_removed_var(k, var_of(old));
+        kernel_removed_var(k, var_of(old));
+        if (reason_irredundant)
           kernel_notify_bve_score(k, var_of(old), true);
-        }
+      }
     k.conflict_ref = INVALID_REF;
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];

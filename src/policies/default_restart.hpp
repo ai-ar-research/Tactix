@@ -52,6 +52,27 @@ public:
     bool trigger = false;
   } reluctant;
 
+  void reset(const Kernel &k, const DefaultStrategyConfig::Restart &settings) {
+    averages[0] = averages[1] = {};
+    update_restart_limit(k, settings);
+    reluctant = {};
+    reluctant.wait = settings.reluctant_period;
+  }
+
+  void mode_entered(const Kernel &k, const DefaultStrategyConfig::Restart &settings) {
+    averages[k.h->stable].saved_decisions = k.stats.decisions;
+    if (k.h->stable) {
+      reluctant = {};
+      reluctant.wait = settings.reluctant_period;
+    }
+  }
+
+  void restart_completed(const Kernel &k,
+                         const DefaultStrategyConfig::Restart &settings) {
+    reluctant.trigger = false;
+    if (!k.h->stable) update_restart_limit(k, settings);
+  }
+
   void observe_glue(const Kernel &k, const DefaultStrategyConfig::Restart &settings,
                     uint32_t glue) {
     ModeAverages &avg = averages[k.h->stable];

@@ -139,6 +139,18 @@ for name, signature in (
 ):
     require(proof_cpp, signature, f"{name}_impl(", "dsr_copy_")
 
+# Logical derivation capture is separate from serializer-expanded populations
+# and remains present when the writer emits no bytes.
+for signature in (
+    "void Proof::add_rup(", "void Proof::add_rat(", "void Proof::add_empty(",
+    "void Proof::add_derived_unit(", "void Proof::del(",
+    "bool Proof::add_external_rup(", "bool Proof::add_external_rat(",
+    "bool Proof::del_external(", "void Proof::seed_population(",
+):
+    require(proof_cpp, signature, "observe_derivation(")
+require(proof_cpp, "bool Proof::add_sr(", "DerivationKind::SubstitutionRedundancy",
+        "event.mappings", "derivation_observer_->observe")
+
 # Solver-population authority. Physical mirror publication, arena collection,
 # watch pose, and variable compaction are intentionally absent: they do not
 # change the logical population.
@@ -213,8 +225,16 @@ if rule_binary_mutations != [(substitute_cpp, 2)]:
         "unclassified rule-side binary membership mutation: "
         f"{[(str(p.relative_to(root)), n) for p, n in rule_binary_mutations]}"
     )
-require(kernel_hpp, "inline void kernel_delete_clause(",
+require(kernel_hpp, "inline void kernel_delete_clause_impl(",
         "kernel_observe_solver_clause(")
+require(kernel_hpp, "inline void kernel_delete_clause(",
+        "kernel_delete_clause_impl(")
+require(kernel_hpp, "inline void kernel_discard_query_clause(",
+        "kernel_delete_clause_impl<true>(", "k.trail.empty()")
+require(kernel_cpp, "bool kernel_discard_query_binary_copies(",
+        "delete_binary_all_copies<false>(", "k.trail.empty()")
+require(kernel_cpp, "bool kernel_delete_binary_all_copies(",
+        "delete_binary_all_copies<true>(")
 require(kernel_hpp, "inline void kernel_assign_unit(",
         "kernel_observe_solver_clause(")
 require(kernel_cpp, "ReplaceOutcome kernel_replace_clause(",

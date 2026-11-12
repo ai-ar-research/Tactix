@@ -594,6 +594,14 @@ substitution_redundancy_apply_detailed_impl(
     if (!authenticate_unique_literal_amo(k, candidate))
       return finish(outcome,
                     SubstitutionRedundancyApplicationStatus::Inapplicable);
+    // The private generated query domain must be rechecked after live
+    // authentication, which may select the other RAT pivot. Explicit X7 and
+    // unrestricted generated discovery retain their ordinary rule surface.
+    if (parameters.graph_symmetry.pointwise_root_stabilizer &&
+        k.query_projection && !k.query_projection->preserves_constant(
+            kernel_external_lit(k, candidate.front())))
+      return finish(outcome,
+                    SubstitutionRedundancyApplicationStatus::Inapplicable);
   } else if (!parse_witness(k, candidate.front(), instance, witness, active))
     return outcome;
 
@@ -601,6 +609,17 @@ substitution_redundancy_apply_detailed_impl(
   // does not make its serialized payload malformed. Check after full syntax
   // validation so retirement never masks an invalid witness or literal.
   if (!active)
+    return finish(outcome,
+                  SubstitutionRedundancyApplicationStatus::Inapplicable);
+
+  // Generated tuples need not come from the colored graph's pointwise
+  // stabilizer. Honor their selected query domain at the final witness
+  // boundary, including uncertified tuples, before proof or native mutation.
+  // Explicit X7 and unrestricted generated requests keep their full surface.
+  if (accept_generated_certificate && !unique_literal_amo &&
+      parameters.graph_symmetry.pointwise_root_stabilizer &&
+      k.query_projection && !k.query_projection->preserves_restriction(
+          k, witness.constants, witness.images))
     return finish(outcome,
                   SubstitutionRedundancyApplicationStatus::Inapplicable);
 
@@ -709,6 +728,12 @@ substitution_redundancy_apply_detailed_impl(
     }
   }
 
+  k.projection_changed = true;
+  if (k.query_projection) {
+    if (certified_unique_literal_amo)
+      k.query_projection->restrict_constant(kernel_external_lit(k, candidate.front()));
+    else k.query_projection->restrict(k, witness.constants, witness.images);
+  }
   if (kept.empty()) {
     k.inconsistent = true;
     outcome.status = SubstitutionRedundancyApplicationStatus::Unsat;

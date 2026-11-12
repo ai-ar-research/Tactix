@@ -41,9 +41,11 @@ public:
   InprocessPhase &operator=(const InprocessPhase &) = delete;
   // An abandoned bracket restores the scopes it owns, as the native RAII
   // scopes did on an early return.
-  ~InprocessPhase() {
+  ~InprocessPhase() { abandon(); }
+  void abandon() {
     occurrences_.reset();
     if (kernel_) leave_execution_context(*kernel_, ExecutionContext::Inprocessing, context_);
+    kernel_ = nullptr;
   }
 
   bool open() const { return kernel_ != nullptr; }
@@ -71,7 +73,7 @@ public:
                                 index, OccurrenceAttachment::Build, eliminate_});
   }
 
-  // Exit after a structured-startup SAT terminal: no session was opened, so
+  // Exit after a structured-startup terminal: no session was opened, so
   // only the Factor handoff and the context are released.
   void exit_terminal(Kernel &k) {
     assert(open() && !occurrences_);

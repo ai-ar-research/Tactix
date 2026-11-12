@@ -22,18 +22,22 @@ def synthetic_route_hint(proof):
 class FuzzProofOracles(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.sandbox = tempfile.TemporaryDirectory(prefix='fuzz-proof-oracles-')
-        cls.addClassCleanup(cls.sandbox.cleanup)
-        cls.campaign = Path(cls.sandbox.name)
+        # Exercise the configured acceptance checkers on clean checkouts too;
+        # historical campaign directories are not part of the source tree.
+        fixture = tempfile.TemporaryDirectory(prefix='proof-oracle-checkers-')
+        cls.addClassCleanup(fixture.cleanup)
+        cls.campaign = Path(fixture.name)
         pins = cls.campaign/'pins'
         pins.mkdir()
         for name, source in {
-            'cake_lpr': fuzz.CAKE_LPR, 'drat-trim': fuzz.DRAT_TRIM,
+            'drat-trim': fuzz.DRAT_TRIM, 'lrat-check': fuzz.LRAT_CHECK,
             'dsr-trim': fuzz.DSR_TRIM, 'dsr-compress': fuzz.DSR_COMPRESS,
-            'srcheck': fuzz.SR_CHECK, 'veripb': fuzz.VERIPB,
-            'cake-pb-cnf': fuzz.CAKE_PB,
+            'srcheck': fuzz.SR_CHECK, 'cake_lpr': fuzz.CAKE_LPR,
+            'veripb': fuzz.VERIPB, 'cake-pb-cnf': fuzz.CAKE_PB,
         }.items():
-            shutil.copy2(source, pins/name)
+            target = Path(source).resolve(strict=True)
+            if not target.is_file(): raise RuntimeError('missing checker: '+str(target))
+            (pins/name).symlink_to(target)
 
     def test_pbp_leading_blanks_on_every_executing_surface(self):
         from proof_oracle import check_routed
@@ -447,14 +451,14 @@ class FuzzProofOracles(unittest.TestCase):
         self.assertFalse(self.fixture('p cnf 0 1\n0\n', '0\n', dsr=True).failures)
 
     def test_startup_pb_requires_both_pinned_checkers(self):
-        from proof_oracle import (certificate_route, check_routed,
+        from proof_oracle import (CAKE_LPR_ENVIRONMENT, certificate_route, check_routed,
                                   proof_check_status, pb_stages,
                                   stage_environment)
         pins = self.campaign/'pins'
         self.assertTrue((pins/'veripb').is_file())
         self.assertTrue((pins/'cake-pb-cnf').is_file())
         self.assertEqual(stage_environment('cake-pb-cnf')['CML_HEAP_SIZE'],
-                         '24576')
+                         CAKE_LPR_ENVIRONMENT['CML_HEAP_SIZE'])
         self.assertEqual(pb_stages('vp', 'cp', 'cnf', 'pbp', 'kernel'),
                          [('veripb', ['vp', '-u', '--cnf', '--elaborate',
                                       'kernel', 'cnf', 'pbp']),
@@ -725,9 +729,18 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertEqual(copied.read_text(), ascii_plain.read_text())
             self.assertEqual(oracle.drat_stages('DT', 'CL', 'c', 'p', 'l'),
                              [('drat-trim', ['DT', 'c', 'p', '-L', 'l']), ('cake_lpr', ['CL', 'c', 'l'])])
-            # the reference's checker amendment: cake_lpr runs with the 24576 MiB CakeML heap
-            self.assertEqual(oracle.stage_environment('cake_lpr')['CML_HEAP_SIZE'], '24576')
+            # The reference heap is capped on machines with less physical memory.
+            self.assertEqual(oracle.stage_environment('cake_lpr')['CML_HEAP_SIZE'],
+                             oracle.CAKE_LPR_ENVIRONMENT['CML_HEAP_SIZE'])
             self.assertNotIn('CML_HEAP_SIZE', {k: v for k, v in oracle.stage_environment('drat-trim').items() if k == 'CML_HEAP_SIZE' and v == '24576' and 'CML_HEAP_SIZE' not in __import__('os').environ})
+
+    def test_cake_heap_respects_physical_memory(self):
+        from proof_oracle import _cake_heap_mib
+        for pages, expected in ((4 * 1024**2, 12288), (16 * 1024**2, 24576)):
+            with patch('os.sysconf', side_effect=[4096, pages]):
+                self.assertEqual(_cake_heap_mib(), expected)
+        with patch('os.sysconf', side_effect=OSError):
+            self.assertEqual(_cake_heap_mib(), 24576)
 
     def test_routed_acceptance_runs_the_drat_owner_pipeline(self):
         sys.path.insert(0, str(ROOT/'tools/bench'))

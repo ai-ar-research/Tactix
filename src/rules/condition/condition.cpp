@@ -199,6 +199,12 @@ ApplyResult condition_commit(Kernel &k, const ConditionInstance &instance,
                              const ConditionPrepared &prepared) {
   const auto &clause = instance.clause;
   const auto &witness = instance.witness;
+  const bool binary = prepared.target == INVALID_REF;
+  ScopedWeakeningCapture capture(k, WeakeningFamily::Condition,
+      kernel_population_clause(k, clause.data(), clause.size()),
+      PopulationClauseView::internal_lits(witness.data(), witness.size()),
+      binary ? 0 : clause_at(k.arena, prepared.target)->id(), binary, binary,
+      uint64_t(clause.size()) + witness.size() + 3);
   if (prepared.target == INVALID_REF) {
     if (!kernel_delete_binary_all_copies(k, prepared.first, prepared.second))
       return ApplyResult::NoOp;
@@ -210,6 +216,7 @@ ApplyResult condition_commit(Kernel &k, const ConditionInstance &instance,
                            static_cast<uint32_t>(clause.size()),
                            witness.data(),
                            static_cast<uint32_t>(witness.size()));
+  capture.commit();
   return ApplyResult::Ok;
 }
 

@@ -145,8 +145,7 @@ cc -O2 -o my-strategy my_strategy.c $(pkg-config --cflags --libs tactix)
 ./my-strategy formula.cnf proof
 ```
 
-(A CMake project can use `find_package(Tactix)` and link `Tactix::tactix`
-instead; see [dev/install.md](dev/install.md).)
+A CMake project can use `find_package(Tactix)` and link `Tactix::tactix`.
 
 Check the answers as for the solver itself ([cli.md](cli.md)):
 
@@ -154,10 +153,6 @@ Check the answers as for the solver itself ([cli.md](cli.md)):
 python3 tools/bench/proof_oracle.py check formula.cnf proof   # unsatisfiable
 python3 tools/fuzz/checkmodel formula.cnf out.txt             # satisfiable, with the output saved in out.txt
 ```
-
-A strategy cannot produce a wrong answer by choosing badly: the solver
-refuses a rule that is not sound in the current state, and records every
-applied rule in the proof. A poor strategy is slow, or never finishes.
 
 ## 5. Settings for a single application
 
@@ -175,16 +170,11 @@ flips and total work. Walk is applicable only at its declared consistent root
 boundary with search heuristics attached, and does not rewrite the formula: it
 publishes a better assignment as search phases, while an exact assignment lets
 the following search close SAT.
-Configuration checking derives a flipped variable's neighbors lazily from the
-clause-occurrence table; it does not materialize the quadratic primal-graph
-clique of a wide clause.
-This makes it suitable as a bounded opening or between search epochs without
-creating a private strategy mechanism.
 
 ## Where to go next
 
 - [`examples/`](../examples/): more strategies, from CDCL without restarts
-  (`demo2_no_restarts.c`) to the built-in schedule written outside the library
+  (`demo2_no_restarts.c`) to the demo3 search scheduler
   (`demo3_scripted_default.c`).
 - [`include/tactix.h`](../include/tactix.h): the complete public interface and
   per-invocation online-program format.

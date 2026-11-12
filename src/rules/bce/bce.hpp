@@ -39,6 +39,6 @@ void bce_literals(const Kernel &, std::vector<Lit> &out);
 // vacuous, so BCE subsumes pure-literal elimination here. Within-rule scope
 // choices and the ledger rows: `docs/dev/implementation-notes.md` §1 (X1 row).
 ApplyResult bce_try(Kernel &, Lit blocking);
-ApplyResult bce_apply(Kernel &); // canonical: the full round
+ApplyResult bce_apply(Kernel &); // canonical: the profile-selected round
 
 } // namespace tactix

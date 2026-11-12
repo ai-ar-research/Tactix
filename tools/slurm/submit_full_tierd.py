@@ -139,10 +139,23 @@ def submit(campaign, array, round_dir=None):
     if re.search(r"^#SBATCH --(?:nodelist|constraint|exclude)", script, re.M):
         raise RuntimeError("unexpected node placement constraint")
     usage, source = read_usage("hwu")
-    if usage is None:
-        raise RuntimeError("home quota usage unavailable; cannot pass prelaunch storage gate")
-    if usage * 2**30 >= 700_000_000_000:
-        raise RuntimeError(f"prelaunch 700 GB storage gate failed: {usage:.1f} GiB via {source}")
+    repository = Path(__file__).resolve().parents[2]
+    scan_warnings = ""
+    try:
+        scan_output = subprocess.check_output(
+            ["du", "-s", "-B1", "--", str(repository)],
+            text=True, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as error:
+        if (error.returncode != 1 or not error.stderr or
+                any(not line.endswith("No such file or directory")
+                    for line in error.stderr.splitlines())):
+            raise
+        scan_output = error.output
+        scan_warnings = error.stderr.strip()
+    allocated_bytes = int(scan_output.split()[0])
+    if allocated_bytes >= 700_000_000_000:
+        raise RuntimeError(
+            f"prelaunch 700 GB repository storage gate failed: {allocated_bytes} bytes")
     if monitor.exists():
         raise RuntimeError(f"storage monitor already exists: {monitor}")
     monitor.mkdir()
@@ -186,6 +199,8 @@ exec python3 '{monitor}/quota_monitor.py' --dir '{monitor}' --interval 600 --job
               "submitted_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
               "manifest_sha256": sha256(campaign / "manifest.json"),
               "prelaunch_usage_gib": usage, "prelaunch_usage_source": source,
+              "prelaunch_repository_allocated_bytes": allocated_bytes,
+              "prelaunch_repository_scan_warnings": scan_warnings,
               "array_sbatch": str(array.relative_to(campaign)),
               "monitor_sbatch": str(batch.relative_to(campaign)),
               "task_count": len(indices), "partition": partition,

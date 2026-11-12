@@ -45,13 +45,14 @@ struct OnlineStrategyStage {
 // producer. Every application uses OnlineStrategyExecutor. Continuing discards
 // only that producer's pending scope and preserves its spent action budget;
 // interruption and stale/resource failures never skip a producer.
-class OnlineStrategySequence {
+template <class Executor = OnlineStrategyExecutor>
+class BasicOnlineStrategySequence {
   OnlineStrategyProgram program_;
   BudgetExhaustionPolicy exhaustion_ = BudgetExhaustionPolicy::Continue;
   bool configured_ = false;
   const Kernel *owner_ = nullptr;
   StateVersion expected_;
-  std::vector<OnlineStrategyExecutor> executors_;
+  std::vector<Executor> executors_;
   size_t current_ = 0;
   uint64_t rounds_ = 0;
   uint64_t revision_ = 0;
@@ -164,7 +165,7 @@ public:
     // Build every replacement before publishing any configuration change.
     // Stable step id, rule and work unit determine retained budget identity,
     // exactly as in the atomic executor. Reordering does not replenish it.
-    std::vector<OnlineStrategyExecutor> replacement(program.sequence.size());
+    std::vector<Executor> replacement(program.sequence.size());
     for (size_t i = 0; i < program.sequence.size(); ++i) {
       if (configured_ && mode == ReconfigureMode::RetainMatchingStepBudgets)
         for (size_t j = 0; j < program_.sequence.size(); ++j)
@@ -342,5 +343,6 @@ public:
   }
 };
 
+using OnlineStrategySequence = BasicOnlineStrategySequence<>;
 
 } // namespace tactix::strategy

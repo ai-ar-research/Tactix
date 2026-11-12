@@ -37,6 +37,7 @@ inline bool encode_step(const Kernel &k, const strategy::OnlineInvocation &in,
       !in.nary_csp_equality_transitivity_instances.empty() ||
       !in.nary_csp_equality_amo_instances.empty() ||
       !in.gf3_general_row_instances.empty() ||
+      !in.cardinality_search_instances.empty() ||
       !in.direct_csp_guarded_cover_instances.empty())
     return false; // payloads of later step versions
   tactix_online_step &c = out.step.base;

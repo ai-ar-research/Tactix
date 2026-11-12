@@ -6,6 +6,7 @@
 #include "policies/default_restart.hpp"
 #include "policies/policy.hpp"
 #include "strategy/policy_completion.hpp"
+#include "session/query_result.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include <optional>
@@ -15,6 +16,7 @@ namespace tactix {
 namespace strategy { class RegionProgram; }
 
 class EventTrace;
+namespace session { class QueryKernel; }
 
 struct FormulaClassification {
   bool small = false;
@@ -241,6 +243,8 @@ public:
   strategy::controller::Observation observe(const Kernel &) const;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
+  session::QuerySolveResult solve_query(session::QueryKernel &,
+      volatile sig_atomic_t *stop = nullptr, strategy::RegionProgram *regions = nullptr);
   int solve(Kernel &, volatile sig_atomic_t *stop, strategy::RegionProgram *);
   const DefaultAffineSearchDiagnostics &affine_search_diagnostics() const {
     return affine_search_diagnostics_;
@@ -350,6 +354,9 @@ private:
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
   void configure_from_env(const Kernel &);
+  template <bool Query>
+  int solve_impl(Kernel &, volatile sig_atomic_t *, session::QueryKernel *,
+                 session::QuerySolveStatus *, strategy::RegionProgram *);
   ProgressReport progress_; // -v progress lines; output only
   void observe_glue(const Kernel &, uint32_t);
   void observe_decision_rate(const Kernel &);

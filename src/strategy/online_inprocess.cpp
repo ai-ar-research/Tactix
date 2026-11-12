@@ -15,6 +15,7 @@
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
 #include "strategy/action_status_statistics.hpp"
+#include "strategy/action_execution.hpp"
 #include "strategy/rule_execution.hpp"
 #include "strategy/work_execution.hpp"
 #include "strategy/guidance_outcome.hpp"
@@ -2066,11 +2067,10 @@ InvocationResult OnlineStrategyExecutor::advance(
                     std::swap(reoriented.clause[0], reoriented.clause[1]);
                     instance = &reoriented;
                   }
+                  // The generated domain applies independently of optional
+                  // certificates; uncertified tuples still get full validation.
                   sr_application =
-                      enumerated_sr &&
-                              (instance->orbitopal_prefix_certificate ||
-                               instance->symmetry_chain_certificate ||
-                               instance->unique_literal_amo_certificate)
+                      enumerated_sr
                           ? substitution_redundancy_apply_orbitopal_prefix(
                                 k, *instance, parameters, stop)
                           : substitution_redundancy_apply_detailed(
@@ -2291,6 +2291,25 @@ InvocationResult OnlineStrategyExecutor::advance(
         out.selection_complete = false;
         out.budget_status = BudgetStatus::Ready;
         return out;
+      }
+    }
+    // A query-constrained model constructor may solve the live CNF while
+    // missing A. Keep rejection and root re-entry inside this executor's
+    // state-version transaction, then let the same sequence continue.
+    if (out.status == InvocationStatus::Sat && k.query_projection) {
+      const auto admission = k.query_projection->admit_model(k);
+      if (admission == QueryModelAdmission::Rejected) {
+        execution::execute_action(k, execution::RestartRequest{
+            0, execution::RestartPurpose::Preparation});
+        k.model_extended = false;
+        k.model_values.clear();
+        out.status = InvocationStatus::Completed;
+        out.rule_result = ApplyResult::Ok;
+        out.made_rule_progress = k.trail.size() > trail_before;
+      } else if (admission == QueryModelAdmission::Invalid ||
+                 admission == QueryModelAdmission::Restore) {
+        out.status = InvocationStatus::InvalidRequest;
+        out.selection_complete = false;
       }
     }
     // Keep the selected follow-up inside the same executor transaction.  A

@@ -17,7 +17,7 @@ public:
   bool valid_query(const RegionQuery &q) const { return session_.valid_query(q); }
   ApplyResult apply(const RegionQuery &q) { return session_.apply(q); }
   bool enqueue(const RegionQuery &);
-  ApplyResult run();
+  ApplyResult run(bool (*poll_stop)(void *) = nullptr, void *state = nullptr);
   size_t pending() const { return queries_.size() - cursor_; }
 };
 } // namespace tactix::strategy

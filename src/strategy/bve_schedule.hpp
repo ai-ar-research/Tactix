@@ -8,6 +8,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/bve/bve.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "rules/registry.hpp"
 
 #include <algorithm>
@@ -36,6 +37,14 @@ inline double kissat_bve_variable_score(double relevance, uint64_t positive,
 }
 
 namespace strategy {
+
+inline bool bve_affine_support_protected(const Kernel &kernel,Var variable) {
+  const auto *session=kernel.affine_matrix_search_session;
+  if(!session||!session->enabled()||!session->persistent())return false;
+  const auto &support=session->support();
+  return std::binary_search(support.begin(),support.end(),
+      kernel_externalize(kernel,make_lit(variable,false)));
+}
 
 // Kissat's elimination schedule is a mutable indexed max-heap.  It stores the
 // negated elimination score, inserts candidates in compact-variable order,
@@ -169,6 +178,7 @@ public:
   }
 
 private:
+  friend class BveOrdering;
   bool contains(Var v) const {
     return heap_.contains(v);
   }
@@ -262,6 +272,43 @@ private:
   std::vector<double> trace_last_score_;
   uint64_t pop_ordinal_ = 0;
   uint64_t pop_hash_ = 1469598103934665603ull;
+};
+
+// Shared mutable ordering mechanism. Native passes keep it connected; public
+// continuations connect only during explicitly selected atomic operations.
+class BveOrdering {
+public:
+  BveOrdering(Kernel &k,const uint64_t *instances,uint32_t count,bool connected=true)
+      :kernel_(k) {
+    assert(!k.bve_score_update_hook&&!k.bve_occurrence_count_image);
+    heap_.initialize(k,instances,count);
+    k.bve_score_update_hook=BveCandidateHeap::update_hook;
+    k.bve_score_update_state=&heap_;
+    connected_=true;
+    if(!connected)disconnect();
+  }
+  ~BveOrdering() {disconnect();}
+  BveOrdering(const BveOrdering &)=delete;
+  BveOrdering &operator=(const BveOrdering &)=delete;
+  bool empty() const {return heap_.empty();}
+  uint64_t next() {return heap_.pop_max();}
+  void connect() {
+    assert(!connected_&&!kernel_.bve_score_update_hook&&!kernel_.bve_occurrence_count_image);
+    kernel_.bve_occurrence_count_image=&heap_.occurrence_counts_;
+    kernel_.bve_score_update_hook=BveCandidateHeap::update_hook;
+    kernel_.bve_score_update_state=&heap_;connected_=true;
+  }
+  void disconnect() {
+    if(!connected_)return;
+    assert(kernel_.bve_score_update_state==&heap_&&
+        kernel_.bve_occurrence_count_image==&heap_.occurrence_counts_);
+    kernel_.bve_score_update_hook=nullptr;kernel_.bve_score_update_state=nullptr;
+    kernel_.bve_occurrence_count_image=nullptr;connected_=false;
+  }
+private:
+  Kernel &kernel_;
+  BveCandidateHeap heap_;
+  bool connected_=false;
 };
 
 } // namespace strategy

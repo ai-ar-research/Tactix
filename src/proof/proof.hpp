@@ -7,6 +7,8 @@
 #include "kernel/types.hpp"
 #include "proof/dsr_to_pbp.hpp"
 #include "population/population_observer.hpp"
+#include "proof/derivation_observer.hpp"
+#include "proof/parity_equation.hpp"
 
 #include <array>
 #include <compare>
@@ -31,6 +33,33 @@ struct DsrLiteralMapping {
   Lit to = INVALID_LIT;
 };
 
+struct QueryProofClause {
+  uint64_t id = 0;
+  std::span<const int32_t> literals;
+};
+
+struct QueryProofOwnedClause {
+  uint64_t id = 0;
+  std::vector<int32_t> literals;
+};
+
+// Cold native snapshot at a witnessed publication boundary. The provider owns
+// solver liveness; Proof separately authenticates every copied source.
+class QueryProofSources {
+public:
+  virtual ~QueryProofSources() = default;
+  virtual bool snapshot(std::vector<QueryProofOwnedClause> &,
+      std::vector<int32_t> &assumptions, uint32_t &extent) const = 0;
+};
+
+struct QueryProofLimits {
+  uint32_t variables = 0;
+  uint64_t clauses = 0, literals = 0, work = 0;
+};
+struct QueryProofSnapshot {
+  uint64_t generations = 0, work = 0;
+};
+
 // Preserve the semantic pivot override using an encoding shared by dsr-trim
 // and Trestle. Classify images relative to !C: an unmapped pivot is Direct,
 // a true image permits Repivot, all-false images permit Rup, one open image
@@ -44,23 +73,8 @@ struct DsrWitnessPlan {
   Lit lemma = INVALID_LIT; // Lemma: open image appended to the clause
 };
 
-// One already-authenticated complete XOR encoding, named only by its semantic
-// equation.  Streaming PBP turns the bounded CNF row into two persistent
-// cutting-planes bounds, then combines cached bounds for later live reasons.  Premise authentication and lifetime remain the caller's job.
-struct PbpParityEquation {
-  std::vector<int32_t> variables;
-  bool rhs = false;
-
-  friend bool operator==(const PbpParityEquation &,
-                         const PbpParityEquation &) = default;
-  friend std::strong_ordering operator<=>(const PbpParityEquation &first,
-                                           const PbpParityEquation &second) {
-    if (const auto order = first.variables <=> second.variables; order != 0)
-      return order;
-    return first.rhs <=> second.rhs;
-  }
-};
-
+// Bounds of an authenticated complete XOR encoding; source ownership remains
+// the caller's obligation in every certificate format.
 struct PbpParityBounds {
   uint64_t lower = 0;
   uint64_t upper = 0;
@@ -192,6 +206,13 @@ public:
   // action boundary the caller may commit a complete native PB refutation.
   // The first subsequent clausal event publishes the streaming-PBP header.
   void finish_input_transaction();
+  // Cold session admission: only a freshly opened search-facing writer can
+  // receive another exact query's input. No event counter is added to search.
+  bool accepts_query_input() const noexcept {
+    return stream_identity_ && input_transaction_ &&
+           !pbp_original_constraints_ && !pbp_derived_constraints_ &&
+           !population_observer_ && pending_units_.empty();
+  }
   bool startup_pb_available() const {
     return !input_transaction_ && streaming_pbp() && pbp_output_;
   }
@@ -205,6 +226,19 @@ public:
   // replayed input cannot name the live kernel's clauses by their ids (see
   // attach_replayed_input_proof).
   void disable_pbp_id_deletions() { abandon_pbp_id_deletions(7, 0); }
+  // Cold query-entry or witnessed-boundary isolation after input closes.
+  // Sources must be licensed in this stream. Native identities/IDs stay fixed.
+  static bool can_isolate_query(uint32_t extent);
+  void preserve_query_input_refutation();
+  bool isolate_query(std::span<const QueryProofClause>,
+                     std::span<const int32_t> assumptions, uint32_t extent);
+  uint32_t certificate_offset() const { return certificate_offset_; }
+  void enable_query_names();
+  void enable_query_certificates(const QueryProofSources &, QueryProofLimits,
+      std::span<const QueryProofClause> initial = {},
+      std::span<const int32_t> assumptions = {}, bool isolate_before_witness = false);
+  QueryProofSnapshot query_certificate_state() const;
+  uint32_t certificate_logical_extent() const { return external_variable_bound(); }
   // Published proof feature, used only to choose an independent final checker.
   // The runner also scans the finished certificate and rejects disagreement.
   const char *verification_route() const {
@@ -227,6 +261,11 @@ public:
     if (dsr_copy_)
       dsr_copy_->bind_external_variable_map(map);
   }
+  // Staged input may contain original names absent from the live kernel.
+  void reserve_external_variables(uint32_t extent) {
+    proof_external_max_ = std::max(proof_external_max_, extent);
+    if (dsr_copy_) dsr_copy_->reserve_external_variables(extent);
+  }
   void bind_population_observer(PopulationObserver *) noexcept;
   // Settle only a route whose bytes already have a committed destination.
   // An unpublished streaming-PBP prefix is incomplete until a clausal event
@@ -234,6 +273,10 @@ public:
   bool settle_population_observer() noexcept;
   PopulationObserver *population_observer() const noexcept {
     return population_observer_;
+  }
+  // Independent of checker population/format; the owner outlives this writer.
+  void bind_derivation_observer(DerivationObserver *observer) noexcept {
+    derivation_observer_ = observer;
   }
   // --- proof-delta vocabulary (subset live in phase 2) ---
   // add-RUP. Native DSR stages consecutive RUP units so a following deletion block can
@@ -331,6 +374,11 @@ public:
   void release_premise_groups(const std::vector<uint64_t> &, uint64_t line_id);
 
   void flush(); // signal-safe enough: fflush on the buffered stream
+  // Complete a query's automatic output selection before hashing/publication.
+  // SAT leaves the automatic DSR prefix pending until this boundary (ordinary
+  // flush does not select it). No later emissions are allowed on this writer;
+  // native continuation replaces it after inspecting its retained metadata.
+  void finish_query_output();
 
   // Streaming PBP: root units forced by a propagation that ended in a root
   // conflict are staged instead of written. The staged batch is dropped when
@@ -400,6 +448,26 @@ public:
 #endif
 
 private:
+  struct QueryCertificates;
+  std::unique_ptr<QueryCertificates> query_certificates_;
+  bool query_names_enabled_ = false;
+  bool certificate_raw_ = false, checker_event_named_ = false;
+  uint32_t raw_helper_next_ = 0, raw_helper_limit_ = 0;
+  uint32_t certificate_offset_ = 0;
+  bool query_input_refuted_ = false;
+  int32_t certificate_literal(int32_t literal) const;
+  std::vector<int32_t> certificate_literals(const int32_t *, uint32_t) const;
+  void query_clause(bool add, PopulationClauseView);
+  void prepare_query_witness(uint32_t rat_pivot = 0);
+  bool isolate_query_impl(std::span<const QueryProofClause>,
+      std::span<const int32_t>, uint32_t extent);
+  void observe_named_helper(bool deletion, std::span<const int32_t> clause);
+  DerivationObserver *derivation_observer_ = nullptr;
+  bool has_derivation_consumers() const noexcept {
+    return derivation_observer_ || query_certificates_;
+  }
+  void observe_derivation(DerivationKind, uint64_t, uint64_t,
+                          PopulationClauseView) noexcept;
   // Which stream this object writes is the writer's own business: a rule that
   // could ask could steer the search by it (N2).
   bool pb() const {
@@ -631,7 +699,7 @@ private:
 #endif
   // The checker-visible literal for an internal literal under the bound map.
   Lit checker_lit(Lit l) const {
-    if (!variable_map_)
+    if (certificate_raw_ || !variable_map_)
       return l;
     assert(var_of(l) < variable_map_->size());
     return make_lit((*variable_map_)[var_of(l)], negated(l));
@@ -639,7 +707,7 @@ private:
   // The population view of internal literals under the same map.
   PopulationClauseView internal_view(const Lit *lits,
                                      uint32_t size) const noexcept {
-    return PopulationClauseView::internal_lits(lits, size, variable_map_);
+    return PopulationClauseView::internal_lits(lits, size, certificate_raw_ ? nullptr : variable_map_);
   }
   // A staged DSR-unit batch spools the next deletion line; see del().
   FILE *begin_pending_deletion();

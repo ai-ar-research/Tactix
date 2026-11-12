@@ -594,10 +594,9 @@ static void test_large_otfs_shrinks_reason_in_place() {
   // The five-literal reason is strengthened to four literals in place, as
   // kissat's large_on_the_fly_strengthen does: same arena record and
   // position, first watch retained, and the record stays live across the
-  // fused backjump.  The redundant conflict keeps its deletion out of the
-  // irredundant mark image, exposing the source reason's exact Kissat OTFS
-  // lifecycle: remove only the resolved literal and add only the surviving
-  // tail, not the retained first watch.
+  // fused backjump. The redundant conflict's retirement contributes only
+  // removal advice, exposing the source reason's Kissat OTFS added-material
+  // lifecycle: add only the surviving tail, not the retained first watch.
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Lit r[5] = {internalize(5), internalize(-2), internalize(-3),
@@ -637,13 +636,19 @@ static void test_large_otfs_shrinks_reason_in_place() {
          "the surviving first watch keeps its slot");
   assert(k.otfs_retired.empty());
   // Epoch +1 is the removed resolved literal.  OTFS then marks the three
-  // source-tail literals at +2..+4.  The ordinary learned binary later touches
-  // -2 and -1 at +5,+6; in particular, the retained first watch -2 was not an
-  // OTFS added-material event ahead of the tail.
+  // source-tail literals at +2..+4. Redundant retirement then marks removed
+  // occurrences on the shared clock. The ordinary learned binary follows
+  // those removals; its retained first watch was not added ahead of the tail.
   assert(k.touched[var_of(internalize(-3))] == touch_before + 2);
   assert(k.touched[var_of(internalize(-4))] == touch_before + 3);
-  assert(k.touched[var_of(internalize(-2))] == touch_before + 5);
-  assert(k.touched[var_of(internalize(-1))] == touch_before + 6);
+  uint64_t removal_end = 0;
+  for (Lit literal : d) {
+    const uint64_t mark = k.removed[var_of(literal)];
+    assert(mark > touch_before + 4);
+    removal_end = std::max(removal_end, mark);
+  }
+  assert(k.touched[var_of(internalize(-2))] == removal_end + 1);
+  assert(k.touched[var_of(internalize(-1))] == removal_end + 2);
   assert(!kernel_touched_since(k, var_of(internalize(5)), touch_before));
   assert(k.subsume_material_count == material_before + 4);
   for (Var v = 0; v < 5; ++v)

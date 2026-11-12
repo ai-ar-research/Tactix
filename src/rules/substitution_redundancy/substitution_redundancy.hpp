@@ -209,7 +209,8 @@ struct GraphSymmetryParameters {
   bool prefer_depth_first = false;
   bool strong_certification = false;
   // Optional discovery subgroup: fix both literals of each assigned root
-  // variable pointwise. Explicit SR and unrestricted discovery remain legal.
+  // variable and active query-constrained coordinate pointwise. Query colors
+  // assert no root assignment. Explicit SR and unrestricted discovery stay legal.
   bool pointwise_root_stabilizer = false;
   // Factor the supplied generator subgroup by disjoint supports before
   // planning. Independent of the selected chain algorithm.

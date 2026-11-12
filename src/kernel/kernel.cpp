@@ -122,7 +122,9 @@ void kernel_materialize_cold_state(Kernel &k) {
   // round; later events and watermarks are recorded normally. Parsing and
   // early Lucky do not remove clauses or create kept-band touches.
   assert(!k.subsume_touch_mark && !k.strengthen_touch_mark &&
-         !k.bce_touch_mark && !k.ternary_touch_mark &&
+         !k.root_occurrence_head &&
+         !k.bce_touch_mark && !k.bce_query_touch_mark &&
+         k.bce_query_cube.empty() && !k.ternary_touch_mark &&
          !k.instantiate_touch_mark && !k.cce_touch_mark);
   k.bve_retry.assign(k.nvars, 1);
   k.backbone_priority.assign(k.nvars, 0);
@@ -137,7 +139,8 @@ void kernel_materialize_cold_state(Kernel &k) {
   k.cold_state_deferred = false;
 }
 
-void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
+template <bool Reconnect>
+static void reserve_variables(Kernel &k, uint32_t nvars, Var restored = INVALID_VAR) {
   if (nvars <= k.nvars)
     return;
   const uint32_t old = k.nvars;
@@ -155,13 +158,21 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     values.reserve(std::max(need, grown));
   };
   reserve_amortized(k.internal_to_external, nvars);
-  for (Var v = old; v < nvars; v++) {
-    const Var external = static_cast<Var>(k.external_to_internal.size());
-    k.internal_to_external.push_back(external);
-    k.external_to_internal.push_back(v);
-  }
+  if constexpr (Reconnect) {
+    assert(nvars == old + 1 && restored < k.external_to_internal.size());
+    assert(k.external_to_internal[restored] == INVALID_VAR);
+    k.internal_to_external.push_back(restored);
+    k.external_to_internal[restored] = old;
+  } else
+    for (Var v = old; v < nvars; v++) {
+      const Var external = static_cast<Var>(k.external_to_internal.size());
+      k.internal_to_external.push_back(external);
+      k.external_to_internal.push_back(v);
+    }
   k.external_import_rank.resize(k.external_to_internal.size(), UINT32_MAX);
   k.internal_import_rank.resize(nvars, UINT32_MAX);
+  if constexpr (Reconnect)
+    k.internal_import_rank[old] = k.external_import_rank[restored];
   // --- σ-state + derived-index growth (kernel-owned) ---
   k.values.resize(2 * nvars, 0);
   k.assigned.resize(nvars);
@@ -242,6 +253,14 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // has no per-var `H` state to grow. DefaultPolicy always has `H` → unchanged.
   if (k.h)
     heuristics_reserve_vars(k, old, nvars);
+}
+
+void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
+  reserve_variables<false>(k, nvars);
+}
+
+void kernel_reconnect_external_variable(Kernel &k, Var external) {
+  reserve_variables<true>(k, k.nvars + 1, external);
 }
 
 void kernel_record_import(Kernel &k, Var v) {
@@ -846,6 +865,7 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
 
 // Remove EVERY physical copy of the pair (a,b), retiring each copy by literal
 // multiset.
+template <bool CheckerVisible>
 static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
                                      uint32_t copies) {
   if (copies == 0)
@@ -893,7 +913,7 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
   kernel_bve_occurrence_remove(k, b, copies);
   if (k.binary_liveness)
     k.binary_liveness->remove(kernel_binary_key(a, b));
-  if (k.proof) {
+  if constexpr (CheckerVisible) if (k.proof) {
     const Lit lits2[2] = {a, b};
     for (uint32_t i = 0; i < copies; i++)
       k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
@@ -908,13 +928,19 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
 }
 
 bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
-  return delete_binary_all_copies(k, a, b, kernel_binary_copies(k, a, b));
+  return delete_binary_all_copies<true>(k, a, b, kernel_binary_copies(k, a, b));
+}
+
+bool kernel_discard_query_binary_copies(Kernel &k, Lit a, Lit b,
+                                        const QueryPopulationRetirement &) {
+  assert(k.trail.empty() && !k.level && !k.pending.valid && !k.conflict_valid);
+  return delete_binary_all_copies<false>(k,a,b,kernel_binary_copies(k,a,b));
 }
 
 bool kernel_delete_binary_all_copies_known(Kernel &k, Lit a, Lit b,
                                            uint32_t copies) {
   assert(kernel_binary_copies(k, a, b) == copies);
-  return delete_binary_all_copies(k, a, b, copies);
+  return delete_binary_all_copies<true>(k, a, b, copies);
 }
 
 // --- watch repair ----------------------------------------------------------
@@ -1132,6 +1158,8 @@ static void kernel_unwind_speculation_impl(Kernel &k, uint32_t position) {
   // suffix, or landing at level zero would strand one of its literals.
   assert(!k.level || k.frames[1] >= position);
   if (k.trail.size() > position) kernel_affine_note_trail_retraction(k);
+  const bool observed_roots_retracted = position < k.root_occurrence_head ||
+                                       (!position && k.fixed_external_count);
   while (k.trail.size() > position) {
     const Lit lit = k.trail.back();
     k.trail.pop_back();
@@ -1141,6 +1169,13 @@ static void kernel_unwind_speculation_impl(Kernel &k, uint32_t position) {
     // retaining this id would suppress that derivation. The old proof line
     // itself stays live.
     k.unit_ids[var_of(lit)] = 0;
+  }
+  k.touch_fixed_head = std::min(k.touch_fixed_head, position);
+  k.root_occurrence_head = std::min(k.root_occurrence_head, position);
+  if (observed_roots_retracted) {
+    k.bce_touch_mark = k.bce_query_touch_mark = k.cce_touch_mark = 0;
+    k.bce_rejected_occ_limit = 0;
+    k.cce_rejected_budget = UINT64_MAX;
   }
   k.frames.resize(1);
   k.level = 0;
@@ -1242,13 +1277,15 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   // This is one semantic rewrite, not a deletion of every old literal followed
   // by an unrelated addition.  Kissat arms elimination only for literals that
   // actually disappear from the clause.
-  if (semantic_irredundant) {
+  {
     auto in_new = lit_membership(lits, lits + size);
     for (const Lit old : *c)
       if (!in_new(old)) {
-        kernel_mark_bve_retry(k, var_of(old));
+        if (semantic_irredundant)
+          kernel_mark_bve_retry(k, var_of(old));
         kernel_removed_var(k, var_of(old));
-        kernel_notify_bve_score(k, var_of(old), true);
+        if (semantic_irredundant)
+          kernel_notify_bve_score(k, var_of(old), true);
       }
   }
   kernel_delete_clause(k, c, false); // before any arena-mutating add below
@@ -1352,14 +1389,16 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
     if (!retain || old_second != retained_watch)
       kernel_unwatch_large(k, old_second, ref);
   }
-  if (!redundant && !retain)
+  if (!retain)
     for (uint32_t i = 0; i < old_size; ++i) {
       const Lit old = c->lits[i];
       if (in_new(old))
         continue;
-      kernel_mark_bve_retry(k, var_of(old));
+      if (!redundant)
+        kernel_mark_bve_retry(k, var_of(old));
       kernel_removed_var(k, var_of(old));
-      kernel_notify_bve_score(k, var_of(old), true);
+      if (!redundant)
+        kernel_notify_bve_score(k, var_of(old), true);
     }
   kernel_delete_clause(k, c, false);
   if (old_position_alias)
@@ -1463,6 +1502,10 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
         }
       assert(reason_var == INVALID_VAR || k.assigned[reason_var].level == 0);
 #endif
+      // Even storage-only root flushing removes an opposite occurrence from
+      // BCE/CCE. Keep their advice independent of BVE's material bookkeeping.
+      if (!mark_satisfied_removal)
+        for (Lit member : *c) kernel_removed_var(k, var_of(member));
       kernel_delete_clause(k, c, mark_satisfied_removal);
       k.stats.flushed++;
       if (changed)
@@ -1511,6 +1554,9 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
       clamp_glue ? kernel_shrunken_glue(k, c->glue(),
                                         static_cast<uint32_t>(kept.size()))
                  : c->glue();
+  // Stripping false roots can turn an ineligible source into an open victim.
+  if (!redundant)
+    for (Lit literal : kept) kernel_removed_var(k, var_of(literal));
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (kept.size() == 2) {
     const uint64_t original_id = c->id();
@@ -3763,6 +3809,7 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   }
 
   const uint32_t old_touch_head = k.touch_fixed_head;
+  const uint32_t old_occurrence_head = k.root_occurrence_head;
   // The input activation seed can outlive parsing until a policy attaches H.
   // It names current internal identities, so remap it even when no H exists
   // yet. Otherwise a pre-attach extension/compaction makes the later seed
@@ -3819,6 +3866,7 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   }
 
   k.touch_fixed_head = trail_prefix[old_touch_head];
+  k.root_occurrence_head = trail_prefix[old_occurrence_head];
   k.seen.assign(new_nvars, 0);
   k.eager_marks.assign(2 * new_nvars, 0);
   k.marked_levels.assign(new_nvars + 1, 0);
@@ -4256,6 +4304,9 @@ void kernel_check_invariants(const Kernel &) {}
 // --- reconstruction (rho) --------------------------------------------------
 void kernel_push_witness(Kernel &k, Lit witness, const Lit *rest,
                          uint32_t nrest) {
+  k.projection_changed = true;
+  if (k.query_projection)
+    k.query_projection->reconstruction_literal(kernel_external_lit(k, witness));
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_reconstruction(k, witness, rest, nrest);
 #endif
@@ -4270,6 +4321,10 @@ void kernel_push_witness(Kernel &k, Lit witness, const Lit *rest,
 void kernel_push_cube_witness(Kernel &k, const Lit *clause, uint32_t nclause,
                               const Lit *witness, uint32_t nwitness) {
   assert(nclause && nwitness && clause && witness);
+  k.projection_changed = true;
+  if (k.query_projection)
+    for (uint32_t i = 0; i < nwitness; ++i)
+      k.query_projection->reconstruction_literal(witness[i]);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_cube_reconstruction(k, clause, nclause, witness, nwitness);
 #endif
@@ -4286,7 +4341,9 @@ void kernel_push_cube_witness(Kernel &k, const Lit *clause, uint32_t nclause,
   k.reconstruction.push_back(0);
 }
 
-void kernel_extend_model(Kernel &k, bool materialize_internal) {
+template <bool Seed>
+static void extend_model(Kernel &k, bool materialize_internal,
+                         std::span<const int32_t> seeds = {}) {
   if (k.model_extended)
     return;
   k.model_extended = true;
@@ -4314,6 +4371,21 @@ void kernel_extend_model(Kernel &k, bool materialize_internal) {
     if (k.values[ipos] != 0) {
       k.model_values[epos] = k.values[ipos];
       k.model_values[negate(epos)] = k.values[negate(ipos)];
+    }
+  }
+  if constexpr (Seed) {
+    for (const int32_t external : seeds) {
+      const Lit literal = internalize(external);
+      const Var ev = var_of(literal);
+      assert(ev < k.external_to_internal.size());
+      if (ev < k.fixed_external_values.size() && k.fixed_external_values[ev])
+        continue;
+      const Var iv = k.external_to_internal[ev];
+      if (iv != INVALID_VAR &&
+          (!kernel_var_retired(k, iv) || k.values[make_lit(iv, false)]))
+        continue;
+      k.model_values[literal] = 1;
+      k.model_values[negate(literal)] = -1;
     }
   }
   // Replay rho in reverse. A single-witness segment forces its witness when
@@ -4365,6 +4437,15 @@ void kernel_extend_model(Kernel &k, bool materialize_internal) {
       k.values[negate(ipos)] = k.model_values[negate(epos)];
     }
   }
+}
+
+void kernel_extend_model(Kernel &k, bool materialize_internal) {
+  extend_model<false>(k, materialize_internal);
+}
+
+void kernel_extend_model_seeded(Kernel &k, std::span<const int32_t> seeds,
+                                 bool materialize_internal) {
+  extend_model<true>(k, materialize_internal, seeds);
 }
 
 } // namespace tactix

@@ -12,10 +12,10 @@ source_root = Path(sys.argv[2])
 entries = json.loads(compile_commands.read_text())
 
 
-def command_for(suffix: str) -> list[str]:
+def commands_for(suffix: str) -> list[list[str]]:
     matches = [entry for entry in entries if entry["file"].endswith(suffix)]
-    assert len(matches) == 1, (suffix, len(matches))
-    return shlex.split(matches[0]["command"])
+    assert matches, suffix
+    return [shlex.split(entry["command"]) for entry in matches]
 
 
 def last_toggle(command: list[str], enabled: str, disabled: str) -> str:
@@ -24,13 +24,18 @@ def last_toggle(command: list[str], enabled: str, disabled: str) -> str:
     return toggles[-1]
 
 
-backend = command_for("src/symmetry_backend/dejavu_backend.cpp")
-core = command_for("src/rules/substitution_redundancy/symmetry.cpp")
-assert last_toggle(backend, "-fexceptions", "-fno-exceptions") == "-fexceptions"
-assert last_toggle(backend, "-frtti", "-fno-rtti") == "-frtti"
-assert "-fvisibility=hidden" in backend
-assert last_toggle(core, "-fexceptions", "-fno-exceptions") == "-fno-exceptions"
-assert last_toggle(core, "-frtti", "-fno-rtti") == "-fno-rtti"
+backends = commands_for("src/symmetry_backend/dejavu_backend.cpp")
+cores = commands_for("src/rules/substitution_redundancy/symmetry.cpp")
+assert len(backends) == len(cores), (len(backends), len(cores))
+# Shared builds compile separate PIC objects so the ordinary CLI flags stay
+# unchanged. Enforce the boundary on every variant, rather than selecting one.
+for backend in backends:
+    assert last_toggle(backend, "-fexceptions", "-fno-exceptions") == "-fexceptions"
+    assert last_toggle(backend, "-frtti", "-fno-rtti") == "-frtti"
+    assert "-fvisibility=hidden" in backend
+for core in cores:
+    assert last_toggle(core, "-fexceptions", "-fno-exceptions") == "-fno-exceptions"
+    assert last_toggle(core, "-frtti", "-fno-rtti") == "-fno-rtti"
 
 dejavu_includes = []
 for path in (source_root / "src").rglob("*.[ch]pp"):

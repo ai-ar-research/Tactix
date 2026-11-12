@@ -4,9 +4,11 @@
 #include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/support/flat_occurrence.hpp"
+#include "rules/support/root_occurrence_changes.hpp"
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <unordered_set>
 #include <vector>
 
@@ -35,10 +37,12 @@ struct CceIndex {
   std::vector<CceCandidate> cands;
 };
 
-void build_index(const Kernel &k, CceIndex &idx) {
+void build_index(const Kernel &k, CceIndex &idx,
+                 RootOccurrenceChanges *roots = nullptr) {
   std::vector<Ref> relevant_clauses;
   idx.cands.clear();
   for (const auto [ref, c] : arena_records(k.arena)) {
+    if (roots) roots->note(c);
     if (root_clause_relevant(k, c)) {
       relevant_clauses.push_back(ref);
       if (root_irredundant_clause_open(k, c))
@@ -286,7 +290,7 @@ ClaResult cla_step(Kernel &k, const CceIndex &idx, Coveror &cv, Lit u,
 
 // Try to eliminate one candidate. Returns true if it was deleted.
 bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
-                  const CceCandidate &self) {
+                  const CceCandidate &self, bool *budget_truncated = nullptr) {
   if (self.binary()) {
     if (!kernel_binary_live(k, self.first, self.second))
       return false;
@@ -354,10 +358,24 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
         break;
       }
     }
+    if (budget_truncated && !ata && !blocked &&
+        (next_added < cv.added.size() || next_covered < cv.covered.size()))
+      *budget_truncated = true;
   }
 
   const bool eliminated = ata || blocked;
   if (eliminated) {
+    std::optional<ScopedWeakeningCapture> capture;
+    if (kernel_records_weakening(k) && !cv.pivot.empty()) {
+      uint64_t words = 0;
+      for (uint32_t prefix : cv.prefix) words += uint64_t(prefix) + 1;
+      const Lit pair[2] = {self.first, self.second};
+      const Clause *source = self.binary() ? nullptr : clause_at(k.arena, self.ref);
+      capture.emplace(k, WeakeningFamily::Cce,
+          kernel_population_clause(k, source ? source->lits : pair, source ? source->size : 2),
+          kernel_population_clause(k, cv.pivot.data(), cv.pivot.size()),
+          source ? source->id() : 0, self.binary(), self.binary(), words);
+    }
     // `ρ` in push order; kernel_extend_model replays it in reverse, the order
     // `docs/dev/calculus.md` §X3 unwinds the CLA steps in. An ATA exit reached with
     // no CLA step in front of it needs no segment: the extension is then pure
@@ -383,6 +401,7 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
       kernel_delete_clause(k, clause_at(k.arena, self.ref));
     }
     if (deleted) {
+      if (capture) capture->commit();
       k.stats.cce_deleted++;
       if (blocked)
         k.stats.cce_blocked++;
@@ -408,8 +427,8 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
 // an opposite occurrence is removed, and its ALA/CLA closure changes when one
 // is added, so both stamps count; one changed variable suffices, unlike the
 // subsumption family's two. The filter under-approximates on two axes — it
-// reads vars(C) rather than C's whole closure, and the substrate stamps no
-// redundant-clause traffic — and both are yield-only, since cover_clause
+// reads vars(C) rather than C's whole closure, and additions of redundant
+// clauses carry no advice (retirements do). Both are yield-only: cover_clause
 // re-reads the live index for every test that passes. Ledger row D-CCE-FILTER.
 bool changed_clause(const Kernel &k, const Clause *c, uint64_t since) {
   for (const Lit l : *c)
@@ -455,7 +474,10 @@ bool cover_range(Kernel &k, const CceIndex &idx, Coveror &cv,
       k.stats.cce_mark_skipped++;
       continue;
     }
-    any |= cover_clause(k, idx, cv, candidate);
+    bool budget_truncated = false;
+    any |= cover_clause(k, idx, cv, candidate, &budget_truncated);
+    if (filter && budget_truncated)
+      k.cce_rejected_budget = std::min(k.cce_rejected_budget, k.work_budget);
   }
   return any;
 }
@@ -494,8 +516,15 @@ ApplyResult cce_try(Kernel &k, Lit l) {
 }
 
 ApplyResult cce_apply(Kernel &k) {
+  if (k.cce_rejected_budget != UINT64_MAX &&
+      (!kernel_has_work_budget(k) || k.work_budget > k.cce_rejected_budget)) {
+    k.cce_touch_mark = 0;
+    k.cce_rejected_budget = UINT64_MAX;
+  }
   CceIndex idx;
-  build_index(k, idx); // ONE arena pass for the whole round
+  RootOccurrenceChanges roots(k);
+  build_index(k, idx, &roots); // ONE arena pass for the whole round
+  roots.finish();
   Coveror cv;
   cv.resize(k.nvars);
   // Budget-aware batch rule (EffortSpec budget_aware): the policy hands the
@@ -524,7 +553,7 @@ ApplyResult cce_apply(Kernel &k) {
           (!kernel_changed_since(k, var_of(candidate.first), wm) &&
            !kernel_changed_since(k, var_of(candidate.second), wm)))
         continue;
-      kernel_touch_var(k, var_of(candidate.first));
+      kernel_removed_var(k, var_of(candidate.first));
       k.stats.cce_rearmed++;
       continue;
     }
@@ -532,10 +561,9 @@ ApplyResult cce_apply(Kernel &k) {
     if (c->garbage() || !changed_clause(k, c, wm))
       continue;
     // One mark, not one per literal: `changed_clause` needs a single changed
-    // variable, so one is enough to re-offer the clause. A re-arm is a producer
-    // on the shared substrate, so every mark past what the filter needs weakens
-    // BCE/X2/X4/Factor's filters for nothing.
-    kernel_touch_var(k, var_of(*c->begin()));
+    // variable, so one is enough to re-offer the clause. Removed marks also
+    // feed BCE; avoid extra marks and leave add-only consumers' caches alone.
+    kernel_removed_var(k, var_of(*c->begin()));
     k.stats.cce_rearmed++;
   }
   if (filter) {

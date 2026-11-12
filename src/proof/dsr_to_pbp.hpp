@@ -12,6 +12,7 @@
 // one PBP constraint, in order.
 #pragma once
 
+#include "kernel/checker_names.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <vector>
@@ -32,11 +33,6 @@ struct DsrToPbpResult {
 // has a DSR name above them. The converted PBP gives solver variables back their
 // own names, because the PBP writer continues with those, and helpers names above
 // every solver variable.
-struct DsrHelperNames {
-  uint32_t extent = 0;
-  uint32_t helpers = 0;
-};
-
 // 0-based addition ordinals of witness-free RAT lines. Not ok on a read or
 // write failure or a malformed stream; `out` may then hold a partial prefix.
 DsrToPbpResult convert_dsr_to_pbp(int fd, bool binary,

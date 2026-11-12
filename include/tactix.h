@@ -175,9 +175,64 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_REGION_TICKS 69
 #define TACTIX_STAT_REGION_BUDGET 70
 #define TACTIX_STAT_REGION_INVALIDATED 71
+/* Native scheduling observations. Search ticks exclude Startup and
+ * Inprocessing contexts; total TICKS includes their work. ACTIVE_VARIABLES is
+ * the current non-retired, non-root-fixed population (including helpers), not
+ * an estimate from cumulative elimination counts. Sweep productivity includes
+ * both equivalences and units, divided by scheduled variables swept. */
+#define TACTIX_STAT_SEARCH_TICKS 72
+#define TACTIX_STAT_ACTIVE_VARIABLES 73
+#define TACTIX_STAT_SWEEP_UNITS 74
+#define TACTIX_STAT_SWEEP_SWEPT 75
+/* Completed-analysis feedback: a unit batch contributes zero learned glue;
+ * reason-bump rounds/aborts distinguish the native delay gate's outcomes. */
+#define TACTIX_STAT_LEARNED_GLUE_SUM 76
+#define TACTIX_STAT_REASON_BUMP_ROUNDS 77
+#define TACTIX_STAT_REASON_BUMP_ABORTED 78
+/* Cumulative material watermarks used by native elimination scheduling.
+ * They differ from eliminated-variable and deleted-clause counts. */
+#define TACTIX_STAT_BVE_MARKS 79
+#define TACTIX_STAT_SUBSUME_MATERIAL 80
+/* Current forward-pass completeness, 0/1; BEGIN_FORWARD_ROUND resets both
+ * to 1 and an interrupted pass clears its flag. Observation never resumes it. */
+#define TACTIX_STAT_SUBSUME_COMPLETE 81
+#define TACTIX_STAT_STRENGTHEN_COMPLETE 82
+/* Factor's cumulative material counter and last-pass completion, not the
+ * live literal-mark bits. Arena words are representation size, not a clause
+ * count. These observations do not finalize input or advance any pass. */
+#define TACTIX_STAT_FACTOR_LITERALS_MARKED 83
+#define TACTIX_STAT_FACTOR_COMPLETED 84
+#define TACTIX_STAT_ARENA_WORDS 85
+/* Pure representation/output extent and input-lifetime observations. */
+#define TACTIX_STAT_VARIABLES 86
+#define TACTIX_STAT_OUTPUT_VARIABLES 87
+#define TACTIX_STAT_INPUT_CLOSED 88
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
+/* Pure execution versions and structured-producer counters for caller-owned
+ * sequence scheduling. No input completion, callback polling or state change.
+ * stopped observes existing latched native stop signals, not a query verdict.
+ * query_status is the cached execution status (COMPLETE for a plain solver);
+ * COMPLETE/UNKNOWN certify no readiness or verdict. This reader never checks
+ * a model, assumptions or a termination callback.
+ * Invalid arguments leave *out unchanged. */
+#define TACTIX_EXECUTION_COMPLETE 0
+#define TACTIX_EXECUTION_UNKNOWN 1
+#define TACTIX_EXECUTION_INTERRUPTED 2
+#define TACTIX_EXECUTION_RESTORE 3
+#define TACTIX_EXECUTION_INVALID_STATE 4
+#define TACTIX_EXECUTION_INVALID_MODEL 5
+#define TACTIX_EXECUTION_PROOF_FAILURE 6
+typedef struct {
+  uint64_t arena_generation, touch_epoch, strategy_epoch, trail_size;
+  uint64_t sr_applied, unique_literal_amo_binaries, nonforcing_cuts_declined;
+  uint64_t post_amo_nonhelper_applied, post_amo_graph_root_units;
+  int stopped, query_status;
+} tactix_strategy_state;
+int tactix_read_strategy_state(tactix *, tactix_strategy_state *);
+
+
 /* Borrow a writable semantic/proof provenance stream for structural actions.
  * Caller owns its lifetime; NULL unbinds it. Binding invalidates outstanding
  * selections. The session's action IDs never reset. Returns 0 or -1. */
@@ -407,7 +462,9 @@ int tactix_apply_condition(tactix *, const int *clause, int clause_count,
                            const int *witness, int witness_count);
 
 /* Exact Boolean extension, selected by the external strategy. Define a fresh
- * z iff (left OP right), where operands are signed permanent DIMACS literals.
+ * z iff (left OP right), where operands are signed external DIMACS literals.
+ * Client identities persist across queries. Private outputs belong to the
+ * current query namespace and may move when later client input grows into it.
  * Returns z's positive external identity, or -1 for an invalid/inapplicable
  * request. Input closes as for other rule calls. After that closure, declines
  * do not change the formula, variable namespace or guidance. Requires a
@@ -433,7 +490,7 @@ int tactix_define_extension(tactix *, int gate, int left, int right);
 int tactix_regions_begin(tactix *);
 int tactix_regions_clear(tactix *);
 
-/* Register a region of positive permanent external variable IDs; copies,
+/* Register a region of positive IDs in this query's external namespace; copies,
  * sorts and deduplicates the input. Returns a nonnegative region ID or -1.
  * Any imported variables may be selected; the queried literal must belong.
  * Probe selects live clauses whose unfixed variables are in the region.
@@ -457,7 +514,7 @@ int tactix_region_apply(tactix *, int rule_id, int literal, int region,
 int tactix_region_queue(tactix *, int rule_id, int literal, int region,
                        uint64_t ticks);
 
-/* Read the next permanent external identity without allocating it. Input
+/* Read the next external identity in this query without allocating it. Input
  * closes. Returns -1 if no representable identity remains. */
 int tactix_fresh_variable_start(tactix *);
 
@@ -567,6 +624,11 @@ int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
 #define TACTIX_ONLINE_WORK_APPLICATIONS 0
 #define TACTIX_ONLINE_WORK_BVE_TICKS 1
 #define TACTIX_ONLINE_WORK_PROPAGATIONS 2
+/* Caller-owned sequence behavior on exhausted atomic action budgets. */
+#define TACTIX_SEQUENCE_BUDGET_STOP 0
+#define TACTIX_SEQUENCE_BUDGET_CONTINUE 1
+#define TACTIX_SEQUENCE_BUDGET_FINISH_ROUND 2
+
 #define TACTIX_ONLINE_RECONFIGURE_RESET 0
 #define TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS 1
 
@@ -645,6 +707,9 @@ int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
 /* The complete pure-literal closure, enumerated layer by layer from one
  * occurrence image: the sequence a repeated PURE_ONLY pass would select. */
 #define TACTIX_ONLINE_BVE_CANDIDATES_PURE_CLOSURE 2
+#define TACTIX_ONLINE_BVE_CANDIDATES_QUERY_ALL 3
+#define TACTIX_ONLINE_BVE_CANDIDATES_QUERY_PURE_ONLY 4
+#define TACTIX_ONLINE_BVE_CANDIDATES_QUERY_PURE_CLOSURE 5
 
 #define TACTIX_ONLINE_SR_EXPLICIT_ONLY 0
 #define TACTIX_ONLINE_SR_ORBITOPAL 1
@@ -738,7 +803,8 @@ typedef struct {
   uint32_t definition_core_budget_multiplier;
   uint64_t definition_budget;
   int backward;
-  /* Appended generated-pass scope. Explicit selections remain unrestricted. */
+  /* Generated-pass scope: 0 all, 1 pure, 2 pure closure; 3/4/5 preserve query
+     constrained variables in those passes. Explicit selections stay unrestricted. */
   int candidate_scope;
   /* Appended absolute non-tautological resolvent cap. Zero preserves the
      historical unlimited behavior for zero-initialized public steps. */
@@ -960,6 +1026,10 @@ typedef struct {
 } tactix_online_vivify_parameters;
 typedef struct {
   uint32_t occurrence_limit;
+  /* Canonical batches only: omit blocking literals whose reconstruction can
+   * contradict the active assumption cube. Zero preserves the full domain.
+   * Explicit literal and semantic requests retain every legal BCE action. */
+  int preserve_query;
 } tactix_online_bce_parameters;
 typedef struct {
   uint32_t occurrence_limit, maximum_add_percent;
@@ -1289,8 +1359,8 @@ typedef struct {
   int complete_profile_mode;
 } tactix_online_sr_parameters;
 
-/* One exact Factor remainder column and grid. Literals use permanent DIMACS
- * identities. The grid is copied during configure; caller storage may be
+/* One exact Factor remainder column and grid. Literals use this query's external
+ * DIMACS identities. The grid is copied during configure; caller storage may be
  * released immediately afterward. Matching large-clause occurrences are
  * chosen deterministically when the action executes. */
 typedef struct {
@@ -1778,8 +1848,10 @@ typedef struct {
 #define TACTIX_AFFINE_MATRIX_PROFILE_LEGACY 0
 #define TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1 1
 #define TACTIX_AFFINE_MATRIX_AUTHENTICATED_SUBIMAGE 1
-/* The startup root closure's non-persistent session over the complete live
- * formula: INITIALIZE or SEARCH_STEP with zero persistence limits. */
+/* Non-persistent complete-live-formula admission with zero persistence limits.
+ * INITIALIZE needs no proof owner or cleared model cache. SEARCH_STEP also
+ * serves a legacy session with matching basis/limits, without the persistent
+ * profiles' proof-owner or reconstructed-model restrictions. */
 #define TACTIX_AFFINE_MATRIX_COMPLETE_SNAPSHOT 2
 #define TACTIX_AFFINE_MATRIX_INITIALIZE 1
 #define TACTIX_AFFINE_MATRIX_REFRESH 2
@@ -1861,6 +1933,13 @@ typedef struct {
 #define TACTIX_RULE_RESULT_CONFLICT 2
 #define TACTIX_RULE_RESULT_SAT 3
 #define TACTIX_RULE_RESULT_UNSAT 4
+#define TACTIX_RULE_RESULT_NO_OP TACTIX_RULE_RESULT_NOOP
+#define TACTIX_BUDGET_STATUS_READY 0
+#define TACTIX_BUDGET_STATUS_EXHAUSTED 1
+#define TACTIX_BUDGET_STATUS_INVALID_POOL 2
+#define TACTIX_BUDGET_STATUS_CURRENCY_MISMATCH 3
+#define TACTIX_BUDGET_STATUS_DUPLICATE_POOL 4
+#define TACTIX_BUDGET_STATUS_ACCOUNTING_OVERFLOW 5
 
 typedef struct {
   int status, rule_result, budget_status, work_unit;
@@ -1914,14 +1993,70 @@ int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);
 int tactix_online_complete(tactix *);
 
-/* Permanent rule-profile installation (additive). Online-step parameters are
- * scoped to their step; these calls install a profile that later
- * applications, online steps with INHERIT parameters and tactix_solve read.
+/* Independent online continuations for caller-composed schedules. Each handle
+ * belongs to one execution view; release it even after that view expires.
+ * Cloning explicitly copies its cursor and spent budgets. Configuration copies
+ * the same version 1..17 program values accepted above, transactionally; the
+ * caller supplies the matching tactix_online_program[_vN] address. Unknown
+ * versions/modes, foreign/expired views and invalid programs return -1 without
+ * replacing the continuation or finalizing input. Handles never select a
+ * strategy or hand off to DefaultPolicy. NULL getters return -1/UINT64_MAX. */
+typedef struct tactix_online_executor tactix_online_executor;
+tactix_online_executor *tactix_online_executor_create(tactix *);
+tactix_online_executor *tactix_online_executor_clone(const tactix_online_executor *);
+void tactix_online_executor_release(tactix_online_executor *);
+int tactix_online_executor_configure(tactix *, tactix_online_executor *,
+    unsigned program_version, const void *program, uint64_t revision,
+    int reconfigure_mode);
+/* Reconfigure the executor's existing owned program, dropping pending
+ * selections while retaining spent budgets under RETAIN_BUDGETS. It chooses
+ * no repetition or scheduling policy. The same ownership/mode checks apply
+ * as configure; unconfigured/expired/foreign handles return -1 unchanged. */
+int tactix_online_executor_rearm(tactix *, tactix_online_executor *,
+    uint64_t revision, int reconfigure_mode);
+/* Pure native repeat-bound advice for an explicit repeat mode/limit. Includes
+ * the live formula's size-scaled bound; chooses no round or action and does
+ * not finalize input. Unknown modes or invalid repeats return -1 with *out
+ * unchanged. Zero output is the native unbounded-round sentinel. */
+int tactix_online_repeat_round_limit(tactix *, int repeat_mode,
+    uint64_t repeat_limit, uint64_t *out);
+/* Optional caller-owned shared SR discovery ledger. Preserve it across calls
+ * and independent continuations to share a pool; changing/resetting it is an
+ * explicit budget decision. Consumed work includes atomic overshoot. Inline
+ * producer feedback may raise limit, bounded by hard_limit. Unlimited is
+ * distinct from UINT64_MAX. A NULL ledger uses no shared discovery pool. */
+typedef struct {
+  uint64_t limit, consumed, ticks_per_generator, hard_limit;
+  int unlimited, accounting_overflow;
+} tactix_online_discovery_budget;
+typedef struct {
+  tactix_online_result base;
+  uint64_t discovery_progress_units;
+  int discovery_entry_required, discovery_exhausted, query_rejected_model;
+} tactix_online_execution_result;
+/* Advances the existing atomic executor, with the same publication and query
+ * certification as tactix_online_advance. Detailed discovery feedback supports
+ * caller-defined stage/retry policies. query_rejected_model means a candidate
+ * satisfied F but missed A; base is nonterminal and the caller must continue
+ * the query. Invalid arguments leave the ledger/result/continuation unchanged. */
+int tactix_online_executor_advance(tactix *, tactix_online_executor *,
+    tactix_online_discovery_budget *, tactix_online_execution_result *);
+uint64_t tactix_online_executor_consumed(const tactix_online_executor *, uint64_t step_id);
+int tactix_online_executor_complete(const tactix_online_executor *);
+
+/* Rule-profile installation into the current execution state. Online-step
+ * parameters are scoped to their step; later applications and online steps
+ * with INHERIT parameters use the installed profile until it is replaced.
+ * tactix_solve may install and leave behind DefaultPolicy's own profiles.
+ * IPASIR begin/repair and ENTER_QUERY/ENTER_RESTORED can expose a replaced
+ * execution state with library defaults. Install required profiles on each
+ * borrowed view before use; these profiles are not session-owned state.
  * tactix_install_parameters converts `parameters` exactly as an online step
  * does and requires the same rule/family match and value validity (Lucky
  * profiles name rule Lucky); instance restrictions belong to applications.
- * A Walk profile is its scoring guidance (even-break base and score curve):
- * step_budget, random_seed and seed_candidate must be zero. Installation
+ * A Walk profile installs only its even-break base and score curve.
+ * step_budget, random_seed, seed_candidate and preparation_budget must be zero;
+ * other fields must equal library defaults (zero selects them). Installation
  * changes no formula, assignment or guidance state, finalizes no input and is
  * legal at any decision level. Returns 0, or -1 (nothing changes) for an
  * unknown rule, a mismatched or invalid profile, or a family without a
@@ -1934,13 +2069,27 @@ int tactix_install_parameters(tactix *, int rule_id,
                               const tactix_online_parameters *parameters);
 int tactix_install_material_settings(tactix *, int touch_filter_mode,
                                      int likely_kept_redundant_mode);
+/* Read-only restart planning; no input finalization, propagation or cursor
+ * changes. Returns 0 on success, -1 with *out unchanged on invalid input.
+ * query_assumption_floor requires a current borrowed query with a valid
+ * projection. It returns the maximum assignment level of true effective
+ * assumptions (0 if none); unassigned/free coordinates are omitted. It does
+ * not certify Ready, and foreign decisions below those levels may remain.
+ * restart_reuse_level requires initialized guidance, a known unassigned
+ * external next_literal and floor <= current level. It scans reuse ranks
+ * starting at floor; callers still choose and explicitly execute Restart. */
+int tactix_query_assumption_floor(tactix *, uint32_t *out);
+int tactix_restart_reuse_level(tactix *, int next_literal, uint32_t floor,
+                               uint32_t *out);
 /* Work settings budget-aware rules read: the per-round budget (in the rule's
  * own currency), the offset already spent from it, whether a zero budget is an
  * explicit zero allowance (bounded), and whether a rule may stop mid-round
  * (SubsumeForward visits, Strengthen steps). Install sets the fields named in
  * `fields` (TACTIX_WORK_*) and leaves the rest; read fills every field and
  * sets `fields` to all. Neither changes formula, assignment or guidance state.
- * Returns 0, or -1 for a null argument or an unknown field bit. */
+ * This is a scoped pose and preserves selection versions; the legacy
+ * tactix_set_work_budget setter is an external configuration change and
+ * invalidates selections. Returns 0, or -1 for null/unknown field bits. */
 #define TACTIX_WORK_BUDGET 1u
 #define TACTIX_WORK_OFFSET 2u
 #define TACTIX_WORK_BOUNDED 4u
@@ -1959,8 +2108,8 @@ int tactix_read_work_settings(tactix *, tactix_work_settings *);
  * other statistic. */
 #define TACTIX_TICK_ATTRIBUTION_NONE (-1)
 int tactix_install_tick_attribution(tactix *, int stat);
-/* The AffineMatrixInitialize profile (admission, operation and persistence
- * limits) installed permanently, as an online v16 step carries it; the next
+/* The AffineMatrixInitialize profile has tactix_install_parameters' lifetime.
+ * Its admission, operation and persistence limits match an online v16 step; the next
  * canonical AffineMatrixInitialize application runs that operation. Returns 0,
  * or -1 for an invalid profile. */
 int tactix_install_affine_matrix_profile(
@@ -2031,13 +2180,15 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  *   CLOSE_STARTUP_CERTIFICATE  end the original-input certificate window.
  *   PREPARATION_RESTART        argument = keep level: backtrack without
  *                              consuming a scheduled-restart occasion, and
- *                              retire a recorded conflict that no longer holds.
+ *                              retire a recorded conflict that no longer holds
+ *                              and discard the reconstructed-model cache.
  *   ROOT_PREPARATION           ROOT_PREPARATION_* flags: optional target-phase
  *                              capture, preparation restart to level zero, root
  *                              Propagate (in the probing context if PROBING),
  *                              optional root-prefix consumption.
  *   SPARSE_COLLECT             collect root-satisfied/false-literal clause
- *                              state at a propagated root.
+ *                              state at a consistent root; Propagate drains
+ *                              any pending or newly derived root units.
  *   COMPACT_RANDOM_ORDER       fold root-fixed variables of the random
  *                              branching order onto one representative (H).
  *   COMPACT_VARIABLES          COMPACT_* flags: compact variable storage at
@@ -2081,11 +2232,19 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  *                              session, reconnect large watches (Eliminate, or
  *                              if left disconnected), resume sparse Propagate
  *                              from the cursor (Eliminate), clear the Factor
- *                              selection and leave the context. A Probe
- *                              bracket without a session only clears the
- *                              selection and leaves the context. Contexts
+ *                              selection and leave the context. A terminal
+ *                              Probe bracket without a session only clears the
+ *                              selection and leaves the context with watches
+ *                              connected; a complete active-formula assignment
+ *                              may remain above root there. This publishes no
+ *                              query verdict: assumptions still govern status.
+ *                              Nonterminal root Probe exits first open a
+ *                              session and use ordinary cleanup.
+ *                              Other exits require level zero. Contexts
  *                              entered inside the bracket must be left first;
- *                              tactix_solve leaves an open bracket.
+ *                              tactix_solve leaves a quiescent open bracket;
+ *                              unresolved nested contexts/conflicts or reason
+ *                              debt return UNKNOWN without starting search.
  *   BEGIN_FORWARD_ROUND        start a forward-subsumption round:
  *                              SubsumeForward and Strengthen completeness
  *                              flags set (an interrupted pass clears its own).
@@ -2192,7 +2351,66 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
 #define TACTIX_CONTEXT_STARTUP 1
 #define TACTIX_CONTEXT_INPROCESSING 2
 #define TACTIX_CONTEXT_SPECULATION 3
+/* Explicit native propagation, including an empty fixpoint; completes input.
+ * Refuses an unresolved conflict. Closes the original-input certificate
+ * opportunity and invalidates selections as an ordinary rule application. */
+int tactix_propagate(tactix *);
 int tactix_support(tactix *, int support, uint64_t argument);
+
+/* Mutable BVE ordering, shared with the native score heap. Create at a
+ * consistent root in an open Eliminate occurrence session. The instance array
+ * is copied; duplicates use their last payload. next returns 1 and a payload,
+ * plus its entry propagation head, 0 at exhaustion, or -1 for an invalid/stale
+ * handle (outputs unchanged).
+ * The array seeds the heap; clause removal may reinsert variables outside it.
+ * No candidate is applied by next, including retired/retry ghosts.
+ *
+ * apply explicitly selects one BVE instance or canonical Propagate and returns
+ * the ordinary tactix_apply_instance codes. flush_units selects the connected
+ * unit-flush boundary used after propagation (trail_from <= propagation head).
+ * These calls alone update this ordering. Formula/relevance/coordinate/
+ * phase or BVE-profile changes invalidate it. Reads preserve the cursor.
+ * Several detached orderings may coexist; updating one invalidates the others.
+ * No update hook remains attached between calls, so unrelated public actions
+ * stay available. Release is safe after the execution/solver is destroyed;
+ * release from a callback during an active operation is deferred until return.
+ * A valid flush (like FORWARD_CLOSURE) ends the startup counting-certificate
+ * window before deletions.
+ * Terminal results do not consume remaining candidates; callers choose when
+ * to stop. -1 combines stale handles, invalid selections and guard refusal.
+ * Creation returns NULL on invalid input; callers own returned handles. */
+typedef struct tactix_bve_order tactix_bve_order;
+tactix_bve_order *tactix_bve_order_create(tactix *, const uint64_t *instances, int count);
+void tactix_bve_order_release(tactix_bve_order *);
+int tactix_bve_order_next(tactix *, tactix_bve_order *, uint64_t *instance, uint32_t *propagation_begin);
+int tactix_bve_order_apply(tactix *, tactix_bve_order *, int rule_id, uint64_t instance);
+int tactix_bve_order_flush_units(tactix *, tactix_bve_order *, uint32_t trail_from);
+/* Explicit native root-propagation boundary, retaining this heap. Unlike the
+ * registered Propagate rule, a complete fixpoint is accepted and consumes the
+ * unflushed-root bookkeeping prefix. Requires a consistent, conflict/debt-free
+ * root. Returns 0/20 through the ordinary query-aware result protocol, or -1
+ * for invalid/stale state. It does not select a BVE candidate or flush units. */
+int tactix_bve_order_propagate(tactix *, tactix_bve_order *);
+
+/* BVE scheduling observations, not restrictions on explicit rules. The first
+ * read completes original input as other rule observations do; later reads
+ * preserve solver state and ordering cursors. In an occurrence session counts
+ * are physical stack sizes including pending garbage; outside one the large
+ * count scans live irredundant records. Relevance is EVSIDS in stable mode,
+ * otherwise VMTF stamp.
+ * Returns 0, or -1 for an unknown literal/invalid argument (output unchanged). */
+#define TACTIX_BVE_CANDIDATE_ASSIGNED 1u
+#define TACTIX_BVE_CANDIDATE_RETIRED 2u
+#define TACTIX_BVE_CANDIDATE_RETRY 4u
+#define TACTIX_BVE_CANDIDATE_RETAINED 8u
+#define TACTIX_BVE_CANDIDATE_AFFINE 16u
+#define TACTIX_BVE_CANDIDATE_QUERY 32u
+typedef struct {
+  int literal;
+  uint32_t flags, positive_occurrences, negative_occurrences;
+  double relevance;
+} tactix_bve_candidate_state;
+int tactix_read_bve_candidate(tactix *, uint64_t instance, tactix_bve_candidate_state *);
 
 /* branching surface: candidates ranked by the active heuristic
  * (saved/target-phase literals, DIMACS convention); tactix_decide branches
@@ -2468,6 +2686,51 @@ int tactix_strategy_productivity(tactix *, int rule_id, uint64_t *yield,
 #define TACTIX_PARAMETERS_STRATEGY 1
 int tactix_read_parameters(tactix *, int rule_id, int kind, int source,
                            tactix_online_parameters *out);
+
+/* An owned scheduling component, shared with native DefaultPolicy. It never
+ * applies a rule, modifies the solver, or retains an execution-view pointer.
+ * Reuse it across views/queries; the caller explicitly chooses resets/events
+ * and whether to act on due. NULL parameters select native defaults. */
+typedef struct tactix_restart_clock tactix_restart_clock;
+typedef struct {
+  uint64_t initial_interval, reluctant_period, reluctant_limit;
+  double glue_margin, fast_ema_window, slow_ema_window;
+  double logarithm_offset, logarithm_bias;
+} tactix_restart_clock_parameters;
+typedef struct {
+  int due, reluctant_trigger;
+  uint64_t next_conflicts, reluctant_u, reluctant_v, reluctant_wait;
+  double fast_glue[2], slow_glue[2], decision_rate[2];
+  int initialized[2];
+  uint64_t saved_decisions[2];
+} tactix_restart_clock_state;
+#define TACTIX_RESTART_CLOCK_RESET 0
+#define TACTIX_RESTART_CLOCK_DECISION_RATE 1
+#define TACTIX_RESTART_CLOCK_GLUE 2
+#define TACTIX_RESTART_CLOCK_RELUCTANT 3
+#define TACTIX_RESTART_CLOCK_RESTARTED 4
+#define TACTIX_RESTART_CLOCK_MODE_ENTERED 5
+/* Profiles require native validity and a representable restart-interval delta
+ * for every positive restart count. Invalid creation returns NULL; configure
+ * returns -1 without changing the clock. Successful configure resets its state
+ * from current solver counters. Solver-bound operations require initialized
+ * guidance. No operation finalizes input. */
+tactix_restart_clock *tactix_restart_clock_create(
+    tactix *, const tactix_restart_clock_parameters *);
+void tactix_restart_clock_release(tactix_restart_clock *);
+int tactix_restart_clock_configure(tactix *, tactix_restart_clock *,
+    const tactix_restart_clock_parameters *);
+int tactix_restart_clock_get_parameters(const tactix_restart_clock *,
+    tactix_restart_clock_parameters *);
+/* DECISION_RATE is the pre-analysis observation; GLUE is supplied after a
+ * learned result; RELUCTANT is an explicitly selected learned-clause tick.
+ * RESTARTED consumes a trigger and updates the focused deadline; MODE_ENTERED
+ * preserves native mode-entry bookkeeping. glue must be zero for other events.
+ * Invalid arguments return -1 without changing clock or solver. */
+int tactix_restart_clock_update(tactix *, tactix_restart_clock *, int event,
+                                uint32_t glue);
+int tactix_restart_clock_observe(tactix *, const tactix_restart_clock *,
+                                 tactix_restart_clock_state *);
 
 #ifdef __cplusplus
 }

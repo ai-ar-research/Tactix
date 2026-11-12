@@ -6,6 +6,7 @@
 #include <climits>
 #include <charconv>
 #include <limits>
+#include <locale>
 #include <numeric>
 #include <sstream>
 #include <string_view>
@@ -77,6 +78,7 @@ bool serialize_listed(std::ostream &out, const ActionParameters &parameters,
 std::string serialize_online_strategy_program(
     const OnlineStrategyProgram &program) {
   std::ostringstream out;
+  out.imbue(std::locale::classic());
   out << "sequence-repeat=" << repeat_name(program.repeat.mode) << ':'
       << program.repeat.limit;
   for (const OnlineInvocation &step : program.sequence) {
@@ -168,8 +170,10 @@ std::string serialize_online_strategy_program(
           << p->resolution.maximum_added_literals << ','
           << p->maximum_source_scan_work << ',' << p->maximum_arena_words
           << ',' << p->maximum_journal_bytes << ')';
-    else if (const auto *p = std::get_if<BceParameters>(&step.parameters))
+    else if (const auto *p = std::get_if<BceParameters>(&step.parameters)) {
       out << ":bce(" << p->occurrence_limit << ')';
+      if (p->preserve_query) out << ":query-preserving";
+    }
     else if (const auto *p =
                  std::get_if<TernaryParameters>(&step.parameters))
       out << ":ternary(" << p->occurrence_limit << ','

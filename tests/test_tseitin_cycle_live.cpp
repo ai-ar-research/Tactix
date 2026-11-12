@@ -191,6 +191,22 @@ bool interrupt_after(void *opaque) {
 
 void exact_snapshot_prepare_apply() {
   Kernel kernel = triangle();
+  struct ProjectionProbe final : QueryProjectionService {
+    unsigned restrictions = 0;
+    std::span<const int32_t> constraints() const override { return {}; }
+    bool constrains(Var) const override { return false; }
+    bool preserves_constant(Lit) const override { return true; }
+    bool preserves_restriction(const Kernel &, std::span<const int8_t>,
+                               std::span<const Lit>) const override { return true; }
+    QueryModelAdmission admit_model(Kernel &) override { return QueryModelAdmission::Accepted; }
+    void reconstruction_literal(Lit) override { assert(false); }
+    void substitute(Kernel &, std::span<const std::pair<Lit, Lit>>) override { assert(false); }
+    void restrict(Kernel &, std::span<const int8_t>, std::span<const Lit>) override {
+      ++restrictions;
+    }
+    void restrict_constant(Lit) override { ++restrictions; }
+  } projection;
+  kernel.query_projection = &projection;
   const live::Snapshot captured = snapshot(kernel);
   assert(captured.sources.size() == 6 && captured.clauses.size() == 6);
   assert(captured.literals == 12);
@@ -206,6 +222,7 @@ void exact_snapshot_prepare_apply() {
   const live::Result admitted =
       live::prepare(kernel, captured, groups(captured), request(), prepared);
   assert(admitted.status == live::Status::Prepared && prepared.ready());
+  assert(projection.restrictions == 0); // speculative shadow cannot mutate the owner
   assert(admitted.admission_reason == cycle::AdmissionReason::None);
   assert(admitted.planning_reason == cycle::DeclineReason::None);
   assert(admitted.transaction_reason == cycle::TransactionReason::None);
@@ -221,6 +238,7 @@ void exact_snapshot_prepare_apply() {
   const uint64_t before_id = kernel.next_clause_id;
   const live::Result applied = live::apply(kernel, prepared);
   assert(applied.status == live::Status::Applied);
+  assert(projection.restrictions == 1); // the committed rule alone notifies it
   assert(applied.result == ApplyResult::Ok);
   assert(applied.substitution_status ==
          SubstitutionRedundancyApplicationStatus::Applied);

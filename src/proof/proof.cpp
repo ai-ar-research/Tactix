@@ -1,4 +1,5 @@
 #include "proof/proof.hpp"
+#include "engine/subsolver.hpp"
 #include "kernel/types.hpp"
 #include "proof/dsr_to_pbp.hpp"
 #include "rules/lucky/parity_certificate.hpp"
@@ -50,6 +51,21 @@ constexpr uint32_t MAX_CHECKER_NAME = (uint32_t{1} << 30) - 1;
               "drat-trim and dsr-trim read");
 }
 } // namespace
+
+struct Proof::QueryCertificates {
+  const QueryProofSources *sources = nullptr;
+  QueryProofLimits limits;
+  std::map<std::vector<int32_t>, uint64_t> licensed;
+  uint64_t literals = 0;
+  QueryProofSnapshot stats;
+  bool dirty = false;
+  uint32_t stale_extent = 0;
+  void charge(uint64_t work) {
+    if (work > limits.work-std::min(stats.work, limits.work))
+      proof_error("incremental certificate work allowance exhausted");
+    stats.work += work;
+  }
+};
 
 namespace {
 
@@ -215,11 +231,14 @@ void Proof::observe_checker(CheckerPopulationEventKind kind,
   event.line_id = line_id;
   event.checker_id = checker_id;
   event.transaction_id = transaction_id;
-  event.proof_only = proof_only;
+  event.certificate_offset = certificate_offset_;
+  event.checker_helpers = helper_names_;
+  event.clause_is_named = certificate_raw_ || checker_event_named_;
+  event.proof_only = proof_only || certificate_raw_;
   if (kind == CheckerPopulationEventKind::InputSeed)
     source_classification =
         PopulationSourceClassification::PendingInputClassification;
-  else if (!proof_only && clause.size() &&
+  else if (!event.proof_only && clause.size() &&
            (kind == CheckerPopulationEventKind::Add ||
             kind == CheckerPopulationEventKind::StageAdd))
     source_classification = PopulationSourceClassification::Eligible;
@@ -674,6 +693,270 @@ void Proof::put_external_dimacs(int32_t e) {
   put_checker_literal(e < 0 ? -name : name);
 }
 
+int32_t Proof::certificate_literal(int32_t literal) const {
+  assert(literal && literal != INT32_MIN);
+  if (certificate_raw_) return literal;
+  const uint64_t variable = checker_name(external_variable_of(literal));
+  if (variable > INT32_MAX) checker_name_error();
+  return literal < 0 ? -static_cast<int32_t>(variable) : static_cast<int32_t>(variable);
+}
+
+std::vector<int32_t> Proof::certificate_literals(const int32_t *lits, uint32_t size) const {
+  std::vector<int32_t> result;
+  result.reserve(size);
+  for (uint32_t at = 0; at < size; ++at) result.push_back(certificate_literal(lits[at]));
+  return result;
+}
+
+bool Proof::can_isolate_query(uint32_t extent) {
+  return uint64_t(std::max(1u, extent))*2 + 2 <= MAX_CHECKER_NAME;
+}
+
+void Proof::preserve_query_input_refutation() {
+  assert(!query_input_refuted_);
+  // These old-namespace units are RUP only after the caller independently
+  // establishes a propagation conflict in the current licensed prefix. Future names cannot
+  // delete them. Keep the contradiction even when original sources retire.
+  const int32_t positive = 1, negative = -1;
+  if (!add_external_rup(0, &positive, 1) || !add_external_rup(0, &negative, 1)) std::abort();
+  query_input_refuted_ = true;
+  if (dsr_copy_) dsr_copy_->query_input_refuted_ = true;
+}
+
+bool Proof::isolate_query(std::span<const QueryProofClause> sources,
+                         std::span<const int32_t> assumptions, uint32_t extent) {
+  // A converted private prefix would change destinations again when its
+  // header commits. Publish that header before recording the eager sink.
+  if (input_transaction_ || !commit_clause_stream()) return false;
+  // Materialize the existing lazy prefix before names diverge between the
+  // streaming writer and its DSR copy. Later switches use the complete PBP
+  // stream; the ordinary sequential lazy conversion remains unchanged.
+  if (lazy_ && !dsr_only_ && !convert_lazy_pbp()) return false;
+  if (!isolate_query_impl(sources, assumptions, extent)) return false;
+  if (dsr_copy_ && !dsr_copy_->isolate_query_impl(sources, assumptions, extent)) return false;
+  return true;
+}
+
+bool Proof::isolate_query_impl(std::span<const QueryProofClause> sources,
+                              std::span<const int32_t> assumptions, uint32_t extent) {
+  if (!can_isolate_query(extent) || certificate_raw_) return false;
+  flush_impl();
+  // Old helper gaps belong to old generations. Reserve all clone guards below
+  // the new variable block so later client growth cannot reuse their names.
+  extent = std::max(1u, extent);
+  const uint32_t logical_bound = std::max(extent, external_variable_bound());
+  const uint64_t previous_helpers = helper_names_.empty() ? 0 : helper_names_.back().helpers;
+  const uint64_t previous_max = uint64_t(certificate_offset_)+logical_bound+previous_helpers;
+  const uint64_t next_offset = previous_max;
+  if (next_offset+logical_bound+2 > MAX_CHECKER_NAME) return false;
+  std::vector<QueryProofClause> copies(sources.begin(), sources.end());
+  for (size_t i=0; i<assumptions.size(); ++i) copies.push_back({0, assumptions.subspan(i,1)});
+  std::vector<uint32_t> support;
+  for (const auto &source : copies)
+    for (int32_t literal : source.literals) {
+      if (!literal || literal==INT32_MIN || external_variable_of(literal)>extent) return false;
+    }
+  std::erase_if(copies, [](const auto &source) {
+    std::vector<int32_t> body(source.literals.begin(),source.literals.end());
+    std::sort(body.begin(),body.end());
+    return std::any_of(body.begin(),body.end(),[&](int32_t literal) {
+      return std::binary_search(body.begin(),body.end(),-literal);
+    });
+  });
+  for (const auto &source : copies)
+    for (int32_t literal : source.literals) support.push_back(external_variable_of(literal));
+  std::sort(support.begin(),support.end());
+  support.erase(std::unique(support.begin(),support.end()),support.end());
+  // Define each fresh coordinate once. Copying every source with a complete
+  // substitution repeats the whole variable map for every clause (quadratic
+  // certificate volume). These conservative RAT definitions instead make
+  // every renamed source RUP; retire the definitions before native witnesses.
+  std::vector<std::array<int32_t,2>> bridges;
+  bridges.reserve(2*support.size());
+  for (uint32_t variable : support)
+    for (int sign : {1,-1})
+      bridges.push_back({sign*static_cast<int32_t>(next_offset+variable),
+                         -sign*static_cast<int32_t>(checker_variable(variable))});
+  // Retire proof-only leases/caches while they still name the old generation.
+  std::vector<uint64_t> groups;
+  for (const auto &[handle, group] : premise_groups_) { (void)group; groups.push_back(handle); }
+  release_premise_groups_impl(groups, 0);
+  flush_persistent_external(0);
+  if (pbp_numbering_ == UINT64_MAX) return false;
+  ++pbp_numbering_;
+  pbp_parity_constraints_.clear();
+  pbp_parity_variables_.clear();
+  disable_pbp_id_deletions();
+  certificate_raw_ = true;
+  bool ok = true;
+  if (!query_input_refuted_)
+    for (const auto &bridge : bridges)
+      if (!add_external_rat_impl(0,bridge.data(),bridge.size())) { ok=false; break; }
+  const auto copy = [&](uint64_t id, std::span<const int32_t> original) {
+    std::vector<int32_t> body(original.begin(), original.end());
+    std::sort(body.begin(), body.end());
+    body.erase(std::unique(body.begin(), body.end()), body.end());
+    for (int32_t literal : body) {
+      if (!literal || literal == INT32_MIN || external_variable_of(literal) > extent) return false;
+      if (std::binary_search(body.begin(), body.end(), -literal)) return true;
+    }
+    if (body.empty()) return query_input_refuted_;
+    std::vector<int32_t> renamed;
+    for (int32_t literal : body)
+      renamed.push_back(literal < 0 ? literal-int32_t(next_offset) : literal+int32_t(next_offset));
+    return add_external_rup_impl(id,renamed.data(),renamed.size());
+  };
+  if (ok)
+    for (const auto &source : copies) if (!copy(source.id, source.literals)) { ok = false; break; }
+  if (ok && !query_input_refuted_)
+    for (const auto &bridge : bridges)
+      if (!del_external_impl(0,0,bridge.data(),bridge.size())) { ok=false; break; }
+  flush_impl();
+  certificate_raw_ = false;
+  if (!ok) return false;
+  certificate_offset_ = next_offset;
+  helper_names_.clear();
+  proof_external_max_ = logical_bound; // cached PB carries keep their logical reservation
+  return true;
+}
+
+void Proof::enable_query_names() {
+  query_names_enabled_ = true;
+  if (dsr_copy_) dsr_copy_->query_names_enabled_ = true;
+}
+
+void Proof::enable_query_certificates(const QueryProofSources &sources,
+    QueryProofLimits limits, std::span<const QueryProofClause> initial,
+    std::span<const int32_t> assumptions, bool isolate_before_witness) {
+  assert(!query_certificates_);
+  query_certificates_ = std::make_unique<QueryCertificates>();
+  query_certificates_->sources = &sources;
+  query_certificates_->limits = limits;
+  query_certificates_->dirty = isolate_before_witness;
+  query_certificates_->stale_extent = external_variable_bound();
+  enable_query_names();
+  for (const auto &source : initial) {
+    query_clause(true, PopulationClauseView::external_lits(source.literals.data(), source.literals.size()));
+    for (int32_t literal : source.literals)
+      query_certificates_->stale_extent = std::max(query_certificates_->stale_extent, external_variable_of(literal));
+  }
+  for (int32_t assumption : assumptions) {
+    query_clause(true, PopulationClauseView::external_lits(&assumption, 1));
+    query_certificates_->stale_extent = std::max(query_certificates_->stale_extent, external_variable_of(assumption));
+  }
+}
+
+QueryProofSnapshot Proof::query_certificate_state() const {
+  return query_certificates_ ? query_certificates_->stats : QueryProofSnapshot{};
+}
+
+void Proof::query_clause(bool add, PopulationClauseView view) {
+  if (!query_certificates_ || certificate_raw_) return;
+  auto &context = *query_certificates_;
+  std::vector<int32_t> body;
+  body.reserve(view.size());
+  for (uint32_t at = 0; at < view.size(); ++at) {
+    const int32_t literal = view.at(at);
+    if (!literal || literal == INT32_MIN || external_variable_of(literal)>context.limits.variables)
+      proof_error("invalid incremental certificate source coordinate");
+    body.push_back(literal);
+  }
+  std::sort(body.begin(), body.end());
+  body.erase(std::unique(body.begin(), body.end()), body.end());
+  for (int32_t literal : body)
+    if (std::binary_search(body.begin(), body.end(), -literal)) return;
+  context.charge(body.size()+1);
+  if (!add) {
+    context.dirty = true;
+    context.stale_extent = std::max(context.stale_extent, external_variable_bound());
+    const auto found = context.licensed.find(body);
+    if (found != context.licensed.end() && !--found->second) {
+      context.literals -= body.size(); context.licensed.erase(found);
+    }
+  } else {
+    auto found = context.licensed.find(body);
+    if (found != context.licensed.end()) { ++found->second; return; }
+    if (context.licensed.size()>=context.limits.clauses ||
+        body.size()>context.limits.literals-context.literals)
+      proof_error("incremental certificate source storage exhausted");
+    context.literals += body.size();
+    context.licensed.emplace(std::move(body), 1);
+  }
+}
+
+void Proof::prepare_query_witness(uint32_t rat_pivot) {
+  if (!query_certificates_ || !query_certificates_->dirty || query_input_refuted_) return;
+  auto &context = *query_certificates_;
+  // Stale clauses cannot contain a later extension variable, in either
+  // polarity. RAT on that pivot has exactly the current prefix's obligations;
+  // it needs no copy. Existing-variable RAT and every SR retain full refresh.
+  if (rat_pivot > context.stale_extent) return;
+  std::vector<QueryProofOwnedClause> owned;
+  std::vector<int32_t> assumptions;
+  uint32_t extent = 0;
+  if (!context.sources->snapshot(owned, assumptions, extent) || extent>context.limits.variables)
+    proof_error("incremental certificate source snapshot unavailable");
+  uint64_t literals = assumptions.size();
+  for (const auto &source : owned) literals += source.literals.size();
+  const __uint128_t work = (__uint128_t(owned.size())+assumptions.size())*(6*uint64_t(extent)+64)+12*__uint128_t(literals);
+  if (work>UINT64_MAX || owned.size()+assumptions.size()>context.limits.clauses || literals>context.limits.literals)
+    proof_error("incremental certificate copy storage exhausted");
+  context.charge(uint64_t(work));
+  // These premises were independently licensed by the writer, not trusted
+  // merely because a kernel snapshot contains their bytes. Missing root
+  // materializations may be rederived by RUP from this exact current prefix.
+  SubSolver oracle;
+  oracle.reset(extent);
+  for (const auto &[clause, copies] : context.licensed) {
+    (void)copies;
+    std::vector<SubLit> body; for (int32_t literal : clause) body.push_back(internalize(literal));
+    oracle.add_clause(body);
+  }
+  const auto propagate = [&](const std::vector<SubLit> &cube) {
+    if (context.stats.work>=context.limits.work) proof_error("incremental certificate work allowance exhausted");
+    const uint64_t before = oracle.ticks();
+    const auto result = oracle.propagate_assumptions_only(cube, context.limits.work-context.stats.work);
+    context.charge(oracle.ticks()-before);
+    if (result==SubPropagationResult::Budget || result==SubPropagationResult::Interrupted)
+      proof_error("incremental certificate source check did not complete");
+    return result;
+  };
+  if (propagate({}) == SubPropagationResult::Conflict) preserve_query_input_refutation();
+  const auto license = [&](const std::vector<int32_t> &original) {
+    auto clause = original; std::sort(clause.begin(), clause.end());
+    clause.erase(std::unique(clause.begin(), clause.end()), clause.end());
+    if (context.licensed.contains(clause)) return;
+    std::vector<SubLit> cube; for (int32_t literal : clause) cube.push_back(internalize(-literal));
+    if (propagate(cube)!=SubPropagationResult::Conflict)
+      proof_error("native clause has no checked incremental certificate source");
+    if (!add_external_rup_impl(0, clause.data(), clause.size())) proof_error("cannot license incremental copy");
+    if (dsr_copy_ && !dsr_copy_->add_external_rup_impl(0, clause.data(), clause.size()))
+      proof_error("cannot license incremental DSR copy");
+    query_clause(true, PopulationClauseView::external_lits(clause.data(), clause.size()));
+  };
+  for (const auto &source : owned) license(source.literals);
+  for (int32_t literal : assumptions) license({literal});
+  std::vector<QueryProofClause> sources;
+  for (const auto &source : owned) sources.push_back({source.id, source.literals});
+  if (!isolate_query(sources, assumptions, extent)) proof_error("cannot refresh incremental certificate names");
+  context.licensed.clear(); context.literals = 0;
+  for (const auto &source : owned)
+    query_clause(true, PopulationClauseView::external_lits(source.literals.data(), source.literals.size()));
+  for (int32_t literal : assumptions) query_clause(true, PopulationClauseView::external_lits(&literal, 1));
+  context.dirty = false;
+  context.stale_extent = 0;
+  ++context.stats.generations;
+}
+
+void Proof::observe_named_helper(bool deletion, std::span<const int32_t> clause) {
+  const bool saved = checker_event_named_;
+  checker_event_named_ = true;
+  observe_checker(deletion ? CheckerPopulationEventKind::DeleteRequested : CheckerPopulationEventKind::Add,
+      CheckerClauseRole::DsrSubstitutionHelper, 0, 0,
+      PopulationClauseView::external_lits(clause.data(), clause.size()), true);
+  checker_event_named_ = saved;
+}
+
 void Proof::put_checker_literal(int32_t e) {
   uint32_t u = (external_variable_of(e) << 1) | (e < 0);
   uint64_t bytes = 1;
@@ -694,7 +977,7 @@ const int32_t *Proof::pbp_checker_literals(const Lit *lits, uint32_t size) {
   pbp_external_scratch_.clear();
   pbp_external_scratch_.reserve(size);
   for (uint32_t i = 0; i < size; ++i)
-    pbp_external_scratch_.push_back(externalize(checker_lit(lits[i])));
+    pbp_external_scratch_.push_back(certificate_literal(externalize(checker_lit(lits[i]))));
   return pbp_external_scratch_.data();
 }
 
@@ -706,7 +989,7 @@ void Proof::put_pbp_clause(const char *rule, const Lit *lits,
   text.put(rule);
   text.put(" ");
   for (uint32_t i = 0; i < size; ++i)
-    put_pbp_literal(text, externalize(checker_lit(lits[i])));
+    put_pbp_literal(text, certificate_literal(externalize(checker_lit(lits[i]))));
   text.put(">= 1");
   text.flush();
 }
@@ -1442,11 +1725,12 @@ void Proof::add_rat_impl(uint64_t id, const Lit *lits, uint32_t size) {
   assert(!tautological(lits, size)); // see Proof::tautological
   if (!file_)
     return;
+  if (query_input_refuted_) { add_rup_impl(id, lits, size); return; }
   if (streaming_pbp()) {
     if (!size || streaming_pbp_finished_)
       std::abort();
     put_pbp_clause("red", lits, size);
-    const int32_t external = externalize(checker_lit(lits[0]));
+    const int32_t external = certificate_literal(externalize(checker_lit(lits[0])));
     put_pbp_text(" : x%" PRIu32 " -> %d ;\n",
                  external_variable_of(external), external < 0 ? 0 : 1);
     note_pbp_derived(id, size,
@@ -1507,16 +1791,17 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
   // A witness must hold against every clause the checker has, so the leases it
   // changes, all retained support and the parity constraints it touches go first. A
   // witness-free line transforms nothing, and retained constraints only strengthen RUP.
-  if (plan.form != DsrWitnessForm::Rup) {
+  if (plan.form != DsrWitnessForm::Rup && !certificate_raw_) {
     invalidate_premises_for_sr(id, lits, size, true_lits, ntrue, mappings, nmappings);
     flush_persistent_external(id);
     retire_pbp_parity_constraints(lits, size, true_lits, ntrue, mappings, nmappings);
   }
+  if (query_input_refuted_) { add_rup_impl(id, lits, size); return true; }
   if (streaming_pbp()) {
     put_pbp_clause("red", lits, size);
     put_pbp_text(" :");
     const auto external_lit = [&](Lit literal) {
-      return externalize(checker_lit(literal));
+      return certificate_literal(externalize(checker_lit(literal)));
     };
     const Var pivot_var = var_of(lits[0]);
     bool pivot_assigned = false;
@@ -1556,8 +1841,63 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
   // general encoding moves the pivot to the auxiliary, so it states that image.
   const bool default_pivot = plan.form == DsrWitnessForm::Direct;
   const bool needs_auxiliary = plan.form == DsrWitnessForm::Extension ||
-                               (propagates && plan.form != DsrWitnessForm::Rup);
+                               ((propagates || query_names_enabled_ || certificate_offset_) && plan.form != DsrWitnessForm::Rup);
   flush_pending_dsr_units();
+  if ((query_names_enabled_ || certificate_offset_ || certificate_raw_) && plan.form != DsrWitnessForm::Rup) {
+    // Query assumptions are checker roots, not native roots. Two fresh guards
+    // keep every witnessed line nonunit even when the target is false there.
+    // Reserve these names permanently: ignored implied-unit deletions cannot
+    // collide with a later native variable or another proof helper.
+    const int32_t z = static_cast<int32_t>(new_helper());
+    const int32_t w = static_cast<int32_t>(new_helper());
+    const auto guarded = [&](bool deletion, int32_t first, int32_t second) {
+      put_line_tag(deletion);
+      put_checker_literal(first);
+      if (second) put_checker_literal(second);
+      for (uint32_t at = 0; at < size; ++at) put_lit(lits[at]);
+    };
+    const auto helper_event = [&](bool deletion, int32_t first, int32_t second) {
+      if (!population_observer_) return;
+      std::vector<int32_t> named{first};
+      if (second) named.push_back(second);
+      for (uint32_t at = 0; at < size; ++at)
+        named.push_back(certificate_literal(externalize(checker_lit(lits[at]))));
+      observe_named_helper(deletion, named);
+    };
+    for (int32_t second : {w, -w}) {
+      next_addition_rat_ = copy_role_;
+      guarded(false, -z, second); end_line();
+      helper_event(false, -z, second);
+    }
+    for (int32_t second : {w, -w}) {
+      guarded(false, z, second);
+      put_checker_literal(z);
+      if (default_pivot) put_lit(lits[0]);
+      for (uint32_t at = 0; at < ntrue; ++at) put_lit(true_lits[at]);
+      if (nmappings) {
+        put_checker_literal(z);
+        for (uint32_t at = 0; at < nmappings; ++at) {
+          put_lit(mappings[at].from); put_lit(mappings[at].to);
+        }
+      }
+      end_line();
+      helper_event(false, z, second);
+    }
+    guarded(false, z, 0); end_line(); // RUP: target v z
+    helper_event(false, z, 0);
+    put_clausal_line(false, lits, size);
+    population_add(id, lits, size);
+    observe_checker(CheckerPopulationEventKind::Add, CheckerClauseRole::SubstitutionRedundancy,
+                    id, id, internal_view(lits, size));
+    for (int32_t first : {z, -z})
+      for (int32_t second : {w, -w}) {
+        guarded(true, first, second); end_line(); helper_event(true, first, second);
+      }
+    guarded(true, z, 0); end_line();
+    helper_event(true, z, 0);
+    has_sr_witness_ = true;
+    return true;
+  }
   if (needs_auxiliary) {
     const Lit auxiliary = make_lit(external_variables, false);
     const int32_t external_auxiliary = externalize(auxiliary);
@@ -1827,9 +2167,10 @@ bool Proof::add_external_rup_impl(uint64_t id, const int32_t *lits,
   if (streaming_pbp()) {
     if (streaming_pbp_finished_)
       return false;
-    put_pbp_external_clause("rup", lits, size);
+    const auto named = certificate_literals(lits, size);
+    put_pbp_external_clause("rup", named.data(), size);
     put_pbp_text(" ;\n");
-    note_pbp_derived(id, size, [lits] { return lits; });
+    note_pbp_derived(id, size, [&] { return named.data(); });
   } else {
     next_addition_rat_ =
         copy_role_ && population_role_ == CheckerClauseRole::ExternalRat;
@@ -1866,11 +2207,13 @@ bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
   if (streaming_pbp()) {
     if (!size || !lits || streaming_pbp_finished_)
       return false;
-    put_pbp_external_clause("red", lits, size);
-    const int32_t pivot = lits[0];
-    put_pbp_text(" : x%" PRIu32 " -> %d ;\n",
-                 external_variable_of(pivot), pivot < 0 ? 0 : 1);
-    note_pbp_derived(id, size, [lits] { return lits; });
+    const auto named = certificate_literals(lits, size);
+    put_pbp_external_clause(query_input_refuted_ ? "rup" : "red", named.data(), size);
+    const int32_t pivot = named[0];
+    if (query_input_refuted_) put_pbp_text(" ;\n");
+    else put_pbp_text(" : x%" PRIu32 " -> %d ;\n",
+                     external_variable_of(pivot), pivot < 0 ? 0 : 1);
+    note_pbp_derived(id, size, [&] { return named.data(); });
     population_external(true, id, lits, size);
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::ExternalRat, id, id,
@@ -1887,26 +2230,31 @@ bool Proof::add_external_rat_impl(uint64_t id, const int32_t *lits,
 }
 
 uint32_t Proof::new_helper() {
+  if (certificate_raw_) {
+    if (raw_helper_next_ >= raw_helper_limit_) checker_name_error();
+    return ++raw_helper_next_;
+  }
   const uint32_t extent = external_variable_bound();
   const uint32_t before = helper_names_.empty() ? 0 : helper_names_.back().helpers;
-  if (uint64_t{extent} + before + 1 > MAX_CHECKER_NAME)
+  if (uint64_t{certificate_offset_} + extent + before + 1 > MAX_CHECKER_NAME)
     checker_name_error();
   if (helper_names_.empty() || helper_names_.back().extent != extent)
     helper_names_.push_back({extent, before + 1});
   else
     ++helper_names_.back().helpers;
-  return extent + before + 1;
+  return certificate_offset_ + extent + before + 1;
 }
 
 uint64_t Proof::checker_name(uint64_t solver_variable) const {
+  if (certificate_raw_) return solver_variable;
   if (helper_names_.empty() || solver_variable <= helper_names_.front().extent)
-    return solver_variable;
+    return certificate_offset_ + solver_variable;
   const auto after = std::lower_bound(
       helper_names_.begin(), helper_names_.end(), solver_variable,
       [](const DsrHelperNames &entry, uint64_t variable) {
         return entry.extent < variable;
       });
-  return solver_variable + std::prev(after)->helpers;
+  return certificate_offset_ + solver_variable + std::prev(after)->helpers;
 }
 
 uint32_t Proof::checker_variable(uint32_t solver_variable) const {
@@ -2137,7 +2485,8 @@ bool Proof::plan_pbp_parity_reason(
       return false;
     retained += bytes;
   }
-  if (helpers > UINT32_MAX || helpers > INT32_MAX - starting_external_extent)
+  if (helpers > UINT32_MAX || starting_external_extent > INT32_MAX-certificate_offset_ ||
+      helpers > INT32_MAX-certificate_offset_-starting_external_extent)
     return false;
   if (constraints > UINT64_MAX - pbp_derived_constraints_ ||
       pbp_original_constraints_ >
@@ -2230,7 +2579,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     if (literal < 0)
       text.put("~");
     text.put("x");
-    text.put_uint(external_variable_of(literal));
+    text.put_uint(external_variable_of(certificate_literal(literal)));
     text.put(" ");
   };
 
@@ -2289,7 +2638,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       text.put(">= ");
       text.put_uint(threshold);
       text.put(" : x");
-      text.put_uint(static_cast<uint32_t>(carry));
+      text.put_uint(external_variable_of(certificate_literal(carry)));
       text.put(" -> 0 ;\n");
       const uint64_t first = constraint();
       track_parity_constraint(first);
@@ -2301,7 +2650,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       text.put(">= ");
       text.put_uint(complement);
       text.put(" : x");
-      text.put_uint(static_cast<uint32_t>(carry));
+      text.put_uint(external_variable_of(certificate_literal(carry)));
       text.put(" -> 1 : subproof\n");
       const uint64_t negated_second = constraint();
       text.put("proofgoal #1\nqed ;\n");
@@ -2382,7 +2731,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       if (literal < 0)
         text.put("~");
       text.put("x");
-      text.put_uint(static_cast<uint32_t>(variable));
+      text.put_uint(external_variable_of(certificate_literal(variable)));
       text.put(" +");
     }
   };
@@ -2424,14 +2773,24 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       cache.retained_bytes() > plan.retained_bytes || std::ferror(file_))
     std::abort();
 #ifndef NDEBUG
-  pbp_audit_record(false, pbp_derived_constraints_, reason, reason_size);
+  const auto named_reason = certificate_literals(reason, reason_size);
+  pbp_audit_record(false, pbp_derived_constraints_, named_reason.data(), reason_size);
 #endif
   if (kernel_clause_id)
     track_pbp_derived_constraint(kernel_clause_id, reason_size);
   else if (reason_size != 2)
-    register_pbp_anonymous(reason, reason_size);
+    { const auto named = certificate_literals(reason, reason_size); register_pbp_anonymous(named.data(), reason_size); }
   proof_external_max_ = std::max(proof_external_max_, fresh);
   population_external(true, kernel_clause_id, reason, reason_size);
+  query_clause(true, PopulationClauseView::external_lits(reason, reason_size));
+  if (derivation_observer_) {
+    DerivationEvent event;
+    event.kind=DerivationKind::ParityReason;
+    event.id=kernel_clause_id;
+    event.clause=PopulationClauseView::external_lits(reason,reason_size);
+    event.parity_equations=equations;
+    derivation_observer_->observe(event);
+  }
   observe_checker(CheckerPopulationEventKind::Add,
                   CheckerClauseRole::ExternalRup, kernel_clause_id,
                   kernel_clause_id,
@@ -2635,8 +2994,14 @@ bool Proof::sr_needs_missing_auxiliary(const Lit *lits, uint32_t size,
                                        const DsrLiteralMapping *mappings,
                                        uint32_t nmappings, uint32_t external_variables,
                                        bool propagates) const {
+  if (query_input_refuted_) return false;
+  if (certificate_raw_) return uint64_t(raw_helper_next_)+2>raw_helper_limit_;
   const DsrWitnessForm form =
       plan_dsr_witness(lits, size, true_lits, ntrue, mappings, nmappings).form;
+  if ((query_names_enabled_ || certificate_offset_) && form != DsrWitnessForm::Rup) {
+    const uint64_t helpers = helper_names_.empty() ? 0 : helper_names_.back().helpers;
+    return uint64_t(certificate_offset_) + external_variable_bound() + helpers + 2 > MAX_CHECKER_NAME;
+  }
   return (form == DsrWitnessForm::Extension ||
           (propagates && form != DsrWitnessForm::Rup)) &&
          checker_name(uint64_t{external_variables} + 1) > MAX_CHECKER_NAME;
@@ -2761,8 +3126,9 @@ bool Proof::del_external_impl(uint64_t line_id, uint64_t del_id,
   if (!file_)
     return true;
   if (streaming_pbp()) {
+    const auto named = certificate_literals(lits, size);
     if (streaming_pbp_finished_ ||
-        !put_pbp_deletion(del_id, size, [lits] { return lits; }))
+        !put_pbp_deletion(del_id, size, [&] { return named.data(); }))
       return true;
     // Both PBP deletion forms report the same checker-population request.
     population_external(false, del_id, lits, size);
@@ -2823,7 +3189,7 @@ std::string Proof::population_key(uint64_t, const Lit *lits,
   std::vector<int> external;
   external.reserve(size);
   for (uint32_t i = 0; i < size; i++)
-    external.push_back(externalize(checker_lit(lits[i])));
+    external.push_back(certificate_literal(externalize(checker_lit(lits[i]))));
   std::sort(external.begin(), external.end());
   key.assign(reinterpret_cast<const char *>(external.data()),
              external.size() * sizeof(int));
@@ -3548,8 +3914,22 @@ FILE *Proof::begin_pb() {
   return terminal;
 }
 
+void Proof::observe_derivation(DerivationKind kind, uint64_t id, uint64_t source,
+                               PopulationClauseView clause) noexcept {
+  query_clause(kind != DerivationKind::Delete, clause);
+  if (!derivation_observer_) return;
+  DerivationEvent event;
+  event.kind = kind;
+  event.id = id;
+  event.source_id = source;
+  event.clause = clause;
+  derivation_observer_->observe(event);
+}
+
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size) {
   add_rup_impl(id, lits, size);
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Rup, id, 0, internal_view(lits, size));
   if (dsr_copy_) {
     dsr_copy_->add_rup(id, lits, size);
     settle_dsr_copy();
@@ -3557,7 +3937,11 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size) {
 }
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size) {
+  if (query_certificates_)
+    prepare_query_witness(size ? external_variable_of(externalize(checker_lit(lits[0]))) : 0);
   add_rat_impl(id, lits, size);
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Rat, id, 0, internal_view(lits, size));
   if (dsr_copy_) {
     dsr_copy_->add_rat(id, lits, size);
     settle_dsr_copy();
@@ -3568,6 +3952,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates) {
+  prepare_query_witness();
   // A line the copy cannot write converts first, before either stream retires
   // anything for it; --dsr stops there.
   if (dsr_copy_ && dsr_copy_->sr_needs_missing_auxiliary(lits, size, true_lits, ntrue, mappings,
@@ -3580,6 +3965,19 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     hold_lazy_event();
   const bool written = add_sr_impl(id, lits, size, true_lits, ntrue, mappings,
                                    nmappings, external_variables, propagates);
+  if (written) query_clause(true, internal_view(lits, size));
+  if (written && derivation_observer_) {
+    DerivationEvent event;
+    event.kind = DerivationKind::SubstitutionRedundancy;
+    event.id = id;
+    event.clause = internal_view(lits, size);
+    event.witness = internal_view(true_lits, ntrue);
+    event.mappings = {mappings, nmappings};
+    event.variable_map = variable_map_;
+    event.external_variables = external_variables;
+    event.propagates = propagates;
+    derivation_observer_->observe(event);
+  }
   const ReleaseLazyEvent release{this};
   if (!written || !dsr_copy_)
     return written;
@@ -3593,6 +3991,8 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
 
 void Proof::add_empty(uint64_t id) {
   add_empty_impl(id);
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Rup, id, 0, {});
   if (dsr_copy_) {
     dsr_copy_->add_empty(id);
     settle_dsr_copy();
@@ -3601,6 +4001,8 @@ void Proof::add_empty(uint64_t id) {
 
 void Proof::add_derived_unit(uint64_t id, Lit unit) {
   add_derived_unit_impl(id, unit);
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Rup, id, 0, internal_view(&unit, 1));
   if (dsr_copy_) {
     dsr_copy_->add_derived_unit(id, unit);
     settle_dsr_copy();
@@ -3610,6 +4012,8 @@ void Proof::add_derived_unit(uint64_t id, Lit unit) {
 void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
                 uint32_t size) {
   del_impl(line_id, del_id, lits, size);
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Delete, line_id, del_id, internal_view(lits, size));
   if (dsr_copy_) {
     dsr_copy_->del(line_id, del_id, lits, size);
     settle_dsr_copy();
@@ -3621,6 +4025,8 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_external_rup_impl(id, lits, size);
+  if (written && has_derivation_consumers())
+    observe_derivation(DerivationKind::Rup, id, 0, PopulationClauseView::external_lits(lits, size));
   const ReleaseLazyEvent release{this};
   if (written && dsr_copy_) {
     if (!dsr_copy_->add_external_rup(id, lits, size))
@@ -3633,6 +4039,8 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
 
 bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
                              uint32_t size) {
+  if (query_certificates_)
+    prepare_query_witness(size ? external_variable_of(lits[0]) : 0);
   // DSR rejects a tautology only after retiring leased premises, so its text
   // and the writer's would overlap: convert before either stream runs.
   const bool tautology = dsr_copy_ && size && lits && external_tautological(lits, size);
@@ -3641,6 +4049,8 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = add_external_rat_impl(id, lits, size);
+  if (written && has_derivation_consumers())
+    observe_derivation(DerivationKind::Rat, id, 0, PopulationClauseView::external_lits(lits, size));
   const ReleaseLazyEvent release{this};
   if (written && dsr_copy_ && !tautology) {
     if (!dsr_copy_->add_external_rat(id, lits, size))
@@ -3656,6 +4066,8 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   if (dsr_copy_)
     hold_lazy_event();
   const bool written = del_external_impl(line_id, del_id, lits, size);
+  if (written && has_derivation_consumers())
+    observe_derivation(DerivationKind::Delete, line_id, del_id, PopulationClauseView::external_lits(lits, size));
   const ReleaseLazyEvent release{this};
   if (written && dsr_copy_) {
     if (!dsr_copy_->del_external(line_id, del_id, lits, size))
@@ -3718,10 +4130,20 @@ void Proof::release_premise_groups(const std::vector<uint64_t> &handles,
 
 void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
   seed_population_impl(id, lits, size);
+  if (has_derivation_consumers())
+    observe_derivation(DerivationKind::Input, id, 0, internal_view(lits, size));
   if (dsr_copy_) {
     dsr_copy_->seed_population(id, lits, size);
     settle_dsr_copy();
   }
+}
+
+void Proof::finish_query_output() {
+  if (dsr_copy_)
+    select_dsr_copy(false);
+  if (file_ && streaming_pbp() && !streaming_pbp_finished_)
+    settle_pbp_deferred_units(false);
+  flush();
 }
 
 void Proof::flush() {
