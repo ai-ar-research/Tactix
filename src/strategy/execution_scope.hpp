@@ -11,8 +11,7 @@ inline void execute_action(Kernel &k, const ArenaOrderingInstallationRequest &re
   k.arena_ordering = request.ordering;
 }
 
-// The policy chooses the ordering and solve lifetime. Restore the caller's
-// exact wire, including nested null installations and early terminal exits.
+// Restore the caller's exact wire, including nested null installs.
 class ArenaOrderingScope {
 public:
   ArenaOrderingScope(Kernel &k, ArenaOrderingInstallationRequest request)

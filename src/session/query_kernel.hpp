@@ -122,7 +122,6 @@ public:
   KernelTicket ticket() const;
   bool owns_query(KernelTicket t,const QueryHistory &h) const {return history_==&h && valid(t);}
   Kernel *kernel(KernelTicket);
-  const Kernel *kernel(KernelTicket) const;
   StructuralActionSessions *execution_services(KernelTicket);
   std::span<const int32_t> effective_assumptions(KernelTicket) const;
   ProjectionSnapshot projection_state(KernelTicket) const;

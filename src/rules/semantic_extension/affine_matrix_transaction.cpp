@@ -10,6 +10,7 @@
 #include <iterator>
 #include <map>
 #include <set>
+#include <span>
 
 namespace tactix::affine_semantic_extension {
 namespace {
@@ -156,10 +157,7 @@ struct PlanningSink {
       if (event->kind != MatrixProofEvent::Kind::Delete && event->id == id) {
         if (event->install) return false;
         event->install = true;
-        // Accumulation can already leave the requested root unit active.
-        // export_reason then adds the same unit again.  Keep the newest copy
-        // as the solver-owned clause and retire the older proof-only copies,
-        // so the active population has one unambiguous installed identity.
+        // Keep the newest copy of a repeated root unit; retire older copies.
         while (found->second.size() > 1) {
           if (deletions == maximum_deletions) {
             exhausted = true;
@@ -238,22 +236,21 @@ struct DenseSink {
                        : static_cast<External>(external);
   }
 
-  bool map(const SmallClause &input, std::vector<External> &output) const {
-    output.clear();
-    output.reserve(input.size);
-    for (uint32_t i = 0; i < input.size; ++i) {
-      const External literal = external_literal(input.lits[i]);
-      if (!literal) return false;
-      output.push_back(literal);
-    }
-    return true;
+  static std::span<const External> literals(const SmallClause &clause) {
+    return {clause.lits.data(), clause.size};
+  }
+  static std::span<const External> literals(
+      const std::vector<External> &clause) {
+    return clause;
   }
 
-  bool map(const std::vector<External> &input,
-           std::vector<External> &output) const {
+  // Map a SmallClause or literal vector into external literals.
+  template <class Clause>
+  bool map(const Clause &input, std::vector<External> &output) const {
+    const std::span<const External> items = literals(input);
     output.clear();
-    output.reserve(input.size());
-    for (External item : input) {
+    output.reserve(items.size());
+    for (External item : items) {
       const External literal = external_literal(item);
       if (!literal) return false;
       output.push_back(literal);
@@ -261,16 +258,7 @@ struct DenseSink {
     return true;
   }
 
-  bool add(const SmallClause &clause, bool rat) {
-    std::vector<External> external;
-    if (!map(clause, external)) {
-      sink.invalid = true;
-      return false;
-    }
-    return sink.add_external(external, rat);
-  }
-
-  bool add(const std::vector<External> &clause, bool rat) {
+  template <class Clause> bool add(const Clause &clause, bool rat) {
     std::vector<External> external;
     if (!map(clause, external)) {
       sink.invalid = true;
@@ -344,9 +332,7 @@ bool authenticate_premises(const Equation &equation,
       equation.premise_clauses.size() != expected_clauses)
     return false;
 
-  // The matrix can certify this immutable structure once at build time.
-  // Historical work is still charged above; only repeated CPU validation is
-  // omitted. Arbitrary caller-owned source snapshots take the complete path.
+  // Matrix sources were certified at build; others take the full check.
   if (!structure_authenticated && !authenticates_clausal_form(equation))
     return false;
   for (uint64_t occurrence : equation.premises) {
@@ -496,10 +482,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       aggregate_retained_authentication &&
       retained_sources &&
       matrix.retained_authentication_work(event, retained_authentication);
-  // Preserve the full audit's exact partial-work boundary when the retained
-  // aggregate itself would exceed the request.  On the ordinary successful
-  // same-stack path, charge the identical total once and avoid repeatedly
-  // walking immutable sources and rows.
+  // Charge the retained total once when it fits; else run the full audit.
   if (retained_event && retained_authentication <= limits.maximum_work) {
     if (!work.consume(retained_authentication))
       return MatrixTransactionStatus::Interrupted;
@@ -552,8 +535,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       variables.insert(variables.end(), input.variables.begin(),
                        input.variables.end());
   }
-  // Both planners bind the exact sorted source ordinals, their retained or
-  // charged identities and the reason's arena footprint.
+  // Bind source ordinals, identities and the reason's arena footprint.
   const auto begin_candidate = [&](AffineMatrixTransaction &transaction) {
     transaction.owner_identity_ = expected_owner_identity;
     transaction.authentication_work_ = authentication_work;
@@ -604,12 +586,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     entry.coordinates = variables;
     entry.tree = std::move(tree);
   };
-  // Compact PBP already validated the exact equations, their XOR image and
-  // the external reason while constructing `pbp_plan`.  The general bridge
-  // below builds a dense coordinate frame solely for its clausal parity tree;
-  // compact publication never consumes that frame.  Preserve premise and
-  // source-identity authentication plus the exact work currency, but avoid
-  // allocating, sorting and remapping the discarded image.
+  // `pbp_plan` already validated equations and reason: authenticate premises
+  // and charge the same work without building the clausal frame.
   if (pbp_plan) {
     AffineMatrixTransaction candidate;
     if (const auto status = begin_candidate(candidate);
@@ -628,9 +606,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     return finish(candidate, pbp_plan->proof_constraints, 0,
                   pbp_plan->helper_variables);
   }
-  // Every cacheable tree uses the same coordinate frame for this admitted
-  // source image.  Projected rows can cite variables no longer present in
-  // admitted_variables(), so take the original authenticated source support.
+  // Cacheable trees share one frame: the source support, since projected
+  // rows may cite variables outside admitted_variables().
   if (proof_cache && !event.reason.empty()) {
     const auto &admitted = matrix.admitted_sources();
     for (size_t source : event.row.source_equations)

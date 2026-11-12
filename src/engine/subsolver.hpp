@@ -1,9 +1,7 @@
-// The embedded sub-solver and its refutation derivation: a minimal CDCL that
-// refutes a question posed on a small extracted clause set
-// (docs/design/v5-sweep-design.md §3). An engine, not a rule — no guard, no
-// instances, no apply — hence outside `src/rules/`, and shared: Sweep refutes
-// candidate equivalences on an environment, BVE refutes the reduced occurrence
-// lists of a pivot to extract a definition (kissat's definition.c).
+// The embedded sub-solver: a minimal CDCL refuting questions on small extracted
+// clause sets (docs/design/v5-sweep-design.md §3). An engine shared by Sweep
+// (candidate equivalences) and BVE (definition extraction, kissat
+// definition.c), so it lives outside `src/rules/`.
 #pragma once
 
 #include <csignal>
@@ -12,14 +10,10 @@
 
 namespace tactix {
 
-// Three properties this engine must keep:
-//  - it owns its arena, watches, trail and values and never touches `Kernel`,
-//    so it cannot perturb the main search trajectory;
-//  - it is budgeted in its own tick currency and returns `Budget` rather than
-//    guessing, so the effort scheduler doses it like any rule (§5.2);
-//  - it is deterministic: no wall clock or ambient randomness. The shared
-//    fallback has fixed order; Sweep selects Kitten's deterministic
-//    per-environment generator, imported-variable VMTF queue and saved phases.
+// Invariants: it owns its arena, watches, trail and values and never touches
+// `Kernel`; it is budgeted in its own ticks and returns `Budget` instead of
+// guessing (§5.2); it is deterministic (fixed fallback order, or Kitten's
+// per-environment generator, VMTF queue and saved phases for Sweep).
 
 // Same literal shape as the kernel, but indexing the extracted compact space.
 using SubLit = uint32_t;
@@ -63,14 +57,12 @@ enum class SubSearchMode {
   Kitten, // Kissat's imported-variable VMTF queue and randomized phases
 };
 
-// One derived clause: `lits` follows from `chain` by unit propagation — assume
-// every literal of `lits` false, then propagate `chain` in order, each entry
-// unit or (the last) conflicting. An empty `lits` is the empty clause.
-//
-// `antecedents` is a second, generally smaller list: the clauses Kitten records
-// on the lemma (`kitten.c:965`), which is what its clausal core walks. Kitten's
-// failing-assumption analysis stops at a root reason instead of expanding it
-// (`kitten.c:1461-1477`), so that set is not the transitive cone. Empty means the two coincide, which holds everywhere but there.
+// One derived clause: assuming every literal of `lits` false, propagating
+// `chain` in order makes each entry unit and the last conflicting; empty `lits`
+// is the empty clause. `antecedents` is what Kitten records on the lemma
+// (`kitten.c:965`) and its clausal core walks; failing-assumption analysis
+// stops at a root reason (`kitten.c:1461-1477`), so it can differ from the
+// cone. Empty means the two coincide.
 struct SubStep {
   uint32_t id = 0;
   std::vector<SubLit> lits;
@@ -82,21 +74,18 @@ struct SubStep {
   }
 };
 
-// A complete refutation, payable as a proof obligation: a swept equivalence is
-// entailed but not RUP in general (design §4), so the chain must come from this
-// solver's own resolution, not a RUP check over the main formula. `steps` is in
-// derivation order, pruned to what the target depends on, and its last step is
-// the target clause; `core` is the ascending ids of the original clauses used.
-// The caller maps these ids to main-formula ones; nothing here knows about the
-// main formula.
+// A complete refutation: a swept equivalence is entailed but not RUP in general
+// (design §4), so the chain comes from this solver's resolution. `steps` is in
+// derivation order, pruned to the target's dependencies, and ends with the
+// target clause; `core` lists the ascending original ids used, which the caller
+// maps to the main formula.
 struct SubDerivation {
   std::vector<SubStep> steps;
   std::vector<uint32_t> core;
   bool resource_exhausted = false;
   // Kitten's clausal core: every clause reachable from the refuting lemma over
-  // `antecedents`, each emitted once, in the post-order
-  // `kitten_compute_clausal_core` produces (`kitten.c:1978-2008`). `learned`
-  // separates a lemma from a stated original, which Kissat's `save_core_clause`
+  // `antecedents`, once each, in `kitten_compute_clausal_core` post-order
+  // (`kitten.c:1978-2008`); `learned` is what Kissat's `save_core_clause`
   // filters on (`sweep.c:333-337`).
   struct CoreClause {
     uint32_t id = 0;
@@ -108,108 +97,82 @@ struct SubDerivation {
 
 class SubSolver {
 public:
-  // Reset to an empty formula over `nvars` variables, reusing the existing
-  // allocations so a round of many small environments pays no allocation each.
+  // Reset to an empty formula over `nvars`, reusing allocations.
   void reset(uint32_t nvars,
              SubSearchMode mode = SubSearchMode::Fixed);
 
-  // Reset Kitten over an input whose variable ids are already dense and whose
-  // ascending ids are their first clause/literal occurrence order. BVE's
-  // reversible proof map has exactly that representation, so rebuilding a
-  // second identical import/export map inside the engine is unnecessary.
-  // Search, ticks, generator use, clauses, cores, and exported literals remain
-  // identical to `reset(nvars, SubSearchMode::Kitten)` followed by that order.
+  // Reset Kitten over dense variable ids already in first-occurrence order
+  // (BVE's proof map), skipping a second import map; behaviour equals
+  // `reset(nvars, SubSearchMode::Kitten)` with that order.
   void reset_compact_kitten(uint32_t nvars);
 
-  // A Kissat Sweep invocation constructs one embedded Kitten and clears it
-  // between environments. Clear advances Kitten's deterministic generator;
-  // starting a new invocation resets that sequence.
+  // One Kitten per Sweep invocation; clear advances its generator.
   void start_kitten_session(bool clear_before_first_environment = false);
 
-  // Kissat randomizes every active-capacity phase byte immediately before
-  // every Sweep solve. Kept separate from solve because BVE shares this
-  // engine but does not use the Sweep/Kitten search contract.
+  // Kissat randomizes phases before each Sweep solve (not BVE).
   void randomize_phases();
 
-  // Add an original clause and return its id. Ids are handed out from 1 in add
-  // order, matching the clause numbering of a DIMACS file written in the same
-  // order, which is what makes the derivation directly replayable. Every call
-  // consumes an id, tautologies included, so the id space stays aligned with
-  // the caller's. Must not be called after `solve`.
+  // Add an original clause and return its id: ids count from 1 in add order,
+  // matching a DIMACS file written in that order, and every call (tautologies
+  // included) consumes one. Not after `solve`.
   uint32_t add_clause(const std::vector<SubLit> &lits);
 
-  // Solve under `assumptions`; `ticks_budget == 0` means unlimited. Same
-  // formula and assumptions give the same result and the same tick count.
+  // Solve under `assumptions` (budget 0 unlimited); deterministic.
   SubResult solve(const std::vector<SubLit> &assumptions,
                   uint64_t ticks_budget,
                   SubTickMode tick_mode = SubTickMode::Entries);
-  // The interruptible specialization polls `stop` at a bounded search cadence
-  // and returns Budget without claiming a verdict. Keeping it separate leaves
-  // the ordinary finite-budget engine's hot path unchanged.
+  // Polls `stop` and returns Budget without a verdict.
   SubResult solve_interruptible(const std::vector<SubLit> &assumptions,
                                 uint64_t ticks_budget,
                                 SubTickMode tick_mode,
                                 const volatile sig_atomic_t *stop);
 
-  // Pure unit propagation under temporary assumptions. No decisions, learning,
-  // model publication, or proof derivation occur. A finite budget is checked
-  // between propagation cascades; one cascade may overshoot it atomically.
+  // Unit propagation under temporary assumptions only.
   SubPropagationResult propagate_assumptions_only(
       const std::vector<SubLit> &assumptions, uint64_t ticks_budget,
       const volatile sig_atomic_t *stop = nullptr);
 
-  // A persistent RUP oracle: check by pure BCP, unwind temporary assumptions,
-  // then install only an accepted clause for later dependent checks. No CDCL,
-  // learning occurs. Optional `proof` captures the accepted normalized clause
-  // and its ordered RUP antecedents before assumptions unwind, using stable
-  // oracle IDs. Non-acceptance clears it. Fixed mode only, before any full
-  // solve call; reset starts another oracle lifetime. Zero budget does no work.
+  // Persistent RUP oracle: check by BCP, unwind assumptions, install only an
+  // accepted clause. `proof` captures the accepted clause and its ordered RUP
+  // antecedents under stable oracle ids, and is cleared otherwise. Fixed mode
+  // only, before any full solve; zero budget does no work.
   SubRupAdmission admit_rup(const std::vector<SubLit> &, uint64_t ticks_budget,
                            const volatile sig_atomic_t *stop = nullptr,
                            SubStep *proof = nullptr);
 
-  // Append a trusted original premise to a Fixed-mode propagation oracle,
-  // extending its stable variable namespace if needed. Temporary assumptions
-  // are unwound; root reasons, clauses and IDs survive. No full search may have
-  // started. False leaves the oracle unchanged (invalid/unsupported/ID bounds).
+  // Append a trusted premise to a Fixed-mode oracle, extending its variables if
+  // needed; assumptions unwind, roots, clauses and ids survive. False leaves it
+  // unchanged.
   bool append_input(uint32_t nvars, const std::vector<SubLit> &);
 
-  // The refutation behind the last `Unsat`. False when there is none: no
-  // refutation yet, or the assumptions were directly contradictory, so nothing
-  // was derived and the target clause would be a tautology — which only
-  // `Proof::add_rup`'s assert catches.
-  // `with_core` additionally fills `out.core_clauses` with Kitten's clausal
-  // core; it costs one arena walk, so only the caller that consumes the core
-  // asks for it. False with `out.resource_exhausted` means optional export
-  // could not allocate; no proof is valid and the caller must stop that
-  // environment rather than retry its oversized capture.
+  // The refutation behind the last `Unsat`; false if none (no refutation, or
+  // contradictory assumptions with a tautological target). `with_core` also
+  // fills Kitten's clausal core (one arena walk). False with
+  // `out.resource_exhausted` means export could not allocate: the caller stops
+  // that environment.
   bool derivation(SubDerivation &out, bool with_core = false) const noexcept;
 
-  // Read the last refutation's final target without exporting its potentially
-  // enormous proof prefix. Intended for shape checks before capture.
+  // The last refutation's target, without exporting its proof.
   const SubStep *refutation_target() const {
     return have_derivation_ ? &target_ : nullptr;
   }
 
-  // Kitten definition-core refinement: retain only the original clauses in a
-  // computed core, discard learned state, then deterministically shuffle the
-  // carried VMTF queue, watch lists, and units before a second solve. Original
-  // clause ids and external literal identities remain available to proof lift.
+  // Kitten definition-core refinement: keep only core originals, drop learned
+  // state, then shuffle the VMTF queue, watches and units before a second
+  // solve; original ids and external literals stay available.
   void shrink_to_clausal_core(const std::vector<uint32_t> &core);
   void shuffle_clauses();
 
   // Model, by variable: +1 true, -1 false (valid only after `Sat`).
   const std::vector<int8_t> &model() const { return model_; }
-  // Flip `lit` in the current SAT model while holding every other variable
-  // fixed. False means some clause would become false (or the variable is
-  // root-fixed). Used only as a cheap model filter; it proves no clause.
+  // Flip `lit` in the SAT model holding all else fixed; false if a clause would
+  // break or the variable is root-fixed. A model filter only; it proves
+  // nothing.
   bool flip_model_literal(SubLit lit);
-  // Current level-zero value of an external literal, or zero if it is not
-  // imported, unassigned, or assigned above root (Kitten's `kitten_fixed`).
+  // Root value of an external literal, else zero (Kitten's `kitten_fixed`).
   int8_t fixed_literal(SubLit lit) const;
   bool has_model() const { return model_valid_; }
-  // Effort currency, charged per watch-list entry inspected — the same unit
-  // `transitive_ticks` / `ternary_ticks` / `bce_ticks` use.
+  // Effort per watch entry inspected, as `transitive_ticks` and kin.
   uint64_t ticks() const { return ticks_; }
   uint64_t kitten_ticks() const { return kitten_ticks_; }
   uint64_t kitten_generator() const { return kitten_generator_; }
@@ -219,19 +182,16 @@ public:
   uint32_t nvars() const { return nvars_; }
   // Ids <= this are original clauses; above it are derived lemmas.
   uint32_t original_clauses() const { return original_clauses_; }
-  // The formula itself is refuted, not merely under assumptions, so every later
-  // `solve` returns `Unsat` whatever it assumes. A caller reading
-  // per-assumption refutations must check this, or read two vacuous `Unsat`s
-  // as an equivalence.
+  // The formula itself is refuted, so every later `solve` returns `Unsat`;
+  // per-assumption callers must check this rather than read two vacuous
+  // `Unsat`s as an equivalence.
   bool inconsistent() const { return inconsistent_; }
 
 private:
   template <bool Interruptible>
   SubResult solve_impl(const std::vector<SubLit> &, uint64_t, SubTickMode,
                        const volatile sig_atomic_t *);
-  // A clause is a run in `arena_` with a two-word header: `arena_[ref - 2]` is
-  // its id and `arena_[ref - 1]` its size, so a `SubRef` (the index of the
-  // first literal) both identifies the clause and names it for the proof.
+  // Clause header: `arena_[ref - 2]` id, `arena_[ref - 1]` size.
   using SubRef = uint32_t;
   static constexpr SubRef NO_REF = UINT32_MAX;
 
@@ -265,18 +225,15 @@ private:
   SubRef add_derived(const std::vector<SubLit> &lits,
                      const std::vector<uint32_t> &chain,
                      const std::vector<uint32_t> &ante = {});
-  // A clause's literals start at `ref`; for an empty clause stored last that
-  // is the end of the arena, which may be pointed at but not indexed.
+  // An empty clause stored last starts at the arena end.
   SubLit *clause_lits(SubRef ref) { return arena_.data() + ref; }
   const SubLit *clause_lits(SubRef ref) const { return arena_.data() + ref; }
   uint32_t clause_size(SubRef ref) const { return arena_[ref - 1]; }
   uint32_t clause_id(SubRef ref) const { return arena_[ref - 2]; }
 
-  // --- proof plumbing ---
-  // Transitively record the reason cone of `v` as (trail position, id) pairs;
-  // sorting by trail position reproduces the checker's own propagation order.
-  // Decision variables terminate the walk and, when `decisions` is non-null,
-  // are reported through it — they are the assumptions the target negates.
+  // --- proof plumbing. Record `v`'s reason cone as (trail position, id) pairs,
+  // whose sort is the checker's propagation order; decisions end the walk and
+  // are reported through `decisions` when non-null.
   void record_cone(SubVar v, std::vector<SubLit> *decisions);
   void chain_clear();
   // sorted ids, with `closing` appended last when it is not NO_REF
@@ -289,36 +246,25 @@ private:
   uint32_t nvars_ = 0;
   uint32_t imported_vars_ = 0;
   uint32_t phase_capacity_vars_ = 0;
-  // `kitten_clear` retains the allocated internal size. Phase randomization
-  // visits that high-water capacity, including bytes above the current
-  // environment's imported-variable count, until the Sweep session ends.
+  // `kitten_clear` keeps the allocated size for phase randomization.
   uint32_t kitten_capacity_vars_ = 0;
   bool inconsistent_ = false; // the empty clause was derived or added
   bool solved_ = false;       // `solve` has run: no more original clauses
   bool model_valid_ = false;  // the most recent solve returned Sat
   bool search_started_ = false; // RUP admission cannot renumber a search proof
-  // An input clause that refuted the formula on its own. Its target is built at
-  // the first solve, so lemma ids never land below the original-id watershed.
+  // An input clause refuting alone; its target is built at first solve.
   SubRef pending_refutation_ = NO_REF;
 
   std::vector<SubLit> arena_;
   std::vector<std::vector<SubWatch>> watches_; // by literal
-  // Fixed-mode-only flip safety index. Kitten's flip follows watched clauses
-  // exactly and neither allocates nor reads this second literal index.
+  // Fixed-mode-only flip index; Kitten never reads it.
   std::vector<std::vector<SubRef>> occurrences_;
-  // Persistent clause-import stack, mirroring Kitten's `eclause`: imported
-  // literals are copied into `arena_`, so this storage is safe to reuse.
+  // Clause-import stack mirroring Kitten's `eclause`.
   std::vector<SubLit> imported_clause_;
-  // Persistent second-core membership scratch. Upstream Kitten stores the
-  // mark in each clause header and compacts its arena in place; keeping this
-  // parallel byte image preserves Tactix's proof-visible header while avoiding
-  // a fresh bitmap and duplicate arena for every refinement.
+  // Second-core membership scratch (Kitten marks clause headers).
   std::vector<uint8_t> core_keep_;
   std::vector<uint32_t> core_touched_;
-  // Clause-import duplicate/tautology image.  Kissat's Kitten uses one signed
-  // mark per variable and clears only the variables touched by the current
-  // clause.  Keeping that representation here preserves first-occurrence
-  // order while avoiding a quadratic scan of the already-imported prefix.
+  // Duplicate/tautology marks, one per variable, as in Kissat's Kitten.
   std::vector<int8_t> clause_marks_;       // 0 / positive / negative
   std::vector<SubVar> clause_touched_;     // marks to restore after one clause
   std::vector<int8_t> values_;                 // by literal: 1/-1/0
@@ -328,8 +274,7 @@ private:
   std::vector<SubVar> export_;   // internal variable -> external variable
   std::vector<SubRef> units_;    // original and learned unit clauses
 
-  // Kitten's newest-first VMTF decision queue. The queue is populated in
-  // first-clause-occurrence import order, not the caller's variable order.
+  // Kitten's newest-first VMTF queue, in import order.
   std::vector<SubVar> queue_prev_, queue_next_;
   std::vector<uint64_t> queue_stamp_;
   SubVar queue_first_ = UINT32_MAX;
@@ -344,8 +289,7 @@ private:
   std::vector<SubRef> reason_;     // by variable (NO_REF = decision)
   uint32_t propagate_head_ = 0;
 
-  // Conflict handoff and analysis scratch, persistent so the conflict loop
-  // never allocates (the kernel keeps its analyze stacks for the same reason).
+  // Persistent conflict scratch so the loop never allocates.
   SubRef conflict_ref_ = NO_REF;
   std::vector<uint8_t> seen_; // by variable
   std::vector<SubVar> analyzed_;
@@ -356,9 +300,9 @@ private:
   std::vector<std::pair<uint32_t, uint32_t>> chain_entries_; // (trail pos, id)
   std::vector<uint32_t> analyze_ante_; // Kitten's `resolved`, in its own order
   size_t next_root_ = 0;               // `inconsistent`'s breadth cursor
-  // The clause Kitten leaves in `inconsistent`/`failing`, which roots the core.
-  // Not always the proof target: a single-antecedent failing analysis reuses
-  // that antecedent and never allocates a clause for the target.
+  // The clause Kitten leaves in `inconsistent`/`failing`, rooting the core; a
+  // single-antecedent failure reuses that antecedent instead of allocating the
+  // target.
   uint32_t core_root_ = 0;
 
   std::vector<SubStep> derived_; // every lemma learned, in derivation order

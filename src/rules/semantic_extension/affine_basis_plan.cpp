@@ -2,8 +2,6 @@
 
 #include "kernel/types.hpp"
 
-#include <algorithm>
-#include <climits>
 #include <map>
 #include <set>
 

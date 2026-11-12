@@ -30,9 +30,7 @@ uint64_t AffineMatrixLivePrepared::retained_bytes() const {
     bytes += __uint128_t(equation.variables.capacity()) * sizeof(int32_t);
   bytes += __uint128_t(pbp_plan_.odd_variables.capacity()) * sizeof(int32_t);
   bytes += prepared_.preflight_journal_bytes;
-  // Generic two-phase callers retain a copied source owner.  The explicit
-  // deferred path is debt-guarded and borrows the session's immutable owner,
-  // so this population is empty there.
+  // Two-phase callers copy the source owner; the deferred path borrows it.
   bytes += __uint128_t(owner_.sources.capacity()) * sizeof(AffineLiveSource);
   for (const auto &source : owner_.sources)
     bytes += __uint128_t(source.clause.capacity()) * sizeof(External);
@@ -62,10 +60,8 @@ bool applicable(const Kernel &kernel, bool historical_event = false) {
   if (kernel.inconsistent || kernel.pending.valid || kernel.dense ||
       kernel.probing.recording || !kernel.large_watches_connected)
     return false;
-  // A historical preflight is a pure proof plan.  It is specifically needed
-  // after propagation has consumed the affine implication, including at the
-  // conflict boundary where the reason must become proof-visible before
-  // Analyze.  Ordinary live publication retains its exact-fixpoint contract.
+  // A historical preflight is a proof plan after propagation consumed the
+  // implication; live publication needs the exact fixpoint.
   return historical_event ||
          (!kernel.conflict_valid && kernel_propagation_fixpoint(kernel));
 }
@@ -112,9 +108,7 @@ bool snapshot_support(const Kernel &kernel,
 
 bool same_clause_body(const std::vector<int32_t> &first,
                       const std::vector<int32_t> &second) {
-  // A prepared matrix transaction accepts only bounded parity equations, so
-  // comparing their premise clauses directly avoids two heap copies and sorts
-  // per live premise while retaining exact multiset identity.
+  // Bounded parity premises compare directly as exact multisets.
   return first.size() == second.size() &&
          std::is_permutation(first.begin(), first.end(), second.begin());
 }
@@ -199,9 +193,7 @@ bool reason_order(const Kernel &kernel, const MatrixEvent &event,
                   std::vector<Lit> &output, bool historical_event = false) {
   output.clear();
   if (event.kind == MatrixEventKind::None) return false;
-  // A contradiction with no assigned support is the globally valid empty
-  // clause.  The transaction still has to derive it from the authenticated
-  // source equations before publication.
+  // A contradiction with no assigned support is the empty clause.
   if (event.reason.empty())
     return event.kind == MatrixEventKind::Conflict;
   std::set<Lit> unique;
@@ -448,10 +440,7 @@ bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
     kernel_add_binary_clause(kernel, physical[0], physical[1], id);
     if (consume_implication) {
       if (kernel.value(physical[1]) >= 0) return false;
-      // The proof-visible clause is committed before this assignment. The
-      // reason is already unit at the propagated fixpoint, so consume it as
-      // the ordinary binary propagator would instead of rewinding and
-      // rescanning an otherwise unchanged trail prefix.
+      // The committed reason is unit at the fixpoint: assign as binary BCP.
       kernel_assign_binary(kernel, physical[0], physical[1]);
       implication_consumed = true;
     }
@@ -465,18 +454,13 @@ bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
     if (consume_implication) {
       for (size_t i = 1; i < physical.size(); ++i)
         if (kernel.value(physical[i]) >= 0) return false;
-      // reason_order puts the unique open literal first. Direct assignment
-      // retains exactly the installed record as its analysis reason. A normal
-      // clause leaves the new literal's watches for the next Propagate action;
-      // a detached record has no watches and is implication-graph-only.
+      // reason_order puts the open literal first; the installed record is the
+      // analysis reason, and its watches wait for the next Propagate.
       kernel_assign_ref(kernel, physical[0], reason);
       implication_consumed = true;
     }
   }
-  // A retained reason may become proof-visible at an already-recorded
-  // conflict.  Analyze consumes that conflict next; rewinding BCP here is
-  // both redundant and outside kernel_rearm_theory_clause's no-conflict
-  // contract.  Materialization before a conflict retains the ordinary rearm.
+  // At a recorded conflict Analyze runs next, so skip the rearm.
   if (kernel.level && !implication_consumed && !kernel.conflict_valid)
     kernel_rearm_theory_clause(kernel, physical.data(), physical.size());
   return true;
@@ -512,10 +496,7 @@ MatrixLiveResult prepare_affine_matrix_live(
   }
 
   AffineMatrixLivePrepared candidate;
-  // The one-shot adapter marks its private output before entering prepare.
-  // It publishes on this same stack without an intervening mutation boundary,
-  // so snapshots used only by a later, separately callable publish are not
-  // retained or copied on that path.
+  // The one-shot adapter publishes on this stack, so it keeps no snapshots.
   candidate.immediate_ = output.immediate_;
   candidate.request_ = request;
   candidate.starting_clause_id_ = kernel.next_clause_id;
@@ -745,11 +726,8 @@ MatrixLiveResult publish_affine_matrix_live(
                         : MatrixLiveStatus::Inapplicable;
     return result;
   }
-  // Only the clausal bridge plans against the matrix proof cache, recording
-  // its generation and the proof's persistent-support epoch. A compact PBP
-  // plan never reads that cache (prepare passes it none); the parity cache
-  // it does read is bound by the PbpPlan audit below. Its unrecorded
-  // defaults must not mark it stale after an unrelated cache commit.
+  // Only the clausal bridge records the matrix proof-cache generation and
+  // support epoch; a PBP plan is audited below.
   if (kernel.next_clause_id != prepared.starting_clause_id_ ||
       kernel.arena_generation != prepared.arena_generation_ ||
       kernel.nvars != prepared.starting_nvars_ ||
@@ -769,10 +747,7 @@ MatrixLiveResult publish_affine_matrix_live(
     return result;
   }
 
-  // The one-shot apply helper enters publish on the same stack immediately
-  // after prepare, with no callback or mutation boundary between them.  Its
-  // prepared snapshots are therefore still current.  The separately callable
-  // two-phase API retains the complete stale-state audit.
+  // The one-shot path publishes right after prepare; two-phase calls audit.
   if (!prepared.immediate_) {
     std::vector<MatrixAssignment> trail;
     std::vector<uint32_t> levels;
@@ -869,12 +844,8 @@ MatrixLiveResult publish_affine_matrix_live(
       }
     }
   } else {
-    // Keep the historical publish-phase work currency exactly.  Preparation
-    // already established the selected-source identities and recorded their
-    // deterministic validation charge.  Re-authenticate the matrix event,
-    // then charge that recorded suffix without walking the same premise
-    // population again.  If the aggregate would cross the bound, replay the
-    // old suffix so the terminal partial-work report remains exact.
+    // Re-authenticate the event, then charge the recorded source-validation
+    // suffix; over the bound, replay it so the partial work stays exact.
     Work validation{kernel, request.maximum_revalidation_work, 0,
                     request.honor_termination};
     if (!validation.charge(prepared.transaction_.authentication_work())) {

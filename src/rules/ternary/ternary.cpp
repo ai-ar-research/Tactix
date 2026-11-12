@@ -13,19 +13,15 @@ namespace tactix {
 
 namespace {
 
-// A ternary candidate: the clause plus its three literals, snapshotted so the
-// pair loop never re-reads the arena, which `kernel_add_large_clause` may
-// reallocate (the same hazard bve.cpp records).
+// Ternary candidate snapshot; `kernel_add_large_clause` may reallocate.
 struct Tern {
   Ref ref;
   uint64_t id;
   Lit l[3];
 };
 
-// Ternary, irredundant, all three literals unassigned at the drained root. A
-// root-true literal makes the clause satisfied; a root-false one makes it
-// really a shorter clause, and resolving the stale ternary form would emit a
-// weaker consequence than the formula already has.
+// Ternary, irredundant, all literals unassigned at the drained root (a
+// root-false literal would give a weaker stale resolvent).
 bool ternary_candidate(const Kernel &k, const Clause *c) {
   if (c->garbage() || c->redundant() || c->size != 3)
     return false;
@@ -33,9 +29,8 @@ bool ternary_candidate(const Kernel &k, const Clause *c) {
          root_literal_open(k, c->lits[2]);
 }
 
-// Collect the ternary clauses containing `l`. Dense fast-path when the shared
-// index is attached (kissat dense.c analogue); otherwise one arena scan, the
-// round-local path every inprocessing rule keeps for N1 standalone use.
+// Ternary clauses containing `l`: dense fast path (kissat dense.c analogue) or
+// one arena scan (N1 standalone).
 void collect(const Kernel &k, Lit l, std::vector<Tern> &out) {
   out.clear();
   auto take = [&](Ref ref, const Clause *c) {
@@ -86,10 +81,8 @@ bool ternary_exists(const Kernel &k, Lit a, Lit b, Lit c) {
   return false;
 }
 
-// Resolve `c` (contains pivot) with `d` (contains ¬pivot) on pivot. Returns
-// false when the resolvent is tautological or would exceed three literals —
-// cadical's `hyper_ternary_resolve` rejections, minus the "already present"
-// test, which the caller does (it differs by resolvent size).
+// Resolve `c` and `d` on pivot. False when tautological or over three literals
+// (cadical `hyper_ternary_resolve`; the caller tests "already present").
 bool resolve(const Tern &c, const Tern &d, Lit pivot, std::vector<Lit> &res) {
   res.clear();
   for (const Lit l : c.l)
@@ -117,9 +110,7 @@ bool add_resolvent(Kernel &k, const std::vector<Lit> &res) {
   } else if (ternary_exists(k, res[0], res[1], res[2])) {
     return false;
   }
-  // RUP from its two parents, in checker-propagation order: negating the
-  // resolvent falsifies every literal of `positive` but the pivot, so it forces
-  // the pivot and `negative` is then falsified (the E1 resolvent argument).
+  // RUP from the two parents (the E1 resolvent argument).
   const uint64_t id = ++k.next_clause_id;
   emit_rup_lemma(k, id, res.data(), static_cast<uint32_t>(res.size()));
   if (res.size() == 2) {
@@ -187,9 +178,8 @@ void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
   const uint32_t nlits = 2 * k.nvars;
   std::vector<uint32_t> tern(nlits, 0);
   uint64_t clauses = 0;
-  // one pass to count ternary occurrences per literal; a pivot needs at least
-  // one on each side for a pair to exist. The same pass totals live clauses,
-  // the base for the max-add governor below (as cadical's htrs_limit is)
+  // Count ternary occurrences per literal and total live clauses (cadical
+  // htrs_limit base).
   for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage())
       clauses++;
@@ -222,17 +212,14 @@ ApplyResult ternary_try(Kernel &k, Lit pivot) {
 
   std::vector<Lit> res;
   bool added = false;
-  // §6 termination polled per pair, not per outer clause: `ternary_exists`
-  // scans a whole occurrence list (the entire arena when no dense index is
-  // attached), so one pair is the largest unit worth running to completion.
+  // §6 termination per pair: `ternary_exists` can scan a whole list.
   bool interrupted = false;
   for (const Tern &c : pos) {
     if (interrupted)
       break;
     for (const Tern &d : neg) {
-      // Nothing is half-added here: each resolvent's `add_rup` and its kernel
-      // add are one unit, and `res` is scratch. Aborting means the rule derived
-      // fewer consequences, which is always sound.
+      // Each resolvent's `add_rup` and kernel add are one unit; aborting is
+      // sound.
       if (kernel_rule_interrupt(k, k.stats.ternary_interrupted)) {
         interrupted = true;
         break;
@@ -251,24 +238,16 @@ ApplyResult ternary_apply(Kernel &k) {
   uint64_t total_clauses = 0;
   ternary_pivots(k, pivots, &total_clauses);
   bool added = false;
-  // Budget-aware batch rule (EffortSpec budget_aware): stop mid-round when the
-  // policy's ledger in this rule's currency is spent. Unbudgeted, one round can
-  // add enough redundant clauses to turn a fast solve into a timeout.
+  // Budget-aware batch rule: stop at the policy's ledger.
   const uint64_t tick_start = k.stats.ternary_ticks;
-  // Growth governor (cadical `ternarymaxadd`, ternary.cpp:387): the ticks
-  // budget bounds work, not output, and this rule's failure mode is output —
-  // the resolvent count runs away once BCE stops shrinking its candidate pool.
+  // Growth governor (cadical `ternarymaxadd`, ternary.cpp:387) bounds output.
   const uint64_t add_start =
       k.stats.ternary_resolvents + k.stats.ternary_binaries;
   const uint64_t add_limit =
       ternary_percent_limit(total_clauses, k.ternary_max_add_percent);
-  // Repetition filter over the touched-epoch substrate; cadical keeps the same
-  // thing as a per-variable `ternary` flag (ternary.cpp:258-266). A pivot with
-  // no new material resolves the same pairs to the same already-present
-  // resolvents, rejected at full P·N cost. Deletion is not consulted, because
-  // removing a ternary can only shrink the pair set. It cannot wedge: this
-  // rule's own resolvents are adds, so a productive round arms the next one.
-  // N1: `ternary_pivots` and `ternary_try` stay complete.
+  // Repetition filter over the touched-epoch substrate (cadical per-variable
+  // `ternary` flag, ternary.cpp:258-266); deletions cannot add pairs, and own
+  // resolvents re-arm. N1: `ternary_pivots` and `ternary_try` stay complete.
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
   const uint64_t wm = k.ternary_touch_mark;
@@ -286,9 +265,7 @@ ApplyResult ternary_apply(Kernel &k) {
       stopped_at = pi;
       break;
     }
-    // §6 termination, which neither governor above implies: both are
-    // effort/output ceilings a policy may set to 0. Cut at the same point so
-    // the untried tail goes through the same re-arm path.
+    // §6 termination, cut where the untried tail is re-armed.
     if (kernel_rule_interrupt(k, k.stats.ternary_interrupted)) {
       stopped_at = pi;
       break;
@@ -302,9 +279,7 @@ ApplyResult ternary_apply(Kernel &k) {
       return r;
     added |= (r == ApplyResult::Ok);
   }
-  // Resume: re-arm the pivots this round never reached, then advance the
-  // watermark. Both cut paths above leave a tail, and the add-limit one is
-  // reachable under DefaultPolicy, unlike C1/C2's.
+  // Resume: re-arm unreached pivots, then advance the watermark.
   for (size_t pi = filter ? stopped_at : pivots.size(); pi < pivots.size();
        pi++) {
     if (!kernel_touched_since(k, var_of(pivots[pi]), wm))

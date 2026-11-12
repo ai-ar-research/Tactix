@@ -9,8 +9,7 @@ struct RegisteredRuleRequest {
   uint64_t instance = INSTANCE_CANONICAL;
 };
 
-// Discovery and instance selection remain in policies. Registered execution
-// retains the existing semantic-instance preference and canonical fallback.
+// Policies discover and select; execution keeps the canonical fallback.
 inline ApplyResult execute_action(Kernel &k, const RegisteredRuleRequest &request) {
   const auto &rule = request.rule;
   if (request.instance == INSTANCE_CANONICAL ||

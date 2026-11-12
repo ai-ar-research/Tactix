@@ -25,17 +25,16 @@ int main() {
     const RuleEligibility eligibility = rule.guard(k);
     assert(!eligibility.facts.empty());
   }
-  // The frozen registry currently has 39 live proof rules and one retired
-  // proof-rule slot; policy operations are deliberately excluded.
-  assert(proof_rules == 40);
+  // The frozen registry has 41 proof-rule slots; policy operations are
+  // excluded.
+  assert(proof_rules == 41);
   // Subrules may have more guard facts than the old fixed eight-entry buffer.
   const RuleEligibility cardinality = signed_cardinality_proof_guard(k);
   assert(cardinality.facts.size() == 8);
   assert(std::string(cardinality.facts.back().name) ==
          "large-watches-connected");
 #endif
-  // A zero clause ID without an explicit selector is not a request for an
-  // unbracketed whole-formula diagnostic.
+  // A large addition outside a rule transaction records nothing.
   const Lit anonymous_clause[] = {internalize(1), internalize(-1),
                                   internalize(2)};
   rule_journal_note_large_add(k, anonymous_clause, 3, 0, false, 0);

@@ -27,8 +27,7 @@ private:
   const DefaultStrategyConfig::Inprocess *config_ = nullptr;
 };
 
-// The Factor grid selection (kissat factor.c): reference scores, and a grid
-// is accepted when its gain exceeds the coupled BVE growth bound.
+// Factor grid selection (kissat factor.c): gain must exceed the BVE bound.
 class DefaultFactorMatch final : public FactorSelection {
 public:
   double seed_score(const Kernel &, Lit, double reference_score) override {
@@ -93,9 +92,7 @@ struct SlotOrderRow {
 };
 const SlotOrderRow *default_slot_order(size_t *count);
 
-// Shared existing Kissat-style delay ladder: finite unproductive rounds grow
-// one occasion, productive rounds halve it. Both scheduling clients use this
-// exact saturation rule, with their own ordinary effort clock.
+// Kissat delay ladder: unproductive grows by one, productive halves.
 inline void update_inprocess_delay(uint32_t &current,uint32_t &count,bool unproductive) {
   if(unproductive)current+=(current<UINT32_MAX);
   else current/=2;
@@ -114,11 +111,9 @@ public:
     uint32_t external_begin = 0;
     uint32_t external_end = 0;
     bool symmetry_applied = false;
-    // Factor is deliberately outside the structured-root executor, but its
-    // startup Probe call consumes the representation established there.  Keep
-    // its fresh-variable ranges separate from direct SR ownership so the
-    // whole-pass preflight can recognize the composed cohort without making
-    // clause-only SR protect every ordinary Factor helper pointwise.
+    // Factor runs outside the structured-root executor but its startup call
+    // sees that representation; keep its fresh-variable ranges apart from SR
+    // ownership so the preflight recognizes the composed cohort.
     std::vector<ExternalRange> coupled_factor_ranges;
 
     StructuredFastelOwnership() = default;
@@ -150,8 +145,7 @@ public:
   explicit DefaultInprocessScheduler(
       const DefaultStrategyConfig::Inprocess *config)
       : config_(config), default_bve_ramp_(config) {}
-  // The configured default BVE arm borrows config_ and the other strategy
-  // pointers may refer to this scheduler's members. Rebinding is explicit.
+  // The BVE arm and strategy pointers may refer here; rebind explicitly.
   DefaultInprocessScheduler(const DefaultInprocessScheduler &) = delete;
   DefaultInprocessScheduler &operator=(const DefaultInprocessScheduler &) = delete;
   DefaultInprocessScheduler(DefaultInprocessScheduler &&) = delete;
@@ -160,8 +154,7 @@ public:
     config_ = config;
     default_bve_ramp_.set_config(config);
   }
-  // The owning policy's retier schedule, whose focused/stable snapshots the
-  // Vivify tier pose reads; standalone schedulers read the defaults.
+  // The owner's retier schedule (Vivify tier poses); default if standalone.
   void set_retier_schedule(const RetierSchedule *schedule) {
     retier_schedule_ = schedule;
   }
@@ -283,9 +276,7 @@ public:
   ArenaOrdering *cadical_arena_ordering() { return &cadical_arena_order_; }
   void pose_initialized(bool value = true) {
     initialized_ = value;
-    // White-box callers that pose an already-entered scheduler own the exact
-    // entries they install; they must not receive the separate startup-only
-    // structured program as an implicit prefix.
+    // Callers posing an entered scheduler get no implicit startup program.
     structured_root_consumed_ = value;
   }
   bool initialized() const { return initialized_; }

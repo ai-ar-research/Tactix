@@ -8,9 +8,7 @@
 
 namespace tactix::direct_csp_support {
 
-// Clause identity is local to the immutable source snapshot supplied to the
-// planner.  native_proof_id is optional because DSR can name a premise by its
-// literals.
+// A source-snapshot clause; native_proof_id is optional under DSR.
 struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
@@ -19,10 +17,8 @@ struct Premise {
   friend bool operator==(const Premise &, const Premise &) = default;
 };
 
-// A complete exactly-one domain.  Values are strictly ordered by
-// (absolute-variable, signed-literal) and no variable occurs twice.
-// at_most_one is a square row-major matrix.
-// Its diagonal is zero and symmetric off-diagonal entries name the same exact
+// An exactly-one domain with values ordered by (variable, literal), distinct
+// variables, and a symmetric zero-diagonal at_most_one matrix naming each
 // binary occurrence (~value[i] v ~value[j]).
 struct Domain {
   std::vector<int32_t> values;
@@ -32,10 +28,9 @@ struct Domain {
   friend bool operator==(const Domain &, const Domain &) = default;
 };
 
-// A complete directed binary-compatibility table.  A nonzero row-major entry
-// names the exact source occurrence (~left[i] v ~right[j]); zero denotes a
-// compatible pair.  The source snapshot must consist exactly of both complete
-// domain encodings and these forbidden-pair occurrences.
+// A directed compatibility table: a nonzero entry names the occurrence
+// (~left[i] v ~right[j]), zero a compatible pair. The snapshot holds exactly
+// both domain encodings and these occurrences.
 struct Relation {
   Domain left;
   Domain right;
@@ -55,9 +50,7 @@ struct Bounds {
   uint64_t maximum_additions = 0;
   uint64_t maximum_addition_literals = 0;
   bool allow_extension = false;
-  // Caller-reserved positive external variable.  It must be strictly above
-  // every variable in the source snapshot.  It is consumed only when an OR
-  // extension is actually planned.
+  // Reserved variable above the snapshot, used only by an OR extension.
   int32_t extension_variable = 0;
 };
 
@@ -103,18 +96,13 @@ struct Plan {
   ProjectionObligation projection;
 };
 
-// Charge is monotone and is called before each bounded unit of recognition or
-// planning work.  Returning false aborts without publishing a partial plan.
+// Called before each unit of work; false aborts the plan.
 using Charge = std::function<bool(uint64_t)>;
 
-// Validate an exact two-domain DirectCSP slice and plan the consequence
-//
-//   ~left[selected] v OR { right[j] : (selected,j) is compatible }.
-//
-// It follows by resolving right's at-least-one premise with every exact
-// forbidden-pair premise in the selected row.  The returned plan is immutable
-// and performs no kernel or proof-stream mutation.  On any decline additions
-// and projection are empty, while consumed effort remains truthful.
+// Validate a two-domain DirectCSP slice and plan
+//   ~left[selected] v OR { right[j] : (selected,j) is compatible },
+// resolving right's at-least-one premise with the selected row's forbidden
+// pairs. A decline has empty additions and projection.
 Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
                   uint32_t selected_left_value, const Bounds &bounds,
                   Charge charge);

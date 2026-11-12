@@ -42,9 +42,8 @@ void proof_error(const char *what) {
 }
 
 namespace {
-// The largest variable name a DSR line carries. The pinned drat-trim and
-// dsr-trim decode a binary literal, (name << 1) | sign, into a signed int, and
-// dsr-trim indexes a literal of either spelling by twice its name.
+// The largest DSR variable name: drat-trim and dsr-trim decode a binary
+// literal (name << 1) | sign into a signed int.
 constexpr uint32_t MAX_CHECKER_NAME = (uint32_t{1} << 30) - 1;
 [[noreturn]] void checker_name_error() {
   proof_error("the DSR proof needs a variable name above 2^30-1, the largest "
@@ -125,10 +124,7 @@ void put_pbp_literal(PbpTextWriter &text, int32_t literal) {
   text.put(" ");
 }
 
-// Append every remaining byte of `source` to `target`; false on a failed
-// read or write.
-// The streaming-PBP header; publication and lazy materialization share it so
-// both spell the same bytes.
+// The streaming-PBP header, shared by publication and lazy materialization.
 int write_pbp_header(FILE *file, uint64_t constraints) {
   return std::fprintf(file, "pseudo-Boolean proof version 3.0\nf %" PRIu64 ";\n",
                       constraints);
@@ -153,9 +149,8 @@ bool copy_stream(FILE *source, FILE *target) {
 namespace {
 // What the writer's in-process stream does with its bytes.
 struct LazySinkTarget {
-  // An event the DSR copy may decline after the writer accepted it: its text
-  // is kept until the copy answers, since a switch must write it after the
-  // converted prefix (see Proof::hold_lazy_event).
+  // An event the DSR copy may still decline: its text is kept until the copy
+  // answers (Proof::hold_lazy_event).
   bool holding = false;
   std::string held;
   size_t accept(const char *data, size_t size) {
@@ -253,12 +248,9 @@ void Proof::bind_population_observer(PopulationObserver *observer) noexcept {
   if (observer == population_observer_)
     return;
   if (population_observer_) {
-    // An explicit clausal route can still own a staged DSR-unit transaction.
-    // Finish it while the observer that saw the StageAdd/StageDelete events is
-    // alive.  Otherwise a direct replacement (or a nested scoped binding)
-    // gives the old observer an apparently clean unbind and the new observer a
-    // commit for stages it never saw. An unpublished streaming-PBP prefix is
-    // deliberately not settled merely by changing observers.
+    // Finish a staged DSR-unit transaction while the observer that saw its
+    // stage events is alive; an unpublished streaming-PBP prefix is not
+    // settled by changing observers.
     const bool complete = settle_population_observer();
     CheckerPopulationEvent event;
     event.kind = !complete
@@ -365,11 +357,8 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
 Proof::Proof() = default;
 
 Proof::~Proof() {
-  // A run that never reached the empty clause never converts to PBP: it
-  // leaves the DSR copy's prefix (an unfinished run has no certificate). If
-  // the prefix cannot be placed, a held destination is closed empty here, so
-  // no later flush tries to publish a header for a stream that no longer
-  // exists.
+  // A run without the empty clause never converts to PBP: it leaves the DSR
+  // copy's prefix, or closes a held destination empty.
   const bool held = lazy_ != nullptr;
   if (dsr_copy_)
     select_dsr_copy(false);
@@ -418,9 +407,8 @@ bool Proof::open(const char *path, ProofFormat format) {
   return file && open_stream(file, format);
 }
 
-// The DSR writer is the copy, so the kernel's view is that of every other run.
-// Like whole-run PBP it keeps the input transaction private: the copy writes to
-// a temporary file until the first clausal event (publish_dsr_only_prefix).
+// The DSR writer is the copy; like whole-run PBP it keeps the input
+// transaction in a temporary file until the first clausal event.
 bool Proof::open_dsr_only(FILE *destination, bool binary) {
   if (!open_stream(destination, ProofFormat::PbpStreaming))
     return false;
@@ -442,10 +430,8 @@ bool Proof::open_dsr_only(FILE *destination, bool binary) {
   return true;
 }
 
-// Never converted, so nothing replaces or rereads the destination: any will
-// do, a pipe included. The prefix moves once, unchanged, and the copy then
-// writes there directly. A failure is a failed write of the only proof, which
-// settle_dsr_copy and select_dsr_copy stop on before any verdict.
+// Never converted, so any destination will do, a pipe included: the prefix
+// moves once and the copy then writes there directly.
 void Proof::publish_dsr_only_prefix() {
   Proof &copy = *dsr_copy_;
   copy.flush_binary();
@@ -678,9 +664,7 @@ void Proof::flush_binary() {
   binary_buffer_size_ = 0;
 }
 
-// Binary DSR literal encoding: map external literal e
-// to unsigned u = (|e| << 1) | (e < 0), then 7-bit varint chunks,
-// high bit = continuation.
+// Binary DSR literal: u = (|e| << 1) | (e < 0) in 7-bit varint chunks.
 void Proof::put_lit(Lit l) { put_external_lit(checker_lit(l)); }
 
 void Proof::put_external_lit(Lit l) {
@@ -714,9 +698,8 @@ bool Proof::can_isolate_query(uint32_t extent) {
 
 void Proof::preserve_query_input_refutation() {
   assert(!query_input_refuted_);
-  // These old-namespace units are RUP only after the caller independently
-  // establishes a propagation conflict in the current licensed prefix. Future names cannot
-  // delete them. Keep the contradiction even when original sources retire.
+  // Old-namespace units, RUP once the caller establishes a propagation
+  // conflict in the current prefix; kept when original sources retire.
   const int32_t positive = 1, negative = -1;
   if (!add_external_rup(0, &positive, 1) || !add_external_rup(0, &negative, 1)) std::abort();
   query_input_refuted_ = true;
@@ -728,9 +711,8 @@ bool Proof::isolate_query(std::span<const QueryProofClause> sources,
   // A converted private prefix would change destinations again when its
   // header commits. Publish that header before recording the eager sink.
   if (input_transaction_ || !commit_clause_stream()) return false;
-  // Materialize the existing lazy prefix before names diverge between the
-  // streaming writer and its DSR copy. Later switches use the complete PBP
-  // stream; the ordinary sequential lazy conversion remains unchanged.
+  // Materialize the lazy prefix before names diverge between the writer and
+  // its DSR copy.
   if (lazy_ && !dsr_only_ && !convert_lazy_pbp()) return false;
   if (!isolate_query_impl(sources, assumptions, extent)) return false;
   if (dsr_copy_ && !dsr_copy_->isolate_query_impl(sources, assumptions, extent)) return false;
@@ -767,10 +749,8 @@ bool Proof::isolate_query_impl(std::span<const QueryProofClause> sources,
     for (int32_t literal : source.literals) support.push_back(external_variable_of(literal));
   std::sort(support.begin(),support.end());
   support.erase(std::unique(support.begin(),support.end()),support.end());
-  // Define each fresh coordinate once. Copying every source with a complete
-  // substitution repeats the whole variable map for every clause (quadratic
-  // certificate volume). These conservative RAT definitions instead make
-  // every renamed source RUP; retire the definitions before native witnesses.
+  // Define each fresh coordinate once by conservative RAT definitions, making
+  // every renamed source RUP; retired before native witnesses.
   std::vector<std::array<int32_t,2>> bridges;
   bridges.reserve(2*support.size());
   for (uint32_t variable : support)
@@ -887,9 +867,8 @@ void Proof::query_clause(bool add, PopulationClauseView view) {
 void Proof::prepare_query_witness(uint32_t rat_pivot) {
   if (!query_certificates_ || !query_certificates_->dirty || query_input_refuted_) return;
   auto &context = *query_certificates_;
-  // Stale clauses cannot contain a later extension variable, in either
-  // polarity. RAT on that pivot has exactly the current prefix's obligations;
-  // it needs no copy. Existing-variable RAT and every SR retain full refresh.
+  // Stale clauses cannot contain a later extension variable, so RAT on it
+  // needs no copy.
   if (rat_pivot > context.stale_extent) return;
   std::vector<QueryProofOwnedClause> owned;
   std::vector<int32_t> assumptions;
@@ -902,9 +881,8 @@ void Proof::prepare_query_witness(uint32_t rat_pivot) {
   if (work>UINT64_MAX || owned.size()+assumptions.size()>context.limits.clauses || literals>context.limits.literals)
     proof_error("incremental certificate copy storage exhausted");
   context.charge(uint64_t(work));
-  // These premises were independently licensed by the writer, not trusted
-  // merely because a kernel snapshot contains their bytes. Missing root
-  // materializations may be rederived by RUP from this exact current prefix.
+  // Premises licensed by the writer; missing root materializations are
+  // rederived by RUP from the current prefix.
   SubSolver oracle;
   oracle.reset(extent);
   for (const auto &[clause, copies] : context.licensed) {
@@ -1018,9 +996,7 @@ void Proof::abandon_pbp_id_deletions(uint32_t reason, uint32_t width) {
     pbp_counters_.abandon_line = pbp_derived_constraints_;
   }
   pbp_id_deletions_enabled_ = false;
-  // Every tracker returns early once disabled, so the map never refills.  A
-  // repeated clear() would still zero the whole bucket array (sized by the
-  // input census) on every later by-specification deletion.
+  // Disabled trackers never refill the map; clear it only once.
   if (!pbp_constraint_ids_.empty())
     pbp_constraint_ids_.clear();
   if (!pbp_anonymous_constraints_.empty())
@@ -1128,10 +1104,8 @@ void Proof::track_pbp_original_constraint(uint64_t id, uint32_t clause_size,
     ++last->count;
   else
     pbp_input_runs_.push_back({id, constraint, 1});
-  // Ordinary PBP still never references a binary identity: its deletion is
-  // by specification, which keeps the binary archive out of the solver's hot
-  // state. A binary that repeats its literal is the exception: it
-  // canonicalizes to a unit, whose deletion is exact.
+  // Ordinary PBP deletes binaries by specification; a binary repeating its
+  // literal canonicalizes to a unit, whose deletion is exact.
   if (clause_size == 2 && !repeated_literal) {
     if (constraint >= pbp_input_by_spec_.size())
       pbp_input_by_spec_.resize(
@@ -1141,21 +1115,15 @@ void Proof::track_pbp_original_constraint(uint64_t id, uint32_t clause_size,
 }
 
 void Proof::track_pbp_derived_constraint(uint64_t id, uint32_t clause_size) {
-  // The ordinary PBP route deliberately does not retain binary proof IDs in
-  // the solver. Avoid rebuilding the same large archive here: binary
-  // deletions use `del spec`, while constraints of every other width continue
-  // to use exact IDs. finish_input discards the binary-ID archive on every
-  // streaming-PBP route, so no binary identity is ever exact.
+  // Binary deletions use `del spec`; no binary identity is ever exact on a
+  // streaming-PBP route.
   if (clause_size == 2)
     return;
   if (!id || !pbp_id_deletions_enabled_)
     return;
-  // Input restatement: the replacement of the raw clause just seeded keeps
-  // that clause's id while its raw original is still live, and the original
-  // is deleted under the same id next (frontend/parse.cpp restate_input).
-  // Record the replacement as pending; that deletion names the original's
-  // exact constraint and then rebinds the id to the replacement. The
-  // replacement consumes no Tactix id, so the identity prefix is unchanged.
+  // Input restatement (frontend/parse.cpp restate_input): the replacement
+  // keeps the raw clause's id while the original is live; that deletion names
+  // the original and rebinds the id. No Tactix id is consumed.
   if (input_transaction_ && pbp_last_input_live_ &&
       id == pbp_last_input_id_) {
     uint64_t replacement = 0;
@@ -1167,10 +1135,8 @@ void Proof::track_pbp_derived_constraint(uint64_t id, uint32_t clause_size) {
     ++pbp_counters_.rebinds_recorded;
     return;
   }
-  // A normalized replacement deliberately reuses its deleted input identity
-  // to preserve the proofless trajectory.  A deleted input proves that
-  // rebinding is injective; otherwise root-unit publication may be colliding
-  // with a still-live input constraint and exact ID deletion is unsafe.
+  // A normalized replacement reuses its deleted input identity; otherwise
+  // exact ID deletion could collide with a live input constraint.
   uint64_t input = 0;
   bool exact = false;
   if (pbp_input_constraint(id, input, exact)) {
@@ -1319,15 +1285,9 @@ bool Proof::put_pbp_anonymous_deletion(const int32_t *canonical,
   return true;
 }
 
-// VeriPB's CNF reader drops tautological clauses and canonicalizes repeated
-// literals before populating the initial constraint database.  A `del spec`
-// must name that canonical constraint, rather than the raw DIMACS spelling
-// retained by Tactix for input-proof accounting.
-//
-// Literal positions are grouped by variable, earliest first: a group with both
-// signs is a tautology, and only the first position of each group is kept.
-// The kept literals stay in input order.  Time is O(k log k) and scratch
-// memory O(k) in the clause length k.
+// VeriPB's CNF reader drops tautologies and canonicalizes repeated literals,
+// so `del spec` names that canonical constraint: the first position of each
+// variable, in input order. O(k log k) time, O(k) scratch.
 static bool canonical_pbp_deletion(const int32_t *lits, uint32_t size,
                                    std::vector<int32_t> &canonical,
                                    std::vector<uint32_t> &order,
@@ -1362,16 +1322,10 @@ static bool canonical_pbp_deletion(const int32_t *lits, uint32_t size,
   return true;
 }
 
-// One streaming-PBP deletion: the exact tracked identity when available,
-// otherwise `del spec` of the canonical constraint.  `external()` yields the
-// clause's external literals and runs only on that fallback.  False means a
-// tautological specification for which nothing was written.
-//
-// Exact identities are tried in order: a pending input restatement, the
-// tracked Tactix id, then an anonymous constraint with exactly the canonical
-// literals. Only when all fail does an exact-width deletion write `del spec`
-// and permanently abandon ID deletion. A binary whose two literals coincide
-// canonicalizes to a unit, so it is an exact-width deletion as well.
+// One streaming-PBP deletion: an exact identity (pending input restatement,
+// tracked id, then an anonymous canonical constraint), else `del spec`, which
+// permanently abandons ID deletion. `external()` runs only on that fallback.
+// False means a tautological specification, nothing written.
 template <class External>
 bool Proof::put_pbp_deletion(uint64_t del_id, uint32_t size,
                              External external) {
@@ -1589,10 +1543,8 @@ void Proof::flush_pending_dsr_units() {
                     false, pending_population_transaction_);
   };
   if (split) {
-    // Under either assumption on the shared auxiliary, every earlier pair
-    // propagates its unit. Thus both helpers for the next RUP unit see the
-    // same preceding units as the original stream. The pair also makes each
-    // unit RUP after the deferred deletions, under an assumption of its negation.
+    // Under either assumption on the shared auxiliary every earlier pair
+    // propagates its unit, so each unit is RUP after the deferred deletions.
     for (const auto &unit : pending_units_)
       split_helpers(unit, false);
   } else {
@@ -1633,9 +1585,8 @@ void Proof::flush_pending_dsr_units() {
   observe_checker(CheckerPopulationEventKind::PendingCommitEnd,
                   CheckerClauseRole::None, 0, 0, {}, false,
                   pending_population_transaction_);
-  // Erase exactly this batch's keys: clear() zeroes the whole bucket array,
-  // which keeps the size of the largest batch ever staged (input units), and
-  // made every later small flush pay for it.
+  // Erase exactly this batch's keys; clear() would zero the largest bucket
+  // array ever staged.
   for (const PendingDsrUnit &unit : pending_units_) {
     pending_unit_literals_.erase(unit.external);
     if (unit.id)
@@ -1788,9 +1739,8 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
     return false;
   const DsrWitnessPlan plan =
       plan_dsr_witness(lits, size, true_lits, ntrue, mappings, nmappings);
-  // A witness must hold against every clause the checker has, so the leases it
-  // changes, all retained support and the parity constraints it touches go first. A
-  // witness-free line transforms nothing, and retained constraints only strengthen RUP.
+  // A witness must hold against every checker clause, so changed leases,
+  // retained support and touched parity constraints go first.
   if (plan.form != DsrWitnessForm::Rup && !certificate_raw_) {
     invalidate_premises_for_sr(id, lits, size, true_lits, ntrue, mappings, nmappings);
     flush_persistent_external(id);
@@ -1844,10 +1794,8 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
                                ((propagates || query_names_enabled_ || certificate_offset_) && plan.form != DsrWitnessForm::Rup);
   flush_pending_dsr_units();
   if ((query_names_enabled_ || certificate_offset_ || certificate_raw_) && plan.form != DsrWitnessForm::Rup) {
-    // Query assumptions are checker roots, not native roots. Two fresh guards
-    // keep every witnessed line nonunit even when the target is false there.
-    // Reserve these names permanently: ignored implied-unit deletions cannot
-    // collide with a later native variable or another proof helper.
+    // Two fresh, permanently reserved guards keep every witnessed line nonunit
+    // under query assumptions (checker roots).
     const int32_t z = static_cast<int32_t>(new_helper());
     const int32_t w = static_cast<int32_t>(new_helper());
     const auto guarded = [&](bool deletion, int32_t first, int32_t second) {
@@ -1907,9 +1855,8 @@ bool Proof::add_sr_impl(uint64_t id, const Lit *lits, uint32_t size,
       for (uint32_t i = 0; i < size; ++i)
         put_lit(lits[i]);
     };
-    // The first clause is RAT on a fresh variable. Under the negation of
-    // the second clause, the original X7 obligations hold; the first clause's
-    // image is exactly the already-validated candidate image C|sigma.
+    // The first clause is RAT on a fresh variable; under the second's negation
+    // the original X7 obligations hold.
     next_addition_rat_ = copy_role_;
     temporary(false, true);
     end_line();
@@ -2032,9 +1979,7 @@ void Proof::add_empty_impl(uint64_t id) {
 void Proof::add_derived_unit_impl(uint64_t id, Lit unit) {
   if (!file_)
     return;
-  // Native DSR keeps root units explicit so they remain available after a
-  // reason clause is deleted and later direct-SR checks see the same root
-  // formula as dsr-trim/Trestle.
+  // Native DSR keeps root units explicit for later direct-SR checks.
   if (startup_pb_written())
     return;
   if (pbp_deferring_units_ && streaming_pbp()) {
@@ -2048,9 +1993,8 @@ void Proof::add_derived_unit_impl(uint64_t id, Lit unit) {
   population_role_ = saved;
 }
 
-// While a staged DSR-unit batch is open, the next deletion line is spooled
-// (binary formats) or written to the pending temporary file (text formats);
-// end_pending_deletion restores the main stream. Returns that main stream.
+// While a staged DSR-unit batch is open the next deletion is spooled; returns
+// the main stream, restored by end_pending_deletion.
 FILE *Proof::begin_pending_deletion() {
   flush_binary();
   if (binary()) {
@@ -2091,12 +2035,9 @@ void Proof::del_impl(uint64_t line_id, uint64_t del_id, const Lit *lits,
   if (!file_)
     return;
   if (streaming_pbp()) {
-    // RUP is monotone under retained constraints, but RAT/SR redundancy is
-    // not. Prefer the exact tracked PBP identity. Ordinary binary clauses do
-    // not retain their IDs and are always deleted by specification; this
-    // cannot drift a later exact identity because constraints of another
-    // width are syntactically distinct. Any other untracked deletion still
-    // permanently abandons ID deletion so duplicate selection cannot drift.
+    // RAT/SR redundancy is not monotone under retained constraints: prefer the
+    // exact tracked identity. Binaries are deleted by specification; any other
+    // untracked deletion permanently abandons ID deletion.
     if (streaming_pbp_finished_ ||
         !put_pbp_deletion(del_id, size,
                           [&] { return pbp_checker_literals(lits, size); }))
@@ -2286,9 +2227,7 @@ struct Proof::ParityWriter {
       proof.put_checker_literal(checker_literal(lits[i]));
     proof.end_line();
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
-    // The shadow names solver variables before renaming, as every other event
-    // does. A helper keeps its checker name: it lies above every solver name
-    // that exists while the certificate's helper clauses are live.
+    // Shadow names are solver variables; helpers keep their checker names.
     std::vector<int32_t> named(size);
     for (uint32_t i = 0; i < size; ++i) {
       const uint32_t at = external_variable_of(lits[i]);
@@ -2399,9 +2338,8 @@ bool Proof::refute_by_counting(const std::function<bool(FILE *)> &write_pb,
                                std::vector<int32_t> &input) {
   if (!dsr_only_)
     return write_startup_pb(write_pb);
-  // The kernel gets the terminal PB stream every other mode gives it, and no PB
-  // text is written, as with no proof. Nothing has reached the destination
-  // (publish_dsr_only_prefix), so the follow-on takes it untouched.
+  // The terminal PB stream without PB text; the destination stays untouched
+  // for the follow-on.
   if (!begin_pb_impl())
     return false;
   assert(dsr_copy_ && !dsr_in_destination_);
@@ -3179,10 +3117,8 @@ void Proof::flush_impl() {
 }
 
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
-// Key a clause exactly the way the checker matches a deletion: by the sorted
-// external literal multiset. Keying by id would miss the whole defect class,
-// because the hazard is precisely that two different ids can carry the same
-// literals.
+// Key a clause as the checker matches a deletion: the sorted external literal
+// multiset (two ids may carry the same literals).
 std::string Proof::population_key(uint64_t, const Lit *lits,
                                   uint32_t size) const {
   std::string key;
@@ -3254,12 +3190,8 @@ void Proof::seed_population_impl(uint64_t id, const Lit *lits, uint32_t size) {
   population_add(id, lits, size);
   if (!file_)
     return;
-  // VeriPB's `f` statement names the number of constraints in the original
-  // CNF, not the largest internal clause id.  Streaming PBP may derive and
-  // spool root units while input parsing is still in progress; those derived
-  // ids can therefore make later raw-input ids non-contiguous.  Count each
-  // raw seed exactly once instead of inferring the input population from its
-  // internal identity namespace.
+  // VeriPB's `f` counts original CNF constraints; derived root units may
+  // interleave input ids, so count each raw seed once.
   if (streaming_pbp() && input_transaction_) {
     ++pbp_original_constraints_;
     track_pbp_original_constraint(id, size, size == 2 && lits[0] == lits[1]);
@@ -3278,9 +3210,8 @@ void Proof::seed_population_impl(uint64_t id, const Lit *lits, uint32_t size) {
 } // namespace tactix
 
 // --- automatic selection (plan §5) -----------------------------------------
-// The public event methods run the PBP body, then feed the same event to the
-// native-DSR copy. Kernel queries see only the PBP stream, so the copy never
-// steers the solver. An event the copy cannot follow ends it before writing.
+// Public event methods run the PBP body, then feed the native-DSR copy, which
+// never steers the solver. An event the copy cannot follow ends it first.
 
 namespace tactix {
 
@@ -3302,9 +3233,7 @@ const char *automatic_proof_reason_name(AutomaticProofReason reason) noexcept {
 
 namespace {
 
-// Drop a stream's buffered, unwritten bytes (they are being discarded), so
-// closing it cannot fail on them. Without a purge primitive the bytes are
-// written and any error is ignored.
+// Drop a discarded stream's unwritten bytes so closing it cannot fail on them.
 void discard_buffered(FILE *file) {
 #if defined(__GLIBC__) || defined(__linux__)
   __fpurge(file);
@@ -3396,9 +3325,8 @@ Proof::LazyPbp::~LazyPbp() {
 }
 
 namespace {
-// A descriptor that reads the stage open on `fd`: a fresh read-only open file
-// description where /proc allows it (it reads the bytes written so far even if
-// the copy's own descriptor fails), else a duplicate of a readable `fd`.
+// A read descriptor for the stage on `fd`: a fresh /proc open where possible,
+// else a duplicate of a readable `fd`.
 int open_stage_reader(int fd) {
 #ifdef __linux__
   char link[64];
@@ -3414,9 +3342,8 @@ int open_stage_reader(int fd) {
 }
 } // namespace
 
-// Replace the empty private input-transaction file of a freshly opened
-// automatic stream with a counting sink. Without one (no custom streams, no
-// readable stage) the run stays eager and writes both streams.
+// Replace the private input-transaction file with a counting sink; without
+// one the run stays eager and writes both streams.
 void Proof::start_lazy_pbp() {
   if (!streaming_pbp() || !file_ || !pbp_output_ || !input_transaction_ ||
       ftello(file_) != 0 || !dsr_copy_ || !dsr_copy_->file_)
@@ -3475,10 +3402,9 @@ void Proof::release_lazy_event() noexcept {
   }
 }
 
-// The switch (plan §5): convert the complete DSR proof to PBP and continue on it.
-// DSR written to the destination is replaced by a rename once the PBP prefix is
-// complete, so the path names one or the other, whatever kills the run. The
-// numbering restarts from the converted lines, so no line cites a prefix constraint.
+// The switch (plan §5): convert the complete DSR proof to PBP and continue on
+// it. A rename replaces the destination once the PBP prefix is complete;
+// numbering restarts from the converted lines.
 bool Proof::convert_lazy_pbp() {
   LazyPbp &lazy = *lazy_;
   Proof &copy = *dsr_copy_;
@@ -3649,9 +3575,8 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
     start_lazy_pbp();
     return true;
   };
-  // The DSR goes straight to the destination, so a killed run leaves its
-  // prefix. That needs a counting PBP stream, since nothing else may write
-  // there, and a place for the file that replaces it at a switch.
+  // The DSR goes straight to the destination: needs a counting PBP stream
+  // and a place for the replacement file.
   if (!stage_path && renameable) {
     std::string probe_name;
     FILE *const probe = open_sibling(automatic_path_, destination_stat.st_dev,
@@ -3681,9 +3606,7 @@ bool Proof::open_automatic(const char *path, bool binary_dsr,
   }
   FILE *stage = nullptr;
   if (stage_path) {
-    // A caller stage is copied from at the empty clause: it must be a
-    // regular file other than the destination, or the copy could not be
-    // read back.
+    // A caller stage must be a regular file other than the destination.
     stage = std::fopen(stage_path, "w+b");
     struct stat stage_stat;
     if (stage && (fstat(fileno(stage), &stage_stat) ||
@@ -3782,15 +3705,11 @@ void Proof::settle_dsr_copy() {
   select_dsr_copy();
 }
 
-// Make the DSR copy the proof: it is already in the destination, else rename a
-// sibling stage over the destination, else rewrite the destination in place. Until the
-// destination changes, any copy-side failure keeps the complete PBP stream.
-// Afterwards the discarded PBP bytes are dropped unwritten, so only the DSR
-// bytes can fail to land; a failed placement aborts before any UNSAT verdict.
-// An unfinished run (`finished` false: no empty clause, so no verdict rests on
-// the proof, and the verdict may be SAT) installs the copy's prefix the same
-// way, but a failure only loses that prefix: it never aborts and never
-// converts to PBP.
+// Make the DSR copy the proof: already in the destination, else rename a
+// sibling stage over it, else rewrite in place. Before the destination
+// changes a failure keeps the PBP stream; after, a failed placement aborts
+// before any UNSAT verdict. An unfinished run installs the prefix the same
+// way, but a failure never aborts or converts.
 void Proof::select_dsr_copy(bool finished) {
   if (dsr_only_ && !dsr_in_destination_)
     publish_dsr_only_prefix();
@@ -3890,10 +3809,7 @@ void Proof::select_dsr_copy(bool finished) {
 
 void Proof::finish_input_transaction() {
   finish_input_transaction_impl();
-  if (dsr_copy_) {
-    dsr_copy_->finish_input_transaction();
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [](Proof &copy) { copy.finish_input_transaction(); });
 }
 
 namespace {
@@ -3902,6 +3818,22 @@ struct ReleaseLazyEvent {
   ~ReleaseLazyEvent() { proof->release_lazy_event(); }
 };
 } // namespace
+
+template <class Write, class Copy>
+bool Proof::write_held_event(std::unique_ptr<Proof> &copy_slot, Write &&write, Copy &&copy,
+                             bool forward) {
+  if (copy_slot)
+    hold_lazy_event();
+  const bool written = write();
+  const ReleaseLazyEvent release{this};
+  if (written && copy_slot && forward) {
+    if (!copy(*copy_slot))
+      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
+    else
+      settle_dsr_copy();
+  }
+  return written;
+}
 
 FILE *Proof::begin_pb() {
   // Every startup refutation spells or defers itself on a DSR-only proof.
@@ -3930,10 +3862,7 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size) {
   add_rup_impl(id, lits, size);
   if (has_derivation_consumers())
     observe_derivation(DerivationKind::Rup, id, 0, internal_view(lits, size));
-  if (dsr_copy_) {
-    dsr_copy_->add_rup(id, lits, size);
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [&](Proof &copy) { copy.add_rup(id, lits, size); });
 }
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size) {
@@ -3942,10 +3871,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size) {
   add_rat_impl(id, lits, size);
   if (has_derivation_consumers())
     observe_derivation(DerivationKind::Rat, id, 0, internal_view(lits, size));
-  if (dsr_copy_) {
-    dsr_copy_->add_rat(id, lits, size);
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [&](Proof &copy) { copy.add_rat(id, lits, size); });
 }
 
 bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
@@ -3993,20 +3919,14 @@ void Proof::add_empty(uint64_t id) {
   add_empty_impl(id);
   if (has_derivation_consumers())
     observe_derivation(DerivationKind::Rup, id, 0, {});
-  if (dsr_copy_) {
-    dsr_copy_->add_empty(id);
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [&](Proof &copy) { copy.add_empty(id); });
 }
 
 void Proof::add_derived_unit(uint64_t id, Lit unit) {
   add_derived_unit_impl(id, unit);
   if (has_derivation_consumers())
     observe_derivation(DerivationKind::Rup, id, 0, internal_view(&unit, 1));
-  if (dsr_copy_) {
-    dsr_copy_->add_derived_unit(id, unit);
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [&](Proof &copy) { copy.add_derived_unit(id, unit); });
 }
 
 void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
@@ -4014,27 +3934,20 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
   del_impl(line_id, del_id, lits, size);
   if (has_derivation_consumers())
     observe_derivation(DerivationKind::Delete, line_id, del_id, internal_view(lits, size));
-  if (dsr_copy_) {
-    dsr_copy_->del(line_id, del_id, lits, size);
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [&](Proof &copy) { copy.del(line_id, del_id, lits, size); });
 }
 
 bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
                              uint32_t size) {
-  if (dsr_copy_)
-    hold_lazy_event();
-  const bool written = add_external_rup_impl(id, lits, size);
-  if (written && has_derivation_consumers())
-    observe_derivation(DerivationKind::Rup, id, 0, PopulationClauseView::external_lits(lits, size));
-  const ReleaseLazyEvent release{this};
-  if (written && dsr_copy_) {
-    if (!dsr_copy_->add_external_rup(id, lits, size))
-      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
-    else
-      settle_dsr_copy();
-  }
-  return written;
+  return write_held_event(
+      dsr_copy_, [&] {
+        const bool written = add_external_rup_impl(id, lits, size);
+        if (written && has_derivation_consumers())
+          observe_derivation(DerivationKind::Rup, id, 0,
+                             PopulationClauseView::external_lits(lits, size));
+        return written;
+      },
+      [&](Proof &copy) { return copy.add_external_rup(id, lits, size); });
 }
 
 bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
@@ -4046,96 +3959,66 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
   const bool tautology = dsr_copy_ && size && lits && external_tautological(lits, size);
   if (tautology && !dsr_only_)
     drop_dsr_copy(AutomaticProofReason::CopyDeclined);
-  if (dsr_copy_)
-    hold_lazy_event();
-  const bool written = add_external_rat_impl(id, lits, size);
-  if (written && has_derivation_consumers())
-    observe_derivation(DerivationKind::Rat, id, 0, PopulationClauseView::external_lits(lits, size));
-  const ReleaseLazyEvent release{this};
-  if (written && dsr_copy_ && !tautology) {
-    if (!dsr_copy_->add_external_rat(id, lits, size))
-      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
-    else
-      settle_dsr_copy();
-  }
-  return written;
+  return write_held_event(
+      dsr_copy_, [&] {
+        const bool written = add_external_rat_impl(id, lits, size);
+        if (written && has_derivation_consumers())
+          observe_derivation(DerivationKind::Rat, id, 0,
+                             PopulationClauseView::external_lits(lits, size));
+        return written;
+      },
+      [&](Proof &copy) { return copy.add_external_rat(id, lits, size); }, !tautology);
 }
 
 bool Proof::del_external(uint64_t line_id, uint64_t del_id,
                          const int32_t *lits, uint32_t size) {
-  if (dsr_copy_)
-    hold_lazy_event();
-  const bool written = del_external_impl(line_id, del_id, lits, size);
-  if (written && has_derivation_consumers())
-    observe_derivation(DerivationKind::Delete, line_id, del_id, PopulationClauseView::external_lits(lits, size));
-  const ReleaseLazyEvent release{this};
-  if (written && dsr_copy_) {
-    if (!dsr_copy_->del_external(line_id, del_id, lits, size))
-      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
-    else
-      settle_dsr_copy();
-  }
-  return written;
+  return write_held_event(
+      dsr_copy_, [&] {
+        const bool written = del_external_impl(line_id, del_id, lits, size);
+        if (written && has_derivation_consumers())
+          observe_derivation(DerivationKind::Delete, line_id, del_id,
+                             PopulationClauseView::external_lits(lits, size));
+        return written;
+      },
+      [&](Proof &copy) { return copy.del_external(line_id, del_id, lits, size); });
 }
 
 bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
-  if (dsr_copy_)
-    hold_lazy_event();
-  const bool retained = retain_external_impl(id, lits, size);
-  const ReleaseLazyEvent release{this};
-  if (retained && dsr_copy_) {
-    if (!dsr_copy_->retain_external(id, lits, size))
-      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
-    else
-      settle_dsr_copy();
-  }
-  return retained;
+  return write_held_event(dsr_copy_, [&] { return retain_external_impl(id, lits, size); },
+                          [&](Proof &copy) { return copy.retain_external(id, lits, size); });
 }
 
 bool Proof::retain_premise_groups(const std::vector<PremiseGroup> &groups,
     uint64_t maximum_groups, uint64_t maximum_literals,
     uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,
     std::vector<uint64_t> &handles, DeferredDeletionLimits limits) {
-  if (dsr_copy_)
-    hold_lazy_event();
-  const bool retained = retain_premise_groups_impl(
-      groups, maximum_groups, maximum_literals, maximum_bytes, charge, handles,
-      limits);
-  const ReleaseLazyEvent release{this};
-  if (retained && dsr_copy_) {
-    // The kernel's work meter is charged once, by the PBP stream.
-    const std::function<bool(uint64_t)> free_charge = [](uint64_t) {
-      return true;
-    };
-    std::vector<uint64_t> copy_handles;
-    if (!dsr_copy_->retain_premise_groups(groups, maximum_groups,
-                                          maximum_literals, maximum_bytes,
-                                          free_charge, copy_handles, limits) ||
-        copy_handles != handles)
-      drop_dsr_copy(AutomaticProofReason::CopyDeclined);
-    else
-      settle_dsr_copy();
-  }
-  return retained;
+  return write_held_event(
+      dsr_copy_, [&] {
+        return retain_premise_groups_impl(groups, maximum_groups, maximum_literals,
+                                          maximum_bytes, charge, handles, limits);
+      },
+      [&](Proof &copy) {
+        // The kernel's work meter is charged once, by the PBP stream.
+        const std::function<bool(uint64_t)> free_charge = [](uint64_t) { return true; };
+        std::vector<uint64_t> copy_handles;
+        return copy.retain_premise_groups(groups, maximum_groups, maximum_literals,
+                                          maximum_bytes, free_charge, copy_handles,
+                                          limits) &&
+               copy_handles == handles;
+      });
 }
 
 void Proof::release_premise_groups(const std::vector<uint64_t> &handles,
                                   uint64_t line_id) {
   release_premise_groups_impl(handles, line_id);
-  if (dsr_copy_) {
-    dsr_copy_->release_premise_groups(handles, line_id);
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [&](Proof &copy) { copy.release_premise_groups(handles, line_id); });
 }
 
 void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
   seed_population_impl(id, lits, size);
   if (has_derivation_consumers())
     observe_derivation(DerivationKind::Input, id, 0, internal_view(lits, size));
-  if (dsr_copy_) {
-    dsr_copy_->seed_population(id, lits, size);
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [&](Proof &copy) { copy.seed_population(id, lits, size); });
 }
 
 void Proof::finish_query_output() {
@@ -4148,10 +4031,7 @@ void Proof::finish_query_output() {
 
 void Proof::flush() {
   flush_impl();
-  if (dsr_copy_) {
-    dsr_copy_->flush();
-    settle_dsr_copy();
-  }
+  forward_to_copy(dsr_copy_, [](Proof &copy) { copy.flush(); });
 }
 
 } // namespace tactix

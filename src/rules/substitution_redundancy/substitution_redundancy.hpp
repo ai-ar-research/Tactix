@@ -14,18 +14,13 @@ struct SubstitutionRedundancyInstance {
   std::vector<Lit> clause;
   std::vector<Lit> witness;
   std::vector<std::pair<Lit, Lit>> substitution;
-  // Internal producer provenance. Ordinary explicit applications ignore this
-  // bit. The online executor consumes it only for a freshly enumerated
-  // orbitopal prefix whose preceding members remain in their original order.
+  // Internal provenance (explicit applications ignore these bits): a freshly
+  // enumerated orbitopal prefix, still in its original order.
   bool orbitopal_prefix_certificate = false;
-  // Internal producer provenance for an ordered clausal-fixing level from an
-  // exact generator group. Binary members are inverse-transversal SST steps;
-  // the final unit is RUP from the source clause and completed binary prefix.
-  // Explicit callers cannot activate this certificate.
+  // An ordered clausal-fixing level of an exact generator group: binary
+  // members are inverse-transversal SST steps, the final unit is RUP.
   bool symmetry_chain_certificate = false;
-  // Internal producer provenance for a binary clause blocked on a literal
-  // which occurred in exactly one source clause when the complete pass was
-  // enumerated. Explicit callers cannot activate this certificate.
+  // A binary blocked on a literal that occurred in one source clause.
   bool unique_literal_amo_certificate = false;
   bool operator==(const SubstitutionRedundancyInstance &) const = default;
 };
@@ -103,9 +98,8 @@ enum class SymmetryClauseSelection : uint8_t {
   AmoThenShortest,
 };
 
-// The legacy producer stops after the last clausal-fixing level.  FixAndCut
-// follows the complete Schreier schedule: it records every base level, closes
-// the chain, and emits a full orbit cut when no source clause can be fixed.
+// ClausalFixing stops after the last clausal-fixing level; FixAndCut follows
+// the complete Schreier schedule and cuts a full orbit when nothing is fixable.
 enum class SymmetryChainMode : uint8_t {
   ClausalFixing,
   FixAndCut,
@@ -113,15 +107,12 @@ enum class SymmetryChainMode : uint8_t {
   FixAndCutResift,
 };
 
-// Base selection is a FixAndCut strategy setting, not part of X7. It is
-// dormant for ClausalFixing. ClauseOrder preserves the
-// caller's independently configured clause/literal order.  CommonClauseAmo
-// prefers AMOs, then overlap with earlier base variables and smaller orbits.
-// FirstAmoThenCommonClause takes the first applicable AMO in caller order;
-// otherwise it retains common-clause scoring and the smaller-orbit tie break.
-// FirstAmoThenOrderedRemainder uses that ranking on its first AMO-free scan,
-// then follows caller order for the rest of the chain. ForwardRemainder also
-// retains the first eligible clause as a forward scan frontier between levels.
+// FixAndCut base selection. ClauseOrder keeps the caller's clause/literal
+// order; CommonClauseAmo prefers AMOs, then overlap with earlier base
+// variables and smaller orbits; FirstAmoThenCommonClause takes the first AMO
+// in caller order, else that scoring; FirstAmoThenOrderedRemainder scores
+// only its first AMO-free scan; ForwardRemainder also keeps the first
+// eligible clause as a forward frontier between levels.
 enum class SymmetryBaseSelection : uint8_t {
   ClauseOrder,
   CommonClauseAmo,
@@ -134,10 +125,9 @@ enum class SymmetryBaseSelection : uint8_t {
   FirstShortestThenForwardRemainder,
 };
 
-// Where a FixAndCut cut level takes its base point once no clause is fixable.
-// LargestOrbitLast is the owning preprocessor's rule: the largest stabilizer
-// orbit, the highest variable among equals, replaced only by a strictly better
-// common-clause score met in ascending literal order.
+// A cut level's base point. LargestOrbitLast is Satsuma's rule: the largest
+// stabilizer orbit, highest variable among equals, replaced only by a strictly
+// better common-clause score in ascending literal order.
 enum class SymmetryCutPoint : uint8_t {
   FirstOpen,
   LargestOrbitLast,
@@ -148,9 +138,8 @@ enum class SymmetryStructuredScope : uint8_t {
   AxisAnchors,
 };
 
-// A kind-2-only FixAndCut batch normally contains open binary cuts and only
-// chooses a CDCL fundamental domain.  Admission nevertheless inspects the live
-// root values: a checked cut that has become unit is a forcing consequence.
+// Admission of a kind-2-only FixAndCut batch; a cut that became unit under
+// the live root values is forcing.
 enum class SymmetryNonforcingCutAdmission : uint8_t {
   Publish,
   RequireForcingMember,
@@ -169,12 +158,10 @@ struct GraphSymmetryParameters {
   uint64_t maximum_fixing_instances = UINT64_MAX;
   uint64_t maximum_generator_instances_per_pass = UINT64_MAX;
   uint64_t maximum_group_ticks = UINT64_MAX;
-  // Above this variable count, skip Schreier-chain construction and use the
-  // exact-generator negation/binary fixing scans. UINT64_MAX disables the
-  // switch. The default policy selects the owning baseline's 50,000 limit.
+  // Above this variable count, use generator fixing scans instead of a
+  // Schreier chain (Satsuma's limit is 50,000).
   uint64_t schreier_domain_limit = UINT64_MAX;
-  // Optional soft planning threshold, polled between complete FixAndCut
-  // levels. Zero disables it. Finalization still obeys maximum_group_ticks.
+  // Soft planning threshold polled between FixAndCut levels; zero disables.
   uint64_t chain_planning_tick_limit = 0;
   uint32_t seed = 0;
   uint32_t error_bound = 15;
@@ -189,9 +176,7 @@ struct GraphSymmetryParameters {
   SymmetryBinaryGraphMode binary_graph_mode =
       SymmetryBinaryGraphMode::Automatic;
   // Automatic mode uses direct binary edges when
-  // 1000 * binary_clauses >= this value * variables. Zero therefore selects
-  // direct edges for every nonempty formula; UINT32_MAX remains a valid very
-  // high caller-selected threshold.
+  // 1000 * binary_clauses >= this value * variables.
   uint32_t binary_graph_density_permille = 1000;
   SymmetryClauseSelection clause_selection =
       SymmetryClauseSelection::AmoThenShortest;
@@ -201,27 +186,25 @@ struct GraphSymmetryParameters {
   // FixAndCut: before any fix or cut level, fix every open variable whose
   // stabilizer orbit holds its own complement, as a negation-orbit unit.
   bool negation_fixing_first = false;
-  // A clause is fixable only through its first stored literal (the owner's
-  // orbit_overlaps_clause); one whose first literal is false is left to a cut.
+  // Fix a clause only through its first literal (Satsuma's
+  // orbit_overlaps_clause); a false first literal leaves it to a cut.
   bool first_literal_fix_anchor = false;
   bool direct_generator_involutions_only = true;
   bool decompose = true;
   bool prefer_depth_first = false;
   bool strong_certification = false;
-  // Optional discovery subgroup: fix both literals of each assigned root
-  // variable and active query-constrained coordinate pointwise. Query colors
-  // assert no root assignment. Explicit SR and unrestricted discovery stay legal.
+  // Discovery subgroup fixing each root-assigned variable and each active
+  // query coordinate pointwise.
   bool pointwise_root_stabilizer = false;
-  // Factor the supplied generator subgroup by disjoint supports before
-  // planning. Independent of the selected chain algorithm.
+  // Factor the generator subgroup by disjoint supports before planning.
   bool factor_support_components = false;
   // Preserve first detector occurrence before applying generator traversal.
   bool preserve_detector_order = false;
-  // Read-only structured discovery in this invocation, before generic search.
-  // Retain exact generators even when their matrix yields no immediate unit.
+  // Structured discovery before generic search; its exact generators are
+  // kept even without an immediate unit.
   bool use_structured_generators = false;
-  // Independently restrict generic discovery to the pointwise stabilizer of
-  // complete discovered matrices. This never restricts explicit X7 instances.
+  // Restrict generic discovery to the pointwise stabilizer of discovered
+  // matrices.
   bool stabilize_structured_variables = false;
   // AxisAnchors fixes the first column for a row action and the first row
   // for a column action, retaining more of the overlapping automorphisms.
@@ -263,8 +246,7 @@ struct GraphSymmetryParameters {
 };
 
 struct SubstitutionRedundancyParameters {
-  // Work spent validating the SR condition by unit propagation. UINT64_MAX is
-  // unbounded; zero is a valid admission limit.
+  // Unit-propagation work validating the SR condition; UINT64_MAX unbounded.
   uint64_t maximum_validation_ticks = UINT64_MAX;
   SubstitutionRedundancyProducer producer =
       SubstitutionRedundancyProducer::ExplicitOnly;
@@ -273,37 +255,26 @@ struct SubstitutionRedundancyParameters {
   uint32_t minimum_orbitopal_columns = 2;
   uint64_t maximum_orbitopal_matrices = UINT64_MAX;
   uint64_t maximum_orbitopal_instances = UINT64_MAX;
-  // Preserve canonical order below this width. Five matches Satsuma's
-  // admission rule; callers can select every legal width starting at two.
+  // Canonical column order below this width (Satsuma: five).
   uint32_t minimum_orbitopal_clique_columns = 5;
   uint64_t maximum_orbitopal_clique_vertices = UINT64_MAX;
   uint64_t maximum_orbitopal_clique_ticks = UINT64_MAX;
-  // Maximum compact states in the induced column-action traversal used only
-  // when exact product generators do not directly contain a column-fixing row
-  // transposition. UINT64_MAX is unbounded; zero disables that fallback.
+  // States of the induced column-action search used when product generators
+  // contain no column-fixing row transposition; zero disables it.
   uint64_t maximum_orbitopal_product_states = UINT64_MAX;
-  // Complete every selected unique-literal clause with its missing pairwise
-  // at-most-one binaries before attempting matrix detection. The binaries are
-  // ordinary X7 instances with a blocked-clause certificate.
+  // Emit each unique-literal clause's missing AMO binaries (blocked X7
+  // instances) before matrix detection.
   bool complete_unique_literal_amos = false;
-  // If individualized color refinement does not itself yield an exact row
-  // action, optionally search the configured generic generators to complete
-  // it. This is a scheduling choice because it can dominate detection time.
+  // Complete an inexact refined row action from the generic generators.
   bool orbitopal_generator_fallback = true;
-  // Maximum candidate cells examined by individualized row/product
-  // refinement in one generated pass, including pointwise-stabilizer
-  // descendants. UINT64_MAX is unbounded; zero disables this detector while
-  // leaving explicit matrices and the other orbitopal paths available.
+  // Candidate cells examined by row/product refinement per pass, stabilizer
+  // descendants included; zero disables this detector.
   uint64_t maximum_orbitopal_refinement_orbits = UINT64_MAX;
-  // Stop a structured refinement producer after it has spent the owning
-  // Satsuma split allowance without completing a useful matrix.  Every
-  // completed matrix resets the allowance, so productive discovery keeps
-  // going.  This is a scheduling choice; disabling it retains exhaustive
-  // traversal up to the explicit admission limits above.
+  // Stop a refinement producer that spends Satsuma's split allowance without
+  // a useful matrix; each completed matrix resets the allowance.
   bool orbitopal_progress_feedback = false;
-  // Satsuma-style row admission: probe a deterministic individualized base
-  // and examine only root cells of size at most factor * base length. The
-  // Boolean keeps the filter selectable; the positive factor is policy.
+  // Satsuma row admission: only root cells of size at most factor times the
+  // probed individualized base length.
   bool orbitopal_base_probe_filter = true;
   uint32_t orbitopal_base_probe_factor = 8;
   uint64_t maximum_detection_ticks = UINT64_MAX;
@@ -313,8 +284,8 @@ struct SubstitutionRedundancyParameters {
   OrbitopalCompletion orbitopal_completion = OrbitopalCompletion::MatrixOnly;
   OrbitopalDiscoveryOrder orbitopal_discovery_order =
       OrbitopalDiscoveryOrder::RefinementThenUniqueLiteral;
-  // Equitable cells propose row candidates before generic group discovery.
-  // They are not automorphism certificates; exact action checks still apply.
+  // Row candidates from equitable cells or detected generators; exact action
+  // checks still apply.
   OrbitopalRowOrbitSource orbitopal_row_orbit_source =
       OrbitopalRowOrbitSource::DetectedGenerators;
   GraphSymmetryParameters graph_symmetry;
@@ -427,31 +398,24 @@ struct SymmetryEnumerationResult {
   SymmetryEnumerationStatus status = SymmetryEnumerationStatus::Complete;
   uint64_t generators_proposed = 0;
   uint64_t generators_validated = 0;
-  // A work-capped generic detector filled its complete affordable callback
-  // prefix.  No arbitrary prefix is publishable, but the count is a
-  // deterministic discovery-progress signal for a composing strategy.
+  // Progress units of a work-capped detector prefix (never published).
   uint64_t discovery_progress_units = 0;
   uint64_t instances = 0;
   // Complete validated kind-2-only batches withheld by strategy admission.
   uint64_t nonforcing_orbit_cuts_declined = 0;
-  // Reserved historical diagnostic. Certified forcing units are never
-  // withheld by cut-admission policy, so current producers leave this zero.
+  // Always zero: forcing units are never withheld.
   uint64_t singleton_forcing_rows_declined = 0;
   uint64_t ticks = 0;
   // True only when discovery establishes the full unrestricted clause-set group.
   bool complete_group = false;
 };
 
-// Composition-only resource policy for graph-symmetry discovery. Once group
-// planning has admitted a fixing batch, finishing and validating that atomic
-// batch may exceed the fresh-discovery allowance; all actual work is still
-// reported in the result and charged by the caller. The ordinary rule API
-// retains its prior per-call accounting when this option is false.
+// Composition policy for graph-symmetry discovery: an admitted fixing batch
+// may finish beyond the discovery allowance; all work is still reported.
 struct SymmetryEnumerationScheduling {
   bool finish_admitted_group = false;
-  // When nonzero, an exact generic generator extends the current discovery
-  // allowance inside the same detector session.  hard_detection_ticks is the
-  // remaining run-global ceiling at invocation entry.
+  // Nonzero: each exact generator extends the allowance, up to the run-global
+  // hard_detection_ticks ceiling.
   uint64_t progress_ticks_per_generator = 0;
   uint64_t hard_detection_ticks = 0;
 };
@@ -483,9 +447,8 @@ struct SubstitutionRedundancyGeneralResult {
   uint64_t candidates = 0;
 };
 
-// Caller-owned discovery advice in current internal literal coordinates.
-// Consumers must validate maps against their current full formula; no cached
-// validity or group-completeness claim survives mutation or compaction.
+// Discovery advice in internal literal coordinates; consumers validate it
+// against their current formula.
 struct SymmetryDiscoveryHints {
   std::vector<std::vector<Lit>> generators;
   std::vector<Var> fixed_variables;

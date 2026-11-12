@@ -11,8 +11,9 @@
 namespace tactix {
 
 RuleEligibility instantiate_guard(const Kernel &k) {
-  // Declared quiescent-root boundary. A pure F-rewrite, so a recorded conflict does not
-  // bar it; level == 0 is what the occurrence and unassigned filters need.
+  // Declared quiescent-root boundary. A pure F-rewrite, so a recorded conflict
+  // does not bar it; level == 0 is what the occurrence and unassigned filters
+  // need.
   return root_level_guard(k);
 }
 
@@ -37,9 +38,7 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
          unassigned >= parameters.minimum_unassigned;
 }
 
-// irredundant occurrence counts per literal, one arena pass. Per round, not per
-// candidate: an O(nlits) fill inside the probe loop is the per-call
-// linear-scratch hazard, which dominates the profile when it happens.
+// Irredundant occurrence counts per literal, one arena pass per round.
 static void occurrence_counts(const Kernel &k, std::vector<uint32_t> &occ) {
   occ.assign(2 * k.nvars, 0);
   for (const auto [ref, c] : arena_records(k.arena)) {
@@ -80,9 +79,8 @@ void instantiate_candidates(const Kernel &k, std::vector<Ref> &out) {
   collect_candidates(k, occ, out);
 }
 
-// probe one (clause, literal) pair. Returns true when the assumption set
-// ¬D ∧ l propagated to a conflict, i.e. D is provable. On true the trail is
-// still loaded and the probing scope is still open; on false everything is already unwound.
+// Probe one (clause, literal) pair: true iff ¬D ∧ l conflicts (D provable);
+// then the trail and scope stay open, otherwise everything is unwound.
 static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
   const Clause *c = clause_at(k.arena, cref);
   kernel_probing_begin(k);
@@ -107,9 +105,7 @@ static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
     kernel_assign_decision(k, negate(m)); // every other literal FALSE
   }
   k.stats.instantiate_checked++;
-  // the candidate is satisfied by `lit` under this assumption set, so it
-  // cannot propagate — no `ignore` needed (C3 Vivify's circularity worry does
-  // not arise here)
+  // The candidate is satisfied by `lit`, so it cannot propagate.
   if (kernel_propagate_probing(k))
     return true;
   probe_unwind(k);
@@ -132,16 +128,12 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
   std::vector<Lit> cand_lits(c->begin(), c->end());
   std::vector<Lit> next;
   for (const Lit lit : cand_lits) {
-    // §6 safe point by construction: a failed `probe_pair` has already unwound
-    // the trail and closed the probing scope and a successful one returns
-    // outright — so the clause is either fully
-    // rewritten or untouched, never half-instantiated.
+    // §6 safe point: a failed probe has unwound, a successful one returns, so
+    // the clause is never half-instantiated.
     if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted))
       break;
-    // A preceding probe can discover a level-zero implication while standing
-    // under assumptions.  Backtracking preserves that fact but leaves its
-    // closure pending.  Drain it before a new assumption can mask a watched
-    // clause behind the propagation cursor.
+    // Drain level-zero implications found under assumptions before the next
+    // probe.
     if (inprocess_reach_root(k))
       return ApplyResult::Unsat;
     if (selected ? lit != *selected : !eligible(k, occ, lit))
@@ -167,9 +159,8 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
     case ReplaceOutcome::Refuted:
       return ApplyResult::Unsat;
     case ReplaceOutcome::Unit:
-      // unreachable through is_candidate's `unassigned >= 3`, but a unit is
-      // legal state under N1's exotic schedules: assert it and end the round,
-      // as C3 Vivify does.
+      // A unit is legal under N1 schedules: assert it and end the round (as
+      // Vivify).
       k.unit_ids[var_of(next[0])] = id;
       kernel_assign_unit(k, next[0]);
       *ended_round = true;
@@ -195,13 +186,9 @@ ApplyResult instantiate_apply(Kernel &k) {
   // budget_aware batch round: the policy's ledger is in propagation ticks, C3
   // Vivify's currency — these probes are propagation.
   const uint64_t tick_start = k.stats.ticks;
-  // Repetition filter over the touched-epoch substrate. cadical's suppressor is
-  // a per-clause bit set at the first attempt and never reset
-  // (`instantiateonce`, instantiate.cpp:32,211); this one is deliberately
-  // weaker, re-offering a clause as soon as anything in it changes, which
-  // recovers what the once-ever bit forfeits. The reference need is one, unlike the
-  // subsumption family's 2: the probe is a propagation, so one new clause over
-  // one of c's variables can change the outcome.
+  // Repetition filter over the touched-epoch substrate; weaker than cadical's
+  // once-ever bit (`instantiateonce`, instantiate.cpp:32,211): one changed
+  // variable re-offers the clause.
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
   const uint64_t wm = k.instantiate_touch_mark;
@@ -212,9 +199,7 @@ ApplyResult instantiate_apply(Kernel &k) {
       stopped_at = ci;
       break;
     }
-    // §6 termination, distinct from the tick budget above (which is 0 when the
-    // policy leaves the round unmetered). Cut at the same point so the untried
-    // tail is re-armed by the resume path below.
+    // §6 termination, cut where the untried tail is re-armed.
     if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted)) {
       stopped_at = ci;
       break;

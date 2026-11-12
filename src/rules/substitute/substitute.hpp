@@ -1,13 +1,7 @@
 // V3 Substitute (plan §5.2): equivalent-literal substitution over the binary
-// implication graph. Literals in one SCC of the graph are logically equivalent;
-// each non-representative is rewritten to its SCC's representative, and an SCC
-// holding a literal together with its own negation refutes the formula.
-// Proof delta: add-RUP + delete + push-witness. Precondition, effect and
-// soundness: `docs/dev/calculus.md` §V3; engineering invariants:
-// `docs/dev/implementation-notes.md`. Three parts: SCC detection (iterative
-// Tarjan, unit-tested in isolation), the refutation path for l ≡ ¬l (two RUP
-// units and the empty clause via the rule-local graph-path walk), and the
-// rewrite itself (`do_substitution` in substitute.cpp).
+// implication graph. Each non-representative SCC literal is rewritten to its
+// representative; an SCC holding l and ¬l refutes. Proof delta: add-RUP +
+// delete + push-witness (`docs/dev/calculus.md` §V3).
 #pragma once
 
 #include "rules/registry.hpp"
@@ -18,23 +12,16 @@
 
 namespace tactix {
 
-// Guard: quiescent root, shared by every inprocessing rule — the binary
-// implication graph must already reflect all level-0 units before its SCCs are
-// meaningful.
+// Guard: quiescent root (SCCs need every level-0 unit reflected).
 RuleEligibility substitute_guard(const Kernel &k);
 
-// SCCs of the active binary implication graph: (¬p ∨ q) gives p → q.
-//   repr[l]  = the representative with the smallest DIMACS import order in
-//              l's SCC (Kissat's compact internal-literal order);
-//              repr[l]==l for a representative or a singleton; INVALID_LIT for
-//              an inactive (root-fixed) literal that is not a node.
-//   nontrivial_reps = requested representatives of SCCs with more than one
-//              literal, in ascending import order — the public instances;
-//   nontrivial_count = their count even when not materialized.
-//   contradiction   = some SCC contains a literal and its own negation.
-//   contradiction_lit = a witness x with x and ¬x in one SCC (INVALID_LIT if
-//              none); both directed paths x→¬x and ¬x→x then exist, which the
-//              refutation walks.
+// SCCs of the active binary implication graph ((¬p ∨ q) gives p → q).
+//   repr[l] = the SCC member with the smallest import order (Kissat's compact
+//             order); repr[l]==l for representatives and singletons;
+//             INVALID_LIT for an inactive (root-fixed) literal.
+//   nontrivial_reps = requested representatives of non-trivial SCCs, ascending
+//             import order (the public instances); nontrivial_count their count.
+//   contradiction / contradiction_lit = some x with x and ¬x in one SCC.
 struct SccResult {
   std::vector<Lit> repr;            // by lit
   std::vector<Lit> nontrivial_reps; // representatives of |SCC| > 1, ascending
@@ -49,36 +36,28 @@ struct SccResult {
 SccResult substitute_find_sccs(const Kernel &k, bool collect_instances = true,
                                bool account_work = true);
 
-// Instance space (plan §5.1): payload = an SCC representative literal via
-// lit_instance/lit_of_instance. A single instance substitutes the requested
-// representative's class and its mirror; INSTANCE_CANONICAL = the full round
-// (every non-trivial SCC). On x ≡ ¬x, apply refutes.
-// canonical: full round.  Kissat's `substitute_binaries` drops every large
-// watch while it rewrites the binary watches, `substitute_clauses` rewrites
-// bare clause records, and `kissat_watch_large_clauses` reconnects the large
-// watches once after the call's last round.  A call entered with large
-// watches connected flushes them after its SCC pass and, when
-// `reconnect_large_watches` holds, reconnects them before returning; a
-// multi-round driver passes false and calls
-// `substitute_reconnect_large_watches` after its last round.
+// Instance space (plan §5.1): payload = an SCC representative literal; one
+// instance substitutes that class and its mirror. INSTANCE_CANONICAL = the
+// full round. On x ≡ ¬x, apply refutes. As in Kissat (`substitute_binaries`,
+// `substitute_clauses`, `kissat_watch_large_clauses`), large watches are
+// flushed after the SCC pass and reconnected before returning when
+// `reconnect_large_watches` holds; multi-round drivers pass false and call
+// `substitute_reconnect_large_watches` after the last round.
 ApplyResult substitute_apply(Kernel &);
 ApplyResult substitute_apply_round(Kernel &, bool reconnect_large_watches);
-// Kissat's terminal `kissat_watch_large_clauses` + `kissat_reset_propagate` +
-// probing propagation: reconnect in arena order and complete the root closure
-// of every unit assigned since `trail_begin` through the large clauses.
-// Unsat iff that closure refutes the formula.
+// Kissat's `kissat_watch_large_clauses` + `kissat_reset_propagate` + probing
+// propagation: reconnect in arena order and close the root over large clauses
+// for units since `trail_begin`. Unsat iff that refutes.
 ApplyResult substitute_reconnect_large_watches(Kernel &, uint32_t trail_begin);
 
-// Initial probing uses Kissat's `complete=true` contract: repeat productive
-// rounds so equivalences exposed by one rewrite are consumed by the next.
-// The shipped reference cap is two rounds (`substituterounds=2`).
+// Kissat's `complete=true` probing: repeat productive rounds, capped by
+// `substituterounds=2`.
 ApplyResult substitute_apply_complete(Kernel &, uint32_t max_rounds);
 
-// Sweep retains the proved bridges and defers class retirement to canonical
-// Substitute. It keeps one session across all productive environments in a
-// call. Its connected replacements retain source pose and allocation span,
-// while the output-sensitive mixed-occurrence view supplies Kissat's stream
-// order only for literals reached by the environment or rewrite.
+// Sweep keeps the proved bridges and leaves class retirement to canonical
+// Substitute; one session spans a call. Connected replacements keep pose and
+// span; the mixed-occurrence view gives Kissat's stream order for reached
+// literals.
 struct SweepSubstitutionSession final {
   struct DenseOccurrence {
     bool binary = false;
@@ -94,55 +73,33 @@ struct SweepSubstitutionSession final {
   };
 
   bool changed = false;
-  // Kissat's dense watch lists are one ordered stream containing binaries and
-  // every irredundant large occurrence. Inline substitution can append either
-  // kind, so two separately ordered Tactix indexes are not enough.
-  //
-  // Invariant, restored at every entry point below: for each literal the
-  // binary sub-multiset of this ledger equals that literal's physical binary
-  // watch multiset, and its large sub-multiset names the same irredundant
-  // records as `Kernel::dense`. Synchronization also publishes the ledger's
-  // binary order to physical watches; propagation must see the same stream.
-  // The watch lists and `Kernel::dense` own membership. A ledger claiming what
-  // formula does not hold puts a phantom clause into the next environment.
+  // Kissat's dense watch list is one stream of binaries and irredundant large
+  // occurrences. Invariant at every entry point: per literal, the binary part
+  // of the ledger equals the physical binary watch multiset and the large part
+  // names the same records as `Kernel::dense`; the ledger's binary order is
+  // published to the watches. Watches and `Kernel::dense` own membership.
   struct DenseOccurrenceList {
     std::vector<DenseOccurrence> entries;
     bool initialized = false;
   };
-  // Only literals reached by a Sweep environment need a unified stream.
-  // A dense vector-of-vectors committed 24 bytes for every physical literal
-  // before one stream was touched; sparse ownership retains the same per-list
-  // order and capacity without that formula-wide header image.
+  // Streams only for literals reached by a Sweep environment.
   std::unordered_map<Lit, DenseOccurrenceList> dense_occurrences;
-  // Kissat has no all-literals shadow build: it reads the one connected watch
-  // stream when a literal is reached.  Tactix materializes the equivalent
-  // binary-then-large view lazily and retains it only for literals touched in
-  // this Sweep call.  The vector storage is retained across calls so giant
-  // formulas do not repeatedly construct/destroy millions of empty vectors.
+  // Lazily materialized binary-then-large view of touched literals; storage is
+  // kept across calls.
   std::vector<Lit> dense_initialized_lits;
-  // The literals whose stream a caller could have mutated since the last
-  // reconcile. Every mutation reaches a stream through the non-const
-  // `occurrences`, so marking there over-approximates the changed set while
-  // keeping it local: reconciling and republishing all of
-  // `dense_initialized_lits` instead makes one environment's cost the whole
-  // Sweep call's touched formula.
+  // Literals whose stream may have changed since the last reconcile (marked by
+  // the non-const `occurrences`).
   std::vector<Lit> ledger_dirty;
   std::vector<uint8_t> ledger_dirty_mark;
   bool dense_enabled = false;
-  // Directed owners whose ordered binary substream was changed by the current
-  // inline transaction. Reconciled against physical watches before the next
-  // Sweep seed consumes the ledger: a dirty substream is a prediction the
-  // physical rewrite may supersede, so only there may `sync_new_binaries`
-  // meet a ledger-only binary; on any other owner that residue is a defect.
+  // Owners whose binary substream the current transaction changed; only there
+  // may `sync_new_binaries` meet a ledger-only binary.
   std::vector<Lit> dirty_binary_owners;
 
-  // Kissat retires one literal at a time: `substitute_connected_clauses` walks
-  // that literal's single unified watch stream and pushes every occurrence it
-  // moves — binary or large, in encounter order — onto one `delayed` stack,
-  // which it flushes to the representative before the next retiring literal is
-  // walked. Tactix rewrites binaries and large clauses in two separate batch
-  // passes, so a move instead records which stream released it and where it sat
-  // in that stream, and the transaction replays all of them in that order.
+  // Kissat's `substitute_connected_clauses` pushes each moved occurrence of one
+  // retiring literal onto a `delayed` stack in encounter order and flushes it
+  // before the next literal. A move records its source stream and position so
+  // the transaction replays that order.
   struct DelayedMove {
     Lit representative = INVALID_LIT;
     uint32_t source = 0;   // retiring literal's rank in Kissat's call order
@@ -156,22 +113,17 @@ struct SweepSubstitutionSession final {
   // Must precede publication of a fresh equivalence pair so a newly appended
   // binary remains after the pre-existing mixed stream, as in Kissat.
   void prime_equivalence(const Kernel &, Lit a, Lit b);
-  // Adopt the binaries Sweep published for this batch. Must run for every
-  // emitted batch, including one whose classes are all declined below, because
-  // the binaries are already in the watch lists by then.
+  // Adopt Sweep's published binaries; required for every batch, even fully
+  // declined ones.
   void sync_new_binaries(
       Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
-  // Pose-only: after synchronization, move the last extant copy of each
-  // freshly emitted directed bridge to this pair's commit boundary.
-  // No membership or proof identity changes; absent images remain absent.
+  // Pose-only: move the last copy of each fresh bridge to this pair's commit
+  // boundary.
   void repose_emitted_equivalence(const Kernel &, Lit a, Lit b);
-  // `map` is the sparse requested literal-to-representative map. The rewrite
-  // this mirrors declines a member that is already root-fixed or retired, so
-  // this applies the same
-  // predicate rather than the map; mirroring the map instead moves ledger
-  // entries the kernel leaves in place. `sources` is every losing literal in
-  // the order `sweep_equivalence` hands it to `substitute_connected_clauses`;
-  // it opens the transaction that `flush_moves` closes.
+  // `map` is the sparse literal-to-representative map; members the rewrite
+  // declines (root-fixed or retired) are skipped the same way. `sources` lists
+  // losing literals in `sweep_equivalence` order and opens the transaction
+  // `flush_moves` closes.
   void rewrite_binary_occurrences(
       const Kernel &, const std::vector<std::pair<Lit, Lit>> &map,
       const std::vector<Lit> &sources,
@@ -180,31 +132,22 @@ struct SweepSubstitutionSession final {
   bool substitutes(Lit) const;
   Lit representative(Lit) const;
   uint32_t retiring_index(Lit) const;
-  // If (a, b) is a freshly proved equivalence binary, write its preserved
-  // endpoints oriented to the query and return true. Kissat exempts such a
-  // binary only from its own pair's `substitute_connected_clauses` call, so
-  // the preserved image is the emitted pair under every later merge of the
-  // batch; the transformed bridges let canonical Substitute rediscover every
-  // still-active class member. False means an ordinary binary.
+  // If (a, b) is a fresh equivalence binary, write its preserved endpoints
+  // oriented to the query and return true (Kissat exempts it only from its own
+  // pair's `substitute_connected_clauses`). False means an ordinary binary.
   bool equivalence_bridge_targets(Lit a, Lit b, Lit *target_a,
                                   Lit *target_b) const;
-  // Materialize the streams of every literal of an irredundant connected
-  // clause before the kernel rewrites, collapses or retires it. The ledger
-  // entry points below locate the source by its pre-rewrite pose; a stream
-  // first built after the kernel has marked the record garbage, dropped it
-  // from `Kernel::dense`, or published its binary image cannot contain it.
+  // Materialize the streams of an irredundant clause's literals before the
+  // kernel rewrites, collapses or retires it.
   void prime_large(const Kernel &, Ref source);
   void remove_large(Kernel &, Ref source);
   void collapse_large_to_binary(Kernel &, Ref source, Lit a, Lit b,
                                 bool append_a, bool append_b);
-  // Mirror the ordered mixed-occurrence effect before the kernel overwrites a
-  // surviving large clause at the same Ref.  This changes only Sweep's
-  // traversal ledger; the general kernel primitive owns physical indexes.
+  // Mirror an in-place large overwrite in Sweep's ledger only.
   void rewrite_large_in_place(const Kernel &, Ref source, const Lit *image,
                               uint32_t size);
-  // Append the transaction's moved occurrences to their representatives, one
-  // losing literal's stream at a time. Runs once per emission batch, after
-  // the large-clause rewrite has decided what each large occurrence became.
+  // Append moved occurrences to their representatives, one losing literal at a
+  // time, once per batch after the large rewrite.
   void flush_moves(const Kernel &);
   uint64_t collect(Kernel &);
 
@@ -216,26 +159,18 @@ private:
   DenseOccurrence *find_large(const Kernel &, Lit, Ref);
   void erase_large(const Kernel &, Lit, Ref);
   void purge_stale_binaries(Lit);
-  // Neighbour scratch for the binary-image pre-pass, epoch-stamped and reused
-  // for the same reason as `sync_epoch`: the rewrite runs once per productive
-  // Sweep environment, so a per-call table over all literals is a fill cost
-  // proportional to the formula on every equivalence.
+  // Epoch-stamped neighbour scratch for the binary-image pre-pass.
   std::vector<uint32_t> live_epoch;  // by lit
   uint32_t live_generation = 0;
 
 public:
-  // Marks, for every image in `keys` (canonical binary keys paired with the
-  // owner literal the push targets), whether that pair already existed before
-  // the batch's first push. Exact replacement for rescanning the owner's
-  // binary prefix per image, which is quadratic in a representative's degree.
+  // Mark which (key, owner) images already existed before the first push.
   void classify_existing_binaries(const Kernel &, const std::vector<Lit> &owners,
                                   const std::vector<Lit> &others,
                                   std::vector<uint8_t> &out);
 
 private:
-  // Multiset scratch for `sync_new_binaries`, epoch-stamped and reused: a
-  // hash map built per touched literal made that reconciliation allocate once
-  // per literal on a high-degree graph.
+  // Epoch-stamped multiset scratch for `sync_new_binaries`.
   std::vector<uint32_t> sync_epoch;  // by lit
   std::vector<size_t> sync_count;    // by lit, valid when the epoch matches
   std::vector<Lit> sync_touched;
@@ -256,12 +191,9 @@ private:
   std::unordered_map<uint64_t, uint32_t> retiring_position;
 };
 
-// Sweep commits consequences while its dense pass is still in flight. Kissat
-// rewrites the proved class through connected binary/irredundant occurrences,
-// but retains the equivalence binaries and active members for the following
-// whole-formula Substitute pass. This entry point preserves that two-stage
-// lifecycle: the caller must be at level zero and owns the eventual root
-// closure.
+// Sweep commits consequences mid-pass: like Kissat, rewrite the class through
+// connected occurrences but keep the bridges and members for the later
+// Substitute pass. Caller is at level zero and owns the root closure.
 ApplyResult substitute_apply_sweep_equivalences(
     Kernel &, const std::vector<std::pair<Lit, Lit>> &,
     SweepSubstitutionSession &,

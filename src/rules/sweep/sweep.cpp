@@ -26,9 +26,7 @@ SubResult sweep_solve(Kernel &k, SweepEnv &e,
                       const std::vector<SubLit> &assumptions,
                       uint64_t budget) {
   e.solver.randomize_phases();
-  // A finite tick ceiling can still be arbitrarily large through the typed
-  // online interface.  The external stop is an independent bound, so retain
-  // it for both finite and unlimited embedded solves.
+  // The external stop bounds both finite and unlimited embedded solves.
   return e.solver.solve_interruptible(assumptions, budget,
                                       SubTickMode::Kitten, k.stop);
 }
@@ -88,9 +86,8 @@ ApplyResult sweep_emit_round(Kernel &, SweepRound &, const SweepLimits &);
 ApplyResult sweep_emit_pending_units(Kernel &, SweepRound &,
                                      const SweepLimits &);
 
-// Dedup keys for the environment's clause set: a binary by its literal pair
-// (so both endpoint scans encode it once), a large clause by its arena ref, a
-// unit by its variable. The tag bits keep the three spaces disjoint.
+// Dedup keys: a binary by its literal pair, a large clause by its ref, a unit
+// by its variable; tag bits keep the spaces disjoint.
 constexpr uint64_t KEY_LARGE = 1ull << 63;
 constexpr uint64_t KEY_UNIT = 1ull << 62;
 
@@ -99,10 +96,9 @@ bool root_fixed(const Kernel &k, Var v) {
   return k.values[make_lit(v, false)] != 0;
 }
 
-// --- the round's representative map (kissat sweep.c `sweep_repr`) -----------
-// Union-find over literals with the mirror invariant repr[¬l] = ¬repr[l], so a
-// class and its negation move together. Round-scoped and durable of nothing —
-// V3 Substitute owns the durable substitution.
+// --- the round's representative map (kissat sweep.c `sweep_repr`) ---
+// Union-find over literals with repr[¬l] = ¬repr[l]; round-scoped (Substitute
+// owns the durable substitution).
 Lit repr_find(SweepRound &r, Lit l) {
   Lit root = l;
   while (r.repr[root] != root)
@@ -120,10 +116,8 @@ void repr_unite(const Kernel &k, SweepRound &r, Lit a, Lit b) {
   Lit ra = repr_find(r, a), rb = repr_find(r, b);
   if (ra == rb)
     return;
-  // `rb == ¬ra` means this round proved both x ≡ y and x ≡ ¬y, possible only
-  // when F is unsatisfiable. Merging would make repr a two-cycle that hangs
-  // `repr_find` forever, so detection draws no conclusion and the classes stay
-  // apart. Emission must treat the case as a refutation, not as two binaries.
+  // `rb == ¬ra`: both x ≡ y and x ≡ ¬y, so F is UNSAT. Merging would cycle, so
+  // the classes stay apart; emission treats it as a refutation.
   if (rb == negate(ra))
     return;
   if (kernel_import_lit_order(k, rb) < kernel_import_lit_order(k, ra))
@@ -150,12 +144,8 @@ void env_reset(const Kernel &k, SweepEnv &e) {
   e.clause_off.assign(1, 0);
 }
 
-// Preserve the reference allocation for its ordinary clause cap, but do not
-// reserve from an arbitrarily large online cap.  The table grows as clauses
-// actually enter the environment.  This keeps UINT32_MAX usable without either
-// a formula-wide count for every seed or a 64 GiB sentinel allocation. Kissat
-// admits the whole clause which crosses a structural boundary, so
-// `keyset_grow` preserves the half-full invariant across that overshoot.
+// Reserve only for the ordinary clause cap and grow on demand; `keyset_grow`
+// keeps the half-full invariant when Kissat's whole crossing clause overshoots.
 void keyset_reset(SweepEnv &e, uint64_t cap) {
   size_t n = 16;
   while (n < 2 * static_cast<size_t>(cap) + 2)
@@ -167,10 +157,8 @@ void keyset_reset(SweepEnv &e, uint64_t cap) {
   e.key_mask = n - 1;
 }
 
-// The slot `key` occupies or would occupy. Recording is a separate step: a
-// clause that passes the dedup test can still be declined by the variable cap,
-// and must stay re-addable, since `fresh` shrinks as its other variables enter
-// the environment.
+// The slot `key` occupies or would occupy. Recording is separate: a clause
+// declined by the variable cap must stay re-addable.
 size_t keyset_slot(const SweepEnv &e, uint64_t key) {
   size_t i = ((key * 0x9E3779B97F4A7C15ull) >> 32) & e.key_mask;
   while (e.key_slots[i] != UINT64_MAX && e.key_slots[i] != key)
@@ -201,9 +189,7 @@ uint32_t env_var(SweepEnv &e, Var v, uint32_t depth) {
   return s;
 }
 
-// Add one clause of F to the environment. Kissat checks its structural caps at
-// variable-expansion boundaries, so the clause that crosses a cap lands whole;
-// declining or truncating that clause changes the local formula.
+// Add one clause of F; as in Kissat the clause crossing a cap lands whole.
 bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
              uint64_t id, uint32_t depth, const SweepLimits &,
              uint64_t *ticks, bool deduplicate = true) {
@@ -228,9 +214,8 @@ bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
   return true;
 }
 
-// Add one clause of F with its root-false literals removed — justified, not
-// assumed: `C \ {l}` follows from `C` and the root unit `{¬l}`. An unjustifiable
-// removal is not made (`docs/dev/calculus.md` V5).
+// Add a clause without root-false literals, justified by the root units
+// (`docs/dev/calculus.md` V5).
 void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
                     uint64_t key, uint64_t id, uint32_t depth,
                     const SweepLimits &lim, uint64_t *ticks,
@@ -251,9 +236,7 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
     }
     k.stats.sweep_env_stripped++;
   }
-  // At a quiescent root a live clause has at least two non-false literals, but
-  // the detector is callable from a policy that has not reached one (N1) — so
-  // decline rather than assert; a smaller environment is still entailed by F.
+  // Callable off a quiescent root (N1): decline rather than assert.
   if (e.kept_scratch.size() < 2)
     return;
   if (!env_add(k, e, e.kept_scratch.data(),
@@ -284,17 +267,14 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
 
 RuleEligibility sweep_guard(const Kernel &k) { return root_level_guard(k); }
 
-// The variable's large-clause + watch degree, both polarities. Without the
-// phase occurrence index only the watch lists are readable, which still ranks
-// binaries and the two watched literals of every large clause.
+// Large-clause + watch degree of both polarities (watch lists only without the
+// phase occurrence index).
 static uint64_t seed_literal_occurrences(const Kernel &k, Lit lit) {
   if (!k.dense ||
       k.dense->large_lits() < 2 * static_cast<size_t>(k.nvars))
     return k.watches.size(lit);
-  // Kissat ranks in dense mode, where its watch lists contain each large
-  // occurrence exactly once. Tactix keeps the sparse two-watch entries beside
-  // its all-literal dense index, so adding both whole lists double-counts a
-  // large clause precisely when `lit` is one of its watched literals.
+  // Kissat's dense watches hold each large occurrence once; do not double-count
+  // the sparse watched literals.
   uint64_t binary = 0;
   for (const WatchEntry w : k.watches.entries(lit))
     binary += w.binary();
@@ -304,19 +284,16 @@ static uint64_t seed_literal_occurrences(const Kernel &k, Lit lit) {
 void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
   out.clear();
   for (Var v = 0; v < k.nvars; v++) {
-    // Fixed variables belong to V1 Probe / V2 Backbone (their equivalences are
-    // units), retired ones are no longer in F. Everything else is a seed, with
-    // no occurrence filter: empty watch lists do not mean no occurrences, since
-    // a large clause is watched on two literals only.
+    // Fixed variables belong to Probe/Backbone, retired ones are gone; every
+    // other variable is a seed.
     if (root_fixed(k, v) || kernel_var_retired(k, v))
       continue;
     out.push_back(v);
   }
-  // Order, not membership (kissat `scheduable_variable` + its radix sort,
-  // sweep.c:1478-1528). Ascending occurrence degree, single-polarity variables
-  // last; kissat drops both classes, but ranking them to the back keeps
-  // `instances()` total (N1, rule-dev §instances). Rank computed once per
-  // variable, since a recomputing comparator walks four watch lists per call.
+  // Order, not membership (kissat `scheduable_variable` + radix sort,
+  // sweep.c:1478-1528): ascending degree, single-polarity variables last
+  // (kissat drops them; N1 keeps `instances()` total). Rank cached per
+  // variable.
   struct RankedSeed {
     uint64_t degree;
     uint64_t import_order;
@@ -386,10 +363,8 @@ static void sweep_completed_limits(Kernel &k, SweepLimits &lim) {
   k.stats.sweep_limit_depth = lim.max_depth;
 }
 
-// Occurrence index over irredundant large clauses. Irredundant only, because
-// `Reduce` may delete a learned clause between detection and emission. Outside a simplification
-// phase a single arena pass builds the same thing, so the detector stays
-// usable at any state (N1).
+// Occurrence index over irredundant large clauses (Reduce may delete learned
+// ones); a single arena pass outside a phase (N1).
 static void sweep_build_occurrences(Kernel &k, SweepRound &r) {
   r.connected_occ = nullptr;
   if (k.dense && k.dense->large_lits() >= 2 * static_cast<size_t>(k.nvars)) {
@@ -414,21 +389,15 @@ static void sweep_build_occurrences(Kernel &k, SweepRound &r) {
   r.occ_generation = k.arena_generation;
 }
 
-// Kissat enters dense mode immediately before scheduling Sweep.  Its
-// null-stack `kissat_flush_large_watches` deduplicates binaries (and, unlike
-// Congruence's non-null dense entry, retains root-satisfied ones);
-// `connect_irredundant_large_clauses` then garbages root-satisfied large clauses
-// before constructing the full occurrence lists.  Reusing Tactix's
-// older dense index without this transition leaves clauses satisfied by the
-// preceding Backbone pass in the degree ranks and changes the very first seed.
+// Kissat enters dense mode before Sweep: null-stack
+// `kissat_flush_large_watches` deduplicates binaries (keeping root-satisfied
+// ones) and `connect_irredundant_large_clauses` garbages root-satisfied large
+// clauses.
 static void sweep_enter_dense(Kernel &k) {
   kernel_deduplicate_binary_watches(k);
   for (const auto [ref, c] : arena_records(k.arena)) {
-    // `kissat_connect_irredundant_large_clauses` stops at the irredundant
-    // prefix and explicitly skips redundant clauses.  Root-satisfied learned
-    // clauses remain for the following late Substitute; retiring them here
-    // moves a semantic delta from Substitute into Sweep and changes exact
-    // per-rule accounting.
+    // `kissat_connect_irredundant_large_clauses` skips redundant clauses; they
+    // are left to the late Substitute.
     if (!c->garbage() && !c->redundant()) {
       bool satisfied = false;
       for (const Lit lit : *c)
@@ -479,11 +448,7 @@ static void sweep_enter_dense(Kernel &k) {
   }
 }
 
-// A productive seed substitutes its consequences inline, and that collects the
-// variable-width arena. `Kernel::dense` is rebuilt by the collector; a
-// round-local snapshot is not, so its Ref offsets would keep naming the
-// pre-collection arena. Checked per seed rather than at the emission site so
-// no future collector inside a round can reintroduce the stale traversal.
+// Inline substitution can collect the arena; refresh round-local Refs per seed.
 static void sweep_refresh_occurrences(Kernel &k, SweepRound &r) {
   if (r.occ == &r.occ_owned && r.occ_generation != k.arena_generation)
     sweep_build_occurrences(k, r);
@@ -494,22 +459,11 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   sweep_enter_dense(k);
   sweep_build_occurrences(k, r);
   r.substitution.begin(k);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  for (Var v = 0; v < k.nvars; v++) {
-    uint32_t ordinal = 0;
-    for (uint32_t sign = 0; sign < 2; sign++)
-      for (const WatchEntry w : k.watches.entries(make_lit(v, sign != 0)))
-        if (w.binary())
-          event_trace_sweep_watch(k, v, ordinal++, w.other());
-  }
-#endif
   r.repr.resize(2 * k.nvars);
   for (Lit l = 0; l < 2 * k.nvars; l++)
     r.repr[l] = l; // O(nlits) once per ROUND, never per environment
   r.found.clear();
-  // `proofs` is parallel to `found` (`sweep_apply` indexes both by the same
-  // `idx`), so it must be reset with it: clearing one and not the other leaves
-  // every later pair reading the previous round's refutation.
+  // `proofs` is parallel to `found`; reset both.
   r.proofs.clear();
   r.units.clear();
   r.units_emitted = 0;
@@ -533,10 +487,8 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   uint32_t binary_attempt_ordinal = 0;
 #endif
-  // Breadth-first over the clause neighbourhood (kissat sweep.c
-  // sweep_binary/sweep_reference). `vars` doubles as the BFS queue, appended in
-  // non-decreasing depth; fixed variables carry UINT32_MAX, so the frontier
-  // never expands through one.
+  // BFS over the clause neighbourhood (kissat sweep.c sweep_binary /
+  // sweep_reference); `vars` is the queue and fixed variables never expand.
   bool limit_reached = false;
   for (uint32_t i = 0; i < e.vars.size() && !limit_reached; i++) {
     if (e.nclauses() >= lim.max_env_clauses)
@@ -598,13 +550,9 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
           satisfied = satisfied || k.values[m] > 0;
         ticks += c->size;
         if (satisfied) {
-          // Kissat `sweep_reference` retires a root-satisfied large clause as
-          // soon as the dense traversal encounters it. Merely skipping it
-          // leaves a different live formula and changes which later clauses
-          // fit into capped environments (the seed-89 startup divergence).
-          // Same quiescent-root deletion contract as the dense entry above: a
-          // trail reason may not name a dropped clause
-          // (kernel.hpp kernel_retire_root_reason).
+          // Kissat `sweep_reference` retires root-satisfied large clauses on
+          // encounter (a trail reason may not name a dropped clause;
+          // kernel_retire_root_reason).
           kernel_retire_root_reason(k, c, ref);
           kernel_delete_clause(k, c);
           return;
@@ -649,9 +597,7 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
   // Root-satisfied clauses can be retired while the environment is built, so
   // take the snapshot only after the BFS has finished mutating the formula.
   e.formula_epoch = k.touch_epoch;
-  // Closure diagnostic: an environment is a ball around the seed, so its outer
-  // variables arrive with only the clause that introduced them and every pair
-  // they join costs a solve to learn that nothing about them can be proved.
+  // Closure diagnostic for the environment's outer variables.
   if (!lim.measure_closure)
     return e.nclauses() > 0;
   e.deg_scratch.assign(e.vars.size(), 0);
@@ -696,9 +642,8 @@ int8_t model_value(const SweepEnv &e, const std::vector<int8_t> &model, Lit l) {
   return negated(l) ? static_cast<int8_t>(-v) : v;
 }
 
-// Drop every candidate the new model separates from the seed: kissat's
-// sweep_refine_partition in seed-anchored form. The candidate that produced the
-// model is always among the dropped ones, which is what terminates the loop.
+// Drop every candidate the model separates from the seed (kissat
+// sweep_refine_partition, seed-anchored); the producing candidate always drops.
 uint32_t refine(const SweepEnv &e, const std::vector<int8_t> &model,
                 Lit seed_lit, std::vector<Lit> &candidates) {
   const int8_t sv = model_value(e, model, seed_lit);
@@ -713,20 +658,15 @@ uint32_t refine(const SweepEnv &e, const std::vector<int8_t> &model,
 
 } // namespace
 
-// Sub-solver literal -> kernel literal, the single decode site: every
-// translation goes through it rather than respelling it, because getting the
-// parity wrong is silent — the two encodings share the `2*v | negated` shape,
-// so an inverted decode yields the negation of the derived clause, and that is
-// unverifiable (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`).
+// Sub-solver -> kernel literal, the single decode site: an inverted parity
+// yields the negated clause unverifiably
+// (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`).
 static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
   return make_lit(vars[sub_var_of(sl)], (sl & 1u) != 0);
 }
 
-// Copy one direction's refutation out with the translation tables it will need:
-// `steps` names sub-solver clause ids, and the environment giving them meaning
-// is rebuilt for the next seed. Failure just means no general-path proof. The
-// target is read off the derivation, never predicted from the assumptions — a
-// wrong prediction silently swaps the two directions.
+// Copy one direction's refutation with its translation tables. The target is
+// read off the derivation, never predicted from the assumptions.
 static bool sweep_capture_dir(const Kernel &host, SweepEnv &e,
                               uint32_t max_proof_steps,
                               SweepDirProof &out) {
@@ -774,13 +714,8 @@ static bool sweep_capture_dir(const Kernel &host, SweepEnv &e,
   return true;
 }
 
-// Kissat's `save_add_clear_core` does not retain only the failed assumption's
-// final target.  It walks every learned lemma in the extracted core and a lemma
-// which is unit under the live root assignment is committed immediately.  A
-// later SAT refinement in this same environment can therefore discard that
-// literal before ever posing it as an equivalence candidate.  Keep the same
-// ordered semantic surface here: each unit gets the derivation prefix ending
-// at the lemma which proves it, rather than borrowing the final target's proof.
+// Kissat's `save_add_clear_core` commits every core lemma that is unit under
+// the root; each unit gets the derivation prefix ending at its lemma.
 static void sweep_capture_core_units(Kernel &k, SweepDirProof &proof,
                                      SweepRound &round,
                                      const SweepLimits &lim,
@@ -867,10 +802,8 @@ static void partition_refine(const Kernel &k, SweepRound &r) {
   for (const auto &c : r.partition) {
     std::vector<Lit> positive, negative;
     for (const Lit l : c) {
-      // `sweep_refine_partition` drops both merged representatives and every
-      // literal fixed in the main solver. The latter matters for a unit proved
-      // earlier in this same seed: it is assigned immediately, so retaining it
-      // here manufactures a later equivalence query Kissat never asks.
+      // `sweep_refine_partition` drops merged representatives and literals
+      // fixed in the main solver.
       if (repr_find(r, l) != l || k.values[l] != 0)
         continue;
       (model_value(e, e.solver.model(), l) > 0 ? positive : negative)
@@ -884,11 +817,8 @@ static void partition_refine(const Kernel &k, SweepRound &r) {
   r.partition = std::move(next);
 }
 
-// Kissat removes the non-representative endpoint from the current partition
-// immediately after merging an equivalence (`sweep.c:1220-1248`).  A generic
-// refinement here would be wrong because the last sub-solver result is UNSAT
-// and therefore has no model; update only the class membership that the merge
-// itself settled.
+// Remove the non-representative endpoint after a merge (`sweep.c:1220-1248`);
+// the last result is UNSAT, so there is no model to refine with.
 static void partition_remove_merged_endpoint(SweepRound &r, Lit a, Lit b) {
   assert(!r.partition.empty());
   std::vector<Lit> &c = r.partition.back();
@@ -962,10 +892,7 @@ static bool partition_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
         if (sweep_flip(k, r, l, "partition_round", k.stats.sweep_flip_attempts,
                        k.stats.sweep_flipped)) {
           flipped++;
-          // Kissat abandons the rest of this class as soon as a successful
-          // flip leaves fewer than two possible members.  Trying the unscanned
-          // tail cannot produce another equivalence, but it does mutate the
-          // embedded model and watch lists seen by the next query.
+          // Kissat abandons the class once fewer than two members remain.
           if (--live < 2)
             break;
         } else {
@@ -1019,11 +946,7 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
     // loop permits an overrun (`kitten_ticks_limit_hit`, sweep.c:1369-1382).
     if (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks)
       break;
-    // As in the equivalence loop below, Kissat runs the complete flip pass at
-    // the top of every outer iteration.  In particular, a successful retry of
-    // one popped candidate returns here before the next candidate is chosen;
-    // the changed model can eliminate or reorder much of the remaining
-    // backbone without another embedded solve.
+    // Kissat runs the complete flip pass at the top of every outer iteration.
     if (backbone_flip(k, lim, r))
       return found;
     if (r.backbone.empty() ||
@@ -1033,15 +956,11 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
     r.backbone.pop_back();
     const SubLit candidate =
         sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
-    // `kitten_fixed` is checked before the retry flip. A root-fixed candidate
-    // has already been proved inside the incremental environment; querying it
-    // again changes both the learned-clause stream and all later partitions.
+    // `kitten_fixed` is checked before the retry flip.
     if (lim.skip_embedded_fixed && e.solver.fixed_literal(candidate))
       continue;
-    // Kissat retries the popped candidate even though the immediately
-    // preceding round retained it after a failed flip.  Failure is not
-    // side-effect free: earlier watched clauses may already have relocated
-    // before a later clause blocks the flip.
+    // Kissat retries the popped candidate; a failed flip may already have moved
+    // watches.
     k.stats.sweep_backbone_candidates++;
     const bool did_flip =
         e.solver.has_model() && e.solver.flip_model_literal(candidate);
@@ -1081,11 +1000,8 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
       return found;
     if (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks)
       break;
-    // Kissat runs the whole partition-flip pass at the top of *every*
-    // equivalence-loop iteration, not only after SAT refinement.  A successful
-    // endpoint flip, or a proved equivalence, mutates the embedded model and
-    // watch lists before returning here.  Omitting this interstitial pass keeps
-    // candidates alive which Kissat can discard without another solve.
+    // Kissat runs the partition-flip pass at the top of every equivalence-loop
+    // iteration.
     if (partition_flip(k, lim, r))
       return found;
     if (r.partition.empty() ||
@@ -1093,9 +1009,7 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
       break;
     std::vector<Lit> &c = r.partition.back();
     const Lit a = c[c.size() - 2], b = c.back();
-    // Kissat first asks the current model whether either endpoint can be
-    // flipped. A successful flip disproves this candidate pair without a SAT
-    // query and removes that endpoint from the live class.
+    // A model flip of either endpoint disproves the pair without a SAT query.
     const auto flip_candidate = [&](Lit lit) {
       return sweep_flip(k, r, lit, "pair", k.stats.sweep_flip_attempts,
                         k.stats.sweep_flipped);
@@ -1144,9 +1058,7 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
                  ? Direction::Proved
                  : Direction::Failed;
     };
-    // Kissat asks ¬a ∧ b first, then a ∧ ¬b.  Reversing these two sound
-    // implication checks changes the first SAT model and therefore every
-    // subsequent partition refinement and model-flip trajectory.
+    // Kissat asks ¬a ∧ b first, then a ∧ ¬b; the order fixes the first model.
     Direction direction =
         prove_direction(!negated(a), negated(b), "equiv_fwd", pair.fwd);
     if (direction == Direction::Proved)
@@ -1186,9 +1098,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   event_trace_sweep_seed(k, seed);
 #endif
-  // The builder's false result also covers a live seed with no clauses.
-  // Preserve that public builder contract, but only an absent environment
-  // (fixed/retired seed) declines the solve lifecycle here.
+  // Only an absent environment (fixed/retired seed) skips the solve lifecycle.
   if (!sweep_env_build(k, seed, lim, r) && e.vars.empty()) {
     e.proof_steps.reset();
     e.solver.reset(0, SubSearchMode::Kitten);
@@ -1207,11 +1117,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
   e.proof_steps.reset();
   e.solver.reset(static_cast<uint32_t>(e.vars.size()),
                  SubSearchMode::Kitten);
-  // Even an empty or single-clause environment follows Kissat's initial
-  // solve/model lifecycle. Skipping it changes embedded effort and can admit
-  // extra environments under the enclosing budget. The ordinary detector
-  // already handles empty/singleton candidate partitions without inventing
-  // an equivalence; no synthetic tick charge replaces the actual solve.
+  // Every environment follows Kissat's initial solve/model lifecycle.
   k.stats.sweep_environments++;
   k.stats.sweep_env_clauses += e.nclauses();
 
@@ -1245,10 +1151,8 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     return 0;
   }
   if (res == SubResult::Unsat) {
-    // The environment alone refutes F. Turning that into `add-empty` is a
-    // separate proof obligation nothing here discharges, so detection touches
-    // nothing — the same reason there is no backbone half: those root units are
-    // V1 Probe / V2 Backbone's proof delta.
+    // The environment alone refutes F; turning that into `add-empty` is not
+    // this rule's obligation, so detection touches nothing.
     k.stats.sweep_env_unsat++;
     k.stats.sweep_ticks += e.solver.kitten_ticks();
     k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
@@ -1259,20 +1163,15 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     const uint32_t found = detect_full_partition(k, lim, r, commit_inline);
     k.stats.sweep_ticks += e.solver.kitten_ticks();
     k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
-    // Detection after the initial solve reads only the embedded environment.
-    // Commit its ordered units/equivalences once before the next main-formula
-    // seed, where Kissat's connected-clause substitutions first become
-    // observable.  Substituting after every pair forced Tactix's variable-width
-    // arena bridge to collect and rebuild the whole formula hundreds of times.
+    // Commit the environment's units/equivalences once before the next seed,
+    // where Kissat's connected substitutions become observable.
     if (commit_inline)
       (void)sweep_emit_round(k, r, lim);
     return found;
   }
 
-  // Candidate selection: every environment literal agreeing with the seed in
-  // the first model. Literals differing in any model cannot be equivalent, so
-  // this is the cheapest sound over-approximation, shrunk by every further
-  // model (`refine`).
+  // Candidates: environment literals agreeing with the seed in the first model,
+  // shrunk by every further model (`refine`).
   r.candidates.clear();
   for (uint32_t u = 1; u < e.vars.size(); u++) {
     const Var w = e.vars[u];
@@ -1285,9 +1184,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
       continue; // this round already knows the answer for y
     r.candidates.push_back(y);
   }
-  // The loop pops from the back and the seeding walk is in BFS discovery order,
-  // so without this reversal every environment spends its queries on its
-  // outermost variables, about which it can prove nothing.
+  // Pop inner (early BFS) candidates first.
   std::reverse(r.candidates.begin(), r.candidates.end());
   k.stats.sweep_cand_seeded += r.candidates.size();
 
@@ -1343,9 +1240,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
                                          "then derive the empty clause");
 #ifndef NDEBUG
       if (forward) {
-        // Emission depends on this: a refutation under assumptions must hand
-        // back a derivation whose target clause is a sub-clause of the negated
-        // assumptions. Checked here, where the assumptions are still in hand.
+        // The target clause must be a sub-clause of the negated assumptions.
         const SubStep *target = e.solver.refutation_target();
         assert(target);
         for (const SubLit tl : target->lits)
@@ -1451,10 +1346,8 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
 namespace {
 constexpr uint32_t SWEEP_FRONT_BIT = 1u << 31;
 
-// Record the slot of every tail entry appended since the last call (the
-// resumable build, or a test assigning `sweep_tail` directly). A variable that
-// already has a live entry keeps it: only its first unconsumed copy is the one
-// a reschedule removes, exactly as the former linear search found it.
+// Index tail entries appended since the last call; a variable's first
+// unconsumed copy is the one a reschedule removes.
 void sweep_index_tail(Kernel &k) {
   for (uint32_t i = k.sweep_tail_indexed; i < k.sweep_tail.size(); i++) {
     const Var external = k.sweep_tail[i];
@@ -1469,10 +1362,8 @@ void sweep_index_tail(Kernel &k) {
   k.sweep_tail_indexed = static_cast<uint32_t>(k.sweep_tail.size());
 }
 
-// Both reference solvers revalidate previously remaining seeds when building
-// a new call's schedule. Do this once, before any environment changes the
-// formula, not at pop time. Newly proved representatives keep their separate
-// move-to-front contract, including representatives made pure in this call.
+// Revalidate retained seeds once per call, before any environment (both
+// references); representatives keep their move-to-front contract.
 void sweep_revalidate_retained(Kernel &k, const SweepLimits &lim) {
   auto revalidate = [&](Var &external, uint32_t slot) {
     if (external == INVALID_VAR)
@@ -1557,9 +1448,7 @@ void sweep_schedule_clear(Kernel &k) {
   k.sweep_live = 0;
 }
 
-// Kissat/CaDiCaL keep pass marks independently of the saved schedule: a
-// previously swept representative may be retained even after the pass has
-// completed. External identities remain stable across kernel compaction.
+// Kissat/CaDiCaL keep pass marks independently of the saved schedule.
 uint32_t sweep_incomplete_variables(const Kernel &k) {
   uint32_t count = 0;
   for (Var external = 0; external < k.sweep_marked.size(); external++) {
@@ -1588,9 +1477,8 @@ void sweep_mark_incomplete(Kernel &k) {
   k.sweep_incomplete = true;
 }
 
-// Kissat's `schedule_inner` moves each newly substituted equivalence
-// representative to the pop end of the live schedule.  Since representatives
-// are scheduled in discovery order, the last one becomes the next seed.
+// Kissat's `schedule_inner` moves each new representative to the pop end, so
+// the last one is the next seed.
 static void sweep_reschedule_representatives(
     Kernel &k, SweepRound &round,
     const std::vector<std::pair<Var, Var>> &external_pairs) {
@@ -1607,27 +1495,23 @@ static void sweep_reschedule_representatives(
     }
     if (!resolved)
       continue;
-    // The rescheduled variable is the pair's REPRESENTATIVE, chosen by import
-    // order exactly as `substitute_apply_sweep_equivalences` chooses it and as
-    // Kissat's `sweep_equivalence_candidates` chooses `lit < other`.  Deriving
-    // it instead from "the endpoint that survived retirement" silently declined
-    // every pair whose substitution was skipped, where Kissat still schedules.
+    // Reschedule the pair's representative by import order, as
+    // `substitute_apply_sweep_equivalences` and Kissat's
+    // `sweep_equivalence_candidates` (`lit < other`) choose it.
     const Var representative =
         kernel_import_var_order(k, endpoints[0]) <=
                 kernel_import_var_order(k, endpoints[1])
             ? endpoints[0]
             : endpoints[1];
-    // `schedule_inner` declines a variable that is no longer ACTIVE, and a
-    // root-fixed variable is deactivated the moment it is assigned
-    // (kissat flags.c `kissat_mark_fixed_literal`), not only a retired one.
+    // `schedule_inner` declines non-ACTIVE variables, including root-fixed ones
+    // (kissat flags.c `kissat_mark_fixed_literal`).
     const Lit representative_lit = make_lit(representative, false);
     if (root_fixed(k, representative) ||
         kernel_var_retired(k, representative) ||
         repr_find(round, representative_lit) != representative_lit)
       continue;
-    // Do not deduplicate: Kissat's `schedule_inner` is a move-to-pop-end for
-    // every proved equivalence.  If A, B, A are discovered in that order, the
-    // final move of A is observable and A—not B—is the next seed.
+    // No dedup: `schedule_inner` moves on every equivalence, so A, B, A makes A
+    // next.
     sweep_reschedule_one(k, k.internal_to_external[representative]);
     k.stats.sweep_rescheduled++;
   }
@@ -1661,9 +1545,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   const uint32_t old_front_end = static_cast<uint32_t>(k.sweep_front.size());
   const uint32_t old_tail_end = static_cast<uint32_t>(k.sweep_tail.size());
 
-  // In an incomplete pass, only still-marked seeds may join the schedule.
-  // When the old pass is complete, a retained unmarked representative does
-  // not suppress fresh admission. Retained seeds stay ahead of fresh ones.
+  // In an incomplete pass only marked seeds join; retained seeds precede fresh.
   bool scan_fresh = !k.sweep_incomplete;
   if (!scan_fresh) {
     for (Var external = 0; external < k.sweep_marked.size(); external++) {
@@ -1753,13 +1635,9 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
                                   k.internal_to_external[var_of(e.b)]);
     if (k.inconsistent)
       return ApplyResult::Unsat;
-    // Kissat closes the dense root trail after every swept environment
-    // (`sweep_variable` calls `kissat_dense_propagate` after releasing its
-    // local sweeper).  Those consequences are part of the live formula seen
-    // by the next environment: fixed variables leave its BFS and falsified
-    // literals are stripped from rewritten clauses.  Deferring this drain to
-    // the end of the whole Sweep pass changes both structural caps and the
-    // candidate partition, rather than merely batching equivalent work.
+    // Kissat closes the dense root trail after every environment
+    // (`sweep_variable` calls `kissat_dense_propagate`); the next environment
+    // sees those values.
     if (inprocess_reach_root(k))
       return ApplyResult::Unsat;
     if (r.emission_batches != emissions_before) {
@@ -1779,11 +1657,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     k.sweep_passes_completed++;
     k.stats.sweep_completed++;
   }
-  // Each connected rewrite above is incremental.  Cross the variable-width
-  // arena bridge once, after every reference-ordered environment in this call
-  // has observed its predecessor's consequences.  Charging here records the
-  // real host cost without letting that representation detail postpone the
-  // next semantic Sweep transaction.
+  // Cross the arena bridge once per call, after all environments.
   k.stats.sweep_ticks_repr += r.substitution.collect(k);
   // The per-environment drains above normally leave no work.  Keep the final
   // closure for the unproductive/early-exit tail and as a lifecycle guard.
@@ -1792,13 +1666,9 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   return result;
 }
 
-// ---- emission: the RUP fast path (`docs/dev/calculus.md` V5, strategy (a)) -----
-// Entailment is not a proof line, so the main formula is asked the same
-// question in the one form a checker accepts, via Congruence's replay
-// primitive. A non-RUP equivalence is declined (`sweep_not_rup`) and the
-// general path below covers it; both directions must replay or the pair is
-// skipped whole. The replay is the RUP test itself, and an unchecked line
-// breaches N2.
+// ---- emission: the RUP fast path (`docs/dev/calculus.md` V5, strategy (a)) ---
+// Both directions must replay through Congruence's RUP primitive or the pair is
+// declined (`sweep_not_rup`) to the general path.
 static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b) {
   if (a == b || a == negate(b))
     return false; // degenerate: nothing to state, and not emittable
@@ -1819,13 +1689,10 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
-// Emission, the general path (`docs/dev/calculus.md` V5, strategy (b)): replay the
-// sub-solver's refutation into the main proof, each lemma its own line in
-// derivation order, antecedents translated to main-formula proof ids. The final
-// lemma is the target binary, by which point the checker has seen every
-// antecedent it names. Anything not mappable exactly declines rather than
-// emits. `dry` validates without emitting or consuming an id, so a pair is
-// checked whole before either half is written.
+// Emission, general path (calculus V5, strategy (b)): replay the sub-solver's
+// refutation lemma by lemma with antecedents mapped to proof ids; the last is
+// the target binary. Unmappable steps decline. `dry` validates without
+// emitting, so a pair is checked whole first.
 enum class SweepGeneralDecline : uint8_t {
   None,
   Interrupted,
@@ -1888,10 +1755,8 @@ static SweepPairSelection sweep_select_pair(const SweepRound &round,
     result.forward = &proof.rev;
     result.reverse = &proof.fwd;
   } else {
-    // A refuted direction can simplify all the way to a unit when the local
-    // environment fixes that endpoint. If the two captured units fix the two
-    // endpoints consistently, they are stronger than the requested
-    // equivalence and are the real semantic consequences to commit.
+    // Two captured units that fix both endpoints consistently are committed
+    // instead of the equivalence.
     const auto endpoint_value = [&](Lit unit, Lit endpoint) {
       return unit == endpoint ? 1 : unit == negate(endpoint) ? -1 : 0;
     };
@@ -1949,11 +1814,8 @@ struct SweepGeneralPlan {
   uint64_t formula_epoch = 0;
   const SweepDirProof *capture = nullptr;
   std::vector<uint64_t> source_ids;
-  // Validate every captured step before any proof write, but retain only the
-  // final translation. Intermediate steps are immutable in `capture` and can
-  // be translated one at a time during emission. A full translated copy of a
-  // large Kitten core can exhaust memory even without proof output; see
-  // benchmarks/reports/2026-09-25-am388-sweep-core-allocation-boundary.md.
+  // Validate every step before writing but keep only the final translation
+  // (`benchmarks/reports/2026-09-25-am388-sweep-core-allocation-boundary.md`).
   SweepGeneralStepPlan final_step;
   size_t step_count = 0;
   bool eligible() const { return decline == SweepGeneralDecline::None; }
@@ -1998,9 +1860,8 @@ static const char *sweep_general_decline_name(SweepGeneralDecline decline) {
 }
 #endif
 
-// The single eligibility evaluator for captured Sweep proofs. Its structured
-// plan controls execution and is also serialized by the rule journal; emission
-// below does not reconstruct or repeat the guards.
+// Single eligibility evaluator for captured proofs; the plan drives emission
+// and the rule journal.
 static SweepGeneralPlan sweep_plan_general(const Kernel &k,
                                            const SweepDirProof &p,
                                            const Lit t0, const Lit t1,
@@ -2124,10 +1985,8 @@ static bool sweep_apply_general_plan(Kernel &k,
     id_of[i + 1] = plan.source_ids[i];
   std::vector<Lit> lifted;
   const bool delete_transient_rup = k.proof != nullptr;
-  // The emitted prefix is named by `id_of`. Reconstruct its conditioned
-  // literals from the immutable capture for reverse deletion; retaining a
-  // second full vector of every temporary clause makes large proof cores grow
-  // by another O(core bytes), even after plan validation has been streamed.
+  // Rebuild the emitted prefix's literals from the capture for reverse
+  // deletion.
   size_t emitted_prefix = 0;
   const auto condition_intermediate = [&](std::vector<Lit> &lits) {
     bool tautology = false;
@@ -2164,9 +2023,7 @@ static bool sweep_apply_general_plan(Kernel &k,
   };
   uint64_t last_id = 0;
   for (size_t si = 0; si < plan.step_count; si++) {
-    // The final step's root simplification is frozen at plan admission. This
-    // matters when two plans are validated together and the first one commits
-    // a unit before the second is emitted.
+    // The final step's root simplification is frozen at plan admission.
     SweepGeneralStepPlan translated;
     const SweepGeneralStepPlan *step = nullptr;
     if (si + 1 == plan.step_count)
@@ -2181,18 +2038,10 @@ static bool sweep_apply_general_plan(Kernel &k,
       delete_transients();
       return false;
     }
-    // Every intermediate lemma is written conditioned on the target, as the
-    // BVE definition lifter writes (unit v L).  The weakening is sound and
-    // stays RUP: each check assumes the target false, under which the earlier
-    // conditioned lemmas act exactly as the originals.  Its purpose is the
-    // checker's root state.  A DSR checker propagates every written
-    // clause and keeps a unit even after its reason is deleted, so a bare
-    // temporary lemma that is unit under the root closure would hand the
-    // checker a unit the kernel never holds, and later deletions and witnessed
-    // additions that are correct for the solver's formula would be wrong for
-    // the checker's.  A conditioned lemma can only ever propagate a target
-    // literal, which the kernel itself holds once the target is installed.
-    // Nothing here depends on whether a proof is being written.
+    // Intermediate lemmas are conditioned on the target (unit v L), as in the
+    // BVE definition lifter: still RUP, and they can only propagate a target
+    // literal, so a DSR checker never gains a unit the kernel lacks.
+    // Independent of whether a proof is written.
     const bool final_step = si + 1 == plan.step_count;
     lifted.assign(step->lits.begin(), step->lits.end());
     // A lemma holding a negated target literal is satisfied whenever the
@@ -2326,9 +2175,7 @@ static bool sweep_emit_unit(Kernel &k, Lit unit) {
     if (propagate_service(k) == ApplyResult::Unsat || k.value(unit) != 0)
       return false;
   }
-  // Admission, exactly as in `sweep_emit_equiv`: Kitten's refutation is the
-  // semantic certificate, and this asks the separate, format-independent
-  // question of whether a checker can replay the line.
+  // Admission as in `sweep_emit_equiv`: can a checker replay the line.
   if (!congruence_replay_rup(k, &unit, 1))
     return false;
   const uint64_t id = ++k.next_clause_id;
@@ -2352,9 +2199,7 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
       round.units_emitted++;
       continue;
     }
-    // Whether a consequence is committed is decided the same way with or
-    // without a proof: both take the certified path and only the writes
-    // depend on a proof, so a run's search never depends on proof logging.
+    // Commitment does not depend on proof logging; only the writes do.
     bool emitted = false;
     bool interrupted = false;
     {
@@ -2390,9 +2235,7 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
       event_trace_sweep_unit(k, unit.unit);
 #endif
     }
-    // The unit identity remains for duplicate detection, but an emitted unit
-    // never needs its captured derivation again. Release that potentially
-    // massive core before the next embedded query allocates another one.
+    // Release the captured core of an emitted unit.
     unit.proof = {};
     round.units_emitted++;
   }
@@ -2403,16 +2246,13 @@ ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round,
 // cannot drift in what they are willing to write.
 ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
                              const SweepLimits &lim) {
-  // A resumable round substitutes after each emitted environment. Those
-  // rewrites can append binaries, so the next environment must replay the
-  // small set of proof-only units across the changed BIG. Plans within this
-  // emission batch continue sharing one incremental closure.
+  // Substitution can append binaries, so the next environment replays its
+  // proof-only units; one batch shares one closure.
   if (round.units_emitted >= round.units.size() &&
       round.equivalences_emitted >= round.found.size())
     return ApplyResult::NoOp;
-  // A refuted environment means F itself is UNSAT; detection records it and the
-  // caller re-derives it through the normal root path rather than here, so this
-  // apply stays a pure clause-addition (proof delta: two `derive`s per pair).
+  // A refuted environment is re-derived by the caller's root path; this apply
+  // only adds clauses (two `derive`s per pair).
   if (k.inconsistent)
     return ApplyResult::Unsat;
   // The caller can route every proved equivalence through the captured general
@@ -2432,22 +2272,16 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
       round.equivalences_emitted = idx;
       break; // replay needs a quiescent root; stop rather than assert
     }
-    // Units are committed before equivalences, as in Kissat.  If one member
-    // of a proved class became fixed in that first batch, the class merge is
-    // a unit on the other member, not a reason to discard the consequence.
-    // The proof-producing path keeps using its translated cores below; the
-    // direct path mirrors Kissat's trusted Kitten-core commitment.
+    // Units precede equivalences as in Kissat; a fixed member makes the merge a
+    // unit on the other.
     const int8_t av = k.value(e.a), bv = k.value(e.b);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_sweep_commit(k, e.a, e.b, av, bv, "entry");
 #endif
-    // Detection excludes fixed variables, but a unit proved earlier in this
-    // environment can fix one endpoint before this pair is emitted. Collapse
-    // the captured implication in that direction directly to the partner unit,
-    // matching Kissat's unit batch without installing an intermediate binary.
-    // Kissat commits the captured Kitten core without propagating the main
-    // formula.  Prefer the same path; the main-formula RUP replay is retained
-    // only as a proof-safe fallback for a bounded or untranslatable capture.
+    // An endpoint fixed earlier in this environment collapses the implication
+    // to the partner unit (Kissat's unit batch). Kissat commits the Kitten core
+    // directly; the RUP replay is a fallback for bounded or untranslatable
+    // captures.
     if (e.a == e.b || e.a == negate(e.b)) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       event_trace_sweep_commit(k, e.a, e.b, av, bv, "degenerate");
@@ -2470,10 +2304,8 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
       Lit proof_fixed = INVALID_LIT;
       if (idx < round.proofs.size()) {
         const SweepPairProof &pp = round.proofs[idx];
-        // Kitten can simplify the implication to a unit when the environment
-        // itself already fixes the partner. That unit core is stronger than
-        // the binary implication and must be selected before looking for the
-        // unsimplified target.
+        // A unit core for the partner is selected before the unsimplified
+        // target.
         if (pp.fwd.ok && pp.fwd.t0 == unit && pp.fwd.t1 == INVALID_LIT)
           proof = &pp.fwd;
         else if (pp.rev.ok && pp.rev.t0 == unit &&
@@ -2541,10 +2373,8 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
 #endif
       continue;
     }
-    // The proof paths below may publish the pair immediately.  Prime only
-    // these four connected streams first so a fresh binary is appended after
-    // their pre-existing mixed occurrences, matching Kissat without an eager
-    // all-literals ledger build.
+    // Prime these four streams so a fresh binary follows their existing
+    // occurrences.
     round.substitution.prime_equivalence(k, e.a, e.b);
     const SweepPairSelection selection = sweep_select_pair(round, idx, e.a, e.b);
     bool emitted = false;
@@ -2626,12 +2456,9 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
             begin_journal_sweep_general(k, rev, rev_pre_digest);
 #endif
         if (!sweep_apply_general_plan(k, rev)) {
-          // The forward clause is already live. An interruption during the
-          // reverse proof leaves that valid one-direction consequence in the
-          // formula, while the session's pre-pair ledger still predates it.
-          // Reconcile before the round publishes its initialized streams, and
-          // report the committed clause as progress even though the complete
-          // equivalence remains queued for a later attempt.
+          // An interrupted reverse proof leaves the live forward clause:
+          // reconcile the ledger and report progress; the equivalence stays
+          // queued.
           round.substitution.sync_new_binaries(k, {});
           any = true;
           round.equivalences_emitted = idx;
@@ -2664,11 +2491,8 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
 #endif
       }
     }
-    // Replaying against the live kernel is a fallback, not the primary proof
-    // path. Sweep deliberately batches newly proved root units without
-    // propagation; a probing replay can drain those units and thereby change
-    // later consequence order even though it restores its speculative levels.
-    // The captured Kitten derivation has no such main-formula side effect.
+    // Live-kernel replay is the fallback: it could drain batched units and
+    // change consequence order.
     if (!emitted && !force_general)
       emitted = sweep_emit_equiv(k, e.a, e.b);
     if (!emitted && !force_general)
@@ -2688,18 +2512,12 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
     }
   }
   if (!emitted_equivalences.empty()) {
-    // Applying one Sweep environment's consequences crosses Tactix's
-    // variable-width representation bridge once. Sweep owns that scheduled
-    // cost; Substitute remains unaware of who requested the rewrite.
+    // One variable-width bridge crossing per environment, owned by Sweep.
     ApplyResult substituted = ApplyResult::NoOp;
-    // All pair proofs have been emitted above while their environment source
-    // clauses were still live. Preserve intermediate connected-clause images
-    // by applying those certified pairs in their recorded emission order.
+    // Apply certified pairs in emission order.
     std::vector<std::pair<Lit, Lit>> single(1);
-    // Proofs name the pre-rewrite environment. Earlier pairs can rewrite an
-    // endpoint of a later pair, so apply that pair to its current image. Using
-    // the old endpoint again can erase its only surviving equivalence bridge
-    // and disconnect a still-active variable from the original formula.
+    // Apply each pair to its current image; the old endpoint could erase its
+    // only bridge.
     std::unordered_map<Lit, Lit> emitted_images;
     const auto current_image = [&](Lit lit) {
       Lit root = lit;
@@ -2743,13 +2561,9 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round,
     if (substituted == ApplyResult::Unsat)
       return substituted;
     if (!k.dense && round.substitution.changed) {
-      // Without the dense session ledger, the next environment owns raw arena
-      // Refs and needs the generation bump immediately.  A canonical dense
-      // call instead keeps every replacement visible through
-      // `dense_occurrences` and crosses the variable-width arena bridge once,
-      // after the reference-ordered consequence sequence.  This is the same
-      // semantic transaction boundary as Kissat's in-place rewrites without
-      // charging one whole-formula collection per productive environment.
+      // Without the dense ledger the next environment needs the generation bump
+      // now; a canonical dense call collects once after the consequence
+      // sequence.
       k.stats.sweep_ticks_repr += round.substitution.collect(k);
       round.substitution.begin(k);
     }
@@ -2776,14 +2590,9 @@ ApplyResult sweep_emit_round_for_test(Kernel &k, SweepRound &round,
 
 void sweep_order_retirement_suffix(Kernel &k, size_t retired_begin,
                                    size_t substituted_begin) {
-  // Kissat's inline Sweep rewrite only fills `sweeper->reprs`.  The single
-  // Substitute call after Sweep later deactivates their union through
-  // `for (all_variables (idx))` (probe.c, substitute.c
-  // `remove_representative_equivalences`).  Tactix must retire inline because
-  // each variable-width rewrite needs a reconstruction witness immediately,
-  // but its per-environment batches must not leak into the eventual heuristic
-  // removal order.  Kissat's compact internal indices are Tactix's permanent
-  // first-import order.
+  // Kissat retires the representatives' union in the following Substitute in
+  // variable order (substitute.c `remove_representative_equivalences`); Tactix
+  // retires inline for witnesses but keeps that removal order (first-import).
   const auto imported_before = [&](Var a, Var b) {
     return kernel_import_var_order(k, a) < kernel_import_var_order(k, b);
   };
@@ -2800,10 +2609,8 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   // public V5 application must remain effective regardless of that choice.
   if (!sweep_guard(k))
     return ApplyResult::NoOp;
-  // The guard stays a pure precondition — demanding a root fixpoint would make
-  // it depend on scheduling state and cost N1 — so the apply completes the root
-  // closure itself. Required, not tidiness: a RUP replay off a non-fixpoint
-  // root forces level-0 literals that never pass through `propagate_service`.
+  // The guard stays a pure precondition (N1), so the apply completes the root
+  // closure: a RUP replay off a non-fixpoint root is unsound.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (k.level != 0 || k.conflict_valid)
@@ -2815,9 +2622,8 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   SweepLimits lim = base;
   const size_t retired_begin = k.retired_events.size();
   const size_t substituted_begin = k.substituted_events.size();
-  // Honour the effort ledger. `round_ticks` defaults to 0 = unbounded,
-  // which is right for the diagnostic probe and catastrophic for a scheduled
-  // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
+  // `round_ticks` = 0 is unbounded; a scheduled rule uses
+  // `Kernel::work_budget`.
   if (kernel_has_work_budget(k))
     lim.round_ticks = k.work_budget;
   ApplyResult result;
@@ -2871,9 +2677,8 @@ ApplyResult sweep_try_with_limits(Kernel &k, Var seed,
   return round.emission_batches ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-// Ranks by the canonical seed order and never filters: a variable this rule
-// judges unpromising is still offered, because the surface is the policy's
-// action space and an omission tells a learner a legal move does not exist.
+// Ranks by the canonical seed order and never filters (the policy's action
+// space).
 static uint32_t sweep_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Var> seeds;
   sweep_seeds(k, seeds);

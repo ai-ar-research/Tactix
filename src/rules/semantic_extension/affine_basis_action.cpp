@@ -97,8 +97,7 @@ MergeStatus merge_new_keys(const AffineBasisActionSession &session,
       incoming.size() > std::numeric_limits<size_t>::max() - old.size())
     return MergeStatus::Exhausted;
 
-  // Allocate and build the complete post-commit session before the live
-  // transaction mutates the kernel.  The final session commit is a swap.
+  // Build the post-commit session before the live transaction mutates.
   merged.reserve(old.size() + incoming.size());
   i = j = 0;
   while (i < old.size() || j < incoming.size()) {
@@ -595,8 +594,7 @@ static AffineBasisActionResult apply_basis_action(
     return decline(AffineBasisLiveStatus::Invalid);
   if (merge == MergeStatus::Exhausted)
     return decline(AffineBasisLiveStatus::ResourceExhausted);
-  // The live transaction received this exact exclusion set before planning;
-  // surviving overlap is an internal filtering/identity inconsistency.
+  // Overlap with the exclusion set given to the live transaction is a bug.
   if (merge == MergeStatus::Overlap)
     return decline(AffineBasisLiveStatus::Invalid);
 

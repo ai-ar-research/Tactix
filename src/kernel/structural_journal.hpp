@@ -10,11 +10,9 @@
 
 namespace tactix {
 
-// Where structural actions record what they did: unbound (actions that need a
-// journal decline), a borrowed caller stream, or the discard journal. The
-// discard journal keeps nothing; its position counts the non-empty writes it
-// absorbed, so it moves exactly when a stream position would. All discard
-// handles share that one count, as handles to one stream share its position.
+// Where structural actions record: unbound (actions decline), a borrowed
+// stream, or the discard journal, whose shared position counts non-empty
+// writes as a stream position would.
 class StructuralJournal {
 public:
   StructuralJournal() = default;

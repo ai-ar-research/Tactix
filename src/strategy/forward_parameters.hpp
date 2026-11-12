@@ -10,8 +10,7 @@ struct Kernel;
 
 namespace strategy {
 
-// Canonical-round discovery costs. These are strategy choices, never
-// preconditions on an explicit legal C1 action. UINT32_MAX removes a cap.
+// Canonical-round discovery costs (strategy only); UINT32_MAX uncaps.
 struct SubsumeForwardParameters {
   static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 1000;
   static constexpr uint32_t LARGE_OCCURRENCE_DEFAULT = 100;
@@ -25,8 +24,7 @@ struct SubsumeForwardParameters {
   constexpr bool valid() const { return true; }
 };
 
-// Kissat's canonical fused-forward discovery costs. Explicit C2 instances
-// scan their finite input and therefore bypass both strategy limits.
+// Kissat's fused-forward discovery costs; explicit C2 bypasses them.
 struct StrengthenParameters {
   static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 1000;
   static constexpr uint32_t OCCURRENCE_DEFAULT = 1000;

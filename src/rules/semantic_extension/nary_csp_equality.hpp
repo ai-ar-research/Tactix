@@ -14,9 +14,8 @@ using Domain = nary_csp_relation::Domain;
 using ForbiddenTuple = nary_csp_relation::ForbiddenTuple;
 using Relation = nary_csp_relation::Relation;
 
-// The three coordinates must be a permutation of a ternary relation.  Value
-// index i has the same abstract label in all three domains, authenticated by
-// the exact forbidden tuple (i,i,i).
+// A permutation of a ternary relation's coordinates; value i has one label in
+// all three domains, authenticated by the forbidden tuple (i,i,i).
 struct Selection {
   uint32_t left_domain = 0;
   uint32_t right_domain = 1;
@@ -32,8 +31,7 @@ struct Bounds {
   uint64_t maximum_forbidden_tuples = 0;
   uint64_t maximum_additions = 0;
   uint64_t maximum_addition_literals = 0;
-  // One caller-reserved positive external variable, above every source
-  // variable.  A successful plan always consumes it.
+  // Reserved variable above the source; a plan always consumes it.
   int32_t extension_variable = 0;
 };
 
@@ -80,17 +78,12 @@ struct Plan {
 
 using Charge = std::function<bool(uint64_t)>;
 
-// Authenticate a ternary diagonal-nogood slice over three equally sized
-// exact-one domains.  Define one branchable equality bit e with 2k RAT clauses
-// and transfer every diagonal tuple to the residual coordinate with k RUP
-// clauses:
-//
+// Over a ternary diagonal-nogood slice of three equal exact-one domains,
+// define the branchable bit e with 2k RAT clauses and transfer each diagonal
+// tuple with k RUP clauses:
 //   e <-> OR_i (left_i AND right_i)
-//   (~e OR ~left_i OR ~residual_i), for every exact (i,i,i) nogood.
-//
-// Under e, the equality definition first propagates right_i from left_i, so
-// each transferred clause is RUP from its source tuple.  Under ~e, all aligned
-// left/right pairs are forbidden at once.  The plan mutates no solver state.
+//   (~e OR ~left_i OR ~residual_i), for every (i,i,i) nogood.
+// Under e, right_i propagates from left_i, so each transfer is RUP.
 Plan plan_equality(const std::vector<Premise> &source,
                    const Relation &relation, const Selection &selection,
                    const Bounds &bounds, Charge charge);

@@ -8,11 +8,9 @@
 
 namespace tactix {
 
-// Proof ids of a certificate emitter's own additions, keyed by their sorted
-// external literals, for emitters that later erase those clauses by literals.
-// Streaming PBP deletes by identity, and an id-0 deletion of a clause that was
-// added with an id switches that off for the rest of the run. Each key keeps a
-// stack of ids; an erase names the newest live copy.
+// Proof ids of an emitter's own additions keyed by sorted external literals,
+// for later erasure by literals (an id-0 deletion would switch off PBP
+// identity deletion). Each key stacks ids; an erase names the newest.
 class PbpAddedIds {
 public:
   void add(const int32_t *lits, uint32_t size, uint64_t id) {

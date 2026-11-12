@@ -10,7 +10,6 @@
 #include <array>
 #include <climits>
 #include <cstdlib>
-#include <limits>
 #include <utility>
 
 namespace tactix {

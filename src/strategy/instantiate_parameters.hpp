@@ -10,8 +10,7 @@ struct Kernel;
 
 namespace strategy {
 
-// Canonical X4 discovery policy.  Explicit semantic (clause,literal)
-// instances bypass these limits; they are not soundness preconditions.
+// Canonical X4 discovery policy; explicit instances bypass it.
 struct InstantiateParameters {
   static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 3;
   static constexpr uint32_t OCCURRENCE_DEFAULT = 1;

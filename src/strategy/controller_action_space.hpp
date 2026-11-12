@@ -1,7 +1,6 @@
 #pragma once
 
-// Versioned restart-controller choices. Execution uses the existing online
-// invocation vocabulary; these identities do not change public registry IDs.
+// Versioned restart-controller choices over online invocations.
 #include "strategy/online_inprocess.hpp"
 
 #include <array>
@@ -67,9 +66,9 @@ inline bool parse_search_configuration(std::string_view text,
   return false;
 }
 
-// The root action set excludes search services and mode coupling. Their N1
-// public surfaces remain unchanged; the controller owns the full restart and
-// the search loop, and installs strategy choices only in ResumeSearch.
+// The root action set excludes search services and mode coupling (their N1
+// surfaces stay); the controller owns restart and search and installs choices
+// only in ResumeSearch.
 inline std::string_view root_exclusion(const RuleVTable &rule) {
   if (rule.retired) return "retired-action";
   const std::string_view identity(rule.name);
@@ -84,10 +83,7 @@ inline std::string_view root_exclusion(const RuleVTable &rule) {
 
 enum class ActionType : uint8_t { Rule, ResumeSearch };
 
-// Read-only producer work performed while choosing an exact structured action.
-// This is request metadata: it neither consumes the selected rule allowance nor
-// alters solver statistics.  Raw feedback and deterministic controller traces
-// retain it so learning code can price discovery separately from execution.
+// Read-only producer work spent choosing a structured action.
 struct ActionProducerEffort {
   std::string family;
   uint8_t status = 0;
@@ -100,9 +96,7 @@ struct ActionProducerEffort {
   bool operator==(const ActionProducerEffort &) const = default;
 };
 
-// Allowances are controller configuration, not learner-selected payloads.
-// One application is the default atomic action dose. Native limits may be
-// bounded independently in the rule's own meter; actual overshoot is retained.
+// Allowances: default one application; overshoot is kept.
 struct ActionAllowance {
   WorkUnit unit = WorkUnit::Applications;
   uint64_t amount = 1;

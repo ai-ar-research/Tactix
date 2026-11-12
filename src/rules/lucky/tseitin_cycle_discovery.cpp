@@ -208,9 +208,7 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
     groups.push_back(std::move(group));
   }
 
-  // Connected components are themselves public opportunities.  Their order is
-  // the order of the least canonical group they contain; no private ranking is
-  // introduced here.
+  // Components are ordered by their least canonical group.
   std::vector<uint8_t> reached(groups.size(), 0);
   std::vector<Plan> local;
   uint64_t retained_bytes = 0;

@@ -15,15 +15,14 @@
 namespace tactix::cardinality_certificate {
 using External = int32_t;
 using Clause = std::vector<External>;
-// Sink contract: stopped; charge_work(units), new_variable(out), add(clause,RAT),
-// record_definition(auxiliary,condition,high,low), all returning success.
-// Fresh identities must be collision-free. high/low are positive helper literals
-// or INT64_MAX (true) / INT64_MIN (false), defining aux <-> ITE(condition,high,low).
-// A validated root unit may only be requested for a certified input or consequence.
-// The engine does not prove its supplied premises. Failed calls may have emitted
-// a valid prefix: native callers must count-only preflight before atomic commit.
-// Normalized inequalities use strictly increasing positive variables, nonzero
-// coefficients and representable signed coefficient sums. INT32_MAX is reserved.
+// Sink contract: stopped; charge_work(units), new_variable(out),
+// add(clause,RAT), record_definition(auxiliary,condition,high,low), all
+// returning success; fresh identities are collision-free. high/low are positive
+// helper literals or INT64_MAX/INT64_MIN (true/false): aux <-> ITE(c,high,low).
+// Premises are not proved here, and a failed call may leave a valid prefix, so
+// native callers preflight count-only. Normalized inequalities have strictly
+// increasing positive variables, nonzero coefficients and representable sums;
+// INT32_MAX is reserved.
 template <class Sink> class BddProof {
   using Ref = uint32_t;
   static constexpr Ref FALSE_REF = 0;

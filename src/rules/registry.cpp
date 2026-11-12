@@ -1,5 +1,4 @@
 #include "rules/registry.hpp"
-#include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/semantic_variable_advice.hpp"
@@ -213,9 +212,7 @@ int tactix_register_rule(ActionKind kind, const RuleVTable &vt) {
 
 const std::vector<RuleVTable> &tactix_rules() {
   static const std::vector<RuleVTable> ordered = [] {
-    // Public IDs 0..27 were originally assigned by name sort. They are now
-    // frozen: append each future action here instead of inserting it into
-    // alphabetical order and silently renumbering the C API.
+    // Public IDs are frozen: append new actions; never reorder.
     static constexpr const char *names[] = {
         "BCE",         "BVE",              "Backbone",
         "CCE",         "ConflictAnalysis", "Congruence",
@@ -287,10 +284,7 @@ uint64_t now_nanos() {
           .count());
 }
 
-// The charge-and-dispatch wrapper. An id at or beyond MAX_TIMED_RULES
-// would silently corrupt neighbouring counters, so it drops the measurement
-// instead — the registry may outgrow the array, but a diagnostic must never
-// change behaviour or scribble.
+// Charge-and-dispatch wrapper; ids beyond MAX_TIMED_RULES skip measurement.
 namespace {
 
 template <typename Candidate, typename Apply>
@@ -323,20 +317,12 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
     rule_journal_transaction_begin(vt.name, candidate);
   }
 #endif
-  struct ScopedTraceRule {
-    const char *previous;
-    explicit ScopedTraceRule(const char *name)
-        : previous(event_trace_rule_enter(name)) {}
-    ~ScopedTraceRule() { event_trace_rule_leave(previous); }
-  } trace_rule(vt.name);
   strategy::begin_semantic_variable_candidate_action(k);
   ApplyResult result;
   if (vt.id >= Stats::MAX_TIMED_RULES) {
     result = apply();
   } else if (vt.tier == RuleTier::Micro) {
-    // Propagate, Decide and ConflictAnalysis run once per search step: two
-    // clock reads would cost more than many applications. Count them only;
-    // their time is reported as unattributed, as on the static search path.
+    // Propagate, Decide and ConflictAnalysis are counted, not timed.
     result = apply();
     k.stats.rule_calls[vt.id]++;
   } else {

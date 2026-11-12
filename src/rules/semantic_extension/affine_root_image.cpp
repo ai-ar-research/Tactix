@@ -39,8 +39,7 @@ bool valid_source_identity(const AffineLiveSource &source) {
   return false;
 }
 
-// Independent reverse unit propagation over the complete supplied source view.
-// No emitted residual or caller-supplied root fact is inserted into its oracle.
+// Reverse unit propagation over the supplied source view only.
 bool rup(const std::vector<AffineLiveSource> &sources,
          const std::vector<External> &variables,
          const std::vector<External> &candidate, std::vector<int8_t> &values,
@@ -106,11 +105,9 @@ RootImageStatus prepare_affine_root_image(
     literals += source.clause.size();
     unit_sources += source.clause.size() == 1;
   }
-  // Simultaneous linear populations: retained physical/residual bodies,
-  // normalized premise copies and grouping directories, sparse variable
-  // directory plus reusable propagation workspace. Tree-node overhead is
-  // conservatively four pointers beyond its stored value. Vector-growth
-  // allowance is two payload copies; it is independent of configured row caps.
+  // Simultaneous populations: bodies, premise copies, directories and the
+  // propagation workspace; tree nodes cost four pointers beyond their value,
+  // vector growth two payload copies.
   const __uint128_t source_metadata = __uint128_t(sources.size()) *
       (sizeof(RootResidual) + sizeof(AffineLiveSource) + 2 * sizeof(Premise) +
        2 * sizeof(Equation) + 2 * (sizeof(uint64_t) + 4 * sizeof(void *)) +
@@ -122,9 +119,8 @@ RootImageStatus prepare_affine_root_image(
       (12 * sizeof(External) + sizeof(int8_t) + 4 * sizeof(void *));
   const __uint128_t root_storage = __uint128_t(roots.size()) *
       (3 * sizeof(External) + 4 * sizeof(void *));
-  // A single exact scope can authenticate at most two arity-eight equations.
-  // Its transient recognizer's pattern/source payload is linear in that
-  // group's actual clauses; the linear allowance above covers its witnesses.
+  // A scope yields at most two arity-eight equations; the linear allowance
+  // above covers its recognizer.
   const __uint128_t unit_directory = __uint128_t(unit_sources) *
       (sizeof(External) + 4 * sizeof(void *));
   __uint128_t census_bytes = 0, previous_scope_literals = 0;
@@ -140,10 +136,8 @@ RootImageStatus prepare_affine_root_image(
       if (census_bytes > limits.maximum_bytes) return RootImageStatus::ResourceExhausted;
     }
   }
-  // Previous plus staged census and canonical temporary bodies coexist.
-  // One scope key and an index-vector entry per possible census record.  The
-  // fourfold factor covers map nodes, vector growth, allocator metadata and
-  // the staged key payload while preserving the existing exact byte ceiling.
+  // Previous and staged census coexist: one scope key and index entry per
+  // record, times four for nodes, growth and the staged key.
   const __uint128_t scope_index_entries = previous || completed ?
       __uint128_t(sources.size()) + (previous ? previous->size() : 0) : 0;
   const __uint128_t scope_index_bytes = 4 * scope_index_entries *
@@ -204,8 +198,7 @@ RootImageStatus prepare_affine_root_image(
   uint64_t normalized_count = 0;
   for (const auto &source : sources) {
     if(!meter.take(1))return meter.failure;
-    // Oracle support is authenticated above and participates in RUP only.
-    // It never nominates an equation or a completed discovery population.
+    // Oracle support participates in RUP only.
     if(!source.recognition_candidate)continue;
     RootResidual residual;
     if (!meter.take(2 + 2 * source.clause.size())) return meter.failure;
@@ -236,25 +229,15 @@ RootImageStatus prepare_affine_root_image(
       return RootImageStatus::ResourceExhausted;
     candidate.residuals.push_back(std::move(residual));
   }
-  // Global elimination is intentionally deferred. Reusing the existing
-  // recognizer on one exact scope at a time avoids quadratic cross-scope
-  // consequence provenance while retaining every authenticated equation.
+  // Recognize one scope at a time (no global elimination).
   RootScopeEffort measured;
   RootScopeCensus next_census;
   if (previous) {
     if (!meter.take(uint64_t(census_bytes))) return meter.failure;
     next_census = *previous;
   }
-  // Keep the durable census in its stable vector representation, but index
-  // records by scope for this planning transaction.  Comparing every new
-  // scope with the whole retained census made first discovery quadratic even
-  // when every scope was unique (the common mixed-CNF case).
+  // Index the census by scope for this transaction.
   std::map<std::vector<External>, std::vector<size_t>> census_by_scope;
-  const auto scope_index_work = [](size_t width, size_t entries) {
-    const __uint128_t amount = __uint128_t(1 + width) *
-        (1 + std::bit_width(entries));
-    return amount > UINT64_MAX ? UINT64_MAX : uint64_t(amount);
-  };
   for (size_t i = 0; i < next_census.size(); ++i) {
     const auto &scope = next_census[i].scope;
     if (!meter.take(scope_index_work(scope.size(), census_by_scope.size())))
@@ -278,8 +261,7 @@ RootImageStatus prepare_affine_root_image(
         record.normalized_bodies.push_back(std::move(body));
       }
       std::sort(record.normalized_bodies.begin(), record.normalized_bodies.end());
-      // Exact completed populations win over an earlier unresolved record of
-      // the same scope; a newly admitted subset must never be re-recognized.
+      // A completed population wins over an unresolved record of its scope.
       if (!meter.take(scope_index_work(scope.size(), census_by_scope.size())))
         return meter.failure;
       auto indexed = census_by_scope.find(scope);
@@ -366,10 +348,7 @@ RootImageStatus prepare_affine_root_image(
     if (!residual.removed_root_facts.empty()) {
       if (candidate.rup_checks == limits.maximum_proof_additions)
         return RootImageStatus::ResourceExhausted;
-      // A physical source plus existing exact unit premises is itself a
-      // complete local RUP witness: negating the residual falsifies its other
-      // literals, and the units falsify every removed literal. This avoids
-      // repeated whole-view propagation for already checker-visible facts.
+      // A physical source plus its unit premises is a local RUP witness.
       bool proved = true;
       for (External fact : residual.removed_root_facts) {
         if (!meter.take(2 * (1 + std::bit_width(existing_units.size())))) return meter.failure;
@@ -398,7 +377,6 @@ RootImageStatus prepare_affine_root_image(
       if (found == remapped.end()) return RootImageStatus::Invalid;
       occurrence = found->second;
     }
-
 
   if (!meter.take(literals + sources.size())) return meter.failure;
   candidate.certification_sources = sources;

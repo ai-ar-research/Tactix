@@ -1,20 +1,14 @@
-// Native Stats counters, one row per field in declaration order. Rows carry
-// no semicolons; each includer defines every TACTIX_STATS_* macro first.
-// kernel.hpp expands them into struct Stats and
-// strategy/feedback_statistics.inc into the deterministic feedback
-// inventory, which omits the `_nanos` wall timers.
+// Native Stats counters, one row per field in declaration order, expanded by
+// kernel.hpp (struct Stats) and strategy/feedback_statistics.inc (feedback
+// inventory without the `_nanos` timers).
 TACTIX_STATS_U64(decisions)
 TACTIX_STATS_U64(conflicts)
 TACTIX_STATS_U64(propagations)
 TACTIX_STATS_U64(ticks) // propagation memory-traffic proxy (see propagate.cpp)
 TACTIX_STATS_U64(search_ticks)
 TACTIX_STATS_U64(inprocess_propagations) // of those, inside a simplification
-// Monotonic policy-observation epoch.  `unflushed_root` is a transient
-// prefix marker and can return to zero inside Propagate, so it cannot tell
-// DefaultPolicy whether this application created a true-level-zero fact.
-// Counting at the assignment primitive lets the policy skip a second walk
-// over every ordinary non-root implication while retaining its rule-boundary
-// fixed-variable handoff.
+// Monotonic count of root assignments, made at the assignment primitive
+// (`unflushed_root` can return to zero inside Propagate).
 TACTIX_STATS_U64(root_assignments)
 // clause additions that landed behind the propagation cursor and rewound it
 TACTIX_STATS_U64(propagation_rearms)
@@ -31,18 +25,11 @@ TACTIX_STATS_TIMER(structured_root_nanos)
 TACTIX_STATS_TIMER(solve_nanos)     // wall time of solve(), set by the frontend
 TACTIX_STATS_U64(sr_applications)
 TACTIX_STATS_U64(sr_applied)
-// Generated unique-literal AMO certificates which committed a binary.
-// This provenance is a monotonic scheduling signal; ordinary SR binaries
-// and caller-authored payloads do not contribute.
+// Generated unique-literal AMO certificates that committed a binary.
 TACTIX_STATS_U64(sr_unique_literal_amo_binaries)
 // Non-unique-literal consequences committed after generated helper binaries.
-// This monotonic provenance lets DefaultPolicy distinguish consumed
-// scaffolding from a helper-only result without assuming producer order.
 TACTIX_STATS_U64(sr_post_amo_nonhelper_applied)
-// The subset of those consequences where generic graph symmetry committed
-// a root unit.  This shows that the completed BIG was consumed by a later
-// group computation, rather than merely preceding an independent structured
-// fixing.
+// The subset where generic graph symmetry committed a root unit.
 TACTIX_STATS_U64(sr_post_amo_graph_root_units)
 TACTIX_STATS_U64(sr_nonforcing_cut_batches_declined)
 TACTIX_STATS_U64(sr_nonforcing_cuts_declined)
@@ -456,9 +443,8 @@ TACTIX_STATS_U64(jump_reason_bigbig)
 TACTIX_STATS_U64(conflict_watch_repaired) // ... of those, needing watch repair
 TACTIX_STATS_U64(binprop_scans)
 TACTIX_STATS_U64(binprop_ordered)
-// Dense occurrence arena: slices moved to the arena tail because a push
-// outgrew their capacity, and defragmentations that reclaimed the abandoned
-// images. Both are reachability readouts for the arena's growth policy.
+// Dense occurrence arena: slices moved to the tail on overflow, and
+// defragmentations reclaiming abandoned images.
 TACTIX_STATS_U64(dense_slice_moves)
 TACTIX_STATS_U64(dense_defrags)
 TACTIX_STATS_U64(binprop_flagged)

@@ -8,11 +8,9 @@ struct Kernel;
 struct GraphLabelingAuthenticationResult;
 struct GraphLabelingSliceResult;
 
-// A Kernel-owned SAT-only constructor session. Authentication atomically
-// captures the indexed graph before source-changing preprocessing. Later root
-// slices retain the graph, best permutation and stage cursor; their only
-// nonterminal effect is an optional phase hint. No clause or proof fact is
-// derived from this heuristic state.
+// Kernel-owned SAT-only constructor session: authentication captures the
+// indexed graph; later root slices keep the graph, best permutation and stage
+// cursor and at most hint phases. No clause or proof fact is derived.
 class GraphLabelingModelSession {
 public:
   struct State;
@@ -25,9 +23,7 @@ public:
   bool authenticated() const;
   bool complete() const;
   uint64_t candidate_fingerprint() const;
-  // DefaultPolicy uses the retained profile's construction dose as the
-  // per-invocation Window allowance. The Window stage keeps its independent
-  // total cap; zero means the current stage needs no policy-imposed slice.
+  // DefaultPolicy's per-invocation Window allowance; zero imposes no slice.
   uint64_t recommended_continuation_work() const;
   void clear();
   // The typed result of the last public Lucky 26/27 application: its public

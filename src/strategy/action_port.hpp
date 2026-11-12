@@ -112,8 +112,7 @@ struct StaticPort {
                                            const std::function<ApplyResult()> &apply) {
     return ::tactix::apply_rule_structured(rule, k, description, apply);
   }
-  // Argument-dependent lookup at the policy's call site finds the executor
-  // overloads declared after this header, as the qualified call does there.
+  // ADL finds the executor overloads declared after this header.
   template <class... Args> static decltype(auto) execute(Kernel &k, Args &&...args) {
     using execution::execute_action;
     return execute_action(k, std::forward<Args>(args)...);

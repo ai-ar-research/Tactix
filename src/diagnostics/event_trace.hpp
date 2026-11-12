@@ -31,28 +31,17 @@ public:
   // propagation/clause records remain bounded by the global record limit.
   void detail(const Kernel &, const char *event, int64_t payload = 0);
   void detail_text(const Kernel &, const char *event, const char *payload);
-  void vivify_candidate(const Kernel &, const char *event, uint64_t ordinal,
-                         Ref, uint64_t ticks, uint64_t limit);
-  void vivify_counts(const Kernel &, const uint32_t *counts, size_t size);
   void implications(const Kernel &, size_t trail_begin);
   void conflict(const Kernel &);
   void learned(const Kernel &, const std::vector<Lit> &);
   void heap_after_decision(const Kernel &);
   void mode_clock(const Kernel &, const char *stage, uint64_t limit,
                   uint64_t anchor, uint64_t count);
-  void restart_clock(const Kernel &, uint64_t limit, bool initialized,
-                     double fast, double slow, double margin, bool eligible);
   void randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                    bool accepted);
-  void randec_state(const Kernel &, const char *stage, uint64_t remaining,
-                    uint64_t next, uint64_t sequence, uint64_t rng);
-  void target_state(const Kernel &, const char *stage, uint32_t assigned);
   void slot_boundary(const Kernel &, const char *name, const char *stage);
-  void substitute_map(const Kernel &, Lit, Lit);
   void bve_candidate(const Kernel &, Var, const char *stage, uint64_t ticks,
                      uint64_t limit, bool applied);
-  void bve_heap(const Kernel &, const char *stage, Var trigger, Var subject,
-                double score, uint32_t position, Var root, uint32_t size);
   void bve_schedule(const Kernel &, const Var *members, const double *scores,
                     uint32_t size, uint32_t bound,
                     uint64_t insertion_hash);
@@ -75,8 +64,6 @@ private:
   bool heap_var_selected(const Kernel &, Var) const;
   // Whether a stable-heap event may be traced at all.
   bool heap_event_admitted(const Kernel &) const;
-  void watch_state(const Kernel &, Lit propagated, const char *event,
-                   bool emit_summary);
   bool want_detail(const Kernel &);
   int selected_sweep_seed(const Kernel &, Var seed, const char *environment);
   // Whether the explicit conflict window, if any, holds the current conflict.
@@ -91,16 +78,10 @@ private:
   uint64_t limit_ = 50000;
   uint64_t post_reorder_details_ = 0;
   uint64_t checkpoint_bucket_ = 0;
-  uint64_t checkpoint_interval_ = 1000;
-  uint64_t checkpoint_from_ = 0;
   uint64_t detail_conflict_from_ = 0;
   uint64_t detail_conflict_to_ = UINT64_MAX;
   uint64_t stop_after_conflict_ = UINT64_MAX;
-  uint64_t heap_from_decision_ = UINT64_MAX;
-  uint64_t heap_pop_decision_ = UINT64_MAX;
   uint64_t heap_remove_decision_ = UINT64_MAX;
-  uint64_t bve_pop_from_ = UINT64_MAX;
-  uint64_t bve_pop_to_ = 0;
   uint64_t exit_conflict_ = UINT64_MAX;
   bool saw_reorder_ = false;
   bool detail_window_ = false;
@@ -108,18 +89,12 @@ private:
   bool boundary_only_ = false;
   bool target_only_ = false;
   std::string exit_match_;
-  bool skip_watch_ = false;
-  bool skip_imply_ = false;
   bool skip_heap_ = false;
-  bool skip_decisions_ = false;
   bool skip_randec_draws_ = false;
   bool skip_analysis_ticks_ = false;
   bool keep_snapshots_ = false;
   bool search_only_ = false;
-  bool control_only_ = false;
-  bool snapshot_only_ = false;
   bool glue_only_ = false;
-  bool phase_only_ = false;
   bool formula_only_ = false;
   bool trajectory_only_ = false;
   bool learned_only_ = false;
@@ -129,12 +104,9 @@ private:
   bool factor_literal_only_ = false;
   bool factor_seed_only_ = false;
   bool clause_lifecycle_only_ = false;
-  bool substitute_only_ = false;
   std::vector<int> imply_literals_;
-  bool bve_heap_only_ = false;
   bool bve_pop_only_ = false;
   bool conflict_only_ = false;
-  bool checkpoint_only_ = false;
   bool sweep_only_ = false;
   bool watch_only_ = false;
   bool watch_only_strict_ = false;
@@ -143,8 +115,6 @@ private:
   bool watch_within_vivify_ = false;
   bool vivify_watch_active_ = false;
   uint64_t vivify_watch_ordinal_ = 0;
-  bool heap_each_bump_ = false;
-  bool heap_pop_only_ = false;
   bool heap_vars_only_ = false;
   std::vector<int> heap_vars_;
   bool truncated_ = false;
@@ -168,8 +138,6 @@ public:
   void heap_scores(const Kernel &) {}
   void mode_clock(const Kernel &, const char *, uint64_t, uint64_t,
                   uint64_t) {}
-  void restart_clock(const Kernel &, uint64_t, bool, double, double, double,
-                     bool) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -179,48 +147,21 @@ public:
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void event_trace_detail(const Kernel &, const char *event, int64_t payload);
-void event_trace_vivify_candidate(const Kernel &, const char *event,
-                                  uint64_t ordinal, Ref, uint64_t ticks,
-                                  uint64_t limit);
-void event_trace_vivify_counts(const Kernel &, const uint32_t *counts,
-                               size_t size);
-void event_trace_vivify_round(const Kernel &, const char *stage,
-                              uint64_t scheduled, uint64_t tried,
-                              uint64_t produced, uint64_t ticks,
-                              uint64_t limit);
-void event_trace_binary_lifecycle(const Kernel &, const char *event, Lit a,
-                                  Lit b, uint64_t id, uint32_t copies,
-                                  const char *payload = nullptr);
-void event_trace_binary_collapse(const Kernel &, Ref source, Lit a, Lit b);
-const char *event_trace_rule_enter(const char *rule);
-void event_trace_rule_leave(const char *previous);
 void event_trace_randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                              bool accepted);
-void event_trace_randec_state(const Kernel &, const char *stage,
-                              uint64_t remaining, uint64_t next,
-                              uint64_t sequence, uint64_t rng);
-void event_trace_target_state(const Kernel &, const char *stage,
-                              uint32_t assigned);
 void event_trace_slot_boundary(const Kernel &, const char *name,
                                const char *stage);
 // Memory-only checkpoints must not fire semantic boundary selectors.
 void event_trace_memory_checkpoint(const Kernel &, const char *name,
                                    const char *stage, size_t temporary_bytes = 0);
-void event_trace_substitute_map(const Kernel &, Lit, Lit);
 void event_trace_bve_candidate(const Kernel &, Var, const char *, uint64_t,
                                uint64_t, bool);
-// One selected-clause dump of every literal's (external, level, value) as a
-// glue recompute reads them; keyed by required externals plus one conflict.
-void event_trace_recompute_input(const Kernel &, const Clause *);
 void event_trace_bve_definition(const Kernel &, Var, uint64_t attempt,
                                 uint32_t core, const char *outcome,
                                 uint64_t ticks, uint64_t budget,
                                 uint64_t generator, uint32_t variables,
                                 uint32_t side0, uint32_t side1,
                                 const uint32_t *ids, uint32_t size);
-void event_trace_bve_heap(const Kernel &, const char *stage, Var trigger,
-                          Var subject, double score, uint32_t position,
-                          Var root, uint32_t size);
 void event_trace_bve_schedule(const Kernel &, const Var *members,
                               const double *scores, uint32_t size,
                               uint32_t bound, uint64_t insertion_hash);
@@ -232,11 +173,7 @@ void event_trace_bve_schedule(const Kernel &, const Var *members,
 inline void event_trace_detail(const Kernel &, const char *, int64_t) {}
 inline void event_trace_vivify_counts(const Kernel &, const uint32_t *,
                                       size_t) {}
-inline void event_trace_vivify_round(const Kernel &, const char *, uint64_t,
-                                     uint64_t, uint64_t, uint64_t,
-                                     uint64_t) {}
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
-inline void event_trace_watch_scan_post(const Kernel &, Lit) {}
 inline void event_trace_watch_move(const Kernel &, Lit, Lit, Lit,
                                    const Clause *) {}
 inline void event_trace_watch_cost(const Kernel &, Lit, uint64_t, uint64_t,
@@ -260,10 +197,6 @@ inline void event_trace_heap_remove(const Kernel &, Var, Var, uint32_t,
 inline void event_trace_heap_pop(const Kernel &, const char *, Var, Var,
                                  uint32_t, uint32_t) {}
 inline void event_trace_binary_add(const Kernel &, Lit, Lit) {}
-inline void event_trace_binary_lifecycle(const Kernel &, const char *, Lit,
-                                         Lit, uint64_t, uint32_t,
-                                         const char * = nullptr) {}
-inline const char *event_trace_rule_enter(const char *) { return nullptr; }
 inline void event_trace_randec_draw(const Kernel &, uint32_t, uint32_t, Var,
                                     bool) {}
 inline void event_trace_randec_state(const Kernel &, const char *, uint64_t,
@@ -271,10 +204,8 @@ inline void event_trace_randec_state(const Kernel &, const char *, uint64_t,
 inline void event_trace_phase_pick(const Kernel &, Var, int8_t, int8_t,
                                    int8_t) {}
 inline void event_trace_target_save(const Kernel &) {}
-inline void event_trace_target_state(const Kernel &, const char *, uint32_t) {}
 inline void event_trace_slot_boundary(const Kernel &, const char *,
                                       const char *) {}
-inline void event_trace_recompute_input(const Kernel &, const Clause *) {}
 inline void event_trace_bve_definition(const Kernel &, Var, uint64_t,
                                        uint32_t, const char *, uint64_t,
                                        uint64_t, uint64_t, uint32_t, uint32_t,
@@ -282,18 +213,12 @@ inline void event_trace_bve_definition(const Kernel &, Var, uint64_t,
 inline void event_trace_bve_plan(const Kernel &, Var, uint32_t, uint32_t,
                                  uint32_t, uint32_t, uint32_t, uint64_t,
                                  bool) {}
-inline void event_trace_bve_pair(const Kernel &, Var, uint32_t, const Lit *,
-                                 uint32_t, Ref, uint64_t, const Lit *,
-                                 uint32_t, Ref, uint64_t, const char *) {}
-inline void event_trace_bve_heap(const Kernel &, const char *, Var, Var,
-                                 double, uint32_t, Var, uint32_t) {}
 inline void event_trace_bve_schedule(const Kernel &, const Var *,
                                      const double *, uint32_t, uint32_t,
                                      uint64_t) {}
 inline void event_trace_bve_pop(const Kernel &, uint64_t, uint64_t, Var,
                                 double, Var, uint32_t) {}
 inline void event_trace_eliminate_cleanup(const Kernel &, const char *) {}
-inline void event_trace_rule_leave(const char *) {}
 #endif
 
 } // namespace tactix

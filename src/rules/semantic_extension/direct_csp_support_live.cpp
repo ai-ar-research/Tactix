@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
-#include <limits>
 #include <map>
 #include <set>
 #include <utility>
@@ -18,7 +17,6 @@ namespace tactix {
 namespace {
 
 namespace support = direct_csp_support;
-
 using Meter = InterruptibleWork;
 
 std::vector<int32_t> normalized(std::vector<int32_t> clause) {
@@ -650,8 +648,7 @@ DirectCspSupportOwnerCaptureResult direct_csp_support_live_capture_owner(
     result.recognition_limit_exhausted = meter.exhausted;
     return result;
   }
-  // Run the pure planner once to prove that the captured ownership tables are
-  // internally complete. The selected row may legitimately be nonproductive.
+  // Plan once to prove the captured tables complete; the row may be idle.
   const uint64_t extent = kernel.external_to_internal.size();
   const int32_t prospective_extension =
       extent < INT32_MAX ? static_cast<int32_t>(extent + 1) : 0;
@@ -702,8 +699,7 @@ DirectCspSupportLiveResult direct_csp_support_live_apply(
   const uint64_t first_id = prepared.first_id;
   const std::vector<int32_t> &conclusion = plan.additions.back().clause;
 
-  // Commit starts here. All recoverable validation, capacity, proof, journal,
-  // and liveness failures have already been discharged.
+  // Commit starts here; every recoverable failure has been checked.
   kernel.close_startup_certificate();
   if (result.extent_growth) {
     const Var fresh = kernel_new_extension_vars(kernel, 1);

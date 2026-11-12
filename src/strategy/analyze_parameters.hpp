@@ -10,11 +10,9 @@ struct Kernel;
 namespace strategy {
 
 struct AnalyzeParameters {
-  // Kissat's shipped minimizedepth. Zero deliberately disables recursive
-  // reason minimization while preserving first-UIP learning soundness.
+  // Kissat minimizedepth; zero disables recursive minimization.
   static constexpr uint32_t MINIMIZE_DEPTH_DEFAULT = 1000;
-  // The eager register has four representation slots.  Values through that
-  // capacity are strategy choices; a larger value cannot be represented.
+  // The eager register has four slots; larger values are unrepresentable.
   static constexpr uint32_t EAGER_SUBSUME_CAPACITY = 4;
   uint32_t minimize_depth_limit = MINIMIZE_DEPTH_DEFAULT;
   bool conflict_reuse = true;

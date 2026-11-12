@@ -6,8 +6,7 @@ namespace tactix::strategy {
 
 enum class RuleWorkBudgetMode : uint8_t { Inherit, Unlimited, Bounded };
 
-// Native effort is separate from the composition budget. Bounded includes
-// zero; Inherit leaves the caller's wires untouched for the application.
+// Native effort, apart from the composition budget; Inherit keeps wires.
 struct RuleWorkBudget {
   RuleWorkBudgetMode mode = RuleWorkBudgetMode::Inherit;
   uint64_t amount = 0;

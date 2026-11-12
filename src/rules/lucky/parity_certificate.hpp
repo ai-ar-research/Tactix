@@ -1,6 +1,5 @@
-// Shared proof-only XOR accumulation. Certified source equations are combined
-// through fresh RAT-defined balanced parity trees and bounded local RUP steps.
-// Native installation and semantic provenance belong to the invoking rule.
+// Proof-only XOR accumulation: certified equations combine through RAT-defined
+// balanced parity trees and bounded local RUP steps.
 #pragma once
 #include "rules/lucky/local_rup_deriver.hpp"
 
@@ -16,10 +15,8 @@
 namespace tactix::parity_certificate {
 using External = int32_t;
 struct Equation {
-  // Affine semantic-extension recognition admits complete encodings through
-  // arity eight.  The original Lucky callers use at most four entries, but
-  // the scalable row certificate must preserve the authenticated wider source
-  // equations instead of splitting them into unauthenticated fragments.
+  // Affine recognition admits encodings through arity eight; wider sources stay
+  // whole rather than splitting into unauthenticated fragments.
   std::array<External, 8> variables{};
   uint8_t size = 0;
   bool rhs = false;
@@ -50,9 +47,8 @@ inline Clauses xor_equation(const External *variables, uint32_t size, bool rhs) 
       normalized[normalized_size++] = variable;
     }
   }
-  // The arity is at most four.  Keep the bounded sort explicit so GCC does
-  // not instantiate std::sort's 16-element insertion-sort fast path for this
-  // four-element array (which also produces a false array-bounds warning).
+  // Explicit sort of at most four entries: std::sort's insertion path triggers
+  // a false array-bounds warning here.
   for (uint32_t i = 1; i < normalized_size; ++i)
     for (uint32_t j = i; j && normalized[j] < normalized[j - 1]; --j)
       std::swap(normalized[j], normalized[j - 1]);
@@ -307,11 +303,9 @@ template <class Sink> class Certificate {
   Sink &sink_;
   uint32_t width_ = 1;
   std::vector<External> nodes_;
-  // Operands of the currently live definition at each segment-tree node;
-  // its clauses are definition_clause(nodes_[node], first, second, 0..3).
-  // Entries are cleared whenever cancellation removes that node.  Keeping the
-  // graph lets a continuing affine action retain exactly the final
-  // conservative definitions and reconstruct their variables.
+  // Operands of each tree node's live definition (definition_clause(nodes_[n],
+  // first, second, 0..3)), cleared when cancellation removes the node, so a
+  // continuing action can retain the final definitions.
   std::vector<Operands> operands_;
   // One equation's root relation per toggle, and one walk's replaced
   // definitions; both are erased once their consequence is derived.
@@ -384,14 +378,11 @@ template <class Sink> class Certificate {
   }
 
   // Derive `next` (old_parent ^ new_parent ^ variable = 0) from `relation`
-  // (old_child ^ child ^ variable = 0) and the parent's old and new
-  // definitions, emitting exactly Deriver's lines and charges; the tree
-  // fixes the shape of its search.  Without a sibling the parent passes its
-  // child through and clause k repeats clause k of `relation`; with a sibling
-  // but an empty relation it repeats clause k of the parent's one
-  // definition.  Otherwise clause k splits on old_child: either branch
-  // propagates `child` through the relation and `sibling` through the old
-  // definition, then falsifies one clause of the new definition.
+  // (old_child ^ child ^ variable = 0) and the parent's definitions, with exactly
+  // Deriver's lines and charges. Without a sibling clause k repeats clause k of
+  // `relation`; with a sibling and an empty relation it repeats the parent's
+  // definition; otherwise clause k splits on old_child and falsifies one clause
+  // of the new definition.
   bool derive(const Xor3 &relation, const Xor3 &next, External old_child,
               External child, External sibling, External old_parent,
               External new_parent, External variable) {
@@ -401,9 +392,8 @@ template <class Sink> class Certificate {
     const bool split = sibling && relation.size;
     if ((split ? 6u : 3u) > maximum_derivation_variables_)
       return false;
-    // The new-definition clause a branch falsifies: target clause k fixes
-    // old_parent, new_parent and variable; the relation and old definition
-    // then fix child and sibling.
+    // Target clause k fixes old_parent, new_parent and variable; the relation and
+    // old definition then fix child and sibling.
     const auto conflict = [&](uint32_t k, bool old_child_value) {
       const auto value = [&](External x) {
         const uint32_t at = x == next.variables[0] ? 0
@@ -540,8 +530,7 @@ public:
         has_target = false;
       }
       // The root unit follows from the row, its transitions and the previous
-      // unit.  Its splits depend on which prefixes of the row leave the tree
-      // empty or a single leaf, so it keeps Deriver's search.
+      // unit, by Deriver's search.
       if (has_target) {
         premises_ = xor_equation(equation.variables.data(), equation.size,
                                  equation.rhs);
@@ -579,12 +568,9 @@ public:
 
   bool refuted() const { return completed_ && emitted_empty_; }
 
-  // Describe the proof clauses that remain live after accumulation.  This is
-  // a pure snapshot: it emits no proof event and does not settle the later
-  // export/retirement lifecycle.  Definitions are returned in fresh-variable
-  // order, which is also topological because every gate is allocated after
-  // its operands.  A continuing solver may install this exact closed set as a
-  // conservative Boolean extension and retain the final implied root unit.
+  // Pure snapshot of the proof clauses live after accumulation, definitions in
+  // fresh-variable (topological) order, installable as a conservative extension
+  // together with the final root unit.
   bool active_tree(ActiveTree &output) const {
     if (!completed_ || emitted_empty_ || export_started_ ||
         retirement_started_ || current_unit_.size() != 1 ||
@@ -631,10 +617,9 @@ public:
     return true;
   }
 
-  // Resume from clauses that are already active in the same proof stream.
-  // The caller must establish their authenticated lifetime; this validates
-  // the exact tree shape without emitting or assuming any new proof step.
-  // A rejected snapshot leaves the certificate untouched.
+  // Resume from clauses already active in this proof stream (lifetime
+  // authenticated by the caller); only the tree shape is validated. A rejected
+  // snapshot leaves the certificate untouched.
   bool resume_active_tree(const ActiveTree &tree) {
     if (started_ || completed_ || export_started_ || retirement_started_ ||
         tree.variable_count != variables_ || tree.variables.empty() ||
@@ -702,10 +687,8 @@ public:
     return true;
   }
 
-  // Export the sum when at most four original variables remain. Current
-  // active tree definitions and the accumulated root unit certify every
-  // clause. Fresh tree variables remain proof helpers, never search variables.
-  // The caller owns the width choice, live installation, and helper retirement.
+  // Export the sum when at most four original variables remain; fresh tree
+  // variables stay proof helpers.
   bool export_small_consequence(uint32_t maximum_width, Clauses &output) {
     output.clear();
     if (!completed_ || emitted_empty_ || export_started_ || maximum_width > 4)
@@ -743,12 +726,9 @@ public:
     return true;
   }
 
-  // Export one arbitrary-width clausal reason for the accumulated parity.
-  // Falsifying `target` must assign every active residue variable and violate
-  // the root parity; extra authenticated variables only weaken the clause.
-  // The live proof sink is responsible for checking the RUP addition. This
-  // avoids materializing the exponentially large complete parity CNF when a
-  // Gaussian implication or conflict needs only one reason.
+  // Export one arbitrary-width clausal reason for the accumulated parity:
+  // falsifying `target` must assign every active residue variable and violate
+  // the root parity. The sink checks the RUP addition.
   bool export_reason(const std::vector<External> &target) {
     if (!completed_ || emitted_empty_ || export_started_ || target.empty())
       return false;
@@ -774,12 +754,9 @@ public:
     return true;
   }
 
-  // Retire clauses only, never the variable namespace: some checkers retain
-  // deleted helper-unit assignments. The caller must keep fresh IDs monotone.
-  // Retire only after a complete export. Original-variable units are retained:
-  // deleting one by content could erase the exported unit as well. No helper
-  // appears in an exported clause. Once retirement starts, failed sinks cannot
-  // be retried or reported safe; the caller must handle proof-output failure.
+  // Retire helper clauses (never variables) only after a complete export;
+  // original-variable units are kept. Once retirement starts a failed sink
+  // cannot be retried.
   bool retire_helpers() {
     if (retirement_started_)
       return retired_;

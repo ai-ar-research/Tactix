@@ -11,8 +11,7 @@
 
 namespace tactix::strategy::controller {
 
-// Content identities for optional feedback provenance. No solver state or
-// external hashing process is involved; callers keep their inputs immutable.
+// Content identities for optional feedback provenance.
 class FeedbackSha256 {
 public:
   void append(const void *data, size_t size) {

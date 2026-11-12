@@ -74,16 +74,14 @@ Result inspect(const std::vector<Constraint> &constraints,
 ConstructResult construct(std::vector<int32_t> literals, uint32_t lower,
                           uint32_t upper, const Limits &limits);
 
-// Davis--Putnam elimination derives only RUP resolvents from the exact source
-// clauses. The last addition is always the requested reason, ready for live
-// installation. A bounded failure leaves the caller's proof and Kernel intact.
+// Davis--Putnam elimination by RUP resolvents; the last addition is the
+// requested reason. Failure leaves proof and Kernel intact.
 ResolutionPlan plan_resolution(const std::vector<Constraint> &constraints,
                                const Clause &reason,
                                const ResolutionLimits &limits);
 
-// The sink follows cardinality_certificate::BddProof's contract. It must
-// reserve fresh proof variables above every input variable. Count-only
-// preflight is required before any live proof writer invokes this function.
+// The sink follows cardinality_certificate::BddProof's contract, with fresh
+// variables above the input; a live writer needs a count-only preflight first.
 template <class Sink>
 bool certify(const std::vector<Constraint> &constraints,
              const Clause &reason, Sink &sink) {

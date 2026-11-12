@@ -27,11 +27,10 @@ enum class RepeatMode : uint8_t {
   Once,
   Count,
   UntilScopedFixpoint,
-  // UntilScopedFixpoint whose round ceiling is the owner's size scale (satsuma.h
-  // iteration_max): one initial pass plus
-  // clamp(ceil((2^23 / (literals + variables))^1.5), 1, limit) repetitions, read
-  // from the live formula at every round. A zero limit leaves the scale itself
-  // as the only ceiling.
+  // UntilScopedFixpoint with the owner's size-scaled round ceiling (satsuma.h
+  // iteration_max): one pass plus clamp(ceil((2^23 / (literals +
+  // variables))^1.5), 1, limit) repetitions, read live each round; zero leaves
+  // only the scale.
   UntilSizeScaledFixpoint,
 };
 
@@ -42,8 +41,7 @@ inline bool fixpoint_repeat(RepeatMode mode) {
 
 struct RepeatSpec {
   RepeatMode mode = RepeatMode::Once;
-  // Count: exact positive count. UntilScopedFixpoint: zero is unbounded,
-  // otherwise a caller-selected safety ceiling which reports exhaustion.
+  // Count: exact. UntilScopedFixpoint: zero unbounded, else a ceiling.
   uint64_t limit = 1;
 };
 
@@ -56,18 +54,13 @@ struct Gf3AffineInstance {
 // The round ceiling a fixpoint repeat applies now; zero is unbounded.
 uint64_t repeat_round_limit(const Kernel &, const RepeatSpec &);
 
-// A typed atomic follow-up owned by the composition layer.  Propagation is a
-// separate proof rule, but CompleteCurrentPass may contain many semantic
-// applications before the surrounding sequence regains control.  Selecting
-// Propagate therefore closes each application inside the executor's
-// state-version transaction instead of forcing a caller-side mutation that
-// would make the retained selection stale.
+// Atomic follow-up owned by composition: Propagate closes each application of a
+// CompleteCurrentPass inside the executor's state-version transaction, rather
+// than a caller-side mutation that would stale the selection.
 enum class PostApplication : uint8_t {
   None,
   Propagate,
-  // Strengthen only: reconnect the watches the pass disconnected and close
-  // root propagation over the trail suffix from the application's entry
-  // propagation head, before the next action observes the formula.
+  // Strengthen only: reconnect watches and close root propagation.
   ForwardClosure,
 };
 
@@ -78,25 +71,21 @@ struct OnlineInvocation {
   InvocationGranularity granularity =
       InvocationGranularity::CompleteCurrentPass;
   std::vector<uint64_t> instances;
-  // Exact E2 grids are variable-sized semantic instances. They use the same
-  // OneInstance/SelectedBatch machinery; InvocationResult::instance is the
-  // zero-based index in this immutable request snapshot.
+  // Exact E2 grids are variable-sized instances on the
+  // OneInstance/SelectedBatch machinery; InvocationResult::instance indexes
+  // this request snapshot.
   std::vector<FactorGrid> factor_grids;
   // General SR payloads are likewise variable-sized semantic instances.
   std::vector<SubstitutionRedundancyInstance>
       substitution_redundancy_instances = {};
   // Both vectors retain external literal identities until each atomic apply.
   std::vector<ConditionInstance> condition_instances = {};
-  // Variable-length positive stable external vertex sets for certified
-  // IndependentSetCover consequences. Each inner vector is one action.
+  // Stable external vertex sets for IndependentSetCover, one per action.
   std::vector<std::vector<uint32_t>> independent_set_cover_instances = {};
   std::vector<Gf3AffineInstance> gf3_affine_instances = {};
-  // Complete exact GF(2) row/source identities.  These are deep-copied action
-  // values; live apply rederives and authenticates every field.
+  // Exact GF(2) row/source identities, reauthenticated on apply.
   std::vector<AffineBasisRowSelection> affine_basis_instances = {};
-  // Canonical opaque identities returned by gf3_gaussian_action_offer().
-  // They encode exact semantics, derivation provenance, live premise IDs and
-  // source clauses; they are stable replay keys rather than mutable ordinals.
+  // Stable opaque replay keys from gf3_gaussian_action_offer().
   std::vector<std::string> gf3_gaussian_instances = {};
   std::vector<std::string> tseitin_cycle_instances = {};
   std::vector<DirectCspSupportActionSelection> direct_csp_support_instances = {};
@@ -115,10 +104,9 @@ struct OnlineInvocation {
   WorkLimit budget = WorkLimit::unlimited();
 };
 
-// A separately selected Propagate may close an already settled producer
-// boundary.  The self-Propagate marker is part of the serialized request, so
-// replay distinguishes this explicit metered fixpoint service from an
-// ordinary inapplicable Propagate choice. It performs no state transition.
+// A separate Propagate may close a settled producer boundary; the serialized
+// self-Propagate marker lets replay distinguish this metered fixpoint service
+// from an inapplicable Propagate. No state transition.
 inline bool explicit_fixpoint_propagation_service(
     const OnlineInvocation &step, const Kernel &kernel) {
   return step.rule == "Propagate" &&
@@ -134,9 +122,9 @@ struct OnlineStrategyProgram {
 
 using OnlineInprocessProgram = OnlineStrategyProgram;
 
-// Composition-only feedback for a shared SR-discovery allowance.  A detected
-// exact generator may fund more work inside the same backend session, up to
-// the scope's hard ceiling.  Zero disables inline continuation.
+// Composition-only feedback for a shared SR-discovery allowance: a detected
+// exact generator may fund more work in the same session up to the hard
+// ceiling; zero disables it.
 struct DiscoveryFeedbackPolicy {
   uint64_t ticks_per_generator = 0;
   uint64_t hard_limit = 0;
@@ -150,14 +138,12 @@ enum class ReconfigureMode : uint8_t {
 bool validate_online_strategy_program(const OnlineStrategyProgram &,
                                       std::string *error = nullptr,
                                       bool allow_native_offer = false);
-// Permanent rule-profile installation (tactix_install_parameters). The
-// rule/family match and value checks are an online step's; instance
-// restrictions belong to an application. Walk's permanent profile is its
-// scoring guidance, so its budget, seed and objective must keep the
-// per-application defaults. Installation uses the family's native setter,
-// the one ParameterInstallationRequest and scoped execution use, and
-// changes no formula, assignment or guidance state. It returns false for a
-// family without a permanent setter.
+// Permanent rule-profile installation (tactix_install_parameters) with an
+// online step's rule/family and value checks; instance restrictions belong to
+// applications. Walk's permanent profile is its scoring guidance, keeping
+// per-application budget, seed and objective defaults. Uses the family's native
+// setter and changes no formula, assignment or guidance; false for a family
+// without one.
 bool validate_parameter_installation(const std::string &rule,
                                      const InprocessParameters &,
                                      std::string *error = nullptr);
@@ -168,12 +154,11 @@ InvocationStatus enumerate_complete_instances(Kernel &, const RuleVTable &,
                                               std::vector<uint64_t> &,
                                               volatile sig_atomic_t *stop = nullptr);
 
-// Single-threaded online executor. Each advance performs at most one atomic
-// registered rule application. Configuration is replace-transactional and may
-// occur between advances; no partial proof or watch mutation is ever exposed.
-// A bound batch invalidated by collection/external formula mutation reports
-// StaleRequest until configure supplies a fresh scope; spent budgets are retained
-// when requested through RetainMatchingStepBudgets.
+// Single-threaded online executor: each advance performs at most one atomic
+// registered rule application. Configuration is replace-transactional between
+// advances and never exposes partial proof or watch mutation. A batch
+// invalidated by collection or external mutation reports StaleRequest until
+// reconfigured; RetainMatchingStepBudgets keeps spent budgets.
 class OnlineStrategyExecutor {
 public:
   bool configure(const OnlineStrategyProgram &, uint64_t revision,
@@ -189,9 +174,9 @@ public:
   uint64_t sequence_passes() const { return sequence_passes_; }
   uint64_t step_consumed(StepId) const;
   bool complete() const { return complete_; }
-  // Restart-controller atomic doses can renew composition allowance while
-  // retaining an unfinished native selection/discovery cursor. This never
-  // changes the bound solver state or silently refreshes a stale selection.
+  // Restart-controller doses can renew composition allowance while keeping an
+  // unfinished native cursor; bound state never changes and stale selections
+  // are not refreshed.
   bool pending_atomic_scope() const;
   bool renew_atomic_dose(WorkLimit allowance, uint64_t revision);
 
@@ -205,8 +190,7 @@ private:
     bool selection_truncated = false;
     bool selection_discovery_exhausted = false;
     bool graph_entry_requested = false;
-    // Bind pending payloads to their arena and the state left by the last
-    // application. External formula changes require caller reconfiguration.
+    // Bind payloads to their arena and the last application's state.
     const Kernel *selection_owner = nullptr;
     uint64_t selection_generation = 0;
     StateVersion expected_state;
@@ -217,8 +201,7 @@ private:
     bool sr_general_mode = false;
     BveOccurrenceCache bve_occurrences;
 
-    // Drop the bound payloads, their cursor and discovery state. Only a
-    // general SR pass keeps its producer cursor across enumerations.
+    // Drop bound payloads; only a general SR pass keeps its cursor.
     void clear_selection(bool general_sr = false) {
       selection.clear();
       structured_selection.clear();

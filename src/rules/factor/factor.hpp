@@ -1,10 +1,7 @@
-// E2 Factor — bounded variable addition (BVA), the binary-clause-driven variant
-// that generalizes SBVA: a fresh x factors an m×n grid {fᵢ ∨ rⱼ} into m
-// dividers {x∨fᵢ} + n quotients {¬x∨rⱼ}, the inverse of BVE. Precondition,
-// effect, proof delta (add-RAT, emission order dividers→quotients→delete) and
-// the model projection: `docs/dev/calculus.md` E2; cross-rule invariants for
-// extension variables: `docs/dev/implementation-notes.md` §5. Design
-// `docs/design/e2-factor-design.md`; transliterated from kissat factor.c (MIT).
+// E2 Factor: bounded variable addition. A fresh x factors an m×n grid {fᵢ ∨ rⱼ}
+// into dividers {x∨fᵢ} and quotients {¬x∨rⱼ}. Contract: `docs/dev/calculus.md`
+// E2; extension invariants: implementation-notes §5; design
+// `docs/design/e2-factor-design.md`; from kissat factor.c (MIT).
 #pragma once
 
 #include "rules/registry.hpp"
@@ -16,9 +13,7 @@
 
 namespace tactix {
 
-// Strategy used to select a factoring grid.  Factor owns this neutral
-// interface; policies may implement it, but the rule never imports policy
-// types.
+// Grid selection strategy interface; the rule never imports policy types.
 struct FactorSelection {
   virtual ~FactorSelection() = default;
   virtual void set_bound(uint32_t) {}
@@ -35,12 +30,9 @@ struct FactorSelection {
 RuleEligibility factor_guard(const Kernel &); // pure quiescent-root precondition
 ApplyResult factor_apply(Kernel &);
 
-// One exact E2 instance. `members`, when present, is row-major with
-// factors.size()*remainders.size() entries and names the selected large-clause
-// occurrence for each cell; binary cells use INVALID_REF.  An empty member
-// vector asks the rule to choose the first distinct matching occurrences.
-// Remainder literal order is immaterial.  The full grid is validated before
-// any proof or formula mutation, and canonical matcher limits do not apply.
+// One exact E2 instance. `members` (row-major, factors × remainders) names the
+// large-clause occurrence per cell (INVALID_REF for binaries); empty lets the
+// rule choose. Validated before any mutation; matcher limits do not apply.
 struct FactorGrid {
   std::vector<Lit> factors;
   std::vector<std::vector<Lit>> remainders;
@@ -49,13 +41,9 @@ struct FactorGrid {
 
 ApplyResult factor_apply_grid(Kernel &, const FactorGrid &);
 
-// Exhaustive, deterministic enumeration of the abstract E2 action space.
-// Factor sets and column sets are canonicalized, while `members` preserves the
-// selected physical large-clause occurrence for every cell. This includes
-// zero-gain 2x2 grids; profitability remains a canonical matcher decision. The
-// visitor is called lazily, so an external strategy may stop or impose an explicit
-// result budget without materializing the exponential grid space. The kernel
-// must not be mutated from the visitor.
+// Deterministic lazy enumeration of the E2 action space, including zero-gain
+// 2x2 grids; `members` keeps physical occurrences. The visitor must not mutate
+// the kernel and may stop early.
 enum class FactorEnumerationStatus : uint8_t {
   Complete,
   Stopped,

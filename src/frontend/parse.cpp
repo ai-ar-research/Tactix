@@ -9,54 +9,10 @@
 #include <cstdlib>
 #include <memory>
 #include <unordered_map>
-#include <sys/resource.h>
 
 namespace tactix {
 
 namespace {
-
-struct ParseMemoryTrace {
-  FILE *out = nullptr;
-  uint64_t next_clause = 5000000;
-
-  ParseMemoryTrace() {
-    const char *path = std::getenv("TACTIX_PARSE_MEMORY_TRACE");
-    if (path && *path)
-      out = std::fopen(path, "w");
-  }
-
-  ~ParseMemoryTrace() {
-    if (out)
-      std::fclose(out);
-  }
-
-  void emit(const Kernel &k, const char *stage) {
-    if (!out)
-      return;
-    struct rusage usage {};
-    getrusage(RUSAGE_SELF, &usage);
-    std::fprintf(
-        out,
-        "%s\tclauses=%llu\tvars=%u\trss_kib=%ld\tbinary_count=%zu\t"
-        "watch_heads=%zu\twatch_words=%zu\twatch_capacity=%zu\t"
-        "watch_holes=%llu\tarena_words=%zu\ttrail_capacity=%zu\tframes_capacity=%zu\t"
-        "activation_capacity=%zu\n",
-        stage, (unsigned long long)k.next_clause_id, k.nvars,
-        usage.ru_maxrss, k.binary_ids.size(), k.watches.heads.size(),
-        k.watches.arena.size(), k.watches.arena.capacity(),
-        (unsigned long long)k.watches.holes, k.arena.size(),
-        k.trail.capacity(), k.frames.capacity(),
-        k.input_activation_order.capacity());
-    std::fflush(out);
-  }
-
-  void maybe(const Kernel &k) {
-    if (!out || k.next_clause_id < next_clause)
-      return;
-    emit(k, "import");
-    next_clause = ((k.next_clause_id / 5000000) + 1) * 5000000;
-  }
-};
 
 class RawInputObservation {
 public:
@@ -183,19 +139,12 @@ static void capture_raw_input_shape(Kernel &k,
     }
 }
 
-// N2 input identity: the checker numbers raw file clauses by position, so any
-// normalization can diverge from the stored clause. A DSR deletion matches a
-// literal multiset, not set semantics, and a retained raw clause can make a
-// later deletion retire the wrong copy or change a RAT/SR obligation. So publish
-// the exact narrowed clause and retire its raw predecessor immediately. Cases
-// and checker evidence:
-// benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2.
+// N2 input identity: the checker numbers raw file clauses by position and
+// deletes by literal multiset, so publish the exact narrowed clause and retire
+// its raw predecessor immediately (reports/2026-08-05-input-clause-normalization-n2.md §2).
 static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                           const std::vector<Lit> &original) {
-  // Record that the checker's clause `id` is not the clause just stored. The
-  // count is unconditional, being the reachability probe for this path; the
-  // restatement matters only with a proof, since without one no checker
-  // population can diverge from the normalized solver population.
+  // The count is the reachability probe; the restatement needs a proof.
   k.stats.input_restated++;
   if (!k.proof)
     return;
@@ -205,10 +154,8 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                static_cast<uint32_t>(original.size()));
 }
 
-// Kissat closes every new input unit immediately through
-// `kissat_search_propagate` (internal.c:363), so later clauses are added
-// against the resulting root assignment and the scan contributes to both
-// `ticks` and `search_ticks`.
+// Kissat propagates every new input unit immediately (`kissat_search_propagate`,
+// internal.c:363), charging both `ticks` and `search_ticks`.
 static void propagate_input_unit(Kernel &k) {
   const bool conflict = kernel_propagate(k);
   if (!conflict)
@@ -236,13 +183,9 @@ activate_input_literals(Kernel &k, const Lits &lits) {
   }
 }
 
-// Store the normalized input binary (a, b) unless the pair is already live;
-// returns whether it was stored. A duplicate binary consumes its input id but
-// is not stored or proved; `raw` is that input clause's checker copy.
-// File import first asks its compact
-// no-false-negative filter, then confirms possible hits against mirrored
-// watches, which remain the exact identity authority after input.
-// Evidence: benchmarks/reports/2026-08-27-sat-factor-marks-search-localization.md.
+// Store the normalized input binary (a, b) unless already live; returns
+// whether stored. A duplicate consumes its input id only; `raw` is its checker
+// copy. A no-false-negative filter is confirmed against the mirrored watches.
 [[gnu::always_inline]] static inline bool
 ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
                     const std::vector<Lit> &raw,
@@ -278,17 +221,14 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   // Every input clause consumes one proof id in input order, including
   // tautologies and duplicates that are never stored.
   const uint64_t id = ++k.next_clause_id;
-  // Headerless C API input has no earlier identity-map reservation. Diagnostic
-  // proof shadowing translates raw literals through that map, so grow it before
-  // recording the original clause (still before normalization/import reorder).
+  // Headerless C API input: grow the identity map before recording the
+  // original clause (the proof shadow translates through it).
   Var maxv = 0;
   for (const Lit l : scratch)
     maxv = std::max(maxv, var_of(l));
   if (!scratch.empty()) {
-    // DIMACS counts are advisory. An input literal beyond the header ends
-    // the fixed-universe bitmap's scope before any lookup can address it.
-    // Rebuild the ordinary filter from the exact live watches, retaining all
-    // previous pairs so later duplicates still consume only their input id.
+    // A literal beyond the header ends the fixed-universe bitmap's scope:
+    // rebuild the ordinary filter from the exact live watches.
     if (maxv >= k.nvars && k.binary_liveness && k.binary_liveness->exact())
       grow_input_binary_liveness(k, k.binary_ids.size());
     kernel_reserve_vars(k, maxv + 1);
@@ -296,20 +236,15 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   kernel_sync_population_observer(k);
   RawInputObservation observation(k, id, scratch);
   capture_raw_input_shape(k, scratch);
-  // Seed the diagnostic proof shadow from the checker's ACTUAL starting
-  // population, before normalization changes or drops this clause. The checker
-  // reads every file clause, including tautologies and duplicate copies; a
-  // snapshot of only the solver's later live formula cannot model
-  // deletion-by-literal-multiset.
+  // Seed the diagnostic proof shadow from the checker's actual population
+  // (every file clause, tautologies and duplicates included).
   if (k.proof)
     k.proof->seed_population(id, scratch.data(),
                              static_cast<uint32_t>(scratch.size()));
 
-  // Kissat's default `tumble=1` imports variables by first occurrence and
-  // activates the literals of each surviving clause in that same file order
-  // (internal.c `kissat_add` -> flags.c `kissat_activate_literals`).  Record
-  // imports over the raw file literals now; activation follows below, after
-  // the set-semantics pass, which keeps first-occurrence file order.
+  // Kissat `tumble=1` imports variables by first occurrence and activates
+  // surviving clauses' literals in file order (internal.c `kissat_add` ->
+  // flags.c `kissat_activate_literals`); record imports over raw literals.
   const size_t file_size = scratch.size();
   // Capture only clauses that actually change, before the first in-place
   // rewrite. Unchanged input carries no extra allocation or literal copy.
@@ -329,11 +264,8 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   for (const Lit lit : scratch)
     kernel_record_import(k, var_of(lit));
 
-  // Set semantics: dedupe; tautologies contribute nothing.  Marks decide
-  // membership, so the clause is rewritten in place in stable first-occurrence
-  // file order, as Kissat stores it while all literals are unassigned;
-  // sorting storage here would change the initial watched pair and the order
-  // of every affected watch list.
+  // Set semantics: dedupe in place in first-occurrence file order (as Kissat
+  // stores it); tautologies contribute nothing.
   if (file_size == 2) {
     if (scratch[0] == negate(scratch[1])) {
       observation.note(RawDropped | RawTautology | RawBinary);
@@ -373,10 +305,8 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
     }
     scratch.resize(kept);
   }
-  // Kissat internal.c:kissat_add normalizes every input clause against units
-  // already fixed while parsing.  A root-true literal satisfies the clause;
-  // a root-false literal is removed.  New units propagate immediately, matching
-  // Kissat.
+  // Kissat internal.c:kissat_add normalizes against units fixed while
+  // parsing; new units propagate immediately.
   auto out = scratch.begin();
   for (const Lit lit : scratch) {
     const int8_t value = k.values[lit];
@@ -394,9 +324,8 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   scratch.erase(out, scratch.end());
   observation.normalized_available();
 
-  // N2: the checker holds the file clause under `id`, repeats and all, so a
-  // shrunk clause may not keep it. Add the exact stored clause, but only when it is actually stored — a dropped clause is never deleted or
-  // used as the solver-side premise of a later inference.
+  // N2: a shrunk clause may not keep the checker's `id`; restate the exact
+  // stored clause, only when it is stored.
   const bool shrunk = scratch.size() < file_size;
 
   if (k.inconsistent) {
@@ -404,17 +333,9 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
     return; // already refuted; further clauses don't matter
   }
 
-  // Activation, kissat's `tumble` order (heuristics_seed_activation_order).
-  // Placed after the tautology return and before the store so it matches
-  // kissat's per-clause activation in `kissat_add`: a tautology activates
-  // nothing, and first activation follows file-literal order rather than the
-  // canonical sorted storage order. input_activated removes repeated
-  // literals in one clause and variables activated by an earlier clause; it
-  // also identifies variables in no surviving clause at input finalization.
-  // The normalized clause holds the unassigned distinct literals in
-  // first-occurrence file order, which is exactly the population and order
-  // the raw file literals would activate: repeats are skipped by
-  // input_activated and root-assigned variables are never activated.
+  // Activation in kissat's `tumble` order (heuristics_seed_activation_order),
+  // after the tautology return as in `kissat_add`; input_activated skips
+  // repeats and earlier-activated variables.
   activate_input_literals(k, scratch);
 
   if (scratch.empty()) { // empty input clause: immediate refutation
@@ -462,10 +383,8 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
 void declare_input(Kernel &k, uint32_t variables, uint64_t clauses) {
   kernel_reserve_vars(k, variables);
   k.input_header = {true, variables, clauses};
-  // The direct finite-domain startup rule needs the original order of
-  // unique binary constraints to reproduce its owning algorithm's
-  // deterministic seed. Keep that order only inside the rule's bounded
-  // admission envelope; the first startup opportunity releases it.
+  // The direct finite-domain startup rule keeps the original unique-binary
+  // order inside its bounded admission envelope.
   k.input_binary_order_captured =
       variables <= strategy::OnehotModelParameters::MAXIMUM_VARIABLES_DEFAULT &&
       clauses <= strategy::OnehotModelParameters::MAXIMUM_CONSTRAINTS_DEFAULT;
@@ -475,11 +394,8 @@ void declare_input(Kernel &k, uint32_t variables, uint64_t clauses) {
 }
 
 void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
-  // Keep the ordinary normalized binary path in a small frame of its own.
-  // The generic importer owns proof-restatement and root-unit vectors needed
-  // by the exceptional cases; constructing its frame for every binary input
-  // clause is avoidable when the DIMACS header has already reserved both
-  // variables and neither literal has a root value.
+  // A small frame for the ordinary normalized binary path when both variables
+  // are reserved and neither literal has a root value.
   if (scratch.size() == 2) {
     const Lit a = scratch[0], b = scratch[1];
     if (a != b && a != negate(b) && var_of(a) < k.nvars &&
@@ -506,21 +422,12 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
 
 void finish_input(Kernel &k) {
   kernel_sync_population_observer(k);
-  // Search never has more than one assignment per variable, while its level
-  // stack cannot exceed the same population.  Reserve both once, after the
-  // DIMACS header/import stream has fixed the population, so the propagation
-  // hot path does not carry vector growth and relocation into assignment.
+  // Reserve trail and frames once, so assignment never grows a vector.
   k.trail.reserve(k.nvars);
   k.frames.reserve(static_cast<size_t>(k.nvars) + 1);
-  // Input ids are settled. Root units derived during input also took ids, and the
-  // writer tracks that split between Tactix ids and the checker's numbering.
-  // An unassigned variable absent from every surviving normalized clause is
-  // outside Kissat's active/search population, even when a tautological or
-  // root-satisfied raw clause mentioned it. Retire that kernel identity
-  // without a witness: it occurs in no live constraint, so either value
-  // extends a model. Explicit Decide instances still retain the variable
-  // through the policy-neutral unassigned surface. Keep its import rank too:
-  // that order remains the stable API/debug identity image.
+  // Input ids are settled. An unassigned variable absent from every surviving
+  // clause is outside Kissat's active population: retire it without a witness
+  // (either value extends a model), keeping its import rank.
   for (Var v = 0; v < k.nvars; v++) {
     const bool activated = v < k.input_activated.size() && k.input_activated[v];
     if (!activated && k.values[make_lit(v, false)] == 0) {
@@ -540,17 +447,14 @@ void finish_input(Kernel &k) {
     }
     kernel_record_import(k, v);
   }
-  // Binary clauses are named by their literals after import, so the key archive
-  // has no consumer after deduplication. Release it for every input, independent
-  // of formula size or shape; size_ remains the monotone material watermark.
+  // Binaries are named by literals after import: release the key archive;
+  // size_ remains the monotone watermark.
   k.binary_ids.discard_storage();
   if (k.proof && k.proof->population_shadow_available())
     k.proof->arm_population_shadow();
-  // The decision order is `H` state.  If `H` is already attached, publish the
-  // activation population now. Otherwise retain it until ScopedHeuristics
-  // attaches at solve entry. The seeding routine combines it with permanent
-  // first-import ranks: Kissat's random brancher samples compact `VARS`, not
-  // activation order or every variable admitted by the DIMACS header.
+  // Publish the activation population to `H` now, or keep it until
+  // ScopedHeuristics attaches; seeding combines it with first-import ranks
+  // (Kissat samples compact `VARS`).
   heuristics_seed_activation_order(k, k.input_activation_order);
   if (k.h) {
     k.input_activation_order.clear();
@@ -600,9 +504,8 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   replay.startup_certificate_open = false; // current holds the raw input
   replay.proof = &proof;
   replay.population_observer = current.population_observer;
-  // The replay reconstructs checker identities for input already observed by
-  // the live kernel.  It must not claim a second raw stream or a second solver
-  // population; Proof events remain visible.
+  // The replay reconstructs checker identities without a second raw stream
+  // or solver population.
   replay.population_observe_raw_input = false;
   replay.population_observe_solver = false;
   proof.bind_variable_map(&replay.internal_to_external);
@@ -624,10 +527,8 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
     current.inconsistent = true;
     current.input_refuted = false;
   }
-  // The writer numbers the replayed input by the replay's clause ids. Unlike
-  // the proofless live import, the replay materializes root units under fresh
-  // ids, so a live id can name another constraint. Delete by specification
-  // instead.
+  // Replayed root units take fresh ids, so a live id may name another
+  // constraint: delete by specification.
   proof.disable_pbp_id_deletions();
   current.proof = &proof;
   proof.bind_variable_map(&current.internal_to_external);
@@ -640,8 +541,6 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
 const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
   assert(block_bytes > 0);
   std::vector<Lit> scratch;
-  ParseMemoryTrace memory_trace;
-  memory_trace.emit(k, "begin");
   struct ScopedInputBinaryLiveness {
     Kernel &kernel;
     std::unique_ptr<BinaryLivenessIndex> index;
@@ -671,11 +570,8 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
                                   std::max(entries, kernel.binary_ids.size()));
     }
   } input_liveness(k);
-  // Parsing is single-threaded and owns `f`. Scan one block at a time with the
-  // cursor and limit held in locals, so the whitespace and digit loops stay
-  // register-resident and stdio is entered once per block, never per byte.
-  // A token may straddle a block boundary: every scanning loop refills before
-  // it concludes that the input ended.
+  // Scan one block at a time with locals for cursor and limit; every scanning
+  // loop refills before concluding that the input ended.
   std::unique_ptr<unsigned char[]> block(new unsigned char[block_bytes]);
   const unsigned char *p = block.get();
   const unsigned char *e = p;
@@ -709,9 +605,8 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         return;
     }
   };
-  // Accumulates the digit run at p into n, checking the 2^28 bound after every
-  // digit when bounded; false reports that bound. Leaves p at the first
-  // non-digit or at the end of input.
+  // Accumulates the digit run at p into n, checking the 2^28 bound per digit
+  // when bounded (false reports it); leaves p at the first non-digit.
   const auto read_digits = [&](uint64_t &n, bool bounded) -> bool {
     for (;;) {
       while (p != e && is_digit(*p)) {
@@ -754,25 +649,15 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         uint64_t clauses = 0;
         read_digits(clauses, false);
         declare_input(k, static_cast<uint32_t>(n), clauses);
-        // Avoid repeated multi-gigabyte rehashes on binary-dominated inputs.
-        // Binary encodings commonly contain almost nothing else.  Reserve up
-        // to the declared clause count, capped by twice the variable
-        // population so a huge long-clause input does not reserve a giant
-        // binary table it will never use.  Two binaries per declared
-        // variable is a deliberately non-binding prediction: the table
-        // still grows exactly when an input exceeds it, while the former
-        // three-times estimate needlessly crossed a power-of-two boundary on
-        // large circuit encodings.
+        // Reserve for binaries up to the declared clause count, capped at two
+        // per declared variable; the table still grows when exceeded.
         const uint64_t predicted_binaries =
             std::min<uint64_t>(clauses, 2 * n);
         // Import uses a compact no-false-negative filter backed by exact
-        // mirrored-watch confirmation. PBP deletes binaries by specification
-        // and retains exact identities only for non-binary clauses. The filter
-        // grows by load, never by formula identity or a size gate.
+        // mirrored-watch confirmation; PBP deletes binaries by specification.
         k.binary_ids.discard_storage();
         input_liveness.arm(static_cast<size_t>(predicted_binaries),
                            2 * k.nvars, clauses);
-        memory_trace.emit(k, "header");
         skip_line();
       }
       continue;
@@ -795,7 +680,6 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
     if (n == 0) {
       ingest_clause(k, scratch);
       scratch.clear();
-      memory_trace.maybe(k);
     } else if (neg) {
       scratch.push_back(internalize(-static_cast<int>(n)));
     } else {
@@ -804,9 +688,7 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
   }
   if (!scratch.empty()) // tolerate a missing final 0
     ingest_clause(k, scratch);
-  memory_trace.emit(k, "finish-begin");
   finish_input(k);
-  memory_trace.emit(k, "finish-end");
   return nullptr;
 }
 

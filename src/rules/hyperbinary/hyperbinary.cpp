@@ -23,11 +23,8 @@ struct Resolvent {
   bool subsumes; // ¬dom ∈ reason, so the resolvent subsumes it
 };
 
-// Walk up the binary implication tree until the two literals meet. Both are
-// true at level 1 and `parent` is a tree over exactly those literals, so the
-// walk terminates at the probe root in the worst case. cadical
-// `probe.cpp:149`; the `trail` comparison is what makes it O(depth) rather
-// than O(depth²) — always step the DEEPER of the two.
+// Walk up the binary implication tree until the literals meet, always stepping
+// the deeper one (cadical `probe.cpp:149`); terminates at the probe root.
 Lit dominator(const Kernel &k, const std::vector<Lit> &parent, Lit a, Lit b) {
   Lit l = a, m = b;
   while (l != m) {
@@ -54,36 +51,29 @@ RuleEligibility hyperbinary_guard(const Kernel &k) {
   return failed_literal_guard(k);
 }
 
-// Same schedule as V1 Probe: a literal is worth assuming only if its negation
-// carries a binary watch, i.e. it is a head of the binary implication graph.
-// Without that, the closure is empty and no long clause can be resolved.
+// Same schedule as V1 Probe: assume literals whose negation has a binary watch.
 void hyperbinary_candidates(const Kernel &k, std::vector<Lit> &out) {
   failed_literal_candidates(k, out);
 }
 
 namespace {
 
-// Close `p` under propagation, then read the resolvents off the finished
-// trail. Returns false if the probe conflicted — that is V1 Probe's failed
-// literal, and it belongs to V1: emitting a unit here would duplicate another
-// rule's inference and its proof obligation.
+// Close `p` under propagation and read the resolvents off the trail. False on
+// conflict: that failed literal is V1 Probe's inference.
 bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
              std::vector<Resolvent> &out) {
   kernel_probing_begin(k);
   const uint32_t base = static_cast<uint32_t>(k.trail.size());
   kernel_assign_decision(k, p);
-  // A conflict here means `p` is a failed literal, which is V1 Probe's
-  // inference and its proof obligation. Note the polarity: unlike V1, this rule
-  // wants the probe to SURVIVE, because the resolvents are read off a
-  // consistent level-1 closure.
+  // A conflict means `p` failed (V1's inference); this rule needs a consistent
+  // closure.
   if (kernel_propagate_probing(k)) {
     probe_unwind(k);
     return false;
   }
 
-  // The trail from `base` is the level-1 closure, in assignment order, so a
-  // literal's antecedents always precede it and `parent` is complete by the
-  // time it is read.
+  // The trail from `base` is in assignment order, so `parent` is complete when
+  // read.
   for (uint32_t i = base; i < k.trail.size(); i++) {
     const Lit l = k.trail[i];
     const Assigned &a = k.assigned[var_of(l)];
@@ -120,15 +110,12 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
       dom = (dom == INVALID_LIT) ? t : dominator(k, parent, dom, t);
     }
     if (non_root == 0 || dom == INVALID_LIT) {
-      // Case (A): every other literal is root-false, so the clause is already
-      // binary in effect. cadical declines the resolvent here too; garbage
-      // collection shrinks the clause eventually.
+      // Case (A): the clause is binary in effect; cadical declines too.
       parent[var_of(l)] = INVALID_LIT;
       continue;
     }
-    // Install the dominator as the parent, precisely the reason cadical would
-    // have installed by adding the resolvent during propagation (see
-    // hyperbinary.hpp) — this is what keeps the tree a tree.
+    // The dominator becomes the parent, as cadical's added resolvent would
+    // (hyperbinary.hpp), keeping the tree a tree.
     parent[var_of(l)] = dom;
     if (dom == p)
       continue; // (¬p ∨ l) is the trivial resolvent: no dominance was gained
@@ -138,9 +125,8 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
   return true;
 }
 
-// Emit one banked resolvent at the clean root. The replay is the RUP test (see
-// hyperbinary.hpp), so a resolvent that unit
-// propagation cannot re-derive is declined rather than emitted unchecked.
+// Emit one banked resolvent at the root; the replay is the RUP test, so an
+// underivable resolvent is declined.
 bool emit(Kernel &k, const Resolvent &r) {
   const Lit lits[2] = {negate(r.dom), r.forced};
   if (lits[0] == lits[1] || lits[0] == negate(lits[1]))
@@ -174,9 +160,7 @@ ApplyResult emit_semantic(Kernel &k, const Resolvent &r) {
   if (negate(r.dom) != r.forced)
     return emit(k, r) ? ApplyResult::Ok : ApplyResult::NoOp;
 
-  // The binary resolvent (¬d ∨ l0) collapses to unit l0 when l0=¬d.
-  // Canonical probing retains its historical division of work and still uses
-  // `emit`; this unit path belongs only to the complete semantic surface.
+  // (¬d ∨ l0) collapses to unit l0 when l0=¬d; semantic surface only.
   const Lit unit = r.forced;
   const int8_t value = k.value(unit);
   if (value > 0)
@@ -218,14 +202,9 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p) {
   if (!collect(k, p, parent, found))
     return ApplyResult::NoOp; // a failed literal is V1 Probe's inference
   bool any = false;
-  // `k.work_budget` in this rule's own currency (hbr_ticks); bounded zero is
-  // distinguished from the legacy zero-as-unlimited handoff.
-  // One root's closure can carry thousands of resolvents and every one costs a
-  // RUP replay, so this is the only place the effort ledger can bind: the
-  // policy polls between INSTANCES, and one instance is this whole loop. The
-  // amount is the policy's (see run_dosed_entry); the rule only obeys it.
-  // Emitting fewer resolvents is always sound — the rule derives fewer
-  // consequences — and it never narrows `instances()`.
+  // `k.work_budget` in hbr_ticks (bounded zero distinct from unlimited). One
+  // instance is this whole loop, so the ledger binds here; fewer resolvents is
+  // always sound and never narrows `instances()`.
   const uint64_t tick_start = k.stats.hbr_ticks;
   for (const Resolvent &r : found) {
     if (kernel_work_budget_exceeded(k, k.stats.hbr_ticks - tick_start))
@@ -249,9 +228,7 @@ ApplyResult hyperbinary_apply(Kernel &k) {
   std::vector<Resolvent> found;
   bool any = false;
   for (const Lit p : candidates) {
-    // A prior probe can retain newly discovered root facts when its
-    // assumptions are unwound.  Complete their closure before opening the
-    // next independent probing scope.
+    // Close root facts retained by the previous probe first.
     if (inprocess_reach_root(k))
       return ApplyResult::Unsat;
     if (k.value(p) != 0)
@@ -295,11 +272,8 @@ static uint32_t hyperbinary_semantic_instances(Kernel &k, uint64_t *out,
   std::vector<uint8_t> reached(2 * k.nvars, 0);
   std::vector<Lit> queue;
   for (Lit dom = 0; dom < 2 * k.nvars; ++dom) {
-    // Complete enumeration can be quadratic in the variable count. The
-    // caller publishes its external stop through Kernel while this legacy
-    // callback is active; return the partial prefix immediately and let the
-    // typed enumerator report Interrupted rather than mistaking it for a
-    // complete frontier.
+    // Return the partial prefix on an external stop; the typed enumerator
+    // reports Interrupted.
     if (k.stop && *k.stop)
       return count;
     if (k.value(dom) != 0)
@@ -382,10 +356,8 @@ static ApplyResult hyperbinary_apply_semantic_instance(Kernel &k,
   return emit_semantic(k, resolvent);
 }
 
-// instance surface: payload = the probe root, the shared lit_instance encoding
-// (as V1 Probe and M2 Decide); INSTANCE_CANONICAL = the full round.
-// COMPLETE over roots — the enumeration is the same schedule the round walks,
-// and `hyperbinary_try` accepts any unfixed literal, not only a scheduled one.
+// Instance surface: payload = probe root (lit_instance); INSTANCE_CANONICAL =
+// the full round. Complete over roots.
 TACTIX_REGISTER_RULE(HyperBinaryRes, RuleTier::Inprocess, hyperbinary_guard,
                      hyperbinary_apply, failed_literal_instances,
                      (apply_root_literal_instance<hyperbinary_apply,

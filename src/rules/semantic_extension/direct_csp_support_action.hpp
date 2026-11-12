@@ -13,9 +13,7 @@
 
 namespace tactix {
 
-// A support action is selected by an exact ordered pair of domains and one
-// row of the left domain.  The domains are stable external literals; retaining
-// them in replay data prevents a row ordinal from acquiring a new meaning.
+// An ordered domain pair in external literals and one row of the left domain.
 struct DirectCspSupportActionSelection {
   std::vector<int32_t> left_values;
   std::vector<int32_t> right_values;
@@ -33,11 +31,8 @@ struct DirectCspSupportActionKey {
   auto operator<=>(const DirectCspSupportActionKey &) const = default;
 };
 
-// The controller owns one session for one Kernel lifetime.  Its first
-// productive action for each ordered domain pair retains that pair's exact
-// pre-publication source snapshot. Row identities remain committed even if a
-// later inprocessing rule deletes the published support clause. Left/right
-// order is semantic: reversing a pair selects the reverse support direction.
+// One session per Kernel. The first action of each ordered pair retains its
+// source snapshot; committed rows outlive their clauses.
 class DirectCspSupportActionSession {
 public:
   bool retained() const { return owner_ != nullptr; }
@@ -90,9 +85,8 @@ struct DirectCspSupportActionEffort {
   uint64_t session_work = 0;
 };
 
-// Exact-OR extensions are omitted from the external model.  Their value is
-// defined by the listed original literals, so no reconstruction witness is
-// required.  An empty obligation denotes an original-variable-only support.
+// Exact-OR extensions are defined by original literals and omitted from the
+// model; empty means no extension.
 struct DirectCspSupportActionProjection {
   uint32_t extension_variable = 0;
   std::vector<int32_t> definition_inputs;
@@ -112,8 +106,7 @@ struct DirectCspSupportActionResult {
   uint64_t committed_keys = 0;
   uint64_t retained_owners = 0;
   bool owner_retained = false;
-  // The shared registry bridge publishes this neutral metadata under the
-  // DirectCsp producer identity after the composed action settles.
+  // Staged under the DirectCsp producer after the action settles.
   bool semantic_candidate_ready = false;
   std::vector<strategy::SemanticVariable> semantic_variables;
   DirectCspSupportActionProjection projection;
@@ -121,10 +114,8 @@ struct DirectCspSupportActionResult {
   DirectCspSupportLiveResult live;
 };
 
-// Shared adapters for actions backed by the DirectCSP live publisher. Some
-// composed actions account owner recognition before publication, so live
-// recognition is accumulated while the other publisher counters replace
-// their corresponding action fields.
+// Adapters for actions over the DirectCSP live publisher: live recognition
+// accumulates, other counters replace the action's fields.
 inline DirectCspSupportActionStatus direct_csp_support_action_status(
     DirectCspSupportLiveStatus status) {
   if (const auto failure = strategy::map_standard_action_failure<
@@ -160,15 +151,11 @@ inline void direct_csp_support_action_absorb_live_effort(
   output.effort.journal_bytes = live.journal_bytes;
 }
 
-// Formula/proof-state eligibility only. Selection, effort, and retained state
-// remain explicit controller inputs; the guard is pure and performs no scan.
+// Formula/proof-state eligibility only; no scan.
 RuleEligibility direct_csp_support_action_guard(const Kernel &);
 
-// Deterministically apply one selected support row at an assignment-free
-// propagated root. Publication and propagation are separate actions. DSR and
-// no-proof modes are supported by the live publisher; PBP declines before
-// mutation. Every recoverable decline preserves the kernel,
-// session, provenance stream, and global action sequence.
+// Apply one support row at an assignment-free propagated root (PBP
+// declines); every decline leaves all state unchanged.
 DirectCspSupportActionResult direct_csp_support_action_apply(
     Kernel &, DirectCspSupportActionSession &,
     const DirectCspSupportActionLimits &,

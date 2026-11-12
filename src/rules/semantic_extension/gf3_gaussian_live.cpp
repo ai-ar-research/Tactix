@@ -5,10 +5,8 @@
 #include "rules/semantic_extension/interruptible_work.hpp"
 #include "strategy/action_status_mapping.hpp"
 
-#include <algorithm>
 #include <climits>
 #include <cstdlib>
-#include <limits>
 #include <set>
 #include <utility>
 
@@ -41,9 +39,7 @@ using gf3_live_common::append_u64;
 using gf3_live_common::owner_request;
 
 bool add(uint64_t &value, uint64_t amount) {
-  if (amount > std::numeric_limits<uint64_t>::max() - value) return false;
-  value += amount;
-  return true;
+  return add_bounded(amount, UINT64_MAX, value);
 }
 
 void append_reference(std::string &bytes,

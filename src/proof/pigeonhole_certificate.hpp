@@ -5,13 +5,11 @@
 
 namespace tactix::pigeonhole_certificate {
 
-// Extended-resolution pigeonhole reduction using sequential AMO prefixes.
-// x[pigeon][hole]: every pigeon has a cover, every hole has pairwise AMO.
-// There are h+1 pigeons and h holes. Optional guard g means these premises
-// hold under NOT g; append g to every emitted clause, including fresh RAT
-// definitions, and discharge the refutation to the unit g. All input variable
-// identities must be distinct and disjoint from g; the sink owns a fresh
-// namespace and must stop permanently on failure. Zero guard means refutation.
+// Extended-resolution pigeonhole reduction with sequential AMO prefixes over
+// x[pigeon][hole] (h+1 pigeons, h holes, covers and pairwise AMOs). An optional
+// guard g (premises under NOT g) is appended to every emitted clause and the
+// refutation ends in the unit g; zero means a plain refutation. Inputs are
+// distinct and disjoint from g; the sink owns a fresh namespace.
 // Sink: fresh(int32_t&), add(vector<int32_t>, bool rat, const char *role).
 template<class Sink>
 class Certificate {
@@ -50,10 +48,8 @@ public:
   bool prove(std::vector<std::vector<int32_t>> x) {
     return run(std::move(x),false,nullptr);
   }
-  // Balanced form: n covers into n capacity-one holes imply that every hole
-  // is occupied. Reduce to 1x1, then lift all occupancy units back through
-  // the saved moved-prefix definitions. One shared cubic construction proves
-  // every hole occupied; it does not repeat n separate pigeonhole refutations.
+  // Balanced form: n covers into n capacity-one holes occupy every hole; one
+  // cubic reduction to 1x1 lifts the occupancy units back.
   bool derive_occupancy(std::vector<std::vector<int32_t>> x,
                         std::vector<int32_t> &occupied) {
     occupied.clear();
@@ -97,9 +93,7 @@ private:
           add({-next[i-1][j],-y[i][j]}, false, "moved-prefix-capacity");
         }
       }
-      // Under a negated new cover, every old non-last entry is false.
-      // The old cover fixes the last entry; then the displaced pigeon's
-      // cover and the last-hole capacity give the contradiction by UP.
+      // Under a negated new cover every old non-last entry is false; UP closes.
       for (size_t i = 0; i < last && valid; ++i)
         add(y[i], false, "moved-pigeon-cover");
       x = std::move(y); s = std::move(next);

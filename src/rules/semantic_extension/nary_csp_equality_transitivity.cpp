@@ -1,7 +1,6 @@
 #include "rules/semantic_extension/nary_csp_equality_transitivity.hpp"
 #include "rules/semantic_extension/csp_domain_identity.hpp"
 #include "kernel/types.hpp"
-#include <algorithm>
 #include <climits>
 #include <utility>
 namespace tactix::equality_transitivity {

@@ -57,7 +57,6 @@ int tick_attribution_stat(uint64_t Stats::*counter);
 bool advance_structured_stage(void *, strategy::InvocationResult &,
                               uint64_t ticks_per_generator, uint64_t hard_limit);
 
-const strategy::OnlineStrategyProgram *online_executor_for_fixed_testing(void *opaque);
 // A cold execution view borrows an active query's Kernel/H/proof/services.
 // It must be destroyed before the query is finished or its epoch changes.
 void *create_query_execution(session::QueryKernel &,DefaultPolicy &,

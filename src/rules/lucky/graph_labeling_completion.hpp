@@ -6,13 +6,10 @@ namespace tactix::graph_labeling {
 
 enum class CompletionStatus { Model, NoModel, Limited };
 
-// Complete a constructor's signed partial assignment without touching Kernel.
-// Residual clauses and private occurrence queues propagate auxiliary variables;
-// remaining unknowns take the reference's false completion. Every proposed model
-// still passes the whole live/root validator, including redundant clauses and
-// retired-variable semantics. Publication/reconstruction belong to the action.
-// maximum_bytes bounds logical payload, excluding allocator/spare capacity and
-// the caller's input/output storage. Every scan/queue/validation visit is charged.
+// Complete a signed partial assignment without touching Kernel: residual
+// clauses propagate auxiliaries, remaining unknowns take the reference's false
+// completion, and every model still passes the whole live/root validator.
+// maximum_bytes bounds logical payload; every visit is charged.
 template<class Charge>
 CompletionStatus complete_model(const Kernel &k, const std::vector<int8_t> &partial,
                                 uint64_t maximum_bytes, Charge &&charge,

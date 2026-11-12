@@ -37,33 +37,22 @@ struct MatrixLiveRequest {
   StructuralJournal records;
   bool compact_provenance = false;
   bool retained_source_provenance = false;
-  // Pure certificate preflight for an implication/conflict retained from an
-  // earlier matrix synchronization point.  The complete source-derived
-  // clause is authenticated independently of the matrix's current tableau;
-  // no publication semantics are relaxed by this flag.
+  // Certificate preflight for an event from an earlier synchronization,
+  // authenticated from its sources.
   bool historical_event = false;
-  // Authenticate an alternative current-trail spelling through the complete
-  // source-derived core audit without relaxing current-event applicability or
-  // reason ordering. Used by the exact-core detached public operation.
+  // Authenticate an exact-core spelling through the source-derived audit.
   bool core_reason_authentication = false;
-  // Prepare the current event normally, but retain enough immutable identity
-  // for a later publication after its implication has been consumed.  This is
-  // used only by the explicit deferred/materialize public action pair.
+  // Keep identity for a publication after the implication is consumed
+  // (deferred/materialize pair).
   bool retained_publication = false;
-  // ConflictAnalysis is an atomic public rule. Once it has selected a lazy
-  // affine ancestor, proof-visible reason completion must finish even if the
-  // asynchronous stop flag becomes set inside that same rule. Ordinary
-  // public matrix operations retain interruptible preflight/publication.
+  // False inside ConflictAnalysis, which must finish a selected lazy reason.
   bool honor_termination = true;
-  // Publish an eagerly certified implication reason as a detached arena
-  // record: conflict analysis may consume it, but ordinary watched
-  // propagation and formula scans cannot. Conflicts, root outcomes and
-  // reasons narrower than three literals retain ordinary clause semantics.
+  // Publish a non-root implication of three or more literals as a detached
+  // arena record that only conflict analysis sees.
   bool detached_reason = false;
   AffineMatrixProofCache *proof_cache = nullptr;
   PbpParityBoundsCache *pbp_parity_cache = nullptr;
-  // Optional exact per-equation checker-premise ownership. Absence preserves
-  // the legacy live native-source authentication boundary.
+  // Per-equation checker-premise leases; null authenticates live sources.
   const std::vector<uint64_t> *premise_leases = nullptr;
   uint64_t maximum_persistent_bytes = 0;
 
@@ -88,25 +77,22 @@ struct MatrixLiveResult {
   uint64_t journal_bytes = 0;
   bool implication = false;
   bool conflict = false;
-  // A non-root implication is assigned immediately from its newly installed
-  // reason clause. Propagation remains pending for that literal's watch lists.
+  // A non-root implication was assigned from its new reason; propagation of
+  // its watches is pending.
   bool implication_consumed = false;
   bool propagation_pending = false;
   bool proof_cache_hit = false;
   bool proof_cache_insert = false;
   bool proof_cache_resume = false;
   bool compact_pbp = false;
-  // The separately callable publication reused the matrix's authenticated
-  // retained state after proving that its exact support trail was unchanged.
+  // Publication reused retained authentication for an unchanged trail.
   bool retained_authentication = false;
   bool detached_reason = false;
   uint64_t installed_reason_id = 0;
   Ref installed_reason_ref = INVALID_REF;
   MatrixTransactionFailureStage transaction_failure_stage =
       MatrixTransactionFailureStage::None;
-  // Publication audit boundary for a declined two-phase transaction.  This is
-  // diagnostic evidence only; status remains the public semantic outcome.
-  // Values are stable for campaign attribution and append-only telemetry.
+  // Diagnostic audit stage of a declined two-phase publication (append-only).
   enum class AuditStage : uint8_t {
     None = 0,
     PreparedContract = 1,
@@ -159,11 +145,8 @@ private:
   Proof *proof_ = nullptr;
   long records_position_ = -1;
   std::vector<MatrixAssignment> trail_;
-  // Exact matrix state authenticated during prepare.  A retained deferred
-  // publication may let the Boolean trail grow, but the public debt grammar
-  // forbids another matrix step.  Equality here therefore permits the same
-  // aggregate retained authentication used by the one-shot path; a changed
-  // matrix trail falls back to the full historical source audit.
+  // Matrix trail at prepare; equality permits retained authentication, else
+  // publish runs the full source audit.
   std::vector<MatrixAssignment> matrix_trail_;
   std::vector<uint32_t> trail_levels_;
   MatrixEvent event_;
@@ -180,19 +163,15 @@ private:
   MatrixLiveResult prepared_;
 };
 
-// Both phases are mutation-free until publish has revalidated every retained
-// identity and resource boundary. Publication emits the preflighted proof,
-// installs its marked reason, and directly consumes a non-root implication;
-// ordinary propagation remains pending for the new literal's watch lists.
+// Nothing mutates until publish revalidates every identity and bound; it then
+// emits the proof, installs the reason and assigns a non-root implication.
 MatrixLiveResult prepare_affine_matrix_live(
     Kernel &, const MatrixLiveRequest &, AffineMatrixLivePrepared &);
 MatrixLiveResult publish_affine_matrix_live(
     Kernel &, const MatrixLiveRequest &, AffineMatrixLivePrepared &);
 MatrixLiveResult apply_affine_matrix_live(Kernel &, const MatrixLiveRequest &);
 
-// Canonicalize a current matrix event into the clausal implication/conflict
-// order used by the Boolean kernel.  This is representation only: it emits no
-// proof and authenticates no algebraic consequence.
+// Order a matrix event's reason as the kernel's clause (no proof, no audit).
 bool affine_matrix_event_reason_order(const Kernel &, const MatrixEvent &,
                                       std::vector<Lit> &);
 

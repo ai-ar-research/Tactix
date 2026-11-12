@@ -1,15 +1,8 @@
-// S5 Lucky (plan §5.2, kissat lucky.c): cheap complete-assignment probes
-// before real search — all-true, all-false, and forward/backward
-// constant sweeps with unit propagation. May conclude SAT; a first-level
-// probe conflict commits the failed-assumption unit by RUP, while an abandoned
-// deeper probe retains all such prior root consequences. Phases are never
-// touched. The instance space is the PROBE variant; the canonical
-// instance is kissat's full cascade. WHEN to probe is policy state
-// (DefaultPolicy: once, at search start — kissat luckyearly/luckylate).
-//
-// Guard: probes are defined from a quiescent state — fully propagated,
-// no conflict or pending handoff in flight, at the root. Reaching the
-// root is the policy's job (Restart keep-level 0 composes it).
+// Lucky (kissat lucky.c): all-true, all-false and forward/backward constant
+// sweeps with unit propagation. May conclude SAT; a first-level probe
+// conflict commits the failed literal by RUP. Phases are never touched. The
+// canonical instance is kissat's full cascade. Guard: a quiescent root state,
+// which the policy reaches by Restart.
 #pragma once
 
 #include "rules/registry.hpp"
@@ -27,13 +20,11 @@ constexpr uint64_t LUCKY_STARTUP_PARITY = 19;
 constexpr uint64_t LUCKY_STARTUP_COUNT = 20;
 constexpr uint64_t LUCKY_GRAPH_LABELING = 21;
 constexpr uint64_t LUCKY_STARTUP_RAMSEY = 22;
-// IDs 6--18 and 21 retain their historical SAT-constructor meanings.
-// Proof-only parity/exact-one actions use 23/24 so constructor replays never
-// acquire UNSAT semantics. Never reuse or redirect a stable identity.
+// IDs 6-14, 17, 18 and 21 are SAT constructors; 15 and 16 are proof-capable;
+// proof-only actions use 23/24. Never reuse or redirect a stable identity.
 constexpr uint64_t LUCKY_PARITY_PROOF = 23;
 constexpr uint64_t LUCKY_EXACT_ONE_PROOF = 24;
-// Retired noL constructor identity. Keep the numeric payload reserved so old
-// programs are rejected instead of being redirected to a different action.
+// Retired identity, kept reserved so old programs are rejected.
 constexpr uint64_t LUCKY_NOL_HYPERGRAPH = 25;
 constexpr uint64_t LUCKY_GRAPH_AUTHENTICATE = 26;
 constexpr uint64_t LUCKY_GRAPH_CONTINUE = 27;

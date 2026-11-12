@@ -4,6 +4,7 @@
 #include "strategy/action_status_statistics.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/action_epilogue.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
@@ -148,11 +149,8 @@ Gf3GeneralRowActionResult gf3_general_row_action_apply(
     retained_bytes += key.identity.size();
   }
   output.session_identity_bytes = retained_bytes;
-  std::vector<Gf3GeneralRowActionSelection> keys;
-  keys.reserve(session.keys().size() + 1);
-  keys.insert(keys.end(), session.keys().begin(), position);
-  keys.push_back(selection);
-  keys.insert(keys.end(), position, session.keys().end());
+  std::vector<Gf3GeneralRowActionSelection> keys =
+      sorted_with(session.keys(), position, selection);
 
   output.proposed_action_id = kernel.structural_action_sequence + 1;
   output.semantic_id = output.proposed_action_id;
@@ -275,23 +273,21 @@ Gf3GeneralRowActionOfferResult gf3_general_row_action_offer(
 void record_gf3_general_row_action_feedback(
     Kernel &kernel, const Gf3GeneralRowActionResult &result) {
   auto &s = kernel.stats;
+  const auto &e = result.live.effort;
   ++s.gf3_general_row_attempts;
-  s.gf3_general_row_source_clauses += result.live.effort.source_clauses;
-  s.gf3_general_row_source_literals += result.live.effort.source_literals;
-  s.gf3_general_row_capture_work += result.live.effort.capture_work;
-  s.gf3_general_row_bridge_work += result.live.effort.bridge_work;
-  s.gf3_general_row_planning_work += result.live.effort.planning_work;
-  s.gf3_general_row_validation_work += result.live.effort.validation_work;
-  s.gf3_general_row_duplicate_scan_work +=
-      result.live.effort.duplicate_scan_work;
-  s.gf3_general_row_revalidation_work +=
-      result.live.effort.revalidation_work;
-  s.gf3_general_row_proof_additions += result.live.effort.proof_additions;
-  s.gf3_general_row_proof_literals +=
-      result.live.effort.proof_literal_occurrences;
-  s.gf3_general_row_arena_words += result.live.effort.arena_words;
-  s.gf3_general_row_journal_bytes += result.live.effort.journal_bytes;
-  s.gf3_general_row_identity_bytes += result.live.effort.identity_bytes;
+  s.gf3_general_row_source_clauses += e.source_clauses;
+  s.gf3_general_row_source_literals += e.source_literals;
+  s.gf3_general_row_capture_work += e.capture_work;
+  s.gf3_general_row_bridge_work += e.bridge_work;
+  s.gf3_general_row_planning_work += e.planning_work;
+  s.gf3_general_row_validation_work += e.validation_work;
+  s.gf3_general_row_duplicate_scan_work += e.duplicate_scan_work;
+  s.gf3_general_row_revalidation_work += e.revalidation_work;
+  s.gf3_general_row_proof_additions += e.proof_additions;
+  s.gf3_general_row_proof_literals += e.proof_literal_occurrences;
+  s.gf3_general_row_arena_words += e.arena_words;
+  s.gf3_general_row_journal_bytes += e.journal_bytes;
+  s.gf3_general_row_identity_bytes += e.identity_bytes;
   s.gf3_general_row_session_work += result.session_work;
   s.gf3_general_row_session_identity_bytes += result.session_identity_bytes;
   const bool standard_status = strategy::record_standard_action_status(

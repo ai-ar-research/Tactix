@@ -18,9 +18,7 @@ namespace tactix {
 namespace {
 
 using ClauseKey = std::vector<int32_t>;
-
 using Meter = InterruptibleWork;
-
 using gf3_certificate_common::canonical;
 using gf3_live_common::append_reference;
 using gf3_live_common::append_u8;

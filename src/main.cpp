@@ -78,9 +78,7 @@ static void print_model(const Kernel &k) {
   for (Var v = 0; v < kernel_num_output_vars(k); v++) { // external originals
     const Lit pos = make_lit(v, false);
     const int e = static_cast<int>(v) + 1;
-    // Strict > 0, agreeing with tactix_value: after kernel_extend_model no
-    // variable is value-0, and if extension were ever skipped a 0 must print
-    // as false, not fabricate a positive phase the API would deny.
+    // Strict > 0, as tactix_value: an unextended value 0 prints as false.
     if (cursor - line + 16 > 4094)
       flush_line();
     *cursor++ = ' ';
@@ -151,6 +149,14 @@ static bool feedback_metadata(const char *input, uint32_t bve_gates,
   return 1;
 }
 
+// Whether `path` and `other` name one file, canonically or by identity.
+static bool same_file(const char *path, const char *other) {
+  std::error_code a, b, c;
+  return (std::filesystem::weakly_canonical(path, a) ==
+              std::filesystem::weakly_canonical(other, b) && !a && !b) ||
+         std::filesystem::equivalent(path, other, c);
+}
+
 // Poses a `uint32_t` kernel knob from a decimal environment value.
 static void env_u32(const char *name, uint32_t &knob) {
   if (const char *value = getenv(name))
@@ -161,6 +167,14 @@ static void env_u32(const char *name, uint32_t &knob) {
 static void env_flag(const char *name, bool &knob) {
   if (const char *value = getenv(name))
     knob = *value != '0';
+}
+
+// Parses an `on`/`off` option value into `out`; false for anything else.
+static bool on_off(const char *value, std::optional<bool> &out) {
+  if (!strcmp(value, "on")) out = true;
+  else if (!strcmp(value, "off")) out = false;
+  else return false;
+  return true;
 }
 
 // `part` as a percentage of `whole`, or 0 when `whole` is 0.
@@ -175,8 +189,7 @@ struct StatCount {
 };
 
 // Prints a `c` statistics line: `prefix`, then the counters joined by
-// `separator`, then the newline. The line is written with one stdio call,
-// as the single printf it replaces was.
+// `separator`, in one stdio call.
 static void stat_line(const char *prefix,
                       std::initializer_list<StatCount> counts,
                       const char *separator = ", ") {
@@ -200,9 +213,8 @@ static void pose_kernel(Kernel &kernel, uint32_t bve_gate_mask,
   kernel.affine_matrix_provenance_compact = compact_affine_provenance;
   kernel_defer_cold_state(kernel);
   kernel.bve_gate_mask = bve_gate_mask;
-  // Each env knob below poses one `Kernel` config field; that field documents
-  // its default and soundness class. They are read here rather than in
-  // DefaultPolicy so configuration is posed before it owns the session.
+  // Each env knob poses one `Kernel` field, which documents its default; they
+  // are read here so configuration is posed before DefaultPolicy owns it.
   env_u32("TACTIX_BCE_OCC_LIMIT", kernel.bce_occ_limit);
   env_u32("TACTIX_TERNARY_OCC_LIMIT", kernel.ternary_occ_limit);
   env_u32("TACTIX_TERNARY_MAXADD", kernel.ternary_max_add_percent);
@@ -219,24 +231,18 @@ static void pose_kernel(Kernel &kernel, uint32_t bve_gate_mask,
   env_flag("TACTIX_TRANSITIVE_LIVE_METER", kernel.transitive_live_meter);
   if (const char *meter = getenv("TACTIX_V4_METER"))
     kernel.transitive_budget_checked = !std::strcmp(meter, "checked");
-  // Vivify's cross-candidate trail reuse ships ON; =0 also restores the older
-  // probe/candidate order, which cannot be separated (Kernel::vivify_reuse).
+  // =0 also restores the older probe/candidate order (Kernel::vivify_reuse).
   env_flag("TACTIX_VIVIFY_REUSE", kernel.vivify_reuse);
   env_flag("TACTIX_VIVIFY_FLUSH", kernel.vivify_flush);
   env_u32("TACTIX_FACTOR_SIZE", kernel.factor_size);
-  // Kissat's `reduction > bound` acceptance threshold (factor.c:939), default 0
-  // accepting any positive gain. Formula-shape-blind, which is why it and not a
-  // scope gate is the candidate for making broad admission safe: Factor's
-  // winners and losers sit at the same scope fraction.
+  // Kissat's `reduction > bound` acceptance threshold (factor.c:939).
   env_u32("TACTIX_FACTOR_BOUND", kernel.factor_bound);
-  // Fresh-variable demotion ships ON (reference parity); `=0` is the off arm.
   env_flag("TACTIX_FACTOR_DEMOTE", kernel.factor_demote_fresh);
   env_u32("TACTIX_FACTOR_CAND_ROUNDS", kernel.factor_cand_rounds);
   env_u32("TACTIX_STOP_FUZZ", kernel.stop_fuzz); // see kernel_terminating
   if (getenv("TACTIX_SUBST_DEMOTE"))
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
-  // Eager subsumption of recent learned clauses ships ON at kissat's default
-  // and maximum (`eagersubsume`=4, learn.c); `=0` reverts, 1..4 dose it.
+  // Kissat `eagersubsume` (learn.c): default and maximum 4; 0..4 dose it.
   if (const char *es = getenv("TACTIX_EAGER_SUBSUME")) {
     const unsigned long n = strtoul(es, nullptr, 10);
     kernel.eager_subsume = n > Kernel::EAGER_SUBSUME_SLOTS
@@ -245,14 +251,12 @@ static void pose_kernel(Kernel &kernel, uint32_t bve_gate_mask,
   }
   if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
     kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
-  // Conflict-clause reuse ships ON, matching Kissat's
-  // one_literal_on_conflict_level shortcut; `=0` is the diagnostic revert.
+  // Kissat's one_literal_on_conflict_level shortcut.
   kernel.conflict_reuse = true;
   env_flag("TACTIX_CONFLICT_REUSE", kernel.conflict_reuse);
-  // Kissat's `jumpreasons` ships ON; =0 restores direct antecedent reasons.
+  // Kissat's `jumpreasons`.
   env_flag("TACTIX_JUMP_REASONS", kernel.jump_reasons);
-  // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
-  // `=0` reverts to the pre-parity behaviour and is the priced arm.
+  // Kissat `promote` and `tumble`.
   env_flag("TACTIX_SHRINK_GLUE", kernel.shrink_glue_promote);
   env_flag("TACTIX_TUMBLE", kernel.tumble);
 }
@@ -263,8 +267,7 @@ int main(int argc, char **argv) {
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
   enum class CliProofFamily { Dsr, Pbp, Automatic };
-  // Automatic selection is the public default: DSR, converted once to PBP where a
-  // run needs it (see Proof::open_automatic).
+  // Default: DSR, converted once to PBP where needed (Proof::open_automatic).
   CliProofFamily proof_family = CliProofFamily::Automatic;
   const char *proof_stage_path = nullptr;
   bool binary_proof = true;
@@ -301,11 +304,8 @@ int main(int argc, char **argv) {
     } else if (!strncmp(a, "--proof-stage=", 14) && a[14]) {
       proof_stage_path = a + 14;
     } else if (!strncmp(a, "--default-affine-search=", 24)) {
-      if (!strcmp(a + 24, "on")) default_affine_search = true;
-      else if (!strcmp(a + 24, "off")) default_affine_search = false;
-      else
-        return fail_unknown(
-            "tactix: --default-affine-search requires on or off\n");
+      if (!on_off(a + 24, default_affine_search))
+        return fail_unknown("tactix: --default-affine-search requires on or off\n");
     } else if (!strncmp(a, "--default-affine-reasons=", 25)) {
       using ReasonMode = DefaultStrategyConfig::AffineSearch::ReasonMode;
       if (!strcmp(a + 25, "eager"))
@@ -326,17 +326,11 @@ int main(int argc, char **argv) {
             "detached-minimal, detached-source, lazy-source, or "
             "lazy-minimal\n");
     } else if (!strncmp(a, "--default-graph-labeling=", 25)) {
-      if (!strcmp(a + 25, "on")) default_graph_labeling = true;
-      else if (!strcmp(a + 25, "off")) default_graph_labeling = false;
-      else
-        return fail_unknown(
-            "tactix: --default-graph-labeling requires on or off\n");
+      if (!on_off(a + 25, default_graph_labeling))
+        return fail_unknown("tactix: --default-graph-labeling requires on or off\n");
     } else if (!strncmp(a, "--default-structured-symmetry=", 30)) {
-      if (!strcmp(a + 30, "on")) default_structured_symmetry = true;
-      else if (!strcmp(a + 30, "off")) default_structured_symmetry = false;
-      else
-        return fail_unknown(
-            "tactix: --default-structured-symmetry requires on or off\n");
+      if (!on_off(a + 30, default_structured_symmetry))
+        return fail_unknown("tactix: --default-structured-symmetry requires on or off\n");
     } else if (!strncmp(a, "--structural-provenance=", 24)) {
       structural_provenance_path = a + 24;
     } else if (!strcmp(a, "--compact-affine-provenance")) {
@@ -346,8 +340,8 @@ int main(int argc, char **argv) {
     } else if (!strncmp(a, "--feedback-replay=", 18)) {
       feedback_replay_path = a + 18;
     } else if (!strncmp(a, "--bve-gates=", 12)) {
-      // Comma list of {equiv,andor,ite,xor,def}, or all / none. A performance
-      // knob: a disabled gate type only falls BVE back to the cross product.
+      // Comma list of {equiv,andor,ite,xor,def}, or all / none; a disabled
+      // gate type falls BVE back to the cross product.
       const char *spec = a + 12;
       if (!strcmp(spec, "all")) {
         bve_gate_mask = ~0u;
@@ -419,55 +413,31 @@ int main(int argc, char **argv) {
       (feedback_replay_path && !*feedback_replay_path))
     return fail_unknown(
         "tactix: choose one nonempty feedback recording or replay path\n");
-  if (structural_provenance_path) {
-    for (const char *other : {cnf_path, proof_path, feedback_path,
-                              feedback_replay_path}) {
-      if (!other) continue;
-      std::error_code a, b, c;
-      if ((std::filesystem::weakly_canonical(structural_provenance_path, a) ==
-           std::filesystem::weakly_canonical(other, b) && !a && !b) ||
-          std::filesystem::equivalent(structural_provenance_path, other, c)) {
+  // An output artifact is truncated when opened: it must not name another one.
+  if (structural_provenance_path)
+    for (const char *other : {cnf_path, proof_path, feedback_path, feedback_replay_path})
+      if (other && same_file(structural_provenance_path, other)) {
         fprintf(stderr, "tactix: structural provenance aliases another artifact\n");
         return 1;
       }
-    }
-  }
   if (proof_stage_path && (!proof_path ||
                            proof_family != CliProofFamily::Automatic))
     return fail_unknown("tactix: --proof-stage needs an automatic proof\n");
-  if (proof_stage_path) {
-    // The stage is truncated when opened: it must not name another artifact.
-    for (const char *other : {cnf_path, proof_path, feedback_path,
-                              feedback_replay_path,
-                              structural_provenance_path}) {
-      if (!other) continue;
-      std::error_code a, b, c;
-      if ((std::filesystem::weakly_canonical(proof_stage_path, a) ==
-           std::filesystem::weakly_canonical(other, b) && !a && !b) ||
-          std::filesystem::equivalent(proof_stage_path, other, c))
+  if (proof_stage_path)
+    for (const char *other : {cnf_path, proof_path, feedback_path, feedback_replay_path,
+                              structural_provenance_path})
+      if (other && same_file(proof_stage_path, other))
         return fail_unknown("tactix: proof stage aliases another artifact\n");
-    }
-  }
-  if (feedback_path || feedback_replay_path) {
-    // A feedback destination must never truncate an input or proof.
-    // Replay input must likewise survive opening the requested proof output.
-    const char *record = feedback_path ? feedback_path : feedback_replay_path;
-    for (const char *other : {cnf_path, proof_path}) {
-      if (!other) continue;
-      std::error_code first_error, second_error, equivalent_error;
-      const auto first = std::filesystem::weakly_canonical(record, first_error);
-      const auto second = std::filesystem::weakly_canonical(other, second_error);
-      if ((!first_error && !second_error && first == second) ||
-          std::filesystem::equivalent(record, other, equivalent_error))
+  // Replay input must likewise survive opening the requested proof output.
+  if (const char *record = feedback_path ? feedback_path : feedback_replay_path)
+    for (const char *other : {cnf_path, proof_path})
+      if (other && same_file(record, other))
         return fail_unknown("tactix: feedback path aliases input or proof\n");
-    }
-  }
   Kernel kernel;
   StructuralActionSessions structural_action_sessions(kernel);
   pose_kernel(kernel, bve_gate_mask, compact_affine_provenance);
-  // Structural actions record into a bound journal. A named journal is
-  // session-owned, created exclusively, and outlives policy execution; without
-  // a path the CLI binds the discard journal, which keeps nothing.
+  // Structural actions record into a bound journal: a named one is created
+  // exclusively and outlives the policy; otherwise the discard journal.
   std::unique_ptr<FILE, CloseFile> structural_records;
   if (structural_provenance_path) {
     std::string input_sha;
@@ -489,10 +459,8 @@ int main(int argc, char **argv) {
     kernel.structural_provenance = StructuralJournal::discard();
   }
   Proof proof;
-  // Whole-run streaming PBP is textual, so --no-binary has no effect on it;
-  // under automatic selection it spells the native-DSR copy in ASCII.
-  // N2: the proof never steers the search. A run without a proof file answers to
-  // the same writer as a --pbp run, with nothing to write.
+  // --no-binary spells DSR in ASCII; PBP is textual. N2: a run without a proof
+  // file answers to the same writer as a --pbp run, with nothing to write.
   kernel.startup_certificate_open = true;
   const bool opened =
       !proof_path ? proof.open_nowhere()
@@ -514,8 +482,7 @@ int main(int argc, char **argv) {
   const char *err = parse_dimacs(in, kernel);
   const uint64_t parse_nanos =
       frontend_time ? tactix::now_nanos() - parse_t0 : 0;
-  // A decompressor that is missing or fails leaves a truncated formula, which
-  // must not be solved as if it were the input.
+  // A failed decompressor leaves a truncated formula that must not be solved.
   const int close_status = piped ? pclose(in) : fclose(in);
   if (!err && piped && close_status != 0) {
     fail_unknown("tactix: decompressing '%s' failed\n", cnf_path);
@@ -551,8 +518,8 @@ int main(int argc, char **argv) {
       if (compact_affine_provenance)
         metadata += "compact-affine-provenance=1:1\n";
       feedback.emplace();
-      // Opening/provenance errors stay in the receiver. Even a rejected header
-      // must not steer the selected policy or suppress its certificate/verdict.
+      // Opening/provenance errors stay in the receiver: a rejected header must
+      // not steer the policy or suppress its certificate or verdict.
       if (feedback_path) (void)feedback->write(feedback_path, metadata);
       else (void)feedback->replay(feedback_replay_path, metadata);
       default_policy.set_feedback(&*feedback);
@@ -570,158 +537,81 @@ int main(int argc, char **argv) {
             !feedback_setup_error.empty() ? feedback_setup_error.c_str() :
             feedback->error().empty() ? "incomplete session" : feedback->error().c_str());
   if (!quiet) {
-    // Every registered rule gets a stats line, and most pair a yield with a
-    // reachability witness: a zero on the witness means the mechanism never
-    // ran, so an A/B arm reading zero was skipped, not tested. Only counters
-    // whose reading is non-obvious carry a comment below.
+    // Every registered rule gets a stats line; most pair a yield with a
+    // reachability witness, whose zero means the mechanism never ran.
+    using ull = unsigned long long;
+    const Stats &s = kernel.stats;
     printf("c tactix 0.2.1\n");
     {
       const auto &affine = default_policy.affine_search_diagnostics();
-      // The persistent affine search block prints only when the service is
-      // enabled or one of its counters moved; each line keeps its format.
+      // The affine search block prints only when enabled or a counter moved.
+#define AS_(name) {#name, affine.name}
+#define AM_(name) {#name, s.affine_matrix_##name}
+#define AI_(name) {#name, s.affine_matrix_init_##name}
       const std::pair<const char *, uint64_t> affine_head[] = {
-        {"enabled", default_config.affine_search.enabled},
-        {"initializations", affine.initializations},
-        {"normalization_rup_checks", kernel.stats.affine_matrix_init_normalization_rup_checks},
-        {"shortening_additions", kernel.stats.affine_matrix_init_shortening_additions},
-        {"maintenance_service_work", kernel.stats.affine_matrix_init_maintenance_service_work},
-        {"discovery_recognized_groups", kernel.stats.affine_matrix_init_discovery_recognized_groups},
-        {"discovery_skipped_groups", kernel.stats.affine_matrix_init_discovery_skipped_groups},
-        {"discovery_recognizer_work", kernel.stats.affine_matrix_init_discovery_recognizer_work},
-        {"refreshes", affine.refreshes},
-        {"unchanged_refreshes", affine.unchanged_refreshes},
-        {"empty_maintenance_skips", affine.empty_maintenance_skips},
-        {"unchanged_census_skips", affine.unchanged_census_skips},
-        {"usefulness_resumptions", affine.usefulness_resumptions},
-        {"paused_search_skips", affine.paused_search_skips},
-        {"root_services", affine.root_services},
-        {"search_services", affine.search_services},
-        {"reasons_published", affine.reasons_published},
-        {"implications_consumed", affine.implications_consumed},
-        {"reasons_deferred", affine.reasons_deferred},
-        {"reasons_materialized", affine.reasons_materialized},
-        {"analyze_handles", kernel.stats.affine_matrix_analyze_handles},
-        {"analyze_materializations", kernel.stats.affine_matrix_analyze_materializations},
-        {"analyze_vectors_constructed", kernel.stats.affine_matrix_analyze_vectors_constructed},
-        {"analyze_literals_constructed", kernel.stats.affine_matrix_analyze_literals_constructed},
-        {"reasons_detached", affine.reasons_detached},
-        {"materialization_attempts", affine.materialization_attempts},
-        {"materialization_inapplicable", affine.materialization_inapplicable},
-        {"materialization_stale", affine.materialization_stale},
-        {"materialization_invalid", affine.materialization_invalid},
-        {"materialization_exhausted", affine.materialization_exhausted},
-        {"materialization_interrupted", affine.materialization_interrupted},
-        {"materialization_unsupported_proof", affine.materialization_unsupported_proof},
-        {"materialization_retained_authentications", affine.materialization_retained_authentications},
-        {"materialization_last_audit_stage", affine.materialization_last_audit_stage},
-        {"admitted_sources", affine.admitted_sources},
-        {"active_sources", affine.active_sources},
+        {"enabled", default_config.affine_search.enabled}, AS_(initializations),
+        AI_(normalization_rup_checks), AI_(shortening_additions), AI_(maintenance_service_work),
+        AI_(discovery_recognized_groups), AI_(discovery_skipped_groups),
+        AI_(discovery_recognizer_work), AS_(refreshes), AS_(unchanged_refreshes),
+        AS_(empty_maintenance_skips), AS_(unchanged_census_skips), AS_(usefulness_resumptions),
+        AS_(paused_search_skips), AS_(root_services), AS_(search_services), AS_(reasons_published),
+        AS_(implications_consumed), AS_(reasons_deferred), AS_(reasons_materialized),
+        AM_(analyze_handles), AM_(analyze_materializations), AM_(analyze_vectors_constructed),
+        AM_(analyze_literals_constructed), AS_(reasons_detached), AS_(materialization_attempts),
+        AS_(materialization_inapplicable), AS_(materialization_stale), AS_(materialization_invalid),
+        AS_(materialization_exhausted), AS_(materialization_interrupted),
+        AS_(materialization_unsupported_proof), AS_(materialization_retained_authentications),
+        AS_(materialization_last_audit_stage), AS_(admitted_sources), AS_(active_sources),
       };
       const std::pair<const char *, uint64_t> affine_tail[] = {
-        {"retained_basis_rank", affine.retained_basis_rank},
-        {"retained_support_variables", affine.retained_support_variables},
-        {"rank_before_last_action", affine.rank_before_last_action},
-        {"rank_after_last_action", affine.rank_after_last_action},
-        {"support_before_last_action", affine.support_before_last_action},
-        {"support_after_last_action", affine.support_after_last_action},
-        {"recognition_rank_gains", affine.recognition_rank_gains},
-        {"recognition_rank_losses", affine.recognition_rank_losses},
-        {"maintenance_rank_gains", affine.maintenance_rank_gains},
-        {"maintenance_rank_losses", affine.maintenance_rank_losses},
-        {"service_rank_losses", affine.service_rank_losses},
-        {"isolated_projection_rank_losses", affine.isolated_projection_rank_losses},
-        {"native_session_disables", affine.native_session_disables},
-        {"optional_failure_disables", affine.optional_failure_disables},
-        {"service_inapplicable", affine.service_inapplicable},
-        {"service_interrupted", affine.service_interrupted},
-        {"service_unsupported_proof", affine.service_unsupported_proof},
-        {"service_stale", affine.service_stale},
-        {"service_invalid", affine.service_invalid},
-        {"last_service_status", affine.last_service_status},
-        {"last_terminal_status", affine.last_terminal_status},
-        {"last_terminal_audit_stage", affine.last_terminal_audit_stage},
-        {"last_terminal_transaction_stage", affine.last_terminal_transaction_stage},
-        {"last_terminal_synchronization_stage", affine.last_terminal_synchronization_stage},
-        {"paused_basis_rank", affine.paused_basis_rank},
-        {"paused_support_variables", affine.paused_support_variables},
-        {"last_survival_action", affine.last_survival_action},
-        {"last_disable_cause", affine.last_disable_cause},
-        {"retained_bytes",
-         structural_action_sessions.affine_matrix_search.retained_bytes()},
-        {"retired_sources", affine.retired_sources},
-        {"projected_variables", affine.projected_variables},
-        {"initialization_work", affine.initialization_work},
-        {"service_work", affine.service_work},
-        {"incremental_capture_calls", affine.incremental_capture_calls},
-        {"unchanged_support_calls", affine.unchanged_support_calls},
-        {"cached_event_calls", affine.cached_event_calls},
-        {"restart_runs", affine.restart_runs},
-        {"unchanged_skips", affine.unchanged_skips},
-        {"trigger_work", affine.trigger_work},
-        {"delayed_runs", affine.delayed_runs},
-        {"fruitful_runs", affine.fruitful_runs},
-        {"fruitless_runs", affine.fruitless_runs},
-        {"run_conflict_limit", affine.run_conflict_limit},
-        {"delay_current", affine.delay_current},
-        {"run_effort_last", affine.run_effort_last},
-        {"run_effort_total", affine.run_effort_total},
-        {"run_work", affine.run_work},
-        {"run_steps", affine.run_steps},
-        {"pending_slices", affine.pending_slices},
-        {"resumed_slices", affine.resumed_slices},
-        {"completed_slice_steps", affine.completed_slice_steps},
-        {"slice_work", affine.slice_work},
-        {"slice_cumulative_work", affine.slice_cumulative_work},
-        {"minimum_slice_work", affine.minimum_slice_work},
-        {"capture_delta_literals", affine.capture_delta_literals},
-        {"premise_maintenance_work", affine.premise_maintenance_work},
-        {"alias_work", affine.alias_work},
-        {"alias_proof_additions", affine.alias_proof_additions},
-        {"proof_additions", affine.proof_additions},
-        {"proof_deletions", affine.proof_deletions},
-        {"overhead_nanos", affine.overhead_nanos},
-        {"synchronization_nanos", affine.synchronization_nanos},
-        {"publication_nanos", affine.publication_nanos},
-        {"resource_declines", affine.resource_declines},
-        {"usefulness_disabled", affine.usefulness_disabled},
+        AS_(retained_basis_rank), AS_(retained_support_variables), AS_(rank_before_last_action),
+        AS_(rank_after_last_action), AS_(support_before_last_action),
+        AS_(support_after_last_action), AS_(recognition_rank_gains), AS_(recognition_rank_losses),
+        AS_(maintenance_rank_gains), AS_(maintenance_rank_losses), AS_(service_rank_losses),
+        AS_(isolated_projection_rank_losses), AS_(native_session_disables),
+        AS_(optional_failure_disables), AS_(service_inapplicable), AS_(service_interrupted),
+        AS_(service_unsupported_proof), AS_(service_stale), AS_(service_invalid),
+        AS_(last_service_status), AS_(last_terminal_status), AS_(last_terminal_audit_stage),
+        AS_(last_terminal_transaction_stage), AS_(last_terminal_synchronization_stage),
+        AS_(paused_basis_rank), AS_(paused_support_variables), AS_(last_survival_action),
+        AS_(last_disable_cause),
+        {"retained_bytes", structural_action_sessions.affine_matrix_search.retained_bytes()},
+        AS_(retired_sources), AS_(projected_variables), AS_(initialization_work), AS_(service_work),
+        AS_(incremental_capture_calls), AS_(unchanged_support_calls), AS_(cached_event_calls),
+        AS_(restart_runs), AS_(unchanged_skips), AS_(trigger_work), AS_(delayed_runs),
+        AS_(fruitful_runs), AS_(fruitless_runs), AS_(run_conflict_limit), AS_(delay_current),
+        AS_(run_effort_last), AS_(run_effort_total), AS_(run_work), AS_(run_steps),
+        AS_(pending_slices), AS_(resumed_slices), AS_(completed_slice_steps), AS_(slice_work),
+        AS_(slice_cumulative_work), AS_(minimum_slice_work), AS_(capture_delta_literals),
+        AS_(premise_maintenance_work), AS_(alias_work), AS_(alias_proof_additions),
+        AS_(proof_additions), AS_(proof_deletions), AS_(overhead_nanos), AS_(synchronization_nanos),
+        AS_(publication_nanos), AS_(resource_declines), AS_(usefulness_disabled),
       };
       bool affine_active = false;
       for (const auto &metric : affine_head) affine_active |= metric.second != 0;
       for (const auto &metric : affine_tail) affine_active |= metric.second != 0;
       if (affine_active)
         for (const auto &[name, value] : affine_head)
-          printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
+          printf("c affine-search %s=%llu\n", name, (ull)value);
       const auto &graph = default_policy.graph_labeling_diagnostics();
-      const auto graph_metric = [](const char *name, uint64_t value) {
-        printf("c graph-schedule %s=%llu\n", name,
-               (unsigned long long)value);
+#define GS_(name) {#name, graph.name}
+#define GL_(name) {#name, s.graph_labeling_##name}
+      const std::pair<const char *, uint64_t> graph_metrics[] = {
+        {"enabled", default_config.graph_labeling_model.enabled}, GS_(authentication_attempts),
+        GS_(authentication_successes), GS_(authentication_exhausted),
+        GS_(authentication_no_structure), GS_(authentication_interrupted), GS_(authentication_work),
+        GS_(slices), GS_(pending_slices), GS_(completed_trajectories), GS_(useful_hints), GS_(runs),
+        GS_(delayed_runs), GS_(fruitful_runs), GS_(fruitless_runs), GS_(run_conflict_limit),
+        GS_(delay_current), GL_(recognized), GL_(vertices), GL_(separation), GL_(work), GL_(nodes),
+        GL_(repairs), GL_(anneal_attempts), GL_(sat), {"search_ticks", s.search_ticks},
       };
-      graph_metric("enabled", default_config.graph_labeling_model.enabled);
-      graph_metric("authentication_attempts", graph.authentication_attempts);
-      graph_metric("authentication_successes", graph.authentication_successes);
-      graph_metric("authentication_exhausted", graph.authentication_exhausted);
-      graph_metric("authentication_no_structure", graph.authentication_no_structure);
-      graph_metric("authentication_interrupted", graph.authentication_interrupted);
-      graph_metric("authentication_work", graph.authentication_work);
-      graph_metric("slices", graph.slices);
-      graph_metric("pending_slices", graph.pending_slices);
-      graph_metric("completed_trajectories", graph.completed_trajectories);
-      graph_metric("useful_hints", graph.useful_hints);
-      graph_metric("runs", graph.runs);
-      graph_metric("delayed_runs", graph.delayed_runs);
-      graph_metric("fruitful_runs", graph.fruitful_runs);
-      graph_metric("fruitless_runs", graph.fruitless_runs);
-      graph_metric("run_conflict_limit", graph.run_conflict_limit);
-      graph_metric("delay_current", graph.delay_current);
-      graph_metric("recognized", kernel.stats.graph_labeling_recognized);
-      graph_metric("vertices", kernel.stats.graph_labeling_vertices);
-      graph_metric("separation", kernel.stats.graph_labeling_separation);
-      graph_metric("work", kernel.stats.graph_labeling_work);
-      graph_metric("nodes", kernel.stats.graph_labeling_nodes);
-      graph_metric("repairs", kernel.stats.graph_labeling_repairs);
-      graph_metric("anneal_attempts", kernel.stats.graph_labeling_anneal_attempts);
-      graph_metric("sat", kernel.stats.graph_labeling_sat);
-      graph_metric("search_ticks", kernel.stats.search_ticks);
+#undef AS_
+#undef AM_
+#undef AI_
+#undef GS_
+#undef GL_
+      for (const auto &[name, value] : graph_metrics)
+        printf("c graph-schedule %s=%llu\n", name, (ull)value);
       if (affine_active) {
         printf("c affine-survival gauges=last-native-boundary rank=unconditioned-coefficient-rank "
                "sources=retained-equations pause=last-pause "
@@ -742,264 +632,158 @@ int main(int argc, char **argv) {
                "2:trail-order,3:trail-support,4:simplex-preparation,"
                "5:cached-assignment,6:deferred-reason,7:source-identity\n");
         for (const auto &[name, value] : affine_tail)
-          printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
-        // Rare, so a run without it keeps its statistics block unchanged.
-        if (kernel.stats.affine_matrix_analyze_retractions)
+          printf("c affine-search %s=%llu\n", name, (ull)value);
+        // Rare: printed only when nonzero.
+        if (s.affine_matrix_analyze_retractions)
           printf("c affine-search analyze_retractions=%llu\n",
-                 (unsigned long long)kernel.stats.affine_matrix_analyze_retractions);
+                 (ull)s.affine_matrix_analyze_retractions);
       }
     }
-    stat_line("c count-pb    ", {{kernel.stats.counting_calls, "calls"},
-                                 {kernel.stats.counting_stars, "stars"},
-                                 {kernel.stats.counting_unsat, "UNSAT"},
-                                 {kernel.stats.counting_work, "work"},
-                                 {kernel.stats.counting_interrupted, "interrupted"},
-                                 {kernel.stats.counting_additions, "additions"}});
-    stat_line("c input       ",
-              {{kernel.stats.input_restated, "clauses restated (normalized literals)"}});
-    printf("c decisions   %llu (%llu via API)\n",
-           (unsigned long long)kernel.stats.decisions,
-           (unsigned long long)kernel.stats.api_decisions);
-    printf("c conflicts   %llu\n", (unsigned long long)kernel.stats.conflicts);
-    printf("c propagations %llu (%llu search, %llu inprocess)\n",
-           (unsigned long long)kernel.stats.propagations,
-           (unsigned long long)(kernel.stats.propagations -
-                                kernel.stats.inprocess_propagations),
-           (unsigned long long)kernel.stats.inprocess_propagations);
-    printf("c learned     %llu (%llu units)\n",
-           (unsigned long long)kernel.stats.learned,
-           (unsigned long long)kernel.stats.learned_units);
-    if (kernel.stats.learned) {
+    stat_line("c count-pb    ", {{s.counting_calls, "calls"}, {s.counting_stars, "stars"},
+                                 {s.counting_unsat, "UNSAT"}, {s.counting_work, "work"},
+                                 {s.counting_interrupted, "interrupted"},
+                                 {s.counting_additions, "additions"}});
+    stat_line("c input       ", {{s.input_restated, "clauses restated (normalized literals)"}});
+    printf("c decisions   %llu (%llu via API)\n", (ull)s.decisions, (ull)s.api_decisions);
+    printf("c conflicts   %llu\n", (ull)s.conflicts);
+    printf("c propagations %llu (%llu search, %llu inprocess)\n", (ull)s.propagations,
+           (ull)(s.propagations - s.inprocess_propagations), (ull)s.inprocess_propagations);
+    printf("c learned     %llu (%llu units)\n", (ull)s.learned, (ull)s.learned_units);
+    if (s.learned) {
       printf("c learnedsize %.2f avg lits, %.2f avg glue\n",
-             (double)kernel.stats.learned_lits / (double)kernel.stats.learned,
-             (double)kernel.stats.learned_glue_sum /
-                 (double)kernel.stats.learned);
-      const double kept = (double)kernel.stats.learned_lits;
-      const double removed =
-          (double)(kernel.stats.minimized + kernel.stats.shrunken);
+             (double)s.learned_lits / (double)s.learned,
+             (double)s.learned_glue_sum / (double)s.learned);
+      const double kept = (double)s.learned_lits;
+      const double removed = (double)(s.minimized + s.shrunken);
       printf("c reduction   %.1f%% of resolved lits removed by minimize+shrink\n",
              100.0 * removed / (kept + removed));
     }
-    stat_line("c minimized   ", {{kernel.stats.minimized, "lits"}});
-    stat_line("c min-depth   ", {{kernel.stats.minimize_depth_cutoffs, "cutoffs"}});
-    stat_line("c shrunken    ", {{kernel.stats.shrunken, "lits"}});
+    stat_line("c minimized   ", {{s.minimized, "lits"}});
+    stat_line("c min-depth   ", {{s.minimize_depth_cutoffs, "cutoffs"}});
+    stat_line("c shrunken    ", {{s.shrunken, "lits"}});
     printf("c reasonbump  %llu vars in %llu rounds (%llu depth2, %llu aborted)\n",
-           (unsigned long long)kernel.stats.reason_bumped,
-           (unsigned long long)kernel.stats.reason_bump_rounds,
-           (unsigned long long)kernel.stats.reason_bump_depth2,
-           (unsigned long long)kernel.stats.reason_bump_aborted);
-    printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
-           (unsigned long long)kernel.stats.otfs_strengthened,
-           (unsigned long long)kernel.stats.otfs_subsumed);
+           (ull)s.reason_bumped, (ull)s.reason_bump_rounds, (ull)s.reason_bump_depth2,
+           (ull)s.reason_bump_aborted);
+    printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n", (ull)s.otfs_strengthened,
+           (ull)s.otfs_subsumed);
     printf("c eagersub    %llu subsumed of %llu tried (%llu kept as reason), "
-           "register %u\n",
-           (unsigned long long)kernel.stats.eager_subsumed,
-           (unsigned long long)kernel.stats.eager_tried,
-           (unsigned long long)kernel.stats.eager_reason_skipped,
+           "register %u\n", (ull)s.eager_subsumed, (ull)s.eager_tried, (ull)s.eager_reason_skipped,
            (unsigned)kernel.eager_subsume);
-    // Both are the reachability readouts for their arms: a zero on either means
-    // TACTIX_SHRINK_GLUE / TACTIX_TUMBLE cannot have changed anything.
-    printf("c shrinkglue  %llu promoted (clamp %s)\n",
-           (unsigned long long)kernel.stats.shrink_promoted,
+    // Reachability readouts for TACTIX_SHRINK_GLUE / TACTIX_TUMBLE.
+    printf("c shrinkglue  %llu promoted (clamp %s)\n", (ull)s.shrink_promoted,
            kernel.shrink_glue_promote ? "size-1" : "size");
-    printf("c tumble      %llu vars seeded (%s)\n",
-           (unsigned long long)kernel.stats.tumble_seeded,
+    printf("c tumble      %llu vars seeded (%s)\n", (ull)s.tumble_seeded,
            kernel.tumble ? "activation order" : "off");
-    // Kissat reports these three; they are the only readout of the sweep
-    // that seeds Walk, and Walk's own step count is downstream of them.
-    stat_line("c warmup      ", {{kernel.stats.warmups, "warmups"},
-                                 {kernel.stats.warming_decisions, "decisions"},
-                                 {kernel.stats.warming_propagations, "propagations"}});
-    stat_line("c denseocc    ", {{kernel.stats.dense_slice_moves, "slice moves"},
-                                 {kernel.stats.dense_defrags, "defrags"}});
-    stat_line("c sparsecol   ", {{kernel.stats.sparse_collections, "runs"},
-                                 {kernel.stats.sparse_collected, "clauses"}});
-    // `vivified` here counts strengthened clauses only, so it is not comparable
-    // to kissat's counter of the same name, an aggregate (statistics.h:247)
-    // over subsumed, promoted, shrunken, implied, asym and instantiated.
-    stat_line("c vivify      ", {{kernel.stats.vivify_rounds, "rounds"},
-                                 {kernel.stats.vivified, "vivified"},
-                                 {kernel.stats.vivify_deleted, "deleted"},
-                                 {kernel.stats.vivify_flushed, "flushed"},
-                                 {kernel.stats.vivify_checked, "checked"}});
-    // Vivify trail reuse is inert three independent ways, one number each
-    // (docs/design/2026-08-05-vivify-trail-reuse.md §4).
-    stat_line("c vivify2     ", {{kernel.stats.vivify_reused, "reused"},
-                                 {kernel.stats.vivify_probes, "probes"},
-                                 {kernel.stats.vivify_reuse_full, "full"},
-                                 {kernel.stats.vivify_tier3, "tier3"},
-                                 {kernel.stats.vivify_prioritized, "prio"},
-                                 {kernel.stats.vivify_reprioritized, "rearm"},
-                                 {kernel.stats.vivify_polls, "polls"},
-                                 {kernel.stats.vivify_terminated, "term"}});
-    stat_line("c vivify3     ", {{kernel.stats.vivify_subsumed, "subsumed"},
-                                 {kernel.stats.vivify_promoted, "promoted"},
-                                 {kernel.stats.vivify_shrunken, "shrunken"},
-                                 {kernel.stats.vivify_implied, "implied"},
-                                 {kernel.stats.vivify_asymmetric, "asym"},
-                                 {kernel.stats.vivify_instantiated, "instantiated"},
-                                 {kernel.stats.vivify_noop, "noop"}});
-    stat_line("c probe       ", {{kernel.stats.probe_rounds, "rounds"},
-                                 {kernel.stats.probed, "probed"},
-                                 {kernel.stats.probe_failed, "failed"}});
-    stat_line("c backbone    ", {{kernel.stats.backbone_rounds, "rounds"},
-                                 {kernel.stats.backbone_probed, "probed"},
-                                 {kernel.stats.backbone_failed, "failed"}});
-    stat_line("c transitive  ", {{kernel.stats.transitive_rounds, "rounds"},
-                                 {kernel.stats.transitive_checked, "checked"},
-                                 {kernel.stats.transitive_deleted, "deleted"},
-                                 {kernel.stats.transitive_units, "units"},
-                                 {kernel.stats.transitive_ticks, "ticks"},
-                                 {kernel.stats.transitive_polls, "polls"},
-                                 {kernel.stats.transitive_terminated, "terminated"}});
+    // Kissat's warmup counters: the readout of the sweep that seeds Walk.
+    stat_line("c warmup      ", {{s.warmups, "warmups"}, {s.warming_decisions, "decisions"},
+                                 {s.warming_propagations, "propagations"}});
+    stat_line("c denseocc    ", {{s.dense_slice_moves, "slice moves"},
+                                 {s.dense_defrags, "defrags"}});
+    stat_line("c sparsecol   ", {{s.sparse_collections, "runs"}, {s.sparse_collected, "clauses"}});
+    // `vivified` counts strengthened clauses only; kissat's (statistics.h:247)
+    // is an aggregate of the `c vivify3` counters.
+    stat_line("c vivify      ", {{s.vivify_rounds, "rounds"}, {s.vivified, "vivified"},
+                                 {s.vivify_deleted, "deleted"}, {s.vivify_flushed, "flushed"},
+                                 {s.vivify_checked, "checked"}});
+    stat_line("c vivify2     ", {{s.vivify_reused, "reused"}, {s.vivify_probes, "probes"},
+                                 {s.vivify_reuse_full, "full"}, {s.vivify_tier3, "tier3"},
+                                 {s.vivify_prioritized, "prio"}, {s.vivify_reprioritized, "rearm"},
+                                 {s.vivify_polls, "polls"}, {s.vivify_terminated, "term"}});
+    stat_line("c vivify3     ", {{s.vivify_subsumed, "subsumed"}, {s.vivify_promoted, "promoted"},
+                                 {s.vivify_shrunken, "shrunken"}, {s.vivify_implied, "implied"},
+                                 {s.vivify_asymmetric, "asym"},
+                                 {s.vivify_instantiated, "instantiated"}, {s.vivify_noop, "noop"}});
+    stat_line("c probe       ", {{s.probe_rounds, "rounds"}, {s.probed, "probed"},
+                                 {s.probe_failed, "failed"}});
+    stat_line("c backbone    ", {{s.backbone_rounds, "rounds"}, {s.backbone_probed, "probed"},
+                                 {s.backbone_failed, "failed"}});
+    stat_line("c transitive  ", {{s.transitive_rounds, "rounds"}, {s.transitive_checked, "checked"},
+                                 {s.transitive_deleted, "deleted"}, {s.transitive_units, "units"},
+                                 {s.transitive_ticks, "ticks"}, {s.transitive_polls, "polls"},
+                                 {s.transitive_terminated, "terminated"}});
     printf("c substitute  %llu rounds, %llu ticks, %llu non-trivial SCCs (%llu lits), "
            "%llu vars substituted, %llu rounds skipped / %llu partial "
-           "(%llu lits poisoned) on the hazard check\n",
-           (unsigned long long)kernel.stats.substitute_rounds,
-           (unsigned long long)kernel.stats.substitute_ticks,
-           (unsigned long long)kernel.stats.substitute_sccs,
-           (unsigned long long)kernel.stats.substitute_scc_lits,
-           (unsigned long long)kernel.stats.substitute_vars,
-           (unsigned long long)kernel.stats.substitute_hazard_skips,
-           (unsigned long long)kernel.stats.substitute_hazard_partial,
-           (unsigned long long)kernel.stats.substitute_hazard_lits);
-    stat_line("c bce         ", {{kernel.stats.bce_rounds, "rounds"},
-                                 {kernel.stats.bce_deleted, "deleted"},
-                                 {kernel.stats.bce_ticks, "ticks"}});
-    // With `cla 0` no covered literal was added, so nothing BCE does not
-    // already do was exercised; `blocked 0` means no witness was pushed.
+           "(%llu lits poisoned) on the hazard check\n", (ull)s.substitute_rounds,
+           (ull)s.substitute_ticks, (ull)s.substitute_sccs, (ull)s.substitute_scc_lits,
+           (ull)s.substitute_vars, (ull)s.substitute_hazard_skips, (ull)s.substitute_hazard_partial,
+           (ull)s.substitute_hazard_lits);
+    stat_line("c bce         ", {{s.bce_rounds, "rounds"}, {s.bce_deleted, "deleted"},
+                                 {s.bce_ticks, "ticks"}});
+    // `cla 0`: no covered literal was added; `blocked 0`: no witness pushed.
     printf("c cce         %llu rounds, %llu tried, %llu deleted "
-           "(%llu blocked / %llu ata), %llu ala, %llu cla, %llu ticks\n",
-           (unsigned long long)kernel.stats.cce_rounds,
-           (unsigned long long)kernel.stats.cce_tried,
-           (unsigned long long)kernel.stats.cce_deleted,
-           (unsigned long long)kernel.stats.cce_blocked,
-           (unsigned long long)kernel.stats.cce_ata,
-           (unsigned long long)kernel.stats.cce_ala,
-           (unsigned long long)kernel.stats.cce_cla,
-           (unsigned long long)kernel.stats.cce_ticks);
-    // Its touched-epoch consumer, same contract as `c touch` below.
-    stat_line("c cce2        ", {{kernel.stats.cce_mark_skipped, "skipped"},
-                                 {kernel.stats.cce_mark_advances, "advances"},
-                                 {kernel.stats.cce_rearmed, "rearmed"}}, " / ");
-    stat_line("c instantiate ", {{kernel.stats.instantiate_rounds, "rounds"},
-                                 {kernel.stats.instantiated, "literals removed"},
-                                 {kernel.stats.instantiate_checked, "probed"}});
+           "(%llu blocked / %llu ata), %llu ala, %llu cla, %llu ticks\n", (ull)s.cce_rounds,
+           (ull)s.cce_tried, (ull)s.cce_deleted, (ull)s.cce_blocked, (ull)s.cce_ata, (ull)s.cce_ala,
+           (ull)s.cce_cla, (ull)s.cce_ticks);
+    stat_line("c cce2        ", {{s.cce_mark_skipped, "skipped"}, {s.cce_mark_advances, "advances"},
+                                 {s.cce_rearmed, "rearmed"}}, " / ");
+    stat_line("c instantiate ", {{s.instantiate_rounds, "rounds"},
+                                 {s.instantiated, "literals removed"},
+                                 {s.instantiate_checked, "probed"}});
     printf("c sweep       %llu rounds, %llu swept, %llu environments (%llu clauses), "
            "%llu solves, %llu candidates, %llu equivalences, %llu units "
-           "(%llu already binary), %llu env-unsat, %llu budget, %llu ticks\n",
-           (unsigned long long)kernel.stats.sweep_rounds,
-           (unsigned long long)kernel.stats.sweep_swept,
-           (unsigned long long)kernel.stats.sweep_environments,
-           (unsigned long long)kernel.stats.sweep_env_clauses,
-           (unsigned long long)kernel.stats.sweep_solves,
-           (unsigned long long)kernel.stats.sweep_candidates,
-           (unsigned long long)kernel.stats.sweep_equivalences,
-           (unsigned long long)kernel.stats.sweep_units,
-           (unsigned long long)kernel.stats.sweep_known,
-           (unsigned long long)kernel.stats.sweep_env_unsat,
-           (unsigned long long)kernel.stats.sweep_budget,
-           (unsigned long long)kernel.stats.sweep_ticks);
-    // Environment shape and candidate-solve outcomes, separating the several
-    // mechanisms behind `equivalences 0`; then emission per path, since only
-    // those say a proof line was written. `not-rup` is S-d's decline count.
+           "(%llu already binary), %llu env-unsat, %llu budget, %llu ticks\n", (ull)s.sweep_rounds,
+           (ull)s.sweep_swept, (ull)s.sweep_environments, (ull)s.sweep_env_clauses,
+           (ull)s.sweep_solves, (ull)s.sweep_candidates, (ull)s.sweep_equivalences,
+           (ull)s.sweep_units, (ull)s.sweep_known, (ull)s.sweep_env_unsat, (ull)s.sweep_budget,
+           (ull)s.sweep_ticks);
+    // Environment shape and candidate-solve outcomes behind `equivalences 0`,
+    // then emission per path; `not-rup` is S-d's decline count.
     printf("c sweepdiag   %llu env-lits, %llu root-false (%llu stripped, "
            "%llu FREE), %llu units, %llu cand-seeded, %llu refined, "
-           "%llu dir-sat, %llu dir-unsat\n",
-           (unsigned long long)kernel.stats.sweep_env_lits,
-           (unsigned long long)kernel.stats.sweep_env_false,
-           (unsigned long long)kernel.stats.sweep_env_stripped,
-           (unsigned long long)kernel.stats.sweep_env_freefalse,
-           (unsigned long long)kernel.stats.sweep_env_units,
-           (unsigned long long)kernel.stats.sweep_cand_seeded,
-           (unsigned long long)kernel.stats.sweep_cand_refined,
-           (unsigned long long)kernel.stats.sweep_dir_sat,
-           (unsigned long long)kernel.stats.sweep_dir_unsat);
-    stat_line("c sweepflip   ", {{kernel.stats.sweep_flip_attempts, "attempts"},
-                                 {kernel.stats.sweep_flipped, "successful"}});
-    stat_line("c sweepback   ", {{kernel.stats.sweep_backbone_candidates, "candidates"},
-                                 {kernel.stats.sweep_backbone_flipped, "flipped"}});
+           "%llu dir-sat, %llu dir-unsat\n", (ull)s.sweep_env_lits, (ull)s.sweep_env_false,
+           (ull)s.sweep_env_stripped, (ull)s.sweep_env_freefalse, (ull)s.sweep_env_units,
+           (ull)s.sweep_cand_seeded, (ull)s.sweep_cand_refined, (ull)s.sweep_dir_sat,
+           (ull)s.sweep_dir_unsat);
+    stat_line("c sweepflip   ", {{s.sweep_flip_attempts, "attempts"},
+                                 {s.sweep_flipped, "successful"}});
+    stat_line("c sweepback   ", {{s.sweep_backbone_candidates, "candidates"},
+                                 {s.sweep_backbone_flipped, "flipped"}});
     printf("c sweepcost   %llu dedup ticks, %llu sub-solver ticks, "
            "%llu representation words; closure "
-           "%llu/%llu occurrences, %llu/%llu vars whole\n",
-           (unsigned long long)kernel.stats.sweep_ticks_dedup,
-           (unsigned long long)kernel.stats.sweep_ticks_sub,
-           (unsigned long long)kernel.stats.sweep_ticks_repr,
-           (unsigned long long)kernel.stats.sweep_occ_env,
-           (unsigned long long)kernel.stats.sweep_occ_f,
-           (unsigned long long)kernel.stats.sweep_vars_closed,
-           (unsigned long long)kernel.stats.sweep_vars_total);
-    stat_line("c sweepemit   ", {{kernel.stats.sweep_binaries, "binaries"},
-                                 {kernel.stats.sweep_not_rup, "not-rup"},
-                                 {kernel.stats.sweep_general, "general pairs"}});
+           "%llu/%llu occurrences, %llu/%llu vars whole\n", (ull)s.sweep_ticks_dedup,
+           (ull)s.sweep_ticks_sub, (ull)s.sweep_ticks_repr, (ull)s.sweep_occ_env,
+           (ull)s.sweep_occ_f, (ull)s.sweep_vars_closed, (ull)s.sweep_vars_total);
+    stat_line("c sweepemit   ", {{s.sweep_binaries, "binaries"}, {s.sweep_not_rup, "not-rup"},
+                                 {s.sweep_general, "general pairs"}});
     printf("c sweepsched  %llu scheduled, %llu rescheduled, %llu resumed, "
            "%llu completed, %zu tail; limits %u vars, %u clauses, depth %u\n",
-           (unsigned long long)kernel.stats.sweep_scheduled,
-           (unsigned long long)kernel.stats.sweep_rescheduled,
-           (unsigned long long)kernel.stats.sweep_resumed,
-           (unsigned long long)kernel.stats.sweep_completed,
-           static_cast<size_t>(kernel.sweep_live),
-           kernel.stats.sweep_limit_vars,
-           kernel.stats.sweep_limit_clauses,
-           kernel.stats.sweep_limit_depth);
-    stat_line("c ternary     ", {{kernel.stats.ternary_rounds, "rounds"},
-                                 {kernel.stats.ternary_resolvents, "resolvents"},
-                                 {kernel.stats.ternary_binaries, "binaries"},
-                                 {kernel.stats.ternary_ticks, "ticks"}});
-    // A resolvent is emitted only if the RUP replay re-derives it, so binaries
-    // 0 with declines > 0 means the rule ran and refused.
-    stat_line("c hbr         ", {{kernel.stats.hbr_rounds, "rounds"},
-                                 {kernel.stats.hbr_probes, "probes"},
-                                 {kernel.stats.hbr_binaries, "binaries"},
-                                 {kernel.stats.hbr_subsumed, "subsumed"},
-                                 {kernel.stats.hbr_declined, "declined"},
-                                 {kernel.stats.hbr_ticks, "ticks"}});
-    // `stale backjumps` should be 0: nonzero means conflicts are dropped and
-    // re-derived, which is otherwise invisible in a tier run.
-    // `re-arms` counts clause additions that landed behind the propagation
-    // cursor; each one is a unit or falsified clause the trail-driven scan
-    // would otherwise never revisit.
-    stat_line("c chrono      ",
-              {{kernel.stats.chronological, "chronological"},
-               {kernel.stats.backjump_stale, "stale backjumps"},
-               {kernel.stats.propagation_rearms, "propagation re-arms"}});
-    // The second number separates the full mechanism from the subset a version
-    // that declines instead of repairing would reach.
-    stat_line("c reuse       ",
-              {{kernel.stats.conflict_reused, "conflicts reused"},
-               {kernel.stats.conflict_watch_repaired, "needed watch repair"}});
+           (ull)s.sweep_scheduled, (ull)s.sweep_rescheduled, (ull)s.sweep_resumed,
+           (ull)s.sweep_completed, static_cast<size_t>(kernel.sweep_live), s.sweep_limit_vars,
+           s.sweep_limit_clauses, s.sweep_limit_depth);
+    stat_line("c ternary     ", {{s.ternary_rounds, "rounds"}, {s.ternary_resolvents, "resolvents"},
+                                 {s.ternary_binaries, "binaries"}, {s.ternary_ticks, "ticks"}});
+    // A resolvent is emitted only if its RUP replay re-derives it.
+    stat_line("c hbr         ", {{s.hbr_rounds, "rounds"}, {s.hbr_probes, "probes"},
+                                 {s.hbr_binaries, "binaries"}, {s.hbr_subsumed, "subsumed"},
+                                 {s.hbr_declined, "declined"}, {s.hbr_ticks, "ticks"}});
+    // `stale backjumps` should be 0; `re-arms` counts clause additions that
+    // landed behind the propagation cursor.
+    stat_line("c chrono      ", {{s.chronological, "chronological"},
+                                 {s.backjump_stale, "stale backjumps"},
+                                 {s.propagation_rearms, "propagation re-arms"}});
+    stat_line("c reuse       ", {{s.conflict_reused, "conflicts reused"},
+                                 {s.conflict_watch_repaired, "needed watch repair"}});
     printf("c jumpreason  %llu binary reasons jumped, %llu classifications, "
-           "%llu big-binary; gate %s\n",
-           (unsigned long long)kernel.stats.jumped_reasons,
-           (unsigned long long)kernel.stats.jump_reason_classifications,
-           (unsigned long long)kernel.stats.jump_reason_bigbig,
-           kernel.jump_reasons_bigbig ? "on" : "off");
-    // What a binary-first watch order would be worth: `ordered` over `scans` is
-    // the reachability, `large` over `words` the ceiling on an early break.
-    stat_line("c binprop     ", {{kernel.stats.binprop_scans, "scans"},
-                                 {kernel.stats.binprop_flagged, "flagged"},
-                                 {kernel.stats.binprop_words, "words"},
-                                 {kernel.stats.binprop_skipped, "skipped"},
-                                 {kernel.stats.binprop_ordered, "residual-ordered"},
-                                 {kernel.stats.binprop_large, "residual-large"}});
-    stat_line("c inprocess   ", {{kernel.stats.inprocess_phases, "phases"}});
-    stat_line("c conggates   ", {{kernel.stats.congruence_gates_and, "and"},
-                                 {kernel.stats.congruence_gates_xor, "xor"},
-                                 {kernel.stats.congruence_gates_ite, "ite"}});
-    stat_line("c congruence  ",
-              {{kernel.stats.congruence_rounds, "rounds"},
-               {kernel.stats.congruence_binary_rebuilds, "binary rebuilds"},
-               {kernel.stats.congruence_gates, "gates"},
-               {kernel.stats.congruence_merges, "merges"},
-               {kernel.stats.congruence_units, "units"},
-               {kernel.stats.congruence_unjustified, "unjustified"},
-               {kernel.stats.congruence_ticks, "ticks"},
-               {kernel.stats.congruence_budget_stops, "budget stops"}});
-    stat_line("c congy1      ",
-              {{kernel.stats.congruence_y1_found, "found"},
-               {kernel.stats.congruence_y1_units, "units"},
-               {kernel.stats.congruence_binary_equivalences, "binary equivalences"},
-               {kernel.stats.congruence_y1_ticks, "ticks"}});
+           "%llu big-binary; gate %s\n", (ull)s.jumped_reasons, (ull)s.jump_reason_classifications,
+           (ull)s.jump_reason_bigbig, kernel.jump_reasons_bigbig ? "on" : "off");
+    // What a binary-first watch order would be worth.
+    stat_line("c binprop     ", {{s.binprop_scans, "scans"}, {s.binprop_flagged, "flagged"},
+                                 {s.binprop_words, "words"}, {s.binprop_skipped, "skipped"},
+                                 {s.binprop_ordered, "residual-ordered"},
+                                 {s.binprop_large, "residual-large"}});
+    stat_line("c inprocess   ", {{s.inprocess_phases, "phases"}});
+    stat_line("c conggates   ", {{s.congruence_gates_and, "and"}, {s.congruence_gates_xor, "xor"},
+                                 {s.congruence_gates_ite, "ite"}});
+    stat_line("c congruence  ", {{s.congruence_rounds, "rounds"},
+                                 {s.congruence_binary_rebuilds, "binary rebuilds"},
+                                 {s.congruence_gates, "gates"}, {s.congruence_merges, "merges"},
+                                 {s.congruence_units, "units"},
+                                 {s.congruence_unjustified, "unjustified"},
+                                 {s.congruence_ticks, "ticks"},
+                                 {s.congruence_budget_stops, "budget stops"}});
+    stat_line("c congy1      ", {{s.congruence_y1_found, "found"}, {s.congruence_y1_units, "units"},
+                                 {s.congruence_binary_equivalences, "binary equivalences"},
+                                 {s.congruence_y1_ticks, "ticks"}});
     {
       uint64_t n_sub = 0, n_elim = 0;
       for (Var v = 0; v < kernel.nvars; v++) {
@@ -1011,593 +795,432 @@ int main(int argc, char **argv) {
           n_elim++;
       }
       printf("c retired     %llu vars (%llu substituted, %llu eliminated) of %u\n",
-             (unsigned long long)(n_sub + n_elim), (unsigned long long)n_sub,
-             (unsigned long long)n_elim, kernel.nvars);
+             (ull)(n_sub + n_elim), (ull)n_sub, (ull)n_elim, kernel.nvars);
     }
     printf("c compact     %llu passes removed %llu internal variables\n",
-           (unsigned long long)kernel.stats.variable_compactions,
-           (unsigned long long)kernel.stats.compacted_variables);
-    stat_line("c deactivate  ",
-              {{kernel.stats.deactivations, "deactivations"},
-               {kernel.stats.deactivation_repeats, "repeated reports"},
-               {kernel.stats.reactivations, "re-bumps of retired vars"}});
+           (ull)s.variable_compactions, (ull)s.compacted_variables);
+    stat_line("c deactivate  ", {{s.deactivations, "deactivations"},
+                                 {s.deactivation_repeats, "repeated reports"},
+                                 {s.reactivations, "re-bumps of retired vars"}});
     printf("c substdec    %llu decisions on substituted vars (%.2f%% of %llu)\n",
-           (unsigned long long)kernel.stats.decisions_substituted,
-           percent_of(kernel.stats.decisions_substituted, kernel.stats.decisions),
-           (unsigned long long)kernel.stats.decisions);
+           (ull)s.decisions_substituted, percent_of(s.decisions_substituted, s.decisions),
+           (ull)s.decisions);
     printf("c extension   %u vars added, %llu decisions on them (%.2f%% of "
            "%llu)\n",
            kernel.first_extension_var == UINT32_MAX ? 0u : static_cast<unsigned>(std::count_if(
                kernel.internal_to_external.begin() + kernel.first_extension_var,
                kernel.internal_to_external.end(),
                [&](Var external) { return external >= kernel.original_external_vars; })),
-           (unsigned long long)kernel.stats.decisions_extension,
-           percent_of(kernel.stats.decisions_extension, kernel.stats.decisions),
-           (unsigned long long)kernel.stats.decisions);
+           (ull)s.decisions_extension,
+           percent_of(s.decisions_extension, s.decisions),
+           (ull)s.decisions);
     printf("c interrupt   %llu rule applications aborted on the stop flag "
-           "(%llu stress fires)\n",
-           (unsigned long long)kernel.stats.rule_interrupted,
-           (unsigned long long)kernel.stats.stop_fuzz_fires);
+           "(%llu stress fires)\n", (ull)s.rule_interrupted, (ull)s.stop_fuzz_fires);
     printf("c extbumps    %llu of %llu bumps on extension vars (%.2f%%), "
-           "%llu reason-side only (%.2f%% of those)\n",
-           (unsigned long long)kernel.stats.bumps_extension,
-           (unsigned long long)kernel.stats.bumps,
-           percent_of(kernel.stats.bumps_extension, kernel.stats.bumps),
-           (unsigned long long)kernel.stats.bumps_ext_reason_only,
-           percent_of(kernel.stats.bumps_ext_reason_only,
-                      kernel.stats.bumps_extension));
-    // factor_ticks is Factor's dosing currency and what factor_initial_ticks caps,
-    // so it separates a bound opening burst from an inert arm.
-    stat_line("c factor      ",
-              {{kernel.stats.factorings, "factorings"},
-               {kernel.stats.factor_large_remainders, "large remainders offered"},
-               {kernel.stats.factor_ticks, "ticks"}});
-    stat_line("c factor-rem  ",
-              {{kernel.stats.factor_remainders_materialized, "materialized"},
-               {kernel.stats.factor_remainders_reused, "reused"}});
+           "%llu reason-side only (%.2f%% of those)\n", (ull)s.bumps_extension, (ull)s.bumps,
+           percent_of(s.bumps_extension, s.bumps), (ull)s.bumps_ext_reason_only,
+           percent_of(s.bumps_ext_reason_only, s.bumps_extension));
+    stat_line("c factor      ", {{s.factorings, "factorings"},
+                                 {s.factor_large_remainders, "large remainders offered"},
+                                 {s.factor_ticks, "ticks"}});
+    stat_line("c factor-rem  ", {{s.factor_remainders_materialized, "materialized"},
+                                 {s.factor_remainders_reused, "reused"}});
     stat_line("c factor-bnd  ",
-              {{kernel.stats.factor_rejected_by_bound, "grids rejected by the coupled bound"}});
-    stat_line("c factor-dem  ",
-              {{kernel.stats.factor_demotions, "demotions"},
-               {kernel.stats.factor_demoted_vars, "fresh vars demoted"}});
+              {{s.factor_rejected_by_bound, "grids rejected by the coupled bound"}});
+    stat_line("c factor-dem  ", {{s.factor_demotions, "demotions"},
+                                 {s.factor_demoted_vars, "fresh vars demoted"}});
     stat_line("c sr          ",
-              {{kernel.stats.sr_applications, "applications"},
-               {kernel.stats.sr_applied, "applied"},
-               {kernel.stats.sr_validation_ticks, "validation ticks"},
-               {kernel.stats.sr_witness_literals, "witness literals"},
-               {kernel.stats.sr_unique_literal_amo_binaries, "unique-literal AMO binaries"}});
+              {{s.sr_applications, "applications"}, {s.sr_applied, "applied"},
+               {s.sr_validation_ticks, "validation ticks"},
+               {s.sr_witness_literals, "witness literals"},
+               {s.sr_unique_literal_amo_binaries, "unique-literal AMO binaries"}});
     stat_line("c sr-life     ",
-              {{kernel.stats.sr_post_amo_nonhelper_applied, "post-AMO nonhelper consequences"},
-               {kernel.stats.sr_post_amo_graph_root_units, "graph root units"}});
+              {{s.sr_post_amo_nonhelper_applied, "post-AMO nonhelper consequences"},
+               {s.sr_post_amo_graph_root_units, "graph root units"}});
   printf("c sr-admit    %llu nonforcing cut batches declined, %llu cuts; "
          "%llu singleton forcing batches declined, %llu rows\n",
-           (unsigned long long)kernel.stats.sr_nonforcing_cut_batches_declined,
-           (unsigned long long)kernel.stats.sr_nonforcing_cuts_declined,
-           (unsigned long long)kernel.stats.sr_singleton_forcing_batches_declined,
-           (unsigned long long)kernel.stats.sr_singleton_forcing_rows_declined);
-    // Residual search handoff is off by default; print it only when enabled
-    // or when it ran.
+         (ull)s.sr_nonforcing_cut_batches_declined, (ull)s.sr_nonforcing_cuts_declined,
+         (ull)s.sr_singleton_forcing_batches_declined, (ull)s.sr_singleton_forcing_rows_declined);
+    // Residual search handoff (off by default) prints when enabled or run.
     if (default_config.inprocess.structured_root_residual_search_handoff ||
-        kernel.stats.residual_handoff_calls ||
-        kernel.stats.residual_handoff_variables ||
-        kernel.stats.residual_handoff_nanos)
+        s.residual_handoff_calls ||
+        s.residual_handoff_variables ||
+        s.residual_handoff_nanos)
       printf("c handoff     %llu residual seeds, %llu variables, %.3f seconds\n",
-             (unsigned long long)kernel.stats.residual_handoff_calls,
-             (unsigned long long)kernel.stats.residual_handoff_variables,
-             kernel.stats.residual_handoff_nanos / 1e9);
-    stat_line("c bve         ", {{kernel.stats.bve_rounds, "rounds"},
-                                 {kernel.stats.bve_eliminated, "eliminated"},
-                                 {kernel.stats.bve_resolutions, "resolutions"}});
-    stat_line("c bve-otf     ", {{kernel.stats.bve_otf_strengthened, "strengthened"},
-                                 {kernel.stats.bve_otf_subsumed, "subsumed"}});
+             (ull)s.residual_handoff_calls, (ull)s.residual_handoff_variables,
+             s.residual_handoff_nanos / 1e9);
+    stat_line("c bve         ", {{s.bve_rounds, "rounds"}, {s.bve_eliminated, "eliminated"},
+                                 {s.bve_resolutions, "resolutions"}});
+    stat_line("c bve-otf     ", {{s.bve_otf_strengthened, "strengthened"},
+                                 {s.bve_otf_subsumed, "subsumed"}});
     printf("c fastel      %llu checks, %llu candidates / %llu active, "
            "%llu discovery ticks, %llu budget stops, %llu minority declines, "
            "%llu root-suppressed, %llu extensions protected, %llu eliminated, "
            "%llu resolutions, "
-           "%.3f seconds\n",
-           (unsigned long long)kernel.stats.fastel_rounds,
-           (unsigned long long)kernel.stats.fastel_candidates,
-           (unsigned long long)kernel.stats.fastel_active,
-           (unsigned long long)kernel.stats.fastel_discovery_ticks,
-           (unsigned long long)kernel.stats.fastel_budget_stops,
-           (unsigned long long)kernel.stats.fastel_declined,
-           (unsigned long long)kernel.stats.fastel_root_suppressed,
-           (unsigned long long)kernel.stats.fastel_extensions_protected,
-           (unsigned long long)kernel.stats.fastel_eliminated,
-           (unsigned long long)kernel.stats.fastel_resolutions,
-           kernel.stats.fastel_nanos / 1e9);
-    stat_line("c bve-bwd     ", {{kernel.stats.bve_bwd_queued, "subsumers"},
-                                 {kernel.stats.bve_bwd_subsumed, "subsumed"},
-                                 {kernel.stats.bve_bwd_strengthened, "strengthened"},
-                                 {kernel.stats.bve_bwd_units, "units"}});
+           "%.3f seconds\n", (ull)s.fastel_rounds, (ull)s.fastel_candidates, (ull)s.fastel_active,
+           (ull)s.fastel_discovery_ticks, (ull)s.fastel_budget_stops, (ull)s.fastel_declined,
+           (ull)s.fastel_root_suppressed, (ull)s.fastel_extensions_protected,
+           (ull)s.fastel_eliminated, (ull)s.fastel_resolutions, s.fastel_nanos / 1e9);
+    stat_line("c bve-bwd     ", {{s.bve_bwd_queued, "subsumers"}, {s.bve_bwd_subsumed, "subsumed"},
+                                 {s.bve_bwd_strengthened, "strengthened"},
+                                 {s.bve_bwd_units, "units"}});
     printf("c bve-gates   %llu equiv, %llu andor, %llu ite, %llu xor, "
-           "%llu definition; %llu resolvent pairs saved\n",
-           (unsigned long long)kernel.stats.bve_gates_equiv,
-           (unsigned long long)kernel.stats.bve_gates_and_or,
-           (unsigned long long)kernel.stats.bve_gates_ite,
-           (unsigned long long)kernel.stats.bve_gates_xor,
-           (unsigned long long)kernel.stats.bve_gates_definition,
-           (unsigned long long)kernel.stats.bve_gate_pairs_saved);
-    // `checked` proves the sub-solve path runs, `definition` above that it
-    // finds something, and `budget` whether TACTIX_BVE_DEF_TICKS binds.
-    stat_line("c bve-def     ",
-              {{kernel.stats.bve_definitions_checked, "checked"},
-               {kernel.stats.bve_definition_ticks, "ticks"},
-               {kernel.stats.bve_definition_budget, "hit the tick ceiling"},
-               {kernel.stats.bve_definition_units, "units"}});
-    printf("c restarts    %llu (%llu reused a trail prefix)\n",
-           (unsigned long long)kernel.stats.restarts,
-           (unsigned long long)kernel.stats.restarts_reused);
-    printf("c reductions  %llu (%llu clauses deleted, %llu promoted)\n",
-           (unsigned long long)kernel.stats.reductions,
-           (unsigned long long)kernel.stats.deleted,
-           (unsigned long long)kernel.stats.promoted);
+           "%llu definition; %llu resolvent pairs saved\n", (ull)s.bve_gates_equiv,
+           (ull)s.bve_gates_and_or, (ull)s.bve_gates_ite, (ull)s.bve_gates_xor,
+           (ull)s.bve_gates_definition, (ull)s.bve_gate_pairs_saved);
+    stat_line("c bve-def     ", {{s.bve_definitions_checked, "checked"},
+                                 {s.bve_definition_ticks, "ticks"},
+                                 {s.bve_definition_budget, "hit the tick ceiling"},
+                                 {s.bve_definition_units, "units"}});
+    printf("c restarts    %llu (%llu reused a trail prefix)\n", (ull)s.restarts,
+           (ull)s.restarts_reused);
+    printf("c reductions  %llu (%llu clauses deleted, %llu promoted)\n", (ull)s.reductions,
+           (ull)s.deleted, (ull)s.promoted);
     printf("c tiers       %u/%u live after %llu retiers "
-           "(retention band %llu clause-visits dynamic vs %llu static)\n",
-           kernel.tier1, kernel.tier2,
-           (unsigned long long)kernel.stats.retiered,
-           (unsigned long long)kernel.stats.tier2_band_dynamic,
-           (unsigned long long)kernel.stats.tier2_band_static);
+           "(retention band %llu clause-visits dynamic vs %llu static)\n", kernel.tier1,
+           kernel.tier2, (ull)s.retiered, (ull)s.tier2_band_dynamic, (ull)s.tier2_band_static);
     printf("c redscan     %llu scans, %llu arena words walked, %llu "
-           "skippable by a first_reducible watermark (%.2f%%)\n",
-           (unsigned long long)kernel.stats.reduce_scans,
-           (unsigned long long)kernel.stats.reduce_scan_words,
-           (unsigned long long)kernel.stats.reduce_skippable_words,
-           percent_of(kernel.stats.reduce_skippable_words,
-                      kernel.stats.reduce_scan_words));
+           "skippable by a first_reducible watermark (%.2f%%)\n", (ull)s.reduce_scans,
+           (ull)s.reduce_scan_words, (ull)s.reduce_skippable_words,
+           percent_of(s.reduce_skippable_words, s.reduce_scan_words));
     printf("c mode        %s after %llu switches (%llu ticks, "
            "%llu target phases saved)\n",
-           !kernel.h ? "unguided" : kernel.h->stable ? "stable" : "focused",
-           (unsigned long long)kernel.stats.switched,
-           (unsigned long long)kernel.stats.ticks,
-           (unsigned long long)kernel.stats.target_saved);
-    printf("c rephased    %llu (%llu best phases saved)\n",
-           (unsigned long long)kernel.stats.rephased,
-           (unsigned long long)kernel.stats.best_saved);
-    stat_line("c reordered   ", {{kernel.stats.reorder_eligible, "eligible"},
-                                 {kernel.stats.reordered, "decision re-rankings"}});
+           !kernel.h ? "unguided" : kernel.h->stable ? "stable" : "focused", (ull)s.switched,
+           (ull)s.ticks, (ull)s.target_saved);
+    printf("c rephased    %llu (%llu best phases saved)\n", (ull)s.rephased, (ull)s.best_saved);
+    stat_line("c reordered   ", {{s.reorder_eligible, "eligible"},
+                                 {s.reordered, "decision re-rankings"}});
     printf("c lucky       %llu early, %llu late (%llu SAT), %llu probes\n",
-           (unsigned long long)kernel.stats.lucky_early_calls,
-           (unsigned long long)kernel.stats.lucky_late_calls,
-           (unsigned long long)kernel.stats.lucky_late_sat,
-           (unsigned long long)kernel.stats.lucky_probes);
+           (ull)s.lucky_early_calls, (ull)s.lucky_late_calls, (ull)s.lucky_late_sat,
+           (ull)s.lucky_probes);
     printf("c parity     %llu calls, %llu equations, rank %llu, "
-           "%llu candidates, %llu SAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.parity_model_calls,
-           (unsigned long long)kernel.stats.parity_model_equations,
-           (unsigned long long)kernel.stats.parity_model_rank,
-           (unsigned long long)kernel.stats.parity_model_candidates,
-           (unsigned long long)kernel.stats.parity_model_sat,
-           (unsigned long long)kernel.stats.parity_model_interrupted);
-    stat_line("c parity-ref ",
-              {{kernel.stats.parity_refutation_probe_declines, "probe declines"},
-               {kernel.stats.parity_refutation_recognized, "recognized"},
-               {kernel.stats.parity_refutation_unsat, "UNSAT"},
-               {kernel.stats.parity_refutation_proof_additions, "proof additions"},
-               {kernel.stats.parity_refutation_proof_deletions, "proof deletions"}});
-    stat_line("c theory-act ",
-              {{kernel.stats.parity_consequence_attempts, "parity"},
-               {kernel.stats.affine_consequence_attempts, "affine"},
-               {kernel.stats.exact_cover_extension_attempts, "exact-cover"},
-               {kernel.stats.independent_set_cover_attempts, "independent-set"},
-               {kernel.stats.semantic_variable_advice_attempts, "advice attempts"}});
-    stat_line("c directphp  ",
-              {{kernel.stats.direct_php_attempts, "attempts"},
-               {kernel.stats.direct_php_applied, "applied"},
-               {kernel.stats.direct_php_not_recognized, "not-recognized"},
-               {kernel.stats.direct_php_resource_exhausted, "resource-exhausted"},
-               {kernel.stats.direct_php_interrupted, "interrupted"},
-               {kernel.stats.direct_php_stale, "stale"},
-               {kernel.stats.direct_php_replay_mismatch, "replay-mismatch"}});
-    stat_line("c gf3-gauss  ",
-              {{kernel.stats.gf3_gaussian_attempts, "attempts"},
-               {kernel.stats.gf3_gaussian_applied, "applied"},
-               {kernel.stats.gf3_gaussian_no_structure, "no-structure"},
-               {kernel.stats.gf3_gaussian_no_supported_outcome, "no-outcome"},
-               {kernel.stats.gf3_gaussian_exhausted, "exhausted"},
-               {kernel.stats.gf3_gaussian_interrupted, "interrupted"},
-               {kernel.stats.gf3_gaussian_stale, "stale"},
-               {kernel.stats.gf3_gaussian_unsupported_proof, "unsupported-proof"}});
-    stat_line("c gf3-row    ",
-              {{kernel.stats.gf3_general_row_attempts, "attempts"},
-               {kernel.stats.gf3_general_row_applied, "applied"},
-               {kernel.stats.gf3_general_row_no_structure, "no-structure"},
-               {kernel.stats.gf3_general_row_no_consequence, "no-consequence"},
-               {kernel.stats.gf3_general_row_already_published, "already-published"},
-               {kernel.stats.gf3_general_row_exhausted, "exhausted"},
-               {kernel.stats.gf3_general_row_interrupted, "interrupted"},
-               {kernel.stats.gf3_general_row_stale, "stale"},
-               {kernel.stats.gf3_general_row_unsupported_proof, "unsupported-proof"},
-               {kernel.stats.gf3_general_row_installed_clauses, "clauses"}});
-    stat_line("c card-search ", {{kernel.stats.cardinality_search_attempts, "attempts"},
-                                 {kernel.stats.cardinality_search_applied, "applied"}});
-    stat_line("c tseitin-cycle ",
-              {{kernel.stats.tseitin_cycle_attempts, "attempts"},
-               {kernel.stats.tseitin_cycle_applied, "applied"},
-               {kernel.stats.tseitin_cycle_no_structure, "no-structure"},
-               {kernel.stats.tseitin_cycle_exhausted, "exhausted"},
-               {kernel.stats.tseitin_cycle_interrupted, "interrupted"},
-               {kernel.stats.tseitin_cycle_stale, "stale"},
-               {kernel.stats.tseitin_cycle_unsupported_proof, "unsupported-proof"}});
-    stat_line("c nary-eq    ",
-              {{kernel.stats.nary_csp_equality_attempts, "attempts"},
-               {kernel.stats.nary_csp_equality_applied, "applied"},
-               {kernel.stats.nary_csp_equality_no_structure, "no-structure"},
-               {kernel.stats.nary_csp_equality_no_consequence, "no-consequence"},
-               {kernel.stats.nary_csp_equality_already_published, "already-published"},
-               {kernel.stats.nary_csp_equality_invalid, "invalid"},
-               {kernel.stats.nary_csp_equality_inapplicable, "inapplicable"},
-               {kernel.stats.nary_csp_equality_resource_exhausted, "exhausted"},
-               {kernel.stats.nary_csp_equality_interrupted, "interrupted"},
-               {kernel.stats.nary_csp_equality_stale, "stale"},
-               {kernel.stats.nary_csp_equality_unsupported_proof, "unsupported-proof"},
-               {kernel.stats.nary_csp_equality_introduced_variables, "introduced"}});
-    stat_line("c nary-eq-amo ",
-              {{kernel.stats.nary_csp_equality_amo_attempts, "attempts"},
-               {kernel.stats.nary_csp_equality_amo_applied, "applied"},
-               {kernel.stats.nary_csp_equality_amo_missing_equality, "missing-equality"},
-               {kernel.stats.nary_csp_equality_amo_stale, "stale"},
-               {kernel.stats.nary_csp_equality_amo_duplicate, "duplicate"},
-               {kernel.stats.nary_csp_equality_amo_declined, "declined"},
-               {kernel.stats.nary_csp_equality_amo_binary_clauses, "clauses"}});
+           "%llu candidates, %llu SAT, %llu interrupted\n", (ull)s.parity_model_calls,
+           (ull)s.parity_model_equations, (ull)s.parity_model_rank, (ull)s.parity_model_candidates,
+           (ull)s.parity_model_sat, (ull)s.parity_model_interrupted);
+    stat_line("c parity-ref ", {{s.parity_refutation_probe_declines, "probe declines"},
+                                {s.parity_refutation_recognized, "recognized"},
+                                {s.parity_refutation_unsat, "UNSAT"},
+                                {s.parity_refutation_proof_additions, "proof additions"},
+                                {s.parity_refutation_proof_deletions, "proof deletions"}});
+    stat_line("c theory-act ", {{s.parity_consequence_attempts, "parity"},
+                                {s.affine_consequence_attempts, "affine"},
+                                {s.exact_cover_extension_attempts, "exact-cover"},
+                                {s.independent_set_cover_attempts, "independent-set"},
+                                {s.semantic_variable_advice_attempts, "advice attempts"}});
+    stat_line("c directphp  ", {{s.direct_php_attempts, "attempts"},
+                                {s.direct_php_applied, "applied"},
+                                {s.direct_php_not_recognized, "not-recognized"},
+                                {s.direct_php_resource_exhausted, "resource-exhausted"},
+                                {s.direct_php_interrupted, "interrupted"},
+                                {s.direct_php_stale, "stale"},
+                                {s.direct_php_replay_mismatch, "replay-mismatch"}});
+    stat_line("c gf3-gauss  ", {{s.gf3_gaussian_attempts, "attempts"},
+                                {s.gf3_gaussian_applied, "applied"},
+                                {s.gf3_gaussian_no_structure, "no-structure"},
+                                {s.gf3_gaussian_no_supported_outcome, "no-outcome"},
+                                {s.gf3_gaussian_exhausted, "exhausted"},
+                                {s.gf3_gaussian_interrupted, "interrupted"},
+                                {s.gf3_gaussian_stale, "stale"},
+                                {s.gf3_gaussian_unsupported_proof, "unsupported-proof"}});
+    stat_line("c gf3-row    ", {{s.gf3_general_row_attempts, "attempts"},
+                                {s.gf3_general_row_applied, "applied"},
+                                {s.gf3_general_row_no_structure, "no-structure"},
+                                {s.gf3_general_row_no_consequence, "no-consequence"},
+                                {s.gf3_general_row_already_published, "already-published"},
+                                {s.gf3_general_row_exhausted, "exhausted"},
+                                {s.gf3_general_row_interrupted, "interrupted"},
+                                {s.gf3_general_row_stale, "stale"},
+                                {s.gf3_general_row_unsupported_proof, "unsupported-proof"},
+                                {s.gf3_general_row_installed_clauses, "clauses"}});
+    stat_line("c card-search ", {{s.cardinality_search_attempts, "attempts"},
+                                 {s.cardinality_search_applied, "applied"}});
+    stat_line("c tseitin-cycle ", {{s.tseitin_cycle_attempts, "attempts"},
+                                   {s.tseitin_cycle_applied, "applied"},
+                                   {s.tseitin_cycle_no_structure, "no-structure"},
+                                   {s.tseitin_cycle_exhausted, "exhausted"},
+                                   {s.tseitin_cycle_interrupted, "interrupted"},
+                                   {s.tseitin_cycle_stale, "stale"},
+                                   {s.tseitin_cycle_unsupported_proof, "unsupported-proof"}});
+    stat_line("c nary-eq    ", {{s.nary_csp_equality_attempts, "attempts"},
+                                {s.nary_csp_equality_applied, "applied"},
+                                {s.nary_csp_equality_no_structure, "no-structure"},
+                                {s.nary_csp_equality_no_consequence, "no-consequence"},
+                                {s.nary_csp_equality_already_published, "already-published"},
+                                {s.nary_csp_equality_invalid, "invalid"},
+                                {s.nary_csp_equality_inapplicable, "inapplicable"},
+                                {s.nary_csp_equality_resource_exhausted, "exhausted"},
+                                {s.nary_csp_equality_interrupted, "interrupted"},
+                                {s.nary_csp_equality_stale, "stale"},
+                                {s.nary_csp_equality_unsupported_proof, "unsupported-proof"},
+                                {s.nary_csp_equality_introduced_variables, "introduced"}});
+    stat_line("c nary-eq-amo ", {{s.nary_csp_equality_amo_attempts, "attempts"},
+                                 {s.nary_csp_equality_amo_applied, "applied"},
+                                 {s.nary_csp_equality_amo_missing_equality, "missing-equality"},
+                                 {s.nary_csp_equality_amo_stale, "stale"},
+                                 {s.nary_csp_equality_amo_duplicate, "duplicate"},
+                                 {s.nary_csp_equality_amo_declined, "declined"},
+                                 {s.nary_csp_equality_amo_binary_clauses, "clauses"}});
     stat_line("c affine-matrix-init ",
-              {{kernel.stats.affine_matrix_init_attempts, "attempts"},
-               {kernel.stats.affine_matrix_init_applied, "applied"},
-               {kernel.stats.affine_matrix_init_applied_partial, "partial"},
-               {kernel.stats.affine_matrix_init_incomplete_image, "incomplete-image"},
-               {kernel.stats.affine_matrix_init_incomplete_matrix, "incomplete-matrix"},
-               {kernel.stats.affine_matrix_init_exhausted, "exhausted"},
-               {kernel.stats.affine_matrix_init_interrupted, "interrupted"},
-               {kernel.stats.affine_matrix_init_normalization_rup_checks, "normalization-RUP-checks"},
-               {kernel.stats.affine_matrix_init_shortening_additions, "shortening-additions"},
-               {kernel.stats.affine_matrix_init_maintenance_service_work, "maintenance-service-work"}});
+              {{s.affine_matrix_init_attempts, "attempts"},
+               {s.affine_matrix_init_applied, "applied"},
+               {s.affine_matrix_init_applied_partial, "partial"},
+               {s.affine_matrix_init_incomplete_image, "incomplete-image"},
+               {s.affine_matrix_init_incomplete_matrix, "incomplete-matrix"},
+               {s.affine_matrix_init_exhausted, "exhausted"},
+               {s.affine_matrix_init_interrupted, "interrupted"},
+               {s.affine_matrix_init_normalization_rup_checks, "normalization-RUP-checks"},
+               {s.affine_matrix_init_shortening_additions, "shortening-additions"},
+               {s.affine_matrix_init_maintenance_service_work, "maintenance-service-work"}});
     stat_line("c affine_discovery ",
-              {{kernel.stats.affine_matrix_init_discovery_recognized_groups, "recognized-groups"},
-               {kernel.stats.affine_matrix_init_discovery_skipped_groups, "unchanged-groups"},
-               {kernel.stats.affine_matrix_init_discovery_recognizer_work, "recognizer-work"}});
-    stat_line("c affine     ", {{kernel.stats.affine_model_calls, "calls"},
-                                {kernel.stats.affine_model_equations, "equations"},
-                                {kernel.stats.affine_model_projection, "coordinates"},
-                                {kernel.stats.affine_model_entries, "entries"},
-                                {kernel.stats.affine_model_candidates, "candidates"},
-                                {kernel.stats.affine_model_sat, "SAT"},
-                                {kernel.stats.affine_model_work, "work"},
-                                {kernel.stats.affine_model_budget, "budgets"},
-                                {kernel.stats.affine_model_unavailable, "unavailable"},
-                                {kernel.stats.affine_model_interrupted, "interrupted"}});
+              {{s.affine_matrix_init_discovery_recognized_groups, "recognized-groups"},
+               {s.affine_matrix_init_discovery_skipped_groups, "unchanged-groups"},
+               {s.affine_matrix_init_discovery_recognizer_work, "recognizer-work"}});
+    stat_line("c affine     ", {{s.affine_model_calls, "calls"},
+                                {s.affine_model_equations, "equations"},
+                                {s.affine_model_projection, "coordinates"},
+                                {s.affine_model_entries, "entries"},
+                                {s.affine_model_candidates, "candidates"},
+                                {s.affine_model_sat, "SAT"}, {s.affine_model_work, "work"},
+                                {s.affine_model_budget, "budgets"},
+                                {s.affine_model_unavailable, "unavailable"},
+                                {s.affine_model_interrupted, "interrupted"}});
     printf("c onehot     %llu calls, %llu domains, %llu equations, rank %llu, "
-           "%llu candidates, %llu SAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.onehot_model_calls,
-           (unsigned long long)kernel.stats.onehot_model_domains,
-           (unsigned long long)kernel.stats.onehot_model_equations,
-           (unsigned long long)kernel.stats.onehot_model_rank,
-           (unsigned long long)kernel.stats.onehot_model_candidates,
-           (unsigned long long)kernel.stats.onehot_model_sat,
-           (unsigned long long)kernel.stats.onehot_model_interrupted);
+           "%llu candidates, %llu SAT, %llu interrupted\n", (ull)s.onehot_model_calls,
+           (ull)s.onehot_model_domains, (ull)s.onehot_model_equations, (ull)s.onehot_model_rank,
+           (ull)s.onehot_model_candidates, (ull)s.onehot_model_sat,
+           (ull)s.onehot_model_interrupted);
     printf("c directcsp  %llu calls, %llu domains, %llu edges, %llu restarts, "
-           "%llu infeasible, %llu work, best %llu, %llu SAT\n",
-           (unsigned long long)kernel.stats.direct_csp_model_calls,
-           (unsigned long long)kernel.stats.direct_csp_model_domains,
-           (unsigned long long)kernel.stats.direct_csp_model_edges,
-           (unsigned long long)kernel.stats.direct_csp_model_restarts,
-           (unsigned long long)kernel.stats.direct_csp_model_infeasible,
-           (unsigned long long)kernel.stats.direct_csp_model_work,
-           (unsigned long long)(kernel.stats.direct_csp_model_best == UINT64_MAX
-                                    ? 0
-                                    : kernel.stats.direct_csp_model_best),
-           (unsigned long long)kernel.stats.direct_csp_model_sat);
-    stat_line("c exact-one  ",
-              {{kernel.stats.exact_one_refutation_calls, "calls"},
-               {kernel.stats.exact_one_refutation_recognized, "recognized"},
-               {kernel.stats.exact_one_refutation_equations, "equations"},
-               {kernel.stats.exact_one_refutation_unsat, "UNSAT"},
-               {kernel.stats.exact_one_refutation_interrupted, "interrupted"},
-               {kernel.stats.exact_one_refutation_proof_additions, "proof additions"},
-               {kernel.stats.exact_one_refutation_proof_deletions, "proof deletions"}});
-    stat_line("c balance    ",
-              {{kernel.stats.balanced_signature_calls, "calls"},
-               {kernel.stats.balanced_signature_recognized, "recognized"},
-               {kernel.stats.balanced_signature_forced_ttf, "forced TTF"},
-               {kernel.stats.balanced_signature_candidates, "candidates"},
-               {kernel.stats.balanced_signature_restarts, "restarts"},
-               {kernel.stats.balanced_signature_steps, "steps"},
-               {kernel.stats.balanced_signature_completion_rounds, "completion rounds"},
-               {kernel.stats.balanced_signature_sat, "SAT"},
-               {kernel.stats.balanced_signature_interrupted, "interrupted"}});
-    stat_line("c fermat     ",
-              {{kernel.stats.fermat_model_calls, "calls"},
-               {kernel.stats.fermat_model_recognized, "recognized"},
-               {kernel.stats.fermat_model_candidates, "candidates"},
-               {kernel.stats.fermat_model_factor_iterations, "factor iterations"},
-               {kernel.stats.fermat_model_completion_rounds, "completion rounds"},
-               {kernel.stats.fermat_model_sat, "SAT"},
-               {kernel.stats.fermat_model_interrupted, "interrupted"}});
-    stat_line("c cerny      ", {{kernel.stats.cerny_model_calls, "calls"},
-                                {kernel.stats.cerny_model_recognized, "recognized"},
-                                {kernel.stats.cerny_model_states, "states"},
-                                {kernel.stats.cerny_model_length, "length"},
-                                {kernel.stats.cerny_model_sat, "SAT"},
-                                {kernel.stats.cerny_model_interrupted, "interrupted"}});
+           "%llu infeasible, %llu work, best %llu, %llu SAT\n", (ull)s.direct_csp_model_calls,
+           (ull)s.direct_csp_model_domains, (ull)s.direct_csp_model_edges,
+           (ull)s.direct_csp_model_restarts, (ull)s.direct_csp_model_infeasible,
+           (ull)s.direct_csp_model_work,
+           (ull)(s.direct_csp_model_best == UINT64_MAX ? 0 : s.direct_csp_model_best),
+           (ull)s.direct_csp_model_sat);
+    stat_line("c exact-one  ", {{s.exact_one_refutation_calls, "calls"},
+                                {s.exact_one_refutation_recognized, "recognized"},
+                                {s.exact_one_refutation_equations, "equations"},
+                                {s.exact_one_refutation_unsat, "UNSAT"},
+                                {s.exact_one_refutation_interrupted, "interrupted"},
+                                {s.exact_one_refutation_proof_additions, "proof additions"},
+                                {s.exact_one_refutation_proof_deletions, "proof deletions"}});
+    stat_line("c balance    ", {{s.balanced_signature_calls, "calls"},
+                                {s.balanced_signature_recognized, "recognized"},
+                                {s.balanced_signature_forced_ttf, "forced TTF"},
+                                {s.balanced_signature_candidates, "candidates"},
+                                {s.balanced_signature_restarts, "restarts"},
+                                {s.balanced_signature_steps, "steps"},
+                                {s.balanced_signature_completion_rounds, "completion rounds"},
+                                {s.balanced_signature_sat, "SAT"},
+                                {s.balanced_signature_interrupted, "interrupted"}});
+    stat_line("c fermat     ", {{s.fermat_model_calls, "calls"},
+                                {s.fermat_model_recognized, "recognized"},
+                                {s.fermat_model_candidates, "candidates"},
+                                {s.fermat_model_factor_iterations, "factor iterations"},
+                                {s.fermat_model_completion_rounds, "completion rounds"},
+                                {s.fermat_model_sat, "SAT"},
+                                {s.fermat_model_interrupted, "interrupted"}});
+    stat_line("c cerny      ", {{s.cerny_model_calls, "calls"},
+                                {s.cerny_model_recognized, "recognized"},
+                                {s.cerny_model_states, "states"}, {s.cerny_model_length, "length"},
+                                {s.cerny_model_sat, "SAT"},
+                                {s.cerny_model_interrupted, "interrupted"}});
     stat_line("c lookup     ",
-              {{kernel.stats.lookup_circuit_model_calls, "calls"},
-               {kernel.stats.lookup_circuit_model_recognized, "recognized"},
-               {kernel.stats.lookup_circuit_model_gates, "gates"},
-               {kernel.stats.lookup_circuit_model_support, "support"},
-               {kernel.stats.lookup_circuit_model_vector_evaluations, "vector gate evaluations"},
-               {kernel.stats.lookup_circuit_model_csp_work, "CSP work"},
-               {kernel.stats.lookup_circuit_model_sat, "SAT"},
-               {kernel.stats.lookup_circuit_model_interrupted, "interrupted"}});
-    stat_line("c simon      ", {{kernel.stats.simon_model_calls, "calls"},
-                                {kernel.stats.simon_model_recognized, "recognized"},
-                                {kernel.stats.simon_model_rounds, "rounds"},
-                                {kernel.stats.simon_model_candidates, "candidates"},
-                                {kernel.stats.simon_model_sat, "SAT"},
-                                {kernel.stats.simon_model_interrupted, "interrupted"}});
+              {{s.lookup_circuit_model_calls, "calls"},
+               {s.lookup_circuit_model_recognized, "recognized"},
+               {s.lookup_circuit_model_gates, "gates"}, {s.lookup_circuit_model_support, "support"},
+               {s.lookup_circuit_model_vector_evaluations, "vector gate evaluations"},
+               {s.lookup_circuit_model_csp_work, "CSP work"}, {s.lookup_circuit_model_sat, "SAT"},
+               {s.lookup_circuit_model_interrupted, "interrupted"}});
+    stat_line("c simon      ", {{s.simon_model_calls, "calls"},
+                                {s.simon_model_recognized, "recognized"},
+                                {s.simon_model_rounds, "rounds"},
+                                {s.simon_model_candidates, "candidates"},
+                                {s.simon_model_sat, "SAT"},
+                                {s.simon_model_interrupted, "interrupted"}});
     printf("c stconn     %llu calls, %llu recognized, width %llu, "
            "%llu columns, %llu RUP clauses, %llu budget stops, %llu UNSAT, "
-           "%llu interrupted\n",
-           (unsigned long long)kernel.stats.stconn_proof_calls,
-           (unsigned long long)kernel.stats.stconn_proof_recognized,
-           (unsigned long long)kernel.stats.stconn_proof_width,
-           (unsigned long long)kernel.stats.stconn_proof_columns,
-           (unsigned long long)kernel.stats.stconn_proof_rup_clauses,
-           (unsigned long long)kernel.stats.stconn_proof_budget_exhausted,
-           (unsigned long long)kernel.stats.stconn_proof_unsat,
-           (unsigned long long)kernel.stats.stconn_proof_interrupted);
-    stat_line("c signedcard ",
-              {{kernel.stats.signed_cardinality_proof_calls, "calls"},
-               {kernel.stats.signed_cardinality_proof_recognized, "recognized"},
-               {kernel.stats.signed_cardinality_proof_groups, "groups"},
-               {kernel.stats.signed_cardinality_proof_bdd_nodes, "BDD nodes"},
-               {kernel.stats.signed_cardinality_proof_additions, "proof additions"},
-               {kernel.stats.signed_cardinality_proof_budget_exhausted, "budget stops"},
-               {kernel.stats.signed_cardinality_proof_unsat, "UNSAT"},
-               {kernel.stats.signed_cardinality_proof_interrupted, "interrupted"}});
-    stat_line("c exactcover ",
-              {{kernel.stats.exact_cover_model_calls, "calls"},
-               {kernel.stats.exact_cover_model_recognized, "recognized"},
-               {kernel.stats.exact_cover_model_blocks, "blocks"},
-               {kernel.stats.exact_cover_model_nodes, "nodes"},
-               {kernel.stats.exact_cover_model_restarts, "restarts"},
-               {kernel.stats.exact_cover_model_budget_exhausted, "budget stops"},
-               {kernel.stats.exact_cover_model_sat, "SAT"},
-               {kernel.stats.exact_cover_model_interrupted, "interrupted"}});
+           "%llu interrupted\n", (ull)s.stconn_proof_calls, (ull)s.stconn_proof_recognized,
+           (ull)s.stconn_proof_width, (ull)s.stconn_proof_columns, (ull)s.stconn_proof_rup_clauses,
+           (ull)s.stconn_proof_budget_exhausted, (ull)s.stconn_proof_unsat,
+           (ull)s.stconn_proof_interrupted);
+    stat_line("c signedcard ", {{s.signed_cardinality_proof_calls, "calls"},
+                                {s.signed_cardinality_proof_recognized, "recognized"},
+                                {s.signed_cardinality_proof_groups, "groups"},
+                                {s.signed_cardinality_proof_bdd_nodes, "BDD nodes"},
+                                {s.signed_cardinality_proof_additions, "proof additions"},
+                                {s.signed_cardinality_proof_budget_exhausted, "budget stops"},
+                                {s.signed_cardinality_proof_unsat, "UNSAT"},
+                                {s.signed_cardinality_proof_interrupted, "interrupted"}});
+    stat_line("c exactcover ", {{s.exact_cover_model_calls, "calls"},
+                                {s.exact_cover_model_recognized, "recognized"},
+                                {s.exact_cover_model_blocks, "blocks"},
+                                {s.exact_cover_model_nodes, "nodes"},
+                                {s.exact_cover_model_restarts, "restarts"},
+                                {s.exact_cover_model_budget_exhausted, "budget stops"},
+                                {s.exact_cover_model_sat, "SAT"},
+                                {s.exact_cover_model_interrupted, "interrupted"}});
     printf("c indepset   %llu calls, %llu recognized, %llu vertices, %llu target, "
            "%llu greedy, %llu found, %llu steps, %llu completion rounds, "
            "%llu SAT, %llu interrupted; %llu stable cores, %llu covers, "
-           "%llu authenticated resolvents\n",
-           (unsigned long long)kernel.stats.independent_set_model_calls,
-           (unsigned long long)kernel.stats.independent_set_model_recognized,
-           (unsigned long long)kernel.stats.independent_set_model_vertices,
-           (unsigned long long)kernel.stats.independent_set_model_target,
-           (unsigned long long)kernel.stats.independent_set_model_greedy_size,
-           (unsigned long long)kernel.stats.independent_set_model_size,
-           (unsigned long long)kernel.stats.independent_set_model_steps,
-           (unsigned long long)
-               kernel.stats.independent_set_model_completion_rounds,
-           (unsigned long long)kernel.stats.independent_set_model_sat,
-           (unsigned long long)kernel.stats.independent_set_model_interrupted,
-           (unsigned long long)kernel.stats.independent_set_stable_cores,
-           (unsigned long long)
-               kernel.stats.independent_set_stable_cover_clauses,
-           (unsigned long long)
-               kernel.stats.independent_set_stable_resolvents);
-    stat_line("c graphlabel ",
-              {{kernel.stats.graph_labeling_calls, "calls"},
-               {kernel.stats.graph_labeling_recognized, "recognized"},
-               {kernel.stats.graph_labeling_vertices, "vertices"},
-               {kernel.stats.graph_labeling_separation, "separation"},
-               {kernel.stats.graph_labeling_seeds, "seeds"},
-               {kernel.stats.graph_labeling_nodes, "nodes"},
-               {kernel.stats.graph_labeling_repairs, "repairs"},
-               {kernel.stats.graph_labeling_anneal_attempts, "anneal attempts"},
-               {kernel.stats.graph_labeling_work, "work"},
-               {kernel.stats.graph_labeling_budget, "budget stops"},
-               {kernel.stats.graph_labeling_interrupted, "interrupted"},
-               {kernel.stats.graph_labeling_models_rejected, "models rejected"},
-               {kernel.stats.graph_labeling_sat, "SAT"}});
+           "%llu authenticated resolvents\n", (ull)s.independent_set_model_calls,
+           (ull)s.independent_set_model_recognized, (ull)s.independent_set_model_vertices,
+           (ull)s.independent_set_model_target, (ull)s.independent_set_model_greedy_size,
+           (ull)s.independent_set_model_size, (ull)s.independent_set_model_steps,
+           (ull)s.independent_set_model_completion_rounds, (ull)s.independent_set_model_sat,
+           (ull)s.independent_set_model_interrupted, (ull)s.independent_set_stable_cores,
+           (ull)s.independent_set_stable_cover_clauses, (ull)s.independent_set_stable_resolvents);
+    stat_line("c graphlabel ", {{s.graph_labeling_calls, "calls"},
+                                {s.graph_labeling_recognized, "recognized"},
+                                {s.graph_labeling_vertices, "vertices"},
+                                {s.graph_labeling_separation, "separation"},
+                                {s.graph_labeling_seeds, "seeds"},
+                                {s.graph_labeling_nodes, "nodes"},
+                                {s.graph_labeling_repairs, "repairs"},
+                                {s.graph_labeling_anneal_attempts, "anneal attempts"},
+                                {s.graph_labeling_work, "work"},
+                                {s.graph_labeling_budget, "budget stops"},
+                                {s.graph_labeling_interrupted, "interrupted"},
+                                {s.graph_labeling_models_rejected, "models rejected"},
+                                {s.graph_labeling_sat, "SAT"}});
     printf("c graphinterv %llu calls, %llu recognized, %llu vertices, "
            "%llu gates, %llu intervals, %llu groups, %llu selected, "
            "%llu work, %llu source clauses/%llu literals/%llu bytes, "
            "%llu resource stops/%llu interrupted, (%llu RUP ticks), %llu RUP rejected, "
            "%llu duplicates, %llu additions, %llu proof literals\n",
-           (unsigned long long)kernel.stats.graph_interval_equivalence_calls,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_recognized,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_vertices,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_gates,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_intervals,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_groups,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_selected,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_work,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_source_clauses,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_source_literals,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_source_workspace,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_resource_exhausted,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_interrupted,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_rup_ticks,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_rup_rejected,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_duplicates,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_published,
-           (unsigned long long)kernel.stats.graph_interval_equivalence_proof_literal_occurrences);
-    stat_line("c ramsey     ",
-              {{kernel.stats.ramsey_startup_attempts, "attempts"},
-               {kernel.stats.ramsey_startup_recognized, "recognized"},
-               {kernel.stats.ramsey_startup_recognition_work, "recognition work"},
-               {kernel.stats.ramsey_startup_certificate_work, "certificate work"},
-               {kernel.stats.ramsey_startup_nodes, "nodes"},
-               {kernel.stats.ramsey_startup_additions, "additions"},
-               {kernel.stats.ramsey_startup_deletions, "deletions"},
-               {kernel.stats.ramsey_startup_helpers, "helpers"},
-               {kernel.stats.ramsey_startup_exhausted, "budget stops"},
-               {kernel.stats.ramsey_startup_unsat, "UNSAT"},
-               {kernel.stats.ramsey_startup_interrupted, "interrupted"}});
+           (ull)s.graph_interval_equivalence_calls, (ull)s.graph_interval_equivalence_recognized,
+           (ull)s.graph_interval_equivalence_vertices, (ull)s.graph_interval_equivalence_gates,
+           (ull)s.graph_interval_equivalence_intervals, (ull)s.graph_interval_equivalence_groups,
+           (ull)s.graph_interval_equivalence_selected, (ull)s.graph_interval_equivalence_work,
+           (ull)s.graph_interval_equivalence_source_clauses,
+           (ull)s.graph_interval_equivalence_source_literals,
+           (ull)s.graph_interval_equivalence_source_workspace,
+           (ull)s.graph_interval_equivalence_resource_exhausted,
+           (ull)s.graph_interval_equivalence_interrupted,
+           (ull)s.graph_interval_equivalence_rup_ticks,
+           (ull)s.graph_interval_equivalence_rup_rejected,
+           (ull)s.graph_interval_equivalence_duplicates,
+           (ull)s.graph_interval_equivalence_published,
+           (ull)s.graph_interval_equivalence_proof_literal_occurrences);
+    stat_line("c ramsey     ", {{s.ramsey_startup_attempts, "attempts"},
+                                {s.ramsey_startup_recognized, "recognized"},
+                                {s.ramsey_startup_recognition_work, "recognition work"},
+                                {s.ramsey_startup_certificate_work, "certificate work"},
+                                {s.ramsey_startup_nodes, "nodes"},
+                                {s.ramsey_startup_additions, "additions"},
+                                {s.ramsey_startup_deletions, "deletions"},
+                                {s.ramsey_startup_helpers, "helpers"},
+                                {s.ramsey_startup_exhausted, "budget stops"},
+                                {s.ramsey_startup_unsat, "UNSAT"},
+                                {s.ramsey_startup_interrupted, "interrupted"}});
     printf("c localsearch %llu hints offered (%llu phases, %llu replacements), "
            "%llu applied / %llu target installs from %llu attempts "
            "(%llu eligible, %llu changed, "
-           "%llu matching, %llu replaced)\n",
-           (unsigned long long)kernel.stats.local_search_hints_offered,
-           (unsigned long long)kernel.stats.local_search_hint_phases_offered,
-           (unsigned long long)kernel.stats.local_search_hints_replaced,
-           (unsigned long long)kernel.stats.local_search_hints_applied,
-           (unsigned long long)kernel.stats.local_search_target_installs,
-           (unsigned long long)kernel.stats.local_search_target_install_attempts,
-           (unsigned long long)kernel.stats.local_search_target_eligible_phases,
-           (unsigned long long)kernel.stats.local_search_target_changed_phases,
-           (unsigned long long)kernel.stats.local_search_target_matching_phases,
-           (unsigned long long)kernel.stats.local_search_target_replaced_phases);
+           "%llu matching, %llu replaced)\n", (ull)s.local_search_hints_offered,
+           (ull)s.local_search_hint_phases_offered, (ull)s.local_search_hints_replaced,
+           (ull)s.local_search_hints_applied, (ull)s.local_search_target_installs,
+           (ull)s.local_search_target_install_attempts, (ull)s.local_search_target_eligible_phases,
+           (ull)s.local_search_target_changed_phases, (ull)s.local_search_target_matching_phases,
+           (ull)s.local_search_target_replaced_phases);
     printf("c localphase %llu decisions (%llu matched, %llu overridden), "
            "%llu native / %llu rephase / %llu walk overwrites\n",
-           (unsigned long long)kernel.stats.local_search_target_decisions,
-           (unsigned long long)kernel.stats.local_search_target_decision_matches,
-           (unsigned long long)kernel.stats.local_search_target_decision_overrides,
-           (unsigned long long)kernel.stats.local_search_target_overwritten_native,
-           (unsigned long long)kernel.stats.local_search_target_overwritten_rephase,
-           (unsigned long long)kernel.stats.local_search_target_overwritten_walk);
-    printf("c walk        %llu walks (%llu improved, %llu flips, %llu steps)\n",
-           (unsigned long long)kernel.stats.walks,
-           (unsigned long long)kernel.stats.walk_improved,
-           (unsigned long long)kernel.stats.walk_flips,
-           (unsigned long long)kernel.stats.walk_steps);
+           (ull)s.local_search_target_decisions, (ull)s.local_search_target_decision_matches,
+           (ull)s.local_search_target_decision_overrides,
+           (ull)s.local_search_target_overwritten_native,
+           (ull)s.local_search_target_overwritten_rephase,
+           (ull)s.local_search_target_overwritten_walk);
+    printf("c walk        %llu walks (%llu improved, %llu flips, %llu steps)\n", (ull)s.walks,
+           (ull)s.walk_improved, (ull)s.walk_flips, (ull)s.walk_steps);
     printf("c walkseed    %llu imports / %llu phases (%llu improved, %llu exported), %llu steps, "
-           "%llu budget stops, %llu interrupted, %llu stale hints\n",
-           (unsigned long long)kernel.stats.walk_seed_imports,
-           (unsigned long long)kernel.stats.walk_seed_imported_phases,
-           (unsigned long long)kernel.stats.walk_seed_improved,
-           (unsigned long long)kernel.stats.walk_seed_exported,
-           (unsigned long long)kernel.stats.walk_seed_steps,
-           (unsigned long long)kernel.stats.walk_seed_budget_exhausted,
-           (unsigned long long)kernel.stats.walk_seed_interrupted,
-           (unsigned long long)kernel.stats.local_search_hints_stale);
-    stat_line("c randec      ", {{kernel.stats.random_sequences, "sequences"},
-                                 {kernel.stats.random_decisions, "random decisions"}});
+           "%llu budget stops, %llu interrupted, %llu stale hints\n", (ull)s.walk_seed_imports,
+           (ull)s.walk_seed_imported_phases, (ull)s.walk_seed_improved, (ull)s.walk_seed_exported,
+           (ull)s.walk_seed_steps, (ull)s.walk_seed_budget_exhausted, (ull)s.walk_seed_interrupted,
+           (ull)s.local_search_hints_stale);
+    stat_line("c randec      ", {{s.random_sequences, "sequences"},
+                                 {s.random_decisions, "random decisions"}});
     printf("c subsume     %llu rounds (%llu checked, %llu visits, %llu subsumed)\n",
-           (unsigned long long)kernel.stats.forward_subsumptions,
-           (unsigned long long)kernel.stats.forward_checked,
-           (unsigned long long)kernel.stats.forward_visits,
-           (unsigned long long)kernel.stats.forward_subsumed);
+           (ull)s.forward_subsumptions, (ull)s.forward_checked, (ull)s.forward_visits,
+           (ull)s.forward_subsumed);
     printf("c strengthen  %llu rounds (%llu checked, %llu visits, "
-           "%llu strengthened, %llu subsumed)\n",
-           (unsigned long long)kernel.stats.strengthen_rounds,
-           (unsigned long long)kernel.stats.strengthen_checked,
-           (unsigned long long)kernel.stats.strengthen_visits,
-           (unsigned long long)kernel.stats.strengthened,
-           (unsigned long long)kernel.stats.strengthen_subsumed);
-    stat_line("c budgetstop  ",
-              {{kernel.stats.budget_stops_c1, "C1 rounds"},
-               {kernel.stats.budget_stops_c2, "C2 rounds stopped mid-round"}});
-    // Non-wedge witness for the touched-epoch filters (Kernel::touched):
-    // `marks` must keep growing on a long solve, `skipped` and `checked` (the
-    // `c subsume` / `c strengthen` lines) must both be non-zero, and `advances`
-    // 0 with rounds > 0 says every round is being cut.
+           "%llu strengthened, %llu subsumed)\n", (ull)s.strengthen_rounds,
+           (ull)s.strengthen_checked, (ull)s.strengthen_visits, (ull)s.strengthened,
+           (ull)s.strengthen_subsumed);
+    stat_line("c budgetstop  ", {{s.budget_stops_c1, "C1 rounds"},
+                                 {s.budget_stops_c2, "C2 rounds stopped mid-round"}});
+    // Witness for the touched-epoch filters (Kernel::touched).
     printf("c touch       %llu marks, %llu epoch; C1 %llu skipped / %llu "
            "advances / %llu rearmed, C2 %llu skipped / %llu advances / %llu "
-           "rearmed\n",
-           (unsigned long long)kernel.stats.touch_marks,
-           (unsigned long long)kernel.touch_epoch,
-           (unsigned long long)kernel.stats.forward_mark_skipped,
-           (unsigned long long)kernel.stats.forward_mark_advances,
-           (unsigned long long)kernel.stats.forward_rearmed,
-           (unsigned long long)kernel.stats.strengthen_mark_skipped,
-           (unsigned long long)kernel.stats.strengthen_mark_advances,
-           (unsigned long long)kernel.stats.strengthen_rearmed);
-    stat_line("c subhold     ",
-              {{kernel.stats.subsume_holds, "elimination rounds held open by C1/C2"}});
+           "rearmed\n", (ull)s.touch_marks, (ull)kernel.touch_epoch, (ull)s.forward_mark_skipped,
+           (ull)s.forward_mark_advances, (ull)s.forward_rearmed, (ull)s.strengthen_mark_skipped,
+           (ull)s.strengthen_mark_advances, (ull)s.strengthen_rearmed);
+    stat_line("c subhold     ", {{s.subsume_holds, "elimination rounds held open by C1/C2"}});
     printf("c touch3      BCE %llu skipped / %llu rearmed, X2 %llu skipped / "
-           "%llu rearmed, X4 %llu skipped / %llu rearmed\n",
-           (unsigned long long)kernel.stats.bce_mark_skipped,
-           (unsigned long long)kernel.stats.bce_rearmed,
-           (unsigned long long)kernel.stats.ternary_mark_skipped,
-           (unsigned long long)kernel.stats.ternary_rearmed,
-           (unsigned long long)kernel.stats.instantiate_mark_skipped,
-           (unsigned long long)kernel.stats.instantiate_rearmed);
-    // Which rule honoured the interrupt: `c interrupt` above sums over every
-    // polling rule, so it cannot show a particular round is interruptible.
-    printf("c interrupt3  BCE %llu, X2 %llu, X4 %llu aborts\n",
-           (unsigned long long)kernel.stats.bce_interrupted,
-           (unsigned long long)kernel.stats.ternary_interrupted,
-           (unsigned long long)kernel.stats.instantiate_interrupted);
-    // TODO: fold this and `c interrupt3` into one line once Vivify's share
-    // lands; they are separate only because the shares landed separately.
-    printf("c interrupt2  C1 %llu, C2 %llu aborts\n",
-           (unsigned long long)kernel.stats.subsume_interrupted,
-           (unsigned long long)kernel.stats.strengthen_interrupted);
+           "%llu rearmed, X4 %llu skipped / %llu rearmed\n", (ull)s.bce_mark_skipped,
+           (ull)s.bce_rearmed, (ull)s.ternary_mark_skipped, (ull)s.ternary_rearmed,
+           (ull)s.instantiate_mark_skipped, (ull)s.instantiate_rearmed);
+    // Which rule honoured the interrupt (`c interrupt` sums over all).
+    printf("c interrupt3  BCE %llu, X2 %llu, X4 %llu aborts\n", (ull)s.bce_interrupted,
+           (ull)s.ternary_interrupted, (ull)s.instantiate_interrupted);
+    printf("c interrupt2  C1 %llu, C2 %llu aborts\n", (ull)s.subsume_interrupted,
+           (ull)s.strengthen_interrupted);
     printf("c touchred    %llu redundant creations in scope (dynamic) vs %llu "
-           "(static tier2=6), %llu band marks; band %s\n",
-           (unsigned long long)kernel.stats.touch_redundant_dynamic,
-           (unsigned long long)kernel.stats.touch_redundant_static6,
-           (unsigned long long)kernel.stats.touch_kept_marks,
+           "(static tier2=6), %llu band marks; band %s\n", (ull)s.touch_redundant_dynamic,
+           (ull)s.touch_redundant_static6, (ull)s.touch_kept_marks,
            kernel.touch_redundant ? "ON" : "off");
-    // A pair because `checked` alone cannot distinguish a scope that admits
-    // nothing from a filter that admits everything.
     printf("c f7band      C2 %llu band candidates checked / %llu skipped, "
-           "%llu subsumed / %llu strengthened\n",
-           (unsigned long long)kernel.stats.strengthen_red_checked,
-           (unsigned long long)kernel.stats.strengthen_red_skipped,
-           (unsigned long long)kernel.stats.strengthen_red_subsumed,
-           (unsigned long long)kernel.stats.strengthen_red_strengthened);
-    stat_line("c touch4      Factor ",
-              {{kernel.stats.factor_mark_skipped, "seeds skipped"},
-               {kernel.stats.factor_rearmed, "rearmed"}}, " / ");
-    // --- `c timing`: where the wall clock actually goes ---------------------
-    // Rules are charged individually by the registry dispatch wrapper, inside
-    // the slot and out. The slot line is the whole inprocessing phase, so slot
-    // minus the rules in it is scaffolding, and search is the residual solve
-    // minus slot: the per-conflict path is deliberately untimed, a clock there
-    // being exactly the hot-path cost N3 cannot pay.
+           "%llu subsumed / %llu strengthened\n", (ull)s.strengthen_red_checked,
+           (ull)s.strengthen_red_skipped, (ull)s.strengthen_red_subsumed,
+           (ull)s.strengthen_red_strengthened);
+    stat_line("c touch4      Factor ", {{s.factor_mark_skipped, "seeds skipped"},
+                                        {s.factor_rearmed, "rearmed"}}, " / ");
+    // `c timing`: rules are charged by the registry dispatch wrapper; the slot
+    // is the whole inprocessing phase. The per-conflict path is untimed.
     {
-      const double total_ms = kernel.stats.solve_nanos / 1e6;
-      const double slot_ms = kernel.stats.inprocess_nanos / 1e6;
+      const double total_ms = s.solve_nanos / 1e6;
+      const double slot_ms = s.inprocess_nanos / 1e6;
       auto pct = [&](double ms) { return total_ms > 0 ? 100.0 * ms / total_ms : 0.0; };
       printf("c timing      %.0f ms solve\n", total_ms);
       printf("c timing      %.0f ms (%.1f%%) inprocessing slot, %.0f ms (%.1f%%) "
-             "search+scaffolding outside it\n",
-             slot_ms, pct(slot_ms), total_ms - slot_ms, pct(total_ms - slot_ms));
+             "search+scaffolding outside it\n", slot_ms, pct(slot_ms), total_ms - slot_ms,
+             pct(total_ms - slot_ms));
       printf("c phasecost   structured %.0f ms, entry %.0f ms, dense-connect %.0f ms, "
-             "slot-loop %.0f ms, exit %.0f ms\n",
-             kernel.stats.structured_root_nanos / 1e6,
-             kernel.stats.inprocess_entry_nanos / 1e6,
-             kernel.stats.inprocess_dense_connect_nanos / 1e6,
-             kernel.stats.inprocess_slot_loop_nanos / 1e6,
-             kernel.stats.inprocess_exit_nanos / 1e6);
+             "slot-loop %.0f ms, exit %.0f ms\n", s.structured_root_nanos / 1e6,
+             s.inprocess_entry_nanos / 1e6, s.inprocess_dense_connect_nanos / 1e6,
+             s.inprocess_slot_loop_nanos / 1e6, s.inprocess_exit_nanos / 1e6);
       // Per rule, biggest first; only rules that actually ran.
       const auto &rules = tactix::tactix_rules();
       std::vector<std::pair<uint64_t, size_t>> ranked;
       double charged_ms = 0;
       for (size_t i = 0; i < rules.size() && i < tactix::Stats::MAX_TIMED_RULES; i++)
-        if (kernel.stats.rule_calls[i]) {
-          ranked.push_back({kernel.stats.rule_nanos[i], i});
-          charged_ms += kernel.stats.rule_nanos[i] / 1e6;
+        if (s.rule_calls[i]) {
+          ranked.push_back({s.rule_nanos[i], i});
+          charged_ms += s.rule_nanos[i] / 1e6;
         }
       std::sort(ranked.rbegin(), ranked.rend());
       for (const auto &e : ranked)
         printf("c timing        %-16s %9.0f ms (%5.1f%%) in %llu applications\n",
                rules[e.second].name, e.first / 1e6, pct(e.first / 1e6),
-               (unsigned long long)kernel.stats.rule_calls[e.second]);
-      printf("c timing        %-16s %9.0f ms (%5.1f%%)\n", "(unattributed)",
-             slot_ms - charged_ms, pct(slot_ms - charged_ms));
+               (ull)s.rule_calls[e.second]);
+      printf("c timing        %-16s %9.0f ms (%5.1f%%)\n", "(unattributed)", slot_ms - charged_ms,
+             pct(slot_ms - charged_ms));
     }
     {
       if (std::getenv("TACTIX_STRATEGY_CONFIG"))
-        printf("c strategy-config %s\n",
-               default_policy.strategy_config_snapshot().c_str());
+        printf("c strategy-config %s\n", default_policy.strategy_config_snapshot().c_str());
       if (std::getenv("TACTIX_SLOT_STATS"))
         default_policy.inprocess().report(kernel);
     }
-    // Why the automatic proof is (or is still) its format: `dsr-selected` after
-    // the empty clause, `pending` without one, else the PBP trigger.
+    // Why the automatic proof has its format: `dsr-selected`, `pending`, or the
+    // PBP trigger.
     if (proof_path && proof.automatic()) {
-      printf("c auto-proof    %s\n",
-             automatic_proof_reason_name(proof.automatic_reason()));
+      printf("c auto-proof    %s\n", automatic_proof_reason_name(proof.automatic_reason()));
       // One proof at a time: whether the run paid the conversion to PBP.
       const tactix::LazyPbpReport &lazy = proof.lazy_pbp_report();
       printf("c auto-proof-switch %s dsr-bytes %" PRIu64 " pbp-bytes %" PRIu64
-             " nanos=%" PRIu64 "\n",
-             lazy.state, lazy.dsr_bytes, lazy.pbp_bytes, lazy.nanos);
+             " nanos=%" PRIu64 "\n", lazy.state, lazy.dsr_bytes, lazy.pbp_bytes, lazy.nanos);
     }
   }
   // An explicit DSR proof cannot spell the startup counting refutation: a
-  // follow-on solve of the original formula without that opportunity writes it.
-  // Without its proof the run reports no verdict.
+  // follow-on solve without it writes the proof, or the run has no verdict.
   int verdict = res;
   bool follow_on_failed = false;
   if (res == 20 && proof.dsr_follow_on_pending()) {
@@ -1621,8 +1244,7 @@ int main(int argc, char **argv) {
     }
     if (follow_on.result != 20) {
       verdict = 0;
-      // Only a signal ends the follow-on without an answer; any other result
-      // is a failure to certify the refutation.
+      // Only a signal may end the follow-on without an answer.
       follow_on_failed = follow_on.result != 0 || !caught_signal;
       if (follow_on_failed)
         fprintf(stderr, "tactix: the DSR follow-on solve returned %d\n",

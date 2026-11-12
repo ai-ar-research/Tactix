@@ -18,7 +18,6 @@ using affine_semantic_extension::External;
 using affine_semantic_extension::ProofEvent;
 using affine_semantic_extension::ProofPlan;
 using affine_semantic_extension::sorted_clause;
-
 using Journal = semantic_extension::BoundedJournal<true, true>;
 
 struct Replay {
@@ -357,9 +356,7 @@ CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
       if(request.maximum_snapshot_bytes) {
         if(!charge(2*(1+std::bit_width(binaries.size()))))return finish(failure);
         if(binaries.contains(native_key))continue;
-        // The four source-metadata populations also cover this unique-pair
-        // tree node (three links/color/alignment) and its allocator overhead.
-        // Reserve the next source envelope before allocating the node.
+        // Reserve the next source envelope (it covers this tree node).
         const uint64_t bytes=4*(sizeof(AffineLiveSource)+sizeof(affine_semantic_extension::Premise))+8*sizeof(int32_t);
         if(reserved_bytes>request.maximum_snapshot_bytes||bytes>request.maximum_snapshot_bytes-reserved_bytes) {
           failure=CaptureStatus::ResourceExhausted;return finish(failure);
@@ -497,9 +494,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
     }
     snapshot = &owned;
   }
-  // Ref identity is generation-scoped. Reject a cached view before doing any
-  // semantic work; selected large sources are boundary-checked again just
-  // before proof publication.
+  // Refs are generation-scoped: reject a stale cached view first.
   if (snapshot->arena_generation != k.arena_generation) {
     result.status = AffineLiveStatus::Stale;
     return result;
@@ -518,9 +513,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
                         : AffineLiveStatus::Invalid;
     return result;
   }
-  // A freshly captured view reports its full arena/watch scan. Reusing a
-  // caller-owned view charges a deterministic replay of every cached payload;
-  // its stored counters are advisory and cannot bypass this action's limits.
+  // A fresh view reports its scan; a cached view charges a payload replay.
   result.snapshot_work = request.snapshot ? payload_work : snapshot->work;
   if (result.snapshot_work > request.maximum_snapshot_work) {
     result.status = AffineLiveStatus::ResourceExhausted;

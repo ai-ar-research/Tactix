@@ -44,7 +44,6 @@ private:
 };
 
 std::string serialize_feedback(const ActionFeedback &);
-std::string serialize_feedback(const SearchIntervalFeedback &);
 std::string serialize_observation(const Observation &);
 
 } // namespace tactix::strategy::controller

@@ -154,10 +154,8 @@ struct Image {
 
 enum class Status { Complete, NoStructure, Exhausted, Interrupted, Invalid };
 
-// `charge` is caller-owned discovery accounting. On every result except
-// Complete, `output` is unchanged. Recognition requires every CNF clause that
-// forbids the wrong parity over one exact set of distinct variables. Extra CNF
-// clauses merely remain outside the affine image.
+// An equation needs every clause forbidding a wrong parity over its variables;
+// other clauses stay outside the image. `output` changes only on Complete.
 Status recognize(const std::vector<Premise> &, const Limits &,
                  const std::function<bool(uint64_t)> &charge, Image &output);
 
@@ -184,11 +182,8 @@ struct ProofPlan {
   std::vector<std::vector<External>> targets;
 };
 
-// Build, but do not emit, a RUP-only certificate for one small consequence.
-// The existing parity Deriver supplies the checked branch-lifting steps. The
-// source equations may have arity up to eight, provided their union contains at
-// most sixteen variables (the shared small-clause proof bound). On failure the
-// caller's plan is unchanged.
+// Plan a RUP certificate for a small consequence (sources of arity up to eight
+// over at most sixteen variables); the plan is unchanged on failure.
 bool build_proof_plan(const Image &, size_t consequence,
                       uint64_t maximum_additions, ProofPlan &);
 

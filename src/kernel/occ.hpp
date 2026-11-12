@@ -1,9 +1,7 @@
-// Kissat vector scheme (vector.c, inlinevector.h; MIT) for the dense
-// occurrence index: every literal's list is a slice of ONE flat arena rather
-// than an independent allocation. A tail slice extends in place while the
-// arena allocation has room; otherwise it relocates to a doubled slice and the
-// abandoned words join `holes`, exactly `vectors.usable`. Only an explicit
-// checkpoint defragments, so a reader's pointers stay valid until it pushes.
+// Kissat vector scheme (vector.c, inlinevector.h) for the dense occurrence
+// index: every literal's list is a slice of one flat arena; tail slices extend
+// in place, else relocate to a doubled slice leaving `holes`
+// (`vectors.usable`). Only an explicit checkpoint defragments.
 #pragma once
 
 #include "kernel/types.hpp"
@@ -17,9 +15,8 @@
 
 namespace tactix {
 
-// A literal's slice. Valid until the owning list is pushed to (a push may
-// relocate the slice or the whole arena), which is the same precondition
-// Kissat states for `BEGIN_WATCHES`.
+// A literal's slice, valid until its list is pushed to (as Kissat's
+// `BEGIN_WATCHES`).
 template <class T> struct FlatSpan {
   T *first = nullptr, *last = nullptr;
   T *begin() const { return first; }
@@ -39,10 +36,7 @@ public:
     uint32_t offset = 0, size = 0, capacity = 0;
   };
 
-  // Reachability readouts, drained into Kernel::stats at every dense
-  // disconnect: a slice relocation is the cost capacity retention exists to
-  // avoid, and a defragmentation is the only thing that returns abandoned
-  // slices to the arena.
+  // Reachability readouts drained into Kernel::stats at every dense disconnect.
   uint64_t relocations = 0, defrags = 0;
 
   size_t lits() const { return heads_.size(); }
@@ -127,13 +121,9 @@ public:
     holes_++;
   }
 
-  // Batch layout for a full rebuild. The caller counts every forthcoming
-  // append first and then receives one arena of contiguous slices, so the fill
-  // relocates nothing. Existing contents are discarded; existing CAPACITY is
-  // not. Kissat's dense connect pushes into vectors that kept their capacity
-  // from the previous connect, so a literal whose occurrence count is stable
-  // never relocates again — dropping to an exact fit instead would make the
-  // first push of the next phase relocate every literal that grows at all.
+  // Batch layout for a full rebuild: contiguous slices for counted appends.
+  // Contents are discarded but capacity is kept, as Kissat's dense connect
+  // reuses vector capacity.
   void begin_exact_layout(size_t nlits) {
     if (pending_.size() != nlits)
       pending_.assign(nlits, 0);

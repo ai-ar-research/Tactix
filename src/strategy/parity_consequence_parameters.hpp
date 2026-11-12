@@ -3,8 +3,7 @@
 namespace tactix {
 struct Kernel;
 namespace strategy {
-// A bounded discovery-and-proof request, not a hidden scheduling policy.
-// Zero limits disable work; no production allowance is selected here.
+// A bounded discovery-and-proof request; zero limits disable work.
 struct ParityConsequenceParameters {
   uint64_t maximum_clauses = 0, maximum_groups = 0, selection_work = 0;
   uint32_t intermediate_width = 0, source_count = 0, output_width = 0;

@@ -8,9 +8,7 @@
 
 namespace tactix::gf3_general_row {
 
-// One public action can eventually name exactly one Boolean clause from one
-// non-unit Gaussian row.  The row/tuple pair is the semantic duplicate key;
-// the derivation and owner authentication remain separate replay evidence.
+// One clause of one non-unit Gaussian row; row and tuple are the duplicate key.
 struct Request {
   uint32_t outcome = 0;
   uint64_t tuple = 0;
@@ -138,23 +136,18 @@ struct Result {
 
 using Charge = std::function<bool(uint64_t)>;
 
-// The cheap causal predicate.  It checks only the authenticated Gaussian
-// outcome shape and tuple arithmetic.  It allocates no proof plan and touches
-// no solver state.  A Planned result means that full proof construction is
-// worth attempting; it is not an admission result.
+// Cheap check of outcome shape and tuple arithmetic; Planned means a build is
+// worth attempting.
 Result inspect(const gf3_affine::Theory &,
                const gf3_gaussian_bridge::Plan &, const Request &,
                const Limits &);
 
-// Revalidate the exact theory and Gaussian derivation, then derive one
-// forbidden-tuple clause of one non-unit reduced row.  Auxiliary clauses and
-// the final consequence are witness-free RUP additions.  The consequence uses
-// only existing literals, so model projection is the identity.
+// Revalidate, then derive one forbidden-tuple clause of a non-unit row by
+// witness-free RUP additions over existing literals.
 Result build(const gf3_affine::Theory &, const gf3_gaussian_bridge::Plan &,
              const Request &, const Limits &, Charge);
 
-// Independently rebuild and exact-compare every source reference, event,
-// duplicate identity, projection obligation, and statistic.
+// Rebuild and compare every field.
 Result validate(const gf3_affine::Theory &,
                 const gf3_gaussian_bridge::Plan &, const Plan &,
                 const Limits &, Charge);

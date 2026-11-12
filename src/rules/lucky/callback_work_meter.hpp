@@ -4,9 +4,7 @@
 
 namespace tactix {
 
-// Bounded deterministic work accounting for pure Lucky helpers whose caller
-// supplies an interruption callback. Status values remain owned by each
-// helper's public result type.
+// Bounded work accounting for pure Lucky helpers with an interrupt callback.
 template <class Limits, class Status, Status Running, Status Interrupted,
           Status Exhausted>
 class CallbackWorkMeter {

@@ -1,7 +1,5 @@
-// Bounded autonomous discovery for the cautious one-step Tseitin-cycle X7
-// adapter.  Discovery is read-only: it freezes a complete live snapshot and
-// an exact collection of authenticated XOR premise groups, but never mutates
-// the Kernel, proof stream, or caller-owned output on failure.
+// Bounded read-only discovery for the one-step Tseitin-cycle X7 adapter: a
+// frozen live snapshot plus authenticated XOR premise groups.
 #pragma once
 
 #include "rules/lucky/tseitin_cycle_live.hpp"
@@ -88,22 +86,17 @@ struct Result {
   bool discovered() const { return status == Status::Discovered; }
 };
 
-// Enumerate every independently legal connected component in deterministic
-// group order.  Every clause is classified; unsupported clauses remain
-// residual and therefore exclude any candidate edge they touch.  Each returned plan freezes the complete formula snapshot, so
-// an apply can exact-match the selected component after a fresh recapture.
+// Enumerate every legal connected component in group order; unsupported
+// clauses stay residual and exclude the edges they touch. Each plan freezes
+// the snapshot so apply can exact-match it after recapture.
 Result enumerate(const tseitin_cycle_live::Snapshot &, const Limits &,
                  std::vector<Plan> &);
 
-// Visit legal components one at a time and retain only the first accepted
-// component.  The complete live snapshot and equation census are still built
-// before visitation; unrelated components are never copied into the result.
+// Visit legal components in order and keep only the first accepted one.
 Result select(const tseitin_cycle_live::Snapshot &, const Limits &,
               ComponentSelector, void *, Plan &);
 
-// Hand the frozen plan to the existing live adapter.  That adapter re-captures
-// and independently authenticates the exact groups before producing an
-// immutable transaction.
+// The live adapter re-captures and re-authenticates the plan's groups.
 tseitin_cycle_live::Result
 prepare(Kernel &, const Plan &, const tseitin_cycle_live::Request &,
         tseitin_cycle_live::Prepared &);

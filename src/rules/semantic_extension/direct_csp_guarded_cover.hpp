@@ -63,9 +63,8 @@ struct Plan {
   uint64_t source_literals = 0;
 };
 
-// Pure structural validation and exact requested existing-variable clause image.
-// ResourceExhausted also denotes a false charge callback; live code preserves
-// the separate Interrupted classification from its own monotone meter.
+// Structural validation and the requested clause image; ResourceExhausted
+// also means a false charge.
 Expected expected_clauses(const Selection &, const Bounds &, Charge);
 
 // Every blocker must be falsified under the negation of the selected tuple:

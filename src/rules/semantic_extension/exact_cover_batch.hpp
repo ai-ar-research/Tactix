@@ -16,15 +16,13 @@ enum class ModelProjection : uint8_t { OmitFreshOutput };
 enum class VariableLifetime : uint8_t { OrdinaryLiveClauses };
 
 struct DuplicateKey {
-  // Exact structural identity, rather than a collision-prone hash.
+  // Exact structural identity.
   std::vector<int32_t> disjunction;
   bool operator==(const DuplicateKey &) const = default;
 };
 
 struct SemanticIdentity {
-  // Semantic identities are action-scoped.  The pair is collision-free as
-  // long as the runtime action sequence is monotone; no caller-owned global
-  // semantic counter is required.
+  // Action-scoped identity, unique while the action sequence is monotone.
   uint64_t action = 0;
   uint32_t slot = 0;
   bool operator==(const SemanticIdentity &) const = default;
@@ -41,8 +39,7 @@ struct PlannedDefinition {
   // Concrete RAT clauses, pivot first: (output v -input_i), followed by
   // (-output v inputs...).
   std::vector<std::vector<int32_t>> formula;
-  // Exact occurrences supporting this block's clique and the covers incident
-  // to its items.  The plan's retained source resolves every occurrence.
+  // Occurrences of the block's clique and of the covers of its items.
   std::vector<uint64_t> source_premises;
   DuplicateKey duplicate_key;
   uint64_t proof_additions = 0;
@@ -111,10 +108,8 @@ struct BatchPlanningRequest {
   uint64_t action_id = 0;
 };
 
-// Pure, transactional planning.  Recognition runs exactly once over `source`;
-// all definitions retain concrete formulas and provenance, so publishing the
-// first definition cannot invalidate the remaining plan.  `out` changes only
-// on complete success.
+// Recognize `source` once and plan every definition with its formula and
+// provenance; `out` changes only on success.
 template <class Charge>
 bool plan_batch(const std::vector<Premise> &source,
                 const BatchPlanningRequest &request, Charge &&charge,
@@ -162,10 +157,7 @@ bool plan_batch(const std::vector<Premise> &source,
   if (!recognize(source, request.arity, request.maximum_items, charge, image))
     return fail(BatchPlanningStatus::NoStructure);
 
-  // The retained image is a one-shot batch: publish every recognized block
-  // before the fresh definitions make strict source recognition impossible.
-  // Selective/repeated publication needs a persistent controller-owned session
-  // with consumed keys, which this foundation deliberately does not claim.
+  // A one-shot batch: the definitions make the source unrecognizable later.
   if (image.blocks.size() > UINT32_MAX)
     return fail(BatchPlanningStatus::ResourceExhausted);
   std::vector<uint32_t> selected(image.blocks.size());
@@ -273,10 +265,8 @@ struct BatchPublicationResult {
   uint64_t journal_bytes = 0;
 };
 
-// Atomically publish a completed plan with respect to semantic decline,
-// termination, and caller budgets.  Those checks precede the first mutation;
-// commit has no interruption point and follows the kernel convention that
-// allocation or record I/O failure is fatal rather than recoverable.
+// Publish a plan atomically: every decline precedes the first mutation, and
+// the commit is uninterruptible (allocation or I/O failure is fatal).
 BatchPublicationResult publish_batch(Kernel &, const BatchPlan &,
                                      const BatchPublicationRequest &);
 

@@ -97,11 +97,8 @@ struct NaryCspEqualityLiveResult {
   bool semantic_candidate_ready = false;
 };
 
-// One atomic internal action.  The caller supplies an authenticated neutral
-// relation owner;
-// apply freshly recaptures it, plans and sizes the complete transaction, then
-// publishes the equality definition and transferred diagonal nogoods.  No
-// controller scheduling or public action registry is implied by this surface.
+// Recapture the caller's relation owner, plan and size the transaction, then
+// publish the equality definition and transferred diagonal nogoods.
 NaryCspEqualityLiveResult nary_csp_equality_live_apply(
     Kernel &, NaryCspEqualitySession &, const NaryCspEqualityRequest &);
 

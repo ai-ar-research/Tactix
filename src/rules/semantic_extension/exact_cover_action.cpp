@@ -5,7 +5,6 @@
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <cstdlib>
-#include <limits>
 #include <vector>
 
 namespace tactix {

@@ -1,15 +1,12 @@
-// Transliterated from kissat/src/lucky.c (MIT). Probes share the single
-// propagations/ticks counters rather than kissat's separate probing-mode
-// statistics, so a policy's tick budget includes them. Probes never update
-// saved/target/best phases (the public probe entry suppresses assign-time
-// saving, matching kissat's `solver->probing`).
+// Transliterated from kissat/src/lucky.c (MIT). Probes share the ordinary
+// propagation/tick counters and never update saved/target/best phases
+// (kissat's `solver->probing`).
 #include "rules/lucky/lucky.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/lucky_execution.hpp"
 
 #include "rules/propagate/propagate.hpp"
 
-#include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -20,33 +17,6 @@ namespace tactix {
 
 using execution::LuckyOpportunity;
 
-namespace {
-
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-void lucky_stage_trace(const Kernel &k, const char *stage, size_t first = 0,
-                       size_t second = 0, size_t third = 0) {
-  static diagnostics::EnvironmentLineFile trace;
-  FILE *out = trace.stream("TACTIX_LUCKY_MEMORY_TRACE");
-  if (!out)
-    return;
-  const long peak_rss_kib = diagnostics::peak_resident_kib();
-  const unsigned long virtual_kib = diagnostics::virtual_memory_kib();
-  std::fprintf(out,
-               "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\ttrail=%zu\t"
-               "trail_capacity=%zu\tframes=%zu\tframes_capacity=%zu\t"
-               "delayed=%zu\tdelayed_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
-               "third=%zu\n",
-               stage, peak_rss_kib, virtual_kib, k.nvars, k.trail.size(),
-               k.trail.capacity(), k.frames.size(), k.frames.capacity(),
-               k.delayed.size(), k.delayed.capacity(), first, second, third);
-}
-#else
-inline void lucky_stage_trace(const Kernel &, const char *, size_t = 0,
-                              size_t = 0, size_t = 0) {}
-#endif
-
-} // namespace
-
 RuleEligibility lucky_guard(const Kernel &k) {
   // quiescent root state: see lucky.hpp
   RuleEligibility result;
@@ -55,9 +25,8 @@ RuleEligibility lucky_guard(const Kernel &k) {
       .fact("root-level", k.level == 0);
 }
 
-// abandon an in-flight probe: clear the recorded conflict (its clause
-// stays in F; the assignment that falsified it is being undone) and
-// restore the entry state without touching phases
+// Abandon an in-flight probe: clear its conflict and return to the root
+// without touching phases.
 static void abandon_probe(Kernel &k) {
   k.conflict_valid = false;
   k.conflict_ref = INVALID_REF;
@@ -72,11 +41,8 @@ static void assume(Kernel &k, Lit lit) {
   kernel_assign(k, lit, k.level, DECISION_REASON, false);
 }
 
-// A conflict under the very first Lucky assumption proves its negation at the
-// root. Kissat analyzes and commits that failed literal before continuing the
-// same directional sweep. Keeping this consequence is essential: abandoning
-// it left FmlaEquivChain with 30 extra active variables before Factor and
-// changed the mutable Factor heap even though all later grid guards matched.
+// A conflict under the first assumption proves its negation at the root;
+// kissat commits that failed literal and continues the same sweep.
 static ApplyResult commit_failed_literal(Kernel &k, Lit assumed) {
   assert(k.level == 1 && k.conflict_valid);
   const Lit unit = negate(assumed);
@@ -93,12 +59,8 @@ static ApplyResult commit_failed_literal(Kernel &k, Lit assumed) {
   return propagate_service(k);
 }
 
-// kissat ACTIVE (flags.h:23, flags.c:60-103): a variable stays active until it
-// is fixed at the root or retired by elimination or substitution. Lucky
-// consults it on every identity it might assume and on both endpoints of a
-// binary polarity scan, so this holds wherever kissat writes ACTIVE. A retired
-// identity keeps its mapping whenever compaction is declined, so the
-// INVALID_VAR holes compaction leaves cannot stand in for the test.
+// kissat ACTIVE (flags.h:23): neither fixed at the root nor retired. Mapping
+// holes cannot stand in for this test, since compaction may be declined.
 static bool lucky_active(const Kernel &k, Var v) {
   return !kernel_var_retired(k, v) &&
          kernel_root_value(k, make_lit(v, false)) == 0;
@@ -120,11 +82,8 @@ static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
         return false; // this clause needs the other polarity
     }
   }
-  // binaries live only in watch lists: scan each variable's
-  // `want_negated`-polarity literal for a partner of the same polarity. Both
-  // endpoints must be active (kissat lucky.c:29 and :37): a binary that an
-  // inactive endpoint already satisfies, or that a retired one has left the
-  // formula with, no longer forces that polarity on the active clauses.
+  // Binaries live in watch lists; both endpoints must be active (kissat
+  // lucky.c:29 and :37).
   for (Var v = 0; v < k.nvars; v++) {
     if (!lucky_active(k, v))
       continue;
@@ -157,31 +116,15 @@ static ApplyResult constant_probe(Kernel &k, int8_t phase) {
   return k.unassigned_active ? ApplyResult::Ok : ApplyResult::Sat;
 }
 
-// Sweep Kissat's external-variable import table in `forward` order while
-// assuming phase `phase`.  Tumble makes internal identities follow first
-// occurrence, but Lucky deliberately does not use that order.  On a conflict
-// deeper than the first probe level, retry the flipped literal once; if both
-// phases conflict, abandon the whole probe.
+// Sweep kissat's external import table in `forward` order assuming `phase`.
+// A conflict deeper than the first probe level retries the flipped literal
+// once; if both phases conflict, the probe is abandoned.
 static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
-  // Kissat walks its permanent external import table directly.  Tactix used
-  // to copy the same table into a dense temporary vector for every direction,
-  // adding four bytes per live variable at precisely the post-preprocessing
-  // memory high-water mark.  Walk the existing map instead: a hole compaction
-  // left reads as INVALID_VAR, and every identity it has not removed is
-  // filtered below, so neither direction depends on compaction having run.
   const size_t count = k.external_to_internal.size();
-  lucky_stage_trace(k, "sweep-entry", phase < 0, forward, count);
   for (size_t i = 0; i < count; i++) {
-    if (!(i & ((size_t{1} << 20) - 1)))
-      lucky_stage_trace(k, "sweep-progress", phase < 0, forward, i);
     const size_t external = forward ? i : count - 1 - i;
     const Var v = k.external_to_internal[external];
-    // kissat lucky.c:88-95 skips an unimported or eliminated import entry and
-    // an inactive identity before assuming anything. An identity outside the
-    // active formula is not a probe opportunity: assuming one spends a probe
-    // level, which pushes the next genuine failed literal below the first
-    // probe level, where the sweep flips it instead of committing it at the
-    // root.
+    // kissat lucky.c:88-95 skips unimported and inactive identities.
     if (v == INVALID_VAR || !lucky_active(k, v))
       continue;
     Lit lit = make_lit(v, phase < 0);
@@ -197,25 +140,20 @@ static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
       assume(k, negate(lit));
       if (!kernel_propagate(k))
         continue;
-      // Both phases failed above the first probe level. Neither polarity is a
-      // root consequence; retain earlier committed units, abandon this sweep,
-      // and let the next Lucky direction try from the clean root.
+      // Both phases failed: keep earlier units and abandon this sweep.
       abandon_probe(k);
-      lucky_stage_trace(k, "sweep-abandoned", phase < 0, forward, i);
       return ApplyResult::Ok;
     }
     const ApplyResult committed = commit_failed_literal(k, lit);
     if (committed == ApplyResult::Unsat)
       return committed;
   }
-  lucky_stage_trace(k, "sweep-exit", phase < 0, forward, count);
   return k.unassigned_active ? ApplyResult::Ok : ApplyResult::Sat;
 }
 
 ApplyResult lucky_apply_probe(Kernel &k, uint64_t probe) {
   assert(lucky_guard(k));
-  // kissat_lucky runs with solver->probing set, so its speculative decisions
-  // and implications must not overwrite search phases.
+  // kissat_lucky runs with solver->probing set: phases are not saved.
   execution::ExecutionScope<execution::ExecutionContext::Speculation> scope(k);
   k.stats.lucky_probes++;
   switch (probe) {
@@ -239,8 +177,7 @@ ApplyResult lucky_apply_probe(Kernel &k, uint64_t probe) {
 
 // canonical instance: kissat's cascade, first success wins
 ApplyResult lucky_apply(Kernel &k) {
-  // D-LEVEL guard purification: complete the root closure U (no-op at a
-  // fixpoint); a root conflict during the drain refutes.
+  // Complete the root closure first; a root conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   static constexpr uint64_t CASCADE[6] = {
@@ -257,9 +194,7 @@ ApplyResult lucky_apply(Kernel &k) {
 
 static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   (void)k;
-  // SAT-only constructors keep their historical identities. Proof-only
-  // replacements have new identities so constructor replays cannot change
-  // meaning.
+  // Identities are stable (lucky.hpp).
   static constexpr uint64_t ACTIVE[LUCKY_ACTIVE_INSTANCE_COUNT] = {
       LUCKY_ALL_TRUE, LUCKY_ALL_FALSE, LUCKY_FORWARD_FALSE,
       LUCKY_FORWARD_TRUE, LUCKY_BACKWARD_FALSE, LUCKY_BACKWARD_TRUE,
@@ -281,52 +216,35 @@ static ApplyResult run_guarded(Kernel &k,
                   : ApplyResult::NoOp;
 }
 
+template <LuckyOpportunity Opportunity>
+static ApplyResult run_unguarded(Kernel &k) {
+  return execution::execute_action(k, execution::LuckyRequest<Opportunity>{});
+}
+
 static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
-  if (inst == LUCKY_STARTUP_PARITY)
-    return run_guarded<LuckyOpportunity::StartupParity>(k,
-                                                         startup_parity_guard);
-  if (inst == LUCKY_STARTUP_RAMSEY)
-    return execution::execute_action(
-        k, execution::LuckyRequest<LuckyOpportunity::StartupRamsey>{});
-  if (inst == LUCKY_STARTUP_COUNT)
-    return execution::execute_action(
-        k, execution::LuckyRequest<LuckyOpportunity::StartupCount>{});
-  if (inst == INSTANCE_CANONICAL)
-    return execution::execute_action(
-        k, execution::LuckyRequest<LuckyOpportunity::Cascade>{});
-  if (lucky_retired_constructor_instance(inst))
-    return ApplyResult::NoOp;
-  // SAT constructors are observational unless they publish a complete model.
-  // In particular, do not drain root propagation here: a conflict discovered
-  // by that shared service would incorrectly give these stable SAT-only IDs
-  // refutation semantics.
-  if (inst == 6)
-    return run_guarded<LuckyOpportunity::Parity>(k, parity_model_guard);
-  if (inst == 7)
-    return run_guarded<LuckyOpportunity::Onehot>(k, onehot_model_guard);
-  if (inst == 8)
-    return run_guarded<LuckyOpportunity::Affine>(k, affine_model_guard);
-  if (inst == 9)
-    return run_guarded<LuckyOpportunity::DirectCsp>(k, onehot_model_guard);
-  if (inst == 10)
-    return run_guarded<LuckyOpportunity::BalancedSignature>(
-        k, balanced_signature_model_guard);
-  if (inst == 11)
-    return run_guarded<LuckyOpportunity::Fermat>(k, fermat_model_guard);
-  if (inst == 12)
-    return run_guarded<LuckyOpportunity::Cerny>(k, cerny_model_guard);
-  if (inst == 13)
-    return run_guarded<LuckyOpportunity::LookupCircuit>(
-        k, lookup_circuit_model_guard);
-  if (inst == 14)
-    return run_guarded<LuckyOpportunity::Simon>(k, simon_model_guard);
-  if (inst == 17)
-    return run_guarded<LuckyOpportunity::ExactCover>(k,
-                                                      exact_cover_model_guard);
-  if (inst == 18)
-    return run_guarded<LuckyOpportunity::IndependentSet>(
-        k, independent_set_model_guard);
-  if (inst == LUCKY_GRAPH_AUTHENTICATE || inst == LUCKY_GRAPH_CONTINUE) {
+  using enum LuckyOpportunity;
+  // SAT constructors (6-14, 17, 18, 21) are observational unless they publish
+  // a model, so they never drain root propagation: a conflict there would give
+  // a SAT-only identity refutation semantics.
+  switch (inst) {
+  case LUCKY_STARTUP_PARITY: return run_guarded<StartupParity>(k, startup_parity_guard);
+  case LUCKY_STARTUP_RAMSEY: return run_unguarded<StartupRamsey>(k);
+  case LUCKY_STARTUP_COUNT: return run_unguarded<StartupCount>(k);
+  case INSTANCE_CANONICAL: return run_unguarded<Cascade>(k);
+  case 6: return run_guarded<Parity>(k, parity_model_guard);
+  case 7: return run_guarded<Onehot>(k, onehot_model_guard);
+  case 8: return run_guarded<Affine>(k, affine_model_guard);
+  case 9: return run_guarded<DirectCsp>(k, onehot_model_guard);
+  case 10: return run_guarded<BalancedSignature>(k, balanced_signature_model_guard);
+  case 11: return run_guarded<Fermat>(k, fermat_model_guard);
+  case 12: return run_guarded<Cerny>(k, cerny_model_guard);
+  case 13: return run_guarded<LookupCircuit>(k, lookup_circuit_model_guard);
+  case 14: return run_guarded<Simon>(k, simon_model_guard);
+  case 17: return run_guarded<ExactCover>(k, exact_cover_model_guard);
+  case 18: return run_guarded<IndependentSet>(k, independent_set_model_guard);
+  case LUCKY_GRAPH_LABELING: return run_guarded<GraphLabeling>(k, graph_labeling_model_guard);
+  case LUCKY_GRAPH_AUTHENTICATE:
+  case LUCKY_GRAPH_CONTINUE: {
     const auto out = execution::execute_action(k, execution::GraphLabelingActionRequest{
         inst == LUCKY_GRAPH_AUTHENTICATE
             ? execution::GraphLabelingOperation::Authenticate
@@ -335,23 +253,19 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
     k.graph_labeling_session.record_public_result(out.authentication, out.slice);
     return out.result;
   }
-  if (inst == LUCKY_GRAPH_LABELING)
-    return run_guarded<LuckyOpportunity::GraphLabeling>(
-        k, graph_labeling_model_guard);
-  // Proof-capable and probe actions enter at a propagated root.  A conflict
-  // found while closing that root is a legitimate proof result for them.
+  }
+  if (lucky_retired_constructor_instance(inst))
+    return ApplyResult::NoOp;
+  // Proof-capable and probe actions enter at a propagated root, where a
+  // conflict is a legitimate proof result.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
-  if (inst == 15)
-    return run_guarded<LuckyOpportunity::Stconn>(k, stconn_proof_guard);
-  if (inst == 16)
-    return run_guarded<LuckyOpportunity::SignedCardinality>(
-        k, signed_cardinality_proof_guard);
-  if (inst == LUCKY_PARITY_PROOF)
-    return run_guarded<LuckyOpportunity::ParityProof>(k, parity_model_guard);
-  if (inst == LUCKY_EXACT_ONE_PROOF)
-    return run_guarded<LuckyOpportunity::ExactOneProof>(k,
-                                                         onehot_model_guard);
+  switch (inst) {
+  case 15: return run_guarded<Stconn>(k, stconn_proof_guard);
+  case 16: return run_guarded<SignedCardinality>(k, signed_cardinality_proof_guard);
+  case LUCKY_PARITY_PROOF: return run_guarded<ParityProof>(k, parity_model_guard);
+  case LUCKY_EXACT_ONE_PROOF: return run_guarded<ExactOneProof>(k, onehot_model_guard);
+  }
   return execution::execute_action(k, execution::LuckyProbeRequest{inst});
 }
 

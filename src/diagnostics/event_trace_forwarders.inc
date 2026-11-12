@@ -5,8 +5,6 @@
 // TACTIX_TRACE_FORWARD, and this file undefines it.  Diagnostic builds only.
 TACTIX_TRACE_FORWARD(watch_scan, (const Kernel &k, Lit propagated),
                      (k, propagated))
-TACTIX_TRACE_FORWARD(watch_scan_post, (const Kernel &k, Lit propagated),
-                     (k, propagated))
 TACTIX_TRACE_FORWARD(watch_move, (const Kernel &k, Lit propagated, Lit target,
                      Lit blocking, const Clause *clause),
                      (k, propagated, target, blocking, clause))
@@ -64,8 +62,6 @@ TACTIX_TRACE_FORWARD(sweep_binary_attempt, (const Kernel &k, Var seed,
                      uint32_t ordinal, Lit lit, Lit other, int32_t lit_depth,
                      int32_t other_depth, const char *disposition), (k, seed,
                      ordinal, lit, other, lit_depth, other_depth, disposition))
-TACTIX_TRACE_FORWARD(sweep_watch, (const Kernel &k, Var seed, uint32_t ordinal,
-                     Lit other), (k, seed, ordinal, other))
 TACTIX_TRACE_FORWARD(sweep_equivalence, (const Kernel &k, Lit a, Lit b),
                      (k, a, b))
 TACTIX_TRACE_FORWARD(sweep_commit, (const Kernel &k, Lit a, Lit b, int8_t av,
@@ -87,10 +83,6 @@ TACTIX_TRACE_FORWARD(factor_candidate, (const Kernel &k, Lit seed,
                      uint32_t depth, uint32_t ordinal, Lit candidate,
                      uint32_t count, uint32_t score),
                      (k, seed, depth, ordinal, candidate, count, score))
-TACTIX_TRACE_FORWARD(factor_score_entry, (const Kernel &k, Lit seed,
-                     uint32_t depth, Lit candidate, uint32_t ordinal, bool live,
-                     Lit other, uint64_t id, const Clause *clause), (k, seed,
-                     depth, candidate, ordinal, live, other, id, clause))
 TACTIX_TRACE_FORWARD(factor_literal_state, (const Kernel &k, Lit lit,
                      bool marked, bool retired, int value, uint32_t score),
                      (k, lit, marked, retired, value, score))
@@ -105,18 +97,6 @@ TACTIX_TRACE_FORWARD(factor_candidate_source, (const Kernel &k, Lit seed,
 TACTIX_TRACE_FORWARD(factor_candidate_binary_source, (const Kernel &k, Lit seed,
                      uint32_t depth, uint32_t column, Lit q, Lit candidate),
                      (k, seed, depth, column, q, candidate))
-TACTIX_TRACE_FORWARD(factor_pair, (const Kernel &k, Lit grid_seed,
-                     const char *stage), (k, grid_seed, stage))
-TACTIX_TRACE_FORWARD(factor_heap, (const Kernel &k, Lit grid_seed,
-                     const char *stage, Lit a, uint32_t pos_a, uint32_t score_a,
-                     Lit b, uint32_t pos_b, uint32_t score_b, uint32_t size),
-                     (k, grid_seed, stage, a, pos_a, score_a, b, pos_b, score_b,
-                     size))
-TACTIX_TRACE_FORWARD(factor_heap_digest, (const Kernel &k, Lit grid_seed,
-                     uint32_t size, uint64_t hash, Lit top, uint32_t top_score),
-                     (k, grid_seed, size, hash, top, top_score))
-TACTIX_TRACE_FORWARD(factor_schedule, (const Kernel &k, uint32_t ordinal,
-                     Lit lit, uint32_t score), (k, ordinal, lit, score))
 TACTIX_TRACE_FORWARD(factor_mark_transition, (const Kernel &k, Lit lit,
                      bool marked, const char *source), (k, lit, marked, source))
 TACTIX_TRACE_FORWARD(factor_update, (const Kernel &k, Lit grid_seed,
@@ -134,28 +114,11 @@ TACTIX_TRACE_FORWARD(factor_fresh, (const Kernel &k, Lit seed, Var fresh,
                      uint64_t match_ticks), (k, seed, fresh, factors,
                      factor_count, remainders, delta, ticks, pops, first_ticks,
                      next_ticks, match_ticks))
-TACTIX_TRACE_FORWARD(bve_occurrences, (const Kernel &k, Var var,
-                     uint32_t pos_ordered, uint32_t neg_ordered,
-                     uint32_t pos_true_binary, uint32_t neg_true_binary,
-                     uint32_t pos_satisfied_large, uint32_t neg_satisfied_large,
-                     uint32_t pos_satisfied_effective_binary,
-                     uint32_t neg_satisfied_effective_binary,
-                     uint32_t pos_tautological, uint32_t neg_tautological), (k,
-                     var, pos_ordered, neg_ordered, pos_true_binary,
-                     neg_true_binary, pos_satisfied_large, neg_satisfied_large,
-                     pos_satisfied_effective_binary,
-                     neg_satisfied_effective_binary, pos_tautological,
-                     neg_tautological))
 TACTIX_TRACE_FORWARD(bve_plan, (const Kernel &k, Var var, uint32_t side0,
                      uint32_t side1, uint32_t gate_kind, uint32_t gate0,
                      uint32_t gate1, uint64_t charged, bool resolve_gate), (k,
                      var, side0, side1, gate_kind, gate0, gate1, charged,
                      resolve_gate))
-TACTIX_TRACE_FORWARD(bve_pair, (const Kernel &k, Var var, uint32_t ordinal,
-                     const Lit *side0, uint32_t size0, Ref ref0, uint64_t id0,
-                     const Lit *side1, uint32_t size1, Ref ref1, uint64_t id1,
-                     const char *outcome), (k, var, ordinal, side0, size0, ref0,
-                     id0, side1, size1, ref1, id1, outcome))
 TACTIX_TRACE_FORWARD(bve_pop, (const Kernel &k, uint64_t ordinal,
                      uint64_t cumulative_hash, Var popped, double score,
                      Var root, uint32_t size),
@@ -177,9 +140,16 @@ TACTIX_TRACE_FORWARD(heap_remove, (const Kernel &k, Var removed, Var last,
 TACTIX_TRACE_FORWARD(heap_pop, (const Kernel &k, const char *stage, Var held,
                      Var other, uint32_t from, uint32_t to),
                      (k, stage, held, other, from, to))
-TACTIX_TRACE_FORWARD(binary_assignment, (const Kernel &k, Lit assigned,
-                     Lit immediate_reason, Lit stored_reason, bool jumped),
-                     (k, assigned, immediate_reason, stored_reason, jumped))
 TACTIX_TRACE_FORWARD(binary_add, (const Kernel &k, Lit a, Lit b), (k, a, b))
 TACTIX_TRACE_FORWARD(root_assign, (const Kernel &k, Lit lit), (k, lit))
+TACTIX_TRACE_FORWARD(vivify_candidate, (const Kernel &k, const char *event,
+                     uint64_t ordinal, Ref cref, uint64_t ticks,
+                     uint64_t limit), (k, event, ordinal, cref, ticks, limit))
+TACTIX_TRACE_FORWARD(vivify_counts, (const Kernel &k, const uint32_t *counts,
+                     size_t size), (k, counts, size))
+TACTIX_TRACE_FORWARD(randec_state, (const Kernel &k, const char *stage,
+                     uint64_t remaining, uint64_t next, uint64_t sequence,
+                     uint64_t rng), (k, stage, remaining, next, sequence, rng))
+TACTIX_TRACE_FORWARD(substitute_map, (const Kernel &k, Lit lit,
+                     Lit representative), (k, lit, representative))
 #undef TACTIX_TRACE_FORWARD

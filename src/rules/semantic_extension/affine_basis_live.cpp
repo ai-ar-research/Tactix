@@ -153,11 +153,9 @@ struct PlanningSink {
   }
 };
 
-// Run the scalable parity certificate over dense theory-variable identities,
-// while every proof event names the kernel's stable external identity.  Dense
-// leaves avoid allocating a segment tree proportional to a sparse/high input
-// variable number.  Helpers form one contiguous external namespace after the
-// current kernel extent so proof-on and proof-off executions stay identical.
+// The parity certificate over dense theory variables, with proof events in
+// external identities. Helpers occupy one contiguous namespace after the
+// kernel extent, so proof-on and proof-off runs stay identical.
 struct DensePlanningSink {
   PlanningSink &sink;
   const std::vector<int32_t> &external_variables;
@@ -375,13 +373,8 @@ WideProofStatus prepare_wide_proof(
       continue;
     }
     if (active_variables.count(external)) return WideProofStatus::Invalid;
-    // Some proof-only transition roots already carried a derived unit which
-    // was later deleted from the planner's exact population.  dsr-trim and
-    // srcheck deliberately retain such unit deletions.  Re-fixing the same
-    // identity to the opposite polarity would therefore make the serialized
-    // proof inconsistent even though exact-deletion replay accepts it.  Reuse
-    // the unique historical polarity when it exists; fresh identities may be
-    // fixed arbitrarily.
+    // dsr-trim and srcheck keep deleted units, so reuse a variable's
+    // historical unit polarity; fresh identities may take either.
     int32_t historical_unit = 0;
     for (const Event &event : sink.events) {
       if (event.kind == Event::Kind::Delete || event.clause.size() != 1 ||
@@ -708,9 +701,7 @@ FilterStatus filter_excluded_rows(
   retained.reserve(plan.rows.size());
   for (size_t row_index = 0; row_index < plan.rows.size(); ++row_index) {
     const affine::BasisRow &row = plan.rows[row_index];
-    // One-source direct rows are the source CNF itself and have never been
-    // publication/session entries.  They are removed from a filtered plan so
-    // its journal and row count describe only novel output.
+    // One-source direct rows are the source CNF; filter them out.
     if (row.source_equations.size() == 1 &&
         row.kind != affine::BasisRowKind::Extended)
       continue;
@@ -731,10 +722,7 @@ FilterStatus filter_excluded_rows(
   if (retained.empty())
     return excluded_rows ? FilterStatus::AllExcluded
                          : FilterStatus::Complete;
-  // An exact selected row is isolated before session exclusion.  When its key
-  // is new, no row or definition needs remapping; a wide selected row has
-  // deliberately discarded the full-basis definition graph because its
-  // scalable certificate rebuilds that graph below.
+  // A selected row is isolated before exclusion and needs no remapping.
   if (retained.size() == plan.rows.size()) return FilterStatus::Complete;
 
   if (plan.projection.size() != plan.definitions.size())
@@ -830,9 +818,7 @@ FilterStatus filter_selected_row(
     }
   }
   if (selected == SIZE_MAX) return FilterStatus::AllExcluded;
-  // A selected wide row is rebuilt by the scalable parity certificate.  Drop
-  // the whole-basis planner's local definition graph here so unrelated rows
-  // cannot consume namespace or proof allowance.
+  // The parity certificate rebuilds a selected wide row; drop the definitions.
   plan.rows = {plan.rows[selected]};
   plan.definitions.clear();
   plan.projection.clear();
@@ -1138,8 +1124,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
   for (size_t row_index = 0;
        row_index < basis.rows.size() && !terminal; ++row_index) {
     const affine::BasisRow &row = basis.rows[row_index];
-    // A one-source direct row is precisely the already-live complete CNF that
-    // recognition consumed.  Re-adding it creates no Boolean information.
+    // A one-source direct row is the live source CNF.
     if (row.source_equations.size() == 1 &&
         row.kind != affine::BasisRowKind::Extended)
       continue;

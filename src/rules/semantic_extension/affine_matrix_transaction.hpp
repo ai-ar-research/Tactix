@@ -55,8 +55,7 @@ struct MatrixProofEvent {
 };
 
 struct MatrixProofCacheEntry {
-  // Monotone within the owning search session.  Structural provenance uses
-  // this durable identity after recording the full authenticated entry once.
+  // Monotone per session; provenance records the full entry once.
   uint64_t entry_id = 0;
   uint64_t owner_identity = 0;
   uint64_t proof_epoch = 0;
@@ -69,13 +68,9 @@ struct MatrixProofCacheEntry {
   uint64_t parent_entry_id = 0;
 };
 
-// Proof-only RAT definitions and their derived root unit may remain in a
-// DSR checker population across service calls.  Entries are owned by one
-// affine search session, whose existing proof/owner checks delimit their
-// lifetime.  Entry IDs are never reused when an epoch retires DSR support, so
-// journal references remain unambiguous.  DSR retires support at the next
-// witnessed add_sr boundary.  The variables are namespace-only holes and never become
-// branchable kernel variables.
+// Proof-only RAT definitions and their root unit kept in the DSR checker
+// population across service calls; DSR retires them at the next witnessed
+// add_sr. Entry IDs are never reused; the variables are never branchable.
 class AffineMatrixProofCache {
 public:
   uint64_t generation() const { return generation_; }
@@ -159,11 +154,9 @@ private:
   PbpParityReasonPlan pbp_plan_;
 };
 
-// Validate an event against an exact matrix owner/source snapshot, then plan
-// all certificate additions, deletions, helper IDs, and the one kernel clause.
-// This function does not touch a kernel, proof stream, scheduler, or trail.
-// Any result other than Prepared leaves `output` byte-for-byte unchanged at
-// its public semantic boundary.
+// Validate an event against the owner/source snapshot and plan every
+// certificate event and the kernel clause, without mutation; a non-Prepared
+// result leaves `output` unchanged.
 MatrixTransactionStatus prepare_affine_matrix_transaction(
     const AffineMatrix &, uint64_t expected_owner_identity,
     const std::vector<Equation> &exact_sources, const MatrixEvent &,
@@ -173,15 +166,11 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     const AffineMatrixProofCache *proof_cache = nullptr,
     uint64_t proof_epoch = 0,
     const PbpParityReasonPlan *pbp_plan = nullptr,
-    // Only a same-stack, no-callback consumer may omit the deep identity
-    // snapshot, and only for compact PBP with retained-source provenance.
+    // Only a same-stack compact-PBP consumer may skip the identity snapshot.
     bool retain_source_identity = true,
-    // Only the no-callback, same-stack persistent service may aggregate the
-    // immutable authentication walk. Generic callers retain stepwise
-    // interruption and partial-work observations.
+    // Only the same-stack persistent service may aggregate authentication.
     bool aggregate_retained_authentication = false,
-    // A retained reason may be planned after the tableau advances only when
-    // its complete source-derived clause passes historical authentication.
+    // Plan a retained reason by historical authentication.
     bool historical_event = false,
     MatrixTransactionFailureStage *failure_stage = nullptr);
 

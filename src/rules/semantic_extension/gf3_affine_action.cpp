@@ -4,6 +4,7 @@
 
 #include "kernel/types.hpp"
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/action_epilogue.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include "proof/proof.hpp"
@@ -48,8 +49,7 @@ OwnerLimitStatus retained_owner_limit_status(
   uint32_t maximum_arity = 0;
   uint64_t maximum_tuples = 0;
   for (const auto &equation : owner.theory.equations) {
-    // Reading the three vector extents is constant work.  Their contents are
-    // charged only on the exceptional deep-validation path below.
+    // Constant work per equation; contents are charged only below.
     if (!add_bounded(1, limits.maximum_session_work, work))
       return OwnerLimitStatus::Exhausted;
     if (equation.domains.size() > UINT32_MAX)
@@ -67,10 +67,7 @@ OwnerLimitStatus retained_owner_limit_status(
                  limits.recognition.maximum_tuples_per_equation;
   if (!exceeded) return OwnerLimitStatus::Within;
 
-  // A retained owner was admitted under an earlier configuration.  Validate
-  // it independently of the newly lowered recognition bounds before
-  // classifying the mismatch: malformed retained identity is Invalid, while
-  // an intrinsically valid owner that merely no longer fits is Exhausted.
+  // A retained owner over the new bounds is Exhausted if valid, else Invalid.
   if (!owner.external_extent || owner.external_extent > INT32_MAX ||
       owner.sources.empty() ||
       owner.sources.size() != owner.theory.source.size() ||
@@ -147,11 +144,8 @@ KeyStatus prepare_keys(const Gf3AffineActionSession &session,
   if (old.size() == limits.maximum_session_keys)
     return KeyStatus::Exhausted;
 
-  // Preallocate all fallible session storage before the live adapter commits.
-  merged.reserve(old.size() + 1);
-  merged.insert(merged.end(), old.begin(), position);
-  merged.push_back(key);
-  merged.insert(merged.end(), position, old.end());
+  // Allocate the session state before the live adapter commits.
+  merged = sorted_with(old, position, key);
   if (!add_bounded(uint64_t{1} + merged.size(), limits.maximum_session_work,
                    work))
     return KeyStatus::Exhausted;

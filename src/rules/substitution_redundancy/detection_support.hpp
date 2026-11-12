@@ -12,9 +12,8 @@
 
 namespace tactix::sr_detail {
 
-// Query assumptions constrain the model projection even while unassigned.
-// Only the explicitly selected pointwise stabilizer uses these colors;
-// unrestricted discovery and explicit SR retain their complete surface.
+// Query assumptions constrain the projection even while unassigned; only the
+// selected pointwise stabilizer colors them.
 inline void stabilize_query_coordinates(const Kernel &kernel, bool enabled,
                                           std::vector<uint32_t> &colors,
                                           uint32_t literals) {

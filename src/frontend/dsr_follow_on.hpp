@@ -1,8 +1,7 @@
-// The DSR follow-on solve. A DSR proof cannot spell a startup counting
-// refutation, so a run with an explicit DSR proof that ends on one solves the
-// original formula again, with that opportunity off, and the second search writes
-// the DSR proof to the same destination (Proof::refute_by_counting). The first
-// run's search, verdict and statistics are those of every other proof mode (N2).
+// The DSR follow-on solve: a DSR proof cannot spell a startup counting
+// refutation, so the original formula is solved again without it and the
+// second search writes the DSR proof (Proof::refute_by_counting). The first
+// run's search, verdict and statistics match every other proof mode (N2).
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -19,10 +18,8 @@ struct DsrFollowOn {
   uint64_t conflicts = 0, decisions = 0, propagations = 0, sr = 0, nanos = 0;
 };
 
-// `refuted` is the refuted run's kernel and `proof` its pending proof. `config` is
-// the run's configuration, and `pose` poses the fresh kernel as the run's was.
-// Stops with the proof error when the follow-on proof cannot be opened or a 20
-// leaves no complete DSR proof.
+// `pose` poses the fresh kernel as the refuted run's was; stops with the proof
+// error when the follow-on proof cannot be opened or leaves no complete proof.
 DsrFollowOn run_dsr_follow_on(const Kernel &refuted, Proof &proof,
                               DefaultStrategyConfig config,
                               const std::function<void(Kernel &)> &pose,

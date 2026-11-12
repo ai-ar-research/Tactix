@@ -2,10 +2,8 @@
 
 #include <cstdint>
 
-// This boundary is deliberately C-shaped.  The DejaVu translation unit is
-// compiled with exceptions and RTTI while every caller in the solver core is
-// compiled without them.  All storage returned here is allocated and released
-// by the backend.
+// A C-shaped boundary: DejaVu is compiled with exceptions and RTTI, the core
+// without; the backend allocates and releases all returned storage.
 namespace tactix::symmetry_backend {
 
 enum class Status : uint8_t {
@@ -36,9 +34,8 @@ struct DetectionSettings {
   uint64_t support_budget = UINT64_MAX;
   uint64_t component_size_limit = UINT64_MAX;
   uint64_t maximum_generators = UINT64_MAX;
-  // Start with this bounded prefix.  Each retained generator expands the
-  // live cap by progress_generators_per_generator, without restarting DejaVu,
-  // until maximum_generators or detector completion.
+  // Bounded generator prefix, expanded by progress_generators_per_generator
+  // per retained generator up to maximum_generators.
   uint64_t initial_generators = UINT64_MAX;
   uint64_t progress_generators_per_generator = 0;
   // Zero returns the full graph image. A nonzero prefix avoids retaining
@@ -61,16 +58,14 @@ struct Permutations {
   // Row-major count x domain_size images.
   uint32_t *images = nullptr;
   // With offsets, images are targets paired with sorted image_points; missing
-  // sources are identity. Targets may lie outside a requested prefix, exactly
-  // as in dense output, and still require the caller's semantic validation.
+  // sources are identity. Targets still need the caller's validation.
   uint64_t *image_offsets = nullptr;
   uint32_t *image_points = nullptr;
   uint64_t image_entries = 0;
 };
 
-// Decode sparse row `row`, validating its sorted moved points before touching
-// caller scratch, including rejected rows. `check_targets` also bounds every
-// target by the domain; otherwise target validation is left to the caller.
+// Decode sparse row `row`, validating its sorted moved points first;
+// `check_targets` also bounds every target by the domain.
 template <class Rows>
 inline bool materialize_sparse_image(const Rows &rows, uint64_t row, uint32_t *destination,
                                      bool check_targets) noexcept {
@@ -105,10 +100,9 @@ inline bool materialize_permutation_image(const Permutations &rows, uint64_t row
                                   /*check_targets=*/false);
 }
 
-// Individualize each anchor from the same equitable root coloring and align
-// singleton cells with the first anchor's refinement. UINT32_MAX marks a
-// prefix vertex which refinement did not align uniquely. Callers still exact
-// check every completed action against their own semantic representation.
+// Individualize each anchor from the equitable root coloring and align
+// singleton cells with the first anchor's refinement (UINT32_MAX: not aligned
+// uniquely). Callers exact-check every completed action.
 struct RefinementRows {
   Status status = Status::Failed;
   uint32_t anchor_count = 0;
@@ -131,10 +125,9 @@ struct RefinementPartition {
   uint32_t *cells = nullptr;
 };
 
-// Equitable partition after individualizing one root-cell member.  `cells`
-// stores a representative for every returned prefix vertex and `sizes`
-// stores the full child-cell size.  This is candidate-generation data only;
-// callers must still certify any permutation inferred from it.
+// Equitable partition after individualizing one root-cell member: a
+// representative and full child-cell size per prefix vertex. Candidate data
+// only.
 struct IndividualizedPartition {
   Status status = Status::Failed;
   uint32_t domain_size = 0;
@@ -144,11 +137,9 @@ struct IndividualizedPartition {
   uint32_t *sizes = nullptr;
 };
 
-// Satsuma-style candidate reduction after individualizing the first member of
-// an equitable root cell.  The returned list is either the original cell or
-// the anchor followed by the largest proper remainder cell exposed by
-// refinement.  This is a candidate-generation operation only; callers must
-// still exact-check every completed permutation.
+// Satsuma-style candidate reduction after individualizing the first member
+// of an equitable root cell: the original cell, or the anchor followed by the
+// largest proper remainder cell. Callers exact-check every permutation.
 struct RefinementOrbit {
   Status status = Status::Failed;
   uint32_t count = 0;
@@ -156,13 +147,11 @@ struct RefinementOrbit {
   uint32_t *vertices = nullptr;
 };
 
-// Opaque prepared graph and equitable root coloring.  A caller that refines
-// several anchor cells of the same formula can prepare once and reuse the
-// session; the backend retains all DejaVu-owned state behind this boundary.
+// Opaque prepared graph and equitable root coloring, reusable across anchor
+// cells of one formula.
 struct RefinementSession;
-// Mutable pointwise-stabilizer branch. Each successful advance starts from the
-// preceding refined coloring, so a deep branch does not replay its prefix.
-// The parent RefinementSession must outlive the branch.
+// Mutable pointwise-stabilizer branch advancing from the preceding coloring;
+// its RefinementSession must outlive it.
 struct RefinementBranch;
 
 struct GroupInput {
@@ -180,9 +169,8 @@ struct GroupInput {
   // One byte per clause. A nonzero value certifies that every pair of clause
   // literals has its pairwise negative binary in the formula snapshot.
   const uint8_t *clause_is_amo = nullptr;
-  // Optional sparse generator rows. Offsets select this representation;
-  // generator_images are targets paired with sorted generator_points. Missing
-  // sources are identity. The moved source and target sets must be identical.
+  // Optional sparse generator rows (offsets select them): targets paired with
+  // sorted points, missing sources identity, equal moved source/target sets.
   const uint64_t *generator_offsets = nullptr;
   const uint32_t *generator_points = nullptr;
   uint64_t generator_entries = 0;
@@ -193,40 +181,33 @@ struct GroupSettings {
   uint32_t error_bound = 15;
   uint64_t maximum_instances = UINT64_MAX;
   uint64_t maximum_ticks = UINT64_MAX;
-  // Zero preserves the historical clausal-fixing producer. One selects the
-  // two-pass fix-and-cut chain; two additionally re-sifts retained stabilizer
-  // generators at every base extension. The backend uses a narrow numeric ABI;
-  // the typed public enums live with SubstitutionRedundancyParameters.
+  // 0: clausal fixing; 1: two-pass fix-and-cut; 2: also re-sift stabilizer
+  // generators at every base extension (typed enums live with
+  // SubstitutionRedundancyParameters).
   uint8_t chain_mode = 0;
-  // Zero preserves caller clause/literal order. One selects common-clause and
-  // AMO-aware base ranking. Two takes the first AMO in caller order, then
-  // falls back to common-clause ranking when no AMO is applicable. Three uses
-  // that fallback once, then caller order for the rest of the chain. Four
-  // additionally retains the first eligible clause as a forward scan frontier.
-  // Five first minimizes active clause length, then uses AMO/common-clause
-  // scoring and smaller-orbit ties without an early first-AMO exit.
-  // Six uses that ranking for the initial level, then a forward caller-order
-  // frontier for subsequent levels, starting the remainder at clause zero.
+  // 0: caller clause/literal order. 1: common-clause and AMO-aware ranking.
+  // 2: first AMO in caller order, else common-clause ranking. 3: that fallback
+  // once, then caller order. 4: 3 plus a forward scan frontier at the first
+  // eligible clause. 5: shortest active clause, then AMO/common-clause scoring
+  // and smaller-orbit ties. 6: ranking at the first level, then a caller-order
+  // frontier from clause zero.
   uint8_t base_selection = 0;
   // Optional threshold between completed FixAndCut planning levels. Zero
   // disables it; maximum_ticks independently bounds planning and finalization.
   uint64_t planning_tick_limit = 0;
   bool factor_support_components = false;
-  // FixAndCut only. Zero takes a cut level's base point in ascending point
-  // order (ranked by common clauses and larger orbit when base_selection
-  // ranks). One is the owner's rule: the largest stabilizer orbit, the highest
-  // variable among equals, replaced only by a strictly better common-clause
-  // score met in ascending literal order.
+  // FixAndCut only. 0: ascending base point (ranked by common clauses and
+  // larger orbit when base_selection ranks). 1: the owner's rule: largest
+  // stabilizer orbit, highest variable among equals, replaced only by a
+  // strictly better common-clause score in ascending literal order.
   uint8_t cut_point = 0;
-  // FixAndCut only. Before any fix or cut level, take in ascending order every
-  // open variable whose stabilizer orbit holds its own complement; each such
-  // level's base is the variable's negative literal and materializes as that
-  // negation-orbit unit (kind 3), which later levels read as a root value.
+  // FixAndCut only: first take, ascending, every open variable whose
+  // stabilizer orbit holds its complement; its base is the negative literal
+  // and it materializes as a negation-orbit unit (kind 3).
   bool negation_fixing_first = false;
-  // FixAndCut and clausal fixing. The owner's orbit_overlaps_clause anchors a
-  // fixable clause on its first stored literal: a clause whose first literal is
-  // already false is never fixed, so its open literals meet a later cut level
-  // instead. Default off: any clause whose open literals share an orbit fixes.
+  // FixAndCut and clausal fixing: anchor a fixable clause on its first stored
+  // literal (owner's orbit_overlaps_clause). Default: any clause whose open
+  // literals share an orbit fixes.
   bool first_literal_fix_anchor = false;
 };
 
@@ -243,16 +224,12 @@ struct Fixings {
   uint32_t *levels = nullptr;
   uint32_t *representatives = nullptr;
   uint32_t *others = nullptr;
-  // Row-major count x domain_size images. A binary row is the inverse
-  // transversal h with h(representative)=other. Unit rows are identity and
-  // are retained only to keep this ownership boundary flat.
+  // Row-major count x domain_size images; a binary row is the inverse
+  // transversal h with h(representative)=other, unit rows are identity.
   uint32_t *images = nullptr;
-  // Optional compact form: count+1 offsets into sorted moved-point/target
-  // pairs: images and image_points are parallel arrays of image_entries
-  // elements. This discriminator selects exactly one representation.
-  // Points absent from a row are fixed. Without offsets, images keeps
-  // its historical dense row-major layout. Component exports use this form
-  // to avoid count * global-domain identity matrices.
+  // Optional compact form: count+1 offsets into parallel sorted
+  // moved-point/target arrays of image_entries elements; absent points are
+  // fixed. Without offsets, images is dense row-major.
   uint64_t *image_offsets = nullptr;
   uint32_t *image_points = nullptr;
   uint64_t image_entries = 0;
@@ -284,10 +261,9 @@ struct RefinementRowPrefix {
   const uint32_t *images;
 };
 using RowWorkCallback = bool (*)(void *);
-// Return false to decline this completion and receive Complete with no image.
-// Every unit of caller work must first be admitted by charge_work. A refused
-// charge overrides the decision with Interrupted/Incomplete. Feedback must
-// not mutate the prepared graph, recursively refine it, or retain the view.
+// Return false to decline this completion (Complete with no image). All work
+// must first be admitted by charge_work; a refusal yields
+// Interrupted/Incomplete. Feedback must not mutate or retain the graph.
 using RowFeedbackCallback = bool (*)(const RefinementRowPrefix &,
                                     RowWorkCallback charge_work,
                                     void *work_context, void *feedback_context);

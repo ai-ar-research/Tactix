@@ -209,10 +209,8 @@ inline Status fix_support_components(const GroupInput &input,
       if (fixed.count > SIZE_MAX / n / sizeof(uint32_t) ||
           images.size() > SIZE_MAX / sizeof(uint32_t) - fixed.count * n)
         throw std::bad_alloc();
-      // Precharge the whole component before appending its first row: budget
-      // exhaustion must retain only complete components. Per image cell:
-      // one local inspection, two staged source/target writes and two export
-      // writes (identity cells need fewer). No global identity rows are built.
+      // Precharge the whole component first so budget exhaustion keeps only
+      // complete components (per cell: one inspection and four writes).
       const uint64_t cells = fixed.count * n;
       constexpr uint64_t cell_work = 1 + 2 + 2;
       if (cells > UINT64_MAX / cell_work) throw std::bad_alloc();

@@ -4,7 +4,6 @@
 #include "rules/semantic_extension/csp_physical_scan.hpp"
 
 #include <algorithm>
-#include <limits>
 
 namespace tactix {
 namespace {

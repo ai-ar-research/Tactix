@@ -103,11 +103,8 @@ ApplyResult affine_model_apply(Kernel &k) {
     for (Lit literal : c) scope.push_back(var_of(literal));
     groups[std::move(scope)].push_back(id);
   }
-  // Fewer than 2^(arity-1) clauses cannot contain a complete parity group.
-  // This necessary count test avoids constructing sign maps for impossible
-  // scopes. Duplicate clauses count here, but exact patterns below still
-  // determine completeness. Sort only viable scopes to preserve the previous
-  // deterministic equation order independently of hash-table iteration.
+  // A complete parity group needs 2^(arity-1) clauses; viable scopes are
+  // sorted so equation order is independent of hash iteration.
   std::vector<const Groups::value_type *> viable;
   for (const auto &group : groups) {
     if (!charge(1)) return finish("recognition-budget");
@@ -187,12 +184,9 @@ ApplyResult affine_model_apply(Kernel &k) {
   projected=coords.size();
   for(auto&e:equations)for(size_t&v:e.variables)v=index[v];
   if(projected>s.maximum_projection) {
-    // The syndrome search is exponential in the projected boundary width, but
-    // Gaussian completion of one point in the recovered affine space is not.
-    // Preserve that distinction: decline the configured model search while
-    // still publishing a deterministic GF-consistent partial phase hint.  A
-    // later public LocalSearchGuidance action decides whether to install it.
-    // No SAT/UNSAT conclusion is drawn from this advisory completion.
+    // The syndrome search is exponential in the boundary width but Gaussian
+    // completion is not: decline the search and still publish a GF-consistent
+    // phase hint (advisory only; LocalSearchGuidance decides on it).
     admission_failed=true;
     Projection hint;
     const std::vector<Coordinate> no_coordinates;
@@ -227,9 +221,7 @@ ApplyResult affine_model_apply(Kernel &k) {
     if(completions>=s.candidate_budget||!charge(vars.size()+k.nvars))return false;
     Bits selected((coords.size()+63)/64,0);
     for(size_t i=0;i<coords.size();++i)if(bit(mask,i))flip(selected,order[i]);
-    // Repeated scopes/permutations may produce the same full coordinate
-    // assignment. Completion is deterministic in this read-only invocation;
-    // remembering its failure preserves every distinct candidate.
+    // Completion is deterministic, so a repeated failed assignment is skipped.
     if (!charge(selected.size()+1)) return false;
     if (attempted.contains(selected)) return false;
     if (!reserve_import(sizeof(Bits)+selected.size()*sizeof(uint64_t))) {
@@ -249,9 +241,8 @@ ApplyResult affine_model_apply(Kernel &k) {
       if(assignment[v]&&assignment[v]!=value){return false;}
       assignment[v]=value;
     }
-    // Private model completion: private, bounded UP only. The configured
-    // phase fills unassigned coordinates once; it is accepted only if a final
-    // independent whole-live-CNF scan succeeds. No decisions or learning.
+    // Private bounded UP completion; the configured phase fills the rest and a
+    // whole-live-CNF check decides.
     bool changed=true;
     while(changed) {
       changed=false;
@@ -275,8 +266,7 @@ ApplyResult affine_model_apply(Kernel &k) {
     if (!charge(1) || completions>=s.candidate_budget)
       return budget_exit();
     if(trial || s.shuffle_first) {
-      // Explicit Fisher--Yates mapping, independent of std::shuffle's library
-      // implementation. The standard mt19937_64 engine defines the seed stream.
+      // Explicit Fisher-Yates, independent of std::shuffle's implementation.
       for(size_t i=order.size();i>1;--i) {
         if (!charge(1)) return finish("permutation-budget");
         std::swap(order[i-1],order[random()%i]);

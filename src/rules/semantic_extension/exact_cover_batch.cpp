@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <limits>
 #include <map>
 #include <set>
 
@@ -281,9 +280,7 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     return result;
   }
 
-  // Commit starts here.  Semantic validity, termination, caller budgets, and
-  // kernel capacity/identity bounds have all been checked.  Allocation or
-  // record I/O failure remains fatal under the kernel's commit convention.
+  // Commit starts here; allocation or I/O failure is fatal.
   k.close_startup_certificate();
   const Var first = kernel_new_extension_vars(
       k, static_cast<uint32_t>(plan.definitions_.size()));

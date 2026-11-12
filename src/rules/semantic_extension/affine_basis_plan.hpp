@@ -1,6 +1,4 @@
-// Pure planning for a provenance-carrying affine basis and its compact
-// conservative Boolean extension.  Live variable allocation and proof
-// publication deliberately belong to a later kernel adapter.
+// Planning of a provenance-carrying affine basis and its Boolean extension.
 #pragma once
 
 #include "rules/semantic_extension/affine_image.hpp"
@@ -36,9 +34,7 @@ struct BasisLiteral {
 using BasisClause = std::vector<BasisLiteral>;
 
 struct XorDefinition {
-  // `output = first xor second`.  Definitions are topologically ordered and
-  // each output is fresh with respect to all existing variables and earlier
-  // outputs.
+  // `output = first xor second`, fresh; definitions are topological.
   BasisAtom output;
   BasisAtom first;
   BasisAtom second;
@@ -115,25 +111,19 @@ enum class BasisPlanStatus : uint8_t {
   Invalid,
 };
 
-// Reduce exact affine equations into a deterministic ascending-pivot basis and
-// plan a compact Boolean image.  On every result except Complete, `output` is
-// unchanged.  `charge` accounts caller-owned work and may interrupt planning.
+// Reduce equations to an ascending-pivot basis and plan its Boolean image;
+// `output` changes only on Complete.
 BasisPlanStatus build_basis_plan(const std::vector<Equation> &,
                                  const BasisPlanLimits &,
                                  const std::function<bool(uint64_t)> &charge,
                                  BasisPlan &output);
 
-// The repeated row-at-a-time slice enumerates only directly clausal rows.  It
-// performs the same reduction and source accounting but skips wide rows before
-// constructing extension networks, so unrelated wide rows cannot consume a
-// selected direct row's node/proof allowance.
+// As above, keeping only directly clausal rows.
 BasisPlanStatus build_direct_basis_plan(
     const std::vector<Equation> &, const BasisPlanLimits &,
     const std::function<bool(uint64_t)> &charge, BasisPlan &output);
 
-// Enumerate every reduced row while leaving wide rows as exact
-// source-carrying metadata.  A selected wide row is certified later by the
-// scalable publication transaction, so unrelated rows allocate no XOR nodes.
+// As above, keeping wide rows as source metadata without XOR nodes.
 BasisPlanStatus build_selectable_basis_plan(
     const std::vector<Equation> &, const BasisPlanLimits &,
     const std::function<bool(uint64_t)> &charge, BasisPlan &output);

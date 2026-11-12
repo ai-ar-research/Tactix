@@ -12,8 +12,7 @@ struct RootPreparationRequest {
   bool clear_unflushed_root = false;
 };
 
-// The public support argument (TACTIX_ROOT_PREPARATION_* flags) of a root
-// preparation whose pre-restart callback captures target phases or not.
+// TACTIX_ROOT_PREPARATION_* flags: whether to capture target phases.
 constexpr uint64_t root_preparation_argument(const RootPreparationRequest &request,
                                           bool capture_target) {
   return (request.probing ? 1u : 0u) | (capture_target ? 2u : 0u) |
@@ -50,8 +49,7 @@ ApplyResult execute_action(Kernel &k, const RootPreparationRequest &request,
   if (request.probing) probing.emplace(k);
   if (k.level > 0 && restart_guard(k)) {
     before_restart();
-    // Preserve the native caller's unconditional propagation after Restart,
-    // including its existing root-refutation publication path.
+    // Keep the unconditional propagation after Restart.
     (void)restart(RestartRequest{0, RestartPurpose::Preparation});
   }
   const ApplyResult result = propagate();

@@ -14,9 +14,7 @@ struct DirectPhpActionLimits {
   direct_php_live::SnapshotLimits snapshot;
   direct_php_recognition::Limits recognition;
   direct_php_certificate::Limits certificate;
-  // Charges construction and exact comparison of replay records.  This is
-  // separate from recognition and certificate planning because a controller
-  // may persist or validate a record without changing either producer limit.
+  // Charges replay-record construction and comparison.
   uint64_t maximum_replay_work = 0;
 
   bool valid() const;
@@ -42,9 +40,7 @@ enum class DirectPhpActionStatus : uint8_t {
   ResourceExhausted,
   Interrupted,
   UnsupportedProof,
-  // A caller-visible prepare/publish gap cannot authenticate mutations to
-  // Proof's private stream, maps, and checker-population state.  Proof-backed
-  // actions must therefore use the atomic apply/replay entry points.
+  // Proof-backed actions must use the atomic apply/replay entry points.
   UnsupportedProofSplit,
   Stale,
   AlreadyApplied,
@@ -54,9 +50,7 @@ enum class DirectPhpActionStatus : uint8_t {
 };
 
 struct DirectPhpActionEffort {
-  // Snapshot fields are the live adapter's metered admission capture.  Every
-  // subsequent revalidation is independently constrained by the same
-  // SnapshotLimits; replay_work covers this layer's record scan/comparison.
+  // Admission capture of the live adapter; revalidations use the same limits.
   uint64_t snapshot_clauses = 0;
   uint64_t snapshot_literals = 0;
   uint64_t snapshot_work = 0;
@@ -80,9 +74,7 @@ struct DirectPhpActionResult;
 
 class DirectPhpActionSession {
 public:
-  // Sessions are permanently bound to one live Kernel object.  The session
-  // must be destroyed before that Kernel; making it non-copyable prevents a
-  // retained committed token from being casually detached from that scope.
+  // Bound to one live Kernel and destroyed before it; non-copyable.
   explicit DirectPhpActionSession(Kernel &kernel) : owner_(&kernel) {}
   DirectPhpActionSession(const DirectPhpActionSession &) = delete;
   DirectPhpActionSession &operator=(const DirectPhpActionSession &) = delete;
@@ -150,10 +142,8 @@ DirectPhpActionResult direct_php_action_prepare(
     Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
     DirectPhpPreparedAction &);
 
-// The split prepare/publish API is proofless by construction.  Use apply or
-// replay when Kernel::proof is non-null so no external code can mutate proof
-// state between validation and terminal publication.  All entry points require
-// exclusive single-threaded ownership of Kernel and its Proof for the call.
+// The split prepare/publish API is proofless; with Kernel::proof use apply or
+// replay. All entry points need exclusive ownership of Kernel and Proof.
 DirectPhpActionResult direct_php_action_prepare_replay(
     Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
     const DirectPhpActionRecord &, DirectPhpPreparedAction &);

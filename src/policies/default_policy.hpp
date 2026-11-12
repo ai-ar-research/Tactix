@@ -23,37 +23,32 @@ struct FormulaClassification {
   bool bigbig = false;
 };
 
-// Sparse-resume propagation is a physical lifecycle boundary shared with the
-// reference. `charge_search_ticks` selects Kissat's ordinary-search Eliminate
-// replay versus its probing replay; the caller supplies the retained-trail
-// position corresponding to the reference's cleared trail begin.
+// Sparse-resume propagation is a lifecycle boundary shared with the reference;
+// `charge_search_ticks` selects Kissat's ordinary-search Eliminate replay or
+// its probing replay, and `trail_begin` is the retained-trail position of the
+// reference's cleared trail begin.
 ApplyResult default_resume_sparse_propagation(Kernel &, uint32_t trail_begin,
                                               bool charge_search_ticks);
 
-// Reduce's root preparation can shorten the trail before deriving new units.
-// Consume only those new root identities into DefaultPolicy's rankings.
+// Consume only the new root identities after Reduce's root preparation.
 void default_prepare_reduction(Kernel &);
 
-// Outcome feedback for the one startup BCE pass following unique-literal AMO
-// completion.  Exposed as a pure seam so all lifecycle cases remain pinned
-// without manufacturing a particular symmetry group in a policy test.
+// Outcome feedback for the post-AMO startup BCE pass (test seam).
 bool default_should_cleanup_unique_literal_amo(
     uint64_t binaries_added, bool later_progress,
     bool generic_graph_root_progress);
 
-// Decide whether structured startup should replace the initial search seed
-// with a residual-CNF import seed.  Helper-backed progress earns that reparse
-// only when generic graph fixing also reaches a root consequence; otherwise
-// the durable certified cut is useful while the original search pose remains
-// the stronger owner.  Progress without a helper layer retains the ordinary
+// Whether structured startup replaces the initial search seed with a
+// residual-CNF import seed: helper-backed progress earns it only when graph
+// fixing also reaches a root consequence; progress without helpers keeps the
 // Satsuma-to-Kissat handoff.
 bool default_should_seed_structured_residual(
     bool grew_root_trail, uint64_t unique_literal_amo_binaries,
     bool generic_graph_root_progress);
 
-// The SC2024 pass owns startup only when its bounded candidate domain covers
-// more live variables than it excludes. Otherwise the ordinary Kissat BVE
-// schedule retains the formula without an up-front search-state perturbation.
+// The SC2024 pass owns startup only when its candidate domain covers more live
+// variables than it excludes; otherwise Kissat's BVE schedule keeps the formula
+// unperturbed.
 bool default_should_run_initial_fast_elimination(uint64_t candidates,
                                                  uint64_t active_variables);
 bool default_fast_elimination_discovery_admissible(
@@ -61,8 +56,7 @@ bool default_fast_elimination_discovery_admissible(
 bool default_should_suppress_fast_elimination_after_structured(
     bool structured_root_grew_trail, uint64_t extension_candidates);
 
-// Formula-independent bounded profile for persistent authenticated subimages.
-// No clause census or recognition is performed by this pure policy helper.
+// Bounded profile for persistent authenticated subimages; no census.
 std::optional<strategy::AffineConsequenceParameters>
 default_affine_search_parameters(const Kernel &, const DefaultStrategyConfig &);
 
@@ -75,9 +69,7 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t service_inapplicable = 0, service_interrupted = 0;
   uint64_t service_unsupported_proof = 0, service_stale = 0;
   uint64_t service_invalid = 0;
-  // Stable numeric enum values plus the live-publication audit stage.  These
-  // distinguish a matrix synchronization failure (audit stage zero) from a
-  // proof/publication decline without retaining an unbounded event trace.
+  // Enum status plus publication audit stage (zero: sync failure).
   uint64_t last_service_status = 0, last_terminal_status = 0;
   uint64_t last_terminal_audit_stage = 0;
   uint64_t last_terminal_transaction_stage = 0;
@@ -96,10 +88,10 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t synchronization_nanos = 0, publication_nanos = 0;
   uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;
   uint64_t cached_event_calls = 0;
-  // Natural full-restart root windows: runs whose retained inputs changed,
-  // expired-limit windows that waited for an input change, the input-change
-  // scan, Kissat-delayed occurrences, fruitfulness verdicts, the current
-  // conflict limit and delay, run effort limits/charged work and steps.
+  // Natural full-restart root windows: changed-input runs, expired windows
+  // waiting for input change, the input-change scan, Kissat-delayed
+  // occurrences, fruitfulness verdicts, conflict limit and delay, effort
+  // limits, charged work and steps.
   uint64_t restart_runs = 0, unchanged_skips = 0, trigger_work = 0;
   uint64_t delayed_runs = 0, fruitful_runs = 0, fruitless_runs = 0;
   uint64_t run_conflict_limit = 0, delay_current = 0;
@@ -111,22 +103,20 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t alias_work = 0, alias_proof_additions = 0;
   uint64_t recognized_equations = 0, admitted_sources = 0, active_sources = 0;
   uint64_t retired_sources = 0, projected_variables = 0;
-  // Last observed native-boundary gauges, independent of cumulative
-  // admitted-source counts; source count means retained archived equations.
+  // Last native-boundary gauges; source count is retained equations.
   uint64_t retained_basis_rank = 0, retained_support_variables = 0;
   uint64_t rank_before_last_action = 0, rank_after_last_action = 0;
   uint64_t support_before_last_action = 0, support_after_last_action = 0;
-  // Cumulative net rank changes at completed native action boundaries, including
-  // finite declines that explicitly disable a retained session.
+  // Cumulative net rank changes at completed native action boundaries.
   uint64_t recognition_rank_gains = 0, recognition_rank_losses = 0;
   uint64_t maintenance_rank_gains = 0, maintenance_rank_losses = 0;
   uint64_t service_rank_losses = 0, isolated_projection_rank_losses = 0;
   uint64_t native_session_disables = 0, optional_failure_disables = 0;
   // Last-pause snapshots, retained after resumption for attribution.
   uint64_t paused_basis_rank = 0, paused_support_variables = 0;
-  // Last action: 1 recognition, 2 maintenance, 3 root service, 4 search service.
-  // Historical last disable: 1 native action cleared owner,
-  // 2 Default terminal failure; retained after a new admission.
+  // Last action: 1 recognition, 2 maintenance, 3 root service, 4 search
+  // service. Last disable: 1 native action cleared owner, 2 Default terminal
+  // failure; kept after a new admission.
   uint64_t last_survival_action = 0, last_disable_cause = 0;
 
   uint64_t widest_reason = 0;
@@ -143,14 +133,13 @@ struct DefaultGraphLabelingDiagnostics {
   uint64_t pending_slices = 0;
   uint64_t completed_trajectories = 0;
   uint64_t useful_hints = 0;
-  // Runs (each a full owner dose) and their Kissat-derived schedule:
-  // delayed occurrences, fruitfulness verdicts, conflict limit and delay.
+  // Full-dose runs and their Kissat-derived schedule state.
   uint64_t runs = 0, delayed_runs = 0, fruitful_runs = 0, fruitless_runs = 0;
   uint64_t run_conflict_limit = 0, delay_current = 0;
 };
 
-// Root-service run schedule (kissat kimits.h/kimits.c): occurrences drive the
-// NLOG2N conflict interval with kissat_scale_delta, `last_ticks` anchors
+// Root-service schedule (kissat kimits.h/kimits.c): occurrences drive the
+// NLOG2N interval with kissat_scale_delta, `last_ticks` anchors
 // SET_EFFORT_LIMIT, and the delay doubles after a fruitless run and halves
 // after a fruitful one (plan §9.5).
 struct DefaultRootServiceSchedule {
@@ -166,12 +155,9 @@ public:
   const char *name() const override { return "vmtf-evsids"; }
   Lit pick(Kernel &) override;
   Lit pick_for_restart_reuse(Kernel &) override;
-  // The forced polarity decide_lit applies at the current mode and switch
-  // count: +1 positive, -1 negative, 0 H's phase. Warm-up takes no random
-  // decision, so its picks are H's next variable with this polarity.
+  // Forced polarity: +1 positive, -1 negative, 0 H's phase.
   int8_t forced_phase(const Kernel &) const;
-  // Kissat random.h's fixed 64-bit LCG.  These define the generator rather
-  // than a tunable strategy arm, so they do not belong in DefaultStrategyConfig.
+  // Kissat random.h's fixed 64-bit LCG (generator, not strategy).
   static constexpr uint64_t RANDEC_MULTIPLIER = 6364136223846793005ull;
   static constexpr uint64_t RANDEC_INCREMENT = 1442695040888963407ull;
   uint64_t randec_remaining = 0;
@@ -229,8 +215,7 @@ class DefaultPolicy final : public Policy,
 public:
   DefaultPolicy();
   explicit DefaultPolicy(const DefaultStrategyConfig &);
-  // The default arms and scheduler point into config_. A compiler-generated
-  // copy or move would leave those pointers attached to the old owner.
+  // The arms and scheduler point into config_, so no copy or move.
   DefaultPolicy(const DefaultPolicy &) = delete;
   DefaultPolicy &operator=(const DefaultPolicy &) = delete;
   DefaultPolicy(DefaultPolicy &&) = delete;
@@ -254,8 +239,7 @@ public:
   }
 
   void reset_schedule(const Kernel &);
-  // White-box seams for Kissat's exact `classify.c` predicates. The count
-  // overload pins threshold behavior without constructing 100k clauses.
+  // Seams for Kissat's `classify.c` predicates.
   FormulaClassification classify_formula_counts(
       uint64_t binary_clauses, uint64_t irredundant_large_clauses) const;
   FormulaClassification classify_formula(const Kernel &) const;
@@ -268,9 +252,7 @@ public:
   ReductionPolicy *reduction = nullptr;
 
 
-  // Kissat owns this delay at the finalized-clause reason-side gate, not at
-  // search-conflict entry.  Keeping the transition explicit makes conflict
-  // reuse and failed-literal exits unable to consume the countdown.
+  // Kissat owns this delay at the finalized-clause reason gate.
   struct ReasonBumpDelay {
     uint32_t count = 0, current = 0;
     void reached_gate(bool ran, bool aborted) {
@@ -370,9 +352,9 @@ private:
   bool compact_ = true;
   bool lucky_late_ = true;
   bool dynamic_tiers_ = true;
-  // Policy-owned glue-tier schedule and snapshots: each native analysis
-  // carries it by value and returns it updated; Reduce retiers the current
-  // mode on it; every tier pose reads its snapshots.
+  // Policy-owned glue-tier schedule and snapshots: analysis carries it by value
+  // and returns it, Reduce retiers the current mode, tier poses read the
+  // snapshots.
   RetierSchedule retier_;
   void sync_retier_profile();
   DefaultStrategyConfig base_config_;
@@ -385,12 +367,10 @@ private:
   execution::PolicyCompletion *completion_ = nullptr;
 };
 
-// The configuration a DefaultPolicy constructed from `config` runs
-// (strategy_config()): the structured-root stages posed with the affine model.
+// The configuration a DefaultPolicy built from `config` runs.
 DefaultStrategyConfig default_policy_configuration(DefaultStrategyConfig config);
 
-// DefaultPolicy's own scheduling facts for one rule (its effort and delay
-// tables and its unlisted-rule policy), as the public readback reports them.
+// DefaultPolicy's scheduling facts for one rule, as readback reports.
 struct DefaultRuleSchedule {
   uint64_t (*meter)(const Kernel &) = nullptr; // null: an all-or-nothing rule
   uint32_t permille = 0;

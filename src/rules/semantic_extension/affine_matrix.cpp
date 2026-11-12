@@ -132,9 +132,7 @@ CombineStatus combine(MatrixRow &row, const MatrixRow &other,
   if (variable_scratch.size() > limits.maximum_row_width ||
       source_scratch.size() > limits.maximum_sources)
     return CombineStatus::BoundedOut;
-  // Local reductions swap so the old row allocation becomes the next XOR
-  // buffer. Persistent dirty updates keep their admitted output buffers and
-  // copy the bounded result into the private transaction row instead.
+  // Local reductions swap buffers; dirty updates copy into their admitted row.
   if (retain_scratch) {
     row.variables.assign(variable_scratch.begin(), variable_scratch.end());
     row.source_equations.assign(source_scratch.begin(), source_scratch.end());
@@ -332,11 +330,9 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
   }
 
 finished:
-  // Gauss-Jordan (CryptoMiniSat EGaussian::eliminate XORs a pivot row into
-  // *all* rows with a 1 in its column): remove every other pivot from each
-  // row, so a conditioned row is a singleton exactly when its pivot is
-  // forced. Rows are visited by descending pivot; a row only holds pivots
-  // larger than its own, and those rows are already reduced.
+  // Gauss-Jordan (CryptoMiniSat EGaussian::eliminate): remove every other
+  // pivot from each row, by descending pivot, so a conditioned row is a
+  // singleton exactly when its pivot is forced.
   if (!work.interrupted && limits.reduced_row_echelon) {
     for (auto row = basis.rbegin(); row != basis.rend(); ++row) {
       // One pivot lookup per coordinate after the row's own pivot.
@@ -360,13 +356,11 @@ finished:
           goto reduced;
         }
         if (combined == CombineStatus::BoundedOut) {
-          // Kept sound but unreduced against this pivot: reduction stays
-          // complete only within the row-width and provenance bounds.
+          // Sound but unreduced: over the row-width or provenance bound.
           ++at;
           continue;
         }
-        // The XOR removed this pivot and added only non-pivot or larger
-        // reduced coordinates; rescan from the same position.
+        // The XOR removed this pivot; rescan from the same position.
       }
     }
   }
@@ -447,11 +441,7 @@ void make_reason(const std::vector<Equation> &sources,
   event.deferred_exact_support.clear();
   if (event.kind == MatrixEventKind::None) return;
   if (exact_core) {
-    // The minimal public operation needs the odd-parity source support, not
-    // the sound but wider union used by SourceSupport.  Construct it once in
-    // canonical vector order and merge it with the already sorted support
-    // trail.  The former path first allocated a tree for the union and then
-    // repeated the same symmetric differences in the search adapter.
+    // Odd-parity source support, merged with the sorted support trail.
     std::vector<External> local_scratch;
     std::vector<External> &scratch = retained_xor_scratch
         ? *retained_xor_scratch : local_scratch;
@@ -481,10 +471,8 @@ void make_reason(const std::vector<Equation> &sources,
     event.reason_width = uint32_t(event.reason.size());
     return;
   }
-  // Support variables with their parity in the source sum. A conflict whose
-  // sources cancel every variable is the unconditional 0 = 1: the certificate
-  // refutes it outright, so it consumed no assignment and its reason is the
-  // empty clause even when support variables are assigned.
+  // Support variables with their source-sum parity. A conflict that cancels
+  // every variable is 0 = 1 and has the empty reason.
   std::map<External, bool> support;
   size_t residue = 0;
   for (size_t source : event.row.source_equations)
@@ -557,10 +545,7 @@ MatrixStatus build_affine_matrix(
     return MatrixStatus::Invalid;
   if (input.empty()) return MatrixStatus::NoStructure;
 
-  // CryptoMiniSat factors XORs by connected variable components before
-  // constructing Gaussian matrices. Build the same exact partition while
-  // copying the immutable source image, so this does not add a second source
-  // traversal to the established Gaussian work allowance.
+  // Connected variable components (CryptoMiniSat), built during the copy.
   std::vector<size_t> parent(input.size());
   std::iota(parent.begin(), parent.end(), 0);
   const auto find_root = [&](size_t value, auto &&self) -> size_t {
@@ -640,9 +625,7 @@ MatrixStatus build_affine_matrix(
   candidate.source_support_bound_=source_support>UINT64_MAX?UINT64_MAX:uint64_t(source_support);
   candidate.admitted_variables_ = variable_union(rows);
   if (bounded_geometry) {
-    // Subsequent row operations only condition/combine this admitted basis.
-    // They cannot introduce a coordinate or source ordinal outside its union.
-    // A source ordinal's numerical value is not its provenance cardinality.
+    // Row operations never leave the admitted coordinate and source union.
     candidate.limits_.maximum_row_width = std::min<uint64_t>(limits.maximum_row_width,
         std::max<size_t>(1, candidate.admitted_variables_.size()));
     candidate.limits_.maximum_sources = std::min<uint64_t>(limits.maximum_sources,
@@ -824,10 +807,8 @@ void AffineMatrix::simplex_make_core_reason(
      (paired!=missing&&paired>=simplex_.rhs.size()))std::abort();
   event.reason.clear();
   event.reason.reserve(admitted_variables_.size());
-  // Basis exchange reuses the selected D slot for the old responsible
-  // coordinate, so slot_to_variable is deliberately not kept sorted.  Scan
-  // the immutable canonical coordinate order: reason literal order is part
-  // of the deterministic CDCL trajectory even when clause semantics agree.
+  // slot_to_variable is unsorted after exchanges; scan canonical coordinate
+  // order because reason literal order is part of the trajectory.
   for(size_t coordinate=0;coordinate<admitted_variables_.size();++coordinate){
     bool present=simplex_row_contains(selected,coordinate);
     if(paired!=missing)present^=simplex_row_contains(paired,coordinate);
@@ -844,9 +825,7 @@ void AffineMatrix::simplex_make_core_reason(
                                                -event.implied_variable);
   event.reason_width=uint32_t(event.reason.size());
 #ifndef NDEBUG
-  // The packed row is the operational explanation.  Keep the slower
-  // immutable-source XOR as an independent Debug oracle while this boundary
-  // becomes the materializer for compact native reason handles.
+  // The packed row is the explanation; the source XOR is a Debug oracle.
   MatrixEvent oracle=event;
   oracle.reason.clear();
   make_reason(sources_,trail_,oracle,true);
@@ -1081,9 +1060,8 @@ MatrixEvent AffineMatrix::simplex_event(
       if(direct_conflict==missing)direct_conflict=row;
       continue;
     }
-    // Preserve the former two-pass priority exactly: the first direct
-    // conflict wins globally; otherwise the first contradictory singleton
-    // pair wins; otherwise select the smallest implied external variable.
+    // Priority: first direct conflict, then first contradictory singleton
+    // pair, then the smallest implied variable.
     if(unset!=1||derived_conflict!=missing)continue;
     if(coordinate==missing||coordinate>=simplex_.implication_rows.size())std::abort();
     const size_t prior=simplex_.implication_rows[coordinate];
@@ -1184,9 +1162,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
     simplex_=std::move(candidate);clear_row_index();
     index_reservation_=simplex_.bytes;
   }else simplex_.active=true;
-  // Live authentication replays the compact event selection and exact reason.
-  // Retain that current, trail-sensitive prepaid currency rather than the
-  // initial sparse row cardinality, which basis exchanges may invalidate.
+  // Prepaid live-authentication cost of the current event selection.
   simplex_.authentication_work=uint64_t(event_work);
 
   const auto refresh_slot=[&](size_t slot){
@@ -1228,13 +1204,9 @@ MatrixStatus AffineMatrix::synchronize_simplex(
     }
   }
 
-  // Observe every consequence already exposed by the current basis before a
-  // responsible-column exchange.  This mirrors CryptoMiniSat's watched-row
-  // order: propGause reports a conflict/propagation before find_truths asks
-  // eliminate_col to install a new responsible variable.  Exchanging first is
-  // algebraically sound, but can hide a singleton in a different basis and
-  // therefore weaken propagation (notably when a complete snapshot is handed
-  // to this public service rather than one assignment at a time).
+  // Report consequences of the current basis before any responsible-column
+  // exchange (CryptoMiniSat propGause before eliminate_col); exchanging first
+  // can hide a singleton.
   const size_t prefix=extension?trail_.size():0;
   trail_=trail;simplex_rows_cache_valid_=false;
   const bool rebuild=fresh||!extension||!simplex_.watches_ready;
@@ -1326,10 +1298,8 @@ MatrixStatus AffineMatrix::synchronize_simplex(
     refresh_touched_rows();
     ++exchanges;
   };
-  // Match the former deterministic external-variable order while consuming
-  // only responsible rows made pending by watched assignments.  Pending bits
-  // survive an earlier returned implication, so no exchange opportunity is
-  // lost when several rows become unit at the same fixpoint.
+  // Consume pending responsible rows in variable order; pending bits survive
+  // an earlier returned implication.
   for(size_t coordinate=0;coordinate<simplex_.values.size();++coordinate){
     const size_t row=simplex_.variable_to_row[coordinate];
     if(row==missing||!(simplex_.pending_responsible_rows[row/64]&
@@ -1392,13 +1362,8 @@ const std::vector<MatrixRow> &AffineMatrix::rows() const {
 }
 
 void AffineMatrix::reset_sparse_after_simplex(){
-  // The sparse and compact engines share trail_ but keep independent
-  // conditioned state.  Once a sparse synchronization takes ownership, the
-  // compact assignment/watch image can no longer be paired with the sparse
-  // trail: a later compact extension would otherwise classify an assignment
-  // as new while finding its old value still installed.  Discard the compact
-  // representation at this explicit engine boundary; it is rebuilt from the
-  // immutable admitted rows if compact synchronization is selected again.
+  // The sparse engine takes ownership of trail_: discard the compact image,
+  // which is rebuilt from the admitted rows when selected again.
   simplex_={};simplex_rows_cache_.clear();simplex_rows_cache_valid_=false;
   rows_=admitted_rows_;trail_.clear();incremental_ready_=false;
   clear_row_index();
@@ -1624,8 +1589,7 @@ MatrixStatus AffineMatrix::synchronize(
   };
   bool monotone_set = false;
   if (sorted_set_extension) {
-    // Both validation/comparison and staging are reserved before inspecting
-    // coordinates or allocating the private difference vector.
+    // Reserve validation and staging before inspecting coordinates.
     if (!work.consume(1 + uint64_t(trail.size()) * 3 + trail_.size()))
       return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
     External previous = 0;
@@ -1637,8 +1601,7 @@ MatrixStatus AffineMatrix::synchronize(
     monotone_set = sorted_superset(trail_, trail);
   }
 
-  // An unchanged exact support assignment cannot alter the reduced basis or
-  // its deterministic event. Avoid re-reducing it at every Boolean fixpoint.
+  // An unchanged support assignment keeps the basis and event.
   if (incremental_ready_ && trail == trail_ && !incremental_limits) {
     MatrixEvent candidate = index_ready_ ? indexed_event() : find_event(rows_);
     if(!finish_reason(candidate))
@@ -1651,9 +1614,7 @@ MatrixStatus AffineMatrix::synchronize(
     return MatrixStatus::Complete;
   }
 
-  // A complete predecessor is already conditioned on this exact snapshot.
-  // Restore by move, preserving source ordinals and deterministic event order;
-  // a same-length reassignment can never enter this path.
+  // Restore a complete predecessor conditioned on this snapshot by move.
   const bool predecessor_candidate =
       predecessor_ready_ && trail.size() < trail_.size() &&
       trail.size() == predecessor_trail_.size();
@@ -1695,9 +1656,7 @@ MatrixStatus AffineMatrix::synchronize(
   const std::vector<MatrixRow> &input = incremental ? rows_ : admitted_rows_;
   std::vector<MatrixAssignment> assignments;
   if (incremental && sorted_set_extension) {
-    // The validation pass allocates nothing. Exactly one private assignment
-    // workspace exists on every path: delta for extension, full snapshot for
-    // rebuild. Its allocation is covered by the preceding 3*n+old reservation.
+    // One workspace (delta or snapshot), within the 3*n+old reservation.
     assignments.reserve(trail.size());
     size_t old = 0;
     for (const auto assignment : trail) {
@@ -1724,8 +1683,7 @@ MatrixStatus AffineMatrix::synchronize(
       reduce(input, assignments, limits_, work, rows, incremental_limits != nullptr);
   if (status != MatrixStatus::Complete && status != MatrixStatus::Partial)
     return status;
-  // Persistent set updates preserve the previous complete basis on a bounded
-  // partial reduction; no admitted source silently disappears from that basis.
+  // Set updates keep the previous complete basis on a partial reduction.
   if (sorted_set_extension && status == MatrixStatus::Partial) return MatrixStatus::Exhausted;
   if (rows.empty() && status == MatrixStatus::Partial)
     return MatrixStatus::Exhausted;
@@ -1735,8 +1693,7 @@ MatrixStatus AffineMatrix::synchronize(
   if (const auto event_status = prepare_event(rows, prepared, candidate);
       event_status != MatrixStatus::Complete)
     return event_status;
-  // Current and predecessor share the existing mutable row/trail population
-  // allowances. Full matrices simply keep the established rebuild behavior.
+  // Current and predecessor share the row/trail allowances.
   if (incremental && !incremental_limits && status == MatrixStatus::Complete &&
       rows_.size() <= limits_.maximum_rows - rows.size() &&
       trail_.size() <= limits_.maximum_assignments - trail.size()) {
@@ -1748,12 +1705,8 @@ MatrixStatus AffineMatrix::synchronize(
     predecessor_trail_.clear();
     predecessor_rows_.clear();
   }
-  // Assignment-memory peak is at most four support-sized populations:
-  // current trail capacity, retained predecessor capacity (clear may retain
-  // it), the single private workspace above, and a replacement allocation for
-  // trail_. This is the 4*support*sizeof(MatrixAssignment) admission reserve.
-  // Moving the current trail into the predecessor releases the old predecessor
-  // storage before allocating the destination; it cannot add a fifth buffer.
+  // Peak assignment memory is four support-sized buffers (trail, predecessor,
+  // workspace, replacement): the 4*support*sizeof(MatrixAssignment) reserve.
   trail_ = trail;
   rows_ = std::move(rows);
   install_index(prepared);
@@ -1795,9 +1748,7 @@ MatrixStatus AffineMatrix::synchronize_sliced(
     return MatrixStatus::Invalid;
   }
   if (trail.size() > limits_.maximum_assignments) return MatrixStatus::Exhausted;
-  // The sliced engine owns a different continuation representation. Return to
-  // the canonical admitted basis before entering it so it cannot observe the
-  // stale sparse image left behind by compact simplex basis exchanges.
+  // The sliced engine starts from the admitted basis.
   if (simplex_.active) reset_sparse_after_simplex();
   const uint64_t support_bound=source_support_bound_;
   const uint64_t comparisons = 2 * std::bit_width(std::max({
@@ -1810,8 +1761,7 @@ MatrixStatus AffineMatrix::synchronize_sliced(
     slice_effort_.work += amount;
     return true;
   };
-  // Compare/copy the exact input only after its scan charge. These costs are
-  // distinct from retained algebra; no completed row reduction is repeated.
+  // Compare/copy the input only after its scan charge.
   const __uint128_t wide_boundary=1+__uint128_t(trail.size())+continuation_.trail.size();
   if (wide_boundary>UINT64_MAX) return MatrixStatus::Exhausted;
   const uint64_t boundary_work=uint64_t(wide_boundary);
@@ -1829,8 +1779,7 @@ MatrixStatus AffineMatrix::synchronize_sliced(
   if (!same) {
     slice_effort_.cumulative_work = 0;
     continuation_ = {};
-    // Tree metadata, mutable row populations and scratch XOR/reason buffers.
-    // This reservation excludes the already-owned immutable/current matrix.
+    // Tree metadata, rows and scratch buffers beyond the owned matrix.
     const uint64_t row_variables=std::min<uint64_t>(admitted_variables_.size(),limits_.maximum_row_width);
     const uint64_t row_sources=std::min<uint64_t>(admitted_sources_.size(),limits_.maximum_sources);
     const __uint128_t bytes = sizeof(Continuation) +
@@ -1944,9 +1893,8 @@ MatrixStatus AffineMatrix::synchronize_sliced(
       else {state.phase=3;state.scan=0;}
     }
     if (state.phase==8) {
-      // Gauss-Jordan back-substitution, as in reduce(): descending pivots,
-      // one row XOR per step. Pivot rows follow the contradictions in
-      // ascending pivot order.
+      // Gauss-Jordan back-substitution as in reduce(), one XOR per step;
+      // pivot rows follow the contradictions in ascending pivot order.
       const auto pivot_rows=std::partition_point(state.rows.begin(),state.rows.end(),
           [](const MatrixRow &row){return row.variables.empty();});
       const size_t first_pivot=size_t(pivot_rows-state.rows.begin());
@@ -2067,10 +2015,7 @@ MatrixStatus AffineMatrix::synchronize_sliced(
 }
 
 namespace {
-// Conservative pinned GNU tree allocation envelope: three RB-tree links,
-// colour/alignment padding and allocator bookkeeping fit within eight pointer
-// widths beyond the stored value. This is an admission reserve, not sizeof
-// an implementation-private node or an exact allocator-usage claim.
+// Conservative GNU RB-tree node reserve: the value plus eight pointer widths.
 template<class T> constexpr uint64_t index_node_bytes() { return sizeof(T) + 8 * sizeof(void *); }
 constexpr uint64_t occurrence_node = index_node_bytes<std::pair<const External,std::vector<size_t>>>();
 constexpr uint64_t pivot_node = index_node_bytes<std::pair<const External,size_t>>();
@@ -2194,13 +2139,10 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
       if(!mark_dirty(id))return MatrixStatus::Invalid;
     }
   }
-  // Occurrence lists are individually ordered; their allocation-free union is
-  // sorted once so the old tree's deterministic row order is unchanged.  The
-  // comparison envelope was already charged once per visited occurrence.
+  // Sort the occurrence-list union into deterministic row order.
   std::sort(dirty_row_ids_.begin(), dirty_row_ids_.end());
   const auto &dirty = dirty_row_ids_;
-  // Optional old predecessors remain intact until success. Account their
-  // retained row buffers separately before creating a private transaction.
+  // Account the retained predecessor rows, which stay intact until success.
   for(const auto &row:predecessor_rows_){
     if(!work.consume(1)||!memory(sizeof(MatrixRow)+row.variables.size()*sizeof(External)+
         row.source_equations.size()*sizeof(size_t)))return declined();
@@ -2226,9 +2168,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     MatrixRow row;row.rhs=old.rhs;row.component=old.component;
     row.source_equations=old.source_equations;
     row.variables.reserve(old.variables.size());
-    // Both inputs are strictly ordered.  Merge them directly instead of
-    // rebuilding a temporary assignment tree for every synchronization.
-    // The caller has already authenticated `delta` as the sorted set
+    // Merge two strictly ordered inputs; `delta` is the authenticated sorted
     // difference between the old and new trails.
     size_t assigned_at=0;
     for(External variable:old.variables){
@@ -2272,9 +2212,8 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     replacement.emplace_back(id,std::move(row));
   }
   // Gauss-Jordan column elimination (CryptoMiniSat EGaussian::eliminate_col):
-  // a row whose pivot was assigned takes a new pivot, which is removed from
-  // every other row, by descending new pivot. Its other coordinates are
-  // non-pivots, so the remaining rows keep their pivots.
+  // a row whose pivot was assigned takes a new pivot, removed from every
+  // other row, by descending new pivot.
   std::vector<std::pair<External,size_t>> new_pivots;
   if(limits_.reduced_row_echelon) for(const auto &[id,row]:replacement){
     if(!work.consume(1+comparisons))return declined();
@@ -2331,8 +2270,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
       if(row.variables.size()==1){if(!memory(pivot_node))return declined();additions.singletons.emplace(row.variables.front(),id);}
     }else if(row.rhs){if(!memory(conflict_node))return declined();additions.conflicts.insert(id);}
   }
-  // Copy only occurrence lists touched by the private rows. The sorted IDs
-  // remain stable; unrelated row bodies and occurrence lists are never copied.
+  // Copy only the occurrence lists touched by the private rows.
   std::vector<std::pair<External,std::vector<size_t>>> lists;
   auto list_for=[&](External variable)->std::vector<size_t>*{
     if(!work.consume(1+comparisons))return nullptr;
@@ -2447,8 +2385,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
                      &dirty_variable_xor_scratch_);
   }
   if(!work.consume(1+trail.size()+dirty.size()*comparisons+lists.size()*comparisons))return declined();
-  // All charged, checked, private preparation is complete. Map nodes transfer
-  // without allocation; row/list moves cannot invalidate untouched references.
+  // Preparation is complete; the commit below does not allocate.
   for(size_t id:dirty){
     const auto &old=rows_[id];
     if(!old.variables.empty()){index_.pivots.erase(old.variables.front());if(old.variables.size()==1)index_.singletons.erase(old.variables.front());}
@@ -2464,8 +2401,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
   index_.bytes=next_bytes;
   index_.authentication_work=next_authentication_work;
   index_reservation_=next_reservation;
-  // Dirty transactions do not copy the entire predecessor basis. Retraction
-  // uses the bounded full rebuild; the old optional predecessor is released.
+  // Dirty transactions release the predecessor; retraction rebuilds fully.
   predecessor_rows_.clear();predecessor_trail_.clear();predecessor_ready_=false;
   record_synchronization(MatrixSynchronizationKind::Extension,true,false,
                          trail_.size(),delta.size(),true,dirty.size());
@@ -2499,9 +2435,7 @@ bool AffineMatrix::authenticates(
   if (simplex_.active) {
     if (!charge(simplex_.authentication_work)) return false;
   } else if (index_ready_) {
-    // The transactional index is rebuilt or updated with every row mutation.
-    // Preserve the exact historical work charge without rewalking a large,
-    // already-authenticated basis for every live reason.
+    // Charge the index's recorded authentication work instead of rewalking.
     if (!charge(index_.authentication_work)) return false;
   } else {
     if (!charge(rows_.size())) return false;
@@ -2585,8 +2519,7 @@ bool AffineMatrix::authenticates_historical(
     if (!literal || literal == INT32_MIN) return false;
     const External variable =
         static_cast<External>(external_variable_of(literal));
-    // A negative literal is false exactly when its variable is true.  Keep
-    // that falsifying assignment beside the variable while sorting.
+    // A negative literal is false when its variable is true.
     reason_assignments.emplace_back(variable, literal < 0);
   }
   const uint64_t comparisons =
@@ -2601,10 +2534,8 @@ bool AffineMatrix::authenticates_historical(
           }) != reason_assignments.end())
     return false;
 
-  // The exact XOR support is the minimal clausal reason.  Additional reason
-  // literals are a sound weakening and remain useful when they are false on
-  // the retained trail; the live reason-order audit checks that operational
-  // precondition.  Authenticate the parity only on the source-derived core.
+  // The XOR support is the minimal reason; extra literals are a sound
+  // weakening. Authenticate parity on the source-derived core only.
   bool falsifying_parity = false;
   size_t reason_at = 0;
   for (External variable : support) {

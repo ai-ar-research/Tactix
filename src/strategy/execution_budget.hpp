@@ -1,7 +1,6 @@
 #pragma once
 
-// Policy-neutral invocation accounting. These are resource requests, never
-// rule soundness conditions. No solver clock or default is defined here.
+// Policy-neutral invocation accounting: resource requests only.
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -56,8 +55,7 @@ public:
     return WorkLimit::bounded(consumed_ < limit_.amount()
                                   ? limit_.amount() - consumed_ : 0);
   }
-  // Explicit online limit change never resets consumed work. Increases are
-  // deliberate configuration changes, not a side effect of resuming a step.
+  // Changing a limit never resets consumed work.
   void set_limit(WorkLimit limit) { limit_ = limit; }
 
 private:

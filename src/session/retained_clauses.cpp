@@ -10,6 +10,19 @@
 
 namespace tactix::session {
 
+RetentionStatus normalize_external_clause(std::span<const int32_t> clause,
+    uint32_t variables, std::vector<int32_t> &normalized) {
+  for (const int32_t literal : clause)
+    if (!literal || literal == INT32_MIN || external_variable_of(literal) > variables)
+      return RetentionStatus::Invalid;
+  normalized.assign(clause.begin(), clause.end());
+  std::sort(normalized.begin(), normalized.end(), external_literal_less);
+  normalized.erase(std::unique(normalized.begin(), normalized.end()), normalized.end());
+  for (size_t i = 1; i < normalized.size(); ++i)
+    if (normalized[i - 1] == -normalized[i]) return RetentionStatus::Tautology;
+  return RetentionStatus::Accepted;
+}
+
 RetainedClauses::RetainedClauses(RetentionLimits limits) : limits_(limits) {}
 RetainedClauses::~RetainedClauses() = default;
 
@@ -100,15 +113,10 @@ RetentionResult RetainedClauses::admit(const QueryHistory &history, uint64_t id,
   if (stop && *stop) return {RetentionStatus::Interrupted};
   if (!ticks_budget || clause.size() > limits_.maximum_clause_literals)
     return {RetentionStatus::Exhausted};
-  for (const int32_t literal : clause)
-    if (!literal || literal == INT32_MIN ||
-        external_variable_of(literal) > query->formula_variables)
-      return {RetentionStatus::Invalid};
-  std::vector<int32_t> normalized(clause.begin(), clause.end());
-  std::sort(normalized.begin(), normalized.end(), external_literal_less);
-  normalized.erase(std::unique(normalized.begin(), normalized.end()), normalized.end());
-  for (size_t i = 1; i < normalized.size(); ++i)
-    if (normalized[i - 1] == -normalized[i]) return {RetentionStatus::Tautology};
+  std::vector<int32_t> normalized;
+  if (const auto status = normalize_external_clause(clause, query->formula_variables, normalized);
+      status != RetentionStatus::Accepted)
+    return {status};
   if (known_.contains(normalized)) return {RetentionStatus::AlreadyPresent};
   if (clauses_.size() >= limits_.maximum_clauses ||
       normalized.size() > limits_.maximum_literals - literals_ - recipe_literals_)
@@ -145,14 +153,10 @@ RetentionResult RetainedClauses::admit_parity(const QueryHistory &history,uint64
   if (!budget || equations.size()>limits_.maximum_clauses ||
       clause.size()>limits_.maximum_clause_literals) return {RetentionStatus::Exhausted};
   if (equations.empty()) return {RetentionStatus::Invalid};
-  std::vector<int32_t> normalized(clause.begin(),clause.end());
-  for (int32_t literal:normalized)
-    if (!literal || literal==INT32_MIN || external_variable_of(literal)>query->formula_variables)
-      return {RetentionStatus::Invalid};
-  std::sort(normalized.begin(),normalized.end(),external_literal_less);
-  normalized.erase(std::unique(normalized.begin(),normalized.end()),normalized.end());
-  for (size_t i=1;i<normalized.size();++i)
-    if (normalized[i]==-normalized[i-1]) return {RetentionStatus::Tautology};
+  std::vector<int32_t> normalized;
+  if (const auto status = normalize_external_clause(clause, query->formula_variables, normalized);
+      status != RetentionStatus::Accepted)
+    return {status};
   uint64_t words=0, source_clauses=0, source_words=0;
   std::set<int32_t> odd;
   bool rhs=false;

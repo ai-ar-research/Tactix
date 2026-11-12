@@ -20,11 +20,8 @@ bool direct_csp_guarded_cover_owner_shape_equal(
 uint64_t direct_csp_guarded_cover_shape_work(
     const direct_csp_guarded_cover::Selection &);
 
-// Exact source-image comparison, charged by the first owner's sizes. With
-// refresh_large_ids, clause identities may advance for a freshly proved
-// replacement large premise. Literal image, occurrence ordering and binary
-// archive/sentinel identities must remain exact; this never residualizes or
-// remaps sources.
+// Source-image comparison charged by the first owner's sizes; with
+// refresh_large_ids, large-clause identities may differ.
 bool direct_csp_guarded_cover_same_source(
     const DirectCspGuardedCoverOwnerSnapshot &,
     const DirectCspGuardedCoverOwnerSnapshot &,

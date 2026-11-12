@@ -28,9 +28,7 @@ struct TupleAuthentication {
                          const TupleAuthentication &) = default;
 };
 
-// This is the complete source handoff for one algebraic row.  A later clausal
-// adapter can recover every exact-one and forbidden-tuple premise without
-// asking the SAT solver to rediscover the GF(3) equation.
+// Every exact-one and forbidden-tuple premise of one algebraic row.
 struct SourceAuthentication {
   uint64_t source_id = 0;
   uint32_t equation_index = 0;
@@ -107,14 +105,12 @@ struct Result {
 
 using Charge = std::function<bool(uint64_t)>;
 
-// Reauthenticate the recognized Boolean theory and reduce its exact equations.
-// Domain d is represented by Gaussian variable d+1; source row i has bridge-
-// local identity i+1.  No clause or auxiliary Boolean variable is produced.
+// Reauthenticate the theory and reduce its equations; domain d is Gaussian
+// variable d+1 and source row i has identity i+1.
 Result build(const gf3_affine::Theory &, const Limits &, Charge);
 
-// Independently reauthenticate the theory and replay every Source/Scale/Add
-// node, its exact GF(3) source combination, and the final reduced basis.  This
-// is the validation boundary intended for the later clausal proof adapter.
+// Reauthenticate the theory and replay every Source/Scale/Add node, its source
+// combination and the reduced basis.
 Result validate(const gf3_affine::Theory &, const Plan &, const Limits &,
                 Charge);
 

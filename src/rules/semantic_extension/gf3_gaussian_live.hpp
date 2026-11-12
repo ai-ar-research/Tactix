@@ -104,10 +104,7 @@ private:
 
   bool ready_ = false;
   bool spent_ = false;
-  // A prepared transaction is bound to every semantic/resource parameter and
-  // to the exact journal its record was prepared for. Publication rejects even
-  // a looser limit or a different journal, so the action contract cannot
-  // change across the caller-visible gap.
+  // Publication requires exactly this request and journal.
   Request request_;
   uint64_t starting_clause_id_ = 0;
   uint64_t arena_generation_ = 0;
@@ -123,9 +120,7 @@ private:
   Result prepared_;
 };
 
-// Split preparation is proofless by construction: Proof's private stream
-// cannot be authenticated across a caller-visible gap.  Atomic apply supports
-// DSR, no-proof and streaming PBP modes. Terminal-PBP declines before mutation.
+// Split preparation is proofless; atomic apply declines only terminal PBP.
 Result prepare(Kernel &, const Request &, Prepared &);
 // Mutation-free atomic preflight.  Unlike split prepare(), inspection is also
 // available with DSR because no proof stream is retained or written.

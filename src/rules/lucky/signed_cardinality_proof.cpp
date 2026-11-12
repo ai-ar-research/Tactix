@@ -182,8 +182,7 @@ public:
     return !stopped;
   }
 
-  // The legacy signed-cardinality engine budgets nodes and additions only.
-  // Preserve that contract while reusing the shared certificate machinery.
+  // Budgets nodes and additions only, as the original engine.
   bool charge_work(uint64_t) { return !stopped; }
 
   bool record_definition(External, External, int64_t, int64_t) {

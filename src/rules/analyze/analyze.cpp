@@ -1,11 +1,9 @@
-// 1-UIP scheme after kissat/src/analyze.c + deduce.c, with recursive clause
-// minimization after minimize.c (Sörensson–Biere), all-UIP block shrinking
-// after shrink.c (Fleury–Biere, SAT'20) and on-the-fly subsumption after
-// deduce.c + strengthen.c — all MIT, transliterated. Two deviations: the
-// analysis runs at the maximum level of the conflict literals, since a legal
-// N1 schedule can put a conflict entirely below the current level and
-// soundness may not depend on the schedule; and singleton-level literals still
-// get minimized (see the block pass).
+// 1-UIP after kissat analyze.c + deduce.c, recursive minimization after
+// minimize.c, all-UIP shrinking after shrink.c (Fleury–Biere SAT'20) and
+// on-the-fly subsumption after deduce.c + strengthen.c (MIT, transliterated).
+// Deviations: analysis runs at the maximum conflict level (an N1 schedule may
+// place a conflict below the current level), and singleton-level literals are
+// still minimized.
 #include "rules/analyze/analyze.hpp"
 #include "rules/analyze/learned_sort.hpp"
 #include "diagnostics/event_trace.hpp"
@@ -30,15 +28,12 @@ static constexpr uint8_t POISONED = 4;  // proven not redundant
 static constexpr uint8_t SHRINKABLE = 8; // in the current block-shrink walk
 static constexpr uint8_t REASON_BUMP = 32; // marked by reason-side bumping
 
-// The bump set = SEEN ∪ REASON_BUMP. kissat keeps exactly this set on its
-// `analyzed` stack; `k.analyzed` here also holds minimization scratch, so
-// membership is a flag test and the size is counted apart.
+// Bump set = SEEN ∪ REASON_BUMP (kissat's `analyzed` stack); `k.analyzed` also
+// holds scratch, so membership is a flag test.
 static constexpr uint8_t BUMPED = SEEN | REASON_BUMP;
 
-// Kissat's conflict unwind is deliberately two-stage: first remove the
-// current decision level, then snapshot target/best phases, then continue to
-// the semantic conflict level. Besides phase history, this fixes the order in
-// which lazily removed equal-score variables re-enter the stable heap.
+// Kissat unwinds in two stages: the current level, then a target/best phase
+// snapshot, then the conflict level. This fixes heap re-entry order.
 static void unwind_after_conflict(Kernel &k, uint32_t target) {
   if (k.level) {
     kernel_backtrack(k, k.level - 1);
@@ -49,10 +44,8 @@ static void unwind_after_conflict(Kernel &k, uint32_t target) {
     kernel_backtrack(k, target);
 }
 
-// Native affine handles are not clauses in the proof or Boolean formula.
-// Analyze's formula-mutating proof planner must run before the hot analysis
-// walk takes any persistent conflict/reason pointer. Thereafter every reason
-// in the ancestry must be clausal.
+// Affine handles are not clauses; they are certified before the analysis walk
+// takes reason pointers, so every reason here is clausal.
 static Clause *analysis_reason_clause(Kernel &k, Var v) {
   Assigned &a = k.assigned[v];
   assert(!a.affine && !a.binary && a.reason != DECISION_REASON &&
@@ -119,14 +112,9 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
   return c->lits;
 }
 
-// Inspect the complete assignment-reason ancestry without mutating the arena,
-// then certify only native affine handles in that closure, in trail order.
-// Read-only session inspection preserves the prior proof/publication order
-// without allocating placeholder clauses. This is a conservative pre-analysis
-// form of CryptoMiniSat's on-demand get_reason boundary: it can prepare a
-// handle that minimization later skips, but never publishes an unrelated live
-// handle merely because both happen to be on the trail.
-// Returns false when the proof route's budget cannot pay for a handle's clauses.
+// Inspect the reason ancestry read-only, then certify only its native affine
+// handles in trail order (a conservative pre-analysis form of CryptoMiniSat's
+// get_reason boundary). False when the proof budget cannot pay for a handle.
 static bool materialize_affine_ancestors_before_analysis(Kernel &k) {
   AffineMatrixSearchSession *const session =
       k.affine_matrix_search_session;
@@ -191,11 +179,8 @@ static bool materialize_affine_ancestors_before_analysis(Kernel &k) {
   return true;
 }
 
-// A handle implies a literal before anything in the proof justifies it, so it
-// can be withdrawn: backtrack below every handle and drop the conflict that used
-// them. Parity reasoning ends for the run, because the budget does not recover
-// and a new handle would only reach this conflict again. No clause is learned;
-// the caller sees a transition with nothing pending.
+// Unaffordable handles are withdrawn: backtrack below them and drop the
+// conflict. Parity reasoning ends for the run; nothing is learned.
 static void retract_unaffordable_affine_reasons(Kernel &k) {
   AffineMatrixSearchSession &session = *k.affine_matrix_search_session;
   const uint32_t lowest = session.lowest_lazy_reason_level(k);
@@ -210,21 +195,36 @@ static void retract_unaffordable_affine_reasons(Kernel &k) {
   ++k.stats.affine_matrix_analyze_retractions;
 }
 
-// A learned literal l is redundant if every antecedent in its reason chain
-// bottoms out in root assignments or literals already in the clause.  Kissat
-// deliberately allows the walk to cross intermediate decision levels absent
-// from the learned clause; requiring clause-level membership here only keeps
-// literals whose redundancy the same reason graph proves.
-// Binary reason runs are iterative and do not consume the strategy's recursive
-// reason-walk budget. Reaching the configured depth keeps the literal; it does
-// not affect soundness of the first-UIP learned clause.
+// A learned literal is redundant if every reason chain bottoms out in root
+// assignments or clause literals; like Kissat the walk may cross levels absent
+// from the clause. Binary runs are iterative and do not consume the depth
+// budget; reaching the depth keeps the literal.
 
 static bool literal_redundant(Kernel &, Lit, unsigned);
 
-// Kissat's `minimize_binary` walks a binary-reason run iteratively, then
-// assigns the whole run the result of its first non-binary/root/cached end.
-// Besides matching the reference depth accounting, this avoids consuming C++
-// call stack on arbitrarily long implication chains.
+// Every non-root, non-SEEN reason literal of `v` other than `assigned_lit` is
+// redundant at `depth`; stops at the first that is not. A recursive child may
+// certify a lazy affine reason and reallocate the arena, so copy the literals.
+[[gnu::always_inline]] static inline bool
+reason_literals_redundant(Kernel &k, Var v, Lit assigned_lit, unsigned depth) {
+  const Clause *reason = analysis_reason_clause(k, v);
+  const std::vector<Lit> reason_lits(reason->begin(), reason->end());
+  for (const Lit m : reason_lits) {
+    if (m == assigned_lit)
+      continue;
+    const Var mv = var_of(m);
+    if (k.var_level(mv) == 0)
+      continue;
+    if (k.seen[mv] & SEEN)
+      continue;
+    if (!literal_redundant(k, m, depth))
+      return false;
+  }
+  return true;
+}
+
+// Kissat's `minimize_binary`: walk the binary run iteratively, then assign the
+// whole run its end's result.
 static bool binary_chain_redundant(Kernel &k, Lit next, unsigned depth) {
   const size_t saved = k.minimize_scratch.size();
   bool ok = false;
@@ -253,31 +253,11 @@ static bool binary_chain_redundant(Kernel &k, Lit next, unsigned depth) {
     // large reason are two.  Binary nodes before it do not deepen the walk.
     event_trace_detail(k, "analysis_tick_minimize_binary", 1);
     kernel_charge_ticks(k, 1);
-    const Clause *reason = analysis_reason_clause(k, v);
-    // A recursive child can itself be a lazy affine reason. Its certified
-    // watched clause may grow/reallocate the arena, so never retain a Clause
-    // pointer across that recursive consumer boundary.
-    const std::vector<Lit> reason_lits(reason->begin(), reason->end());
-    const Lit assigned_lit = negate(next);
-    ok = true;
-    for (const Lit m : reason_lits) {
-      if (m == assigned_lit)
-        continue;
-      const Var mv = var_of(m);
-      if (k.var_level(mv) == 0)
-        continue;
-      if (k.seen[mv] & SEEN)
-        continue;
-      if (!literal_redundant(k, m, depth + 2)) {
-        ok = false;
-        break;
-      }
-    }
+    ok = reason_literals_redundant(k, v, negate(next), depth + 2);
     break;
   }
 
-  // Recursive Tactix used to mark these while unwinding, so retain the same
-  // deepest-first order for cleanup.
+  // Deepest-first cleanup order.
   for (size_t i = k.minimize_scratch.size(); i > saved; i--) {
     const Var v = k.minimize_scratch[i - 1];
     const uint8_t before = k.seen[v];
@@ -306,31 +286,14 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
       k.analyzed.push_back(v); // ensure cleanup
     return false;
   }
-  const Lit assigned_lit = negate(l); // l is false; the var's true literal
   bool ok = true;
   if (a.binary) {
     ok = binary_chain_redundant(k, a.reason, depth);
   } else {
-    // One search tick per reason deref, as kissat minimize.c:52 charges for
-    // the same walk. `search_ticks` denominates the stable-mode budget and
-    // every effort limit, so omitting it stretches those windows.
+    // One search tick per reason deref (kissat minimize.c:52).
     event_trace_detail(k, "analysis_tick_minimize_reference", 1);
     kernel_charge_ticks(k, 1);
-    const Clause *reason = analysis_reason_clause(k, v);
-    const std::vector<Lit> reason_lits(reason->begin(), reason->end());
-    for (const Lit m : reason_lits) {
-      if (m == assigned_lit)
-        continue;
-      const Var mv = var_of(m);
-      if (k.var_level(mv) == 0)
-        continue;
-      if (k.seen[mv] & SEEN)
-        continue;
-      if (!literal_redundant(k, m, depth + 1)) {
-        ok = false;
-        break;
-      }
-    }
+    ok = reason_literals_redundant(k, v, negate(l), depth + 1);
   }
   const uint8_t before = k.seen[v];
   k.seen[v] |= ok ? REMOVABLE : POISONED;
@@ -373,29 +336,26 @@ static void radix_sort_bumps_by_stamp(Kernel &k, std::vector<Var> &a) {
     a.swap(b);
 }
 
-static void reset_analyzed_without_bump(Kernel &k) {
-  k.analyzed_seen = 0;
-  k.reason_bumped.clear();
+static void clear_analyzed(Kernel &k) {
   for (const Var v : k.analyzed)
     k.seen[v] = 0;
   k.analyzed.clear();
   k.bump_order.clear();
 }
 
-// Bump analysis-side vars and clear all flags, minimization scratch included.
-// Focused: VMTF move-to-front, stamp-sorted to preserve relative recency
-// (kissat bump.c). Stable: EVSIDS bump in exact admission order + one decay;
-// equal-score heap topology makes the order decision-observable.
+static void reset_analyzed_without_bump(Kernel &k) {
+  k.analyzed_seen = 0;
+  k.reason_bumped.clear();
+  clear_analyzed(k);
+}
+
+// Bump analysis-side vars and clear all flags. Focused: VMTF move-to-front in
+// stamp order (kissat bump.c). Stable: EVSIDS in admission order + one decay.
 static void bump_and_reset_analyzed(Kernel &k) {
   k.analyzed_seen = 0;
   k.reason_bumped.clear();
-  if (!k.h) {
-    // Unguided (no `H`): nothing to bump, but the analysis scratch is kernel
-    // state and must still be cleared.
-    for (const Var v : k.analyzed)
-      k.seen[v] = 0;
-    k.analyzed.clear();
-    k.bump_order.clear();
+  if (!k.h) { // unguided: nothing to bump, but the scratch must be cleared
+    clear_analyzed(k);
     return;
   }
   // attribute each bump to its channel and to whether it landed on an
@@ -425,15 +385,9 @@ static void bump_and_reset_analyzed(Kernel &k) {
       }
     }
     event_trace_analyzed_post(k, k.bump_order);
-    for (const Var v : k.analyzed)
-      k.seen[v] = 0;
-    k.analyzed.clear();
-    k.bump_order.clear();
-    // Kissat advances EVSIDS only inside its `!EMPTY_STACK(analyzed)` guard.
-    // Level-one/failed-literal analysis can leave that stack empty. Decaying
-    // anyway puts Tactix's score increment one generation ahead; after enough
-    // conflicts the resulting few-ULP differences change equal-score heap
-    // order and the decision trajectory.
+    clear_analyzed(k);
+    // Kissat decays EVSIDS only when `analyzed` is non-empty; otherwise the
+    // increment drifts and changes equal-score heap order.
     if (any_analyzed)
       heuristics_scores_decay(k);
     return;
@@ -446,34 +400,26 @@ static void bump_and_reset_analyzed(Kernel &k) {
         heuristics_queue_bump(k, v);
     }
   }
-  for (const Var v : k.analyzed)
-    k.seen[v] = 0;
-  k.analyzed.clear();
-  k.bump_order.clear();
+  clear_analyzed(k);
 }
 
 void analyze_bump_after_backjump(Kernel &k) { bump_and_reset_analyzed(k); }
 
 // --- reason-side bumping (kissat analyze_reason_side_literals; cadical
-// bump_also_all_reason_literals; MapleCOMSPS 2016) --------------------------
-// Once the learned clause is final, also bump its literals' reasons, capped at
-// `k.bump_reason_limit × |bump set|` new marks and
-// all-or-nothing, so the set is never a truncation artefact of clause order.
-// `H`-only: it changes nothing but which variables get bumped.
+// bump_also_all_reason_literals; MapleCOMSPS 2016) ---
+// Bump the final clause's reasons too, capped at `k.bump_reason_limit ×
+// |bump set|` new marks, all-or-nothing. Affects only which variables bump.
 static bool mark_reason_side(Kernel &k, Lit m) {
   const Var v = var_of(m);
   if (k.var_level(v) == 0)
     return false; // root-fixed: kissat `a->level`
-  // Optional arm (Kernel::no_ext_reason_bump): withhold extension vars from
-  // this channel only, so they rise on conflict-side evidence rather than on
-  // being a BVA hub.
+  // Optional arm (Kernel::no_ext_reason_bump): exclude extension vars here.
   if (k.no_ext_reason_bump && v >= k.first_extension_var && kernel_is_solver_extension(k, v))
     return false;
   if (k.seen[v] & BUMPED)
     return false; // already in the bump set (kissat `a->analyzed`)
-  // Not `if (k.seen[v])`: a var may sit in k.analyzed carrying only
-  // REMOVABLE/POISONED, which kissat keeps on separate stacks and its
-  // `!a->analyzed` test admits. Testing the whole byte bumps a smaller set.
+  // Test SEEN only: a var carrying just REMOVABLE/POISONED is admitted, as by
+  // kissat's `!a->analyzed`.
   if (!k.seen[v])
     k.analyzed.push_back(v);
   k.bump_order.push_back(v);
@@ -534,24 +480,19 @@ static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
     k.analyzed_seen = saved;
     k.bump_order.resize(saved_bump_order);
     k.stats.reason_bump_aborted++;
-    // Vars newly pushed to k.analyzed stay there with seen == 0, harmlessly:
-    // bump_and_reset_analyzed skips them and clears unconditionally. kissat
-    // pops its stack instead, unavailable here — a reason-side var may already
-    // be in k.analyzed as scratch, so these are not a suffix.
+    // Newly pushed vars stay in k.analyzed with seen == 0;
+    // bump_and_reset_analyzed skips and clears them.
   }
   k.reason_bumped.clear();
 }
 
-// --- on-the-fly subsumption (kissat/src/deduce.c + strengthen.c) ----------
-// A resolvent equal to reason ∖ {t} subsumes the reason and becomes the new
-// conflict. The large path shrinks the reason in place as kissat's
-// large_on_the_fly_strengthen does: same arena record and position, the
-// surviving first watch kept, only t's watch dropped; t stays assigned with
-// that record as its reason until the fused Backjump unassigns it, exactly as
-// in kissat. The binary path publishes a new binary and retires the old
-// record at Backjump. If the first resolvent also subsumes the conflict, that
-// conflict is deleted immediately because it cannot be a trail reason.
-// Evidence: benchmarks/reports/2026-08-09-tier-a-otfs-watch-repair.md.
+// --- on-the-fly subsumption (kissat deduce.c + strengthen.c) ---
+// A resolvent equal to reason ∖ {t} subsumes the reason and becomes the
+// conflict. Large path: shrink in place as large_on_the_fly_strengthen (same
+// record, first watch kept, t's watch dropped; t keeps the reason until
+// Backjump). Binary path: publish a new binary, retire the old at Backjump. A
+// conflict also subsumed is deleted at once
+// (benchmarks/reports/2026-08-09-tier-a-otfs-watch-repair.md).
 static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
                             Ref subsumed_ref /* INVALID_REF if none */) {
   const Clause *reason = clause_at(k.arena, reason_ref);
@@ -573,11 +514,8 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   }
   assert(lits.size() >= 2);
   const bool binary = lits.size() == 2;
-  // Kissat selects its binary/large OTFS path from the non-root antecedent
-  // size.  The binary path drops every root-false literal with the old reason;
-  // the large in-place path, however, retains the surviving first watch even
-  // when it is root-false (strengthen.c:18-45).  A packed replacement has to
-  // reconstruct that asymmetric image explicitly.
+  // The binary path drops root-false literals; the large path keeps the
+  // surviving first watch even when root-false (strengthen.c:18-45).
   if (!binary && !keep_surviving_watch)
     lits.insert(lits.begin(), surviving_watch);
   const uint64_t id = ++k.next_clause_id;
@@ -602,10 +540,8 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
                      static_cast<uint32_t>(lits.size()));
   k.stats.otfs_strengthened++;
 
-  // kissat_on_the_fly_strengthen marks only the resolved literal removed; the
-  // dropped root-false tail literals are not marked, and the large path does
-  // not semantically delete the reason.  Binary OTFS does delete the old
-  // reason, handled below after publishing the new binary.
+  // kissat_on_the_fly_strengthen marks only the resolved literal removed;
+  // binary OTFS deletes the old reason below.
   if (reason_irredundant)
     kernel_mark_bve_retry(k, var_of(t));
   kernel_removed_var(k, var_of(t));
@@ -626,10 +562,8 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];
   } else {
-    // Kissat keeps the reason's other old watch even when it is root-false,
-    // and selects only its new partner, taking the first literal on a level
-    // tie.  Re-selecting both watches changes the semantic clause in the root
-    // case and changes later scan order in the ordinary case.
+    // Keep the other old watch even when root-false; choose only its new
+    // partner, first literal on a level tie (Kissat).
     uint32_t highest = 1;
     for (uint32_t j = 2; j < lits.size(); j++)
       if (k.var_level(var_of(lits[j])) >
@@ -651,18 +585,13 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     // kissat_on_the_fly_subsume turns a redundant reason irredundant when it
     // subsumes an irredundant conflict.
     if (!redundant && replacement->redundant()) {
-      // A free N1 schedule can retain Eliminate's dense occurrence image
-      // across ConflictAnalysis. Promotion is therefore a representation
-      // transition too: publish the replacement before a later OTFS rewrite
-      // tries to remove one of its occurrences.
+      // Publish the promotion before a later OTFS rewrite, for Eliminate's
+      // dense image under an N1 schedule.
       kernel_promote_large_irredundant(k, reason_ref);
       replacement = clause_at(k.arena, reason_ref);
     }
-    // Pinned Kissat marks only the surviving old tail (original positions
-    // 2..), before choosing its new second watch.  The retained first watch is
-    // deliberately excluded.  A redundant reason that becomes irredundant by
-    // subsuming an irredundant conflict is excluded too: the in-place source
-    // was redundant when strengthen.c made this decision.
+    // Kissat marks only the surviving old tail (positions 2..), excluding the
+    // first watch and a reason that was redundant when strengthen.c decided.
     if (reason_irredundant)
       for (uint32_t i = 1; i < lits.size(); ++i) {
         kernel_touch_var(k, var_of(lits[i]));
@@ -670,13 +599,8 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
         kernel_mark_factor_literal(k, lits[i], "analyze_strengthen");
       }
 
-    // Kissat's `kissat_on_the_fly_subsume` transfers a better LBD from a
-    // redundant conflict to the strengthened redundant reason.  This happens
-    // after the reason has been shortened (and after its size clamp), so it is
-    // a real promotion of the replacement rather than a property of the
-    // deleted conflict.  Omitting it can move the same live clause into a
-    // later reduction/Vivify tier even when the two analyses are otherwise
-    // literal-for-literal identical.
+    // `kissat_on_the_fly_subsume` moves a better LBD from a redundant conflict
+    // to the strengthened redundant reason after its size clamp.
     if (subsumed_glue < replacement->glue()) {
       const uint32_t old_glue = replacement->glue();
       event_trace_clause_glue(k, "analyze", replacement, old_glue,
@@ -686,12 +610,9 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     }
   }
 
-  // The large path keeps the reason's record, so its eager-register slot is
-  // untouched as in kissat.  Kissat's binary path (strengthen.c
-  // binary_on_the_fly_strengthen) marks the old clause garbage but leaves its
-  // reference in last_learned, where the dead entry keeps its slot (skipped
-  // as garbage, kept by flush_last_learned) until later insertions shift it
-  // out; the old record is retired at Backjump, after t is unassigned.
+  // Large path: the eager-register slot is untouched (kissat). Binary path
+  // (strengthen.c binary_on_the_fly_strengthen): the dead entry keeps its
+  // last_learned slot; the old record retires at Backjump.
   if (binary)
     k.otfs_retired.push_back(reason_ref);
 
@@ -718,23 +639,20 @@ void analyze_retire_otfs_reasons(Kernel &k) {
       kernel_unwatch_large(k, first, ref);
       kernel_unwatch_large(k, second, ref);
       c = clause_at(k.arena, ref);
-      // The large source was semantically shortened in place by Kissat; the
-      // packed old record is representation garbage only.  Binary OTFS's
-      // full old-clause removal was published explicitly at creation time.
+      // The large source was shortened in place; the packed old record is only
+      // representation garbage.
       kernel_delete_clause(k, c, false);
     }
   }
   k.otfs_retired.clear();
 }
 
-// --- all-UIP block shrinking (kissat/src/shrink.c; Fleury–Biere SAT'20) ---
-// A maximal group of learned literals on one decision level is replaced by the
-// negation of that level's local UIP when the block's reason chains, walked
-// down the trail, converge to a single literal.
+// --- all-UIP block shrinking (kissat shrink.c; Fleury–Biere SAT'20) ---
+// A block of learned literals on one level becomes the negated local UIP when
+// its reason chains converge.
 
-// classify literal l (falsified) for the level-`blevel` walk: 1 = newly
-// shrinkable (same level, walk continues through it), 0 = resolves away
-// (root / already shrinkable / proven redundant), -1 = block can't shrink
+// Classify falsified l for the `blevel` walk: 1 = newly shrinkable, 0 =
+// resolves away (root / shrinkable / redundant), -1 = block can't shrink.
 static int shrink_literal(Kernel &k, Lit l, uint32_t blevel) {
   const Var v = var_of(l);
   const Assigned &a = k.assigned[v];
@@ -743,10 +661,8 @@ static int shrink_literal(Kernel &k, Lit l, uint32_t blevel) {
   if (k.seen[v] & SHRINKABLE)
     return 0;
   if (a.level < blevel) {
-    // `kissat_minimize_clause` marks every literal already in the learned
-    // clause removable before the default shrink=3 pass.  SEEN is Tactix's
-    // equivalent membership bit; omitting it can reject a valid block collapse
-    // when a reason reaches a learned literal on a lower level.
+    // `kissat_minimize_clause` marks learned literals removable before
+    // shrink=3; SEEN is the equivalent bit.
     if (k.seen[v] & (SEEN | REMOVABLE))
       return 0;
     // kissat's default shrink level falls back to recursive minimization here
@@ -850,14 +766,11 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
   return true;
 }
 
-// --- watch repair for the conflict-reuse shortcut --------------------------
-// Re-point the conflict clause's two watches at its two highest-level
-// literals, transferring the watch entries (kissat analyze.c, the
-// `conflict_size > 2` block). The invariant: after the shortcut assigns
-// `forced` at `jump2` with this clause as reason, that is the only true
-// literal, so the other watch must be a literal at exactly jump2 — otherwise a
-// backtrack below jump2 unassigns `forced`, nothing rescans, and the clause
-// sits unit at a claimed fixpoint. docs/dev/implementation-notes.md §12.
+// --- watch repair for the conflict-reuse shortcut ---
+// Re-point the conflict clause's watches at its two highest-level literals
+// (kissat analyze.c, `conflict_size > 2`): the second watch must be at exactly
+// jump2, or a backtrack below jump2 leaves the clause unit at a claimed
+// fixpoint (implementation-notes §12).
 static uint32_t repair_conflict_watches(Kernel &k, Ref ref, uint32_t alevel) {
   const uint32_t size = clause_at(k.arena, ref)->size;
   if (size <= 2)
@@ -889,10 +802,8 @@ static uint32_t repair_conflict_watches(Kernel &k, Ref ref, uint32_t alevel) {
   return moved;
 }
 
-// Kissat's single target calculation is shared by ordinary learned-clause
-// backjumping and both forms of conflict reuse (original and OTFS replacement).
-// Keeping it here prevents a reuse path from silently bypassing chronological
-// retention, as the duplicate-OTFS path did on Fmla at conflict 844.
+// Kissat's shared target calculation for backjumping and both conflict-reuse
+// forms (chronological retention).
 static uint32_t conflict_reuse_target(Kernel &k, uint32_t jump) {
   assert(k.level && jump < k.level);
   const uint32_t back = k.level - 1;
@@ -903,16 +814,13 @@ static uint32_t conflict_reuse_target(Kernel &k, uint32_t jump) {
   return jump;
 }
 
-// --- eager subsumption of recently learned clauses -------------------------
-// Transliterated from kissat learn.c:70-187 (MIT). Not a registered rule: the
-// clauses it deletes are redundant, so S2 Reduce's unconditional Forget
-// licenses the deletion and the subsumption test only selects victims. A
-// sub-step of M3; see docs/dev/implementation-notes.md §15.
+// --- eager subsumption of recently learned clauses ---
+// From kissat learn.c:70-187 (MIT). A sub-step of M3: victims are redundant, so
+// Reduce's Forget licenses the deletion (implementation-notes §15).
 
-// Is `c` the reason of a trail literal? Kissat does not ask; this kernel must,
-// or a garbage reason dangles for kernel_collect_garbage (N2). Reachable only under a chronological
-// backjump target, which DefaultPolicy never picks, so the branch is pinned by
-// tests/test_analyze.cpp test_eager_subsume case (c).
+// Is `c` a trail reason? Kissat does not ask; a garbage reason would dangle
+// (N2). Only under a chronological target (tests/test_analyze.cpp
+// test_eager_subsume case (c)).
 static bool eager_is_reason(const Kernel &k, Ref ref, const Clause *c) {
   for (const Lit l : *c) {
     if (k.values[l] <= 0)
@@ -924,9 +832,8 @@ static bool eager_is_reason(const Kernel &k, Ref ref, const Clause *c) {
   return false;
 }
 
-// Delete every register entry strictly subsumed by the just-learned clause.
-// Strictly: candidates of size <= |learned| are skipped, so an identical
-// clause is never deleted, nor is the clause about to be inserted.
+// Delete register entries strictly subsumed by the learned clause (sizes <=
+// |learned| are skipped).
 static void eager_subsume_recent(Kernel &k, const Lit *lits, uint32_t size) {
   uint8_t *const marks = k.eager_marks.data();
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -951,9 +858,7 @@ static void eager_subsume_recent(Kernel &k, const Lit *lits, uint32_t size) {
     if (c->garbage() || !c->redundant() || c->size <= size)
       continue;
     k.stats.eager_tried++;
-    // kissat's two-counter containment scan: `needed` counts unmatched
-    // subsumer literals, `remain` bounds how many of c's can still match.
-    // Neither underflows — each iteration decrements exactly one.
+    // kissat's two-counter containment scan (`needed`, `remain`).
     uint32_t needed = size, remain = c->size;
     for (const Lit l : *c) {
       if (marks[l]) {
@@ -994,9 +899,8 @@ static void eager_subsume_recent(Kernel &k, const Lit *lits, uint32_t size) {
   }
 }
 
-// kissat insert_last_learned: shift the new ref in at the front and let the
-// oldest fall off the active prefix. Slots beyond `eager_subsume` are never
-// read and stay INVALID_REF, which the debug register check relies on.
+// kissat insert_last_learned: shift in at the front; slots beyond
+// `eager_subsume` stay INVALID_REF.
 static void eager_insert_recent(Kernel &k, Ref ref) {
   Ref prev = ref;
   for (uint32_t i = 0; i < k.eager_subsume; i++) {
@@ -1006,10 +910,8 @@ static void eager_insert_recent(Kernel &k, Ref ref) {
   }
 }
 
-// The one entry point, called by backjump_apply_to: test the pending clause
-// against the register, then insert it (kissat's order, learn.c:205-208), so a
-// clause is never compared with itself. Units and binaries subsume too; only
-// large clauses become future candidates, having a ref.
+// Called by backjump_apply_to: test against the register, then insert (kissat
+// learn.c:205-208). Only large clauses become candidates.
 void analyze_eager_subsume(Kernel &k) {
   if (!k.eager_subsume || !k.pending.valid)
     return;
@@ -1028,13 +930,9 @@ void analyze_eager_subsume(Kernel &k) {
   }
 }
 
-// Kissat analyze.c:390-520 handles a conflict at decision level one as a
-// failed-literal traversal, not as ordinary 1-UIP.  Walking the implication
-// graph backwards can expose several singleton frontiers: each one is a root
-// unit, and the negated decision is the final root unit.  Besides being
-// stronger than learning only one UIP, this defines the analyzed-variable set
-// that focused VMTF bumps after the root assignments have deactivated their
-// variables.  The order is therefore part of N4, not a proof-only shortcut.
+// Kissat analyze.c:390-520 treats a level-one conflict as a failed-literal
+// traversal: each singleton frontier is a root unit, the negated decision the
+// last one. This also defines the VMTF-bumped set (N4).
 static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
                                             uint32_t csize) {
   assert(k.level == 1);
@@ -1089,9 +987,7 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
         lit = k.trail[--pos];
       } while (!(k.seen[var_of(lit)] & SEEN));
 
-      // The remaining frontier is just this true literal.  Assuming it
-      // replays the already-resolved suffix to the conflict, so its negation
-      // is a root unit.
+      // The frontier is this true literal, so its negation is a root unit.
       if (unresolved == 1)
         emit_unit(negate(lit));
 
@@ -1136,9 +1032,7 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   k.conflict_valid = false;
   k.conflict_ref = INVALID_REF;
   k.pending.valid = false;
-  // The public LAST_LEARNED_GLUE observation reads this field after the fused
-  // rule consumes pending state.  A failed-literal batch has no pending clause
-  // but is still Kissat's one size-one/glue-zero learned event.
+  // A failed-literal batch is Kissat's one size-one/glue-zero learned event.
   k.pending.glue = 0;
 
   for (const auto &[unit, id] : units) {
@@ -1154,19 +1048,15 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
     backjump_assign_learned_unit(k, unit);
   }
 
-  // Reference order is learn/backtrack/assign, then bump.  Root-fixed units
-  // are inactive by this point and therefore cannot be moved back into either
-  // decision structure by the analyzed-variable transaction.
+  // Reference order: learn/backtrack/assign, then bump.
   bump_and_reset_analyzed(k);
   return ApplyResult::Ok;
 }
 
-// Target modes (analyze.hpp): Explicit clamps a caller target chosen before
-// analysis on every path. Otherwise the reuse paths take conflict_reuse_target
-// and, when `chosen` is set (Chrono), so does the learned clause, reported in
-// `*chosen`; with `chosen` null (Advised) the caller picks it. Chrono and
-// Advised share one instantiation: a third copy of this hot function loses
-// the inlining of its scratch-vector pushes (gap-plan Step 6 report).
+// Target modes (analyze.hpp): Explicit clamps a pre-chosen target. Otherwise
+// reuse paths use conflict_reuse_target, as does the learned clause when
+// `chosen` is set (Chrono); with null `chosen` (Advised) the caller picks.
+// Chrono and Advised share one instantiation to keep inlining.
 template <bool ExplicitTarget>
 static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
                                           RetierSchedule *retier,
@@ -1199,24 +1089,16 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
       return ApplyResult::Unsat;
     }
     // Backtrack to the conflict level (kissat analyze.c
-    // one_literal_on_conflict_level). Chronological backtracking leaves the
-    // trail unsorted by level, so `alevel` can sit below the current decision
-    // level, and everything downstream — the backjump gap, the 1-UIP walk's
-    // start, the asserting literal's staleness test — is defined relative to
-    // the level the conflict actually lives at. Analysing from higher
-    // overstates the gap and can leave the asserting literal assigned, which
-    // reads as a stale pending clause and drops the conflict. A no-op with
-    // chrono off, where alevel == k.level always.
+    // one_literal_on_conflict_level): with chronological backtracking `alevel`
+    // can be below the current level, and the gap, walk start and staleness
+    // test are relative to it. No-op with chrono off.
     if (alevel < k.level) {
       unwind_after_conflict(k, alevel);
     }
 
-    // A conflict with one literal at `alevel` is already asserting after a
-    // backtrack to `jump2`; reuse it without learning. Apply the ordinary
-    // chronological-gap target, including a root implication when jump2==0.
-    // Canonicalize watches first because even a declined conflict can survive
-    // the backtrack and its pose controls its next observation. Repeat this at
-    // every OTFS pass. See docs/dev/implementation-notes.md §12.
+    // One literal at `alevel` is already asserting after backtracking to
+    // `jump2`: reuse it with the chronological-gap target. Canonicalize watches
+    // first, also at every OTFS pass (implementation-notes §12).
     if (alevel > 0 && k.conflict_ref != INVALID_REF &&
         repair_conflict_watches(k, k.conflict_ref, alevel))
       k.stats.conflict_watch_repaired++;
@@ -1240,10 +1122,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
         const Lit other = cref == INVALID_REF
                               ? (k.conflict_bin[0] ^ k.conflict_bin[1] ^ forced)
                               : INVALID_LIT;
-        // Reuse as a reason works only if the clause watches the literal it
-        // now implies and a false literal at exactly `jump2` (see
-        // repair_conflict_watches). Repairing rather than declining lets the
-        // shortcut fire on every such conflict.
+        // Reuse needs watches on the implied literal and a false literal at
+        // exactly `jump2` (repair_conflict_watches).
 #ifndef NDEBUG
         if (cref != INVALID_REF) { // post-repair: exactly the invariant above
           const Clause *cc = clause_at(k.arena, cref);
@@ -1259,9 +1139,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
         unwind_after_conflict(k, target);
         analyze_retire_otfs_reasons(k);
         if (!jump2) {
-          // A reused root implication is propagation, not a learned-clause
-          // transaction. Kissat inlineassign.h publishes its unit and fixes
-          // the variable without entering Deduce or advancing EVSIDS.
+          // A reused root implication is propagation (Kissat inlineassign.h):
+          // no Deduce, no EVSIDS advance.
           const uint64_t id = ++k.next_clause_id;
           if (k.proof)
             k.proof->add_rup(id, &forced, 1);
@@ -1269,11 +1148,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
           kernel_assign_unit(k, forced);
           heuristics_deactivate_var(k, var_of(forced));
         } else if (cref == INVALID_REF)
-          // Kissat routes reused binary conflicts through
-          // `kissat_assign_binary`, whose reason-jump path is intentionally
-          // not guarded by the big/big formula classification.  Storing the
-          // intermediate antecedent here makes the next analysis bump a
-          // variable Kissat resolves straight past.
+          // Kissat's `kissat_assign_binary` reason-jumps without the big/big
+          // check.
           kernel_assign_binary(k, forced, other, /*require_bigbig=*/false);
         else
           kernel_assign(k, forced, jump2, cref, /*binary=*/false);
@@ -1286,9 +1162,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
       }
     }
 
-    // A genuine level-one conflict with more than one literal on that level
-    // is Kissat's failed-literal case.  The one-literal case above remains the
-    // conflict-reuse path, including zero-jump root implications.
+    // More than one literal at level one: Kissat's failed-literal case.
     if (alevel == 1) {
       uint32_t on_level_one = 0;
       for (uint32_t i = 0; i < csize; i++)
@@ -1297,11 +1171,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
         return analyze_failed_level_one(k, clits, csize);
     }
 
-    // Kissat marks the conflict as used inside
-    // `kissat_deduce_first_uip_clause`, after the already-asserting conflict
-    // shortcut above.  Doing this at Analyze entry counted reused conflicts
-    // in the dynamic glue histogram even though Kissat never entered Deduce;
-    // that one observation can move the next Reduce tier quantile.
+    // Kissat marks the conflict used inside `kissat_deduce_first_uip_clause`,
+    // after the reuse shortcut.
     if (k.conflict_ref != INVALID_REF)
       mark_used(k, clause_at(k.arena, k.conflict_ref));
 
@@ -1342,10 +1213,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
     for (;;) {
       assert(i > 0);
       Lit t;
-      // Resolve only assertion-level literals: `open` counts exactly the seen
-      // alevel vars, mark() pushing lower-level ones straight to `learned`.
-      // The `var_level == alevel` filter (D-LEVEL-2) keeps this correct on a
-      // non-level-sorted trail; on a sorted one it skips nothing.
+      // Resolve only assertion-level literals (`var_level == alevel`,
+      // D-LEVEL-2), so an unsorted trail is handled.
       do {
         t = k.trail[--i];
       } while (!(k.seen[var_of(t)] && k.var_level(var_of(t)) == alevel));
@@ -1386,12 +1255,9 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
             mark(l);
           }
         resolvent_size--; // t leaves the resolvent
-        // OTFS (kissat deduce.c): resolvent ⊆ reason ∖ {t} — since the
-        // resolvent contains all non-root reason literals except t, a
-        // strictly smaller size means equality
-        // A detached theory reason is an implication-graph object, not a
-        // watched clause that OTFS may strengthen in place. Native Gaussian
-        // reasons have the same boundary in CryptoMiniSat.
+        // OTFS (kissat deduce.c): resolvent ⊆ reason ∖ {t}, so a strictly
+        // smaller size means equality. Detached theory reasons are not
+        // strengthened (as in CryptoMiniSat).
         if (!reason->detached_reason() && antecedent > 2 &&
             resolvent_size < antecedent) {
           const bool subsumes_conflict = resolved == 1 &&
@@ -1406,13 +1272,11 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
     }
     if (!restart_analysis)
       break;
-    // Kissat counts the strengthened clause as a fresh conflict before
-    // re-running 1-UIP analysis.  This is not cosmetic: restart, reduction,
-    // mode, rephase, reorder, and inprocessing deadlines all read this clock.
+    // Kissat counts the strengthened clause as a conflict before re-analysis;
+    // every deadline reads this clock.
     k.stats.conflicts++;
-    // Kissat tests and applies its glue-tier deadline here, before bumping the
-    // aborted analysis and before the next OTFS round can mark another clause
-    // used. The caller's schedule is part of the request, not a callback.
+    // Kissat applies the glue-tier deadline here, before the bump and the next
+    // OTFS round.
     if (retier)
       reduce_retier_at_conflict(k, *retier, k.h && k.h->stable ? 1u : 0u);
     bump_and_reset_analyzed(k); // kissat bumps each aborted round too
@@ -1428,9 +1292,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
 #endif
     event_trace_learned_stage(k, "learned_raw", learned);
 
-  // shrink + minimize (kissat analyze.c at its default shrink=3): per decision
-  // level, first try to collapse the whole block to its local UIP; if that
-  // fails, minimize its literals individually.
+  // shrink + minimize (kissat analyze.c, shrink=3): collapse each level block
+  // to its local UIP, else minimize literals individually.
   if (learned.size() > 2) {
     // Group into blocks by descending level while preserving deduction order
     // within each level, matching Kissat's stable bucket sort.
@@ -1445,20 +1308,15 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     }
 #endif
-    // Kissat consumes the sorted clause from its tail: lower-level blocks run
-    // first, and every successful walk leaves removable intermediates for the
-    // later, higher-level blocks.  The clause itself stays in descending-level
-    // order; only application order is reversed.
+    // Kissat processes blocks from the tail (lower levels first); the clause
+    // keeps descending-level order.
     size_t e = learned.size();
     while (e > 1) {
       const uint32_t blevel = k.var_level(var_of(learned[e - 1]));
       size_t b = e - 1;
       while (b > 1 && k.var_level(var_of(learned[b - 1])) == blevel)
         b--;
-      // Kissat's default shrink=3 only opens this pipeline for a block with at
-      // least two literals.  In particular, it does not recursively minimize
-      // singleton blocks: doing so charges extra search ticks and can advance
-      // every effort deadline even when the learned clause is unchanged.
+      // shrink=3 opens the pipeline only for blocks of at least two literals.
       if (e - b >= 2) {
         if (shrink_block(k, learned, b, e, blevel)) {
           k.stats.shrunken += (e - b) - 1;
@@ -1500,11 +1358,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
     }
   }
 
-  // Kissat reuses an OTFS replacement immediately when it has one literal on
-  // the highest level.  Tactix first runs its separately specified stronger
-  // minimization.  If that produced a strict subclause, keep and learn it.  If
-  // the final clause is exactly the replacement already in the formula,
-  // learning it adds no strength and only creates a duplicate.
+  // Learn a strict subclause of an OTFS replacement; an identical one would
+  // only duplicate it.
   bool duplicate_otfs_replacement = false;
   if (otfs_round && jump > 0) {
     uint32_t csize;
@@ -1555,9 +1410,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
 #endif
   event_trace_learned_stage(k, "learned_shrunk", learned);
 
-  // reason-side bumping, on the final clause and before the bump (kissat
-  // analyze.c:566). Off unless a policy set the limit, and never on the OTFS
-  // restart path or the root-refutation exit.
+  // Reason-side bumping on the final clause, before the bump (kissat
+  // analyze.c:566); never on the OTFS restart or root refutation path.
   if (k.bump_reason_limit)
     bump_reason_side(k, learned);
 
@@ -1623,12 +1477,9 @@ ApplyResult analyze_apply_chrono(Kernel &k, uint32_t *chosen) {
   return analyze_apply_internal<false>(k, 0, installed_retier(k), chosen);
 }
 
-// ConflictAnalysis — the atomic learn+backjump rule (docs/dev/calculus.md §3 M3).
-// One transition from a recorded conflict: derive and emit the learned clause,
-// then, unless that was a root refutation, assert it by backjumping. Fusing
-// the two removes the `pending` control state that was observable at a rule
-// boundary, so no guard needs a ¬pending.valid conjunct. The step functions
-// stay internal, driven white-box by DefaultPolicy and the analyze tests.
+// ConflictAnalysis, the atomic learn+backjump rule (calculus §3 M3): derive and
+// emit the learned clause, then backjump unless it refuted. No `pending` state
+// is visible at a rule boundary.
 static ApplyResult conflictanalysis_apply_to(Kernel &k, uint32_t target) {
   return execution::execute_action(
       k, execution::ExplicitConflictAnalysisRequest{target});
@@ -1638,10 +1489,8 @@ static ApplyResult conflictanalysis_apply(Kernel &k) {
   return conflictanalysis_apply_to(k, 0); // clamps up to the true jump level
 }
 
-// Instance surface (D-LEVEL-2): the backjump target, any level in
-// [jump_level, level-1]. jump_level is unknown until analyze runs, so
-// instances() offers every level 0..level-1 and apply_instance clamps
-// afterwards. INSTANCE_CANONICAL = jump_level.
+// Instance surface (D-LEVEL-2): every level 0..level-1 is offered and clamped
+// to [jump_level, level-1] after analysis. INSTANCE_CANONICAL = jump_level.
 static uint32_t conflictanalysis_instances(Kernel &k, uint64_t *out,
                                            uint32_t cap) {
   const uint32_t n = std::min<uint32_t>(cap, k.level); // levels 0..level-1
@@ -1658,11 +1507,8 @@ static ApplyResult conflictanalysis_apply_instance(Kernel &k, uint64_t inst) {
   return conflictanalysis_apply_to(k, target);
 }
 
-// Additive semantic payload: ANALYZE_TARGET_CHRONO selects the target after
-// learning, the chronological target of conflict_reuse_target on the learned
-// clause as on both reuse paths. Every other payload is the frozen v1 level.
-// No semantic enumerator is registered, so semantic enumeration keeps the v1
-// level list.
+// ANALYZE_TARGET_CHRONO selects conflict_reuse_target after learning; other
+// payloads are the v1 level.
 static ApplyResult conflictanalysis_apply_semantic_instance(Kernel &k,
                                                             uint64_t inst) {
   if (inst == ANALYZE_TARGET_CHRONO)

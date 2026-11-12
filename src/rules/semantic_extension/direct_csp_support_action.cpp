@@ -2,6 +2,7 @@
 
 #include "rules/structural_action_guard.hpp"
 
+#include "rules/semantic_extension/action_epilogue.hpp"
 #include "rules/semantic_extension/csp_domain_identity.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
@@ -200,9 +201,7 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
       return SessionStatus::Invalid;
   }
 
-  // Invocation limits are resource policy, not part of a retained identity.
-  // Once the metered integrity scan completes, corruption remains Invalid even
-  // when the caller also supplies caps smaller than the retained state.
+  // After the integrity scan, retained state above the caps is Exhausted.
   if (keys.size() > limits.maximum_session_keys)
     return SessionStatus::Exhausted;
   for (const DirectCspSupportOwnerSnapshot &owner : owners)
@@ -248,10 +247,7 @@ KeyStatus prepare_keys(const DirectCspSupportActionSession &session,
                          retained.right_values.size(),
                      limits.maximum_session_work, work))
       return KeyStatus::Exhausted;
-  merged.reserve(old.size() + 1);
-  merged.insert(merged.end(), old.begin(), position);
-  merged.push_back(key);
-  merged.insert(merged.end(), position, old.end());
+  merged = sorted_with(old, position, key);
   return KeyStatus::Novel;
 }
 
@@ -285,10 +281,7 @@ OwnerStatus prepare_new_owner(
 
   // Allocate the complete post-commit owner set before live publication. The
   // final session update is an infallible vector swap.
-  merged.reserve(old.size() + 1);
-  merged.insert(merged.end(), old.begin(), position);
-  merged.push_back(incoming);
-  merged.insert(merged.end(), position, old.end());
+  merged = sorted_with(old, position, incoming);
   return OwnerStatus::Complete;
 }
 

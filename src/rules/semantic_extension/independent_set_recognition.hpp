@@ -5,9 +5,7 @@
 
 namespace tactix::independent_set_extension {
 
-// A stable occurrence in the source view supplied by the eventual action.
-// The recognizer is deliberately independent of Kernel so that a caller can
-// use either a revalidated startup view or an exact live-clause snapshot.
+// A stable occurrence in a caller-supplied (Kernel-independent) source view.
 struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
@@ -21,9 +19,7 @@ struct Limits {
   uint32_t maximum_target = 0;
 };
 
-// Return false to interrupt or exhaust a caller-owned allowance.  Every call
-// is monotone; recognition and certificate construction publish no partial
-// result when the callback declines a charge.
+// A monotone charge; false stops without a partial result.
 using Charge = bool (*)(void *context, uint64_t amount);
 
 struct Transition {
@@ -50,15 +46,12 @@ struct TerminalImplication {
 struct Edge {
   uint32_t first = 0;
   uint32_t second = 0;
-  // All exact duplicate occurrences are retained even though one would
-  // suffice logically.  This keeps the source accounting lossless.
+  // Every duplicate occurrence, for lossless accounting.
   std::vector<uint64_t> premises;
 };
 
-// Exact owner-family image.  Vertex variables are the prefix 1..vertices;
-// state variables are the following contiguous layers.  This indexed layout
-// is only a proposal: recognition succeeds only after every defining clause
-// and every source clause has been classified with exact provenance.
+// Owner-family image: vertex variables 1..vertices, then contiguous state
+// layers; valid only once every clause is classified with provenance.
 struct Image {
   uint32_t external_variables = 0;
   uint32_t vertices = 0;
@@ -74,15 +67,13 @@ struct Image {
   uint64_t terminal_cover_premise = 0;
   std::vector<Edge> edges;
 
-  // Every supplied occurrence, sorted.  Strict recognition requires the
-  // source to consist exactly of the counter clauses and graph-edge clauses.
+  // Every occurrence, sorted: exactly the counter and edge clauses.
   std::vector<uint64_t> classified_occurrences;
   uint64_t inspected_work = 0;
 };
 
-// Recognize the complete historical layered exact-count encoding. The exact
-// clause grammar and soundness argument live in docs/dev/calculus.md; recognition
-// accepts no unclassified source clause and leaves `out` empty on any doubt.
+// Recognize the layered exact-count encoding (grammar and soundness:
+// docs/dev/calculus.md); any unclassified clause leaves `out` empty.
 bool recognize(const std::vector<Premise> &source,
                uint32_t external_variables, const Limits &limits,
                Charge charge, void *charge_context, Image &out);
@@ -96,9 +87,8 @@ struct CertificateStep {
   CertificateStepKind kind = CertificateStepKind::ForbiddenAssignment;
   std::vector<int32_t> clause;
 
-  // A leaf is RUP from this exact unit-propagation path: base, one transition
-  // per later vertex, terminal implication, terminal AMO.  A resolution step
-  // is RUP from the two earlier additions named by left/right.
+  // A leaf is RUP by base, transitions, terminal implication and AMO; a
+  // resolution step by the additions left/right.
   std::vector<uint64_t> premise_occurrences;
   uint32_t left = UINT32_MAX;
   uint32_t right = UINT32_MAX;
@@ -106,8 +96,7 @@ struct CertificateStep {
 };
 
 struct CoverCertificate {
-  // A positive clause over N-K+1 vertices.  At least K selected vertices imply
-  // that every such cover contains a selected vertex.
+  // A positive clause over N-K+1 vertices.
   std::vector<uint32_t> cover_vertices;
   std::vector<CertificateStep> steps;
   std::vector<int32_t> conclusion;
@@ -121,12 +110,9 @@ struct CertificateLimits {
   uint64_t maximum_work = 0;
 };
 
-// Construct a checker-independent RUP plan for one compact cardinality clause.
-// Leaves exclude all complete assignments in which `cover_vertices` are false;
-// binary resolution then eliminates the remaining K-1 vertices.  A kernel
-// adapter can emit the steps, publish the conclusion, and delete proof-only
-// intermediates.  This function neither mutates a solver nor searches the
-// graph.  Failure has zero output effect.
+// A RUP plan for one cover clause: leaves exclude assignments with
+// `cover_vertices` false, then binary resolution eliminates the remaining
+// K-1 vertices. Failure has no output effect.
 bool derive_cover_certificate(const Image &image,
                               const std::vector<uint32_t> &cover_vertices,
                               const CertificateLimits &limits, Charge charge,

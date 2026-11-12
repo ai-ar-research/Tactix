@@ -34,27 +34,21 @@ struct SemanticVariableAdviceResult {
   uint64_t priority_sum = 0;
 };
 
-// Controller-owned application at a conflict-free root. It may run while root
-// propagation is pending, which lets a producer publish Boolean consequences,
-// expose its semantic variables, and leave Propagate as the learner's next
-// separately accounted action. Validation and resource accounting complete
-// before either ranking changes, so every decline has no effect. The same
-// advice is installed in VMTF and EVSIDS regardless of the active mode. The
-// strategy-epoch transition belongs to registry dispatch.
+// Controller-owned application at a conflict-free root, possibly with
+// propagation pending, so a producer can publish consequences and leave
+// Propagate as the next action. Validation and accounting finish before either
+// ranking changes, so declines have no effect; VMTF and EVSIDS get the same
+// advice. Registry dispatch owns the epoch transition.
 SemanticVariableAdviceResult commit_semantic_variable_advice(
     Kernel &, const SemanticVariableAdvice &,
     const SemanticVariableAdviceLimits &);
 
-// Proof-rule adapters stage neutral producer declarations during their atomic
-// apply. Registry dispatch publishes them only after its single strategy-epoch
-// transition, so a learner can observe and select advice in that exact state.
+// Staged during apply; published after the epoch transition.
 void begin_semantic_variable_candidate_action(Kernel &);
 bool stage_semantic_variable_candidate(
     Kernel &, SemanticVariableProducer, uint64_t action_id,
     const std::vector<SemanticVariable> &);
-// Transfer a successfully staged declaration across a composed action's
-// explicit settlement step.  The declaration is not observable until its
-// owner filters it against the settled root and publishes it with `finish`.
+// Carry a staged declaration across a composed settlement.
 bool take_staged_semantic_variable_candidate(Kernel &,
                                              SemanticVariableCandidate &);
 void finish_semantic_variable_candidate_action(Kernel &, ApplyResult);
@@ -65,8 +59,7 @@ bool has_current_semantic_variable_candidate(const Kernel &);
 std::vector<SemanticVariableCandidateInfo> semantic_variable_candidates(
     const Kernel &);
 
-// Resolve one current candidate into a state-bound advice request. Role doses
-// are controller choices; producers publish neutral priority one.
+// Resolve one candidate into a state-bound advice request.
 bool make_semantic_variable_advice(const Kernel &, uint64_t candidate_id,
                                    uint32_t existing_priority,
                                    uint32_t introduced_priority,

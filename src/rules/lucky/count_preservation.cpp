@@ -78,9 +78,8 @@ struct SignedSets {
 };
 
 // Visits every non-tautological startup clause sorted and duplicate-free.
-// `keep` first sees the raw literals; it may reject only clauses whose visit
-// could have no effect, which then skip normalization. Every clause, kept or
-// not, still advances the count that drives the work ticks.
+// `keep` sees raw literals first and may skip clauses with no effect; every
+// clause still advances the work-tick count.
 template<class Keep, class Function>
 bool clauses(const Kernel &k, Work &work, Keep keep, Function visit) {
   std::vector<int32_t> clause;
@@ -179,10 +178,8 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
   const auto is_selector = [&](int32_t lit) {
     return selector_literal[internalize(lit)] != 0;
   };
-  // Only the selector-row pass below reads the binaries; sorting them after
-  // the candidate check spares formulas without a candidate the whole sort.
-  // That pass looks up only pairs of negated selector literals, so no other
-  // binary needs sorting.
+  // Only selector-row lookups (pairs of negated selectors) need the binaries,
+  // so they are sorted after the candidate check.
   binaries.erase(std::remove_if(binaries.begin(), binaries.end(),
                                 [&](const Pair &pair) {
                                   return !is_selector(-pair[0]) ||
@@ -191,9 +188,8 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
                  binaries.end());
   std::sort(binaries.begin(), binaries.end());
   binaries.erase(std::unique(binaries.begin(), binaries.end()), binaries.end());
-  // Normalization keeps every distinct literal, so a raw clause shorter than
-  // two or holding a non-selector literal returns from its visit before any
-  // tick.
+  // A raw clause shorter than two or with a non-selector literal returns
+  // before any tick.
   const auto selector_row = [&](const std::vector<int32_t> &clause) {
     return clause.size() >= 2 &&
            std::all_of(clause.begin(), clause.end(), is_selector);

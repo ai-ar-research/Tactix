@@ -14,9 +14,8 @@
 namespace tactix {
 namespace {
 
-// Rows are signed items (the literal made true by choosing the row); columns
-// are the blocks followed by the covering clauses. The owner's rows cover
-// exactly three columns: the item's block and its two covering clauses.
+// Rows are signed items; columns are blocks then covering clauses. Each row
+// covers its block and two covering clauses.
 struct ExactCover {
   uint32_t blocks = 0;
   uint32_t columns = 0;
@@ -26,16 +25,14 @@ struct ExactCover {
   std::vector<std::vector<uint32_t>> rows_by_column;
 };
 
-// build_signed_sgen_exact_cover: a binary (a v b) is the at-most-one edge
-// between the signed items ~a and ~b; every other clause is a covering
-// clause of the block arity. The item literal orientation is the owner's.
+// build_signed_sgen_exact_cover: a binary (a v b) is the AMO edge between
+// items ~a and ~b; other clauses cover, of the block arity.
 bool recognize(Kernel &k, const strategy::ExactCoverModelParameters &p,
                ExactCover &cover) {
   const uint32_t arity = p.block_arity;
   const uint32_t literal_count = 2 * k.nvars;
-  // Without a binary there is no block. Decide that first, then let the
-  // covering scan reject the formula (almost always at its first clause)
-  // before the union-find over every literal is built.
+  // No binary means no block; the covering scan then rejects most formulas
+  // before the union-find is built.
   bool binary = false;
   for (Lit literal = 0; literal < literal_count && !binary; ++literal)
     for (const WatchEntry watch : k.watches.entries(literal))
@@ -137,9 +134,8 @@ bool recognize(Kernel &k, const strategy::ExactCoverModelParameters &p,
   return true;
 }
 
-// ExactDfsSolver: minimum-remaining-rows column choice (random tie-break
-// when randomized), rows ordered by the sum of their columns' sizes and then
-// the DIMACS literal (shuffled when randomized).
+// ExactDfsSolver: minimum-remaining-rows column (random ties when
+// randomized), rows by column-size sum then literal (shuffled if randomized).
 struct Search {
   Kernel &k;
   const ExactCover &cover;

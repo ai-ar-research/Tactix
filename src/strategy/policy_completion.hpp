@@ -28,9 +28,9 @@ inline NativeFeedbackSpec ticks_feedback(std::string description) {
   return spec;
 }
 
-// One policy's explicit completion lifetime. There is no Kernel hook, global
-// observer or change to native accounting. Owners provide a pure snapshot and
-// lazy request descriptions, keeping their own scheduling and execution order.
+// One policy's completion lifetime, with no Kernel hook, global observer or
+// native accounting change; owners supply a pure snapshot and lazy
+// descriptions.
 class PolicyCompletion {
   class PublicationReceiver final : public strategy::controller::FeedbackReceiver {
   public:
@@ -96,11 +96,9 @@ public:
             else
               return describe(result);
           }();
-          // Support transactions prepare/publish native execution; they are
-          // not additional registered-rule applications. Keep their measured
-          // work and state deltas, without inheriting the generic Ok result's
-          // synthetic application or proof-rule progress. Explicit native
-          // composition currencies remain independent of application counts.
+          // Support transactions are not registered-rule applications: keep
+          // their work and state deltas without the generic Ok's synthetic
+          // application or rule progress.
           if (kind == FeedbackKind::Support) {
             outcome.invocation.applications = 0;
             outcome.invocation.made_rule_progress = false;
@@ -109,9 +107,7 @@ public:
               outcome.composition_overshoot = 0;
             }
           }
-          // Observe native interruption events without introducing another
-          // poll (and therefore another fuzz RNG draw). Preserve terminal,
-          // conflict and rejected-request outcomes unchanged.
+          // Observe interruption without another poll (fuzz RNG draw).
           using strategy::InvocationStatus;
           if ((kernel_.stats.rule_interrupted != interrupted ||
                kernel_.stats.stop_fuzz_fires != stop_fires) &&
@@ -129,9 +125,7 @@ public:
             native.work = native.accounting_overflow ? 0 : after - before;
           } else if (kind == FeedbackKind::Support &&
                      outcome.invocation.work_unit == strategy::WorkUnit::Applications) {
-            // A support call without its own meter still has the already
-            // captured native tick counter. Zero counted applications does
-            // not imply zero effort; preserve measured ticks separately.
+            // Zero applications does not mean zero effort: keep measured ticks.
             native.effort_currency = "ticks";
             native.accounting_overflow = kernel_.stats.ticks < ticks;
             native.work = native.accounting_overflow ? 0 : kernel_.stats.ticks - ticks;
@@ -165,9 +159,7 @@ public:
         }, &spec.description);
   }
 
-  // Native composed calls may publish advice or restore parameters only after
-  // several leaf applications. Retain each leaf's immutable measurements,
-  // delivering them at that existing safe boundary without moving publication.
+  // Keep each leaf's measurements for the composed publication boundary.
   void begin_publication() { if (enabled()) receiver_.begin_publication(); }
   void end_publication() {
     if (!enabled()) return;
@@ -237,8 +229,7 @@ private:
   PolicyCompletion *completion_;
 };
 
-// Native hot calls remain statically dispatched. A null completion pointer
-// does not construct descriptions, query meters, observe state or read a clock.
+// Static dispatch; a null completion does no feedback work.
 template <class Build, class Apply,
           class Describe = strategy::controller::DescribeFeedbackOutcome>
 auto complete_action(PolicyCompletion *completion, FeedbackKind kind,

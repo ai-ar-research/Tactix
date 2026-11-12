@@ -1,14 +1,10 @@
-// C3 Vivify (docs/dev/calculus.md §5 C3): clause distillation by unit propagation.
-// Assume the negations of a candidate's literals one level at a time; an
-// implied literal, an implied negation or a probe conflict proves a strictly
-// stronger clause, which replaces the candidate. Proof delta: add-RUP (the
-// distilled clause) + delete (the original); a root-satisfied candidate is deleted. Scope: irredundant
-// plus the redundant tiers tier1/tier2/tier3, selected by
-// Kernel::vivify_scope, each with its own budget share (kissat vivify.c,
-// CaDiCaL vivify.cpp, MIT). Instance payload = candidate arena Ref; canonical
-// = the full round; guard = quiescent root. Trail reuse and its invariants:
-// docs/design/2026-08-05-vivify-trail-reuse.md; open deviations:
-// docs/dev/implementation-notes.md row D-VIVIFY-SCHED.
+// C3 Vivify (docs/dev/calculus.md §5 C3): distillation by unit propagation. An
+// implied literal, implied negation or conflict proves a stronger clause that
+// replaces the candidate (add-RUP + delete); root-satisfied candidates are
+// deleted. Scope via Kernel::vivify_scope over irredundant and tier1/2/3, each
+// budgeted (kissat vivify.c, CaDiCaL vivify.cpp). Payload = candidate Ref;
+// canonical = the full round. Trail reuse:
+// docs/design/2026-08-05-vivify-trail-reuse.md; deviations: D-VIVIFY-SCHED.
 #pragma once
 
 #include "rules/registry.hpp"

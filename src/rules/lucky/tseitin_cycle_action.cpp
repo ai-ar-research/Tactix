@@ -12,6 +12,7 @@
 #include <initializer_list>
 #include <limits>
 #include <map>
+#include <optional>
 #include <string_view>
 
 namespace tactix {
@@ -377,6 +378,29 @@ TseitinCycleBreakingStatus map(tseitin_cycle_discovery::Status status) {
   std::abort();
 }
 
+// Captures a live snapshot and records its effort; the mapped status unless
+// captured.
+std::optional<TseitinCycleBreakingStatus> capture_snapshot(
+    Kernel &kernel, const TseitinCycleBreakingLimits &limits,
+    tseitin_cycle_live::Snapshot &snapshot,
+    TseitinCycleBreakingEffort &effort) {
+  const auto captured =
+      tseitin_cycle_live::capture(kernel, limits.snapshot, snapshot);
+  effort.snapshot_clauses = captured.snapshot_clauses;
+  effort.snapshot_literals = captured.snapshot_literals;
+  effort.snapshot_work = captured.snapshot_work;
+  if (captured.status == tseitin_cycle_live::Status::Captured)
+    return std::nullopt;
+  return map(captured.status);
+}
+
+void record_discovery(const tseitin_cycle_discovery::Result &discovered,
+                      TseitinCycleBreakingEffort &effort) {
+  effort.discovery_work = discovered.work;
+  effort.retained_bytes = discovered.retained_bytes;
+  effort.candidates = discovered.components;
+}
+
 TseitinCycleBreakingStatus capture_components(
     Kernel &kernel, const TseitinCycleBreakingLimits &limits,
     uint64_t maximum_components,
@@ -384,21 +408,14 @@ TseitinCycleBreakingStatus capture_components(
     TseitinCycleBreakingEffort &effort) {
   plans.clear();
   tseitin_cycle_live::Snapshot snapshot;
-  const auto captured =
-      tseitin_cycle_live::capture(kernel, limits.snapshot, snapshot);
-  effort.snapshot_clauses = captured.snapshot_clauses;
-  effort.snapshot_literals = captured.snapshot_literals;
-  effort.snapshot_work = captured.snapshot_work;
-  if (captured.status != tseitin_cycle_live::Status::Captured)
-    return map(captured.status);
+  if (const auto failed = capture_snapshot(kernel, limits, snapshot, effort))
+    return *failed;
   KernelPoll poll;
   auto bounded_discovery = with_kernel_poll(kernel, limits.discovery, poll);
   bounded_discovery.maximum_components = maximum_components;
   const auto discovered = tseitin_cycle_discovery::enumerate(
       snapshot, bounded_discovery, plans);
-  effort.discovery_work = discovered.work;
-  effort.retained_bytes = discovered.retained_bytes;
-  effort.candidates = discovered.components;
+  record_discovery(discovered, effort);
   if (!discovered.discovered()) return map(discovered.status);
   return TseitinCycleBreakingStatus::Applied;
 }
@@ -425,13 +442,8 @@ TseitinCycleBreakingStatus select_component(
     std::string_view target, tseitin_cycle_discovery::Plan &selected,
     TseitinCycleBreakingEffort &effort) {
   tseitin_cycle_live::Snapshot snapshot;
-  const auto captured =
-      tseitin_cycle_live::capture(kernel, limits.snapshot, snapshot);
-  effort.snapshot_clauses = captured.snapshot_clauses;
-  effort.snapshot_literals = captured.snapshot_literals;
-  effort.snapshot_work = captured.snapshot_work;
-  if (captured.status != tseitin_cycle_live::Status::Captured)
-    return map(captured.status);
+  if (const auto failed = capture_snapshot(kernel, limits, snapshot, effort))
+    return *failed;
   KernelPoll poll;
   auto bounded_discovery = with_kernel_poll(kernel, limits.discovery, poll);
   bounded_discovery.maximum_components = bounded_discovery.maximum_groups;
@@ -440,9 +452,7 @@ TseitinCycleBreakingStatus select_component(
                         &poll}};
   const auto discovered = tseitin_cycle_discovery::select(
       snapshot, bounded_discovery, matches_component, &match, selected);
-  effort.discovery_work = discovered.work;
-  effort.retained_bytes = discovered.retained_bytes;
-  effort.candidates = discovered.components;
+  record_discovery(discovered, effort);
   if (match.meter.interrupted) return TseitinCycleBreakingStatus::Interrupted;
   if (match.meter.exhausted) return TseitinCycleBreakingStatus::ResourceExhausted;
   if (discovered.discovered()) return TseitinCycleBreakingStatus::Applied;
@@ -980,62 +990,47 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
 
 void record_tseitin_cycle_breaking_feedback(
     Kernel &kernel, const TseitinCycleBreakingResult &result) {
-  ++kernel.stats.tseitin_cycle_attempts;
-  kernel.stats.tseitin_cycle_snapshot_clauses +=
-      result.effort.snapshot_clauses;
-  kernel.stats.tseitin_cycle_snapshot_literals +=
-      result.effort.snapshot_literals;
-  kernel.stats.tseitin_cycle_snapshot_work += result.effort.snapshot_work;
-  kernel.stats.tseitin_cycle_recapture_work += result.effort.recapture_work;
-  kernel.stats.tseitin_cycle_discovery_work += result.effort.discovery_work;
-  kernel.stats.tseitin_cycle_retained_bytes += result.effort.retained_bytes;
-  kernel.stats.tseitin_cycle_admission_work += result.effort.admission_work;
-  kernel.stats.tseitin_cycle_planning_work += result.effort.planning_work;
-  kernel.stats.tseitin_cycle_transaction_work +=
-      result.effort.transaction_work;
-  kernel.stats.tseitin_cycle_validation_ticks +=
-      result.effort.validation_ticks;
-  kernel.stats.tseitin_cycle_candidates += result.effort.candidates;
-  kernel.stats.tseitin_cycle_offers += result.effort.offers;
-  kernel.stats.tseitin_cycle_identity_bytes += result.effort.identity_bytes;
-  kernel.stats.tseitin_cycle_identity_work += result.effort.identity_work;
-  kernel.stats.tseitin_cycle_journal_work += result.effort.journal_work;
-  kernel.stats.tseitin_cycle_journal_bytes += result.effort.journal_bytes;
-  kernel.stats.tseitin_cycle_session_work += result.effort.session_work;
-  kernel.stats.tseitin_cycle_session_identity_bytes +=
-      result.effort.session_identity_bytes;
-  kernel.stats.tseitin_cycle_proof_additions +=
-      result.effort.proof_additions;
-  kernel.stats.tseitin_cycle_proof_deletions +=
-      result.effort.proof_deletions;
-  kernel.stats.tseitin_cycle_proof_literal_occurrences +=
-      result.effort.proof_literal_occurrences;
-  kernel.stats.tseitin_cycle_proof_helpers += result.effort.proof_helpers;
-  kernel.stats.tseitin_cycle_proof_only_variables +=
-      result.effort.proof_only_variables;
-  kernel.stats.tseitin_cycle_proof_witness_literals +=
-      result.effort.proof_witness_literals;
-  kernel.stats.tseitin_cycle_proof_routes += result.effort.proof_routes;
+  auto &s = kernel.stats;
+  const auto &e = result.effort;
+  ++s.tseitin_cycle_attempts;
+  s.tseitin_cycle_snapshot_clauses += e.snapshot_clauses;
+  s.tseitin_cycle_snapshot_literals += e.snapshot_literals;
+  s.tseitin_cycle_snapshot_work += e.snapshot_work;
+  s.tseitin_cycle_recapture_work += e.recapture_work;
+  s.tseitin_cycle_discovery_work += e.discovery_work;
+  s.tseitin_cycle_retained_bytes += e.retained_bytes;
+  s.tseitin_cycle_admission_work += e.admission_work;
+  s.tseitin_cycle_planning_work += e.planning_work;
+  s.tseitin_cycle_transaction_work += e.transaction_work;
+  s.tseitin_cycle_validation_ticks += e.validation_ticks;
+  s.tseitin_cycle_candidates += e.candidates;
+  s.tseitin_cycle_offers += e.offers;
+  s.tseitin_cycle_identity_bytes += e.identity_bytes;
+  s.tseitin_cycle_identity_work += e.identity_work;
+  s.tseitin_cycle_journal_work += e.journal_work;
+  s.tseitin_cycle_journal_bytes += e.journal_bytes;
+  s.tseitin_cycle_session_work += e.session_work;
+  s.tseitin_cycle_session_identity_bytes += e.session_identity_bytes;
+  s.tseitin_cycle_proof_additions += e.proof_additions;
+  s.tseitin_cycle_proof_deletions += e.proof_deletions;
+  s.tseitin_cycle_proof_literal_occurrences += e.proof_literal_occurrences;
+  s.tseitin_cycle_proof_helpers += e.proof_helpers;
+  s.tseitin_cycle_proof_only_variables += e.proof_only_variables;
+  s.tseitin_cycle_proof_witness_literals += e.proof_witness_literals;
+  s.tseitin_cycle_proof_routes += e.proof_routes;
   const bool standard_status = strategy::record_standard_action_status(
       result.status,
-      {kernel.stats.tseitin_cycle_applied, kernel.stats.tseitin_cycle_invalid,
-       kernel.stats.tseitin_cycle_inapplicable,
-       kernel.stats.tseitin_cycle_exhausted,
-       kernel.stats.tseitin_cycle_interrupted,
-       kernel.stats.tseitin_cycle_unsupported_proof,
-       kernel.stats.tseitin_cycle_stale});
+      {s.tseitin_cycle_applied, s.tseitin_cycle_invalid,
+       s.tseitin_cycle_inapplicable, s.tseitin_cycle_exhausted,
+       s.tseitin_cycle_interrupted, s.tseitin_cycle_unsupported_proof,
+       s.tseitin_cycle_stale});
   if (result.status == TseitinCycleBreakingStatus::Applied)
-    ++kernel.stats.tseitin_cycle_units;
+    ++s.tseitin_cycle_units;
   if (!standard_status) {
-    switch (result.status) {
-    case TseitinCycleBreakingStatus::NoStructure:
-      ++kernel.stats.tseitin_cycle_no_structure;
-      break;
-    case TseitinCycleBreakingStatus::AlreadyApplied:
-      ++kernel.stats.tseitin_cycle_already_applied;
-      break;
-    default: break;
-    }
+    if (result.status == TseitinCycleBreakingStatus::NoStructure)
+      ++s.tseitin_cycle_no_structure;
+    else if (result.status == TseitinCycleBreakingStatus::AlreadyApplied)
+      ++s.tseitin_cycle_already_applied;
   }
 }
 

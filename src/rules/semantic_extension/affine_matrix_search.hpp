@@ -1,6 +1,5 @@
-// Opt-in persistent GF(2) restart service built above the authenticated live
-// publisher. Initialization, retained maintenance and publication are root
-// actions inside a full-restart window; implications remain ordinary BCP.
+// Persistent GF(2) service over the live publisher. Initialization,
+// maintenance and publication are root actions in a full-restart window.
 #pragma once
 
 #include "rules/semantic_extension/affine_matrix_live.hpp"
@@ -28,8 +27,7 @@ enum class AffineMatrixInitStatus : uint8_t {
   Pending, // Retained Gaussian slice incomplete; resume at a later restart.
 };
 
-// Diagnostic attribution for bounded initialization declines. It does not
-// change admission or proof semantics.
+// Diagnostic attribution for initialization declines.
 enum class AffineMatrixInitResourceStage : uint8_t {
   None,
   Snapshot,
@@ -40,11 +38,9 @@ enum class AffineMatrixInitResourceStage : uint8_t {
   Retained,
 };
 
-// Public controller actions admit any authenticated affine subimage and may
-// retain a bounded partial matrix.  DefaultPolicy can impose the stronger
-// policy admission below before scheduling this relatively expensive service:
-// every captured clause must belong to the image and every recovered equation
-// must enter the matrix.  This changes scheduling only, never rule soundness.
+// Actions admit any authenticated affine subimage and may keep a partial
+// matrix. A policy may require that every captured clause belongs to the image
+// and every equation enters the matrix; this affects scheduling only.
 enum class AffineMatrixAdmission : uint8_t {
   AuthenticatedSubimage,
   CompleteSnapshot,
@@ -66,9 +62,8 @@ enum class AffineMatrixServiceStatus : uint8_t {
 
 
 
-// Zero retains the legacy live-source contract. A positive byte allowance
-// requests checker-premise ownership across native deletion/simplification.
-// This bounds retained representations, not the solver's total process heap.
+// A positive byte allowance owns checker premises across native deletion and
+// simplification; zero relies on live sources.
 struct AffineMatrixPersistenceLimits {
   uint64_t maximum_retained_bytes = 0;
   uint64_t maximum_deferred_deletions = 0;
@@ -104,13 +99,9 @@ struct AffineMatrixServiceResult {
   uint64_t capture_delta_literals = 0;
   bool dirty_row_update = false;
   uint64_t dirty_rows = 0;
-  // The explicit deferred-search action installed a provisional clausal
-  // reason whose checker certificate is owed; the explicit materialization
-  // action discharged that debt.
+  // A deferred search step owes a certificate; materialization discharges it.
   bool reason_deferred = false, reason_materialized = false;
-  // Exact support became a signed reason vector in this call.  This is
-  // separate from publication: eager/source-support handles are materialized
-  // without constructing a deferred vector.
+  // Exact support became a signed reason vector in this call.
   bool reason_vector_constructed = false;
   bool slice_pending=false, slice_resumed=false, slice_invalidated=false;
   uint64_t slice_work=0, slice_cumulative_work=0, slice_completed_steps=0, slice_minimum_work=0;
@@ -160,30 +151,22 @@ struct AffineMatrixInitResult {
 class AffineMatrixSearchSession {
 public:
   bool enabled() const { return owner_ != nullptr; }
-  // Policy-owned scheduling may discard an unused session without touching
-  // the formula or proof. Published Boolean clauses remain ordinary clauses;
-  // this only releases cached algebraic/proof-planning state.
+  // Release cached algebraic state; formula and proof are unchanged.
   void disable() {
-    // A live lazy handle still needs this owner to authenticate its eventual
-    // Analyze reason. The kernel-aware overload can first discard handles
-    // whose assignments were backtracked; this legacy overload must decline.
+    // A live lazy handle still needs this owner; use disable(Kernel &).
     if (!lazy_reasons_.empty()) return;
     *this = AffineMatrixSearchSession{};
   }
-  // Persistent owners release leases only with an explicitly live Kernel.
-  // The legacy clear is lifetime-safe even after the Kernel has gone away.
+  // Releases persistent leases on a live Kernel.
   void disable(Kernel &);
-  // The typed result of the last public AffineMatrixInitialize application
-  // (initialization/refresh or service step): its public observation.
+  // The result of the last AffineMatrixInitialize application.
   const std::optional<AffineMatrixInitResult> &last_initialization() const {
     return last_initialization_;
   }
   const std::optional<AffineMatrixServiceResult> &last_service() const { return last_service_; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
-  // True while the installed search session is still bound to the same
-  // Kernel, provenance sink and proof stream.  Formula/search changes do not
-  // invalidate it: the service reauthenticates exact source clauses at every
-  // publication boundary.
+  // Bound to the same Kernel, provenance sink and proof stream; sources are
+  // reauthenticated at every publication.
   bool attached_to(const Kernel &) const;
   uint64_t owner_version() const { return owner_version_; }
   bool complete_admission() const { return matrix_.complete_admission(); }
@@ -205,9 +188,7 @@ public:
   }
   size_t lazy_reason_count() const noexcept { return lazy_reasons_.size(); }
   uint32_t lowest_lazy_reason_level(const Kernel &kernel) const noexcept;
-  // Every trail removal passes through kernel_unassign_literal. Retire the
-  // corresponding compact affine handle there instead of polling the whole
-  // live-handle vector at every matrix service.
+  // Called by kernel_unassign_literal to retire the variable's lazy handle.
   void discard_lazy_reason(Var implied) noexcept;
   bool has_lazy_reason(Var implied) const noexcept {
     for (const auto &reason : lazy_reasons_)
@@ -215,16 +196,14 @@ public:
         return true;
     return false;
   }
-  // Internal observability for invariants/tests: exact-minimal propagation
-  // retains only a support bitset until a Boolean reason consumer arrives.
+  // Whether a lazy exact-minimal handle has built its reason vector.
   bool lazy_reason_vector_constructed(Var implied) const noexcept {
     for (const auto &reason : lazy_reasons_)
       if (reason.implied_variable == implied)
         return !reason.event.reason.empty();
     return false;
   }
-  // Read-only ancestry inspection for ConflictAnalysis. It exposes variables,
-  // not a clausal reason or proof event, and never consumes the handle.
+  // Read-only ancestry variables for ConflictAnalysis; keeps the handle.
   bool inspect_lazy_reason(const Kernel &, Var,
                            std::vector<Var> &);
   uint64_t retained_bytes() const {
@@ -260,10 +239,8 @@ public:
   uint64_t synchronization_allowance() const {
     return parameters_.basis_maximum_work;
   }
-  // A terminal initialization failure is stable while both the root formula
-  // and its explicit resource profile are unchanged.  The policy can then
-  // stop offering the same expensive no-op until useful state or allowance
-  // changes.
+  // A terminal initialization failure repeats while the root formula and
+  // resource profile are unchanged.
   bool initialization_retry_suppressed(
       const Kernel &,
       const strategy::AffineConsequenceParameters &) const;
@@ -302,8 +279,7 @@ private:
 
   void remember_terminal_initialization_failure(
       const Kernel &, const strategy::AffineConsequenceParameters &);
-  // One live publication request against this session's exact owner, matrix,
-  // source image and proof caches.
+  // A live publication request against this session's owner and caches.
   affine_semantic_extension::MatrixLiveRequest matrix_live_request(
       const Kernel &, const affine_semantic_extension::MatrixEvent &,
       bool core_reason_authentication);
@@ -313,18 +289,15 @@ private:
 
   const Kernel *owner_ = nullptr;
   uint64_t owner_version_ = 0;
-  // Owner whose complete exact source table was written to structural
-  // provenance.  Later owner refreshes must emit sources inline until a new
-  // retained table has been committed.
+  // Owner whose source table is in structural provenance; other owners emit
+  // sources inline.
   uint64_t retained_source_provenance_owner_ = 0;
   Proof *proof_ = nullptr;
   uint64_t proof_stream_identity_ = 0;
   StructuralJournal records_;
   strategy::AffineConsequenceParameters parameters_;
   AffineLiveSnapshot source_owner_;
-  // Discovery has an independent bounded census; the admitted system never
-  // needs original physical sources again. Pending IDs denote only unresolved
-  // populations, not equation premises or proof authority.
+  // Discovery census; pending IDs are unresolved populations only.
   const Kernel *discovery_owner_=nullptr;
   const Proof *discovery_proof_=nullptr;
   uint64_t discovery_stream_=0, discovery_clause_id_=0, discovery_bytes_=0;
@@ -343,9 +316,7 @@ private:
   bool slice_retry_=false;
   std::vector<std::pair<Var, uint32_t>> capture_index_;
   std::vector<affine_semantic_extension::MatrixAssignment> capture_trail_;
-  // Reused incremental-capture scratch.  The persistence preflight already
-  // reserves two change-vector peaks; retaining one capacity here avoids a
-  // heap allocation on every productive search service.
+  // Incremental-capture scratch within the preflight's change-vector reserve.
   std::vector<std::pair<affine_semantic_extension::External, bool>>
       capture_changes_;
   uint64_t capture_owner_ = 0, capture_namespace_epoch_ = 0, capture_retraction_epoch_ = 0;
@@ -400,34 +371,26 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     const AffineMatrixPersistenceLimits & = {});
 ApplyResult affine_matrix_initialize_apply(Kernel &);
 
-// One deterministic conflict-before-implication event at an exact Boolean
-// propagation fixpoint.  No direct enqueue or conflict is permitted.
+// One conflict-before-implication event at a propagation fixpoint.
 AffineMatrixServiceResult affine_matrix_search_step(
     Kernel &, AffineMatrixSearchSession &);
-// Explicit public alternatives to the eager SearchStep.  At most one wide
-// implication may be deferred; its exact certificate is preflighted before
-// assignment, and MaterializeReason must publish it before any reason consumer.
+// Defers at most one wide implication, preflighted before assignment;
+// MaterializeReason publishes it before any reason consumer.
 AffineMatrixServiceResult affine_matrix_search_step_deferred(
     Kernel &, AffineMatrixSearchSession &);
-// Eagerly certify the exact XOR-core reason, but keep a non-root large
-// implication reason detached from the watched Boolean formula. This public
-// operation isolates reason lifetime/attachment; it is not the later lazy
-// `(matrix,row)` handle mechanism.
+// Eagerly certified XOR-core reason, detached from the watched formula when
+// it is a non-root large implication.
 AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
     Kernel &, AffineMatrixSearchSession &);
-// Same unwatched trail lifetime, retaining the authenticated source-support
-// weakening as the implication explanation. Reason shape remains explicit.
+// As above with the source-support weakening as the explanation.
 AffineMatrixServiceResult affine_matrix_search_step_detached_source(
     Kernel &, AffineMatrixSearchSession &);
-// Install a compact native trail handle. Multiple live handles are legal;
-// proof planning and clause publication are delayed until public
-// MaterializeReasons or ConflictAnalysis's pre-analysis ancestor batch. A
-// consumed source-support explanation is retained as an ordinary watched
-// clause, an explicit cache deviation from CryptoMiniSat.
+// Install a compact trail handle; proof and publication wait for
+// MaterializeReasons or ConflictAnalysis. A consumed source-support reason
+// stays a watched clause (deviation from CryptoMiniSat).
 AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
     Kernel &, AffineMatrixSearchSession &);
-// Same compact lifetime, but retain and later certify the exact XOR-core
-// explanation rather than its source-support clausal weakening.
+// As above with the exact XOR-core explanation.
 AffineMatrixServiceResult affine_matrix_search_step_lazy_minimal(
     Kernel &, AffineMatrixSearchSession &);
 AffineMatrixServiceResult affine_matrix_materialize_reason(
@@ -452,19 +415,16 @@ inline AffineMatrixServiceResult affine_matrix_search_service(
   }
   std::abort();
 }
-// Mandatory single-handle correctness primitive. Public MaterializeReasons
-// discharges the oldest live handle; ConflictAnalysis repeats the same public
-// semantics for the handles in its conflict-reason ancestry.
+// Materialize one handle: the oldest for MaterializeReasons, each ancestor
+// handle for ConflictAnalysis.
 AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
     Kernel &, AffineMatrixSearchSession &, Var, bool honor_termination = true);
 AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     Kernel &, AffineMatrixSearchSession &,
     const std::vector<std::pair<Lit, Lit>> &);
-// Scheduling advice only (no rule semantics): whether a retained session's
-// GF(2) inputs changed since `cursor` was last consumed. Inputs are root facts
-// on the admitted support, retirement of a support variable (substitution,
-// elimination, compaction), owner or premise-lease changes, and an unfinished
-// slice. Each root-trail literal is scanned once; `work` counts the scan.
+// Scheduling advice: whether the session's GF(2) inputs (root facts on the
+// support, retired support variables, owner or lease changes, an unfinished
+// slice) changed since `cursor`. `work` counts the root-trail scan.
 struct AffineMatrixInputCursor {
   uint64_t root_scanned = 0, namespace_epoch = 0, owner_version = 0;
   uint64_t premise_epoch = 0;
@@ -474,8 +434,8 @@ bool affine_matrix_search_inputs_changed(const Kernel &,
     const AffineMatrixSearchSession &, AffineMatrixInputCursor &, uint64_t &work);
 void affine_matrix_search_consume_inputs(const Kernel &,
     const AffineMatrixSearchSession &, AffineMatrixInputCursor &);
-// Root-only bounded additional recognition; successful persistent admission
-// extends the retained source system rather than replacing deleted sources.
+// Root-only additional recognition; persistent admission extends the
+// retained source system.
 AffineMatrixInitResult affine_matrix_search_refresh(
     Kernel &, AffineMatrixSearchSession &,
     const strategy::AffineConsequenceParameters &,

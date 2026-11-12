@@ -8,8 +8,7 @@
 
 namespace tactix::gf3_gaussian_certificate {
 
-// This adapter emits only witness-free RUP additions.  It introduces no
-// Boolean variables and deliberately has no PB-proof vocabulary.
+// Witness-free RUP additions only; no new variables.
 enum class EventRole : uint8_t { Auxiliary, Consequence, Conflict };
 
 struct Event {
@@ -24,9 +23,7 @@ enum class ConsequenceKind : uint8_t { UnitEquation, Conflict };
 
 struct AuthenticatedSource {
   gf3_gaussian::ProvenanceTerm combination;
-  // Zero-based index into the separately validated bridge authentication
-  // table.  Keeping this fixed-size reference avoids copying every domain and
-  // forbidden-tuple identity into every consequence.
+  // Zero-based index into the bridge authentication table.
   uint32_t authentication_index = 0;
 
   friend bool operator==(const AuthenticatedSource &,
@@ -38,12 +35,10 @@ struct Consequence {
   uint32_t derivation = 0;
   std::vector<gf3_gaussian::Term> row;
   uint8_t rhs = 0;
-  // The exact nonzero source combination replayed by the bridge, together
-  // with compact indices for resolving its authenticated Boolean premises.
+  // The nonzero source combination, with premise authentication indices.
   std::vector<AuthenticatedSource> sources;
-  // Clauses intended for the solver.  Auxiliary RUP clauses in the event
-  // range are proof-only.  A unit equation publishes both forbidden-value
-  // units and the selected-value unit; a conflict publishes the empty clause.
+  // Solver clauses (auxiliaries are proof-only): a unit equation's two
+  // forbidden-value units and selected-value unit, or the empty clause.
   std::vector<std::vector<int32_t>> clauses;
   uint64_t first_event = 0;
   uint64_t event_count = 0;
@@ -57,8 +52,7 @@ struct Limits {
   uint64_t maximum_events = 0;
   uint64_t maximum_event_literals = 0;
   uint64_t maximum_active_clauses = 0;
-  // Counts compact AuthenticatedSource records retained across consequences,
-  // including repeated use of one bridge source by different consequences.
+  // AuthenticatedSource records across consequences, repeats included.
   uint64_t maximum_retained_source_references = 0;
   uint32_t maximum_event_width = 0;
   uint32_t maximum_branch_domains = 0;
@@ -134,16 +128,13 @@ struct Result {
 
 using Charge = std::function<bool(uint64_t)>;
 
-// Validate the exact recognized theory and Gaussian derivation graph, then
-// translate every algebraic unit row or zero-row conflict into a bounded RUP
-// decision-tree certificate.  Non-unit rows are counted and declined rather
-// than expanded into an exponential relation encoding.  No Kernel, proof
-// stream, or solver state is touched.
+// Validate the theory and derivation graph, then certify every unit row or
+// zero-row conflict by a bounded RUP decision tree; non-unit rows are counted
+// and declined. Touches no solver state.
 Result build(const gf3_affine::Theory &, const gf3_gaussian_bridge::Plan &,
              const Limits &, Charge);
 
-// Rebuild independently from the authenticated theory/bridge boundary and
-// exact-compare every source identity, consequence, event, and statistic.
+// Rebuild from theory and bridge and compare every field.
 Result validate(const gf3_affine::Theory &,
                 const gf3_gaussian_bridge::Plan &, const Plan &,
                 const Limits &, Charge);

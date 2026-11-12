@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 
 namespace tactix::session {
 namespace {
@@ -47,6 +48,18 @@ void activate_guidance(Kernel &k, Var v) {
   heuristics_reset_queue_search(k);
 }
 
+// An invalid literal, or a kernel not at a quiet root boundary.
+std::optional<NativeVariable> unavailable(const Kernel &k, int32_t external) {
+  if (!external || external == INT32_MIN)
+    return NativeVariable{NativeVariableStatus::InvalidLiteral};
+  if (k.level || k.inprocessing || k.warming || k.phase_saving_suppressed || k.probing.recording ||
+      !k.large_watches_connected || k.dense || k.arena_ordering || k.pending.valid ||
+      k.conflict_valid || (k.affine_matrix_search_session &&
+                          k.affine_matrix_search_session->has_deferred_reason()))
+    return NativeVariable{NativeVariableStatus::Busy};
+  return std::nullopt;
+}
+
 } // namespace
 
 void retract_query_roots(Kernel &k) {
@@ -71,13 +84,7 @@ void retract_query_roots(Kernel &k) {
 }
 
 NativeVariable admit_external_variable(Kernel &k, int32_t external) {
-  if (!external || external == INT32_MIN)
-    return {NativeVariableStatus::InvalidLiteral};
-  if (k.level || k.inprocessing || k.warming || k.phase_saving_suppressed || k.probing.recording ||
-      !k.large_watches_connected || k.dense || k.arena_ordering || k.pending.valid ||
-      k.conflict_valid || (k.affine_matrix_search_session &&
-                          k.affine_matrix_search_session->has_deferred_reason()))
-    return {NativeVariableStatus::Busy};
+  if (const auto rejected = unavailable(k, external)) return *rejected;
   if (k.original_external_vars != UINT32_MAX &&
       k.external_to_internal.size() > k.original_external_vars)
     return {NativeVariableStatus::UnsupportedNamespace};
@@ -116,13 +123,7 @@ NativeVariable admit_external_variable(Kernel &k, int32_t external) {
 }
 
 NativeVariable reactivate_external_variable(Kernel &k, int32_t external) {
-  if (!external || external == INT32_MIN)
-    return {NativeVariableStatus::InvalidLiteral};
-  if (k.level || k.inprocessing || k.warming || k.phase_saving_suppressed || k.probing.recording ||
-      !k.large_watches_connected || k.dense || k.arena_ordering || k.pending.valid ||
-      k.conflict_valid || (k.affine_matrix_search_session &&
-                          k.affine_matrix_search_session->has_deferred_reason()))
-    return {NativeVariableStatus::Busy};
+  if (const auto rejected = unavailable(k, external)) return *rejected;
   const Lit raw = internalize(external);
   const Var ev = var_of(raw);
   if (ev >= k.external_to_internal.size()) return {NativeVariableStatus::UnknownIdentity};

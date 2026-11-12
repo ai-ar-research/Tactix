@@ -61,35 +61,27 @@ template <class Word> struct VectorKeyHash {
   }
 };
 
+using Matrix = std::vector<std::vector<Lit>>;
+
 struct LogicalFormula {
-  // First physical occurrence of each semantic clause, in kernel order.
-  // Satsuma deduplicates before building its symmetry graph; retaining
-  // duplicate clause vertices can destroy or obscure otherwise valid graph
-  // automorphisms even though duplicates do not change CNF semantics.
-  std::vector<std::vector<Lit>> clauses;
+  // First physical occurrence of each semantic clause, in kernel order; as in
+  // Satsuma, duplicate clause vertices would obscure graph automorphisms.
+  Matrix clauses;
   std::unordered_set<std::vector<Lit>, VectorKeyHash<Lit>> clause_set;
 };
 
 struct OrbitopalScreen {
   std::vector<uint32_t> occurrences;
-  // Satsuma constructs ULC AMOs before propagating input units.  Keep that
-  // pre-propagation occurrence view separate from the root-aware view used by
-  // every later structured detector.
+  // Satsuma builds ULC AMOs before propagating input units, so that view
+  // excludes root units.
   std::vector<uint32_t> ulc_occurrences;
-  std::vector<std::vector<Lit>> candidate_clauses;
-  std::vector<std::vector<Lit>> ulc_candidate_clauses;
+  Matrix candidate_clauses;
+  Matrix ulc_candidate_clauses;
 };
 
-bool charge(const Kernel &, volatile sig_atomic_t *,
-            const SubstitutionRedundancyParameters &,
-            OrbitopalEnumerationResult &, uint64_t);
-
-// Satsuma shares a max(16 * variables, 16 Mi) split allowance across its
-// structured detectors.  Tactix charges deterministic degree/width work
-// instead of backend-specific split counts.  Use the same owner scale as a
-// zero-progress allowance and renew it only when a complete useful matrix is
-// admitted.  This lets productive producers continue while a costly stream of
-// one-column or otherwise unusable candidates ends at a completed atom.
+// Satsuma's max(16 * variables, 16 Mi) structured split allowance, charged in
+// deterministic work as a zero-progress allowance renewed by each admitted
+// matrix.
 class RefinementProgressFeedback {
 public:
   RefinementProgressFeedback(const Kernel &kernel,
@@ -153,10 +145,8 @@ public:
     if (!expand(candidates))
       return false;
 
-    // Cliquer's identity order makes the chosen maximum clique observable in
-    // the subsequent column schedule. Find the lexicographically first clique
-    // of the proven maximum size rather than accepting the first clique found
-    // by the coloring search.
+    // Cliquer's identity order makes the chosen clique observable: take the
+    // lexicographically first clique of the proven maximum size.
     const size_t maximum_size = best_.size();
     path_.clear();
     lexicographic_found_ = false;
@@ -232,9 +222,7 @@ private:
     if (clique_ticks_ >= parameters_.maximum_orbitopal_clique_ticks ||
         result_.ticks >= parameters_.maximum_detection_ticks)
       return fail(result_, traced_orbitopal_limit(__func__, __LINE__));
-    // Poll at entry and then once per small deterministic work block. This
-    // keeps interruption latency bounded without putting two volatile loads
-    // on every adjacency test in the hot clique loop.
+    // Poll once per 1024-tick block to bound interrupt latency.
     if (!(clique_ticks_ & 1023) && interrupted())
       return fail(result_, OrbitopalEnumerationStatus::Interrupted);
     ++clique_ticks_;
@@ -381,9 +369,106 @@ bool contains_clause(const LogicalFormula &formula,
   return formula.clause_set.count(clause_key(std::move(clause))) != 0;
 }
 
-bool charge(const Kernel &kernel, volatile sig_atomic_t *stop,
-            const SubstitutionRedundancyParameters &parameters,
-            OrbitopalEnumerationResult &result, uint64_t amount) {
+// Owns one backend result until scope exit; release is idempotent.
+template <class Value> struct BackendOwner {
+  Value value{};
+  ~BackendOwner() { symmetry_backend::release(value); }
+};
+
+struct FormulaRefinement {
+  bool initialized = false;
+  uint32_t literal_count = 0;
+  symmetry_backend::RefinementSession *session = nullptr;
+
+  ~FormulaRefinement() { symmetry_backend::release(session); }
+};
+
+struct DirectBinaryGraph {
+  uint32_t vertex_count = 0;
+  uint64_t edge_count = 0;
+  std::vector<uint32_t> colors;
+  std::vector<uint32_t> degrees;
+  std::vector<uint32_t> edges;
+};
+
+struct FormulaAutomorphisms {
+  bool initialized = false;
+  symmetry_backend::Status detection_status = symmetry_backend::Status::Failed;
+  uint32_t literal_count = 0;
+  std::vector<uint32_t> images;
+};
+
+struct ProductChildPartition {
+  std::vector<uint32_t> cells;
+  std::unordered_map<uint32_t, uint32_t> sizes;
+};
+
+// One discovery pass. Every step charges and records its limit in `result`;
+// the formula snapshot, screen and backend caches belong to the pass.
+struct OrbitopalPass {
+  OrbitopalPass(const Kernel &kernel,
+                const SubstitutionRedundancyParameters &parameters,
+                const OrbitopalInstanceVisitor &visitor,
+                volatile sig_atomic_t *stop, SymmetryDiscoveryHints *hints)
+      : kernel(kernel), parameters(parameters), visitor(visitor), stop(stop),
+        hints(hints) {}
+
+  OrbitopalEnumerationResult enumerate();
+  bool charge(uint64_t amount);
+  template <class Visit> bool visit_first_binary_copies(Visit &&visit);
+  template <class Visit> bool visit_root_units(Visit &&visit);
+  bool screen_formula();
+  bool full_snapshot();
+  bool matrix_action_key(const Matrix &columns, std::vector<Lit> &key);
+  bool exact_row_action_key(const Matrix &matrix, std::vector<Lit> &key);
+  bool exact_full_row_group(const Matrix &matrix);
+  bool exact_dimension(const Matrix &matrix, Matrix &permutations);
+  bool order_columns_by_maximum_clique(Matrix &matrix);
+  bool admit_direct_graph(DirectBinaryGraph &storage, const char *function,
+                          unsigned line);
+  bool prepare_formula_refinement();
+  bool complete_matrix_by_refinement(Matrix &matrix, bool unique_first = false);
+  bool prepare_formula_automorphisms();
+  bool constrained_dimension_automorphisms(const Matrix &matrix,
+                                           Matrix &permutations);
+  bool emit_dimension(const Matrix &matrix,
+                      const std::vector<size_t> &fixable_columns,
+                      const Matrix &permutations);
+  std::vector<size_t> unique_literal_columns(const Matrix &matrix) const;
+  bool admit_refinement_orbit(uint64_t candidate_size, const char *function,
+                              unsigned line);
+  template <typename Individualize>
+  bool product_child_partition(const std::vector<Lit> &orbit,
+                               ProductChildPartition &child,
+                               Individualize individualize);
+  bool product_child_partition(symmetry_backend::RefinementBranch &branch,
+                               const std::vector<Lit> &orbit, Lit anchor,
+                               ProductChildPartition &child);
+  bool product_child_partition(const std::vector<Lit> &orbit, Lit anchor,
+                               ProductChildPartition &child);
+  bool product_matrix_from_refinement(const std::vector<Lit> &orbit,
+                                      const std::vector<Lit> &first_side,
+                                      const std::vector<Lit> &second_side,
+                                      Matrix &matrix);
+  bool collect_matrix_generators(const Matrix &matrix, Matrix &rows,
+                                 Matrix &columns);
+  bool emit_refined_product_orbits(bool &emitted);
+  bool emit_refined_row_candidates(bool &emitted);
+
+  const Kernel &kernel;
+  const SubstitutionRedundancyParameters &parameters;
+  const OrbitopalInstanceVisitor &visitor;
+  volatile sig_atomic_t *stop;
+  SymmetryDiscoveryHints *hints;
+  OrbitopalEnumerationResult result;
+  OrbitopalScreen screen;
+  LogicalFormula formula;
+  FormulaAutomorphisms automorphisms;
+  FormulaRefinement refinement;
+  std::vector<Lit> prefix_units;
+};
+
+bool OrbitopalPass::charge(uint64_t amount) {
   if (stop_requested(kernel, stop))
     return fail(result, OrbitopalEnumerationStatus::Interrupted);
   const uint64_t limit = parameters.maximum_detection_ticks;
@@ -396,18 +481,14 @@ bool charge(const Kernel &kernel, volatile sig_atomic_t *stop,
 }
 
 // Visit each binary clause once, at its smaller endpoint's first physical
-// copy: ascending literals meet a mirrored binary first there, and a stamp on
-// the other endpoint skips later copies without a hash entry per binary.
-// Every watch is charged, mirrors and duplicate copies included.
+// copy; a stamp on the other endpoint skips later copies. Every watch is
+// charged, mirrors and duplicate copies included.
 template <class Visit>
-bool visit_first_binary_copies(
-    const Kernel &kernel, volatile sig_atomic_t *stop,
-    const SubstitutionRedundancyParameters &parameters,
-    OrbitopalEnumerationResult &result, Visit &&visit) {
+bool OrbitopalPass::visit_first_binary_copies(Visit &&visit) {
   std::vector<Lit> first(2 * kernel.nvars, INVALID_LIT);
   for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
     for (const WatchEntry watch : kernel.watches.entries(literal)) {
-      if (!charge(kernel, stop, parameters, result, 1))
+      if (!charge(1))
         return false;
       if (!watch.binary())
         continue;
@@ -421,12 +502,9 @@ bool visit_first_binary_copies(
 }
 
 // Visit each root unit literal in variable order, charging every variable.
-template <class Visit>
-bool visit_root_units(const Kernel &kernel, volatile sig_atomic_t *stop,
-                      const SubstitutionRedundancyParameters &parameters,
-                      OrbitopalEnumerationResult &result, Visit &&visit) {
+template <class Visit> bool OrbitopalPass::visit_root_units(Visit &&visit) {
   for (Var var = 0; var < kernel.nvars; ++var) {
-    if (!charge(kernel, stop, parameters, result, 1))
+    if (!charge(1))
       return false;
     if (!kernel.unit_ids[var])
       continue;
@@ -436,35 +514,27 @@ bool visit_root_units(const Kernel &kernel, volatile sig_atomic_t *stop,
   return true;
 }
 
-bool screen_formula(const Kernel &kernel,
-                    const SubstitutionRedundancyParameters &parameters,
-                    volatile sig_atomic_t *stop,
-                    OrbitopalEnumerationResult &result,
-                    OrbitopalScreen &screen) {
+bool OrbitopalPass::screen_formula() {
   screen.occurrences.assign(2 * kernel.nvars, 0);
   std::vector<Ref> possible_large;
   if (kernel.dense) {
-    // The phase-level occurrence image already counts every irredundant large
-    // occurrence. Binary watch counts are constant-time too. Redundant large
-    // clauses may create false positives here, but never false proof steps:
-    // the exact whole-formula automorphism test and direct SR validation still
-    // include them before mutation.
+    // Dense counts omit redundant large clauses: a false positive here is
+    // caught by the exact automorphism test and SR validation.
     for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal) {
-      if (!charge(kernel, stop, parameters, result, 1))
+      if (!charge(1))
         return false;
       screen.occurrences[literal] = kernel.dense->large_size(literal) +
                                     kernel.watches.binary_size(literal);
     }
   } else {
-    if (!visit_first_binary_copies(kernel, stop, parameters, result,
-                                   [&](Lit literal, Lit other) {
-                                     ++screen.occurrences[literal];
-                                     ++screen.occurrences[other];
-                                   }))
+    if (!visit_first_binary_copies([&](Lit literal, Lit other) {
+          ++screen.occurrences[literal];
+          ++screen.occurrences[other];
+        }))
       return false;
     for (const auto [ref, clause] : arena_records(kernel.arena)) {
       if (!clause->garbage()) {
-        if (!charge(kernel, stop, parameters, result, clause->size))
+        if (!charge(clause->size))
           return false;
         possible_large.push_back(ref);
         for (const Lit literal : *clause)
@@ -473,13 +543,11 @@ bool screen_formula(const Kernel &kernel,
     }
   }
   screen.ulc_occurrences = screen.occurrences;
-  if (!visit_root_units(kernel, stop, parameters, result,
-                        [&](Lit unit) { ++screen.occurrences[unit]; }))
+  if (!visit_root_units([&](Lit unit) { ++screen.occurrences[unit]; }))
     return false;
 
   const auto collect_candidates =
-      [&](const std::vector<uint32_t> &occurrences,
-          std::vector<std::vector<Lit>> &candidates,
+      [&](const std::vector<uint32_t> &occurrences, Matrix &candidates,
           bool include_binaries) {
         std::unordered_set<uint64_t> candidate_binaries;
         std::unordered_set<Ref> candidate_large;
@@ -513,9 +581,7 @@ bool screen_formula(const Kernel &kernel,
         if (kernel.dense) {
           candidate_refs.assign(candidate_large.begin(),
                                 candidate_large.end());
-          // Dense lookup discovers candidates by literal, but ULC completion
-          // is clause-order sensitive. Restore physical arena order after the
-          // set-valued discovery step.
+          // ULC completion is clause-order sensitive: restore arena order.
           std::sort(candidate_refs.begin(), candidate_refs.end());
         }
         for (const Ref ref : candidate_refs) {
@@ -523,7 +589,7 @@ bool screen_formula(const Kernel &kernel,
           if (clause->garbage() ||
               clause->size < parameters.minimum_orbitopal_rows)
             continue;
-          if (!charge(kernel, stop, parameters, result, clause->size))
+          if (!charge(clause->size))
             return false;
           bool unique = true;
           for (const Lit literal : *clause)
@@ -544,62 +610,43 @@ bool screen_formula(const Kernel &kernel,
   return true;
 }
 
-bool full_snapshot(const Kernel &kernel,
-                   const SubstitutionRedundancyParameters &parameters,
-                   volatile sig_atomic_t *stop,
-                   OrbitopalEnumerationResult &enumeration,
-                   LogicalFormula &result) {
-  result.clauses.reserve(kernel.binary_ids.size() +
-                         kernel.live_irredundant_large + kernel.nvars);
-  result.clause_set.reserve(kernel.binary_ids.size() +
-                            kernel.live_irredundant_large + kernel.nvars);
-  // Preserve the former set's first-occurrence order and budget prefixes.
-  // A stamp is local to this snapshot; no watch-order or lifetime cache is
-  // carried across applications or formula changes.
-  if (!visit_first_binary_copies(kernel, stop, parameters, enumeration,
-                                 [&](Lit literal, Lit other) {
-                                   std::vector<Lit> clause = {literal, other};
-                                   if (index_clause(result, clause))
-                                     result.clauses.push_back(std::move(clause));
-                                 }))
+bool OrbitopalPass::full_snapshot() {
+  formula.clauses.reserve(kernel.binary_ids.size() +
+                          kernel.live_irredundant_large + kernel.nvars);
+  formula.clause_set.reserve(kernel.binary_ids.size() +
+                             kernel.live_irredundant_large + kernel.nvars);
+  const auto add = [&](std::vector<Lit> clause) {
+    if (index_clause(formula, clause))
+      formula.clauses.push_back(std::move(clause));
+  };
+  if (!visit_first_binary_copies(
+          [&](Lit literal, Lit other) { add({literal, other}); }))
     return false;
   for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (!clause->garbage()) {
-      if (!charge(kernel, stop, parameters, enumeration, clause->size))
+      if (!charge(clause->size))
         return false;
-      std::vector<Lit> snapshot(clause->begin(), clause->end());
-      if (index_clause(result, snapshot))
-        result.clauses.push_back(std::move(snapshot));
+      add(std::vector<Lit>(clause->begin(), clause->end()));
     }
   }
-  return visit_root_units(kernel, stop, parameters, enumeration,
-                          [&](Lit literal) {
-                            std::vector<Lit> unit = {literal};
-                            if (index_clause(result, unit))
-                              result.clauses.push_back(std::move(unit));
-                          });
+  return visit_root_units([&](Lit literal) { add({literal}); });
 }
 
-// Keep column correspondence: independent sorting within each row would
-// identify different actions. Matrix columns have disjoint literal supports,
-// so their minimum literals determine a row-independent common column order.
-bool matrix_action_key(const Kernel &kernel,
-                       const std::vector<std::vector<Lit>> &columns,
-                       const SubstitutionRedundancyParameters &parameters,
-                       volatile sig_atomic_t *stop,
-                       OrbitopalEnumerationResult &result,
-                       std::vector<Lit> &key) {
+// Columns have disjoint supports, so their minimum literals give a common
+// column order that keeps column correspondence across rows.
+bool OrbitopalPass::matrix_action_key(const Matrix &columns,
+                                      std::vector<Lit> &key) {
   const size_t rows = columns.front().size();
   std::vector<std::pair<Lit, size_t>> order;
   order.reserve(columns.size());
   for (size_t column = 0; column < columns.size(); ++column) {
-    if (!charge(kernel, stop, parameters, result, rows))
+    if (!charge(rows))
       return false;
     order.emplace_back(*std::min_element(columns[column].begin(),
                                         columns[column].end()), column);
   }
   std::sort(order.begin(), order.end());
-  std::vector<std::vector<Lit>> normalized(rows);
+  Matrix normalized(rows);
   for (auto &row : normalized)
     row.reserve(columns.size());
   for (const auto &[minimum, column] : order) {
@@ -613,21 +660,16 @@ bool matrix_action_key(const Kernel &kernel,
   key.push_back(static_cast<Lit>(columns.size()));
   for (const auto &row : normalized)
     key.insert(key.end(), row.begin(), row.end());
-  return charge(kernel, stop, parameters, result, 0);
+  return charge(0);
 }
 
-// Row swaps act on both signs. Flipping an entire column's polarity or
-// permuting columns/rows describes the same full row-permutation action.
-// This key identifies failed exact actions, not failed heuristic searches.
-bool exact_row_action_key(const Kernel &kernel,
-                          const std::vector<std::vector<Lit>> &matrix,
-                          const SubstitutionRedundancyParameters &parameters,
-                          volatile sig_atomic_t *stop,
-                          OrbitopalEnumerationResult &result,
-                          std::vector<Lit> &key) {
-  std::vector<std::vector<Lit>> columns(matrix.front().size());
+// Flipping a column's polarity or permuting columns/rows gives the same row
+// action; the key identifies failed exact actions.
+bool OrbitopalPass::exact_row_action_key(const Matrix &matrix,
+                                         std::vector<Lit> &key) {
+  Matrix columns(matrix.front().size());
   for (size_t column = 0; column < columns.size(); ++column) {
-    if (!charge(kernel, stop, parameters, result, matrix.size()))
+    if (!charge(matrix.size()))
       return false;
     Lit smallest = matrix.front()[column];
     for (const auto &row : matrix)
@@ -638,7 +680,7 @@ bool exact_row_action_key(const Kernel &kernel,
     for (const auto &row : matrix)
       columns[column].push_back(row[column] ^ flip);
   }
-  return matrix_action_key(kernel, columns, parameters, stop, result, key);
+  return matrix_action_key(columns, key);
 }
 
 uint64_t bounded_binomial(size_t n, size_t k, uint64_t limit) {
@@ -655,11 +697,7 @@ uint64_t bounded_binomial(size_t n, size_t k, uint64_t limit) {
   return static_cast<uint64_t>(value);
 }
 
-bool exact_full_row_group(
-    const Kernel &kernel, const LogicalFormula &formula,
-    const std::vector<std::vector<Lit>> &matrix,
-    const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result) {
+bool OrbitopalPass::exact_full_row_group(const Matrix &matrix) {
   struct Position {
     uint32_t row = UINT32_MAX;
     uint64_t token = 0;
@@ -702,7 +740,7 @@ bool exact_full_row_group(
   const uint64_t maximum_distinct = formula.clause_set.size();
 
   for (const auto &clause : formula.clause_set) {
-    if (!charge(kernel, stop, parameters, result, clause.size()))
+    if (!charge(clause.size()))
       return false;
     touched_rows.clear();
     outside.clear();
@@ -716,10 +754,8 @@ bool exact_full_row_group(
         touched_rows.push_back(row);
       row_tokens[row].push_back(position[literal].token);
     }
-    // A clause outside the matrix is fixed pointwise by the entire row
-    // action. Its singleton orbit is complete by construction in clause_set;
-    // it cannot share an orbit with a clause containing a matrix literal.
-    // Preserve the charge and stop poll above even when no key is needed.
+    // A clause outside the matrix is a complete singleton orbit; it still
+    // pays the charge above.
     if (touched_rows.empty())
       continue;
     std::sort(outside.begin(), outside.end());
@@ -780,9 +816,8 @@ bool exact_full_row_group(
   return true;
 }
 
-// Canonical pairwise transports can be shared across BFS roots even when
-// transport around a cycle is inconsistent. Each traversal still composes
-// its own frontier ordering; no connected component or seed is suppressed.
+// Pairwise transports are shared across BFS roots; each traversal composes
+// its own frontier order.
 class ColumnTransports {
   struct Position {
     size_t column;
@@ -801,37 +836,30 @@ public:
     std::vector<Lit> image;
   };
 
-  bool initialize(const Kernel &kernel,
-                  const std::vector<std::vector<Lit>> &columns,
-                  const SubstitutionRedundancyParameters &parameters,
-                  volatile sig_atomic_t *stop,
-                  OrbitopalEnumerationResult &result) {
+  bool initialize(OrbitopalPass &pass, const Matrix &columns) {
     neighbors_.resize(columns.size());
     for (size_t column = 0; column < columns.size(); ++column)
       for (size_t row = 0; row < columns[column].size(); ++row) {
-        if (!charge(kernel, stop, parameters, result, 1))
+        if (!pass.charge(1))
           return false;
         positions_.emplace(columns[column][row], Position{column, row});
       }
     return true;
   }
 
-  bool prepare(const Kernel &kernel,
-               const std::vector<std::vector<Lit>> &columns, size_t column,
-               const SubstitutionRedundancyParameters &parameters,
-               volatile sig_atomic_t *stop,
-               OrbitopalEnumerationResult &result) {
-    if (!charge(kernel, stop, parameters, result, 1))
+  bool prepare(OrbitopalPass &pass, const Matrix &columns, size_t column) {
+    const Kernel &kernel = pass.kernel;
+    if (!pass.charge(1))
       return false;
     if (neighbors_[column]) {
-      ++result.reused_column_neighborhoods;
+      ++pass.result.reused_column_neighborhoods;
       return true;
     }
     const auto &source = columns[column];
     std::vector<Incidence> incidences;
     for (size_t row = 0; row < source.size(); ++row) {
       for (const WatchEntry watch : kernel.watches.entries(negate(source[row]))) {
-        if (!charge(kernel, stop, parameters, result, 1))
+        if (!pass.charge(1))
           return false;
         if (!watch.binary())
           continue;
@@ -850,7 +878,7 @@ public:
       size_t end = begin;
       while (end < incidences.size() &&
              incidences[end].column == incidences[begin].column) {
-        if (!charge(kernel, stop, parameters, result, 1))
+        if (!pass.charge(1))
           return false;
         ++end;
       }
@@ -861,7 +889,7 @@ public:
         edge.image.reserve(source.size());
         bool bijective = true;
         for (size_t row = 0; row < source.size(); ++row) {
-          if (!charge(kernel, stop, parameters, result, 1))
+          if (!pass.charge(1))
             return false;
           const auto &incidence = incidences[begin + row];
           if (incidence.source != row || used[incidence.target]) {
@@ -873,15 +901,15 @@ public:
         }
         if (bijective) {
           neighbors.push_back(std::move(edge));
-          ++result.column_transports;
+          ++pass.result.column_transports;
         }
       }
       begin = end;
     }
-    if (!charge(kernel, stop, parameters, result, 0))
+    if (!pass.charge(0))
       return false;
     neighbors_[column] = std::move(neighbors);
-    ++result.column_neighborhoods;
+    ++pass.result.column_neighborhoods;
     return true;
   }
 
@@ -898,13 +926,9 @@ private:
   std::vector<std::optional<std::vector<Edge>>> neighbors_;
 };
 
-bool exact_dimension(const Kernel &kernel, const LogicalFormula &formula,
-                     const std::vector<std::vector<Lit>> &matrix,
-                     const SubstitutionRedundancyParameters &parameters,
-                     volatile sig_atomic_t *stop,
-                     OrbitopalEnumerationResult &result,
-                     std::vector<std::vector<Lit>> &permutations) {
-  if (!exact_full_row_group(kernel, formula, matrix, parameters, stop, result))
+bool OrbitopalPass::exact_dimension(const Matrix &matrix,
+                                    Matrix &permutations) {
+  if (!exact_full_row_group(matrix))
     return false;
   if (result.status != OrbitopalEnumerationStatus::Complete)
     return false;
@@ -927,11 +951,7 @@ bool exact_dimension(const Kernel &kernel, const LogicalFormula &formula,
   return true;
 }
 
-bool order_columns_by_maximum_clique(
-    const Kernel &kernel, const LogicalFormula &formula,
-    std::vector<std::vector<Lit>> &matrix,
-    const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result) {
+bool OrbitopalPass::order_columns_by_maximum_clique(Matrix &matrix) {
   if (parameters.orbitopal_column_order == OrbitopalColumnOrder::Canonical)
     return true;
   const size_t columns = matrix.front().size();
@@ -960,7 +980,7 @@ bool order_columns_by_maximum_clique(
     present.clear();
     ++clause_epoch;
     for (const Lit literal : clause) {
-      if (!charge(kernel, stop, parameters, result, 1))
+      if (!charge(1))
         return false;
       const Var variable = var_of(literal);
       const size_t column = variable < variable_column.size()
@@ -973,7 +993,7 @@ bool order_columns_by_maximum_clique(
     }
     for (size_t first = 0; first < present.size(); ++first)
       for (size_t second = first + 1; second < present.size(); ++second) {
-        if (!charge(kernel, stop, parameters, result, 1))
+        if (!charge(1))
           return false;
         const size_t a = present[first], b = present[second];
         adjacency[a][b / 64] |= uint64_t{1} << (b % 64);
@@ -1011,29 +1031,6 @@ bool order_columns_by_maximum_clique(
   }
   return true;
 }
-
-// Owns one backend result until scope exit. Release is idempotent, so a
-// scope may still end the result's lifetime explicitly at its last use.
-template <class Value> struct BackendOwner {
-  Value value{};
-  ~BackendOwner() { symmetry_backend::release(value); }
-};
-
-struct FormulaRefinement {
-  bool initialized = false;
-  uint32_t literal_count = 0;
-  symmetry_backend::RefinementSession *session = nullptr;
-
-  ~FormulaRefinement() { symmetry_backend::release(session); }
-};
-
-struct DirectBinaryGraph {
-  uint32_t vertex_count = 0;
-  uint64_t edge_count = 0;
-  std::vector<uint32_t> colors;
-  std::vector<uint32_t> degrees;
-  std::vector<uint32_t> edges;
-};
 
 bool build_direct_binary_graph(const Kernel &kernel,
                                const LogicalFormula &formula,
@@ -1080,9 +1077,8 @@ bool build_direct_binary_graph(const Kernel &kernel,
   sr_detail::stabilize_query_coordinates(kernel, settings.pointwise_root_stabilizer,
                                           graph.colors, literal_count);
 
-  // Binary clauses are direct literal edges, as in Satsuma. A color-2
-  // subdivision vertex represents each positive/negative variable pair, so a
-  // formula binary edge can never be confused with the complement relation.
+  // Binary clauses are direct literal edges, as in Satsuma; a color-2 vertex
+  // joins each variable's two literals.
   for (Var variable = 0; variable < kernel.nvars; ++variable) {
     const uint32_t vertex =
         static_cast<uint32_t>(literal_count) + variable;
@@ -1125,34 +1121,24 @@ bool build_direct_binary_graph(const Kernel &kernel,
 
 // Build the direct binary graph within the graph limits and charge its size.
 // A limit is traced at the caller's site.
-bool admit_direct_graph(const Kernel &kernel, const LogicalFormula &formula,
-                        const SubstitutionRedundancyParameters &parameters,
-                        volatile sig_atomic_t *stop,
-                        OrbitopalEnumerationResult &result,
-                        DirectBinaryGraph &storage, const char *function,
-                        unsigned line) {
+bool OrbitopalPass::admit_direct_graph(DirectBinaryGraph &storage,
+                                       const char *function, unsigned line) {
   const GraphSymmetryParameters &limits = parameters.graph_symmetry;
   if (!build_direct_binary_graph(kernel, formula, limits, storage) ||
       storage.vertex_count > limits.maximum_graph_vertices ||
       storage.edge_count > limits.maximum_graph_edges)
     return fail(result, traced_orbitopal_limit(function, line));
-  return charge(kernel, stop, parameters, result,
-                storage.vertex_count + storage.edge_count);
+  return charge(storage.vertex_count + storage.edge_count);
 }
 
-bool prepare_formula_refinement(
-    const Kernel &kernel, const LogicalFormula &formula,
-    const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    FormulaRefinement &cached) {
+bool OrbitopalPass::prepare_formula_refinement() {
   const uint64_t literal_count = 2ull * kernel.nvars;
   if (literal_count > UINT32_MAX)
     return fail(result, traced_orbitopal_limit(__func__, __LINE__));
-  if (!cached.initialized) {
-    cached.initialized = true;
+  if (!refinement.initialized) {
+    refinement.initialized = true;
     DirectBinaryGraph storage;
-    if (!admit_direct_graph(kernel, formula, parameters, stop, result, storage,
-                            __func__, __LINE__))
+    if (!admit_direct_graph(storage, __func__, __LINE__))
       return false;
     const symmetry_backend::Graph graph{
         storage.vertex_count, storage.edge_count, storage.colors.data(),
@@ -1163,29 +1149,26 @@ bool prepare_formula_refinement(
         parameters.maximum_detection_ticks - result.ticks;
     const symmetry_backend::Status prepared =
         symmetry_backend::prepare_refinement(
-            graph, remaining, backend_stop, &context, cached.session,
+            graph, remaining, backend_stop, &context, refinement.session,
             preparation_ticks);
     if (!backend_complete(result, prepared, preparation_ticks, __func__,
                           __LINE__))
       return false;
-    cached.literal_count = static_cast<uint32_t>(literal_count);
+    refinement.literal_count = static_cast<uint32_t>(literal_count);
   }
-  if (!cached.session || cached.literal_count != literal_count)
+  if (!refinement.session || refinement.literal_count != literal_count)
     return fail(result, traced_orbitopal_limit(__func__, __LINE__));
   return true;
 }
 
-bool complete_matrix_by_refinement(
-    const Kernel &kernel, const LogicalFormula &formula,
-    std::vector<std::vector<Lit>> &matrix,
-    const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    FormulaRefinement &cached, const OrbitopalScreen *screen = nullptr) {
+// With `unique_first`, sources whose image column is a unique-literal clause
+// of the formula are tried first.
+bool OrbitopalPass::complete_matrix_by_refinement(Matrix &matrix,
+                                                  bool unique_first) {
   if (parameters.orbitopal_completion == OrbitopalCompletion::MatrixOnly)
     return true;
   const uint64_t literal_count = 2ull * kernel.nvars;
-  if (!prepare_formula_refinement(kernel, formula, parameters, stop, result,
-                                  cached))
+  if (!prepare_formula_refinement())
     return false;
   std::vector<uint32_t> anchors;
   anchors.reserve(matrix.size());
@@ -1198,7 +1181,8 @@ bool complete_matrix_by_refinement(
   auto &refined = owned_refined.value;
   RowColumnFeasibility feedback(matrix);
   const symmetry_backend::Status status = symmetry_backend::refine_rows(
-      *cached.session, anchors.data(), anchors.size(), cached.literal_count,
+      *refinement.session, anchors.data(), anchors.size(),
+      refinement.literal_count,
       remaining, backend_stop, &context, refined,
       RowColumnFeasibility::observe, &feedback);
   if (!backend_complete(result, status, refined.ticks, __func__, __LINE__))
@@ -1221,14 +1205,13 @@ bool complete_matrix_by_refinement(
   if (refined.source_count)
     source_order.assign(refined.sources,
                         refined.sources + refined.source_count);
-  if (screen) {
+  if (unique_first) {
     const auto unique_literal_column = [&](Lit source) {
       std::vector<Lit> clause;
       clause.reserve(matrix.size());
       for (size_t row = 0; row < matrix.size(); ++row) {
         const uint32_t target = refined.images[row * literal_count + source];
-        if (target >= literal_count ||
-            screen->occurrences[target] != 1)
+        if (target >= literal_count || screen.occurrences[target] != 1)
           return false;
         clause.push_back(target);
       }
@@ -1265,18 +1248,7 @@ bool complete_matrix_by_refinement(
   return true;
 }
 
-struct FormulaAutomorphisms {
-  bool initialized = false;
-  symmetry_backend::Status detection_status = symmetry_backend::Status::Failed;
-  uint32_t literal_count = 0;
-  std::vector<uint32_t> images;
-};
-
-bool prepare_formula_automorphisms(
-    const Kernel &kernel, const LogicalFormula &formula,
-    const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    FormulaAutomorphisms &automorphisms) {
+bool OrbitopalPass::prepare_formula_automorphisms() {
   if (automorphisms.initialized)
     return result.status == OrbitopalEnumerationStatus::Complete &&
            !automorphisms.images.empty();
@@ -1284,8 +1256,7 @@ bool prepare_formula_automorphisms(
   const uint64_t literal_count = 2ull * kernel.nvars;
   const GraphSymmetryParameters &settings = parameters.graph_symmetry;
   DirectBinaryGraph storage;
-  if (!admit_direct_graph(kernel, formula, parameters, stop, result, storage,
-                          __func__, __LINE__))
+  if (!admit_direct_graph(storage, __func__, __LINE__))
     return false;
 
   const symmetry_backend::DetectionSettings detection =
@@ -1318,14 +1289,10 @@ bool prepare_formula_automorphisms(
             proposed, candidate, decoded_image.data()))
       continue;
     const uint32_t *image = decoded_image.data();
-    if (!charge(kernel, stop, parameters, result, literal_count))
+    if (!charge(literal_count))
       break;
-    // DejaVu returns automorphisms of the exact colored graph built above.
-    // Direct binary edges and colored clause/variable vertices preserve the
-    // complete clause multiset and signed-variable relation. Validate the
-    // returned prefix as a signed bijection before trusting that certificate;
-    // rescanning every clause once per generator would establish the same fact
-    // again and dominates Satsuma-scale subsecond cases.
+    // A graph automorphism preserves the clause multiset; checking a signed
+    // bijection suffices without rescanning every clause.
     bool valid = true;
     std::vector<uint8_t> seen(literal_count, 0);
     for (Lit source = 0; source < literal_count; ++source) {
@@ -1360,16 +1327,10 @@ bool prepare_formula_automorphisms(
   return true;
 }
 
-bool constrained_dimension_automorphisms(
-    const Kernel &kernel, const LogicalFormula &formula,
-    const std::vector<std::vector<Lit>> &matrix,
-    const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    FormulaAutomorphisms &automorphisms,
-    std::vector<std::vector<Lit>> &permutations) {
+bool OrbitopalPass::constrained_dimension_automorphisms(const Matrix &matrix,
+                                                        Matrix &permutations) {
   permutations.clear();
-  if (!prepare_formula_automorphisms(kernel, formula, parameters, stop, result,
-                                     automorphisms))
+  if (!prepare_formula_automorphisms())
     return false;
   const size_t literal_count = automorphisms.literal_count;
   const uint64_t generator_count =
@@ -1468,9 +1429,9 @@ bool constrained_dimension_automorphisms(
       transposed_second = moved[1];
     }
   }
-  std::vector<std::vector<Lit>> inverse_images(row_generators.size());
+  Matrix inverse_images(row_generators.size());
   for (size_t generator = 0; generator < row_generators.size(); ++generator) {
-    if (!charge(kernel, stop, parameters, result, literal_count))
+    if (!charge(literal_count))
       return false;
     inverse_images[generator].resize(literal_count);
     const uint32_t *image =
@@ -1487,10 +1448,9 @@ bool constrained_dimension_automorphisms(
         row_generators[transposition].full_index * literal_count;
     base_transposition.assign(image, image + literal_count);
   } else {
-    // The detector may return a product basis in which every exact generator
-    // moves both dimensions. Search the kernel of the compact induced column
-    // action, then lift only the resulting word through the already exact-
-    // checked full-literal generators.
+    // Every generator of a product basis may move both dimensions: search the
+    // kernel of the induced column action and lift the word through the
+    // checked generators.
     std::vector<orbitopal_group::Generator> induced;
     induced.reserve(row_generators.size());
     for (const RowGenerator &generator : row_generators)
@@ -1556,7 +1516,7 @@ bool constrained_dimension_automorphisms(
     base_transposition = std::move(evaluated.image);
     for (size_t row = 0; row < matrix.size(); ++row)
       for (size_t column = 0; column < columns; ++column) {
-        if (!charge(kernel, stop, parameters, result, 1))
+        if (!charge(1))
           return false;
         const size_t target = row == group.first ? group.second
                               : row == group.second ? group.first : row;
@@ -1567,10 +1527,8 @@ bool constrained_dimension_automorphisms(
     transposed_second = group.second;
   }
 
-  // One exact transposition and a transporter for an ordered row pair suffice
-  // to construct every adjacent transposition: if g maps (a,b) to (i,j), then
-  // g (a b) g^-1 = (i j). Searching the induced row action is bounded by
-  // rows*(rows-1), avoiding a stabilizer computation over every CNF literal.
+  // If g maps (a,b) to (i,j) then g (a b) g^-1 = (i j): one transposition and
+  // a transporter per row pair give every adjacent transposition.
   const size_t rows = matrix.size();
   if (rows > SIZE_MAX / rows)
     return fail(result, traced_orbitopal_limit(__func__, __LINE__));
@@ -1585,7 +1543,7 @@ bool constrained_dimension_automorphisms(
     const size_t first = state / rows, second = state % rows;
     for (size_t generator = 0; generator < row_generators.size(); ++generator)
       for (uint32_t inverse = 0; inverse < 2; ++inverse) {
-        if (!charge(kernel, stop, parameters, result, 1))
+        if (!charge(1))
           return false;
         const std::vector<size_t> &step =
             inverse ? row_generators[generator].inverse
@@ -1614,7 +1572,7 @@ bool constrained_dimension_automorphisms(
     for (Lit literal = 0; literal < literal_count; ++literal)
       transporter[literal] = literal;
     for (const uint32_t encoded : path) {
-      if (!charge(kernel, stop, parameters, result, literal_count))
+      if (!charge(literal_count))
         return false;
       const size_t generator = encoded / 2;
       const uint32_t *step = encoded & 1
@@ -1626,7 +1584,7 @@ bool constrained_dimension_automorphisms(
         composed[literal] = step[transporter[literal]];
       transporter.swap(composed);
     }
-    if (!charge(kernel, stop, parameters, result, 2 * literal_count))
+    if (!charge(2 * literal_count))
       return false;
     for (Lit literal = 0; literal < literal_count; ++literal)
       transporter_inverse[transporter[literal]] = literal;
@@ -1634,8 +1592,7 @@ bool constrained_dimension_automorphisms(
       image[literal] =
           transporter[base_transposition[transporter_inverse[literal]]];
     bool exact_row = true;
-    if (!charge(kernel, stop, parameters, result,
-                matrix.size() * matrix.front().size()))
+    if (!charge(matrix.size() * matrix.front().size()))
       return false;
     for (size_t row = 0; row < rows && exact_row; ++row)
       for (size_t column = 0; column < matrix.front().size(); ++column) {
@@ -1651,32 +1608,23 @@ bool constrained_dimension_automorphisms(
       }
     if (!exact_row)
       return false;
-    // Each image is a composition of exact formula automorphisms and their
-    // inverses. The structural row check above establishes the requested
-    // adjacent action; another whole-formula scan would prove the same closure
-    // fact repeatedly and dominate short Satsuma-style preprocessing cases.
+    // A composition of exact automorphisms needs no whole-formula rescan.
     permutations.push_back(image);
   }
   return true;
 }
 
-std::vector<std::vector<Lit>>
-transpose(const std::vector<std::vector<Lit>> &matrix) {
-  std::vector<std::vector<Lit>> transposed(matrix.front().size(),
-                                           std::vector<Lit>(matrix.size()));
+Matrix transpose(const Matrix &matrix) {
+  Matrix transposed(matrix.front().size(), std::vector<Lit>(matrix.size()));
   for (size_t row = 0; row < matrix.size(); ++row)
     for (size_t column = 0; column < matrix.front().size(); ++column)
       transposed[column][row] = matrix[row][column];
   return transposed;
 }
 
-bool emit_dimension(const std::vector<std::vector<Lit>> &matrix,
-                    const std::vector<size_t> &fixable_columns,
-                    const SubstitutionRedundancyParameters &parameters,
-                    const OrbitopalInstanceVisitor &visitor,
-                    OrbitopalEnumerationResult &result,
-                    std::vector<Lit> &prefix_units,
-                    const std::vector<std::vector<Lit>> &permutations) {
+bool OrbitopalPass::emit_dimension(const Matrix &matrix,
+                                   const std::vector<size_t> &fixable_columns,
+                                   const Matrix &permutations) {
   SymmetryTrace trace;
   const size_t fixing_columns =
       std::min(fixable_columns.size(), matrix.size() - 1);
@@ -1701,9 +1649,7 @@ bool emit_dimension(const std::vector<std::vector<Lit>> &matrix,
             var_of(second) == var_of(fixed) ||
             var_of(second) == var_of(blocked))
           continue;
-        // A full automorphism is visited once per source variable, so its
-        // inverse direction appears naturally when the permutation moves the
-        // target variable.
+        // Each source variable is visited once, so inverse moves appear too.
         instance.substitution.emplace_back(first, second);
       }
       if (row < permutations.size()) {
@@ -1741,10 +1687,9 @@ bool emit_dimension(const std::vector<std::vector<Lit>> &matrix,
   return true;
 }
 
-std::vector<size_t> unique_literal_columns(
-    const std::vector<std::vector<Lit>> &matrix, const OrbitopalScreen &screen,
-    const LogicalFormula &formula) {
-  std::vector<size_t> result;
+std::vector<size_t>
+OrbitopalPass::unique_literal_columns(const Matrix &matrix) const {
+  std::vector<size_t> fixable;
   std::unordered_set<Lit> claimed;
   for (size_t column = 0; column < matrix.front().size(); ++column) {
     std::vector<Lit> clause;
@@ -1759,23 +1704,16 @@ std::vector<size_t> unique_literal_columns(
     const bool present = contains_clause(formula, clause);
     if (!unique || claimed.count(negate(clause.front())) || !present)
       continue;
-    result.push_back(column);
+    fixable.push_back(column);
     claimed.insert(clause.begin(), clause.end());
   }
-  return result;
+  return fixable;
 }
 
-struct ProductChildPartition {
-  std::vector<uint32_t> cells;
-  std::unordered_map<uint32_t, uint32_t> sizes;
-};
-
-// Admit one more refinement orbit; the orbit limit is traced at the caller's
-// site.
-bool admit_refinement_orbit(const SubstitutionRedundancyParameters &parameters,
-                            OrbitopalEnumerationResult &result,
-                            uint64_t candidate_size, const char *function,
-                            unsigned line) {
+// Admit one more refinement orbit; the limit is traced at the caller's site.
+bool OrbitopalPass::admit_refinement_orbit(uint64_t candidate_size,
+                                           const char *function,
+                                           unsigned line) {
   if (result.refinement_orbits ==
       parameters.maximum_orbitopal_refinement_orbits)
     return fail(result, traced_orbitopal_limit(function, line));
@@ -1786,11 +1724,9 @@ bool admit_refinement_orbit(const SubstitutionRedundancyParameters &parameters,
 }
 
 template <typename Individualize>
-bool product_child_partition(
-    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    const std::vector<Lit> &orbit, ProductChildPartition &child,
-    Individualize individualize) {
+bool OrbitopalPass::product_child_partition(const std::vector<Lit> &orbit,
+                                            ProductChildPartition &child,
+                                            Individualize individualize) {
   BackendOwner<symmetry_backend::IndividualizedPartition> owned_partition;
   auto &partition = owned_partition.value;
   const uint64_t remaining = parameters.maximum_detection_ticks - result.ticks;
@@ -1810,55 +1746,35 @@ bool product_child_partition(
   return true;
 }
 
-bool product_child_partition(
-    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    symmetry_backend::RefinementBranch &branch,
-    uint32_t literal_count, const std::vector<Lit> &orbit, Lit anchor,
-    ProductChildPartition &child) {
+bool OrbitopalPass::product_child_partition(
+    symmetry_backend::RefinementBranch &branch, const std::vector<Lit> &orbit,
+    Lit anchor, ProductChildPartition &child) {
   return product_child_partition(
-      kernel, parameters, stop, result, orbit, child,
+      orbit, child,
       [&](uint64_t remaining, StopContext *context,
           symmetry_backend::IndividualizedPartition &partition) {
         return symmetry_backend::individualized_partition(
-            branch, anchor, literal_count, remaining, backend_stop,
+            branch, anchor, refinement.literal_count, remaining, backend_stop,
             context, partition);
       });
 }
 
-bool product_child_partition(
-    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    FormulaRefinement &refinement, const std::vector<Lit> &orbit,
-    const std::vector<Lit> &anchors,
-    ProductChildPartition &child) {
+bool OrbitopalPass::product_child_partition(const std::vector<Lit> &orbit,
+                                            Lit anchor,
+                                            ProductChildPartition &child) {
   return product_child_partition(
-      kernel, parameters, stop, result, orbit, child,
+      orbit, child,
       [&](uint64_t remaining, StopContext *context,
           symmetry_backend::IndividualizedPartition &partition) {
         return symmetry_backend::individualized_partition(
-            *refinement.session, anchors.data(),
-            static_cast<uint32_t>(anchors.size()), refinement.literal_count,
+            *refinement.session, &anchor, 1, refinement.literal_count,
             remaining, backend_stop, context, partition);
       });
 }
 
-bool product_child_partition(
-    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    FormulaRefinement &refinement, const std::vector<Lit> &orbit, Lit anchor,
-    ProductChildPartition &child) {
-  const std::vector<Lit> anchors = {anchor};
-  return product_child_partition(kernel, parameters, stop, result, refinement,
-                                 orbit, anchors, child);
-}
-
-bool product_matrix_from_refinement(
-    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    FormulaRefinement &refinement, const std::vector<Lit> &orbit,
-    const std::vector<Lit> &first_side, const std::vector<Lit> &second_side,
-    std::vector<std::vector<Lit>> &matrix) {
+bool OrbitopalPass::product_matrix_from_refinement(
+    const std::vector<Lit> &orbit, const std::vector<Lit> &first_side,
+    const std::vector<Lit> &second_side, Matrix &matrix) {
   const Lit anchor = orbit.front();
   std::unordered_map<Lit, size_t> position;
   position.reserve(orbit.size());
@@ -1899,11 +1815,8 @@ bool product_matrix_from_refinement(
   const auto assign_side = [&](const std::vector<Lit> &side,
                                std::vector<Lit> &assigned, size_t other_size) {
     for (size_t index = 1; index < side.size(); ++index) {
-      if (!admit_refinement_orbit(parameters, result, orbit.size(), __func__,
-                                  __LINE__))
-        return false;
-      if (!product_child_partition(kernel, parameters, stop, result,
-                                   refinement, orbit, side[index], child))
+      if (!admit_refinement_orbit(orbit.size(), __func__, __LINE__) ||
+          !product_child_partition(orbit, side[index], child))
         return false;
       uint32_t largest = 0;
       for (const auto &[cell, size] : child.sizes) {
@@ -1949,59 +1862,46 @@ bool product_matrix_from_refinement(
 }
 
 // Admit a complete matrix atomically: neither a partial basis nor its scope
-// is visible after a budget or stop. Completed earlier matrices remain useful.
-bool collect_matrix_generators(
-    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, OrbitopalEnumerationResult &result,
-    const std::vector<std::vector<Lit>> &matrix,
-    std::vector<std::vector<Lit>> &rows,
-    std::vector<std::vector<Lit>> &columns, SymmetryDiscoveryHints &hints) {
+// is visible after a budget or stop.
+bool OrbitopalPass::collect_matrix_generators(const Matrix &matrix,
+                                              Matrix &rows, Matrix &columns) {
   const uint64_t count = rows.size() + columns.size();
   if (result.matrices == parameters.maximum_orbitopal_matrices ||
       count > parameters.graph_symmetry.maximum_generators -
-                  hints.generators.size())
+                  hints->generators.size())
     return fail(result, traced_orbitopal_limit(__func__, __LINE__));
   for (const auto *basis : {&rows, &columns})
     for (const auto &image : *basis)
-      if (!charge(kernel, stop, parameters, result, image.size()))
+      if (!charge(image.size()))
         return false;
   for (const auto &row : matrix)
-    if (!charge(kernel, stop, parameters, result, row.size()))
+    if (!charge(row.size()))
       return false;
   for (auto *basis : {&rows, &columns})
     for (auto &image : *basis)
-      hints.generators.push_back(std::move(image));
+      hints->generators.push_back(std::move(image));
   if (parameters.graph_symmetry.structured_scope == SymmetryStructuredScope::WholeMatrix) {
     for (const auto &row : matrix)
       for (const Lit literal : row)
-        hints.fixed_variables.push_back(var_of(literal));
+        hints->fixed_variables.push_back(var_of(literal));
   } else {
     if (!rows.empty())
       for (const auto &row : matrix)
-        hints.fixed_variables.push_back(var_of(row.front()));
+        hints->fixed_variables.push_back(var_of(row.front()));
     if (!columns.empty())
       for (const Lit literal : matrix.front())
-        hints.fixed_variables.push_back(var_of(literal));
+        hints->fixed_variables.push_back(var_of(literal));
   }
   ++result.matrices;
   return true;
 }
 
-bool emit_refined_product_orbits(
-    const Kernel &kernel, const LogicalFormula &formula,
-    const OrbitopalScreen &screen,
-    const SubstitutionRedundancyParameters &parameters,
-    const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop,
-    OrbitopalEnumerationResult &result, FormulaAutomorphisms &automorphisms,
-    FormulaRefinement &refinement,
-    std::vector<Lit> &prefix_units, bool &emitted,
-    SymmetryDiscoveryHints *hints) {
+bool OrbitopalPass::emit_refined_product_orbits(bool &emitted) {
   const SymmetryTrace trace;
   emitted = false;
   if (parameters.orbitopal_orientation != OrbitopalOrientation::Both)
     return true;
-  if (!prepare_formula_refinement(kernel, formula, parameters, stop, result,
-                                  refinement))
+  if (!prepare_formula_refinement())
     return false;
   BackendOwner<symmetry_backend::RefinementPartition> owned_root;
   auto &root = owned_root.value;
@@ -2038,20 +1938,18 @@ bool emit_refined_product_orbits(
     if (branch_status != symmetry_backend::Status::Complete)
       return fail(result, traced_orbitopal_limit(__func__, __LINE__));
     std::vector<Lit> candidate = orbit;
-    std::vector<std::vector<Lit>> matrix;
+    Matrix matrix;
     while (candidate.size() >=
            static_cast<size_t>(parameters.minimum_orbitopal_rows) *
                parameters.minimum_orbitopal_columns) {
       if (progress.stop(result, "product"))
         return true;
-      if (!admit_refinement_orbit(parameters, result, candidate.size(),
-                                  __func__, __LINE__))
+      if (!admit_refinement_orbit(candidate.size(), __func__, __LINE__))
         return false;
       const Lit anchor = candidate.front();
       ProductChildPartition anchor_partition;
-      if (!product_child_partition(kernel, parameters, stop, result,
-                                   *branch, refinement.literal_count,
-                                   candidate, anchor, anchor_partition))
+      if (!product_child_partition(*branch, candidate, anchor,
+                                   anchor_partition))
         return false;
       std::map<uint32_t, std::vector<Lit>> groups;
       for (size_t at = 0; at < candidate.size(); ++at)
@@ -2115,14 +2013,11 @@ bool emit_refined_product_orbits(
         result.largest_product_columns =
             std::max<uint64_t>(result.largest_product_columns,
                                other_side.size() + 1);
-        if (!product_matrix_from_refinement(
-                kernel, parameters, stop, result, refinement, candidate,
-                groups.at(side_cell), other_side, matrix))
-          return false;
-        if (matrix.empty() &&
-            !product_matrix_from_refinement(
-                kernel, parameters, stop, result, refinement, candidate,
-                other_side, groups.at(side_cell), matrix))
+        if (!product_matrix_from_refinement(candidate, groups.at(side_cell),
+                                            other_side, matrix) ||
+            (matrix.empty() &&
+             !product_matrix_from_refinement(candidate, other_side,
+                                             groups.at(side_cell), matrix)))
           return false;
         break;
       }
@@ -2140,17 +2035,14 @@ bool emit_refined_product_orbits(
         matrix.front().size() < parameters.minimum_orbitopal_columns)
       continue;
 
-    std::vector<std::vector<Lit>> transposed = transpose(matrix);
-    std::vector<std::vector<Lit>> row_permutations, column_permutations;
-    // A matrix action can also move coupled variables outside the matrix.
-    // Reuse the row producer's exact full-formula completion when requested;
+    Matrix transposed = transpose(matrix);
+    Matrix row_permutations, column_permutations;
+    // A matrix action may also move coupled variables outside the matrix;
     // neither an incomplete axis nor an unchecked backend map is published.
     const auto check_axis = [&](const char *axis, bool enabled,
-                                const std::vector<std::vector<Lit>> &rows,
-                                std::vector<std::vector<Lit>> &permutations,
+                                const Matrix &rows, Matrix &permutations,
                                 bool &exact) {
-      exact = enabled && exact_dimension(kernel, formula, rows, parameters,
-                                         stop, result, permutations);
+      exact = enabled && exact_dimension(rows, permutations);
       if (result.status != OrbitopalEnumerationStatus::Complete)
         return false;
       trace.event("product_axis_check",
@@ -2159,9 +2051,7 @@ bool emit_refined_product_orbits(
                   static_cast<unsigned>(exact));
       if (enabled && !exact && parameters.orbitopal_generator_fallback) {
         ++result.generator_fallbacks;
-        exact = constrained_dimension_automorphisms(
-            kernel, formula, rows, parameters, stop, result, automorphisms,
-            permutations);
+        exact = constrained_dimension_automorphisms(rows, permutations);
       }
       return result.status == OrbitopalEnumerationStatus::Complete;
     };
@@ -2179,17 +2069,15 @@ bool emit_refined_product_orbits(
     }
     ++result.product_exact_actions;
     if (hints) {
-      if (!collect_matrix_generators(kernel, parameters, stop, result, matrix,
-                                     row_permutations, column_permutations,
-                                     *hints))
+      if (!collect_matrix_generators(matrix, row_permutations,
+                                     column_permutations))
         return false;
       emitted = true;
       continue;
     }
 
-
-    auto all_unique = [&](const std::vector<std::vector<Lit>> &candidate) {
-      return unique_literal_columns(candidate, screen, formula).size() ==
+    auto all_unique = [&](const Matrix &candidate) {
+      return unique_literal_columns(candidate).size() ==
              candidate.front().size();
     };
     bool rows_ulc = all_unique(transposed);
@@ -2209,12 +2097,11 @@ bool emit_refined_product_orbits(
       return fail(result, traced_orbitopal_limit(__func__, __LINE__));
     ++result.matrices;
     const uint64_t before = result.instances;
-    const std::vector<std::vector<Lit>> &fixing = rows_ulc ? transposed : matrix;
+    const Matrix &fixing = rows_ulc ? transposed : matrix;
     std::vector<size_t> fixable(fixing.front().size());
     for (size_t column = 0; column < fixable.size(); ++column)
       fixable[column] = column;
-    if (!emit_dimension(fixing, fixable, parameters, visitor, result,
-                        prefix_units,
+    if (!emit_dimension(fixing, fixable,
                         rows_ulc ? column_permutations : row_permutations))
       return false;
     emitted |= result.instances != before;
@@ -2222,23 +2109,13 @@ bool emit_refined_product_orbits(
   return true;
 }
 
-bool emit_refined_row_candidates(
-    const Kernel &kernel, const LogicalFormula &formula,
-    const OrbitopalScreen &screen,
-    const SubstitutionRedundancyParameters &parameters,
-    const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop,
-    OrbitopalEnumerationResult &result,
-    FormulaAutomorphisms &automorphisms, FormulaRefinement &refinement,
-    std::vector<Lit> &prefix_units, bool &emitted,
-    SymmetryDiscoveryHints *hints) {
+bool OrbitopalPass::emit_refined_row_candidates(bool &emitted) {
   const SymmetryTrace trace;
   emitted = false;
   if (parameters.orbitopal_orientation == OrbitopalOrientation::Columns)
     return true;
-  if (!trace.measure("row_prepare_refinement", [&] {
-        return prepare_formula_refinement(kernel, formula, parameters, stop,
-                                          result, refinement);
-      }))
+  if (!trace.measure("row_prepare_refinement",
+                     [&] { return prepare_formula_refinement(); }))
     return false;
   const bool refinement_cells = parameters.orbitopal_row_orbit_source ==
       OrbitopalRowOrbitSource::RefinementCells;
@@ -2246,10 +2123,9 @@ bool emit_refined_row_candidates(
   uint64_t generator_count = 0;
   std::map<uint32_t, std::vector<Lit>> orbit_map;
   if (refinement_cells) {
-    // Satsuma tries structured actions from equitable cells before generic
-    // automorphism search. A cell may contain several true orbits; it only
-    // proposes candidates for the later exact whole-formula action checks.
-    if (!charge(kernel, stop, parameters, result, literal_count))
+    // Satsuma tries equitable cells before generic automorphism search; a
+    // cell only proposes candidates for the exact action checks.
+    if (!charge(literal_count))
       return false;
     BackendOwner<symmetry_backend::RefinementPartition> owned_partition;
     auto &partition = owned_partition.value;
@@ -2259,16 +2135,12 @@ bool emit_refined_row_candidates(
       return false;
     for (Lit literal = 0; literal < literal_count; ++literal)
       orbit_map[partition.cells[literal]].push_back(literal);
-    if (!charge(kernel, stop, parameters, result, 0))
+    if (!charge(0))
       return false;
     trace.event("row_refinement_cells", "cells\t%zu", orbit_map.size());
   } else {
-    // Generator-subgroup orbits remain a selectable alternative when a broad
-    // equitable cell makes structured discovery unproductive or expensive.
-    if (!trace.measure("row_prepare_automorphisms", [&] {
-          return prepare_formula_automorphisms(kernel, formula, parameters, stop,
-                                              result, automorphisms);
-        }))
+    if (!trace.measure("row_prepare_automorphisms",
+                       [&] { return prepare_formula_automorphisms(); }))
       return result.status == OrbitopalEnumerationStatus::Complete;
     // Each root is its orbit's minimum literal, so the map keys are stable.
     DisjointSets orbits_of(literal_count);
@@ -2278,7 +2150,7 @@ bool emit_refined_row_candidates(
       const uint32_t *image =
           automorphisms.images.data() + generator * literal_count;
       for (uint32_t literal = 0; literal < literal_count; ++literal) {
-        if (!charge(kernel, stop, parameters, result, 1))
+        if (!charge(1))
           return false;
         orbits_of.unite(literal, image[literal]);
       }
@@ -2286,7 +2158,7 @@ bool emit_refined_row_candidates(
     for (Lit literal = 0; literal < literal_count; ++literal)
       orbit_map[orbits_of.find(literal)].push_back(literal);
   }
-  std::vector<std::vector<Lit>> orbits;
+  Matrix orbits;
   for (auto &[cell, orbit] : orbit_map) {
     (void)cell;
     if (orbit.size() < parameters.minimum_orbitopal_rows)
@@ -2333,8 +2205,7 @@ bool emit_refined_row_candidates(
       overlaps |= claimed[var_of(literal)] != 0;
     if (overlaps)
       continue;
-    if (!admit_refinement_orbit(parameters, result, orbit.size(), __func__,
-                                __LINE__))
+    if (!admit_refinement_orbit(orbit.size(), __func__, __LINE__))
       return false;
     trace.event("row_candidate", "ordinal\t%llu\tanchor\t%u\tsize\t%zu",
                 static_cast<unsigned long long>(result.refinement_orbits),
@@ -2361,15 +2232,13 @@ bool emit_refined_row_candidates(
     result.largest_reduced_orbit =
         std::max<uint64_t>(result.largest_reduced_orbit, reduced.count);
     result.reduced_refinement_orbits += reduced.count < orbit.size();
-    std::vector<std::vector<Lit>> matrix;
+    Matrix matrix;
     matrix.reserve(reduced.count);
     for (uint32_t row = 0; row < reduced.count; ++row)
       matrix.push_back({reduced.vertices[row]});
     symmetry_backend::release(reduced);
-    if (!trace.measure("row_complete_matrix", [&] {
-          return complete_matrix_by_refinement(kernel, formula, matrix,
-              parameters, stop, result, refinement, &screen);
-        }))
+    if (!trace.measure("row_complete_matrix",
+                       [&] { return complete_matrix_by_refinement(matrix, true); }))
       return false;
     trace.event("row_matrix", "rows\t%zu\tcolumns\t%zu",
                 matrix.size(), matrix.front().size());
@@ -2380,10 +2249,8 @@ bool emit_refined_row_candidates(
                            matrix.front().size());
     std::vector<Lit> action_key;
     if (!parameters.orbitopal_generator_fallback) {
-      if (!exact_row_action_key(kernel, matrix, parameters, stop, result,
-                                action_key))
-        return false;
-      if (!charge(kernel, stop, parameters, result, action_key.size()))
+      if (!exact_row_action_key(matrix, action_key) ||
+          !charge(action_key.size()))
         return false;
       if (action_key == last_inexact_action) {
         ++result.reused_inexact_matrices;
@@ -2392,19 +2259,15 @@ bool emit_refined_row_candidates(
         continue;
       }
     }
-    // Permuting every row's columns together leaves the complete row-swap
-    // maps and matrix support unchanged. Collection emits no fixing clauses,
-    // so it has no column priority to optimize. Keep ranking for emission.
+    // Column order matters only for emitted fixing clauses, not collection.
     if (!hints && !trace.measure("row_order_columns", [&] {
-          return order_columns_by_maximum_clique(kernel, formula, matrix,
-                                                parameters, stop, result);
+          return order_columns_by_maximum_clique(matrix);
         }))
       return false;
 
-    std::vector<std::vector<Lit>> permutations;
+    Matrix permutations;
     bool exact = trace.measure("row_exact_dimension", [&] {
-      return exact_dimension(kernel, formula, matrix, parameters, stop,
-                             result, permutations);
+      return exact_dimension(matrix, permutations);
     });
     if (result.status != OrbitopalEnumerationStatus::Complete)
       return false;
@@ -2412,9 +2275,7 @@ bool emit_refined_row_candidates(
     if (!exact && parameters.orbitopal_generator_fallback) {
       ++result.generator_fallbacks;
       exact = trace.measure("row_generator_fallback", [&] {
-        return constrained_dimension_automorphisms(
-            kernel, formula, matrix, parameters, stop, result, automorphisms,
-            permutations);
+        return constrained_dimension_automorphisms(matrix, permutations);
       });
       if (result.status != OrbitopalEnumerationStatus::Complete)
         return false;
@@ -2431,10 +2292,9 @@ bool emit_refined_row_candidates(
       if (trace.enabled())
         trace.event("row_handoff", "rows\t%zu\tcolumns\t%zu\tfixable_columns\t%zu",
                     matrix.size(), matrix.front().size(),
-                    unique_literal_columns(matrix, screen, formula).size());
-      std::vector<std::vector<Lit>> no_columns;
-      if (!collect_matrix_generators(kernel, parameters, stop, result, matrix,
-                                     permutations, no_columns, *hints))
+                    unique_literal_columns(matrix).size());
+      Matrix no_columns;
+      if (!collect_matrix_generators(matrix, permutations, no_columns))
         return false;
       for (const auto &row : matrix)
         for (const Lit literal : row)
@@ -2442,9 +2302,8 @@ bool emit_refined_row_candidates(
       emitted = true;
       continue;
     }
-    const std::vector<size_t> fixable = trace.measure("row_unique_columns", [&] {
-      return unique_literal_columns(matrix, screen, formula);
-    });
+    const std::vector<size_t> fixable = trace.measure(
+        "row_unique_columns", [&] { return unique_literal_columns(matrix); });
     trace.event("row_fixable", "columns\t%zu", fixable.size());
     result.refinement_unique_literal_columns += fixable.size();
     if (fixable.empty())
@@ -2456,21 +2315,14 @@ bool emit_refined_row_candidates(
       for (const Lit literal : row)
         claimed[var_of(literal)] = 1;
     const uint64_t before = result.instances;
-    if (!emit_dimension(matrix, fixable, parameters, visitor, result,
-                        prefix_units, permutations))
+    if (!emit_dimension(matrix, fixable, permutations))
       return false;
     emitted |= result.instances != before;
   }
   return true;
 }
 
-} // namespace
-
-static OrbitopalEnumerationResult enumerate_orbitopal(
-    const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop,
-    SymmetryDiscoveryHints *hints) {
-  OrbitopalEnumerationResult result;
+OrbitopalEnumerationResult OrbitopalPass::enumerate() {
   const SymmetryTrace trace;
   trace.event("orbitopal_begin",
               "variables\t%u\tcompletion\t%u\torientation\t%u\tclique\t%u",
@@ -2482,25 +2334,16 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
       (!hints && !parameters.maximum_orbitopal_instances) ||
       !parameters.maximum_detection_ticks)
     return result;
-  OrbitopalScreen screen;
-  if (!trace.measure("orbitopal_screen", [&] {
-        return screen_formula(kernel, parameters, stop, result, screen);
-      }))
+  if (!trace.measure("orbitopal_screen", [&] { return screen_formula(); }))
     return result;
 
   trace.event("orbitopal_screened", "candidates\t%zu",
               screen.candidate_clauses.size());
 
-  // Satsuma's row detector first exposes the implicit at-most-one relation of
-  // unique-literal clauses.  This is a fresh sequential pass in current clause
-  // order.  If C contains distinct literals a and b, then (-a | -b) is blocked
-  // on -a: C is the only clause containing a and its resolvent contains both b
-  // and -b.  Each new negative pair immediately increases its two literal
-  // occurrence counts.  A later clause containing an opposite polarity is
-  // therefore no longer unique and is skipped, matching the formula state the
-  // next semantic application actually observes.  Emit only this phase in the
-  // current pass; the caller's next scoped-fixpoint pass then detects matrices
-  // in the formula which contains all emitted binaries.
+  // Satsuma first exposes the AMO of each unique-literal clause C: for a, b in
+  // C, (-a | -b) is blocked on -a. Each emitted pair counts as occurrences, so
+  // a later clause it touches is no longer unique. A productive phase ends the
+  // pass; the next pass detects matrices over the emitted binaries.
   if (!hints && parameters.complete_unique_literal_amos) {
     trace.event("orbitopal_amo_completion", "boundary\tbegin");
     bool emitted = false;
@@ -2508,7 +2351,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
     for (const std::vector<Lit> &clause : screen.ulc_candidate_clauses) {
       bool currently_unique = true;
       for (const Lit literal : clause) {
-        if (!charge(kernel, stop, parameters, result, 1))
+        if (!charge(1))
           return result;
         currently_unique &= screen.ulc_occurrences[literal] == 1;
       }
@@ -2516,7 +2359,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
         continue;
       for (size_t first = 0; first < clause.size(); ++first) {
         for (size_t second = first + 1; second < clause.size(); ++second) {
-          if (!charge(kernel, stop, parameters, result, 1))
+          if (!charge(1))
             return result;
           const Lit a = negate(clause[first]);
           const Lit b = negate(clause[second]);
@@ -2525,15 +2368,14 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
               !scheduled_binaries.insert(binary).second)
             continue;
           if (result.instances == parameters.maximum_orbitopal_instances) {
-            result.status = traced_orbitopal_limit(__func__, __LINE__);
+            result.status = traced_orbitopal_limit("enumerate_orbitopal",
+                                                   __LINE__);
             return result;
           }
           SubstitutionRedundancyInstance instance;
           instance.clause = {a, b};
-          // The selected pointwise query stabilizer also applies to this
-          // pivot-only restriction. Choose a compatible RAT orientation;
-          // withhold a pair when both pivots violate roots or A.
-          // Unrestricted discovery and explicit X7 tuples remain selectable.
+          // Under the pointwise query stabilizer, orient the pair on a pivot
+          // that preserves roots and A; withhold it if neither does.
           if (parameters.graph_symmetry.pointwise_root_stabilizer &&
               kernel.query_projection) {
             const auto preserves = [&](Lit pivot) {
@@ -2563,7 +2405,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
   }
 
   std::vector<uint8_t> claimed(kernel.nvars, 0);
-  std::map<size_t, std::vector<std::vector<Lit>>> groups;
+  std::map<size_t, Matrix> groups;
   for (std::vector<Lit> &clause : screen.candidate_clauses) {
     bool overlaps = false;
     for (const Lit literal : clause)
@@ -2578,19 +2420,14 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
   if (!parameters.maximum_orbitopal_matrices)
     return result;
 
-  std::optional<LogicalFormula> formula;
   // The whole-formula snapshot is taken once, on first use.
+  bool snapshotted = false;
   const auto ensure_formula = [&] {
-    if (formula)
+    if (snapshotted)
       return true;
-    formula.emplace();
-    return trace.measure("orbitopal_snapshot", [&] {
-      return full_snapshot(kernel, parameters, stop, result, *formula);
-    });
+    snapshotted = true;
+    return trace.measure("orbitopal_snapshot", [&] { return full_snapshot(); });
   };
-  FormulaAutomorphisms formula_automorphisms;
-  FormulaRefinement formula_refinement;
-  std::vector<Lit> orbitopal_prefix_units;
   const bool complete_action =
       parameters.orbitopal_completion != OrbitopalCompletion::MatrixOnly;
   const auto emit_refinement_phase = [&](bool &emitted) {
@@ -2598,22 +2435,18 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
     if (!complete_action ||
         parameters.orbitopal_orientation == OrbitopalOrientation::Columns)
       return true;
-    // This phase always uses the direct-binary refinement graph: two literal
-    // vertices plus a complement gadget per variable. Check its unavoidable
-    // lower bound before copying the whole formula. AMO completion above and
-    // independent matrix-only discovery do not require this graph.
+    // Check the direct-binary refinement graph's lower bound (two literal
+    // vertices and a gadget per variable) before copying the formula.
     if (3ull * kernel.nvars > parameters.graph_symmetry.maximum_graph_vertices ||
         3ull * kernel.nvars > static_cast<uint64_t>(std::numeric_limits<int>::max()) ||
         2ull * kernel.nvars > parameters.graph_symmetry.maximum_graph_edges)
-      return fail(result, traced_orbitopal_limit(__func__, __LINE__));
+      return fail(result,
+                  traced_orbitopal_limit("enumerate_orbitopal", __LINE__));
     if (!ensure_formula())
       return false;
     bool product_emitted = false;
     if (!trace.measure("orbitopal_product", [&] {
-          return emit_refined_product_orbits( kernel, *formula, screen,
-              parameters, visitor, stop, result, formula_automorphisms,
-              formula_refinement,
-              orbitopal_prefix_units, product_emitted, hints);
+          return emit_refined_product_orbits(product_emitted);
         }))
       return false;
     if (product_emitted) {
@@ -2621,9 +2454,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
       return true;
     }
     return trace.measure("orbitopal_generator_orbits", [&] {
-      return emit_refined_row_candidates( kernel, *formula, screen,
-          parameters, visitor, stop, result, formula_automorphisms,
-          formula_refinement, orbitopal_prefix_units, emitted, hints);
+      return emit_refined_row_candidates(emitted);
     });
   };
 
@@ -2643,7 +2474,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
   for (auto &[row_count, columns] : groups) {
     std::sort(columns.begin(), columns.end());
     ColumnTransports transports;
-    if (!transports.initialize(kernel, columns, parameters, stop, result))
+    if (!transports.initialize(*this, columns))
       return result;
     std::vector<uint8_t> used(columns.size(), 0);
     for (size_t seed = 0; seed < columns.size(); ++seed) {
@@ -2656,19 +2487,17 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
       trace.event("orbitopal_align",
                   "boundary\tbegin\trows\t%zu\tcolumns\t%zu\tseed\t%zu",
                   row_count, columns.size(), seed);
-      std::vector<std::vector<Lit>> aligned_columns = {columns[seed]};
+      Matrix aligned_columns = {columns[seed]};
       std::vector<size_t> members = {seed};
       std::vector<uint8_t> in_component(columns.size(), 0);
       in_component[seed] = 1;
-      // Column compatibility is a graph, not necessarily a star around the
-      // lowest clause. Compose each newly aligned column into the common row
-      // order so A--B--C connectivity discovers the whole structured action.
+      // Column compatibility is a graph: compose each aligned column into the
+      // common row order so A--B--C connectivity finds the whole action.
       for (size_t frontier = 0; frontier < aligned_columns.size(); ++frontier) {
-        if (!transports.prepare(kernel, columns, members[frontier], parameters,
-                                stop, result))
+        if (!transports.prepare(*this, columns, members[frontier]))
           return result;
         for (const auto &edge : transports.neighbors(members[frontier])) {
-          if (!charge(kernel, stop, parameters, result, 1))
+          if (!charge(1))
             return result;
           const size_t candidate = edge.column;
           if (used[candidate] || in_component[candidate])
@@ -2676,7 +2505,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
           std::vector<Lit> aligned;
           aligned.reserve(row_count);
           for (const Lit literal : aligned_columns[frontier]) {
-            if (!charge(kernel, stop, parameters, result, 1))
+            if (!charge(1))
               return result;
             aligned.push_back(transports.image(edge, literal));
           }
@@ -2692,19 +2521,15 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
                   static_cast<unsigned long long>(result.column_neighborhoods),
                   static_cast<unsigned long long>(result.reused_column_neighborhoods),
                   static_cast<unsigned long long>(result.column_transports));
-      // A single ULC is already a sound anchor for individualized refinement.
-      // Requiring two columns before asking the graph to align the remaining
-      // row action loses exactly the cases for which the completion mode
-      // exists.  Keep the configured width as an admission test on the
-      // completed matrix, rather than as a hidden precondition on discovery.
+      // A single ULC anchors completion; the width is checked on the
+      // completed matrix.
       if (aligned_columns.size() < parameters.minimum_orbitopal_columns &&
           !complete_action)
         continue;
 
       std::vector<Lit> action_key;
       if (!complete_action) {
-        if (!matrix_action_key(kernel, aligned_columns, parameters, stop,
-                               result, action_key))
+        if (!matrix_action_key(aligned_columns, action_key))
           return result;
         if (action_key == last_inexact_matrix) {
           ++result.reused_inexact_matrices;
@@ -2717,7 +2542,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
       if (!ensure_formula())
         return result;
 
-      std::vector<std::vector<Lit>> matrix(row_count);
+      Matrix matrix(row_count);
       for (size_t row = 0; row < row_count; ++row)
         for (const std::vector<Lit> &column : aligned_columns)
           matrix[row].push_back(column[row]);
@@ -2728,36 +2553,27 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
           parameters.orbitopal_orientation != OrbitopalOrientation::Rows;
       bool completion_attempted = false;
       if (matrix.front().size() < parameters.minimum_orbitopal_columns) {
-        if (!trace.measure("orbitopal_complete_matrix", [&] {
-              return complete_matrix_by_refinement(kernel, *formula, matrix,
-                  parameters, stop, result, formula_refinement);
-            }))
+        if (!trace.measure("orbitopal_complete_matrix",
+                           [&] { return complete_matrix_by_refinement(matrix); }))
           return result;
         completion_attempted = true;
         if (matrix.front().size() < parameters.minimum_orbitopal_columns)
           continue;
       }
-      std::vector<std::vector<Lit>> transposed;
-      std::vector<std::vector<Lit>> row_permutations;
-      std::vector<std::vector<Lit>> column_permutations;
+      Matrix transposed, row_permutations, column_permutations;
       bool rows_exact = false, columns_exact = false;
       // An axis is exact by its direct row-swap check or, when completing the
       // action, by constrained detected automorphisms.
-      const auto exact_axis = [&](bool enabled,
-                                  const std::vector<std::vector<Lit>> &axis,
-                                  std::vector<std::vector<Lit>> &permutations) {
+      const auto exact_axis = [&](bool enabled, const Matrix &axis,
+                                  Matrix &permutations) {
         permutations.clear();
-        bool exact =
-            enabled && trace.measure("orbitopal_exact_dimension", [&] {
-              return exact_dimension(kernel, *formula, axis, parameters, stop,
-                                     result, permutations);
-            });
+        bool exact = enabled && trace.measure("orbitopal_exact_dimension", [&] {
+          return exact_dimension(axis, permutations);
+        });
         if (enabled && !exact && complete_action &&
             result.status == OrbitopalEnumerationStatus::Complete)
           exact = trace.measure("orbitopal_constrained_dimension", [&] {
-            return constrained_dimension_automorphisms(
-                kernel, *formula, axis, parameters, stop, result,
-                formula_automorphisms, permutations);
+            return constrained_dimension_automorphisms(axis, permutations);
           });
         return exact;
       };
@@ -2769,17 +2585,14 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
             break;
           const size_t prior_columns = matrix.front().size();
           if (!trace.measure("orbitopal_complete_matrix", [&] {
-                return complete_matrix_by_refinement(kernel, *formula, matrix,
-                    parameters, stop, result, formula_refinement);
+                return complete_matrix_by_refinement(matrix);
               }))
             return result;
           if (matrix.front().size() == prior_columns)
             break;
         }
-        if (!trace.measure("orbitopal_clique_order", [&] {
-              return order_columns_by_maximum_clique(kernel, *formula, matrix,
-                  parameters, stop, result);
-            }))
+        if (!trace.measure("orbitopal_clique_order",
+                           [&] { return order_columns_by_maximum_clique(matrix); }))
           return result;
         transposed.clear();
         if (try_columns)
@@ -2802,9 +2615,8 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
         // Only the exact successful dimensions have complete maps.
         if (!rows_exact) row_permutations.clear();
         if (!columns_exact) column_permutations.clear();
-        if (!collect_matrix_generators(kernel, parameters, stop, result, matrix,
-                                       row_permutations, column_permutations,
-                                       *hints))
+        if (!collect_matrix_generators(matrix, row_permutations,
+                                       column_permutations))
           return result;
         for (const size_t member : members)
           used[member] = 1;
@@ -2814,15 +2626,14 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
       std::vector<size_t> column_fixable;
       if (rows_exact) {
         if (complete_action)
-          row_fixable = unique_literal_columns(matrix, screen, *formula);
+          row_fixable = unique_literal_columns(matrix);
         else {
           row_fixable.resize(matrix.front().size());
           for (size_t column = 0; column < row_fixable.size(); ++column)
             row_fixable[column] = column;
         }
       }
-      // Column orientation is an independently selectable, validation-backed
-      // X7 surface and is not restricted to the row detector's ULC columns.
+      // Column orientation is not restricted to the row detector's ULCs.
       if (columns_exact) {
         column_fixable.resize(transposed.front().size());
         for (size_t column = 0; column < column_fixable.size(); ++column)
@@ -2833,28 +2644,24 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
       for (const size_t member : members)
         used[member] = 1;
       if (result.matrices == parameters.maximum_orbitopal_matrices) {
-        result.status = traced_orbitopal_limit(__func__, __LINE__);
+        result.status = traced_orbitopal_limit("enumerate_orbitopal",
+                                               __LINE__);
         return result;
       }
       ++result.matrices;
-      if (rows_exact &&
-          !trace.measure("orbitopal_publish", [&] {
-            return emit_dimension(matrix, row_fixable, parameters, visitor,
-                result, orbitopal_prefix_units, row_permutations);
+      if (rows_exact && !trace.measure("orbitopal_publish", [&] {
+            return emit_dimension(matrix, row_fixable, row_permutations);
           }))
         return result;
-      if (columns_exact &&
-          !trace.measure("orbitopal_publish", [&] {
-            return emit_dimension(transposed, column_fixable, parameters,
-                visitor, result, orbitopal_prefix_units, column_permutations);
+      if (columns_exact && !trace.measure("orbitopal_publish", [&] {
+            return emit_dimension(transposed, column_fixable,
+                                  column_permutations);
           }))
         return result;
     }
   }
-  // A productive discovery phase is a complete generated job. Scoped
-  // repetition resumes from the strengthened formula and reaches the other
-  // phase after the first stops producing. If the cheap formula-derived phase
-  // found nothing, run generic refinement in this same pass.
+  // A productive phase ends the pass; if the unique-literal phase found
+  // nothing, run refinement in this same pass.
   if (!result.instances && (!hints || !result.matrices) &&
       parameters.orbitopal_discovery_order ==
           OrbitopalDiscoveryOrder::UniqueLiteralThenRefinement) {
@@ -2865,10 +2672,12 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
   return result;
 }
 
+} // namespace
+
 OrbitopalEnumerationResult substitution_redundancy_enumerate_orbitopal(
     const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
     const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop) {
-  return enumerate_orbitopal(kernel, parameters, visitor, stop, nullptr);
+  return OrbitopalPass(kernel, parameters, visitor, stop, nullptr).enumerate();
 }
 
 OrbitopalEnumerationResult substitution_redundancy_discover_orbitopal_generators(
@@ -2879,7 +2688,8 @@ OrbitopalEnumerationResult substitution_redundancy_discover_orbitopal_generators
       parameters.graph_symmetry.structured_scope > SymmetryStructuredScope::AxisAnchors) {
     return {};
   }
-  auto result = enumerate_orbitopal(kernel, parameters, {}, stop, &hints);
+  auto result =
+      OrbitopalPass(kernel, parameters, {}, stop, &hints).enumerate();
   std::sort(hints.fixed_variables.begin(), hints.fixed_variables.end());
   hints.fixed_variables.erase(
       std::unique(hints.fixed_variables.begin(), hints.fixed_variables.end()),

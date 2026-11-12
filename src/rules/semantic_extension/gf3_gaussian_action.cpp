@@ -7,7 +7,6 @@
 #include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
-#include <limits>
 
 namespace tactix {
 
@@ -180,11 +179,8 @@ Gf3GaussianActionResult gf3_gaussian_action_apply(
     retained_bytes += key.size();
   }
   output.session_identity_bytes = retained_bytes;
-  std::vector<std::string> merged;
-  merged.reserve(session.keys().size() + 1);
-  merged.insert(merged.end(), session.keys().begin(), position);
-  merged.push_back(identity);
-  merged.insert(merged.end(), position, session.keys().end());
+  std::vector<std::string> merged =
+      sorted_with(session.keys(), position, identity);
 
   output.proposed_action_id = kernel.structural_action_sequence + 1;
   output.semantic_id = output.proposed_action_id;
@@ -202,52 +198,44 @@ Gf3GaussianActionResult gf3_gaussian_action_apply(
 
 void record_gf3_gaussian_action_feedback(
     Kernel &kernel, const Gf3GaussianActionResult &result) {
-  ++kernel.stats.gf3_gaussian_attempts;
-  kernel.stats.gf3_gaussian_source_clauses += result.live.effort.source_clauses;
-  kernel.stats.gf3_gaussian_source_literals += result.live.effort.source_literals;
-  kernel.stats.gf3_gaussian_capture_work += result.live.effort.capture_work;
-  kernel.stats.gf3_gaussian_bridge_work += result.live.effort.bridge_work;
-  kernel.stats.gf3_gaussian_certificate_work +=
-      result.live.effort.certificate_work;
-  kernel.stats.gf3_gaussian_validation_work +=
-      result.live.effort.validation_work;
-  kernel.stats.gf3_gaussian_revalidation_work +=
-      result.live.effort.revalidation_work;
-  kernel.stats.gf3_gaussian_proof_additions +=
-      result.live.effort.proof_additions;
-  kernel.stats.gf3_gaussian_proof_literals +=
-      result.live.effort.proof_literal_occurrences;
-  kernel.stats.gf3_gaussian_installed_clauses +=
-      result.live.effort.installed_clauses;
-  kernel.stats.gf3_gaussian_duplicate_clauses +=
-      result.live.effort.duplicate_clauses;
-  kernel.stats.gf3_gaussian_journal_work += result.live.effort.journal_work;
-  kernel.stats.gf3_gaussian_journal_bytes += result.live.effort.journal_bytes;
-  kernel.stats.gf3_gaussian_session_work += result.session_work;
-  kernel.stats.gf3_gaussian_identity_work += result.live.effort.identity_work;
-  kernel.stats.gf3_gaussian_identity_bytes += result.live.effort.identity_bytes;
-  kernel.stats.gf3_gaussian_session_identity_bytes +=
-      result.session_identity_bytes;
+  auto &s = kernel.stats;
+  const auto &e = result.live.effort;
+  ++s.gf3_gaussian_attempts;
+  s.gf3_gaussian_source_clauses += e.source_clauses;
+  s.gf3_gaussian_source_literals += e.source_literals;
+  s.gf3_gaussian_capture_work += e.capture_work;
+  s.gf3_gaussian_bridge_work += e.bridge_work;
+  s.gf3_gaussian_certificate_work += e.certificate_work;
+  s.gf3_gaussian_validation_work += e.validation_work;
+  s.gf3_gaussian_revalidation_work += e.revalidation_work;
+  s.gf3_gaussian_proof_additions += e.proof_additions;
+  s.gf3_gaussian_proof_literals += e.proof_literal_occurrences;
+  s.gf3_gaussian_installed_clauses += e.installed_clauses;
+  s.gf3_gaussian_duplicate_clauses += e.duplicate_clauses;
+  s.gf3_gaussian_journal_work += e.journal_work;
+  s.gf3_gaussian_journal_bytes += e.journal_bytes;
+  s.gf3_gaussian_session_work += result.session_work;
+  s.gf3_gaussian_identity_work += e.identity_work;
+  s.gf3_gaussian_identity_bytes += e.identity_bytes;
+  s.gf3_gaussian_session_identity_bytes += result.session_identity_bytes;
   const bool standard_status = strategy::record_standard_action_status(
       result.status,
-      {kernel.stats.gf3_gaussian_applied, kernel.stats.gf3_gaussian_invalid,
-       kernel.stats.gf3_gaussian_inapplicable,
-       kernel.stats.gf3_gaussian_exhausted,
-       kernel.stats.gf3_gaussian_interrupted,
-       kernel.stats.gf3_gaussian_unsupported_proof,
-       kernel.stats.gf3_gaussian_stale});
+      {s.gf3_gaussian_applied, s.gf3_gaussian_invalid,
+       s.gf3_gaussian_inapplicable, s.gf3_gaussian_exhausted,
+       s.gf3_gaussian_interrupted, s.gf3_gaussian_unsupported_proof,
+       s.gf3_gaussian_stale});
   if (result.status == Gf3GaussianActionStatus::Applied) {
-    kernel.stats.gf3_gaussian_units += result.live.published_units.size();
-    kernel.stats.gf3_gaussian_conflicts += result.live.contradiction;
+    s.gf3_gaussian_units += result.live.published_units.size();
+    s.gf3_gaussian_conflicts += result.live.contradiction;
   } else if (!standard_status &&
              result.status == Gf3GaussianActionStatus::NoStructure)
-    ++kernel.stats.gf3_gaussian_no_structure;
+    ++s.gf3_gaussian_no_structure;
   else if (!standard_status &&
            result.status == Gf3GaussianActionStatus::NoSupportedOutcome)
-    ++kernel.stats.gf3_gaussian_no_supported_outcome;
+    ++s.gf3_gaussian_no_supported_outcome;
   else if (!standard_status &&
            result.status == Gf3GaussianActionStatus::AlreadyPublished)
-    ++kernel.stats.gf3_gaussian_already_published;
+    ++s.gf3_gaussian_already_published;
 }
 
 } // namespace tactix

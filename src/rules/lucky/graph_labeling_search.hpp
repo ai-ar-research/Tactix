@@ -14,9 +14,7 @@ struct Candidate {
   Score score{UINT64_MAX, UINT64_MAX};
 };
 
-// Repair/annealing may move vertex zero after the initial normalization.
-// Reflection preserves every edge distance and thus the cached objective;
-// Boolean/root validity is still checked separately before publishing SAT.
+// Reflection preserves every edge distance and thus the cached objective.
 template<class Charge>
 bool normalize_reflection(Candidate &candidate, Charge &&charge) {
   const size_t n = candidate.labels.size();
@@ -109,11 +107,9 @@ bool score_labels(const Shape &shape, const std::vector<uint32_t> &labels,
   return true;
 }
 
-// The reference's complete 2*2*3*2 construction family: low/high-degree BFS
-// starts, forward/reverse order, alternating ends/two-at-a-time/straight labels,
-// and reflection. A bounded stop retains only fully scored candidates.
-// Shape must come from recognize (or an equivalently validated internal graph).
-// Caller separately admits workspace: O(vertices+edges), no kernel mutation.
+// The reference's 2*2*3*2 construction family: low/high-degree BFS starts,
+// forward/reverse order, alternating/two-at-a-time/straight labels, and
+// reflection. A bounded stop keeps only fully scored candidates.
 template<class Charge>
 bool order_seeds(const Shape &shape, Charge &&charge, Candidate &best,
                  uint32_t &completed) {
@@ -164,13 +160,10 @@ struct WindowLimits {
 };
 enum class WindowStatus { Found, NoCandidate, Limited };
 
-// Place one vertex at each successive label, excluding neighbors of the last
-// separation-1 vertices. Explicit frames avoid recursion on a caller-sized
-// graph. A frame ranks candidates by remaining degree times the number of
-// recent vertices, then descending total degree, matching the reference key
-// without re-counting the same neighbors for each recent vertex. Random ties
-// are stable in shuffled order. Caps/seed belong to the caller's typed profile.
-// On a bounded stop the prior fully scored construction remains available.
+// Place one vertex per successive label, excluding neighbors of the last
+// separation-1 vertices, with explicit frames instead of recursion. Candidates
+// rank by remaining degree times recent vertices, then total degree (the
+// reference key); random ties are stable in shuffled order.
 template<class Charge>
 WindowStatus window_search(const Shape &shape, const WindowLimits &limits,
                            Charge &&charge, Candidate &best, uint64_t &nodes) {

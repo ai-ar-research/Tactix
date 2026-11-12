@@ -9,8 +9,7 @@
 
 namespace tactix {
 
-// Requires `H`: SwitchMode flips the ranking mode, which is `H` state — a pure
-// precondition of a policy operation that genuinely needs `H` (plan §5).
+// Requires `H` (plan §5).
 RuleEligibility switchmode_guard(const Kernel &k) {
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
@@ -22,12 +21,11 @@ ApplyResult switchmode_apply(Kernel &k) {
   k.h->stable = !k.h->stable;
   k.stats.switched++;
   if (k.h->stable) {
-    // entering stable: every var must be reachable via the score heap
-    // (kissat bump.c kissat_update_scores)
+    // Stable entry: every var in the heap (kissat bump.c kissat_update_scores).
     heuristics_update_scores(k);
   } else {
-    // entering focused: the VMTF search cache must point at the queue
-    // tail again (kissat queue.c kissat_reset_search_of_queue)
+    // Focused entry: cache to tail (kissat queue.c
+    // kissat_reset_search_of_queue).
     heuristics_reset_queue_search(k);
   }
   return ApplyResult::Ok;

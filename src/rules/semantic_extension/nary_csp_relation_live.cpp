@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <climits>
-#include <cstdlib>
 #include <limits>
 #include <map>
 #include <set>
@@ -16,7 +15,6 @@ namespace {
 
 namespace relation = nary_csp_relation;
 using ClauseKey = std::vector<int32_t>;
-
 using Meter = InterruptibleWork;
 
 ClauseKey normalized(ClauseKey key) {

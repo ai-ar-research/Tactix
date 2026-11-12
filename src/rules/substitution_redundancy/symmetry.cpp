@@ -44,12 +44,9 @@ uint64_t saturating_twice(uint64_t value) {
   return value > UINT64_MAX / 2 ? UINT64_MAX : 2 * value;
 }
 
-// A sparse generator's exact set-automorphism check charges one full clause
-// count and literal-domain scan, at most every literal occurrence once while
-// finding touched clauses, and at most every clause literal once while mapping
-// those clauses.  This upper bound lets discovery admit only a generator batch
-// that can be validated, while reserving one equally sized downstream work
-// quantum for group planning.
+// Upper bound on one sparse generator's exact check: clause count plus literal
+// domain plus twice the literal occurrences. Discovery admits only generators
+// it can validate and reserves one such quantum for group planning.
 uint64_t generator_validation_upper_bound(const FormulaSnapshot &snapshot,
                                           uint64_t literal_count) {
   uint64_t support = 0;
@@ -75,25 +72,56 @@ void apply_order(std::vector<T> &values, SymmetryTraversalOrder order,
   }
 }
 
-bool charge(const Kernel &kernel, const SubstitutionRedundancyParameters &p,
-            volatile sig_atomic_t *stop, SymmetryEnumerationResult &result,
-            uint64_t amount) {
+struct EligibleClause {
+  std::vector<Lit> literals;
+  bool amo = false;
+};
+
+struct GeneratorFixingStats {
+  uint64_t negation_units = 0;
+  uint64_t binary_units = 0;
+  bool visitor_stopped = false;
+};
+
+// The kernel, stop flag and result of one pass, charged against `parameters`.
+struct SymmetryPass {
+  const Kernel &kernel;
+  const SubstitutionRedundancyParameters &parameters;
+  volatile sig_atomic_t *stop;
+  SymmetryEnumerationResult &result;
+
+  bool charge(uint64_t amount) const;
+  bool snapshot_formula(FormulaSnapshot &snapshot) const;
+  bool build_symmetry_graph(const FormulaSnapshot &snapshot,
+                            SymmetryGraphStorage &storage) const;
+  bool exact_automorphism(const FormulaSnapshot &snapshot,
+                          const std::vector<Lit> &mapping) const;
+  bool exact_sparse_automorphism(const FormulaSnapshot &snapshot,
+                                 const SparseLiteralPermutation &mapping,
+                                 SymmetryClauseVisitWorkspace &workspace,
+                                 bool generator) const;
+  bool eligible_clauses(const FormulaSnapshot &snapshot,
+                        std::vector<EligibleClause> &clauses) const;
+  bool generator_fixing_scans(
+      const FormulaSnapshot &snapshot,
+      const std::vector<SparseLiteralPermutation> &generators,
+      const OrbitopalInstanceVisitor &visitor,
+      GeneratorFixingStats &stats) const;
+};
+
+bool SymmetryPass::charge(uint64_t amount) const {
   if (stop_requested(kernel, stop))
     return fail(result, SymmetryEnumerationStatus::Interrupted);
-  if (result.ticks >= p.maximum_detection_ticks ||
-      amount > p.maximum_detection_ticks - result.ticks) {
-    result.ticks = p.maximum_detection_ticks;
+  if (result.ticks >= parameters.maximum_detection_ticks ||
+      amount > parameters.maximum_detection_ticks - result.ticks) {
+    result.ticks = parameters.maximum_detection_ticks;
     return fail(result, SymmetryEnumerationStatus::LimitReached);
   }
   result.ticks += amount;
   return true;
 }
 
-bool snapshot_formula(const Kernel &kernel,
-                      const SubstitutionRedundancyParameters &parameters,
-                      volatile sig_atomic_t *stop,
-                      SymmetryEnumerationResult &result,
-                      FormulaSnapshot &snapshot) {
+bool SymmetryPass::snapshot_formula(FormulaSnapshot &snapshot) const {
   const uint64_t literal_vertices = 2ull * kernel.nvars;
   if (literal_vertices > static_cast<uint64_t>(std::numeric_limits<int>::max()))
     return fail(result, SymmetryEnumerationStatus::LimitReached);
@@ -101,20 +129,20 @@ bool snapshot_formula(const Kernel &kernel,
   snapshot.occurrences.assign(literal_vertices, 0);
   for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
     for (const WatchEntry watch : kernel.watches.entries(literal)) {
-      if (!charge(kernel, parameters, stop, result, 1))
+      if (!charge(1))
         return false;
       if (watch.binary() && literal < watch.other())
         clauses.push_back({literal, watch.other()});
     }
   for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (!clause->garbage()) {
-      if (!charge(kernel, parameters, stop, result, clause->size))
+      if (!charge(clause->size))
         return false;
       clauses.emplace_back(clause->begin(), clause->end());
     }
   }
   for (Var var = 0; var < kernel.nvars; ++var) {
-    if (!charge(kernel, parameters, stop, result, 1))
+    if (!charge(1))
       return false;
     const Lit positive = make_lit(var, false);
     if (kernel.value(positive)) {
@@ -130,16 +158,11 @@ bool snapshot_formula(const Kernel &kernel,
   return true;
 }
 
-bool build_symmetry_graph(const Kernel &kernel,
-                          const SubstitutionRedundancyParameters &parameters,
-                          const FormulaSnapshot &snapshot,
-                          volatile sig_atomic_t *stop,
-                          SymmetryEnumerationResult &result,
-                          SymmetryGraphStorage &storage) {
+bool SymmetryPass::build_symmetry_graph(const FormulaSnapshot &snapshot,
+                                        SymmetryGraphStorage &storage) const {
   const GraphSymmetryParameters &settings = parameters.graph_symmetry;
-  // A uniquely colored assigned literal already fixes its incident unit
-  // clause. Omitting that leaf preserves the projected literal group; the
-  // complete snapshot, including every unit, remains the exact-check oracle.
+  // A uniquely colored assigned literal fixes its unit clause, so that leaf is
+  // omitted; the full snapshot stays the exact-check oracle.
   const auto fixed_unit = [&](const std::vector<Lit> &clause) {
     return settings.pointwise_root_stabilizer && clause.size() == 1 &&
            kernel.value(clause.front());
@@ -185,11 +208,9 @@ bool build_symmetry_graph(const Kernel &kernel,
            edges > hard_edge_limit;
   };
 
-  // The backend graph must be simple. Each further copy of a binary clause
-  // becomes a clause vertex of degree two, so the graph group still preserves
-  // the exact clause multiset. Repeats only enlarge the direct graph, so the
-  // repeat-free size is admitted before the classification scan, which is
-  // charged one tick per binary clause and polls the stop request.
+  // The backend graph must be simple: a repeated binary becomes a degree-two
+  // clause vertex. The repeat-free size is admitted before the classification
+  // scan, which charges one tick per binary clause.
   std::vector<bool> repeated_binary;
   uint64_t repeated_binaries = 0;
   if (storage.direct_binary_edges) {
@@ -199,7 +220,7 @@ bool build_symmetry_graph(const Kernel &kernel,
         2ull * kernel.nvars + binaries + nonbinary_support;
     if (over_size_limits(minimum_vertices, minimum_edges))
       return fail(result, SymmetryEnumerationStatus::LimitReached);
-    if (!charge(kernel, parameters, stop, result, binaries))
+    if (!charge(binaries))
       return false;
     const auto &clauses = snapshot.clause_index.clauses();
     repeated_binary.assign(clauses.size(), false);
@@ -209,7 +230,7 @@ bool build_symmetry_graph(const Kernel &kernel,
     for (size_t i = 0; i < clauses.size(); ++i) {
       if (clauses[i].size() != 2)
         continue;
-      if (!(++scanned & 1023u) && !charge(kernel, parameters, stop, result, 0))
+      if (!(++scanned & 1023u) && !charge(0))
         return false;
       const Lit first = std::min(clauses[i][0], clauses[i][1]);
       const Lit second = std::max(clauses[i][0], clauses[i][1]);
@@ -242,7 +263,7 @@ bool build_symmetry_graph(const Kernel &kernel,
     return fail(result, SymmetryEnumerationStatus::ResourceExhausted);
   const uint64_t edge_count = negation_edges + clause_edges;
   if (over_size_limits(vertex_count, edge_count) ||
-      !charge(kernel, parameters, stop, result, edge_count)) {
+      !charge(edge_count)) {
     if (result.status == SymmetryEnumerationStatus::Complete)
       result.status = SymmetryEnumerationStatus::LimitReached;
     return false;
@@ -273,7 +294,7 @@ bool build_symmetry_graph(const Kernel &kernel,
   uint32_t next_vertex = static_cast<uint32_t>(literal_vertices);
   if (storage.direct_binary_edges) {
     for (Var var = 0; var < kernel.nvars; ++var) {
-      if (!(var & 1023u) && !charge(kernel, parameters, stop, result, 0))
+      if (!(var & 1023u) && !charge(0))
         return false;
       const uint32_t gadget = next_vertex++;
       storage.colors[gadget] = 2;
@@ -286,7 +307,7 @@ bool build_symmetry_graph(const Kernel &kernel,
       if (fixed_unit(clause))
         continue;
       if (!(storage.edges.size() & 2047u) &&
-          !charge(kernel, parameters, stop, result, 0))
+          !charge(0))
         return false;
       if (clause.size() == 2 && !repeated_binary[i]) {
         add_edge(clause[0], clause[1]);
@@ -303,7 +324,7 @@ bool build_symmetry_graph(const Kernel &kernel,
       if (fixed_unit(clause))
         continue;
       if (!(storage.edges.size() & 2047u) &&
-          !charge(kernel, parameters, stop, result, 0))
+          !charge(0))
         return false;
       const uint32_t vertex = next_vertex++;
       for (const Lit literal : clause)
@@ -361,34 +382,24 @@ bool traced_exact_check(const SymmetryEnumerationResult &result,
   return valid;
 }
 
-bool exact_automorphism(const Kernel &kernel, const FormulaSnapshot &snapshot,
-                        const std::vector<Lit> &mapping,
-                        const SubstitutionRedundancyParameters &parameters,
-                        volatile sig_atomic_t *stop,
-                        SymmetryEnumerationResult &result) {
+bool SymmetryPass::exact_automorphism(const FormulaSnapshot &snapshot,
+                                      const std::vector<Lit> &mapping) const {
   if (!signed_literal_permutation(kernel, mapping))
     return false;
   return traced_exact_check(result, nullptr, [&](SymmetryClauseCheckStats *stats) {
     return snapshot.clause_index.preserves_set_support(
-        mapping, [&](uint64_t amount) {
-          return charge(kernel, parameters, stop, result, amount);
-        }, stats);
+        mapping, [&](uint64_t amount) { return charge(amount); }, stats);
   });
 }
 
-// A detector generator preserves the old generator predicate's uncharged
-// signed-bijection check and reference accounting; transversal validation
-// has a separate, intentionally different currency.
-bool exact_sparse_automorphism(const Kernel &kernel, const FormulaSnapshot &snapshot,
-                               const SparseLiteralPermutation &mapping,
-                               SymmetryClauseVisitWorkspace &workspace,
-                               const SubstitutionRedundancyParameters &parameters,
-                               volatile sig_atomic_t *stop,
-                               SymmetryEnumerationResult &result,
-                               bool generator) {
+// A detector generator keeps an uncharged signed-bijection check and the
+// reference accounting; transversal validation charges differently.
+bool SymmetryPass::exact_sparse_automorphism(
+    const FormulaSnapshot &snapshot, const SparseLiteralPermutation &mapping,
+    SymmetryClauseVisitWorkspace &workspace, bool generator) const {
   const auto retired = [&](Var variable) { return kernel_var_retired(kernel, variable); };
   const auto charged = [&](uint64_t amount) {
-    return charge(kernel, parameters, stop, result, amount);
+    return charge(amount);
   };
   if (mapping.domain != 2ull * kernel.nvars ||
       !(generator ? mapping.validate(retired, [](uint64_t) { return true; })
@@ -404,16 +415,8 @@ bool exact_sparse_automorphism(const Kernel &kernel, const FormulaSnapshot &snap
   });
 }
 
-struct EligibleClause {
-  std::vector<Lit> literals;
-  bool amo = false;
-};
-
-bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
-                      const SubstitutionRedundancyParameters &parameters,
-                      volatile sig_atomic_t *stop,
-                      SymmetryEnumerationResult &enumeration,
-                      std::vector<EligibleClause> &result) {
+bool SymmetryPass::eligible_clauses(const FormulaSnapshot &snapshot,
+                                    std::vector<EligibleClause> &clauses) const {
   const GraphSymmetryParameters &settings = parameters.graph_symmetry;
   std::unordered_set<uint64_t> binaries;
   binaries.reserve(snapshot.clause_index.clauses().size());
@@ -431,7 +434,7 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
     bool amo = true;
     for (size_t first = 0; first < clause.size() && amo; ++first)
       for (size_t second = first + 1; second < clause.size(); ++second) {
-        if (!charge(kernel, parameters, stop, enumeration, 1))
+        if (!charge(1))
           return false;
         if (!binaries.count(kernel_binary_key(negate(clause[first]),
                                                negate(clause[second])))) {
@@ -439,13 +442,13 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
           break;
         }
       }
-    result.push_back({std::move(clause), amo});
+    clauses.push_back({std::move(clause), amo});
   }
-  apply_order(result, settings.clause_order,
+  apply_order(clauses, settings.clause_order,
               static_cast<uint64_t>(settings.seed) ^ 0x434c41555345534full);
   if (settings.clause_selection != SymmetryClauseSelection::InputOrder)
     std::stable_sort(
-        result.begin(), result.end(), [&](const auto &first, const auto &second) {
+        clauses.begin(), clauses.end(), [&](const auto &first, const auto &second) {
           if (settings.clause_selection ==
                   SymmetryClauseSelection::AmoThenShortest &&
               first.amo != second.amo)
@@ -454,7 +457,7 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
         });
   uint64_t literal_seed =
       static_cast<uint64_t>(settings.seed) ^ 0x4c49544552414c53ull;
-  for (auto &clause : result) {
+  for (auto &clause : clauses) {
     apply_order(clause.literals, settings.literal_order, literal_seed);
     splitmix64_next(literal_seed);
   }
@@ -483,15 +486,10 @@ SubstitutionRedundancyInstance negative_fixing_instance(
 }
 
 // A binary chain member (pivot ∨ second) witnessed by the inverse transversal
-// that maps the representative to `other`. Pivot order is semantic in DSR;
-// reversing the two literals is not an equivalent proof.
-//  - Clausal fixing (representative ∨ ¬other): the representative is the DSR
-//    pivot. Under the negated candidate, `other` is true, so the image of
-//    every earlier cut in this level is immediately satisfied.
-//  - Orbit cut (¬representative ∨ other), complementary to clausal fixing:
-//    under the negated candidate, representative is true and `other` is
-//    false. The inverse transversal maps representative to `other`,
-//    satisfying every earlier member of this level.
+// mapping the representative to `other`; pivot order is semantic in DSR.
+// Clausal fixing is (representative ∨ ¬other), an orbit cut is
+// (¬representative ∨ other); either witness satisfies every earlier member
+// of the level.
 SubstitutionRedundancyInstance chain_binary_instance(
     Lit pivot, Lit second, const SparseLiteralPermutation &image) {
   SubstitutionRedundancyInstance instance;
@@ -508,9 +506,8 @@ SubstitutionRedundancyInstance symmetry_generator_unit_instance(
   SubstitutionRedundancyInstance instance;
   instance.clause = {representative};
   instance.symmetry_chain_certificate = true;
-  // Keep DSR's implicit true image for the unit pivot. The remaining mapping
-  // is the negation-orbit witness from an exact automorphism which maps the
-  // representative to its complement.
+  // DSR maps the unit pivot to true implicitly; the rest is the witness of an
+  // automorphism mapping the representative to its complement.
   image.positive_moves([&](Lit source, Lit target) {
     if (var_of(source) == var_of(representative)) return;
     instance.substitution.emplace_back(source, target);
@@ -518,22 +515,14 @@ SubstitutionRedundancyInstance symmetry_generator_unit_instance(
   return instance;
 }
 
-struct GeneratorFixingStats {
-  uint64_t negation_units = 0;
-  uint64_t binary_units = 0;
-  bool visitor_stopped = false;
-};
-
-// The large-domain owner avoids a Schreier chain. It orders exact generators
-// by the rarest point in their support, takes complement moves first, removes
-// every generator touching a new unit, and repeats that discipline for binary
-// clauses. The local fixed set makes later witnesses preserve earlier units.
-bool generator_fixing_scans(
-    const Kernel &kernel, const FormulaSnapshot &snapshot,
-    const SubstitutionRedundancyParameters &parameters,
+// Large domains avoid a Schreier chain (Satsuma): order exact generators by
+// the rarest point of their support, take complement moves first and retire
+// every generator touching a new unit, then repeat for binary clauses.
+bool SymmetryPass::generator_fixing_scans(
+    const FormulaSnapshot &snapshot,
     const std::vector<SparseLiteralPermutation> &generators,
-    const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop,
-    SymmetryEnumerationResult &result, GeneratorFixingStats &stats) {
+    const OrbitopalInstanceVisitor &visitor,
+    GeneratorFixingStats &stats) const {
   const size_t literal_count = 2ull * kernel.nvars;
   std::vector<uint8_t> active(generators.size(), 1);
   std::vector<uint8_t> propagated(literal_count, 0);
@@ -549,7 +538,7 @@ bool generator_fixing_scans(
       order.push_back(id);
       for (const auto &[source, target] : generators[id].moved) {
         (void)target;
-        if (!charge(kernel, parameters, stop, result, 1))
+        if (!charge(1))
           return false;
         ++incidence[source];
       }
@@ -560,8 +549,7 @@ bool generator_fixing_scans(
         (void)target;
         rarity[id] = std::min(rarity[id], incidence[source]);
       }
-    // Match the owning implementation's score-only ordering. Detector order
-    // remains the input order and is deliberately not an extra tie-break.
+    // Score-only ordering, as in Satsuma; no detector-order tie-break.
     std::sort(order.begin(), order.end(), [&](size_t first, size_t second) {
       return rarity[first] < rarity[second];
     });
@@ -572,24 +560,18 @@ bool generator_fixing_scans(
            parameters.graph_symmetry.maximum_fixing_instances;
   };
   // Negation fixing, then binary fixing, each over a fresh ranking of the
-  // active generators. A negation unit retires its generator, as does any
-  // contact with an earlier negation unit.
+  // active generators.
   std::unordered_set<uint64_t> binaries;
   for (const bool binary_phase : {false, true}) {
     if (binary_phase) {
-      // The owner runs binary fixing after negation fixing unconditionally
-      // (satsuma.h); a formula can have no negation orbit and still fix
-      // thousands of literals here.
-
-      // The binary phase sees only generators which stabilize every unit
-      // emitted by negation fixing, exactly as deleting marked generators in
-      // the owner.
+      // Binary fixing always follows (satsuma.h), over the generators that
+      // stabilize every negation unit.
       for (size_t id = 0; id < generators.size(); ++id) {
         if (!active[id])
           continue;
         for (const auto &[source, target] : generators[id].moved) {
           (void)target;
-          if (!charge(kernel, parameters, stop, result, 1))
+          if (!charge(1))
             return false;
           if (propagated[source]) {
             active[id] = 0;
@@ -603,7 +585,7 @@ bool generator_fixing_scans(
       for (const auto &clause : snapshot.clause_index.clauses()) {
         if (clause.size() != 2)
           continue;
-        if (!charge(kernel, parameters, stop, result, 1))
+        if (!charge(1))
           return false;
         binaries.insert(kernel_binary_key(clause[0], clause[1]));
       }
@@ -617,7 +599,7 @@ bool generator_fixing_scans(
       Lit applicable = INVALID_LIT;
       bool touches_fixed = false;
       for (const auto &[source, target] : image.moved) {
-        if (!charge(kernel, parameters, stop, result, 1))
+        if (!charge(1))
           return false;
         if (propagated[source]) {
           touches_fixed = true;
@@ -645,9 +627,8 @@ bool generator_fixing_scans(
       propagated[applicable] = 1;
       ++(binary_phase ? stats.binary_units : stats.negation_units);
       ++result.instances;
-      // A binary unit's witness is the generator itself: (source v
-      // applicable) is in the formula, hence so is its image (applicable v
-      // image[applicable]), and under the negated unit that image is true.
+      // A binary unit's witness is the generator: the image of (source v
+      // applicable) is true under the negated unit.
       if (!visitor(symmetry_generator_unit_instance(applicable, image))) {
         stats.visitor_stopped = true;
         return true;
@@ -693,6 +674,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     SymmetryEnumerationScheduling scheduling) {
   SymmetryEnumerationResult result;
   SubstitutionRedundancyParameters parameters = requested_parameters;
+  const SymmetryPass pass{kernel, parameters, stop, result};
   const SymmetryTrace trace;
   trace.event("symmetry_begin", "variables\t%u", kernel.nvars);
   if (!parameters.valid() ||
@@ -703,22 +685,18 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       !parameters.graph_symmetry.maximum_graph_vertices ||
       !parameters.graph_symmetry.maximum_graph_edges ||
       !parameters.graph_symmetry.maximum_generators) {
-    // Zero is the public disabling value for every admission limit. No work
-    // was truncated, so the disabled producer is a completed empty pass.
+    // Zero disables the producer: a completed empty pass.
     return result;
   }
 
-  // Every supported graph representation contains both literal vertices.
-  // Reject an impossible caller-selected graph allowance before duplicating
-  // the formula snapshot or running structured discovery inside this pass.
-  // The same invocation would fail graph admission later; this is not an X7
-  // guard or a restriction on separate structured/explicit applications.
+  // Every graph has both literal vertices: reject an impossible allowance
+  // before the snapshot and structured discovery.
   if (2ull * kernel.nvars > parameters.graph_symmetry.maximum_graph_vertices)
     return finish(result, SymmetryEnumerationStatus::LimitReached);
 
   FormulaSnapshot snapshot;
   if (!trace.measure("symmetry_snapshot", [&] {
-        return snapshot_formula(kernel, parameters, stop, result, snapshot);
+        return pass.snapshot_formula(snapshot);
       }))
     return result;
   const uint32_t literal_count = 2 * kernel.nvars;
@@ -779,19 +757,14 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       structured.generators.clear();
     if (!configured.stabilize_structured_variables)
       structured.fixed_variables.clear();
-    // The structured producer shares this invocation's discovery allowance.
-    // If it spent the last credit, generic graph construction and DejaVu
-    // cannot publish a validated consequence: even the first subsequent
-    // charge must fail.  End at the producer feedback boundary instead of
-    // doing an unpublishable full-formula pass.  A caller that grants more
-    // work starts a fresh typed invocation; an admitted group batch is not
-    // involved yet.
+    // Structured discovery shares the allowance; if it spent the last credit,
+    // no later step could publish, so end here.
     if (result.ticks >= parameters.maximum_detection_ticks)
       return finish(result, SymmetryEnumerationStatus::LimitReached);
   }
   std::vector<SparseLiteralPermutation> generators;
-  // Generator and transversal checks have different historical setup charges.
-  // Their workspaces must remain separate to keep budgets independent of order.
+  // Generator and transversal checks charge setup differently; separate
+  // workspaces keep budgets independent of order.
   SymmetryClauseVisitWorkspace generator_workspace;
   std::vector<Var> fixed_variables;
   for (const auto *advice : {hints, static_cast<const SymmetryDiscoveryHints *>(&structured)}) {
@@ -799,9 +772,9 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     if (advice->generators.size() > configured.maximum_generators - generators.size())
       return finish(result, SymmetryEnumerationStatus::LimitReached);
     for (const auto &image : advice->generators) {
-      if (!charge(kernel, parameters, stop, result, image.size()))
+      if (!pass.charge(image.size()))
         return result;
-      if (!exact_automorphism(kernel, snapshot, image, parameters, stop, result)) {
+      if (!pass.exact_automorphism(snapshot, image)) {
         if (result.status == SymmetryEnumerationStatus::Complete)
           result.status = SymmetryEnumerationStatus::Invalid;
         return result;
@@ -811,7 +784,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       generators.push_back(std::move(sparse));
     }
     for (const Var variable : advice->fixed_variables) {
-      if (!charge(kernel, parameters, stop, result, 1)) return result;
+      if (!pass.charge(1)) return result;
       if (variable >= kernel.nvars)
         return finish(result, SymmetryEnumerationStatus::Invalid);
       fixed_variables.push_back(variable);
@@ -822,14 +795,12 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
               generators.size(), fixed_variables.size());
   SymmetryGraphStorage graph_storage;
   if (!trace.measure("symmetry_graph", [&] {
-        return build_symmetry_graph(kernel, parameters, snapshot, stop, result,
-                                    graph_storage);
+        return pass.build_symmetry_graph(snapshot, graph_storage);
       }))
     return result;
 
   for (const Var variable : fixed_variables) {
-    // These colors are disjoint from every gadget color and the other
-    // literal colors. Both signs are fixed independently.
+    // Unique colors, disjoint from gadget and literal colors, fix both signs.
     graph_storage.colors[2 * variable] = 3 + 2 * variable;
     graph_storage.colors[2 * variable + 1] = 3 + 2 * variable + 1;
   }
@@ -879,11 +850,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       hard_affordable_generators < requested_generators;
   settings.maximum_generators =
       std::min(requested_generators, hard_affordable_generators);
-  // Under progress scheduling an exact generator earns the window which pays
-  // for its validation, so the entry opportunity admits one generator whenever
-  // the hard allowance affords it. Without that floor a formula whose single
-  // validation quantum exceeds half the entry window can never start the
-  // feedback it is entitled to.
+  // Under progress scheduling each exact generator earns its validation, so
+  // entry admits one generator whenever the hard allowance affords it.
   const uint64_t entry_generators =
       scheduling.progress_ticks_per_generator && hard_affordable_generators ? 1
                                                                             : 0;
@@ -929,11 +897,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     return result;
   };
   result.status = convert(detection);
-  // Completeness of the remaining subgroup says nothing about completeness
-  // of the combined basis in the unrestricted original automorphism group.
-  // The physical graph may distinguish duplicate counts even though exact
-  // semantic validation admits their set symmetries. Its completeness claim
-  // cannot establish the full set-automorphism group in that case.
+  // A complete subgroup proves the full set-automorphism group only without
+  // fixed variables, a root stabilizer or duplicate clauses.
   result.complete_group = proposed.complete_group && fixed_variables.empty() &&
       !configured.pointwise_root_stabilizer &&
       snapshot.clause_index.clauses().size() ==
@@ -960,29 +925,21 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     symmetry_backend::release(proposed);
     return result;
   }
-  // Generator fixing derives each unit from one exactly validated generator,
-  // so a work-capped prefix loses only later generators. The discard concerns
-  // a chain planned over an arbitrary subgroup.
+  // Generator fixing uses each validated generator alone, so only a chain
+  // planned over a work-capped prefix is discarded.
   if (detector_work_capped && !large_domain_generator_fixing &&
       detection == symmetry_backend::Status::Incomplete) {
     if (!scheduling.progress_ticks_per_generator && proposed.count &&
         proposed.count == settings.maximum_generators)
       result.discovery_progress_units = proposed.count;
-    // The derived cap proved that the shared allowance cannot validate an
-    // unrestricted detector stream and still give group planning one useful
-    // work quantum.  A prefix is valid group input, but publishing its
-    // arbitrary callback-order subgroup can perturb search after the producer
-    // has already reported that it could not finish.  Keep independently
-    // validated structured/hinted generators, but discard this work-limited
-    // generic prefix.  The finite cap still makes the probe self-terminating.
+    // The allowance cannot validate the detector stream and still plan the
+    // group; an arbitrary callback-order prefix is discarded, keeping the
+    // structured and hinted generators.
     symmetry_backend::release(proposed);
     result.complete_group = false;
     if (generators.empty()) {
-      // This is the same accounting outcome as charge() declining an atomic
-      // operation whose upper bound does not fit: the local allowance is no
-      // longer useful to this producer.  Saturation also prevents the shared
-      // startup scope from spending the rejected remainder on another
-      // formula-wide structured retry after this no-progress result.
+      // As when charge() declines: the allowance is saturated so the shared
+      // scope does not retry on the remainder.
       result.ticks = parameters.maximum_detection_ticks;
       return finish(result, SymmetryEnumerationStatus::LimitReached);
     }
@@ -1010,9 +967,9 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
         append_moved_points(image, proposed.images + row * literal_count,
                             literal_count);
     }
-    if (literal_image && exact_sparse_automorphism(kernel, snapshot, image,
-                           generator_workspace, parameters, stop, result,
-                           /*generator=*/true))
+    if (literal_image &&
+        pass.exact_sparse_automorphism(snapshot, image, generator_workspace,
+                                       /*generator=*/true))
       generators.push_back(std::move(image));
     if (result.status == SymmetryEnumerationStatus::Interrupted ||
         result.status == SymmetryEnumerationStatus::LimitReached)
@@ -1048,12 +1005,9 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
 
   if (large_domain_generator_fixing) {
     GeneratorFixingStats fixing;
-    // Each returned instance is a proof-checked root unit. Cut-admission policy
-    // may still withhold a lone nonforcing binary below, but it never suppresses
-    // a valid unit merely because this pass found no second consequence.
+    // Each instance is a proof-checked root unit, never withheld.
     const bool completed = trace.measure("symmetry_generator_fixing", [&] {
-      return generator_fixing_scans(kernel, snapshot, parameters, generators,
-                                    visitor, stop, result, fixing);
+      return pass.generator_fixing_scans(snapshot, generators, visitor, fixing);
     });
     trace.event("symmetry_generator_fixing_result",
                 "negation_units\t%llu\tbinary_units\t%llu\tvisitor_stopped\t%u",
@@ -1067,7 +1021,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
 
   std::vector<EligibleClause> clauses;
   if (!trace.measure("symmetry_eligible_clauses", [&] {
-        return eligible_clauses(kernel, snapshot, parameters, stop, result, clauses);
+        return pass.eligible_clauses(snapshot, clauses);
       }))
     return result;
   if (clauses.empty() &&
@@ -1142,8 +1096,10 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     SubstitutionRedundancyParameters finalization_parameters = parameters;
     if (scheduling.finish_admitted_group)
       finalization_parameters.maximum_detection_ticks = UINT64_MAX;
-    const SubstitutionRedundancyParameters &group_parameters =
-        scheduling.finish_admitted_group ? finalization_parameters : parameters;
+    const SymmetryPass group_pass{
+        kernel,
+        scheduling.finish_admitted_group ? finalization_parameters : parameters,
+        stop, result};
     const symmetry_backend::GroupInput group{
         literal_count,
         generators.size(),
@@ -1190,7 +1146,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       result.status = fixing_status;
     group_ticks = fixings.ticks;
     if (scheduling.finish_admitted_group) {
-      if (!charge(kernel, group_parameters, stop, result, group_ticks)) {
+      if (!group_pass.charge(group_ticks)) {
         symmetry_backend::release(fixings);
         return result;
       }
@@ -1235,7 +1191,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
             valid_chain = false;
             break;
           }
-          if (!charge(kernel, group_parameters, stop, result, end - begin)) {
+          if (!group_pass.charge(end - begin)) {
             valid_chain = false;
             break;
           }
@@ -1244,7 +1200,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
             image.moved.emplace_back(fixings.image_points[at], fixings.images[at]);
         } else {
           if (!fixings.images) { valid_chain = false; break; }
-          if (!charge(kernel, group_parameters, stop, result, literal_count)) {
+          if (!group_pass.charge(literal_count)) {
             valid_chain = false;
             break;
           }
@@ -1252,13 +1208,11 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
                               literal_count);
         }
       }
-      // Every materialized backend map crosses an untrusted boundary. It must
-      // be an exact automorphism of the detector snapshot and map the selected
-      // base to the advertised orbit point before structural certification.
+      // An untrusted backend map must be an exact automorphism of the
+      // snapshot mapping the base to the advertised orbit point.
       if (kind != 1 &&
-          (!exact_sparse_automorphism(kernel, snapshot, image, visit_workspace,
-                                     group_parameters, stop, result,
-                                     /*generator=*/false) ||
+          (!group_pass.exact_sparse_automorphism(snapshot, image, visit_workspace,
+                                            /*generator=*/false) ||
            image[representative] != other)) {
         valid_chain = false;
         break;
@@ -1271,9 +1225,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
                 rows.size(), static_cast<unsigned>(valid_chain));
     trace.event("symmetry_chain_validation", "boundary\tbegin");
 
-    // A later level's witness must preserve every earlier complete cut orbit.
-    // Fixing its base and mapping the orbit into itself makes each earlier cut
-    // image either another already-published cut or a tautology.
+    // A later level's witness must preserve every earlier cut orbit, so each
+    // earlier cut's image is a published cut or a tautology.
     std::vector<CutOrbitMember> cut_members;
     for (const auto &row : rows)
       if (row.kind == 2)
@@ -1291,11 +1244,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     trace.event("symmetry_chain_validation", "boundary\tend\tvalid\t%u",
                 static_cast<unsigned>(valid_chain));
     const auto root_forcing = [&](const CertifiedRow &row) {
-      // Kinds 1 and 3 materialize as syntactic units.  The backend normally
-      // chooses both endpoints of kinds 0 and 2 from the open root orbit, but
-      // make admission depend on the checked clause's live meaning instead of
-      // that producer invariant: a binary with exactly one root-false literal
-      // is unit and must never be withheld as a nonforcing cut.
+      // Kinds 1 and 3 are units; a binary with exactly one root-false literal
+      // is unit too and is never withheld as a nonforcing cut.
       if (row.kind == 1 || row.kind == 3)
         return true;
       const Lit first = row.kind == 0 ? row.representative
@@ -1360,10 +1310,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       return result;
   }
 
-  // A stabilizer batch is applied before another pass re-detects the group on
-  // the strengthened root formula.  If that batch is empty, try direct
-  // generator involutions.  Each accepted unit becomes a local fixed point;
-  // later proposals in the same batch must stabilize every earlier one.
+  // With an empty stabilizer batch, try direct generator involutions; later
+  // proposals must stabilize every earlier unit.
   const bool generator_phase =
       result.status == SymmetryEnumerationStatus::Complete &&
       (configured.fixing_mode == SymmetryFixingMode::GeneratorsOnly ||

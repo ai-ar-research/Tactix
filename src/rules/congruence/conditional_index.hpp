@@ -9,9 +9,8 @@
 
 namespace tactix {
 
-// Index conditional equivalences by condition while preserving their original
-// positions.  A lookup therefore yields exactly the successful j > i sequence
-// of the former nested scan, without visiting unrelated conditions.
+// Conditional equivalences indexed by condition in original position order; a
+// lookup yields the successful j > i sequence of a nested scan.
 class ConditionalIndex {
   using Entry = std::pair<Lit, size_t>;
   std::vector<Entry> ordered_;

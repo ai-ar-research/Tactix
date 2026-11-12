@@ -40,9 +40,7 @@ struct AffineBasisEquationIdentity {
   }
 };
 
-// Complete replay identity for one row of one immutable affine owner.  Source
-// equation ordinals are part of the payload: apply never trusts a row ordinal
-// or a digest supplied by a caller.
+// Replay identity of one owner row, including its source equation ordinals.
 struct AffineBasisRowSelection {
   uint64_t owner_version = 0;
   uint32_t elimination_profile = 1; // ascending external-variable pivots
@@ -51,9 +49,7 @@ struct AffineBasisRowSelection {
   std::vector<int32_t> variables;
   bool rhs = false;
   std::vector<size_t> source_equation_ordinals;
-  // Exact source identity in ordinal order.  This prevents an offer from
-  // rebinding to a freshly recaptured owner whose equation ordinals happen to
-  // derive the same output row.
+  // Source identities in ordinal order, binding the row to its owner.
   std::vector<AffineBasisEquationIdentity> source_equations;
 
   bool operator==(const AffineBasisRowSelection &) const = default;
@@ -84,15 +80,11 @@ struct AffineBasisLiveRequest {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   StructuralJournal records;
-  // A session-owned immutable pre-publication source view.  When supplied,
-  // preparation replays recognition from this view and revalidates only the
-  // exact selected row's sources against the live kernel.
+  // Session-owned source view; only the selected row's sources revalidate.
   const AffineLiveSnapshot *owner = nullptr;
   uint64_t owner_version = 0;
   const AffineBasisRowSelection *selection = nullptr;
-  // Optional sorted exact identities already committed by the controller's
-  // solver-lifetime session.  Planning removes matching rows before it
-  // allocates extension variables or constructs proof/journal events.
+  // Sorted keys already committed; planning removes their rows first.
   const std::vector<AffineBasisConsumedKey> *excluded_keys = nullptr;
   uint64_t maximum_exclusion_work = 0;
 };
@@ -118,16 +110,13 @@ struct AffineBasisLiveResult {
   uint32_t extent_growth = 0;
   bool contradiction = false;
   bool propagation_pending = false;
-  // Existing variables participating in published basis rows and the fresh
-  // extension variables allocated for exact XOR definitions.  The adapter
-  // reports these only; it never changes phase, VMTF, EVSIDS, or scheduling.
+  // Variables of published rows and fresh XOR-definition extensions.
   std::vector<int32_t> existing_theory_variables;
   std::vector<int32_t> introduced_theory_variables;
   AffineBasisRowSelection selection;
 };
 
-// Exact semantic and proof-source identity of one row actually published by a
-// transaction.  Sessions retain these keys after clauses are later removed.
+// Identity of one published row; it outlives the clauses.
 struct AffineBasisConsumedKey {
   std::vector<int32_t> variables;
   bool rhs = false;
@@ -198,9 +187,7 @@ private:
   AffineBasisLiveResult prepared_;
 };
 
-// Construct the exact durable source/provenance identity for a planned row.
-// This helper is pure and shared by the offerer and publisher so duplicate
-// suppression cannot drift from publication semantics.
+// The durable identity of a planned row, shared by offerer and publisher.
 bool affine_basis_consumed_key(
     const affine_semantic_extension::Image &, const AffineLiveSnapshot &,
     const affine_semantic_extension::BasisRow &, AffineBasisConsumedKey &);
@@ -213,14 +200,12 @@ bool affine_basis_row_selection(
     const AffineLiveSnapshot &, const affine_semantic_extension::BasisRow &,
     AffineBasisRowSelection &);
 
-// Pure with respect to the kernel, proof stream, and record stream.  It owns a
-// complete source snapshot and precomputes every proof event, identifier,
-// allocation, arena word, and journal byte needed by publication.
+// Mutation-free: snapshot the source and precompute every proof event, id,
+// arena word and journal byte of publication.
 AffineBasisLiveResult prepare_affine_basis_live(
     Kernel &, const AffineBasisLiveRequest &, AffineBasisLiveTransaction &);
 
-// Revalidate the exact snapshot and transaction identity, then commit the
-// already bounded transaction.  Publication leaves propagation to the caller.
+// Revalidate, then commit the bounded transaction; propagation is left over.
 AffineBasisLiveResult publish_affine_basis_live(
     Kernel &, const AffineBasisLiveRequest &,
     const AffineBasisLiveTransaction &);

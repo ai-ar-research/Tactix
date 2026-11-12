@@ -68,16 +68,14 @@ struct Gf3GaussianActionOfferResult {
 
 RuleEligibility gf3_gaussian_action_guard(const Kernel &);
 
-// Rebuild and authenticate the complete Gaussian plan on every call, then
-// publish exactly the caller-selected identity.  A missing or changed identity
-// is stale and cannot mutate solver, proof, journal, or session state.
+// Rebuild the Gaussian plan and publish the selected identity; a changed
+// identity is Stale and mutates nothing.
 Gf3GaussianActionResult gf3_gaussian_action_apply(
     Kernel &, Gf3GaussianActionSession &, const Gf3GaussianActionLimits &,
     const std::string &identity);
 
-// Mutation-free enumeration of the singular complete-batch identity.  It
-// commits every consequence row, full Source/Scale/Add provenance, every live
-// authentication reference and its exact source clause.
+// Mutation-free offer of the complete-batch identity, which binds every row,
+// its provenance, authentication references and source clauses.
 Gf3GaussianActionOfferResult gf3_gaussian_action_offer(
     Kernel &, const Gf3GaussianActionSession &,
     const Gf3GaussianActionLimits &);

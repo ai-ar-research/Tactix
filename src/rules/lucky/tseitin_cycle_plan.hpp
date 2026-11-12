@@ -1,10 +1,6 @@
-// Pure, bounded discovery for a Tseitin cycle-space X7 candidate.
-//
-// This module deliberately has no Kernel or Proof dependency.  Its input is a
-// complete abstract classification of every occurrence of every edge variable.
-// A successful result is one candidate only: applying the unit can propagate
-// through a concrete XOR encoding, so the caller must rebuild the abstraction
-// and call the planner again before requesting another candidate.
+// Pure bounded discovery of one Tseitin cycle-space X7 candidate from a
+// complete occurrence classification; the caller rebuilds the abstraction
+// after each applied unit.
 #pragma once
 
 #include <cstdint>
@@ -98,30 +94,22 @@ struct Result {
   bool planned() const { return decline == DeclineReason::None; }
 };
 
-// Return at most one deterministic candidate.  The accepted abstraction is a
-// connected odd-charge graph, every edge occurs at exactly two distinct vertex
-// equations, and the complete occurrence classification has no residual touch.
-// Kruskal runs over the ascending available-edge subgraph, so a fixed edge on
-// the canonical root-oblivious cycle cannot hide a later legal cycle.
+// At most one candidate: a connected odd-charge graph whose edges each occur
+// in exactly two vertex equations with no residual touch. Kruskal runs over
+// the ascending available-edge subgraph.
 Result plan_one(const Input &, Limits);
 
-// Recheck the complete structural X7 witness shape against the abstraction.
-// This does not validate clauses of a live CNF; that remains the integration
-// adapter's ordinary X7 obligation.
+// Recheck the structural X7 witness shape against the abstraction.
 bool validate_candidate(const Input &, const Candidate &);
 
-// Bounded form used by the public transaction builder.  `work` reports every
-// structural scan performed; `exhausted` distinguishes a truncated validation
-// from a fully checked invalid candidate.
+// Bounded form: `work` counts every scan, `exhausted` marks truncation.
 bool validate_candidate(const Input &, const Candidate &, uint64_t maximum_work,
                         bool (*interrupted)(void *), void *interrupt_state,
                         uint64_t &work, bool &exhausted,
                         bool &was_interrupted);
 
-// Small semantic oracle used by exhaustive tests and integration diagnostics.
-// assignment[i] is the value of edge i+1.  The function requires pivot=true
-// (the proposed negative unit is falsified) and checks that every vertex parity
-// relation has the same truth value before and after the substitution.
+// Semantic oracle for tests: assignment[i] is edge i+1, pivot is true, and
+// every vertex parity keeps its truth value under the substitution.
 bool preserves_relations_on_falsifying_assignment(
     const Input &, const Candidate &, const std::vector<bool> &assignment);
 

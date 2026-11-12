@@ -26,19 +26,13 @@ struct BceChoice {
   Occ candidate;
 };
 
-// `side == Cand` collects deletion candidates (irredundant, wholly unassigned);
-// `side == Opposite` collects the clauses the blockedness test must quantify
-// over. The distinction is load-bearing and was the fuzz-2204 wrong-SAT:
-// filtering the opposite side by the candidate predicate hides a live clause
-// carrying a root-false literal, which makes another look blocked, and the
-// reconstruction's flip then falsifies a clause nobody deleted.
+// `Cand` collects deletion candidates (irredundant, unassigned); `Opposite` the
+// clauses blockedness quantifies over. Filtering the opposite side by the
+// candidate predicate gives a wrong SAT (fuzz-2204).
 enum class Side { Cand, Opposite };
 
-// Round-local literal→large-clause index over the clauses BCE must see: every
-// live, non-root-satisfied clause, redundant ones included. `Kernel::dense`
-// cannot serve — it carries irredundant clauses only. One arena pass per round,
-// not a per-literal scan: that makes a canonical round O(nlits × arena), an
-// order-of-magnitude tier regression.
+// Round-local literal→large-clause index over every live non-root-satisfied
+// clause, redundant included, built in one arena pass.
 struct BceIndex {
   FlatOccurrenceIndex occ;
 };
@@ -86,9 +80,8 @@ void collect_occs(const Kernel &k, const BceIndex &idx, Lit l, Side side,
   collect_binaries(k, l, side, out);
 }
 
-// Stable until the next formula mutation, like the other semantic payload
-// surfaces. Large clauses appear in arena/literal order; binary pairs appear
-// once in lexicographic endpoint order and contribute both blocking choices.
+// Stable until the next mutation. Large clauses in arena/literal order; binary
+// pairs once in lexicographic order, with both blocking choices.
 void semantic_choices(const Kernel &k, std::vector<BceChoice> &out) {
   out.clear();
   for (const auto [ref, c] : arena_records(k.arena)) {
@@ -119,11 +112,9 @@ void semantic_choices(const Kernel &k, std::vector<BceChoice> &out) {
   }
 }
 
-// Is the candidate `lits` blocked on `blocking`, i.e. is its resolvent with
-// every opposite occurrence tautological? `marked[lit]` = "¬lit occurs in the
-// candidate" — the tautology test reduces to "does D contain a literal whose
-// negation is in C\{blocking}". `marked` is all-zero again on return. With
-// `Charge`, every opposite occurrence visited costs one bce tick.
+// Is `lits` blocked on `blocking` (every resolvent tautological)? `marked[lit]`
+// means ¬lit is in the candidate; cleared on return. `Charge` costs one bce
+// tick per opposite occurrence.
 template <bool Charge>
 inline bool bce_blocked(Kernel &k, Lit blocking, const std::vector<Lit> &lits,
                         const std::vector<Occ> &opposite,
@@ -220,19 +211,15 @@ void bce_literals(const Kernel &k, std::vector<Lit> &out) {
   root_open_literals(k, out);
 }
 
-// One blocking literal, against an already-built index. `marked` is
-// caller-owned scratch, cleared on exit: a fresh vector per literal would be an
-// O(nvars) fill per call, the per-call linear-scratch hazard.
+// One blocking literal against a built index; `marked` is caller scratch.
 ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
                             std::vector<uint8_t> &marked,
                             bool apply_occurrence_limit,
                             bool *interrupted = nullptr) {
   if (!root_literal_open(k, blocking))
     return ApplyResult::NoOp;
-  // Occurrence ceiling (Kernel::bce_occ_limit, cadical `blockocclim`): a
-  // literal in a dense neighbourhood is declined before any scan. Checked on
-  // the raw index sizes so the decision is O(1), and on both sides because
-  // blockedness quantifies over the opposite occurrences too.
+  // Occurrence ceiling (Kernel::bce_occ_limit, cadical `blockocclim`), on raw
+  // index sizes of both sides.
   const uint64_t candidate_occurrences =
       idx.occ.size(blocking) + k.watches.binary_size(blocking);
   const uint64_t opposite_occurrences =
@@ -258,10 +245,8 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   std::vector<Occ> blocked;
 
   for (const Occ &co : cands) {
-    // §6 safe point: the scan is read-only and `marked` is all-zero here, so
-    // leaving now costs only un-applied candidates. The deletions already
-    // collected stay valid — they were tested against the full opposite side,
-    // and deleting can only shrink it.
+    // §6 safe point: the scan is read-only; collected deletions stay valid
+    // since deleting only shrinks the opposite side.
     if (kernel_rule_interrupt(k, k.stats.bce_interrupted)) {
       if (interrupted) *interrupted = true;
       break;
@@ -283,11 +268,8 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   if (blocked.empty())
     return ApplyResult::NoOp;
 
-  // Delete after the scan: deleting mutates the occurrence structures the scan
-  // reads. It only shrinks the opposite side, so every clause found blocked
-  // above is still blocked now. Not polled for termination — this loop is the
-  // rule's output, already bounded by the scan that produced it, and it is the
-  // scan that is unbounded.
+  // Delete after the scan (it only shrinks the opposite side). Not polled: the
+  // loop is bounded by the scan.
   for (const Occ &b : blocked) {
     rest.clear();
     if (b.ref == INVALID_REF) {
@@ -356,17 +338,11 @@ ApplyResult bce_apply(Kernel &k) {
   roots.finish();
   std::vector<uint8_t> marked(2 * k.nvars, 0);
   bool any = false;
-  // Budget-aware batch rule (EffortSpec budget_aware): the policy hands the
-  // remaining ledger in this rule's currency (bce_ticks) and the round stops
-  // mid-way rather than being metered after the fact (Vivify's idiom).
+  // Budget-aware batch rule: stop mid-round at the policy's bce_ticks ledger.
   const uint64_t tick_start = k.stats.bce_ticks;
-  // Repetition filter over the touched-epoch substrate; cadical keeps a
-  // per-literal `block` flag with the same lifecycle (block.cpp:730-733).
-  // BCE and CCE consume the DELETION side, which is why `Kernel::removed`
-  // exists as a second array: a clause becomes blocked on l
-  // either because it appeared or because an opposite occurrence went away, and
-  // filtering on adds alone drops the second case — the one BCE mostly lives
-  // on. Stamps are per variable, coarser than cadical's polarity, which is
+  // Repetition filter over the touched-epoch substrate (cadical `block` flag,
+  // block.cpp:730-733). BCE also consumes `Kernel::removed`: a clause becomes
+  // blocked when an opposite occurrence goes away. Per-variable stamps are
   // conservative. N1: `bce_literals` and `bce_try` stay complete.
   const bool filter = k.touch_filter;
   const bool query_domain = filter && !complete_domain;
@@ -389,10 +365,7 @@ ApplyResult bce_apply(Kernel &k) {
       stopped_at = li;
       break;
     }
-    // §6 termination is not budget exhaustion: `work_budget` can be 0
-    // (unmetered), so without this poll a round runs to completion after an
-    // interrupt arrives. Taken at the budget cut's point so the tail is
-    // re-armed by the same resume path.
+    // §6 termination, cut at the budget point so the tail is re-armed.
     if (kernel_rule_interrupt(k, k.stats.bce_interrupted)) {
       stopped_at = li;
       break;
@@ -413,9 +386,7 @@ ApplyResult bce_apply(Kernel &k) {
       break;
     }
   }
-  // Resume: re-arm the literals the budget never reached, then advance the
-  // watermark. This rule is budget-cut in practice (budget_aware, a 20 per
-  // mille ledger share), so the path is reachable under DefaultPolicy.
+  // Resume: re-arm unreached literals, then advance the watermark.
   for (size_t li = filter ? stopped_at : lits.size(); li < lits.size(); li++) {
     if (!kernel_changed_since(k, var_of(lits[li]), wm))
       continue;
@@ -431,9 +402,7 @@ ApplyResult bce_apply(Kernel &k) {
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-// Semantic payloads are opaque ordinals in a state snapshot. This avoids
-// aliasing a 32-bit arena reference with a 32-bit binary partner while still
-// naming every individual (clause, blocking-literal) choice.
+// Opaque snapshot ordinals naming every (clause, blocking-literal) choice.
 static constexpr uint64_t BCE_SEMANTIC_BASE = uint64_t{1} << 63;
 
 static uint32_t bce_semantic_instances(Kernel &k, uint64_t *out,

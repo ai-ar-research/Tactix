@@ -2,8 +2,6 @@
 
 #include "rules/semantic_extension/gf3_certificate_common.hpp"
 
-#include <algorithm>
-#include <climits>
 #include <map>
 #include <utility>
 

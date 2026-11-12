@@ -11,9 +11,8 @@ bool lucky_model_valid(const Kernel &k, const std::vector<uint8_t> &assignment,
                        Charge &&charge) {
   if (assignment.size() != k.nvars) return false;
   const auto true_lit = [&](Lit lit) {
-    // Publication omits unassigned retired variables. A private completion
-    // may choose their values, but those values cannot satisfy the published
-    // live CNF (for example a redundant clause retained by caller-owned BVE).
+    // Publication omits unassigned retired variables, so their private values
+    // cannot satisfy a live clause.
     if (kernel_var_retired(k, var_of(lit)) && !k.value(lit)) return false;
     return bool(assignment[var_of(lit)]) != negated(lit);
   };
@@ -48,10 +47,9 @@ inline bool lucky_model_valid(const Kernel &k,
                               const std::vector<uint8_t> &assignment) {
   return lucky_model_valid(k, assignment, [](uint64_t) { return true; });
 }
-// Private completion of a partial signed assignment (-1/0/+1 by variable):
-// root values are imposed, then binary and large clauses are propagated in
-// rounds. Returns false on a falsified clause or an interrupt. Bounded rounds
-// keep a chained encoding's completion finite under a caller-dosed limit.
+// Private completion of a signed assignment (-1/0/+1): impose root values,
+// then propagate binary and large clauses for at most `rounds` rounds. False
+// on a falsified clause or an interrupt.
 inline bool lucky_assign_literal(std::vector<int8_t> &assignment, Lit lit) {
   const Var variable = var_of(lit);
   const int8_t value = negated(lit) ? -1 : 1;
@@ -127,20 +125,13 @@ lucky_boolean_assignment(const std::vector<int8_t> &values) {
 // admitted publication work. Do not poll or stop partway through publication.
 inline void lucky_publish_model(Kernel &k,
                                 const std::vector<uint8_t> &assignment) {
-  // A whole-CNF check certifies this total assignment as a model, but does
-  // not make its individual decisions BCP consequences. After a partial
-  // restart removes a later satisfying decision, a clause watched by an
-  // earlier false literal can become unit. Treat this trail like an
-  // off-fixpoint Decide sequence so search backtracking rescans the retained
-  // prefix before claiming another propagation fixpoint.
+  // A model check does not make the decisions BCP consequences: taint the
+  // trail so backtracking rescans the retained prefix.
   k.trail_tainted = true;
   for (Var v = 0; v < k.nvars; ++v)
     if (!k.value(make_lit(v, false)) && !kernel_var_retired(k, v))
       kernel_assign_decision(k, make_lit(v, assignment[v] == 0));
-  // lucky_model_valid checked every live binary and large clause against this
-  // complete assignment. A binary-only probe may have left a large-watch scan
-  // debt below the old trail end; publishing the validated model discharges
-  // that debt as well as the ordinary propagation cursor.
+  // The validated model also discharges any large-watch scan debt.
   k.propagate_head = static_cast<uint32_t>(k.trail.size());
   k.binary_only_head = UINT32_MAX;
 }

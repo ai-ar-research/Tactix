@@ -28,8 +28,7 @@ struct CongruenceParameters {
   uint32_t and_arity_limit = AND_ARITY_DEFAULT;
   size_t gate_count_limit = GATE_COUNT_DEFAULT;
   uint32_t xor_arity_limit = XOR_ARITY_DEFAULT;
-  // The ordinary pass reproduces the reference dense-resume order. An extra
-  // pass may retain existing order while keeping every inference and cleanup.
+  // The ordinary pass keeps the reference dense-resume order.
   CongruenceBinaryWatchOrder binary_watch_order =
       CongruenceBinaryWatchOrder::Canonical;
 

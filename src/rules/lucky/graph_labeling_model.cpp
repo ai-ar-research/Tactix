@@ -479,8 +479,7 @@ ApplyResult graph_labeling_model_apply(Kernel &k) {
   k.stats.graph_labeling_vertices = shape.vertices;
   k.stats.graph_labeling_separation = shape.separation;
   const uint64_t n = shape.vertices, square = n * n;
-  // Conservatively cover retained graph data, depth frames, degree/order
-  // arrays, swap states and worst-case vector growth in all search helpers.
+  // Covers graph data, frames, degree/order arrays, swap states and growth.
   const uint64_t graph_bytes = 16 * square + 64 * n;
   const uint64_t search_bytes = 16 * square + 256 * n;
   if (graph_bytes > p.workspace_bytes || search_bytes > p.workspace_bytes - graph_bytes) {
@@ -532,9 +531,8 @@ ApplyResult graph_labeling_model_apply(Kernel &k) {
       partial[var_of(primary)] = positive ? 1 : -1;
     }
   }
-  // Publication preparation above consumes reserved work. Completion gets only
-  // the remaining unreserved quota; its phase ceiling must account for that
-  // already-performed reserved work rather than subtracting reserve twice.
+  // Completion gets only the unreserved quota; its ceiling counts the reserved
+  // work already performed once.
   const uint64_t publication_preparation = used - publication_start;
   std::vector<uint8_t> model;
   if (!best.score.first && p.work[size_t(Stage::Completion)]) {

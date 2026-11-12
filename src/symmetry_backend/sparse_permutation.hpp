@@ -36,10 +36,8 @@ struct SparsePermutation {
   }
 };
 
-// DejaVu supplies a superset of the support, possibly unordered, duplicated or
-// containing fixed points. Its adapter convention
-// also permits -1/null support for a dense callback. Missing support metadata
-// therefore requests a dense scan, never an implicit identity assumption.
+// DejaVu's support may be unordered, duplicated or hold fixed points, or be
+// absent (-1/null), which requests a dense scan.
 inline bool capture_permutation_prefix(int domain, const int *permutation,
                                       int support_size, const int *support,
                                       uint32_t prefix,

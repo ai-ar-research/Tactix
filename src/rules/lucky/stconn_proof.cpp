@@ -190,8 +190,8 @@ static bool detect_stconn_shape(const Kernel &k, uint32_t maximum_width,
     if (columns <= 2 || columns > maximum_columns)
       continue;
 
-    // Exact raw clause counts for the owner generator.  This rejects almost
-    // every unrelated formula before inspecting the live clause database.
+    // Exact raw clause counts of the owner's generator reject most formulas
+    // early.
     const uint64_t binary = 14 * width * columns - 13 * width -
                             13 * columns + 2 * (width == 3) +
                             2 * (columns == 3);

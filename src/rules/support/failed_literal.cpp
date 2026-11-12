@@ -37,32 +37,6 @@ static void trace_backbone_candidates(const Kernel &k, const char *event,
   event_trace_detail(k, "backbone_hash_hi",
                      static_cast<int32_t>(hash >> 32));
 }
-
-// The Backbone effort journals are dormant unless TACTIX_BACKBONE_TICKS_TRACE
-// names a path and SAT_BACKBONE_CONFLICT, when set, names the current conflict
-// count. `out` is opened once, at that path plus `suffix`, with two headers.
-static std::FILE *backbone_journal(const Kernel &k, std::FILE *&out,
-                                   const char *suffix, const char *title,
-                                   const char *columns) {
-  const char *bt_path = std::getenv("TACTIX_BACKBONE_TICKS_TRACE");
-  if (!bt_path)
-    return nullptr;
-  const char *bt_conflict = std::getenv("SAT_BACKBONE_CONFLICT");
-  if (!*bt_path ||
-      (bt_conflict && *bt_conflict &&
-       std::strtoull(bt_conflict, nullptr, 10) != k.stats.conflicts))
-    return nullptr;
-  if (!out) {
-    out = std::fopen((std::string(bt_path) + suffix).c_str(), "w");
-    if (out) {
-      std::setvbuf(out, nullptr, _IOLBF, 0);
-      std::fputs(title, out);
-      std::fputs(columns, out);
-    }
-  }
-  return out;
-}
-
 #endif
 
 RuleEligibility failed_literal_guard(const Kernel &k) {
@@ -119,12 +93,9 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
   return true;
 }
 
-// Analyze a binary conflict on the accumulated Backbone trail.  For an
-// assignment `lit`, Tactix stores the *false* other endpoint of its binary
-// reason in `Assigned::reason`.  Walking the trail backwards and stopping when
-// that predecessor has already been reached is therefore the Kissat/CaDiCaL
-// binary-UIP algorithm; the repeated false endpoint itself is the derived
-// unit.
+// Binary UIP on the Backbone trail: `Assigned::reason` holds the false other
+// endpoint, so walking back until a predecessor repeats is the Kissat/CaDiCaL
+// binary-UIP; the repeated endpoint is the unit.
 static Lit chained_binary_uip(Kernel &k, size_t speculative_begin) {
   assert(k.conflict_valid && k.conflict_ref == INVALID_REF);
   std::vector<uint8_t> seen(k.nvars, 0);
@@ -137,9 +108,8 @@ static Lit chained_binary_uip(Kernel &k, size_t speculative_begin) {
     if (!seen[v])
       continue;
     const Assigned &a = k.assigned[v];
-    // Backbone propagation suppresses reason jumping, so every implication on
-    // this slice names its actual binary antecedent.  A decision/root marker
-    // means no binary UIP was found; fail closed rather than emit a unit.
+    // Reason jumping is off here; a decision/root marker means no UIP: fail
+    // closed.
     if (!a.binary || a.jumped || a.reason == DECISION_REASON ||
         a.reason == UNIT_REASON)
       return INVALID_LIT;
@@ -154,19 +124,13 @@ static Lit chained_binary_uip(Kernel &k, size_t speculative_begin) {
   return INVALID_LIT;
 }
 
-// Kissat's Backbone trail is deliberately separate from ordinary search
-// backtracking: even a derived unit stamped at saved level zero remains
-// speculative until the whole round finishes.  Clear the complete round
-// suffix by position, then replay the accumulated unit batch at root.  A
-// generic backtrack-to-zero would retain those temporary level-zero entries.
-// The retraction itself is the kernel's, not this rule's: unassigning a
-// literal has to move the ranking structures with the value and the counters.
+// Kissat's Backbone trail stays speculative until the round ends, even at saved
+// level zero: clear the round suffix by position (kernel retraction), then
+// replay the unit batch at root.
 static void rewind_chained_binary_round(Kernel &k, size_t speculative_begin,
                                         uint32_t unflushed_root_begin) {
   kernel_unwind_speculation(k, static_cast<uint32_t>(speculative_begin));
-  // The round's level-zero stamps are retracted with everything else, so the
-  // pending-root marker goes back to what the round inherited; the replay
-  // below re-raises it for the units it actually commits.
+  // Restore the inherited pending-root marker; the replay re-raises it.
   k.unflushed_root = unflushed_root_begin;
 }
 
@@ -193,22 +157,16 @@ ApplyResult failed_literal_apply_chained_binary(
   std::vector<Var> candidate_order;
   kernel_vars_in_import_order(k, candidate_order);
 
-  // `flags.backbone[01]` is persistent in Kissat.  A computation offers its
-  // surviving priority polarities first, then every other active polarity.
-  // The local stack is retained between rounds: successful assumptions prune
-  // it, while literals falsified by those assumptions become the next round's
-  // candidates.  Rebuilding a fresh var/polarity scan each round loses both
-  // pieces of the reference algorithm.
+  // Kissat's persistent `flags.backbone[01]`: offer surviving priority
+  // polarities first, then the rest. The stack persists between rounds: proved
+  // assumptions prune it, falsified literals become the next candidates.
   std::vector<Lit> candidates;
   candidates.reserve(2 * candidate_order.size());
   for (int prioritized = 1; prioritized >= 0; prioritized--) {
     for (const Var v : candidate_order) {
       if (kernel_var_retired(k, v))
         continue;
-      // Kissat's ACTIVE_VAR schedule excludes variables fixed at root.  They
-      // are not retired in Tactix's representation, so filter them explicitly
-      // when rebuilding a later computation instead of carrying two dead
-      // polarities through its first round.
+      // Kissat's ACTIVE_VAR schedule excludes root-fixed variables.
       if (k.value(make_lit(v, false))) {
         k.backbone_priority[v] = 0;
         continue;
@@ -227,17 +185,6 @@ ApplyResult failed_literal_apply_chained_binary(
   event_trace_detail(k, "backbone_computation",
                      static_cast<int64_t>(computation));
   trace_backbone_candidates(k, "backbone_scheduled", candidates);
-  // Scheduled-list rows share the dormant per-probe effort journal so one
-  // campaign can compare candidate order and priority bits across solvers.
-  static std::FILE *sched_out = nullptr;
-  if (std::FILE *out = backbone_journal(
-          k, sched_out, ".sched", "# backbone-scheduled\t1\n",
-          "# solver\tordinal\texternal\tprioritized\n"))
-    for (size_t i = 0; i < candidates.size(); i++) {
-      const Lit lit = candidates[i];
-      std::fprintf(out, "tactix\t%zu\t%d\t%u\n", i, kernel_externalize(k, lit),
-                   !!(k.backbone_priority[var_of(lit)] & (1u << negated(lit))));
-    }
 #endif
 
   for (uint32_t round = 0; round < round_limit; round++) {
@@ -255,10 +202,8 @@ ApplyResult failed_literal_apply_chained_binary(
 #endif
     const size_t speculative_begin = k.trail.size();
     const uint32_t unflushed_root_begin = k.unflushed_root;
-    // A proved unit and the id of its lemma. `Kernel::unit_ids[v]` must name
-    // the clause for the literal that IS root-true (corpus 023), so the id
-    // rides the batch and is installed at assert time, not at record time:
-    // between the two the unit is only speculative.
+    // A proved unit and its lemma id; the id is installed at assert time, when
+    // the literal is root-true (corpus 023).
     std::vector<std::pair<Lit, uint64_t>> units;
     std::vector<Lit> retained;
     retained.reserve(candidates.size());
@@ -296,19 +241,6 @@ ApplyResult failed_literal_apply_chained_binary(
       retained.push_back(p);
       const uint32_t saved_level = k.level;
       k.stats.*stats.probed += 1;
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      // Standalone per-probe effort journal for budget-parity diagnosis;
-      // dormant unless TACTIX_BACKBONE_TICKS_TRACE names a path.
-      static std::FILE *bt_out = nullptr;
-      static uint64_t bt_ordinal = 0;
-      if (std::FILE *out = backbone_journal(
-              k, bt_out, "", "# backbone-probe-ticks\t1\n",
-              "# solver\tordinal\texternal\tticks_delta\tbudget\n"))
-        std::fprintf(out, "tactix\t%llu\t%d\t%llu\t%llu\n",
-                     (unsigned long long)bt_ordinal++, kernel_externalize(k, p),
-                     (unsigned long long)(k.stats.backbone_ticks - meter_begin),
-                     (unsigned long long)k.work_budget);
-#endif
       kernel_assign_decision(k, p);
       const bool saved_jump_reasons = k.jump_reasons;
       k.jump_reasons = false;
@@ -334,14 +266,10 @@ ApplyResult failed_literal_apply_chained_binary(
       emit_rup_lemma(k, id, &unit, 1);
       units.emplace_back(unit, id);
 
-      // The derived unit is sound, but remains part of the speculative
-      // Backbone trail through the rest of this round.  In particular, a
-      // falsified candidate sees the saved assumption level here, exactly as
-      // in Kissat; committing at root early changes candidate retention.
-      //
-      // At saved level zero the stamp IS a root assertion, so the id belongs
-      // here by the same assert-time rule.  Above the root the literal is not a root value and the id
-      // stays with the batch until the replay commits it.
+      // The unit stays on the speculative trail for the rest of the round
+      // (Kissat's saved assumption level). At saved level zero the stamp is a
+      // root assertion, so the id is installed now; otherwise the replay
+      // installs it.
       if (!saved_level)
         k.unit_ids[var_of(unit)] = id;
       kernel_assign(k, unit, saved_level, UNIT_REASON, false);
@@ -360,9 +288,8 @@ ApplyResult failed_literal_apply_chained_binary(
       retained.insert(retained.end(), candidates.begin() + next,
                       candidates.end());
 
-    // Match Kissat's post-round flush: candidates satisfied by the retained
-    // trail are retired, while falsified non-root candidates survive in their
-    // existing order for the next round.
+    // Kissat's post-round flush: satisfied candidates retire, falsified
+    // non-root ones survive in order.
     candidates.clear();
     candidates.reserve(retained.size());
     if (!inconsistent) {
@@ -391,9 +318,8 @@ ApplyResult failed_literal_apply_chained_binary(
         const Var v = var_of(unit);
         const int8_t value = k.value(unit);
         if (value < 0) {
-          // The batch contradicts the root. Refuting here without the lemma
-          // the two units resolve to leaves an UNSATISFIABLE answer whose
-          // proof never derives the empty clause (corpus 023).
+          // The batch contradicts the root: derive the empty clause (corpus
+          // 023).
           kernel_emit_empty(k);
           k.unit_ids[v] = proved.second;
           return ApplyResult::Unsat;
@@ -403,10 +329,8 @@ ApplyResult failed_literal_apply_chained_binary(
         if (!value)
           kernel_assign_unit(k, unit);
       }
-      // Kissat's `backbone_propagate` charges the technique-private meter,
-      // but the post-round root replay uses `kissat_probing_propagate` and
-      // charges only the shared probing/global meters.  The scheduler's sink
-      // spans the complete Tactix rule call, so pause it around that replay.
+      // Kissat's `backbone_propagate` charges the private meter but the replay
+      // (`kissat_probing_propagate`) only the shared ones; pause the sink.
       uint64_t *const saved_tick_sink = k.tick_sink;
       k.tick_sink = nullptr;
       const ApplyResult replay = propagate_apply(k);
@@ -447,21 +371,15 @@ ApplyResult failed_literal_apply(Kernel &k,
     return ApplyResult::Unsat;
   k.stats.*stats.rounds += 1;
   std::vector<Lit> units;
-  // The public candidate collector remains available for N1 enumeration, but
-  // this canonical one-round application can consume the same var/polarity
-  // order directly.  Units are deliberately committed only after the scan,
-  // so probing one literal cannot change a later candidate's eligibility; a
-  // per-variable local bit is therefore enough to suppress the opposite
-  // polarity after a failed probe.  This removes two dense temporary arrays
-  // at the post-preprocessing memory high-water mark.
+  // The canonical one-round application walks the var/polarity order directly.
+  // Units commit after the scan, so a per-variable bit suppresses the opposite
+  // polarity after a failed probe.
   for (Var v = 0; v < k.nvars; v++) {
     if (k.value(make_lit(v, false)) != 0)
       continue;
     bool forced = false;
     for (int neg = 0; neg <= 1 && !forced; neg++) {
-      // Probing propagation may derive a true level-zero fact below the
-      // assumption.  Backtracking keeps it, so close that root debt before
-      // starting another independent assumption episode.
+      // Close root facts kept below the assumption before the next episode.
       if (inprocess_reach_root(k))
         return ApplyResult::Unsat;
       const Lit p = make_lit(v, neg != 0);

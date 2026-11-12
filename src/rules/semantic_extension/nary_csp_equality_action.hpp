@@ -47,9 +47,8 @@ struct NaryCspEqualityActionResult {
 
 RuleEligibility nary_csp_equality_action_guard(const Kernel &);
 
-// Missing neutral ownership is captured into a detached session and installed
-// only after equality publication commits. All declines preserve both
-// sessions, Kernel, proof, provenance and the structural action sequence.
+// A missing owner is captured detached and installed after the commit; every
+// decline leaves all state unchanged.
 NaryCspEqualityActionResult nary_csp_equality_action_apply(
     Kernel &, NaryCspRelationOwnerSession &, NaryCspEqualitySession &,
     const NaryCspEqualityLimits &,

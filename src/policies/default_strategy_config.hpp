@@ -41,13 +41,11 @@ template <class Parameters> struct DefaultEnabledModel {
   Parameters parameters;
 };
 
-// Canonical configuration of the shipped strategy.  A value belongs here when
-// changing it can alter which DefaultPolicy action runs, when it runs, how much
-// work it receives, or which candidates it keeps.  Constants intrinsic to data
-// representation and diagnostics deliberately do not belong here.
-//
-// Defaults cite Kissat 4.0.4 unless a comment says otherwise.  The executable
-// call-site evidence is maintained in docs/dev/implementation-notes.md.
+// Canonical configuration of the shipped strategy: a value belongs here when it
+// can change which DefaultPolicy action runs, when, with how much work, or
+// which candidates it keeps; representation and diagnostic constants do not.
+// Defaults cite Kissat 4.0.4 unless noted; call-site evidence is in
+// docs/dev/implementation-notes.md.
 struct DefaultStrategyConfig {
   static strategy::OnlineStrategyProgram reference_structured_root_program();
   static std::vector<strategy::OnlineStrategyStage>
@@ -60,8 +58,7 @@ struct DefaultStrategyConfig {
       const strategy::OnlineStrategyStage &, bool prior_stage_progress,
       bool prior_unique_literal_amo_progress,
       bool prior_nonforcing_cut_progress);
-  // Named compatibility constants are kept beside the typed fields so tests
-  // and design probes can cite a default without duplicating its literal.
+  // Named defaults that tests and probes can cite without a literal.
   static constexpr uint64_t RESTART_INTERVAL_DEFAULT = 1;
   static constexpr double RESTART_MARGIN_DEFAULT = 1.10;
   static constexpr double FAST_EMA_WINDOW_DEFAULT = 33.0;
@@ -72,8 +69,7 @@ struct DefaultStrategyConfig {
   static constexpr uint32_t BUMP_REASON_LIMIT_DEFAULT = 10;
   static constexpr double BUMP_REASON_RATE_DEFAULT = 10.0;
   static constexpr uint32_t CHRONOLOGICAL_LEVELS_DEFAULT = 100;
-  // Kissat `walkeffort=50`.  Walk uses the same per-entry step currency now,
-  // so the former CaDiCaL-derived 560 conversion is no longer appropriate.
+  // Kissat `walkeffort=50`, in Walk's per-entry step currency.
   static constexpr uint64_t WALK_PERMILLE_DEFAULT = 50;
   static constexpr uint64_t REDUCE_INTERVAL_DEFAULT = 1000;
   static constexpr uint64_t REDUCE_ARITHMETIC_DEFAULT = 2000;
@@ -87,19 +83,15 @@ struct DefaultStrategyConfig {
   static constexpr uint64_t INPROCESS_ELIMINATE_INTERVAL_DEFAULT = 500;
   static constexpr uint64_t INPROCESS_PROBE_INTERVAL_DEFAULT = 100;
   static constexpr uint64_t INPROCESS_MINIMUM_EFFORT_DEFAULT = 10000000;
-  // Kissat's default `mineffort=10`, in the `SET_EFFORT_LIMIT` reference
-  // currency used by its startup probing pipeline.
+  // Kissat `mineffort=10`, in SET_EFFORT_LIMIT's reference currency.
   static constexpr uint64_t INPROCESS_PREPROCESS_EFFORT_DEFAULT = 10000000;
   static constexpr uint32_t INPROCESS_PHASE_ROUNDS_DEFAULT = 2;
-  // Kissat `substituterounds=2`: this is a per-call SCC closure cap, distinct
-  // from `proberounds`, which repeats the complete probing pipeline.
+  // Kissat `substituterounds=2`: a per-call SCC closure cap.
   static constexpr uint32_t SUBSTITUTE_ROUNDS_DEFAULT = 2;
   static constexpr uint64_t FACTOR_INITIAL_EFFORT_DEFAULT = 700000000ull;
   static constexpr uint64_t SMALL_CLAUSE_LIMIT_DEFAULT = 100000;
   static constexpr uint32_t BIG_BINARY_FRACTION_PERMILLE_DEFAULT = 990;
-  // Satsuma 1.3's submitted symmetry profile admits graph components through
-  // five million vertices.  Keep the reference value named here; callers can
-  // still choose any smaller or unbounded value per invocation.
+  // Satsuma 1.3 admits graph components up to five million vertices.
   static constexpr uint64_t SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT = 5'000'000;
   static constexpr uint64_t SYMMETRY_GRAPH_EDGE_LIMIT_DEFAULT = 1'000'000;
   static constexpr uint64_t SYMMETRY_GENERATOR_LIMIT_DEFAULT = 128;
@@ -115,9 +107,9 @@ struct DefaultStrategyConfig {
     uint64_t random_sequence_length = RANDOM_SEQUENCE_LENGTH_DEFAULT;
     uint64_t random_seed = RANDOM_SEED_DEFAULT;
     double logarithm_offset = 9.0; // Kissat logarithmic schedule.
-    // Focused decision-phase override indexed by
-    // (mode switches / switch span) modulo the pattern length.  Zero selects
-    // the saved phase, +/-1 forces the initial/opposite phase (decide.c).
+    // Focused decision-phase override indexed by (mode switches / switch span)
+    // modulo the pattern length: zero selects the saved phase, +/-1 forces the
+    // initial/opposite phase (decide.c).
     uint32_t focused_phase_switch_span = 2;
     std::vector<int8_t> focused_phase_pattern{0, 1, 0, -1, 0, 0, 0, 0};
     bool random_sequences = true;
@@ -189,9 +181,7 @@ struct DefaultStrategyConfig {
     uint32_t victim_denominator =
         strategy::ReduceParameters::VICTIM_DENOMINATOR_DEFAULT;
     bool protect_tiers = true;
-    // The ordinary scheduled reduction computes compactness from the live
-    // inactive-variable ratio. This is the profile for an explicit canonical
-    // Reduce action through the shared strategy interface.
+    // The profile for an explicit canonical Reduce action.
     bool canonical_compact_collection = false;
     bool bookkeeping = true;
     bool square_root_cadence = true;
@@ -219,8 +209,7 @@ struct DefaultStrategyConfig {
     bool walk_warmup = true;
     bool walk_use_branch_seed = true;
     uint64_t walk_random_seed = 0;
-    // CCAnr/CryptoMiniSat-derived configuration-checking profile. The default
-    // policy selects it from complementary-ternary structure, never a name.
+    // CCAnr/CryptoMiniSat configuration checking, chosen from structure.
     uint64_t configuration_checking_walk_permille = 1000;
     uint64_t configuration_checking_minimum_step_budget = 200000000;
     uint64_t configuration_checking_conflict_interval = 44000;
@@ -269,9 +258,7 @@ struct DefaultStrategyConfig {
     bool enabled = true;
     strategy::IndependentSetModelParameters parameters = [] {
       strategy::IndependentSetModelParameters p;
-      // The stable-extension projection allocates incidence state over the
-      // complete argument universe.  Keep the default recognizer bounded;
-      // public callers can explicitly pose a larger maximum.
+      // The stable-extension projection is bounded by default.
       p.maximum_vertices = 4096;
       return p;
     }();
@@ -302,11 +289,10 @@ struct DefaultStrategyConfig {
       p.seed = 0;
       return p;
     }();
-    // Source capture and all trajectory work occur only at the initial root
-    // and in natural full-restart root windows; the service never requests a
-    // restart. The interval follows the shared Kissat-derived root service
-    // schedule; each run spends the owner's full stage doses
-    // (docs/dev/implementation-notes.md, S5 Lucky).
+    // Source capture and trajectory work run only at the initial root and
+    // natural full-restart roots, without requesting restarts; the interval
+    // follows the shared Kissat-derived root schedule and each run spends the
+    // owner's stage doses (docs/dev/implementation-notes.md, S5 Lucky).
   } graph_labeling_model;
   struct RamseyStartup {
     bool enabled = true;
@@ -314,17 +300,16 @@ struct DefaultStrategyConfig {
         10'000, 200, 40'000, 10'000'000,
         10'000'000, 100'000, 1'000'000, 200'000};
   } ramsey_startup;
-  // The startup counting refutation (count preservation). The DSR follow-on
-  // solve turns it off: a DSR proof cannot spell it.
+  // Startup counting refutation; the DSR follow-on disables it (no DSR
+  // spelling).
   struct StartupCount {
     bool enabled = true;
   } startup_count;
 
   struct AffineRootClosure {
-    // The checked Rank263 causal profile bounds this startup-only first
-    // vertical.  At execution, clause/group/source/node/extent allowances are
-    // derived from the exact live formula; these ceilings bound admission and
-    // certificate construction rather than identifying a benchmark.
+    // The checked Rank263 profile bounds this startup-only vertical; execution
+    // derives clause/group/source/node/extent allowances from the live formula,
+    // and these ceilings bound admission and certificate construction.
     bool enabled = true;
     uint64_t maximum_clauses = 12'000;
     uint64_t maximum_snapshot_work = 1'000'000;
@@ -346,20 +331,15 @@ struct DefaultStrategyConfig {
       LazySource = 4,
       LazyMinimal = 5,
     };
-    // Production switch.  The service performs instance-independent bounded
-    // authentication and is still explicitly disableable for attribution and
-    // regression controls.  Promotion of this candidate remains subject to
-    // the proof, fuzz, performance and full regression gates.
+    // Production switch, disableable for attribution and regression controls.
     bool enabled = true;
-    // Retain authenticated source rows in the persistent matrix, but publish
-    // the smallest checked clausal reason only when conflict analysis reaches
-    // the deferred affine implication.  The eager source-support mode remains
-    // available as an explicit attribution/control profile.
+    // Keep authenticated source rows in the matrix but publish the smallest
+    // checked reason only when analysis reaches the deferred implication; eager
+    // source support is an explicit control profile.
     ReasonMode reason_mode = ReasonMode::LazyMinimal;
-    // CryptoMiniSat src/solverconf.h GaussConf source defaults (its README
-    // advertises older smaller dimensions), pinned at 2bf89cfb3e126e559d472388486327813f735f7e.
-    // Tactix additionally caps retained
-    // bytes/work and presently owns one matrix; component partitioning is open.
+    // CryptoMiniSat src/solverconf.h GaussConf defaults, pinned at
+    // 2bf89cfb3e126e559d472388486327813f735f7e. Tactix also caps retained
+    // bytes/work and owns one matrix.
     uint32_t maximum_rows = 100000;
     uint32_t maximum_row_width = 100000;
     uint32_t maximum_arity = 8; // Existing authenticated CNF recognizer capacity.
@@ -367,29 +347,24 @@ struct DefaultStrategyConfig {
     double minimum_usefulness = 0.2;
     uint64_t autodisable_minimum_calls = 200;
     uint64_t autodisable_check_every = 1024;
-    // Zero inherits the existing preprocessing/search effort quantum. The
-    // retained-source cap covers the full authenticated matrix transaction;
-    // the 100 MB root certificate-journal cap is narrower than two checked
-    // CryptoMiniSat XOR families' 143--218 MB preflight requirements. This
-    // bounded dose was measured opt-in before this default-on candidate; the
-    // full release gates still decide promotion.
+    // Zero inherits the preprocessing/search effort quantum. The
+    // retained-source cap covers the whole matrix transaction; the 100 MB root
+    // journal cap is below two CryptoMiniSat XOR families' 143--218 MB
+    // preflight needs.
     uint64_t maximum_initialization_work = 0;
     uint64_t maximum_service_work = 0;
     uint64_t maximum_retained_bytes = 256'000'000;
   } affine_search;
 
   struct Inprocess {
-    // Production values are formula-shape invariant. These typed switches
-    // remain explicit diagnostic arms and are never selected by classification.
+    // Production values are shape invariant; these are diagnostic arms.
     bool bve_enabled = true;
     bool vivify_enabled = true;
     bool factor_enabled = true;
     bool sweep_enabled = true;
     bool factor_repeated_enabled = true;
     bool preprocess_only = false;
-    // SC2024's bounded startup pass. It composes the existing forward
-    // subsumption and BVE proof rules; the policy owns candidate order,
-    // retry lifetime and limits.
+    // SC2024's bounded startup pass composing forward subsumption and BVE.
     bool initial_fast_elimination = true;
     uint32_t initial_fast_elimination_rounds = 4;
     strategy::BveParameters initial_fast_elimination_parameters = [] {
@@ -404,63 +379,49 @@ struct DefaultStrategyConfig {
       p.traversal = strategy::BveTraversal::FastEliminate;
       return p;
     }();
-    // Kissat creation order is the production default.  Enabling this switch
-    // is the explicit CaDiCaL VMTF/phase-order diagnostic arm; classification
-    // and benchmark identity never select it.
+    // Explicit CaDiCaL VMTF/phase-order arm; Kissat order is the default.
     bool cadical_arena_ordering_enabled = false;
-    // The shipped program is the exact historical pipeline.  Callers may
-    // reorder, omit or repeat occurrences; false makes omission authoritative.
+    // The shipped pipeline; callers may reorder, omit or repeat occurrences.
     std::vector<strategy::InprocessStep> program =
         strategy::reference_inprocess_program();
-    // Formula-independent root-only SR composition.  It executes once inside
-    // the selected startup boundary before the ordinary slot program. The shared
-    // online representation keeps producer parameters, per-application
-    // propagation, repetition, budgets and stop behavior explicit.
-    // False retains the reference ordering after early Lucky at Probe entry.
+    // Formula-independent root-only SR composition, run once at the selected
+    // startup boundary before the slot program, with producer parameters,
+    // propagation, repetition, budgets and stops explicit. False keeps the
+    // reference order after early Lucky at Probe entry.
     bool structured_root_before_lucky = true;
-    // Diagnostic selection of SR-containing startup programs. Disabling them
-    // retains independent stages, including the Lucky-8 affine opportunity.
+    // Diagnostic selection of SR-containing startup programs.
     bool structured_root_symmetry_enabled = true;
-    // Preserve the parser's activation and import seed after structured root
-    // preprocessing. The optional live-formula reseed is deterministic but
-    // does not reproduce Satsuma's residual clause presentation or import
-    // order; callers can still select it explicitly.
+    // Keep the parser's activation and import seed after structured
+    // preprocessing; the optional live-formula reseed does not reproduce
+    // Satsuma's residual presentation.
     bool structured_root_residual_search_handoff = false;
-    // The root schedule charges every producer against this cumulative hard
-    // ceiling. A producer may finish an already admitted atomic certificate
-    // batch, and its complete cost remains charged across later stages.
+    // Cumulative hard ceiling charged by every root producer.
     strategy::WorkLimit structured_root_sr_discovery_budget =
         strategy::WorkLimit::bounded(SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT);
-    // Satsuma's structured detectors share max(16 * variables, 16 Mi) work.
-    // Give each distinct small-domain producer one such zero-yield
-    // opportunity; effective formula transitions and saturated exact
-    // generator prefixes earn more credit without exceeding the cumulative
-    // hard budget above.
-    // This is deterministic work feedback, not time.
+    // Satsuma's structured detectors share max(16 * variables, 16 Mi) work:
+    // each small-domain producer gets one zero-yield opportunity, and effective
+    // transitions or saturated generator prefixes earn more within the hard
+    // budget. Deterministic work feedback, not time.
     bool structured_root_progress_feedback = true;
-    // The owner's >50k-variable program is one generic generator-fixing scan,
-    // rather than the orbitopal chain governed by the window above.
+    // Above 50k variables the owner runs one generic generator-fixing scan.
     bool structured_root_large_domain_progress_feedback = false;
     uint64_t structured_root_progress_minimum_ticks = 16ull << 20;
     uint64_t structured_root_progress_ticks_per_variable = 16;
-    // Certified ULC completion deliberately publishes binary AMO helpers.
-    // Once a later structured consumer has made progress on the completed
-    // formula, one ordinary BCE pass may retire its now-consumed scaffolding
-    // with normal proof and reconstruction obligations. Helper-only progress
-    // remains live instead of being added and immediately erased.
+    // Certified ULC completion publishes binary AMO helpers; after a later
+    // structured consumer progresses, one BCE pass may retire them with normal
+    // proof and reconstruction obligations. Helper-only progress keeps them.
     bool structured_root_bce_after_unique_literal_amo = true;
     std::vector<strategy::OnlineStrategyStage> structured_root_stages =
         DefaultStrategyConfig::structured_root_preprocessing_stages();
-    // Satsuma reduces DejaVu's non-symmetry backtracking budget from 64 to
-    // one at this domain size while retaining its ordinary fixing schedule.
+    // Satsuma cuts DejaVu's backtracking budget from 64 to one at this size.
     uint64_t structured_root_backtracking_domain_limit = 32'000;
     std::vector<strategy::OnlineStrategyStage>
         structured_root_bounded_backtracking_stages =
             DefaultStrategyConfig::
                 bounded_backtracking_structured_root_preprocessing_stages();
-    // Satsuma changes the complete symmetry schedule above this domain: one
-    // generic exact-generator pass uses negation/binary fixing and repeats
-    // only after output. UINT64_MAX disables the alternate typed program.
+    // Above this domain Satsuma switches its symmetry schedule to one
+    // exact-generator pass with negation/binary fixing, repeated only after
+    // output; UINT64_MAX disables that program.
     uint64_t structured_root_large_domain_limit = 50'000;
     std::vector<strategy::OnlineStrategyStage>
         structured_root_large_domain_stages =
@@ -472,8 +433,7 @@ struct DefaultStrategyConfig {
     uint64_t preprocess_initial_ticks = INPROCESS_PREPROCESS_EFFORT_DEFAULT;
     uint32_t phase_rounds = INPROCESS_PHASE_ROUNDS_DEFAULT;
     uint32_t substitute_rounds = SUBSTITUTE_ROUNDS_DEFAULT;
-    // Ordinary search-time Substitute is one round; preprocessing follow-ups
-    // use `substitute_rounds`. Both are explicit strategy repetition choices.
+    // Search-time Substitute is one round; follow-ups use `substitute_rounds`.
     uint32_t substitute_search_rounds = 1;
     uint64_t factor_initial_ticks = FACTOR_INITIAL_EFFORT_DEFAULT;
     double logarithm_offset = 9.0;
@@ -490,17 +450,14 @@ struct DefaultStrategyConfig {
     strategy::FactorParameters factor_parameters;
     strategy::TransitiveReduceParameters transitive_parameters;
     strategy::SubstituteParameters substitute_parameters;
-    // Canonical touched-material admission shared by C1/C2, BCE, CCE,
-    // Instantiate, HyperTernaryRes and Factor. Explicit semantic instances
-    // bypass this scheduling filter through their rule contracts.
+    // Touched-material admission for C1/C2, BCE, CCE, Instantiate, HTR, Factor.
     bool touch_filter = true;
     bool likely_kept_redundant = false;
 
     std::vector<uint32_t> bve_bounds{0, 1, 2, 4, 8, 16};
-    // Kissat's shipped `eliminatebound` is 16. Lower ceilings remain
-    // explicitly poseable through this typed config / TACTIX_BVE_RAMP_MAX,
-    // but production walks the complete ladder before arming its terminal
-    // new-material watermark.
+    // Kissat's `eliminatebound` is 16; lower ceilings stay poseable (typed
+    // config, TACTIX_BVE_RAMP_MAX), production walks the whole ladder before
+    // arming its new-material watermark.
     uint32_t bve_default_ceiling = 16;
     uint32_t bve_occurrence_limit = 2000; // kissat eliminateocclim
     uint32_t bve_clause_size_limit = 100; // kissat eliminateclslim
@@ -517,21 +474,17 @@ struct DefaultStrategyConfig {
     uint32_t bve_definition_core_budget_multiplier =
         strategy::BveParameters::DEFINITION_CORE_BUDGET_MULTIPLIER_DEFAULT;
     bool bve_backward = false;
-    // CaDiCaL elim.cpp generation-time self-subsuming resolution.  This can
-    // reduce the bounded resolvent population and expose additional pivots,
-    // but remains opt-in until it passes the fixed no-loss regression gates.
+    // CaDiCaL elim.cpp generation-time self-subsuming resolution; opt-in.
     bool bve_on_the_fly_strengthening = false;
     uint32_t factor_decade_round_cap = 14;
     uint32_t factor_decade_cap = 19;
     uint32_t factor_decade_offset = 5;
     uint32_t factor_decade_base = 10;
-    // Explicit diagnostic arm only. Zero disables the former Tactix-specific
-    // fixed-population gate; production follows Kissat's factordelay predicate.
+    // Diagnostic arm; zero follows Kissat's factordelay predicate.
     uint64_t factor_active_ceiling = 0;
 
     uint32_t bve_permille = 100;
-    // Startup FastEl has a separate bounded dose. Its complete owner scan is
-    // charged to this allowance; ordinary scheduled BVE retains bve_permille.
+    // Startup FastEl's separate dose, which its owner scan is charged to.
     uint32_t initial_fast_elimination_bve_permille = 125;
     uint32_t probe_permille = 8;
     uint32_t hyper_binary_permille = 8;
@@ -548,9 +501,9 @@ struct DefaultStrategyConfig {
     uint32_t sweep_permille = 100;
     uint32_t substitute_permille = 10;
 
-    // Kissat Sweep environment and growth options (options.h). Public and
-    // default-policy calls share one typed shape; the reference policy alone
-    // skips literals already fixed in the embedded environment.
+    // Kissat Sweep environment and growth options (options.h), shared by public
+    // and default calls; only the reference policy skips literals fixed in the
+    // environment.
     strategy::SweepParameters sweep_parameters = [] {
       strategy::SweepParameters result;
       result.skip_embedded_fixed = true;
@@ -570,31 +523,24 @@ struct DefaultStrategyConfig {
     bool split_clocks = true;
     bool watermarks = true;
     bool preprocess_followups = true;
-    // Hold standalone C1 for the Eliminate phase. The reference program keeps
-    // C1 disabled because C2 owns the fused forward pass; custom programs may
-    // enable it and select this cadence explicitly.
+    // Hold standalone C1 for Eliminate (the reference disables C1).
     bool hold_subsume_until_eliminate = true;
-    // Kissat's fused forward pass always enforces its `forward_steps` effort
-    // ceiling between candidates.  The name is retained for serialized-config
-    // compatibility; this is not an inside-candidate interruption.
+    // Kissat's forward pass checks `forward_steps` between candidates.
     bool forward_midround_budget = true;
     bool couple_factor_bound = true;
   } inprocess;
 
   bool valid(std::string *error = nullptr) const;
-  // Stable, line-oriented snapshot used by trace and benchmark metadata:
-  // every setting as ` <group>.<key>=<value>`.
+  // Line-oriented snapshot: every setting as ` <group>.<key>=<value>`.
   std::string serialize() const;
-  // The setting a snapshot key names ("restart.glue_margin"); false for an
-  // unknown key. serialize() and setting() share one field inventory.
+  // The setting a key names ("restart.glue_margin"); false if unknown.
   bool setting(std::string_view key, StrategySettingValue &out) const;
   template <class Sink> void visit_settings(Sink &) const;
 };
 
 void pose_query_programs(DefaultStrategyConfig &);
 
-// A policy component's borrowed configuration, or the shipped defaults when
-// it is used standalone.
+// Borrowed configuration, or the shipped defaults when standalone.
 template <class Config>
 const Config &configured_or_default(const Config *configured) {
   if (configured)

@@ -4,11 +4,10 @@
 
 namespace tactix::execution {
 
-// Root publication origin. NewAssignments scans from the entry trail when the
-// application assigned at level zero. RootTrail rescans the whole trail: an
-// application that backtracks below its entry trail (ConflictAnalysis) leaves
-// new root assignments before that offset. Consumers filter inactive
-// variables, so a rescan is idempotent.
+// Root publication origin: NewAssignments scans from the entry trail; RootTrail
+// rescans the whole trail for applications that backtrack below it
+// (ConflictAnalysis). Consumers filter inactive variables, so rescans are
+// idempotent.
 enum class RootPublication : uint8_t { Deferred, NewAssignments, RootTrail };
 
 struct RuleApplicationRequest {
@@ -17,9 +16,9 @@ struct RuleApplicationRequest {
   bool advice = true;
 };
 
-// DefaultPolicy's profile for a dosed Eliminate candidate (advice, new roots,
-// retirements), which public NATIVE guidance publication applies after every
-// registry dispatch (tactix_set_guidance_publication).
+// DefaultPolicy's dosed-Eliminate profile (advice, roots, retirements), applied
+// after every dispatch by public NATIVE publication
+// (tactix_set_guidance_publication).
 inline constexpr RuleApplicationRequest NATIVE_RULE_PUBLICATION{
     RootPublication::NewAssignments, true, true};
 
@@ -31,10 +30,9 @@ struct RuleApplicationResult {
   uint32_t propagation_begin;
 };
 
-// Native event publication is part of an application, before caller-owned
-// parameter and work scopes unwind. Policies select the publication profile;
-// the executor captures its boundary and drains advice, roots, then retirements.
-// The publisher updates optional policy guidance, without exposing it to rules.
+// Event publication is part of an application, before parameter and work scopes
+// unwind; the executor drains advice, roots, then retirements into optional
+// policy guidance.
 template <class Apply, class Publisher>
 RuleApplicationResult execute_action(Kernel &k,
                                      const RuleApplicationRequest &request,

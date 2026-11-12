@@ -19,8 +19,7 @@ struct MatrixLimits {
   uint32_t maximum_row_width = 0;
   uint32_t maximum_sources = 0;
   uint32_t maximum_assignments = 0;
-  // Keep every synchronized basis in reduced row-echelon form (Gauss-Jordan,
-  // CryptoMiniSat EGaussian); false keeps the forward-echelon basis.
+  // Reduced row-echelon basis (CryptoMiniSat EGaussian); else forward echelon.
   bool reduced_row_echelon = false;
 };
 
@@ -37,9 +36,8 @@ struct MatrixRow {
   bool rhs = false;
   // Sorted indices into the immutable Equation vector supplied at build time.
   std::vector<size_t> source_equations;
-  // Connected component of the immutable source equation/variable incidence
-  // graph. Components are numbered by first source-row appearance. This is
-  // representation metadata only: it never enters a reason or proof identity.
+  // Source incidence component, numbered by first source-row appearance;
+  // never part of a reason or proof identity.
   uint32_t component = 0;
 
   friend bool operator==(const MatrixRow &, const MatrixRow &) = default;
@@ -52,14 +50,11 @@ struct MatrixEvent {
   MatrixRow row;
   External implied_variable = 0;
   bool implied_value = false;
-  // A globally valid clausal consequence of `row`. Assigned support literals
-  // are false under the synchronized trail; an implication's final literal
-  // is the implied value. A conflict contains assigned-support literals only.
+  // Clausal consequence of `row`: support literals false under the trail; an
+  // implication ends with the implied literal.
   std::vector<External> reason;
-  // A deferred exact-core implication keeps the row support as a compact
-  // bitset over `admitted_variables()` instead of constructing signed clause
-  // literals at propagation time.  Source-support explanations cannot use
-  // this path: canceled variables may be assigned only after the implication.
+  // Deferred exact-core support as a bitset over `admitted_variables()`;
+  // source-support reasons never use it.
   std::vector<uint64_t> deferred_exact_support;
   uint32_t reason_width = 0;
 
@@ -93,8 +88,7 @@ enum class MatrixSynchronizationKind : uint8_t {
   PriorPartial,
 };
 
-// Bounded diagnostic class for an Invalid synchronization result.  This is
-// append-only telemetry: it never changes admission, work, or publication.
+// Telemetry for an Invalid synchronization; never affects admission or work.
 enum class MatrixSynchronizationFailureStage : uint8_t {
   None = 0,
   Request = 1,
@@ -108,11 +102,9 @@ enum class MatrixSynchronizationFailureStage : uint8_t {
 
 class AffineMatrix {
 public:
-  // Recondition the immutable authenticated source equations on an exact
-  // trail snapshot. This deliberately supports both extension and backtrack.
-  // The matrix and event remain unchanged on failure. The opt-in sorted-set
-  // mode accepts new coordinates anywhere in canonical order and atomically
-  // declines a bounded partial reduction; legacy callers retain prefix mode.
+  // Recondition the source equations on an exact trail snapshot (extension or
+  // backtrack); unchanged on failure. Sorted-set mode accepts new coordinates
+  // anywhere in canonical order and declines a partial reduction.
   MatrixStatus synchronize(
       const std::vector<MatrixAssignment> &,
       const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
@@ -121,10 +113,9 @@ public:
       bool exact_core_reason = false,
       bool defer_exact_reason = false);
 
-  // Opt-in deterministic full-basis reduction in bounded atomic row/XOR steps.
-  // Pending retains private progress; exact trail equality resumes it. An
-  // atomic step larger than maximum_work declines Exhausted with its required
-  // minimum rather than spinning. Interrupted clears private continuation.
+  // Full-basis reduction in bounded atomic row/XOR steps. Pending keeps
+  // progress for the same trail; a step above maximum_work is Exhausted with
+  // its minimum; Interrupted clears the continuation.
   MatrixStatus synchronize_sliced(const std::vector<MatrixAssignment> &,
       const std::function<bool(uint64_t)> &, MatrixEvent &,
       const MatrixSliceLimits &, bool exact_core_reason = false,
@@ -140,9 +131,8 @@ public:
   }
   void cancel_continuation() { continuation_ = {}; }
 
-  // Existentially project unavailable external variables. Derivation indices
-  // still cite the original authenticated equations; no assignment is guessed
-  // for an eliminated identity. Failure leaves the previous matrix unchanged.
+  // Existentially project unavailable variables; derivations still cite the
+  // source equations. Unchanged on failure.
   MatrixStatus project(const std::vector<External> &unavailable,
                        const std::function<bool(uint64_t)> &charge);
 
@@ -166,16 +156,14 @@ public:
   const std::vector<size_t> &admitted_sources() const {
     return admitted_sources_;
   }
-  // Immutable source image copied when the matrix is built. Same-stack proof
-  // planning may consume this owner instead of comparing a session duplicate.
+  // Source image copied at build time.
   const std::vector<Equation> &authenticated_sources() const {
     return sources_;
   }
   bool proof_sources_authenticated() const {
     return proof_sources_authenticated_;
   }
-  // Sorted external variables that can affect any admitted row. Search-time
-  // capture need not inspect assignments outside this exact support.
+  // Sorted variables that occur in any admitted row.
   const std::vector<External> &admitted_variables() const {
     return admitted_variables_;
   }
@@ -195,37 +183,28 @@ public:
     return last_synchronization_restored_predecessor_;
   }
 
-  // Authenticate one event against the exact immutable owner and source
-  // image used to build this matrix.  The event must also be the current
-  // conflict-first/implication-second result for the synchronized trail.
+  // Authenticate an event against this matrix's owner and source image; it
+  // must be the current conflict-first event for the synchronized trail.
   bool authenticates(uint64_t owner_identity,
                      const std::vector<Equation> &exact_sources,
                      const MatrixEvent &event,
                      const std::function<bool(uint64_t)> &charge) const;
 
-  // Authenticate a previously selected implication or conflict directly from
-  // its immutable source rows.  Unlike `authenticates`, this does not require
-  // the event to remain the current tableau event after later assignments.
-  // It is the proof-side prerequisite for any future lazy reason: the clause
-  // must contain a complete falsifying XOR-support core and may soundly weaken
-  // it with additional literals, as checked at the live reason-order boundary.
+  // Authenticate an earlier event from its source rows; it need not be
+  // current. The clause must contain a complete falsifying XOR-support core
+  // and may weaken it with extra literals.
   bool authenticates_historical(
       uint64_t owner_identity, const std::vector<Equation> &exact_sources,
       const MatrixEvent &event,
       const std::function<bool(uint64_t)> &charge) const;
 
-  // Same semantic check and exact work currency as `authenticates`, for a
-  // caller already holding `authenticated_sources()`.  The immutable source
-  // image and current row index were authenticated when they were committed,
-  // so this returns their pre-accounted cost instead of walking them again.
-  // A false result is observational only; callers fall back to the full audit.
+  // The work `authenticates` would charge, from the pre-accounted cost of the
+  // committed source image and row index; false means use the full audit.
   bool retained_authentication_work(const MatrixEvent &event,
                                     uint64_t &work) const;
 
-  // Visit a deferred exact-core support without constructing its signed
-  // clausal reason.  Materialization signs those same variables from the
-  // current live assignment only after a Boolean reason consumer reaches the
-  // handle.
+  // Visit a deferred support; materialization signs it from the live
+  // assignment when a reason consumer reaches it.
   bool inspect_deferred_exact_support(
       const MatrixEvent &,
       const std::function<bool(External)> &) const;
@@ -260,11 +239,8 @@ private:
     std::set<size_t> conflicts;
     uint64_t bytes = 0, authentication_work = 0;
   };
-  // Compact [I|D] simplex state following CryptoMiniSat's Gaussian search
-  // representation.  Responsible columns are implicit; only the D columns
-  // and source provenance are packed.  Basis exchanges preserve the exact
-  // authenticated system while avoiding reconstruction at every Boolean
-  // fixpoint.
+  // Compact [I|D] simplex state (CryptoMiniSat Gaussian search): responsible
+  // columns are implicit; D columns and source provenance are packed.
   struct SimplexState {
     bool ready = false, active = false, watches_ready = false;
     size_t coefficient_words = 0, source_words = 0;
@@ -280,10 +256,8 @@ private:
     mutable std::vector<External> reason_scratch;
     mutable std::vector<size_t> implication_rows;
     mutable std::vector<uint8_t> implication_values;
-    // CryptoMiniSat-style two-coordinate row watches.  The flat bit matrices
-    // avoid allocator traffic at search fixpoints and keep every byte inside
-    // the admitted persistent-state bound.  Event bitsets retain singleton
-    // and conflict rows that were not selected on an earlier service call.
+    // CryptoMiniSat-style two-coordinate row watches in flat bit matrices;
+    // event bitsets keep singleton/conflict rows not yet selected.
     std::vector<uint64_t> watch_rows, singleton_rows, conflict_rows,
         active_singleton_variables, opposite_rows, pending_responsible_rows,
         touched_rows;
@@ -331,14 +305,11 @@ private:
       bool defer_exact_reason);
   MatrixEvent indexed_event() const;
   RowIndex index_;
-  // Reused only by atomic dirty-row transactions.  Their capacities are
-  // admitted as part of index_reservation_ and released with the index.
+  // Dirty-row transaction scratch, admitted within index_reservation_.
   std::vector<External> dirty_variable_xor_scratch_;
   std::vector<size_t> dirty_source_xor_scratch_;
-  // Direct occurrence watches mark rows touched by newly assigned variables.
-  // This pre-admitted workspace avoids allocating one tree node per touched
-  // row on every search step.  Epochs discard marks from an interrupted
-  // private transaction without changing the committed matrix state.
+  // Rows touched by newly assigned variables; epochs discard the marks of an
+  // interrupted transaction.
   std::vector<uint64_t> dirty_row_marks_;
   std::vector<size_t> dirty_row_ids_;
   uint64_t dirty_row_epoch_ = 0;
@@ -358,24 +329,17 @@ private:
   bool proof_sources_authenticated_ = false;
   MatrixLimits limits_;
   std::vector<Equation> sources_;
-  // Immutable sound row space admitted at initialization.  Search-time
-  // conditioning may combine only these rows, so a skipped source can never
-  // enter a reason later.
+  // Row space admitted at build; conditioning combines only these rows.
   std::vector<MatrixRow> admitted_rows_;
   std::vector<size_t> admitted_sources_;
   std::vector<External> admitted_variables_;
   std::vector<MatrixAssignment> trail_;
   std::vector<MatrixRow> rows_;
-  // `rows_` is an exact conditioned basis for `trail_` only after a complete
-  // reduction.  A bounded partial synchronization may still publish a sound
-  // event, but the next call must rebuild from `admitted_rows_` so omitted
-  // rows cannot disappear permanently.
+  // `rows_` is an exact basis for `trail_` only after a complete reduction;
+  // after a partial one the next call rebuilds from `admitted_rows_`.
   bool incremental_ready_ = false;
-  // One complete predecessor only: moving the old basis here avoids copying
-  // it on extension and permits an exact immediate-prefix backtrack restore.
-  // This never retains partial reductions or an unbounded trail history.
-  // The current and predecessor populations share maximum_rows and
-  // maximum_assignments; immutable admitted rows remain separate as before.
+  // One complete predecessor basis for an immediate-prefix backtrack restore;
+  // it shares maximum_rows and maximum_assignments with the current basis.
   bool predecessor_ready_ = false;
   std::vector<MatrixAssignment> predecessor_trail_;
   std::vector<MatrixRow> predecessor_rows_;
@@ -390,12 +354,9 @@ private:
       MatrixSynchronizationKind::Extension;
 };
 
-// Build a source-bound matrix without changing the Boolean formula. Source
-// indices are the exact algebraic provenance later returned with every event.
-// `owner_identity` binds the copied equations to the caller's immutable arena.
-// Complete means every source was processed within the bounds. Partial means a
-// deterministic, nonempty sound submatrix was retained. On every other result,
-// `output` is unchanged.
+// Build a matrix over `owner_identity`'s equations; source indices are the
+// provenance of every event. Complete processed every source; Partial kept a
+// nonempty sound submatrix; any other result leaves `output` unchanged.
 MatrixStatus build_affine_matrix(
     const std::vector<Equation> &, uint64_t owner_identity,
     const MatrixLimits &, const std::function<bool(uint64_t)> &charge,

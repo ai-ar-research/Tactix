@@ -4,8 +4,7 @@
 
 namespace tactix::strategy {
 
-// Reference-backed standalone defaults shared by public and default-policy
-// Sweep invocations. They are strategy choices, not rule preconditions.
+// Reference-backed Sweep defaults shared by all invocations.
 struct SweepReferenceDefaults {
   static constexpr uint32_t DEPTH = 2;
   static constexpr uint32_t MAX_DEPTH = 3;
@@ -17,8 +16,7 @@ struct SweepReferenceDefaults {
   static constexpr uint32_t FLIP_ROUNDS = 1;
   static constexpr uint32_t SEED_CAP = 0;
   static constexpr uint64_t ENVIRONMENT_TICKS = 0;
-  // Unbounded, as Kissat commits whatever its Kitten core proves; a captured
-  // derivation is already bounded by the environment's tick limit.
+  // Unbounded, as in Kissat; derivations are bounded by env ticks.
   static constexpr uint32_t PROOF_STEPS = 0;
 };
 
@@ -40,8 +38,7 @@ struct SweepParameters {
   bool skip_embedded_fixed = false;
   uint32_t flip_rounds = SweepReferenceDefaults::FLIP_ROUNDS;
   bool resume = true;
-  // Select the captured embedded-solver proof path even when a direct or
-  // main-formula RUP emission is available.
+  // Force the captured embedded-solver proof path.
   bool force_general_proof = false;
 
   constexpr bool valid() const { return true; }

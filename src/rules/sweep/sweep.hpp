@@ -1,14 +1,10 @@
 // Sweep (V5): prove `x ≡ y` by a budgeted refutation over a local clause set
-// around a seed, then add the two equivalence binaries with a checkable chain —
-// a RUP fast path where one exists, a general core→chain path otherwise.
-// Contract, proof delta and soundness: `docs/dev/calculus.md` V5; design
-// `docs/design/v5-sweep-design.md`; the deviations from kissat `sweep.c` and
-// cadical `sweep.cpp` (each a weakening of what is detected, never of what may
-// be concluded) are the sweep rows of `docs/dev/scheduling-parity-ledger.md` §13.2.
-//
-// The invariant everything here serves: the environment is entailed by F, so
-// `env ⊨ x ≡ y` gives `F ⊨ x ≡ y`. Every environment clause is a clause the
-// kernel holds, cited by its own proof id, minus its root-false literals.
+// around a seed, then add the two equivalence binaries with a checkable chain
+// (RUP fast path, else a core→chain path). Contract: `docs/dev/calculus.md` V5;
+// design `docs/design/v5-sweep-design.md`; deviations from kissat `sweep.c` and
+// cadical `sweep.cpp`: parity-ledger §13.2. Invariant: the environment holds
+// kernel clauses (minus root-false literals), so `env ⊨ x ≡ y` gives
+// `F ⊨ x ≡ y`.
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -28,16 +24,11 @@ namespace tactix {
 // Frozen source alias; the owned type lives with other strategy parameters.
 using SweepLimits = strategy::SweepParameters;
 
-// Sweep owns both currencies.  The policy prices their sum when scheduling a
-// later call, while the live semantic dose follows Kissat's Kitten-only limit.
-// Keeping these meanings separate matters after a productive environment:
-// Tactix has to rebuild a variable-width arena, but that representation bridge
-// must not consume the remaining reference-ordered candidate tail.
+// Policy-priced effort: embedded plus representation work. The live semantic
+// dose follows Kissat's Kitten-only limit.
 inline uint64_t sweep_effort(const Kernel &k) {
-  // The embedded solver is only part of Tactix's cost.  A dense call crosses
-  // the variable-width representation bridge once after its ordered
-  // environment sequence; a sessionless call does so after each productive
-  // environment.  Keep that real host work in the rule-owned scheduler meter.
+  // Includes the variable-width representation bridge (once per dense call, per
+  // productive environment otherwise).
   return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
 }
 
@@ -47,37 +38,29 @@ inline uint64_t sweep_semantic_effort(const Kernel &k) {
 
 constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
 
-// Captures share replay payloads with independent ordered selections. Synthetic
-// targets can reuse the next derived ID, so an ID hit also compares the exact
-// payload. deque keeps older versions stable as later queries learn more steps.
+// Shared replay payloads; an ID hit also compares the payload. deque keeps
+// older versions stable.
 struct SweepProofSteps {
   std::deque<SubStep> steps;
   std::vector<const SubStep *> by_id;
   const SubStep *retain(SubStep &&);
 };
 
-// The local clause set around one seed, encoded for the sub-solver, plus the
-// two mappings emission needs: sub var → kernel var, and environment clause id
-// → main-formula proof id.
+// The local clause set of one seed, with sub var → kernel var and environment
+// clause id → main proof id.
 struct SweepEnv {
   SubSolver solver;
   std::shared_ptr<SweepProofSteps> proof_steps;
-  // Formula-mutation epoch after this environment was fully built. Inline
-  // emission may rewrite F while the embedded solver still holds this local
-  // snapshot; captured general proofs are usable only at this epoch.
+  // Formula epoch after the build; captured proofs are usable only at it.
   uint64_t formula_epoch = 0;
   std::vector<Var> vars;            // sub var -> kernel var
   std::vector<uint32_t> sub_of_var; // kernel var -> sub var (SWEEP_NO_SUB_VAR)
   std::vector<Var> touched;         // sub_of_var restore list (see reset)
   std::vector<uint32_t> depth;      // by sub var: BFS layer (fixed vars: UINT32_MAX)
-  // main-formula proof id of environment clause i+1 (sub ids run from 1 in add
-  // order). 0 means the proof has no id for it, so emission must decline such a
-  // core rather than cite 0.
+  // Main proof id of environment clause i+1; 0 means none, so emission
+  // declines.
   std::vector<uint64_t> clause_ids;
-  // Open-addressed set of the clause keys already encoded, so the dedup test is
-  // O(1) rather than quadratic in the environment. UINT64_MAX is the empty slot:
-  // no key can be all-ones, since KEY_LARGE and KEY_UNIT are never both set and
-  // a binary key's top bits hold a literal, not a tag.
+  // Open-addressed set of encoded keys; UINT64_MAX (no valid key) is empty.
   std::vector<uint64_t> key_slots;
   uint64_t key_mask = 0;
   std::vector<Lit> clause_lits;     // flat kernel literals
@@ -91,20 +74,13 @@ struct SweepEnv {
   }
 };
 
-// One direction's refutation, captured at detection time: the sub-solver keeps
-// only the last solve's derivation and an environment does not outlive its
-// seed. `steps` stays in sub-solver space, with `orig_ids` and `vars` the
-// translation tables captured alongside. The caller's SweepLimits controls
-// proof-resource admission and offers an explicit unbounded path.
+// One direction's refutation captured at detection, in sub-solver space with
+// its translation tables. SweepLimits controls proof-resource admission.
 struct SweepDirProof {
-  // The binary this direction proves. Recorded explicitly because `SweepEquiv`
-  // normalises its pair to {min,max}, so deriving the targets from that pair
-  // silently swaps the two directions when the seed is the larger literal.
+  // The binary this direction proves; `SweepEquiv` normalises to {min,max}.
   Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
   std::vector<SubStep> steps;
-  // A core can certify many units at different prefix lengths. Share the
-  // immutable raw derivation instead of copying each (potentially huge)
-  // prefix.
+  // Shared immutable derivation for units at different prefix lengths.
   std::shared_ptr<const SweepProofSteps> program;
   std::shared_ptr<const std::vector<const SubStep *>> program_steps;
   size_t shared_step_count = 0;
@@ -158,18 +134,13 @@ struct SweepRound {
     return connected_occ ? connected_occ->large_size(lit) : (*occ)[lit].size();
   }
   FlatLists<Ref> *occ = nullptr; // by literal
-  // `Kernel::arena_generation` when `occ_owned` was built. A collection inside
-  // the round invalidates every Ref in it, and unlike `Kernel::dense` nothing
-  // else rebuilds it.
+  // `Kernel::arena_generation` when `occ_owned` was built.
   uint64_t occ_generation = 0;
   std::vector<Lit> repr;                   // union-find over literals
   std::vector<SweepEquiv> found;
   std::vector<SweepPairProof> proofs; // parallel to `found`
   std::vector<SweepUnitProof> units;
-  // Emission cursors let the apply path commit each newly proved consequence
-  // immediately while the public detection path remains pure.  `emission_batches`
-  // is monotone within a round so a caller can observe a commit even after the
-  // pending vectors have been drained.
+  // Emission cursors; `emission_batches` is monotone within a round.
   size_t units_emitted = 0;
   size_t equivalences_emitted = 0;
   uint64_t emission_batches = 0;
@@ -186,32 +157,27 @@ struct SweepRound {
 #endif
 };
 
-// Guard: quiescent root, consistent. A pure precondition — the environment
-// cites level-0 unit ids and reads the watch lists, and both mean what they say
-// only at a drained root.
+// Guard: quiescent root, consistent.
 RuleEligibility sweep_guard(const Kernel &);
-// The external identity the resumable schedule will seed next (tombstones
-// skipped, the reschedule front before the tail), INVALID_VAR when empty.
-// Read-only; the round loop consumes through its own cursor.
+// Next seed of the resumable schedule (reschedule front before the tail),
+// INVALID_VAR when empty. Read-only.
 Var sweep_next_scheduled(const Kernel &);
 
-// Canonical seed order: active, unassigned variables, ascending occurrence
-// degree. This is the action surface `instances()` exposes, so it ranks and
-// never filters — no "unlikely to pay off" omissions (N1, rule-dev §instances).
+// Canonical seed order: active unassigned variables by ascending degree; ranks,
+// never filters (N1).
 void sweep_seeds(const Kernel &, std::vector<Var> &out);
 
-// Start a round: prepare the occurrence index over irredundant large clauses
-// (`Kernel::dense`, else a round-local one) and reset the representative map.
-// Must precede any `sweep_detect_seed`.
+// Start a round: occurrence index (`Kernel::dense` or round-local) and a reset
+// representative map. Precedes `sweep_detect_seed`.
 void sweep_round_begin(Kernel &, SweepRound &);
 
 // Build the environment around `seed`. False = nothing usable (no clauses, or
 // the seed is fixed/retired). Charges its scan to `Stats::sweep_ticks`.
 bool sweep_env_build(Kernel &, Var seed, const SweepLimits &, SweepRound &);
 
-// One seed: build the environment, refute both directions of each surviving
-// candidate pair, append what is proved to `round.found`. Returns the number of
-// equivalences found. Detection only: changes nothing in `F/R/τ/ρ`.
+// One seed: build the environment, refute both directions of each candidate,
+// append proofs to `round.found`. Returns the count; changes nothing in
+// F/R/τ/ρ.
 uint32_t sweep_detect_seed(Kernel &, Var seed, const SweepLimits &,
                            SweepRound &);
 
@@ -232,9 +198,7 @@ ApplyResult sweep_apply(Kernel &);
 // never read or amended inside the rule.
 ApplyResult sweep_apply_with_limits(Kernel &, const SweepLimits &);
 
-// Tactix commits Sweep equivalences per environment, while Kissat's following
-// Substitute deactivates the complete union in one internal-variable scan.
-// Re-pose the still-unconsumed event suffix at that transaction boundary.
+// Re-pose the unconsumed retirement suffix in Kissat's Substitute order.
 void sweep_order_retirement_suffix(Kernel &, size_t retired_begin,
                                    size_t substituted_begin);
 

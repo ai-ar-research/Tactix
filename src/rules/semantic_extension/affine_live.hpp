@@ -27,8 +27,8 @@ struct AffineLiveSource {
 struct AffineLiveSnapshot {
   std::vector<affine_semantic_extension::Premise> premises;
   std::vector<AffineLiveSource> sources;
-  // Every large-clause Ref is valid only in this arena generation. Cached
-  // snapshots from an earlier collection are rejected before any Ref is read.
+  // Refs are valid only in this arena generation; snapshots from an earlier
+  // collection are rejected before any Ref is read.
   uint64_t arena_generation = 0;
   uint64_t literals = 0;
   uint64_t work = 0;
@@ -45,12 +45,10 @@ struct AffineLiveRequest {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   StructuralJournal records;
-  // Optional caller-cached exact source view. Payload counters are recomputed,
-  // and selected sources are revalidated immediately before commit; stale
-  // occurrences make the action a clean NoOp.
+  // Optional cached source view, revalidated before commit (stale: NoOp).
   const AffineLiveSnapshot *snapshot = nullptr;
-  uint64_t maximum_snapshot_bytes = 0; // Zero retains legacy allocation contract.
-  bool full_root_view = false; // Positive persistence only; legacy arity filter remains.
+  uint64_t maximum_snapshot_bytes = 0; // Zero: unbounded snapshot allocation.
+  bool full_root_view = false; // Positive persistence only; else arity filter.
   // Incremental discovery: known large IDs are excluded unless unresolved;
   // binaries use exact signed external-body identity even without native IDs.
   uint64_t discovered_through_clause_id = 0;
@@ -76,9 +74,7 @@ enum class AffineLiveStatus : uint8_t {
 };
 
 struct AffineLiveResult {
-  // Every recoverable decline is classified without mutating the formula,
-  // proof, provenance stream, or clause-id namespace. Applied covers both a
-  // continuing Ok result and a terminal Unsat result.
+  // Declines mutate nothing; Applied covers both Ok and Unsat.
   AffineLiveStatus status = AffineLiveStatus::Invalid;
   ApplyResult result = ApplyResult::NoOp;
   affine_semantic_extension::Status recognition =
@@ -86,23 +82,18 @@ struct AffineLiveResult {
   uint64_t snapshot_clauses = 0, snapshot_literals = 0, snapshot_work = 0;
   uint64_t equations = 0, consequences = 0, recognition_work = 0;
   uint64_t selected_sources = 0, selected_premises = 0;
-  // RUP additions materialized by proof planning. On an addition-budget
-  // decline this is the complete consumed quota even though no plan commits.
+  // RUP additions planned, including on an addition-budget decline.
   uint64_t proof_addition_work = 0;
   uint64_t preflight_additions = 0, preflight_deletions = 0;
   uint64_t additions = 0, deletions = 0, published = 0;
-  // Bytes considered while constructing the bounded journal, and bytes
-  // actually committed to records. A journal-budget decline can have nonzero
-  // work while journal_bytes remains zero.
+  // Journal bytes considered, and bytes committed to records.
   uint64_t journal_work = 0, journal_bytes = 0;
   bool contradiction = false;
   bool rhs = false;
-  // Publication can re-arm root propagation. The adapter deliberately does
-  // not drain it: the controller owns the following Propagate action and its
-  // separately budgeted proof/journal delta.
+  // Root propagation is left to the controller's next Propagate action.
   bool propagation_pending = false;
-  // Controller-owned advice may rank these existing variables later. This
-  // adapter never changes phase, EVSIDS, VMTF, or any other heuristic state.
+  // Existing variables offered as controller advice; the adapter never
+  // changes phase, EVSIDS, VMTF or other heuristic state.
   std::vector<int32_t> semantic_variables;
 };
 
@@ -113,9 +104,8 @@ inline bool affine_live_state_applicable(const Kernel &k) {
          kernel_propagation_fixpoint(k);
 }
 
-// Shared root-publication admission of the affine live adapters, in their
-// fixed order: clausal proof, applicable state, then one termination poll.
-// Empty means admitted.
+// Admission of the affine live adapters: clausal proof, applicable state, then
+// one termination poll. Empty means admitted.
 template <class Status>
 std::optional<Status> affine_live_decline(const Kernel &k) {
   if (k.proof && k.proof->startup_pb_written())
@@ -139,9 +129,8 @@ AffineSnapshotPayload affine_live_snapshot_payload(
     uint64_t maximum_literals, uint64_t maximum_work, bool require_clause_ids,
     uint64_t &literals, uint64_t &work);
 
-// Replay one preplanned external proof event at the kernel's exact next
-// identity: a deletion names the current identity, an addition consumes the
-// next one and must equal its planned `id`.
+// Replay a planned proof event: a deletion names the current identity, an
+// addition consumes the next one, which must equal `id`.
 inline void affine_live_emit_planned_event(Kernel &kernel, bool rat,
                                            bool deletion, uint64_t id,
                                            uint64_t deleted_id,
@@ -161,8 +150,7 @@ inline void affine_live_emit_planned_event(Kernel &kernel, bool rat,
     std::abort();
 }
 
-// Capture only clauses eligible for the requested affine arity. On failure the
-// output is unchanged. Occurrences are stable within this exact source view.
+// Capture the clauses eligible for the requested arity; unchanged on failure.
 bool capture_affine_live_snapshot(Kernel &, const AffineLiveRequest &,
                                   AffineLiveSnapshot &);
 
@@ -175,10 +163,8 @@ bool affine_live_sources_valid(const Kernel &, const AffineLiveSnapshot &,
 // binary watch or an arena clause with the same literal set.
 bool affine_live_clause_covered(const Kernel &, const std::vector<int32_t> &);
 
-// Recognize, preflight, revalidate, emit the preflighted RUP plan, and publish
-// only missing target clauses. Root propagation is left pending for the
-// controller so this action's proof IDs and effort remain exactly preflighted.
-// No public action or policy is registered here.
+// Recognize, preflight, revalidate, emit the RUP plan and publish missing
+// targets; root propagation is left pending.
 AffineLiveResult derive_affine_live(Kernel &, const AffineLiveRequest &);
 
 } // namespace tactix

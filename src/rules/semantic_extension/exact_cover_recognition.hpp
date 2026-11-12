@@ -13,9 +13,7 @@
 
 namespace tactix::exact_cover_semantic {
 
-// An occurrence is local to one immutable source snapshot. Native proof IDs
-// are recorded separately when the kernel retains them; zero means that the
-// proof mode names the clause by literals rather than by identity.
+// A source-snapshot occurrence; native proof ID zero names it by literals.
 struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
@@ -79,15 +77,10 @@ struct DisjointSets {
 
 } // namespace detail
 
-// Recognize the complete signed SGEN incidence theory used by LymphoSAT:
-// every binary clause excludes two items in one arity-sized block, every
-// block contains the complete pairwise exclusion clique, there are twice as
-// many covering clauses as blocks, and every item occurs in exactly two
-// distinct covers.  Every source clause must belong to that theory.
-//
-// The caller supplies a monotone work/termination meter.  `out` is assigned
-// only after all checks succeed, so exhaustion and near misses preserve both
-// the formula and any previously published image.
+// Recognize the signed SGEN incidence theory (LymphoSAT): binaries form a
+// complete exclusion clique per arity-sized block, covers number twice the
+// blocks, every item is in exactly two covers, and nothing else occurs.
+// `out` is assigned only on success.
 template <class Charge>
 bool recognize(const std::vector<Premise> &source, uint32_t arity,
                uint64_t maximum_items, Charge &&charge, Image &out) {

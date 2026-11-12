@@ -1,7 +1,6 @@
 // Proof backend (plan §5.2): rules emit typed logical events. Native DSR is
-// the canonical stream; witnessless DSR additions cover the existing RUP/RAT
-// vocabulary and direct SR additions carry a substitution witness.
-// Streaming + buffered: never held in memory (§6).
+// the canonical stream (witnessless RUP/RAT additions, direct SR additions
+// with a substitution witness), streamed, never held in memory (§6).
 #pragma once
 
 #include "kernel/types.hpp"
@@ -60,11 +59,10 @@ struct QueryProofSnapshot {
   uint64_t generations = 0, work = 0;
 };
 
-// Preserve the semantic pivot override using an encoding shared by dsr-trim
-// and Trestle. Classify images relative to !C: an unmapped pivot is Direct,
-// a true image permits Repivot, all-false images permit Rup, one open image
-// permits Lemma, and multiple open images use a temporary Extension.
-// Every form preserves the X7 application; see docs/dev/calculus.md section 6d.
+// The semantic pivot override in an encoding shared by dsr-trim and Trestle,
+// classified relative to !C: unmapped pivot Direct, a true image Repivot,
+// all-false Rup, one open image Lemma, several a temporary Extension. Every
+// form preserves the X7 application (calculus.md §6d).
 enum class DsrWitnessForm : uint8_t { Direct, Repivot, Rup, Lemma, Extension };
 
 struct DsrWitnessPlan {
@@ -79,9 +77,8 @@ struct PbpParityBounds {
   uint64_t lower = 0;
   uint64_t upper = 0;
   std::vector<int32_t> carries;
-  // Which numbering wrote lower and upper. A conversion restarts the numbering and
-  // a witness deletes the rows it touches, so a row from another numbering is written
-  // again before its next use.
+  // Which numbering wrote lower and upper; a row from another numbering is
+  // written again before its next use.
   uint64_t numbering = 0;
 };
 
@@ -98,9 +95,7 @@ private:
   uint64_t stream_identity_ = 0;
   uint64_t generation_ = 0;
   std::map<PbpParityEquation, PbpParityBounds> entries_;
-  // Exact cached value of the historical retained_bytes() scan.  The logical
-  // base deliberately excludes this representation-only counter so existing
-  // resource boundaries and proof trajectories do not move.
+  // Cached value of the retained_bytes() scan, excluded from the logical base.
   uint64_t retained_bytes_ = 0;
 };
 
@@ -121,11 +116,10 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
                                 const DsrLiteralMapping *mappings,
                                 uint32_t nmappings);
 
-// Automatic proof selection (plan §5). Whole-run streaming PBP owns every
-// kernel-visible decision, so the solver trajectory equals `--pbp`; a native
-// DSR copy of the same proof events is the proof. A startup PB refutation,
-// frequent parity reasons, or an event the copy cannot follow converts it to
-// PBP. Otherwise the DSR copy is the proof at the empty clause.
+// Automatic proof selection (plan §5): whole-run streaming PBP owns every
+// kernel-visible decision (trajectory equals `--pbp`) and a native DSR copy is
+// the proof, unless a startup PB refutation, frequent parity reasons, or an
+// event the copy cannot follow converts it to PBP.
 enum class AutomaticProofReason : uint8_t {
   Pending,              // the DSR copy is still live
   DsrSelected,          // the empty clause kept the DSR copy
@@ -158,12 +152,9 @@ public:
   // one: open() always gives the kernel the streaming-PBP writer.
   bool open_dsr_writer(const char *path, ProofFormat format);
   // Automatic selection: streaming PBP at `path` plus a binary (or ASCII) DSR
-  // copy. `stage_path`, when given, names the copy's caller-owned stage file;
-  // otherwise a sibling of `path` (renamed into place) or an anonymous file
-  // (copied into place) is used. Returns false only when `path` cannot be
-  // opened; without a usable stage the run is whole-run PBP.
-  // With `dsr_only`, the run writes DSR to `path` and never converts: the search
-  // and the kernel's view of the proof are those of every other run (N2).
+  // copy, staged at `stage_path`, a renamed sibling, or a copied anonymous
+  // file. False only when `path` cannot be opened. With `dsr_only` the run
+  // writes DSR to `path` and never converts (N2: same search and kernel view).
   bool open_automatic(const char *path, bool binary_dsr,
                       const char *stage_path = nullptr,
                       bool dsr_only = false);
@@ -171,17 +162,14 @@ public:
   bool open_nowhere();
   bool nowhere() const noexcept { return nowhere_; }
   bool automatic() const noexcept { return automatic_ && !dsr_only_; }
-  // A startup parity refutation; the run ends on it. `write_pb` writes it to the
-  // PBP stream it is given, and a DSR-only proof spells it in clauses instead.
-  // False, with nothing written, when the stream is already published.
+  // A startup parity refutation that ends the run: `write_pb` writes it to the
+  // PBP stream; DSR-only spells it in clauses. False when already published.
   bool refute_parity(const std::vector<PbpParityEquation> &equations,
                      const std::function<bool(FILE *)> &write_pb);
-  // A startup counting refutation; the run ends on it. `write_pb` writes it to the
-  // PBP stream it is given, and is not called when no proof is being written. A
-  // DSR-only proof writes nothing yet: it takes `input`, the original DIMACS
-  // literals, and is pending until a follow-on solve writes the DSR
-  // (frontend/dsr_follow_on.hpp). False, with nothing written or taken, when the
-  // stream is already published.
+  // A startup counting refutation that ends the run: `write_pb` writes it to
+  // the PBP stream. DSR-only takes `input` (original DIMACS literals) and is
+  // pending until a follow-on solve (frontend/dsr_follow_on.hpp). False when
+  // already published.
   bool refute_by_counting(const std::function<bool(FILE *)> &write_pb,
                           std::vector<int32_t> &input);
   bool dsr_follow_on_pending() const noexcept { return follow_on_pending_; }
@@ -202,9 +190,8 @@ public:
   void release_lazy_event() noexcept;
   const LazyPbpReport &lazy_pbp_report() const noexcept { return lazy_report_; }
   uint64_t stream_identity() const noexcept { return stream_identity_; }
-  // Whole-run PBP privately stages input normalization. At the original-input
-  // action boundary the caller may commit a complete native PB refutation.
-  // The first subsequent clausal event publishes the streaming-PBP header.
+  // Whole-run PBP stages input normalization privately; the first clausal
+  // event after this boundary publishes the streaming-PBP header.
   void finish_input_transaction();
   // Cold session admission: only a freshly opened search-facing writer can
   // receive another exact query's input. No event counter is added to search.
@@ -222,9 +209,8 @@ public:
   // A complete startup PB refutation owns the stream, which takes no further clause
   // events. No search follows it.
   bool startup_pb_written() const { return format_ == ProofFormat::Pbp; }
-  // Delete by specification for the rest of the run: a proof attached after
-  // replayed input cannot name the live kernel's clauses by their ids (see
-  // attach_replayed_input_proof).
+  // Delete by specification for the rest of the run (a proof attached after
+  // replayed input cannot name clauses by id).
   void disable_pbp_id_deletions() { abandon_pbp_id_deletions(7, 0); }
   // Cold query-entry or witnessed-boundary isolation after input closes.
   // Sources must be licensed in this stream. Native identities/IDs stay fixed.
@@ -267,9 +253,7 @@ public:
     if (dsr_copy_) dsr_copy_->reserve_external_variables(extent);
   }
   void bind_population_observer(PopulationObserver *) noexcept;
-  // Settle only a route whose bytes already have a committed destination.
-  // An unpublished streaming-PBP prefix is incomplete until a clausal event
-  // commits its header.
+  // Settle only a route whose bytes have a committed destination.
   bool settle_population_observer() noexcept;
   PopulationObserver *population_observer() const noexcept {
     return population_observer_;
@@ -278,25 +262,19 @@ public:
   void bind_derivation_observer(DerivationObserver *observer) noexcept {
     derivation_observer_ = observer;
   }
-  // --- proof-delta vocabulary (subset live in phase 2) ---
-  // add-RUP. Native DSR stages consecutive RUP units so a following deletion block can
-  // be ordered before the batch with a shared proof-only split.
+  // --- proof-delta vocabulary ---
+  // add-RUP. Native DSR stages consecutive RUP units so a following deletion
+  // block can be ordered before the batch.
   void add_rup(uint64_t id, const Lit *lits, uint32_t size);
-  // add-RAT: `lits` MUST be pivot-first (the checker infers RAT on the first
-  // literal). Factor is the first RAT-emitting rule (plan §5.2 add-RAT
-  // primitive).
+  // add-RAT: `lits` MUST be pivot-first (plan §5.2).
   void add_rat(uint64_t id, const Lit *lits, uint32_t size);
-  // Add a substitution-redundant clause. `lits[0]` is the DSR pivot,
-  // `true_lits` are mapped to true, and each mapping maps its source literal
-  // to its target literal. `external_variables` bounds every external variable
-  // in the proof-visible formula, including retired variables. The general
-  // encoding temporarily uses the next external variable and deletes every
-  // clause containing it before returning, so later solver extensions may use
-  // that identity. Returns false for terminal PBP or exhaustion of the external
-  // literal representation, before emitting any clause.
-  // `propagates`: the clause is unit at the root. No witnessed line may
-  // propagate when read, so it takes the general encoding and enters by RUP
-  // (docs/dev/implementation-notes.md, native DSR checking).
+  // Add a substitution-redundant clause: `lits[0]` is the DSR pivot,
+  // `true_lits` map to true, each mapping maps source to target.
+  // `external_variables` bounds every proof-visible external variable; the
+  // general encoding borrows the next one and deletes its clauses before
+  // returning. False for terminal PBP or literal exhaustion, before any line.
+  // `propagates` (unit at the root) forces the general encoding via RUP
+  // (implementation-notes, native DSR checking).
   bool add_sr(uint64_t id, const Lit *lits, uint32_t size,
               const Lit *true_lits, uint32_t ntrue,
               const DsrLiteralMapping *mappings, uint32_t nmappings,
@@ -308,44 +286,36 @@ public:
   void del(uint64_t line_id, uint64_t del_id, const Lit *lits,
            uint32_t size);
 
-  // Proof-only extension clauses use DIMACS literals whose variables need not
-  // exist in the solver kernel.  This keeps terminal extended-resolution
-  // certificates streaming without allocating millions of inactive kernel
-  // variables.
+  // Proof-only extension clauses in DIMACS literals that need not exist in the
+  // kernel.
   bool add_external_rup(uint64_t id, const int32_t *lits, uint32_t size);
   bool add_external_rat(uint64_t id, const int32_t *lits, uint32_t size);
-  // Compact live GF(2) consequence for streaming PBP.  Planning is pure and
-  // bounded; publication rechecks the exact stream/cache generation before
-  // writing.  `reason` is one entailed clause (or the empty root conflict),
-  // and every equation's complete CNF premises must still be checker-visible.
+  // Compact live GF(2) consequence for streaming PBP: pure, bounded planning;
+  // publication rechecks the stream/cache generation. `reason` is one entailed
+  // clause (or the empty root conflict) with checker-visible CNF premises.
   bool plan_pbp_parity_reason(
       const std::vector<PbpParityEquation> &, const int32_t *reason,
       uint32_t reason_size, uint32_t starting_external_extent,
       const PbpParityBoundsCache &, PbpParityReasonPlan &) const;
-  // Commit a plan whose exact equations/reason and stream/cache generation
-  // were validated by the caller immediately before its mutation boundary.
-  // This deliberately does not repeat the allocation-heavy pure planner.
+  // Commit a plan the caller validated just before its mutation boundary.
   bool add_prevalidated_pbp_parity_reason(
       uint64_t kernel_clause_id, const std::vector<PbpParityEquation> &,
       const int32_t *reason, uint32_t reason_size,
       PbpParityBoundsCache &, const PbpParityReasonPlan &);
   bool del_external(uint64_t line_id, uint64_t del_id,
                     const int32_t *lits, uint32_t size);
-  // Keep an already-emitted proof-only clause available for later RUP steps.
-  // The registry is a checker-population boundary. add_sr deletes every registered
-  // clause before a witnessed line, then advances the epoch so clients cannot
-  // reuse stale support.
+  // Keep an emitted proof-only clause for later RUP steps; add_sr deletes the
+  // registry before a witnessed line and advances the epoch.
   bool retain_external(uint64_t id, const int32_t *lits, uint32_t size);
   uint64_t persistent_external_epoch() const {
     return persistent_external_epoch_;
   }
   uint64_t persistent_external_bytes() const;
 
-  // Exact, already authenticated checker premises. These are not duplicate
-  // additions: native deletion may proceed while the original checker copy
-  // remains. Every deletion primitive honors the same literal-body lease.
-  // Registration is transactional and caller-metered. Witnessed SR explicitly
-  // retires groups whose variables it changes before emitting its witness.
+  // Exact authenticated checker premises (not duplicate additions): native
+  // deletion may proceed while the checker copy remains, under one literal-body
+  // lease. Registration is transactional and caller-metered; witnessed SR
+  // retires groups whose variables it changes.
   struct DeferredDeletionLimits {
     uint64_t maximum_pending_deletions;
     uint64_t maximum_pending_literal_work;
@@ -374,18 +344,13 @@ public:
   void release_premise_groups(const std::vector<uint64_t> &, uint64_t line_id);
 
   void flush(); // signal-safe enough: fflush on the buffered stream
-  // Complete a query's automatic output selection before hashing/publication.
-  // SAT leaves the automatic DSR prefix pending until this boundary (ordinary
-  // flush does not select it). No later emissions are allowed on this writer;
-  // native continuation replaces it after inspecting its retained metadata.
+  // Complete a query's automatic output selection before publication; no
+  // later emissions on this writer.
   void finish_query_output();
 
-  // Streaming PBP: root units forced by a propagation that ended in a root
-  // conflict are staged instead of written. The staged batch is dropped when
-  // the very next proof event is the empty clause: each unit is RUP over the
-  // same database, which VeriPB propagates while checking that clause. Any
-  // other event first writes the batch exactly as it would have been written.
-  // Solver state (unit ids, root tables) is unaffected either way.
+  // Streaming PBP: root units from a propagation ending in a root conflict
+  // are staged, dropped if the next event is the empty clause, else written
+  // first. Solver state is unaffected.
   void begin_deferred_root_units() noexcept;
   void end_deferred_root_units() noexcept;
 
@@ -407,27 +372,17 @@ public:
     return pbp_counters_;
   }
 
-  // A tautological (or duplicate-carrying) lemma says nothing a checker can
-  // use, and a RUP check of it passes without touching the formula. Rules must
-  // therefore never hand one to the proof;
-  // the emission sites test this and skip the inference instead (the
-  // D-CONG-SKIP discipline: losing an inference is sound, emitting an
-  // uncheckable line is not). Debug builds assert on it in `add_rup`/
-  // `add_rat` so any future rule that regresses is caught by the debug fuzz
-  // legs rather than by a gigabyte-scale tier proof.
+  // A tautological (or duplicate-carrying) lemma is uncheckable, so rules
+  // skip the inference instead (D-CONG-SKIP); debug builds assert on it in
+  // `add_rup`/`add_rat`.
   static bool tautological(const Lit *lits, uint32_t size);
 
-  // Register one exact checker input premise.  Observer delivery is always
-  // compiled; the optional proof shadow consumes the same event in diagnostic
-  // builds.
+  // Register one exact checker input premise (observers and proof shadow).
   void seed_population(uint64_t id, const Lit *lits, uint32_t size);
 
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
-  // Diagnostic N2 oracle; production pins compile none of this. A deletion
-  // must be backed by one checker-visible copy, named by its literals. The
-  // frontend seeds and arms the oracle only
-  // after it has registered the complete input and its restatements. See
-  // benchmarks/reports/2026-08-05-input-clause-normalization-n2.md.
+  // Diagnostic N2 oracle: a deletion must be backed by one checker-visible
+  // copy, named by its literals. Armed after the complete input is registered.
   void arm_population_shadow() {
     armed_ = true;
     if (dsr_copy_)
@@ -535,9 +490,8 @@ private:
   // A DSR-only copy writes there once its prefix is published.
   bool dsr_in_destination_ = false;
   bool dsr_only_ = false; // explicit --dsr: DSR is the proof, whatever fires
-  // In the DSR copy: proof-only variables that spell parity reasons. The solver
-  // never sees them, so a variable it creates later takes a higher checker name.
-  // Each entry: at solver extent `extent`, `helpers` helpers exist in total.
+  // DSR copy: proof-only parity helper variables; at solver extent `extent`,
+  // `helpers` helpers exist in total.
   std::vector<DsrHelperNames> helper_names_;
   uint64_t pbp_numbering_ = 0; // bumped when written rows stop being usable
   std::vector<uint64_t> pbp_parity_constraints_;
@@ -545,16 +499,13 @@ private:
   bool nowhere_ = false;
   bool pbp_text_wanted() const noexcept;
   __attribute__((format(printf, 2, 3))) void put_pbp_text(const char *format, ...);
-  // In the copy: bytes spent spelling parity reasons. --auto-proof converts once
-  // they reach parity_bytes_limit_: measured on Tier D, a run with rare parity
-  // reasons spends at most about 1 MB on them in total, and a parity-heavy run
-  // passes this within its first 64 reasons, while the converted prefix is small.
+  // DSR copy: bytes spent on parity reasons; --auto-proof converts once they
+  // reach parity_bytes_limit_ (Tier D: rare-parity runs spend about 1 MB).
   uint64_t parity_bytes_ = 0;
   uint64_t parity_bytes_limit_ = 10000000;
   uint32_t new_helper();
-  // A solver variable's DSR name: every helper named while the solver had fewer
-  // variables sits below it. checker_variable stops the run past the names
-  // the checkers read.
+  // A solver variable's DSR name, above every earlier helper; checker_variable
+  // stops the run past the checkers' name range.
   uint64_t checker_name(uint64_t solver_variable) const;
   uint32_t checker_variable(uint32_t solver_variable) const;
   struct ParityWriter;
@@ -562,16 +513,13 @@ private:
   void write_parity_reason(const std::vector<PbpParityEquation> &equations,
                            const int32_t *reason, uint32_t reason_size);
   void put_checker_literal(int32_t name);
-  // The proof file the automatic selection finally rewrites (non-owning: an
-  // alias of pbp_output_ or, after publication, file_ or lazy_destination_).
-  // Every fstat, truncation and copy-in of the destination goes through it.
+  // The destination the automatic selection rewrites (non-owning alias of
+  // pbp_output_, file_ or lazy_destination_).
   FILE *automatic_destination_ = nullptr;
 
-  // One proof at a time (plan §5). In automatic mode, until a trigger, file_ is
-  // an in-process stream that only counts PBP text, and the DSR copy is the
-  // proof. A trigger converts the copy to PBP, which takes over the destination,
-  // and the writer continues on the real file. The writer's state and every answer
-  // it gives the kernel are those of --pbp until the switch.
+  // One proof at a time (plan §5): until a trigger, file_ only counts PBP
+  // text and the DSR copy is the proof; a trigger converts the copy to PBP on
+  // the destination. Until then every kernel answer is that of --pbp.
   struct LazyPbp;
   std::unique_ptr<LazyPbp> lazy_;     // null when the stream is real
   bool lazy_published_ = false;       // the header's f is recorded, unwritten
@@ -590,10 +538,8 @@ private:
   // Validation: switch after this many DSR additions (never by default); the
   // maximum means at the empty clause.
   uint64_t forced_switch_at_ = 0;
-  // A conversion rereads every DSR byte, so past this much DSR the run stops
-  // converting where it has a choice: an event DSR can spell or a PB step it
-  // can decline stays on DSR. An event with no clausal spelling still converts.
-  // Validation runs lower it with TACTIX_AUTO_PROOF_DSR_LIMIT.
+  // Past this much DSR a conversion is declined where possible (it rereads
+  // every byte); TACTIX_AUTO_PROOF_DSR_LIMIT lowers it.
   uint64_t dsr_limit_ = 3000000000;
   // In the copy: lines written, counted as binary DSR in either spelling, so
   // text and binary runs reach the limit at the same event.
@@ -611,11 +557,24 @@ private:
   void select_dsr_copy(bool finished = true);
   // After forwarding: discard a failed copy, keep the copy at the empty clause.
   void settle_dsr_copy();
+  // Feeds one event to the DSR copy in `copy_slot` (always dsr_copy_), then
+  // settles it.
+  template <class Event>
+  void forward_to_copy(std::unique_ptr<Proof> &copy_slot, Event &&event) {
+    if (copy_slot) {
+      event(*copy_slot);
+      settle_dsr_copy();
+    }
+  }
+  // Writes an event the copy in `copy_slot` (always dsr_copy_) may decline:
+  // holds it, then forwards it (when `forward`) and drops a declining copy.
+  template <class Write, class Copy>
+  bool write_held_event(std::unique_ptr<Proof> &copy_slot, Write &&write, Copy &&copy,
+                        bool forward = true);
 
   // Consecutive RUP units and their following deletion block form one split
-  // transaction. Two RUP helpers per unit use a shared fresh variable; each
-  // prior pair supplies its unit under either assumption on that variable.
-  // Deletion bytes are spooled; helpers are retired before a later SR step.
+  // transaction: two RUP helpers per unit share a fresh variable; deletion
+  // bytes are spooled; helpers retire before a later SR step.
   void flush_pending_dsr_units();
   void flush_persistent_external(uint64_t line_id);
   CheckerRoute population_route() const noexcept;
@@ -665,9 +624,8 @@ private:
   std::vector<uint32_t> premise_variable_uses_;
   void count_premise_variables(const PremiseGroup &, bool add);
   bool defer_leased_deletion(const int32_t *, uint32_t);
-  // Delete the proof-only constraints of parity reasons that mention a variable the
-  // line's witness changes: a witness must hold against every checker constraint.
-  // Each cached row is written again before its next use.
+  // Delete parity-reason constraints that mention a variable the witness
+  // changes; cached rows are rewritten before their next use.
   void retire_pbp_parity_constraints(const Lit *, uint32_t, const Lit *, uint32_t,
                                      const DsrLiteralMapping *, uint32_t);
   // The DSR writer cannot spell this line: its auxiliary variable would need a
@@ -751,14 +709,10 @@ private:
   bool streaming_pbp_finished_ = false;
   uint64_t pbp_original_constraints_ = 0;
   uint64_t pbp_derived_constraints_ = 0;
-  // Constraint IDs match Tactix IDs through the ordinary raw-input prefix.
-  // After an input-time derivation splits the namespaces, later raw inputs
-  // keep strictly increasing Tactix ids: runs of consecutive ids name their
-  // input constraints, so the input side costs one run per split plus two
-  // bits per input (deleted by specification; already deleted), never one
-  // map entry per clause. `pbp_constraint_ids_` names derived constraints
-  // only; the high bit marks a derived ordinal whose final absolute ID
-  // becomes known when input parsing finishes.
+  // Constraint IDs match Tactix IDs through the raw-input prefix; after a
+  // split, input runs of consecutive ids cost one run per split plus two bits
+  // per input. `pbp_constraint_ids_` names derived constraints; the high bit
+  // marks an ordinal resolved when input parsing finishes.
   struct PbpInputRun {
     uint64_t first_id, first_constraint, count;
   };
@@ -773,12 +727,9 @@ private:
   bool pbp_input_deleted(uint64_t constraint) const;
   void mark_pbp_input_deleted(uint64_t constraint);
   bool pbp_id_deletions_enabled_ = true;
-  // Anonymous (id-0) derived constraints of an exact-identity width, keyed by
-  // their sorted checker literals and compared exactly. Each key holds a stack
-  // of proof constraint IDs (high bit: transaction-relative ordinal). Every ID
-  // lives in exactly one of this registry and `pbp_constraint_ids_`, so a
-  // registry deletion names an anonymous constraint whose literals equal the
-  // requested clause and that no other deletion can still name.
+  // Anonymous (id-0) derived constraints keyed by sorted checker literals,
+  // each a stack of IDs (high bit: ordinal). An ID lives in exactly one of
+  // this registry and `pbp_constraint_ids_`.
   struct PbpLiteralKeyHash {
     size_t operator()(const std::vector<int32_t> &key) const noexcept;
   };
@@ -804,11 +755,8 @@ private:
   bool pbp_deferring_units_ = false;
   bool pbp_replaying_leased_ = false;
   uint64_t pbp_last_deleted_ = 0; // constraint named by the last `del id`
-  // Assertion-build audit of exact deletion (proof.cpp compiled without
-  // NDEBUG; the members exist in every build so the layout never depends on
-  // a translation unit's NDEBUG): the sorted canonical literals of every
-  // derived constraint and input, by proof ID. Each `del id` must name a live
-  // constraint whose literals equal the request's.
+  // Assertion-build audit of exact deletion (members exist in every build for
+  // a fixed layout): canonical literals of every constraint by proof ID.
   std::unordered_map<uint64_t, std::vector<int32_t>> pbp_audit_input_;
   std::unordered_map<uint64_t, std::vector<int32_t>> pbp_audit_derived_;
   void pbp_audit_record(bool input, uint64_t index, const int32_t *lits,

@@ -88,14 +88,10 @@ ClauseKey key(std::initializer_list<Lit> literals) {
   return result;
 }
 
-// The gate authentication is deliberately narrower than graph recognition.
-// Every accepted z has the live clauses
-//   (a v b v z), (-a v -z), (-b v -z),
-// where either reverse binary is explicit or has the exact two-clause RUP
-// chain used by the retained static audit.  Recursing from indexed primary
-// literals therefore proves that z means absence on precisely the recorded
-// contiguous interval.  The final equivalence still has an independent RUP
-// replay before any mutation.
+// Gate authentication: each accepted z has live (a v b v z), (-a v -z),
+// (-b v -z), each reverse binary explicit or RUP by the audit's two-clause
+// chain, so z means absence on the recorded interval. The final equivalence is
+// replayed before mutation.
 bool discover(Kernel &kernel, uint64_t maximum_work, Discovery &result) {
   result = {};
   const uint64_t limit = maximum_work;

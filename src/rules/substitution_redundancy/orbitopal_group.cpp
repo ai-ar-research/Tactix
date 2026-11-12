@@ -74,10 +74,9 @@ public:
     ++states_used_;
     generator_words_.assign(2 * input_.size(), UINT32_MAX);
 
-    // The order of a generator's column action kills that projection. Its
-    // corresponding power can expose a useful row kernel element without
-    // enumerating the (potentially factorial) column image group. Keep the
-    // joint-action stabilizer chain for cases this does not settle.
+    // The power of a generator by its column-action order may expose a row
+    // kernel element without enumerating the column group; the joint stabilizer
+    // chain handles the rest.
     for (size_t generator = 0; generator < input_.size(); ++generator) {
       if (!charge(1 + rows_ + columns_))
         return finish(limit_status_);
@@ -400,10 +399,8 @@ private:
               return -1;
             }
             next_actions.insert(row_key);
-            // A triangular Sims filter removes redundant Schreier generators.
-            // Every discarded residue is explicitly reduced to identity by
-            // retained generators; retaining each new pivot preserves the
-            // generated subgroup without enumerating its elements.
+            // A triangular Sims filter drops Schreier generators that reduce to identity,
+            // preserving the generated subgroup.
             for (size_t point = 0; point < degree; ++point) {
               if (next_image[point] == point)
                 continue;
@@ -432,12 +429,9 @@ private:
       chain.push_back({std::move(orbit), std::move(representative)});
     }
 
-    // A transposition need not occur in a stabilizer's generator list. Once
-    // its first moved point is fixed, the remaining stabilizers lose it.
-    // Sift every transposition through the completed chain instead: at each
-    // level remove the transversal carrying that base point to its image.
-    // Identity residue proves membership and the reversed transversal words
-    // recover an exact word in the original generators, fixing every column.
+    // Sift every transposition through the completed chain: identity residue
+    // proves membership and the reversed transversal words give an exact word
+    // in the original generators.
     std::vector<size_t> residue(degree);
     for (size_t first = fixed_prefix; first < degree; ++first)
       for (size_t second = first + 1; second < degree; ++second) {

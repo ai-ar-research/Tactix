@@ -41,9 +41,8 @@ template <class Hasher = std::hash<std::string_view>,
           class BinaryHasher = std::hash<uint64_t>>
 class BasicSymmetryClauseMultiset {
   std::vector<std::vector<Lit>> clauses_;
-  // Immutable after build: no erase/tombstones and no iteration-order
-  // dependency. A zero count denotes an empty bucket, so every key value
-  // (including the empty clause and binary key zero) remains representable.
+  // Immutable after build, with no iteration-order dependency; a zero count
+  // marks an empty bucket, so every key stays representable.
   template <class Key, class Hash> class Counts {
     struct Entry {
       Key key{};
@@ -136,10 +135,8 @@ class BasicSymmetryClauseMultiset {
   std::shared_ptr<std::pmr::monotonic_buffer_resource> canonical_storage_;
   Counts<std::string_view, ViewHash> multiplicity_;
   Counts<uint64_t, BinaryHasher> binary_multiplicity_;
-  // Dense domains use one bit per unordered literal pair. The count table
-  // then stores only duplicate excesses; absent entries have multiplicity one.
-  // Select this representation only when its total storage fits the ordinary
-  // table's storage. Sparse literal domains retain the ordinary table.
+  // Dense domains use one bit per unordered literal pair and count only
+  // duplicate excesses, when that fits the ordinary table's storage.
   std::vector<uint64_t> binary_membership_;
   uint64_t binary_domain_ = 0;
   size_t binary_distinct_count_ = 0;
@@ -268,11 +265,8 @@ public:
       }
   }
 
-  // PRECONDITION: mapping is a validated bijection on the literal domain.
-  // A bijection induces an injection on normalized clauses. Membership plus
-  // equal source/image multiplicity on finite support therefore proves exact
-  // equality with the snapshot multiset, without constructing an image map.
-  // Signedness, retired variables and bounds are checked by the caller first.
+  // PRECONDITION: mapping is a validated bijection on the literal domain, so
+  // membership plus equal multiplicity proves equality with the snapshot.
   template <class Charge>
   bool preserves(const std::vector<Lit> &mapping, Charge &&charge,
                  SymmetryClauseCheckStats *stats = nullptr) const {
@@ -288,28 +282,25 @@ public:
     std::iota(all.begin(), all.end(), size_t{0});
     return check_clauses<true>(all, mapping, mapped, charge, stats);
   }
-  // Clauses outside the moved literal support are pointwise fixed. The
-  // incidence index includes each physical copy, including repeated literals;
-  // the local marks suppress repeated visits, never clause multiplicity.
+  // Clauses outside the moved support are fixed; marks suppress repeated
+  // visits, never multiplicity.
   template <class Charge>
   bool preserves_support(const std::vector<Lit> &mapping, Charge &&charge,
                          SymmetryClauseCheckStats *stats = nullptr) const {
     return preserves_support_impl<true>(mapping, charge, stats);
   }
 
-  // Under the same validated-bijection precondition, image membership proves
-  // equality of the finite clause set. Physical duplicates remain in the
-  // snapshot and work accounting, but do not restrict semantic symmetries.
+  // Image membership proves equality of the clause set; duplicates still count
+  // in the work accounting.
   template <class Charge>
   bool preserves_set_support(const std::vector<Lit> &mapping, Charge &&charge,
                              SymmetryClauseCheckStats *stats = nullptr) const {
     return preserves_support_impl<false>(mapping, charge, stats);
   }
 
-  // Sparse generator equivalent of preserves_set_support, including its work
-  // accounting. Identity gaps are charged algebraically; first-touch clause
-  // order and every nonidentity occurrence/clause charge remain unchanged.
-  // PRECONDITION: a validated bijection with exactly these sorted moved pairs.
+  // Sparse equivalent of preserves_set_support with identical work accounting
+  // (identity gaps charged algebraically). PRECONDITION: a validated bijection
+  // with exactly these sorted moved pairs.
   template <class Mapping, class Charge>
   bool preserves_set_moved_reference(const Mapping &mapping,
                                     std::span<const std::pair<Lit, Lit>> moved,
@@ -349,9 +340,8 @@ public:
     return preserves_touched(moved, workspace, charge, stats);
   }
 
-  // PRECONDITION: mapping is a validated bijection, identity outside exactly
-  // the supplied moved sources. Mapping needs size() and literal lookup only;
-  // it may itself be sparse. No full-domain image or scan is required.
+  // PRECONDITION: a validated bijection, identity outside the moved sources;
+  // `mapping` needs only size() and lookup.
   template <class Mapping, class Charge>
   bool preserves_set_moved(const Mapping &mapping,
                            std::span<const std::pair<Lit, Lit>> moved,
@@ -381,9 +371,7 @@ public:
       }
     }
     if (stats) stats->fixed_clauses = clauses_.size() - workspace.touched.size();
-    // One identity image per batch provides constant-time clause literal
-    // lookup. Each row changes and restores only its support; no per-row
-    // domain scan and no per-literal binary search through moved pairs.
+    // One identity image per batch; each row changes and restores its support.
     if (workspace.literal_image.size() != mapping.size()) {
       if (!charge(mapping.size())) return false;
       workspace.literal_image.resize(mapping.size());

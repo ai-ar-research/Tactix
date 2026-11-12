@@ -14,10 +14,7 @@ inline bool add_bounded(uint64_t amount, uint64_t maximum, uint64_t &work) {
   return true;
 }
 
-// Shared bounded-work accounting for semantic-extension recognition and
-// validation.  Charging observes termination before the allowance, while
-// absorb deliberately accounts already-performed child work without another
-// termination check.
+// Bounded work: charge polls termination first; absorb only accounts.
 struct InterruptibleWork {
   const Kernel &kernel;
   uint64_t maximum = 0;

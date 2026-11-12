@@ -32,10 +32,8 @@ struct WindowCursorStepResult {
   uint64_t nodes = 0;
 };
 
-// Resumable form of window_search. Every charged mutation has an explicit
-// cursor, including frame construction, shuffling and insertion sorting. Thus
-// dividing one total allowance into smaller slices preserves the exact search
-// frontier, random stream, candidate and logical-work count.
+// Resumable window_search: every charged mutation has an explicit cursor, so
+// slicing one allowance preserves the search frontier, random stream and work.
 class WindowCursor {
 public:
   WindowCursor() = default;
@@ -78,9 +76,8 @@ public:
                            maximum_workspace_bytes, false);
   }
 
-  // The retained session admits and charges initialization before allocating
-  // cursor storage. This entry preserves the legacy total-work count without
-  // charging the same setup a second time in step().
+  // The session charges initialization before allocation; step() does not
+  // charge it again.
   WindowCursorAdmission initialize_after_charge(
       const Shape &shape, const WindowLimits &limits,
       uint64_t total_work_allowance, uint64_t maximum_workspace_bytes) {

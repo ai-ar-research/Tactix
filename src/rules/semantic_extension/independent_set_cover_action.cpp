@@ -9,8 +9,6 @@
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <algorithm>
-#include <cstdlib>
-#include <limits>
 
 namespace tactix {
 namespace {
@@ -180,9 +178,7 @@ IndependentSetCoverActionResult independent_set_cover_action_apply(
       live.result == ApplyResult::NoOp)
     return output;
 
-  // All failure paths above leave the owner, action counter and candidate
-  // transaction unchanged.  From here the live adapter has committed, so the
-  // preflighted session bookkeeping is infallible or a programming error.
+  // The live adapter committed; session bookkeeping cannot fail.
   if (first) {
     session.owner = &kernel;
     session.snapshot = std::move(captured);

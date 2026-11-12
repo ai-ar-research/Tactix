@@ -62,14 +62,9 @@ struct RowOutcome {
   uint32_t derivation = 0;
 };
 
-// Every limit is hard for its named metric.  Work is charged before each
-// bounded operation.  Fill is the cumulative number of nonzero row entries
-// retained by Scale/Add derivations.  The retained-plan limit bounds the
-// deterministic encoding of published nodes and outcomes.  It is deliberately
-// not advertised as an allocator or RSS cap: STL capacity, temporary merge
-// buffers, the basis, and indexing containers are excluded.  Their entry
-// counts are structurally bounded by the derivation, width, and provenance
-// limits; an exact heap cap requires a later budgeted-arena adapter.
+// Hard limits; work is charged before each operation. Fill counts nonzero
+// entries retained by Scale/Add. The retained-plan limit bounds the encoded
+// nodes and outcomes, not heap use.
 struct Limits {
   uint64_t maximum_work = 0;
   uint64_t maximum_fill_entries = 0;
@@ -121,8 +116,7 @@ struct Result {
   PlanStatus status = PlanStatus::InvalidInput;
   LimitKind limit = LimitKind::None;
   Statistics consumed;
-  // Present only for Complete.  Declines and interruptions publish no partial
-  // derivation graph.
+  // Present only for Complete.
   Plan plan;
 };
 
@@ -133,9 +127,8 @@ using Charge = std::function<bool(uint64_t)>;
 inline constexpr uint64_t retained_outcome_bytes = 16;
 bool retained_derivation_bytes(const Derivation &node, uint64_t &bytes);
 
-// Build a deterministic reduced row-echelon basis.  Input order has no effect:
-// rows are processed by their normalized equation and then source identity.
-// Derivation indices are one-based so zero is an invalid parent/outcome.
+// A reduced row-echelon basis independent of input order (rows sorted by
+// equation, then source); derivation indices are one-based.
 Result build_plan(const std::vector<SourceRow> &source, const Limits &limits,
                   Charge charge);
 

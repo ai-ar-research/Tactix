@@ -21,7 +21,8 @@ bool sweep_share_steps(SubDerivation &d, std::shared_ptr<SweepProofSteps> &progr
     if (!program) program = std::make_shared<SweepProofSteps>();
     auto selected = std::make_shared<std::vector<const SubStep *>>();
     selected->reserve(d.steps.size());
-    // Core traversal is complete. Replay uses only each lemma's resolution chain.
+    // Core traversal is complete. Replay uses only each lemma's resolution
+    // chain.
     for (auto &step : d.steps) {
       std::vector<uint32_t>().swap(step.antecedents);
       selected->push_back(program->retain(std::move(step)));

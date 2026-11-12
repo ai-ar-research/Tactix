@@ -131,8 +131,7 @@ private:
   }
 
 public:
-  // Search services run only after ResumeSearch. Root work never advances a
-  // restart clock, and switching branch or phase never resets its history.
+  // Search services run after ResumeSearch; root work never moves restarts.
   void search_conflict(uint32_t glue) {
     assert(searching_);
     if (search_.restart == Restart::Reluctant) {
@@ -192,8 +191,7 @@ public:
 
 private:
   ApplyResult restart_impl(uint32_t keep_level, bool &applied) {
-    // A stopped solve may leave a non-root trail before this new controller
-    // session has installed any configuration. Its entry still uses Restart.
+    // A stopped solve may leave a non-root trail; entry still uses Restart.
     if ((!searching_ && !kernel_.level) || !restart_guard(kernel_) ||
         (!searching_ && keep_level))
       return ApplyResult::NoOp;
@@ -208,8 +206,7 @@ private:
       searching_ = false;
       affine_root_window_ = result != ApplyResult::Unsat;
     } else {
-      // Continuing the installed configuration consumes the due restart,
-      // without reinstalling branch/phase state or entering the root loop.
+      // Continuing consumes the due restart without reinstalling state.
       restarts_.reluctant.trigger = false;
       restarts_.update_restart_limit(kernel_, settings_.restart);
     }
@@ -235,8 +232,7 @@ public:
            affine_matrix_search_enabled();
   }
 
-  // Only an explicit full restart opens this root maintenance window.
-  // Ordinary search fixpoints and partial restarts cannot publish theory work.
+  // Only an explicit full restart opens the root maintenance window.
   AffineMatrixServiceResult affine_matrix_fixpoint_service() {
     NativeActionDescription description;
     description.version = 2;
@@ -353,8 +349,7 @@ private:
     program.sequence.push_back(std::move(invocation));
     if (!validate_online_strategy_program(program))
       return result;
-    // Only a matching semantic request retains a pending scope. A new choice
-    // replaces that family's selection without undoing committed changes.
+    // Only a matching request keeps a pending scope; commits stay.
     const auto identity = serialize_online_strategy_program(program);
     auto &pending = pending_[request.invocation.rule];
     if (pending.identity != identity ||

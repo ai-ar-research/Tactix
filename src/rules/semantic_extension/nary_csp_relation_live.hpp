@@ -75,9 +75,8 @@ struct NaryCspRelationCaptureResult {
   bool owner_retained = false;
 };
 
-// Authenticate exact ALO, pairwise AMO, and forbidden-tuple clauses at a
-// propagated root. The function changes only output on Applied. It never
-// writes a proof, journal, clause, assignment, phase, or semantic candidate.
+// Authenticate ALO, pairwise AMO and forbidden-tuple clauses at a propagated
+// root; only `output` changes, and only on Applied.
 NaryCspRelationCaptureResult nary_csp_relation_capture_owner(
     Kernel &, const NaryCspRelationCaptureRequest &,
     NaryCspRelationOwnerSnapshot &output);

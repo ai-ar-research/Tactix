@@ -20,7 +20,6 @@ public:
   virtual int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) = 0;
 };
 
-// The swappable per-decision heuristics a Policy composes (BranchingPolicy,
-// ReductionPolicy, BveBoundPolicy, ...) live in policies/subpolicy.hpp.
+// The swappable per-decision heuristics live in policies/subpolicy.hpp.
 
 } // namespace tactix

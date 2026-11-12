@@ -1,15 +1,11 @@
-// Restart: abandon the assignment prefix (kissat restart.c). WHEN is
-// policy state (focused: Glucose EMA scheme; stable: reluctant doubling —
-// both in DefaultPolicy); HOW — including trail reuse — is here.
+// Restart: abandon the assignment prefix (kissat restart.c). When is the
+// policy's (DefaultPolicy); how, including trail reuse, is here.
 #include "rules/restart/restart.hpp"
 #include "rules/analyze/analyze.hpp"
 
 namespace tactix {
 
-// soundness: abandoning the assignment prefix is always sound; only a
-// recorded-but-unanalyzed conflict pins the trail (stale conflict record).
-// WHEN to restart is the policy's decision and state (plan §5) —
-// this module only knows HOW.
+// Always sound; only a recorded unanalyzed conflict pins the trail.
 RuleEligibility restart_guard(const Kernel &k) {
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent);
@@ -29,11 +25,9 @@ static bool recorded_conflict_still_holds(const Kernel &k) {
 
 static ApplyResult refresh_recorded_conflict(Kernel &k) {
   if (recorded_conflict_still_holds(k)) {
-    // Chronological backtracking can retain root-level implications above a
-    // decision frame. If every conflict literal survives a full restart, the
-    // root formula is refuted. Discharge it immediately through Analyze;
-    // otherwise a root rewrite could retire the live
-    // conflict antecedent before the caller explicitly selected Analyze.
+    // If every conflict literal survives a full restart, the root is refuted:
+    // discharge it through Analyze before a root rewrite retires its
+    // antecedent.
     if (k.level == 0)
       return analyze_apply(k);
     return ApplyResult::Ok;
@@ -69,9 +63,8 @@ ApplyResult restart_apply(Kernel &k) {
   return restart_apply_to(k, 0);
 }
 
-// generic instance surface (plan §5.1 v1): payload = keep-level.
-// Canonical full restart first, then [level, 1] descending. Policies may rank
-// the same complete legal set differently.
+// Instance surface (plan §5.1 v1): payload = keep-level; full restart first,
+// then [level, 1] descending.
 static uint32_t restart_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   if (cap == 0)
     return 0;

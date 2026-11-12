@@ -266,8 +266,7 @@ ActionParameterMetadata action_parameter_metadata(
 #undef CONTRACT
   return {};
 }
-// Compatibility name for the inprocessing scheduler. Online composition uses
-// the same typed parameter vocabulary for every registered action.
+// Compatibility name for the inprocessing scheduler.
 using InprocessParameters = ActionParameters;
 
 // One occurrence in an inprocessing strategy.  Rule names are resolved and
@@ -289,11 +288,9 @@ struct InprocessStep {
   bool enabled = true;
   bool preprocessing = false;
   Followup followup = Followup::None;
-  // Absence means inherit the owning strategy profile. The tagged alternative
-  // makes cross-rule parameter attachment invalid rather than silently inert.
+  // Absence inherits; a tagged alternative rejects cross-rule attachment.
   InprocessParameters parameters;
-  // Per-occurrence scheduler choices. Empty values inherit the rule's typed
-  // profile and native traversal. Zero max_applications means unlimited.
+  // Per-occurrence choices; empty inherits, zero max_applications unlimited.
   std::optional<uint32_t> effort_permille;
   uint32_t max_applications = 0;
   std::optional<bool> cursor_enabled;

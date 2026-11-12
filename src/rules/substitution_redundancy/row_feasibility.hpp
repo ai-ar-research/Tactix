@@ -7,11 +7,9 @@
 
 namespace tactix {
 
-// A completed row can only remove possible new columns. A source with a
-// missing image, a variable already used by that row's seed, or a repeated
-// variable in earlier rows can never become a legal additional column.
-// This SAT-specific predicate belongs to the matrix consumer, not the graph
-// backend. It observes images without changing their discovery/column order.
+// A completed row only removes possible columns: a source with a missing
+// image, a variable used by the row's seed, or a variable repeated in earlier
+// rows can never become a column. Discovery order is unchanged.
 class RowColumnFeasibility {
 public:
   explicit RowColumnFeasibility(const std::vector<std::vector<Lit>> &seed)

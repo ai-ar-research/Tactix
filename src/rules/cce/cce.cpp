@@ -16,11 +16,8 @@ namespace tactix {
 
 namespace {
 
-// Round-local literal -> large-clause index over everything CCE must see.
-// `Kernel::dense` cannot serve: it carries irredundant clauses only, and the
-// CLA side must quantify over redundant ones too. One arena pass per round — a
-// per-literal scan would make a canonical round O(nlits x arena), which
-// measured as an order-of-magnitude tier regression for BCE.
+// Round-local literal -> large-clause index including redundant clauses (CLA
+// quantifies over them), built in one arena pass.
 struct CceCandidate {
   Ref ref = INVALID_REF;
   Lit first = INVALID_LIT;
@@ -31,9 +28,8 @@ struct CceCandidate {
 
 struct CceIndex {
   FlatOccurrenceIndex occ;
-  // Large clauses retain arena order, followed by unique binary pairs in
-  // literal/watch order. Identical physical binary copies are one semantic
-  // victim because they have the same model-reconstruction obligation.
+  // Large clauses in arena order, then unique binary pairs; identical binary
+  // copies are one victim.
   std::vector<CceCandidate> cands;
 };
 
@@ -81,9 +77,7 @@ uint64_t candidate_instance(const CceCandidate &candidate) {
              : cce_large_instance(candidate.ref);
 }
 
-// The extension state for one candidate. Every array is round-owned and
-// restored through its own touched list, never refilled per candidate — the
-// per-call linear-scratch hazard.
+// Per-candidate extension state, round-owned and restored via touched lists.
 struct Coveror {
   std::vector<Lit> added;   // the FULL extension C'' (ALA + CLA + C), the queue
   std::vector<Lit> covered; // the RECORDED clause: C's literals + CLA additions
@@ -102,9 +96,7 @@ struct Coveror {
   }
 };
 
-// The assignment C'' induces: a literal of C'' is false, its negation true.
-// Root assignments count too, being permanent, so a root-false literal is
-// already in the extension and a root-true one satisfies its clause outright.
+// The assignment C'' induces; root values count too.
 bool is_false(const Kernel &k, const Coveror &cv, Lit l) {
   return cv.mark[l] || k.values[l] < 0;
 }
@@ -112,18 +104,15 @@ bool is_true(const Kernel &k, const Coveror &cv, Lit l) {
   return cv.mark[negate(l)] || k.values[l] > 0;
 }
 
-// Add `l` to the extension. Callers must have established that `l` is neither
-// already false nor already true, so C'' can never hold a complementary pair
-// (which is what keeps the deleted clause out of its own candidate lists).
+// Add `l` to the extension; `l` must be unassigned, so C'' has no
+// complementary pair.
 void extend(Coveror &cv, Lit l) {
   cv.mark[l] = 1;
   cv.added.push_back(l);
 }
 
-// ALA over one newly-false literal `l`: every irredundant clause holding `l`
-// that is now unit propagates, and one that is now empty means C'' is subsumed.
-// Returns true on that conflict (the ATA exit). `self` is the candidate itself,
-// which must be ignored or it falsifies immediately and trivially.
+// ALA over newly false `l`: unit clauses propagate; an empty one is the ATA
+// exit (returns true). `self` is ignored.
 bool ala_propagate(Kernel &k, const CceIndex &idx, Coveror &cv, Lit l,
                    const CceCandidate &self) {
   for (const Ref r : idx.occ[l]) {
@@ -173,9 +162,8 @@ bool ala_propagate(Kernel &k, const CceIndex &idx, Coveror &cv, Lit l,
   return false;
 }
 
-// Fold one resolution candidate's eligible literals into `inter`. `nu` is the
-// pivot's negation, which never joins. Returns false once the intersection is
-// empty (the caller aborts the CLA step).
+// Fold one candidate's eligible literals into `inter` (`nu` never joins).
+// False once the intersection is empty.
 bool fold(const Kernel &k, Coveror &cv, const Lit *lits, uint32_t n, Lit nu,
           bool &first) {
   if (first) {
@@ -212,19 +200,16 @@ bool fold(const Kernel &k, Coveror &cv, const Lit *lits, uint32_t n, Lit nu,
 
 enum class ClaResult { Nothing, Added, Blocked };
 
-// One CLA step on pivot `u`, a recorded literal of C''. Either every clause
-// holding `¬u` resolves tautologically against C'' — C'' is blocked on `u` — or
-// the literals shared by all the others may be added to C''.
+// One CLA step on pivot `u`: C'' is blocked on `u`, or the literals shared by
+// all resolution candidates are added.
 ClaResult cla_step(Kernel &k, const CceIndex &idx, Coveror &cv, Lit u,
                    const CceCandidate &self) {
   const Lit nu = negate(u);
   bool first = true, empty = false;
   cv.inter.clear();
 
-  // A candidate is skipped when the resolvent with C'' is already tautological,
-  // i.e. it holds a literal true under the extension (cadical's "double
-  // satisfied"). That is the test the blocked exit rests on, so a step skipping
-  // every candidate IS the blocked exit.
+  // Skip candidates already tautological with C'' (cadical "double satisfied");
+  // skipping all is the blocked exit.
   for (const Ref r : idx.occ[nu]) {
     if (!self.binary() && r == self.ref)
       continue;
@@ -326,15 +311,10 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
   bool ata = false, blocked = false;
   if (!tautological) {
     const uint64_t start_ticks = k.stats.cce_ticks;
-    // cadical's control flow (cover.cpp:358-367): drain the ALA queue first,
-    // then take the next recorded literal for a CLA step, and restart the
-    // covered scan after every addition — a new false literal can block a pivot
-    // that was not blocked before.
+    // cadical cover.cpp:358-367: drain ALA, then one CLA step, restarting the
+    // covered scan after every addition.
     size_t next_added = 0, next_covered = 0;
-    // The caller's public work budget is the only effort ceiling. Zero is
-    // unbounded, so an explicit legal application cannot be silently disabled
-    // by the old, unbacked per-candidate constant. Subtraction avoids overflow
-    // when a caller supplies a very large allowance.
+    // Only the caller's work budget bounds effort (zero = unbounded).
     while (!kernel_has_work_budget(k) ||
            k.stats.cce_ticks - start_ticks <= k.work_budget) {
       if (next_added < cv.added.size()) {
@@ -376,10 +356,8 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
           kernel_population_clause(k, cv.pivot.data(), cv.pivot.size()),
           source ? source->id() : 0, self.binary(), self.binary(), words);
     }
-    // `ρ` in push order; kernel_extend_model replays it in reverse, the order
-    // `docs/dev/calculus.md` §X3 unwinds the CLA steps in. An ATA exit reached with
-    // no CLA step in front of it needs no segment: the extension is then pure
-    // unit propagation of ¬C over F∖{C}, so C is RUP there.
+    // `ρ` in push order, replayed in reverse (calculus §X3). An ATA exit
+    // without a CLA step needs no segment: C is RUP over F∖{C}.
     const auto record_witnesses = [&] {
       for (size_t i = 0; i < cv.pivot.size(); i++) {
         const Lit w = cv.pivot[i];
@@ -422,14 +400,9 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
   return eliminated;
 }
 
-// Has anything `c`'s applicability can turn on moved since `since`? A two-sided
-// read (`kernel_changed_since`, as in bce.cpp): a clause becomes blocked when
-// an opposite occurrence is removed, and its ALA/CLA closure changes when one
-// is added, so both stamps count; one changed variable suffices, unlike the
-// subsumption family's two. The filter under-approximates on two axes — it
-// reads vars(C) rather than C's whole closure, and additions of redundant
-// clauses carry no advice (retirements do). Both are yield-only: cover_clause
-// re-reads the live index for every test that passes. Ledger row D-CCE-FILTER.
+// Has anything `c`'s applicability depends on moved since `since`? Two-sided
+// (`kernel_changed_since`, as bce.cpp), one changed variable suffices. Reads
+// vars(C) only; yield-only under-approximation (ledger D-CCE-FILTER).
 bool changed_clause(const Kernel &k, const Clause *c, uint64_t since) {
   for (const Lit l : *c)
     if (kernel_changed_since(k, var_of(l), since))
@@ -437,11 +410,8 @@ bool changed_clause(const Kernel &k, const Clause *c, uint64_t since) {
   return false;
 }
 
-// The shared body of the round and the single-literal instance: walk `cands`
-// under the policy's remaining ledger. `filter`/`wm` are the round's repetition
-// filter; the instance path passes filter=false, since narrowing that would
-// remove a capability (N1). `stopped_at` receives the index of the first
-// candidate the budget never reached, for the caller's re-arm.
+// Shared body of the round and the single-literal instance (filter=false, N1).
+// `stopped_at` is the first candidate the budget never reached.
 bool cover_range(Kernel &k, const CceIndex &idx, Coveror &cv,
                  const std::vector<CceCandidate> &cands, bool filter,
                  uint64_t wm,
@@ -527,17 +497,9 @@ ApplyResult cce_apply(Kernel &k) {
   roots.finish();
   Coveror cv;
   cv.resize(k.nvars);
-  // Budget-aware batch rule (EffortSpec budget_aware): the policy hands the
-  // remaining ledger in this rule's own currency and the round stops mid-way,
-  // rather than being metered after the fact (Vivify's idiom).
-  //
-  // Repetition and resumption both run on the touched-epoch substrate, the
-  // arrangement C1/C2 and BCE use. No rotation cursor lives here: order is a
-  // scheduling decision and belongs to the policy, and a Stats counter must
-  // never affect behaviour. The tail the budget never reached is re-armed and
-  // the watermark then advances, so the next round's set is {unreached tail} u
-  // {whatever changed} — it resumes instead of replaying its head, which is
-  // what having no per-clause `covered` flag would otherwise cost.
+  // Budget-aware batch rule: the round stops mid-way at the ledger. Repetition
+  // and resumption use the touched-epoch substrate (as C1/C2 and BCE): the
+  // unreached tail is re-armed and the watermark advances.
   kernel_touch_sync_fixed(k);
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch; // BEFORE any work, as C1/C2 do
@@ -560,9 +522,7 @@ ApplyResult cce_apply(Kernel &k) {
     const Clause *c = clause_at(k.arena, candidate.ref);
     if (c->garbage() || !changed_clause(k, c, wm))
       continue;
-    // One mark, not one per literal: `changed_clause` needs a single changed
-    // variable, so one is enough to re-offer the clause. Removed marks also
-    // feed BCE; avoid extra marks and leave add-only consumers' caches alone.
+    // One mark suffices for `changed_clause`; it also feeds BCE.
     kernel_removed_var(k, var_of(*c->begin()));
     k.stats.cce_rearmed++;
   }

@@ -97,14 +97,7 @@ TransactionResult build_transaction(const AdmissionResult &admission,
   transaction.version = 1;
   transaction.identity.pivot = plan.candidate.pivot;
   transaction.identity.cycle_edges = plan.candidate.cycle_edges;
-  for (const EquationProvenance &source : admission.provenance) {
-    TransactionSource copied;
-    copied.group_identity = source.group_identity;
-    copied.vertex = source.vertex;
-    for (const StablePremise premise : source.premises)
-      copied.premises.push_back({premise.occurrence, premise.proof});
-    transaction.identity.sources.push_back(std::move(copied));
-  }
+  transaction.identity.sources = admission.provenance;
 
   if (!meter.spend())
     return metered_stop(meter);

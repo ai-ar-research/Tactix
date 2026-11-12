@@ -15,7 +15,6 @@
 #include <climits>
 #include <chrono>
 #include <cstdlib>
-#include <iterator>
 #include <map>
 #include <sstream>
 #include <utility>
@@ -224,90 +223,84 @@ AffineMatrixServiceStatus live_status(MatrixLiveStatus status) {
 }
 
 void record_init(Kernel &kernel, const AffineMatrixInitResult &result) {
-  ++kernel.stats.affine_matrix_init_attempts;
-  kernel.stats.affine_matrix_init_snapshot_work += result.snapshot_work;
-  kernel.stats.affine_matrix_init_recognition_work += result.recognition_work;
-  kernel.stats.affine_matrix_init_matrix_work += result.matrix_work;
-  kernel.stats.affine_matrix_init_premise_retention_work += result.premise_retention_work;
-  kernel.stats.affine_matrix_init_normalization_rup_checks += result.normalization_rup_checks;
-  kernel.stats.affine_matrix_init_shortening_additions += result.shortening_additions;
-  kernel.stats.affine_matrix_init_discovery_recognized_groups += result.discovery_recognized_groups;
-  kernel.stats.affine_matrix_init_discovery_skipped_groups += result.discovery_skipped_groups;
-  kernel.stats.affine_matrix_init_discovery_recognizer_work += result.discovery_recognizer_work;
+  auto &s = kernel.stats;
+  ++s.affine_matrix_init_attempts;
+  s.affine_matrix_init_snapshot_work += result.snapshot_work;
+  s.affine_matrix_init_recognition_work += result.recognition_work;
+  s.affine_matrix_init_matrix_work += result.matrix_work;
+  s.affine_matrix_init_premise_retention_work += result.premise_retention_work;
+  s.affine_matrix_init_normalization_rup_checks += result.normalization_rup_checks;
+  s.affine_matrix_init_shortening_additions += result.shortening_additions;
+  s.affine_matrix_init_discovery_recognized_groups += result.discovery_recognized_groups;
+  s.affine_matrix_init_discovery_skipped_groups += result.discovery_skipped_groups;
+  s.affine_matrix_init_discovery_recognizer_work += result.discovery_recognizer_work;
   if (result.status == AffineMatrixInitStatus::Applied ||
       result.status == AffineMatrixInitStatus::AppliedPartial)
-    ++kernel.stats.affine_matrix_init_applied;
+    ++s.affine_matrix_init_applied;
   if (result.status == AffineMatrixInitStatus::AppliedPartial)
-    ++kernel.stats.affine_matrix_init_applied_partial;
+    ++s.affine_matrix_init_applied_partial;
   else if (result.status == AffineMatrixInitStatus::IncompleteImage)
-    ++kernel.stats.affine_matrix_init_incomplete_image;
+    ++s.affine_matrix_init_incomplete_image;
   else if (result.status == AffineMatrixInitStatus::IncompleteMatrix)
-    ++kernel.stats.affine_matrix_init_incomplete_matrix;
+    ++s.affine_matrix_init_incomplete_matrix;
   else if (result.status == AffineMatrixInitStatus::ResourceExhausted)
-    ++kernel.stats.affine_matrix_init_exhausted;
+    ++s.affine_matrix_init_exhausted;
   else if (result.status == AffineMatrixInitStatus::Interrupted)
-    ++kernel.stats.affine_matrix_init_interrupted;
+    ++s.affine_matrix_init_interrupted;
 }
 
 void record_service(Kernel &kernel, const AffineMatrixServiceResult &result) {
-  ++kernel.stats.affine_matrix_service_calls;
-  kernel.stats.affine_matrix_service_pending_slices+=result.slice_pending;
-  kernel.stats.affine_matrix_service_resumed_slices+=result.slice_resumed;
-  kernel.stats.affine_matrix_service_slice_steps+=result.slice_completed_steps;
-  kernel.stats.affine_matrix_service_slice_work+=result.slice_work;
-  kernel.stats.affine_matrix_service_slice_invalidations+=result.slice_invalidated;
-  kernel.stats.affine_matrix_service_minimum_slice_work_max=std::max(
-      kernel.stats.affine_matrix_service_minimum_slice_work_max,result.slice_minimum_work);
-  kernel.stats.affine_matrix_service_lifecycle_work += result.lifecycle_work;
-  kernel.stats.affine_matrix_service_trail_capture_work +=
-      result.trail_capture_work;
-  kernel.stats.affine_matrix_service_sync_work += result.synchronization_work;
-  kernel.stats.affine_matrix_service_sync_nanos += result.synchronization_nanos;
-  kernel.stats.affine_matrix_service_publication_nanos +=
-      result.publication_nanos;
-  kernel.stats.affine_matrix_service_extension_hits +=
+  auto &s = kernel.stats;
+  ++s.affine_matrix_service_calls;
+  s.affine_matrix_service_pending_slices+=result.slice_pending;
+  s.affine_matrix_service_resumed_slices+=result.slice_resumed;
+  s.affine_matrix_service_slice_steps+=result.slice_completed_steps;
+  s.affine_matrix_service_slice_work+=result.slice_work;
+  s.affine_matrix_service_slice_invalidations+=result.slice_invalidated;
+  s.affine_matrix_service_minimum_slice_work_max=std::max(
+      s.affine_matrix_service_minimum_slice_work_max,result.slice_minimum_work);
+  s.affine_matrix_service_lifecycle_work += result.lifecycle_work;
+  s.affine_matrix_service_trail_capture_work += result.trail_capture_work;
+  s.affine_matrix_service_sync_work += result.synchronization_work;
+  s.affine_matrix_service_sync_nanos += result.synchronization_nanos;
+  s.affine_matrix_service_publication_nanos += result.publication_nanos;
+  s.affine_matrix_service_extension_hits +=
       result.synchronized && result.synchronization_incremental;
-  kernel.stats.affine_matrix_service_rebuilds +=
+  s.affine_matrix_service_rebuilds +=
       result.synchronized && !result.synchronization_incremental &&
       !result.synchronization_restored_predecessor;
-  kernel.stats.affine_matrix_service_rebuild_backtrack +=
+  const auto kind = result.synchronization_kind;
+  s.affine_matrix_service_rebuild_backtrack +=
       result.synchronized && !result.synchronization_restored_predecessor &&
-      result.synchronization_kind ==
-                                 MatrixSynchronizationKind::Backtrack;
-  kernel.stats.affine_matrix_service_rebuild_reassignment +=
-      result.synchronized && result.synchronization_kind ==
-                                 MatrixSynchronizationKind::Reassignment;
-  kernel.stats.affine_matrix_service_rebuild_partial +=
-      result.synchronized && result.synchronization_kind ==
-                                 MatrixSynchronizationKind::PriorPartial;
-  kernel.stats.affine_matrix_service_retained_assignments +=
-      result.synchronization_prefix;
-  kernel.stats.affine_matrix_service_conditioned_assignments +=
+      kind == MatrixSynchronizationKind::Backtrack;
+  s.affine_matrix_service_rebuild_reassignment +=
+      result.synchronized && kind == MatrixSynchronizationKind::Reassignment;
+  s.affine_matrix_service_rebuild_partial +=
+      result.synchronized && kind == MatrixSynchronizationKind::PriorPartial;
+  s.affine_matrix_service_retained_assignments += result.synchronization_prefix;
+  s.affine_matrix_service_conditioned_assignments +=
       result.synchronization_conditioned;
-  kernel.stats.affine_matrix_service_session_work += result.session_work;
-  kernel.stats.affine_matrix_service_planner_work += result.live.planner_work;
-  kernel.stats.affine_matrix_service_revalidation_work +=
-      result.live.revalidation_work;
-  kernel.stats.affine_matrix_service_proof_additions += result.live.additions;
-  kernel.stats.affine_matrix_service_proof_deletions += result.live.deletions;
-  kernel.stats.affine_matrix_service_proof_cache_hits +=
-      result.live.proof_cache_hit;
-  kernel.stats.affine_matrix_service_proof_cache_inserts +=
-      result.live.proof_cache_insert;
-  kernel.stats.affine_matrix_service_helper_extent += result.live.helper_extent;
-  kernel.stats.affine_matrix_service_journal_bytes += result.live.journal_bytes;
+  s.affine_matrix_service_session_work += result.session_work;
+  s.affine_matrix_service_planner_work += result.live.planner_work;
+  s.affine_matrix_service_revalidation_work += result.live.revalidation_work;
+  s.affine_matrix_service_proof_additions += result.live.additions;
+  s.affine_matrix_service_proof_deletions += result.live.deletions;
+  s.affine_matrix_service_proof_cache_hits += result.live.proof_cache_hit;
+  s.affine_matrix_service_proof_cache_inserts += result.live.proof_cache_insert;
+  s.affine_matrix_service_helper_extent += result.live.helper_extent;
+  s.affine_matrix_service_journal_bytes += result.live.journal_bytes;
   if (result.status == AffineMatrixServiceStatus::Applied)
-    ++kernel.stats.affine_matrix_service_applied;
+    ++s.affine_matrix_service_applied;
   else if (result.status == AffineMatrixServiceStatus::NoEvent)
-    ++kernel.stats.affine_matrix_service_no_event;
+    ++s.affine_matrix_service_no_event;
   else if (result.status == AffineMatrixServiceStatus::Duplicate)
-    ++kernel.stats.affine_matrix_service_duplicate;
+    ++s.affine_matrix_service_duplicate;
   else if (result.status == AffineMatrixServiceStatus::ResourceExhausted)
-    ++kernel.stats.affine_matrix_service_exhausted;
+    ++s.affine_matrix_service_exhausted;
   else if (result.status == AffineMatrixServiceStatus::Interrupted)
-    ++kernel.stats.affine_matrix_service_interrupted;
+    ++s.affine_matrix_service_interrupted;
   else if (result.status == AffineMatrixServiceStatus::Stale)
-    ++kernel.stats.affine_matrix_service_stale;
+    ++s.affine_matrix_service_stale;
 }
 
 // Each outcome is counted exactly once, immediately before it is returned.
@@ -337,8 +330,7 @@ AffineMatrixServiceResult finish_service(Kernel &kernel,
   return finish_service(kernel, result);
 }
 
-// A step stopped by its work meter: Interrupted under termination, otherwise
-// ResourceExhausted.
+// A metered stop: Interrupted under termination, else ResourceExhausted.
 AffineMatrixServiceResult stopped_service(Kernel &kernel,
                                           AffineMatrixServiceResult &result) {
   return finish_service(kernel, result, terminating_status(
@@ -640,8 +632,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     auto charge = metered_charge(kernel, parameters.maximum_elimination_work,
                                  recognition);
     bool root_input_ready = true;
-    // Exact level-zero trail facts only; reconstructed/model values and search
-    // assumptions never enter the unconditional normalization oracle.
+    // Level-zero trail facts only.
     for (Lit literal : kernel.trail) {
       if (!charge(1)) {recognized = Status::Exhausted; root_input_ready=false; break;}
       if (kernel.assigned[var_of(literal)].level || kernel_var_retired(kernel,var_of(literal))) continue;
@@ -670,10 +661,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       result.discovery_recognized_groups=discovery_effort.recognized_groups;
       result.discovery_skipped_groups=discovery_effort.skipped_groups;
       result.discovery_recognizer_work=discovery_effort.recognition_work;
-      // The census is a bounded discovery cache, not proof authority. Its exact
-      // signed body populations prevent re-recognition; only still-unresolved
-      // physical IDs may be recaptured. New bodies sharing a known scope remain
-      // eligible, including opposite parity.
+      // The census prevents re-recognition; only unresolved physical IDs are
+      // recaptured. New bodies in a known scope (either parity) stay eligible.
       if(planned==RootImageStatus::Prepared||planned==RootImageStatus::NoStructure) {
         __uint128_t ledger_bytes=0;
         __uint128_t census_scope_literals=0;
@@ -686,9 +675,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
             ledger_bytes+=4*(sizeof(std::vector<External>)+__uint128_t(body.size())*sizeof(External));
           }
         }
-        // A recognized equation may consume only a subset of a scope's
-        // population. Price and remember that exact selected subpopulation;
-        // never mark unrelated opposite-parity clauses admitted by scope alone.
+        // Price and remember only the subpopulation the equation consumes.
         __uint128_t selected_scope_literals=0;
         for(const auto &eq:root_plan.image.equations) {
           uint64_t payload=1+eq.variables.size();
@@ -701,10 +688,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
           const __uint128_t work=__uint128_t(payload)*(2+eq.premise_clauses.size());
           if(work>UINT64_MAX||!charge(uint64_t(work))) {root_input_ready=false;break;}
         }
-        // The durable vector remains the census representation.  This exact
-        // per-scope directory is transaction-local and preserves insertion
-        // order inside every collision bucket.  Price its worst case before
-        // allocating it; one admitted record per new equation can be appended.
+        // Transaction-local per-scope directory, insertion-ordered per bucket
+        // and priced at its worst case before allocation.
         const __uint128_t scope_index_entries=discovered_census.size()+root_plan.image.equations.size();
         ledger_bytes+=4*scope_index_entries*
             (sizeof(std::pair<const std::vector<External>,std::vector<size_t>>)+
@@ -717,10 +702,6 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         if(root_input_ready) {
           discovery_bytes=uint64_t(ledger_bytes);
           std::map<std::vector<External>,std::vector<size_t>> census_by_scope;
-          const auto scope_index_work=[](size_t width,size_t entries) {
-            const __uint128_t amount=__uint128_t(1+width)*(1+std::bit_width(entries));
-            return amount>UINT64_MAX?UINT64_MAX:uint64_t(amount);
-          };
           for(size_t i=0;i<discovered_census.size();++i) {
             const auto &scope=discovered_census[i].scope;
             if(!charge(scope_index_work(scope.size(),census_by_scope.size()))) {root_input_ready=false;break;}
@@ -808,12 +789,10 @@ AffineMatrixInitResult affine_matrix_search_initialize(
           planned==RootImageStatus::ResourceExhausted||planned==RootImageStatus::Interrupted?Status::Exhausted:Status::Invalid;
       if (recognized==Status::Complete) {
         result.normalization_rup_checks=root_plan.rup_checks;
-        // Reserve the complete simultaneous transaction BEFORE copying any
-        // normalized source, old owner, equation, matrix, lease group or journal.
-        // Actual source geometry bounds every XOR intermediate; declared maxima
-        // remain validation ceilings. Four populations cover retained/current,
-        // staging and replacement capacities; row payloads allow symmetric-
-        // difference's two-input capacity. Registry owns its separate clone guard.
+        // Reserve the whole transaction before copying anything. Source
+        // geometry bounds every XOR intermediate; four populations cover
+        // retained, staging and replacement capacities, and row payloads allow
+        // symmetric difference's two-input capacity.
         __uint128_t eq_bytes=0, source_bytes=0, variable_occurrences=0;
         __uint128_t premise_count=0, registry_payload=0, journal=512;
         uint64_t equations=0;
@@ -827,8 +806,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
             for(const auto &body:eq.premise_clauses) {
               if(!charge(1+body.size())) return false;
               eq_bytes+=4*(sizeof(std::vector<int32_t>)+__uint128_t(body.size())*sizeof(External));
-              // Combined owners may copy an occurrence separately for each
-              // admitted equation, even when residual premises were shared.
+              // An occurrence may be copied once per admitted equation.
               source_bytes+=4*(sizeof(AffineLiveSource)+sizeof(Premise))+
                   __uint128_t(4)*body.size()*sizeof(External);
               registry_payload+=4*sizeof(Proof::PremiseGroup)+16*sizeof(void*)+2*sizeof(uint64_t)+
@@ -971,8 +949,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       }
     }
     retained_equations = combined.equations.size();
-    // Retained occurrence IDs remain stable. Newly captured IDs are remapped
-    // once into the same durable source namespace.
+    // Retained occurrence IDs are stable; new IDs are remapped once.
     for(const auto &source:session.source_owner_.sources)
       if(!add_bounded(1+2*source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
         return finish_init(kernel,result,AffineMatrixInitStatus::ResourceExhausted);
@@ -1020,8 +997,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       return finish_init(kernel, result, AffineMatrixInitStatus::NoStructure);
     }
   }
-  // Fresh proof IDs are assigned only to genuinely new shortened premises,
-  // after retained-equation duplicate elimination. The live counter is untouched.
+  // Plan fresh proof IDs for new shortened premises only.
   uint64_t planned_clause_id = kernel.next_clause_id;
   if(persistence.maximum_retained_bytes) for(size_t i=retained_equations;i<image.equations.size();++i)
     for(uint64_t occurrence:image.equations[i].premises) {
@@ -1090,8 +1066,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     for (const auto &clause : equation.premise_clauses)
       fits &= retain(4 * (sizeof(std::vector<int32_t>) + clause.size() * sizeof(int32_t)));
   }
-  // Symmetric difference reserves both input sizes, so each vector capacity
-  // may reach twice its exact logical coordinate/provenance union bound.
+  // Symmetric difference may double each vector's capacity.
   const __uint128_t row_reserve_wide = __uint128_t(4) * matrix.admitted_rows().size() *
       (sizeof(MatrixRow) + __uint128_t(2) * matrix.row_width_bound() * sizeof(int32_t) +
        __uint128_t(2) * matrix.row_source_bound() * sizeof(size_t));
@@ -1114,10 +1089,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
 
   if(persistence.maximum_retained_bytes) {
-    // Decimal uint64 fields need at most 20 characters, signed int32 literals
-    // 11 plus separator. A 512-character envelope covers each fixed JSON record
-    // header/key scaffold. Four envelopes cover stream growth, returned string,
-    // append replacement and short formatting temporaries before publication.
+    // uint64 fields take at most 20 characters, int32 literals 12 with a
+    // separator, each record scaffold 512; four envelopes cover temporaries.
     __uint128_t journal_reserve=512+__uint128_t(root_facts.size())*12+
         __uint128_t(proof_copies.size())*21;
     for(const auto &row:matrix.rows()) {
@@ -1219,8 +1192,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
 
   if(persistence.maximum_retained_bytes) {
-    // Recapture the complete oracle source population, rather than validating
-    // only selected parity patterns: root RUP may depend on unrelated CNF.
+    // Recapture the whole oracle population: root RUP may use any clause.
     auto recheck_request=capture;
     recheck_request.maximum_snapshot_work=parameters.maximum_snapshot_work-
         std::min(result.snapshot_work,parameters.maximum_snapshot_work);
@@ -1401,10 +1373,8 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
     const strategy::AffineConsequenceParameters &parameters,
     const AffineMatrixPersistenceLimits &persistence, bool allow_additional_recognition) {
 #ifndef NDEBUG
-  // A refresh certifies every root fact against the proof-visible view. An
-  // asserted root unit without a unit id must therefore be in the DSR root
-  // table, even after Substitute or BVE removed the clauses that implied it;
-  // other root facts keep a propagation reason until retirement publishes them.
+  // A root unit without a unit id must be in the DSR root table, since a
+  // refresh certifies every root fact against the proof-visible view.
   if (kernel_root_unit_table_stream(kernel) &&
       kernel.dsr_root_proof == kernel.proof &&
       kernel.dsr_root_stream_identity == kernel.proof->stream_identity())
@@ -1710,10 +1680,7 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
                                           charge, matrix, true);
   // Losing rows here would erase obligations just before variable retirement.
   if (built != MatrixStatus::Complete) return exhausted();
-  // Reprice every retained row, since each new authenticated alias/root source
-  // can enlarge provenance cardinality and coordinate geometry of old rows.
-  // Four new populations cover the old basis plus staged replacement/scratch;
-  // retain any larger old reservation across rank/projection reductions.
+  // Reprice every retained row; keep any larger old reservation.
   const __uint128_t new_row_wide = __uint128_t(4) * matrix.admitted_rows().size() *
       (sizeof(MatrixRow) + __uint128_t(2) * matrix.row_width_bound() * sizeof(External) +
        __uint128_t(2) * matrix.row_source_bound() * sizeof(size_t));
@@ -1732,9 +1699,7 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
           std::min(retained_bytes, session.persistence_.maximum_retained_bytes)) return exhausted();
   // The old index remains live until the atomically staged matrix replacement.
   retained_bytes += session.matrix_index_bytes_;
-  // Both proof-only alias clauses must remain leased after their own physical
-  // deletion requests. Otherwise the second request can retire the just-staged
-  // source and falsely advertise preservation before Substitute rewrites it.
+  // Both proof-only alias clauses stay leased past their deletion requests.
   if (!kernel.proof->can_defer_premise_group_deletions(groups,
       {session.persistence_.maximum_deferred_deletions,
        session.persistence_.maximum_deferred_literal_work}, charge)) return exhausted();
@@ -1754,14 +1719,11 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
       if (!kernel.proof->add_external_rup(++kernel.next_clause_id,
             premise.clause.data(), premise.clause.size()) ||
           kernel.next_clause_id != premise.clause_id) std::abort();
-      // This copy is proof-only. Queue its own eventual retirement even if
-      // Substitute has no identical native/transient lemma to delete.
+      // Queue the proof-only copy's own retirement.
       if (!kernel.proof->del_external(kernel.next_clause_id, premise.clause_id,
               premise.clause.data(), premise.clause.size())) std::abort();
     }
-  // The read-only reservoir reservation rules out retirement during helper
-  // serialization; an unexpected serializer lifecycle change is fatal rather
-  // than installing inactive certified sources after an irreversible commit.
+  // Serialization cannot retire premises; a lifecycle change is fatal.
   if (kernel.proof->premise_epoch() != committed_premise_epoch) std::abort();
   for (uint64_t handle : handles)
     if (!kernel.proof->premise_group_active(handle)) std::abort();
@@ -1807,8 +1769,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   }
   // Analysis withdrew the handles it could not pay for (analyze.cpp).
   if (kernel.affine_reasons_unaffordable) lazy_source = false;
-  // Backtracking retires handles synchronously at kernel_unassign_literal.
-  // Debug keeps the former polling predicate as a boundary assertion.
+  // kernel_unassign_literal retires handles; Debug asserts it.
 #ifndef NDEBUG
   for (const auto &pending : session.lazy_reasons_) {
     assert(pending.implied_variable < kernel.nvars);
@@ -1823,8 +1784,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   if (kernel.inconsistent || kernel.conflict_valid || kernel.pending.valid ||
       (session.persistent() && kernel.model_extended) || kernel.dense || kernel.probing.recording ||
       !kernel.large_watches_connected || !kernel_propagation_fixpoint(kernel)) {
-    // A transient Boolean/inprocessing boundary cannot revoke durable source
-    // ownership. Legacy live-only sessions retain their historical lifecycle.
+    // Only live-source sessions end at an inprocessing boundary.
     if(!session.persistent())session.disable(kernel);
     return finish_service(kernel, result,
                           AffineMatrixServiceStatus::Inapplicable);
@@ -1934,12 +1894,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       if (capture_ok && !changes.empty()) {
         if (!capture_charge(1 + support.size() + session.capture_trail_.size())) capture_ok = false;
         else {
-          // Preflight the complete mutation before touching the durable
-          // capture.  A monotone trail cannot assign a variable twice, so the
-          // prospective size grows once per support change.  Keep the old
-          // logical work charge even though the implementation no longer
-          // copies the whole vector; resource boundaries and trajectories are
-          // therefore unchanged.
+          // Preflight the mutation before touching the capture; the size
+          // grows once per support change. The work charge counts a full copy.
           size_t prospective = session.capture_trail_.size();
           for (const auto &[variable, value] : changes) {
             (void)variable; (void)value;
@@ -1956,9 +1912,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
                   [](const MatrixAssignment &assignment, External key) {
                     return assignment.variable < key;
                   });
-              // Trail-extension assignments are unique.  Retain a defensive
-              // update in release builds, but make any invariant regression
-              // visible in Debug before it can invalidate the preflight size.
+              // Trail-extension assignments are unique.
               assert(found == session.capture_trail_.end() ||
                      found->variable != variable);
               if (found == session.capture_trail_.end() ||
@@ -1977,8 +1931,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       }
     } else {
       session.capture_valid_ = false;
-      // Fixed capacity reserves include index sorting and capture/replacement
-      // temporaries. No index allocation occurs until bytes/work are admitted.
+      // Reserves cover index sorting and temporaries before allocation.
       const __uint128_t required = __uint128_t(support.size()) *
           (2 * sizeof(std::pair<Var, uint32_t>) + 3 * sizeof(MatrixAssignment) +
            2 * sizeof(std::pair<External, bool>));
@@ -2055,11 +2008,9 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       }
       event = previous;
     } else {
-      // A partial/declined reduction may still advance the matrix trail; the
-      // previous event must never become associated with that new snapshot.
+      // The matrix trail may have advanced; drop the cached event.
       session.cached_event_valid_ = false;
-      // The persistent indexed matrix meters touched rows and selected-event
-      // reconstruction itself; it does not scan all source equations here.
+      // The indexed matrix meters its own touched rows.
     }
   }
   const uint64_t index_base = session.retained_bytes_ - session.matrix_index_bytes_;
@@ -2089,8 +2040,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       if(session.persistent()&&work_decline&&
           (synchronized==MatrixStatus::Exhausted || synchronized==MatrixStatus::Interrupted)&&
           session.parameters_.basis_maximum_work>1+trail.size()&&!kernel_terminating(kernel)) {
-        // This bounded attempt published nothing. Resume through private
-        // row/XOR microsteps on the next dose rather than repeating it forever.
+        // Nothing published; resume by row/XOR microsteps on the next dose.
         session.slice_retry_=true;result.slice_pending=true;
       }
     }
@@ -2129,9 +2079,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
                     std::min(base, session.persistence_.maximum_retained_bytes) &&
         copy_work <= session.parameters_.basis_maximum_work -
                     std::min(result.synchronization_work, session.parameters_.basis_maximum_work);
-    // The completed event is already independently metered by the reducer.
-    // Its optional reuse copy must not turn a completed final slice into a
-    // resource failure merely because that slice used the whole work dose.
+    // The optional cache copy never fails a completed slice.
     if (cache_fits) {
       if (!synchronization_charge(copy_work)) {
         return stopped_service(kernel, result);
@@ -2177,8 +2125,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     if(!valid){
       return finish_service(kernel,result,AffineMatrixServiceStatus::Stale);
     }
-    // Root consequences cross proof/inprocessing boundaries immediately;
-    // only genuine non-root implications retain the native lazy handle.
+    // Only non-root implications keep a lazy handle.
     if(!deferred_implication_level){
       if(!session.matrix_.materialize_deferred_exact_reason(
           event,[&](External variable){
@@ -2191,10 +2138,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       event.deferred_exact_support.clear();
     }
   }
-  // A globally implied unit discovered above root cannot be installed as a
-  // root assignment while the current decision trail is live. Retain the
-  // matrix event for the next root window; other reasons carry their false
-  // trail antecedents and can be installed as ordinary non-root clauses.
+  // A unit found above root waits for the next root window; other reasons
+  // install as ordinary non-root clauses.
   if (kernel.level && event.reason_width <= 1) {
     return finish_service(kernel, result, AffineMatrixServiceStatus::NoEvent);
   }
@@ -2212,8 +2157,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   if (!add_bounded(session.published_work_,
                    session.parameters_.maximum_session_work,
                    result.session_work)) {
-    // Preserve the exact historical partial charge on the one terminal
-    // exhaustion path without retaining the quadratic successful scan.
+    // The terminal exhaustion path reports no session work.
     result.session_work = 0;
     for (const auto &key : session.published_) {
       if (!add_bounded(key.size() + 1,
@@ -2235,10 +2179,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   }
 
   const uint64_t action_id = kernel.structural_action_sequence + 1;
-  // The matrix's canonical current-event spelling is the source-support
-  // weakening. When the public operation selects its exact XOR core,
-  // authenticate the same row/source identity through the historical
-  // complete-core audit rather than requiring byte-identical reason spelling.
+  // The current event spells the source-support weakening; an exact XOR-core
+  // request authenticates the same row through the historical audit.
   MatrixLiveRequest request =
       session.matrix_live_request(kernel, event, minimal);
   request.detached_reason = detached;
@@ -2285,8 +2227,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     if (!ordered||implied==INVALID_LIT||kernel.value(implied)) {
       result.live.status = MatrixLiveStatus::Stale;
     } else {
-      // Root facts immediately cross proof/inprocessing boundaries and must
-      // be named now. Lazy handles are a non-root search mechanism only.
+      // Root facts are named now; lazy handles are non-root only.
       if (!implication_level) {
         can_lazy = false;
         result.live = apply_affine_matrix_live(kernel, request);
@@ -2332,9 +2273,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       }
     }
   } else if (can_defer) {
-    // Clang 18 with libstdc++ 14 does not recognize zero-argument optional
-    // emplacement for this private nested aggregate. Construct at the friend
-    // boundary, then invoke only its ordinary move constructor in optional.
+    // Construct here, then move: Clang 18/libstdc++ 14 rejects emplace().
     AffineMatrixSearchSession::DeferredReason deferred;
     session.deferred_reason_.emplace(std::move(deferred));
     auto &pending = *session.deferred_reason_;
@@ -2370,17 +2309,12 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   result.status = live_status(result.live.status);
   result.result = result.live.result;
   result.bcp_pending = result.live.propagation_pending;
-  // Formula-changing root actions can retire a captured premise or a reason
-  // variable after initialization.  The rejected event has made no mutation;
-  // release the optional service and let ordinary CDCL continue instead of
-  // repeatedly returning a terminal UNKNOWN.
+  // A root action retired a premise or variable: release the service.
   if (result.status == AffineMatrixServiceStatus::Stale ||
       result.status == AffineMatrixServiceStatus::Inapplicable)
     if (session.lazy_reasons_.empty()) session.disable(kernel);
   if (result.status == AffineMatrixServiceStatus::Applied) {
-    // An unconsumed lazy handle is not a permanent formula consequence yet.
-    // Do not suppress the same event after backtracking; the identity becomes
-    // permanent only when Analyze certifies and caches its watched clause.
+    // A lazy handle becomes permanent only when Analyze certifies it.
     if (!installed_lazy)
       session.publish_identity(duplicate, result.event_identity);
     kernel.structural_action_sequence = action_id;
@@ -2574,9 +2508,7 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                          {profile.maximum_retained_bytes, profile.maximum_deferred_deletions,
                                           profile.maximum_deferred_literal_work});
                             };
-                            // CompleteSnapshot is the native startup's non-persistent
-                            // root service. It needs neither a proof owner nor a
-                            // discarded reconstructed-model cache; durable modes do.
+                            // Only durable modes need a proof owner and cache.
                             if (active && profile.admission ==
                                     strategy::AffineMatrixInitializeParameters::Admission::CompleteSnapshot) {
                               auto guard = affine_matrix_initialize_guard(kernel);

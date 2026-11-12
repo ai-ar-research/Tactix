@@ -64,10 +64,9 @@ WordEvaluation evaluate_word(
     uint64_t maximum_ticks, StopCallback stop = nullptr,
     void *stop_context = nullptr);
 
-// Find a row transposition in the kernel of the induced column action. The
-// returned expression shares subwords instead of expanding repetitions. The
-// routine stores compact row/column actions only; callers lift the returned
-// word through their already-certified full-domain generators.
+// Find a row transposition in the kernel of the induced column action as a
+// subword-sharing expression; callers lift it through their certified
+// generators.
 Result find_kernel_transposition(const std::vector<Generator> &generators,
                                  uint64_t maximum_states,
                                  uint64_t maximum_ticks,

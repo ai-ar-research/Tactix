@@ -194,11 +194,9 @@ AdmissionResult admit(const AdmissionRequest &request,
     return stop(meter, AdmissionStatus::Declined,
                 AdmissionReason::EvenCharge);
 
-  // Every stored nonunit clause outside the authenticated groups is residual.
-  // Any touch of a graph edge invalidates this deliberately conservative
-  // action domain, even when that clause is root-satisfied.  Root units are
-  // authenticated separately by the live snapshot; they may fix off-cycle
-  // edges and are therefore absent from this stored-clause census.
+  // Stored nonunit clauses outside the groups are residual and any edge touch
+  // declines, even when root-satisfied; root units are authenticated by the
+  // snapshot.
   for (const LiveClause &clause : request.live_clauses) {
     if (!meter.spend())
       return metered_stop(meter);

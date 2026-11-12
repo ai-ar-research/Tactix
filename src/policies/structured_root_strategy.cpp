@@ -8,8 +8,7 @@ namespace tactix {
 std::vector<strategy::OnlineStrategyStage>
 DefaultStrategyConfig::structured_root_preprocessing_stages() {
   using namespace strategy;
-  // Retain the transliterated reference profile as an explicit control. The
-  // stronger composition changes scheduling, not any producer's legality.
+  // The transliterated reference profile, kept as an explicit control.
   const auto reference = reference_structured_root_program();
   const auto find = [&](const char *rule) -> OnlineInvocation {
     const auto at = std::find_if(reference.sequence.begin(), reference.sequence.end(),
@@ -19,11 +18,9 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   };
   auto pure = find("BVE");
   pure.id = 94;
-  // Removing a pure pivot can expose another. The reference step's PureClosure
-  // scope selects that whole finite closure in one pass, from one occurrence
-  // image, before another full symmetry-discovery scan is paid for. Each
-  // successful application retires a variable; the shared budget and stop
-  // checks still bound the work.
+  // Removing a pure pivot can expose another; PureClosure selects the whole
+  // finite closure from one occurrence image before another symmetry scan. Each
+  // application retires a variable within the shared budget and stop checks.
   auto product = find("SubstitutionRedundancy");
   product.id = 82;
   product.repeat = {RepeatMode::Once, 1};
@@ -101,13 +98,12 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   group.stabilize_structured_variables = true;
   group.structured_scope = SymmetryStructuredScope::WholeMatrix;
   group.base_selection = SymmetryBaseSelection::FirstAmoThenForwardRemainder;
-  // Keep the accepted FirstOpen startup policy after negation fixing.
-  // LargestOrbitLast remains available through the typed parameter.
+  // FirstOpen after negation fixing; LargestOrbitLast stays typed.
   group.cut_point = SymmetryCutPoint::FirstOpen;
   group.negation_fixing_first = true;
-  // Root-forcing chains earn their complete atomic prefix. A kind-2-only batch
-  // merely perturbs the initial search trajectory, so the startup policy waits
-  // for a forcing member while explicit strategies retain full FixAndCut.
+  // Root-forcing chains earn their atomic prefix; a kind-2-only batch only
+  // perturbs the initial trajectory, so startup waits for a forcing member
+  // while explicit strategies keep full FixAndCut.
   group.nonforcing_cut_admission =
       SymmetryNonforcingCutAdmission::RequireCompoundProgress;
 
@@ -119,8 +115,7 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   programs[1].sequence = {pure, amo, graph, compact, rows, compaction(89),
                           product, compaction(88)};
   for (auto &program : programs) {
-    // The owner's iteration scale (satsuma.h iteration_max): a large formula
-    // earns few repetitions, a shrinking one earns more.
+    // satsuma.h iteration_max: large formulas earn few repetitions.
     program.repeat = {RepeatMode::UntilSizeScaledFixpoint, 128};
     for (auto &step : program.sequence) {
       auto *parameters = std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
@@ -143,11 +138,10 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   remaining_group.use_structured_generators = false;
   remaining_group.stabilize_structured_variables = false;
   programs[2].sequence = {remaining, compaction(96)};
-  // Run the terminal affine-model opportunity inside the same structured-root
-  // lifecycle as the accepted schedule.  It must precede any eliminating or
-  // symmetry stage that can erase the complete encoding.  DefaultPolicy poses
-  // the configured parameters (or removes this stage when disabled) before
-  // execution; the public Lucky-8 action remains the sole implementation.
+  // The terminal affine-model opportunity runs in the structured-root
+  // lifecycle, before any stage that can erase the encoding; DefaultPolicy
+  // poses its parameters or removes it, and public Lucky-8 is the
+  // implementation.
   OnlineInvocation affine;
   affine.id = 109;
   affine.rule = "Lucky";
@@ -168,10 +162,9 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
     stages.push_back({std::move(program), BudgetExhaustionPolicy::Continue,
                       std::move(followups)});
   }
-  // The preceding program has already run the same refinement/ULC producers
-  // to a scoped no-progress boundary. Repeating that discovery inside the
-  // following graph step is useful only if an earlier stage changed the root
-  // formula. Generic graph discovery remains independent of this feedback.
+  // The preceding program ran the refinement/ULC producers to a scoped
+  // fixpoint, so the graph step repeats them only after an earlier stage
+  // changed the root formula; generic discovery is independent.
   stages[2].structured_handoff_after_prior_progress = true;
   return stages;
 }
@@ -188,15 +181,11 @@ DefaultStrategyConfig::structured_root_stage_after_feedback(
     if (!parameters ||
         parameters->producer != SubstitutionRedundancyProducer::GraphSymmetry)
       continue;
-    // A nonforcing cut discovered only after ULC completion carries forward
-    // certified information from that helper BIG.  The startup BCE pass may
-    // then retire the helper binaries, so publish the cut instead of erasing
-    // both the temporary representation and its durable consequence.  Two
-    // independent complete graph stages finding a cut are also compound
-    // certified progress even when each stage exposes only one row.  A lone
-    // binary-only batch remains withheld because it changes only the initial
-    // CDCL fundamental domain.  Public graph enumeration keeps its caller-
-    // selected admission mode.
+    // A nonforcing cut found after ULC completion carries certified information
+    // from the helper BIG, which startup BCE may retire, so publish it; two
+    // complete graph stages each finding a cut are also compound progress. A
+    // lone binary-only batch stays withheld (it only changes the initial CDCL
+    // domain); public enumeration keeps its caller mode.
     if (prior_unique_literal_amo_progress || prior_nonforcing_cut_progress)
       parameters->graph_symmetry.nonforcing_cut_admission =
           SymmetryNonforcingCutAdmission::Publish;
@@ -235,19 +224,14 @@ DefaultStrategyConfig::large_domain_structured_root_preprocessing_stages() {
   assert(graph.id == 84);
   auto &parameters =
       std::get<SubstitutionRedundancyParameters>(graph.parameters);
-  // Satsuma lowers DejaVu's non-symmetry backtracking budget to one on large
-  // formulas.  Generator fixing only needs a useful exact prefix, and a fresh
-  // detection follows every emitted unit, so deeper speculative backtracking
-  // delays feedback without improving the current pass.
+  // Satsuma cuts DejaVu's backtracking budget to one on large formulas.
   parameters.graph_symmetry.backend_search_budget = 1;
   parameters.graph_symmetry.use_structured_generators = false;
   parameters.graph_symmetry.stabilize_structured_variables = false;
-  // The owner repeats its whole pass for every formula size and changes only
-  // the fixing pass above the domain limit. This program repeats the part of
-  // the regular sequence that large formulas are measured to need: pure
-  // closure, this graph step and compaction. At-most-one completion and row or
-  // product refinement stay out (parity ledger); there is no structured
-  // handoff to gate.
+  // The owner repeats its pass at every size and changes only fixing above the
+  // domain limit; this program repeats pure closure, this graph step and
+  // compaction. AMO completion and row/product refinement stay out (parity
+  // ledger).
   auto stage = regular[2];
   auto &sequence = stage.program.sequence;
   sequence.erase(std::remove_if(sequence.begin(), sequence.end(),

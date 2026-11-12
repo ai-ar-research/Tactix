@@ -5,7 +5,6 @@
 #include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
-#include <limits>
 #include <utility>
 
 namespace tactix {
@@ -206,9 +205,7 @@ ExactCoverLiveResult exact_cover_live_apply(
     introduced_theory_variables.push_back(
         static_cast<uint32_t>(definition.output));
 
-  // Re-capture the complete live census immediately before publication. This
-  // validates clause literals and retained native proof IDs while charging the
-  // same declared recognition allowance as initial capture and planning.
+  // Recapture the census before publication, within the recognition allowance.
   const uint64_t revalidation_begin = work;
   std::vector<Premise> current_source;
   uint64_t current_clauses = 0, current_literals = 0;

@@ -422,9 +422,8 @@ EnumerationResult enumerate_avx2(
   if (!batches)
     return EnumerationResult::Unavailable;
 
-  // AVX2 byte shuffles address sixteen bytes independently in each 128-bit
-  // half.  Duplicate each sixteen-entry table segment in both halves, then
-  // select segments with the remaining input bits.
+  // AVX2 shuffles address 16 bytes per 128-bit half: duplicate each table
+  // segment into both halves and select segments with the remaining bits.
   const uint32_t segments =
       uint32_t{1} << (circuit.fanin > 4 ? circuit.fanin - 4 : 0);
   std::vector<GateTableVectors256> tables(circuit.gates.size());

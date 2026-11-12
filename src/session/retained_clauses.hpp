@@ -53,6 +53,11 @@ struct RetainedClause {
   std::vector<PbpParityEquation> parity_equations; // empty denotes ordinary RUP
 };
 
+// Sorts `clause` into external literal order without duplicates: Invalid for
+// a literal outside `variables`, Tautology for a complementary pair.
+RetentionStatus normalize_external_clause(std::span<const int32_t> clause,
+    uint32_t variables, std::vector<int32_t> &normalized);
+
 // Knowledge independently derived from permanent input plus earlier accepted
 // records, by RUP or checked complete-XOR recipes. Assumptions, kernel facts and unchecked
 // candidate clauses never enter the oracle as premises. Records retain their
