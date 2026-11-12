@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cassert>
 #include <csignal>
+#include <sstream>
 #include <cstdio>
 #include <string>
 #include <vector>
