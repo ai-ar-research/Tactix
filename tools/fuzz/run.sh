@@ -3,7 +3,7 @@
 #   run.sh --quick  --solver CMD     ~10k cases + regression corpus (per commit)
 #   run.sh --nightly --solver CMD    ~200k cases + full proof cross-checks
 #   run.sh --public-random --quick --solver \
-#     'build/release/tests/tactix-public-random --pbp --random-policy={seed}'
+#     'build/release/tests/tactix-public-random {proof} --random-policy={seed}'
 #                                      same cases through the public API
 #   run.sh [fuzz.py args...]         pass-through
 # Sizes are the cluster scale (10x the workstation defaults); submit
