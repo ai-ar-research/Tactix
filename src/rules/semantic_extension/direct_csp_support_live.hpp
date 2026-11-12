@@ -16,19 +16,13 @@ struct DirectCspSupportOwnerSnapshot {
   direct_csp_support::Relation relation;
 };
 
-inline bool direct_csp_support_same_owner_image(
-    const DirectCspSupportOwnerSnapshot &first,
-    const DirectCspSupportOwnerSnapshot &second) {
-  return first.source_literals == second.source_literals &&
-         first.source == second.source && first.relation == second.relation;
-}
-
 inline bool direct_csp_support_same_live_owner(
     const DirectCspSupportOwnerSnapshot &first,
     const DirectCspSupportOwnerSnapshot &second) {
   return first.external_extent == second.external_extent &&
          first.capture_work == second.capture_work &&
-         direct_csp_support_same_owner_image(first, second);
+         first.source_literals == second.source_literals &&
+         first.source == second.source && first.relation == second.relation;
 }
 
 enum class DirectCspSupportLiveStatus : uint8_t {
@@ -123,11 +117,6 @@ struct DirectCspSupportLiveResult {
 DirectCspSupportOwnerCaptureResult direct_csp_support_live_capture_owner(
     Kernel &, const DirectCspSupportLiveRequest &,
     DirectCspSupportOwnerSnapshot &output);
-
-// Every check of apply, stopping before the commit; Applied means apply would
-// commit on an unchanged Kernel.
-DirectCspSupportLiveResult direct_csp_support_live_preflight(
-    Kernel &, const DirectCspSupportLiveRequest &);
 
 // Plan and atomically publish one support consequence at an assignment-free
 // propagated root; terminal PBP and every decline are mutation-free.

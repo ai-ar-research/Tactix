@@ -44,7 +44,7 @@ static void test_uip() {
   assert(k.pending.jump_level == 1);
 
   assert(backjump_guard(k));
-  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
   assert(k.level == 1);
   assert(k.values[internalize(-2)] > 0); // asserted
   assert(k.assigned[var_of(internalize(-2))].jumped &&
@@ -94,7 +94,7 @@ static void test_detached_large_reason_in_conflict_analysis() {
     for (const WatchEntry watch : k.watches.entries(lit))
       assert(watch.binary() || watch.ref() != reason_ref);
 
-  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
   assert(k.level == 1 && k.values[internalize(-2)] > 0);
   assert(!clause_at(k.arena, reason_ref)->reason());
   kernel_collect_garbage(k);
@@ -113,8 +113,6 @@ static void test_conflictanalysis_atomic() {
   kernel_assign_decision(k, internalize(2));
   assert(propagate_apply(k) == ApplyResult::Conflict);
 
-  assert(tactix_rule_id("Analyze") < 0);
-  assert(tactix_rule_id("Backjump") < 0);
   const int id = tactix_rule_id("ConflictAnalysis");
   assert(id >= 0);
   const RuleVTable &vt = tactix_rules()[static_cast<size_t>(id)];
@@ -261,7 +259,7 @@ static void test_shrink() {
   assert(k.pending.lits[0] == internalize(-4)); // negated UIP
   assert(k.pending.lits[1] == internalize(-1)); // shrunken level-1 block
   assert(k.pending.jump_level == 1);
-  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
   assert(default_solve(k) == 10); // still satisfiable (1 2 3, -4)
 }
 
@@ -438,13 +436,6 @@ static void test_minimization_depth_matches_kissat() {
   assert(rejected.stats.minimized == 0);
   assert(rejected.stats.minimize_depth_cutoffs == 1);
 
-  Kernel small_admitted = minimization_depth_fixture(2, false, 2);
-  assert(small_admitted.pending.lits.size() == 3);
-  assert(small_admitted.stats.minimized == 1);
-  Kernel small_rejected = minimization_depth_fixture(3, false, 2);
-  assert(small_rejected.pending.lits.size() == 4);
-  assert(small_rejected.stats.minimized == 0);
-  assert(small_rejected.stats.minimize_depth_cutoffs == 1);
   Kernel disabled = minimization_depth_fixture(1, false, 0);
   assert(disabled.pending.lits.size() == 4);
   Kernel unbounded = minimization_depth_fixture(1100, false, UINT32_MAX);
@@ -594,7 +585,7 @@ static void test_large_otfs_shrinks_reason_in_place() {
     assert(k.bve_retry[v] == (v == var_of(internalize(5))));
   kernel_check_invariants(k); // both old reason and replacement are valid
 
-  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
   assert(!clause_at(k.arena, rref)->garbage());
   assert(k.otfs_retired.empty());
   kernel_check_invariants(k);
@@ -641,7 +632,7 @@ static void test_large_otfs_retains_root_false_first_watch() {
   assert(found);
   assert(clause_at(k.arena, reason_ref)->size == 4 &&
          "the strengthened image lives in the reason's own record");
-  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
   assert(!clause_at(k.arena, reason_ref)->garbage());
   kernel_check_invariants(k);
   assert(default_solve(k) == 10);

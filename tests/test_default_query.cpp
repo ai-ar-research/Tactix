@@ -27,13 +27,6 @@ static void repeated_default_queries() {
     assert(h.begin_query() == InputStatus::Ok);
     assert(session.replay(h) == ReplayStatus::Ok);
     const auto solved = policy.solve_query(session);
-    if (solved.status != QuerySolveStatus::Complete)
-      std::fprintf(stderr, "query=%u status=%u result=%d next=%u restore=%d witnesses=%llu aliases=%llu\n",
-          q, unsigned(solved.status), solved.result,
-          unsigned(session.next_assumption(session.ticket()).status),
-          session.projection_state(session.ticket()).restore,
-          (unsigned long long)session.projection_state(session.ticket()).reconstruction_literals,
-          (unsigned long long)session.projection_state(session.ticket()).translated_assumptions);
     assert(solved.status == QuerySolveStatus::Complete);
     assert(solved.result == (q == 2 || q == 4 ? 20 : 10));
     if (solved.result == 10)
@@ -176,11 +169,6 @@ static void root_fixed_amo_pivot_query() {
     assert(session.replay(h) == ReplayStatus::Ok);
     DefaultPolicy policy;
     const auto solved = policy.solve_query(session);
-    if (solved.status != QuerySolveStatus::Complete)
-      std::fprintf(stderr, "root-fixed-pivot permanent=%d status=%u witnesses=%llu restrictions=%llu\n",
-          permanent_one, unsigned(solved.status),
-          (unsigned long long)session.projection_state(session.ticket()).reconstruction_literals,
-          (unsigned long long)session.projection_state(session.ticket()).preserved_restrictions);
     assert(solved.status == QuerySolveStatus::Complete && solved.result == 10);
     const Kernel &k = *session.kernel(session.ticket());
     assert(k.model_values[internalize(-6)] > 0);
@@ -201,13 +189,6 @@ static void fixture(const std::string &prefix, const std::string &mode) {
   session.set_terminate(&polls,[](void *p) {++*static_cast<unsigned *>(p);return 0;});
   DefaultPolicy policy;
   const auto solved = policy.solve_query(session);
-  if (solved.status != QuerySolveStatus::Complete || solved.result != 20)
-    std::fprintf(stderr, "fixture status=%u result=%d next=%u restore=%d witnesses=%llu aliases=%llu\n",
-        unsigned(solved.status), solved.result,
-        unsigned(session.next_assumption(session.ticket()).status),
-        session.projection_state(session.ticket()).restore,
-        (unsigned long long)session.projection_state(session.ticket()).reconstruction_literals,
-        (unsigned long long)session.projection_state(session.ticket()).translated_assumptions);
   assert(solved.status == QuerySolveStatus::Complete && solved.result == 20);
   Kernel &k = *session.kernel(session.ticket());
   assert(!k.inconsistent);

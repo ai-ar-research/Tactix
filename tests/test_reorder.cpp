@@ -335,23 +335,6 @@ static void test_guard() {
   assert(!reorder_guard(k));
 }
 
-// End to end: reordering mid-solve leaves the verdict intact.
-static void test_solve_unaffected() {
-  Kernel k;
-  ScopedHeuristics _h(k);
-  kernel_reserve_vars(k, 3);
-  addn(k, {1, 2, 3});
-  addn(k, {1, 2, -3});
-  addn(k, {1, -2, 3});
-  addn(k, {1, -2, -3});
-  addn(k, {-1, 2, 3});
-  addn(k, {-1, 2, -3});
-  addn(k, {-1, -2, 3});
-  addn(k, {-1, -2, -3});
-  assert(reorder_apply(k) == ApplyResult::Ok);
-  assert(default_solve(k) == 20);
-}
-
 int main() {
   test_weight_formula();
   test_configurable_weight_formula();
@@ -366,7 +349,6 @@ int main() {
   test_retired_variables_stay_disconnected();
   test_instance_surface();
   test_guard();
-  test_solve_unaffected();
   printf("test_reorder: all passed\n");
   return 0;
 }

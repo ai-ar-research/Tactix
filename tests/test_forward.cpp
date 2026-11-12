@@ -13,9 +13,7 @@
 #define tactix tactix_handle // the C handle typedef collides with the namespace
 #include "tactix.h"
 #undef tactix
-#include "dimacs_text.hpp"
 #include "temporary_file.hpp"
-#include "test_io.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -91,20 +89,11 @@ struct Fixture {
   }
 };
 
-// A DSR proof at stem.proof, saved with stem.cnf, or at a temporary path.
+// A DSR proof at a temporary path.
 struct ProofSink {
-  std::string stem;
   TemporaryFile temporary;
   Proof proof;
-  explicit ProofSink(const std::string &stem) : stem(stem) {
-    const std::string path = stem.empty() ? temporary.path : stem + ".proof";
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-  }
-  void save(const Fixture &f) {
-    proof.flush();
-    if (!stem.empty())
-      write_file((stem + ".cnf").c_str(), dimacs_text(16, f.inputs));
-  }
+  ProofSink() { assert(proof.open(temporary.path.c_str(), ProofFormat::DsrAscii)); }
 };
 
 static int rule(const char *name) {
@@ -410,8 +399,8 @@ static void asserted_units_are_in_the_root_table(const Kernel &k) {
 
 // A guarded contradiction with no initial unit or complementary binary pair:
 // productive only after the targeted SSR unit and an optional propagation chain.
-static void unit_proof(bool dense, unsigned chain, const std::string &stem) {
-  ProofSink sink(stem);
+static void unit_proof(bool dense, unsigned chain) {
+  ProofSink sink;
   Fixture f(&sink.proof);
   if (chain == 2) f.add({4, 5, 6});
   f.seed();
@@ -427,7 +416,7 @@ static void unit_proof(bool dense, unsigned chain, const std::string &stem) {
   asserted_units_are_in_the_root_table(f.k);
   assert(result == ApplyResult::Unsat || f.finish(dense) == 20);
   assert(f.k.inconsistent);
-  sink.save(f);
+  sink.proof.flush();
 }
 
 static bool observed;
@@ -502,8 +491,8 @@ static void direct_chain_and_empty_suffix() {
   f.model();
 }
 
-static void reconnect_conflict_proof(unsigned kind, const std::string &stem) {
-  ProofSink sink(stem);
+static void reconnect_conflict_proof(unsigned kind) {
+  ProofSink sink;
   Fixture f(&sink.proof);
   f.seed(); f.add({-3, 4, 5}); f.add({-4});
   if (kind == 0) f.add({-3, 4, -5});
@@ -516,14 +505,10 @@ static void reconnect_conflict_proof(unsigned kind, const std::string &stem) {
   const auto id = f.k.next_clause_id;
   assert(strengthen_reconnect_and_flush(f.k, f.entry) == ApplyResult::Unsat);
   assert(f.k.next_clause_id == id);
-  sink.save(f);
+  sink.proof.flush();
 }
 
-// argv[1], when given, keeps every proof with its CNF in that directory.
-int main(int argc, char **argv) {
-  const auto stem = [&](const std::string &name) {
-    return argc > 1 ? std::string(argv[1]) + "/" + name : std::string();
-  };
+int main() {
   readback();
   scoped_parameters();
   for (bool c2 : {false, true}) {
@@ -546,14 +531,11 @@ int main(int argc, char **argv) {
     for (unsigned chain : {0u, 1u}) unit_chain(dense, chain);
     quota_after_unit(dense);
     quota_equality_admits_tail(dense);
-    for (unsigned chain = 0; chain != 4; ++chain)
-      unit_proof(dense, chain, stem("forward-" + std::to_string(dense) + "-" +
-                                    std::to_string(chain)));
+    for (unsigned chain = 0; chain != 4; ++chain) unit_proof(dense, chain);
   }
   explicit_instance_stays_single_action();
   scheduler_chain();
   direct_chain_and_empty_suffix();
-  for (unsigned kind = 0; kind < 3; ++kind)
-    reconnect_conflict_proof(kind, stem("caller-" + std::to_string(kind)));
+  for (unsigned kind = 0; kind < 3; ++kind) reconnect_conflict_proof(kind);
   std::puts("Forward C1/C2 surface, admission, units, closure and proofs PASS");
 }

@@ -12,24 +12,17 @@ namespace tactix::gf3_general_row {
 struct Request {
   uint32_t outcome = 0;
   uint64_t tuple = 0;
-
-  friend bool operator==(const Request &, const Request &) = default;
 };
 
 struct DuplicateKey {
   std::vector<gf3_gaussian::Term> row;
   uint8_t rhs = 0;
   uint64_t tuple = 0;
-
-  friend bool operator==(const DuplicateKey &, const DuplicateKey &) = default;
 };
 
 struct AuthenticatedSource {
   gf3_gaussian::ProvenanceTerm combination;
   uint32_t authentication_index = 0;
-
-  friend bool operator==(const AuthenticatedSource &,
-                         const AuthenticatedSource &) = default;
 };
 
 enum class EventRole : uint8_t { Auxiliary, Consequence };
@@ -37,17 +30,12 @@ enum class EventRole : uint8_t { Auxiliary, Consequence };
 struct Event {
   EventRole role = EventRole::Auxiliary;
   std::vector<int32_t> clause;
-
-  friend bool operator==(const Event &, const Event &) = default;
 };
 
 struct ProjectionObligation {
   std::vector<int32_t> extension_variables;
   bool external_extent_unchanged = true;
   bool reconstruction_witness_required = false;
-
-  friend bool operator==(const ProjectionObligation &,
-                         const ProjectionObligation &) = default;
 };
 
 struct Limits {
@@ -108,8 +96,6 @@ struct Statistics {
   uint64_t row_tuples = 0;
   uint32_t branch_domains = 0;
   uint32_t maximum_event_width = 0;
-
-  friend bool operator==(const Statistics &, const Statistics &) = default;
 };
 
 struct Plan {
@@ -121,8 +107,6 @@ struct Plan {
   std::vector<Event> events;
   ProjectionObligation projection;
   Statistics statistics;
-
-  friend bool operator==(const Plan &, const Plan &) = default;
 };
 
 struct Result {
@@ -136,20 +120,9 @@ struct Result {
 
 using Charge = std::function<bool(uint64_t)>;
 
-// Cheap check of outcome shape and tuple arithmetic; Planned means a build is
-// worth attempting.
-Result inspect(const gf3_affine::Theory &,
-               const gf3_gaussian_bridge::Plan &, const Request &,
-               const Limits &);
-
 // Revalidate, then derive one forbidden-tuple clause of a non-unit row by
 // witness-free RUP additions over existing literals.
 Result build(const gf3_affine::Theory &, const gf3_gaussian_bridge::Plan &,
              const Request &, const Limits &, Charge);
-
-// Rebuild and compare every field.
-Result validate(const gf3_affine::Theory &,
-                const gf3_gaussian_bridge::Plan &, const Plan &,
-                const Limits &, Charge);
 
 } // namespace tactix::gf3_general_row

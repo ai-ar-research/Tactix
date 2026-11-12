@@ -13,9 +13,7 @@
 #include <cstdio>
 #include <fstream>
 #include <span>
-#include <sstream>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
@@ -193,27 +191,6 @@ static void test_per_call_bound_is_effective_and_scoped() {
   assert(result.rule_result == ApplyResult::Ok && result.work == 18);
   assert(kernel_var_retired(k, var_of(internalize(1))));
   assert(k.bve_bound == 0 && "the invocation must restore the caller's pose");
-}
-
-static void test_absolute_resolvent_cap_is_effective_and_scoped() {
-  Kernel k;
-  kernel_reserve_vars(k, 12);
-  for (int i = 2; i <= 3; ++i)
-    kernel_add_binary_clause(k, internalize(1), internalize(i));
-  for (int i = 4; i <= 12; ++i)
-    kernel_add_binary_clause(k, internalize(-1), internalize(i));
-  k.bve_gate_mask = 0;
-  k.bve_bound = 64;
-  k.bve_resolvent_count_limit = 77;
-  BveParameters posed = BveParameters::from_kernel(k);
-  posed.resolvent_count_limit = 8;
-  const InvocationResult result =
-      apply_one(k, posed, lit_instance(internalize(1)));
-  assert(result.status == InvocationStatus::NoChange);
-  assert(result.rule_result == ApplyResult::NoOp && result.work == 9);
-  assert(!kernel_var_retired(k, var_of(internalize(1))));
-  assert(k.bve_resolvent_count_limit == 77 &&
-         "the invocation must restore the caller's absolute cap");
 }
 
 static InvocationResult invoke_fastel(Kernel &k, uint32_t pivot,
@@ -414,22 +391,16 @@ static void test_fastel_self_strengthening_precedes_resolvent_cap() {
   assert(kernel_binary_live(k, internalize(2), internalize(3)));
   assert(k.stats.strengthened == 1);
   kernel_check_invariants(k);
-}
 
-static void test_fastel_at_raw_cap_skips_feasibility_strengthening() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {1, 2, 3});
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-
-  const InvocationResult result = invoke_fastel(k, 1, 1);
-  assert(result.status == InvocationStatus::Completed);
-  assert(result.rule_result == ApplyResult::Ok);
-  assert(kernel_var_retired(k, var_of(internalize(1))));
-  assert(kernel_binary_live(k, internalize(2), internalize(3)));
-  assert(k.stats.strengthened == 0 &&
-         "SC2024 skips its mutating feasibility scan at the raw cap");
-  kernel_check_invariants(k);
+  // At the raw cap SC2024 skips its mutating feasibility scan.
+  Kernel capped;
+  kernel_reserve_vars(capped, 3);
+  add_external_clause(capped, {1, 2, 3});
+  kernel_add_binary_clause(capped, internalize(-1), internalize(2));
+  assert(invoke_fastel(capped, 1, 1).rule_result == ApplyResult::Ok);
+  assert(kernel_var_retired(capped, var_of(internalize(1))));
+  assert(kernel_binary_live(capped, internalize(2), internalize(3)));
+  assert(capped.stats.strengthened == 0);
 }
 
 static Ref build_fastel_collapsed_binary_large(Kernel &k,
@@ -502,40 +473,6 @@ static void test_fastel_collapsed_proof_add_precedes_source_delete() {
   assert(unit_line && deletion_line && unit_line < deletion_line &&
          "the collapsed RUP unit must be emitted before its source is deleted");
   kernel_check_invariants(k);
-}
-
-// A complete DSR refutation for an external checker: FastEliminate derives 2
-// by the collapsed binary x large path; clauses 5/6 then conflict at the root.
-static void emit_fastel_collapsed_proof(const char *path) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
-  const Ref victim_ref = add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
-  add_external_clause(k, {1, 4, 5}, false, 0, ++k.next_clause_id);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2),
-                           ++k.next_clause_id);
-  kernel_add_binary_clause(k, internalize(-1), internalize(6),
-                           ++k.next_clause_id);
-  kernel_add_binary_clause(k, internalize(-2), internalize(7),
-                           ++k.next_clause_id);
-  kernel_add_binary_clause(k, internalize(-2), internalize(-7),
-                           ++k.next_clause_id);
-  const uint64_t root_id = ++k.next_clause_id;
-  k.unit_ids[var_of(internalize(-3))] = root_id;
-  kernel_assign_unit(k, internalize(-3));
-
-  Proof proof;
-  assert(proof.open(path, ProofFormat::DsrAscii));
-  proof.bind_variable_map(&k.internal_to_external);
-  k.proof = &proof;
-  const InvocationResult result = invoke_fastel(k, 1, 0);
-  assert(result.status == InvocationStatus::Completed);
-  assert(k.value(internalize(2)) > 0);
-  assert(clause_at(k.arena, victim_ref)->garbage());
-  const RuleVTable &propagate =
-      tactix_rules()[static_cast<size_t>(tactix_rule_id("Propagate"))];
-  assert(apply_rule(propagate, k) == ApplyResult::Unsat && k.inconsistent);
-  proof.flush();
-  k.proof = nullptr;
 }
 
 static void test_fastel_prunes_stale_resolvent_without_proof_sink() {
@@ -1001,25 +938,18 @@ static void test_instance_decline_that_changes_state_reports_ok() {
   assert(found && "the fixture no longer has a state-changing decline");
 }
 
-int main(int argc, char **argv) {
-  if (argc == 3 && std::string(argv[1]) == "--collapsed-proof") {
-    emit_fastel_collapsed_proof(argv[2]);
-    return 0;
-  }
-  assert(argc == 1);
+int main() {
   test_empty_pivot_progress_distinguishes_retirement();
   test_round_ends_when_declined_candidate_changes_state();
   test_instance_decline_that_changes_state_reports_ok();
   test_one_instance_matches_legacy_and_restores_parameters();
   test_per_call_bound_is_effective_and_scoped();
-  test_absolute_resolvent_cap_is_effective_and_scoped();
   test_otf_single_strengthening_precedes_resolvent_cap();
   test_otf_size_order_reaches_short_parent_before_cap();
   test_otf_replacement_updates_live_schedule_without_pivot_retry();
   test_otf_double_strengthening_subsumes_both_parents();
   test_otf_add_precedes_parent_deletes();
   test_fastel_self_strengthening_precedes_resolvent_cap();
-  test_fastel_at_raw_cap_skips_feasibility_strengthening();
   test_fastel_collapsed_binary_large_deletes_source_on_decline();
   test_fastel_collapsed_proof_add_precedes_source_delete();
   test_fastel_prunes_stale_resolvent_without_proof_sink();

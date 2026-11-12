@@ -87,8 +87,7 @@ struct NativeAdvanceResult {
 // The IPASIR transport and custom strategies share this service.
 class QueryKernel {
 public:
-  QueryKernel();
-  explicit QueryKernel(NativeQueryLimits);
+  explicit QueryKernel(NativeQueryLimits = {});
   ~QueryKernel();
   QueryKernel(const QueryKernel &) = delete;
   QueryKernel &operator=(const QueryKernel &) = delete;
@@ -99,8 +98,7 @@ public:
   // to the epoch. Without one, open the same search-facing writer nowhere.
   // Failed preparation leaves the previous kernel epoch and tickets intact.
   // The history must outlive this owner and its outstanding tickets.
-  ReplayStatus replay(const QueryHistory &);
-  ReplayStatus replay(const QueryHistory &, std::unique_ptr<Proof> writer);
+  ReplayStatus replay(const QueryHistory &, std::unique_ptr<Proof> writer = {});
   // Abandon a failed execution after all borrowed views are destroyed. Keep
   // callbacks and independently retained knowledge; the next entry replays F.
   void discard_epoch();
@@ -109,18 +107,15 @@ public:
   // Keeps the same Kernel/H and admits the append-only raw suffix and new
   // client coordinates. Captured weakening/repair history and independently certified
   // native facts are supported; other provenance/namespaces request replay.
-  NativeAdvanceResult advance(const QueryHistory &);
-  NativeAdvanceResult advance(const QueryHistory &, std::unique_ptr<Proof> writer,
+  NativeAdvanceResult advance(const QueryHistory &, std::unique_ptr<Proof> writer = {},
       const volatile sig_atomic_t *stop = nullptr);
   // Explicit repair after next_assumption reports Restore, before publishing
   // a terminal result. Reuses the same query ID/F/A and Kernel/H, preparing a
   // fresh exact-query certificate and projection. Success stales old tickets;
   // a rejected preflight preserves the old ticket and repair obligation.
-  NativeAdvanceResult repair(const QueryHistory &);
-  NativeAdvanceResult repair(const QueryHistory &, std::unique_ptr<Proof> writer,
+  NativeAdvanceResult repair(const QueryHistory &, std::unique_ptr<Proof> writer = {},
       const volatile sig_atomic_t *stop = nullptr);
   KernelTicket ticket() const;
-  bool owns_query(KernelTicket t,const QueryHistory &h) const {return history_==&h && valid(t);}
   Kernel *kernel(KernelTicket);
   StructuralActionSessions *execution_services(KernelTicket);
   std::span<const int32_t> effective_assumptions(KernelTicket) const;
@@ -151,8 +146,6 @@ public:
   std::shared_ptr<const QueryResultSnapshot> own_result_snapshot() const {
     return result_snapshot()?result_:nullptr;
   }
-  int32_t model_literal(int32_t external) const; // signed assignment, same for +/-v
-  bool failed_literal(int32_t external) const;
   // Session-owned callback state. A setter preserves the current result view;
   // the frontend resets the stop latch once per valid solve, before admission.
   void set_terminate(void *state,int (*terminate)(void *)) {
@@ -169,9 +162,6 @@ public:
   void set_learn(void *state, int maximum_length, void (*learn)(void *, int *));
   void set_learn_budget(uint64_t ticks);
   void drain_learned(KernelTicket, const volatile sig_atomic_t *stop = nullptr);
-  LearningSnapshot learning_snapshot() const {
-    return learning_ ? learning_->snapshot() : LearningSnapshot{};
-  }
 
 private:
   struct Epoch;

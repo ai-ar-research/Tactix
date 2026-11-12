@@ -139,11 +139,9 @@ bool outcome_identity_bytes(
 }
 
 // Proof-mode and root admission shared by prepare and publish.
-bool admitted(const Kernel &kernel, bool atomic, Status &status) {
+bool admitted(const Kernel &kernel, Status &status) {
   if (kernel.proof && kernel.proof->startup_pb_written())
     status = Status::UnsupportedProof;
-  else if (kernel.proof && !atomic)
-    status = Status::UnsupportedProofSplit;
   else if (!gf3_live_common::root_ready(kernel))
     status = terminating_status(kernel, Status::Inapplicable);
   else
@@ -372,17 +370,16 @@ bool plan_events(Kernel &kernel, const Request &request, Prepared &prepared,
 } // namespace
 
 Result prepare_internal(Kernel &kernel, const Request &request,
-                        Prepared &output, bool atomic) {
+                        Prepared &output) {
   Result result;
   if (!valid(request)) return result;
-  if (!admitted(kernel, atomic, result.status)) return result;
+  if (!admitted(kernel, result.status)) return result;
   if (kernel.external_to_internal.size() > request.maximum_external_extent) {
     result.status = Status::ResourceExhausted;
     return result;
   }
 
   Prepared prepared;
-  prepared.request_ = request;
   prepared.starting_clause_id_ = kernel.next_clause_id;
   prepared.arena_generation_ = kernel.arena_generation;
   prepared.starting_nvars_ = kernel.nvars;
@@ -506,7 +503,6 @@ Result prepare_internal(Kernel &kernel, const Request &request,
   prepared.prepared_ = result;
   prepared.prepared_.effort.journal_work = prepared.journal_.size();
   prepared.prepared_.effort.journal_bytes = prepared.journal_.size();
-  prepared.ready_ = true;
   result = prepared.prepared_;
   result.status = Status::Prepared;
   prepared.prepared_.status = Status::Prepared;
@@ -515,18 +511,10 @@ Result prepare_internal(Kernel &kernel, const Request &request,
 }
 
 Result publish_internal(Kernel &kernel, const Request &request,
-                        Prepared &prepared, bool atomic) {
+                        Prepared &prepared) {
   Result result = prepared.prepared_;
   result.result = ApplyResult::NoOp;
-  if (!prepared.ready_ || !valid(request) || request != prepared.request_) {
-    result.status = Status::Invalid;
-    return result;
-  }
-  if (prepared.spent_) {
-    result.status = Status::AlreadyApplied;
-    return result;
-  }
-  if (!admitted(kernel, atomic, result.status)) return result;
+  if (!admitted(kernel, result.status)) return result;
   if (kernel.next_clause_id != prepared.starting_clause_id_ ||
       kernel.arena_generation != prepared.arena_generation_ ||
       kernel.nvars != prepared.starting_nvars_ ||
@@ -599,7 +587,6 @@ Result publish_internal(Kernel &kernel, const Request &request,
     result.published_units.push_back(event.clause.front());
   }
   prepared.journal_.write(request.records);
-  prepared.spent_ = true;
   result.status = Status::Applied;
   result.result = result.contradiction ? ApplyResult::Unsat : ApplyResult::Ok;
   result.effort.journal_bytes = prepared.journal_.size();
@@ -607,23 +594,15 @@ Result publish_internal(Kernel &kernel, const Request &request,
   return result;
 }
 
-Result prepare(Kernel &kernel, const Request &request, Prepared &output) {
-  return prepare_internal(kernel, request, output, false);
-}
-
 Result inspect(Kernel &kernel, const Request &request, Prepared &output) {
-  return prepare_internal(kernel, request, output, true);
-}
-
-Result apply(Kernel &kernel, const Request &request, Prepared &prepared) {
-  return publish_internal(kernel, request, prepared, false);
+  return prepare_internal(kernel, request, output);
 }
 
 Result apply(Kernel &kernel, const Request &request) {
   Prepared prepared;
-  Result result = prepare_internal(kernel, request, prepared, true);
+  Result result = prepare_internal(kernel, request, prepared);
   if (result.status != Status::Prepared) return result;
-  return publish_internal(kernel, request, prepared, true);
+  return publish_internal(kernel, request, prepared);
 }
 
 } // namespace tactix::gf3_gaussian_live

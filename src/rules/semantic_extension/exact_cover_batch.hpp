@@ -65,15 +65,9 @@ bool plan_batch(const std::vector<Premise> &, const BatchPlanningRequest &,
 class BatchPlan {
 public:
   BatchPlan() = default;
-  uint32_t arity() const { return arity_; }
-  uint32_t first_output_external() const { return first_output_external_; }
-  const std::vector<Premise> &source() const { return source_; }
   const std::vector<PlannedDefinition> &definitions() const {
     return definitions_;
   }
-  uint64_t proof_additions() const { return proof_additions_; }
-  uint64_t literal_occurrences() const { return literal_occurrences_; }
-  uint32_t extent_growth() const { return extent_growth_; }
   bool operator==(const BatchPlan &) const = default;
 
 private:
@@ -160,21 +154,15 @@ bool plan_batch(const std::vector<Premise> &source,
   // A one-shot batch: the definitions make the source unrecognizable later.
   if (image.blocks.size() > UINT32_MAX)
     return fail(BatchPlanningStatus::ResourceExhausted);
-  std::vector<uint32_t> selected(image.blocks.size());
-  for (uint32_t block = 0; block < selected.size(); ++block)
-    selected[block] = block;
-  if (selected.empty()) return fail(BatchPlanningStatus::NoStructure);
+  const size_t blocks = image.blocks.size();
+  if (!blocks) return fail(BatchPlanningStatus::NoStructure);
   const uint64_t last_output = uint64_t{request.first_output_external} +
-                               selected.size() - 1;
-  if (selected.size() > request.maximum_definitions ||
-      selected.size() > request.maximum_extent_growth ||
+                               blocks - 1;
+  if (blocks > request.maximum_definitions ||
+      blocks > request.maximum_extent_growth ||
       last_output > INT32_MAX ||
       last_output > request.maximum_external_extent)
     return fail(BatchPlanningStatus::ResourceExhausted);
-  std::set<uint32_t> unique_blocks;
-  for (uint32_t block : selected)
-    if (block >= image.blocks.size() || !unique_blocks.insert(block).second)
-      return fail(BatchPlanningStatus::Invalid);
 
   std::map<int32_t, const Item *> items;
   for (const Item &item : image.items) items.emplace(item.literal, &item);
@@ -183,13 +171,12 @@ bool plan_batch(const std::vector<Premise> &source,
   plan.first_output_external_ = request.first_output_external;
   plan.source_ = source;
   uint64_t premise_references = 0;
-  for (uint32_t slot = 0; slot < selected.size(); ++slot) {
+  for (uint32_t slot = 0; slot < blocks; ++slot) {
     if (!charge(uint64_t{1} + request.arity))
       return fail(BatchPlanningStatus::ResourceExhausted);
-    const uint32_t block_index = selected[slot];
-    const Block &block = image.blocks[block_index];
+    const Block &block = image.blocks[slot];
     PlannedDefinition definition;
-    definition.block = block_index;
+    definition.block = slot;
     definition.semantic = {request.action_id, slot};
     definition.output = static_cast<int32_t>(request.first_output_external + slot);
     definition.inputs = block.items;

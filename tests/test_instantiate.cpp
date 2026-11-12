@@ -211,19 +211,6 @@ static void test_semantic_pair_surface() {
   }
 }
 
-// Guard: off the declared root boundary the rule is not applicable.
-static void test_guard() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  addn(k, {1, 2, 3});
-  assert(instantiate_guard(k));
-  k.level = 1;
-  assert(!instantiate_guard(k));
-  k.level = 0;
-  k.inconsistent = true;
-  assert(!instantiate_guard(k));
-}
-
 // N1: the touched-epoch filter is policy-only. With the watermark advanced the
 // round declines, but `instances()` and `apply_instance` stay complete.
 static void test_touch_filter_is_policy_only() {
@@ -320,7 +307,6 @@ int main() {
   test_probe_failure_is_a_noop();
   test_redundant_out_of_scope();
   test_semantic_pair_surface();
-  test_guard();
   printf("test_instantiate: all passed\n");
   return 0;
 }

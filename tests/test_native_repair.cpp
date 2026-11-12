@@ -61,7 +61,6 @@ static void scenario(const std::string &name,const std::string &prefix,const std
       assert(bce_try(k,kernel_internalize(k,unrelated))==ApplyResult::Ok);
     } else {
       const auto result=s.advance(h,std::move(writer));
-      if(result.status!=NativeAdvanceStatus::Ok) std::fprintf(stderr,"advance %s q%llu status=%u\n",name.c_str(),(unsigned long long)id,unsigned(result.status));
       assert(result.status==NativeAdvanceStatus::Ok);
       assert(s.kernel(s.ticket())==identity&&identity->h==guidance);
       if(id==2) assert((result.restored>0)==(name!="ata"));
@@ -102,10 +101,6 @@ static void group_authentication() {
   assert(bce_try(k,internalize(5))==ApplyResult::Ok);
   assert(history.capture_complete()&&history.records().size()==3);
   const int32_t used[]={-2};const auto plan=history.plan_restoration(used);
-  if (plan.status()!=RestorationPlanStatus::Ready||plan.selected().size()!=2||plan.kept()!=1) {
-    std::fprintf(stderr,"plan=%u selected=%zu kept=%zu\n",unsigned(plan.status()),plan.selected().size(),plan.kept());
-    for (const auto &record:history.records()) { std::fprintf(stderr,"family=%u witnesses:",unsigned(record.family));for(int w:record.witness)std::fprintf(stderr," %d",w);std::fprintf(stderr,"\n"); }
-  }
   assert(plan.status()==RestorationPlanStatus::Ready&&plan.selected().size()==2&&plan.kept()==1);
   assert(plan.selected()[0].family==WeakeningFamily::Cce&&plan.selected()[1].family==WeakeningFamily::Condition);
   const auto rho=k.reconstruction;k.reconstruction[0]^=1;

@@ -8,7 +8,6 @@
 #include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
-#include <limits>
 #include <utility>
 
 namespace tactix {
@@ -24,21 +23,6 @@ struct Gf3GeneralRowActionSessionAccess {
 };
 
 namespace {
-
-uint64_t saturated(uint64_t first, uint64_t second) {
-  return second > UINT64_MAX - first ? UINT64_MAX : first + second;
-}
-
-void accumulate(Gf3GeneralRowLiveEffort &target,
-                const Gf3GeneralRowLiveEffort &source) {
-#define ADD(field) target.field = saturated(target.field, source.field)
-  ADD(source_clauses); ADD(source_literals); ADD(capture_work);
-  ADD(bridge_work); ADD(planning_work); ADD(validation_work);
-  ADD(duplicate_scan_work); ADD(revalidation_work); ADD(proof_additions);
-  ADD(proof_literal_occurrences); ADD(arena_words); ADD(journal_bytes);
-  ADD(identity_bytes);
-#undef ADD
-}
 
 Gf3GeneralRowActionStatus status(Gf3GeneralRowLiveStatus value) {
   using S = Gf3GeneralRowLiveStatus;
@@ -165,108 +149,6 @@ Gf3GeneralRowActionResult gf3_general_row_action_apply(
       session, kernel, std::move(output.live.owner), std::move(keys));
   kernel.structural_action_sequence = output.proposed_action_id;
   output.committed_action_id = output.proposed_action_id;
-  return output;
-}
-
-bool Gf3GeneralRowActionOfferWindow::valid() const {
-  return maximum_candidates && maximum_offers && maximum_enumeration_work &&
-         (!have_after || gf3_general_row_action_selection_valid(after));
-}
-
-Gf3GeneralRowActionOfferResult gf3_general_row_action_offer(
-    Kernel &kernel, const Gf3GeneralRowActionSession &session,
-    const Gf3GeneralRowActionLimits &limits,
-    const Gf3GeneralRowActionOfferWindow &window) {
-  Gf3GeneralRowActionOfferResult output;
-  if (!gf3_general_row_action_guard(kernel)) {
-    output.status = Gf3GeneralRowActionStatus::Inapplicable;
-    return output;
-  }
-  if (!limits.valid() || !window.valid()) return output;
-  if (session.retained() && !session.belongs_to(kernel)) {
-    output.status = Gf3GeneralRowActionStatus::Stale;
-    return output;
-  }
-
-  Gf3GeneralRowOwner owner;
-  const Gf3GeneralRowOwner *selected_owner = session.owner();
-  if (!selected_owner) {
-    const auto captured = gf3_general_row_live_capture(
-        kernel, limits.live, owner, output.live_effort);
-    if (captured != Gf3GeneralRowLiveStatus::Ready) {
-      output.status = status(captured);
-      output.complete = captured == Gf3GeneralRowLiveStatus::NoStructure;
-      return output;
-    }
-    selected_owner = &owner;
-  } else {
-    const auto validated = gf3_general_row_live_validate_owner(
-        kernel, limits.live, *selected_owner, output.live_effort);
-    if (validated != Gf3GeneralRowLiveStatus::Ready) {
-      output.status = status(validated);
-      return output;
-    }
-  }
-
-  for (uint32_t outcome = 0;
-       outcome < selected_owner->bridge.gaussian.outcomes.size(); ++outcome) {
-    for (uint64_t tuple = 0;; ++tuple) {
-      if (output.candidates == window.maximum_candidates ||
-          !add_bounded(1, window.maximum_enumeration_work,
-                       output.enumeration_work)) {
-        output.status = Gf3GeneralRowActionStatus::ResourceExhausted;
-        output.offers.clear();
-        return output;
-      }
-      gf3_general_row::Request candidate{outcome, tuple};
-      const auto inspected = gf3_general_row::inspect(
-          selected_owner->affine.theory, selected_owner->bridge, candidate,
-          limits.live.planner);
-      if (inspected.status == gf3_general_row::Status::InvalidRequest) break;
-      if (inspected.status != gf3_general_row::Status::Planned) continue;
-      ++output.candidates;
-      Gf3GeneralRowActionSelection selection{outcome, tuple, {}};
-      if (!gf3_general_row_live_identity(*selected_owner, candidate,
-                                         limits.live.maximum_identity_bytes,
-                                         selection.identity)) {
-        output.status = Gf3GeneralRowActionStatus::ResourceExhausted;
-        output.offers.clear();
-        return output;
-      }
-      if (window.have_after && !(window.after < selection)) continue;
-      if (std::binary_search(session.keys().begin(), session.keys().end(),
-                             selection)) {
-        ++output.committed_keys_skipped;
-        continue;
-      }
-      const auto admitted = gf3_general_row_live_inspect(
-          kernel, request(kernel, limits, selection,
-                          kernel.structural_action_sequence + 1,
-                          selected_owner));
-      accumulate(output.live_effort, admitted.effort);
-      if (admitted.status == Gf3GeneralRowLiveStatus::Duplicate) {
-        ++output.committed_keys_skipped;
-        continue;
-      }
-      if (admitted.status != Gf3GeneralRowLiveStatus::Ready) {
-        output.status = status(admitted.status);
-        output.offers.clear();
-        return output;
-      }
-      if (output.offers.size() == window.maximum_offers) {
-        output.status = Gf3GeneralRowActionStatus::Applied;
-        return output;
-      }
-      output.offers.push_back(selection);
-      output.resume_after = selection;
-      output.have_resume_after = true;
-      if (tuple == std::numeric_limits<uint64_t>::max()) break;
-    }
-  }
-  output.complete = true;
-  output.status = output.offers.empty()
-                      ? Gf3GeneralRowActionStatus::AlreadyPublished
-                      : Gf3GeneralRowActionStatus::Applied;
   return output;
 }
 

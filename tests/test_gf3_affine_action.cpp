@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "gf3_affine_support.hpp"
+#include "gf3_formula_support.hpp"
 #include "kernel_image.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -14,11 +14,11 @@ using namespace tactix;
 namespace {
 
 // Seven domains in a chain of three equations.
-Gf3Clauses formula(bool complete = true) {
-  return gf3_formula(7, {{0, 1, 2}, {2, 3, 4}, {4, 5, 6}}, complete);
+Gf3Clauses formula() {
+  return gf3_formula(7, {{0, 1, 2}, {2, 3, 4}, {4, 5, 6}});
 }
 
-Kernel parse(bool complete = true) { return gf3_parse(7, formula(complete)); }
+Kernel parse() { return gf3_parsed_kernel(formula()); }
 
 Gf3AffineActionLimits limits() {
   Gf3AffineActionLimits result;
@@ -39,10 +39,19 @@ Gf3AffineActionLimits limits() {
   assert(result.valid());
   return result;
 }
-void attach(Kernel &kernel, FILE *records) {
-  kernel.structural_provenance = records;
-  kernel.structural_action_sequence = 80;
-}
+
+// A parsed kernel with a fresh journal and session; action ids start at 81.
+struct Bound {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  Gf3AffineActionSession session;
+  Bound() {
+    assert(records);
+    kernel.structural_provenance = records;
+    kernel.structural_action_sequence = 80;
+  }
+  ~Bound() { std::fclose(records); }
+};
 
 // The kernel image plus the action-layer state a decline must not touch.
 struct ActionImage {
@@ -72,11 +81,10 @@ void delete_published(Kernel &kernel, const std::vector<uint64_t> &ids) {
 }
 
 void success_replay_advice_and_repeated_pairs() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
-  Gf3AffineActionSession session;
+  Bound b;
+  Kernel &kernel = b.kernel;
+  FILE *records = b.records;
+  Gf3AffineActionSession &session = b.session;
 
   const auto first =
       gf3_affine_action_apply(kernel, session, limits(), 0, 1);
@@ -176,111 +184,44 @@ void success_replay_advice_and_repeated_pairs() {
   assert(repeated.proposed_action_id == 83 && repeated.semantic_id == 83 &&
          !repeated.committed_action_id && repeated.committed_keys == 2 &&
          action_image(kernel) == before && position(records) == journal);
-  std::fclose(records);
 }
 
 void declines_are_atomic_and_sessions_are_kernel_local() {
   {
-    Kernel kernel = parse(false);
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
-    Gf3AffineActionSession session;
-    const ActionImage before = action_image(kernel);
-    const auto declined =
-        gf3_affine_action_apply(kernel, session, limits(), 0, 1);
-    assert(declined.status == Gf3AffineActionStatus::NoStructure &&
-           declined.result == ApplyResult::NoOp && !session.retained() &&
-           action_image(kernel) == before && !position(records));
-    std::fclose(records);
-  }
-  {
-    Kernel first_kernel = parse();
-    FILE *first_records = std::tmpfile();
-    assert(first_records);
-    attach(first_kernel, first_records);
-    Gf3AffineActionSession session;
-    assert(gf3_affine_action_apply(first_kernel, session, limits(), 0, 1)
+    Bound first, second;
+    assert(gf3_affine_action_apply(first.kernel, first.session, limits(), 0, 1)
                .status == Gf3AffineActionStatus::Applied);
-
-    Kernel second_kernel = parse();
-    FILE *second_records = std::tmpfile();
-    assert(second_records);
-    attach(second_kernel, second_records);
-    const ActionImage before = action_image(second_kernel);
-    const auto stale =
-        gf3_affine_action_apply(second_kernel, session, limits(), 1, 2);
+    const ActionImage before = action_image(second.kernel);
+    const auto stale = gf3_affine_action_apply(second.kernel, first.session,
+                                               limits(), 1, 2);
     assert(stale.status == Gf3AffineActionStatus::Stale &&
-           stale.result == ApplyResult::NoOp && action_image(second_kernel) == before &&
-           session.belongs_to(first_kernel) && session.committed_keys() == 1 &&
-           !position(second_records));
-    std::fclose(second_records);
-    std::fclose(first_records);
+           stale.result == ApplyResult::NoOp &&
+           action_image(second.kernel) == before &&
+           first.session.belongs_to(first.kernel) &&
+           first.session.committed_keys() == 1 && !position(second.records));
   }
-  {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
-    Gf3AffineActionSession session;
-    const ActionImage before = action_image(kernel);
-    const auto invalid =
-        gf3_affine_action_apply(kernel, session, limits(), 1, 1);
-    assert(invalid.status == Gf3AffineActionStatus::Invalid &&
-           action_image(kernel) == before && !session.retained() &&
-           !position(records));
-    auto tiny = limits();
-    tiny.maximum_session_work = 1;
-    const auto exhausted =
-        gf3_affine_action_apply(kernel, session, tiny, 0, 1);
-    assert(exhausted.status == Gf3AffineActionStatus::ResourceExhausted &&
-           action_image(kernel) == before && !session.retained() &&
-           !position(records));
-    std::fclose(records);
-  }
-}
-
-void retained_owner_is_revalidated_before_a_novel_pair() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
-  Gf3AffineActionSession session;
-  assert(gf3_affine_action_apply(kernel, session, limits(), 0, 1).status ==
-         Gf3AffineActionStatus::Applied);
-  const auto source = std::find_if(
-      session.snapshot()->sources.begin(), session.snapshot()->sources.end(),
-      [](const Gf3AffineLiveSource &item) {
-        return item.kind == Gf3AffineSourceKind::Large;
-      });
-  assert(source != session.snapshot()->sources.end());
-  Clause *retained = clause_at(kernel.arena, source->ref);
-  assert(!retained->garbage() && retained->id() == source->native_proof_id);
-  kernel_delete_clause(kernel, retained);
-  const ActionImage before = action_image(kernel);
-  const long journal = position(records);
-  const auto stale =
-      gf3_affine_action_apply(kernel, session, limits(), 1, 2);
-  assert(stale.status == Gf3AffineActionStatus::Stale &&
-         stale.result == ApplyResult::NoOp && session.committed_keys() == 1 &&
-         action_image(kernel) == before && position(records) == journal);
-  std::fclose(records);
-}
-void streaming_pbp_is_inapplicable() {
-  Kernel kernel = parse();
+  Bound b;
+  const ActionImage before = action_image(b.kernel);
+  const auto unchanged = [&] {
+    assert(action_image(b.kernel) == before && !b.session.retained() &&
+           !position(b.records));
+  };
+  assert(gf3_affine_action_apply(b.kernel, b.session, limits(), 1, 1).status ==
+         Gf3AffineActionStatus::Invalid);
+  unchanged();
+  auto tiny = limits();
+  tiny.maximum_session_work = 1;
+  assert(gf3_affine_action_apply(b.kernel, b.session, tiny, 0, 1).status ==
+         Gf3AffineActionStatus::ResourceExhausted);
+  unchanged();
+  // The action guard declines streaming PBP before the live layer runs.
   Proof proof;
-  bind_pbp_streaming(proof, kernel, "/tmp/gf3-action-decline.pbp");
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
-  Gf3AffineActionSession session;
-  const ActionImage before = action_image(kernel);
-  const auto result = gf3_affine_action_apply(kernel, session, limits(), 0, 1);
+  bind_pbp_streaming(proof, b.kernel, "/tmp/gf3-action-decline.pbp");
+  const auto result = gf3_affine_action_apply(b.kernel, b.session, limits(), 0, 1);
   assert(result.status == Gf3AffineActionStatus::Inapplicable &&
-         result.result == ApplyResult::NoOp && action_image(kernel) == before &&
-         !session.retained() && !position(records));
-  kernel.proof = nullptr;
-  std::fclose(records);
+         result.result == ApplyResult::NoOp);
+  unchanged();
+  b.kernel.proof = nullptr;
 }
 
 } // namespace
@@ -288,7 +229,5 @@ void streaming_pbp_is_inapplicable() {
 int main() {
   success_replay_advice_and_repeated_pairs();
   declines_are_atomic_and_sessions_are_kernel_local();
-  retained_owner_is_revalidated_before_a_novel_pair();
-  streaming_pbp_is_inapplicable();
   std::puts("test_gf3_affine_action: passed");
 }

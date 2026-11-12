@@ -178,29 +178,43 @@ bool duplicate_key(const AffineBasisActionSession &session,
   return std::binary_search(session.keys().begin(), session.keys().end(), key);
 }
 
-AffineBasisOfferPage offer_page(
-    Kernel &kernel, const AffineBasisActionSession &session,
-    const AffineBasisActionLimits &limits,
-    const AffineBasisOfferCursor &cursor, uint32_t maximum_offers,
-    const AffineLiveSnapshot &owner, uint64_t owner_version,
-    AffineBasisLiveTransaction *selected_transaction = nullptr,
-    AffineBasisLiveResult *selected_result = nullptr) {
-  AffineBasisOfferPage page;
-  page.owner_version = owner_version;
-  if (!maximum_offers || !limits.valid() || !owner_version) return page;
+enum class OfferStatus : uint8_t {
+  Complete,
+  NoStructure,
+  Inapplicable,
+  ResourceExhausted,
+  Interrupted,
+  Stale,
+  Invalid,
+};
+
+struct Offer {
+  OfferStatus status = OfferStatus::Invalid;
+  uint64_t enumeration_work = 0, preflight_recognition_work = 0,
+           preflight_basis_work = 0, preflight_additions = 0,
+           preflight_deletions = 0, duplicates = 0;
+  bool offered = false;
+  AffineBasisRowSelection selection;
+};
+
+// The first preparable row, ordered contradiction, unit, binary, increasing
+// width, then canonical payload; mutation-free.
+Offer first_offer(Kernel &kernel, const AffineBasisActionSession &session,
+                  const AffineBasisActionLimits &limits,
+                  const AffineLiveSnapshot &owner, uint64_t owner_version,
+                  AffineBasisLiveTransaction &selected_transaction,
+                  AffineBasisLiveResult &selected_result) {
+  Offer page;
+  if (!limits.valid() || !owner_version) return page;
   if (!affine_basis_action_guard(kernel)) {
-    page.status = AffineBasisOfferStatus::Inapplicable;
+    page.status = OfferStatus::Inapplicable;
     return page;
   }
   if (session.bound() && (!session.belongs_to(kernel) ||
                           session.owner_version() != owner_version)) {
-    page.status = AffineBasisOfferStatus::Stale;
+    page.status = OfferStatus::Stale;
     return page;
   }
-  if (cursor.present &&
-      (cursor.last_examined.owner_version != owner_version ||
-       cursor.last_examined.elimination_profile != 1))
-    return page;
 
   namespace affine = affine_semantic_extension;
   affine::Image image;
@@ -222,12 +236,12 @@ AffineBasisOfferPage offer_page(
       affine::recognize(owner.premises, limits.image, charge, image);
   page.enumeration_work = recognition_work;
   if (recognized != affine::Status::Complete) {
-    page.status = interrupted ? AffineBasisOfferStatus::Interrupted
+    page.status = interrupted ? OfferStatus::Interrupted
                   : exhausted || recognized == affine::Status::Exhausted
-                      ? AffineBasisOfferStatus::ResourceExhausted
+                      ? OfferStatus::ResourceExhausted
                   : recognized == affine::Status::NoStructure
-                      ? AffineBasisOfferStatus::NoStructure
-                      : AffineBasisOfferStatus::Invalid;
+                      ? OfferStatus::NoStructure
+                      : OfferStatus::Invalid;
     return page;
   }
   affine::BasisPlan plan;
@@ -240,12 +254,12 @@ AffineBasisOfferPage offer_page(
       plan);
   if (planned != affine::BasisPlanStatus::Complete) {
     page.status = planned == affine::BasisPlanStatus::Interrupted
-                      ? AffineBasisOfferStatus::Interrupted
+                      ? OfferStatus::Interrupted
                   : planned == affine::BasisPlanStatus::Exhausted
-                      ? AffineBasisOfferStatus::ResourceExhausted
+                      ? OfferStatus::ResourceExhausted
                   : planned == affine::BasisPlanStatus::NoStructure
-                      ? AffineBasisOfferStatus::NoStructure
-                      : AffineBasisOfferStatus::Invalid;
+                      ? OfferStatus::NoStructure
+                      : OfferStatus::Invalid;
     return page;
   }
 
@@ -263,7 +277,7 @@ AffineBasisOfferPage offer_page(
     candidate.row = i;
     if (!affine_basis_row_selection(owner_version, image, owner, row,
                                     candidate.selection)) {
-      page.status = AffineBasisOfferStatus::Invalid;
+      page.status = OfferStatus::Invalid;
       return page;
     }
     candidates.push_back(std::move(candidate));
@@ -274,38 +288,19 @@ AffineBasisOfferPage offer_page(
             });
   for (size_t i = 1; i < candidates.size(); ++i)
     if (!(candidates[i - 1].selection < candidates[i].selection)) {
-      page.status = AffineBasisOfferStatus::Invalid;
+      page.status = OfferStatus::Invalid;
       return page;
     }
-  if (cursor.present) {
-    const auto found = std::lower_bound(
-        candidates.begin(), candidates.end(), cursor.last_examined,
-        [](const Candidate &candidate,
-           const AffineBasisRowSelection &selection) {
-          return candidate.selection < selection;
-        });
-    if (found == candidates.end() ||
-        !(found->selection == cursor.last_examined)) {
-      page.status = AffineBasisOfferStatus::Invalid;
-      return page;
-    }
-  }
 
-  page.status = AffineBasisOfferStatus::NoStructure;
-  for (size_t i = 0; i < candidates.size(); ++i) {
-    const Candidate &candidate = candidates[i];
-    if (cursor.present &&
-        !(cursor.last_examined < candidate.selection))
-      continue;
-    ++page.candidates_examined;
+  page.status = OfferStatus::NoStructure;
+  for (const Candidate &candidate : candidates) {
     const uint64_t enumeration =
         1 + candidate.selection.variables.size() +
         candidate.selection.source_equation_ordinals.size();
     if (!add_work(enumeration, UINT64_MAX, page.enumeration_work)) {
-      page.status = AffineBasisOfferStatus::ResourceExhausted;
+      page.status = OfferStatus::ResourceExhausted;
       return page;
     }
-    page.continuation = {true, candidate.selection};
     if (duplicate_key(session, image, owner, plan.rows[candidate.row])) {
       ++page.duplicates;
       continue;
@@ -324,38 +319,30 @@ AffineBasisOfferPage offer_page(
                   page.preflight_additions) ||
         !add_work(prepared.preflight_deletions, UINT64_MAX,
                   page.preflight_deletions)) {
-      page.status = AffineBasisOfferStatus::ResourceExhausted;
+      page.status = OfferStatus::ResourceExhausted;
       return page;
     }
+    // A per-row proof/resource rejection does not hide later rows that may
+    // fit the same configured allowance.
     if (prepared.status == AffineBasisLiveStatus::Prepared) {
-      page.status = AffineBasisOfferStatus::Complete;
-      if (page.offers.empty() && selected_transaction && selected_result) {
-        *selected_transaction = std::move(transaction);
-        *selected_result = prepared;
-      }
-      page.offers.push_back(candidate.selection);
-      if (page.offers.size() == maximum_offers) {
-        page.more = i + 1 < candidates.size();
-        break;
-      }
-    } else if (prepared.status == AffineBasisLiveStatus::NoStructure) {
-      ++page.covered;
+      page.status = OfferStatus::Complete;
+      selected_transaction = std::move(transaction);
+      selected_result = prepared;
+      page.offered = true;
+      page.selection = candidate.selection;
+      return page;
     } else if (prepared.status == AffineBasisLiveStatus::Stale) {
-      ++page.stale;
-      if (page.offers.empty()) page.status = AffineBasisOfferStatus::Stale;
+      page.status = OfferStatus::Stale;
     } else if (prepared.status == AffineBasisLiveStatus::ResourceExhausted ||
                prepared.status == AffineBasisLiveStatus::UnsupportedProof) {
-      if (page.offers.empty())
-        page.status = AffineBasisOfferStatus::ResourceExhausted;
+      page.status = OfferStatus::ResourceExhausted;
     } else if (prepared.status == AffineBasisLiveStatus::Interrupted) {
-      page.status = AffineBasisOfferStatus::Interrupted;
+      page.status = OfferStatus::Interrupted;
       return page;
     } else if (prepared.status == AffineBasisLiveStatus::Invalid) {
-      page.status = AffineBasisOfferStatus::Invalid;
+      page.status = OfferStatus::Invalid;
       return page;
     }
-    // Per-row proof/resource rejection advances the continuation but does not
-    // hide later rows that may fit the same configured allowance.
   }
   return page;
 }
@@ -472,34 +459,6 @@ RuleEligibility affine_basis_action_guard(const Kernel &kernel) {
       .finish();
 }
 
-AffineBasisOfferPage affine_basis_action_offers(
-    Kernel &kernel, const AffineBasisActionSession &session,
-    const AffineBasisActionLimits &limits,
-    const AffineBasisOfferCursor &cursor, uint32_t maximum_offers) {
-  AffineBasisOfferPage page;
-  if (!maximum_offers || !limits.valid()) return page;
-  if (session.bound()) {
-    if (!session.belongs_to(kernel) || !session.owner()) {
-      page.status = AffineBasisOfferStatus::Stale;
-      return page;
-    }
-    return offer_page(kernel, session, limits, cursor, maximum_offers,
-                      *session.owner(), session.owner_version());
-  }
-  if (!affine_basis_action_guard(kernel)) {
-    page.status = AffineBasisOfferStatus::Inapplicable;
-    return page;
-  }
-  AffineLiveSnapshot owner;
-  if (!capture_affine_live_snapshot(kernel, snapshot_request(kernel, limits),
-                                    owner)) {
-    page.status =
-        terminating_status(kernel, AffineBasisOfferStatus::ResourceExhausted);
-    return page;
-  }
-  return offer_page(kernel, session, limits, cursor, maximum_offers, owner, 1);
-}
-
 static AffineBasisActionResult apply_basis_action(
     Kernel &kernel, AffineBasisActionSession &session,
     const AffineBasisActionLimits &limits,
@@ -536,36 +495,36 @@ static AffineBasisActionResult apply_basis_action(
     owner = &captured_owner;
     owner_version = 1;
   }
-  AffineBasisOfferPage page;
+  Offer page;
   AffineBasisLiveTransaction offered_transaction;
   AffineBasisLiveResult offered_result;
   if (!requested_selection)
-    page = offer_page(kernel, session, limits, {}, 1, *owner, owner_version,
-                      &offered_transaction, &offered_result);
-  if (!requested_selection && page.offers.empty()) {
+    page = first_offer(kernel, session, limits, *owner, owner_version,
+                       offered_transaction, offered_result);
+  if (!requested_selection && !page.offered) {
     switch (page.status) {
-    case AffineBasisOfferStatus::NoStructure:
+    case OfferStatus::NoStructure:
       output.status = page.duplicates ? AffineBasisActionStatus::AlreadyPublished
                                       : AffineBasisActionStatus::NoStructure;
       output.live.status = AffineBasisLiveStatus::NoStructure;
       output.live.excluded_rows = page.duplicates;
       break;
-    case AffineBasisOfferStatus::Inapplicable:
+    case OfferStatus::Inapplicable:
       return decline(AffineBasisLiveStatus::Inapplicable);
-    case AffineBasisOfferStatus::ResourceExhausted:
+    case OfferStatus::ResourceExhausted:
       return decline(AffineBasisLiveStatus::ResourceExhausted);
-    case AffineBasisOfferStatus::Interrupted:
+    case OfferStatus::Interrupted:
       return decline(AffineBasisLiveStatus::Interrupted);
-    case AffineBasisOfferStatus::Stale:
+    case OfferStatus::Stale:
       return decline(AffineBasisLiveStatus::Stale);
-    case AffineBasisOfferStatus::Complete:
-    case AffineBasisOfferStatus::Invalid:
+    case OfferStatus::Complete:
+    case OfferStatus::Invalid:
       return decline(AffineBasisLiveStatus::Invalid);
     }
     return output;
   }
   output.selection = requested_selection ? *requested_selection
-                                         : page.offers.front();
+                                         : page.selection;
   const AffineBasisLiveRequest request = make_request(
       kernel, session, limits, output.proposed_action_id, *owner, owner_version,
       &output.selection);

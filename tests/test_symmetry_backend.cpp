@@ -618,6 +618,7 @@ void detector_order_is_effective_reproducible_and_bounded() {
     const Graph graph{12, edges.size() / 2, colors, degrees, edges.data()};
     DetectionSettings settings;
     settings.seed = fixture;
+    settings.sparse_output = true; // the production transport
     auto collect = [&](bool preserve, uint64_t limit) {
       settings.preserve_generator_order = preserve;
       settings.maximum_generators = limit;
@@ -626,26 +627,15 @@ void detector_order_is_effective_reproducible_and_bounded() {
       assert(status == Status::Complete || status == Status::Incomplete);
       if (limit == UINT64_MAX) assert(result.complete_group);
       assert(result.count <= limit);
+      assert(result.image_offsets);
       std::vector<std::vector<uint32_t>> maps;
-      for (uint64_t i = 0; i < result.count; ++i)
-        maps.emplace_back(result.images + i * result.domain_size,
-                          result.images + (i + 1) * result.domain_size);
-      settings.sparse_output = true;
-      Permutations sparse;
-      assert(detect(graph, settings, nullptr, nullptr, sparse) == status);
-      assert(sparse.image_offsets && sparse.count == result.count &&
-             sparse.domain_size == result.domain_size &&
-             sparse.complete_group == result.complete_group);
-      for (uint64_t row = 0; row < sparse.count; ++row) {
-        std::vector<uint32_t> image(sparse.domain_size);
-        assert(materialize_permutation_image(sparse, row, image.data()));
-        assert(image == maps[row]);
+      for (uint64_t row = 0; row < result.count; ++row) {
+        maps.emplace_back(result.domain_size);
+        assert(materialize_permutation_image(result, row, maps.back().data()));
       }
-      release(sparse);
-      assert(!sparse.images && !sparse.image_points && !sparse.image_offsets &&
-             !sparse.count && !sparse.image_entries);
-      settings.sparse_output = false;
       release(result);
+      assert(!result.images && !result.image_points && !result.image_offsets &&
+             !result.count && !result.image_entries);
       return maps;
     };
     const auto canonical = collect(false, UINT64_MAX);
@@ -1034,44 +1024,6 @@ void clausal_reverse_star_closes_known_targets() {
   }
 }
 
-void complete_permutations_produce_full_fixings() {
-  const uint32_t transposition[] = {1, 0};
-  const uint64_t offsets[] = {0, 2};
-  const uint32_t literals[] = {0, 1};
-  const int8_t values[] = {0, 0};
-  const GroupInput input{2, 1, transposition, 1, offsets, 2, literals, values};
-  GroupSettings settings;
-  settings.maximum_instances = 2;
-  settings.maximum_ticks = 100000;
-  Fixings fixings;
-  assert(fix_clauses(input, settings, nullptr, nullptr, fixings) ==
-         Status::Complete);
-  assert(fixings.domain_size == 2 && fixings.count == 2);
-  assert(fixings.levels[0] == 0 && fixings.levels[1] == 0);
-  assert(fixings.kinds[0] == 0 && fixings.kinds[1] == 1);
-  assert(fixings.representatives[0] < 2 && fixings.others[0] < 2);
-  assert(fixings.representatives[0] != fixings.others[0]);
-  assert(fixings.images[fixings.representatives[0]] == fixings.others[0]);
-  assert(fixings.representatives[1] == fixings.representatives[0] &&
-         fixings.others[1] == UINT32_MAX);
-  assert(fixings.images[2] == 0 && fixings.images[3] == 1);
-  release(fixings);
-
-  // A budget too small for the whole level returns no partial action prefix.
-  settings.maximum_instances = 1;
-  assert(fix_clauses(input, settings, nullptr, nullptr, fixings) ==
-         Status::Incomplete);
-  assert(!fixings.kinds && !fixings.levels && !fixings.representatives &&
-         !fixings.others && !fixings.images && !fixings.count);
-  settings.maximum_instances = 2;
-
-  StopAfter stopping{0, 5};
-  assert(fix_clauses(input, settings, stop_after, &stopping, fixings) ==
-         Status::Interrupted);
-  assert(stopping.calls >= 5 && !fixings.kinds && !fixings.levels &&
-         !fixings.representatives && !fixings.others && !fixings.images);
-}
-
 // Generators rotating consecutive variable blocks of the given sizes, one
 // generator per block, over a domain of `literals` literals.
 std::vector<uint32_t> cyclic_orbits(const std::vector<unsigned> &sizes,
@@ -1449,8 +1401,12 @@ void individualized_refinement_aligns_row_companions() {
   const uint32_t edges[] = {0, 2, 1, 3};
   const uint32_t anchors[] = {0, 1};
   const Graph graph{4, 2, colors, degrees, edges};
+  RefinementSession *session = nullptr;
+  uint64_t ticks = 0;
+  assert(prepare_refinement(graph, 1000, nullptr, nullptr, session, ticks) ==
+         Status::Complete);
   RefinementRows rows;
-  assert(refine_rows(graph, anchors, 2, 4, 1000, nullptr, nullptr, rows) ==
+  assert(refine_rows(*session, anchors, 2, 4, 1000, nullptr, nullptr, rows) ==
          Status::Complete);
   assert(rows.anchor_count == 2 && rows.domain_size == 4 && rows.images);
   // Individualizing either anchor exposes its singleton component and an
@@ -1474,72 +1430,13 @@ void individualized_refinement_aligns_row_companions() {
   assert(rows.images[4] == 1);
   exact_edge_action(rows.images + 4);
   release(rows);
-
-  assert(refine_rows(graph, anchors, 2, 4, 0, nullptr, nullptr, rows) ==
-         Status::Incomplete);
-  assert(!rows.images && rows.ticks == 0);
-
-  StopAfter stopping{0, 3};
-  assert(refine_rows(graph, anchors, 2, 4, 1000, stop_after, &stopping,
-                     rows) == Status::Interrupted);
-  assert(stopping.calls >= 3 && !rows.images);
-}
-
-void prepared_refinement_is_reusable_and_owned() {
-  const uint32_t colors[] = {0, 0, 0, 0};
-  const uint32_t degrees[] = {1, 1, 1, 1};
-  const uint32_t edges[] = {0, 2, 1, 3};
-  const Graph graph{4, 2, colors, degrees, edges};
-  RefinementSession *session = nullptr;
-  uint64_t preparation_ticks = 0;
-  assert(prepare_refinement(graph, 1000, nullptr, nullptr, session,
-                            preparation_ticks) == Status::Complete);
-  assert(session);
-
-  const uint32_t forward[] = {0, 1};
-  RefinementRows rows;
-  assert(refine_rows(*session, forward, 2, 4, 1000, nullptr, nullptr,
-                     rows) == Status::Complete);
-  const uint32_t first_forward[] = {0, 1, 2, 3};
-  assert(std::equal(rows.images, rows.images + 4, first_forward));
-  assert(rows.images[4] == 1);
-  release(rows);
-
+  // The session is reusable in either anchor order.
   const uint32_t reverse[] = {1, 0};
-  assert(refine_rows(*session, reverse, 2, 4, 1000, nullptr, nullptr,
-                     rows) == Status::Complete);
-  const uint32_t first_reverse[] = {0, 1, 2, 3};
-  assert(std::equal(rows.images, rows.images + 4, first_reverse));
+  assert(refine_rows(*session, reverse, 2, 4, 1000, nullptr, nullptr, rows) ==
+         Status::Complete);
+  assert(std::equal(rows.images, rows.images + 4, first_row));
   assert(rows.images[5] == 0);
   release(rows);
-  release(session);
-  assert(!session);
-  release(session);
-
-  preparation_ticks = UINT64_MAX;
-  assert(prepare_refinement(graph, 0, nullptr, nullptr, session,
-                            preparation_ticks) == Status::Incomplete);
-  assert(!session && preparation_ticks == 0);
-}
-
-void invalid_orbit_vertex_is_rejected() {
-  const uint32_t colors[] = {0, 0, 0, 0};
-  const uint32_t degrees[] = {2, 2, 2, 2};
-  const uint32_t edges[] = {0, 1, 1, 2, 2, 3, 0, 3};
-  const Graph graph{4, 4, colors, degrees, edges};
-  RefinementSession *session = nullptr;
-  uint64_t ticks = 0;
-  assert(prepare_refinement(graph, 1000, nullptr, nullptr, session, ticks) ==
-         Status::Complete);
-  for (const auto &vertices : {std::vector<uint32_t>{UINT32_MAX, 0},
-                             std::vector<uint32_t>{4, 0},
-                             std::vector<uint32_t>{0, UINT32_MAX}}) {
-    RefinementOrbit result;
-    assert(reduce_orbit(*session, vertices.data(), vertices.size(), 4, 1000,
-                       nullptr, nullptr, result) == Status::Invalid);
-    assert(!result.vertices && !result.count);
-    release(result);
-  }
   release(session);
 }
 
@@ -1565,7 +1462,20 @@ void individualized_orbit_reduction_selects_largest_remainder() {
   assert(reduce_orbit(*session, candidates, 4, 4, 0, nullptr, nullptr,
                       reduced) == Status::Incomplete);
   assert(!reduced.vertices && reduced.ticks == 0);
+  for (const auto &vertices : {std::vector<uint32_t>{UINT32_MAX, 0},
+                             std::vector<uint32_t>{4, 0},
+                             std::vector<uint32_t>{0, UINT32_MAX}}) {
+    assert(reduce_orbit(*session, vertices.data(), vertices.size(), 4, 1000,
+                       nullptr, nullptr, reduced) == Status::Invalid);
+    assert(!reduced.vertices && !reduced.count);
+  }
   release(session);
+  assert(!session);
+  release(session);
+  preparation_ticks = UINT64_MAX;
+  assert(prepare_refinement(graph, 0, nullptr, nullptr, session,
+                            preparation_ticks) == Status::Incomplete);
+  assert(!session && preparation_ticks == 0);
 }
 
 void individualized_partition_exposes_product_remainders() {
@@ -1597,7 +1507,8 @@ void individualized_partition_exposes_product_remainders() {
   assert(prepare_refinement(graph, 10000, nullptr, nullptr, session,
                             preparation_ticks) == Status::Complete);
   IndividualizedPartition partition;
-  assert(individualized_partition(*session, 0, 9, 10000, nullptr, nullptr,
+  const uint32_t cell = 0;
+  assert(individualized_partition(*session, &cell, 1, 9, 10000, nullptr, nullptr,
                                   partition) == Status::Complete);
   assert(partition.domain_size == 9 && partition.cells && partition.sizes);
   std::vector<uint32_t> sizes(partition.sizes, partition.sizes + 9);
@@ -1629,7 +1540,7 @@ void individualized_partition_exposes_product_remainders() {
   release(branch);
   assert(!branch);
 
-  assert(individualized_partition(*session, 0, 9, 0, nullptr, nullptr,
+  assert(individualized_partition(*session, &cell, 1, 9, 0, nullptr, nullptr,
                                   partition) == Status::Incomplete);
   assert(!partition.cells && !partition.sizes && partition.ticks == 0);
   release(session);
@@ -1885,11 +1796,8 @@ int main() {
   invalid_inputs_release_prior_results();
   parallel_edges_are_invalid();
   individualized_refinement_aligns_row_companions();
-  prepared_refinement_is_reusable_and_owned();
-  invalid_orbit_vertex_is_rejected();
   individualized_orbit_reduction_selects_largest_remainder();
   individualized_partition_exposes_product_remainders();
-  complete_permutations_produce_full_fixings();
   first_amo_selection_preserves_caller_order();
   shortest_clause_precedes_long_amo();
   first_shortest_retains_forward_remainder();

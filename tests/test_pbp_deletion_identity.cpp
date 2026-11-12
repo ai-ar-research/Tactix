@@ -53,8 +53,9 @@ size_t count_lines(const std::string &text, const char *prefix) {
   return count;
 }
 
-// `del spec` lines naming a constraint of width >= 3 (a lost exact identity).
-size_t wide_specifications(const std::string &text) {
+// Non-binary `del spec` lines. Only binaries are deleted by specification
+// while ID deletion is live, so any other one means it was abandoned.
+size_t identity_specifications(const std::string &text) {
   size_t count = 0, at = 0;
   while (at < text.size()) {
     size_t end = text.find('\n', at);
@@ -64,7 +65,7 @@ size_t wide_specifications(const std::string &text) {
       size_t literals = 0;
       for (size_t i = at; i < end; ++i)
         literals += text[i] == 'x';
-      count += literals >= 3;
+      count += literals != 2;
     }
     at = end + 1;
   }
@@ -93,9 +94,6 @@ void test_anonymous_registry() {
     p.del(52, 0, unit.data(), 1);                  // 4
     p.del(53, 40, tracked.data(), 3);              // tracked: 5
     p.del(54, 1, input.data(), 3);                 // input prefix: 1
-    const auto &c = p.pbp_deletion_counters();
-    assert(c.by_id == 5 && c.by_anonymous == 3 && !c.abandon_reason);
-    assert(c.anonymous_registered == 3);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -130,9 +128,6 @@ void test_anonymous_registry_miss_abandons() {
     p.del(40, 0, b.data(), 3);                    // never added: spec
     p.del(41, 30, tracked.data(), 3);             // abandoned: spec
     p.del(42, 0, a.data(), 3);
-    const auto &c = p.pbp_deletion_counters();
-    assert(c.by_id == 0 && c.spec_wide == 3 && c.abandon_reason == 1 &&
-           c.abandon_width == 3);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -172,9 +167,6 @@ void test_restatement_rebinds_identity() {
     p.del(10, 1, wide.data(), 3);   // the replacement: f + 1
     p.del(11, 3, later.data(), 3);  // the prefix continues: 3
     p.del(12, 2, unit.data(), 1);   // f + 2
-    const auto &c = p.pbp_deletion_counters();
-    assert(c.rebinds_recorded == 2 && c.by_rebind == 2 && c.by_id == 5 &&
-           !c.abandon_reason && !c.spec_unit && !c.spec_wide);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -210,8 +202,6 @@ void test_restatement_rebinds_divergent_identity() {
     p.finish_input_transaction();
     p.del(10, 3, replacement.data(), 3); // f + 2
     p.del(11, 2, derived.data(), 1);     // f + 1
-    const auto &c = p.pbp_deletion_counters();
-    assert(c.by_rebind == 1 && c.by_id == 3 && !c.abandon_reason);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -237,7 +227,6 @@ void test_unresolved_restatement_abandons() {
     p.seed_population(1, raw.data(), 4);
     p.add_rup(1, replacement.data(), 3);
     p.finish_input_transaction();
-    assert(p.pbp_deletion_counters().abandon_reason == 5);
     p.del(5, 1, replacement.data(), 3);
     p.add_empty(0);
   }
@@ -264,9 +253,6 @@ void test_deferred_root_units() {
       p.add_derived_unit(2, internalize(-3));
       p.end_deferred_root_units();
       p.add_empty(3);
-      const auto &c = p.pbp_deletion_counters();
-      assert(c.deferred_units == 2 && c.dropped_units == 2 &&
-             c.dropped_batches == 1);
     }
     expect(read_file(file.path),
            std::string("pseudo-Boolean proof version 3.0\nf 0;\n") +
@@ -288,7 +274,6 @@ void test_deferred_root_units() {
       p.del(10, 7, lemma.data(), 3);
       p.del(11, 9, lits_of({-3}).data(), 1);
       p.add_empty(12);
-      assert(!p.pbp_deletion_counters().dropped_units);
     }
     expect(read_file(file.path),
            std::string("pseudo-Boolean proof version 3.0\nf 0;\n"
@@ -349,7 +334,6 @@ void test_repeated_binary_is_exact() {
     p.seed_population(1, raw.data(), 2);
     p.finish_input_transaction();
     p.del(2, 1, raw.data(), 2);
-    assert(p.pbp_deletion_counters().by_id == 1);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -374,8 +358,6 @@ void test_repeated_binary_after_divergence() {
     p.seed_population(3, raw.data(), 2);
     p.finish_input_transaction();
     p.del(4, 3, raw.data(), 2);
-    const auto &c = p.pbp_deletion_counters();
-    assert(c.by_id == 1 && !c.spec_unit && !c.abandon_reason);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -407,9 +389,6 @@ void test_divergent_input_runs() {
     p.del(10, 3, a.data(), 3);
     p.del(11, 6, c.data(), 3);
     p.del(12, 4, b.data(), 2);
-    const auto &counters = p.pbp_deletion_counters();
-    assert(counters.by_id == 2 && counters.spec_binary == 1 &&
-           !counters.abandon_reason);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -459,8 +438,6 @@ void test_multiple_input_runs() {
     p.del(17, 2, lits_of({20}).data(), 1);        // f + 1
     p.del(18, 9, learned.data(), 3);             // f + 3
     p.del(19, 1, prefix.data(), 3);              // 1
-    const auto &c = p.pbp_deletion_counters();
-    assert(c.by_id == 9 && c.spec_binary == 1 && !c.abandon_reason);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -499,8 +476,6 @@ void test_disabled_id_deletions() {
     p.add_rup(5, lemma.data(), 3);
     p.del(6, 5, lemma.data(), 3);
     p.del(7, 1, input.data(), 3);
-    const auto &c = p.pbp_deletion_counters();
-    assert(!c.by_id && c.spec_wide == 2 && c.abandon_reason == 7);
     p.add_empty(0);
   }
   expect(read_file(file.path),
@@ -530,8 +505,6 @@ void test_refutation_sink_erases_by_id() {
     assert(sink.add({-1, 2, 3}));
     assert(sink.erase({3, 1, 2}));
     assert(sink.erase({-1, 2, 3}));
-    const auto &c = p.pbp_deletion_counters();
-    assert(c.by_id == 2 && !c.spec_wide && !c.abandon_reason);
     p.add_empty(0);
     k.proof = nullptr;
   }
@@ -569,7 +542,6 @@ void write_written_back_units(const std::string &directory) {
     p.end_deferred_root_units();
     p.del(7, 2, input[1].data(), 2); // writes the held units first
     p.add_empty(8);
-    assert(!p.pbp_deletion_counters().dropped_units);
   }
   expect(read_file(directory + "/writeback.pbp"),
          std::string("pseudo-Boolean proof version 3.0\n"
@@ -586,7 +558,6 @@ struct Parsed {
   std::string proof;
   uint64_t next_clause_id = 0;
   bool inconsistent = false;
-  Proof::PbpDeletionCounters counters;
 };
 
 Parsed parse_with(const char *cnf, ProofFormat format) {
@@ -605,7 +576,6 @@ Parsed parse_with(const char *cnf, ProofFormat format) {
     assert(!parse_dimacs(input, k));
     result.next_clause_id = k.next_clause_id;
     result.inconsistent = k.inconsistent;
-    result.counters = proof.pbp_deletion_counters();
     proof.flush();
     k.proof = nullptr;
   }
@@ -623,8 +593,6 @@ void test_root_conflict_publishes_no_units() {
   assert(pbp.inconsistent && dsr.inconsistent);
   assert(pbp.next_clause_id == dsr.next_clause_id &&
          "staging must not change solver clause ids");
-  assert(pbp.counters.deferred_units >= 2 &&
-         pbp.counters.dropped_units == pbp.counters.deferred_units);
   expect(pbp.proof,
          std::string("pseudo-Boolean proof version 3.0\nf 5;\n") + UNSAT_TAIL,
          "root conflict proof");
@@ -639,8 +607,6 @@ void test_parser_restatement_keeps_ids() {
   const char *cnf = "p cnf 6 4\n1 2 2 3 0\n4 0\n-4 5 6 1 0\n2 3 5 0\n";
   const Parsed pbp = parse_with(cnf, ProofFormat::PbpStreaming);
   assert(!pbp.inconsistent);
-  assert(pbp.counters.rebinds_recorded == 2 && pbp.counters.by_rebind == 2 &&
-         !pbp.counters.abandon_reason);
   expect(pbp.proof,
          "pseudo-Boolean proof version 3.0\nf 4;\n"
          "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
@@ -675,15 +641,14 @@ void test_bve_definition_transients_by_id() {
   assert(k.stats.bve_definition_units == 1);
   proof.flush();
   const std::string text = read_file(proof_file.path);
-  const auto &c = proof.pbp_deletion_counters();
   const size_t lemmas = count_lines(text, "rup ");
   const size_t deletions = count_lines(text, "del ");
-  std::printf("bve definition: %zu lemmas, %zu deletions, %" PRIu64
-              " by id\n", lemmas, deletions, c.by_id);
+  const size_t by_id = count_lines(text, "del id ");
+  std::printf("bve definition: %zu lemmas, %zu deletions, %zu by id\n",
+              lemmas, deletions, by_id);
   assert(lemmas >= 2 && deletions >= lemmas - 1 &&
          "every lemma but the unit is a retired transient");
-  assert(!wide_specifications(text) && !c.abandon_reason && c.by_id > 0 &&
-         c.by_id + c.spec_binary + c.spec_unit == deletions);
+  assert(!identity_specifications(text) && by_id > 0);
   k.proof = nullptr;
 }
 

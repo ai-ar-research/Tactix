@@ -85,7 +85,7 @@ struct OnlineInvocation {
   std::vector<Gf3AffineInstance> gf3_affine_instances = {};
   // Exact GF(2) row/source identities, reauthenticated on apply.
   std::vector<AffineBasisRowSelection> affine_basis_instances = {};
-  // Stable opaque replay keys from gf3_gaussian_action_offer().
+  // Stable opaque replay keys (gf3_gaussian_live::inspect batch identities).
   std::vector<std::string> gf3_gaussian_instances = {};
   std::vector<std::string> tseitin_cycle_instances = {};
   std::vector<DirectCspSupportActionSelection> direct_csp_support_instances = {};

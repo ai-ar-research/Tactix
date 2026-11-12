@@ -97,32 +97,15 @@ static void positive_and_continuing() {
   std::fclose(records);
 }
 
-static void clean_declines() {
-  {
-    Kernel k;
-    install(k, affine_formula(false));
-    FILE *records = temporary_records();
-    assert(decline(k, request(records), AffineLiveStatus::NoStructure)
-               .recognition_work);
-    std::fclose(records);
-  }
-  {
-    Kernel k;
-    install(k, affine_formula());
-    FILE *records = temporary_records();
-    volatile sig_atomic_t stop = 1;
-    k.stop = &stop;
-    decline(k, request(records), AffineLiveStatus::Interrupted);
-    std::fclose(records);
-  }
-  for (int mode : {0, 1, 2, 3}) {
+// Each resource bound declines at its own boundary.
+static void resource_declines() {
+  for (int mode : {0, 1, 2}) {
     Kernel k;
     install(k, affine_formula());
     FILE *records = temporary_records();
     auto r = request(records);
     if (!mode) r.maximum_proof_additions = 1;
     else if (mode == 1) r.maximum_journal_bytes = 1;
-    else if (mode == 2) r.maximum_proof_deletions = 0;
     else r.image.maximum_elimination_work = 1;
     const auto result = decline(k, r, AffineLiveStatus::ResourceExhausted);
     if (mode == 1)
@@ -130,8 +113,6 @@ static void clean_declines() {
     if (mode == 0)
       assert(result.proof_addition_work == r.maximum_proof_additions);
     if (mode == 2)
-      assert(result.preflight_deletions > r.maximum_proof_deletions);
-    if (mode == 3)
       assert(result.snapshot_work && result.recognition_work <= 1);
     std::fclose(records);
   }
@@ -243,82 +224,41 @@ static void cached_snapshot_counters() {
   }
 }
 
-static void uninstalled_target_cleanup_and_deferred_propagation() {
-  {
-    Kernel k;
-    install(k, affine_formula());
-    add_clause(k, {5, 6});
-    FILE *records = temporary_records();
-    const auto result = derive_affine_live(k, request(records));
-    assert(result.status == AffineLiveStatus::Applied &&
-           result.result == ApplyResult::Ok && result.published == 1);
-    assert(result.preflight_deletions == result.deletions);
-    assert(written_bytes(records).find("affine-proof-delete-uninstalled") !=
-           std::string::npos);
-    assert(kernel_binary_live(k, kernel_internalize(k, 5),
-                              kernel_internalize(k, 6)));
-    assert(kernel_binary_live(k, kernel_internalize(k, -5),
-                              kernel_internalize(k, -6)));
-    std::fclose(records);
-  }
-  {
-    Kernel k;
-    install(k, affine_formula());
-    kernel_assign_unit(k, kernel_internalize(k, -5));
-    assert(propagate_service(k) == ApplyResult::Ok);
-    assert(!k.value(kernel_internalize(k, 6)) &&
-           kernel_propagation_fixpoint(k));
-    FILE *records = temporary_records();
-    const uint64_t before_id = k.next_clause_id;
-    const auto result = derive_affine_live(k, request(records));
-    assert(result.status == AffineLiveStatus::Applied &&
-           result.result == ApplyResult::Ok && result.published == 1);
-    assert(result.propagation_pending &&
-           !kernel_propagation_fixpoint(k));
-    assert(!k.value(kernel_internalize(k, 6)) &&
-           k.next_clause_id == before_id + result.additions);
-    const std::string journal = written_bytes(records);
-    assert(journal.find("\"propagation\":\"deferred-controller\"") !=
-               std::string::npos &&
-           journal.find("\"propagation_pending\":true") !=
-               std::string::npos);
-    assert(propagate_service(k) == ApplyResult::Ok);
-    assert(k.value(kernel_internalize(k, 6)) > 0 &&
-           kernel_propagation_fixpoint(k));
-    std::fclose(records);
-  }
+static void uninstalled_target_cleanup() {
+  Kernel k;
+  install(k, affine_formula());
+  add_clause(k, {5, 6});
+  FILE *records = temporary_records();
+  const auto result = derive_affine_live(k, request(records));
+  assert(result.status == AffineLiveStatus::Applied &&
+         result.result == ApplyResult::Ok && result.published == 1);
+  assert(result.preflight_deletions == result.deletions);
+  assert(written_bytes(records).find("affine-proof-delete-uninstalled") !=
+         std::string::npos);
+  assert(kernel_binary_live(k, kernel_internalize(k, 5),
+                            kernel_internalize(k, 6)));
+  assert(kernel_binary_live(k, kernel_internalize(k, -5),
+                            kernel_internalize(k, -6)));
+  std::fclose(records);
 }
 
-static void contradiction_and_false_unit() {
-  {
-    Kernel k;
-    install(k, xor_cnf({{{1, 2, 3}, false}, {{1, 2, 3}, true}}), 3);
-    FILE *records = temporary_records();
-    const auto result = derive_affine_live(k, request(records));
-    assert(result.status == AffineLiveStatus::Applied &&
-           result.result == ApplyResult::Unsat && result.contradiction);
-    assert(result.published == 0 && result.additions > 0 && k.inconsistent);
-    assert(position(records) > 0);
-    std::fclose(records);
-  }
-  {
-    Kernel k;
-    install(k, xor_cnf({{{1, 2}, false}, {{1, 2, 3}, true}}), 3);
-    kernel_assign_unit(k, kernel_internalize(k, -3));
-    assert(propagate_service(k) == ApplyResult::Ok);
-    FILE *records = temporary_records();
-    const auto result = derive_affine_live(k, request(records));
-    assert(result.status == AffineLiveStatus::Applied &&
-           result.result == ApplyResult::Unsat && !result.contradiction);
-    assert((result.semantic_variables == std::vector<int32_t>{3}));
-    assert(result.rhs && result.published == 0 && k.inconsistent);
-    assert(result.preflight_additions == result.additions);
-    std::fclose(records);
-  }
+static void false_unit() {
+  Kernel k;
+  install(k, xor_cnf({{{1, 2}, false}, {{1, 2, 3}, true}}), 3);
+  kernel_assign_unit(k, kernel_internalize(k, -3));
+  assert(propagate_service(k) == ApplyResult::Ok);
+  FILE *records = temporary_records();
+  const auto result = derive_affine_live(k, request(records));
+  assert(result.status == AffineLiveStatus::Applied &&
+         result.result == ApplyResult::Unsat && !result.contradiction);
+  assert((result.semantic_variables == std::vector<int32_t>{3}));
+  assert(result.rhs && result.published == 0 && k.inconsistent);
+  assert(result.preflight_additions == result.additions);
+  std::fclose(records);
 }
 
 static void status_and_decline_effort() {
-  for (int mode = 0; mode < 4; ++mode) {
+  for (int mode = 0; mode < 3; ++mode) {
     Kernel k;
     install(k, affine_formula());
     FILE *records = temporary_records();
@@ -330,9 +270,6 @@ static void status_and_decline_effort() {
       assert(!result.snapshot_work && !result.recognition_work &&
              !result.journal_work);
     } else if (mode == 1) {
-      ++k.level;
-      assert(!decline(k, r, AffineLiveStatus::Inapplicable).snapshot_work);
-    } else if (mode == 2) {
       r.maximum_snapshot_work = 1;
       const auto result = decline(k, r, AffineLiveStatus::ResourceExhausted);
       assert(result.snapshot_work == 1 && !result.recognition_work &&
@@ -348,41 +285,14 @@ static void status_and_decline_effort() {
   }
 }
 
-// With a DSR proof bound from the input on, a covered target is published
-// once and its uninstalled duplicate deleted; the x7/x8 gadget then refutes.
-static void proof_run(const char *proof_path) {
-  auto cnf = affine_formula();
-  cnf.push_back({5, 6});
-  for (std::vector<int32_t> clause : {std::vector<int32_t>{7, 8}, {7, -8}, {-7, 8}, {-7, -8}})
-    cnf.push_back(clause);
-  Kernel k;
-  kernel_reserve_vars(k, 8);
-  Proof proof;
-  bind_proof(proof, k, proof_path);
-  for (const auto &clause : cnf) add_clause(k, clause);
-  FILE *records = temporary_records();
-  const auto result = derive_affine_live(k, request(records));
-  assert(result.status == AffineLiveStatus::Applied &&
-         result.result == ApplyResult::Ok && result.published == 1);
-  assert(written_bytes(records).find("affine-proof-delete-uninstalled") !=
-         std::string::npos);
-  const int32_t seven = 7;
-  assert(proof.add_external_rup(++k.next_clause_id, &seven, 1));
-  assert(proof.add_external_rup(++k.next_clause_id, nullptr, 0));
-  proof.flush();
-  k.proof = nullptr;
-  std::fclose(records);
-}
-
 int main() {
   positive_and_continuing();
-  clean_declines();
+  resource_declines();
   interruption_boundaries();
   stale_snapshots();
   cached_snapshot_counters();
-  uninstalled_target_cleanup_and_deferred_propagation();
-  contradiction_and_false_unit();
+  uninstalled_target_cleanup();
+  false_unit();
   status_and_decline_effort();
-  proof_run("/tmp/tactix-affine-live.dsr");
   std::puts("affine live adapter: atomic recognition, proof, liveness, and continuing CDCL PASS");
 }

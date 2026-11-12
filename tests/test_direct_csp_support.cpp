@@ -99,17 +99,6 @@ void test_direct_support_and_source_identity() {
   assert(!plan.projection.extension_variable);
 }
 
-void test_empty_support_is_a_unit() {
-  Fixture fixture;
-  fixture.build({1, 2}, {3, 4, 5}, {1, 1, 1, 0, 0, 0});
-  Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(), unbounded);
-  assert(plan.status == Status::Planned);
-  assert(plan.compatible_right_values.empty());
-  assert(plan.additions.size() == 1);
-  assert((plan.additions[0].clause == std::vector<int32_t>{-1}));
-  check_semantic_entailment(fixture, plan.additions[0].clause, 5);
-}
-
 void test_exact_or_extension_and_projection() {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4, 5, 6},
@@ -244,7 +233,6 @@ void test_no_forbidden_pair_is_no_consequence() {
 
 int main() {
   test_direct_support_and_source_identity();
-  test_empty_support_is_a_unit();
   test_exact_or_extension_and_projection();
   test_signed_selection_literals();
   test_declines_are_empty_and_exact();

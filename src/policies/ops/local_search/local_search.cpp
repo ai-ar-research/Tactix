@@ -67,21 +67,6 @@ ApplyResult local_search_guidance_apply_kind(
                           : ApplyResult::NoOp;
 }
 
-uint64_t local_search_guidance_select_next(
-    const Kernel &k, const std::vector<strategy::LocalSearchKind> &rotation,
-    uint64_t &cursor) {
-  for (size_t tried = 0; tried < rotation.size(); ++tried) {
-    const strategy::LocalSearchKind kind =
-        rotation[cursor++ % rotation.size()];
-    if (!strategy::valid_local_search_kind(kind))
-      continue;
-    const auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
-    if (hint.available())
-      return hint.id;
-  }
-  return 0;
-}
-
 ApplyResult local_search_guidance_apply(Kernel &k) {
   assert(local_search_guidance_guard(k));
   for (size_t i = 0; i < strategy::LOCAL_SEARCH_KIND_COUNT; ++i)

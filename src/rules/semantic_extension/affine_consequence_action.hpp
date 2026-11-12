@@ -33,8 +33,6 @@ RuleEligibility affine_consequence_action_guard(const Kernel &);
 // ExistingTheory candidates; root propagation is left pending.
 AffineConsequenceActionResult affine_consequence_action_apply(Kernel &);
 AffineConsequenceActionResult affine_consequence_action_apply(
-    Kernel &, AffineBasisActionSession &);
-AffineConsequenceActionResult affine_consequence_action_apply(
     Kernel &, AffineBasisActionSession &, const AffineBasisRowSelection &);
 
 } // namespace tactix

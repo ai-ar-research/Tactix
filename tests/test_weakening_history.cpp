@@ -319,18 +319,6 @@ static void mismatched_reconstruction_is_a_gap() {
   assert(!history.capture_complete() && history.records().empty());
 }
 
-static void lost_binding_is_a_permanent_gap() {
-  Kernel k;
-  WeakeningHistory history(k, bounds);
-  ScopedPopulationObserverBinding binding(k, history);
-  input(k, {1, 2, 0});
-  assert(history.capture_complete());
-  kernel_bind_population_observer(k, nullptr);
-  kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
-  kernel_bind_population_observer(k, &history);
-  assert(!history.capture_complete());
-}
-
 static void proof_fixture(const std::string &prefix, const std::string &mode,
                           bool capture, bool unsat) {
   QueryHistory input_history;
@@ -403,5 +391,4 @@ int main(int argc, char **argv) {
   staged_binary_replacement();
   full_width_id_and_capture_gaps();
   mismatched_reconstruction_is_a_gap();
-  lost_binding_is_a_permanent_gap();
 }

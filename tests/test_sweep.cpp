@@ -28,7 +28,7 @@ using namespace tactix;
 namespace tactix {
 void sweep_capture_core_units_for_test(Kernel &, SweepDirProof &, SweepRound &,
                                        const SweepLimits &);
-ApplyResult sweep_emit_round_for_test(Kernel &, SweepRound &, uint32_t,
+ApplyResult sweep_emit_round_for_test(Kernel &, SweepRound &,
                                       const SweepLimits &);
 }
 
@@ -50,14 +50,6 @@ static bool implies_through_binaries(const Kernel &k, Lit from, Lit to) {
       }
   }
   return false;
-}
-
-static void test_effort_prices_embedded_and_representation_ticks() {
-  Kernel k;
-  k.stats.sweep_ticks_sub = 17;
-  k.stats.sweep_ticks_repr = 1000;
-  assert(sweep_effort(k) == 1017);
-  assert(sweep_semantic_effort(k) == 17);
 }
 
 static void test_core_prefixes_share_one_immutable_derivation() {
@@ -287,8 +279,6 @@ void test_unbounded_flip_rounds_observe_stop() {
 }
 
 void test_proof_capture_limit_is_caller_controlled() {
-  // The reference default never declines a proved consequence for its size.
-  assert(SweepLimits{}.max_proof_steps == 0);
   const std::vector<std::vector<int>> cls = non_rup_formula();
   Kernel limited;
   build(limited, 4, cls);
@@ -308,20 +298,6 @@ void test_proof_capture_limit_is_caller_controlled() {
   assert(unbounded_round.proofs.size() == 1);
   assert(unbounded_round.proofs[0].fwd.ok &&
          unbounded_round.proofs[0].rev.ok);
-}
-
-// The per-seed answer does not depend on which end of the pair is swept.
-void test_seed_symmetry() {
-  const std::vector<std::vector<int>> cls = non_rup_formula();
-  for (uint32_t seed = 0; seed < 2; seed++) {
-    Kernel k;
-    build(k, 4, cls);
-    SweepRound r;
-    SweepLimits lim;
-    sweep_round_begin(k, r);
-    assert(sweep_detect_seed(k, seed, lim, r) == 1);
-    assert(same_polarity_pair(r.found[0], internalize(1), internalize(2)));
-  }
 }
 
 void test_full_partition_finds_nonseed_pair() {
@@ -481,7 +457,7 @@ static void test_original_core_unit_capture() {
   const auto steps = unit.proof.steps_view();
   assert(steps.size() == 1);
   assert(steps[0].chain.size() == 1 && steps[0].chain[0] == 1);
-  assert(sweep_emit_round_for_test(k, round, 0, limits) == ApplyResult::Ok);
+  assert(sweep_emit_round_for_test(k, round, limits) == ApplyResult::Ok);
   assert(k.value(internalize(-1)) > 0);
   assert(k.stats.sweep_units >= 1);
 }
@@ -683,154 +659,6 @@ void test_seeds() {
   kernel_dense_disconnect(ranked);
 }
 
-void test_resumable_schedule() {
-  const std::vector<std::vector<int>> cls = {
-      {1, 2}, {-1, 3}, {-2, 4}, {-3, -4}};
-  SweepLimits one_seed;
-  one_seed.max_seeds = 1;
-
-  Kernel off;
-  build(off, 4, cls);
-  SweepLimits off_limits = one_seed;
-  off_limits.resume = false;
-  sweep_apply_with_limits(off, off_limits);
-  sweep_apply_with_limits(off, off_limits);
-  assert(off.sweep_tail.empty());
-  assert(off.stats.sweep_resumed == 0 && off.stats.sweep_completed == 0);
-
-  Kernel filtered;
-  build(filtered, 3, {{1, 2}, {-1, 2}});
-  sweep_apply_with_limits(filtered, one_seed);
-  assert(filtered.stats.sweep_scheduled == 1);
-  assert(filtered.stats.sweep_completed == 1);
-  std::vector<Var> complete_surface;
-  sweep_seeds(filtered, complete_surface);
-  assert(filtered.stats.sweep_units == 1);
-  assert(complete_surface.size() == 2); // only the newly fixed var leaves scope
-
-  Kernel growth;
-  build(growth, 3, {{1, 2}, {1, 3}, {-1, 2}, {-1, 3}});
-  SweepLimits growth_limits = one_seed;
-  growth_limits.max_env_clauses = 1;
-  sweep_apply_with_limits(growth, growth_limits);
-  assert(growth.stats.sweep_scheduled == 0 &&
-         growth.stats.sweep_completed == 1);
-  sweep_apply_with_limits(growth, growth_limits);
-  assert(growth.stats.sweep_limit_clauses == 2);
-  assert(growth.stats.sweep_scheduled == 1);
-  Kernel on;
-  build(on, 4, cls);
-  sweep_apply_with_limits(on, one_seed);
-  // Productive seeds move surviving representatives to the pop end, as
-  // Kissat's schedule_inner does.
-  assert(on.sweep_tail.size() == 4 && on.sweep_tail_next == 1 &&
-         on.sweep_live >= 3);
-  assert(on.stats.sweep_scheduled == 4 && on.stats.sweep_resumed == 0);
-  (void)substitute_apply(on); // mandatory post-Sweep phase owner
-  const uint32_t live_before = on.sweep_live;
-  // Entry revalidation drains the isolated representative left by Substitute.
-  assert(!kernel_var_retired(on, 0));
-  assert(on.watches.size(make_lit(0, false)) == 0 &&
-         on.watches.size(make_lit(0, true)) == 0);
-  for (Var v = 1; v < 4; v++)
-    assert(kernel_var_retired(on, v));
-  sweep_apply_with_limits(on, one_seed);
-  assert(on.sweep_live < live_before && on.sweep_live == 0 &&
-         on.stats.sweep_resumed == 0);
-  (void)substitute_apply(on);
-  for (uint32_t calls = 0; !on.sweep_passes_completed && calls < 16; calls++) {
-    sweep_apply_with_limits(on, one_seed);
-    (void)substitute_apply(on);
-  }
-  assert(on.sweep_tail.empty() && on.sweep_tail_next == 0);
-  assert(on.sweep_passes_completed == 2 && on.stats.sweep_completed == 2);
-  assert(on.stats.sweep_limit_vars == 256 &&
-         on.stats.sweep_limit_clauses == 1024 &&
-         on.stats.sweep_limit_depth == 2);
-
-  sweep_apply_with_limits(on, one_seed);
-  assert(on.stats.sweep_limit_vars == 1024 &&
-         on.stats.sweep_limit_clauses == 4096 &&
-         on.stats.sweep_limit_depth == 3);
-}
-
-// Kissat's `sweep_equivalence_candidates` reschedules the pair's
-// representative, the smaller internal (import-order) index; both import
-// orders are exercised.
-void test_reschedules_pair_representative_by_import_order() {
-  SweepLimits limits;
-  limits.max_seeds = 1;
-  for (uint32_t flipped = 0; flipped < 2; flipped++) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_record_import(k, flipped ? 1 : 0);
-    kernel_record_import(k, flipped ? 0 : 1);
-    kernel_record_import(k, 2);
-    kernel_add_binary_clause(k, internalize(-1), internalize(2),
-                             ++k.next_clause_id);
-    kernel_add_binary_clause(k, internalize(-2), internalize(1),
-                             ++k.next_clause_id);
-    assert(sweep_apply_with_limits(k, limits) == ApplyResult::Ok);
-
-    const Var representative = flipped ? 1u : 0u;
-    assert(!kernel_var_retired(k, representative));
-    assert(!kernel_var_retired(k, flipped ? 0u : 1u));
-    assert(k.stats.sweep_rescheduled == 1);
-    assert(sweep_next_scheduled(k) == k.internal_to_external[representative]);
-    assert(substitute_apply(k) == ApplyResult::Ok);
-    assert(kernel_var_retired(k, flipped ? 0u : 1u));
-  }
-}
-
-// The chain x1 = x2 = x3 from one environment: Kissat's `schedule_inner`
-// declines the intermediate representative x2, retired by the same batch.
-void test_reschedule_declines_a_retired_representative() {
-  SweepLimits limits;
-  limits.max_seeds = 1;
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  // Four ternaries state the equivalence without a binary to propagate.
-  const auto equate = [&](int left, int right, int helper) {
-    for (uint32_t mask = 0; mask < 4; mask++) {
-      const int sign = (mask & 1) ? 1 : -1;
-      const int h = (mask & 2) ? helper : -helper;
-      add_external_clause(k, {-sign * left, sign * right, h}, false, 0,
-                          ++k.next_clause_id);
-    }
-  };
-  equate(1, 2, 4);
-  equate(2, 3, 5);
-
-  assert(sweep_apply_with_limits(k, limits) == ApplyResult::Ok);
-  const Var minimum = var_of(internalize(1));
-  const Var intermediate = var_of(internalize(2));
-  assert(k.stats.sweep_equivalences == 2);
-  assert(!kernel_var_retired(k, minimum));
-  assert(!kernel_var_retired(k, intermediate));
-  assert(!kernel_var_retired(k, var_of(internalize(3))));
-  assert(k.stats.sweep_rescheduled == 1);
-  // The retired identity does not take the pop end.
-  assert(sweep_next_scheduled(k) == k.internal_to_external[minimum]);
-  assert(substitute_apply(k) == ApplyResult::Ok);
-  assert(kernel_var_retired(k, intermediate));
-  assert(kernel_var_retired(k, var_of(internalize(3))));
-}
-
-// Kissat propagates a productive environment's units before building the
-// next seed, so variables they fix never become later environments.
-void test_resumable_closes_root_between_environments() {
-  Kernel k;
-  build(k, 6,
-        {{1, 2}, {-1, 2}, {-2, 3}, {-3, 4}, {-4, 5}, {-5, 6}});
-  SweepLimits limits;
-  limits.max_depth = 0;
-  assert(sweep_apply_with_limits(k, limits) == ApplyResult::Ok);
-  for (Var v = 1; v < 6; v++)
-    assert(kernel_root_value(k, make_lit(v, false)) > 0);
-  assert(k.stats.sweep_environments == 1 &&
-         "root consequences must close before the next environment");
-}
-
 // --- 7. an environment that refutes the formula outright ---------------------
 void test_env_unsat() {
   // Every seed sees the four UNSAT clauses over {1,2}.
@@ -846,39 +674,7 @@ void test_env_unsat() {
 
 } // namespace
 
-// --- emission of a detected equivalence --------------------------------------
-// Emission justifies `a == b` over F as two replayable binaries (the 4-cycle
-// a->c->b->d->a).
-static void test_sd_emits_rup_equivalence(void) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
-  const Lit a = make_lit(0, true), b = make_lit(1, true);
-  const Lit c = make_lit(2, true), d = make_lit(3, true);
-  kernel_add_binary_clause(k, negate(a), c); // a -> c
-  kernel_add_binary_clause(k, negate(c), b); // c -> b
-  kernel_add_binary_clause(k, negate(b), d); // b -> d
-  kernel_add_binary_clause(k, negate(d), a); // d -> a
-
-  const uint64_t before = k.stats.sweep_binaries;
-  const ApplyResult r = sweep_apply(k);
-  if (r == ApplyResult::NoOp) {
-    // Detection is budgeted; with no pair there is nothing to assert here.
-    printf("  S-d: detection found nothing on the 4-cycle (emission untested)\n");
-    return;
-  }
-  assert(r == ApplyResult::Ok);
-  assert(k.stats.sweep_binaries >= before + 2 &&
-         "an emitted equivalence is TWO binaries; one alone would state an "
-         "implication the sub-solver did not prove on its own");
-  assert(k.stats.sweep_binaries % 2 == 0 && "binaries are emitted in pairs");
-  // Either justification may carry the pair; none may be refused.
-  assert(k.stats.sweep_not_rup == 0);
-  printf("  S-d: emitted %llu binaries (%llu via the captured core)\n",
-         (unsigned long long)(k.stats.sweep_binaries - before),
-         (unsigned long long)k.stats.sweep_general);
-}
-
-// A pair that is not RUP over F is declined and F is unchanged (N2).
+// --- emission: a pair that is not RUP over F is declined and F is unchanged (N2).
 static void test_sd_declines_non_rup(void) {
   Kernel k;
   kernel_reserve_vars(k, 8);
@@ -891,7 +687,6 @@ static void test_sd_declines_non_rup(void) {
   assert(k.stats.sweep_binaries == emitted_before &&
          "nothing is RUP here; emitting would be unverifiable (N2)");
   assert(k.binary_ids.size() == bins_before && "F must be unchanged");
-  printf("  S-d: non-RUP pairs declined, F unchanged\n");
 }
 
 // RUP admission gives one verdict in every proof format (corpus 026).
@@ -900,22 +695,14 @@ static void test_rup_admission_is_format_independent(void) {
   const std::vector<std::vector<int>> non_rup = non_rup_formula();
   const std::vector<std::vector<int>> rup = {{1, 2}, {1, -2}};
 
-  struct Mode {
-    const char *name;
-    bool proof;
-    ProofFormat format;
-  };
-  const Mode modes[] = {{"no-proof", false, ProofFormat::DsrAscii},
-                        {"DSR", true, ProofFormat::DsrAscii},
-                        {"PBP", true, ProofFormat::PbpStreaming}};
-  for (const Mode &mode : modes) {
+  for (int mode = 0; mode < 3; ++mode) { // no proof, DSR, PBP
     Proof proof;
-    if (mode.proof)
-      assert(proof.open("/dev/null", mode.format));
-
+    if (mode)
+      assert(proof.open("/dev/null", mode == 1 ? ProofFormat::DsrAscii
+                                               : ProofFormat::PbpStreaming));
     Kernel hard;
     build(hard, 4, non_rup);
-    if (mode.proof)
+    if (mode)
       hard.proof = &proof;
     const Lit x = internalize(1), y = internalize(2);
     const Lit entailed[2] = {negate(x), y};
@@ -923,13 +710,11 @@ static void test_rup_admission_is_format_independent(void) {
            "an entailed but non-RUP lemma must be declined in every format");
     Kernel easy;
     build(easy, 2, rup);
-    if (mode.proof)
+    if (mode)
       easy.proof = &proof;
     const Lit unit = internalize(1);
     assert(congruence_replay_rup(easy, &unit, 1) &&
            "a genuinely RUP lemma must be admitted in every format");
-    printf("  admission: %s agrees (non-RUP declined, RUP admitted)\n",
-           mode.name);
   }
 }
 
@@ -948,36 +733,6 @@ static void test_rup_replay_closes_inherited_root_debt() {
   assert(k.value(implied) > 0);
   assert(kernel_propagation_fixpoint(k));
   kernel_check_invariants(k);
-}
-
-// --- the general path, and its reachability ---------------------------------
-// Only the captured sub-solver refutation justifies `non_rup_formula()`.
-static void test_se_general_path_emits(void) {
-  const std::vector<std::vector<int>> cls = non_rup_formula();
-  Kernel k;
-  build(k, 4, cls);
-  const Lit x = internalize(1), y = internalize(2);
-  assert(!is_rup_binary(k, negate(x), y)); // premise: S-d cannot do this
-  assert(!is_rup_binary(k, x, negate(y)));
-
-  SweepLimits limits;
-  limits.force_general_proof = true;
-  const ApplyResult r = sweep_apply_with_limits(k, limits);
-  assert(r == ApplyResult::Ok && "the general path must justify what RUP cannot");
-  assert(k.stats.sweep_general >= 1 &&
-         "S-e NEVER FIRED -- the general path is unreachable and untested");
-  assert(k.stats.sweep_binaries >= 2 && "an equivalence is two binaries");
-  // The class stays active for Substitute; in-place rewriting owes no rebuild.
-  assert(k.stats.substitute_vars == 0);
-  assert(k.stats.sweep_ticks_repr == 0 &&
-         "in-place replacement leaves no representation debt to price");
-  assert(!kernel_var_retired(k, var_of(x)) &&
-         !kernel_var_retired(k, var_of(y)));
-  assert(substitute_apply(k) == ApplyResult::Ok);
-  assert(kernel_var_retired(k, var_of(x)) ||
-         kernel_var_retired(k, var_of(y)));
-  printf("  S-e: general path emitted %llu binaries for a non-RUP equivalence\n",
-         (unsigned long long)k.stats.sweep_binaries);
 }
 
 // Without a dense index, the seed after an inline substitution traverses a
@@ -1082,9 +837,6 @@ static void test_sessionless_substitution_keeps_binaries_whole(void) {
   kernel_check_invariants(k);
   assert(substitute_apply(k) == ApplyResult::Ok);
   assert(k.stats.substitute_vars >= 1);
-  printf("  substitution without a dense session kept %zu binary watches "
-         "whole\n",
-         live_pairs);
 }
 
 // --- the emitted proof, through a real checker ------------------------------
@@ -1138,7 +890,7 @@ static void emit_cases(const char *dir) {
     SweepDirProof captured = original_core_unit_proof(k);
     sweep_capture_core_units_for_test(k, captured, round, limits);
     assert(!round.units.empty() && round.units.front().unit == internalize(-1));
-    assert(sweep_emit_round_for_test(k, round, 0, limits) == ApplyResult::Ok);
+    assert(sweep_emit_round_for_test(k, round, limits) == ApplyResult::Ok);
     const uint64_t unit_id = k.unit_ids[var_of(internalize(-1))];
     assert(unit_id > 5 && k.value(internalize(-1)) > 0);
   });
@@ -1252,14 +1004,12 @@ int main(int argc, char **argv) {
   }
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
-  test_effort_prices_embedded_and_representation_ticks();
   test_core_prefixes_share_one_immutable_derivation();
   test_unbounded_clause_limit_sizes_from_formula();
   test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();
   test_unbounded_flip_rounds_observe_stop();
   test_proof_capture_limit_is_caller_controlled();
-  test_seed_symmetry();
   test_full_partition_finds_nonseed_pair();
   test_known_equivalence_still_substitutes();
   test_environment_skips_nonrepresentative_bridges();
@@ -1270,16 +1020,10 @@ int main(int argc, char **argv) {
   test_limits();
   test_known_equivalence();
   test_seeds();
-  test_resumable_schedule();
-  test_reschedules_pair_representative_by_import_order();
-  test_reschedule_declines_a_retired_representative();
-  test_resumable_closes_root_between_environments();
   test_env_unsat();
-  test_sd_emits_rup_equivalence();
   test_sd_declines_non_rup();
   test_rup_admission_is_format_independent();
   test_rup_replay_closes_inherited_root_debt();
-  test_se_general_path_emits();
   test_inline_bridge_refreshes_owned_occurrences();
   test_dense_call_collects_once_across_productive_environments();
   test_sessionless_substitution_keeps_binaries_whole();

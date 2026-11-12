@@ -24,10 +24,14 @@ static void reject_query_and_sr_facts() {
   // A is a checker premise, so this proof event is legal for F+A. It is not
   // licensed by F and must never become an IPASIR learned unit.
   const Lit one=kernel_internalize(k,1);k.proof->add_rup(++k.next_clause_id,&one,1);
-  q.drain_learned(t);assert(got.clauses.empty()&&q.learning_snapshot().rejected);
+  q.drain_learned(t);assert(got.clauses.empty());
+  // The drain rejected the unit rather than stopping: a later F-RUP clause in
+  // the same query still exports (Exhausted/Disabled/Stale stop the query).
+  const Lit both[]{one,kernel_internalize(k,2)};k.proof->add_rup(++k.next_clause_id,both,2);
+  q.drain_learned(t);assert((got.clauses==std::vector<std::vector<int>>{{1,2}}));
   SubstitutionRedundancyInstance sr;sr.clause={one};sr.witness=sr.clause;
   assert(substitution_redundancy_apply_detailed(k,sr).rule_result==ApplyResult::Ok);
-  q.drain_learned(t);assert(got.clauses.empty());
+  q.drain_learned(t);assert(got.clauses.size()==1);got.clauses.clear();
   // Even when a prefix is inconsistent, helper names may not escape.
   DerivationRecord private_name;private_name.query=1;private_name.clause={77};
   LearnedClauseExport separate(limits().proof);separate.set(&got,100,Collected::learn);

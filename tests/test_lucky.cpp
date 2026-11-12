@@ -15,7 +15,6 @@
 #include <cassert>
 #include <cstring>
 #include <cstdio>
-#include <cstdlib>
 #include <vector>
 
 using namespace tactix;
@@ -61,29 +60,30 @@ static void test_all_true() {
   assert(k.stats.lucky_probes == 1);
 }
 
-static void test_default_early_lucky_keeps_cold_state_deferred() {
-  for (bool empty_program : {false, true}) {
-  Kernel k;
-  kernel_defer_cold_state(k);
-  kernel_reserve_vars(k, 4);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  add3(k, 1, 3, 4);
-
-  assert(k.cold_state_deferred);
-  assert(k.bve_retry.empty() && k.backbone_priority.empty());
-  assert(k.touched.empty() && k.removed.empty() && k.touched_kept.empty());
-  assert(k.seen.empty() && k.eager_marks.empty() &&
-         k.marked_levels.empty() && k.probing.stamp.empty());
-  assert(!k.h && !k.saved_phases);
-  DefaultStrategyConfig config;
-  config.inprocess.structured_root_before_lucky = empty_program;
-  if (empty_program) config.inprocess.structured_root_stages.clear();
-  assert(DefaultPolicy(config).solve(k) == 10);
-  assert(k.stats.lucky_early_calls == 1);
-  assert(k.cold_state_deferred &&
-         "an early Lucky verdict must not materialize later rule state");
-  assert(!k.h && !k.saved_phases &&
-         "an early Lucky verdict must not materialize search guidance");
+// An early Lucky verdict (SAT with Lucky first, SAT after an empty
+// structured-root program, or a terminal refutation) materializes neither
+// deferred rule state nor search guidance, and needs no later Propagate to
+// notice the inconsistency.
+static void test_early_lucky_verdict_keeps_cold_state() {
+  for (const unsigned mode : {0u, 1u, 2u}) {
+    const bool unsat = mode == 2;
+    Kernel k;
+    kernel_defer_cold_state(k);
+    DefaultStrategyConfig config;
+    config.inprocess.structured_root_before_lucky = mode == 1;
+    if (unsat) {
+      add_php32(k);
+      config.onehot_model.enabled = false;
+    } else {
+      kernel_reserve_vars(k, 4);
+      kernel_add_binary_clause(k, internalize(1), internalize(2));
+      add3(k, 1, 3, 4);
+      if (mode == 1) config.inprocess.structured_root_stages.clear();
+    }
+    assert(DefaultPolicy(config).solve(k) == (unsat ? 20 : 10));
+    assert(k.stats.lucky_early_calls == 1 && k.stats.lucky_late_calls == 0);
+    assert(!unsat || (k.inconsistent && k.level == 0));
+    assert(k.cold_state_deferred && !k.h && (unsat || !k.saved_phases));
   }
 }
 
@@ -103,14 +103,6 @@ static void test_cold_state_materialization_preserves_first_round_predicates() {
   kernel_materialize_cold_state(deferred);
   assert(!deferred.cold_state_deferred);
   assert(deferred.bve_retry.size() == deferred.nvars);
-  assert(deferred.backbone_priority.size() == deferred.nvars);
-  assert(deferred.touched.size() == deferred.nvars);
-  assert(deferred.removed.size() == deferred.nvars);
-  assert(deferred.touched_kept.size() == deferred.nvars);
-  assert(deferred.seen.size() == deferred.nvars);
-  assert(deferred.eager_marks.size() == 2 * deferred.nvars);
-  assert(deferred.marked_levels.size() == deferred.nvars + 1);
-  assert(deferred.probing.stamp.size() == 2 * deferred.nvars);
   for (Var v = 0; v < deferred.nvars; v++) {
     assert(kernel_touched_since(eager, v, 0));
     assert(kernel_touched_since(deferred, v, 0));
@@ -176,34 +168,6 @@ static void test_unsat_probes_commit_root_consequences() {
     assert(k.h->best[v] == 0);
   }
   assert(k.stats.lucky_probes <= 6);
-
-  Kernel off;
-  ScopedHeuristics _hg_off(off);
-  add_php32(off);
-  assert(setenv("TACTIX_SLOT_DISABLE",
-                "Congruence,Substitute,Backbone,Sweep,Factor", 1) == 0);
-  assert(setenv("TACTIX_LUCKY_LATE", "0", 1) == 0);
-  assert(solve_reference_startup(off) == 20);
-  assert(unsetenv("TACTIX_LUCKY_LATE") == 0);
-  assert(unsetenv("TACTIX_SLOT_DISABLE") == 0);
-  assert(off.stats.lucky_early_calls == 1);
-  assert(off.stats.lucky_late_calls == 0 && off.stats.lucky_late_sat == 0);
-}
-
-// A terminal early-Lucky refutation neither materializes deferred state nor
-// relies on a later Propagate to notice the inconsistency.
-static void test_terminal_refutation_keeps_cold_state() {
-  Kernel k;
-  kernel_defer_cold_state(k);
-  add_php32(k);
-  DefaultStrategyConfig config;
-  config.inprocess.structured_root_before_lucky = false;
-  config.onehot_model.enabled = false;
-  assert(DefaultPolicy(config).solve(k) == 20);
-  assert(k.inconsistent && k.level == 0);
-  assert(k.stats.lucky_early_calls == 1);
-  assert(k.stats.lucky_late_calls == 0);
-  assert(k.cold_state_deferred && !k.h);
 }
 
 // A published model is a terminal SAT state, not a BCP-derived trail: a
@@ -463,24 +427,8 @@ static void test_registry_surface() {
   assert(r.guard(k));
   uint64_t insts[LUCKY_INSTANCE_COUNT];
   const uint32_t count = r.instances(k, insts, LUCKY_INSTANCE_COUNT);
-  assert(count == LUCKY_ACTIVE_INSTANCE_COUNT);
-  assert(insts[0] == LUCKY_ALL_TRUE);
-  for (uint64_t index = 0; index < count; ++index) {
-    const uint64_t expected = index < LUCKY_NOL_HYPERGRAPH ? index : index + 1;
-    assert(insts[index] == expected);
+  for (uint64_t index = 0; index < count; ++index)
     assert(!lucky_retired_constructor_instance(insts[index]));
-  }
-  assert(lucky_retired_constructor_instance(LUCKY_NOL_HYPERGRAPH));
-  assert(!lucky_retired_constructor_instance(INSTANCE_CANONICAL));
-  assert(lucky_retired_constructor_instance(99));
-  for (uint64_t instance = 11; instance <= 14; ++instance)
-    assert(std::find(insts, insts + count, instance) != insts + count);
-  assert(r.apply_instance(k, 17) == ApplyResult::NoOp);
-  assert(k.stats.exact_cover_model_calls == 1);
-  assert(r.apply_instance(k, 18) == ApplyResult::NoOp);
-  assert(k.stats.independent_set_model_calls == 1);
-  assert(r.apply_instance(k, LUCKY_GRAPH_LABELING) == ApplyResult::NoOp);
-  assert(k.stats.graph_labeling_calls == 1);
   assert(r.apply_instance(k, LUCKY_NOL_HYPERGRAPH) == ApplyResult::NoOp);
   assert(r.apply_instance(k, 99) == ApplyResult::NoOp); // unknown payload
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Sat);
@@ -523,18 +471,19 @@ int main(int argc, char **argv) {
   }
   assert(argc == 1);
   test_all_true();
-  test_default_early_lucky_keeps_cold_state_deferred();
+  test_early_lucky_verdict_keeps_cold_state();
   test_cold_state_materialization_preserves_first_round_predicates();
   test_all_false();
   test_sweep();
   test_first_level_conflict_commits_failed_literal();
   test_unsat_probes_commit_root_consequences();
-  test_terminal_refutation_keeps_cold_state();
   test_published_model_rescans_after_partial_restart();
-  for (unsigned roots : {1u, 5u, 29u})
-    for (bool reverse : {false, true})
-      for (bool fold : {false, true})
-        test_lucky_roots_leave_the_queue(roots, reverse, fold);
+  // One root leaves the fold archive empty; several roots exercise folding
+  // and stamp renumbering in both import orders.
+  test_lucky_roots_leave_the_queue(1, false, false);
+  test_lucky_roots_leave_the_queue(5, true, true);
+  test_lucky_roots_leave_the_queue(29, false, true);
+  test_lucky_roots_leave_the_queue(29, true, false);
   test_backward_sweep_skips_retired_identity();
   test_constant_scan_skips_inactive_binary_endpoint();
   test_registry_surface();

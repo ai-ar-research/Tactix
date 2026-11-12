@@ -681,13 +681,6 @@ DirectCspSupportOwnerCaptureResult direct_csp_support_live_capture_owner(
   return result;
 }
 
-DirectCspSupportLiveResult direct_csp_support_live_preflight(
-    Kernel &kernel, const DirectCspSupportLiveRequest &request) {
-  PreparedLiveAction prepared;
-  prepare_live_action(kernel, request, prepared);
-  return std::move(prepared.result);
-}
-
 DirectCspSupportLiveResult direct_csp_support_live_apply(
     Kernel &kernel, const DirectCspSupportLiveRequest &request) {
   PreparedLiveAction prepared;

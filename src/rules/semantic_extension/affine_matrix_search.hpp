@@ -196,13 +196,6 @@ public:
         return true;
     return false;
   }
-  // Whether a lazy exact-minimal handle has built its reason vector.
-  bool lazy_reason_vector_constructed(Var implied) const noexcept {
-    for (const auto &reason : lazy_reasons_)
-      if (reason.implied_variable == implied)
-        return !reason.event.reason.empty();
-    return false;
-  }
   // Read-only ancestry variables for ConflictAnalysis; keeps the handle.
   bool inspect_lazy_reason(const Kernel &, Var,
                            std::vector<Var> &);
@@ -235,7 +228,6 @@ public:
       persistence_.maximum_deferred_deletions == limits.maximum_deferred_deletions &&
       persistence_.maximum_deferred_literal_work == limits.maximum_deferred_literal_work;
   }
-  size_t published_keys() const { return published_.size(); }
   uint64_t synchronization_allowance() const {
     return parameters_.basis_maximum_work;
   }

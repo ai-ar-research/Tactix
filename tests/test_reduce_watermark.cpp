@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <cstring>
 using namespace tactix;
 
 static Ref add(Kernel &k, unsigned tag, bool red, bool ids) {
@@ -32,9 +31,9 @@ static void cursor(Kernel &k) {
     ref += clause_actual_words(c);
   }
 }
-static unsigned checked, old_failures;
+static unsigned checked;
 static void scenario(unsigned mode, unsigned packing, bool root, bool alias,
-                     bool noop, bool ids, bool compact, bool parent) {
+                     bool noop, bool ids, bool compact) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 26);
@@ -76,12 +75,11 @@ static void scenario(unsigned mode, unsigned packing, bool root, bool alias,
   const auto target = clause_at(k.arena, find(k, 4))->searched;
   const auto prefix = clause_at(k.arena, find(k, 2))->searched;
   assert(prefix == (compact ? 2u : 4u));
-  if (target != expected) ++old_failures;
-  assert(target == (parent && !compact ? 4u : expected));
+  assert(target == expected);
   if (mode != 1) {
     const bool physical_tail = alias && !ids;
     const auto promoted = clause_at(k.arena, find(k, 3))->searched;
-    assert(promoted == (compact || physical_tail || (!parent && historical) ? 2u : 4u));
+    assert(promoted == (compact || physical_tail || historical ? 2u : 4u));
   }
   kernel_check_invariants(k);
   // Genuine collection has now consumed the old cut. A later learned clause
@@ -94,16 +92,13 @@ static void scenario(unsigned mode, unsigned packing, bool root, bool alias,
   kernel_check_invariants(k);
   ++checked;
 }
-int main(int argc, char **argv) {
-  const bool parent = argc == 2 && !std::strcmp(argv[1], "--expect-parent");
-  assert(argc == 1 || parent);
+int main() {
   for (unsigned mode = 0; mode < 3; ++mode)
     for (unsigned packing = 0; packing < 3; ++packing)
       for (bool root : {false, true}) for (bool alias : {false, true})
         for (bool noop : {false, true}) for (bool ids : {false, true})
           for (bool compact : {false, true})
-            scenario(mode, packing, root, alias, noop, ids, compact, parent);
-  assert(checked == 288 && old_failures == (parent ? 32u : 0u));
-  std::printf("watermark cases=%u historical-boundary failures=%u expected-parent=%d PASS\n",
-              checked, old_failures, parent);
+            scenario(mode, packing, root, alias, noop, ids, compact);
+  assert(checked == 288);
+  std::printf("watermark cases=%u PASS\n", checked);
 }

@@ -80,7 +80,8 @@ struct AffineBasisLiveRequest {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   StructuralJournal records;
-  // Session-owned source view; only the selected row's sources revalidate.
+  // Required session-owned source view and selected row; only that row's
+  // sources revalidate.
   const AffineLiveSnapshot *owner = nullptr;
   uint64_t owner_version = 0;
   const AffineBasisRowSelection *selection = nullptr;
@@ -134,7 +135,6 @@ public:
   bool ready() const { return ready_; }
   uint64_t additions() const { return additions_; }
   uint64_t deletions() const { return deletions_; }
-  uint32_t extent_growth() const { return extent_growth_; }
 
   struct Event {
     enum class Kind : uint8_t { Rat, Rup, Delete } kind = Kind::Rup;
@@ -200,8 +200,8 @@ bool affine_basis_row_selection(
     const AffineLiveSnapshot &, const affine_semantic_extension::BasisRow &,
     AffineBasisRowSelection &);
 
-// Mutation-free: snapshot the source and precompute every proof event, id,
-// arena word and journal byte of publication.
+// Mutation-free: validate the owner snapshot and precompute every proof event,
+// id, arena word and journal byte of publishing the selected row.
 AffineBasisLiveResult prepare_affine_basis_live(
     Kernel &, const AffineBasisLiveRequest &, AffineBasisLiveTransaction &);
 
@@ -209,8 +209,5 @@ AffineBasisLiveResult prepare_affine_basis_live(
 AffineBasisLiveResult publish_affine_basis_live(
     Kernel &, const AffineBasisLiveRequest &,
     const AffineBasisLiveTransaction &);
-
-AffineBasisLiveResult apply_affine_basis_live(
-    Kernel &, const AffineBasisLiveRequest &);
 
 } // namespace tactix

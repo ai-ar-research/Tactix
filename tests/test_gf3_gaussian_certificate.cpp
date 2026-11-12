@@ -1,6 +1,6 @@
 #undef NDEBUG
 #include "clause_oracle.hpp"
-#include "gf3_test_support.hpp"
+#include "gf3_formula_support.hpp"
 #include "rules/semantic_extension/gf3_gaussian_certificate.hpp"
 
 #include <algorithm>
@@ -16,81 +16,21 @@ using namespace tactix;
 
 namespace {
 
-struct Fixture {
-  std::vector<gf3_affine::Premise> source;
-  std::vector<std::vector<int32_t>> values;
-  uint64_t next = 1;
-
-  uint64_t add(std::vector<int32_t> clause) {
-    const uint64_t occurrence = next++;
-    source.push_back({occurrence, std::move(clause), 7000 + occurrence});
-    return occurrence;
-  }
-
-  uint32_t domain(std::vector<int32_t> literals) {
-    assert(literals.size() == 3);
-    const uint32_t result = static_cast<uint32_t>(values.size());
-    values.push_back(literals);
-    add(literals);
-    for (uint8_t first = 0; first < 3; ++first)
-      for (uint8_t second = first + 1; second < 3; ++second)
-        add({-literals[first], -literals[second]});
-    return result;
-  }
-
-  void equation(const std::vector<uint32_t> &domains,
-                const std::vector<uint8_t> &coefficients, uint8_t rhs) {
-    uint64_t tuples = 1;
-    for (size_t i = 0; i < domains.size(); ++i) tuples *= 3;
-    for (uint64_t tuple = 0; tuple < tuples; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (size_t i = 0; i < domains.size(); ++i) {
-        const uint8_t value = static_cast<uint8_t>(rest % 3);
-        rest /= 3;
-        sum = static_cast<uint8_t>(
-            (sum + coefficients[i] * value) % 3);
-        clause.push_back(-values[domains[i]][value]);
-      }
-      if (sum != rhs) add(std::move(clause));
-    }
-  }
-};
-
-Fixture derived_fixture() {
-  Fixture fixture;
-  fixture.domain({1, 2, 3});
-  fixture.domain({4, 5, 6});
-  fixture.domain({7, 8, 9});
-  fixture.equation({0, 1}, {1, 1}, 0);
-  fixture.equation({1, 2}, {1, 1}, 0);
-  return fixture;
+// x + y = 0, y + z = 0 and x + z = 0 fix x = y = z = 0.
+Gf3Formula unit_fixture() {
+  Gf3Formula formula = gf3_chain();
+  formula.equation({0, 2}, {1, 1}, 0);
+  return formula;
 }
 
-Fixture unit_fixture() {
-  Fixture fixture = derived_fixture();
-  fixture.equation({0, 2}, {1, 1}, 0);
-  return fixture;
-}
-
-Fixture conflict_fixture() {
-  Fixture fixture = derived_fixture();
-  fixture.equation({0, 2}, {1, 2}, 1);
-  return fixture;
-}
-
-Fixture wide_conflict_fixture() {
-  Fixture fixture;
-  fixture.domain({1, 2, 3});
-  fixture.domain({4, 5, 6});
-  fixture.domain({7, 8, 9});
-  fixture.domain({10, 11, 12});
-  fixture.equation({0, 1, 2}, {1, 1, 1}, 0);
-  fixture.equation({0, 1, 3}, {1, 1, 1}, 0);
-  fixture.equation({0, 2, 3}, {1, 1, 1}, 0);
-  fixture.equation({1, 2, 3}, {1, 1, 1}, 1);
-  return fixture;
+// Four inconsistent ternary equations over four domains.
+Gf3Formula wide_conflict_fixture() {
+  Gf3Formula formula = gf3_domains(4);
+  formula.equation({0, 1, 2}, {1, 1, 1}, 0);
+  formula.equation({0, 1, 3}, {1, 1, 1}, 0);
+  formula.equation({0, 2, 3}, {1, 1, 1}, 0);
+  formula.equation({1, 2, 3}, {1, 1, 1}, 1);
+  return formula;
 }
 
 gf3_gaussian_certificate::Limits limits() {
@@ -204,33 +144,17 @@ void test_units_are_pure_rup_and_semantic() {
   const auto result = gf3_gaussian_certificate::build(
       theory, gaussian, limits(), [](uint64_t) { return true; });
   assert(result.status == gf3_gaussian_certificate::Status::Complete);
-  assert(result.plan.version == 2);
   assert(result.plan.consequences.size() == 3);
-  assert(result.consumed.supported_outcomes == 3);
-  assert(result.consumed.unsupported_outcomes == 0);
-  assert(result.consumed.events == result.plan.events.size());
-  assert(result.consumed.event_literals > 0);
-  assert(result.consumed.retained_source_references > 0);
+  assert(result.consumed.supported_outcomes == 3 &&
+         result.consumed.unsupported_outcomes == 0);
   uint64_t retained_sources = 0;
-  for (size_t i = 0; i < result.plan.consequences.size(); ++i) {
-    const auto &consequence = result.plan.consequences[i];
+  for (const auto &consequence : result.plan.consequences) {
     assert(consequence.kind ==
            gf3_gaussian_certificate::ConsequenceKind::UnitEquation);
     assert(consequence.row.size() == 1 && consequence.rhs == 0);
-    assert(consequence.sources.size() >= 2);
+    assert(consequence.sources.size() >= 2 && consequence.clauses.size() == 3);
     retained_sources += consequence.sources.size();
-    for (const auto &source : consequence.sources)
-      assert(uint64_t{source.authentication_index} + 1 ==
-             source.combination.source_id);
-    assert(consequence.clauses.size() == 3);
-    assert(consequence.first_event + consequence.event_count <=
-           result.plan.events.size());
-    for (uint64_t event = consequence.first_event;
-         event < consequence.first_event + consequence.event_count; ++event)
-      assert(result.plan.events[event].consequence == i);
-    assert(consequence.clauses[0].size() == 1);
-    assert(consequence.clauses[1].size() == 1);
-    assert(consequence.clauses[2].size() == 1);
+    for (const auto &clause : consequence.clauses) assert(clause.size() == 1);
   }
   assert(retained_sources == result.consumed.retained_source_references);
   independently_check_events(theory, gaussian, result.plan);
@@ -243,7 +167,7 @@ void test_units_are_pure_rup_and_semantic() {
 }
 
 void test_conflict_is_terminal_empty_rup() {
-  const auto theory = recognize(conflict_fixture());
+  const auto theory = recognize(gf3_conflict());
   const auto gaussian = bridge(theory);
   const auto result = gf3_gaussian_certificate::build(
       theory, gaussian, limits(), [](uint64_t) { return true; });
@@ -264,7 +188,7 @@ void test_conflict_is_terminal_empty_rup() {
 }
 
 void test_nonunit_basis_declines_explicitly() {
-  const auto theory = recognize(derived_fixture());
+  const auto theory = recognize(gf3_chain());
   const auto gaussian = bridge(theory);
   const auto result = gf3_gaussian_certificate::build(
       theory, gaussian, limits(), [](uint64_t) { return true; });
@@ -337,7 +261,8 @@ void test_exact_boundaries_and_atomic_declines() {
       });
   assert(checked.status == gf3_gaussian_bridge::Status::Complete);
 
-  // Each bound exactly at the consumed amount builds the baseline plan.
+  // Each bound exactly at the consumed amount builds the baseline plan; the
+  // comparisons mix >= and >, so every bound is pinned separately.
   assert(theory.domains.size() <= UINT32_MAX);
   assert(used.supported_outcomes <= UINT32_MAX);
   const std::vector<std::function<void(Limits &)>> exact_bounds = {

@@ -104,11 +104,4 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   return ApplyResult::Ok;
 }
 
-ApplyResult backjump_apply(Kernel &k) {
-  return backjump_apply_to(k, k.pending.jump_level);
-}
-
-// Internal step functions of the fused ConflictAnalysis rule
-// (implementation-notes §4).
-
 } // namespace tactix

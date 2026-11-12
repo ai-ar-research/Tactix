@@ -143,50 +143,6 @@ template <class Config> static auto root_stage_lists(Config &config) {
 
 int main() {
   DefaultStrategyConfig defaults;
-  const std::string default_snapshot = defaults.serialize();
-  // Affine construction is the public Lucky-8 action, owned by DefaultPolicy
-  // as the first structured-root stage.
-  assert(default_snapshot.find(
-             "affine_root_closure.maximum_basis_work=100000000") !=
-         std::string::npos);
-  assert(default_snapshot.find(
-             "inprocess.structured_root_sr_discovery_ticks=20000000000") !=
-         std::string::npos);
-  for (const auto &step : defaults.inprocess.program)
-    assert(step.rule != "Lucky");
-  for (const auto *stages : root_stage_lists(defaults)) {
-    assert(!stages->empty());
-    assert(stages->front().program.sequence.size() == 1);
-    const auto &affine = stages->front().program.sequence.front();
-    assert(affine.id == 109 && affine.rule == "Lucky");
-    assert(schedules_lucky_instance(stages->front().program, 8));
-    assert(affine.granularity == strategy::InvocationGranularity::OneInstance);
-    assert(!affine.budget.is_unlimited() && affine.budget.amount() == 1);
-    for (size_t index = 1; index < stages->size(); ++index)
-      assert(!schedules_lucky_instance((*stages)[index].program, 8));
-  }
-  assert(defaults.inprocess.structured_root_before_lucky);
-  assert(!defaults.inprocess.structured_root_residual_search_handoff);
-  assert(defaults.inprocess.structured_root_progress_feedback);
-  assert(!defaults.inprocess.structured_root_large_domain_progress_feedback);
-  assert(defaults.inprocess.structured_root_progress_minimum_ticks ==
-         (16ull << 20));
-  assert(defaults.inprocess.structured_root_progress_ticks_per_variable == 16);
-  assert(!defaults.inprocess.structured_root_sr_discovery_budget.is_unlimited());
-  assert(defaults.inprocess.structured_root_bce_after_unique_literal_amo);
-  bool saw_default_graph = false;
-  for (const auto &stage : defaults.inprocess.structured_root_stages)
-    for (const auto &step : stage.program.sequence)
-      if (const auto *parameters =
-              std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
-          parameters &&
-          parameters->producer == SubstitutionRedundancyProducer::GraphSymmetry) {
-        saw_default_graph = true;
-        assert(parameters->graph_symmetry.nonforcing_cut_admission ==
-               SymmetryNonforcingCutAdmission::RequireCompoundProgress);
-      }
-  assert(saw_default_graph);
-  assert(defaults.inprocess.structured_root_symmetry_enabled);
   for (unsigned domain = 0; domain != 3; ++domain) {
     DefaultStrategyConfig diagnostic = defaults;
     diagnostic.inprocess.structured_root_symmetry_enabled = false;

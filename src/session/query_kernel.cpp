@@ -157,16 +157,11 @@ struct QueryKernel::Epoch final : QueryProofSources {
   }
 };
 
-QueryKernel::QueryKernel() = default;
 QueryKernel::QueryKernel(NativeQueryLimits limits) : native_limits_(limits) {}
 QueryKernel::~QueryKernel() = default;
 void QueryKernel::discard_epoch() {
   epoch_.reset();
   result_.reset();
-}
-
-ReplayStatus QueryKernel::replay(const QueryHistory &history) {
-  return replay(history, {});
 }
 
 ReplayStatus QueryKernel::replay(const QueryHistory &history,
@@ -256,17 +251,9 @@ ReplayStatus QueryKernel::replay(const QueryHistory &history,
   return ReplayStatus::Ok;
 }
 
-NativeAdvanceResult QueryKernel::advance(const QueryHistory &history) {
-  return advance(history, {});
-}
-
 NativeAdvanceResult QueryKernel::advance(const QueryHistory &history,
     std::unique_ptr<Proof> writer, const volatile sig_atomic_t *stop) {
   return transition(history,std::move(writer),stop,false);
-}
-
-NativeAdvanceResult QueryKernel::repair(const QueryHistory &history) {
-  return repair(history,{});
 }
 
 NativeAdvanceResult QueryKernel::repair(const QueryHistory &history,
@@ -1089,19 +1076,6 @@ const QueryResultSnapshot *QueryKernel::result_snapshot() const {
   if(!history_ || !result_)return nullptr;
   const auto *query=history_->result_query();
   return query && query->id==result_->query && query->result==result_->result ? result_.get():nullptr;
-}
-
-int32_t QueryKernel::model_literal(int32_t external) const {
-  const auto *r=result_snapshot();
-  if(!r || r->result!=QueryResult::Sat || !external || external==INT32_MIN)return 0;
-  const auto v=external_variable_of(external);
-  if(v>r->model.size() || !r->model[v-1])return 0;
-  return r->model[v-1]>0?int32_t(v):-int32_t(v);
-}
-
-bool QueryKernel::failed_literal(int32_t external) const {
-  const auto *r=result_snapshot();
-  return r && r->failed_literal(external);
 }
 
 void QueryKernel::set_learn(void *state, int maximum_length,

@@ -436,7 +436,7 @@ static void test_private_seed_budget_and_export() {
     k.h->saved = {1, 1, 1};
     k.h->target = {-1, -1, -1};
     k.h->best = {-1, 1, -1};
-    kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 0, 0});
+    kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp, {1, -1, -1});
     strategy::WalkParameters p;
     p.seed_candidate = k.local_search_hints[0].id;
     p.step_budget = allowance;
@@ -478,7 +478,7 @@ static void test_private_seed_budget_and_export() {
   k.h->saved = {1, -1, -1}; // ordinary phases are already a model
   k.h->best = {-1, -1, 1};
   const auto saved = k.h->saved, best = k.h->best;
-  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 1, 1});
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 1, 1});
   k.walk_seed_candidate = k.local_search_hints[0].id;
   assert(walk_apply_steps(k, preparation) == ApplyResult::NoOp);
   assert(k.h->saved == saved && k.h->target == saved && k.h->best == best);
@@ -487,7 +487,7 @@ static void test_private_seed_budget_and_export() {
          !k.stats.local_search_target_installs);
   assert(k.stats.walk_seed_ordinary_unsat == 0 && k.stats.walk_seed_candidate_unsat == 3);
   const auto walks = k.stats.walks;
-  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {0, 1, 0});
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp, {-1, 1, -1});
   assert(walk_apply_steps(k, 1000) == ApplyResult::NoOp); // exact old identity is stale
   assert(k.stats.walks == walks && k.stats.local_search_hints_stale == 1);
   assert(k.h->saved == saved && k.h->best == best);

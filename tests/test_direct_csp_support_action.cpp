@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "checker_certificate.hpp"
+#include "clause_oracle.hpp"
 #include "dimacs_text.hpp"
 #include "kernel_image.hpp"
 #include "test_io.hpp"
@@ -11,7 +12,6 @@
 #include <cassert>
 #include <csignal>
 #include <cstdio>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -154,6 +154,11 @@ void direct_then_extension_and_durable_replay() {
          second.projection.exact_or_definition &&
          second.projection.project_from_external_model &&
          !second.projection.reconstruction_witness_required);
+  // left=1, right=4 is an original model; extension 8 = OR(4,5,6) is true
+  // there, satisfies the support clause, and is forgotten by projection.
+  const uint64_t model = (1u << 0) | (1u << 3) | (1u << 7);
+  assert(formula_value(clauses(), model) &&
+         clause_value(second.live.published_support, model));
 
   // The support clause can disappear without reopening its semantic action.
   assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -1),
@@ -324,29 +329,6 @@ void smaller_later_limits_exhaust_valid_retained_state() {
   }
 }
 
-void malformed_retained_key_is_rejected_before_live_work() {
-  Fixture f;
-  assert(f.apply(limits(), selection(1)).status ==
-         DirectCspSupportActionStatus::Applied);
-
-  // Deliberate corruption: apply validates retained identities rather than
-  // trusting their order or the redundant selected-literal field.
-  auto &corrupted = const_cast<std::vector<DirectCspSupportActionKey> &>(
-      f.session.keys());
-  corrupted[0].selected_left_literal = 99;
-  const State before = state(f.kernel);
-  const long journal = position(f.records);
-  auto bounded = limits();
-  bounded.maximum_source_clauses = 1;
-  bounded.maximum_source_literals = 1;
-  bounded.maximum_domain_values = 2;
-  const auto rejected = f.apply(bounded, selection(2));
-  assert(rejected.status == DirectCspSupportActionStatus::Invalid &&
-         rejected.live.status == DirectCspSupportLiveStatus::Invalid &&
-         rejected.result == ApplyResult::NoOp && state(f.kernel) == before &&
-         position(f.records) == journal && f.session.committed_keys() == 1);
-}
-
 void unsupported_proof_is_inapplicable() {
   const char *const path = "/tmp/direct-csp-action-decline.pbp";
   Fixture f;
@@ -361,34 +343,6 @@ void unsupported_proof_is_inapplicable() {
   fresh_declines_are_atomic(f, limits(), selection(1),
                             DirectCspSupportActionStatus::Inapplicable);
   f.kernel.proof = nullptr;
-}
-
-void projection_preserves_an_original_model() {
-  Fixture f;
-  const auto result = f.apply(limits(true), selection(0));
-  assert(result.status == DirectCspSupportActionStatus::Applied &&
-         result.projection.exact_or_definition);
-
-  // left=1 and right=4 is an original-formula model.  The exact-OR extension
-  // is true because right=4 is true, and forgetting it recovers that model.
-  const std::vector<bool> value{false, true, false, false, true,
-                                false, false, false, true};
-  const auto satisfied = [&](const std::vector<int32_t> &clause) {
-    return std::any_of(clause.begin(), clause.end(), [&](int32_t literal) {
-      const bool assigned = value[static_cast<size_t>(
-          literal < 0 ? -int64_t(literal) : int64_t(literal))];
-      return literal > 0 ? assigned : !assigned;
-    });
-  };
-  for (const auto &clause : clauses()) assert(satisfied(clause));
-  assert(satisfied(result.live.published_support));
-  assert(value[result.projection.extension_variable] ==
-         std::any_of(result.projection.definition_inputs.begin(),
-                     result.projection.definition_inputs.end(),
-                     [&](int32_t literal) {
-                       assert(literal > 0);
-                       return value[static_cast<size_t>(literal)];
-                     }));
 }
 
 void write_certificate(const char *cnf_path, const char *proof_path,
@@ -416,9 +370,7 @@ int main(int argc, char **argv) {
   declines_are_atomic_and_sessions_are_kernel_local();
   retained_payload_and_source_are_exact();
   smaller_later_limits_exhaust_valid_retained_state();
-  malformed_retained_key_is_rejected_before_live_work();
   unsupported_proof_is_inapplicable();
-  projection_preserves_an_original_model();
   if (argc == 5) {
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
     write_file(argv[3], dimacs(false));

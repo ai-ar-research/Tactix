@@ -8,24 +8,12 @@ namespace tactix {
 using DirectCspGuardedCoverActionSelection = direct_csp_guarded_cover::Selection;
 using DirectCspGuardedCoverActionResult = DirectCspSupportActionResult;
 
-enum class DirectCspGuardedCoverKeyLookup : uint8_t {
-  Absent, Present, Invalid, ResourceExhausted,
-};
-
 class DirectCspGuardedCoverActionSession {
 public:
   bool retained() const { return owner_ != nullptr; }
   bool belongs_to(const Kernel &k) const { return owner_ == &k; }
   size_t committed_keys() const { return keys_.size(); }
   size_t retained_owners() const { return owners_.size(); }
-  const DirectCspGuardedCoverOwnerSnapshot *snapshot(
-      const DirectCspGuardedCoverActionSelection &) const;
-  // Committed keys outlive their clauses; lookup matches publication's image
-  // and tuple, and exhaustion is not absence.
-  DirectCspGuardedCoverKeyLookup lookup_committed(
-      const DirectCspGuardedCoverActionSelection &,
-      const direct_csp_guarded_cover::Bounds &,
-      direct_csp_guarded_cover::Charge) const;
 private:
   friend struct DirectCspGuardedCoverSessionAccess;
   const Kernel *owner_ = nullptr;

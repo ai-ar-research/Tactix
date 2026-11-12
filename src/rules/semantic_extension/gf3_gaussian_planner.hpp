@@ -77,7 +77,6 @@ struct Limits {
            maximum_intermediate_width && maximum_provenance_terms &&
            maximum_derivations && maximum_retained_plan_bytes;
   }
-  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 enum class LimitKind : uint8_t {

@@ -619,16 +619,4 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
   return result;
 }
 
-inline Result apply(Kernel &kernel, const Request &request) {
-  Admission admission;
-  Result result = admit(kernel, request, admission);
-  if (result.status != Status::Admitted)
-    return result;
-  Transaction transaction;
-  result = prepare(kernel, admission, transaction);
-  if (result.status != Status::Prepared)
-    return result;
-  return publish(kernel, transaction);
-}
-
 } // namespace tactix::direct_php_live

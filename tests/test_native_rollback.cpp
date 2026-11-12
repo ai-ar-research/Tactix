@@ -66,8 +66,6 @@ static void run(bool append,const std::string &variant,const std::string &prefix
     const auto stem=prefix.empty()?"":prefix+"-"+std::to_string(q);
     query_test::export_query(h, stem);
     const auto advanced=s.advance(h,writer(stem,mode));
-    if(advanced.status!=NativeAdvanceStatus::Ok)
-      std::fprintf(stderr,"rollback %s append=%d q=%u status=%u\n",variant.c_str(),append,q,unsigned(advanced.status));
     assert(advanced.status==NativeAdvanceStatus::Ok && s.kernel(s.ticket())==identity && k.h==guidance);
     if(q==2) {
       assert(advanced.retracted>=2 && k.reconstruction.empty());

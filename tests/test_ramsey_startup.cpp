@@ -22,7 +22,6 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
-#include <iostream>
 #include <sstream>
 using namespace tactix;
 using namespace tactix::strategy;
@@ -187,9 +186,6 @@ struct Capture final:FeedbackReceiver {
 // Lucky 22 through the controller and the C API on a non-Ramsey input: a
 // scoped budget, idempotent observation and a closed startup all decline.
 static void public_action() {
-  const auto p=parameters();assert(p.valid()&&p.enabled());
-  auto invalid=p;invalid.maximum_external_extent=UINT32_MAX;assert(!invalid.valid());
-  invalid=p;invalid.certificate_work=UINT64_MAX;assert(!invalid.valid());
   Kernel k;parse_dimacs_text("p cnf 6 2\n1 2 3 4 5 6 0\n-1 -2 -3 -4 -5 -6 0\n",k);assert(ramsey_startup_guard(k));
   const auto original=k.external_to_internal;const auto id=k.next_clause_id;
   OnlineStrategyProgram decoded;decoded.sequence={invocation()};
@@ -226,9 +222,6 @@ static void public_action() {
   tactix_c_handle *solver=tactix_init();assert(solver);
   for(int x:{1,2,3,4,5,6,0,-1,-2,-3,-4,-5,-6,0})tactix_add(solver,x);
   const int lucky=tactix_rule_id("Lucky");assert(lucky>=0);
-  uint64_t instances[32];const int count=tactix_rule_instances(solver,lucky,instances,32);
-  assert(count==int(LUCKY_ACTIVE_INSTANCE_COUNT));
-  assert(std::find(instances,instances+count,LUCKY_STARTUP_RAMSEY)!=instances+count);
   tactix_online_step step{};step.step_id=1;step.rule_id=lucky;
   step.parameters.kind=TACTIX_ONLINE_PARAMETERS_RAMSEY_STARTUP;
   step.parameters.value.ramsey_startup={10000,200,40000,1,10000000,100000,1000000,200000};

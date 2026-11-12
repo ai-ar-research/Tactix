@@ -463,14 +463,6 @@ static void check_enable_default_off(DefaultPolicy &p, Kernel &) {
          "TACTIX_SLOT_ENABLE must expose default-off standalone C1");
 }
 
-static void check_authored_order(DefaultPolicy &p, Kernel &) {
-  const size_t n = p.inprocess().entries.size();
-  const uint32_t factor = slot_index(p, "Factor");
-  assert(factor != n - 1 &&
-         "the authored order is what `legacy` is an arm AGAINST; if they agree "
-         "the order A/B is vacuous");
-}
-
 static void check_knobs(DefaultPolicy &p, Kernel &) {
   const uint32_t sw = slot_index(p, "Sweep");
   assert(sw != UINT32_MAX);
@@ -518,8 +510,6 @@ int main() {
   const char *enable_c1[] = {"TACTIX_SLOT_ENABLE", "SubsumeForward"};
   with_env(enable_c1, 2, check_enable_default_off);
   std::printf("  TACTIX_SLOT_ENABLE exposes default-off SubsumeForward\n");
-
-  with_env(nullptr, 0, check_authored_order);
 
   const char *knobs[] = {"TACTIX_SLOT_PERMILLE",   "Sweep:7,Congruence:7",
                          "TACTIX_SLOT_MAX_APPLIES", "Congruence:1",

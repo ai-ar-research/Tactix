@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "gf3_affine_support.hpp"
+#include "gf3_formula_support.hpp"
 #include "kernel_image.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/gf3_affine_live.hpp"
@@ -22,7 +22,7 @@ Gf3Clauses formula(bool complete = true) {
   return gf3_formula(5, {{0, 1, 2}, {2, 3, 4}}, complete);
 }
 
-Kernel parse(bool complete = true) { return gf3_parse(5, formula(complete)); }
+Kernel parse(bool complete = true) { return gf3_parsed_kernel(formula(complete)); }
 
 Gf3AffineLiveRequest request(FILE *records) {
   Gf3AffineLiveRequest result;
@@ -127,6 +127,22 @@ void capture_publish_continue_and_duplicate() {
   std::fclose(records);
 }
 
+// A captured owner corrupted by `corrupt` declines with `expected`.
+template <class Corrupt>
+void retained_owner_declines(Gf3AffineLiveStatus expected, Corrupt corrupt) {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  auto candidate = request(records);
+  Gf3AffineOwnerSnapshot owner;
+  assert(gf3_affine_live_capture_owner(kernel, candidate, owner).status ==
+         Gf3AffineLiveStatus::Applied);
+  corrupt(kernel, owner);
+  candidate.retained_owner = &owner;
+  assert(decline_unchanged(kernel, candidate).status == expected);
+  std::fclose(records);
+}
+
 void incomplete_and_stale_declines() {
   {
     Kernel kernel = parse(false);
@@ -136,39 +152,19 @@ void incomplete_and_stale_declines() {
     assert(result.status == Gf3AffineLiveStatus::NoStructure);
     std::fclose(records);
   }
-  {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    auto candidate = request(records);
-    Gf3AffineOwnerSnapshot owner;
-    assert(gf3_affine_live_capture_owner(kernel, candidate, owner).status ==
-           Gf3AffineLiveStatus::Applied);
+  retained_owner_declines(Gf3AffineLiveStatus::Stale,
+                          [](Kernel &kernel, Gf3AffineOwnerSnapshot &owner) {
     const auto binary = std::find_if(
         owner.sources.begin(), owner.sources.end(), [](const auto &source) {
           return source.kind == Gf3AffineSourceKind::Binary;
         });
     assert(binary != owner.sources.end());
     assert(kernel_delete_binary(kernel, binary->first, binary->second));
-    candidate.retained_owner = &owner;
-    const auto stale = decline_unchanged(kernel, candidate);
-    assert(stale.status == Gf3AffineLiveStatus::Stale);
-    std::fclose(records);
-  }
-  {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    auto candidate = request(records);
-    Gf3AffineOwnerSnapshot owner;
-    assert(gf3_affine_live_capture_owner(kernel, candidate, owner).status ==
-           Gf3AffineLiveStatus::Applied);
+  });
+  retained_owner_declines(Gf3AffineLiveStatus::Invalid,
+                          [](Kernel &, Gf3AffineOwnerSnapshot &owner) {
     owner.theory.source.front().native_proof_id++;
-    candidate.retained_owner = &owner;
-    const auto invalid = decline_unchanged(kernel, candidate);
-    assert(invalid.status == Gf3AffineLiveStatus::Invalid);
-    std::fclose(records);
-  }
+  });
 }
 
 void resource_and_interruption_declines() {
@@ -234,24 +230,11 @@ void resource_and_interruption_declines() {
   assert(saw_after_plan);
 }
 
-void unsupported_proofs_decline_cleanly() {
-  Kernel kernel = parse();
-  Proof proof;
-  bind_pbp_streaming(proof, kernel, "/tmp/gf3-affine-decline.pbp");
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto result = decline_unchanged(kernel, request(records));
-  assert(result.status == Gf3AffineLiveStatus::UnsupportedProof);
-  kernel.proof = nullptr;
-  std::fclose(records);
-}
-
 } // namespace
 
 int main() {
   capture_publish_continue_and_duplicate();
   incomplete_and_stale_declines();
   resource_and_interruption_declines();
-  unsupported_proofs_decline_cleanly();
   std::puts("test_gf3_affine_live: passed");
 }

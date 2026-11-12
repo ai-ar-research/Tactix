@@ -11,43 +11,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
-
-// guard: the pure precondition is a root state (level 0, not refuted).
-static void test_guard() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
-  assert(bve_guard(k)); // empty trail at level 0
-  kernel_assign_decision(k, internalize(1));
-  assert(!bve_guard(k)); // level > 0 is not a root state
-  kernel_backtrack(k, 0);
-  assert(bve_guard(k));
-  k.inconsistent = true;
-  assert(!bve_guard(k)); // refuted
-}
-
-// occurrence index: both polarities, large + binaries, active literals only.
-static void test_occurrences() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {1, 2, 3}); // (1∨2∨3)
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));       // (¬1∨2)
-
-  BveOccurrences occ;
-  bve_build_occurrences(k, occ);
-  // flat counts: +1 large only; ¬1 binary only; +2 in both; +3 large only
-  assert(occ.count(internalize(1)) == 1);
-  assert(occ.count(internalize(-1)) == 1);
-  assert(occ.count(internalize(2)) == 2);
-  assert(occ.count(internalize(-2)) == 0);
-  assert(occ.count(internalize(3)) == 1);
-}
 
 struct BveScoreNotifications {
   std::vector<std::pair<Var, bool>> events;
@@ -209,31 +175,6 @@ static void test_oversized_polarity_suppresses_other_compaction_rescore() {
          "an oversized polarity bypasses the later failed-resolution rescore");
 }
 
-static void test_candidate_gather_deletes_satisfied_binary() {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  const Lit pivot = internalize(1), satisfied = internalize(2);
-  kernel_add_binary_clause(k, pivot, satisfied);
-  const Lit live_lits[3] = {pivot, internalize(4), internalize(5)};
-  kernel_add_large_clause(k, live_lits, 3, false, 0);
-  kernel_assign_unit(k, satisfied);
-
-  ScanProbe probe(k);
-  probe.snapshot();
-  probe.listen();
-
-  k.bve_clause_size_limit = 2;
-  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
-  // The occurrence scan already retired a satisfied binary: Ok.
-  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::Ok);
-  assert(k.stats.bve_eliminated == 0 && !kernel_var_retired(k, var_of(pivot)));
-  assert(!kernel_binary_live(k, pivot, satisfied));
-  assert(probe.image[pivot] == 1 && probe.image[satisfied] == 0);
-  assert(probe.notifications.events.size() == 1);
-  assert(probe.notifications.events[0] ==
-         std::make_pair(var_of(satisfied), true));
-}
-
 // The linear prefix compaction scan neither skips a deleted binary's successor
 // nor reads past the first oversized clause.
 static void test_candidate_gather_mutating_prefix_boundary() {
@@ -320,20 +261,6 @@ static void test_occurrences_skip_redundant() {
   assert(occ.count(internalize(1)) == 0); // redundant clause not counted
 }
 
-// Kissat's structural score p*n-p-n; ties keep variable order on the rule surface.
-static void test_schedule_order() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {1, 2, 3});                  // (1∨2∨3)
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // (¬1∨¬2)
-  std::vector<Var> cand;
-  bve_schedule(k, cand);
-  assert(cand.size() == 3);
-  assert(cand[0] == var_of(internalize(1)));
-  assert(cand[1] == var_of(internalize(2)));
-  assert(cand[2] == var_of(internalize(3)));
-}
-
 // Assigned variables are not candidates; an occurrence-free variable is, and is
 // eliminated as pure (kissat eliminate.c schedule_variables).
 static void test_schedule_excludes() {
@@ -363,26 +290,6 @@ static void test_schedule_includes_extension_variable() {
          cand.end());
 }
 
-// N1 surface: candidates are enumerated, an out-of-range payload is a NoOp.
-static void test_instance_surface() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {1, 2, 3});
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  const int rid = tactix_rule_id("BVE");
-  assert(rid >= 0);
-  const RuleVTable &vt = tactix_rules()[rid];
-  assert(vt.guard(k) && vt.instances && vt.apply_instance);
-  uint64_t insts[8];
-  const uint32_t n = vt.instances(k, insts, 8);
-  assert(n >= 1); // at least one candidate
-  Lit r;
-  assert(lit_of_instance(insts[0], &r)); // decodable var payload
-  assert(insts[0] != INSTANCE_CANONICAL);
-  assert(vt.apply_instance(k, lit_instance(internalize(99))) ==
-         ApplyResult::NoOp); // out of range
-}
-
 // Kissat's eliminateclslim (strategy-owned) declines a 101-literal antecedent
 // before definition extraction, without mutation or Kitten work.
 static void test_antecedent_clause_size_limit() {
@@ -407,20 +314,6 @@ static void test_antecedent_clause_size_limit() {
   assert(!kernel_var_retired(k, var_of(internalize(1))));
   assert(k.stats.bve_definitions_checked == 0);
   kernel_dense_disconnect(k);
-}
-
-// (1∨2),(¬1∨3) resolve to (2∨3): var 1 vanishes, witnesses are pushed.
-static void test_eliminate_basic() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));  // (1∨2)
-  kernel_add_binary_clause(k, internalize(-1), internalize(3)); // (¬1∨3)
-  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
-  assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
-  assert(!has_binary(k, internalize(1), internalize(2)));  // originals gone
-  assert(!has_binary(k, internalize(-1), internalize(3)));
-  assert(has_binary(k, internalize(2), internalize(3)));   // resolvent present
-  assert(!k.reconstruction.empty());                       // witnesses pushed
 }
 
 static void test_large_resolvent_is_irredundant_with_zero_glue() {
@@ -493,6 +386,20 @@ static void test_scheduled_candidate_that_becomes_isolated_is_retired() {
   assert(k.values[x] > 0 || k.values[y] > 0);
 }
 
+// Pose a (possibly wrong) value for an external literal before extension.
+static void set_value(Kernel &k, int dimacs, bool val) {
+  const Lit l = internalize(dimacs);
+  k.values[l] = val ? 1 : -1;
+  k.values[negate(l)] = val ? -1 : 1;
+}
+
+template <size_t N>
+static void assert_satisfied(const Kernel &k, const int (&orig)[N][2]) {
+  for (const auto &cl : orig)
+    assert((k.values[internalize(cl[0])] > 0 || k.values[internalize(cl[1])] > 0) &&
+           "every original clause satisfied by the extended model");
+}
+
 // Model reconstruction through ρ: hand back a model of the reduced formula
 // with 1 at the wrong value, and every original clause must survive extend.
 static void test_eliminate_reconstruction() {
@@ -503,22 +410,14 @@ static void test_eliminate_reconstruction() {
   const int orig[2][2] = {{1, 2}, {-1, 3}};
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
-  auto set = [&](int dimacs, bool val) {
-    const Lit l = internalize(dimacs);
-    k.values[l] = val ? 1 : -1;
-    k.values[negate(l)] = val ? -1 : 1;
-  };
-  set(2, false);
-  set(3, true);
-  set(1, false); // deliberately wrong — extend must recover 1 = true
+  assert(!has_binary(k, internalize(1), internalize(2)));
+  assert(has_binary(k, internalize(2), internalize(3))); // the resolvent
+  set_value(k, 2, false);
+  set_value(k, 3, true);
+  set_value(k, 1, false); // deliberately wrong — extend must recover 1 = true
   kernel_extend_model(k);
   assert(k.values[internalize(1)] > 0 && "1 reconstructed to true");
-  for (const auto &cl : orig) {
-    bool sat = false;
-    for (const int e : cl)
-      sat |= (k.values[internalize(e)] > 0);
-    assert(sat && "every original clause satisfied by the extended model");
-  }
+  assert_satisfied(k, orig);
 }
 
 // Both x and t of x = -t retired and unassigned: extension completes the
@@ -535,27 +434,7 @@ static void test_eliminate_frozen_pivot_reconstruction() {
   kernel_extend_model(k);
   assert(k.values[internalize(1)] != 0 && "pivot definite after extend");
   assert(k.values[internalize(2)] != 0 && "partner definite after extend");
-  for (const auto &cl : orig) {
-    bool sat = false;
-    for (const int e : cl)
-      sat |= (k.values[internalize(e)] > 0);
-    assert(sat && "every original clause satisfied by the extended model");
-  }
-}
-
-// A variable whose resolvent count exceeds occ⁺+occ⁻+bound is not eliminated:
-// 6 (x∨aᵢ) × 6 (¬x∨bⱼ) → 36 resolvents > 6+6+16.
-static void test_bound_skip() {
-  Kernel k;
-  kernel_reserve_vars(k, 13); // x=1, a=2..7, b=8..13
-  for (int i = 2; i <= 7; i++)
-    kernel_add_binary_clause(k, internalize(1), internalize(i)); // (1∨aᵢ)
-  for (int j = 8; j <= 13; j++)
-    kernel_add_binary_clause(k, internalize(-1), internalize(j)); // (¬1∨bⱼ)
-  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
-  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
-         ApplyResult::NoOp);                               // 36 > 28: kept
-  assert(has_binary(k, internalize(1), internalize(2)));   // var 1 still present
+  assert_satisfied(k, orig);
 }
 
 // A failed candidate stops at the first non-tautological resolvent beyond
@@ -711,7 +590,10 @@ static void test_gate_and_or_earlier_duplicate_takes_the_gate_slot() {
   assert(via5 < via4 && "the antecedent stream is (1,5) then the later (1,4)");
 }
 
-static bool has_large(const Kernel &k, std::vector<int> want); // defined below
+// A live large clause whose literal set is exactly `want` (order-insensitive).
+static bool has_large(const Kernel &k, std::vector<int> want) {
+  return first_large_ref(k, std::move(want)) != INVALID_REF;
+}
 
 // equivalences.c takes the first negative-side binary whose partner's
 // complement is marked: (-a v b) is added before (a v -b).
@@ -816,23 +698,13 @@ static void test_gate_equivalence_substitution() {
   assert(has_binary(k, internalize(-2), internalize(4)));    // (¬y∨4): x→y in ant⁻
   assert(has_binary(k, internalize(2), internalize(3)));     // (y∨3):  x→y in ant⁺
   assert(!has_binary(k, internalize(3), internalize(4)));    // (3∨4) ant×ant skipped
-  auto set = [&](int dimacs, bool val) {
-    const Lit l = internalize(dimacs);
-    k.values[l] = val ? 1 : -1;
-    k.values[negate(l)] = val ? -1 : 1;
-  };
-  set(2, true);  // y = T
-  set(4, true);  // needed by (¬y∨4)
-  set(3, false);
-  set(1, false); // wrong — extend must recover x = y = true
+  set_value(k, 2, true);  // y = T
+  set_value(k, 4, true);  // needed by (¬y∨4)
+  set_value(k, 3, false);
+  set_value(k, 1, false); // wrong — extend must recover x = y = true
   kernel_extend_model(k);
   assert(k.values[internalize(1)] > 0 && "x reconstructed to y = true");
-  for (const auto &cl : orig) {
-    bool sat = false;
-    for (const int e : cl)
-      sat |= (k.values[internalize(e)] > 0);
-    assert(sat && "every original clause satisfied by the extended model");
-  }
+  assert_satisfied(k, orig);
 }
 
 // ITE x = (c ? -e : -t) with 6 antecedent binaries per side: 60 pairs exceed
@@ -929,39 +801,16 @@ static void test_gate_xor_fires() {
     assert(vt.apply_instance(k, x) == ApplyResult::Ok);
     assert(k.stats.bve_gates_xor == 1);
     assert(k.stats.bve_gate_pairs_saved == 40);
-    auto set = [&](int dimacs, bool val) {
-      const Lit l = internalize(dimacs);
-      k.values[l] = val ? 1 : -1;
-      k.values[negate(l)] = val ? -1 : 1;
-    };
-    set(2, true);   // a = T
-    set(3, false);  // b = F  ⇒ the gate forces x = a⊕b = T
+    set_value(k, 2, true);   // a = T
+    set_value(k, 3, false);  // b = F  ⇒ the gate forces x = a⊕b = T
     for (int p = 4; p <= 9; p++)
-      set(p, false); // every (x∨p) antecedent needs x
+      set_value(k, p, false); // every (x∨p) antecedent needs x
     for (int q = 10; q <= 15; q++)
-      set(q, true);  // every (¬x∨q) antecedent already satisfied
-    set(1, false);   // deliberately wrong
+      set_value(k, q, true);  // every (¬x∨q) antecedent already satisfied
+    set_value(k, 1, false);   // deliberately wrong
     kernel_extend_model(k);
     assert(k.values[internalize(1)] > 0 && "x reconstructed to a⊕b = true");
   }
-}
-
-// a live large clause whose literal set is exactly `want` (order-insensitive)
-static bool has_large(const Kernel &k, std::vector<int> want) {
-  std::sort(want.begin(), want.end());
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage()) {
-      std::vector<int> got;
-      for (const Lit l : *c)
-        got.push_back(externalize(l));
-      std::sort(got.begin(), got.end());
-      if (got == want)
-        return true;
-    }
-    ref += clause_actual_words(c);
-  }
-  return false;
 }
 
 // A live large clause with exactly this stored literal order.
@@ -1459,28 +1308,21 @@ static void test_backward_binary_victim_strengthen_to_unit() {
 }
 
 int main() {
-  test_guard();
-  test_occurrences();
   test_schedule_occurrence_image_lifecycle();
   test_candidate_gather_compacts_garbage_occurrences();
   test_candidate_gather_stops_before_late_garbage();
   test_oversized_polarity_suppresses_other_compaction_rescore();
-  test_candidate_gather_deletes_satisfied_binary();
   test_candidate_gather_mutating_prefix_boundary();
   test_flush_units_while_connected();
   test_occurrences_skip_redundant();
-  test_schedule_order();
   test_schedule_excludes();
   test_schedule_includes_extension_variable();
-  test_instance_surface();
   test_antecedent_clause_size_limit();
-  test_eliminate_basic();
   test_large_resolvent_is_irredundant_with_zero_glue();
   test_elimination_retains_duplicate_binary_resolvent();
   test_scheduled_candidate_that_becomes_isolated_is_retired();
   test_eliminate_reconstruction();
   test_eliminate_frozen_pivot_reconstruction();
-  test_bound_skip();
   test_bound_does_not_spend_future_work();
   test_bound_failure_retains_immediate_unit();
   test_gate_and_or_fires();

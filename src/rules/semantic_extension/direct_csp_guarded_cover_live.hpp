@@ -45,8 +45,6 @@ struct DirectCspGuardedCoverLiveRequest {
 DirectCspSupportOwnerCaptureResult direct_csp_guarded_cover_live_capture_owner(
     Kernel &, const DirectCspGuardedCoverLiveRequest &,
     DirectCspGuardedCoverOwnerSnapshot &);
-DirectCspSupportLiveResult direct_csp_guarded_cover_live_preflight(
-    Kernel &, const DirectCspGuardedCoverLiveRequest &);
 DirectCspSupportLiveResult direct_csp_guarded_cover_live_apply(
     Kernel &, const DirectCspGuardedCoverLiveRequest &);
 } // namespace tactix

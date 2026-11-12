@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <map>
-#include <limits>
 #include <queue>
 #include <set>
 #include <utility>
@@ -118,13 +117,6 @@ DeclineReason check_input(const Input &input, CheckedInput &checked,
   if (!odd_charge)
     return DeclineReason::EvenCharge;
   return DeclineReason::None;
-}
-
-bool lookup(const std::vector<bool> &assignment, Edge edge, bool &value) {
-  if (edge <= 0 || static_cast<size_t>(edge) > assignment.size())
-    return false;
-  value = assignment[static_cast<size_t>(edge) - 1];
-  return true;
 }
 
 } // namespace
@@ -277,13 +269,6 @@ bool validate_candidate_bounded(const Input &input, const Candidate &candidate,
   return true;
 }
 
-bool validate_candidate(const Input &input, const Candidate &candidate) {
-  Limits limits;
-  limits.work = std::numeric_limits<uint64_t>::max();
-  Work unlimited(limits);
-  return validate_candidate_bounded(input, candidate, unlimited);
-}
-
 bool validate_candidate(const Input &input, const Candidate &candidate,
                         uint64_t maximum_work,
                         bool (*interrupted)(void *), void *interrupt_state,
@@ -299,37 +284,6 @@ bool validate_candidate(const Input &input, const Candidate &candidate,
   exhausted = work.stopped() == DeclineReason::WorkLimit;
   was_interrupted = work.stopped() == DeclineReason::Interrupted;
   return valid;
-}
-
-bool preserves_relations_on_falsifying_assignment(
-    const Input &input, const Candidate &candidate,
-    const std::vector<bool> &assignment) {
-  if (!validate_candidate(input, candidate))
-    return false;
-  bool pivot_value = false;
-  if (!lookup(assignment, candidate.pivot, pivot_value) || !pivot_value)
-    return false;
-  std::map<Edge, ImageKind> images;
-  for (const SubstitutionImage &image : candidate.substitution)
-    images[image.source] = image.kind;
-  for (const VertexEquation &equation : input.equations) {
-    bool before = false, after = false;
-    for (Edge edge : equation.edges) {
-      bool value = false;
-      if (!lookup(assignment, edge, value))
-        return false;
-      before ^= value;
-      const auto found = images.find(edge);
-      if (found == images.end())
-        after ^= value;
-      else if (found->second == ImageKind::NegatedSelf)
-        after ^= !value;
-      // Constant image is false and contributes nothing.
-    }
-    if ((before == equation.charge) != (after == equation.charge))
-      return false;
-  }
-  return true;
 }
 
 } // namespace tactix::tseitin_cycle

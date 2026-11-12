@@ -74,45 +74,6 @@ struct AffineBasisActionResult {
   AffineBasisLiveResult live;
 };
 
-enum class AffineBasisOfferStatus : uint8_t {
-  Complete,
-  NoStructure,
-  Inapplicable,
-  ResourceExhausted,
-  Interrupted,
-  Stale,
-  Invalid,
-};
-
-struct AffineBasisOfferCursor {
-  bool present = false;
-  AffineBasisRowSelection last_examined;
-};
-
-struct AffineBasisOfferPage {
-  AffineBasisOfferStatus status = AffineBasisOfferStatus::Invalid;
-  uint64_t owner_version = 0;
-  uint64_t candidates_examined = 0;
-  uint64_t enumeration_work = 0;
-  uint64_t preflight_recognition_work = 0;
-  uint64_t preflight_basis_work = 0;
-  uint64_t preflight_additions = 0;
-  uint64_t preflight_deletions = 0;
-  uint64_t duplicates = 0;
-  uint64_t covered = 0;
-  uint64_t stale = 0;
-  bool more = false;
-  AffineBasisOfferCursor continuation;
-  std::vector<AffineBasisRowSelection> offers;
-};
-
-// A mutation-free page of row actions ordered contradiction, unit, binary,
-// increasing width, then canonical payload.
-AffineBasisOfferPage affine_basis_action_offers(
-    Kernel &, const AffineBasisActionSession &,
-    const AffineBasisActionLimits &, const AffineBasisOfferCursor &,
-    uint32_t maximum_offers);
-
 // Formula/proof-state guard only.  Limits and retained lifecycle state remain
 // explicit controller inputs, and no heuristic or propagation work occurs.
 RuleEligibility affine_basis_action_guard(const Kernel &);

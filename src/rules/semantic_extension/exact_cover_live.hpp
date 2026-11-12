@@ -15,9 +15,6 @@ struct ExactCoverLiveSessionAccess;
 class ExactCoverLiveSession {
 public:
   size_t committed_keys() const { return committed_keys_.size(); }
-  const std::vector<std::vector<int32_t>> &keys() const {
-    return committed_keys_;
-  }
 
 private:
   friend struct ExactCoverLiveSessionAccess;

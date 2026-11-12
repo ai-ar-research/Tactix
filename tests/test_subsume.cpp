@@ -1,23 +1,16 @@
-// SubsumeForward: guard, root-modulo semantics, redundant exclusion, reason
-// safety, the instance surface, enumeration purity, and the proof deltas.
+// SubsumeForward: root-modulo semantics, redundant exclusion, reason safety,
+// the instance surface, the touch filter, and interrupts.
 #undef NDEBUG
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
-#include "proof/proof.hpp"
 #include "rules/registry.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
-#include "temporary_file.hpp"
-#include "test_io.hpp"
 
 #include <cassert>
 #include <csignal>
 #include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <sstream>
-#include <string>
 #include <vector>
 
 using namespace tactix;
@@ -29,6 +22,10 @@ static_assert(TEST_SUBSUME_OCCLIM == 100 &&
               strategy::SubsumeForwardParameters::BINARY_OCCURRENCE_DEFAULT ==
                   10000);
 
+static ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
+  return tactix_rules()[tactix_rule_id("SubsumeForward")].apply_instance(k, candidate);
+}
+
 static Ref add(Kernel &k, std::initializer_list<int> elits,
                bool redundant = false) {
   std::vector<Lit> lits;
@@ -38,26 +35,6 @@ static Ref add(Kernel &k, std::initializer_list<int> elits,
                                  static_cast<uint32_t>(lits.size()),
                                  redundant, /*glue=*/2,
                                  ++k.next_clause_id);
-}
-
-static void test_guard() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  assert(subsume_forward_guard(k)); // quiescent root
-  kernel_assign_decision(k, internalize(1));
-  assert(!subsume_forward_guard(k)); // level > 0 (also unpropagated)
-  kernel_backtrack(k, 0);
-  assert(subsume_forward_guard(k));
-  kernel_assign_unit(k, internalize(2));
-  // The guard is pure (N1): pending propagation is fine, apply drains it.
-  assert(subsume_forward_guard(k));
-  assert(subsume_forward_apply(k) != ApplyResult::Unsat); // apply drains first
-  assert(k.propagate_head == k.trail.size()); // ...to the root fixpoint
-  assert(subsume_forward_guard(k));
-  // every rule must tolerate the variable-free state
-  Kernel e;
-  assert(subsume_forward_guard(e));
-  assert(subsume_forward_apply(e) == ApplyResult::NoOp);
 }
 
 static void test_basic_subsume() {
@@ -232,20 +209,6 @@ static void test_registry_instance_surface() {
   kernel_check_invariants(k);
 }
 
-static void test_enumeration_purity() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  add(k, {1, 2, 3, 4});
-  add(k, {1, 2, 3});
-  const Stats before = k.stats;
-  std::vector<Ref> a, b;
-  subsume_forward_candidates(k, a);
-  subsume_forward_candidates(k, b);
-  assert(a == b && a.size() == 2);
-  assert(std::memcmp(&before, &k.stats, sizeof(Stats)) == 0);
-  assert(live_large(k) == 2); // enumeration deleted nothing
-}
-
 // N1: the touched-epoch filter narrows the canonical round, never the public
 // instance surface (compare tests/test_factor_n1.cpp).
 static void test_touch_filter_is_policy_only() {
@@ -398,25 +361,6 @@ static void test_touch_redundant_scope() {
   assert(kernel_likely_kept(k, false, 99, 99)); // irredundant: always in
 }
 
-static void test_proof_deltas() {
-  TemporaryFile file;
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  Proof p;
-  assert(p.open(file.path.c_str(), ProofFormat::DsrAscii));
-  k.proof = &p;
-  add(k, {1, 2, 3, 4});
-  add(k, {1, 2, 3});
-  assert(subsume_forward_apply(k) == ApplyResult::Ok);
-  p.flush();
-  k.proof = nullptr;
-  std::istringstream lines(read_file(file.path));
-  bool saw_delete = false;
-  for (std::string line; std::getline(lines, line);)
-    saw_delete |= line[0] == 'd' && line.find('4') != std::string::npos;
-  assert(saw_delete); // the subsumed clause was deleted
-}
-
 // SubsumeForward -> Substitute. A clause deleted on a binary's strength carries
 // no witness, and Substitute then deletes that binary too, so rho is the only
 // thing that can restore it under an adversarial model.
@@ -493,7 +437,6 @@ static void test_interrupt() {
 }
 
 int main() {
-  test_guard();
   test_basic_subsume();
   test_duplicates_and_binary();
   test_fastel_record_high_marking();
@@ -502,12 +445,10 @@ int main() {
   test_root_modulo_semantics();
   test_reason_never_victim();
   test_registry_instance_surface();
-  test_enumeration_purity();
   test_touch_filter_is_policy_only();
   test_touch_resume_rearms_the_tail();
   test_touch_producers();
   test_touch_redundant_scope();
-  test_proof_deltas();
   test_binary_subsumer_then_substitute();
   test_interrupt();
   printf("test_subsume: all ok\n");

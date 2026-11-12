@@ -23,7 +23,9 @@ namespace {
 
 Kernel install() { return gf3_parsed_kernel(gf3_row_fixture()); }
 
-Gf3GeneralRowActionLimits limits() { return gf3_general_row_action_limits(); }
+Gf3GeneralRowActionLimits limits() {
+  return action_limits(Gf3GeneralRowConsequenceParameters{});
+}
 
 struct Bound {
   Kernel kernel = install();
@@ -37,50 +39,21 @@ struct Bound {
   ~Bound() { std::fclose(records); }
 };
 
-void pagination_replay_and_atomic_apply() {
-  Bound b;
-  Gf3GeneralRowActionOfferWindow window{1000, 1, 10000000, false, {}};
-  const auto first =
-      gf3_general_row_action_offer(b.kernel, b.session, limits(), window);
-  assert(first.status == Gf3GeneralRowActionStatus::Applied);
-  assert(first.offers.size() == 1 && first.have_resume_after);
-  assert(!first.complete);
-  window.have_after = true;
-  window.after = first.resume_after;
-  const auto second =
-      gf3_general_row_action_offer(b.kernel, b.session, limits(), window);
-  assert(second.offers.empty() || first.offers.front() < second.offers.front());
-
-  const uint64_t before = b.kernel.next_clause_id;
-  auto corrupt = first.offers.front();
-  corrupt.identity.back() = corrupt.identity.back() == '0' ? '1' : '0';
-  const auto rejected = gf3_general_row_action_apply(
-      b.kernel, b.session, limits(), corrupt);
-  assert(rejected.status == Gf3GeneralRowActionStatus::Stale);
-  assert(b.kernel.next_clause_id == before && b.session.keys().empty());
-
-  const auto applied = gf3_general_row_action_apply(
-      b.kernel, b.session, limits(), first.offers.front());
-  assert(applied.status == Gf3GeneralRowActionStatus::Applied);
-  assert(applied.live.installed_clause_id &&
-         applied.live.plan.projection.external_extent_unchanged &&
-         applied.live.plan.projection.extension_variables.empty());
-  assert(b.session.keys().size() == 1);
-  record_gf3_general_row_action_feedback(b.kernel, applied);
-  assert(b.kernel.stats.gf3_general_row_applied == 1);
+// The first native general-row selection of a fresh kernel.
+Gf3GeneralRowActionSelection first_selection(Kernel &kernel) {
+  const auto candidates = gf3_row_candidates(kernel, limits().live);
+  assert(!candidates.empty());
+  return candidates.front().selection;
 }
 
 void executor_requires_propagate_and_emits_dsr() {
   Bound source;
-  const auto offered = gf3_general_row_action_offer(
-      source.kernel, source.session, limits(), {1000, 1, 10000000, false, {}});
-  assert(offered.offers.size() == 1);
   OnlineInvocation step;
   step.id = 32;
   step.rule = "Gf3GeneralRowConsequence";
   step.parameters = Gf3GeneralRowConsequenceParameters{};
   step.granularity = InvocationGranularity::OneInstance;
-  step.gf3_general_row_instances = offered.offers;
+  step.gf3_general_row_instances = {first_selection(source.kernel)};
   step.budget = WorkLimit::bounded(1);
   OnlineStrategyProgram program{{step}, {}};
   std::string error;
@@ -107,32 +80,18 @@ void executor_requires_propagate_and_emits_dsr() {
   assert(!read_file(file.path).empty());
 }
 
+// After a committed action, publish one retained-owner selection whose binary
+// consequence the current trail makes an implication.
 bool apply_search_implication(Kernel &kernel,
-                              Gf3GeneralRowActionSession &session,
-                              FILE *records) {
-  const auto offered = gf3_general_row_action_offer(
-      kernel, session, limits(), {10000, 128, 10000000, false, {}});
-  assert(offered.status == Gf3GeneralRowActionStatus::Applied &&
-         !offered.offers.empty());
+                              Gf3GeneralRowActionSession &session) {
   bool implied = false;
-  for (const auto &selection : offered.offers) {
-    Gf3GeneralRowLiveRequest request;
-    request.limits = limits().live;
-    request.selection = {selection.outcome, selection.tuple};
-    request.selected_identity = selection.identity;
-    request.action_id = kernel.structural_action_sequence + 1;
-    request.semantic_id = request.action_id;
-    request.records = records;
-    request.retained_owner = session.owner();
-    const auto planned = gf3_general_row_live_inspect(kernel, request);
-    if (planned.status != Gf3GeneralRowLiveStatus::Ready ||
-        planned.plan.consequence.size() != 2)
-      continue;
+  for (const auto &[selection, consequence] :
+       gf3_row_candidates(kernel, limits().live, session.owner())) {
+    if (consequence.size() != 2) continue;
     for (unsigned pivot = 0; pivot < 2 && !implied; ++pivot) {
-      const Lit false_literal = kernel_internalize(
-          kernel, -planned.plan.consequence[pivot]);
-      const Lit implied_literal = kernel_internalize(
-          kernel, planned.plan.consequence[1 - pivot]);
+      const Lit false_literal = kernel_internalize(kernel, -consequence[pivot]);
+      const Lit implied_literal =
+          kernel_internalize(kernel, consequence[1 - pivot]);
       if (false_literal == INVALID_LIT || implied_literal == INVALID_LIT ||
           kernel.value(false_literal) || kernel.value(implied_literal))
         continue;
@@ -155,24 +114,34 @@ bool apply_search_implication(Kernel &kernel,
   return implied;
 }
 
-void retained_owner_search_implication() {
+void replay_atomic_apply_and_search_implication() {
   Bound b;
-  const auto first = gf3_general_row_action_offer(
-      b.kernel, b.session, limits(), {1000, 1, 10000000, false, {}});
-  assert(first.offers.size() == 1);
-  const auto initialized = gf3_general_row_action_apply(
-      b.kernel, b.session, limits(), first.offers.front());
-  assert(initialized.status == Gf3GeneralRowActionStatus::Applied);
+  const auto first = first_selection(b.kernel);
+  const uint64_t before = b.kernel.next_clause_id;
+  auto corrupt = first;
+  corrupt.identity.back() = corrupt.identity.back() == '0' ? '1' : '0';
+  const auto rejected = gf3_general_row_action_apply(
+      b.kernel, b.session, limits(), corrupt);
+  assert(rejected.status == Gf3GeneralRowActionStatus::Stale);
+  assert(b.kernel.next_clause_id == before && b.session.keys().empty());
+
+  const auto applied =
+      gf3_general_row_action_apply(b.kernel, b.session, limits(), first);
+  assert(applied.status == Gf3GeneralRowActionStatus::Applied);
+  assert(applied.live.installed_clause_id &&
+         applied.live.plan.projection.external_extent_unchanged &&
+         applied.live.plan.projection.extension_variables.empty());
+  assert(b.session.keys().size() == 1);
+  record_gf3_general_row_action_feedback(b.kernel, applied);
+  assert(b.kernel.stats.gf3_general_row_applied == 1);
   assert(propagate_apply(b.kernel) == ApplyResult::Ok);
-  assert(apply_search_implication(b.kernel, b.session, b.records));
+  assert(apply_search_implication(b.kernel, b.session));
 }
 
 void c_v11_deep_copies_typed_selection() {
   Bound source;
-  const auto offered = gf3_general_row_action_offer(
-      source.kernel, source.session, limits(), {1000, 1, 10000000, false, {}});
-  assert(offered.offers.size() == 1);
-  std::string identity = offered.offers.front().identity;
+  const auto first = first_selection(source.kernel);
+  std::string identity = first.identity;
 
   tactix_c_handle *solver = tactix_init();
   FILE *records = std::tmpfile();
@@ -190,11 +159,7 @@ void c_v11_deep_copies_typed_selection() {
   base.parameters.kind =
       TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE;
   auto &c = base.parameters.value.gf3_general_row_consequence;
-  c.gaussian = gf3_c_gaussian(p.gaussian);
-  c.maximum_row_tuples = p.maximum_row_tuples;
-  c.maximum_row_width = p.maximum_row_width;
-  c.maximum_duplicate_scan_work = p.maximum_duplicate_scan_work;
-  c.maximum_arena_words = p.maximum_arena_words;
+  copy_parameter_fields<Gf3GeneralRowConsequenceParameters>(c, p);
   base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   base.post_application = TACTIX_ONLINE_POST_PROPAGATE;
   base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
@@ -202,8 +167,7 @@ void c_v11_deep_copies_typed_selection() {
   base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
   base.budget = 1;
   const tactix_online_gf3_general_row_instance selected{
-      offered.offers.front().outcome, offered.offers.front().tuple,
-      identity.c_str()};
+      first.outcome, first.tuple, identity.c_str()};
   cstep.gf3_general_row_instances = &selected;
   cstep.gf3_general_row_instance_count = 1;
   const tactix_online_program_v11 program{
@@ -240,10 +204,7 @@ void emit_public_fixture(const std::string &cnf_path,
   assert(records);
   kernel.structural_provenance = records;
   kernel.gf3_general_row_action_session = &session;
-  const auto offered = gf3_general_row_action_offer(
-      kernel, session, limits(), {1000, 1, 10000000, false, {}});
-  assert(offered.status == Gf3GeneralRowActionStatus::Applied &&
-         offered.offers.size() == 1);
+  const auto first = first_selection(kernel);
   Proof proof;
   assert(proof.open(proof_path.c_str(), format));
   proof.bind_variable_map(&kernel.internal_to_external);
@@ -257,12 +218,11 @@ void emit_public_fixture(const std::string &cnf_path,
   assert(input_id == kernel.next_clause_id);
   proof.finish_input_transaction();
   kernel.proof = &proof;
-  const auto applied = gf3_general_row_action_apply(
-      kernel, session, limits(), offered.offers.front());
-  assert(applied.status == Gf3GeneralRowActionStatus::Applied);
+  assert(gf3_general_row_action_apply(kernel, session, limits(), first)
+             .status == Gf3GeneralRowActionStatus::Applied);
   if (search) {
     assert(propagate_apply(kernel) == ApplyResult::Ok);
-    assert(apply_search_implication(kernel, session, records));
+    assert(apply_search_implication(kernel, session));
   }
   const Lit positive = internalize(13);
   const Lit negative = internalize(-13);
@@ -285,9 +245,8 @@ int main(int argc, char **argv) {
   });
   assert(step != reference.end() &&
          step->rule == "Gf3GeneralRowConsequence" && !step->enabled);
-  pagination_replay_and_atomic_apply();
+  replay_atomic_apply_and_search_implication();
   executor_requires_propagate_and_emits_dsr();
-  retained_owner_search_implication();
   c_v11_deep_copies_typed_selection();
   if (argc == 3) emit_public_fixture(argv[1], argv[2], false);
   else if (argc == 4 && std::string(argv[1]) == "--proof-search")

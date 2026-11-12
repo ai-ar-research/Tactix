@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <string>
 #include <unistd.h>
 using namespace tactix;
 
@@ -47,12 +46,10 @@ static bool fixture(bool redundant, bool instantiate, bool reuse, bool preset, i
       redundant, instantiate, reuse, preset, mode, (unsigned long long)(after-before));
   return okay;
 }
-int main(int argc, char **argv) {
+int main() {
   unsigned missing = 0;
   for (bool redundant : {false, true}) for (bool instantiate : {false, true})
     for (bool reuse : {false, true}) for (bool preset : {false, true}) for (int mode : {0, 1})
       missing += !fixture(redundant, instantiate, reuse, preset, mode);
-  if (argc == 2 && std::string(argv[1]) == "--expect-old-missing") {
-    assert(missing == 24); std::puts("PASS: actual parent misses advice in all24 irredundant cases");
-  } else { assert(!missing); std::puts("PASS: 48 public binary-Vivify retry fixtures"); }
+  assert(!missing); std::puts("PASS: 48 public binary-Vivify retry fixtures");
 }

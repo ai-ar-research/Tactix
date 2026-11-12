@@ -1,9 +1,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
-#include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
-#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include <algorithm>
@@ -99,42 +97,6 @@ static void referenced_roots_stay_hot() {
   kernel_check_invariants(k);
 }
 
-static int proof_fixture(const char *input, const char *output, bool fold) {
-  Kernel k;
-  ScopedHeuristics owner(k);
-  Proof proof;
-  assert(proof.open(output, ProofFormat::DsrAscii));
-  k.proof = &proof;
-  proof.bind_variable_map(&k.internal_to_external);
-  FILE *file = std::fopen(input, "r");
-  assert(file && !parse_dimacs(file, k));
-  std::fclose(file);
-  assert(propagate_apply(k) == ApplyResult::Ok);
-  heuristics_deactivate_inactive_vars(k);
-  heuristics_compact_random_order_fixed(k);
-  const uint32_t roots = kernel_root_fixed(k);
-  assert(roots >= 3);
-  assert(kernel_compact_variables(k, fold));
-  heuristics_compact_random_order_fixed(k);
-  assert(fold ? k.fixed_external_count >= 2 : k.fixed_external_count == 0);
-  assert(kernel_root_fixed(k) + k.fixed_external_count == roots);
-  const int result = default_solve(k);
-  proof.flush();
-  if (result == 10) {
-    kernel_extend_model(k);
-    std::puts("s SATISFIABLE");
-    std::printf("v");
-    for (Var ev = 0; ev < kernel_num_output_vars(k); ev++)
-      std::printf(" %d", k.model_values[make_lit(ev, false)] > 0 ? int(ev+1) : -int(ev+1));
-    std::puts(" 0");
-  } else {
-    assert(result == 20);
-    std::puts("s UNSATISFIABLE");
-  }
-  std::printf("c fixed-root fixture archived %u\n", k.fixed_external_count);
-  return result;
-}
-
 static void reconstruction_and_nonroot_reason() {
   {
     Kernel k;
@@ -180,9 +142,7 @@ static void reconstruction_and_nonroot_reason() {
   }
 }
 
-int main(int argc, char **argv) {
-  if (argc == 4) return proof_fixture(argv[1], argv[2], !std::strcmp(argv[3], "fold"));
-  assert(argc == 1);
+int main() {
   for (bool reverse : {false, true})
     for (bool stable : {false, true})
       assert(fixture(false, reverse, stable) == fixture(true, reverse, stable));

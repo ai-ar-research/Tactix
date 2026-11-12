@@ -91,8 +91,7 @@ static void audit(const std::vector<Row> &rows, const std::string &text,
 // or the semantic action at the first available `wanted` orientation.
 static void run(const std::vector<Row> &rows, uint32_t variables, int a, int b,
                 bool unsat, const std::vector<uint64_t> &wanted_options,
-                bool canonical, bool with_proof, bool require_additions,
-                const std::string &stem) {
+                bool canonical, bool with_proof, bool require_additions) {
   const std::vector<uint64_t> solutions = models(rows, variables);
   for (const uint64_t bits : solutions)
     assert(literal_value(a, bits) == literal_value(b, bits));
@@ -127,18 +126,13 @@ static void run(const std::vector<Row> &rows, uint32_t variables, int a, int b,
   }
   if (with_proof) {
     proof.flush();
-    const std::string text = read_file(proof_file.path);
-    if (!stem.empty() && unsat) {
-      write_file((stem + ".cnf").c_str(), cnf);
-      write_file((stem + ".dsr").c_str(), text);
-    }
-    audit(rows, text, require_additions);
+    audit(rows, read_file(proof_file.path), require_additions);
   }
   k.proof = nullptr;
 }
 
 // Two XOR gates over 1,2 whose extra inputs cancel through equivalences.
-static unsigned matching(const char *directory) {
+static unsigned matching() {
   unsigned cases = 0;
   for (unsigned shape = 0; shape != 3; ++shape)
   for (unsigned signs = 0; signs != 4; ++signs)
@@ -160,9 +154,7 @@ static unsigned matching(const char *directory) {
       rows.push_back({-5, second_sign * 6});
       rows.push_back({5, -second_sign * 6});
     }
-    const std::string stem =
-        directory ? std::string(directory) + "/case-" + std::to_string(cases) : "";
-    run(rows, 8, a, b, clash, {pair(a, b)}, canonical, with_proof, true, stem);
+    run(rows, 8, a, b, clash, {pair(a, b)}, canonical, with_proof, true);
     ++cases;
   }
   return cases;
@@ -170,7 +162,7 @@ static unsigned matching(const char *directory) {
 
 // One 4-input XOR whose inputs 2,3 cancel; the root value of 4 is not a
 // justification for erasing that pair. Shape 1/2 adds a literal/representative clash.
-static unsigned unary(const char *directory) {
+static unsigned unary() {
   unsigned cases = 0;
   for (bool root : {false, true})
   for (bool opposite_pair : {false, true})
@@ -193,20 +185,15 @@ static unsigned unary(const char *directory) {
     const std::vector<uint64_t> wanted =
         shape == 1 ? std::vector<uint64_t>{pair(1, -1)}
                    : std::vector<uint64_t>{pair(expected, 6), pair(-expected, -6)};
-    const std::string stem =
-        directory ? std::string(directory) + "/unary-" + std::to_string(cases) : "";
-    run(rows, 6, 6, expected, shape != 0, wanted, canonical, with_proof, false, stem);
+    run(rows, 6, 6, expected, shape != 0, wanted, canonical, with_proof, false);
     ++cases;
   }
   return cases;
 }
 
-// argv[1], when given, receives every refuted case's CNF and DSR proof.
-int main(int argc, char **argv) {
-  assert(argc == 1 || argc == 2);
-  const char *directory = argc == 2 ? argv[1] : nullptr;
-  const unsigned matched = matching(directory);
-  const unsigned cancelled = unary(directory);
+int main() {
+  const unsigned matched = matching();
+  const unsigned cancelled = unary();
   std::printf("XOR cancelled-input proofs: %u matching and %u unary cases\n", matched,
               cancelled);
 }

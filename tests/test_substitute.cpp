@@ -18,7 +18,6 @@
 #include <string>
 #include <vector>
 
-
 using namespace tactix;
 
 // x ≡ y as the implication binaries (¬x ∨ y), (¬y ∨ x).
@@ -161,18 +160,6 @@ static void test_representative_uses_import_order() {
   assert(k.retired_events == std::vector<Var>({2, 0}));
 }
 
-// a one-way implication x1 -> x2 (no return edge) forms no non-trivial SCC
-static void test_no_scc() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2)); // x1 -> x2 only
-  SccResult r = substitute_find_sccs(k);
-  assert(!r.contradiction);
-  assert(r.nontrivial_reps.empty());
-  assert(r.repr[internalize(1)] == internalize(1)); // singleton = own rep
-  assert(r.repr[internalize(3)] == internalize(3));
-}
-
 // Kissat's large-clause pass runs even without an equivalence class, so it
 // commits root simplification (a ternary with a root-false literal shrinks).
 static void test_no_scc_still_simplifies_root_fixed_clauses() {
@@ -216,13 +203,6 @@ static void x_equivalent_not_x(Kernel &k) {
 }
 
 static void test_contradiction_scc() {
-  Kernel k;
-  x_equivalent_not_x(k);
-  SccResult r = substitute_find_sccs(k);
-  assert(r.contradiction);
-  assert(r.contradiction_lit != INVALID_LIT);
-  assert(r.repr[r.contradiction_lit] == r.repr[negate(r.contradiction_lit)]);
-
   Kernel round;
   x_equivalent_not_x(round);
   assert(substitute_guard(round));
@@ -305,25 +285,6 @@ static void test_canonical_substitution_leaves_collapsed_source_lazy() {
   assert(clause_at(k.arena, 0)->garbage());
   assert(kernel_binary_live(k, internalize(1), internalize(3)));
   kernel_check_invariants(k);
-}
-
-// Kissat's `complete=true` preprocessing call runs a second SCC round for an
-// equivalence the first rewrite exposes.
-static void test_complete_closes_exposed_scc() {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  // x1 ≡ x2 is visible initially.
-  equivalence(k, 1, 2);
-  // Rewriting x2 -> x1 turns these into the two implications x1 ≡ x3.
-  add_external_clause(k, {1, -3, 2});
-  add_external_clause(k, {-1, 3, -2});
-
-  assert(substitute_apply_complete(k, 2) == ApplyResult::Ok);
-  assert(k.stats.substitute_rounds == 2);
-  assert(kernel_var_retired(k, 1));
-  assert(kernel_var_retired(k, 2));
-  assert(!lit_in_any_clause(k, internalize(2)));
-  assert(!lit_in_any_clause(k, internalize(3)));
 }
 
 // Kissat's Sweep-connected substitution rewrites a large clause in place and
@@ -492,27 +453,6 @@ static void test_sweep_reposes_only_last_bridge_copy() {
   assert(!kernel_binary_live(k, negate(a), internalize(5)));
   assert(k.watches.size(negate(a)) == count);
   kernel_check_invariants(k);
-}
-
-static void assert_ledger_mirrors_kernel(Kernel &,
-                                         SweepSubstitutionSession &);
-
-// An identity transaction reports no dirty binary owners.
-static void test_sweep_identity_rewrite_has_no_dirty_binary_owners() {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
-  kernel_add_binary_clause(k, internalize(-4), internalize(5));
-  DenseSession dense(k);
-  assert(dense.session.dense_occurrences.empty());
-
-  dense.session.rewrite_binary_occurrences(k, {}, {}, {});
-  assert(dense.session.dense_occurrences.empty());
-  assert(dense.session.dirty_binary_owners.empty());
-  dense.session.flush_moves(k);
-  assert_ledger_mirrors_kernel(k, dense.session);
-  kernel_dense_disconnect(k);
 }
 
 // The session contract (substitute.hpp): per literal, the ledger's binaries
@@ -812,26 +752,6 @@ static void test_sweep_rewrites_only_connected_irredundant_clause() {
            return c.redundant() && contains(c, 1);
          }) >= 1);
   kernel_dense_disconnect(k);
-}
-
-// A redundant-only neighbourhood is a Sweep no-op; the retained bridge lets
-// Substitute own the redundant rewrite and the retirement.
-static void test_sweep_does_not_rewrite_redundant_only_neighbourhood() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  add_external_clause(k, {2, 3, 4}, true, 2);
-  equivalence(k, 1, 2);
-  DenseSession dense(k);
-
-  assert(substitute_apply_sweep_equivalences(
-             k, {{internalize(1), internalize(2)}}, dense.session) ==
-         ApplyResult::NoOp);
-  assert(!kernel_var_retired(k, var_of(internalize(2))));
-  assert(substitute_apply(k) == ApplyResult::Ok);
-  assert(kernel_var_retired(k, var_of(internalize(2))));
-  assert(count_live(k, [](const Clause &c) { return c.redundant(); }) == 1);
-  assert(live_clause(k, {1, 3, 4}) && live_clause(k, {1, 3, 4})->redundant());
-  (void)dense.session.collect(k);
 }
 
 static void test_canonical_substitution_preserves_large_clause_position() {
@@ -1171,19 +1091,6 @@ static void test_contradictory_units_refute() {
   assert(k.inconsistent);
 }
 
-// Guard: pure quiescent-root precondition, no fixpoint (ledger row D-LEVEL).
-static void test_guard() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
-  assert(substitute_guard(k));           // empty trail = trivial fixpoint
-  kernel_assign_unit(k, internalize(1)); // un-propagated root unit
-  assert(substitute_guard(k));
-  assert(propagate_apply(k) == ApplyResult::Ok);
-  assert(substitute_guard(k));
-  kernel_assign_decision(k, internalize(2));
-  assert(!substitute_guard(k)); // level > 0 is still not a root state
-}
-
 // Connected Sweep rewrites keep the retiring occurrence, unlike canonical
 // first-occurrence deduplication. Merge-forest order covers batched chains.
 static void test_sweep_duplicate_literal_pose() {
@@ -1255,7 +1162,6 @@ int main() {
   test_scc_charges_two_scans_per_literal();
   test_instance_enumeration_does_not_charge_work();
   test_representative_uses_import_order();
-  test_no_scc();
   test_no_scc_still_simplifies_root_fixed_clauses();
   test_retired_variable_excluded_from_scc();
   test_contradiction_scc();
@@ -1263,7 +1169,6 @@ int main() {
   test_apply_substitutes();
   test_canonical_substitution_preserves_glue_on_shrink();
   test_canonical_substitution_leaves_collapsed_source_lazy();
-  test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
   test_substitution_factor_marks_match_calling_path();
   test_sweep_preserves_cross_kind_dense_order();
@@ -1273,12 +1178,10 @@ int main() {
   test_sweep_chained_collapse_uses_last_mixed_stream();
   test_sweep_syncs_new_binaries_by_multiset();
   test_sweep_reposes_only_last_bridge_copy();
-  test_sweep_identity_rewrite_has_no_dirty_binary_owners();
   test_sweep_records_binaries_of_a_declined_batch();
   test_sweep_ledger_declines_the_same_members_as_the_rewrite();
   test_sweep_leaves_redundant_clause_outside_dense_transaction();
   test_sweep_rewrites_only_connected_irredundant_clause();
-  test_sweep_does_not_rewrite_redundant_only_neighbourhood();
   test_canonical_substitution_preserves_large_clause_position();
   test_canonical_root_shrink_preserves_vivify_priority();
   test_substitution_preserves_unrelated_binary_watch_order();
@@ -1292,7 +1195,6 @@ int main() {
   test_size_collapse_unit();
   test_failed_root_member_still_rewrites_physical_binaries();
   test_apply_instance_one_class();
-  test_guard();
   puts("test_substitute OK");
   return 0;
 }

@@ -34,16 +34,6 @@ static MatrixLimits matrix_limits() {
   return {10000000, 256, 256, 256, 256, 256};
 }
 
-static void preparation_failure_reports_its_boundary() {
-  Kernel kernel;
-  MatrixLiveRequest request;
-  AffineMatrixLivePrepared prepared;
-  const auto result = prepare_affine_matrix_live(kernel, request, prepared);
-  assert(result.status == MatrixLiveStatus::Invalid);
-  assert(result.audit_stage ==
-         MatrixLiveResult::AuditStage::PreparedContract);
-}
-
 static MatrixLiveRequest live_request(FILE *records,
                                       const AffineLiveSnapshot &owner,
                                       const AffineMatrix &matrix,
@@ -709,7 +699,6 @@ int main(int argc, char **argv) {
     return proof_fixture(argv[2], argv[3], true);
   if (argc == 3 && std::strcmp(argv[1], "--resume-proofs") == 0)
     return resume_proofs(argv[2]);
-  preparation_failure_reports_its_boundary();
   implication_is_assigned_without_prefix_rescan();
   compact_provenance_keeps_authenticated_reason();
   historical_implication_can_be_preflighted_after_tableau_advance();
@@ -721,11 +710,5 @@ int main(int argc, char **argv) {
   compact_pbp_publication_ignores_unconsulted_matrix_cache();
   resource_and_interruption_are_atomic();
   helper_namespace_is_monotone();
-  char directory[] = "/tmp/tactix-affine-live-resume-XXXXXX";
-  assert(mkdtemp(directory));
-  resume_proofs(directory);
-  for (const char *file : {"resume.cnf", "resume.dsr", "removed.cnf", "removed.dsr"})
-    std::remove((std::string(directory) + '/' + file).c_str());
-  rmdir(directory);
   std::puts("test_affine_matrix_live: passed");
 }

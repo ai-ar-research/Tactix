@@ -1,6 +1,5 @@
 // Reduce at the root: preparation consumes newly derived roots before ranking
 // again, and retained root reasons do not shrink the candidate population.
-// With a directory argument, the proof cases also write STEM.cnf/STEM.proof.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -12,7 +11,6 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <initializer_list>
 #include <string>
 #include <unistd.h>
@@ -20,11 +18,10 @@ using namespace tactix;
 
 using Cnf = std::vector<std::vector<int>>;
 
-// A DSR proof at STEM.proof, or at a process-private path when STEM is empty.
-static std::string proof_path(const std::string &stem, const char *name) {
-  return stem.empty() ? "/tmp/tactix-" + std::string(name) + "-" +
-                            std::to_string(getpid()) + ".proof"
-                      : stem + ".proof";
+// A process-private DSR proof path.
+static std::string proof_path(const char *name) {
+  return "/tmp/tactix-" + std::string(name) + "-" + std::to_string(getpid()) +
+         ".proof";
 }
 
 // Adds an input clause with the next id; a unit becomes a named root.
@@ -40,21 +37,6 @@ static void add_input(Kernel &k, const std::vector<int> &clause) {
     kernel_add_binary_clause(k, lits[0], lits[1], id);
   else
     kernel_add_large_clause(k, lits.data(), lits.size(), false, 0, id);
-}
-
-// Keeps STEM.cnf beside the proof, or removes the private proof.
-static void finish_proof(const std::string &stem, const std::string &path,
-                         const Cnf &inputs) {
-  if (stem.empty()) {
-    std::remove(path.c_str());
-    return;
-  }
-  std::ofstream cnf(stem + ".cnf");
-  cnf << "p cnf 8 " << inputs.size() << '\n';
-  for (const auto &clause : inputs) {
-    for (int lit : clause) cnf << lit << ' ';
-    cnf << "0\n";
-  }
 }
 
 static const RuleVTable &rule() {
@@ -126,8 +108,8 @@ static void no_root_work() {
   kernel_check_invariants(k);
 }
 
-static void refutation(unsigned kind, const std::string &stem) {
-  const std::string path = proof_path(stem, "reduce-root");
+static void refutation(unsigned kind) {
+  const std::string path = proof_path("reduce-root");
   Proof proof;
   assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   Kernel k;
@@ -159,7 +141,7 @@ static void refutation(unsigned kind, const std::string &stem) {
   prepare(k);
   assert(k.next_clause_id == id);
   proof.flush();
-  finish_proof(stem, path, inputs);
+  std::remove(path.c_str());
 }
 
 static void pure_candidates(Kernel &k, std::vector<Ref> &out) {
@@ -179,9 +161,8 @@ static void pure_candidates(Kernel &k, std::vector<Ref> &out) {
   assert(!std::memcmp(stats, &k.stats, sizeof stats));
 }
 
-static void root_reason(bool elevated, bool compact, bool unsat,
-                        const std::string &stem) {
-  const std::string path = proof_path(stem, "root-lock");
+static void root_reason(bool elevated, bool compact, bool unsat) {
+  const std::string path = proof_path("root-lock");
   Proof proof;
   assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   Kernel k;
@@ -228,7 +209,7 @@ static void root_reason(bool elevated, bool compact, bool unsat,
     }
   }
   proof.flush();
-  finish_proof(stem, path, input);
+  std::remove(path.c_str());
 }
 
 static void protected_reasons(bool pending) {
@@ -267,24 +248,17 @@ static void protected_reasons(bool pending) {
   kernel_check_invariants(k);
 }
 
-int main(int argc, char **argv) {
-  const std::string dir = argc > 1 ? std::string(argv[1]) + "/" : "";
+int main() {
   retained_chain(true);
   retained_chain(false); // Public Reduce stays independent of decision policy.
   no_root_work();
   for (unsigned kind = 0; kind < 3; ++kind)
-    refutation(kind, dir.empty() ? "" : dir + "reduce-root-" +
-                                            std::to_string(kind));
+    refutation(kind);
   protected_reasons(false);
   protected_reasons(true);
   for (bool elevated : {false, true})
     for (bool compact : {false, true})
-      for (bool unsat : {false, true}) {
-        const std::string tag = "root-" + std::to_string(elevated) + "-" +
-                                std::to_string(compact) + "-" +
-                                std::to_string(unsat);
-        root_reason(elevated, compact, unsat,
-                    dir.empty() || !unsat ? "" : dir + tag);
-      }
+      for (bool unsat : {false, true})
+        root_reason(elevated, compact, unsat);
   std::puts("test_reduce_root OK");
 }

@@ -263,7 +263,7 @@ static void certified_basis_v2_duplicate_keeps_identity() {
   AffineBasisActionSession session;
   kernel.affine_basis_action_session = &session;
 
-  const auto applied = affine_consequence_action_apply(kernel, session);
+  const auto applied = affine_consequence_action_apply(kernel);
   assert(applied.status == AffineConsequenceActionStatus::Applied &&
          applied.result == ApplyResult::Ok &&
          applied.committed_action_id == 91 && session.committed_keys() == 1);
@@ -275,7 +275,7 @@ static void certified_basis_v2_duplicate_keeps_identity() {
   const uint64_t clause_id = kernel.next_clause_id;
   const size_t arena = kernel.arena.size();
   const long journal = position(records);
-  const auto duplicate = affine_consequence_action_apply(kernel, session);
+  const auto duplicate = affine_consequence_action_apply(kernel);
   assert(duplicate.status ==
          AffineConsequenceActionStatus::AlreadyPublished);
   assert(duplicate.result == ApplyResult::NoOp &&

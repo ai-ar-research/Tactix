@@ -321,12 +321,6 @@ namespace tactix {
     return out;
   }
 
-  DirectCspSupportLiveResult direct_csp_guarded_cover_live_preflight(Kernel&k,const DirectCspGuardedCoverLiveRequest&r){
-    Prepared p(r.records);
-    prepare(k,r,p);
-    return p.result;
-  }
-
   DirectCspSupportLiveResult direct_csp_guarded_cover_live_apply(Kernel&k,const DirectCspGuardedCoverLiveRequest&r){
     Prepared p(r.records);
     prepare(k,r,p);

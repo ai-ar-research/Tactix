@@ -118,7 +118,7 @@ static void test_redundant_partner_is_still_refused() {
     kernel_reserve_vars(k, 4);
     add(k, {1, 2, 3}, /*redundant=*/true, 2);         // would-be subsumer
     const Ref victim = add(k, {1, 2, 3, 4}, false, 3); // irredundant candidate
-    assert(subsume_forward_try(k, victim) == ApplyResult::NoOp);
+    assert(rule("SubsumeForward")->apply_instance(k, victim) == ApplyResult::NoOp);
     assert(!garbage_at(k, victim));
     assert(strengthen_try(k, victim) == ApplyResult::NoOp);
   }

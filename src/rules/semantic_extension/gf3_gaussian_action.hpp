@@ -56,16 +56,6 @@ struct Gf3GaussianActionResult {
   gf3_gaussian_live::Result live;
 };
 
-struct Gf3GaussianActionOfferResult {
-  Gf3GaussianActionStatus status = Gf3GaussianActionStatus::Invalid;
-  std::vector<std::string> offers;
-  uint64_t candidates = 0;
-  bool complete = false;
-  uint64_t session_work = 0;
-  uint64_t session_identity_bytes = 0;
-  gf3_gaussian_live::Result live;
-};
-
 RuleEligibility gf3_gaussian_action_guard(const Kernel &);
 
 // Rebuild the Gaussian plan and publish the selected identity; a changed
@@ -73,12 +63,6 @@ RuleEligibility gf3_gaussian_action_guard(const Kernel &);
 Gf3GaussianActionResult gf3_gaussian_action_apply(
     Kernel &, Gf3GaussianActionSession &, const Gf3GaussianActionLimits &,
     const std::string &identity);
-
-// Mutation-free offer of the complete-batch identity, which binds every row,
-// its provenance, authentication references and source clauses.
-Gf3GaussianActionOfferResult gf3_gaussian_action_offer(
-    Kernel &, const Gf3GaussianActionSession &,
-    const Gf3GaussianActionLimits &);
 
 void record_gf3_gaussian_action_feedback(Kernel &,
                                          const Gf3GaussianActionResult &);

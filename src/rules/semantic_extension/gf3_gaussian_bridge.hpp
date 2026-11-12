@@ -55,7 +55,6 @@ struct Limits {
            maximum_terms && maximum_authentication_references &&
            maximum_references_per_equation && gaussian.valid();
   }
-  friend bool operator==(const Limits &, const Limits &) = default;
 };
 
 enum class LimitKind : uint8_t {

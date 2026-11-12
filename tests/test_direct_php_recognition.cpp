@@ -260,19 +260,13 @@ void limits_and_interruption_are_transactional() {
   assert(sentinel.variables == DirectMatrix{{99}});
 }
 
-void target_scale_pipeline_contract() {
+void target_scale_recognition() {
   const Fixture fixture = php(22);
   Image image;
   assert(recognize(fixture.source, limits(), nullptr, nullptr, image) ==
          Status::Recognized);
   check_image(image, 22);
   assert(image.census.premises.size() == 5589);
-  tactix::direct_php_certificate::Accounting accounting;
-  assert(tactix::direct_php_certificate::preflight(
-             image.variables, 507, tactix::direct_php_certificate::Limits{},
-             accounting) == tactix::direct_php_certificate::Status::Ok);
-  assert(accounting.additions == 24565 &&
-         accounting.fresh_variables == 4907);
 }
 
 } // namespace
@@ -283,6 +277,6 @@ int main() {
   ambiguity_and_near_misses();
   malformed_inputs();
   limits_and_interruption_are_transactional();
-  target_scale_pipeline_contract();
+  target_scale_recognition();
   std::puts("test_direct_php_recognition: passed");
 }

@@ -43,8 +43,6 @@ struct CardinalitySearchLiveResult {
   bool propagation_pending = false;
 };
 
-CardinalitySearchLiveResult cardinality_search_live_inspect(
-    Kernel &, const CardinalitySearchLiveRequest &);
 CardinalitySearchLiveResult cardinality_search_live_apply(
     Kernel &, const CardinalitySearchLiveRequest &);
 

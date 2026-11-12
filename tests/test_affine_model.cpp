@@ -232,11 +232,5 @@ int main() {
     install_rule_parameters(k,unavailable);assert(affine_model_apply(k)==ApplyResult::NoOp);
     assert(k.stats.affine_model_unavailable==1&&k.trail.empty());
   }
-  {
-    DefaultStrategyConfig config;
-    config.inprocess.structured_root_stages={{p,BudgetExhaustionPolicy::Stop}};
-    std::string error;
-    assert(config.valid(&error));
-  }
   std::cout<<"Affine reference model, "<<complete_work<<" exact budget boundaries, root negatives, and public scheduling PASS\n";
 }

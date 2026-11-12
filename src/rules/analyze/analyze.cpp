@@ -10,7 +10,7 @@
 #include "policies/heuristics.hpp"
 
 #include "proof/proof.hpp"
-#include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
+#include "rules/backjump/backjump.hpp" // backjump_assign_learned_unit
 #include "rules/reduce/reduce.hpp"     // the retier schedule at OTFS conflicts
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "strategy/conflict_analysis_execution.hpp"

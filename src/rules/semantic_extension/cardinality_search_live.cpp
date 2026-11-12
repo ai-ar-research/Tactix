@@ -284,11 +284,6 @@ bool unchanged(Kernel &kernel, const CardinalitySearchLiveRequest &request,
 
 } // namespace
 
-CardinalitySearchLiveResult cardinality_search_live_inspect(
-    Kernel &kernel, const CardinalitySearchLiveRequest &request) {
-  return preflight(kernel, request).result;
-}
-
 CardinalitySearchLiveResult cardinality_search_live_apply(
     Kernel &kernel, const CardinalitySearchLiveRequest &request) {
   Prepared prepared = preflight(kernel, request);

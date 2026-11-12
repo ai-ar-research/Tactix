@@ -7,8 +7,6 @@
 
 #include "rules/registry.hpp"
 
-#include <vector>
-
 namespace tactix {
 
 // Guard: quiescent root. `!conflict_valid` is abstract here — failed-literal
@@ -16,8 +14,8 @@ namespace tactix {
 RuleEligibility probe_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = probe literal; every unassigned
-// literal, var ascending, positive first. The BIG-head schedule is only advice.
-void probe_candidates(const Kernel &, std::vector<Lit> &out);
+// literal, var ascending, positive first. The BIG-head schedule
+// (failed_literal_candidates) is only advice.
 
 // Canonical: the full round against one clean root without re-propagation;
 // a variable is skipped once one polarity fails, and both-fail refutation is

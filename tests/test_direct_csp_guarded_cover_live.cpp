@@ -40,9 +40,6 @@ int main(int argc, char **argv) {
   assert(capture.status==DirectCspSupportLiveStatus::Applied);
   assert(image(kernel)==initial_image && std::ftell(records)==initial_records);
   request.retained_owner=&owner;
-  auto preflight=direct_csp_guarded_cover_live_preflight(kernel,request);
-  assert(preflight.status==DirectCspSupportLiveStatus::Applied && !preflight.emitted_additions);
-  assert(image(kernel)==initial_image && std::ftell(records)==initial_records);
   auto bounded=request; bounded.maximum_journal_bytes=1;
   auto no_journal=direct_csp_guarded_cover_live_apply(kernel,bounded);
   assert(no_journal.status==DirectCspSupportLiveStatus::ResourceExhausted);

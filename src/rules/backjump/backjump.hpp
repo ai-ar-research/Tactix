@@ -16,7 +16,4 @@ void backjump_assign_learned_unit(Kernel &, Lit);
 // N1 instance surface: targets clamp into [pending.jump_level, level-1].
 ApplyResult backjump_apply_to(Kernel &, uint32_t target_level);
 
-// canonical instance: target = pending.jump_level
-ApplyResult backjump_apply(Kernel &);
-
 } // namespace tactix

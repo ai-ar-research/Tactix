@@ -106,52 +106,43 @@ void test_validator_rejects_every_boundary_corruption() {
       theory, bridge_limits(), [](uint64_t) { return true; });
   assert(built.status == gf3_gaussian_bridge::Status::Complete);
 
-  auto corrupt = built.plan;
-  corrupt.sources[0].terms[0].coefficient = 2;
-  assert_invalid_plan(theory, corrupt);
-
-  corrupt = built.plan;
-  ++corrupt.authentication[0].domains[0].at_least_one.native_proof_id;
-  assert_invalid_plan(theory, corrupt);
-
-  corrupt = built.plan;
-  auto &node = corrupt.gaussian.derivations.back();
-  node.rhs = static_cast<uint8_t>((node.rhs + 1) % 3);
-  assert_invalid_plan(theory, corrupt);
-
-  corrupt = built.plan;
-  ++corrupt.gaussian.statistics.fill_entries;
-  assert_invalid_plan(theory, corrupt);
-
-  corrupt = built.plan;
-  auto provenance = std::find_if(
-      corrupt.gaussian.derivations.begin(),
-      corrupt.gaussian.derivations.end(), [](const auto &candidate) {
-        return candidate.provenance.size() > 1;
-      });
-  assert(provenance != corrupt.gaussian.derivations.end());
-  provenance->provenance[0].coefficient =
-      provenance->provenance[0].coefficient == 1 ? 2 : 1;
-  assert_invalid_plan(theory, corrupt);
-
-  corrupt = built.plan;
-  corrupt.gaussian.outcomes.pop_back();
-  assert_invalid_plan(theory, corrupt);
-
-  corrupt = built.plan;
-  corrupt.gaussian.outcomes[0].kind =
-      gf3_gaussian::RowOutcomeKind::ZeroRowConflict;
-  assert_invalid_plan(theory, corrupt);
-
-  corrupt = built.plan;
-  auto derived = std::find_if(
-      corrupt.gaussian.derivations.begin(),
-      corrupt.gaussian.derivations.end(), [](const auto &candidate) {
-        return candidate.kind == gf3_gaussian::DerivationKind::Add;
-      });
-  assert(derived != corrupt.gaussian.derivations.end());
-  derived->first_parent = 0;
-  assert_invalid_plan(theory, corrupt);
+  using Plan = gf3_gaussian_bridge::Plan;
+  // One corruption per validated component: rows, authentication, derivation
+  // replay, accounting, outcomes and parent references.
+  const std::vector<void (*)(Plan &)> corruptions = {
+      [](Plan &p) { p.sources[0].terms[0].coefficient = 2; },
+      [](Plan &p) { ++p.authentication[0].domains[0].at_least_one.native_proof_id; },
+      [](Plan &p) {
+        auto &node = p.gaussian.derivations.back();
+        node.rhs = static_cast<uint8_t>((node.rhs + 1) % 3);
+      },
+      [](Plan &p) { ++p.gaussian.statistics.fill_entries; },
+      [](Plan &p) {
+        for (auto &node : p.gaussian.derivations)
+          if (node.provenance.size() > 1) {
+            auto &coefficient = node.provenance[0].coefficient;
+            coefficient = coefficient == 1 ? 2 : 1;
+            return;
+          }
+        assert(false);
+      },
+      [](Plan &p) { p.gaussian.outcomes.pop_back(); },
+      [](Plan &p) {
+        p.gaussian.outcomes[0].kind = gf3_gaussian::RowOutcomeKind::ZeroRowConflict;
+      },
+      [](Plan &p) {
+        for (auto &node : p.gaussian.derivations)
+          if (node.kind == gf3_gaussian::DerivationKind::Add) {
+            node.first_parent = 0;
+            return;
+          }
+        assert(false);
+      }};
+  for (const auto corrupt : corruptions) {
+    Plan plan = built.plan;
+    corrupt(plan);
+    assert_invalid_plan(theory, plan);
+  }
 }
 
 void test_inconsistent_system_requires_replayed_conflict() {
@@ -181,43 +172,29 @@ void test_inconsistent_system_requires_replayed_conflict() {
   assert_invalid_plan(theory, missing);
 }
 
-void assert_invalid_theory(gf3_affine::Theory theory) {
-  const auto result = gf3_gaussian_bridge::build(
-      theory, bridge_limits(), [](uint64_t) { return true; });
-  assert(result.status == gf3_gaussian_bridge::Status::InvalidTheory);
-  assert(result.plan.sources.empty());
-}
-
 void test_theory_reauthentication() {
-  const gf3_affine::Theory original = recognize(gf3_chain());
-  auto theory = original;
-  ++theory.maximum_variable;
-  assert_invalid_theory(theory);
-
-  theory = original;
-  theory.equations[0].coefficients[0] = 2;
-  assert_invalid_theory(theory);
-
-  theory = original;
-  theory.equations[0].forbidden_by_tuple[0] =
-      theory.equations[0].forbidden_by_tuple[1];
-  assert_invalid_theory(theory);
-
-  theory = original;
-  theory.domains[0].at_most_one[1] =
-      theory.domains[0].at_most_one[2];
-  assert_invalid_theory(theory);
-
-  theory = original;
-  theory.source.back().literals[0] = 1;
-  assert_invalid_theory(theory);
-
-  theory = original;
-  theory.source.push_back({10000, {1, -4}, 77});
-  assert_invalid_theory(theory);
+  using Theory = gf3_affine::Theory;
+  const Theory original = recognize(gf3_chain());
+  const std::vector<void (*)(Theory &)> corruptions = {
+      [](Theory &t) { ++t.maximum_variable; },
+      [](Theory &t) { t.equations[0].coefficients[0] = 2; },
+      [](Theory &t) {
+        t.equations[0].forbidden_by_tuple[0] = t.equations[0].forbidden_by_tuple[1];
+      },
+      [](Theory &t) { t.domains[0].at_most_one[1] = t.domains[0].at_most_one[2]; },
+      [](Theory &t) { t.source.back().literals[0] = 1; },
+      [](Theory &t) { t.source.push_back({10000, {1, -4}, 77}); }};
+  for (const auto corrupt : corruptions) {
+    Theory theory = original;
+    corrupt(theory);
+    const auto result = gf3_gaussian_bridge::build(
+        theory, bridge_limits(), [](uint64_t) { return true; });
+    assert(result.status == gf3_gaussian_bridge::Status::InvalidTheory &&
+           result.plan.sources.empty());
+  }
 
   // Native proof identities are opaque but must cross the bridge exactly.
-  theory = original;
+  Theory theory = original;
   theory.source.back().native_proof_id = 424242;
   const auto rebuilt = gf3_gaussian_bridge::build(
       theory, bridge_limits(), [](uint64_t) { return true; });
@@ -287,6 +264,8 @@ void test_limits_and_interruption() {
   assert(interrupted.plan.sources.empty());
 
   // Validation replays the Gaussian plan under the same bounds.
+  // maximum_derivations stops replay early; the other three reach the
+  // recomputed-statistics comparison.
   const auto &statistics = built.plan.gaussian.statistics;
   const std::vector<std::function<void(Limits &)>> replay_bounds = {
       [](Limits &l) { l.gaussian.maximum_derivations = 1; },
@@ -304,8 +283,8 @@ void test_limits_and_interruption() {
     change(limited);
     const auto result = gf3_gaussian_bridge::validate(
         theory, built.plan, limited, [](uint64_t) { return true; });
-    assert(result.status == gf3_gaussian_bridge::Status::LimitExceeded);
-    assert(result.limit == Kind::Gaussian);
+    assert(result.status == gf3_gaussian_bridge::Status::LimitExceeded &&
+           result.limit == Kind::Gaussian);
   }
 }
 

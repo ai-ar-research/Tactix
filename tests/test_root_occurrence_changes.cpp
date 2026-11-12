@@ -103,7 +103,7 @@ static void test_roots() {
     assert(decide_apply(k, internalize(-2), false) == ApplyResult::Ok);
     assert(propagate_apply(k) == ApplyResult::Conflict);
     assert(analyze_apply(k) == ApplyResult::Ok);
-    if (k.pending.valid) assert(backjump_apply(k) == ApplyResult::Ok);
+    if (k.pending.valid) assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
     assert(!k.level && k.value(internalize(2)) > 0);
     assert(propagate_apply(k) == ApplyResult::Ok && k.value(internalize(3)) > 0);
     assert(k.touched[blocker] == touched && k.removed[blocker] == removed);
@@ -383,7 +383,7 @@ static void test_analyze_redundant_reason(bool binary) {
   assert(!k.stats.otfs_subsumed && "a subsumed conflict would mask missing advice");
   assert(k.removed[pivot - 1] > before && !k.bve_retry[pivot - 1] &&
          "redundant OTFS must mark removal without BVE retry");
-  if (k.pending.valid) assert(backjump_apply(k) == ApplyResult::Ok);
+  if (k.pending.valid) assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
   if (k.level) kernel_backtrack(k, 0);
   check_model(k, formula);
 }

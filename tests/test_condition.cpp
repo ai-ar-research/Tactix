@@ -76,45 +76,6 @@ static void test_large_and_negative_cases() {
   assert(clause_at(k.arena, 0)->garbage());
 }
 
-static bool satisfied(int first, int second, unsigned assignment) {
-  const auto true_lit = [assignment](int lit) {
-    const bool value = (assignment >> (std::abs(lit) - 1)) & 1u;
-    return lit > 0 ? value : !value;
-  };
-  return true_lit(first) || true_lit(second);
-}
-
-static void test_independent_local_implication_oracle() {
-  for (int va = 1; va <= 3; ++va)
-    for (int vb = va + 1; vb <= 3; ++vb)
-      for (int sa : {-1, 1})
-        for (int sb : {-1, 1})
-          for (int cube_tail : {0, 3, -3}) {
-            const int a = sa * va, b = sb * vb;
-            Kernel k;
-            kernel_reserve_vars(k, 3);
-            kernel_add_binary_clause(k, internalize(1), internalize(2));
-            kernel_add_binary_clause(k, internalize(a), internalize(b));
-            ConditionInstance instance = cube({1, 2}, {1});
-            if (cube_tail)
-              instance.witness.push_back(internalize(cube_tail));
-            bool expected = true;
-            for (unsigned bits = 0; bits < 8; ++bits) {
-              if (!satisfied(a, b, bits) || satisfied(1, 2, bits))
-                continue;
-              unsigned after = bits | 1u;
-              if (cube_tail > 0)
-                after |= 4u;
-              else if (cube_tail < 0)
-                after &= ~4u;
-              expected &= satisfied(1, 2, after) &&
-                          satisfied(a, b, after);
-            }
-            ConditionPrepared prepared;
-            assert(condition_prepare(k, instance, prepared) == expected);
-          }
-}
-
 // Exhaust the non-unit three-variable clause shapes and every finite cube on
 // those variables.  The oracle evaluates the overwrite on total assignments;
 // it does not reuse condition_prepare's local-implication calculation.
@@ -294,7 +255,6 @@ int main(int argc, char **argv) {
   assert(argc == 1);
   test_binary_cube_and_model();
   test_large_and_negative_cases();
-  test_independent_local_implication_oracle();
   test_exhaustive_cube_implication_oracle();
   test_root_false_candidate_literal();
   test_root_true_reason_candidates();

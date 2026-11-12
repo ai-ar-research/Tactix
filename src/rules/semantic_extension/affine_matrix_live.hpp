@@ -120,7 +120,6 @@ public:
   AffineMatrixLivePrepared &operator=(AffineMatrixLivePrepared &&) = default;
 
   bool ready() const { return ready_; }
-  bool spent() const { return spent_; }
   const AffineMatrixTransaction &transaction() const { return transaction_; }
   const std::vector<Lit> &physical_reason() const { return physical_reason_; }
   uint64_t retained_bytes() const;

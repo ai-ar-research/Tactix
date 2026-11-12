@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <cstring>
 using namespace tactix;
 
 static unsigned calls;
@@ -14,9 +13,8 @@ static void notify(Kernel &, void *, Var, bool reinsert) {
   ++calls;
 }
 
-static unsigned cases, parent_differences;
-static void scenario(bool red, unsigned root_at, bool marked, bool collect,
-                     bool parent) {
+static unsigned cases;
+static void scenario(bool red, unsigned root_at, bool marked, bool collect) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   kernel_materialize_cold_state(k);
@@ -42,7 +40,7 @@ static void scenario(bool red, unsigned root_at, bool marked, bool collect,
     assert(changed == 1 && clause_at(k.arena, ref)->garbage());
     kernel_collect_garbage(k);
   }
-  const bool retry = !red && (!collect || parent);
+  const bool retry = !red && !collect;
   assert(calls == (retry ? 5u : 0u));
   assert(k.stats.bve_marks - old_marks == (retry ? 5u : 0u));
   for (Var v = 0; v < 5; ++v) {
@@ -52,7 +50,6 @@ static void scenario(bool red, unsigned root_at, bool marked, bool collect,
     assert(k.removed[v]);
   }
   assert(!k.removed[5]); // an unrelated variable receives no removal advice
-  if (collect && !red && calls) ++parent_differences;
   assert(k.live_irredundant_large == 0 && k.value(internalize(1)) == 1);
   const auto retries = k.bve_retry;
   const auto removed = k.removed;
@@ -79,14 +76,11 @@ static void binary_control() {
   kernel_check_invariants(k);
 }
 
-int main(int argc, char **argv) {
-  const bool parent = argc == 2 && !std::strcmp(argv[1], "--expect-parent");
-  assert(argc == 1 || parent);
+int main() {
   for (bool red : {false, true}) for (unsigned pos = 0; pos < 5; ++pos)
     for (bool marked : {false, true}) for (bool collect : {false, true})
-      scenario(red, pos, marked, collect, parent);
+      scenario(red, pos, marked, collect);
   binary_control();
-  assert(cases == 40 && parent_differences == (parent ? 10u : 0u));
-  std::printf("collect retry cases=%u parent differences=%u PASS\n",
-              cases, parent_differences);
+  assert(cases == 40);
+  std::printf("collect retry cases=%u PASS\n", cases);
 }

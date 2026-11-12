@@ -3,31 +3,20 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
-#include "policies/restart_controller.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
-
-#include "strategy/feedback_trace.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/semantic_variable_advice.hpp"
 
-#include <algorithm>
 #include <cassert>
-#include <csignal>
 #include <cstdio>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 
 using namespace tactix;
 using namespace tactix::strategy;
-using namespace tactix::strategy::controller;
 
 namespace {
 
@@ -80,11 +69,9 @@ void wire_format_and_validation() {
   program.sequence = {equality_invocation()};
   std::string error;
   assert(validate_online_strategy_program(program, &error));
-  const std::string wire = serialize_online_strategy_program(program);
-  assert(wire.find(":nary-csp-equality1(") != std::string::npos);
-  assert(wire.find(
-      ":nary-csp-equality[3,3,1,2,3,3,4,5,6,3,7,8,9,0,1,2]") !=
-      std::string::npos);
+  assert(serialize_online_strategy_program(program).find(
+             ":nary-csp-equality[3,3,1,2,3,3,4,5,6,3,7,8,9,0,1,2]") !=
+         std::string::npos);
   auto malformed = program;
   malformed.sequence.front().nary_csp_equality_instances.front()
       .coordinates = {1, 1, 2};
@@ -111,34 +98,14 @@ void executor_feedback_and_candidate_followup() {
          relation_session.retained_owners() == 1);
   assert(kernel.stats.nary_csp_equality_attempts == 1 &&
          kernel.stats.nary_csp_equality_applied == 1 &&
-         kernel.stats.nary_csp_equality_source_clauses == 15 &&
-         kernel.stats.nary_csp_equality_source_literals == 36 &&
-         kernel.stats.nary_csp_equality_recognition_work > 0 &&
-         kernel.stats.nary_csp_equality_planning_work > 0 &&
-         kernel.stats.nary_csp_equality_proof_work > 0 &&
-         kernel.stats.nary_csp_equality_planned_additions == 9 &&
          kernel.stats.nary_csp_equality_emitted_additions == 9 &&
-         kernel.stats.nary_csp_equality_session_commits == 1 &&
-         kernel.stats.nary_csp_equality_candidate_variables == 1 &&
-         kernel.stats.nary_csp_equality_introduced_variables == 1);
-  RestartController feedback(kernel);
-  const std::string raw = serialize_observation(feedback.observe());
-  assert(raw.find("\"nary_csp_equality_attempts\":1") != std::string::npos &&
-         raw.find("\"nary_csp_equality_applied\":1") != std::string::npos &&
-         raw.find("\"nary_csp_equality_emitted_additions\":9") !=
-             std::string::npos);
+         kernel.stats.nary_csp_equality_session_commits == 1);
+  // The introduced equality bit is published as a semantic candidate.
   const auto candidates = semantic_variable_candidates(kernel);
-  assert(candidates.size() == 1);
-  const auto candidate_info = std::find_if(
-      candidates.begin(), candidates.end(), [](const auto &candidate) {
-        return candidate.producer == SemanticVariableProducer::NaryCspEquality;
-      });
-  assert(candidate_info != candidates.end());
-  const auto *candidate = semantic_variable_candidate(kernel,
-                                                       candidate_info->id);
-  assert(candidate);
-  assert(candidate->producer == SemanticVariableProducer::NaryCspEquality &&
-         candidate->variables.size() == 1 &&
+  assert(candidates.size() == 1 &&
+         candidates[0].producer == SemanticVariableProducer::NaryCspEquality);
+  const auto *candidate = semantic_variable_candidate(kernel, candidates[0].id);
+  assert(candidate && candidate->variables.size() == 1 &&
          candidate->variables.front().external == 10 &&
          candidate->variables.front().role ==
              SemanticVariableRole::IntroducedTheory);
@@ -158,15 +125,7 @@ void owner_acquisition_is_transactional() {
   const auto before_arena = kernel.arena;
   const auto before_id = kernel.next_clause_id;
   const auto declined = nary_csp_equality_action_apply(
-      kernel, relations, equality,
-      {bounded.maximum_source_clauses, bounded.maximum_source_literals,
-       bounded.maximum_recognition_work, bounded.maximum_domain_values,
-       bounded.maximum_forbidden_tuples, bounded.maximum_proof_work,
-       bounded.maximum_proof_additions,
-       bounded.maximum_proof_literal_occurrences,
-       bounded.maximum_journal_bytes, bounded.maximum_extent_growth,
-       bounded.maximum_external_extent, bounded.maximum_session_keys},
-      equality_selection());
+      kernel, relations, equality, bounded, equality_selection());
   assert(declined.status == NaryCspEqualityActionStatus::ResourceExhausted &&
          !relations.retained() && !equality.retained() &&
          kernel.arena == before_arena && kernel.next_clause_id == before_id &&
@@ -195,15 +154,9 @@ void c_v10_deep_copies_and_executes_exact_payload() {
       steps[0].base.base.base.base.base.base.base.base.base;
   equality_base.step_id = 31;
   equality_base.rule_id = 42;
-  const auto p = equality_parameters();
   equality_base.parameters.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY;
   equality_base.parameters.value.nary_csp_equality = {
-      p.maximum_source_clauses, p.maximum_source_literals,
-      p.maximum_recognition_work, p.maximum_domain_values,
-      p.maximum_forbidden_tuples, p.maximum_proof_work,
-      p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-      p.maximum_journal_bytes, p.maximum_extent_growth,
-      p.maximum_external_extent, p.maximum_session_keys};
+      100, 1000, 200000, 16, 100, 10000, 100, 1000, 100000, 1, 100, 100};
   equality_base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   equality_base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
   equality_base.repeat_limit = 1;

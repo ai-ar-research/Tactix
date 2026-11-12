@@ -95,12 +95,8 @@ struct IndependentSetOwnerCaptureResult {
 };
 
 // Capture and recognize the live formula as an owner source, without proof,
-// journal or kernel changes. On failure `output` is unchanged.
-bool independent_set_live_capture_owner(
-    Kernel &, const IndependentSetLiveRequest &,
-    IndependentSetOwnerSnapshot &output);
-
-// As above, reporting the decline reason and consumed work.
+// journal or kernel changes, reporting the decline reason and consumed work.
+// On failure `output` is unchanged.
 IndependentSetOwnerCaptureResult independent_set_live_capture_owner_detailed(
     Kernel &, const IndependentSetLiveRequest &,
     IndependentSetOwnerSnapshot &output);

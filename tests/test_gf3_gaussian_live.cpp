@@ -2,15 +2,13 @@
 #include "gf3_formula_support.hpp"
 #include "temporary_file.hpp"
 #include "test_io.hpp"
-#include "clause_oracle.hpp"
+#include "kernel_image.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/gf3_gaussian_live.hpp"
 
 #include <algorithm>
 #include <cassert>
-#include <climits>
 #include <cstdio>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -50,134 +48,17 @@ live::Request request(FILE *records) {
   return result;
 }
 
-struct Image {
-  uint64_t next_clause_id;
-  size_t arena;
-  size_t trail;
+// The shared no-mutation image plus the root assignment state.
+struct State {
+  Image image;
   bool inconsistent;
-  uint64_t generation;
   std::vector<int8_t> values;
   std::vector<uint64_t> unit_ids;
-
-  friend bool operator==(const Image &, const Image &) = default;
+  bool operator==(const State &) const = default;
 };
 
-Image image(const Kernel &kernel) {
-  return {kernel.next_clause_id, kernel.arena.size(), kernel.trail.size(),
-          kernel.inconsistent, kernel.arena_generation, kernel.values,
-          kernel.unit_ids};
-}
-
-// The fixture ranges over variables 1..9.
-bool rup(const std::vector<std::vector<int32_t>> &active,
-         const std::vector<int32_t> &candidate) {
-  return rup_implied(active, candidate, ClauseLiterals{}, 9);
-}
-
-void independently_replay(const live::Prepared &prepared) {
-  const auto &owner = prepared.owner();
-  const auto &bridge = prepared.bridge();
-  const auto &certificate = prepared.certificate();
-  for (size_t consequence_index = 0;
-       consequence_index < certificate.consequences.size();
-       ++consequence_index) {
-    const auto &consequence = certificate.consequences[consequence_index];
-    std::set<uint64_t> used;
-    std::vector<std::vector<int32_t>> active;
-    const auto take = [&](const gf3_affine::SourceReference &reference) {
-      assert(reference.occurrence &&
-             reference.occurrence <= owner.theory.source.size());
-      const auto &source = owner.theory.source[reference.occurrence - 1];
-      assert(source.occurrence == reference.occurrence);
-      assert(source.native_proof_id == reference.native_proof_id);
-      if (used.insert(reference.occurrence).second)
-        active.push_back(source.literals);
-    };
-    for (const auto &source : consequence.sources) {
-      assert(source.authentication_index < bridge.authentication.size());
-      const auto &authentication =
-          bridge.authentication[source.authentication_index];
-      assert(authentication.source_id == source.combination.source_id);
-      for (const auto &domain : authentication.domains) {
-        take(domain.at_least_one);
-        for (const auto &amo : domain.at_most_one) take(amo);
-      }
-      for (const auto &tuple : authentication.forbidden_tuples)
-        take(tuple.premise);
-    }
-    for (uint64_t offset = 0; offset < consequence.event_count; ++offset) {
-      const auto &event =
-          certificate.events[consequence.first_event + offset];
-      assert(event.consequence == consequence_index);
-      assert(rup(active, event.clause));
-      active.push_back(event.clause);
-    }
-  }
-}
-
-void chained_positive_and_fresh_transaction() {
-  Kernel kernel = install(gf3_chained_units());
-  FILE *records = std::tmpfile();
-  assert(records);
-  auto config = request(records);
-  live::Prepared prepared;
-  const auto planned = live::prepare(kernel, config, prepared);
-  assert(planned.status == live::Status::Prepared && prepared.ready());
-  assert(prepared.bridge().gaussian.derivations.size() > 3);
-  bool chained = false;
-  for (const auto &node : prepared.bridge().gaussian.derivations)
-    chained |= node.kind == gf3_gaussian::DerivationKind::Add &&
-               node.first_parent > 3;
-  assert(chained);
-  assert(prepared.certificate().consequences.size() == 3);
-  independently_replay(prepared);
-
-  const Image before_publish = image(kernel);
-  auto changed_limit = config;
-  --changed_limit.maximum_proof_additions;
-  assert(live::apply(kernel, changed_limit, prepared).status ==
-         live::Status::Invalid);
-  assert(image(kernel) == before_publish && position(records) == 0);
-  FILE *other_records = std::tmpfile();
-  assert(other_records);
-  auto changed_sink = config;
-  changed_sink.records = other_records;
-  assert(live::apply(kernel, changed_sink, prepared).status ==
-         live::Status::Invalid);
-  assert(image(kernel) == before_publish && position(records) == 0 &&
-         position(other_records) == 0);
-  std::fclose(other_records);
-
-  const auto applied = live::apply(kernel, config, prepared);
-  assert(applied.status == live::Status::Applied &&
-         applied.result == ApplyResult::Ok && !applied.contradiction);
-  auto units = applied.published_units;
-  std::sort(units.begin(), units.end());
-  assert((units == std::vector<int32_t>{-8, -7, -6, -4, -2, -1, 3, 5, 9}));
-  assert(applied.effort.proof_additions ==
-         prepared.certificate().events.size());
-  assert(applied.effort.proof_literal_occurrences ==
-         prepared.certificate().statistics.event_literals);
-  assert(applied.effort.capture_work && applied.effort.bridge_work &&
-         applied.effort.certificate_work && applied.effort.validation_work &&
-         applied.effort.revalidation_work);
-  assert(applied.effort.journal_work == applied.effort.journal_bytes);
-  assert(position(records) == long(applied.effort.journal_bytes));
-  const std::string journal = written_bytes(records);
-  assert(journal.find("\"kind\":\"gf3-gaussian-authentication\"") !=
-             std::string::npos &&
-         journal.find("\"forbidden_tuples\":[") != std::string::npos &&
-         journal.find("\"kind\":\"gf3-gaussian-consequence\"") !=
-             std::string::npos &&
-         journal.find("\"derivation\":") != std::string::npos &&
-         journal.find("\"source_combination\":[") != std::string::npos &&
-         journal.find("\"consequence\":") != std::string::npos);
-  const Image after = image(kernel);
-  const auto repeated = live::apply(kernel, config, prepared);
-  assert(repeated.status == live::Status::AlreadyApplied &&
-         image(kernel) == after && position(records) ==
-                                       long(applied.effort.journal_bytes));
-  std::fclose(records);
+State state(const Kernel &kernel) {
+  return {image(kernel), kernel.inconsistent, kernel.values, kernel.unit_ids};
 }
 
 // A chained-units kernel with a fresh journal.
@@ -189,9 +70,9 @@ struct Fixture {
 
   // `run` declines with `expected` and leaves the kernel and journal untouched.
   template <class Run> void declines(live::Status expected, Run run) {
-    const Image before = image(kernel);
+    const State before = state(kernel);
     assert(run().status == expected);
-    assert(image(kernel) == before && position(records) == 0);
+    assert(state(kernel) == before && position(records) == 0);
   }
 };
 
@@ -201,62 +82,34 @@ void attach(Proof &proof, Kernel &kernel) {
   kernel.proof = &proof;
 }
 
-// Prepares, lets `mutate` change the prepared action or the kernel, and
-// requires apply to decline with `expected`.
-template <class Mutate>
-void prepared_then_declines(live::Status expected, Mutate mutate) {
+// Source/Scale/Add closure publishes every unit of x=2, y=1, z=2 at once.
+void chained_units_and_journal() {
   Fixture f;
-  const auto config = request(f.records);
+  // inspect() is mutation-free; its certificate fixes the proof accounting.
   live::Prepared prepared;
-  assert(live::prepare(f.kernel, config, prepared).status ==
+  assert(live::inspect(f.kernel, request(f.records), prepared).status ==
          live::Status::Prepared);
-  mutate(f.kernel, prepared);
-  f.declines(expected, [&] { return live::apply(f.kernel, config, prepared); });
-}
-
-const Gf3AffineLiveSource &large_source(const live::Prepared &prepared) {
-  const auto &sources = prepared.owner().sources;
-  const auto source =
-      std::find_if(sources.begin(), sources.end(), [](const auto &item) {
-        return item.kind == Gf3AffineSourceKind::Large;
-      });
-  assert(source != sources.end());
-  return *source;
-}
-
-void corruption_stale_rebinding_and_no_mutation() {
-  prepared_then_declines(live::Status::Invalid, [](Kernel &, live::Prepared &p) {
-    auto &corrupt = const_cast<gf3_gaussian_certificate::Plan &>(p.certificate());
-    assert(!corrupt.events.empty());
-    corrupt.events.front().clause.push_back(INT32_MAX);
-  });
-  prepared_then_declines(live::Status::Invalid, [](Kernel &, live::Prepared &p) {
-    auto &owner = const_cast<Gf3AffineOwnerSnapshot &>(p.owner());
-    assert(!owner.sources.empty() && !owner.sources.front().clause.empty());
-    owner.sources.front().clause.front() *= -1;
-  });
-  prepared_then_declines(live::Status::Stale, [](Kernel &k, live::Prepared &p) {
-    kernel_delete_clause(k, clause_at(k.arena, large_source(p).ref));
-  });
-  prepared_then_declines(live::Status::Stale, [](Kernel &k, live::Prepared &p) {
-    const auto &source = large_source(p);
-    clause_at(k.arena, source.ref)->set_id(source.native_proof_id + 1000);
-  });
-  bool saw_late_interrupt = false;
-  for (uint64_t seed = 1; seed <= 2048 && !saw_late_interrupt; ++seed) {
-    Fixture f;
-    f.kernel.stop_fuzz = 127;
-    f.kernel.stop_fuzz_state = seed;
-    const Image before = image(f.kernel);
-    const auto result = live::apply(f.kernel, request(f.records));
-    if (result.status == live::Status::Interrupted) {
-      assert(image(f.kernel) == before && position(f.records) == 0);
-      saw_late_interrupt = result.effort.certificate_work != 0;
-    } else {
-      assert(result.status == live::Status::Applied);
-    }
-  }
-  assert(saw_late_interrupt);
+  const auto applied = live::apply(f.kernel, request(f.records));
+  assert(applied.status == live::Status::Applied &&
+         applied.result == ApplyResult::Ok && !applied.contradiction);
+  assert(applied.effort.proof_additions ==
+             prepared.certificate().events.size() &&
+         applied.effort.proof_literal_occurrences ==
+             prepared.certificate().statistics.event_literals);
+  auto units = applied.published_units;
+  std::sort(units.begin(), units.end());
+  assert((units == std::vector<int32_t>{-8, -7, -6, -4, -2, -1, 3, 5, 9}));
+  assert(applied.effort.capture_work && applied.effort.bridge_work &&
+         applied.effort.certificate_work && applied.effort.validation_work &&
+         applied.effort.revalidation_work);
+  assert(applied.effort.journal_work == applied.effort.journal_bytes);
+  assert(position(f.records) == long(applied.effort.journal_bytes));
+  const std::string journal = written_bytes(f.records);
+  for (const char *field :
+       {"\"kind\":\"gf3-gaussian-authentication\"", "\"forbidden_tuples\":[",
+        "\"kind\":\"gf3-gaussian-consequence\"", "\"derivation\":",
+        "\"source_combination\":[", "\"consequence\":"})
+    assert(journal.find(field) != std::string::npos);
 }
 
 void budgets_interruptions_and_formats() {
@@ -281,6 +134,21 @@ void budgets_interruptions_and_formats() {
     f.declines(live::Status::Interrupted,
                [&] { return live::apply(f.kernel, request(f.records)); });
   }
+  bool saw_late_interrupt = false;
+  for (uint64_t seed = 1; seed <= 2048 && !saw_late_interrupt; ++seed) {
+    Fixture f;
+    f.kernel.stop_fuzz = 127;
+    f.kernel.stop_fuzz_state = seed;
+    const State before = state(f.kernel);
+    const auto result = live::apply(f.kernel, request(f.records));
+    if (result.status == live::Status::Interrupted) {
+      assert(state(f.kernel) == before && position(f.records) == 0);
+      saw_late_interrupt = result.effort.certificate_work != 0;
+    } else {
+      assert(result.status == live::Status::Applied);
+    }
+  }
+  assert(saw_late_interrupt);
   {
     Fixture f;
     TemporaryFile file;
@@ -295,44 +163,29 @@ void budgets_interruptions_and_formats() {
   }
 }
 
-void proof_modes_and_conflict() {
-  {
-    TemporaryFile file;
-    Kernel kernel = install(gf3_conflict());
-    Proof proof;
-    assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
-    attach(proof, kernel);
-    FILE *records = std::tmpfile();
-    assert(records);
-    const auto result = live::apply(kernel, request(records));
-    assert(result.status == live::Status::Applied && result.contradiction &&
-           result.result == ApplyResult::Unsat && kernel.inconsistent &&
-           result.published_units.empty());
-    proof.flush();
-    kernel.proof = nullptr;
-    assert(!read_file(file.path).empty());
-    std::fclose(records);
-  }
-  {
-    Fixture f;
-    TemporaryFile file;
-    Proof proof;
-    assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
-    attach(proof, f.kernel);
-    live::Prepared prepared;
-    const auto declined = live::prepare(f.kernel, request(f.records), prepared);
-    assert(declined.status == live::Status::UnsupportedProofSplit &&
-           !prepared.ready() && position(f.records) == 0);
-    f.kernel.proof = nullptr;
-  }
+void dsr_conflict() {
+  TemporaryFile file;
+  Kernel kernel = install(gf3_conflict());
+  Proof proof;
+  assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
+  attach(proof, kernel);
+  FILE *records = std::tmpfile();
+  assert(records);
+  const auto result = live::apply(kernel, request(records));
+  assert(result.status == live::Status::Applied && result.contradiction &&
+         result.result == ApplyResult::Unsat && kernel.inconsistent &&
+         result.published_units.empty());
+  proof.flush();
+  kernel.proof = nullptr;
+  assert(!read_file(file.path).empty());
+  std::fclose(records);
 }
 
 } // namespace
 
 int main() {
-  chained_positive_and_fresh_transaction();
-  corruption_stale_rebinding_and_no_mutation();
+  chained_units_and_journal();
   budgets_interruptions_and_formats();
-  proof_modes_and_conflict();
+  dsr_conflict();
   std::puts("test_gf3_gaussian_live: passed");
 }

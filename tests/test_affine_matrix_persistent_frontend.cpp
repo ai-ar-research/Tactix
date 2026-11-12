@@ -39,20 +39,9 @@ static OnlineInvocation invocation(const AffineMatrixInitializeParameters &p) {
 }
 static void replay_and_scope() {
   auto p=profile();OnlineStrategyProgram program;program.sequence={invocation(p)};
-  for (auto op:{AffineMatrixInitializeParameters::Operation::Initialize,
-       AffineMatrixInitializeParameters::Operation::Refresh,
-       AffineMatrixInitializeParameters::Operation::RootMaintenance,
-       AffineMatrixInitializeParameters::Operation::SearchStep,
-       AffineMatrixInitializeParameters::Operation::DeferredSearchStep,
-       AffineMatrixInitializeParameters::Operation::MaterializeReasons,
-       AffineMatrixInitializeParameters::Operation::DetachedMinimalSearchStep,
-       AffineMatrixInitializeParameters::Operation::DetachedSourceSearchStep,
-       AffineMatrixInitializeParameters::Operation::LazySourceSearchStep,
-       AffineMatrixInitializeParameters::Operation::LazyMinimalSearchStep}) {
-    p.operation=op;program.sequence[0].parameters=p;
-    const auto wire=serialize_online_strategy_program(program);
-    assert(wire.find(":affine-matrix-persistent1(")!=std::string::npos);
-  }
+  p.operation=AffineMatrixInitializeParameters::Operation::LazyMinimalSearchStep;
+  program.sequence[0].parameters=p;
+  assert(serialize_online_strategy_program(program).find(":affine-matrix-persistent1(")!=std::string::npos);
   auto invalid=p;invalid.maximum_deferred_deletions=0;
   program.sequence[0].parameters=invalid;assert(!validate_online_strategy_program(program));
   program.sequence[0].parameters=p;program.sequence[0].rule="AffineConsequence";

@@ -1,29 +1,47 @@
-// Canonical binary disappearance must re-arm removal advice, independently
-// of proof mode, duplicate copies and the caller's instance choice.
+// Substitute's removal advice: a canonical binary disappearance or a retained
+// binary-collapse endpoint re-arms BVE retry, independently of proof mode,
+// duplicate copies and the caller's instance choice; surviving rewrites do not.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitute/substitute.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <cstdlib>
-#include <fstream>
-#include <string>
-#include <unistd.h>
+#include <vector>
 using namespace tactix;
 
-static bool fixture(unsigned copies, int mode, bool single, bool reverse) {
+// Opens a discarded DSR stream when `mode` is set.
+static void attach_proof(Kernel &k, Proof &proof, int mode) {
+  if (!mode) return;
+  assert(proof.open("/dev/null", ProofFormat::DsrAscii));
+  k.proof = &proof;
+  proof.bind_variable_map(&k.internal_to_external);
+}
+
+// Applies Substitute canonically or through its first instance; then a no-op
+// reapplication synthesizes no fresh removal events and level 1 fails the guard.
+static void apply(Kernel &k, bool single) {
+  const auto &rule = tactix_rules()[tactix_rule_id("Substitute")];
+  assert(rule.guard(k));
+  uint64_t instances[8];
+  assert(rule.instances(k, instances, 8) > 0);
+  assert((single ? rule.apply_instance(k, instances[0]) : rule.apply(k)) ==
+         ApplyResult::Ok);
+}
+static void reapply_is_quiet(Kernel &k) {
+  const auto &rule = tactix_rules()[tactix_rule_id("Substitute")];
+  const uint64_t after = k.stats.bve_marks;
+  assert(rule.apply(k) == ApplyResult::NoOp && k.stats.bve_marks == after);
+  k.level = 1; assert(!rule.guard(k)); k.level = 0;
+}
+
+static void disappearance(unsigned copies, int mode, bool single, bool reverse) {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  char path[] = "substitute-retry-proof-XXXXXX";
-  const int fd = mkstemp(path); assert(fd >= 0); close(fd);
   Proof proof;
-  if (mode) {
-    assert(proof.open(path, ProofFormat::DsrAscii));
-    k.proof = &proof;
-    proof.bind_variable_map(&k.internal_to_external);
-  }
+  attach_proof(k, proof, mode);
   for (Var v : reverse ? std::vector<Var>{1, 0, 2, 3}
                        : std::vector<Var>{0, 1, 2, 3})
     kernel_record_import(k, v);
@@ -37,13 +55,7 @@ static bool fixture(unsigned copies, int mode, bool single, bool reverse) {
   std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
   const auto removed = k.removed;
   const uint64_t before = k.stats.bve_marks;
-  const auto &rule = tactix_rules()[tactix_rule_id("Substitute")];
-  assert(rule.guard(k));
-  uint64_t instances[8];
-  const uint32_t count = rule.instances(k, instances, 8);
-  assert(count > 0);
-  const ApplyResult result = single ? rule.apply_instance(k, instances[0]) : rule.apply(k);
-  assert(result == ApplyResult::Ok);
+  apply(k, single);
   assert(k.value(internalize(1)) == 0 && k.value(internalize(2)) == 0);
   assert(kernel_var_retired(k, reverse ? 0 : 1));
   assert(!kernel_var_retired(k, reverse ? 1 : 0));
@@ -51,39 +63,63 @@ static bool fixture(unsigned copies, int mode, bool single, bool reverse) {
   assert(!kernel_binary_live(k, internalize(1), internalize(-2)));
   assert(kernel_binary_live(k, internalize(reverse ? 2 : 1), internalize(3)));
   assert(kernel_binary_live(k, internalize(3), internalize(4)));
-  const bool retry = k.bve_retry[0] && k.bve_retry[1] &&
-                     !k.bve_retry[2] && !k.bve_retry[3];
-  const bool epochs = k.removed[0] > removed[0] && k.removed[1] > removed[1] &&
-                      k.removed[2] == removed[2] && k.removed[3] == removed[3];
-  const bool events = k.stats.bve_marks - before == 4 * copies;
-  // A no-op reapplication does not synthesize fresh removal events.
-  const uint64_t after = k.stats.bve_marks;
-  assert(rule.apply(k) == ApplyResult::NoOp);
-  assert(k.stats.bve_marks == after);
-  k.level = 1; assert(!rule.guard(k)); k.level = 0;
+  assert(k.bve_retry[0] && k.bve_retry[1] && !k.bve_retry[2] && !k.bve_retry[3]);
+  assert(k.removed[0] > removed[0] && k.removed[1] > removed[1] &&
+         k.removed[2] == removed[2] && k.removed[3] == removed[3]);
+  assert(k.stats.bve_marks - before == 4 * copies);
+  reapply_is_quiet(k);
   k.proof = nullptr;
-  if (mode) proof.flush();
-  assert(std::remove(path) == 0);
-  if (!(retry && epochs && events))
-    std::printf("missing retry: copies=%u mode=%d single=%d reverse=%d flags=%d%d%d%d marks=%llu epochs=%d\n",
-                copies, mode, single, reverse, k.bve_retry[0], k.bve_retry[1],
-                k.bve_retry[2], k.bve_retry[3],
-                (unsigned long long)(after-before), epochs);
-  return retry && epochs && events;
 }
 
-int main(int argc, char **argv) {
-  bool ok = true;
-  for (unsigned copies : {1u, 2u, 5u})
-    for (int mode : {0, 1})
-      for (bool single : {false, true})
-        for (bool reverse : {false, true})
-          ok = fixture(copies, mode, single, reverse) && ok;
-  if (argc == 2 && std::string(argv[1]) == "--expect-old-missing") {
-    assert(!ok); // Negative control is a known missing state effect, not a crash.
-    std::puts("PASS: actual parent reproduces missing Substitute removal advice");
-    return 0;
+// A large clause over the class collapses to a binary (retry on x3) unless it
+// is redundant or keeps a fourth literal; the solved model is checked.
+static void collapse(unsigned copies, bool redundant, bool large, int mode,
+                     bool single) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  Proof proof;
+  attach_proof(k, proof, mode);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2), ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2), ++k.next_clause_id);
+  const Lit source[] = {internalize(1), internalize(2), internalize(3), internalize(4)};
+  for (unsigned i = 0; i < copies; ++i)
+    kernel_add_large_clause(k, source, large ? 4 : 3, redundant,
+                            redundant ? 2 : 0, ++k.next_clause_id);
+  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
+  const auto before = k.stats.bve_marks;
+  apply(k, single);
+  assert(kernel_var_retired(k, 1));
+  assert(k.bve_retry[2] == (!redundant && !large) && !k.bve_retry[3]);
+  if (!redundant && !large) {
+    assert(kernel_binary_live(k, internalize(1), internalize(3)));
+    assert(k.stats.bve_marks - before == 4 + 3 * copies);
   }
-  assert(ok);
-  std::puts("PASS: canonical/public retry fixtures");
+  reapply_is_quiet(k);
+  kernel_check_invariants(k);
+  k.proof = nullptr;
+  // The redundant controls supply an arbitrary learned clause; make it
+  // entailed by surviving endpoints before checking an original-formula model.
+  if (redundant) {
+    const Lit support[] = {internalize(1), internalize(3), internalize(4)};
+    if (large) kernel_add_large_clause(k, support, 3, false, 0, ++k.next_clause_id);
+    else kernel_add_binary_clause(k, support[0], support[1], ++k.next_clause_id);
+  }
+  assert(default_solve(k) == 10);
+  kernel_extend_model(k);
+  const auto val = [&](int x) { return k.value(internalize(x)) > 0; };
+  assert((val(-1) || val(2)) && (val(1) || val(-2)));
+  assert(val(1) || val(2) || val(3) || (large && val(4)));
+}
+
+int main() {
+  for (unsigned copies : {1u, 2u})
+    for (int mode : {0, 1})
+      for (bool single : {false, true}) {
+        for (bool reverse : {false, true})
+          disappearance(copies, mode, single, reverse);
+        for (bool redundant : {false, true})
+          for (bool large : {false, true})
+            collapse(copies, redundant, large, mode, single);
+      }
+  std::puts("PASS: Substitute removal-advice disappearance and collapse fixtures");
 }

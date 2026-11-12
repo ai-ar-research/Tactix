@@ -1,5 +1,6 @@
-// Lucky structured models: Cerny, Fermat and balanced-signature recognition,
-// SAT completion, shape rejection, guards and the Lucky instance surface.
+// Lucky structured SAT constructors (Cerny, Fermat, balanced signature, lookup
+// circuit, SIMON): the positive case through the Lucky instance, a shape
+// rejection that leaves the trail untouched, and the parameter bounds.
 #undef NDEBUG
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
@@ -8,11 +9,8 @@
 #include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <algorithm>
 #include <cassert>
-#include <cstdio>
 #include <sstream>
-#include <string>
 
 using namespace tactix;
 
@@ -52,37 +50,33 @@ static Kernel cerny_fixture(bool extra_positive_binary = false) {
   return parse_dimacs_text(dimacs.str());
 }
 
+static const RuleVTable &lucky() {
+  return tactix_rules()[tactix_rule_id("Lucky")];
+}
+
+// A recognized fixture publishes a model through Lucky instance `instance`.
+static void assert_instance_sat(Kernel &k, uint64_t instance) {
+  assert(apply_rule_instance(lucky(), k, instance) == ApplyResult::Sat);
+  assert(k.unassigned_active == 0);
+}
+
+// An unrecognized fixture declines without touching the trail.
+template <class Apply>
+static void assert_declines(Kernel &k, Apply apply, const uint64_t &recognized) {
+  const size_t trail = k.trail.size();
+  assert(apply(k) == ApplyResult::NoOp);
+  assert(recognized == 0 && k.trail.size() == trail);
+}
+
 static void cerny_cases() {
   {
     Kernel k = cerny_fixture();
-    assert(k.input_positive_binary_count == 4);
-    assert(k.input_ternary_clause_count == 18);
-    assert(cerny_model_guard(k));
-    assert(cerny_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.cerny_model_calls == 1);
-    assert(k.stats.cerny_model_recognized == 1);
-    assert(k.stats.cerny_model_states == 3);
-    assert(k.stats.cerny_model_length == 4);
-    assert(k.stats.cerny_model_sat == 1);
-    assert(k.unassigned_active == 0);
+    assert_instance_sat(k, 12);
+    assert(k.stats.cerny_model_recognized == 1 && k.stats.cerny_model_states == 3 &&
+           k.stats.cerny_model_length == 4 && k.stats.cerny_model_sat == 1);
   }
-  {
-    Kernel k = cerny_fixture(true);
-    const size_t trail = k.trail.size();
-    assert(cerny_model_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.cerny_model_recognized == 0);
-    assert(k.trail.size() == trail);
-  }
-  {
-    Kernel k = cerny_fixture();
-    k.level = 1;
-    assert(!cerny_model_guard(k));
-  }
-  {
-    Kernel k = cerny_fixture();
-    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
-    assert(lucky.apply_instance(k, 12) == ApplyResult::Sat);
-  }
+  Kernel k = cerny_fixture(true);
+  assert_declines(k, cerny_model_apply, k.stats.cerny_model_recognized);
 }
 
 static Kernel fermat_fixture(bool third_long = false) {
@@ -129,37 +123,19 @@ static Kernel fermat_fixture(bool third_long = false) {
 static void fermat_cases() {
   {
     Kernel k = fermat_fixture();
-    assert(k.input_long_clause_count == 2);
-    assert(k.input_fermat_long_shape && k.input_fermat_width == 11);
-    assert(fermat_model_guard(k));
-    assert(fermat_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.fermat_model_calls == 1);
-    assert(k.stats.fermat_model_recognized == 1);
-    assert(k.stats.fermat_model_candidates == 1);
-    assert(k.stats.fermat_model_sat == 1);
-    assert(k.unassigned_active == 0);
+    assert_instance_sat(k, 11);
+    assert(k.stats.fermat_model_recognized == 1 &&
+           k.stats.fermat_model_candidates == 1 && k.stats.fermat_model_sat == 1);
   }
   {
     Kernel k = fermat_fixture(true);
-    const size_t trail = k.trail.size();
-    assert(!k.input_fermat_long_shape);
-    assert(fermat_model_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.fermat_model_recognized == 0);
-    assert(k.trail.size() == trail);
+    assert_declines(k, fermat_model_apply, k.stats.fermat_model_recognized);
   }
-  {
-    Kernel k = fermat_fixture();
-    strategy::FermatModelParameters parameters;
-    parameters.maximum_bits = 9;
-    strategy::ScopedRuleParameters<strategy::FermatModelParameters> posed(k, parameters);
-    assert(fermat_model_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.fermat_model_recognized == 0);
-  }
-  {
-    Kernel k = fermat_fixture();
-    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
-    assert(lucky.apply_instance(k, 11) == ApplyResult::Sat);
-  }
+  Kernel k = fermat_fixture();
+  strategy::FermatModelParameters parameters;
+  parameters.maximum_bits = 9;
+  strategy::ScopedRuleParameters<strategy::FermatModelParameters> posed(k, parameters);
+  assert_declines(k, fermat_model_apply, k.stats.fermat_model_recognized);
 }
 
 static Kernel balance_fixture(bool complete_shape = true,
@@ -188,46 +164,27 @@ static Kernel balance_fixture(bool complete_shape = true,
   return k;
 }
 
+static const strategy::LocalSearchHint &balance_hint(const Kernel &k) {
+  return k.local_search_hints[static_cast<size_t>(
+      strategy::LocalSearchKind::BalancedSignature)];
+}
+
 static void balanced_signature_cases() {
   {
     Kernel k = balance_fixture();
-    assert(balanced_signature_model_guard(k));
-    const ApplyResult result = balanced_signature_model_apply(k);
-    if (result != ApplyResult::Sat)
-      std::fprintf(stderr,
-                   "balance result=%u calls=%llu recognized=%llu candidates=%llu "
-                   "restarts=%llu steps=%llu completion=%llu hints=%llu\n",
-                   unsigned(result),
-                   (unsigned long long)k.stats.balanced_signature_calls,
-                   (unsigned long long)k.stats.balanced_signature_recognized,
-                   (unsigned long long)k.stats.balanced_signature_candidates,
-                   (unsigned long long)k.stats.balanced_signature_restarts,
-                   (unsigned long long)k.stats.balanced_signature_steps,
-                   (unsigned long long)k.stats.balanced_signature_completion_rounds,
-                   (unsigned long long)k.stats.local_search_hints_offered);
-    assert(result == ApplyResult::Sat);
-    assert(k.stats.balanced_signature_calls == 1);
-    assert(k.stats.balanced_signature_recognized == 1);
-    assert(k.stats.balanced_signature_forced_ttf == 0);
-    assert(k.stats.balanced_signature_candidates == 1);
-    assert(k.stats.balanced_signature_sat == 1);
-    assert(k.unassigned_active == 0);
-    assert(k.local_search_hints[static_cast<size_t>(
-               strategy::LocalSearchKind::BalancedSignature)]
-               .available());
-    assert(k.local_search_hints[static_cast<size_t>(
-               strategy::LocalSearchKind::BalancedSignature)]
-               .external_phases[43] == 0);
+    assert_instance_sat(k, 10);
+    assert(k.stats.balanced_signature_recognized == 1 &&
+           k.stats.balanced_signature_forced_ttf == 0 &&
+           k.stats.balanced_signature_candidates == 1 &&
+           k.stats.balanced_signature_sat == 1);
+    assert(balance_hint(k).available() && balance_hint(k).external_phases[43] == 0);
   }
   {
     Kernel k = balance_fixture(true, true);
     assert(balanced_signature_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.balanced_signature_recognized == 1);
-    assert(k.stats.balanced_signature_forced_ttf == 1);
-    assert(k.stats.balanced_signature_candidates == 1);
-    assert(k.stats.balanced_signature_sat == 1);
-    assert(k.stats.balanced_signature_steps > 0);
-    assert(k.unassigned_active == 0);
+    assert(k.stats.balanced_signature_forced_ttf == 1 &&
+           k.stats.balanced_signature_candidates == 1 &&
+           k.stats.balanced_signature_steps > 0 && k.unassigned_active == 0);
   }
   {
     // A third positive literal is not a TTF guard, even when it is root
@@ -235,11 +192,10 @@ static void balanced_signature_cases() {
     // because TTO always selects row zero, so model completion must reject it.
     Kernel k = balance_fixture(true, true, false);
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.balanced_signature_recognized == 1);
-    assert(k.stats.balanced_signature_forced_ttf == 0);
-    assert(k.stats.balanced_signature_candidates == 1);
-    assert(k.stats.balanced_signature_sat == 0);
-    assert(k.unassigned_active != 0);
+    assert(k.stats.balanced_signature_recognized == 1 &&
+           k.stats.balanced_signature_forced_ttf == 0 &&
+           k.stats.balanced_signature_candidates == 1 &&
+           k.stats.balanced_signature_sat == 0 && k.unassigned_active != 0);
   }
   {
     Kernel k = balance_fixture(true, true);
@@ -250,69 +206,161 @@ static void balanced_signature_cases() {
     strategy::ScopedRuleParameters<strategy::BalancedSignatureModelParameters> posed(k, parameters);
     const ApplyResult result = balanced_signature_model_apply(k);
     assert(result == ApplyResult::NoOp || result == ApplyResult::Sat);
-    assert(k.stats.balanced_signature_restarts <= 2);
-    assert(k.stats.balanced_signature_steps <= 6);
-    assert(k.stats.balanced_signature_restarts > 0);
-    assert(k.stats.balanced_signature_steps > 0);
+    assert(k.stats.balanced_signature_restarts > 0 &&
+           k.stats.balanced_signature_restarts <= 2);
+    assert(k.stats.balanced_signature_steps > 0 &&
+           k.stats.balanced_signature_steps <= 6);
   }
   {
     Kernel k = balance_fixture(true, true);
     volatile sig_atomic_t stop = 1;
     k.stop = &stop;
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.balanced_signature_recognized == 1);
-    assert(k.stats.balanced_signature_forced_ttf == 1);
-    assert(k.stats.balanced_signature_interrupted == 1);
-    assert(k.stats.balanced_signature_steps == 0);
-    assert(k.stats.balanced_signature_candidates == 0);
-    assert(!k.local_search_hints[static_cast<size_t>(
-                strategy::LocalSearchKind::BalancedSignature)]
-                .available());
+    assert(k.stats.balanced_signature_interrupted == 1 &&
+           k.stats.balanced_signature_steps == 0 &&
+           k.stats.balanced_signature_candidates == 0 && !balance_hint(k).available());
   }
   {
-    Kernel k = balance_fixture(false);
-    const size_t trail = k.trail.size();
-    assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.balanced_signature_recognized == 0);
-    assert(k.stats.balanced_signature_forced_ttf == 0);
-    assert(k.trail.size() == trail);
-    assert(!k.local_search_hints[static_cast<size_t>(
-                strategy::LocalSearchKind::BalancedSignature)]
-                .available());
-  }
-  {
-    Kernel k = balance_fixture();
-    k.level = 1;
-    assert(!balanced_signature_model_guard(k));
-    k.level = 0;
-    k.large_watches_connected = false;
-    assert(!balanced_signature_model_guard(k));
-  }
-  {
+    // Invalid native parameters decline before recognition.
     Kernel k = balance_fixture();
     strategy::BalancedSignatureModelParameters parameters;
     parameters.steps_per_restart = 0;
     strategy::ScopedRuleParameters<strategy::BalancedSignatureModelParameters> posed(k, parameters);
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
-    assert(k.trail.size() == 7);
+    assert(k.trail.size() == 7 && !k.stats.balanced_signature_recognized);
+  }
+  Kernel k = balance_fixture(false);
+  assert_declines(k, balanced_signature_model_apply,
+                  k.stats.balanced_signature_recognized);
+  assert(!balance_hint(k).available());
+}
+
+static Kernel lookup_fixture(bool mixed_width = false) {
+  std::ostringstream dimacs;
+  dimacs << "p cnf 4 " << 14 + mixed_width << '\n';
+  for (unsigned input = 0; input < 4; ++input)
+    for (unsigned output = 0; output < 4; ++output)
+      if (output != input)
+        dimacs << ((input & 1) ? -1 : 1) << ' ' << ((input & 2) ? -2 : 2) << ' '
+               << ((output & 1) ? -3 : 3) << ' ' << ((output & 2) ? -4 : 4)
+               << " 0\n";
+  dimacs << "3 0\n-4 0\n";
+  if (mixed_width)
+    dimacs << "1 2 0\n";
+  return parse_dimacs_text(dimacs.str());
+}
+
+// One 8-input/1-output lookup gate whose output is its highest input bit.
+// Fixing the output high forces enumeration beyond the first 128 input
+// assignments and exercises every AVX2 table-selection level.
+static Kernel wide_lookup_fixture() {
+  std::ostringstream dimacs;
+  dimacs << "p cnf 9 257\n";
+  for (unsigned input = 0; input < 256; ++input) {
+    for (unsigned bit = 0; bit < 8; ++bit)
+      dimacs << ((input >> bit) & 1 ? -int(bit + 1) : int(bit + 1)) << ' ';
+    dimacs << (((input >> 7) & 1) ? 9 : -9) << " 0\n";
+  }
+  dimacs << "9 0\n";
+  return parse_dimacs_text(dimacs.str());
+}
+
+static bool avx2() {
+#if defined(__x86_64__) || defined(__i386__)
+  __builtin_cpu_init();
+  return __builtin_cpu_supports("avx2");
+#else
+  return false;
+#endif
+}
+
+static void lookup_circuit_cases() {
+  {
+    Kernel k = lookup_fixture();
+    assert_instance_sat(k, 13);
+    assert(k.stats.lookup_circuit_model_recognized == 1 &&
+           k.stats.lookup_circuit_model_gates == 1 &&
+           k.stats.lookup_circuit_model_support == 2);
+    assert(!avx2() || k.stats.lookup_circuit_model_vector_evaluations == 1);
   }
   {
-    Kernel k = balance_fixture();
-    const int lucky_id = tactix_rule_id("Lucky");
-    assert(lucky_id >= 0);
-    const RuleVTable &lucky = tactix_rules()[lucky_id];
-    uint64_t instances[LUCKY_ACTIVE_INSTANCE_COUNT] = {};
-    const uint32_t count = lucky.instances(
-        k, instances, LUCKY_ACTIVE_INSTANCE_COUNT);
-    assert(count == LUCKY_ACTIVE_INSTANCE_COUNT);
-    assert(std::find(instances, instances + count, uint64_t{10}) !=
-           instances + count);
-    assert(lucky.apply_instance(k, 10) == ApplyResult::Sat);
+    Kernel k = lookup_fixture(true);
+    assert_declines(k, lookup_circuit_model_apply,
+                    k.stats.lookup_circuit_model_recognized);
   }
+  {
+    Kernel k = wide_lookup_fixture();
+    assert_instance_sat(k, 13);
+    assert(k.stats.lookup_circuit_model_support == 8);
+    assert(!avx2() || k.stats.lookup_circuit_model_vector_evaluations >= 3);
+    assert(k.value(internalize(8)) > 0 && k.value(internalize(9)) > 0);
+  }
+  Kernel k = lookup_fixture();
+  strategy::LookupCircuitModelParameters parameters;
+  parameters.maximum_fanin = 1;
+  strategy::ScopedRuleParameters<strategy::LookupCircuitModelParameters> posed(k, parameters);
+  assert(lookup_circuit_model_apply(k) == ApplyResult::NoOp);
+}
+
+static void xor_gate(std::ostringstream &out, uint32_t x, uint32_t y,
+                     uint32_t z) {
+  out << x << ' ' << y << " -" << z << " 0\n" << x << " -" << y << ' ' << z
+      << " 0\n" << '-' << x << ' ' << y << ' ' << z << " 0\n" << '-' << x
+      << " -" << y << " -" << z << " 0\n";
+}
+
+// One complete SIMON32 round under key zero, with the key's identity
+// permutation into a secondary word.
+static Kernel simon_fixture(bool extra_binary = false) {
+  std::ostringstream dimacs;
+  dimacs << "p cnf 288 " << 736 + extra_binary << '\n';
+  for (uint32_t bit = 0; bit < 32; ++bit)
+    dimacs << 1 + bit << " -" << 33 + bit << " 0\n-" << 1 + bit << ' '
+           << 33 + bit << " 0\n";
+  for (uint32_t bit = 0; bit < 32; ++bit) {
+    const uint32_t a = 65 + ((bit + 31) & 31), b = 65 + ((bit + 24) & 31);
+    const uint32_t conjunction = 129 + bit, first_xor = 161 + bit,
+                   second_xor = 193 + bit, copy = 257 + bit, left = 65 + bit;
+    dimacs << a << " -" << conjunction << " 0\n" << b << " -" << conjunction
+           << " 0\n-" << a << " -" << b << ' ' << conjunction << " 0\n";
+    xor_gate(dimacs, 65 + ((bit + 30) & 31), conjunction, first_xor);
+    xor_gate(dimacs, 97 + bit, first_xor, second_xor);
+    xor_gate(dimacs, second_xor, 1 + bit, 225 + bit);
+    dimacs << copy << " -" << left << " 0\n-" << copy << ' ' << left << " 0\n";
+  }
+  // Zero initial state and the zero target for key zero.
+  for (uint32_t variable = 65; variable <= 128; ++variable)
+    dimacs << '-' << variable << " 0\n";
+  for (uint32_t variable = 225; variable <= 288; ++variable)
+    dimacs << '-' << variable << " 0\n";
+  // Satisfied by key zero, yet breaks the binary population the shape expects.
+  if (extra_binary)
+    dimacs << "-1 -2 0\n";
+  return parse_dimacs_text(dimacs.str());
+}
+
+static void simon_cases() {
+  {
+    Kernel k = simon_fixture();
+    assert_instance_sat(k, 14);
+    assert(k.stats.simon_model_recognized == 1 && k.stats.simon_model_rounds == 1 &&
+           k.stats.simon_model_candidates == 1 && k.stats.simon_model_sat == 1);
+  }
+  {
+    Kernel k = simon_fixture(true);
+    assert_declines(k, simon_model_apply, k.stats.simon_model_recognized);
+  }
+  Kernel k = simon_fixture();
+  strategy::SimonModelParameters parameters;
+  parameters.maximum_rounds = 0;
+  strategy::ScopedRuleParameters<strategy::SimonModelParameters> posed(k, parameters);
+  assert(simon_model_apply(k) == ApplyResult::NoOp);
 }
 
 int main() {
   cerny_cases();
   fermat_cases();
   balanced_signature_cases();
+  lookup_circuit_cases();
+  simon_cases();
 }

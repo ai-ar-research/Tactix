@@ -20,13 +20,6 @@ struct SubstituteBatchResult {
   bool reconnected = false;
 };
 
-// The complete helper's continuation profile.
-inline uint64_t substitute_complete_active_count(const Kernel &k) {
-  const uint64_t retired = static_cast<uint64_t>(kernel_root_fixed(k)) +
-                           k.stats.bve_eliminated + k.stats.substitute_vars;
-  return uint64_t{k.nvars} > retired ? uint64_t{k.nvars} - retired : 0;
-}
-
 inline ApplyResult execute_action(Kernel &k,
                                   const SubstituteRoundRequest &request) {
   return substitute_apply_round(k, request.reconnect_large_watches);

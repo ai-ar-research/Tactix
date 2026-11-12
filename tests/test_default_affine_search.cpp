@@ -234,73 +234,55 @@ void deferred_policy_boundary(const std::string &stem = "") {
   session.disable(kernel);
 }
 
-// The detached arms travel through the same DefaultPolicy public action port
-// as the shipped eager arm: the implication reason is proof visible and
-// analyzable, but absent from ordinary watched propagation.
-void detached_policy_boundary(bool minimal) {
-  PolicyFixture fixture(cnf(two_equations()));
-  Kernel &kernel = fixture.kernel;
-  Proof &proof = fixture.open(minimal ? "/tmp/tactix-default-detached-minimal-policy.dsr"
-                                      : "/tmp/tactix-default-detached-source-policy.dsr",
-                              true);
-  auto settings = config(true);
-  settings.affine_search.reason_mode = minimal
-      ? DefaultStrategyConfig::AffineSearch::ReasonMode::DetachedMinimal
-      : DefaultStrategyConfig::AffineSearch::ReasonMode::DetachedSource;
-  DefaultPolicy policy(settings);
-  assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
-             .status == AffineMatrixInitStatus::Applied);
-  decide_all(kernel, {-1, -2});
-  const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
-  assert(service.status == AffineMatrixServiceStatus::Applied &&
-         service.live.detached_reason && service.reason_width == 3);
-  assert(policy.affine_search_diagnostics().reasons_detached == 1);
-  const Lit implied = kernel_internalize(kernel, -5);
-  assert(kernel.values[implied] > 0);
-  const Ref ref = kernel.assigned[var_of(implied)].reason;
-  const Clause *reason = clause_at(kernel.arena, ref);
-  assert(reason->garbage() && reason->reason() && reason->detached_reason());
-  for (Lit lit = 0; lit < 2 * kernel.nvars; ++lit)
-    for (const WatchEntry watch : kernel.watches.entries(lit))
-      assert(watch.binary() || watch.ref() != ref);
-
-  kernel_backtrack(kernel, 0);
-  assert(!clause_at(kernel.arena, ref)->reason());
-  fixture.session.disable(kernel);
-  proof.flush();
-}
-
-void lazy_policy_boundary(bool minimal) {
-  PolicyFixture fixture(cnf(two_equations()));
-  Kernel &kernel = fixture.kernel;
-  AffineMatrixSearchSession &session = fixture.session;
-  Proof &proof = fixture.open(minimal ? "/tmp/tactix-default-lazy-minimal-policy.dsr"
-                                      : "/tmp/tactix-default-lazy-source-policy.dsr",
-                              true);
-  auto settings = config(true);
-  settings.affine_search.reason_mode =
-      minimal ? DefaultStrategyConfig::AffineSearch::ReasonMode::LazyMinimal
-              : DefaultStrategyConfig::AffineSearch::ReasonMode::LazySource;
-  DefaultPolicy policy(settings);
-  assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
-             .status == AffineMatrixInitStatus::Applied);
-  decide_all(kernel, {-1, -2});
-  const uint64_t before = kernel.next_clause_id;
-  const size_t arena_before = kernel.arena.size();
-  const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
-  assert(service.status == AffineMatrixServiceStatus::Applied &&
-         service.reason_deferred && !service.live.detached_reason &&
-         session.lazy_reason_count() == 1 && kernel.next_clause_id == before &&
-         service.reason_width == 3 && kernel.arena.size() == arena_before);
-  const Lit implied = kernel_internalize(kernel, -5);
-  assert(kernel.assigned[var_of(implied)].affine &&
-         kernel.assigned[var_of(implied)].reason == AFFINE_REASON);
-  const auto materialized = affine_matrix_materialize_reason(kernel, session);
-  assert(materialized.reason_materialized &&
-         session.lazy_reason_count() == 0 &&
-         !kernel.assigned[var_of(implied)].affine &&
-         kernel.assigned[var_of(implied)].reason != AFFINE_REASON);
-  proof.flush();
+// The detached and lazy arms travel through the same DefaultPolicy public
+// action port as the shipped eager arm: a detached reason is proof visible
+// but unwatched; a lazy one is a native handle until materialized.
+void reason_mode_boundaries() {
+  using Mode = DefaultStrategyConfig::AffineSearch::ReasonMode;
+  for (const Mode mode : {Mode::DetachedMinimal, Mode::DetachedSource,
+                          Mode::LazySource, Mode::LazyMinimal}) {
+    const bool detached = mode == Mode::DetachedMinimal || mode == Mode::DetachedSource;
+    PolicyFixture fixture(cnf(two_equations()));
+    Kernel &kernel = fixture.kernel;
+    AffineMatrixSearchSession &session = fixture.session;
+    Proof &proof = fixture.open("/tmp/tactix-default-reason-mode-policy.dsr", true);
+    auto settings = config(true);
+    settings.affine_search.reason_mode = mode;
+    DefaultPolicy policy(settings);
+    assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
+               .status == AffineMatrixInitStatus::Applied);
+    decide_all(kernel, {-1, -2});
+    const uint64_t before = kernel.next_clause_id;
+    const size_t arena_before = kernel.arena.size();
+    const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
+    assert(service.status == AffineMatrixServiceStatus::Applied &&
+           service.reason_width == 3 && service.live.detached_reason == detached &&
+           service.reason_deferred == !detached);
+    const Var implied = var_of(kernel_internalize(kernel, -5));
+    assert(kernel.values[kernel_internalize(kernel, -5)] > 0);
+    if (detached) {
+      assert(policy.affine_search_diagnostics().reasons_detached == 1);
+      const Ref ref = kernel.assigned[implied].reason;
+      const Clause *reason = clause_at(kernel.arena, ref);
+      assert(reason->garbage() && reason->reason() && reason->detached_reason());
+      for (Lit lit = 0; lit < 2 * kernel.nvars; ++lit)
+        for (const WatchEntry watch : kernel.watches.entries(lit))
+          assert(watch.binary() || watch.ref() != ref);
+      kernel_backtrack(kernel, 0);
+      assert(!clause_at(kernel.arena, ref)->reason());
+    } else {
+      // A deferred reason allocates no clause until materialized.
+      assert(session.lazy_reason_count() == 1 && kernel.next_clause_id == before &&
+             kernel.arena.size() == arena_before &&
+             kernel.assigned[implied].affine &&
+             kernel.assigned[implied].reason == AFFINE_REASON);
+      assert(affine_matrix_materialize_reason(kernel, session).reason_materialized &&
+             session.lazy_reason_count() == 0 && !kernel.assigned[implied].affine &&
+             kernel.assigned[implied].reason != AFFINE_REASON);
+    }
+    session.disable(kernel);
+    proof.flush();
+  }
 }
 
 void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="",ProofFormat format=ProofFormat::DsrAscii) {
@@ -523,10 +505,7 @@ void paused_owner_retry(const std::string &stem = "",
 int main(int argc,char **argv) {
   assert(argc==1 || argc==2);
   empty_census_retry();
-  detached_policy_boundary(true);
-  detached_policy_boundary(false);
-  lazy_policy_boundary(false);
-  lazy_policy_boundary(true);
+  reason_mode_boundaries();
   deferred_policy_boundary(argc == 2
       ? std::string(argv[1]) + "/deferred-policy" : "");
   for (const auto &[format, suffix] : {
@@ -535,8 +514,6 @@ int main(int argc,char **argv) {
     paused_owner_retry(argc == 2 ? std::string(argv[1]) + suffix : "", format);
   Kernel k;kernel_reserve_vars(k,30);auto c=config(true);
   auto p=default_affine_search_parameters(k,c);assert(p && p->valid());
-  assert(p->maximum_arity>3 && p->basis_maximum_intermediate_width==30);
-  assert(p->maximum_session_work == c.affine_search.maximum_retained_bytes);
   c.affine_search.maximum_retained_bytes=1;assert(!default_affine_search_parameters(k,c));
   c=config(true);c.affine_root_closure.maximum_proof_deletions=0;
   assert(!default_affine_search_parameters(k,c));

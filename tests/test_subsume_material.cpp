@@ -8,6 +8,10 @@
 
 using namespace tactix;
 
+static ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
+  return tactix_rules()[tactix_rule_id("SubsumeForward")].apply_instance(k, candidate);
+}
+
 static void test_flip_clear_rearm_and_isolation() {
   Kernel k;
   kernel_reserve_vars(k, 3);

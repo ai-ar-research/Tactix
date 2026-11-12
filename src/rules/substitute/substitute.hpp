@@ -50,10 +50,6 @@ ApplyResult substitute_apply_round(Kernel &, bool reconnect_large_watches);
 // for units since `trail_begin`. Unsat iff that refutes.
 ApplyResult substitute_reconnect_large_watches(Kernel &, uint32_t trail_begin);
 
-// Kissat's `complete=true` probing: repeat productive rounds, capped by
-// `substituterounds=2`.
-ApplyResult substitute_apply_complete(Kernel &, uint32_t max_rounds);
-
 // Sweep keeps the proved bridges and leaves class retirement to canonical
 // Substitute; one session spans a call. Connected replacements keep pose and
 // span; the mixed-occurrence view gives Kissat's stream order for reached

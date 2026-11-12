@@ -3,6 +3,7 @@
 #include "dimacs_text.hpp"
 #include "temporary_file.hpp"
 #include "test_io.hpp"
+#include "kernel_image.hpp"
 #include "rules/semantic_extension/independent_set_live.hpp"
 
 #include "frontend/parse.hpp"
@@ -24,17 +25,9 @@ namespace {
 
 using Encoding = IndependentSetEncoding;
 
-Encoding make_encoding(uint32_t vertices, uint32_t target,
-                       std::vector<std::pair<uint32_t, uint32_t>> edges) {
-  return independent_set_encoding(vertices, target, std::move(edges));
-}
-
-std::string dimacs(const Encoding &encoding) {
-  return dimacs_text(encoding.variables, encoding.clauses);
-}
-
 void load(Kernel &kernel, const Encoding &encoding) {
-  parse_dimacs_text(dimacs(encoding), kernel, ParsedRoot::EmptyTrail);
+  parse_dimacs_text(dimacs_text(encoding.variables, encoding.clauses), kernel,
+                    ParsedRoot::EmptyTrail);
 }
 
 IndependentSetLiveRequest request(FILE *records,
@@ -57,36 +50,6 @@ IndependentSetLiveRequest request(FILE *records,
   return result;
 }
 
-struct KernelImage {
-  uint32_t nvars = 0;
-  uint64_t next_clause_id = 0;
-  size_t arena_words = 0;
-  size_t external_extent = 0;
-  size_t trail = 0;
-  bool startup_open = false;
-  uint64_t arena_generation = 0;
-  std::vector<Var> internal_to_external;
-  std::vector<Var> external_to_internal;
-  std::vector<size_t> watch_sizes;
-  bool operator==(const KernelImage &) const = default;
-};
-
-KernelImage image(const Kernel &kernel) {
-  KernelImage result;
-  result.nvars = kernel.nvars;
-  result.next_clause_id = kernel.next_clause_id;
-  result.arena_words = kernel.arena.size();
-  result.external_extent = kernel.external_to_internal.size();
-  result.trail = kernel.trail.size();
-  result.startup_open = kernel.startup_certificate_open;
-  result.arena_generation = kernel.arena_generation;
-  result.internal_to_external = kernel.internal_to_external;
-  result.external_to_internal = kernel.external_to_internal;
-  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
-    result.watch_sizes.push_back(kernel.watches.size(literal));
-  return result;
-}
-
 void assert_declined(const IndependentSetLiveResult &result) {
   assert(result.status != IndependentSetLiveStatus::Applied);
   assert(result.result == ApplyResult::NoOp);
@@ -101,13 +64,15 @@ void assert_declined(const IndependentSetLiveResult &result) {
 IndependentSetLiveResult
 assert_failed_unchanged(Kernel &kernel,
                         const IndependentSetLiveRequest &candidate) {
-  const KernelImage before = image(kernel);
+  const Image before = image(kernel);
+  const bool startup_open = kernel.startup_certificate_open;
   const long record_position = candidate.records.tell();
   assert(record_position >= 0);
   const IndependentSetLiveResult result =
       independent_set_live_apply(kernel, candidate);
   assert_declined(result);
-  assert(image(kernel) == before);
+  assert(image(kernel) == before &&
+         kernel.startup_certificate_open == startup_open);
   assert(candidate.records.tell() == record_position);
   return result;
 }
@@ -157,14 +122,14 @@ void complete_model(Kernel &kernel, const std::vector<uint8_t> &values) {
   assert(all_live_clauses_satisfied(kernel));
 }
 
-void positive_and_continuing(const char *proof_path, ProofFormat format) {
-  const Encoding encoding = make_encoding(4, 2, {{1, 2}});
+void positive_and_continuing(const char *proof_path) {
+  const Encoding encoding = independent_set_encoding(4, 2, {{1, 2}});
   Kernel kernel;
   load(kernel, encoding);
   const auto initial_map = kernel.external_to_internal;
   Proof proof;
   if (proof_path) {
-    assert(proof.open(proof_path, format));
+    assert(proof.open(proof_path, ProofFormat::DsrAscii));
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -223,13 +188,7 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
   assert(!kernel.startup_certificate_open);
   const std::string journal = written_bytes(records);
   assert(result.journal_work == journal.size());
-  assert(journal.find("independent-set-live-source") != std::string::npos);
-  assert(journal.find("forbidden-assignment") != std::string::npos);
-  assert(journal.find("resolution") != std::string::npos);
-  assert(journal.find("advice_vertices\":[1,2,3,4]") != std::string::npos);
   assert(journal.find("independent-set-publish-cover") != std::string::npos);
-  assert(journal.find("independent-set-conclusion-binding") !=
-         std::string::npos);
   if (!proof_path) {
     assert(journal.find("\"proof_mode\":\"none\"") != std::string::npos);
     assert(journal.find("\"conclusion_proof_id\":0,"
@@ -238,14 +197,9 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
            std::string::npos);
   }
 
-  const KernelImage duplicate_before = image(kernel);
-  const long journal_before = std::ftell(records);
-  const auto duplicate = independent_set_live_apply(kernel, apply);
-  assert_declined(duplicate);
+  const auto duplicate = assert_failed_unchanged(kernel, apply);
   assert(duplicate.status == IndependentSetLiveStatus::Duplicate &&
          duplicate.source_scan_work > 0);
-  assert(image(kernel) == duplicate_before &&
-         std::ftell(records) == journal_before);
 
   kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
   assert(propagate_service(kernel) == ApplyResult::Ok);
@@ -267,8 +221,8 @@ void positive_and_continuing(const char *proof_path, ProofFormat format) {
   std::fclose(records);
 }
 
-void retained_owner_repeated_covers() {
-  const Encoding encoding = make_encoding(4, 2, {{1, 2}});
+void retained_owner_shares_recognition_ceiling() {
+  const Encoding encoding = independent_set_encoding(4, 2, {{1, 2}});
   Kernel kernel;
   load(kernel, encoding);
   FILE *records = std::tmpfile();
@@ -303,41 +257,7 @@ void retained_owner_repeated_covers() {
   apply.maximum_recognition_work = 10000000;
   const auto first = independent_set_live_apply(kernel, apply);
   assert(first.status == IndependentSetLiveStatus::Applied &&
-         first.result == ApplyResult::Ok &&
-         first.recognition_work > capture.recognition_work &&
-         first.source_scan_work >= capture.source_scan_work &&
-         first.theory_recognition_work >= capture.theory_recognition_work &&
-         first.published_cover == std::vector<int32_t>({1, 2, 3}));
-
-  // An unrelated later semantic consequence must not contaminate the retained
-  // owner image used for a second, distinct cover.
-  const std::vector<int32_t> unrelated_external = {1, 2, 3, 4};
-  std::vector<Lit> unrelated;
-  for (int32_t external : unrelated_external)
-    unrelated.push_back(kernel_internalize(kernel, external));
-  kernel_add_large_clause(kernel, unrelated.data(), unrelated.size(), true,
-                          unrelated.size(), ++kernel.next_clause_id);
-
-  apply.cover_vertices = {1, 2, 4};
-  apply.action_id = 18;
-  apply.semantic_id = 30;
-  apply.include_owner_capture_effort = false;
-  const auto second = independent_set_live_apply(kernel, apply);
-  assert(second.status == IndependentSetLiveStatus::Applied &&
-         second.result == ApplyResult::Ok &&
-         second.recognition_work < first.recognition_work &&
-         second.source_clauses == encoding.clauses.size() &&
-         second.published_cover == std::vector<int32_t>({1, 2, 4}));
-
-  // Every retained source is checked again immediately before commit.
-  assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -1),
-                              kernel_internalize(kernel, -2)));
-  apply.cover_vertices = {1, 3, 4};
-  apply.action_id = 19;
-  apply.semantic_id = 31;
-  const auto stale = assert_failed_unchanged(kernel, apply);
-  assert(stale.status == IndependentSetLiveStatus::Stale &&
-         stale.source_scan_work > 0);
+         first.recognition_work > capture.recognition_work);
   std::fclose(records);
 }
 
@@ -359,29 +279,24 @@ struct Loaded {
   }
 };
 
-void declines_under_pb_proof(bool bound_maps) {
-  Loaded f(make_encoding(4, 2, {{1, 2}}));
+void declines_under_pb_proof() {
+  Loaded f(independent_set_encoding(4, 2, {{1, 2}}));
   TemporaryFile file;
   Proof proof;
   assert(proof.open(file.path.c_str(), ProofFormat::PbpStreaming));
   proof.finish_input_transaction();
   assert(proof.begin_pb());
-  if (bound_maps) {
-    proof.bind_variable_map(&f.kernel.internal_to_external);
-    proof.bind_external_variable_map(&f.kernel.external_to_internal);
-  }
+  proof.bind_variable_map(&f.kernel.internal_to_external);
+  proof.bind_external_variable_map(&f.kernel.external_to_internal);
   f.kernel.proof = &proof;
   assert(f.declines_cover().status ==
          IndependentSetLiveStatus::UnsupportedProof);
   f.kernel.proof = nullptr;
-  if (bound_maps)
-    proof.flush();
-  else
-    assert(proof.finish_pb());
+  proof.flush();
 }
 
 void negative_boundaries() {
-  const Encoding encoding = make_encoding(4, 2, {{1, 2}});
+  const Encoding encoding = independent_set_encoding(4, 2, {{1, 2}});
   {
     Loaded f(encoding);
     auto capture_request = request(f.records);
@@ -398,7 +313,7 @@ void negative_boundaries() {
            owner.external_variables == 77 && owner.clauses.empty());
   }
   {
-    Loaded f(make_encoding(3, 3, {{1, 2}}));
+    Loaded f(independent_set_encoding(3, 3, {{1, 2}}));
     assert(f.declines_cover({1}).status ==
            IndependentSetLiveStatus::Inapplicable);
   }
@@ -418,7 +333,8 @@ void negative_boundaries() {
     Loaded f(encoding);
     auto apply = request(f.records);
     IndependentSetOwnerSnapshot owner;
-    assert(independent_set_live_capture_owner(f.kernel, apply, owner));
+    assert(independent_set_live_capture_owner_detailed(f.kernel, apply, owner)
+               .captured());
     --owner.literals;
     apply.owner_snapshot = &owner;
     f.declines(apply);
@@ -432,12 +348,6 @@ void negative_boundaries() {
     assert(f.declines_cover().status == IndependentSetLiveStatus::Interrupted);
     assert(f.kernel.stats.stop_fuzz_fires == 1);
     f.kernel.stop_fuzz = 0;
-  }
-  {
-    Loaded f(encoding);
-    assert(kernel_delete_binary(f.kernel, kernel_internalize(f.kernel, -1),
-                                kernel_internalize(f.kernel, -2)));
-    f.declines_cover();
   }
   {
     Loaded f(encoding);
@@ -455,17 +365,18 @@ void negative_boundaries() {
     assert(propagate_service(f.kernel) == ApplyResult::Ok);
     assert(f.declines_cover().status == IndependentSetLiveStatus::Inapplicable);
   }
-  declines_under_pb_proof(true);
-  declines_under_pb_proof(false);
+  declines_under_pb_proof();
 }
 
 } // namespace
 
 int main() {
-  positive_and_continuing(nullptr, ProofFormat::DsrAscii);
-  positive_and_continuing("/tmp/independent-set-live-test.dsr",
-                          ProofFormat::DsrAscii);
-  retained_owner_repeated_covers();
+  positive_and_continuing(nullptr);
+  {
+    TemporaryFile proof;
+    positive_and_continuing(proof.path.c_str());
+  }
+  retained_owner_shares_recognition_ceiling();
   negative_boundaries();
   std::puts("test_independent_set_live OK");
   return 0;

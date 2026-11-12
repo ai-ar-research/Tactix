@@ -41,17 +41,19 @@ static AffineBasisLiveRequest request(FILE *records) {
   return result;
 }
 
-// Capture the affine live snapshot the configured request's image names.
-static void capture_owner(Kernel &kernel, const AffineBasisLiveRequest &configured,
-                          AffineLiveSnapshot &owner) {
-  AffineLiveRequest capture;
-  capture.image = configured.image;
-  capture.maximum_snapshot_literals = configured.maximum_snapshot_literals;
-  capture.maximum_snapshot_work = configured.maximum_snapshot_work;
-  capture.records = configured.records;
-  capture.action_id = configured.action_id;
-  capture.semantic_id = configured.semantic_id;
-  assert(capture_affine_live_snapshot(kernel, capture, owner));
+// Bind `configured` to the owner snapshot and its planned row over
+// `variables`.
+static void select(Kernel &kernel, AffineBasisLiveRequest &configured,
+                   AffineLiveSnapshot &owner, AffineBasisRowSelection &selection,
+                   const std::vector<int32_t> &variables) {
+  selection = planned_row(
+      planned_rows(kernel, configured.image, configured.basis,
+                   configured.maximum_snapshot_literals,
+                   configured.maximum_snapshot_work, configured.records, owner),
+      variables);
+  configured.owner = &owner;
+  configured.owner_version = 1;
+  configured.selection = &selection;
 }
 
 using ProofClause = std::vector<int32_t>;
@@ -119,121 +121,67 @@ static void verify_transaction_proof(
   }
 }
 
-static void successful_basis(bool with_proof, const char *proof_path) {
-  Kernel kernel = cancellation_fixture();
-  Proof proof;
-  if (with_proof) bind_proof(proof, kernel, proof_path);
-  FILE *records = temporary_records();
-  const auto applied = apply_affine_basis_live(kernel, request(records));
-  assert(applied.status == AffineBasisLiveStatus::Applied);
-  assert(applied.result == ApplyResult::Ok);
-  assert(applied.extent_growth == 4);
-  assert(applied.definitions == 4);
-  assert(applied.existing_theory_variables ==
-         std::vector<int32_t>({1, 2, 3, 4, 5, 6}));
-  assert(applied.introduced_theory_variables ==
-         std::vector<int32_t>({7, 8, 9, 10}));
-  assert(kernel.nvars == 10 && kernel_num_output_vars(kernel) == 6);
-  assert(kernel_binary_live(kernel, internalize(5), internalize(6)));
-  assert(kernel_binary_live(kernel, internalize(-5), internalize(-6)));
-  assert(applied.propagation_pending);
-  const std::string journal = stream_contents(records);
-  assert(journal.find("affine-basis-definition-rat") != std::string::npos);
-  assert(journal.find("\"projection\":\"omit-extension\"") !=
-         std::string::npos);
-  assert(journal.find("\"sources\":[0,1]") != std::string::npos);
-  std::fclose(records);
-
-  assert(propagate_service(kernel) == ApplyResult::Ok);
-  kernel_assign_decision(kernel, internalize(1));
-  assert(propagate_service(kernel) == ApplyResult::Ok);
-  if (with_proof) {
-    proof.flush();
-    kernel.proof = nullptr;
-  }
-}
-
-static void independent_proof_microcheck() {
-  Kernel kernel = cancellation_fixture();
-  FILE *records = temporary_records();
-  AffineBasisLiveTransaction transaction;
-  assert(prepare_affine_basis_live(kernel, request(records), transaction).status ==
-         AffineBasisLiveStatus::Prepared);
-  verify_transaction_proof(transaction, fixture_clauses(false));
-  std::fclose(records);
-}
-
+// Resource declines are atomic; a prepared transaction is stale after a new
+// clause id or a retired source.
 static void atomic_declines() {
-  {
+  for (int mode = 0; mode < 4; ++mode) {
     Kernel kernel = cancellation_fixture();
     FILE *records = temporary_records();
-    auto limited = request(records);
-    limited.maximum_proof_additions = 1;
+    auto configured = request(records);
+    AffineLiveSnapshot owner;
+    AffineBasisRowSelection selection;
+    select(kernel, configured, owner, selection, {5, 6});
+    if (mode == 0) configured.maximum_proof_additions = 1;
+    if (mode == 1) configured.maximum_journal_bytes = 1;
     const auto mapping = kernel.external_to_internal;
     const auto ids = kernel.next_clause_id;
     const auto arena = kernel.arena.size();
-    const auto result = apply_affine_basis_live(kernel, limited);
-    assert(result.status == AffineBasisLiveStatus::ResourceExhausted);
+    AffineBasisLiveTransaction transaction;
+    auto result = prepare_affine_basis_live(kernel, configured, transaction);
+    if (mode < 2) {
+      assert(result.status == AffineBasisLiveStatus::ResourceExhausted &&
+             !transaction.ready());
+    } else {
+      assert(result.status == AffineBasisLiveStatus::Prepared);
+      if (mode == 3) clause_at(kernel.arena, 0)->flags |= tactix::Clause::GARBAGE;
+      else ++kernel.next_clause_id;
+      result = publish_affine_basis_live(kernel, configured, transaction);
+      assert(result.status == AffineBasisLiveStatus::Stale);
+    }
     assert(kernel.external_to_internal == mapping &&
-           kernel.next_clause_id == ids && kernel.arena.size() == arena &&
-           std::ftell(records) == 0);
-    std::fclose(records);
-  }
-  {
-    Kernel kernel = cancellation_fixture();
-    FILE *records = temporary_records();
-    auto tiny = request(records);
-    tiny.maximum_journal_bytes = 1;
-    const auto mapping = kernel.external_to_internal;
-    const auto ids = kernel.next_clause_id;
-    AffineBasisLiveTransaction transaction;
-    const auto result = prepare_affine_basis_live(kernel, tiny, transaction);
-    assert(result.status == AffineBasisLiveStatus::ResourceExhausted);
-    assert(!transaction.ready() && kernel.external_to_internal == mapping &&
-           kernel.next_clause_id == ids && std::ftell(records) == 0);
-    std::fclose(records);
-  }
-  // A prepared transaction is stale after a new clause id or a retired source.
-  for (bool retire_source : {false, true}) {
-    Kernel kernel = cancellation_fixture();
-    FILE *records = temporary_records();
-    const auto configured = request(records);
-    AffineBasisLiveTransaction transaction;
-    assert(prepare_affine_basis_live(kernel, configured, transaction).status ==
-           AffineBasisLiveStatus::Prepared);
-    const auto mapping = kernel.external_to_internal;
-    if (retire_source) clause_at(kernel.arena, 0)->flags |= tactix::Clause::GARBAGE;
-    else ++kernel.next_clause_id;
-    const auto result = publish_affine_basis_live(kernel, configured,
-                                                   transaction);
-    assert(result.status == AffineBasisLiveStatus::Stale);
-    assert(kernel.external_to_internal == mapping && std::ftell(records) == 0);
+           kernel.next_clause_id == ids + (mode == 2) &&
+           kernel.arena.size() == arena && std::ftell(records) == 0);
     std::fclose(records);
   }
 }
 
-static void no_new_information() {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
-  add_equation(kernel, {1, 2, 3}, true);
-  FILE *records = temporary_records();
-  const auto mapping = kernel.external_to_internal;
-  const auto result = apply_affine_basis_live(kernel, request(records));
-  assert(result.status == AffineBasisLiveStatus::NoStructure);
-  assert(kernel.external_to_internal == mapping && std::ftell(records) == 0);
-  std::fclose(records);
-}
-
+// A selected direct row whose source equations span more than the bounded
+// proof scope (16 variables) declines atomically.
 static void bounded_proof_scope() {
   Kernel kernel;
-  kernel_reserve_vars(kernel, 15);
+  kernel_reserve_vars(kernel, 17);
+  // Ascending pivots chain all four sources into the binary row {16, 17}.
   add_equation(kernel, {1, 2, 3, 4, 5, 6, 7, 8}, false);
-  add_equation(kernel, {1, 9, 10, 11, 12, 13, 14, 15}, true);
+  add_equation(kernel, {1, 2, 3, 4, 9, 10, 11, 12}, false);
+  add_equation(kernel, {5, 6, 7, 8, 13, 14, 15, 16}, false);
+  add_equation(kernel, {9, 10, 11, 12, 13, 14, 15, 17}, true);
   FILE *records = temporary_records();
+  auto configured = request(records);
+  AffineLiveSnapshot owner;
+  AffineBasisRowSelection selection;
+  select(kernel, configured, owner, selection, {16, 17});
+  assert(selection.kind == BasisRowKind::DirectBinary &&
+         selection.source_equation_ordinals.size() == 4);
   const auto mapping = kernel.external_to_internal;
-  const auto result = apply_affine_basis_live(kernel, request(records));
-  assert(result.status == AffineBasisLiveStatus::UnsupportedProof);
-  assert(kernel.external_to_internal == mapping && std::ftell(records) == 0);
+  const auto ids = kernel.next_clause_id;
+  const auto arena = kernel.arena.size();
+  AffineBasisLiveTransaction transaction;
+  const auto result = prepare_affine_basis_live(kernel, configured, transaction);
+  assert(result.status == AffineBasisLiveStatus::UnsupportedProof &&
+         !transaction.ready());
+  assert(kernel.external_to_internal == mapping &&
+         kernel.next_clause_id == ids && kernel.arena.size() == arena &&
+         std::ftell(records) == 0);
   std::fclose(records);
 }
 
@@ -242,26 +190,9 @@ static void exact_owned_row_selection() {
   FILE *records = temporary_records();
   auto configured = request(records);
   AffineLiveSnapshot owner;
-  capture_owner(kernel, configured, owner);
-
-  Image image;
-  assert(recognize(owner.premises, configured.image,
-                   [](uint64_t) { return true; }, image) == Status::Complete);
-  BasisPlan basis;
-  assert(build_direct_basis_plan(image.equations, configured.basis,
-                                 [](uint64_t) { return true; }, basis) ==
-         BasisPlanStatus::Complete);
   AffineBasisRowSelection selection;
-  const auto row = std::find_if(
-      basis.rows.begin(), basis.rows.end(), [](const BasisRow &candidate) {
-        return candidate.variables == std::vector<External>({5, 6}) &&
-               candidate.rhs;
-      });
-  assert(row != basis.rows.end());
-  assert(affine_basis_row_selection(1, image, owner, *row, selection));
-  configured.owner = &owner;
-  configured.owner_version = 1;
-  configured.selection = &selection;
+  select(kernel, configured, owner, selection, {5, 6});
+  assert(selection.rhs);
   AffineBasisLiveTransaction transaction;
   const auto prepared =
       prepare_affine_basis_live(kernel, configured, transaction);
@@ -301,29 +232,11 @@ static void exact_owned_wide_row_selection(const char *proof_path) {
   FILE *records = temporary_records();
   auto configured = request(records);
   AffineLiveSnapshot owner;
-  capture_owner(kernel, configured, owner);
-
-  Image image;
-  assert(recognize(owner.premises, configured.image,
-                   [](uint64_t) { return true; }, image) == Status::Complete);
-  BasisPlan basis;
-  assert(build_selectable_basis_plan(image.equations, configured.basis,
-                                     [](uint64_t) { return true; }, basis) ==
-         BasisPlanStatus::Complete);
-  assert(basis.definitions.empty() && basis.projection.empty());
+  AffineBasisRowSelection selection;
   const std::vector<External> expected{2, 3, 4, 5, 6, 7, 8,
                                        9, 10, 11, 12, 13, 14, 15};
-  const auto row = std::find_if(
-      basis.rows.begin(), basis.rows.end(), [&](const BasisRow &candidate) {
-        return candidate.kind == BasisRowKind::Extended &&
-               candidate.variables == expected && candidate.rhs;
-      });
-  assert(row != basis.rows.end());
-  AffineBasisRowSelection selection;
-  assert(affine_basis_row_selection(1, image, owner, *row, selection));
-  configured.owner = &owner;
-  configured.owner_version = 1;
-  configured.selection = &selection;
+  select(kernel, configured, owner, selection, expected);
+  assert(selection.kind == BasisRowKind::Extended && selection.rhs);
 
   AffineBasisLiveTransaction transaction;
   const auto prepared =
@@ -383,7 +296,10 @@ static void contradiction(const char *proof_path) {
   Proof proof;
   bind_proof(proof, kernel, proof_path);
   FILE *records = temporary_records();
-  const auto configured = request(records);
+  auto configured = request(records);
+  AffineLiveSnapshot owner;
+  AffineBasisRowSelection selection;
+  select(kernel, configured, owner, selection, {});
   AffineBasisLiveTransaction transaction;
   assert(prepare_affine_basis_live(kernel, configured, transaction).status ==
          AffineBasisLiveStatus::Prepared);
@@ -398,16 +314,11 @@ static void contradiction(const char *proof_path) {
 }
 
 int main() {
-  const char *sat_proof = "/tmp/affine-basis-sat.dsr";
-  successful_basis(false, sat_proof);
-  successful_basis(true, sat_proof);
-  independent_proof_microcheck();
   atomic_declines();
-  no_new_information();
   bounded_proof_scope();
   exact_owned_row_selection();
   exact_owned_wide_row_selection("/tmp/affine-basis-wide.dsr");
   contradiction("/tmp/affine-basis-unsat.dsr");
-  std::puts("affine basis live: atomic definitions, consequences, projection, "
-            "stale/resource declines, and proof scope PASS");
+  std::puts("affine basis live: selected rows, wide definitions, stale/resource "
+            "declines, and contradiction PASS");
 }

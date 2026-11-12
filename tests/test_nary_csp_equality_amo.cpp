@@ -4,19 +4,11 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
-#include "policies/restart_controller.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
-
 #include "policies/default_policy.hpp"
-#include "strategy/feedback_trace.hpp"
+#include "policies/restart_controller.hpp"
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
-#include "strategy/inprocess_program.hpp"
 #include "strategy/online_inprocess.hpp"
 
 #include <algorithm>
@@ -24,7 +16,6 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -88,7 +79,7 @@ void prepare(Kernel &kernel, NaryCspRelationOwnerSession &relations,
     assert(record.definition_clauses.size() == 3 * domains.front().size());
 }
 
-void exhaustive_model_and_lifecycle() {
+void lifecycle() {
   Kernel kernel;
   parse_into(kernel);
   FILE *records = std::tmpfile();
@@ -99,26 +90,15 @@ void exhaustive_model_and_lifecycle() {
   prepare(kernel, relations, equality, records);
   kernel.nary_csp_equality_amo_session = &session;
 
-  const auto offered = nary_csp_equality_amo_offer(
-      kernel, relations, equality, session, amo_limits(), {4, 1, 100, false, {}});
-  assert(offered.status == NaryCspEqualityAmoOfferStatus::Ready &&
-         offered.complete && offered.offers.size() == 1);
   const auto applied = nary_csp_equality_amo_apply(
-      kernel, relations, equality, session, amo_limits(), offered.offers.front(),
-      records);
+      kernel, relations, equality, session, amo_limits(), {domains}, records);
   assert(applied.status == NaryCspEqualityAmoStatus::Applied &&
          applied.emitted_binary_clauses == 3 &&
          applied.equality_variables == 3 && kernel.nvars == 12 &&
          session.keys().size() == 1);
-
   const auto duplicate = nary_csp_equality_amo_apply(
       kernel, relations, equality, session, amo_limits(), {domains}, records);
   assert(duplicate.status == NaryCspEqualityAmoStatus::Duplicate);
-  const auto suppressed = nary_csp_equality_amo_offer(
-      kernel, relations, equality, session, amo_limits(), {4, 1, 100, false, {}});
-  assert(suppressed.status == NaryCspEqualityAmoOfferStatus::Ready &&
-         suppressed.complete && suppressed.offers.empty() &&
-         suppressed.committed_keys_skipped == 1);
 
   NaryCspEqualityAmoSelection malformed{domains};
   malformed.domains[2].pop_back();
@@ -132,25 +112,21 @@ void exhaustive_model_and_lifecycle() {
   std::fclose(records);
 }
 
+// The serialized program is its identity; the payload must be encoded.
 void public_wire_format() {
-  strategy::NaryCspEqualityAmoParameters parameters{{
-      100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100}};
   strategy::OnlineInvocation invocation;
   invocation.id = 33;
   invocation.rule = "NaryCspEqualityAmo";
-  invocation.parameters = parameters;
+  invocation.parameters = strategy::NaryCspEqualityAmoParameters{amo_limits()};
   invocation.granularity = strategy::InvocationGranularity::OneInstance;
   invocation.nary_csp_equality_amo_instances = {{domains}};
-  invocation.repeat = {strategy::RepeatMode::Once, 1};
   invocation.budget = strategy::WorkLimit::bounded(1);
   strategy::OnlineStrategyProgram program{{invocation}, {}};
   std::string error;
   assert(strategy::validate_online_strategy_program(program, &error));
-  const std::string wire = strategy::serialize_online_strategy_program(program);
-  assert(wire.find(":nary-csp-equality-amo1(") != std::string::npos);
-  assert(wire.find(
-      ":nary-csp-equality-amo[3,3,1,2,3,3,4,5,6,3,7,8,9]") !=
-      std::string::npos);
+  assert(strategy::serialize_online_strategy_program(program).find(
+             ":nary-csp-equality-amo[3,3,1,2,3,3,4,5,6,3,7,8,9]") !=
+         std::string::npos);
 }
 
 // Each decline cause through the controller: typed status, feedback, no
@@ -163,10 +139,8 @@ void controller_decline_feedback() {
     }
     void search_interval(const SearchIntervalFeedback &) override {}
   };
-  enum Cause { ProofBudget, RecognitionBudget, Interrupt, Stale, Invalid,
-               Unsupported };
-  for (const Cause cause : {ProofBudget, RecognitionBudget, Interrupt, Stale,
-                            Invalid, Unsupported}) {
+  enum Cause { ProofBudget, Interrupt, Stale, Invalid, Unsupported };
+  for (const Cause cause : {ProofBudget, Interrupt, Stale, Invalid, Unsupported}) {
     Kernel kernel;
     parse_into(kernel);
     FILE *records = std::tmpfile();
@@ -190,18 +164,13 @@ void controller_decline_feedback() {
         wanted.push_back(kernel_internalize(kernel, literal));
       std::sort(wanted.begin(), wanted.end());
       bool removed = false;
-      for (Ref ref = 0; ref < kernel.arena.size();) {
-        Clause *clause = clause_at(kernel.arena, ref);
-        const uint32_t words = clause_actual_words(clause);
+      for (const auto [ref, clause] : arena_records(kernel.arena)) {
         std::vector<Lit> current(clause->lits, clause->lits + clause->size);
         std::sort(current.begin(), current.end());
-        if (!clause->garbage() && current == wanted) {
-          if (!clause->redundant()) --kernel.live_irredundant_large;
-          clause->flags |= Clause::GARBAGE;
+        if (!removed && !clause->garbage() && current == wanted) {
+          kernel_delete_clause(kernel, clause);
           removed = true;
-          break;
         }
-        ref += words;
       }
       assert(removed);
     }
@@ -222,17 +191,14 @@ void controller_decline_feedback() {
     request.invocation.nary_csp_equality_amo_instances = {{domains}};
     if (cause == Invalid)
       request.invocation.nary_csp_equality_amo_instances.front().domains.pop_back();
-    NaryCspEqualityAmoParameters parameters{{
-        100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100}};
+    NaryCspEqualityAmoParameters parameters{amo_limits()};
     if (cause == ProofBudget) parameters.maximum_proof_additions = 2;
-    if (cause == RecognitionBudget) parameters.maximum_recognition_work = 1;
     request.invocation.parameters = parameters;
     const auto before = state_version(kernel);
     const auto clause_id_before = kernel.next_clause_id;
     const auto variables_before = kernel.nvars;
     const auto first = controller.apply_rule(request, {});
-    const bool retryable = cause == ProofBudget || cause == RecognitionBudget ||
-                           cause == Interrupt;
+    const bool retryable = cause == ProofBudget || cause == Interrupt;
     const auto expected = cause == Interrupt ? InvocationStatus::Interrupted
         : cause == Stale ? InvocationStatus::StaleRequest
         : cause == Invalid ? InvocationStatus::InvalidRequest
@@ -256,37 +222,23 @@ void controller_decline_feedback() {
            feedback.after.cumulative.nary_csp_equality_amo_attempts -
                feedback.before.cumulative.nary_csp_equality_amo_attempts ==
                    (predispatch ? 0u : 1u));
-    const auto raw = serialize_feedback(feedback);
-    assert(raw.find("\"status\":" + std::to_string(unsigned(expected))) !=
-           std::string::npos);
     if (cause == Stale)
       assert(kernel.stats.nary_csp_equality_amo_stale == 1);
     else
       assert(kernel.stats.nary_csp_equality_amo_declined == (predispatch ? 0u : 1u));
     if (cause == Interrupt) assert(kernel.stats.stop_fuzz_fires == 1);
     if (retryable) {
-      // Same exact payload remains pending; an explicit fresh allowance or
-      // cleared interruption lets it commit without a replacement action.
-      if (cause != Interrupt) {
-        request.sequence = 2;
-        request.expected = state_version(kernel);
-        const auto repeated = controller.apply_rule(request, {});
-        assert(repeated.invocation.status == InvocationStatus::ResourceExhausted &&
-               repeated.invocation.applications == 1 &&
-               !repeated.invocation.selection_complete && session.keys().empty());
-      }
+      // A fresh allowance or cleared interruption commits the same payload.
       kernel.stop_fuzz = 0;
       parameters.maximum_proof_additions = 100;
-      parameters.maximum_recognition_work = 300000;
       request.invocation.parameters = parameters;
-      request.sequence = cause == Interrupt ? 2 : 3;
+      request.sequence = 2;
       request.expected = state_version(kernel);
       const auto retry = controller.apply_rule(request, {});
       assert(retry.invocation.status == InvocationStatus::Completed &&
              retry.invocation.made_rule_progress &&
              retry.invocation.selection_complete && session.keys().size() == 1 &&
-             kernel.stats.nary_csp_equality_amo_attempts ==
-                 (cause == Interrupt ? 2u : 3u));
+             kernel.stats.nary_csp_equality_amo_attempts == 2);
     }
     kernel.proof = nullptr;
     kernel.structural_provenance = nullptr;
@@ -328,31 +280,19 @@ void c_v12_deep_copies_and_executes_exact_payload() {
     out.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
     out.budget = 1;
   };
-  const auto el = equality_limits();
   set_common(steps[1], 31, 42);
   auto &equality_parameter = base(steps[1]).parameters;
   equality_parameter.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY;
   equality_parameter.value.nary_csp_equality = {
-      el.maximum_source_clauses, el.maximum_source_literals,
-      el.maximum_recognition_work, el.maximum_domain_values,
-      el.maximum_forbidden_tuples, el.maximum_proof_work,
-      el.maximum_proof_additions, el.maximum_proof_literal_occurrences,
-      el.maximum_journal_bytes, el.maximum_extent_growth,
-      el.maximum_external_extent, el.maximum_session_keys};
+      100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 1, 100, 100};
   steps[1].base.base.nary_csp_equality_instances = equality_instances;
   steps[1].base.base.nary_csp_equality_instance_count = 1;
 
   set_common(steps[2], 33, 44);
   auto &amo_parameter = base(steps[2]).parameters;
   amo_parameter.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY_AMO;
-  const auto al = amo_limits();
   amo_parameter.value.nary_csp_equality_amo = {
-      al.maximum_source_clauses, al.maximum_source_literals,
-      al.maximum_recognition_work, al.maximum_domain_values,
-      al.maximum_forbidden_tuples, al.maximum_proof_work,
-      al.maximum_proof_additions, al.maximum_proof_literal_occurrences,
-      al.maximum_journal_bytes, al.maximum_external_extent,
-      al.maximum_session_keys};
+      100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100};
   steps[2].nary_csp_equality_amo_instances = &amo_instance;
   steps[2].nary_csp_equality_amo_instance_count = 1;
 
@@ -421,7 +361,7 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  exhaustive_model_and_lifecycle();
+  lifecycle();
   public_wire_format();
   controller_decline_feedback();
   c_v12_deep_copies_and_executes_exact_payload();

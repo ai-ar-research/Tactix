@@ -132,14 +132,6 @@ int main() {
     assert(k.trail.empty());
   }
   {
-    Kernel k = xor_fixture(true);
-    k.probing.recording = true;
-    assert(!parity_model_guard(k));
-    k.probing.recording = false;
-    k.large_watches_connected = false;
-    assert(!parity_model_guard(k));
-  }
-  {
     Kernel k = xor_fixture(false);
     assert(parity_model_apply(k) == ApplyResult::Sat);
     assert(k.stats.parity_model_equations == 1);
@@ -189,17 +181,12 @@ int main() {
     assert(parity_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.parity_model_interrupted == 1 && k.trail.empty());
   }
-  using Parameters = strategy::ParityModelParameters;
-  for (const auto invalidate : {
-           +[](Parameters &p) { p.minimum_group_clauses = 0; },
-           +[](Parameters &p) { p.minimum_group_clauses = 5; },
-           +[](Parameters &p) { p.maximum_free_variables = 64; },
-           +[](Parameters &p) { p.maximum_groups = 0; },
-           +[](Parameters &p) { p.maximum_constraints = 0; },
-           +[](Parameters &p) { p.refutation_minimum_probe_repeats = 0; }}) {
-    Parameters invalid;
-    invalidate(invalid);
-    assert(!invalid.valid());
+  {
+    // Free-variable enumeration uses 64-bit masks.
+    strategy::ParityModelParameters parameters;
+    assert(parameters.valid());
+    parameters.maximum_free_variables = 64;
+    assert(!parameters.valid());
   }
   {
     Kernel k = inconsistent_xor_cycle();

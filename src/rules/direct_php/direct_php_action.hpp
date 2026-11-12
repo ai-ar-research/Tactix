@@ -40,7 +40,7 @@ enum class DirectPhpActionStatus : uint8_t {
   ResourceExhausted,
   Interrupted,
   UnsupportedProof,
-  // Proof-backed actions must use the atomic apply/replay entry points.
+  // Retained for its feedback counter; apply never reports it.
   UnsupportedProofSplit,
   Stale,
   AlreadyApplied,
@@ -58,8 +58,7 @@ struct DirectPhpActionEffort {
   uint64_t replay_work = 0;
 };
 
-// The record contains every input identity and every proof event needed to
-// distinguish an exact replay from a merely equivalent refutation.
+// Every input identity and proof event of the committed refutation.
 struct DirectPhpActionRecord {
   uint32_t version = 1;
   uint64_t action_id = 0;
@@ -69,8 +68,6 @@ struct DirectPhpActionRecord {
   direct_php_certificate::Accounting accounting;
   int32_t first_fresh = 0;
 };
-
-struct DirectPhpActionResult;
 
 class DirectPhpActionSession {
 public:
@@ -96,67 +93,25 @@ private:
   DirectPhpActionRecord record_;
 };
 
-class DirectPhpPreparedAction {
-public:
-  bool ready() const { return ready_; }
-  const DirectPhpActionRecord &record() const { return record_; }
-  const direct_php_certificate::Accounting &accounting() const {
-    return record_.accounting;
-  }
-
-private:
-  friend struct DirectPhpPreparedActionAccess;
-  friend DirectPhpActionResult direct_php_action_prepare(
-      Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
-      DirectPhpPreparedAction &);
-  friend DirectPhpActionResult direct_php_action_prepare_replay(
-      Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
-      const DirectPhpActionRecord &, DirectPhpPreparedAction &);
-  friend DirectPhpActionResult direct_php_action_publish(
-      Kernel &, DirectPhpActionSession &, DirectPhpPreparedAction &);
-  bool ready_ = false;
-  Kernel *owner_ = nullptr;
-  DirectPhpActionSession *session_ = nullptr;
-  direct_php_live::Admission admission_;
-  direct_php_live::Transaction transaction_;
-  DirectPhpActionRecord record_;
-  DirectPhpActionEffort effort_;
-};
-
 struct DirectPhpActionResult {
   DirectPhpActionStatus status = DirectPhpActionStatus::Invalid;
   ApplyResult result = ApplyResult::NoOp;
   uint64_t action_id = 0;
-  bool replay_checked = false;
+  bool replay_checked = false; // apply compares no external replay record
   DirectPhpActionEffort effort;
-  // Populated as soon as a complete live transaction exists, including an
-  // exact-replay mismatch or replay-budget decline before publication.
+  // Populated as soon as a complete live transaction exists, including a
+  // replay-budget decline before publication.
   direct_php_certificate::Accounting proof;
 };
 
 // Formula/proof-state guard only.  Request validity and retained session state
-// remain explicit inputs to preparation.
+// remain explicit inputs to apply.
 RuleEligibility direct_php_action_guard(const Kernel &);
 
-DirectPhpActionResult direct_php_action_prepare(
-    Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
-    DirectPhpPreparedAction &);
-
-// The split prepare/publish API is proofless; with Kernel::proof use apply or
-// replay. All entry points need exclusive ownership of Kernel and Proof.
-DirectPhpActionResult direct_php_action_prepare_replay(
-    Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
-    const DirectPhpActionRecord &, DirectPhpPreparedAction &);
-
-DirectPhpActionResult direct_php_action_publish(
-    Kernel &, DirectPhpActionSession &, DirectPhpPreparedAction &);
-
+// Recognize, certify and publish the refutation in one exclusive call; a
+// committed session answers AlreadyApplied or ReplayMismatch.
 DirectPhpActionResult direct_php_action_apply(
     Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &);
-
-DirectPhpActionResult direct_php_action_replay(
-    Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
-    const DirectPhpActionRecord &);
 
 // Append one public invocation's exact terminal status, live effort, and proof
 // accounting to the observation counters.  Call exactly once per request.

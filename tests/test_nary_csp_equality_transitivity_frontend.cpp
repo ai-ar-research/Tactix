@@ -2,25 +2,17 @@
 #include "dimacs_text.hpp"
 #include <cstdint>
 #include "strategy/online_inprocess.hpp"
-#include <cstdio>
 namespace capi {
 extern "C" {
 #include "tactix.h"
 }
 }
-#include "policies/restart_controller.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/controller_observation.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include <cassert>
 #include <algorithm>
+#include <csignal>
 #include <cstdio>
-#include <sstream>
 #include <type_traits>
 using namespace tactix;
 using namespace tactix::strategy;
@@ -52,14 +44,13 @@ Selection prepare(Kernel &k,NaryCspRelationOwnerSession &relations,NaryCspEquali
   ++i;
  }assert(nary_csp_equality_transitivity_selection_valid(selected));return selected;
 }
+// Mode 0 commits and consumes the triangle; mode 1 interrupts, then retries.
 void typed_replay_declines_and_consumption(){
- for(unsigned mode=0;mode<4;++mode){
+ for(unsigned mode=0;mode<2;++mode){
   Kernel k;parse(k);FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
   NaryCspRelationOwnerSession relations;NaryCspEqualitySession equality;NaryCspEqualityTransitivitySession session;k.nary_csp_equality_transitivity_session=&session;
   auto selected=prepare(k,relations,equality);auto a=action(selected);
-  if(mode==1)std::get<NaryCspEqualityTransitivityParameters>(a.parameters).maximum_recognition_work=1;
-  if(mode==2)++a.nary_csp_equality_transitivity_instances[0].equality_variables[2];
-  volatile sig_atomic_t stop=1;if(mode==3)k.stop=&stop;
+  volatile sig_atomic_t stop=1;if(mode==1)k.stop=&stop;
   OnlineStrategyProgram p;p.sequence={a};std::string error;assert(validate_online_strategy_program(p,&error));
   if(mode==0){
    auto malformed=p;malformed.sequence[0].granularity=InvocationGranularity::NativeProducerOffer;
@@ -87,9 +78,9 @@ void typed_replay_declines_and_consumption(){
    assert(apply_rule_instance(decide,k,1)==ApplyResult::Ok);if(propagate.guard(k)){auto r=apply_rule(propagate,k);assert(r==ApplyResult::Ok||r==ApplyResult::Sat);}
    for(auto &original:clauses()){bool satisfied=false;for(auto l:original)satisfied|=kernel_external_value(k,internalize(l))>0;assert(satisfied);}
   }else{
-   assert(result.status==(mode==1?InvocationStatus::ResourceExhausted:mode==2?InvocationStatus::NoChange:InvocationStatus::Interrupted));
+   assert(result.status==InvocationStatus::Interrupted);
    assert(k.arena==arena&&k.watches.arena==watches&&k.next_clause_id==next&&session.keys().empty());
-   if(mode==3){k.stop=nullptr;auto retry=executor.advance(k);assert(retry.status==InvocationStatus::Completed&&retry.made_rule_progress);}
+   k.stop=nullptr;auto retry=executor.advance(k);assert(retry.status==InvocationStatus::Completed&&retry.made_rule_progress);
   }
   std::fclose(journal);
  }

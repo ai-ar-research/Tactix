@@ -2305,18 +2305,6 @@ ApplyResult substitute_apply_round(Kernel &k, bool reconnect_large_watches) {
   return finish(rewritten);
 }
 
-ApplyResult substitute_apply_complete(Kernel &k, uint32_t max_rounds) {
-  return execution::execute_action(
-             k, execution::SubstituteBatchRequest{max_rounds},
-             [&] { return execution::substitute_complete_active_count(k); },
-             [](size_t) {},
-             [&](uint64_t active_before, ApplyResult current) {
-               return current != ApplyResult::Unsat &&
-                      execution::substitute_complete_active_count(k) != active_before;
-             })
-      .result;
-}
-
 ApplyResult substitute_apply_sweep_equivalences(
     Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences,
     SweepSubstitutionSession &session,

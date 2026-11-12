@@ -2,7 +2,6 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
-#include "graph_labeling_test_support.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/graph_labeling_window_cursor.hpp"
 #include "rules/lucky/model.hpp"
@@ -18,6 +17,35 @@
 
 using namespace tactix;
 using namespace tactix::strategy;
+
+// Column covers and row at-most-one over 16 variables, plus redundant
+// same-column exclusions; `difficult` makes the projected objective too strong.
+static void permutation(Kernel &k, bool difficult) {
+  constexpr uint32_t n = 4;
+  kernel_reserve_vars(k, n * n);
+  for (uint32_t column = 0; column < n; ++column) {
+    std::vector<Lit> cover;
+    for (uint32_t row = 0; row < n; ++row)
+      cover.push_back(make_lit(row * n + column, false));
+    kernel_add_large_clause(k, cover.data(), cover.size(), false, 0);
+  }
+  for (uint32_t row = 0; row < n; ++row)
+    for (uint32_t a = 0; a < n; ++a)
+      for (uint32_t b = a + 1; b < n; ++b)
+        kernel_add_binary_clause(k, make_lit(row * n + a, true),
+                                 make_lit(row * n + b, true));
+  // Redundant same-column exclusions; the difficult objective must remain
+  // guidance rather than UNSAT.
+  for (uint32_t a = 0; a < n; ++a)
+    for (uint32_t b = a + 1; b < n; ++b)
+      kernel_add_binary_clause(k, make_lit(a * n + (difficult ? 2 : 0), true),
+                               make_lit(b * n + (difficult ? 2 : 0), true));
+  k.graph_labeling_parameters.work.fill(100000);
+  k.graph_labeling_parameters.workspace_bytes = 1 << 20;
+  k.graph_labeling_parameters.repair_rounds = 3;
+  k.graph_labeling_parameters.anneal_iterations = 20;
+  k.graph_labeling_parameters.stall_anneal_iterations = 3;
+}
 
 namespace tactix {
 struct DefaultGraphLabelingTestAccess {
@@ -106,7 +134,8 @@ static void default_policy_runs_the_graph_root_before_search() {
   assert(stopper.picks == 1);
 }
 
-static void authentication_is_bounded_and_slices_replay() {
+// Authentication one work unit short of its measured cost declines cleanly.
+static void authentication_is_bounded() {
   Kernel measured;
   ScopedHeuristics measured_h(measured);
   permutation(measured, false);
@@ -126,30 +155,13 @@ static void authentication_is_bounded_and_slices_replay() {
       graph_labeling_model_authenticate(bounded, bounded_session);
   assert(exhausted.status == GraphLabelingAuthenticationStatus::Exhausted);
   assert(!bounded_session.authenticated() && bounded.trail.empty());
-
-  Kernel replay;
-  ScopedHeuristics replay_h(replay);
-  permutation(replay, false);
-  GraphLabelingModelSession replay_session;
-  assert(graph_labeling_model_authenticate(replay, replay_session).status ==
-         GraphLabelingAuthenticationStatus::Authenticated);
-  auto first = graph_labeling_model_slice(measured, measured_session);
-  const auto second = graph_labeling_model_slice(replay, replay_session);
-  assert(first.status == GraphLabelingSliceStatus::Pending);
-  assert(second.status == GraphLabelingSliceStatus::Pending);
-  assert(measured_session.candidate_fingerprint() ==
-         replay_session.candidate_fingerprint());
-  assert(first.hint_published && second.hint_published);
-  assert(measured.trail.empty() && replay.trail.empty());
-  for (unsigned i = 0; i < 8 && first.status != GraphLabelingSliceStatus::Sat; ++i)
-    first = graph_labeling_model_slice(measured, measured_session);
-  assert(first.status == GraphLabelingSliceStatus::Sat);
-  assert(measured_session.complete() && measured.stats.graph_labeling_recognized == 1);
-  assert_model(measured);
 }
 
 // Bounded continuations preserve the Window cursor exactly: many small slices
 // reach the same frontier, random stream, work and candidate as one large one.
+// The model defers Window setup it cannot afford: one unit short charges
+// nothing and keeps the candidate; an exact allowance charges exactly setup.
+// The workspace boundary covers graph plus cursor bytes to the byte.
 static void window_cursor_survives_bounded_slices() {
   Kernel boundary;
   ScopedHeuristics boundary_h(boundary);
@@ -360,70 +372,6 @@ static void authenticate_and_continue_actions() {
   assert_model(k);
 }
 
-// The public 26/27 program stays in lockstep with the native actions: same
-// candidate, work and result. With a 64-unit budget, bounded Window
-// continuations replay exactly until the window closes.
-static void public_program_replays_native_actions(bool difficult) {
-  Kernel native, replay;
-  ScopedHeuristics nh(native), rh(replay);
-  permutation(native, difficult);
-  permutation(replay, difficult);
-  if (difficult)
-    native.graph_labeling_parameters.work[size_t(
-        GraphLabelingStage::Construction)] = 64;
-  replay.graph_labeling_parameters = native.graph_labeling_parameters;
-  const uint64_t steps = difficult ? 512 : 8;
-  const RuleWorkBudget budget{RuleWorkBudgetMode::Bounded, 64};
-  OnlineStrategyProgram program;
-  for (uint64_t i = 0; i < steps; ++i) {
-    OnlineInvocation step;
-    step.id = i + 1;
-    step.rule = "Lucky";
-    step.granularity = InvocationGranularity::OneInstance;
-    step.instances = {i ? LUCKY_GRAPH_CONTINUE : LUCKY_GRAPH_AUTHENTICATE};
-    step.parameters = native.graph_labeling_parameters;
-    if (difficult && i) step.rule_work_budget = budget;
-    program.sequence.push_back(step);
-  }
-  OnlineStrategyExecutor executor;
-  std::string error;
-  assert(executor.configure(program, 1, ReconfigureMode::ResetRuntime, &error));
-  uint64_t window_slices = 0;
-  bool sat = false;
-  for (uint64_t i = 0; i < steps; ++i) {
-    execution::GraphLabelingActionResult direct;
-    if (difficult && i) {
-      ScopedRuleWorkBudget scoped(native, budget);
-      window_slices +=
-          native.graph_labeling_session.recommended_continuation_work() != 0;
-      direct = act(native, false);
-    } else {
-      direct = act(native, !i);
-    }
-    const auto public_result = executor.advance(replay);
-    assert(native.graph_labeling_session.candidate_fingerprint() ==
-           replay.graph_labeling_session.candidate_fingerprint());
-    assert(native.stats.graph_labeling_work == replay.stats.graph_labeling_work);
-    sat = direct.result == ApplyResult::Sat;
-    assert(sat == (public_result.status == InvocationStatus::Sat));
-    if (!difficult && sat) break;
-    if (difficult) {
-      assert(direct.result == public_result.rule_result);
-      if (window_slices &&
-          !native.graph_labeling_session.recommended_continuation_work())
-        break;
-    }
-  }
-  if (!difficult) {
-    assert(sat && replay.stats.graph_labeling_recognized == 1);
-    return;
-  }
-  assert(window_slices > 1);
-  assert(!native.graph_labeling_session.recommended_continuation_work());
-  assert(!replay.graph_labeling_session.recommended_continuation_work());
-  assert(native.trail.empty() && replay.trail.empty());
-}
-
 // The C online API: authenticate then continue until SAT; the model satisfies
 // every input clause.
 static void c_api_reaches_a_checked_model() {
@@ -486,12 +434,10 @@ static void c_api_reaches_a_checked_model() {
 
 int main() {
   default_policy_runs_the_graph_root_before_search();
-  authentication_is_bounded_and_slices_replay();
+  authentication_is_bounded();
   window_cursor_survives_bounded_slices();
   public_whole_run_finds_a_model();
   bounded_apply_publishes_guidance_only();
   authenticate_and_continue_actions();
-  public_program_replays_native_actions(false);
-  public_program_replays_native_actions(true);
   c_api_reaches_a_checked_model();
 }

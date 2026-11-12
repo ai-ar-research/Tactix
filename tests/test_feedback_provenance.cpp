@@ -12,6 +12,11 @@
 using namespace tactix::strategy::controller;
 
 int main() {
+  const auto feedback_sha256 = [](std::string_view bytes) {
+    FeedbackSha256 digest;
+    digest.append(bytes.data(), bytes.size());
+    return digest.finish();
+  };
   assert(feedback_sha256("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
   assert(feedback_sha256("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   const std::string million(1000000, 'a');

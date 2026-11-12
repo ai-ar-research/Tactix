@@ -47,11 +47,7 @@ Gf3GaussianActionStatus status(gf3_gaussian_live::Status value) {
   case S::NoStructure: return Gf3GaussianActionStatus::NoStructure;
   case S::NoSupportedOutcome:
     return Gf3GaussianActionStatus::NoSupportedOutcome;
-  case S::UnsupportedProofSplit:
-    return Gf3GaussianActionStatus::UnsupportedProof;
-  case S::Duplicate:
-  case S::AlreadyApplied:
-    return Gf3GaussianActionStatus::AlreadyPublished;
+  case S::Duplicate: return Gf3GaussianActionStatus::AlreadyPublished;
   case S::Prepared: return Gf3GaussianActionStatus::Applied;
   default: std::abort();
   }
@@ -73,59 +69,6 @@ RuleEligibility gf3_gaussian_action_guard(const Kernel &kernel) {
       .identity()
       .clausal_certificate()
       .finish();
-}
-
-Gf3GaussianActionOfferResult gf3_gaussian_action_offer(
-    Kernel &kernel, const Gf3GaussianActionSession &session,
-    const Gf3GaussianActionLimits &limits) {
-  Gf3GaussianActionOfferResult output;
-  if (!gf3_gaussian_action_guard(kernel)) {
-    output.status = Gf3GaussianActionStatus::Inapplicable;
-    return output;
-  }
-  if (!limits.valid()) return output;
-  if (session.retained() && !session.belongs_to(kernel)) {
-    output.status = Gf3GaussianActionStatus::Stale;
-    return output;
-  }
-  if (session.keys().size() > limits.maximum_session_keys) {
-    output.status = Gf3GaussianActionStatus::ResourceExhausted;
-    return output;
-  }
-  gf3_gaussian_live::Prepared prepared;
-  output.live = gf3_gaussian_live::inspect(
-      kernel, request(kernel, limits, kernel.structural_action_sequence + 1),
-      prepared);
-  if (output.live.status != gf3_gaussian_live::Status::Prepared) {
-    output.status = status(output.live.status);
-    output.complete =
-        output.status == Gf3GaussianActionStatus::NoStructure ||
-        output.status == Gf3GaussianActionStatus::NoSupportedOutcome ||
-        output.status == Gf3GaussianActionStatus::AlreadyPublished;
-    return output;
-  }
-  const std::string &identity = prepared.batch_identity();
-  output.candidates = 1;
-  if (identity.size() > limits.maximum_session_identity_bytes ||
-      !add_bounded(identity.size() + 1, limits.maximum_session_work,
-                   output.session_work)) {
-    output.status = Gf3GaussianActionStatus::ResourceExhausted;
-    return output;
-  }
-  for (const auto &key : session.keys())
-    if (!add_bounded(key.size() + 1, limits.maximum_session_work,
-                     output.session_work)) {
-      output.status = Gf3GaussianActionStatus::ResourceExhausted;
-      return output;
-    }
-  output.session_identity_bytes = identity.size();
-  if (!std::binary_search(session.keys().begin(), session.keys().end(), identity))
-    output.offers.push_back(identity);
-  output.complete = true;
-  output.status = output.offers.empty()
-                      ? Gf3GaussianActionStatus::AlreadyPublished
-                      : Gf3GaussianActionStatus::Applied;
-  return output;
 }
 
 Gf3GaussianActionResult gf3_gaussian_action_apply(

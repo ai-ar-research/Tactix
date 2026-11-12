@@ -78,16 +78,6 @@ static void test_model_reconstruction() {
   assert_extended_model(k, {{1, 2}, {-1, -2}});
 }
 
-// Instance surface (N1): literals are the payloads.
-static void test_instances() {
-  Kernel k;
-  blocked_pair(k);
-  std::vector<Lit> lits;
-  bce_literals(k, lits);
-  assert(lits.size() == 4); // both polarities of both variables
-  assert(bce_try(k, internalize(2)) == ApplyResult::Ok); // symmetric here
-}
-
 static void test_explicit_instance_bypasses_canonical_occurrence_limit() {
   Kernel k;
   // Only the dense blocking literal 1 (over the occurrence limit) can block.
@@ -306,7 +296,6 @@ int main() {
   test_pure_literal();
   test_redundant_skipped();
   test_model_reconstruction();
-  test_instances();
   test_explicit_instance_bypasses_canonical_occurrence_limit();
   test_semantic_instance_deletes_one_clause();
   test_semantic_negative_control();

@@ -4,9 +4,7 @@
 #include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "clause_load_support.hpp"
-#include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
-#include "proof/proof.hpp"
 #include "rules/cce/cce.hpp"
 #include "rules/propagate/propagate.hpp"
 
@@ -305,41 +303,6 @@ static void test_model_reconstruction_after_structured_root() {
   }
 }
 
-static int binary_proof_witness(const char *input, const char *output) {
-  Kernel k;
-  Proof proof;
-  assert(proof.open(output, ProofFormat::DsrAscii));
-  k.proof = &proof;
-  FILE *cnf = std::fopen(input, "r");
-  assert(cnf && !parse_dimacs(cnf, k));
-  std::fclose(cnf);
-  const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
-  const Lit one = kernel_internalize(k, 1);
-  const Lit two = kernel_internalize(k, 2);
-  assert(one != INVALID_LIT && two != INVALID_LIT);
-  assert(rule.apply_semantic_instance(k, cce_binary_instance(one, two)) ==
-         ApplyResult::Ok);
-  assert(!kernel_binary_live(k, one, two));
-  DefaultPolicy policy;
-  const int result = policy.solve(k, nullptr);
-  proof.flush();
-  if (result == 10) {
-    kernel_extend_model(k);
-    std::puts("s SATISFIABLE");
-    std::printf("v");
-    for (Var variable = 0; variable < kernel_num_output_vars(k); ++variable) {
-      const Lit literal = make_lit(variable, false);
-      const int external = static_cast<int>(variable) + 1;
-      std::printf(" %d", k.model_values[literal] > 0 ? external : -external);
-    }
-    std::puts(" 0");
-  } else {
-    assert(result == 20);
-    std::puts("s UNSATISFIABLE");
-  }
-  return 0;
-}
-
 // A configurable caller budget, not a hidden candidate cap, controls CCE:
 // duplicated occurrences push the covered-literal inference past 4096 ticks.
 static void test_caller_budget(uint64_t budget, bool expected) {
@@ -364,10 +327,7 @@ static void test_caller_budget(uint64_t budget, bool expected) {
   kernel_check_invariants(k);
 }
 
-int main(int argc, char **argv) {
-  if (argc == 3)
-    return binary_proof_witness(argv[1], argv[2]);
-  assert(argc == 1);
+int main() {
   test_covered_then_blocked();
   test_empty_intersection();
   test_asymmetric_tautology();

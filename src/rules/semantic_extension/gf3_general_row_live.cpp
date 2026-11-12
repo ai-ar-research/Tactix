@@ -383,11 +383,6 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &owner,
   return !identity.empty() && identity.size() <= maximum_bytes;
 }
 
-Gf3GeneralRowLiveResult gf3_general_row_live_inspect(
-    Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
-  return preflight(kernel, request).result;
-}
-
 Gf3GeneralRowLiveResult gf3_general_row_live_apply(
     Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
   Preflight prepared = preflight(kernel, request);

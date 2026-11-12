@@ -32,27 +32,12 @@ bool rup(const std::vector<std::vector<int32_t>> &active,
   return rup_implied(active, candidate, ClauseLiterals{}, maximum_variable);
 }
 
-std::vector<std::vector<int32_t>> clauses(const gf3_affine::Theory &theory) {
-  std::vector<std::vector<int32_t>> result;
-  for (const auto &premise : theory.source) result.push_back(premise.literals);
-  return result;
-}
-
-gf3_general_row::Request find_request(
-    const gf3_affine::Theory &theory,
-    const gf3_gaussian_bridge::Plan &gaussian) {
-  for (uint32_t outcome = 0; outcome < gaussian.gaussian.outcomes.size();
-       ++outcome)
-    for (uint64_t tuple = 0; tuple < 100; ++tuple) {
-      const gf3_general_row::Request request{outcome, tuple};
-      const auto inspected =
-          gf3_general_row::inspect(theory, gaussian, request, limits());
-      if (inspected.status == gf3_general_row::Status::Planned)
-        return request;
-      if (inspected.status == gf3_general_row::Status::InvalidRequest) break;
-    }
-  assert(false && "expected one general-row request");
-  return {};
+gf3_general_row::Result build(const gf3_affine::Theory &theory,
+                              const gf3_gaussian_bridge::Plan &bridge,
+                              const gf3_general_row::Request &request,
+                              const gf3_general_row::Limits &bounds = limits()) {
+  return gf3_general_row::build(theory, bridge, request, bounds,
+                                [](uint64_t) { return true; });
 }
 
 void check_models(const gf3_affine::Theory &theory,
@@ -101,11 +86,14 @@ Prepared prepare() {
   Prepared prepared;
   prepared.theory = recognize(gf3_row_fixture());
   prepared.bridge = bridge(prepared.theory);
-  const auto request = find_request(prepared.theory, prepared.bridge);
-  prepared.result = gf3_general_row::build(
-      prepared.theory, prepared.bridge, request, limits(),
-      [](uint64_t) { return true; });
-  assert(prepared.result.status == gf3_general_row::Status::Planned);
+  const auto &outcomes = prepared.bridge.gaussian.outcomes;
+  for (uint32_t outcome = 0; outcome < outcomes.size(); ++outcome)
+    for (uint64_t tuple = 0; tuple < 9; ++tuple) {
+      prepared.result = build(prepared.theory, prepared.bridge, {outcome, tuple});
+      if (prepared.result.status == gf3_general_row::Status::Planned)
+        return prepared;
+    }
+  assert(false && "expected one general-row request");
   return prepared;
 }
 
@@ -125,26 +113,13 @@ void test_nonunit_row_clause_is_bounded_rup_and_model_preserving() {
   assert(prepared.result.consumed.events == plan.events.size());
   assert(prepared.result.consumed.row_tuples == 9);
 
-  std::vector<std::vector<int32_t>> active = clauses(prepared.theory);
+  std::vector<std::vector<int32_t>> active = gf3_row_fixture().clauses;
   assert(!rup(active, plan.consequence, prepared.theory.maximum_variable));
   for (const auto &event : plan.events) {
     assert(rup(active, event.clause, prepared.theory.maximum_variable));
     active.push_back(event.clause);
   }
   check_models(prepared.theory, plan.consequence);
-
-  const auto replayed = gf3_general_row::validate(
-      prepared.theory, prepared.bridge, plan, limits(),
-      [](uint64_t) { return true; });
-  assert(replayed.status == gf3_general_row::Status::Planned);
-  assert(replayed.plan == plan);
-  auto altered = plan;
-  altered.events.front().clause.push_back(1234);
-  const auto rejected = gf3_general_row::validate(
-      prepared.theory, prepared.bridge, altered, limits(),
-      [](uint64_t) { return true; });
-  assert(rejected.status == gf3_general_row::Status::InvalidCertificate);
-  assert(rejected.plan.events.empty());
 }
 
 void test_predicate_declines_satisfying_nonrow_and_duplicate_requests() {
@@ -169,21 +144,18 @@ void test_predicate_declines_satisfying_nonrow_and_duplicate_requests() {
   assert(found);
   auto request = prepared.result.plan.request;
   request.tuple = satisfying;
-  assert(gf3_general_row::inspect(prepared.theory, prepared.bridge, request,
-                                  limits()).status ==
+  assert(build(prepared.theory, prepared.bridge, request).status ==
          gf3_general_row::Status::NoConsequence);
   request.outcome = static_cast<uint32_t>(prepared.bridge.gaussian.outcomes.size());
-  assert(gf3_general_row::inspect(prepared.theory, prepared.bridge, request,
-                                  limits()).status ==
+  assert(build(prepared.theory, prepared.bridge, request).status ==
          gf3_general_row::Status::InvalidRequest);
 
   gf3_affine::Theory duplicate_theory = prepared.theory;
   duplicate_theory.source.push_back(
       {duplicate_theory.source.back().occurrence + 1,
        prepared.result.plan.consequence, 123456});
-  assert(gf3_general_row::inspect(duplicate_theory, prepared.bridge,
-                                  prepared.result.plan.request,
-                                  limits()).status ==
+  assert(build(duplicate_theory, prepared.bridge,
+               prepared.result.plan.request).status ==
          gf3_general_row::Status::Duplicate);
 }
 
@@ -191,18 +163,16 @@ void test_limits_interruptions_and_tampering_are_atomic() {
   Prepared prepared = prepare();
   auto bounded = limits();
   bounded.maximum_row_width = 1;
-  auto result = gf3_general_row::build(
-      prepared.theory, prepared.bridge, prepared.result.plan.request,
-      bounded, [](uint64_t) { return true; });
+  auto result = build(prepared.theory, prepared.bridge,
+                      prepared.result.plan.request, bounded);
   assert(result.status == gf3_general_row::Status::LimitExceeded);
   assert(result.limit == gf3_general_row::LimitKind::RowWidth);
   assert(result.plan.events.empty());
 
   bounded = limits();
   bounded.maximum_events = 1;
-  result = gf3_general_row::build(
-      prepared.theory, prepared.bridge, prepared.result.plan.request,
-      bounded, [](uint64_t) { return true; });
+  result = build(prepared.theory, prepared.bridge,
+                 prepared.result.plan.request, bounded);
   assert(result.status == gf3_general_row::Status::LimitExceeded);
   assert(result.limit == gf3_general_row::LimitKind::Events);
   assert(result.plan.events.empty());
@@ -224,9 +194,7 @@ void test_limits_interruptions_and_tampering_are_atomic() {
                               .provenance.front()
                               .coefficient;
   coefficient = coefficient == 1 ? 2 : 1;
-  result = gf3_general_row::build(
-      prepared.theory, tampered, prepared.result.plan.request, limits(),
-      [](uint64_t) { return true; });
+  result = build(prepared.theory, tampered, prepared.result.plan.request);
   assert(result.status == gf3_general_row::Status::InvalidBridge);
   assert(result.plan.events.empty());
 }

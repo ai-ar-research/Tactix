@@ -211,7 +211,7 @@ public:
   bool startup_pb_written() const { return format_ == ProofFormat::Pbp; }
   // Delete by specification for the rest of the run (a proof attached after
   // replayed input cannot name clauses by id).
-  void disable_pbp_id_deletions() { abandon_pbp_id_deletions(7, 0); }
+  void disable_pbp_id_deletions() { abandon_pbp_id_deletions(); }
   // Cold query-entry or witnessed-boundary isolation after input closes.
   // Sources must be licensed in this stream. Native identities/IDs stay fixed.
   static bool can_isolate_query(uint32_t extent);
@@ -354,23 +354,6 @@ public:
   void begin_deferred_root_units() noexcept;
   void end_deferred_root_units() noexcept;
 
-  // Streaming-PBP deletion accounting for tests (no proof effect).
-  struct PbpDeletionCounters {
-    uint64_t by_id = 0;        // every `del id` line
-    uint64_t by_anonymous = 0; // ... resolved by the id-0 literal registry
-    uint64_t by_rebind = 0;    // ... restated-input originals
-    uint64_t spec_unit = 0, spec_binary = 0, spec_wide = 0;
-    uint64_t anonymous_registered = 0;
-    uint64_t rebinds_recorded = 0;
-    uint64_t deferred_batches = 0, deferred_units = 0;
-    uint64_t dropped_batches = 0, dropped_units = 0;
-    uint32_t abandon_reason = 0; // first reason; 0 = never abandoned
-    uint32_t abandon_width = 0;
-    uint64_t abandon_line = 0; // derived-constraint count at abandonment
-  };
-  const PbpDeletionCounters &pbp_deletion_counters() const noexcept {
-    return pbp_counters_;
-  }
 
   // A tautological (or duplicate-carrying) lemma is uncheckable, so rules
   // skip the inference instead (D-CONG-SKIP); debug builds assert on it in
@@ -698,7 +681,7 @@ private:
                                      bool repeated_literal);
   void track_pbp_derived_constraint(uint64_t id, uint32_t clause_size);
   bool put_pbp_deletion_id(uint64_t id);
-  void abandon_pbp_id_deletions(uint32_t reason = 0, uint32_t width = 0);
+  void abandon_pbp_id_deletions();
   void finish_streaming_pbp_unsat();
   void publish_streaming_pbp_header();
   void end_line();
@@ -763,7 +746,6 @@ private:
                         uint32_t size);
   void pbp_audit_deletion(uint64_t constraint, const int32_t *lits,
                           uint32_t size);
-  PbpDeletionCounters pbp_counters_;
   std::vector<int32_t> pbp_external_scratch_;
   std::vector<int32_t> pbp_canonical_scratch_;
   std::vector<uint32_t> pbp_canonical_order_;

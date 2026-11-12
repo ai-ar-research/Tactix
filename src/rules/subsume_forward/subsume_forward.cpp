@@ -301,7 +301,9 @@ ApplyResult subsume_forward_apply(Kernel &k) {
 }
 
 // Instance surface: subsume exactly one candidate via its free literals' watch
-// lists. The victim may be redundant (N1); the subsumer may not.
+// lists (Ok = deleted). The victim may be redundant (N1); a large subsumer may
+// not (no promotion, unlike cadical subsume.cpp:133-149), and a binary needs no
+// check while binaries are never forgotten (implementation-notes §14).
 template <bool Collect>
 static ApplyResult subsume_forward_try_instance(Kernel &k, Ref candidate) {
   assert(subsume_forward_guard(k));
@@ -346,10 +348,6 @@ static ApplyResult subsume_forward_try_instance(Kernel &k, Ref candidate) {
   if constexpr (Collect)
     kernel_collect_garbage(k);
   return ApplyResult::Ok;
-}
-
-ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
-  return subsume_forward_try_instance<true>(k, candidate);
 }
 
 ApplyResult subsume_forward_try_fastel(Kernel &k, Ref candidate,

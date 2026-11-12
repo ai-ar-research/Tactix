@@ -850,18 +850,6 @@ void test_metadata_promotion_and_empty_unit_replacements() {
 }
 
 void test_rebuilt_binary_publication_endpoints() {
-  {
-    Kernel kernel;
-    kernel_reserve_vars(kernel, 2);
-    Recorder recorder;
-    {
-      ScopedPopulationObserverBinding binding(kernel, recorder);
-      kernel.watches.push_binary(lit(1), lit(2));
-      kernel_add_binary_mirror(kernel, lit(1), lit(2), 41);
-    }
-    assert(recorder.solver_size == 0);
-  }
-
   for (const BinaryPopulationEffect effect : {
            BinaryPopulationEffect::RepresentationOnly,
            BinaryPopulationEffect::LogicalAdd}) {

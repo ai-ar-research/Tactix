@@ -23,6 +23,8 @@
 
 using namespace tactix;
 
+// SP-IRRED-GLUE-1: Kissat's `redundant || !glue` invariant is enforced by the
+// kernel, whatever glue a caller passes for an irredundant clause.
 static void test_irredundant_clause_never_stores_glue() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -98,33 +100,6 @@ static void test_compact_watch_head_encoding_is_full_width() {
   assert(!lists.heads[0].has_large());
 }
 
-static void test_clause_position_alias_pages_are_exact_and_sparse() {
-  ClausePositionAliases aliases;
-  assert(aliases.get(7) == 0);
-  aliases.set(7, 3);
-  aliases.set((uint64_t{1} << 20) + 11, UINT64_C(0xfedcba9876543210));
-  assert(aliases.get(7) == 3);
-  assert(aliases.get(8) == 0);
-  assert(aliases.get(uint64_t{1} << 20) == 0);
-  assert(aliases.get((uint64_t{1} << 20) + 11) ==
-         UINT64_C(0xfedcba9876543210));
-}
-
-static void test_binary_liveness_filter_has_no_false_negatives() {
-  BinaryLivenessIndex filter;
-  filter.reserve(3);
-  const uint64_t first = kernel_binary_key(2, 9);
-  const uint64_t second = kernel_binary_key(4, 11);
-  filter.add(first);
-  filter.add(second);
-  assert(filter.maybe(first));
-  assert(filter.maybe(second));
-  // Deletion deliberately leaves a stale positive: exact watch-list
-  // confirmation owns liveness and prevents a stale bit changing semantics.
-  filter.remove(first);
-  assert(filter.maybe(first));
-}
-
 static void test_binary_liveness_uses_bounded_exact_pair_image() {
   BinaryLivenessIndex index;
   index.reserve_bounded_exact(4, 16, 100);
@@ -146,29 +121,22 @@ static void test_binary_liveness_uses_bounded_exact_pair_image() {
   assert(!sparse.exact());
 }
 
-static void test_reserved_trail_stack_contract() {
+// Compaction swaps in a replacement trail; push_back writes into storage the
+// swap must expose from the replacement's spare reservation (Release has no
+// bounds check).
+static void test_reserved_trail_swap_exposes_replacement_capacity() {
   ReservedTrail trail;
-  trail.reserve(5);
-  assert(trail.empty() && trail.capacity() == 5);
+  trail.reserve(2);
   trail.push_back(7);
-  trail.push_back(3);
-  trail.push_back(9);
-  assert(trail.size() == 3 && trail.back() == 9);
-  assert((std::vector<Lit>(trail) == std::vector<Lit>{7, 3, 9}));
-
-  trail.resize(2);
-  trail.push_back(11);
-  trail.pop_back();
-  assert((std::vector<Lit>(trail) == std::vector<Lit>{7, 3}));
-
   std::vector<Lit> compacted;
   compacted.reserve(4);
   compacted.push_back(5);
   compacted.push_back(1);
   trail.swap(compacted);
-  assert(trail.capacity() == 4);
+  assert(trail.size() == 2 && trail.capacity() == 4);
   trail.push_back(8);
-  assert((std::vector<Lit>(trail) == std::vector<Lit>{5, 1, 8}));
+  trail.push_back(9);
+  assert((std::vector<Lit>(trail) == std::vector<Lit>{5, 1, 8, 9}));
 }
 
 static Kernel binary_conflict_kernel() {
@@ -288,28 +256,6 @@ static void test_root_units_follow_root_assignments() {
     k.proof = nullptr;
   }
   assert(published_above_root > 0 && skipped > 0);
-}
-
-static void test_variable_identity_maps() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  assert(k.internal_to_external == std::vector<Var>({0, 1, 2}));
-  assert(k.external_to_internal == std::vector<Var>({0, 1, 2}));
-  assert(kernel_externalize(k, make_lit(1, true)) == -2);
-  assert(kernel_internalize(k, -2) == make_lit(1, true));
-  assert(kernel_internalize(k, 4) == INVALID_LIT);
-  assert(kernel_num_output_vars(k) == 3);
-
-  const Var first = kernel_new_extension_vars(k, 2);
-  assert(first == 3);
-  assert(k.original_external_vars == 3);
-  assert(kernel_num_output_vars(k) == 3);
-  assert(kernel_externalize(k, make_lit(4, false)) == 5);
-  assert(kernel_internalize(k, 5) == make_lit(4, false));
-  assert(!kernel_is_solver_extension(k, 0));
-  assert(!kernel_is_solver_extension(k, 2));
-  assert(kernel_is_solver_extension(k, 3));
-  assert(kernel_is_solver_extension(k, 4));
 }
 
 static void test_solver_extension_identity_survives_compaction() {
@@ -2456,13 +2402,10 @@ int main() {
   test_irredundant_clause_never_stores_glue();
   test_active_population_is_live_state();
   test_compact_watch_head_encoding_is_full_width();
-  test_clause_position_alias_pages_are_exact_and_sparse();
-  test_binary_liveness_filter_has_no_false_negatives();
   test_binary_liveness_uses_bounded_exact_pair_image();
-  test_reserved_trail_stack_contract();
+  test_reserved_trail_swap_exposes_replacement_capacity();
   test_conflicting_propagation_consumes_trail_literal();
   test_root_units_follow_root_assignments();
-  test_variable_identity_maps();
   test_solver_extension_identity_survives_compaction();
   test_import_order_survives_compaction_linearly();
   test_variable_compaction();

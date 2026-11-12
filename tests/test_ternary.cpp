@@ -76,18 +76,6 @@ static void test_duplicate_rejected() {
   assert(k.stats.ternary_resolvents == 0);
 }
 
-// N1: pivots are literal payloads, and an out-of-range one is a total NoOp.
-static void test_instances() {
-  Kernel k;
-  ternary_pair(k);
-  std::vector<Lit> pivots;
-  ternary_pivots(k, pivots);
-  assert(pivots.size() == 1 && pivots[0] == internalize(1));
-  assert(ternary_try(k, internalize(2)) == ApplyResult::NoOp); // no ¬2 ternary
-  assert(ternary_try(k, internalize(1)) == ApplyResult::Ok);
-  assert(k.stats.ternary_resolvents == 1);
-}
-
 static void test_explicit_instances_bypass_canonical_occurrence_limit() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -196,7 +184,6 @@ int main() {
   test_quaternary_rejected();
   test_tautological_rejected();
   test_duplicate_rejected();
-  test_instances();
   test_explicit_instances_bypass_canonical_occurrence_limit();
   test_semantic_instance_adds_one_resolvent();
   test_semantic_invalid_payload_is_noop();

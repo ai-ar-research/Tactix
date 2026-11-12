@@ -242,9 +242,9 @@ if(TACTIX_BUILD_TESTS)
       symmetry_backend lucky_late_parallel cli_auto_proof feedback_frontend
       demo3_scripted_default structural_journal_trajectory congruence_ite_collapse
       inspect_policy_feedback micro_proofs independent_set_semantic_extension
-      affine_matrix congruence_ite_valued_sides dsr_transport sweep_proofs
+      affine_matrix dsr_transport sweep_proofs
       vivify_compact_contract api_one_search affine_matrix_search_proof subsolver
-      congruence_ite_unit_proof ramsey_cli default_public_replay online_inprocess
+      ramsey_cli default_public_replay online_inprocess
       connected_occurrence pbp_deletion_identity_cli symmetry_clause_multiset
       event_trace_zero_overhead analysis_native_target automatic_proof
       feedback_provenance c_default_correspondence_extended)

@@ -42,6 +42,24 @@ struct Capture final : FeedbackReceiver {
   void search_interval(const SearchIntervalFeedback &) override {}
 };
 
+// Binds a temporary structural-provenance stream to `kernel` for one scope.
+struct Records {
+  Kernel &kernel;
+  FILE *file = std::tmpfile();
+  explicit Records(Kernel &k) : kernel(k) {
+    assert(file);
+    kernel.structural_provenance = file;
+  }
+  ~Records() {
+    kernel.structural_provenance = nullptr;
+    std::fclose(file);
+  }
+};
+
+const RuleVTable &graph_interval_rule() {
+  return tactix_rules().at(tactix_rule_id("GraphIntervalEquivalence"));
+}
+
 void add(Kernel &kernel, std::initializer_list<int32_t> external) {
   std::vector<Lit> literals;
   for (int32_t literal : external) literals.push_back(internalize(literal));
@@ -70,17 +88,14 @@ void fixture(Kernel &kernel, bool complete) {
 void positive(const char *proof_path) {
   Kernel kernel;
   fixture(kernel, true);
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
+  Records records(kernel);
   Proof proof;
   assert(proof.open(proof_path, ProofFormat::DsrAscii));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
 
-  const RuleVTable &rule =
-      tactix_rules().at(tactix_rule_id("GraphIntervalEquivalence"));
+  const RuleVTable &rule = graph_interval_rule();
   assert(rule.guard(kernel));
   uint64_t instances[4]{};
   assert(rule.instances(kernel, instances, 4) == 1);
@@ -101,7 +116,7 @@ void positive(const char *proof_path) {
   assert(kernel.structural_action_sequence == 1);
   assert(kernel.stats.graph_interval_equivalence_duplicates == 2);
 
-  const std::string provenance = stream_contents(records);
+  const std::string provenance = stream_contents(records.file);
   assert(provenance.find("\"kind\":\"authenticated-duplicate-interval\"") !=
          std::string::npos);
   assert(provenance.find("\"row\":0,\"first\":0,\"last\":1") !=
@@ -111,8 +126,6 @@ void positive(const char *proof_path) {
   assert(provenance.find("\"proof_additions\":2") != std::string::npos);
   proof.flush();
   kernel.proof = nullptr;
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
 }
 
 void conflicting_definition_is_rejected() {
@@ -121,28 +134,20 @@ void conflicting_definition_is_rejected() {
   add(kernel, {2, 3, 10});
   add(kernel, {-2, -10});
   add(kernel, {-3, -10});
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
-  const RuleVTable &rule =
-      tactix_rules().at(tactix_rule_id("GraphIntervalEquivalence"));
+  Records records(kernel);
+  const RuleVTable &rule = graph_interval_rule();
   const uint64_t id = kernel.next_clause_id;
   assert(rule.apply_instance(kernel, 1) == ApplyResult::NoOp);
   assert(kernel.next_clause_id == id);
   assert(!kernel_binary_live(kernel, internalize(-10), internalize(11)));
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
 }
 
 void stop_accounting() {
-  const RuleVTable &rule =
-      tactix_rules().at(tactix_rule_id("GraphIntervalEquivalence"));
+  const RuleVTable &rule = graph_interval_rule();
   {
     Kernel kernel;
     fixture(kernel, true);
-    FILE *records = std::tmpfile();
-    assert(records);
-    kernel.structural_provenance = records;
+    Records records(kernel);
     volatile sig_atomic_t stop = 1;
     kernel.stop = &stop;
     assert(rule.apply_instance(kernel, 1) == ApplyResult::NoOp);
@@ -150,15 +155,11 @@ void stop_accounting() {
     assert(kernel.stats.graph_interval_equivalence_resource_exhausted == 0);
     assert(kernel.stats.rule_interrupted == 1);
     kernel.stop = nullptr;
-    kernel.structural_provenance = nullptr;
-    std::fclose(records);
   }
   {
     Kernel kernel;
     fixture(kernel, true);
-    FILE *records = std::tmpfile();
-    assert(records);
-    kernel.structural_provenance = records;
+    Records records(kernel);
     kernel.work_budget_bounded = true;
     kernel.work_budget = 1;
     Capture capture;
@@ -188,8 +189,6 @@ void stop_accounting() {
                    .graph_interval_equivalence_interrupted ==
            capture.actions[0].before.cumulative
                .graph_interval_equivalence_interrupted);
-    kernel.structural_provenance = nullptr;
-    std::fclose(records);
   }
 }
 
@@ -201,11 +200,8 @@ void root_fixed_requires_separate_propagate() {
   assert(propagate_service(kernel) == ApplyResult::Ok);
   assert(kernel_propagation_fixpoint(kernel));
   assert(!kernel.value(internalize(-11)));
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
-  const RuleVTable &rule =
-      tactix_rules().at(tactix_rule_id("GraphIntervalEquivalence"));
+  Records records(kernel);
+  const RuleVTable &rule = graph_interval_rule();
   assert(rule.apply_instance(kernel, 1) == ApplyResult::Ok);
   assert(!kernel.value(internalize(-11)));
   assert(!kernel_propagation_fixpoint(kernel));
@@ -213,8 +209,6 @@ void root_fixed_requires_separate_propagate() {
   assert(apply_rule(propagate, kernel) == ApplyResult::Ok);
   assert(kernel.value(internalize(-11)) > 0);
   assert(kernel_propagation_fixpoint(kernel));
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
 }
 
 int c_rule_id(const char *name) {
@@ -261,39 +255,27 @@ void replay_and_feedback() {
   step.work_unit = WorkUnit::Applications;
   step.budget = WorkLimit::bounded(1);
   const OnlineStrategyProgram program{{step}, {}};
-  const std::string wire = serialize_online_strategy_program(program);
-  OnlineStrategyProgram replay;
   std::string error;
-  replay = program;
-  assert(replay.sequence[0].instances == step.instances);
-
   Kernel executed;
   fixture(executed, true);
-  FILE *execution_records = std::tmpfile();
-  assert(execution_records);
-  executed.structural_provenance = execution_records;
+  Records execution_records(executed);
   OnlineStrategyExecutor executor;
-  assert(executor.configure(replay, 7, ReconfigureMode::ResetRuntime, &error));
+  assert(executor.configure(program, 7, ReconfigureMode::ResetRuntime, &error));
   const InvocationResult invocation = executor.advance(executed);
   assert(invocation.status == InvocationStatus::Completed);
   assert(invocation.instance == 3 && invocation.applications == 1);
   assert(executed.stats.graph_interval_equivalence_published == 2);
-  executed.structural_provenance = nullptr;
-  std::fclose(execution_records);
 
   Kernel kernel;
   fixture(kernel, true);
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
+  Records records(kernel);
   Capture capture;
   auto observe = [](const Kernel &value, const void *) {
     return observe_kernel(value);
   };
   execution::PolicyCompletion completion(kernel, &capture, observe, nullptr);
   completion.begin();
-  const RuleVTable &rule =
-      tactix_rules().at(tactix_rule_id("GraphIntervalEquivalence"));
+  const RuleVTable &rule = graph_interval_rule();
   const ApplyResult result = completion.execute(
       FeedbackKind::Rule, "GraphIntervalEquivalence", 1,
       [&] {
@@ -316,25 +298,18 @@ void replay_and_feedback() {
   assert(feedback.after.cumulative.graph_interval_equivalence_published -
              feedback.before.cumulative.graph_interval_equivalence_published ==
          2);
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
 }
 
 void negative_near_miss() {
   Kernel kernel;
   fixture(kernel, false);
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
-  const RuleVTable &rule =
-      tactix_rules().at(tactix_rule_id("GraphIntervalEquivalence"));
+  Records records(kernel);
+  const RuleVTable &rule = graph_interval_rule();
   const uint64_t id = kernel.next_clause_id;
   assert(rule.apply(kernel) == ApplyResult::NoOp);
   assert(kernel.next_clause_id == id);
   assert(kernel.structural_action_sequence == 0);
   assert(!kernel_binary_live(kernel, internalize(-10), internalize(11)));
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
 }
 
 } // namespace

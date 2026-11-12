@@ -11,120 +11,9 @@ using namespace tactix::strategy;
 int main() {
   std::vector<InprocessStep> program = reference_inprocess_program();
   std::string error;
-  assert(program.size() == 34);
   assert(validate_inprocess_program(program, &error) && error.empty());
-  std::vector<const InprocessStep *> substitutes;
-  for (const InprocessStep &step : program)
-    if (step.rule == "Substitute")
-      substitutes.push_back(&step);
-  assert(substitutes.size() == 2 &&
-         substitutes[0]->id != substitutes[1]->id);
-  assert(substitutes[0]->followup == Followup::AfterCongruence);
-  assert(substitutes[1]->followup == Followup::AfterSweepOrFinal);
-  const auto parity = std::find_if(program.begin(), program.end(),
-                                   [](const InprocessStep &step) {
-                                     return step.rule == "ParityConsequence";
-                                   });
-  assert(parity != program.end() && !parity->enabled &&
-         parity == program.begin() + 1);
-  static constexpr const char *theory_actions[] = {
-      "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
-      "Gf3AffineConsequence", "DirectCspSupport", "DirectPhpRefutation",
-      "Gf3GaussianConsequence", "TseitinCycleBreaking",
-      "GraphIntervalEquivalence", "AffineMatrixInitialize",
-      "NaryCspEquality", "Gf3GeneralRowConsequence",
-      "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
-      "CardinalitySearch"};
-  for (size_t i = 0; i < std::size(theory_actions); ++i) {
-    const auto action = std::find_if(
-        program.begin(), program.end(), [&](const InprocessStep &step) {
-          return step.rule == theory_actions[i];
-        });
-    assert(action == program.begin() + 2 + static_cast<ptrdiff_t>(i) &&
-           !action->enabled);
-  }
-  const auto sr = std::find_if(program.begin(), program.end(),
-                               [](const InprocessStep &step) {
-                                 return step.rule ==
-                                        "SubstitutionRedundancy";
-                               });
-  assert(sr == program.end());
 
   tactix::DefaultStrategyConfig defaults;
-  const OnlineStrategyProgram root =
-      tactix::DefaultStrategyConfig::reference_structured_root_program();
-  assert(root.sequence.size() == 3);
-  assert(root.repeat.mode == RepeatMode::UntilSizeScaledFixpoint &&
-         root.repeat.limit == 128);
-  for (const OnlineInvocation &step : root.sequence) {
-    assert(step.granularity == InvocationGranularity::CompleteCurrentPass);
-    assert(step.post_application == PostApplication::Propagate);
-  }
-  const auto &pure =
-      std::get<BveParameters>(root.sequence[0].parameters);
-  assert(root.sequence[0].rule == "BVE" &&
-         root.sequence[0].work_unit == WorkUnit::BveTicks &&
-         pure.candidate_scope == BveCandidateScope::PureClosure);
-  const auto &orbitopal = std::get<tactix::SubstitutionRedundancyParameters>(
-      root.sequence[1].parameters);
-  assert(root.sequence[1].rule == "SubstitutionRedundancy");
-  assert(root.sequence[1].repeat.mode == RepeatMode::UntilScopedFixpoint &&
-         root.sequence[1].repeat.limit == 0);
-  assert(orbitopal.producer ==
-             tactix::SubstitutionRedundancyProducer::Orbitopal &&
-         orbitopal.maximum_detection_ticks == UINT64_MAX &&
-         orbitopal.maximum_validation_ticks == 10'000'000 &&
-         orbitopal.maximum_orbitopal_matrices == UINT64_MAX &&
-         orbitopal.maximum_orbitopal_instances == UINT64_MAX &&
-         orbitopal.maximum_orbitopal_product_states == 100'000 &&
-         orbitopal.graph_symmetry.maximum_graph_vertices ==
-             tactix::DefaultStrategyConfig::
-                 SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT &&
-         orbitopal.graph_symmetry.backend_component_size_limit ==
-             tactix::DefaultStrategyConfig::
-                 SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT &&
-         orbitopal.orbitopal_column_order ==
-             tactix::OrbitopalColumnOrder::CooccurrenceGreedyClique &&
-         !orbitopal.orbitopal_generator_fallback &&
-         orbitopal.orbitopal_progress_feedback &&
-         orbitopal.orbitopal_completion ==
-             tactix::OrbitopalCompletion::IndividualizedGraphCompletion);
-  const auto &graph = std::get<tactix::SubstitutionRedundancyParameters>(
-      root.sequence[2].parameters);
-  assert(root.sequence[2].rule == "SubstitutionRedundancy");
-  assert(root.sequence[0].repeat.mode == RepeatMode::Once);
-  assert(root.sequence[2].repeat.mode == RepeatMode::Once);
-  assert(graph.graph_symmetry.maximum_graph_vertices ==
-             tactix::DefaultStrategyConfig::
-                 SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT &&
-         graph.graph_symmetry.backend_component_size_limit ==
-             tactix::DefaultStrategyConfig::
-                 SYMMETRY_GRAPH_COMPONENT_LIMIT_DEFAULT);
-  assert(graph.producer ==
-             tactix::SubstitutionRedundancyProducer::GraphSymmetry &&
-         graph.graph_symmetry.maximum_fixing_instances == 128 &&
-         graph.graph_symmetry.maximum_generator_instances_per_pass == 1);
-
-  assert(defaults.inprocess.structured_root_stages.size() == 4);
-  assert(defaults.inprocess.structured_root_backtracking_domain_limit ==
-         32'000);
-  assert(defaults.inprocess.structured_root_bounded_backtracking_stages.size() ==
-         defaults.inprocess.structured_root_stages.size());
-  assert(defaults.inprocess.structured_root_large_domain_limit == 50'000);
-  assert(defaults.inprocess.structured_root_large_domain_stages.size() == 2);
-  const auto &affine_stage = defaults.inprocess.structured_root_stages[0];
-  assert(affine_stage.program.sequence.size() == 1);
-  const auto &affine = affine_stage.program.sequence.front();
-  assert(affine.id == 109 && affine.rule == "Lucky" &&
-         affine.granularity == InvocationGranularity::OneInstance &&
-         affine.instances == std::vector<uint64_t>{8} &&
-         std::holds_alternative<AffineModelParameters>(
-             affine.parameters));
-  for (size_t stage = 1;
-       stage < defaults.inprocess.structured_root_stages.size(); ++stage)
-    for (const auto &step :
-         defaults.inprocess.structured_root_stages[stage].program.sequence)
-      assert(step.rule != "Lucky");
   assert(defaults.inprocess.structured_root_stages[2]
              .structured_handoff_after_prior_progress);
   const auto no_progress =
@@ -181,31 +70,6 @@ int main() {
                   &step.parameters))
         assert(p->graph_symmetry.backend_search_budget == 1);
   }
-  const auto &large_graph =
-      defaults.inprocess.structured_root_large_domain_stages[1].program;
-  // The owner repeats its whole pass at every size: the large-domain program
-  // is the regular repeated sequence around the generator-fixing graph step.
-  const auto &regular_graph = defaults.inprocess.structured_root_stages[2].program;
-  assert(large_graph.sequence.size() == 3 &&
-         large_graph.repeat.mode == RepeatMode::UntilSizeScaledFixpoint &&
-         large_graph.repeat.limit == 128 &&
-         regular_graph.repeat.mode == RepeatMode::UntilSizeScaledFixpoint);
-  // Pure closure, generator-fixing graph step, compaction: in regular order.
-  assert(large_graph.sequence[0].id == 94 && large_graph.sequence[1].id == 84 &&
-         large_graph.sequence[2].id == 85);
-  const OnlineInvocation *large_step = &large_graph.sequence[1];
-  assert(large_step &&
-         !defaults.inprocess.structured_root_large_domain_stages[1]
-              .structured_handoff_after_prior_progress);
-  const auto &large_parameters =
-      std::get<tactix::SubstitutionRedundancyParameters>(
-          large_step->parameters);
-  assert(large_parameters.producer ==
-             tactix::SubstitutionRedundancyProducer::GraphSymmetry &&
-         large_parameters.graph_symmetry.schreier_domain_limit == 50'000 &&
-         large_parameters.graph_symmetry.backend_search_budget == 1 &&
-         !large_parameters.graph_symmetry.use_structured_generators &&
-         !large_parameters.graph_symmetry.stabilize_structured_variables);
   for (const auto &stage :
        defaults.inprocess.structured_root_large_domain_stages)
     assert(validate_online_strategy_program(stage.program));

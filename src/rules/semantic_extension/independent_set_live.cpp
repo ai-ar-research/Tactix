@@ -340,13 +340,6 @@ independent_set_live_capture_owner_detailed(
   return result;
 }
 
-bool independent_set_live_capture_owner(
-    Kernel &kernel, const IndependentSetLiveRequest &request,
-    IndependentSetOwnerSnapshot &output) {
-  return independent_set_live_capture_owner_detailed(kernel, request, output)
-      .captured();
-}
-
 IndependentSetLiveResult independent_set_live_apply(
     Kernel &kernel, const IndependentSetLiveRequest &request) {
   IndependentSetLiveResult result;

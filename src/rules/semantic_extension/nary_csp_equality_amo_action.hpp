@@ -69,42 +69,4 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
     const NaryCspEqualityAmoLimits &, const NaryCspEqualityAmoSelection &,
     StructuralJournal records);
 
-struct NaryCspEqualityAmoOfferWindow {
-  uint64_t maximum_owner_candidates = 0;
-  uint64_t maximum_offers = 0;
-  uint64_t maximum_enumeration_work = 0;
-  bool have_after = false;
-  NaryCspEqualityAmoKey after;
-  bool valid() const;
-};
-
-enum class NaryCspEqualityAmoOfferStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  ResourceExhausted,
-  Interrupted,
-  Stale,
-  Ready,
-};
-
-struct NaryCspEqualityAmoOfferResult {
-  NaryCspEqualityAmoOfferStatus status =
-      NaryCspEqualityAmoOfferStatus::Invalid;
-  bool complete = false;
-  bool have_resume_after = false;
-  NaryCspEqualityAmoKey resume_after;
-  uint64_t retained_owners = 0;
-  uint64_t owner_candidates = 0;
-  uint64_t missing_equalities = 0;
-  uint64_t committed_keys_skipped = 0;
-  uint64_t enumeration_work = 0;
-  std::vector<NaryCspEqualityAmoSelection> offers;
-};
-
-NaryCspEqualityAmoOfferResult nary_csp_equality_amo_offer(
-    Kernel &, const NaryCspRelationOwnerSession &,
-    const NaryCspEqualitySession &, const NaryCspEqualityAmoSession &,
-    const NaryCspEqualityAmoLimits &,
-    const NaryCspEqualityAmoOfferWindow &);
-
 } // namespace tactix

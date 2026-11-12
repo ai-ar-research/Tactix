@@ -99,18 +99,11 @@ struct Result {
 // the ascending available-edge subgraph.
 Result plan_one(const Input &, Limits);
 
-// Recheck the structural X7 witness shape against the abstraction.
-bool validate_candidate(const Input &, const Candidate &);
-
-// Bounded form: `work` counts every scan, `exhausted` marks truncation.
+// Recheck the structural X7 witness shape against the abstraction; `work`
+// counts every scan, `exhausted` marks truncation.
 bool validate_candidate(const Input &, const Candidate &, uint64_t maximum_work,
                         bool (*interrupted)(void *), void *interrupt_state,
                         uint64_t &work, bool &exhausted,
                         bool &was_interrupted);
-
-// Semantic oracle for tests: assignment[i] is edge i+1, pivot is true, and
-// every vertex parity keeps its truth value under the substitution.
-bool preserves_relations_on_falsifying_assignment(
-    const Input &, const Candidate &, const std::vector<bool> &assignment);
 
 } // namespace tactix::tseitin_cycle

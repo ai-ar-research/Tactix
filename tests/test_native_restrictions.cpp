@@ -51,7 +51,6 @@ static void fixture(bool rat,bool hard,const std::string &prefix,const std::stri
       assert(h.finish_query(1,QueryResult::Unknown)==InputStatus::Ok);continue;
     }
     const auto advanced=s.advance(h,std::move(proof));
-    if(advanced.status!=NativeAdvanceStatus::Ok)std::fprintf(stderr,"native restrictions q%u status=%u\n",q,unsigned(advanced.status));
     assert(advanced.status==NativeAdvanceStatus::Ok && s.kernel(s.ticket())==identity && identity->h==guidance);
     assert(identity->proof->certificate_offset()==0); // clausal steps compose without copying F
     if(!rat && q==2) {
@@ -95,7 +94,6 @@ static void invalidated(bool append,const std::string &prefix,const std::string 
   query_test::export_query(h, prefix);
   auto proof = query_test::writer(prefix, mode);
   const auto advanced=s.advance(h,std::move(proof));
-  if(advanced.status!=NativeAdvanceStatus::Ok)std::fprintf(stderr,"restriction rollback status=%u\n",unsigned(advanced.status));
   assert(advanced.status==NativeAdvanceStatus::Ok && advanced.retracted>=2);
   assert(s.kernel(s.ticket())==old && old->h==guidance);
   assert(query_test::drive(s,h,dynamic)==10);

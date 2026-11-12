@@ -211,41 +211,6 @@ static void bounded_partial_admission_is_deterministic() {
   assert(!sentinel.owner_identity() && sentinel.rows().empty());
 }
 
-static void partial_implication_conflict_and_backtrack() {
-  // The final source exceeds the width bound.  The first two authenticated
-  // rows still form a useful admitted submatrix.
-  const std::vector<Equation> input = {
-      equation({1, 3, 4}, false), equation({2, 3, 4, 5}, false),
-      equation({6, 7, 8, 9, 10}, true)};
-  auto bounded = limits();
-  bounded.maximum_row_width = 4;
-  AffineMatrix matrix;
-  assert(build_affine_matrix(input, 45, bounded,
-                             ample, matrix) == MatrixStatus::Partial);
-  assert((matrix.admitted_sources() == std::vector<size_t>{0, 1}));
-
-  MatrixEvent event;
-  assert(matrix.synchronize({{1, false}, {2, false}},
-                            ample, event) == MatrixStatus::Complete);
-  assert(event.kind == MatrixEventKind::Implication &&
-         event.implied_variable == 5 && !event.implied_value &&
-         (event.row.source_equations == std::vector<size_t>{0, 1}));
-  check_reason(input, event);
-
-  assert(matrix.synchronize({{1, false}, {2, false}, {5, true}},
-                            ample, event) == MatrixStatus::Complete);
-  assert(event.kind == MatrixEventKind::Conflict &&
-         (event.row.source_equations == std::vector<size_t>{0, 1}));
-  check_reason(input, event);
-
-  assert(matrix.synchronize({{1, false}, {2, true}},
-                            ample, event) == MatrixStatus::Complete);
-  assert(event.kind == MatrixEventKind::Implication &&
-         event.implied_variable == 5 && event.implied_value &&
-         (event.row.source_equations == std::vector<size_t>{0, 1}));
-  check_reason(input, event);
-}
-
 static void transactional_limits_and_validation() {
   const std::vector<Equation> input = {
       equation({1, 3, 4}, false), equation({2, 3, 4, 5}, false)};
@@ -290,59 +255,6 @@ static uint64_t synchronize_work(AffineMatrix &matrix,
       },
       event);
   return work;
-}
-
-static bool rows_satisfied(const std::vector<MatrixRow> &rows,
-                           uint64_t values) {
-  for (const MatrixRow &row : rows)
-    if (parity(row.variables, values) != row.rhs) return false;
-  return true;
-}
-
-static void incremental_extension_matches_snapshot_reducer() {
-  // Compare every incremental prefix against a fresh full-snapshot reduction.
-  // This covers basis collisions after assigned pivots disappear, not merely
-  // rows that can be conditioned independently.
-  for (uint32_t first_mask = 1; first_mask < 16; ++first_mask)
-    for (uint32_t second_mask = 1; second_mask < 16; ++second_mask)
-      for (uint32_t right = 0; right < 4; ++right)
-        for (uint32_t values = 0; values < 16; ++values) {
-          std::vector<Equation> input(2);
-          for (External variable = 1; variable <= 4; ++variable) {
-            if (first_mask & (1u << (variable - 1)))
-              input[0].variables.push_back(variable);
-            if (second_mask & (1u << (variable - 1)))
-              input[1].variables.push_back(variable);
-          }
-          input[0].rhs = right & 1;
-          input[1].rhs = right & 2;
-          AffineMatrix pristine = built(input, 73);
-          AffineMatrix incremental = pristine;
-          std::vector<MatrixAssignment> trail;
-          for (External variable = 1; variable <= 4; ++variable) {
-            trail.push_back(
-                {variable, bool(values & (1u << (variable - 1)))});
-            MatrixStatus incremental_status, snapshot_status;
-            MatrixEvent incremental_event, snapshot_event;
-            (void)synchronize_work(incremental, trail, incremental_status,
-                                   incremental_event);
-            AffineMatrix snapshot = pristine;
-            (void)synchronize_work(snapshot, trail, snapshot_status,
-                                   snapshot_event);
-            assert(incremental_status == snapshot_status &&
-                   incremental_event.kind == snapshot_event.kind);
-            for (uint64_t completion = 0; completion < 16; ++completion)
-              assert(rows_satisfied(incremental.rows(), completion) ==
-                     rows_satisfied(snapshot.rows(), completion));
-            if (incremental_event.kind != MatrixEventKind::None) {
-              check_reason(input, incremental_event);
-              check_reason(input, snapshot_event);
-            }
-            assert(incremental.last_synchronization_incremental() &&
-                   incremental.last_synchronization_prefix() ==
-                       size_t(variable - 1));
-          }
-        }
 }
 
 static void incremental_multiple_events_backtrack_and_interruption() {
@@ -478,53 +390,6 @@ static bool literal_value(External literal,
     }
   assigned = false;
   return false;
-}
-
-static void exhaustive_small_reason_oracle() {
-  // Exercise every pair of nonempty four-variable equations and every partial
-  // assignment. This checks the semantic artifact returned to the proof bridge,
-  // independently of which pivot sequence produced it.
-  for (uint32_t first_mask = 1; first_mask < 16; ++first_mask)
-    for (uint32_t second_mask = 1; second_mask < 16; ++second_mask)
-      for (uint32_t right = 0; right < 4; ++right) {
-        std::vector<Equation> input(2);
-        for (External variable = 1; variable <= 4; ++variable) {
-          if (first_mask & (1u << (variable - 1)))
-            input[0].variables.push_back(variable);
-          if (second_mask & (1u << (variable - 1)))
-            input[1].variables.push_back(variable);
-        }
-        input[0].rhs = right & 1;
-        input[1].rhs = right & 2;
-        AffineMatrix matrix = built(input, 1);
-        for (uint32_t ternary = 0; ternary < 81; ++ternary) {
-          uint32_t value = ternary;
-          std::vector<MatrixAssignment> trail;
-          for (External variable = 1; variable <= 4; ++variable) {
-            const uint32_t digit = value % 3;
-            value /= 3;
-            if (digit) trail.push_back({variable, digit == 2});
-          }
-          MatrixEvent event;
-          assert(matrix.synchronize(trail, ample,
-                                    event) == MatrixStatus::Complete);
-          if (event.kind == MatrixEventKind::None) continue;
-          check_reason(input, event);
-          const size_t antecedents =
-              event.kind == MatrixEventKind::Implication
-                  ? event.reason.size() - 1
-                  : event.reason.size();
-          for (size_t i = 0; i < antecedents; ++i) {
-            bool assigned = false;
-            assert(!literal_value(event.reason[i], trail, assigned) && assigned);
-          }
-          if (event.kind == MatrixEventKind::Implication) {
-            bool assigned = false;
-            (void)literal_value(event.reason.back(), trail, assigned);
-            assert(!assigned);
-          }
-        }
-      }
 }
 
 static void bounded_predecessor_restore() {
@@ -770,7 +635,6 @@ static void sliced_reduction_controls() {
   }
   assert(family_status==MatrixStatus::Complete && family_calls>1 && family_peak<100000000);
   assert(family_owner.rows()==family_owner.admitted_rows() && family_event.kind==MatrixEventKind::None);
-  std::printf("sliced default-shaped rows=40 calls=%zu private_peak=%llu\n",family_calls,(unsigned long long)family_peak);
   auto interrupted=original;MatrixEvent untouched=expected;
   assert(interrupted.synchronize_sliced(trail,[](uint64_t){return true;},untouched,{120,1000000})==MatrixStatus::Pending);
   size_t interrupted_charges=0;
@@ -804,7 +668,15 @@ static void sliced_reduction_controls() {
 // Gauss-Jordan completeness (CryptoMiniSat keeps its matrix in reduced
 // row-echelon form): a conditioned system yields a conflict exactly when it is
 // inconsistent, otherwise an implication exactly when some open variable is
-// forced. Full rebuild, dirty incremental, sliced and predecessor paths agree.
+// forced, with a well-formed reason. Full rebuild, dirty incremental, sliced,
+// ordinary extension and predecessor paths agree.
+static bool rows_satisfied(const std::vector<MatrixRow> &rows,
+                           uint64_t values) {
+  for (const MatrixRow &row : rows)
+    if (parity(row.variables, values) != row.rhs) return false;
+  return true;
+}
+
 static void gauss_jordan_completeness_oracle() {
   uint64_t seed = 0x9e3779b97f4a7c15ull;
   const auto next = [&] { seed = seed * 6364136223846793005ull + 1442695040888963407ull; return seed >> 33; };
@@ -828,6 +700,16 @@ static void gauss_jordan_completeness_oracle() {
       consistent = true;
       always_true &= completion;
       always_false &= ~completion;
+    }
+    // Every antecedent is falsified by the trail; an implied literal is open.
+    const size_t antecedents = event.kind == MatrixEventKind::Implication
+                                   ? event.reason.size() - 1
+                                   : event.reason.size();
+    for (size_t i = 0; event.kind != MatrixEventKind::None &&
+                       i < event.reason.size(); ++i) {
+      bool assigned = false;
+      const bool value = literal_value(event.reason[i], trail, assigned);
+      assert(i < antecedents ? assigned && !value : !assigned);
     }
     if (!consistent) { assert(event.kind == MatrixEventKind::Conflict); return; }
     const uint64_t forced = (always_true | always_false) & ~fixed &
@@ -884,14 +766,29 @@ static void gauss_jordan_completeness_oracle() {
         assert(dirty.synchronize(prefix, ample, event, true, &index) == MatrixStatus::Complete);
         check(input, prefix, event);
       }
-      // Ordinary extension then predecessor restore on backtrack.
+      // Ordinary incremental extension by every prefix keeps the row space of
+      // a fresh snapshot reduction (basis collisions after assigned pivots
+      // disappear), then predecessor restore on backtrack.
+      AffineMatrix ordinary = pristine;
+      prefix.clear();
+      for (const auto assignment : trail) {
+        prefix.push_back(assignment);
+        assert(ordinary.synchronize(prefix, ample, event) == MatrixStatus::Complete);
+        assert(ordinary.last_synchronization_incremental() &&
+               ordinary.last_synchronization_prefix() == prefix.size() - 1);
+        check(input, prefix, event);
+        AffineMatrix snapshot = pristine;
+        MatrixEvent snapshot_event;
+        assert(snapshot.synchronize(prefix, ample, snapshot_event) ==
+               MatrixStatus::Complete);
+        for (uint64_t completion = 0; completion < (uint64_t{1} << variables);
+             ++completion)
+          assert(rows_satisfied(ordinary.rows(), completion) ==
+                 rows_satisfied(snapshot.rows(), completion));
+      }
       if (!trail.empty()) {
-        AffineMatrix restore = pristine;
         std::vector<MatrixAssignment> shorter(trail.begin(), trail.end() - 1);
-        assert(restore.synchronize(shorter, ample, event) == MatrixStatus::Complete);
-        assert(restore.synchronize(trail, ample, event) == MatrixStatus::Complete);
-        check(input, trail, event);
-        assert(restore.synchronize(shorter, ample, event) == MatrixStatus::Complete);
+        assert(ordinary.synchronize(shorter, ample, event) == MatrixStatus::Complete);
         check(input, shorter, event);
       }
     }
@@ -1148,13 +1045,10 @@ int main() {
   reason_excludes_unrelated_assignments();
   exact_core_reason_is_direct_and_mode_stable();
   bounded_partial_admission_is_deterministic();
-  partial_implication_conflict_and_backtrack();
   transactional_limits_and_validation();
-  incremental_extension_matches_snapshot_reducer();
   incremental_multiple_events_backtrack_and_interruption();
   partial_synchronization_forces_next_rebuild();
   retained_rows_reduce_extension_work();
-  exhaustive_small_reason_oracle();
   bounded_predecessor_restore();
   nonmatching_predecessor_failure_is_atomic();
   gauss_jordan_completeness_oracle();

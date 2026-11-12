@@ -7,6 +7,7 @@
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/semantic_extension/affine_basis_live.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 
 #include <cassert>
@@ -103,4 +104,45 @@ inline void bind_proof(tactix::Proof &proof, tactix::Kernel &kernel, const char 
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
+}
+
+// The owner snapshot an unbound basis session captures, and the selection of
+// every row its basis plan holds, in plan order.
+inline std::vector<tactix::AffineBasisRowSelection> planned_rows(
+    tactix::Kernel &kernel, const tactix::affine_semantic_extension::Limits &image,
+    const tactix::affine_semantic_extension::BasisPlanLimits &basis,
+    uint64_t snapshot_literals, uint64_t snapshot_work,
+    tactix::StructuralJournal records,
+    tactix::AffineLiveSnapshot &owner) {
+  namespace affine = tactix::affine_semantic_extension;
+  tactix::AffineLiveRequest capture;
+  capture.image = image;
+  capture.maximum_snapshot_literals = snapshot_literals;
+  capture.maximum_snapshot_work = snapshot_work;
+  capture.records = records;
+  capture.action_id = capture.semantic_id = kernel.structural_action_sequence + 1;
+  assert(tactix::capture_affine_live_snapshot(kernel, capture, owner));
+  const auto ample = [](uint64_t) { return true; };
+  affine::Image recognized;
+  assert(affine::recognize(owner.premises, image, ample, recognized) ==
+         affine::Status::Complete);
+  affine::BasisPlan plan;
+  assert(affine::build_selectable_basis_plan(recognized.equations, basis, ample,
+                                             plan) ==
+         affine::BasisPlanStatus::Complete);
+  std::vector<tactix::AffineBasisRowSelection> rows(plan.rows.size());
+  for (size_t i = 0; i < plan.rows.size(); ++i)
+    assert(tactix::affine_basis_row_selection(1, recognized, owner,
+                                              plan.rows[i], rows[i]));
+  return rows;
+}
+
+// The planned row over exactly `variables`.
+inline tactix::AffineBasisRowSelection planned_row(
+    const std::vector<tactix::AffineBasisRowSelection> &rows,
+    const std::vector<int32_t> &variables) {
+  for (const auto &row : rows)
+    if (row.variables == variables) return row;
+  assert(false);
+  return {};
 }

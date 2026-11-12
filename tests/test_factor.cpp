@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <cstring>
+#include <optional>
 
 using namespace tactix;
 
@@ -49,6 +51,14 @@ static std::vector<Lit> large_watch_blockers(const Kernel &k, Lit lit) {
     if (!watch.binary())
       result.push_back(watch.other());
   return result;
+}
+
+// The 2x3 binary grid {base, base+1} x {base+2, base+3, base+4}, row by row.
+static void grid_2x3(Kernel &k, Var base) {
+  for (const Var f : {base, base + 1})
+    for (const Var r : {base + 2, base + 3, base + 4})
+      kernel_add_binary_clause(k, make_lit(f, false), make_lit(r, false),
+                               ++k.next_clause_id);
 }
 
 // kernel_new_extension_vars grows all per-var state additively, records the
@@ -121,10 +131,7 @@ static void test_late_heuristics_attach_keeps_factor_extension() {
     k.input_activation_order = {0, 1, 2, 3, 4};
     for (Var v = 0; v < 5; ++v)
       kernel_record_import(k, v);
-    for (const Lit f : {make_lit(0, false), make_lit(1, false)})
-      for (const Lit r : {make_lit(2, false), make_lit(3, false),
-                          make_lit(4, false)})
-        kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
+    grid_2x3(k, 0);
   };
 
   Kernel early;
@@ -150,124 +157,47 @@ static void test_late_heuristics_attach_keeps_factor_extension() {
   heuristics_update_target_phases(late); // the old compact population asserts
 }
 
-static void test_late_heuristics_attach_after_extension_compaction() {
-  Kernel k;
-  kernel_reserve_vars(k, 6); // original 0 is absent from every grid clause
-  k.input_activation_order = {1, 2, 3, 4, 5};
-  for (Var v = 1; v < 6; ++v)
-    kernel_record_import(k, v);
-  kernel_record_import(k, 0); // input finalization records header-only IDs
-  for (const Lit f : {make_lit(1, false), make_lit(2, false)})
-    for (const Lit r : {make_lit(3, false), make_lit(4, false),
-                        make_lit(5, false)})
-      kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
-  assert(factor_apply(k) == ApplyResult::Ok);
-  assert(k.nvars == 7 && k.first_extension_var == 6);
-  k.var_status.assign(k.nvars, VarStatus::Active);
-  k.var_status[0] = VarStatus::Eliminated;
-  --k.unassigned_active;
-  assert(kernel_compact_variables(k));
-  assert(k.nvars == 6 && k.external_to_internal[6] == 5);
-  ScopedHeuristics h(k);
-  assert(k.input_activation_order.empty());
-  assert(k.compact_import_order ==
-         std::vector<Var>({0, 1, 2, 3, 4, 5}));
-  assert(k.compact_import_order.size() == k.unassigned_active);
-  k.h->stable = true;
-  heuristics_update_target_phases(k);
-}
-
-static void test_factor_extension_between_heuristics_attachments() {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  k.input_activation_order = {0, 1, 2, 3, 4};
-  for (Var v = 0; v < 5; ++v)
-    kernel_record_import(k, v);
-  for (const Lit f : {make_lit(0, false), make_lit(1, false)})
-    for (const Lit r : {make_lit(2, false), make_lit(3, false),
-                        make_lit(4, false)})
-      kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
-  {
-    ScopedHeuristics first(k);
-    assert(k.compact_import_order == std::vector<Var>({0, 1, 2, 3, 4}));
-    assert(k.input_activation_order.empty());
-  }
-  assert(!k.h);
-  assert(factor_apply(k) == ApplyResult::Ok);
-  assert(k.nvars == 6 && k.first_extension_var == 5);
-  assert(k.compact_import_order ==
-         std::vector<Var>({0, 1, 2, 3, 4, 5}));
-  assert(k.compact_import_position[5] == 5);
-  {
-    ScopedHeuristics second(k);
-    assert(k.compact_import_order ==
-           std::vector<Var>({0, 1, 2, 3, 4, 5}));
-    assert(k.compact_import_position[5] == 5);
-    assert(k.compact_import_order.size() == k.unassigned_active);
-    k.h->stable = true;
-    heuristics_update_target_phases(k);
-  }
-}
-
-static void test_detached_factor_after_input_compaction() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  k.input_activation_order = {1, 2, 3, 4, 5};
-  for (Var v = 1; v < 6; ++v)
-    kernel_record_import(k, v);
-  kernel_record_import(k, 0); // never activated by a live input clause
-  for (const Lit f : {make_lit(1, false), make_lit(2, false)})
-    for (const Lit r : {make_lit(3, false), make_lit(4, false),
-                        make_lit(5, false)})
-      kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
-  {
-    ScopedHeuristics first(k);
-    assert(k.compact_import_order ==
-           std::vector<Var>({1, 2, 3, 4, 5}));
-  }
-  k.var_status.assign(k.nvars, VarStatus::Active);
-  k.var_status[0] = VarStatus::Eliminated;
-  --k.unassigned_active;
-  assert(kernel_compact_variables(k));
-  assert(k.compact_import_order ==
-         std::vector<Var>({0, 1, 2, 3, 4}));
-  assert(factor_apply(k) == ApplyResult::Ok);
-  assert(k.external_to_internal[6] == 5);
-  assert(k.compact_import_order ==
-         std::vector<Var>({0, 1, 2, 3, 4, 5}));
-  {
-    ScopedHeuristics second(k);
-    assert(k.compact_import_order.size() == k.unassigned_active);
-    assert(k.compact_import_position[5] == 5);
-    k.h->stable = true;
-    heuristics_update_target_phases(k);
-  }
-}
-
-static void test_detached_heuristics_compaction_remaps_extension() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  k.input_activation_order = {1, 2, 3, 4, 5};
-  for (Var v = 1; v < 6; ++v)
-    kernel_record_import(k, v);
-  kernel_record_import(k, 0);
-  for (const Lit f : {make_lit(1, false), make_lit(2, false)})
-    for (const Lit r : {make_lit(3, false), make_lit(4, false),
-                        make_lit(5, false)})
-      kernel_add_binary_clause(k, f, r, ++k.next_clause_id);
-  {
-    ScopedHeuristics h(k);
-    assert(factor_apply(k) == ApplyResult::Ok);
-    assert(k.compact_import_order.size() == 6);
-  }
-  k.var_status.assign(k.nvars, VarStatus::Active);
-  k.var_status[0] = VarStatus::Eliminated;
-  --k.unassigned_active;
-  assert(kernel_compact_variables(k));
-  {
-    ScopedHeuristics h(k);
-    assert(k.compact_import_order ==
-           std::vector<Var>({0, 1, 2, 3, 4, 5}));
+// A Factor extension survives every order of heuristics attachment ('A'),
+// detachment ('D') and compaction of an eliminated, never-activated x0 ('C'):
+// the compact import population ends as exactly the active variables in
+// import order, and the target-phase update accepts it.
+static void test_factor_extension_with_heuristics_and_compaction() {
+  for (const char *ops : {"FCA", "ADFA", "ADCFA", "AFDCA"}) {
+    const bool compact = std::strchr(ops, 'C');
+    const Var first = compact ? 1 : 0; // x0 is absent from every grid clause
+    Kernel k;
+    kernel_reserve_vars(k, first + 5);
+    for (Var v = first; v < k.nvars; ++v) {
+      k.input_activation_order.push_back(v);
+      kernel_record_import(k, v);
+    }
+    if (compact)
+      kernel_record_import(k, 0); // input finalization records header-only IDs
+    grid_2x3(k, first);
+    std::optional<ScopedHeuristics> h;
+    for (const char *op = ops; *op; ++op)
+      switch (*op) {
+      case 'A':
+        h.emplace(k);
+        assert(k.input_activation_order.empty());
+        break;
+      case 'D':
+        h.reset();
+        assert(!k.h);
+        break;
+      case 'F':
+        assert(factor_apply(k) == ApplyResult::Ok);
+        assert(k.first_extension_var == k.nvars - 1);
+        break;
+      case 'C':
+        k.var_status.assign(k.nvars, VarStatus::Active);
+        k.var_status[0] = VarStatus::Eliminated;
+        --k.unassigned_active;
+        assert(kernel_compact_variables(k));
+        break;
+      }
+    assert(k.nvars == 6 && k.external_to_internal[first + 5] == 5);
+    assert(k.compact_import_order == std::vector<Var>({0, 1, 2, 3, 4, 5}));
     assert(k.compact_import_position[5] == 5);
     assert(k.compact_import_order.size() == k.unassigned_active);
     k.h->stable = true;
@@ -281,13 +211,7 @@ static void test_dense_scan_budget_boundary() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
-  const Lit a = make_lit(0, false), b = make_lit(1, false);
-  const Lit p = make_lit(2, false), q = make_lit(3, false),
-            r = make_lit(4, false);
-  for (const Lit f : {a, b})
-    for (const Lit remainder : {p, q, r})
-      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
-
+  grid_2x3(k, 0);
   k.work_budget = 4;
   assert(factor_apply(k) == ApplyResult::NoOp);
   assert(k.stats.factorings == 0);
@@ -300,15 +224,9 @@ static void test_next_factor_budget_check_follows_occurrence() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
-  const Lit a = make_lit(0, false), b = make_lit(1, false);
-  const Lit p = make_lit(2, false), q = make_lit(3, false),
-            r = make_lit(4, false);
-  for (const Lit f : {a, b})
-    for (const Lit remainder : {p, q, r})
-      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
-
+  grid_2x3(k, 0);
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
-  k.factor_marks[a] = 1;
+  k.factor_marks[make_lit(0, false)] = 1;
   k.work_budget = 18;
   assert(factor_apply(k) == ApplyResult::Ok);
   assert(k.stats.factorings == 1);
@@ -371,16 +289,11 @@ static void test_binary_quotients_preserve_sparse_watch_order() {
   kernel_reserve_vars(k, 5);
   for (const Var v : {0u, 1u, 3u, 2u, 4u})
     kernel_record_import(k, v);
-  const Lit a = make_lit(0, false), b = make_lit(1, false);
-  const Lit p = make_lit(2, false), q = make_lit(3, false),
-            r = make_lit(4, false);
-  for (const Lit f : {a, b})
-    for (const Lit remainder : {p, q, r})
-      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
-
+  grid_2x3(k, 0);
   assert(factor_apply(k) == ApplyResult::Ok);
-  const Lit nx = make_lit(5, true);
-  assert((binary_partners(k, nx) == std::vector<Lit>{p, q, r}));
+  assert((binary_partners(k, make_lit(5, true)) ==
+          std::vector<Lit>{make_lit(2, false), make_lit(3, false),
+                           make_lit(4, false)}));
 }
 
 // Binaries created while dense follow the connected large occurrences: the
@@ -473,12 +386,9 @@ static void test_satisfied_binary_remainder_is_retained() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
+  grid_2x3(k, 0);
   const Lit a = make_lit(0, false), b = make_lit(1, false);
-  const Lit p = make_lit(2, false), q = make_lit(3, false),
-            r = make_lit(4, false);
-  for (const Lit f : {a, b})
-    for (const Lit remainder : {p, q, r})
-      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
+  const Lit p = make_lit(2, false);
   kernel_assign_unit(k, p);
 
   assert(factor_apply(k) == ApplyResult::Ok);
@@ -726,11 +636,8 @@ static void test_demote_fresh_order() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 10); // two disjoint 2x3 grids over 0..4 and 5..9
-  for (Var base : {0u, 5u})
-    for (const Var fv : {base + 0, base + 1})
-      for (const Var rv : {base + 2, base + 3, base + 4})
-        kernel_add_binary_clause(k, make_lit(fv, false), make_lit(rv, false),
-                                 ++k.next_clause_id);
+  grid_2x3(k, 0);
+  grid_2x3(k, 5);
 
   assert(k.factor_demote_fresh); // the shipped default
   assert(factor_apply(k) == ApplyResult::Ok);
@@ -798,13 +705,8 @@ static void test_touch_filter_is_policy_only() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
-  const Lit a = make_lit(0, false), b = make_lit(1, false);
-  const Lit p = make_lit(2, false), q = make_lit(3, false),
-            r = make_lit(4, false);
-  for (const Lit f : {a, b})
-    for (const Lit rr : {p, q, r})
-      kernel_add_binary_clause(k, f, rr, ++k.next_clause_id);
-
+  grid_2x3(k, 0);
+  const Lit a = make_lit(0, false);
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
   // "already seeded everything": Factor has cleared every literal bit.
   assert(factor_guard(k));
@@ -833,10 +735,7 @@ int main() {
   test_extension_var_boundary();
   test_factoring_2x3();
   test_late_heuristics_attach_keeps_factor_extension();
-  test_late_heuristics_attach_after_extension_compaction();
-  test_factor_extension_between_heuristics_attachments();
-  test_detached_factor_after_input_compaction();
-  test_detached_heuristics_compaction_remaps_extension();
+  test_factor_extension_with_heuristics_and_compaction();
   test_dense_scan_budget_boundary();
   test_next_factor_budget_check_follows_occurrence();
   test_next_factor_mark_precedes_match_scan();

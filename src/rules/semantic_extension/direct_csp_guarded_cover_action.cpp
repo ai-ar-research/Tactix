@@ -22,11 +22,6 @@ namespace tactix {
     }
   };
 
-  const DirectCspGuardedCoverOwnerSnapshot*DirectCspGuardedCoverActionSession::snapshot( const DirectCspGuardedCoverActionSelection&selection)const{
-    for(const auto&o:owners_)if(direct_csp_guarded_cover_owner_shape_equal(o.selection,selection))return &o;
-    return nullptr;
-  }
-
   namespace {
 
     direct_csp_guarded_cover::Bounds bounds(const DirectCspGuardedCoverActionLimits&l){
@@ -68,29 +63,6 @@ namespace tactix {
       return true;
     }
 
-  }
-
-  DirectCspGuardedCoverKeyLookup
-  DirectCspGuardedCoverActionSession::lookup_committed(
-      const DirectCspGuardedCoverActionSelection &selection,
-      const direct_csp_guarded_cover::Bounds &limits,
-      direct_csp_guarded_cover::Charge charge) const {
-    const auto image = direct_csp_guarded_cover::expected_clauses(
-        selection, limits, charge);
-    if (image.status != direct_csp_guarded_cover::Status::Planned)
-      return image.status == direct_csp_guarded_cover::Status::ResourceExhausted
-                 ? DirectCspGuardedCoverKeyLookup::ResourceExhausted
-                 : DirectCspGuardedCoverKeyLookup::Invalid;
-    std::string key;
-    std::vector<int32_t> tuple;
-    if (!build_key(selection, image, charge, key, tuple))
-      return DirectCspGuardedCoverKeyLookup::ResourceExhausted;
-    for (const auto &committed : keys_) {
-      if (!charge(1 + committed.size()))
-        return DirectCspGuardedCoverKeyLookup::ResourceExhausted;
-      if (committed == key) return DirectCspGuardedCoverKeyLookup::Present;
-    }
-    return DirectCspGuardedCoverKeyLookup::Absent;
   }
 
   bool DirectCspGuardedCoverActionLimits::valid()const{

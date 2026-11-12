@@ -1518,16 +1518,6 @@ static void sweep_reschedule_representatives(
 }
 } // namespace
 
-Var sweep_next_scheduled(const Kernel &k) {
-  for (size_t j = k.sweep_front.size(); j-- > 0;)
-    if (k.sweep_front[j] != INVALID_VAR)
-      return k.sweep_front[j];
-  for (size_t i = k.sweep_tail_next; i < k.sweep_tail.size(); i++)
-    if (k.sweep_tail[i] != INVALID_VAR)
-      return k.sweep_tail[i];
-  return INVALID_VAR;
-}
-
 static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
                                          SweepRound &r) {
   if (!sweep_guard(k))
@@ -2584,7 +2574,7 @@ void sweep_capture_core_units_for_test(Kernel &k, SweepDirProof &proof,
 }
 
 ApplyResult sweep_emit_round_for_test(Kernel &k, SweepRound &round,
-                                      uint32_t, const SweepLimits &lim) {
+                                      const SweepLimits &lim) {
   return sweep_emit_round(k, round, lim);
 }
 

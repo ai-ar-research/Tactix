@@ -97,7 +97,6 @@ static void repair(const std::string &family,bool hard,const std::string &prefix
   assert(s.kernel(old)==identity && k.values==values && k.reconstruction==rho && k.next_clause_id==UINT64_MAX-1);
   k.next_clause_id=id;
   const auto result=s.repair(h,writer(prefix,mode));
-  if(result.status!=NativeAdvanceStatus::Ok)std::fprintf(stderr,"repair %s hard=%d status=%u\n",family.c_str(),hard,unsigned(result.status));
   assert(result.status==NativeAdvanceStatus::Ok && !s.kernel(old) && s.kernel(s.ticket())==identity && k.h==guidance);
   assert(s.ticket().query==1 && h.queries()==1 && h.active_query()->assumptions==assumptions);
   assert(std::vector<int32_t>(h.input().begin(),h.input().end())==input && !s.projection_state(s.ticket()).restore);
@@ -140,7 +139,6 @@ static void transition(const std::string &origin,bool append,const std::string &
     if(q==3)assert(h.assume(1)==InputStatus::Ok);
     assert(h.begin_query()==InputStatus::Ok);export_query(h,stem(q));
     const auto advanced=s.advance(h,writer(stem(q),mode));
-    if(advanced.status!=NativeAdvanceStatus::Ok)std::fprintf(stderr,"transition %s q=%u status=%u\n",origin.c_str(),q,unsigned(advanced.status));
     assert(advanced.status==NativeAdvanceStatus::Ok && s.kernel(s.ticket())==identity && k.h==guidance);
     assert(bytes(stem(1),mode)==sealed);
     if(q==2)assert(advanced.retracted>=2 && !kernel_external_value(k,internalize(6)));

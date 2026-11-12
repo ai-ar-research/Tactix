@@ -21,7 +21,7 @@ namespace {
 Kernel install() { return gf3_native_kernel(gf3_chained_units(), 9); }
 
 Gf3GaussianActionLimits limits(const Gf3GaussianConsequenceParameters &p = {}) {
-  return gf3_gaussian_action_limits(p);
+  return action_limits(p);
 }
 
 struct Bound {
@@ -38,19 +38,17 @@ struct Bound {
 
 void singular_batch_and_atomic_publication() {
   Bound b;
-  const auto offered = gf3_gaussian_action_offer(b.kernel, b.session, limits());
-  assert(offered.status == Gf3GaussianActionStatus::Applied);
-  assert(offered.offers.size() == 1);
-  assert(offered.offers[0].rfind("g3b1:", 0) == 0);
-  assert(offered.live.effort.identity_bytes >= offered.offers[0].size());
-  assert(offered.live.effort.identity_work ==
-         offered.live.effort.identity_bytes);
-  const auto applied = gf3_gaussian_action_apply(
-      b.kernel, b.session, limits(), offered.offers[0]);
+  const std::string identity = gf3_gaussian_identity(b.kernel);
+  assert(identity.rfind("g3b1:", 0) == 0);
+  const auto applied =
+      gf3_gaussian_action_apply(b.kernel, b.session, limits(), identity);
   assert(applied.status == Gf3GaussianActionStatus::Applied);
   assert(applied.result == ApplyResult::Ok);
   assert(applied.live.published_units.size() >= 3);
-  assert(b.session.keys() == offered.offers);
+  assert(applied.live.effort.identity_bytes >= identity.size() &&
+         applied.live.effort.identity_work ==
+             applied.live.effort.identity_bytes);
+  assert(b.session.keys() == std::vector<std::string>{identity});
   assert(b.kernel.stats.gf3_gaussian_attempts == 0);
   record_gf3_gaussian_action_feedback(b.kernel, applied);
   assert(b.kernel.stats.gf3_gaussian_applied == 1);
@@ -61,55 +59,54 @@ void singular_batch_and_atomic_publication() {
 
 void corruption_rebinding_and_limits_decline_without_mutation() {
   Bound b;
-  const auto offered = gf3_gaussian_action_offer(b.kernel, b.session, limits());
-  assert(offered.offers.size() == 1);
+  const std::string identity = gf3_gaussian_identity(b.kernel);
   const auto before_id = b.kernel.next_clause_id;
-  std::string corrupt = offered.offers[0];
+  const auto unchanged = [&] {
+    assert(b.kernel.next_clause_id == before_id && b.kernel.trail.empty() &&
+           b.session.keys().empty());
+  };
+  std::string corrupt = identity;
   corrupt.back() = corrupt.back() == '0' ? '1' : '0';
   assert(gf3_gaussian_action_apply(b.kernel, b.session, limits(), corrupt)
              .status == Gf3GaussianActionStatus::Stale);
-  assert(b.kernel.next_clause_id == before_id && b.kernel.trail.empty() &&
-         b.session.keys().empty());
+  unchanged();
 
   Gf3GaussianConsequenceParameters small;
-  small.maximum_identity_bytes = 1;
-  assert(gf3_gaussian_action_offer(b.kernel, b.session, limits(small)).status ==
-         Gf3GaussianActionStatus::ResourceExhausted);
-  assert(b.kernel.next_clause_id == before_id && b.kernel.trail.empty());
-
+  // The batch fits, but not together with its per-outcome identities.
+  small.maximum_identity_bytes = identity.size();
+  assert(gf3_gaussian_action_apply(b.kernel, b.session, limits(small), identity)
+             .status == Gf3GaussianActionStatus::ResourceExhausted);
+  unchanged();
   Gf3GaussianConsequenceParameters small_session;
-  small_session.maximum_session_identity_bytes = offered.offers[0].size() - 1;
-  const auto session_limited = gf3_gaussian_action_offer(
-      b.kernel, b.session, limits(small_session));
-  assert(session_limited.status ==
-             Gf3GaussianActionStatus::ResourceExhausted &&
-         session_limited.candidates == 1 && !session_limited.complete &&
-         session_limited.offers.empty());
-  assert(b.kernel.next_clause_id == before_id && b.kernel.trail.empty());
+  small_session.maximum_session_identity_bytes = identity.size() - 1;
+  assert(gf3_gaussian_action_apply(b.kernel, b.session, limits(small_session),
+                                   identity)
+             .status == Gf3GaussianActionStatus::ResourceExhausted);
+  unchanged();
 
   Kernel other = install();
   other.structural_provenance = b.records;
   Gf3GaussianActionSession foreign;
   // Bind foreign to the first kernel through a successful application.
-  assert(gf3_gaussian_action_apply(b.kernel, foreign, limits(),
-                                   offered.offers[0]).status ==
-         Gf3GaussianActionStatus::Applied);
-  assert(gf3_gaussian_action_offer(other, foreign, limits()).status ==
+  assert(gf3_gaussian_action_apply(b.kernel, foreign, limits(), identity)
+             .status == Gf3GaussianActionStatus::Applied);
+  assert(gf3_gaussian_action_apply(other, foreign, limits(), identity).status ==
          Gf3GaussianActionStatus::Stale);
+  assert(other.trail.empty());
 }
 
+// The action guard accepts the default DSR proof on the Ok path.
 void public_wrapper_applies_with_dsr() {
   Bound b;
-  const auto offered = gf3_gaussian_action_offer(b.kernel, b.session, limits());
-  assert(offered.offers.size() == 1);
+  const std::string identity = gf3_gaussian_identity(b.kernel);
   TemporaryFile file;
   Proof proof;
   assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
   proof.bind_variable_map(&b.kernel.internal_to_external);
   proof.bind_external_variable_map(&b.kernel.external_to_internal);
   b.kernel.proof = &proof;
-  const auto applied = gf3_gaussian_action_apply(
-      b.kernel, b.session, limits(), offered.offers.front());
+  const auto applied =
+      gf3_gaussian_action_apply(b.kernel, b.session, limits(), identity);
   assert(applied.status == Gf3GaussianActionStatus::Applied &&
          applied.result == ApplyResult::Ok);
   proof.flush();
@@ -122,11 +119,8 @@ void c_v6_replays_the_exact_batch_identity() {
   source.kernel = gf3_parsed_kernel(gf3_chained_units());
   source.kernel.structural_provenance = source.records;
   source.kernel.gf3_gaussian_action_session = &source.session;
-  const auto source_offer =
-      gf3_gaussian_action_offer(source.kernel, source.session, limits());
-  assert(source_offer.status == Gf3GaussianActionStatus::Applied &&
-         source_offer.offers.size() == 1);
-  const std::string identity = source_offer.offers.front();
+  const std::string identity = gf3_gaussian_identity(source.kernel);
+  assert(!identity.empty());
   tactix_c_handle *solver = tactix_init();
   FILE *records = std::tmpfile();
   assert(records && tactix_bind_structural_provenance(solver, records) == 0);
@@ -141,7 +135,7 @@ void c_v6_replays_the_exact_batch_identity() {
   base.rule_id = 37;
   base.parameters.kind = TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE;
   auto &c = base.parameters.value.gf3_gaussian_consequence;
-  c = gf3_c_gaussian(p);
+  copy_parameter_fields<Gf3GaussianConsequenceParameters>(c, p);
   base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
   base.repeat_limit = 1;

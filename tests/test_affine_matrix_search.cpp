@@ -451,18 +451,15 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   assert(lazy.status == AffineMatrixServiceStatus::Applied &&
          lazy.reason_deferred && lazy.reason_width == 3 &&
          lazy.installed_reason.empty() && session.lazy_reason_count() == 1 &&
-         !session.lazy_reason_vector_constructed(4) &&
          lazy.event_identity.find(";r=1,-2,5") != std::string::npos);
   std::vector<Var> antecedents;
   assert(session.inspect_lazy_reason(kernel, 4, antecedents));
-  assert((antecedents == std::vector<Var>{0, 1}) &&
-         !session.lazy_reason_vector_constructed(4));
+  assert((antecedents == std::vector<Var>{0, 1}));
   volatile sig_atomic_t stop = 1;
   kernel.stop = &stop;
   const auto interrupted = affine_matrix_materialize_reason(kernel, session);
   assert(interrupted.status == AffineMatrixServiceStatus::Interrupted &&
-         session.lazy_reason_count() == 1 && kernel.assigned[4].affine &&
-         session.lazy_reason_vector_constructed(4));
+         session.lazy_reason_count() == 1 && kernel.assigned[4].affine);
   kernel.stop = nullptr;
   const auto materialized = affine_matrix_materialize_reason(kernel, session);
   assert(materialized.status == AffineMatrixServiceStatus::Applied &&
@@ -487,17 +484,14 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   decide_all(kernel, {-1, -2});
   const auto first = affine_matrix_search_step_lazy_minimal(kernel, session);
   assert(first.status == AffineMatrixServiceStatus::Applied &&
-         first.installed_reason.empty() && session.lazy_reason_count() == 1 &&
-         !session.lazy_reason_vector_constructed(4));
+         first.installed_reason.empty() && session.lazy_reason_count() == 1);
   assert(kernel.assigned[4].affine &&
          kernel.assigned[4].reason == AFFINE_REASON);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   decide_all(kernel, {-6, -7});
   const auto second = affine_matrix_search_step_lazy_minimal(kernel, session);
   assert(second.status == AffineMatrixServiceStatus::Applied &&
-         second.installed_reason.empty() && session.lazy_reason_count() == 2 &&
-         !session.lazy_reason_vector_constructed(4) &&
-         !session.lazy_reason_vector_constructed(9));
+         second.installed_reason.empty() && session.lazy_reason_count() == 2);
   assert(kernel.assigned[9].affine &&
          kernel.assigned[9].reason == AFFINE_REASON);
 
@@ -521,7 +515,6 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   kernel.stop = nullptr;
   assert(session.lazy_reason_count() == 1 && kernel.assigned[4].affine &&
          kernel.assigned[4].reason == AFFINE_REASON &&
-         !session.lazy_reason_vector_constructed(4) &&
          kernel.stats.affine_matrix_analyze_handles == 1 &&
          kernel.stats.affine_matrix_analyze_materializations == 1 &&
          kernel.stats.affine_matrix_analyze_vectors_constructed == 1 &&
@@ -837,9 +830,16 @@ void root_decline_atomicity() {
                                          : AffineMatrixServiceStatus::ResourceExhausted));
     assert(kernel.next_clause_id == id && kernel.arena == arena &&
            fixture.session.owner_version() == owner &&
-           !fixture.session.published_keys() &&
            std::ftell(fixture.journal) == position);
     kernel.stop = nullptr;
+    // The interrupted decline published no key: the next root window
+    // applies rather than reporting a duplicate.
+    if (interrupted) {
+      assert(controller.resume_search(resume_request(controller, kernel)).resumed_search);
+      assert(controller.full_restart() == ApplyResult::Ok);
+      assert(controller.affine_matrix_fixpoint_service().status ==
+             AffineMatrixServiceStatus::Applied);
+    }
   }
 }
 

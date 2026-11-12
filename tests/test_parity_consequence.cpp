@@ -56,7 +56,7 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
   auto bad=replay;std::get<ParityConsequenceParameters>(bad.sequence[0].parameters).output_width=5;
   assert(!validate_online_strategy_program(bad));
   bad=replay;bad.sequence[0].rule="Lucky";assert(!validate_online_strategy_program(bad));
-  Capture capture;
+  Capture capture;size_t extent=0;
   {
     RestartController controller(k,{},&capture);
     ActionAllowance allowance;ActionRequest request;
@@ -64,13 +64,6 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
     auto apply=[&] {
       request.sequence=controller.observe().sequence+1;
       request.expected=state_version(k);
-      const auto before=controller.observe();const long offset=std::ftell(records);
-      for(int i=0;i<3;++i) {
-        auto observation=controller.observe();
-        assert(observation.state.strategy_epoch==before.state.strategy_epoch);
-        assert(observation.cumulative.parity_consequence_attempts==k.structural_action_sequence);
-        assert(std::ftell(records)==offset);
-      }
       return controller.apply_rule(request,allowance);
     };
     std::get<ParityConsequenceParameters>(request.invocation.parameters).maximum_proof_additions=1;
@@ -81,7 +74,7 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
     assert(apply().invocation.rule_result==ApplyResult::Ok);
     assert(kernel_binary_live(k,internalize(-1),internalize(2)));
     assert(kernel_binary_live(k,internalize(1),internalize(-2)));
-    const auto extent=k.external_to_internal.size();
+    extent=k.external_to_internal.size();
     assert(apply().invocation.rule_result==ApplyResult::NoOp);
     assert(k.external_to_internal.size()==extent);
     assert(k.stats.parity_consequence_attempts==3);
@@ -110,6 +103,8 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
   assert(journal.find("\"kind\":\"action-complete\"")!=std::string::npos);
   assert(journal.find("\"kind\":\"publish-xor-consequence\"")!=std::string::npos);
   assert(k.nvars==7&&kernel_num_output_vars(k)==7);
+  // Proof-only helper IDs are never reused by later extension variables.
+  const Var fresh=kernel_new_extension_vars(k,1);assert(k.internal_to_external[fresh]==extent);
   if(proof_path)proof.flush();
   k.proof=nullptr;
   k.structural_provenance=nullptr;std::fclose(records);return k.external_to_internal;

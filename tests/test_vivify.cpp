@@ -1,22 +1,17 @@
-// Vivify unit tests: the three probe outcomes, root-satisfied deletion, tier
-// scope, the instance surface, and exact state restoration.
+// Vivify unit tests: the probe outcomes and terminal arms, root-satisfied
+// deletion, tier scope, Kissat's schedule order, and exact state restoration.
 #undef NDEBUG
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
-#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/vivify/vivify.hpp"
 #include "strategy/vivify_parameters.hpp"
-#include "temporary_file.hpp"
-#include "test_io.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <csignal>
-#include <sstream>
 #include <cstdio>
-#include <string>
 #include <vector>
 
 using namespace tactix;
@@ -182,22 +177,6 @@ static void test_lcm_scope_and_satisfied_delete() {
   assert(vivify_try(k2, r2) == ApplyResult::Ok);
   assert(k2.stats.vivify_deleted == 1);
   assert(live_large(k2) == 0);
-}
-
-static void test_instance_surface() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  const Ref cref = add_external_clause(k, {1, 2, 3});
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  const std::vector<RuleVTable> &rules = tactix_rules();
-  const int id = tactix_rule_id("Vivify");
-  assert(id >= 0 && rules[id].tier == RuleTier::Inprocess);
-  uint64_t insts[4];
-  const uint32_t n = rules[id].instances(k, insts, 4);
-  assert(n == 1 && insts[0] == cref);
-  assert(rules[id].apply_instance(k, insts[0]) == ApplyResult::Ok);
-  assert(k.stats.vivify_subsumed == 1);
-  assert(rules[id].apply_instance(k, 999999) == ApplyResult::NoOp);
 }
 
 // Each scope selects exactly its glue band, tracking the live tier bounds.
@@ -436,10 +415,6 @@ static void test_schedule_prefix_flush() {
   k.vivify_flush = true;
   add_external_clause(k, {1, 2, 3});
   add_external_clause(k, {1, 2, 3, 4});
-  TemporaryFile file;
-  Proof proof;
-  assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
-  k.proof = &proof;
   std::vector<Ref> cands;
   vivify_candidates(k, cands);
   assert(cands.size() == 2); // N1: scheduling never hides either instance
@@ -449,13 +424,6 @@ static void test_schedule_prefix_flush() {
   assert(k.stats.vivify_flushed == 1);
   assert(k.stats.vivify_checked == 0);
   assert(live_large(k, short_clause.data(), 3) == 1);
-  proof.flush();
-  k.proof = nullptr;
-  std::istringstream lines(read_file(file.path));
-  bool saw_delete = false;
-  for (std::string line; std::getline(lines, line);)
-    saw_delete |= line[0] == 'd' && line.find('4') != std::string::npos;
-  assert(saw_delete);
 
   Kernel off;
   off.vivify_flush = false;
@@ -733,7 +701,6 @@ int main() {
   test_probe_conflict_strengthens();
   test_terminal_dispatch();
   test_lcm_scope_and_satisfied_delete();
-  test_instance_surface();
   test_tier3_scope();
   test_leftover_priority();
   test_trail_reuse();

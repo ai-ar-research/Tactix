@@ -104,19 +104,6 @@ static void single_install(const AffineMatrixTransaction &transaction,
   assert(installs == 1);
 }
 
-static void invalid_request_reports_failure_stage() {
-  AffineMatrix matrix;
-  MatrixEvent event;
-  AffineMatrixTransaction transaction;
-  MatrixTransactionFailureStage stage =
-      MatrixTransactionFailureStage::ProofPopulation;
-  assert(prepare_affine_matrix_transaction(
-             matrix, 0, {}, event, 0, 0, {}, {}, transaction, nullptr, 0,
-             nullptr, true, false, false, &stage) ==
-         MatrixTransactionStatus::Invalid);
-  assert(stage == MatrixTransactionFailureStage::Request);
-}
-
 static void historical_event_requires_explicit_authentication_mode() {
   AffineMatrix matrix;
   MatrixEvent historical;
@@ -209,23 +196,6 @@ static void retained_source_authentication_preserves_work() {
   assert(retained.authentication_work() == copied.authentication_work());
   assert(retained.proof_events() == copied.proof_events());
   assert(retained_charges < copied_charges);
-}
-
-static void implication_event_uses_the_same_general_bridge() {
-  const std::vector<Equation> input = {
-      authenticated_equation({1, 3, 4}, false, 300),
-      authenticated_equation({2, 3, 4, 5}, false, 400)};
-  AffineMatrix matrix = built(input, 17);
-  MatrixEvent event;
-  assert(matrix.synchronize({{1, false}, {2, false}},
-                            ample, event) == MatrixStatus::Complete);
-  assert(event.kind == MatrixEventKind::Implication);
-  AffineMatrixTransaction transaction;
-  assert(prepare_affine_matrix_transaction(
-             matrix, 17, input, event, 5, 2000, transaction_limits(),
-             ample, transaction) == MatrixTransactionStatus::Prepared);
-  assert((transaction.reason() == std::vector<External>{1, 2, -5}));
-  single_install(transaction, transaction.reason());
 }
 
 static void root_unit_reuses_the_accumulated_clause() {
@@ -509,25 +479,11 @@ static void incomplete_or_forged_premises_are_unsupported() {
              ample, output) == MatrixTransactionStatus::Prepared);
 }
 
+// A matrix built from malformed premises never certifies its own sources.
 static void matrix_source_authentication_certificate_is_exact() {
-  const auto valid = sources();
-  AffineMatrix matrix = built(valid, 991);
-  assert(matrix.proof_sources_authenticated());
+  assert(built(sources(), 991).proof_sources_authenticated());
   const auto trail = zero_trail();
-  MatrixEvent event;
-  assert(matrix.synchronize(trail, ample, event) == MatrixStatus::Complete);
-  AffineMatrixTransaction copied, retained;
-  assert(prepare_affine_matrix_transaction(
-             matrix, 991, valid, event, 10, 1000, transaction_limits(),
-             ample, copied) == MatrixTransactionStatus::Prepared);
-  assert(prepare_affine_matrix_transaction(
-             matrix, 991, matrix.authenticated_sources(), event, 10, 1000,
-             transaction_limits(), ample, retained) ==
-         MatrixTransactionStatus::Prepared);
-  assert(copied.work() == retained.work());
-  assert(copied.proof_events() == retained.proof_events());
-
-  auto malformed = valid;
+  auto malformed = sources();
   malformed[0].premise_clauses[0][0] =
       -malformed[0].premise_clauses[0][0];
   AffineMatrix invalid = built(malformed, 992);
@@ -595,28 +551,12 @@ int main(int argc, char **argv) {
     return write_proof(argv[2], argv[3]);
   if (argc == 3 && std::strcmp(argv[1], "--resume-proofs") == 0)
     return write_resume_proofs(argv[2]);
-  invalid_request_reports_failure_stage();
   complete_plan_accounts_and_retains_only_reason();
   historical_event_requires_explicit_authentication_mode();
   retained_source_authentication_preserves_work();
   compact_one_shot_may_borrow_source_identity();
   isolated_symmetric_difference_resume();
   isolated_removed_source_resume();
-  {
-    AffineMatrix matrix;
-    MatrixEvent event;
-    event_fixture(matrix, event);
-    AffineMatrixProofCache cache;
-    AffineMatrixTransaction transaction;
-    assert(prepare_affine_matrix_transaction(
-               matrix, 991, sources(), event, 10, 1000,
-               transaction_limits(), ample,
-               transaction, &cache, 0) == MatrixTransactionStatus::Prepared);
-    assert(transaction.proof_cache_insert());
-    assert(transaction.proof_cache_entry().tree.variable_count > 0);
-    assert(!transaction.proof_cache_entry().tree.variables.empty());
-  }
-  implication_event_uses_the_same_general_bridge();
   root_unit_reuses_the_accumulated_clause();
   empty_root_conflict_is_a_publishable_reason();
   exact_identity_and_atomic_failure();

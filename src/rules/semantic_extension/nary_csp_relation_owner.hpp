@@ -30,7 +30,6 @@ public:
   bool retained() const { return owner_ != nullptr; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
   size_t retained_owners() const { return snapshots_.size(); }
-  uint64_t version() const { return version_; }
   uint64_t session_work() const { return session_work_; }
   const std::vector<NaryCspRelationOwnerSnapshot> &snapshots() const {
     return snapshots_;

@@ -11,10 +11,6 @@ RuleEligibility probe_guard(const Kernel &k) {
   return failed_literal_guard(k);
 }
 
-void probe_candidates(const Kernel &k, std::vector<Lit> &out) {
-  failed_literal_candidates(k, out);
-}
-
 ApplyResult probe_apply(Kernel &k) {
   return failed_literal_apply(k, FailedLiteralPropagation::Full, probe_stats);
 }

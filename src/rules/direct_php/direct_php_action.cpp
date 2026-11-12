@@ -135,148 +135,48 @@ DirectPhpActionStatus build_record(
   return DirectPhpActionStatus::Prepared;
 }
 
-bool same_source(const direct_php_live::Source &a,
-                 const direct_php_live::Source &b, ReplayMeter &meter) {
-  if (!meter.charge(1)) return false;
-  if (a.occurrence != b.occurrence ||
-      a.native_proof_id != b.native_proof_id ||
-      a.identity_kind != b.identity_kind || a.kind != b.kind ||
-      a.ref != b.ref || a.first != b.first || a.second != b.second ||
-      a.clause.size() != b.clause.size())
-    return false;
-  return meter.charge(a.clause.size()) && a.clause == b.clause;
-}
-
-bool same_premise(const direct_php_recognition::Premise &a,
-                  const direct_php_recognition::Premise &b,
-                  ReplayMeter &meter) {
-  if (!meter.charge(1)) return false;
-  if (a.occurrence != b.occurrence ||
-      a.native_proof_id != b.native_proof_id ||
-      a.literals.size() != b.literals.size())
-    return false;
-  return meter.charge(a.literals.size()) && a.literals == b.literals;
-}
-
-bool same_snapshot(const direct_php_live::Snapshot &a,
-                   const direct_php_live::Snapshot &b, ReplayMeter &meter) {
-  if (!meter.charge(1)) return false;
-  if (a.arena_generation != b.arena_generation ||
-      a.next_clause_id != b.next_clause_id || a.nvars != b.nvars ||
-      a.external_extent != b.external_extent || a.literals != b.literals ||
-      a.work != b.work || a.sources.size() != b.sources.size() ||
-      a.premises.size() != b.premises.size())
-    return false;
-  for (size_t i = 0; i < a.sources.size(); ++i)
-    if (!same_source(a.sources[i], b.sources[i], meter)) return false;
-  for (size_t i = 0; i < a.premises.size(); ++i)
-    if (!same_premise(a.premises[i], b.premises[i], meter)) return false;
-  return true;
-}
-
-bool same_event(const direct_php_live::ReplayEvent &a,
-                const direct_php_live::ReplayEvent &b, ReplayMeter &meter) {
-  if (!meter.charge(1)) return false;
-  if (a.kind != b.kind || a.role != b.role || a.layer != b.layer ||
-      a.id != b.id || a.deleted_id != b.deleted_id ||
-      a.deleted_id_is_capture_local != b.deleted_id_is_capture_local ||
-      a.source_occurrence != b.source_occurrence ||
-      a.clause.size() != b.clause.size())
-    return false;
-  return meter.charge(a.clause.size()) && a.clause == b.clause;
-}
-
-bool same_record(const DirectPhpActionRecord &a,
-                 const DirectPhpActionRecord &b, ReplayMeter &meter) {
-  if (!meter.charge(1)) return false;
-  if (a.version != b.version || a.action_id != b.action_id ||
-      !(a.limits == b.limits) || a.first_fresh != b.first_fresh ||
-      !(a.accounting == b.accounting) ||
-      a.events.size() != b.events.size())
-    return false;
-  if (!same_snapshot(a.snapshot, b.snapshot, meter)) return false;
-  for (size_t i = 0; i < a.events.size(); ++i)
-    if (!same_event(a.events[i], b.events[i], meter)) return false;
-  return true;
-}
-
 // `proof`, when given, is the accounting of the transaction or retained
 // record the result reports.
 DirectPhpActionResult stopped_result(
     DirectPhpActionStatus status, const DirectPhpActionRequest &request,
-    const DirectPhpActionEffort &effort, bool replay_checked = false,
+    const DirectPhpActionEffort &effort,
     const direct_php_certificate::Accounting *proof = nullptr) {
   DirectPhpActionResult result;
   result.status = status;
   result.action_id = request.action_id;
-  result.replay_checked = replay_checked;
   result.effort = effort;
   if (proof) result.proof = *proof;
   return result;
 }
 
-const direct_php_certificate::Accounting *
-accounting_of(const DirectPhpActionRecord *record) {
-  return record ? &record->accounting : nullptr;
-}
-
 } // namespace
 
-struct DirectPhpPreparedActionAccess {
-  static DirectPhpActionResult prepare_impl(
-    Kernel &kernel, DirectPhpActionSession &session,
-    const DirectPhpActionRequest &request,
-    const DirectPhpActionRecord *expected, bool proof_atomic,
-    DirectPhpPreparedAction &output);
-};
+bool DirectPhpActionLimits::valid() const {
+  return direct_php_live::detail::valid(live_request(*this)) &&
+         certificate.maximum_additions && certificate.maximum_deletions &&
+         certificate.maximum_literals && certificate.maximum_fresh_variables &&
+         certificate.maximum_events && maximum_replay_work;
+}
 
-DirectPhpActionResult DirectPhpPreparedActionAccess::prepare_impl(
+RuleEligibility direct_php_action_guard(const Kernel &kernel) {
+  return root_action_guard(kernel, true).clausal_certificate().finish();
+}
+
+DirectPhpActionResult direct_php_action_apply(
     Kernel &kernel, DirectPhpActionSession &session,
-    const DirectPhpActionRequest &request,
-    const DirectPhpActionRecord *expected, bool proof_atomic,
-    DirectPhpPreparedAction &output) {
-  output = {};
+    const DirectPhpActionRequest &request) {
   DirectPhpActionEffort effort;
   if (!request.limits.valid() || request.version != 1 || !request.action_id)
     return stopped_result(DirectPhpActionStatus::Invalid, request, effort);
   if (!session.belongs_to(kernel))
     return stopped_result(DirectPhpActionStatus::Stale, request, effort);
-  if (expected &&
-      (expected->version != request.version ||
-       expected->action_id != request.action_id ||
-       !(expected->limits == request.limits)))
-    return stopped_result(DirectPhpActionStatus::ReplayMismatch, request,
-                          effort, true, accounting_of(session.record()));
-
-  if (session.committed()) {
-    const DirectPhpActionRecord *retained = session.record();
-    if (!retained || retained->version != request.version ||
-        retained->action_id != request.action_id ||
-        !(retained->limits == request.limits))
-      return stopped_result(DirectPhpActionStatus::ReplayMismatch, request,
-                            effort, expected != nullptr,
-                            accounting_of(retained));
-    DirectPhpActionStatus status = DirectPhpActionStatus::AlreadyApplied;
-    if (expected) {
-      ReplayMeter meter{kernel, request.limits.maximum_replay_work};
-      if (!same_record(*retained, *expected, meter))
-        status = meter.failure(DirectPhpActionStatus::ReplayMismatch);
-      effort.replay_work = meter.work;
-    }
-    return stopped_result(status, request, effort, expected != nullptr,
-                          &retained->accounting);
-  }
-
-  // Proof has mutable private state beyond the Kernel pointer and clause
-  // namespace (buffered bytes, variable maps, and checker population).  The
-  // public split API cannot fingerprint it exactly, so expose that gap only
-  // for proofless kernels.  apply/replay set proof_atomic and publish in the
-  // same exclusive call.
-  if (!proof_atomic && kernel.proof) {
-    const auto status = kernel.proof->startup_pb_written()
-                            ? DirectPhpActionStatus::UnsupportedProof
-                            : DirectPhpActionStatus::UnsupportedProofSplit;
-    return stopped_result(status, request, effort);
+  if (const DirectPhpActionRecord *retained = session.record()) {
+    const bool same = retained->version == request.version &&
+                      retained->action_id == request.action_id &&
+                      retained->limits == request.limits;
+    return stopped_result(same ? DirectPhpActionStatus::AlreadyApplied
+                               : DirectPhpActionStatus::ReplayMismatch,
+                          request, effort, &retained->accounting);
   }
 
   direct_php_live::Admission admission;
@@ -297,103 +197,19 @@ DirectPhpActionResult DirectPhpPreparedActionAccess::prepare_impl(
       build_record(request, admission, transaction, meter, record);
   effort.replay_work = meter.work;
   if (built != DirectPhpActionStatus::Prepared)
-    return stopped_result(built, request, effort, false,
-                          &transaction.accounting());
+    return stopped_result(built, request, effort, &transaction.accounting());
 
-  const bool replayed = !expected || same_record(record, *expected, meter);
-  effort.replay_work = meter.work;
-  if (!replayed)
-    return stopped_result(
-        meter.failure(DirectPhpActionStatus::ReplayMismatch), request, effort,
-        true, &record.accounting);
-
-  DirectPhpPreparedAction prepared;
-  prepared.ready_ = true;
-  prepared.owner_ = &kernel;
-  prepared.session_ = &session;
-  prepared.admission_ = std::move(admission);
-  prepared.transaction_ = std::move(transaction);
-  prepared.record_ = std::move(record);
-  prepared.effort_ = effort;
-  output = std::move(prepared);
-
-  return stopped_result(DirectPhpActionStatus::Prepared, request, effort,
-                        expected != nullptr, &output.record_.accounting);
-}
-
-bool DirectPhpActionLimits::valid() const {
-  return direct_php_live::detail::valid(live_request(*this)) &&
-         certificate.maximum_additions && certificate.maximum_deletions &&
-         certificate.maximum_literals && certificate.maximum_fresh_variables &&
-         certificate.maximum_events && maximum_replay_work;
-}
-
-RuleEligibility direct_php_action_guard(const Kernel &kernel) {
-  return root_action_guard(kernel, true).clausal_certificate().finish();
-}
-
-DirectPhpActionResult direct_php_action_prepare(
-    Kernel &kernel, DirectPhpActionSession &session,
-    const DirectPhpActionRequest &request, DirectPhpPreparedAction &output) {
-  return DirectPhpPreparedActionAccess::prepare_impl(
-      kernel, session, request, nullptr, false, output);
-}
-
-DirectPhpActionResult direct_php_action_prepare_replay(
-    Kernel &kernel, DirectPhpActionSession &session,
-    const DirectPhpActionRequest &request,
-    const DirectPhpActionRecord &expected,
-    DirectPhpPreparedAction &output) {
-  return DirectPhpPreparedActionAccess::prepare_impl(
-      kernel, session, request, &expected, false, output);
-}
-
-DirectPhpActionResult direct_php_action_publish(
-    Kernel &kernel, DirectPhpActionSession &session,
-    DirectPhpPreparedAction &prepared) {
   DirectPhpActionResult result;
-  result.action_id = prepared.record_.action_id;
-  result.effort = prepared.effort_;
-  result.proof = prepared.record_.accounting;
-  if (!prepared.ready_) return result;
-  if (prepared.owner_ != &kernel || prepared.session_ != &session ||
-      session.committed()) {
-    result.status = DirectPhpActionStatus::Stale;
-    return result;
-  }
-  const direct_php_live::Result live =
-      direct_php_live::publish(kernel, prepared.transaction_);
+  result.action_id = record.action_id;
+  result.effort = effort;
+  result.proof = record.accounting;
+  live = direct_php_live::publish(kernel, transaction);
   result.status = action_status(live.status);
   if (live.status != LiveStatus::Applied) return result;
-
-  DirectPhpActionSessionAccess::commit(
-      session, kernel, prepared.record_.action_id, prepared.record_);
-  prepared.ready_ = false;
+  DirectPhpActionSessionAccess::commit(session, kernel, record.action_id,
+                                       record);
   result.status = DirectPhpActionStatus::Applied;
   result.result = ApplyResult::Unsat;
-  return result;
-}
-
-DirectPhpActionResult direct_php_action_apply(
-    Kernel &kernel, DirectPhpActionSession &session,
-    const DirectPhpActionRequest &request) {
-  DirectPhpPreparedAction prepared;
-  DirectPhpActionResult result = DirectPhpPreparedActionAccess::prepare_impl(
-      kernel, session, request, nullptr, true, prepared);
-  if (result.status != DirectPhpActionStatus::Prepared) return result;
-  return direct_php_action_publish(kernel, session, prepared);
-}
-
-DirectPhpActionResult direct_php_action_replay(
-    Kernel &kernel, DirectPhpActionSession &session,
-    const DirectPhpActionRequest &request,
-    const DirectPhpActionRecord &expected) {
-  DirectPhpPreparedAction prepared;
-  DirectPhpActionResult result = DirectPhpPreparedActionAccess::prepare_impl(
-      kernel, session, request, &expected, true, prepared);
-  if (result.status != DirectPhpActionStatus::Prepared) return result;
-  result = direct_php_action_publish(kernel, session, prepared);
-  result.replay_checked = true;
   return result;
 }
 

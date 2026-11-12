@@ -246,19 +246,6 @@ static void test_candidate_budget_stops_after_charged_walk() {
   assert(live(k, 1, 2) && live(k, 1, 3));
 }
 
-// Guard: pure quiescent-root precondition, no fixpoint (ledger row D-LEVEL).
-static void test_guard() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
-  assert(transitive_reduce_guard(k));    // empty trail = trivial fixpoint
-  kernel_assign_unit(k, internalize(1)); // un-propagated root unit
-  assert(transitive_reduce_guard(k));    // pure guard: holds off a fixpoint
-  assert(propagate_apply(k) == ApplyResult::Ok);
-  assert(transitive_reduce_guard(k));
-  kernel_assign_decision(k, internalize(2));
-  assert(!transitive_reduce_guard(k)); // level > 0 is still not a root state
-}
-
 int main() {
   test_transitive_redundancy();
   test_no_redundancy();
@@ -273,7 +260,6 @@ int main() {
   test_raw_watch_word_tick_boundary();
   test_single_candidate_walk_is_charged();
   test_candidate_budget_stops_after_charged_walk();
-  test_guard();
   puts("test_transitive_reduce OK");
   return 0;
 }

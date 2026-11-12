@@ -159,9 +159,6 @@ struct SweepRound {
 
 // Guard: quiescent root, consistent.
 RuleEligibility sweep_guard(const Kernel &);
-// Next seed of the resumable schedule (reschedule front before the tail),
-// INVALID_VAR when empty. Read-only.
-Var sweep_next_scheduled(const Kernel &);
 
 // Canonical seed order: active unassigned variables by ascending degree; ranks,
 // never filters (N1).

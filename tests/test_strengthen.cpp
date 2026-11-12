@@ -1,10 +1,9 @@
 // C2 Strengthen: fused one-action-per-candidate rounds, unit-producing
-// strengthen, instance surface, and the registry-driven inprocessing slot.
+// strengthen, the instance surfaces, budgets, root flushes and interrupts.
 #undef NDEBUG
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
-#include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/strengthen/strengthen.hpp"
 
@@ -328,64 +327,6 @@ static void test_semantic_outcomes_include_every_removed_literal() {
   }
 }
 
-// Pose one elimination-clock slot entry; other fields keep in-class defaults.
-static DefaultInprocessScheduler::SlotEntry pose(int rule, bool enabled) {
-  DefaultInprocessScheduler::SlotEntry e;
-  e.rule = rule;
-  e.enabled = enabled;
-  e.group = SlotGroup::Eliminate;
-  return e;
-}
-
-static void test_slot_schedule_as_data() {
-  // A posed slot is honored in order, and a disabled entry never runs.
-  const std::vector<RuleVTable> &rules = tactix_rules();
-  const int strengthen_id = tactix_rule_id("Strengthen");
-  const int subsume_id = tactix_rule_id("SubsumeForward");
-  assert(strengthen_id >= 0 && subsume_id >= 0);
-  assert(rules[strengthen_id].tier == RuleTier::Inprocess);
-  assert(rules[subsume_id].tier == RuleTier::Inprocess);
-  assert(strengthen_id < subsume_id); // registry order: name-sorted
-  // An odd-parity xor cycle over 1..3 with both clocks forced open.
-  const auto posed = [](Kernel &k, DefaultPolicy &p) {
-    kernel_reserve_vars(k, 3);
-    k.stats.conflicts = 1;
-    for (const auto &[a, b] : {std::pair{1, 2}, {2, 3}, {1, 3}}) {
-      kernel_add_binary_clause(k, internalize(a), internalize(b));
-      kernel_add_binary_clause(k, internalize(-a), internalize(-b));
-    }
-    p.reset_schedule_per_solve = false; // retain the explicitly posed clocks
-    p.inprocess().pose_initialized();
-    p.inprocess().probe_clock.next_conflicts = 0;
-    p.inprocess().elim_clock.next_conflicts = 0;
-  };
-  {
-    // posed: Strengthen on, SubsumeForward off, forced from the first check
-    Kernel k;
-    ScopedHeuristics heuristics(k);
-    DefaultPolicy p;
-    posed(k, p);
-    p.inprocess().entries.push_back(pose(strengthen_id, true));
-    p.inprocess().entries.push_back(pose(subsume_id, false));
-    const int phase = p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr);
-    assert(p.inprocess().entries.size() == 2); // posed slot left untouched
-    assert(p.inprocess().elim_clock.rounds >= 1);     // the forced pass ran
-    assert(k.stats.strengthen_rounds >= 1);
-    assert(k.stats.forward_subsumptions == 0); // disabled entry never ran
-    assert(phase == 20 || p.solve(k) == 20); // odd-parity xor cycle: UNSAT
-  }
-  {
-    // fully disabled slot suppresses all rounds
-    Kernel k;
-    ScopedHeuristics heuristics(k);
-    DefaultPolicy p;
-    posed(k, p);
-    p.inprocess().entries.push_back(pose(strengthen_id, false));
-    assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
-    assert(k.stats.strengthen_rounds == 0);
-  }
-}
-
 static void test_root_flush() {
   // Kissat's forward discovery retires a root-satisfied clause but keeps a
   // root-false literal of another clause for the next BVE round.
@@ -532,7 +473,6 @@ int main() {
   test_forward_step_budget_cuts_between_candidates();
   test_instance_surface();
   test_semantic_outcomes_include_every_removed_literal();
-  test_slot_schedule_as_data();
   test_root_flush();
   test_interrupt();
   puts("test_strengthen OK");

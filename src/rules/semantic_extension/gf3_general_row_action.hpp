@@ -66,35 +66,6 @@ Gf3GeneralRowActionResult gf3_general_row_action_apply(
     Kernel &, Gf3GeneralRowActionSession &,
     const Gf3GeneralRowActionLimits &, const Gf3GeneralRowActionSelection &);
 
-struct Gf3GeneralRowActionOfferWindow {
-  uint64_t maximum_candidates = 0;
-  uint64_t maximum_offers = 0;
-  uint64_t maximum_enumeration_work = 0;
-  bool have_after = false;
-  Gf3GeneralRowActionSelection after;
-
-  bool valid() const;
-};
-
-struct Gf3GeneralRowActionOfferResult {
-  Gf3GeneralRowActionStatus status = Gf3GeneralRowActionStatus::Invalid;
-  bool complete = false;
-  bool have_resume_after = false;
-  Gf3GeneralRowActionSelection resume_after;
-  std::vector<Gf3GeneralRowActionSelection> offers;
-  uint64_t candidates = 0;
-  uint64_t committed_keys_skipped = 0;
-  uint64_t enumeration_work = 0;
-  Gf3GeneralRowLiveEffort live_effort;
-};
-
-// Enumerates exact (outcome, tuple, authenticated identity) actions in
-// lexicographic order.  A partial page resumes strictly after resume_after.
-Gf3GeneralRowActionOfferResult gf3_general_row_action_offer(
-    Kernel &, const Gf3GeneralRowActionSession &,
-    const Gf3GeneralRowActionLimits &,
-    const Gf3GeneralRowActionOfferWindow &);
-
 void record_gf3_general_row_action_feedback(
     Kernel &, const Gf3GeneralRowActionResult &);
 

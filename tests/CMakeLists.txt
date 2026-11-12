@@ -336,6 +336,7 @@ tactix_dsr_pairs_test(cardinality_search_proof test_cardinality_search
     % -- implication conflict implication-resolution conflict-resolution)
 tactix_dsr_pairs_test(cardinality_search_live_proof test_cardinality_search_live
     % -- implication conflict public_conflict)
+tactix_dsr_pairs_test(direct_php_public_proof test_direct_php_public % -- php)
 tactix_dsr_pairs_test(direct_csp_support_proof_model test_direct_csp_support_action
     %/unsat.cnf %/unsat.dsr %/sat.cnf %/sat.model -- unsat model:sat.cnf:sat.model)
 

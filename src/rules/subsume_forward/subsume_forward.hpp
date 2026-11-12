@@ -20,12 +20,6 @@ RuleEligibility subsume_forward_guard(const Kernel &);
 void subsume_forward_candidates(const Kernel &, std::vector<Ref> &out,
                                 bool complete = false);
 
-// Single-candidate check: Ok = deleted, NoOp = kept. Subsumers come from the
-// free literals' watch lists. A large subsumer must be irredundant (no
-// promotion, unlike cadical subsume.cpp:133-149); a binary subsumer needs no
-// check while binaries are never forgotten (implementation-notes §14).
-ApplyResult subsume_forward_try(Kernel &, Ref candidate);
-
 // SC2024 fast-elimination form for a clause start from the mixed occurrence
 // index, with fastel.c's record-high marking and occurrence cap. The enclosing
 // dense pass owns collection.

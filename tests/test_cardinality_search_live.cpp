@@ -72,11 +72,6 @@ void nonroot_implication_and_failure_atomicity() {
   assert(kernel.value(internalize(1)) == 0);
   const uint64_t before = kernel.next_clause_id;
   const size_t trail = kernel.trail.size();
-  const auto checked = cardinality_search_live_inspect(kernel, selected);
-  assert(checked.status == CardinalitySearchLiveStatus::Applied &&
-         (checked.reason == CardinalityClause{-5, 1}) &&
-         checked.proof_ids.size() > 1);
-  assert(kernel.next_clause_id == before && kernel.trail.size() == trail);
   auto tight = selected;
   tight.maximum_source_scan_work = 1;
   assert(cardinality_search_live_apply(kernel, tight).status ==
@@ -84,7 +79,8 @@ void nonroot_implication_and_failure_atomicity() {
   assert(kernel.next_clause_id == before && kernel.trail.size() == trail);
   const auto applied = cardinality_search_live_apply(kernel, selected);
   assert(applied.status == CardinalitySearchLiveStatus::Applied &&
-         applied.propagation_pending && applied.installed_clause_id &&
+         (applied.reason == CardinalityClause{-5, 1}) &&
+         applied.proof_ids.size() > 1 && applied.propagation_pending &&
          applied.installed_clause_id == kernel.next_clause_id);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   assert(kernel.value(internalize(1)) > 0);
@@ -108,31 +104,19 @@ void nonroot_implication_and_failure_atomicity() {
   std::fclose(records);
 }
 
-void typed_action_uses_same_live_path() {
+// A bound that repeats a literal is rejected before any identity is used.
+void typed_action_rejects_invalid_bounds() {
   Kernel kernel = install(overlap, false);
   FILE *records = std::tmpfile();
   assert(records);
   kernel.structural_provenance = records;
-  kernel_assign_decision(kernel, internalize(5));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
   assert(cardinality_search_action_guard(kernel));
-  const std::vector<CardinalitySearchBound> bounds{
-      {{1, 2, 3, 4}, 2, 4}, {{2, 3, 4, 5}, 0, 2}};
-  const auto applied = cardinality_search_action_apply(
-      kernel, bounds, CardinalitySearchActionLimits{});
-  assert(applied.status == CardinalitySearchActionStatus::Applied &&
-         applied.proposed_action_id == 1 &&
-         applied.committed_action_id == 1 &&
-         kernel.structural_action_sequence == 1 &&
-         applied.live.installed_clause_id);
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  assert(kernel.value(internalize(1)) > 0);
   const uint64_t before = kernel.next_clause_id;
   const auto rejected = cardinality_search_action_apply(
       kernel, {{{1, 1}, 1, 1}}, CardinalitySearchActionLimits{});
   assert(rejected.status == CardinalitySearchActionStatus::Invalid &&
          kernel.next_clause_id == before &&
-         kernel.structural_action_sequence == 1);
+         !kernel.structural_action_sequence);
   std::fclose(records);
 }
 
@@ -325,7 +309,7 @@ void proof_fixture(const std::string &cnf_path,
 
 int main(int argc, char **argv) {
   nonroot_implication_and_failure_atomicity();
-  typed_action_uses_same_live_path();
+  typed_action_rejects_invalid_bounds();
   public_online_action_requires_exact_bounds_and_followup();
   c17_deep_copies_bounds_and_executes_search_action();
   if (argc == 2) {
