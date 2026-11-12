@@ -39,9 +39,9 @@ answer against a reference solver and the proof checkers:
 ```sh
 tools/checkers/setup.sh          # proof checkers
 tools/solvers/setup.sh           # reference solvers (Kissat, CaDiCaL)
-tools/fuzz/run.sh --quick --solver 'build/release/examples/tactix-default --auto-proof'
+tools/fuzz/run.sh --quick --solver 'build/release/examples/tactix-default {proof}'
 tools/fuzz/run.sh --public-random --quick \
-  --solver 'build/release/tests/tactix-public-random --auto-proof --random-policy={seed}'
+  --solver 'build/release/tests/tactix-public-random {proof} --random-policy={seed}'
 ```
 
 `--quick` runs about 10,000 cases plus the regression corpus in
@@ -64,9 +64,9 @@ qualify an incomplete campaign. Missing or pending required evidence blocks rele
 
 - **Fuzz:** at least 100,000 independently checked verdicts and at most 5%
   nontermination per DefaultPolicy/public-random leg, plus retained corpus and
-  targeted action/configuration reach. Use shipped `--auto-proof` (DSR first,
-  converting to PBP when required), with explicit `--dsr`/`--pbp` backend and
-  conversion coverage. Independently check original-CNF models and each proof's
+  targeted action/configuration reach. Use `{proof}` to sample explicit DSR, explicit PBP
+  and automatic mode reproducibly per seed; retain targeted backend/conversion
+  coverage. Independently check original-CNF models and each proof's
   declared content route. Crashes, sanitizer/invariant findings, wrong verdicts,
   invalid models/proofs fail; missing reach is incomplete. Large targeted
   campaigns cover changed features, scheduling, guards, harnesses or oracles;

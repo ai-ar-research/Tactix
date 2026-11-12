@@ -109,14 +109,14 @@ jobs:
       # coverage is the nightly job's business (plan §8.2 cadence)
       - name: Quick fuzz (debug build, all oracles)
         if: matrix.mode == 'debug'
-        run: tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300
+        run: tools/fuzz/run.sh --quick --solver "./build/debug/tactix {proof}" --no-shrink --n 300
 
       # rule-order fuzzing (plan §8.2): random legal schedules + random
       # branching instances through the same four oracles — the modularity
       # property (N1) under continuous test
       - name: Quick fuzz, random rule schedule (debug build)
         if: matrix.mode == 'debug'
-        run: tools/fuzz/run.sh --public-random --quick --solver "./build/debug/tests/tactix-public-random --pbp --random-policy={seed}" --no-shrink --n 150
+        run: tools/fuzz/run.sh --public-random --quick --solver "./build/debug/tests/tactix-public-random {proof} --random-policy={seed}" --no-shrink --n 150
 
       - name: Stateful IPASIR query integration fuzz
         run: |
