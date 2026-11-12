@@ -1,6 +1,7 @@
 // Binary Vivify retires a large source: surviving original endpoints also
 // need retry advice. Cover public instances, both terminal paths and modes.
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/vivify/vivify.hpp"
@@ -13,8 +14,7 @@ using namespace tactix;
 
 static bool fixture(bool redundant, bool instantiate, bool reuse, bool preset, int mode) {
   Kernel k; kernel_reserve_vars(k, 4); k.vivify_reuse = reuse;
-  const Lit candidate[] = {internalize(1), internalize(2), internalize(3)};
-  const Ref ref = kernel_add_large_clause(k, candidate, 3, redundant, 2, ++k.next_clause_id);
+  const Ref ref = add_external_clause(k, {1, 2, 3}, redundant, 2, ++k.next_clause_id);
   if (instantiate) {
     kernel_add_binary_clause(k, internalize(-3), internalize(4), ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-3), internalize(-4), ++k.next_clause_id);

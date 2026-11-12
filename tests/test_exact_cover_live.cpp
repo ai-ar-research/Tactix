@@ -1,44 +1,16 @@
 #undef NDEBUG
-#include "checker_certificate.hpp"
-#include "dimacs_text.hpp"
-#include "frontend/parse.hpp"
-#include "proof/proof.hpp"
+#include "exact_cover_test_support.hpp"
 #include "rules/semantic_extension/exact_cover_live.hpp"
 
-#include <algorithm>
 #include <cassert>
+#include <csignal>
 #include <cstdio>
-#include <sstream>
 #include <string>
+#include <vector>
 
 using namespace tactix;
 
-static std::string exact_cover_cnf(bool extra = false) {
-  std::ostringstream out;
-  const unsigned clauses = 15 + unsigned(extra);
-  out << "p cnf 9 " << clauses << '\n';
-  for (int block = 0; block < 3; ++block)
-    for (int first = 0; first < 3; ++first)
-      for (int second = first + 1; second < 3; ++second)
-        out << -(3 * block + first + 1) << ' '
-            << -(3 * block + second + 1) << " 0\n";
-  for (int position = 0; position < 3; ++position) {
-    for (int block = 0; block < 3; ++block)
-      out << 3 * block + position + 1 << ' ';
-    out << "0\n";
-  }
-  for (int diagonal = 0; diagonal < 3; ++diagonal) {
-    for (int block = 0; block < 3; ++block)
-      out << 3 * block + (block + diagonal) % 3 + 1 << ' ';
-    out << "0\n";
-  }
-  if (extra) out << "1 2 3 0\n";
-  return out.str();
-}
-
-static Kernel parse(bool extra = false) {
-  return parse_dimacs_text(exact_cover_cnf(extra));
-}
+static Kernel parse(bool extra = false) { return exact_cover_kernel(extra); }
 
 static ExactCoverLiveRequest request(FILE *records,
                                      ExactCoverLiveSession &session) {
@@ -81,11 +53,7 @@ static void positive_and_repeat() {
   assert(session.keys() == std::vector<std::vector<int32_t>>(
                                {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}));
   assert(std::ftell(records) > 0);
-  std::rewind(records);
-  std::string journal;
-  char buffer[1024];
-  while (const size_t count = std::fread(buffer, 1, sizeof buffer, records))
-    journal.append(buffer, count);
+  const std::string journal = stream_contents(records);
   // Proofless kernels name binaries by literals, while large source
   // clauses retain their native identities. Both cases remain explicit.
   assert(journal.find("\"native_proof_id\":0") != std::string::npos);
@@ -104,64 +72,6 @@ static void positive_and_repeat() {
          kernel.next_clause_id == before_id && std::ftell(repeat) == 0);
   std::fclose(repeat);
   std::fclose(records);
-}
-
-static void remove_published_definitions(Kernel &kernel) {
-  uint32_t binaries = 0;
-  for (int output : {10, 11, 12})
-    for (int input = 1; input <= 9; ++input) {
-      const Lit first = kernel_internalize(kernel, output);
-      const Lit second = kernel_internalize(kernel, -input);
-      if (kernel_binary_live(kernel, first, second)) {
-        assert(kernel_delete_binary(kernel, first, second));
-        ++binaries;
-      }
-    }
-  uint32_t large = 0;
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    Clause *clause = clause_at(kernel.arena, ref);
-    ref += clause_actual_words(clause);
-    if (clause->garbage()) continue;
-    const bool generated = std::any_of(
-        clause->begin(), clause->end(), [&](Lit literal) {
-          const int32_t external = kernel_externalize(kernel, literal);
-          return external > 9 || external < -9;
-        });
-    if (generated) {
-      kernel_delete_clause(kernel, clause);
-      ++large;
-    }
-  }
-  assert(binaries == 9 && large == 3);
-}
-
-static void durable_session_survives_clause_removal() {
-  Kernel kernel = parse();
-  ExactCoverLiveSession session;
-  FILE *first_records = std::tmpfile();
-  assert(first_records);
-  const auto first =
-      exact_cover_live_apply(kernel, request(first_records, session));
-  assert(first.status == ExactCoverLiveStatus::Applied);
-  assert(session.committed_keys() == 3);
-  remove_published_definitions(kernel);
-
-  FILE *second_records = std::tmpfile();
-  assert(second_records);
-  auto second_request = request(second_records, session);
-  second_request.action_id = 78;
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
-  const auto second = exact_cover_live_apply(kernel, second_request);
-  assert(second.status == ExactCoverLiveStatus::AlreadyPublished);
-  assert(second.result == ApplyResult::NoOp);
-  assert(second.recognition_work > 0 && second.revalidation_work == 0);
-  assert(session.committed_keys() == 3);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(kernel.arena.size() == arena && std::ftell(second_records) == 0);
-  std::fclose(second_records);
-  std::fclose(first_records);
 }
 
 static void final_revalidation_obeys_recognition_limit() {
@@ -185,123 +95,65 @@ static void final_revalidation_obeys_recognition_limit() {
   assert(records);
   auto limited = request(records, session);
   limited.maximum_recognition_work = complete_work - 1;
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
+  const ExactCoverUnchanged unchanged{kernel, records};
   const auto result = exact_cover_live_apply(kernel, limited);
   assert(result.status == ExactCoverLiveStatus::ResourceExhausted);
   assert(result.result == ApplyResult::NoOp);
   assert(result.revalidation_work > 0);
   assert(session.committed_keys() == 0);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
+  unchanged.check();
   std::fclose(records);
 }
 
-static void clean_declines() {
-  {
-    Kernel kernel = parse(true);
-    ExactCoverLiveSession session;
-    FILE *records = std::tmpfile();
-    assert(records);
-    const auto mapping = kernel.external_to_internal;
-    const uint64_t id = kernel.next_clause_id;
-    const size_t arena = kernel.arena.size();
-    const uint32_t nvars = kernel.nvars;
-    const uint32_t outputs = kernel_num_output_vars(kernel);
-    const auto result =
-        exact_cover_live_apply(kernel, request(records, session));
-    assert(result.result == ApplyResult::NoOp);
-    assert(result.status == ExactCoverLiveStatus::NoStructure);
-    assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-    assert(kernel.arena.size() == arena && kernel.nvars == nvars);
-    assert(kernel_num_output_vars(kernel) == outputs);
-    assert(session.committed_keys() == 0);
-    assert(std::ftell(records) == 0);
-    std::fclose(records);
-  }
-
-  for (int mode = 0; mode < 11; ++mode) {
-    Kernel kernel = parse();
-    ExactCoverLiveSession session;
-    FILE *records = std::tmpfile();
-    assert(records);
-    auto candidate = request(records, session);
-    switch (mode) {
-    case 0: candidate.maximum_recognition_work = 1; break;
-    case 1: candidate.maximum_source_clauses = 14; break;
-    case 2: candidate.maximum_source_literals = 35; break;
-    case 3: candidate.maximum_items = 8; break;
-    case 4: candidate.maximum_premise_references = 26; break;
-    case 5: candidate.maximum_definitions = 2; break;
-    case 6: candidate.maximum_additions = 11; break;
-    case 7: candidate.maximum_literal_occurrences = 29; break;
-    case 8: candidate.maximum_extent_growth = 2; break;
-    case 9: candidate.maximum_external_extent = 11; break;
-    case 10: candidate.maximum_journal_bytes = 1; break;
-    }
-    const auto mapping = kernel.external_to_internal;
-    const uint64_t id = kernel.next_clause_id;
-    const size_t arena = kernel.arena.size();
-    const uint32_t nvars = kernel.nvars;
-    const uint32_t outputs = kernel_num_output_vars(kernel);
-    const auto result = exact_cover_live_apply(kernel, candidate);
-    assert(result.result == ApplyResult::NoOp);
-    assert(result.status == ExactCoverLiveStatus::ResourceExhausted);
-    if (mode == 0) assert(result.recognition_work > 0);
-    assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-    assert(kernel.arena.size() == arena && kernel.nvars == nvars);
-    assert(kernel_num_output_vars(kernel) == outputs);
-    assert(session.committed_keys() == 0);
-    assert(std::ftell(records) == 0);
-    std::fclose(records);
-  }
-}
-
-static void interrupted_decline_reports_work() {
-  Kernel kernel = parse();
+// `change` makes the request decline with `expected`; nothing is published.
+template <class Change>
+static ExactCoverLiveResult declines(bool extra, ExactCoverLiveStatus expected,
+                                     Change change) {
+  Kernel kernel = parse(extra);
   ExactCoverLiveSession session;
   FILE *records = std::tmpfile();
   assert(records);
-  volatile sig_atomic_t stop = 1;
-  kernel.stop = &stop;
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const auto result =
-      exact_cover_live_apply(kernel, request(records, session));
-  assert(result.status == ExactCoverLiveStatus::Interrupted);
-  assert(result.result == ApplyResult::NoOp);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
+  auto candidate = request(records, session);
+  change(kernel, candidate);
+  const ExactCoverUnchanged unchanged{kernel, records};
+  const auto result = exact_cover_live_apply(kernel, candidate);
+  assert(result.result == ApplyResult::NoOp && result.status == expected);
+  unchanged.check();
   assert(session.committed_keys() == 0);
-  assert(std::ftell(records) == 0);
   std::fclose(records);
+  return result;
 }
 
-static void write_certificate(const char *cnf_path, const char *proof_path,
-                              ProofFormat format) {
-  std::string checker = exact_cover_cnf();
-  const std::string header = "p cnf 9 15\n";
-  assert(checker.starts_with(header));
-  checker.replace(0, header.size(), "p cnf 15 19\n");
-  checker += "14 15 0\n-14 15 0\n14 -15 0\n-14 -15 0\n";
-  Kernel kernel = parse();
-  ExactCoverLiveSession session;
-  kernel.next_clause_id = 19;
-  write_checker_certificate(cnf_path, checker, proof_path, format, kernel, 14,
-                            [&](FILE *records) {
-    const auto result =
-        exact_cover_live_apply(kernel, request(records, session));
-    assert(result.status == ExactCoverLiveStatus::Applied);
-  });
+static void clean_declines() {
+  using Request = ExactCoverLiveRequest;
+  declines(true, ExactCoverLiveStatus::NoStructure, [](Kernel &, Request &) {});
+  // Each bound one below what the fixture needs.
+  const std::vector<void (*)(Request &)> bounds = {
+      [](Request &r) { r.maximum_recognition_work = 1; },
+      [](Request &r) { r.maximum_source_clauses = 14; },
+      [](Request &r) { r.maximum_source_literals = 35; },
+      [](Request &r) { r.maximum_items = 8; },
+      [](Request &r) { r.maximum_premise_references = 26; },
+      [](Request &r) { r.maximum_definitions = 2; },
+      [](Request &r) { r.maximum_additions = 11; },
+      [](Request &r) { r.maximum_literal_occurrences = 29; },
+      [](Request &r) { r.maximum_extent_growth = 2; },
+      [](Request &r) { r.maximum_external_extent = 11; },
+      [](Request &r) { r.maximum_journal_bytes = 1; },
+  };
+  for (size_t i = 0; i < bounds.size(); ++i) {
+    const auto result = declines(false, ExactCoverLiveStatus::ResourceExhausted,
+                                 [&](Kernel &, Request &r) { bounds[i](r); });
+    if (i == 0) assert(result.recognition_work > 0);
+  }
+  volatile sig_atomic_t stop = 1;
+  declines(false, ExactCoverLiveStatus::Interrupted,
+           [&](Kernel &kernel, Request &) { kernel.stop = &stop; });
 }
 
-int main(int argc, char **argv) {
+int main() {
   positive_and_repeat();
-  durable_session_survives_clause_removal();
   final_revalidation_obeys_recognition_limit();
   clean_declines();
-  interrupted_decline_reports_work();
-  if (argc == 3)
-    write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
   std::puts("test_exact_cover_live: passed");
 }

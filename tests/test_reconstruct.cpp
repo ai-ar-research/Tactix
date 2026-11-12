@@ -1,6 +1,5 @@
-// Reconstruction stack (rho) and model extension: replay in reverse, force an
-// unsatisfied segment's witness true, leave satisfied ones alone.
-// Substitution-specific witness semantics live in tests/test_substitute.cpp.
+// Reconstruction stack and model extension: reverse replay forces an
+// unsatisfied segment's witness. Substitute witnesses: tests/test_substitute.cpp.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 
@@ -101,12 +100,8 @@ static void test_cube_interleaves_with_single_witness() {
   assert(k.values[x] > 0 && k.values[z] > 0 && k.values[y] < 0);
 }
 
-// Extend must read a TOTAL assignment. A variable left value-0 (retired
-// without ever being assigned) reads false in BOTH polarities during replay,
-// which voids the tautological-resolvent exclusion: a pos- and a neg-side
-// window of one pivot can both look unsatisfied, and the reverse walk
-// double-flips the pivot. Shape of the EDP3-11000 invalid model
-// (benchmarks/reports/2026-08-08-n2-frozen-pivot.md).
+// Extend reads a total assignment: a never-assigned retired variable must not
+// let both windows of one pivot look unsatisfied (EDP3-11000 shape).
 static void test_frozen_partner_no_double_flip() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -128,9 +123,8 @@ static void test_frozen_partner_no_double_flip() {
   assert(k.values[negate(x)] > 0 || k.values[negate(t)] > 0); // D0
 }
 
-// Substitute's equivalence pair for l ≡ s, with the representative s LATER
-// eliminated by BVE and left frozen at 0: replay must not flip l against an
-// indefinite s. Shape of the PRP_30_38 invalid model (clause 31966 -31965).
+// A Substitute pair whose representative BVE later froze at 0 must not flip l
+// (PRP_30_38 shape).
 static void test_substitute_repr_later_eliminated() {
   Kernel k;
   kernel_reserve_vars(k, 3);

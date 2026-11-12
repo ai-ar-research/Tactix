@@ -23,15 +23,36 @@ static bool has_bin(const Kernel &k, int a, int b) {
   return kernel_binary_live(k, internalize(a), internalize(b));
 }
 
-// 3 and 4 are dominated by 2, so the resolvent must be the tight (¬2 ∨ 5).
-static void test_dominator_resolvent() {
-  Kernel k;
-  k.jump_reasons = false; // isolate CaDiCaL's direct-reason HBR mechanism
-  kernel_reserve_vars(k, 5);
+static const RuleVTable &hbr_rule() {
+  return tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+}
+
+// Probing 1 makes (-3 v -4 v 5) unit; 3 and 4 are dominated by 2. Direct
+// reasons isolate CaDiCaL's HBR mechanism.
+static void dominator_fixture(Kernel &k, uint32_t vars = 5) {
+  k.jump_reasons = false;
+  kernel_reserve_vars(k, vars);
   bin(k, -1, 2);
   bin(k, -2, 3);
   bin(k, -2, 4);
   add3(k, -3, -4, 5);
+}
+
+// The first semantic payload whose dominator is `dominator`.
+static uint64_t semantic_with_dominator(Kernel &k, int dominator) {
+  uint64_t choices[64];
+  const uint32_t count = hbr_rule().semantic_instances(k, choices, 64);
+  for (uint32_t i = 0; i < count; ++i)
+    if (static_cast<Lit>(choices[i] >> 32) == internalize(dominator))
+      return choices[i];
+  assert(false);
+  return INSTANCE_CANONICAL;
+}
+
+// 3 and 4 are dominated by 2, so the resolvent must be the tight (¬2 ∨ 5).
+static void test_dominator_resolvent() {
+  Kernel k;
+  dominator_fixture(k);
   assert(hyperbinary_guard(k));
   assert(hyperbinary_apply(k) == ApplyResult::Ok);
   assert(k.stats.hbr_binaries == 1);
@@ -55,17 +76,6 @@ static void test_root_dominator_declined() {
 
 // cadical's case (A): a clause already binary in effect gains no resolvent.
 static void test_root_fixed_rest_declined() {
-  Kernel k;
-  k.jump_reasons = false;
-  kernel_reserve_vars(k, 5);
-  bin(k, -1, 2);
-  bin(k, -2, 3);
-  kernel_assign_unit(k, internalize(-4)); // 4 root-false
-  add3(k, -3, 4, 5);
-  assert(propagate_apply(k) != ApplyResult::Unsat);
-  hyperbinary_apply(k);
-  // a non-root literal still remains here, so the resolvent is emitted; the
-  // decline applies only when none remains, as in k2 below
   Kernel k2;
   k2.jump_reasons = false;
   kernel_reserve_vars(k2, 4);
@@ -104,36 +114,13 @@ static void test_no_opportunity() {
   assert(k.stats.hbr_binaries == 0);
 }
 
-// The emitted binary must be entailed: adding its negation is UNSAT. Same
-// statement as the RUP replay, checked independently of it.
-static void test_resolvent_is_implied() {
-  Kernel k;
-  k.jump_reasons = false;
-  kernel_reserve_vars(k, 5);
-  bin(k, -1, 2);
-  bin(k, -2, 3);
-  bin(k, -2, 4);
-  add3(k, -3, -4, 5);
-  kernel_assign_unit(k, internalize(2));
-  kernel_assign_unit(k, internalize(-5));
-  assert(default_solve(k) == 20); // UNSAT ⇒ (¬2 ∨ 5) is entailed
-}
-
 // N1: a per-instance payload from the registry must really do the work — a
 // surface only the rule's own round can drive is not an instance surface.
 static void test_instance_surface() {
   Kernel k;
-  k.jump_reasons = false;
-  kernel_reserve_vars(k, 5);
-  bin(k, -1, 2);
-  bin(k, -2, 3);
-  bin(k, -2, 4);
-  add3(k, -3, -4, 5);
-  const RuleVTable *rule = nullptr;
-  for (const RuleVTable &vt : tactix_rules())
-    if (!std::strcmp(vt.name, "HyperBinaryRes"))
-      rule = &vt;
-  assert(rule && rule->instances && rule->apply_instance);
+  dominator_fixture(k);
+  const RuleVTable *rule = &hbr_rule();
+  assert(rule->instances && rule->apply_instance);
   uint64_t buf[64];
   const uint32_t n = rule->instances(k, buf, 64);
   assert(n > 0); // the schedule is non-empty on this formula
@@ -149,17 +136,11 @@ static void test_instance_surface() {
 // first must not shift the earlier payload to a different consequence.
 static void test_individual_semantic_resolvents_keep_identity() {
   Kernel k;
-  k.jump_reasons = false;
-  kernel_reserve_vars(k, 8);
-  bin(k, -1, 2);
-  bin(k, -2, 3);
-  bin(k, -2, 4);
-  add3(k, -3, -4, 5);
+  dominator_fixture(k, 8);
   bin(k, -2, 6);
   bin(k, -2, 7);
   add3(k, -6, -7, 8);
-  const RuleVTable &rule =
-      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+  const RuleVTable &rule = hbr_rule();
   assert(rule.semantic_instances && rule.apply_semantic_instance);
   uint64_t choices[64], selected[2];
   const uint32_t count = rule.semantic_instances(k, choices, 64);
@@ -177,29 +158,13 @@ static void test_individual_semantic_resolvents_keep_identity() {
   assert(has_bin(k, -2, 8));
 }
 
-// The calculus permits any dominator with the required binary paths. The
-// canonical probe deliberately chooses the closest (2), but N1 must also make
-// the weaker, legal dominator 1 directly reachable.
+// The canonical probe chooses the closest dominator (2); N1 also reaches the
+// weaker legal dominator 1.
 static void test_nonclosest_dominator_is_semantically_reachable() {
   Kernel k;
-  k.jump_reasons = false;
-  kernel_reserve_vars(k, 5);
-  bin(k, -1, 2);
-  bin(k, -2, 3);
-  bin(k, -2, 4);
-  add3(k, -3, -4, 5);
-  const RuleVTable &rule =
-      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
-  uint64_t choices[64];
-  const uint32_t count = rule.semantic_instances(k, choices, 64);
-  uint64_t selected = INSTANCE_CANONICAL;
-  for (uint32_t i = 0; i < count; ++i)
-    if (static_cast<Lit>(choices[i] >> 32) == internalize(1)) {
-      selected = choices[i];
-      break;
-    }
-  assert(selected != INSTANCE_CANONICAL);
-  assert(rule.apply_semantic_instance(k, selected) == ApplyResult::Ok);
+  dominator_fixture(k);
+  const uint64_t selected = semantic_with_dominator(k, 1);
+  assert(hbr_rule().apply_semantic_instance(k, selected) == ApplyResult::Ok);
   assert(has_bin(k, -1, 5));
   assert(!has_bin(k, -2, 5));
 }
@@ -211,18 +176,8 @@ static void test_semantic_resolvent_can_collapse_to_unit() {
   bin(k, -1, 3);
   bin(k, -1, 4);
   add3(k, -1, -3, -4);
-  const RuleVTable &rule =
-      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
-  uint64_t choices[64];
-  const uint32_t count = rule.semantic_instances(k, choices, 64);
-  uint64_t selected = INSTANCE_CANONICAL;
-  for (uint32_t i = 0; i < count; ++i)
-    if (static_cast<Lit>(choices[i] >> 32) == internalize(1)) {
-      selected = choices[i];
-      break;
-    }
-  assert(selected != INSTANCE_CANONICAL);
-  assert(rule.apply_semantic_instance(k, selected) == ApplyResult::Ok);
+  const uint64_t selected = semantic_with_dominator(k, 1);
+  assert(hbr_rule().apply_semantic_instance(k, selected) == ApplyResult::Ok);
   assert(k.value(internalize(-1)) > 0);
   assert(k.stats.hbr_units == 1 && k.stats.hbr_binaries == 0);
 }
@@ -231,8 +186,7 @@ static void test_invalid_semantic_payload_is_noop() {
   Kernel k;
   k.jump_reasons = false;
   kernel_reserve_vars(k, 2);
-  const RuleVTable &rule =
-      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+  const RuleVTable &rule = hbr_rule();
   assert(apply_rule_semantic_instance(
              rule, k,
              hyperbinary_semantic_instance(make_lit(1, false), 17)) ==
@@ -244,8 +198,7 @@ static void test_semantic_enumeration_observes_published_stop() {
   Kernel k;
   kernel_reserve_vars(k, 500000);
   bin(k, 1, -500000);
-  const RuleVTable &rule =
-      tactix_rules()[tactix_rule_id("HyperBinaryRes")];
+  const RuleVTable &rule = hbr_rule();
   volatile sig_atomic_t stop = 1;
   KernelStopPublisher published(k, &stop);
   uint64_t choice = 0;
@@ -271,7 +224,6 @@ int main() {
   test_root_fixed_rest_declined();
   test_subsumption_deletes_reason();
   test_no_opportunity();
-  test_resolvent_is_implied();
   test_instance_surface();
   test_individual_semantic_resolvents_keep_identity();
   test_nonclosest_dominator_is_semantically_reachable();

@@ -1,5 +1,7 @@
 #undef NDEBUG
+#include "direct_php_test_support.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
+#include "temporary_file.hpp"
 
 #include "proof/proof.hpp"
 
@@ -7,7 +9,6 @@
 #include <cstdio>
 #include <limits>
 #include <type_traits>
-#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
@@ -17,42 +18,12 @@ namespace {
 static_assert(!std::is_copy_constructible_v<DirectPhpActionSession>);
 static_assert(!std::is_move_constructible_v<DirectPhpActionSession>);
 
-Kernel fixture(uint32_t holes = 3) {
-  assert(holes >= 2);
-  const uint32_t pigeons = holes + 1;
-  Kernel kernel;
-  kernel_reserve_vars(kernel, pigeons * holes);
-  const auto variable = [holes](uint32_t pigeon, uint32_t hole) {
-    return int32_t(pigeon * holes + hole + 1);
-  };
-  for (uint32_t pigeon = 0; pigeon < pigeons; ++pigeon) {
-    std::vector<Lit> alo;
-    for (uint32_t hole = 0; hole < holes; ++hole)
-      alo.push_back(internalize(variable(pigeon, hole)));
-    if (alo.size() == 2)
-      kernel_add_binary_clause(kernel, alo[0], alo[1],
-                               ++kernel.next_clause_id);
-    else
-      kernel_add_large_clause(kernel, alo.data(), alo.size(), false, 0,
-                              ++kernel.next_clause_id);
-  }
-  for (uint32_t hole = 0; hole < holes; ++hole)
-    for (uint32_t first = 0; first < pigeons; ++first)
-      for (uint32_t second = first + 1; second < pigeons; ++second)
-        kernel_add_binary_clause(
-            kernel, internalize(-variable(first, hole)),
-            internalize(-variable(second, hole)), ++kernel.next_clause_id);
-  return kernel;
-}
+Kernel fixture() { return php_kernel(); }
 
 DirectPhpActionRequest request(uint64_t id = 37) {
   DirectPhpActionRequest request;
   request.action_id = id;
-  request.limits.snapshot = {100000, 1000000, 10000000};
-  request.limits.recognition = {100000, 1000000, 100000000, 10000,
-                                1000000, 1000000, 20};
-  request.limits.certificate = {1000000, 1000000, 100000000, 1000000,
-                                2000000};
+  ample_php_limits(request.limits);
   request.limits.maximum_replay_work = 100000000;
   assert(request.limits.valid());
   return request;
@@ -190,44 +161,28 @@ void exact_replay_accepts_only_exact_record() {
     assert(session.record() &&
            session.record()->events.size() == exact.events.size());
   }
-  {
+  // Any change to the request or the record is a checked mismatch.
+  const auto mismatch = [&](const DirectPhpActionRequest &request,
+                            const DirectPhpActionRecord &record) {
     Kernel kernel = fixture();
     DirectPhpActionSession session(kernel);
     DirectPhpPreparedAction prepared;
-    auto wrong_request = requested;
-    ++wrong_request.action_id;
-    const auto mismatch = direct_php_action_prepare_replay(
-        kernel, session, wrong_request, exact, prepared);
-    assert(mismatch.status == DirectPhpActionStatus::ReplayMismatch);
-    assert(mismatch.replay_checked && !prepared.ready() &&
-           !kernel.inconsistent);
-  }
-  {
-    Kernel kernel = fixture();
-    DirectPhpActionSession session(kernel);
-    DirectPhpPreparedAction prepared;
-    auto changed = exact;
-    assert(!changed.events.empty());
-    changed.events.front().layer ^= 1;
-    const auto mismatch = direct_php_action_prepare_replay(
-        kernel, session, requested, changed, prepared);
-    assert(mismatch.status == DirectPhpActionStatus::ReplayMismatch);
-    assert(mismatch.replay_checked && !prepared.ready() &&
-           !kernel.inconsistent);
-  }
-  {
-    Kernel kernel = fixture();
-    DirectPhpActionSession session(kernel);
-    DirectPhpPreparedAction prepared;
-    auto changed = exact;
-    changed.snapshot.sources.front().native_proof_id =
-        std::numeric_limits<uint64_t>::max();
-    const auto mismatch = direct_php_action_prepare_replay(
-        kernel, session, requested, changed, prepared);
-    assert(mismatch.status == DirectPhpActionStatus::ReplayMismatch);
-    assert(mismatch.replay_checked && !prepared.ready() &&
-           !kernel.inconsistent);
-  }
+    const auto result = direct_php_action_prepare_replay(
+        kernel, session, request, record, prepared);
+    assert(result.status == DirectPhpActionStatus::ReplayMismatch);
+    assert(result.replay_checked && !prepared.ready() && !kernel.inconsistent);
+  };
+  auto wrong_request = requested;
+  ++wrong_request.action_id;
+  mismatch(wrong_request, exact);
+  auto changed = exact;
+  assert(!changed.events.empty());
+  changed.events.front().layer ^= 1;
+  mismatch(requested, changed);
+  changed = exact;
+  changed.snapshot.sources.front().native_proof_id =
+      std::numeric_limits<uint64_t>::max();
+  mismatch(requested, changed);
 }
 
 void replay_budget_and_interruption_are_atomic() {
@@ -241,9 +196,8 @@ void replay_budget_and_interruption_are_atomic() {
   assert(measured.status == DirectPhpActionStatus::Prepared &&
          measured.effort.replay_work);
 
-  // Exact replay performs one additional metered comparison after rebuilding
-  // the record.  Giving it exactly the construction cost must decline before
-  // any terminal publication.
+  // Exact replay meters one comparison beyond rebuilding the record, so the
+  // bare construction cost declines before publication.
   requested.limits.maximum_replay_work = measured.effort.replay_work;
   exact.limits.maximum_replay_work = measured.effort.replay_work;
   {
@@ -338,11 +292,8 @@ void stale_and_invalid_paths_do_not_leak_preparation() {
   {
     Kernel kernel = fixture();
     Proof proof;
-    char path[] = "/tmp/direct-php-action-XXXXXX";
-    const int descriptor = mkstemp(path);
-    assert(descriptor >= 0);
-    close(descriptor);
-    assert(proof.open(path, ProofFormat::PbpStreaming));
+    TemporaryFile file;
+    assert(proof.open(file.path.c_str(), ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
     assert(proof.begin_pb());
     kernel.proof = &proof;
@@ -351,19 +302,15 @@ void stale_and_invalid_paths_do_not_leak_preparation() {
         direct_php_action_apply(kernel, session, request());
     assert(unsupported.status == DirectPhpActionStatus::UnsupportedProof);
     kernel.proof = nullptr;
-    unlink(path);
   }
 }
 
 void proof_backed_execution_has_no_public_prepare_publish_gap() {
-  char path[] = "/tmp/direct-php-action-proof-XXXXXX";
-  const int descriptor = mkstemp(path);
-  assert(descriptor >= 0);
-  close(descriptor);
   {
+    TemporaryFile file;
     Kernel kernel = fixture();
     Proof proof;
-    assert(proof.open(path, ProofFormat::DsrAscii));
+    assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -381,29 +328,24 @@ void proof_backed_execution_has_no_public_prepare_publish_gap() {
     proof.flush();
     kernel.proof = nullptr;
   }
-  unlink(path);
 
   // A proof attached after a proofless preparation is detected by the live
   // transaction before it can emit a byte or commit the session.
-  char changed_path[] = "/tmp/direct-php-action-proof-change-XXXXXX";
-  const int changed_descriptor = mkstemp(changed_path);
-  assert(changed_descriptor >= 0);
-  close(changed_descriptor);
   {
+    TemporaryFile file;
     Kernel kernel = fixture();
     DirectPhpActionSession session(kernel);
     DirectPhpPreparedAction prepared;
     assert(direct_php_action_prepare(kernel, session, request(), prepared)
                .status == DirectPhpActionStatus::Prepared);
     Proof proof;
-    assert(proof.open(changed_path, ProofFormat::DsrAscii));
+    assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     const auto stale = direct_php_action_publish(kernel, session, prepared);
     assert(stale.status == DirectPhpActionStatus::Stale);
     assert(!session.committed() && !kernel.inconsistent);
     kernel.proof = nullptr;
   }
-  unlink(changed_path);
 }
 
 void guard_and_recognition_declines_are_typed() {

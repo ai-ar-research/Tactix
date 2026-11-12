@@ -1,15 +1,12 @@
 #undef NDEBUG
-#include "checker_certificate.hpp"
-#include "dimacs_text.hpp"
-#include "frontend/parse.hpp"
-#include "proof/proof.hpp"
+#include "exact_cover_test_support.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/exact_cover_batch.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <sstream>
+#include <optional>
 #include <string>
 
 using namespace tactix;
@@ -17,40 +14,15 @@ using namespace tactix::exact_cover_semantic;
 
 static std::vector<Premise> source_formula(bool missing_edge = false) {
   std::vector<Premise> result;
-  uint64_t occurrence = 0;
-  for (int block = 0; block < 3; ++block)
-    for (int first = 0; first < 3; ++first)
-      for (int second = first + 1; second < 3; ++second) {
-        if (missing_edge && block == 2 && first == 0 && second == 1) continue;
-        result.push_back({++occurrence,
-            {-(3 * block + first + 1), -(3 * block + second + 1)}});
-      }
-  for (int position = 0; position < 3; ++position) {
-    std::vector<int32_t> clause;
-    for (int block = 0; block < 3; ++block)
-      clause.push_back(3 * block + position + 1);
-    result.push_back({++occurrence, std::move(clause)});
-  }
-  for (int diagonal = 0; diagonal < 3; ++diagonal) {
-    std::vector<int32_t> clause;
-    for (int block = 0; block < 3; ++block)
-      clause.push_back(3 * block + (block + diagonal) % 3 + 1);
-    result.push_back({++occurrence, std::move(clause)});
-  }
+  for (auto &clause : exact_cover_clauses(missing_edge))
+    result.push_back({result.size() + 1, std::move(clause)});
   return result;
 }
 
-static std::string dimacs(const std::vector<Premise> &source,
-                          uint32_t variables = 9,
-                          const std::vector<std::vector<int32_t>> &extra = {}) {
+static Kernel parse_source(const std::vector<Premise> &source) {
   std::vector<std::vector<int32_t>> clauses;
   for (const Premise &premise : source) clauses.push_back(premise.literals);
-  clauses.insert(clauses.end(), extra.begin(), extra.end());
-  return dimacs_text(variables, clauses);
-}
-
-static Kernel parse_source(const std::vector<Premise> &source) {
-  return parse_dimacs_text(dimacs(source));
+  return parse_dimacs_text(dimacs_text(9, clauses));
 }
 
 static BatchPlanningRequest planning_request() {
@@ -176,6 +148,20 @@ static void no_partial_plan() {
   assert(sentinel == expected);
 }
 
+// Publication declines (with `expected`, when given) and changes nothing.
+static void declines(Kernel &kernel, const BatchPlan &plan, uint64_t action,
+                     uint64_t journal_bytes,
+                     std::optional<BatchPublicationStatus> expected) {
+  FILE *records = std::tmpfile();
+  assert(records);
+  const ExactCoverUnchanged unchanged{kernel, records};
+  const auto result = publish_batch(kernel, plan, {action, journal_bytes, records});
+  assert(result.result == ApplyResult::NoOp);
+  assert(!expected || result.status == *expected);
+  unchanged.check();
+  std::fclose(records);
+}
+
 static void atomic_publication_uses_retained_plan() {
   const BatchPlan plan = make_plan();
   Kernel kernel = parse_source(source_formula());
@@ -196,11 +182,7 @@ static void atomic_publication_uses_retained_plan() {
   kernel_assign_decision(kernel, kernel_internalize(kernel, 1));
   assert(propagate_service(kernel) == ApplyResult::Ok);
   assert(kernel.value(kernel_internalize(kernel, 10)) > 0);
-  std::rewind(records);
-  std::string journal;
-  char buffer[1024];
-  while (const size_t count = std::fread(buffer, 1, sizeof buffer, records))
-    journal.append(buffer, count);
+  const std::string journal = stream_contents(records);
   assert(journal.find("single-retained-source-image") != std::string::npos);
   assert(journal.find("block-occupancy") != std::string::npos);
   assert(journal.find("duplicate_key") != std::string::npos);
@@ -208,111 +190,38 @@ static void atomic_publication_uses_retained_plan() {
   std::fclose(records);
 
   // Reusing a consumed plan declines before mutating either state or records.
-  records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  assert(publish_batch(kernel, plan, {700, 100000, records}).result ==
-         ApplyResult::NoOp);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(std::ftell(records) == 0);
-  std::fclose(records);
+  declines(kernel, plan, 700, 100000, std::nullopt);
 }
 
-static void journal_limit_declines_before_mutation() {
+// Each stale, changed or out-of-bound publication declines before mutation.
+static void publication_preflight_is_pure() {
   const BatchPlan plan = make_plan();
-  Kernel kernel = parse_source(source_formula());
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
-  const auto result = publish_batch(kernel, plan, {700, 1, records});
-  assert(result.status == BatchPublicationStatus::ResourceExhausted);
-  assert(result.result == ApplyResult::NoOp);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
-  std::fclose(records);
+  {
+    Kernel kernel = parse_source(source_formula());
+    declines(kernel, plan, 700, 1, BatchPublicationStatus::ResourceExhausted);
+    declines(kernel, plan, 701, 100000, BatchPublicationStatus::Invalid);
+  }
+  {
+    Kernel kernel = parse_source(source_formula());
+    const Premise &lost = plan.source().front();
+    assert(lost.literals.size() == 2);
+    assert(kernel_delete_binary(kernel,
+        kernel_internalize(kernel, lost.literals[0]),
+        kernel_internalize(kernel, lost.literals[1])));
+    declines(kernel, plan, 700, 100000, BatchPublicationStatus::Stale);
+  }
+  {
+    auto extended = source_formula();
+    extended.push_back({extended.size() + 1, {1, 2, 3}});
+    Kernel kernel = parse_source(extended);
+    declines(kernel, plan, 700, 100000, BatchPublicationStatus::Stale);
+  }
 }
 
-static void publication_identity_preflight_is_pure() {
-  const BatchPlan plan = make_plan();
-  Kernel kernel = parse_source(source_formula());
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
-  const auto result = publish_batch(kernel, plan, {701, 100000, records});
-  assert(result.result == ApplyResult::NoOp);
-  assert(result.status == BatchPublicationStatus::Invalid);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
-  std::fclose(records);
-}
-
-static void stale_retained_source_declines() {
-  const BatchPlan plan = make_plan();
-  Kernel kernel = parse_source(source_formula());
-  const Premise &lost = plan.source().front();
-  assert(lost.literals.size() == 2);
-  assert(kernel_delete_binary(kernel,
-      kernel_internalize(kernel, lost.literals[0]),
-      kernel_internalize(kernel, lost.literals[1])));
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const auto stale = publish_batch(kernel, plan, {700, 100000, records});
-  assert(stale.result == ApplyResult::NoOp);
-  assert(stale.status == BatchPublicationStatus::Stale);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(std::ftell(records) == 0);
-  std::fclose(records);
-}
-
-static void changed_source_census_declines() {
-  const BatchPlan plan = make_plan();
-  auto extended = source_formula();
-  extended.push_back({extended.size() + 1, {1, 2, 3}});
-  Kernel kernel = parse_source(extended);
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
-  const auto stale = publish_batch(kernel, plan, {700, 100000, records});
-  assert(stale.result == ApplyResult::NoOp);
-  assert(stale.status == BatchPublicationStatus::Stale);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
-  std::fclose(records);
-}
-
-static void write_certificate(const char *cnf_path, const char *proof_path,
-                              ProofFormat format) {
-  const auto source = source_formula();
-  const std::vector<std::vector<int32_t>> gadget = {
-      {14, 15}, {-14, 15}, {14, -15}, {-14, -15}};
-  Kernel kernel = parse_source(source);
-  kernel.next_clause_id = source.size() + gadget.size();
-  write_checker_certificate(cnf_path, dimacs(source, 15, gadget), proof_path,
-                            format, kernel, 14, [&](FILE *records) {
-    const BatchPlan plan = make_plan(source);
-    assert(publish_batch(kernel, plan, {700, 100000, records}).result ==
-           ApplyResult::Ok);
-  });
-}
-
-int main(int argc, char **argv) {
+int main() {
   deterministic_complete_plan();
   no_partial_plan();
   atomic_publication_uses_retained_plan();
-  journal_limit_declines_before_mutation();
-  publication_identity_preflight_is_pure();
-  stale_retained_source_declines();
-  changed_source_census_declines();
-  if (argc == 3)
-    write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
+  publication_preflight_is_pure();
   std::puts("test_exact_cover_batch: passed");
 }

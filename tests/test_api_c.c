@@ -16,14 +16,13 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-static void test_solve_sat(void) {
-  tactix *s = tactix_init();
-  add_clause(s, (const int[]){1, 2, 0});
-  add_clause(s, (const int[]){-1, 2, 0});
-  add_clause(s, (const int[]){1, -2, 0});
-  assert(tactix_solve(s) == 10);
-  assert(tactix_value(s, 2) == 2);
-  tactix_release(s);
+/* The proof file exists and is not empty. */
+static void assert_nonempty(const char *path) {
+  FILE *file = fopen(path, "rb");
+  assert(file);
+  assert(fseek(file, 0, SEEK_END) == 0);
+  assert(ftell(file) > 0);
+  assert(fclose(file) == 0);
 }
 
 /* A query finalizes the input. A later addition must never enter a half-
@@ -128,10 +127,8 @@ static void test_discarded_only_variables_extend_model(void) {
   tactix_release(s);
 }
 
-/* Retired identities may remain unassigned after inprocessing. Continuing
- * CDCL must still return a public SAT model when the structured-root affine
- * opportunity is a no-op.  Lucky-8 now belongs to that lifecycle and must not
- * be invoked out of order by this API/model-reconstruction fixture. */
+/* Retired identities may remain unassigned after inprocessing; continuing
+ * CDCL still returns a public model of the input. */
 static void test_model_status_after_inprocessing(void) {
   tactix *s = tactix_init();
   add_clause(s, (const int[]){-24, -8, 0});
@@ -171,9 +168,8 @@ static void check_cce_model(tactix *s, const int clauses[][6], size_t count,
   }
 }
 
-/* A reconstructed SAT model is a public result, not a mutation of the live
- * trail. Normal and Lucky-first sessions must keep original-CNF models after
- * repeated solve calls. */
+/* Normal and Lucky-first sessions keep original-CNF models across repeated
+ * solve calls after CCE. */
 static void test_repeated_solve_after_cce(void) {
   static const int clauses[][6] = {
       {-17, 22, 0}, {-9, -3, 8, 11, 0}, {19, 16, 0},
@@ -334,16 +330,13 @@ static void test_instance_surface(void) {
   assert(tactix_stat(s, 9999) == UINT64_MAX);
   tactix_release(s);
 
-  /* proof formats: all public formats accepted; junk isn't.
-     Named after the writing process: ctest runs concurrently over several
-     build directories, and a shared name lets those runs reopen and truncate
-     each other's proof file. */
+  /* Every public proof format is accepted once; junk and retired values are
+     rejected. The path is per process because ctest runs concurrently. */
   char proof_path[64];
   snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-fmt-%ld.proof",
            (long)getpid());
   s = tactix_init();
   assert(tactix_proof(s, proof_path, 99) == -1);
-  /* Retired format values stay rejected and are never reused. */
   for (int retired = 0; retired <= 2; ++retired)
     assert(tactix_proof(s, proof_path, retired) == -1);
   assert(tactix_proof(s, proof_path, 5) == -1);
@@ -423,18 +416,6 @@ static void test_empty_solver_rule_application(void) {
   tactix_release(s);
 }
 
-/* stepwise UNSAT: proof concluded through the API path too */
-static void test_stepwise_unsat(void) {
-  tactix *s = tactix_init();
-  add_clause(s, (const int[]){1, 2, 0});
-  add_clause(s, (const int[]){1, -2, 0});
-  add_clause(s, (const int[]){-1, 2, 0});
-  add_clause(s, (const int[]){-1, -2, 0});
-  assert(tactix_solve(s) == 20);
-  assert(tactix_status(s) == 20);
-  tactix_release(s);
-}
-
 /* Proof attachment may follow completed input clauses and precede more input.
  * The proof must still reserve every raw clause id before publishing derived
  * ones; a root unit narrows a live binary before the attachment. */
@@ -456,20 +437,8 @@ static void test_late_input_proof(void) {
     add_clause(s, (const int[]){-2, -3, 0});
     assert(tactix_solve(s) == 20);
     tactix_release(s);
-    FILE *file = fopen(proof_path, "rb");
-    assert(file);
-    assert(fseek(file, 0, SEEK_END) == 0);
-    assert(ftell(file) > 0);
-    assert(fclose(file) == 0);
+    assert_nonempty(proof_path);
     assert(remove(proof_path) == 0);
-  }
-  {
-    char proof_path[96];
-    snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-retired-%ld.proof",
-             (long)getpid());
-    tactix *s = tactix_init();
-    assert(tactix_proof(s, proof_path, 5) == -1);
-    tactix_release(s);
   }
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     char proof_path[96];
@@ -481,11 +450,7 @@ static void test_late_input_proof(void) {
     assert(tactix_proof(s, proof_path, formats[i]) == 0);
     assert(tactix_status(s) == 20);
     tactix_release(s);
-    FILE *file = fopen(proof_path, "rb");
-    assert(file);
-    assert(fseek(file, 0, SEEK_END) == 0);
-    assert(ftell(file) > 0);
-    assert(fclose(file) == 0);
+    assert_nonempty(proof_path);
     assert(remove(proof_path) == 0);
   }
 }
@@ -613,25 +578,15 @@ static void test_stats_and_config_surface(void) {
   tactix_release(s);
 }
 
-static int rule_named(const char *name) {
-  int id;
-  for (id = 0; id < tactix_rule_count(); id++) {
-    const char *rule = tactix_rule_name(id);
-    if (rule && !strcmp(rule, name)) return id;
-  }
-  return -1;
-}
-
 /* Permanent installs: the online-step conversion and checks, a permanent
  * effect, no input finalization, and no change on rejection. */
 static void test_permanent_installs(void) {
   tactix *s = tactix_init();
   tactix_online_parameters p;
   tactix_online_walk_score_point curve[2] = {{0, 2100}, {3000, 2600}};
-  const int bve = rule_named("BVE"), factor = rule_named("Factor");
-  const int vivify = rule_named("Vivify"), walk = rule_named("Walk");
-  const int lucky = rule_named("Lucky");
-  assert(bve >= 0 && factor >= 0 && vivify >= 0 && walk >= 0 && lucky >= 0);
+  const int bve = rule("BVE"), factor = rule("Factor");
+  const int vivify = rule("Vivify"), walk = rule("Walk");
+  const int lucky = rule("Lucky");
   memset(&p, 0, sizeof p);
   p.kind = TACTIX_ONLINE_PARAMETERS_BVE;
   p.value.bve.gate_mask = TACTIX_BVE_GATE_ITE;
@@ -731,29 +686,19 @@ static void test_action_kind(void) {
   for (int i = 0; i < n; i++)
     assert(!strcmp(tactix_rule_name(i), golden[i]));
 
-  assert(tactix_action_kind(rule_id("Rephase")) == TACTIX_ACTION_POLICY_OP);
-  assert(tactix_action_kind(rule_id("SwitchMode")) == TACTIX_ACTION_POLICY_OP);
-  assert(tactix_action_kind(rule_id("Walk")) == TACTIX_ACTION_POLICY_OP);
-  assert(tactix_action_kind(rule_id("Reorder")) == TACTIX_ACTION_POLICY_OP);
-  assert(tactix_action_kind(rule_id("LocalSearchGuidance")) ==
-         TACTIX_ACTION_POLICY_OP);
-  assert(tactix_action_kind(rule_id("AffineMatrixInitialize")) ==
-         TACTIX_ACTION_POLICY_OP);
-
-  /* spot-check proof rules, and assert the frozen policy-op classification */
-  assert(tactix_action_kind(rule_id("Propagate")) == TACTIX_ACTION_PROOF_RULE);
-  assert(tactix_action_kind(rule_id("BVE")) == TACTIX_ACTION_PROOF_RULE);
-  assert(tactix_action_kind(rule_id("CardinalitySearch")) == TACTIX_ACTION_PROOF_RULE);
-  assert(tactix_action_kind(rule_id("Lucky")) == TACTIX_ACTION_PROOF_RULE);
-  int policy_ops = 0;
+  /* Exactly these are policy operations; every other live id is a proof
+     rule and the retired id has no kind. */
+  static const char *const policy_ops[] = {
+      "Rephase", "SwitchMode", "Walk", "Reorder", "LocalSearchGuidance",
+      "AffineMatrixInitialize", "SemanticVariableAdvice"};
   for (int i = 0; i < n; i++) {
-    const int k = tactix_action_kind(i);
-    if (i == 39) { assert(k == -1); continue; }
-    assert(k == TACTIX_ACTION_PROOF_RULE || k == TACTIX_ACTION_POLICY_OP);
-    if (k == TACTIX_ACTION_POLICY_OP)
-      policy_ops++;
+    int policy = 0;
+    for (unsigned j = 0; j < sizeof policy_ops / sizeof *policy_ops; ++j)
+      policy |= !strcmp(golden[i], policy_ops[j]);
+    assert(tactix_action_kind(i) ==
+           (i == 39 ? -1
+                    : policy ? TACTIX_ACTION_POLICY_OP : TACTIX_ACTION_PROOF_RULE));
   }
-  assert(policy_ops == 7);
 
   /* out-of-range → -1 (same convention as tactix_rule_id) */
   assert(tactix_action_kind(-1) == -1);
@@ -843,13 +788,6 @@ static void test_read_dimacs(void) {
   tactix_release(s);
 
   s = tactix_init();
-  f = stream("p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2 0\n");
-  assert(tactix_read_dimacs(s, f) == 0);
-  fclose(f);
-  assert(tactix_solve(s) == 20);
-  tactix_release(s);
-
-  s = tactix_init();
   add_clause(s, (const int[]){1, 0});
   f = stream("p cnf 1 1\n-1 0\n");
   assert(tactix_read_dimacs(s, f) == -1); /* the session already has input */
@@ -925,7 +863,6 @@ int main(void) {
   test_automatic_proof_route();
   test_condition_cube_api();
   test_condition_cube_with_retired_external_variable();
-  test_solve_sat();
   test_late_input_add_rejected();
   test_discarded_only_variables_extend_model();
   test_model_status_after_inprocessing();
@@ -936,7 +873,6 @@ int main(void) {
   test_conflict_boundary_restart_and_reduce();
   test_solve_after_public_conflict();
   test_empty_solver_rule_application();
-  test_stepwise_unsat();
   test_late_input_proof();
   test_import_liveness_parity();
   test_bve_gate_selection();

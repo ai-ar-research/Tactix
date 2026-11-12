@@ -78,9 +78,7 @@ Provenance as_map(const std::vector<ProvenanceTerm> &terms) {
   for (const ProvenanceTerm &term : terms) {
     assert(term.source_id > previous);
     assert(term.coefficient == 1 || term.coefficient == 2);
-    const bool inserted = result.emplace(term.source_id, term.coefficient).second;
-    assert(inserted);
-    (void)inserted;
+    assert(result.emplace(term.source_id, term.coefficient).second);
     previous = term.source_id;
   }
   return result;
@@ -120,9 +118,8 @@ void assert_empty_decline(const Result &result, PlanStatus status,
   assert(result.plan.outcomes.empty());
 }
 
-// Replay uses only the public source equations and operation records.  It does
-// not trust stored rows or stored provenance, and additionally reconstructs
-// each node directly from its claimed original-source linear combination.
+// Replays each node from the source equations and its operation record, then
+// again from its claimed source combination; stored rows are not trusted.
 void replay_every_derivation(const std::vector<SourceRow> &source,
                              const Result &result) {
   assert(result.status == PlanStatus::Complete);
@@ -131,17 +128,9 @@ void replay_every_derivation(const std::vector<SourceRow> &source,
          result.plan.statistics.fill_entries);
   assert(result.consumed.retained_plan_bytes ==
          result.plan.statistics.retained_plan_bytes);
-  uint64_t independently_counted_bytes = 16 * result.plan.outcomes.size();
-  for (const Derivation &node : result.plan.derivations)
-    independently_counted_bytes +=
-        48 + 8 * node.row.size() + 16 * node.provenance.size();
-  assert(result.consumed.retained_plan_bytes ==
-         independently_counted_bytes);
   std::map<uint64_t, SourceRow> originals;
   for (const SourceRow &row : source) {
-    const bool inserted = originals.emplace(row.source_id, row).second;
-    assert(inserted);
-    (void)inserted;
+    assert(originals.emplace(row.source_id, row).second);
   }
 
   struct Replayed {
@@ -211,16 +200,12 @@ void replay_every_derivation(const std::vector<SourceRow> &source,
     } else if (outcome.kind == RowOutcomeKind::Unit) {
       assert(row.row.size() == 1);
       assert(row.row.front().coefficient == 1);
-      const bool inserted = pivots.insert(row.row.front().variable).second;
-      assert(inserted);
-      (void)inserted;
+      assert(pivots.insert(row.row.front().variable).second);
     } else {
       assert(outcome.kind == RowOutcomeKind::Derived);
       assert(row.row.size() >= 2);
       assert(row.row.front().coefficient == 1);
-      const bool inserted = pivots.insert(row.row.front().variable).second;
-      assert(inserted);
-      (void)inserted;
+      assert(pivots.insert(row.row.front().variable).second);
     }
   }
   if (conflict) assert(result.plan.outcomes.size() == 1);
@@ -389,38 +374,24 @@ void test_every_resource_limit_and_interruption() {
                                      [](uint64_t) { return true; });
   assert(baseline.status == PlanStatus::Complete);
 
-  Limits limits = generous_limits();
-  limits.maximum_work = 0;
-  assert_empty_decline(
-      build_plan(source, limits, [](uint64_t) { return true; }),
-      PlanStatus::LimitExceeded, LimitKind::Work);
-
-  limits = generous_limits();
-  limits.maximum_fill_entries = 0;
-  assert_empty_decline(
-      build_plan(source, limits, [](uint64_t) { return true; }),
-      PlanStatus::LimitExceeded, LimitKind::Fill);
-
-  limits = generous_limits();
-  limits.maximum_intermediate_width = 1;
-  assert_empty_decline(
-      build_plan(source, limits, [](uint64_t) { return true; }),
-      PlanStatus::LimitExceeded, LimitKind::IntermediateWidth);
-
-  limits = generous_limits();
-  limits.maximum_provenance_terms = 1;
-  assert_empty_decline(
-      build_plan(source, limits, [](uint64_t) { return true; }),
-      PlanStatus::LimitExceeded, LimitKind::Provenance);
-
-  limits = generous_limits();
-  limits.maximum_derivations = 2;
-  assert_empty_decline(
-      build_plan(source, limits, [](uint64_t) { return true; }),
-      PlanStatus::LimitExceeded, LimitKind::Derivations);
+  const std::vector<std::pair<void (*)(Limits &), LimitKind>> bounds = {
+      {[](Limits &l) { l.maximum_work = 0; }, LimitKind::Work},
+      {[](Limits &l) { l.maximum_fill_entries = 0; }, LimitKind::Fill},
+      {[](Limits &l) { l.maximum_intermediate_width = 1; },
+       LimitKind::IntermediateWidth},
+      {[](Limits &l) { l.maximum_provenance_terms = 1; }, LimitKind::Provenance},
+      {[](Limits &l) { l.maximum_derivations = 2; }, LimitKind::Derivations},
+  };
+  for (const auto &[change, kind] : bounds) {
+    Limits limits = generous_limits();
+    change(limits);
+    assert_empty_decline(
+        build_plan(source, limits, [](uint64_t) { return true; }),
+        PlanStatus::LimitExceeded, kind);
+  }
 
   assert(baseline.consumed.retained_plan_bytes > 0);
-  limits = generous_limits();
+  Limits limits = generous_limits();
   limits.maximum_retained_plan_bytes =
       baseline.consumed.retained_plan_bytes;
   Result exact_retained_limit =

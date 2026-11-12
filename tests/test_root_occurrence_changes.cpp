@@ -275,9 +275,8 @@ static void test_interrupt_candidate() {
   load(k, 2, {{1, 2}});
   k.query_projection = &projection;
   k.bce_preserve_query = true;
-  // Existing deterministic interruption facility: seed12's first three polls
-  // are false/true/true. The inner candidate poll fires after tick accounting;
-  // the next selected literal belongs to another variable in this cube.
+  // seed12 polls false/true/true: the inner candidate poll fires after tick
+  // accounting.
   k.stop_fuzz = 2;
   k.stop_fuzz_state = 12;
   assert(bce_apply(k) == ApplyResult::NoOp && k.stats.bce_ticks &&

@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "session/query_history.hpp"
+#include "test_io.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -14,14 +15,7 @@ static std::string render(const QueryHistory &history, uint64_t id) {
   FILE *out = std::tmpfile();
   assert(out);
   assert(history.write_query_dimacs(id, out));
-  assert(std::fflush(out) == 0);
-  std::rewind(out);
-  std::string result;
-  char block[256];
-  size_t n;
-  while ((n = std::fread(block, 1, sizeof block, out)))
-    result.append(block, n);
-  assert(!std::ferror(out));
+  const std::string result = stream_contents(out);
   assert(std::fclose(out) == 0);
   return result;
 }

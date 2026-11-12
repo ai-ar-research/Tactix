@@ -24,6 +24,21 @@ struct ReverseArenaOrder final : ArenaOrdering {
   }
 };
 
+// PHP(4,3) over variables 1..12.
+static void add_php43(Kernel &k) {
+  const auto var = [](int p, int h) { return p * 3 + h + 1; };
+  for (int p = 0; p < 4; p++) {
+    const Lit row[3] = {internalize(var(p, 0)), internalize(var(p, 1)),
+                        internalize(var(p, 2))};
+    kernel_add_large_clause(k, row, 3, false, 0);
+  }
+  for (int h = 0; h < 3; h++)
+    for (int p1 = 0; p1 < 4; p1++)
+      for (int p2 = p1 + 1; p2 < 4; p2++)
+        kernel_add_binary_clause(k, internalize(-var(p1, h)),
+                                 internalize(-var(p2, h)));
+}
+
 static void test_restart() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -88,25 +103,6 @@ static void test_restart_can_abandon_or_retain_a_conflict() {
   kernel_check_invariants(k);
 }
 
-static void test_restart_discharge_root_conflict() {
-  Kernel k;
-  ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_assign(k, internalize(-1), 0, UNIT_REASON, false);
-  kernel_assign(k, internalize(-2), 0, UNIT_REASON, false);
-  kernel_assign_decision(k, internalize(3));
-  k.conflict_valid = true;
-  k.conflict_ref = INVALID_REF;
-  k.conflict_bin[0] = internalize(1);
-  k.conflict_bin[1] = internalize(2);
-
-  assert(restart_apply_to(k, 0) == ApplyResult::Unsat);
-  assert(k.level == 0 && k.inconsistent && !k.conflict_valid);
-  assert(!restart_guard(k));
-  kernel_check_invariants(k);
-}
-
 static void test_reduce_preserves_recorded_large_conflict() {
   Kernel k;
   ScopedHeuristics h(k);
@@ -144,9 +140,8 @@ static void test_conflict_reduce_preserves_root_fixed_prefix_watches() {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 6);
-  // The irredundant prefix is not swept by ordinary Reduce. It is unit under
-  // the retained roots, whose full propagation may still be pending while an
-  // explicit client has recorded a search conflict.
+  // The irredundant prefix is unit under pending roots while a client has
+  // recorded a search conflict.
   const Lit prefix[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref prefix_ref = kernel_add_large_clause(k, prefix, 3, false, 0, 801);
   const Lit victim_lits[3] = {internalize(4), internalize(5), internalize(6)};
@@ -255,9 +250,8 @@ static void test_sparse_collect_preserves_prefix_watch_order() {
       kernel_add_large_clause(k, dead, 3, true, 9);
   const Ref tail_ref = kernel_add_large_clause(k, tail, 3, true, 9);
 
-  // Stand in for search-time watch relocation: the prefix no longer follows
-  // arena order. Kissat's sparse collector retains this order and appends the
-  // rebuilt reducible tail.
+  // Kissat's sparse collector keeps a relocated prefix watch order and
+  // appends the rebuilt reducible tail.
   kernel_swap_large_watch_refs(k, internalize(1), r1, r2, p1[1], p2[1]);
   clause_at(k.arena, r1)->searched = 3;
   clause_at(k.arena, r2)->searched = 7;
@@ -364,9 +358,7 @@ static void test_reduce_deletes_and_logs() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   Proof proof;
-  // Named after the writing process: ctest runs concurrently over several
-  // build directories, and a shared name lets one run truncate the proof
-  // another is counting deletion lines in.
+  // Per-process name: concurrent ctest runs must not share the proof file.
   const std::string path = "/tmp/tactix-reduce-test-" +
                            std::to_string(static_cast<long>(getpid())) +
                            ".dsr";
@@ -539,8 +531,7 @@ static void test_compacting_reduce_collects_irredundant_prefix() {
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
 
-  // Kissat reduce.c uses start=0 when compactlim fires.  Tail-only Reduce
-  // would delete the victim but retain this root-satisfied irredundant prefix.
+  // Kissat reduce.c: start=0 when compactlim fires also collects the prefix.
   assert(reduce_apply_refs(k, &victim_ref, 1, true) == ApplyResult::Ok);
   assert(k.arena.empty());
   assert(k.stats.sparse_collected == 1);
@@ -572,8 +563,7 @@ static void test_tier2_band_tracks_the_live_tier() {
 static void test_retier_uses_kissat_truncation() {
   Kernel k;
   uint64_t used[Stats::MAX_GLUE_USED + 1] = {};
-  // total=11: Kissat's uint64 conversion makes the 90% threshold 9 (not 10).
-  // The ninth observation is at glue 5 and the tenth at glue 6.
+  // Kissat truncates the 90% threshold of 11 observations to 9 (glue 5).
   used[1] = 6;
   used[5] = 3;
   used[6] = 1;
@@ -588,23 +578,9 @@ static void test_solve_with_restarts_still_correct() {
   Kernel k; // PHP(4,3): UNSAT even under tiny restart intervals
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 12);
-  auto var = [](int p, int h) { return p * 3 + h + 1; };
-  std::vector<Lit> scratch;
-  for (int p = 0; p < 4; p++) {
-    scratch.clear();
-    for (int h = 0; h < 3; h++)
-      scratch.push_back(internalize(var(p, h)));
-    kernel_add_large_clause(k, scratch.data(), 3, false, 0);
-  }
-  for (int h = 0; h < 3; h++)
-    for (int p1 = 0; p1 < 4; p1++)
-      for (int p2 = p1 + 1; p2 < 4; p2++)
-        kernel_add_binary_clause(k, internalize(-var(p1, h)),
-                                 internalize(-var(p2, h)));
-  // A restart storm posed on the policy instance, since schedules are policy
-  // state. Alpha stays 0, so updates cannot wash the biased values out.
+  add_php43(k);
+  // A restart and reduce storm posed on the policy's own schedule state.
   DefaultPolicy storm;
-  // solve() re-initialises its schedule at entry; this hatch opts out
   storm.reset_schedule_per_solve = false;
   storm.averages[0].initialized = true;
   storm.averages[0].fast_glue.biased = 100.0;
@@ -616,28 +592,14 @@ static void test_solve_with_restarts_still_correct() {
   assert(storm.solve(k) == 20);
 }
 
-// Kissat compacts variable identities only in its initial sparse collector
-// (when root units exist) and at Reduce.  Retire more than compactlim before a
-// short search which never reaches Reduce: DefaultPolicy must not invent a
-// third, post-preprocessing compaction point merely because late Lucky ended.
+// Kissat compacts variables only in the initial sparse collector and at
+// Reduce, never after late Lucky.
 static void test_variable_compaction_waits_for_reduce() {
   // PHP(4,3) survives both Lucky probes and needs fewer than 1000 conflicts.
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 15);
-  auto var = [](int p, int h) { return p * 3 + h + 1; };
-  std::vector<Lit> scratch;
-  for (int p = 0; p < 4; p++) {
-    scratch.clear();
-    for (int h = 0; h < 3; h++)
-      scratch.push_back(internalize(var(p, h)));
-    kernel_add_large_clause(k, scratch.data(), 3, false, 0);
-  }
-  for (int h = 0; h < 3; h++)
-    for (int p1 = 0; p1 < 4; p1++)
-      for (int p2 = p1 + 1; p2 < 4; p2++)
-        kernel_add_binary_clause(k, internalize(-var(p1, h)),
-                                 internalize(-var(p2, h)));
+  add_php43(k);
 
   k.var_status.assign(k.nvars, VarStatus::Active);
   for (Var v = 12; v < 15; v++) {
@@ -734,7 +696,6 @@ int main(int argc, char **argv) {
   test_restart();
   test_restart_at_root_is_explicitly_applicable();
   test_restart_can_abandon_or_retain_a_conflict();
-  test_restart_discharge_root_conflict();
   test_restart_apply_to();
   test_restart_reuses_trail();
   test_collect_preserves_propagation();

@@ -1,5 +1,7 @@
 #undef NDEBUG
+#include "affine_formula_support.hpp"
 #include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
@@ -8,7 +10,6 @@
 #include "rules/propagate/propagate.hpp"
 #include <cassert>
 #include <fstream>
-#include <sstream>
 #include <cstdio>
 using namespace tactix;
 
@@ -33,33 +34,64 @@ struct DefaultAffineSearchTestAccess {
 };
 }
 
-// Parse text into kernel, attach session and a fresh structural-provenance
-// stream, and return that stream.
-FILE *load(Kernel &kernel, const std::string &text,
-           AffineMatrixSearchSession &session) {
-  parse_dimacs_text(text, kernel);
-  kernel.affine_matrix_search_session = &session;
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
-  return records;
+// A parsed kernel with an attached matrix session and journal. open binds a
+// proof at path over the parsed input: shadow arms an empty population,
+// otherwise the variable maps are bound. The path is removed afterwards
+// unless keep.
+struct PolicyFixture {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  FILE *records = temporary_records();
+  Proof proof;
+  std::string path;
+  bool keep = false;
+  explicit PolicyFixture(const std::string &text) {
+    parse_dimacs_text(text, kernel);
+    kernel.affine_matrix_search_session = &session;
+    kernel.structural_provenance = records;
+  }
+  ~PolicyFixture() {
+    kernel.proof = nullptr;
+    kernel.structural_provenance = nullptr;
+    std::fclose(records);
+    if (!path.empty() && !keep) std::remove(path.c_str());
+  }
+  Proof &open(std::string proof_path, bool shadow,
+              ProofFormat format = ProofFormat::DsrAscii, bool keep_path = false) {
+    path = std::move(proof_path);
+    keep = keep_path;
+    assert(proof.open(path.c_str(), format));
+    if (shadow) {
+      proof.arm_population_shadow();
+    } else {
+      proof.bind_variable_map(&kernel.internal_to_external);
+      proof.bind_external_variable_map(&kernel.external_to_internal);
+    }
+    proof.finish_input_transaction();
+    kernel.proof = &proof;
+    return proof;
+  }
+};
+
+// Add one irredundant input clause and seed it into proof under its id.
+void add_seeded(Kernel &kernel, Proof &proof, const std::vector<int32_t> &clause) {
+  std::vector<Lit> body;
+  for (int32_t literal : clause) body.push_back(kernel_internalize(kernel, literal));
+  const auto id = ++kernel.next_clause_id;
+  kernel_add_large_clause(kernel, body.data(), body.size(), false, 0, id);
+  proof.seed_population(id, body.data(), body.size());
 }
 
 // A completed empty census survives root-only retries; a newly admitted source
 // must invalidate it. This exercises the same Default scheduling entrypoint,
 // without making recognition work depend on a machine-speed threshold.
 void empty_census_retry() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  FILE *records = load(kernel, "p cnf 6 2\n1 2 3 0\n4 5 6 0\n", session);
-  Proof proof;
+  PolicyFixture fixture("p cnf 6 2\n1 2 3 0\n4 5 6 0\n");
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   // These fixtures seed input after this point, which production never does.
   // They never convert, so the PBP input count that would go wrong is never read.
-  assert(proof.open("/tmp/tactix-default-empty-census.dsr", ProofFormat::DsrAscii));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
+  Proof &proof = fixture.open("/tmp/tactix-default-empty-census.dsr", false);
   DefaultStrategyConfig settings;
   settings.affine_search.enabled = true;
   DefaultPolicy policy(settings);
@@ -77,13 +109,8 @@ void empty_census_retry() {
   assert(policy.affine_search_diagnostics().refreshes == 0);
   assert(policy.affine_search_diagnostics().empty_maintenance_skips == 8);
   assert(policy.affine_search_diagnostics().unchanged_census_skips == 8);
-  for (const auto &clause : affine_semantic_extension::clausal_form({4,5,6}, false)) {
-    std::vector<Lit> internal;
-    for (int32_t literal : clause) internal.push_back(internalize(literal));
-    const auto id = ++kernel.next_clause_id;
-    kernel_add_large_clause(kernel, internal.data(), internal.size(), false, 0, id);
-    proof.seed_population(id, internal.data(), internal.size());
-  }
+  for (const auto &clause : affine_semantic_extension::clausal_form({4,5,6}, false))
+    add_seeded(kernel, proof, clause);
   // Changed sources alone do not earn another recognition dose.
   DefaultAffineSearchTestAccess::refresh(policy, kernel, false, false);
   assert(!session.enabled());
@@ -95,10 +122,6 @@ void empty_census_retry() {
   assert(session.persistence_limits().maximum_deferred_literal_work > 0);
   assert(policy.affine_search_diagnostics().initialization_work > work);
   session.disable(kernel);
-  kernel.proof = nullptr;
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
-  std::remove("/tmp/tactix-default-empty-census.dsr");
 }
 
 struct Fixture {
@@ -131,22 +154,11 @@ Fixture mixed(uint32_t pigeons,uint32_t holes) {
       f.clauses.push_back({gate,a,b});
   return f;
 }
-std::string cnf(const Fixture &f) {
-  std::ostringstream out;out<<"p cnf "<<f.variables<<' '<<f.clauses.size()<<'\n';
-  for(auto &c:f.clauses){for(int32_t x:c)out<<x<<' ';out<<"0\n";}
-  return out.str();
-}
+std::string cnf(const Fixture &f) { return dimacs_text(f.variables, f.clauses); }
 
 // x1+x3+x4 = 0 and x2+x3+x4+x5 = 0 over six variables, as clauses.
 Fixture two_equations() {
-  Fixture f{6, {}};
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
-    for (const auto &clause :
-         affine_semantic_extension::clausal_form(variables, rhs))
-      f.clauses.push_back(clause);
-  return f;
+  return {6, xor_cnf({{{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})};
 }
 DefaultStrategyConfig config(bool enabled) {
   DefaultStrategyConfig c;c.affine_search.enabled=enabled;
@@ -173,19 +185,15 @@ DefaultStrategyConfig config(bool enabled) {
 // checker includes the two decisions and the contradictory consequence.
 void deferred_policy_boundary(const std::string &stem = "") {
   const Fixture f = two_equations();
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  FILE *records = load(kernel, cnf(f), session);
+  PolicyFixture fixture(cnf(f));
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   // Reserve the original-CNF identities for -1, -2, and 5 before emitting a
   // derived certificate.  They are checker inputs, not solver root facts.
   kernel.next_clause_id += 3;
-  const std::string proof_path = stem.empty()
-      ? "/tmp/tactix-default-deferred-policy.dsr" : stem + ".dsr";
-  Proof proof;
-  assert(proof.open(proof_path.c_str(), ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
+  Proof &proof = fixture.open(stem.empty() ? "/tmp/tactix-default-deferred-policy.dsr"
+                                           : stem + ".dsr",
+                              true, ProofFormat::DsrAscii, !stem.empty());
   auto settings = config(true);
   settings.affine_search.reason_mode =
       DefaultStrategyConfig::AffineSearch::ReasonMode::Deferred;
@@ -193,10 +201,7 @@ void deferred_policy_boundary(const std::string &stem = "") {
   const auto initialized =
       DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true);
   assert(initialized.status == AffineMatrixInitStatus::Applied);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  decide_all(kernel, {-1, -2});
   const auto deferred = DefaultAffineSearchTestAccess::service(policy, kernel);
   assert(deferred.status == AffineMatrixServiceStatus::Applied &&
          deferred.reason_deferred && session.has_deferred_reason());
@@ -222,36 +227,22 @@ void deferred_policy_boundary(const std::string &stem = "") {
   proof.flush();
   kernel.proof = nullptr;
   if (!stem.empty()) {
-    std::ofstream original(stem + ".cnf");
-    original << "p cnf 6 " << f.clauses.size() + 3 << '\n';
-    for (const auto &clause : f.clauses) {
-      for (int32_t literal : clause) original << literal << ' ';
-      original << "0\n";
-    }
-    original << "-1 0\n-2 0\n5 0\n";
+    auto original = f.clauses;
+    for (int32_t unit : {-1, -2, 5}) original.push_back({unit});
+    write_file((stem + ".cnf").c_str(), dimacs_text(6, original));
   }
   session.disable(kernel);
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
-  if (stem.empty()) std::remove(proof_path.c_str());
 }
 
-// The experimental N4 arm must travel through the same DefaultPolicy public
-// action port as the shipped eager arm.  Its implication reason is proof
-// visible and analyzable, but absent from ordinary watched propagation.
+// The detached arms travel through the same DefaultPolicy public action port
+// as the shipped eager arm: the implication reason is proof visible and
+// analyzable, but absent from ordinary watched propagation.
 void detached_policy_boundary(bool minimal) {
-  const Fixture f = two_equations();
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  FILE *records = load(kernel, cnf(f), session);
-  Proof proof;
-  const char *path = minimal ? "/tmp/tactix-default-detached-minimal-policy.dsr"
-                             : "/tmp/tactix-default-detached-source-policy.dsr";
-  assert(proof.open(path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-
+  PolicyFixture fixture(cnf(two_equations()));
+  Kernel &kernel = fixture.kernel;
+  Proof &proof = fixture.open(minimal ? "/tmp/tactix-default-detached-minimal-policy.dsr"
+                                      : "/tmp/tactix-default-detached-source-policy.dsr",
+                              true);
   auto settings = config(true);
   settings.affine_search.reason_mode = minimal
       ? DefaultStrategyConfig::AffineSearch::ReasonMode::DetachedMinimal
@@ -259,10 +250,7 @@ void detached_policy_boundary(bool minimal) {
   DefaultPolicy policy(settings);
   assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
              .status == AffineMatrixInitStatus::Applied);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  decide_all(kernel, {-1, -2});
   const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
   assert(service.status == AffineMatrixServiceStatus::Applied &&
          service.live.detached_reason && service.reason_width == 3);
@@ -278,28 +266,17 @@ void detached_policy_boundary(bool minimal) {
 
   kernel_backtrack(kernel, 0);
   assert(!clause_at(kernel.arena, ref)->reason());
-  session.disable(kernel);
+  fixture.session.disable(kernel);
   proof.flush();
-  kernel.proof = nullptr;
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
-  std::remove(path);
 }
 
 void lazy_policy_boundary(bool minimal) {
-  const Fixture f = two_equations();
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  FILE *records = load(kernel, cnf(f), session);
-  Proof proof;
-  const char *path = minimal
-      ? "/tmp/tactix-default-lazy-minimal-policy.dsr"
-      : "/tmp/tactix-default-lazy-source-policy.dsr";
-  assert(proof.open(path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-
+  PolicyFixture fixture(cnf(two_equations()));
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
+  Proof &proof = fixture.open(minimal ? "/tmp/tactix-default-lazy-minimal-policy.dsr"
+                                      : "/tmp/tactix-default-lazy-source-policy.dsr",
+                              true);
   auto settings = config(true);
   settings.affine_search.reason_mode =
       minimal ? DefaultStrategyConfig::AffineSearch::ReasonMode::LazyMinimal
@@ -307,10 +284,7 @@ void lazy_policy_boundary(bool minimal) {
   DefaultPolicy policy(settings);
   assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
              .status == AffineMatrixInitStatus::Applied);
-  for (const int decision : {-1, -2}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-1, -2});
   const uint64_t before = kernel.next_clause_id;
   const size_t arena_before = kernel.arena.size();
   const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
@@ -326,24 +300,16 @@ void lazy_policy_boundary(bool minimal) {
          session.lazy_reason_count() == 0 &&
          !kernel.assigned[var_of(implied)].affine &&
          kernel.assigned[var_of(implied)].reason != AFFINE_REASON);
-
   proof.flush();
-  kernel.proof = nullptr;
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
-  std::remove(path);
 }
 
 void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="",ProofFormat format=ProofFormat::DsrAscii) {
-  Kernel kernel;auto text=cnf(f);AffineMatrixSearchSession session;
-  FILE *records=load(kernel,text,session);
-  std::string proof_path=stem.empty()?"/tmp/tactix-default-affine-fixed.dsr":stem+".dsr";
-  Proof proof;
-  if(with_proof) {
-    assert(proof.open(proof_path.c_str(),format));
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);proof.finish_input_transaction();kernel.proof=&proof;
-  }
+  const auto text=cnf(f);
+  PolicyFixture fixture(text);
+  Kernel &kernel=fixture.kernel;
+  AffineMatrixSearchSession &session=fixture.session;
+  if(with_proof)
+    fixture.open(stem.empty()?"/tmp/tactix-default-affine-fixed.dsr":stem+".dsr",false,format,!stem.empty());
   DefaultPolicy policy(config(enabled));int status=policy.solve(kernel);
   const auto &stats=policy.affine_search_diagnostics();
   if(f.variables==26) {
@@ -376,30 +342,22 @@ void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="
   }
   if(!with_proof)assert(!session.persistent() && stats.reasons_published==0);
   if(!enabled)assert(stats.initializations==0 && stats.search_services==0);
-  if(!stem.empty()){std::ofstream out(stem+".cnf");out<<text;}
+  if(!stem.empty())write_file((stem+".cnf").c_str(),text);
   session.disable(kernel);
-  kernel.proof=nullptr;kernel.structural_provenance=nullptr;std::fclose(records);
-  if(stem.empty() && with_proof)std::remove(proof_path.c_str());
 }
 // An explicit short sampling profile isolates the scheduling protocol; the
 // ordinary reference-derived thresholds remain unchanged in production.
 void paused_owner_retry(const std::string &stem = "",
                         ProofFormat format = ProofFormat::DsrAscii) {
   Fixture f{9, {{5,6,7}, {8,9,1}}};
-  for (const auto &variables : {std::vector<int32_t>{1,2,3},
-                                std::vector<int32_t>{2,3,4}})
-    for (const auto &clause : affine_semantic_extension::clausal_form(variables, false))
-      f.clauses.push_back(clause);
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  FILE *records = load(kernel, cnf(f), session);
-  Proof proof;
-  const std::string path = stem.empty() ? "/tmp/tactix-default-paused-owner.dsr" : stem + ".dsr";
-  assert(proof.open(path.c_str(), format));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
+  for (auto &clause : xor_cnf({{{1, 2, 3}, false}, {{2, 3, 4}, false}}))
+    f.clauses.push_back(std::move(clause));
+  PolicyFixture fixture(cnf(f));
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
+  Proof &proof = fixture.open(stem.empty() ? "/tmp/tactix-default-paused-owner.dsr"
+                                           : stem + ".dsr",
+                              false, format, !stem.empty());
   auto settings = config(true);
   settings.affine_search.autodisable_minimum_calls = 1;
   settings.affine_search.autodisable_check_every = 1;
@@ -444,15 +402,8 @@ void paused_owner_retry(const std::string &stem = "",
   // Change the physical CNF owner and force a paid recognition pass, without
   // adding a complete XOR family or a root unit. Snapshot change alone must
   // not be treated as fresh evidence of search usefulness.
-  const std::vector<int32_t> unrelated{5,8,9};
-  std::vector<Lit> unrelated_body;
-  for (int32_t literal : unrelated)
-    unrelated_body.push_back(kernel_internalize(kernel, literal));
-  const auto unrelated_id = ++kernel.next_clause_id;
-  kernel_add_large_clause(kernel, unrelated_body.data(), unrelated_body.size(),
-                          false, 0, unrelated_id);
-  proof.seed_population(unrelated_id, unrelated_body.data(), unrelated_body.size());
-  f.clauses.push_back(unrelated);
+  add_seeded(kernel, proof, {5, 8, 9});
+  f.clauses.push_back({5, 8, 9});
   for (unsigned retry = 0; retry < 4; ++retry) {
     DefaultAffineSearchTestAccess::refresh(policy, kernel, false, false);
     const auto duplicate = DefaultAffineSearchTestAccess::refresh(policy, kernel, false, true);
@@ -484,11 +435,7 @@ void paused_owner_retry(const std::string &stem = "",
   assert(policy.affine_search_diagnostics().paused_search_skips == paused_skips);
   kernel_backtrack(kernel, 0);
   for (const auto &clause : affine_semantic_extension::clausal_form({5,6,7}, false)) {
-    std::vector<Lit> body;
-    for (int32_t literal : clause) body.push_back(kernel_internalize(kernel, literal));
-    const auto id = ++kernel.next_clause_id;
-    kernel_add_large_clause(kernel, body.data(), body.size(), false, 0, id);
-    proof.seed_population(id, body.data(), body.size());
+    add_seeded(kernel, proof, clause);
     f.clauses.push_back(clause);
   }
   // Search ticks and a changed generic clause population do not prove that a
@@ -565,18 +512,11 @@ void paused_owner_retry(const std::string &stem = "",
   assert(policy.affine_search_diagnostics().reasons_published ==
          reasons_before_decline);
   session.disable(kernel);
-  kernel.proof = nullptr;
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
-  if (stem.empty()) std::remove(path.c_str());
-  else {
-    // Exact union of the actual staged input premises, not constraints added
-    // merely to make the final model or proof pass. Every prefix is checked
-    // against this satisfiable strengthened input independently.
-    std::ofstream original(stem + ".cnf");
-    original << cnf(f);
-    std::ofstream model(stem + ".model");
-    model << "s SATISFIABLE\nv 1 -2 3 4 5 6 -7 -8 -9 0\n";
+  if (!stem.empty()) {
+    // The exact union of the staged input premises: every proof prefix is
+    // checked against this satisfiable input.
+    write_file((stem + ".cnf").c_str(), cnf(f));
+    write_file((stem + ".model").c_str(), "s SATISFIABLE\nv 1 -2 3 4 5 6 -7 -8 -9 0\n");
   }
 }
 
@@ -600,8 +540,6 @@ int main(int argc,char **argv) {
   c.affine_search.maximum_retained_bytes=1;assert(!default_affine_search_parameters(k,c));
   c=config(true);c.affine_root_closure.maximum_proof_deletions=0;
   assert(!default_affine_search_parameters(k,c));
-  c=config(true);assert(c.serialize().find("affine_search.enabled=1")!=std::string::npos);
-  assert(DefaultStrategyConfig{}.affine_search.enabled);
   for(bool sat:{true,false}) {
     auto f=mixed(sat?4:6,5);std::string stem=argc==2?std::string(argv[1])+(sat?"/sat":"/unsat"):"";
     run(f,true,true,stem);

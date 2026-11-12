@@ -15,16 +15,22 @@
 
 using namespace tactix;
 
-// One shared non-pivot literal collapses the resolvent to a ternary.
-static void test_ternary_resolvent() {
-  Kernel k;
+// (1 2 3) and (-1 2 4): pivot 1 resolves to the ternary (2 3 4).
+static void ternary_pair(Kernel &k) {
   kernel_reserve_vars(k, 4);
   add3(k, 1, 2, 3);
   add3(k, -1, 2, 4);
+}
+
+// One shared non-pivot literal collapses the resolvent to a ternary.
+static void test_ternary_resolvent() {
+  Kernel k;
+  ternary_pair(k);
   assert(ternary_guard(k));
   assert(ternary_apply(k) == ApplyResult::Ok);
   assert(k.stats.ternary_resolvents == 1);
   assert(k.stats.ternary_binaries == 0);
+  assert(ternary_apply(k) == ApplyResult::NoOp); // fixpoint reached
   assert(default_solve(k) == 10);
 }
 
@@ -64,29 +70,16 @@ static void test_tautological_rejected() {
 // An existing resolvent is not added twice; the rule reaches a fixpoint.
 static void test_duplicate_rejected() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  add3(k, 1, 2, 3);
-  add3(k, -1, 2, 4);
+  ternary_pair(k);
   add3(k, 2, 3, 4); // the resolvent, already present
   assert(ternary_apply(k) == ApplyResult::NoOp);
   assert(k.stats.ternary_resolvents == 0);
 }
 
-static void test_idempotent() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  add3(k, 1, 2, 3);
-  add3(k, -1, 2, 4);
-  assert(ternary_apply(k) == ApplyResult::Ok);
-  assert(ternary_apply(k) == ApplyResult::NoOp); // fixpoint reached
-}
-
 // N1: pivots are literal payloads, and an out-of-range one is a total NoOp.
 static void test_instances() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  add3(k, 1, 2, 3);
-  add3(k, -1, 2, 4);
+  ternary_pair(k);
   std::vector<Lit> pivots;
   ternary_pivots(k, pivots);
   assert(pivots.size() == 1 && pivots[0] == internalize(1));
@@ -124,19 +117,7 @@ static void test_semantic_instance_adds_one_resolvent() {
   assert(rule.apply_semantic_instance(k, choices[0]) == ApplyResult::Ok);
   assert(k.stats.ternary_resolvents == 1 &&
          "one semantic instance applied the whole pivot batch");
-}
-
-static void test_semantic_batch_payloads_keep_parent_identity() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  add3(k, 1, 2, 3);
-  add3(k, 1, 5, 6);
-  add3(k, -1, 2, 5);
-  const RuleVTable &rule =
-      tactix_rules()[tactix_rule_id("HyperTernaryRes")];
-  uint64_t choices[8];
-  assert(rule.semantic_instances(k, choices, 8) == 2);
-  assert(rule.apply_semantic_instance(k, choices[0]) == ApplyResult::Ok);
+  // The second payload keeps its parent identity after the first applied.
   assert(rule.apply_semantic_instance(k, choices[1]) == ApplyResult::Ok);
   assert(k.stats.ternary_resolvents == 2);
 }
@@ -153,9 +134,7 @@ static void test_percentage_limit_saturates() {
 
 static void test_semantic_invalid_payload_is_noop() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  add3(k, 1, 2, 3);
-  add3(k, -1, 2, 4);
+  ternary_pair(k);
   const RuleVTable &rule =
       tactix_rules()[tactix_rule_id("HyperTernaryRes")];
   uint64_t choices[2];
@@ -169,9 +148,7 @@ static void test_semantic_invalid_payload_is_noop() {
 // it, but `ternary_pivots` and `ternary_try` must never filter on it.
 static void test_touch_filter_is_policy_only() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  add3(k, 1, 2, 3);
-  add3(k, -1, 2, 4);
+  ternary_pair(k);
   k.ternary_touch_mark = k.touch_epoch;
   assert(ternary_apply(k) == ApplyResult::NoOp);
   assert(k.stats.ternary_mark_skipped == 1);
@@ -188,9 +165,7 @@ static void test_interrupt() {
   volatile sig_atomic_t stop = 1;
   { // the round loop over pivots
     Kernel k;
-    kernel_reserve_vars(k, 4);
-    add3(k, 1, 2, 3);
-    add3(k, -1, 2, 4);
+    ternary_pair(k);
     KernelStopPublisher pub(k, &stop);
     assert(ternary_apply(k) == ApplyResult::NoOp);
     assert(k.stats.ternary_resolvents == 0);
@@ -199,9 +174,7 @@ static void test_interrupt() {
   }
   { // the per-pivot pair loop, through the single-instance entry
     Kernel k;
-    kernel_reserve_vars(k, 4);
-    add3(k, 1, 2, 3);
-    add3(k, -1, 2, 4);
+    ternary_pair(k);
     KernelStopPublisher pub(k, &stop);
     assert(ternary_try(k, internalize(1)) == ApplyResult::NoOp);
     assert(k.stats.ternary_resolvents == 0);
@@ -209,9 +182,7 @@ static void test_interrupt() {
   }
   {
     Kernel k;
-    kernel_reserve_vars(k, 4);
-    add3(k, 1, 2, 3);
-    add3(k, -1, 2, 4);
+    ternary_pair(k);
     assert(ternary_try(k, internalize(1)) == ApplyResult::Ok);
     assert(k.stats.ternary_resolvents == 1 && k.stats.ternary_interrupted == 0);
   }
@@ -225,11 +196,9 @@ int main() {
   test_quaternary_rejected();
   test_tautological_rejected();
   test_duplicate_rejected();
-  test_idempotent();
   test_instances();
   test_explicit_instances_bypass_canonical_occurrence_limit();
   test_semantic_instance_adds_one_resolvent();
-  test_semantic_batch_payloads_keep_parent_identity();
   test_semantic_invalid_payload_is_noop();
   test_percentage_limit_saturates();
   std::printf("test_ternary: all passed\n");

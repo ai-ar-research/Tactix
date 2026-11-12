@@ -48,6 +48,15 @@ static std::string fixture(Kernel &k, unsigned scenario) {
   return cnf.str();
 }
 
+// One structured-root stage running `sequence`, with Lucky `before`.
+static void root_stage(DefaultStrategyConfig &config,
+                       std::vector<OnlineInvocation> sequence, bool before) {
+  OnlineStrategyProgram program;
+  program.sequence = std::move(sequence);
+  config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
+  config.inprocess.structured_root_before_lucky = before;
+}
+
 static DefaultStrategyConfig profile(unsigned scenario) {
   DefaultStrategyConfig config;
   config.inprocess.program.clear();
@@ -71,33 +80,22 @@ static DefaultStrategyConfig profile(unsigned scenario) {
     added.parameters = SubstitutionRedundancyParameters{};
     added.granularity = InvocationGranularity::OneInstance;
     added.substitution_redundancy_instances = {{{internalize(5), internalize(7)}, {}, {}}};
-    OnlineStrategyProgram program;
-    program.sequence = {complete, added};
-    config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
-    config.inprocess.structured_root_before_lucky = true;
+    root_stage(config, {complete, added}, true);
   } else if (scenario == 3 || scenario == 4) {
-    // Exercise the optional handoff explicitly; scenario 4 must still retain
-    // the embedding's existing heuristics instead of reseeding them.
+    // The optional handoff; scenario 4 keeps the embedding's heuristics.
     config.inprocess.structured_root_residual_search_handoff = true;
     OnlineInvocation fixing;
     fixing.id = 1; fixing.rule = "SubstitutionRedundancy";
     fixing.parameters = SubstitutionRedundancyParameters{};
     fixing.granularity = InvocationGranularity::OneInstance;
-    // The two disconnected binaries entail 21. Root fixing makes the
-    // preserved residual handoff effective before the hard search residual.
+    // The binaries entail 21; fixing it makes the residual handoff effective.
     fixing.substitution_redundancy_instances = {{{internalize(21)}, {}, {}}};
     fixing.post_application = PostApplication::Propagate;
-    OnlineStrategyProgram program;
-    program.sequence = {fixing};
-    config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
-    config.inprocess.structured_root_before_lucky = true;
+    root_stage(config, {fixing}, true);
   } else if (scenario == 5) {
     OnlineInvocation lucky;
     lucky.id = 1; lucky.rule = "Lucky";
-    OnlineStrategyProgram program;
-    program.sequence = {lucky};
-    config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
-    config.inprocess.structured_root_before_lucky = false;
+    root_stage(config, {lucky}, false);
   }
   return config;
 }

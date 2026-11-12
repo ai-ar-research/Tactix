@@ -157,7 +157,7 @@ static void staged_advance(const std::string &prefix) {
   query_test::clause(history, {-1, 2});
   query_test::clause(history, {1, -2});
   assert(history.begin_query() == InputStatus::Ok);
-  QueryKernel owner({{256,4096,1024},{64,4096,1024,8192,64,1024,8192},1000000});
+  QueryKernel owner(query_test::small_limits());
   assert(owner.replay(history) == ReplayStatus::Ok);
   Kernel *kernel = owner.kernel(owner.ticket());
   assert(kernel && kernel->external_to_internal.size() == 2);

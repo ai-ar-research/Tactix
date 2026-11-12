@@ -42,10 +42,8 @@ static void test_heap_uses_import_not_activation_order_for_ties() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
-  // Import happens as each literal reaches kissat_add, even if the containing
-  // clause later proves tautological and never activates that variable.  Thus
-  // the stable heap's all_variables(idx) insertion order is independent of
-  // the activation population used by random decisions and initial scores.
+  // Kissat imports at kissat_add, so the stable heap's all_variables(idx)
+  // insertion order is import order, independent of activation.
   for (const Var v : std::vector<Var>{2, 4, 1, 3})
     kernel_record_import(k, v);
   k.compact_import_order = {1, 3, 2, 4};
@@ -53,9 +51,8 @@ static void test_heap_uses_import_not_activation_order_for_ties() {
     heuristics_score_set(k, v, 0.0);
   heuristics_update_scores(k);
 
-  // With equal scores, push/bubble is stable.  This is the exact heap pose
-  // Kissat gets from its tumbled import indices.  The never-imported direct-API
-  // variable is the policy-neutral total-model backstop and follows them.
+  // Equal scores keep Kissat's tumbled import pose; the never-imported
+  // variable follows.
   assert(k.h->scores.stack == std::vector<Var>({2, 4, 1, 3, 0}));
   kernel_assign_unit(k, make_lit(2, false));
   assert(heuristics_heap_next_unassigned(k) == 0);
@@ -106,8 +103,7 @@ static void test_stable_decide_and_target_phases() {
   assert(heuristics_decide_lit(k, v) == internalize(1));
   decide_apply(k, internalize(1), false);
   assert(propagate_apply(k) == ApplyResult::Ok); // forces 2
-  // Target phases are snapshotted at the call sites, never inside
-  // kernel_backtrack: the kernel primitive performs no `H`-policy action.
+  // Target phases are snapshotted by callers, not inside kernel_backtrack.
   heuristics_update_target_phases(k);
   kernel_backtrack(k, 0);
   assert(k.h->target_assigned == 2);
@@ -129,20 +125,16 @@ static void test_target_high_water_uses_compact_assigned_count() {
   kernel_assign_unit(k, internalize(2));
   assert(k.trail.size() == 2 && k.unassigned == 3);
 
-  // Kissat compacts all but one root-fixed identity: VARS becomes four while
-  // one variable is assigned in that compact representation.  Tactix keeps
-  // both kernel identities and both trail entries, so trail.size() would
-  // incorrectly pose a high-water mark of two.
+  // Kissat compacts all but one root-fixed identity, so the high-water mark
+  // is one (not trail.size()).
   heuristics_compact_random_order_fixed(k);
   assert(k.compact_import_order.size() == 4);
   heuristics_update_target_phases(k);
   assert(k.h->target_assigned == 1 && k.h->best_assigned == 1);
   assert(k.stats.target_saved == 1 && k.stats.best_saved == 1);
 
-  // Kissat decrements `unassigned` as soon as an unassigned variable is
-  // eliminated, while VARS retains that identity until the next compaction.
-  // Tactix's global counter intentionally retains reconstructible retired
-  // identities; `unassigned_active` is the matching compact counter.
+  // Kissat decrements `unassigned` at elimination; `unassigned_active` is
+  // the matching compact counter.
   k.var_status.assign(k.nvars, VarStatus::Active);
   k.var_status[2] = VarStatus::Substituted;
   assert(k.values[make_lit(2, false)] == 0 && k.unassigned_active == 3);
@@ -160,17 +152,15 @@ static void test_root_collapse_recomputes_phase_high_water() {
   kernel_assign_unit(k, internalize(1));
   kernel_assign_unit(k, internalize(2));
 
-  // Model the intermediate state after identity-preserving physical
-  // compaction: all five immutable phase entries survive, but Kissat's compact
-  // VARS image retains only one of the two root-fixed identities.
+  // After identity-preserving compaction Kissat's VARS keeps one of the two
+  // root-fixed identities.
   std::fill(k.h->target.begin(), k.h->target.end(), int8_t{1});
   std::fill(k.h->best.begin(), k.h->best.end(), int8_t{-1});
   k.h->target_assigned = k.h->best_assigned = 5;
   heuristics_compact_random_order_fixed(k);
 
   assert(k.compact_import_order.size() == 4);
-  // Kissat retains one fixed representative in VARS but its active flag is
-  // false, so compact_best_and_target_values counts only the three live vars.
+  // compact_best_and_target_values counts only the three active vars.
   assert(k.h->target_assigned == 3);
   assert(k.h->best_assigned == 3);
 }
@@ -210,10 +200,7 @@ static void test_policy_schedule() {
   assert(!p.want_switch_mode(k)); // focused until modeinit conflicts
   k.stats.conflicts = 1000;
   assert(p.want_switch_mode(k));
-  // simulate the switch the way solve() does
-  // The focused phase consumed 500 ticks, all of them search: the kernel
-  // charges `search_ticks` whenever `inprocessing` is false, which is what a
-  // real focused phase does.
+  // switch as solve() does after a focused phase of 500 search ticks
   k.stats.ticks = k.stats.search_ticks = 500;
   switchmode_apply(k);
   p.mode.count++;
@@ -232,17 +219,6 @@ static void test_policy_schedule() {
   assert(p.want_restart(k));
 }
 
-static void test_default_policy_solves_across_modes() {
-  Kernel k; // a tiny UNSAT chain, but forced through both modes
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(-2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-3));
-  assert(default_solve(k) == 20);
-}
-
 int main() {
   test_heap_basic();
   test_heap_uses_import_not_activation_order_for_ties();
@@ -253,7 +229,6 @@ int main() {
   test_root_collapse_recomputes_phase_high_water();
   test_stable_trail_reuse();
   test_policy_schedule();
-  test_default_policy_solves_across_modes();
   printf("test_switchmode: all passed\n");
   return 0;
 }

@@ -89,29 +89,27 @@ static void test_exact_subgrid_selection() {
            "the unselected third row must remain live");
 }
 
+// The zero-gain 2x2 grid {1,2} x {3,4} as binaries.
+static void square(Kernel &k) {
+  kernel_reserve_vars(k, 4);
+  for (const int factor : {1, 2})
+    for (const int remainder : {3, 4})
+      kernel_add_binary_clause(k, internalize(factor), internalize(remainder));
+}
+
 static void test_exact_zero_gain_grid_is_legal() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  const Lit a = internalize(1), b = internalize(2);
-  const Lit p = internalize(3), q = internalize(4);
-  for (const Lit factor : {a, b})
-    for (const Lit remainder : {p, q})
-      kernel_add_binary_clause(k, factor, remainder);
+  square(k);
   FactorGrid grid;
-  grid.factors = {a, b};
-  grid.remainders = {{p}, {q}};
+  grid.factors = {internalize(1), internalize(2)};
+  grid.remainders = {{internalize(3)}, {internalize(4)}};
   assert(factor_apply_grid(k, grid) == ApplyResult::Ok);
   assert(k.stats.factorings == 1 && k.nvars == 5);
 }
 
 static void test_zero_gain_grid_does_not_expand_canonical_frontier() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  const Lit a = internalize(1), b = internalize(2);
-  const Lit p = internalize(3), q = internalize(4);
-  for (const Lit factor : {a, b})
-    for (const Lit remainder : {p, q})
-      kernel_add_binary_clause(k, factor, remainder);
+  square(k);
   assert(factor_apply(k) == ApplyResult::NoOp);
   assert(k.stats.factorings == 0 && k.stats.factor_rejected_by_bound == 0 &&
          "exact completeness must not add zero-gain work to the shipped matcher");
@@ -174,34 +172,23 @@ static void test_complete_grid_enumeration_includes_subgrids() {
         return true;
       });
   assert(result.status == FactorEnumerationStatus::Complete);
-  assert(matching == 11 &&
-         "a 2x4 grid has six 2x2, four 2x3, and one 2x4 subgrid");
-  assert(selected_columns.count({p, q}));
-  assert(selected_columns.count({p, q, r}));
-  assert(selected_columns.count({p, q, s}));
-  assert(selected_columns.count({p, r, s}));
-  assert(selected_columns.count({q, r, s}));
-  assert(selected_columns.count({p, q, r, s}));
+  // Six 2x2, four 2x3 and one 2x4 subgrid, each reported once.
+  assert(matching == 11 && selected_columns.size() == 11);
 }
 
 static void test_complete_grid_enumeration_controls() {
-  Kernel square;
-  kernel_reserve_vars(square, 4);
-  const Lit a = internalize(1), b = internalize(2);
-  const Lit p = internalize(3), q = internalize(4);
-  for (const Lit factor : {a, b})
-    for (const Lit remainder : {p, q})
-      kernel_add_binary_clause(square, factor, remainder);
+  Kernel two;
+  square(two);
   const FactorEnumerationResult none =
-      factor_enumerate_grids(square, [](const FactorGrid &) { return true; });
+      factor_enumerate_grids(two, [](const FactorGrid &) { return true; });
   assert(none.status == FactorEnumerationStatus::Complete && none.grids == 2 &&
          "zero-gain 2x2 rectangles are legal explicit E2 actions");
 
   Kernel larger;
   kernel_reserve_vars(larger, 6);
-  for (const Lit factor : {a, b})
-    for (const Lit remainder : {p, q, internalize(5), internalize(6)})
-      kernel_add_binary_clause(larger, factor, remainder);
+  for (const int factor : {1, 2})
+    for (const int remainder : {3, 4, 5, 6})
+      kernel_add_binary_clause(larger, internalize(factor), internalize(remainder));
   const FactorEnumerationResult limited = factor_enumerate_grids(
       larger, [](const FactorGrid &) { return true; },
       FactorEnumerationOptions{2, nullptr});

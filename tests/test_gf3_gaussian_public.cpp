@@ -2,120 +2,26 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
-#include "policies/restart_controller.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
-#include "frontend/parse.hpp"
+#include "gf3_formula_support.hpp"
+#include "temporary_file.hpp"
+#include "test_io.hpp"
 #include "proof/proof.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "strategy/online_inprocess.hpp"
 
 #include <cassert>
 #include <cstdio>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
 using namespace tactix::strategy;
-using namespace tactix::strategy::controller;
 
 namespace {
 
-struct Formula {
-  std::vector<std::vector<int32_t>> clauses;
-  std::vector<std::vector<int32_t>> values;
-  void domain(std::vector<int32_t> literals) {
-    values.push_back(literals);
-    clauses.push_back(literals);
-    for (unsigned a = 0; a < 3; ++a)
-      for (unsigned b = a + 1; b < 3; ++b)
-        clauses.push_back({-literals[a], -literals[b]});
-  }
-  void equation(std::vector<uint32_t> domains,
-                std::vector<uint8_t> coefficients, uint8_t rhs) {
-    uint64_t tuples = 1;
-    for (size_t i = 0; i < domains.size(); ++i) tuples *= 3;
-    for (uint64_t tuple = 0; tuple < tuples; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (size_t i = 0; i < domains.size(); ++i) {
-        const uint8_t value = rest % 3;
-        rest /= 3;
-        sum = (sum + coefficients[i] * value) % 3;
-        clause.push_back(-values[domains[i]][value]);
-      }
-      if (sum != rhs) clauses.push_back(std::move(clause));
-    }
-  }
-};
-
-Formula chained_units() {
-  Formula f;
-  f.domain({1, 2, 3});
-  f.domain({4, 5, 6});
-  f.domain({7, 8, 9});
-  f.equation({0, 1}, {1, 1}, 0);
-  f.equation({1, 2}, {1, 1}, 0);
-  f.equation({0, 2}, {1, 1}, 1);
-  return f;
-}
-
-Kernel install() {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 9);
-  for (const auto &external : chained_units().clauses) {
-    std::vector<Lit> clause;
-    for (int32_t literal : external)
-      clause.push_back(kernel_internalize(kernel, literal));
-    const uint64_t id = ++kernel.next_clause_id;
-    if (clause.size() == 2)
-      kernel_add_binary_clause(kernel, clause[0], clause[1], id);
-    else
-      kernel_add_large_clause(kernel, clause.data(), clause.size(), false, 0,
-                              id);
-  }
-  return kernel;
-}
-
-Kernel install_parsed() {
-  Kernel kernel;
-  for (const auto &external : chained_units().clauses) {
-    std::vector<Lit> clause;
-    for (int32_t literal : external)
-      clause.push_back(internalize(literal));
-    ingest_clause(kernel, clause);
-  }
-  finish_input(kernel);
-  return kernel;
-}
+Kernel install() { return gf3_native_kernel(gf3_chained_units(), 9); }
 
 Gf3GaussianActionLimits limits(const Gf3GaussianConsequenceParameters &p = {}) {
-  return {{p.maximum_source_clauses, p.maximum_source_literals,
-           p.maximum_domains, p.maximum_equations,
-           p.maximum_equation_arity, p.maximum_tuples_per_equation},
-          {{p.maximum_bridge_work, p.maximum_bridge_source_clauses,
-            p.maximum_bridge_source_literals, p.maximum_bridge_domains,
-            p.maximum_bridge_equations, p.maximum_bridge_terms,
-            p.maximum_authentication_references,
-            p.maximum_references_per_equation,
-            {p.maximum_gaussian_work, p.maximum_fill_entries,
-             p.maximum_intermediate_width, p.maximum_provenance_terms,
-             p.maximum_derivations, p.maximum_retained_plan_bytes}},
-           p.maximum_certificate_work, p.maximum_events,
-           p.maximum_event_literals, p.maximum_active_clauses,
-           p.maximum_retained_source_references, p.maximum_event_width,
-           p.maximum_branch_domains, p.maximum_consequences},
-          p.maximum_capture_work, p.maximum_revalidation_work,
-          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes, p.maximum_identity_bytes,
-          p.maximum_external_extent, p.maximum_session_keys,
-          p.maximum_session_work, p.maximum_session_identity_bytes};
+  return gf3_gaussian_action_limits(p);
 }
 
 struct Bound {
@@ -196,12 +102,9 @@ void public_wrapper_applies_with_dsr() {
   Bound b;
   const auto offered = gf3_gaussian_action_offer(b.kernel, b.session, limits());
   assert(offered.offers.size() == 1);
-  char path[] = "/tmp/tactix-gf3-gaussian-public-XXXXXX";
-  const int descriptor = mkstemp(path);
-  assert(descriptor >= 0 && !close(descriptor));
-  std::remove(path);
+  TemporaryFile file;
   Proof proof;
-  assert(proof.open(path, ProofFormat::DsrAscii));
+  assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
   proof.bind_variable_map(&b.kernel.internal_to_external);
   proof.bind_external_variable_map(&b.kernel.external_to_internal);
   b.kernel.proof = &proof;
@@ -211,14 +114,12 @@ void public_wrapper_applies_with_dsr() {
          applied.result == ApplyResult::Ok);
   proof.flush();
   b.kernel.proof = nullptr;
-  FILE *stream = std::fopen(path, "rb");
-  assert(stream && !std::fseek(stream, 0, SEEK_END) && std::ftell(stream) > 0);
-  std::fclose(stream);
-  std::remove(path);
+  assert(!read_file(file.path).empty());
 }
+
 void c_v6_replays_the_exact_batch_identity() {
   Bound source;
-  source.kernel = install_parsed();
+  source.kernel = gf3_parsed_kernel(gf3_chained_units());
   source.kernel.structural_provenance = source.records;
   source.kernel.gf3_gaussian_action_session = &source.session;
   const auto source_offer =
@@ -229,7 +130,7 @@ void c_v6_replays_the_exact_batch_identity() {
   tactix_c_handle *solver = tactix_init();
   FILE *records = std::tmpfile();
   assert(records && tactix_bind_structural_provenance(solver, records) == 0);
-  for (const auto &clause : chained_units().clauses) {
+  for (const auto &clause : gf3_chained_units().clauses) {
     for (int32_t literal : clause) tactix_add(solver, literal);
     tactix_add(solver, 0);
   }
@@ -240,24 +141,7 @@ void c_v6_replays_the_exact_batch_identity() {
   base.rule_id = 37;
   base.parameters.kind = TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE;
   auto &c = base.parameters.value.gf3_gaussian_consequence;
-  c = {p.maximum_source_clauses, p.maximum_source_literals,
-       p.maximum_domains, p.maximum_equations, p.maximum_equation_arity,
-       p.maximum_tuples_per_equation, p.maximum_bridge_work,
-       p.maximum_bridge_source_clauses, p.maximum_bridge_source_literals,
-       p.maximum_bridge_domains, p.maximum_bridge_equations,
-       p.maximum_bridge_terms, p.maximum_authentication_references,
-       p.maximum_references_per_equation, p.maximum_gaussian_work,
-       p.maximum_fill_entries, p.maximum_intermediate_width,
-       p.maximum_provenance_terms, p.maximum_derivations,
-       p.maximum_retained_plan_bytes, p.maximum_certificate_work,
-       p.maximum_events, p.maximum_event_literals, p.maximum_active_clauses,
-       p.maximum_retained_source_references, p.maximum_event_width,
-       p.maximum_branch_domains, p.maximum_consequences,
-       p.maximum_capture_work, p.maximum_revalidation_work,
-       p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-       p.maximum_journal_bytes, p.maximum_identity_bytes,
-       p.maximum_external_extent, p.maximum_session_keys,
-       p.maximum_session_work, p.maximum_session_identity_bytes};
+  c = gf3_c_gaussian(p);
   base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
   base.repeat_limit = 1;

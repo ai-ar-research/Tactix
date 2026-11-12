@@ -32,23 +32,23 @@ static WindowCursorStatus finish(WindowCursor &cursor, const Shape &shape,
 int main() {
   const Shape shape = complete_shape(7);
   const WindowLimits limits{100000, 4, 4, 0x51a7e};
-  Candidate legacy;
-  uint64_t legacy_work = 0, legacy_nodes = 0;
-  const auto legacy_status = window_search(
+  Candidate reference;
+  uint64_t reference_work = 0, reference_nodes = 0;
+  const auto reference_status = window_search(
       shape, limits,
       [&](uint64_t amount) {
-        legacy_work += amount;
+        reference_work += amount;
         return true;
       },
-      legacy, legacy_nodes);
-  assert(legacy_status == WindowStatus::Found);
-  assert(!legacy.score.first);
+      reference, reference_nodes);
+  assert(reference_status == WindowStatus::Found);
+  assert(!reference.score.first);
 
   const uint64_t required = WindowCursor::required_workspace(shape);
   assert(required);
   {
     WindowCursor rejected;
-    assert(rejected.initialize(shape, limits, legacy_work, required - 1) ==
+    assert(rejected.initialize(shape, limits, reference_work, required - 1) ==
            WindowCursorAdmission::WorkspaceExhausted);
     assert(!rejected.ready());
     assert(!rejected.work() && !rejected.nodes());
@@ -56,45 +56,45 @@ int main() {
 
   Candidate one_shot;
   WindowCursor large;
-  assert(large.initialize(shape, limits, legacy_work, required) ==
+  assert(large.initialize(shape, limits, reference_work, required) ==
          WindowCursorAdmission::Ready);
-  const auto large_result = large.step(shape, legacy_work, one_shot);
+  const auto large_result = large.step(shape, reference_work, one_shot);
   assert(large_result.status == WindowCursorStatus::Found);
-  assert(large.work() == legacy_work);
-  assert(large.nodes() == legacy_nodes);
-  assert(one_shot.labels == legacy.labels && one_shot.score == legacy.score);
+  assert(large.work() == reference_work);
+  assert(large.nodes() == reference_nodes);
+  assert(one_shot.labels == reference.labels && one_shot.score == reference.score);
 
   Candidate sliced;
   WindowCursor small;
-  assert(small.initialize(shape, limits, legacy_work, required) ==
+  assert(small.initialize(shape, limits, reference_work, required) ==
          WindowCursorAdmission::Ready);
   assert(finish(small, shape, 31, sliced) == WindowCursorStatus::Found);
-  assert(small.work() == legacy_work);
-  assert(small.nodes() == legacy_nodes);
-  assert(sliced.labels == legacy.labels && sliced.score == legacy.score);
+  assert(small.work() == reference_work);
+  assert(small.nodes() == reference_nodes);
+  assert(sliced.labels == reference.labels && sliced.score == reference.score);
 
   Candidate prepaid_candidate;
   WindowCursor prepaid;
   const uint64_t setup = WindowCursor::initialization_work(shape);
-  assert(setup < legacy_work);
-  assert(prepaid.initialize_after_charge(shape, limits, legacy_work, required) ==
+  assert(setup < reference_work);
+  assert(prepaid.initialize_after_charge(shape, limits, reference_work, required) ==
          WindowCursorAdmission::Ready);
   assert(prepaid.work() == setup);
   const auto prepaid_result =
-      prepaid.step(shape, legacy_work - setup, prepaid_candidate);
+      prepaid.step(shape, reference_work - setup, prepaid_candidate);
   assert(prepaid_result.status == WindowCursorStatus::Found);
-  assert(prepaid_result.work == legacy_work - setup);
-  assert(prepaid.work() == legacy_work && prepaid.nodes() == legacy_nodes);
-  assert(prepaid_candidate.labels == legacy.labels);
-  assert(prepaid_candidate.score == legacy.score);
+  assert(prepaid_result.work == reference_work - setup);
+  assert(prepaid.work() == reference_work && prepaid.nodes() == reference_nodes);
+  assert(prepaid_candidate.labels == reference.labels);
+  assert(prepaid_candidate.score == reference.score);
 
   // The same slice sequence is a deterministic replay of every frontier and
   // random-stream transition, including exhaustion boundaries.
   WindowCursor replay_a, replay_b;
   Candidate replay_candidate_a, replay_candidate_b;
-  assert(replay_a.initialize(shape, limits, legacy_work, required) ==
+  assert(replay_a.initialize(shape, limits, reference_work, required) ==
          WindowCursorAdmission::Ready);
-  assert(replay_b.initialize(shape, limits, legacy_work, required) ==
+  assert(replay_b.initialize(shape, limits, reference_work, required) ==
          WindowCursorAdmission::Ready);
   for (;;) {
     const auto a = replay_a.step(shape, 37, replay_candidate_a);
@@ -111,40 +111,40 @@ int main() {
   // leaves the exact next charged mutation available for resumption.
   WindowCursor interrupted;
   Candidate interrupted_candidate;
-  assert(interrupted.initialize(shape, limits, legacy_work, required) ==
+  assert(interrupted.initialize(shape, limits, reference_work, required) ==
          WindowCursorAdmission::Ready);
   uint64_t polls = 0;
   const auto stopped = interrupted.step(
-      shape, legacy_work, interrupted_candidate,
+      shape, reference_work, interrupted_candidate,
       [&] { return polls++ == 20; });
   assert(stopped.status == WindowCursorStatus::Interrupted);
   assert(finish(interrupted, shape, 43, interrupted_candidate) ==
          WindowCursorStatus::Found);
-  assert(interrupted.work() == legacy_work);
-  assert(interrupted.nodes() == legacy_nodes);
-  assert(interrupted_candidate.labels == legacy.labels);
+  assert(interrupted.work() == reference_work);
+  assert(interrupted.nodes() == reference_nodes);
+  assert(interrupted_candidate.labels == reference.labels);
 
   WindowCursor capped;
   Candidate capped_candidate;
-  const uint64_t capped_allowance = legacy_work - 1;
-  uint64_t legacy_capped_work = 0, legacy_capped_nodes = 0;
-  Candidate legacy_capped_candidate;
-  const auto legacy_capped = window_search(
+  const uint64_t capped_allowance = reference_work - 1;
+  uint64_t reference_capped_work = 0, reference_capped_nodes = 0;
+  Candidate reference_capped_candidate;
+  const auto reference_capped = window_search(
       shape, limits,
       [&](uint64_t amount) {
-        if (amount > capped_allowance - legacy_capped_work) return false;
-        legacy_capped_work += amount;
+        if (amount > capped_allowance - reference_capped_work) return false;
+        reference_capped_work += amount;
         return true;
       },
-      legacy_capped_candidate, legacy_capped_nodes);
-  assert(legacy_capped == WindowStatus::Limited);
+      reference_capped_candidate, reference_capped_nodes);
+  assert(reference_capped == WindowStatus::Limited);
   assert(capped.initialize(shape, limits, capped_allowance, required) ==
          WindowCursorAdmission::Ready);
   assert(finish(capped, shape, 29, capped_candidate) ==
          WindowCursorStatus::TotalWorkExhausted);
-  assert(capped.work() == legacy_capped_work);
-  assert(capped.nodes() == legacy_capped_nodes);
-  assert(capped_candidate.labels == legacy_capped_candidate.labels);
-  assert(capped_candidate.score == legacy_capped_candidate.score);
+  assert(capped.work() == reference_capped_work);
+  assert(capped.nodes() == reference_capped_nodes);
+  assert(capped_candidate.labels == reference_capped_candidate.labels);
+  assert(capped_candidate.score == reference_capped_candidate.score);
   assert(capped.terminal());
 }

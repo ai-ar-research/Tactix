@@ -1,6 +1,7 @@
 // X5 conditional-autarky legality, all-copy deletion and reconstruction.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/condition/condition.hpp"
 
 #include <cassert>
@@ -60,8 +61,7 @@ static void test_binary_cube_and_model() {
 static void test_large_and_negative_cases() {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {1, 2, 4});
   kernel_add_binary_clause(k, internalize(-1), internalize(3));
   kernel_add_binary_clause(k, internalize(-3), internalize(4));
   kernel_add_binary_clause(k, internalize(-4), internalize(1));
@@ -198,8 +198,7 @@ static void test_exhaustive_cube_implication_oracle() {
 static void test_root_false_candidate_literal() {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  const Lit c[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
   kernel_assign_unit(k, internalize(-3));
   assert(!kernel_propagate(k));
@@ -225,8 +224,7 @@ static void test_root_true_reason_candidates() {
   {
     Kernel k;
     kernel_reserve_vars(k, 3);
-    const Lit c[] = {internalize(1), internalize(2), internalize(3)};
-    const Ref ref = kernel_add_large_clause(k, c, 3, false, 0);
+    const Ref ref = add_external_clause(k, {1, 2, 3});
     kernel_assign_unit(k, internalize(-2));
     kernel_assign_unit(k, internalize(-3));
     assert(!kernel_propagate(k));

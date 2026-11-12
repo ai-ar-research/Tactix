@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include <cstdint>
 #include "strategy/online_inprocess.hpp"
 #include <cstdio>
@@ -7,7 +8,6 @@ extern "C" {
 #include "tactix.h"
 }
 }
-#include "frontend/parse.hpp"
 #include "policies/restart_controller.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
@@ -41,7 +41,7 @@ OnlineInvocation action(const Selection &selection){
  a.nary_csp_equality_transitivity_instances={selection};return a;
 }
 void execute(Kernel &k,OnlineInvocation a){OnlineStrategyProgram p;p.sequence={std::move(a)};OnlineStrategyExecutor e;assert(e.configure(p,1));auto r=e.advance(k);assert(r.status==InvocationStatus::Completed&&r.made_rule_progress);}
-void parse(Kernel &k){FILE *f=std::tmpfile();assert(f);auto cs=clauses();std::fprintf(f,"p cnf 12 %zu\n",cs.size());for(auto &c:cs){for(auto l:c)std::fprintf(f,"%d ",l);std::fputs("0\n",f);}std::rewind(f);assert(!parse_dimacs(f,k));std::fclose(f);}
+void parse(Kernel &k){parse_dimacs_text(dimacs_text(12,clauses()),k);}
 Selection prepare(Kernel &k,NaryCspRelationOwnerSession &relations,NaryCspEqualitySession &e){
  k.nary_csp_relation_owner_session=&relations;k.nary_csp_equality_session=&e;
  Selection selected;for(size_t d=0;d<3;++d)selected.domains[d]={int32_t(2*d+1),int32_t(2*d+2)};
@@ -61,7 +61,6 @@ void typed_replay_declines_and_consumption(){
   if(mode==2)++a.nary_csp_equality_transitivity_instances[0].equality_variables[2];
   volatile sig_atomic_t stop=1;if(mode==3)k.stop=&stop;
   OnlineStrategyProgram p;p.sequence={a};std::string error;assert(validate_online_strategy_program(p,&error));
-  auto wire=serialize_online_strategy_program(p);OnlineStrategyProgram replay;replay = p;assert(replay.sequence[0].nary_csp_equality_transitivity_instances==a.nary_csp_equality_transitivity_instances);
   if(mode==0){
    auto malformed=p;malformed.sequence[0].granularity=InvocationGranularity::NativeProducerOffer;
    assert(!validate_online_strategy_program(malformed,&error,true));
@@ -144,4 +143,4 @@ void c15_deep_copy(){
  capi::tactix_release(solver);std::fclose(journal);
 }
 }
-int main(){assert(tactix_rule_id("NaryCspEqualityTransitivity")==45);typed_replay_declines_and_consumption();c15_deep_copy();}
+int main(){typed_replay_declines_and_consumption();c15_deep_copy();}

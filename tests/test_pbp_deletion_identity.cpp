@@ -7,6 +7,8 @@
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
+#include "rule_test_utils.hpp"
+#include "test_io.hpp"
 #include "rules/bve/bve.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
 #include "rules/registry.hpp"
@@ -23,18 +25,6 @@ using namespace tactix;
 
 namespace {
 
-std::string read_all(const std::string &path) {
-  FILE *f = std::fopen(path.c_str(), "rb");
-  assert(f);
-  std::string out;
-  char buf[4096];
-  size_t n;
-  while ((n = std::fread(buf, 1, sizeof buf, f)) > 0)
-    out.append(buf, n);
-  std::fclose(f);
-  return out;
-}
-
 void expect(const std::string &got, const std::string &want,
             const char *what) {
   if (got == want)
@@ -48,13 +38,6 @@ constexpr const char *UNSAT_TAIL = "rup >= 1 ;\n"
                                    "output NONE ;\n"
                                    "conclusion UNSAT : -1 ;\n"
                                    "end pseudo-Boolean proof ;\n";
-
-std::vector<Lit> clause(std::initializer_list<int> external) {
-  std::vector<Lit> lits;
-  for (const int literal : external)
-    lits.push_back(internalize(literal));
-  return lits;
-}
 
 size_t count_lines(const std::string &text, const char *prefix) {
   size_t count = 0, at = 0;
@@ -94,13 +77,13 @@ void test_anonymous_registry() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto input = clause({9, 10, 11});
+    const auto input = lits_of({9, 10, 11});
     p.seed_population(1, input.data(), 3);
     p.finish_input_transaction();
-    const auto a = clause({1, 2, 3});
-    const auto a_permuted = clause({3, 1, 2});
-    const auto unit = clause({4});
-    const auto tracked = clause({5, 6, 7});
+    const auto a = lits_of({1, 2, 3});
+    const auto a_permuted = lits_of({3, 1, 2});
+    const auto unit = lits_of({4});
+    const auto tracked = lits_of({5, 6, 7});
     p.add_rup(0, a.data(), 3);         // 2
     p.add_rup(0, a_permuted.data(), 3); // 3
     p.add_rup(0, unit.data(), 1);      // 4
@@ -115,7 +98,7 @@ void test_anonymous_registry() {
     assert(c.anonymous_registered == 3);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 1;\n"
                      "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
@@ -139,9 +122,9 @@ void test_anonymous_registry_miss_abandons() {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
     p.finish_input_transaction();
-    const auto a = clause({1, 2, 3});
-    const auto b = clause({1, 2, 4});
-    const auto tracked = clause({5, 6, 7});
+    const auto a = lits_of({1, 2, 3});
+    const auto b = lits_of({1, 2, 4});
+    const auto tracked = lits_of({5, 6, 7});
     p.add_rup(0, a.data(), 3);        // 1
     p.add_rup(30, tracked.data(), 3); // 2
     p.del(40, 0, b.data(), 3);                    // never added: spec
@@ -152,7 +135,7 @@ void test_anonymous_registry_miss_abandons() {
            c.abandon_width == 3);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 0;\n"
                      "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
@@ -173,11 +156,11 @@ void test_restatement_rebinds_identity() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto raw_wide = clause({1, 2, 2, 3});
-    const auto wide = clause({1, 2, 3});
-    const auto raw_binary = clause({4, 4});
-    const auto unit = clause({4});
-    const auto later = clause({5, 6, 7});
+    const auto raw_wide = lits_of({1, 2, 2, 3});
+    const auto wide = lits_of({1, 2, 3});
+    const auto raw_binary = lits_of({4, 4});
+    const auto unit = lits_of({4});
+    const auto later = lits_of({5, 6, 7});
     p.seed_population(1, raw_wide.data(), 4);
     p.add_rup(1, wide.data(), 3);
     p.del(2, 1, raw_wide.data(), 4);
@@ -194,7 +177,7 @@ void test_restatement_rebinds_identity() {
            !c.abandon_reason && !c.spec_unit && !c.spec_wide);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 3;\n"
                      "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
@@ -215,10 +198,10 @@ void test_restatement_rebinds_divergent_identity() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto first = clause({9});
-    const auto derived = clause({8});
-    const auto raw = clause({1, -2, 3, 3});
-    const auto replacement = clause({1, -2, 3});
+    const auto first = lits_of({9});
+    const auto derived = lits_of({8});
+    const auto raw = lits_of({1, -2, 3, 3});
+    const auto replacement = lits_of({1, -2, 3});
     p.seed_population(1, first.data(), 1);
     p.add_derived_unit(2, derived[0]);
     p.seed_population(3, raw.data(), 4);
@@ -231,7 +214,7 @@ void test_restatement_rebinds_divergent_identity() {
     assert(c.by_rebind == 1 && c.by_id == 3 && !c.abandon_reason);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 2;\n"
                      "rup 1 x8 >= 1 ;\n"
@@ -249,8 +232,8 @@ void test_unresolved_restatement_abandons() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto raw = clause({1, 1, 2, 3});
-    const auto replacement = clause({1, 2, 3});
+    const auto raw = lits_of({1, 1, 2, 3});
+    const auto replacement = lits_of({1, 2, 3});
     p.seed_population(1, raw.data(), 4);
     p.add_rup(1, replacement.data(), 3);
     p.finish_input_transaction();
@@ -258,7 +241,7 @@ void test_unresolved_restatement_abandons() {
     p.del(5, 1, replacement.data(), 3);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 1;\n"
                      "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
@@ -285,7 +268,7 @@ void test_deferred_root_units() {
       assert(c.deferred_units == 2 && c.dropped_units == 2 &&
              c.dropped_batches == 1);
     }
-    expect(read_all(file.path),
+    expect(read_file(file.path),
            std::string("pseudo-Boolean proof version 3.0\nf 0;\n") +
                UNSAT_TAIL,
            "dropped root units");
@@ -296,18 +279,18 @@ void test_deferred_root_units() {
       Proof p;
       assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
       p.finish_input_transaction();
-      const auto lemma = clause({4, 5, 6});
+      const auto lemma = lits_of({4, 5, 6});
       p.add_rup(7, lemma.data(), 3);
       p.begin_deferred_root_units();
       p.add_derived_unit(8, internalize(2));
       p.add_derived_unit(9, internalize(-3));
       p.end_deferred_root_units();
       p.del(10, 7, lemma.data(), 3);
-      p.del(11, 9, clause({-3}).data(), 1);
+      p.del(11, 9, lits_of({-3}).data(), 1);
       p.add_empty(12);
       assert(!p.pbp_deletion_counters().dropped_units);
     }
-    expect(read_all(file.path),
+    expect(read_file(file.path),
            std::string("pseudo-Boolean proof version 3.0\nf 0;\n"
                        "rup 1 x4 1 x5 1 x6 >= 1 ;\n"
                        "rup 1 x2 >= 1 ;\n"
@@ -327,7 +310,7 @@ void test_deferred_root_units() {
       p.add_derived_unit(1, internalize(2));
       p.end_deferred_root_units();
     }
-    expect(read_all(file.path),
+    expect(read_file(file.path),
            "pseudo-Boolean proof version 3.0\nf 0;\nrup 1 x2 >= 1 ;\n",
            "unfinished stream keeps root units");
   }
@@ -348,7 +331,7 @@ void test_deferred_root_units() {
           p.end_deferred_root_units();
         p.add_empty(3);
       }
-      bytes[staged] = read_all(file.path);
+      bytes[staged] = read_file(file.path);
     }
     expect(bytes[1], bytes[0], "non-PBP root units unaffected");
     assert(!bytes[0].empty());
@@ -362,14 +345,14 @@ void test_repeated_binary_is_exact() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto raw = clause({3, 3});
+    const auto raw = lits_of({3, 3});
     p.seed_population(1, raw.data(), 2);
     p.finish_input_transaction();
     p.del(2, 1, raw.data(), 2);
     assert(p.pbp_deletion_counters().by_id == 1);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\nf 1;\n"
                      "del id 1 ;\n") +
              UNSAT_TAIL,
@@ -383,9 +366,9 @@ void test_repeated_binary_after_divergence() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto first = clause({9});
-    const auto derived = clause({8});
-    const auto raw = clause({3, 3});
+    const auto first = lits_of({9});
+    const auto derived = lits_of({8});
+    const auto raw = lits_of({3, 3});
     p.seed_population(1, first.data(), 1);
     p.add_derived_unit(2, derived[0]); // splits the namespaces
     p.seed_population(3, raw.data(), 2);
@@ -395,7 +378,7 @@ void test_repeated_binary_after_divergence() {
     assert(c.by_id == 1 && !c.spec_unit && !c.abandon_reason);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 2;\n"
                      "rup 1 x8 >= 1 ;\n"
@@ -412,8 +395,8 @@ void test_divergent_input_runs() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto first = clause({9}), a = clause({1, 2, 3}), b = clause({4, 5}),
-               c = clause({1, -2, 6});
+    const auto first = lits_of({9}), a = lits_of({1, 2, 3}), b = lits_of({4, 5}),
+               c = lits_of({1, -2, 6});
     p.seed_population(1, first.data(), 1);            // prefix: constraint 1
     p.add_derived_unit(2, internalize(8)); // splits the ids
     p.seed_population(3, a.data(), 3);                 // run {3, 2}
@@ -429,7 +412,7 @@ void test_divergent_input_runs() {
            !counters.abandon_reason);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 4;\n"
                      "rup 1 x8 >= 1 ;\n"
@@ -450,11 +433,11 @@ void test_multiple_input_runs() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto prefix = clause({1, 2, 3});
-    const auto a1 = clause({4, 5, 6}), a2 = clause({7, 8, 9});
-    const auto b1 = clause({10, 11, 12}), b2 = clause({13, -14}),
-               b3 = clause({15, 16, 17});
-    const auto learned = clause({1, 4, 10}), reused = clause({4});
+    const auto prefix = lits_of({1, 2, 3});
+    const auto a1 = lits_of({4, 5, 6}), a2 = lits_of({7, 8, 9});
+    const auto b1 = lits_of({10, 11, 12}), b2 = lits_of({13, -14}),
+               b3 = lits_of({15, 16, 17});
+    const auto learned = lits_of({1, 4, 10}), reused = lits_of({4});
     p.seed_population(1, prefix.data(), 3);             // 1: the prefix
     p.add_derived_unit(2, internalize(20)); // split: f + 1
     p.seed_population(3, a1.data(), 3);                 // run A: 2
@@ -472,15 +455,15 @@ void test_multiple_input_runs() {
     p.del(14, 7, b2.data(), 2);                  // binary: spec
     p.add_rup(3, reused.data(), 1);  // reuses deleted 3: f + 4
     p.del(15, 3, reused.data(), 1);              // f + 4
-    p.del(16, 5, clause({21}).data(), 1);        // f + 2
-    p.del(17, 2, clause({20}).data(), 1);        // f + 1
+    p.del(16, 5, lits_of({21}).data(), 1);        // f + 2
+    p.del(17, 2, lits_of({20}).data(), 1);        // f + 1
     p.del(18, 9, learned.data(), 3);             // f + 3
     p.del(19, 1, prefix.data(), 3);              // 1
     const auto &c = p.pbp_deletion_counters();
     assert(c.by_id == 9 && c.spec_binary == 1 && !c.abandon_reason);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 6;\n"
                      "rup 1 x20 >= 1 ;\n"
@@ -508,11 +491,11 @@ void test_disabled_id_deletions() {
   {
     Proof p;
     assert(p.open(file.path.c_str(), ProofFormat::PbpStreaming));
-    const auto input = clause({1, 2, 3});
+    const auto input = lits_of({1, 2, 3});
     p.seed_population(1, input.data(), 3);
     p.finish_input_transaction();
     p.disable_pbp_id_deletions();
-    const auto lemma = clause({4, 5, 6});
+    const auto lemma = lits_of({4, 5, 6});
     p.add_rup(5, lemma.data(), 3);
     p.del(6, 5, lemma.data(), 3);
     p.del(7, 1, input.data(), 3);
@@ -520,7 +503,7 @@ void test_disabled_id_deletions() {
     assert(!c.by_id && c.spec_wide == 2 && c.abandon_reason == 7);
     p.add_empty(0);
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 1;\n"
                      "rup 1 x4 1 x5 1 x6 >= 1 ;\n"
@@ -552,7 +535,7 @@ void test_refutation_sink_erases_by_id() {
     p.add_empty(0);
     k.proof = nullptr;
   }
-  expect(read_all(file.path),
+  expect(read_file(file.path),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 0;\n"
                      "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
@@ -572,7 +555,7 @@ void write_written_back_units(const std::string &directory) {
   std::fputs("p cnf 3 4\n1 2 0\n1 -2 0\n-1 3 0\n-1 -3 0\n", cnf);
   assert(!std::fclose(cnf));
   const std::vector<std::vector<Lit>> input = {
-      clause({1, 2}), clause({1, -2}), clause({-1, 3}), clause({-1, -3})};
+      lits_of({1, 2}), lits_of({1, -2}), lits_of({-1, 3}), lits_of({-1, -3})};
   {
     Proof p;
     assert(p.open((directory + "/writeback.pbp").c_str(),
@@ -588,7 +571,7 @@ void write_written_back_units(const std::string &directory) {
     p.add_empty(8);
     assert(!p.pbp_deletion_counters().dropped_units);
   }
-  expect(read_all(directory + "/writeback.pbp"),
+  expect(read_file(directory + "/writeback.pbp"),
          std::string("pseudo-Boolean proof version 3.0\n"
                      "f 4;\n"
                      "rup 1 x1 >= 1 ;\n"
@@ -627,7 +610,7 @@ Parsed parse_with(const char *cnf, ProofFormat format) {
     k.proof = nullptr;
   }
   std::fclose(input);
-  result.proof = read_all(proof_file.path);
+  result.proof = read_file(proof_file.path);
   return result;
 }
 
@@ -691,7 +674,7 @@ void test_bve_definition_transients_by_id() {
          ApplyResult::Ok);
   assert(k.stats.bve_definition_units == 1);
   proof.flush();
-  const std::string text = read_all(proof_file.path);
+  const std::string text = read_file(proof_file.path);
   const auto &c = proof.pbp_deletion_counters();
   const size_t lemmas = count_lines(text, "rup ");
   const size_t deletions = count_lines(text, "del ");

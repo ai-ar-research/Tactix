@@ -25,15 +25,41 @@ namespace {
 const std::map<std::string, std::string> EXPECTED_UNPORTED = {
 };
 
-// A random 3-CNF near the satisfiability threshold (a fixed LCG, so every
-// build sees the same formula).
-std::vector<std::vector<int>> random_3cnf(int variables, int clauses, uint64_t seed) {
-  std::vector<std::vector<int>> out;
-  uint64_t state = seed;
-  const auto next = [&] {
+// A fixed LCG, so every build sees the same formulas.
+struct Lcg {
+  uint64_t state;
+  uint32_t operator()() {
     state = state * 6364136223846793005ull + 1442695040888963407ull;
     return static_cast<uint32_t>(state >> 33);
-  };
+  }
+};
+
+// Tseitin AND/OR/XOR gate definitions over fresh variables above `next`.
+struct Gates {
+  std::vector<std::vector<int>> out;
+  int next;
+  int gate_and(int a, int b) {
+    const int g = ++next;
+    out.push_back({-g, a});
+    out.push_back({-g, b});
+    out.push_back({g, -a, -b});
+    return g;
+  }
+  int gate_or(int a, int b) { return -gate_and(-a, -b); }
+  int gate_xor(int a, int b) {
+    const int g = ++next;
+    out.push_back({-g, a, b});
+    out.push_back({-g, -a, -b});
+    out.push_back({g, -a, b});
+    out.push_back({g, a, -b});
+    return g;
+  }
+};
+
+// A random 3-CNF near the satisfiability threshold.
+std::vector<std::vector<int>> random_3cnf(int variables, int clauses, uint64_t seed) {
+  std::vector<std::vector<int>> out;
+  Lcg next{seed};
   for (int c = 0; c < clauses; ++c) {
     std::vector<int> clause;
     while (clause.size() < 3) {
@@ -51,25 +77,10 @@ std::vector<std::vector<int>> random_3cnf(int variables, int clauses, uint64_t s
 // AND/OR decomposition of the same sums and carries, their outputs XOR-ed and
 // disjoined (UNSAT). Gate definitions, equivalences and shared structure.
 std::vector<std::vector<int>> adder_miter(int bits) {
-  std::vector<std::vector<int>> out;
-  int next = 2 * bits;
-  const auto fresh = [&] { return ++next; };
-  const auto gate_and = [&](int a, int b) {
-    const int g = fresh();
-    out.push_back({-g, a});
-    out.push_back({-g, b});
-    out.push_back({g, -a, -b});
-    return g;
-  };
-  const auto gate_or = [&](int a, int b) { return -gate_and(-a, -b); };
-  const auto gate_xor = [&](int a, int b) {
-    const int g = fresh();
-    out.push_back({-g, a, b});
-    out.push_back({-g, -a, -b});
-    out.push_back({g, -a, b});
-    out.push_back({g, a, -b});
-    return g;
-  };
+  Gates g{{}, 2 * bits};
+  const auto gate_and = [&](int a, int b) { return g.gate_and(a, b); };
+  const auto gate_or = [&](int a, int b) { return g.gate_or(a, b); };
+  const auto gate_xor = [&](int a, int b) { return g.gate_xor(a, b); };
   std::vector<int> first, second;
   int carry1 = 0, carry2 = 0;
   for (int i = 0; i < bits; ++i) {
@@ -89,32 +100,17 @@ std::vector<std::vector<int>> adder_miter(int bits) {
   second.push_back(carry2);
   std::vector<int> any;
   for (size_t i = 0; i < first.size(); ++i) any.push_back(gate_xor(first[i], second[i]));
-  out.push_back(any);
-  return out;
+  g.out.push_back(any);
+  return g.out;
 }
 
 // A commutativity miter of two array multipliers, a*b against b*a (UNSAT):
 // partial-product AND gates and full-adder rows that survive preprocessing.
 std::vector<std::vector<int>> multiplier_miter(int bits) {
-  std::vector<std::vector<int>> out;
-  int next = 2 * bits;
-  const auto fresh = [&] { return ++next; };
-  const auto gate_and = [&](int a, int b) {
-    const int g = fresh();
-    out.push_back({-g, a});
-    out.push_back({-g, b});
-    out.push_back({g, -a, -b});
-    return g;
-  };
-  const auto gate_xor = [&](int a, int b) {
-    const int g = fresh();
-    out.push_back({-g, a, b});
-    out.push_back({-g, -a, -b});
-    out.push_back({g, -a, b});
-    out.push_back({g, a, -b});
-    return g;
-  };
-  const auto gate_or = [&](int a, int b) { return -gate_and(-a, -b); };
+  Gates g{{}, 2 * bits};
+  const auto gate_and = [&](int a, int b) { return g.gate_and(a, b); };
+  const auto gate_or = [&](int a, int b) { return g.gate_or(a, b); };
+  const auto gate_xor = [&](int a, int b) { return g.gate_xor(a, b); };
   const auto multiply = [&](const std::vector<int> &x, const std::vector<int> &y) {
     std::vector<int> row(2 * bits, 0);
     for (int i = 0; i < bits; ++i) {
@@ -148,8 +144,8 @@ std::vector<std::vector<int>> multiplier_miter(int bits) {
   std::vector<int> any;
   for (size_t i = 0; i < first.size(); ++i)
     if (first[i] && second[i]) any.push_back(gate_xor(first[i], second[i]));
-  out.push_back(any);
-  return out;
+  g.out.push_back(any);
+  return g.out;
 }
 
 // A Tseitin parity system on a random 3-regular multigraph (edge variables,
@@ -158,11 +154,9 @@ std::vector<std::vector<int>> tseitin_3regular(int vertices, bool odd, uint64_t 
   std::vector<int> stubs;
   for (int v = 0; v < vertices; ++v)
     for (int k = 0; k < 3; ++k) stubs.push_back(v);
-  uint64_t state = seed;
-  for (size_t i = stubs.size(); i > 1; --i) {
-    state = state * 6364136223846793005ull + 1442695040888963407ull;
-    std::swap(stubs[i - 1], stubs[static_cast<size_t>(state >> 33) % i]);
-  }
+  Lcg next{seed};
+  for (size_t i = stubs.size(); i > 1; --i)
+    std::swap(stubs[i - 1], stubs[next() % i]);
   std::vector<std::vector<int32_t>> incident(vertices);
   for (size_t i = 0; i + 1 < stubs.size(); i += 2) {
     const int32_t edge = static_cast<int32_t>(i / 2 + 1);
@@ -178,11 +172,7 @@ std::vector<std::vector<int>> tseitin_3regular(int vertices, bool odd, uint64_t 
 // persistent affine search recognizes beside clausal search).
 std::vector<std::vector<int>> parity_3cnf(int variables, int clauses, int chains, uint64_t seed) {
   std::vector<std::vector<int>> out = random_3cnf(variables, clauses, seed);
-  uint64_t state = seed ^ 0x5bd1e995u;
-  const auto next = [&] {
-    state = state * 6364136223846793005ull + 1442695040888963407ull;
-    return static_cast<uint32_t>(state >> 33);
-  };
+  Lcg next{seed ^ 0x5bd1e995u};
   std::vector<std::pair<std::vector<int32_t>, bool>> rows;
   for (int c = 0; c < chains; ++c) {
     std::vector<int32_t> row;
@@ -200,11 +190,7 @@ std::vector<std::vector<int>> parity_3cnf(int variables, int clauses, int chains
 std::vector<std::vector<int>> equivalences_3cnf(int variables, int clauses, int chains,
                                                uint64_t seed) {
   std::vector<std::vector<int>> out = random_3cnf(variables, clauses, seed);
-  uint64_t state = seed * 0x9e3779b97f4a7c15ull + 1;
-  const auto next = [&] {
-    state = state * 6364136223846793005ull + 1442695040888963407ull;
-    return static_cast<uint32_t>(state >> 33);
-  };
+  Lcg next{seed * 0x9e3779b97f4a7c15ull + 1};
   for (int c = 0; c < chains; ++c) {
     const int a = static_cast<int>(next() % variables) + 1;
     const int b = static_cast<int>(next() % variables) + 1;
@@ -216,8 +202,14 @@ std::vector<std::vector<int>> equivalences_3cnf(int variables, int clauses, int 
   return out;
 }
 
-// The shared fixtures plus search-heavy ones for the CDCL profiles: many
-// restarts, reductions, rephases, walks, mode switches and reorders.
+// The shipped structured-root stages, which the command line runs.
+void shipped_stages(DefaultStrategyConfig &c, Kernel &) {
+  c.inprocess.structured_root_stages =
+      DefaultStrategyConfig::structured_root_preprocessing_stages();
+  c.inprocess.structured_root_bounded_backtracking_stages =
+      DefaultStrategyConfig::bounded_backtracking_structured_root_preprocessing_stages();
+}
+
 // The correspondence fixtures: the shared set and the public-session setups
 // (routine), plus the generated, profile and structured families (extended).
 std::vector<Fixture> all_fixtures(bool extended) {
@@ -237,9 +229,8 @@ std::vector<Fixture> all_fixtures(bool extended) {
     add("pigeons-8-7", pigeonhole_dimacs(8, 7));
     for (uint64_t seed : {1u, 2u, 3u})
       add("random-3cnf-150-" + std::to_string(seed), random_3cnf(150, 640, seed));
-    // The full default inprocessing program at startup and in search, without
-    // the bounded startup fast elimination.
-    // Each also under the shipped configuration, startup fast elimination on.
+    // The full default inprocessing program without startup fast elimination,
+    // then the default and shipped configurations.
     const auto add_program = [&](std::string name, std::vector<std::vector<int>> dimacs) {
       Fixture fixture;
       fixture.name = name + "-program";
@@ -251,14 +242,8 @@ std::vector<Fixture> all_fixtures(bool extended) {
       fixture.name = name + "-default";
       fixture.configure = nullptr;
       out.push_back(fixture);
-      // The shipped configuration in full: the structured-root SR stages too.
       fixture.name = name + "-shipped";
-      fixture.configure = [](DefaultStrategyConfig &c, Kernel &) {
-        c.inprocess.structured_root_stages =
-            DefaultStrategyConfig::structured_root_preprocessing_stages();
-        c.inprocess.structured_root_bounded_backtracking_stages =
-            DefaultStrategyConfig::bounded_backtracking_structured_root_preprocessing_stages();
-      };
+      fixture.configure = shipped_stages;
       out.push_back(std::move(fixture));
     };
     add_program("pigeons-6-5", pigeonhole_dimacs(6, 5));
@@ -285,12 +270,7 @@ std::vector<Fixture> all_fixtures(bool extended) {
       Fixture fixture;
       fixture.name = "affine-" + name;
       fixture.dimacs = std::move(dimacs);
-      fixture.configure = [](DefaultStrategyConfig &c, Kernel &) {
-        c.inprocess.structured_root_stages =
-            DefaultStrategyConfig::structured_root_preprocessing_stages();
-        c.inprocess.structured_root_bounded_backtracking_stages =
-            DefaultStrategyConfig::bounded_backtracking_structured_root_preprocessing_stages();
-      };
+      fixture.configure = shipped_stages;
       out.push_back(fixture);
       fixture.name += "-no-root-closure";
       fixture.configure = [](DefaultStrategyConfig &c, Kernel &) {

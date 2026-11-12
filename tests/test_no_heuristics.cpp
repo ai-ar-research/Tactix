@@ -1,7 +1,5 @@
-// `H` (search guidance) is optional: with k.h == nullptr the solver is sound,
-// just unguided. `H`-only policy ops become inapplicable, `H`-consuming reads
-// fall back safely, and Decide degrades to index order so every unassigned
-// literal stays a legal branch (N1).
+// H is optional: without it H-only ops are inapplicable, H reads fall back,
+// and Decide uses index order so every unassigned literal stays a branch (N1).
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"

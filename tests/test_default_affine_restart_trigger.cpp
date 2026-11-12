@@ -6,17 +6,13 @@
 // an owner or premise-lease change, or an unfinished slice), with a delay
 // that doubles after a fruitless run and halves after a fruitful one. Run
 // effort: a SET_EFFORT_LIMIT share of search ticks since the last run.
+#include "affine_formula_support.hpp"
+#include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "policies/default_policy.hpp"
-#include "kernel/kernel.hpp"
-#include "frontend/parse.hpp"
-#include "proof/proof.hpp"
-#include "rules/propagate/propagate.hpp"
-#include "rules/semantic_extension/affine_image.hpp"
 #include <cassert>
 #include <cmath>
 #include <cstdio>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 using namespace tactix;
@@ -76,15 +72,7 @@ struct Fixture {
   std::vector<std::vector<int32_t>> clauses;
 };
 
-static std::string cnf(const Fixture &f) {
-  std::ostringstream out;
-  out << "p cnf " << f.variables << ' ' << f.clauses.size() << '\n';
-  for (const auto &c : f.clauses) {
-    for (int32_t x : c) out << x << ' ';
-    out << "0\n";
-  }
-  return out.str();
-}
+static std::string cnf(const Fixture &f) { return dimacs_text(f.variables, f.clauses); }
 
 static void add_unit(Kernel &k, Proof &proof, Fixture &f, int32_t literal) {
   const Lit lit = kernel_internalize(k, literal);
@@ -102,21 +90,13 @@ int main(int argc, char **argv) {
   assert(argc == 1 || argc == 2);
   const std::string stem = argc == 2 ? std::string(argv[1]) + "/trigger" : "";
   Fixture f;
-  for (const auto &vars : {std::vector<int32_t>{1, 2, 3}, std::vector<int32_t>{2, 3, 4},
-                           std::vector<int32_t>{7, 8, 9}})
-    for (const auto &clause : affine_semantic_extension::clausal_form(vars, false))
-      f.clauses.push_back(clause);
+  f.clauses = xor_cnf({{{1, 2, 3}, false}, {{2, 3, 4}, false}, {{7, 8, 9}, false}});
   f.clauses.push_back({-4, 5});
   Kernel k;
-  FILE *input = std::tmpfile();
-  const std::string text = cnf(f);
-  std::fwrite(text.data(), 1, text.size(), input);
-  std::rewind(input);
-  assert(!parse_dimacs(input, k));
-  std::fclose(input);
+  parse_dimacs_text(cnf(f), k);
   AffineMatrixSearchSession session;
   k.affine_matrix_search_session = &session;
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   k.structural_provenance = records;
   const std::string path = stem.empty() ? "/tmp/tactix-affine-restart-trigger.dsr" : stem + ".dsr";
   Proof proof;
@@ -185,11 +165,8 @@ int main(int argc, char **argv) {
   k.stats.conflicts = Access::limit(p);
   assert(Access::restart(p, k) == ApplyResult::Ok && d.restart_runs == 3);
   assert(k.values[kernel_internalize(k, 9)] != 0);
-  if (!stem.empty()) {
-    std::ofstream(stem + ".cnf") << cnf(f);
-  } else {
-    std::remove(path.c_str());
-  }
+  if (!stem.empty()) write_file((stem + ".cnf").c_str(), cnf(f));
+  else std::remove(path.c_str());
   session.disable(k);
   k.proof = nullptr;
   k.structural_provenance = nullptr;

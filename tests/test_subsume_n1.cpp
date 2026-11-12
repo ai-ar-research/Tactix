@@ -7,6 +7,7 @@
 // consumers are unaffected. See the implementation notes.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/registry.hpp"
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
@@ -18,14 +19,11 @@
 
 using namespace tactix;
 
+// Every fixture clause has three or more literals: a large clause.
 static Ref add(Kernel &k, std::initializer_list<int> elits, bool redundant,
                uint32_t glue) {
-  std::vector<Lit> lits;
-  for (int e : elits)
-    lits.push_back(internalize(e));
-  return kernel_add_large_clause(k, lits.data(),
-                                 static_cast<uint32_t>(lits.size()), redundant,
-                                 glue, ++k.next_clause_id);
+  assert(elits.size() >= 3);
+  return add_external_clause(k, elits, redundant, glue, ++k.next_clause_id);
 }
 
 static const RuleVTable *rule(const char *name) {

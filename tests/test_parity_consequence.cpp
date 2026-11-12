@@ -1,14 +1,9 @@
 #undef NDEBUG
+#include "parity_test_support.hpp"
 #include "test_io.hpp"
 #include "rules/parity_consequence/parity_consequence.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 #include "policies/restart_controller.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "proof/proof.hpp"
 #define tactix tactix_c_handle
@@ -22,9 +17,7 @@ using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 using namespace tactix::parity_certificate;
-static const std::vector<Equation> equations = {
-    {{1,3,4,0},3,false}, {{4,5,6,0},3,false},
-    {{6,7,3,0},3,false}, {{2,5,7,0},3,false}};
+static const std::vector<Equation> equations = parity_cycle();
 static ParityConsequenceParameters profile() {
   return {100,100,10000,32,32,2,true,10000,100,0};
 }
@@ -35,11 +28,7 @@ static OnlineInvocation invocation() {
   return step;
 }
 static void input(Kernel &k) {
-  kernel_reserve_vars(k,7);
-  for (const auto &e:equations) for(const auto &c:xor_equation(e.variables.data(),e.size,e.rhs)) {
-    Lit lits[4]; for(unsigned i=0;i<c.size;++i)lits[i]=internalize(c.lits[i]);
-    kernel_add_large_clause(k,lits,c.size,false,0,++k.next_clause_id);
-  }
+  kernel_reserve_vars(k,7);add_xor_clauses(k,equations);
 }
 struct Capture final:FeedbackReceiver {
   std::vector<ActionFeedback> actions;
@@ -62,8 +51,7 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
   }
   auto step=invocation();OnlineStrategyProgram program;program.sequence={step};
   const std::string wire=serialize_online_strategy_program(program);
-  OnlineStrategyProgram replay;std::string error;
-  replay = program;
+  const OnlineStrategyProgram &replay=program;
   assert(wire.find("parity-consequence(100,100,10000,32,32,2,1,10000,100,0)")!=std::string::npos);
   auto bad=replay;std::get<ParityConsequenceParameters>(bad.sequence[0].parameters).output_width=5;
   assert(!validate_online_strategy_program(bad));

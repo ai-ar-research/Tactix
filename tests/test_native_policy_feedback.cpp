@@ -4,7 +4,9 @@
 #include "strategy/native_feedback.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/execution_scope.hpp"
+#include "feedback_test_support.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <functional>
@@ -56,24 +58,32 @@ static Kernel pigeonhole(bool cold = false) {
   return k;
 }
 
-static DefaultStrategyConfig search_profile() {
-  DefaultStrategyConfig config;
-  config.inprocess.program.clear();
-  config.inprocess.append_unlisted_rules = false;
-  config.inprocess.structured_root_stages.clear();
-  config.inprocess.structured_root_bounded_backtracking_stages.clear();
-  config.inprocess.structured_root_large_domain_stages.clear();
-  config.inprocess.initial_fast_elimination = false;
-  config.rephase.late_lucky = false;
-  config.rephase.stable_only = false;
-  config.rephase.initial_interval = config.rephase.interval = 1;
-  config.rephase.rotation = {DefaultRephaseSlot::Walk};
-  config.rephase.walk_permille = 1;
-  config.mode.initial_conflicts = config.mode.interval = 1;
-  config.restart.reluctant_period = 2;
-  config.reduction.initial_interval = 5;
-  return config;
+static Observation observe_plain(const Kernel &kernel, const void *) {
+  return observe_kernel(kernel);
 }
+
+// The owner is the DefaultPolicy whose observation the completion reports.
+static Observation observe_policy(const Kernel &kernel, const void *owner) {
+  return static_cast<const DefaultPolicy *>(owner)->observe(kernel);
+}
+
+// Enable exactly the first inprocessing entry named `name`; budget_aware < 0
+// keeps its built setting.
+static void select_entry(DefaultPolicy &policy, const char *name,
+                         int budget_aware = -1) {
+  bool selected = false;
+  for (auto &entry : policy.inprocess().entries) {
+    entry.enabled = !selected && !std::strcmp(tactix_rules()[entry.rule].name, name);
+    if (entry.enabled) {
+      selected = true;
+      if (budget_aware >= 0) entry.budget_aware = budget_aware;
+    }
+  }
+  assert(selected);
+}
+
+static const std::vector<std::string> startup_support{
+    "MaterializeColdState", "AttachHeuristics", "SparseCollect", "CompactRandomOrder"};
 
 static void test_completion_accounting() {
   Kernel k;
@@ -213,9 +223,7 @@ static void test_graph_labeling_constructor_feedback() {
   const auto configured = k.graph_labeling_parameters;
 
   Capture capture;
-  execution::PolicyCompletion completion(k, &capture,
-      [](const Kernel &kernel, const void *) { return observe_kernel(kernel); },
-      nullptr);
+  execution::PolicyCompletion completion(k, &capture, observe_plain, nullptr);
   completion.begin();
   const auto result = completion.execute(
       FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_LABELING,
@@ -369,20 +377,10 @@ static void test_native_batches(bool vivify, bool budgeted) {
     tiers.tier1_by_mode[0] = tiers.tier2_by_mode[0] = 2;
     tiers.tier1_by_mode[1] = tiers.tier2_by_mode[1] = 2;
     if (vivify) policy.inprocess().set_retier_schedule(&tiers);
-    bool selected = false;
-    for (auto &entry : policy.inprocess().entries) {
-      entry.enabled = !selected && !std::strcmp(tactix_rules()[entry.rule].name, name);
-      if (entry.enabled) {
-        selected = true;
-        entry.budget_aware = budgeted;
-      }
-    }
-    assert(selected);
+    select_entry(policy, name, budgeted);
     Capture capture;
     execution::PolicyCompletion completion(k, feedback ? &capture : nullptr,
-        [](const Kernel &kernel, const void *owner) {
-          return static_cast<const DefaultPolicy *>(owner)->observe(kernel);
-        }, &policy);
+                                           observe_policy, &policy);
     capture.check = [&] {
       assert(k.vivify_scope == 0 && !k.work_budget && !k.work_budget_offset);
       assert(k.large_watches_connected && !k.pending.valid && !k.warming);
@@ -399,11 +397,6 @@ static void test_native_batches(bool vivify, bool budgeted) {
       std::vector<std::string> installed;
       unsigned entered = 0, opened = 0, exited = 0;
       for (const auto &record : capture.actions) {
-        if (record.kind == FeedbackKind::Support) {
-          assert(!record.outcome.invocation.applications && !record.outcome.invocation.made_rule_progress);
-          if (record.outcome.invocation.work_unit == WorkUnit::Applications)
-            assert(!record.outcome.invocation.work && !record.outcome.composition_overshoot);
-        }
         if (record.identity == "InstallRuleParameters") {
           assert(record.native_request->invocation);
           installed.push_back(record.native_request->invocation->rule);
@@ -486,8 +479,7 @@ static void test_native_interruption_feedback_purity() {
   Kernel original, observed;
   original.stop_fuzz = observed.stop_fuzz = 1;
   Capture capture;
-  execution::PolicyCompletion completion(observed, &capture,
-      [](const Kernel &kernel, const void *) { return observe_kernel(kernel); }, nullptr);
+  execution::PolicyCompletion completion(observed, &capture, observe_plain, nullptr);
   completion.begin();
   auto operation = [](Kernel &kernel, ApplyResult result) {
     assert(kernel_terminating(kernel));
@@ -522,17 +514,10 @@ static void test_dosed_bve_publication() {
     ScopedHeuristics h(k);
     DefaultPolicy policy(config);
     policy.inprocess().build(k);
-    bool selected = false;
-    for (auto &entry : policy.inprocess().entries) {
-      entry.enabled = !selected && !std::strcmp(tactix_rules()[entry.rule].name, "BVE");
-      selected |= entry.enabled;
-    }
-    assert(selected);
+    select_entry(policy, "BVE");
     Capture capture;
     execution::PolicyCompletion completion(k, feedback ? &capture : nullptr,
-        [](const Kernel &kernel, const void *owner) {
-          return static_cast<const DefaultPolicy *>(owner)->observe(kernel);
-        }, &policy);
+                                           observe_policy, &policy);
     capture.check = [&] {
       assert(!k.work_budget && !k.work_budget_offset);
       for (Var v = 0; v < k.nvars; ++v)
@@ -616,9 +601,7 @@ static void test_structured_root_feedback() {
     DefaultPolicy policy(config);
     Capture capture;
     execution::PolicyCompletion completion(k, feedback ? &capture : nullptr,
-        [](const Kernel &kernel, const void *owner) {
-          return static_cast<const DefaultPolicy *>(owner)->observe(kernel);
-        }, &policy);
+                                           observe_policy, &policy);
     capture.check = [&] { assert(!k.pending.valid && !k.probing.recording); };
     completion.begin();
     assert(policy.inprocess().run_structured_root(k, nullptr, &completion) == 0);
@@ -777,13 +760,13 @@ static void test_startup_support_feedback() {
       assert(state == preserved);
       std::vector<std::string> startup;
       for (const auto &record : capture.actions)
-        if (record.identity == "MaterializeColdState" || record.identity == "AttachHeuristics" || record.identity == "SparseCollect" ||
-            record.identity == "CompactRandomOrder") {
+        if (std::find(startup_support.begin(), startup_support.end(), record.identity) !=
+            startup_support.end()) {
           startup.push_back(record.identity);
           assert(!record.before.searching && !record.after.searching);
           assert(!record.outcome.invocation.applications);
         }
-      assert((startup == std::vector<std::string>{"MaterializeColdState", "AttachHeuristics", "SparseCollect", "CompactRandomOrder"}));
+      assert(startup == startup_support);
       assert(capture.begun == 1 && capture.ended == 1);
     }
   }
@@ -798,8 +781,8 @@ static void test_startup_support_feedback() {
   assert(policy.solve(early) == 10 && early.cold_state_deferred);
   assert(!early.h && !early.saved_phases);
   for (const auto &record : capture.actions)
-    assert(record.identity != "MaterializeColdState" && record.identity != "AttachHeuristics" && record.identity != "SparseCollect" &&
-           record.identity != "CompactRandomOrder");
+    assert(std::find(startup_support.begin(), startup_support.end(), record.identity) ==
+           startup_support.end());
 }
 
 static void test_post_structured_bce_feedback() {

@@ -15,10 +15,8 @@
 
 using namespace tactix;
 
-// The recorded conflict has one nonroot literal and otherwise root-false
-// literals. Root assignments may follow decisions on the chronological trail.
-// The two final binary inputs make the resulting root implication refute F,
-// providing complete DSR micro-proofs for an independent checker.
+// A recorded conflict with one nonroot literal; the final binaries make the
+// root implication refute F for an independent DSR check.
 static void fixture(unsigned size, unsigned depth, unsigned mode, bool late,
                     bool enabled, bool explicit_target, ProofFormat format,
                     bool legacy, const std::string &stem) {
@@ -74,9 +72,8 @@ static void fixture(unsigned size, unsigned depth, unsigned mode, bool late,
   assert(vt.instances(k, offered, 0) == 0 && offered[0] == UINT64_MAX);
   assert(vt.instances(k, offered, 2) == (depth == 1 ? 1 : 2));
   assert(offered[0] == 0 && (depth == 1 || offered[1] == 1));
-  // Preserve the native-policy transition controls independently of public
-  // target selection. The dedicated reuse-target suite covers canonical and
-  // arbitrary explicit API targets, including their predecessor discrepancy.
+  // Native-policy transition controls; public reuse targets live in
+  // test_conflict_reuse_targets.
   assert((explicit_target ? vt.apply_instance(k, 0)
                           : enabled ? analyze_apply(k) : vt.apply(k)) == ApplyResult::Ok);
   if (!explicit_target && enabled && legacy)

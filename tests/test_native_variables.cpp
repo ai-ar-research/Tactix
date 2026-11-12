@@ -1,5 +1,7 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
+#include "query_test_support.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/bve/bve.hpp"
 #include "rules/decide/decide.hpp"
@@ -17,22 +19,9 @@ static NativeVariable restore(Kernel &k, int32_t lit) {
   return execution::execute_action(k, execution::ReactivateExternalVariableRequest{lit});
 }
 
-static void input(Kernel &k, std::initializer_list<int32_t> raw) {
-  std::vector<Lit> clause;
-  for (int32_t lit : raw) {
-    if (lit) clause.push_back(internalize(lit));
-    else { ingest_clause(k, clause); clause.clear(); }
-  }
-  assert(clause.empty());
-  finish_input(k);
-}
+static const auto input = input_clauses;
 
-static void eliminate(Kernel &k, int32_t external) {
-  const auto &rule = tactix_rules()[tactix_rule_id("BVE")];
-  assert(rule_guard(rule, k));
-  assert(rule.apply_instance(k, lit_instance(k, kernel_internalize(k, external))) == ApplyResult::Ok);
-  heuristics_consume_retirements(k);
-}
+using query_test::eliminate;
 
 static void retained_coordinate_and_guidance() {
   Kernel k;

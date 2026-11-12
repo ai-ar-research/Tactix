@@ -3,10 +3,10 @@
 #include "kernel/kernel.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
+#include "temporary_file.hpp"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
-#include <unistd.h>
 using namespace tactix;
 
 int main(int argc, char **argv) {
@@ -51,13 +51,10 @@ int main(int argc, char **argv) {
               const auto &rule = tactix_rules()[id];
               uint64_t instance = 0;
               assert(rule.instances(k, &instance, 1) == 1);
-              char path[] = "/tmp/tactix-congruence-empty-XXXXXX";
-              const int fd = mkstemp(path);
-              assert(fd >= 0);
-              close(fd);
               {
+                TemporaryFile file;
                 Proof proof;
-                assert(proof.open(path, format));
+                assert(proof.open(file.path.c_str(), format));
                 proof.bind_variable_map(&k.internal_to_external);
                 k.proof = &proof;
                 const ApplyResult result = public_instance
@@ -66,7 +63,6 @@ int main(int argc, char **argv) {
                 proof.flush();
                 k.proof = nullptr;
               }
-              assert(!std::remove(path));
               assert(!k.inconsistent && !k.stats.congruence_unjustified);
               assert(k.stats.congruence_gates == 0);
               assert(k.stats.congruence_merges == static_cast<unsigned>(merge));

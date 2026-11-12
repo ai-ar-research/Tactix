@@ -30,11 +30,57 @@ std::vector<Premise> premises(const std::vector<External> &variables,
   return result;
 }
 
+const auto unlimited = [](uint64_t) { return true; };
+
 Image discover(const std::vector<Premise> &input) {
   Image image;
-  assert(recognize(input, discovery_limits(),
-                   [](uint64_t) { return true; }, image) == Status::Complete);
+  assert(recognize(input, discovery_limits(), unlimited, image) ==
+         Status::Complete);
   return image;
+}
+
+// Recognition only writes its output on Complete.
+Image sentinel_image() {
+  Image image;
+  image.clauses_seen = 777;
+  return image;
+}
+
+bool untouched(const Image &image) {
+  return image.clauses_seen == 777 && image.equations.empty() &&
+         image.consequences.empty() && image.patterns_seen == 0;
+}
+
+RootImageLimits root_limits() {
+  RootImageLimits limits;
+  limits.image = discovery_limits();
+  limits.maximum_sources = 100;
+  limits.maximum_literals = 1000;
+  limits.maximum_units = 16;
+  limits.maximum_work = 1000000;
+  limits.maximum_bytes = 1000000;
+  limits.maximum_proof_additions = 100;
+  return limits;
+}
+
+AffineLiveSource large_source(uint64_t occurrence, uint64_t clause_id,
+                              std::vector<External> clause) {
+  AffineLiveSource source;
+  source.occurrence = occurrence;
+  source.clause_id = clause_id;
+  source.clause = std::move(clause);
+  return source;
+}
+
+AffineLiveSource root_unit(uint64_t occurrence, External literal) {
+  AffineLiveSource unit;
+  unit.occurrence = occurrence;
+  unit.kind = AffineSourceKind::RootUnit;
+  unit.clause_id = 0;
+  unit.proof_id_exact = false;
+  unit.clause = {literal};
+  unit.recognition_candidate = false;
+  return unit;
 }
 
 void order_and_sign_normalization() {
@@ -103,12 +149,10 @@ void partial_and_malformed_populations_are_not_xors() {
   mixed.push_back({occurrence++, {5, -5, 6}}); // repeated variable
   mixed.push_back({occurrence++, {1, 2, 3, 4, 5, 6, 7, 8, 9}}); // arity 9
 
-  Image sentinel;
-  sentinel.clauses_seen = 777;
-  assert(recognize(mixed, discovery_limits(),
-                   [](uint64_t) { return true; }, sentinel) ==
+  Image sentinel = sentinel_image();
+  assert(recognize(mixed, discovery_limits(), unlimited, sentinel) ==
          Status::NoStructure);
-  assert(sentinel.clauses_seen == 777);
+  assert(untouched(sentinel));
 }
 
 void root_guard_shortening_preserves_the_equation() {
@@ -117,35 +161,16 @@ void root_guard_shortening_preserves_the_equation() {
   std::vector<AffineLiveSource> sources;
   for (auto clause : clausal_form({1, 4, 7}, true)) {
     clause.push_back(-guard);
-    AffineLiveSource source;
-    source.occurrence = occurrence;
-    source.clause_id = occurrence;
-    source.clause = std::move(clause);
-    sources.push_back(std::move(source));
+    sources.push_back(large_source(occurrence, occurrence, std::move(clause)));
     ++occurrence;
   }
-  AffineLiveSource unit;
-  unit.occurrence = occurrence;
-  unit.kind = AffineSourceKind::RootUnit;
-  unit.clause_id = 0;
-  unit.proof_id_exact = false;
-  unit.clause = {guard};
-  unit.recognition_candidate = false;
-  sources.push_back(std::move(unit));
+  sources.push_back(root_unit(occurrence, guard));
 
-  RootImageLimits limits;
-  limits.image = discovery_limits();
-  limits.maximum_sources = 100;
-  limits.maximum_literals = 1000;
-  limits.maximum_units = 16;
-  limits.maximum_work = 1000000;
-  limits.maximum_bytes = 1000000;
-  limits.maximum_proof_additions = 100;
   RootImagePlan plan;
   RootScopeEffort effort;
-  assert(prepare_affine_root_image(
-             sources, {guard}, limits, [](uint64_t) { return true; }, plan,
-             nullptr, nullptr, &effort) == RootImageStatus::Prepared);
+  assert(prepare_affine_root_image(sources, {guard}, root_limits(), unlimited,
+                                   plan, nullptr, nullptr, &effort) ==
+         RootImageStatus::Prepared);
   assert(effort.recognized_groups == 1);
   assert(plan.image.equations.size() == 1);
   assert(plan.image.equations[0].variables ==
@@ -168,23 +193,9 @@ void expect(bool ok, const char *condition, const char *function, int line) {
 }
 #define EXPECT(condition) expect((condition), #condition, __func__, __LINE__)
 
-const auto unlimited = [](uint64_t) { return true; };
-
 Status run(const std::vector<Premise> &input, const Limits &limits,
            Image &image) {
   return recognize(input, limits, unlimited, image);
-}
-
-// Recognition only writes its output on Complete.
-Image sentinel_image() {
-  Image image;
-  image.clauses_seen = 777;
-  return image;
-}
-
-bool untouched(const Image &image) {
-  return image.clauses_seen == 777 && image.equations.empty() &&
-         image.consequences.empty() && image.patterns_seen == 0;
 }
 
 External variable_of(External literal) {
@@ -621,38 +632,6 @@ void interruption_during_elimination_leaves_output_untouched() {
     EXPECT(calls == refused + 1);
     EXPECT(untouched(sentinel));
   }
-}
-
-RootImageLimits root_limits() {
-  RootImageLimits limits;
-  limits.image = discovery_limits();
-  limits.maximum_sources = 100;
-  limits.maximum_literals = 1000;
-  limits.maximum_units = 16;
-  limits.maximum_work = 1000000;
-  limits.maximum_bytes = 1000000;
-  limits.maximum_proof_additions = 100;
-  return limits;
-}
-
-AffineLiveSource large_source(uint64_t occurrence, uint64_t clause_id,
-                              std::vector<External> clause) {
-  AffineLiveSource source;
-  source.occurrence = occurrence;
-  source.clause_id = clause_id;
-  source.clause = std::move(clause);
-  return source;
-}
-
-AffineLiveSource root_unit(uint64_t occurrence, External literal) {
-  AffineLiveSource unit;
-  unit.occurrence = occurrence;
-  unit.kind = AffineSourceKind::RootUnit;
-  unit.clause_id = 0;
-  unit.proof_id_exact = false;
-  unit.clause = {literal};
-  unit.recognition_candidate = false;
-  return unit;
 }
 
 // E1: substituting a true root fact into an XOR's own scope flips its RHS; a

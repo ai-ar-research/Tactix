@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "gf3_affine_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/gf3_affine.hpp"
 
@@ -26,36 +27,28 @@ struct Fixture {
   }
 
   uint32_t domain(std::vector<int32_t> selection_literals) {
-    assert(selection_literals.size() == 3);
-    const uint32_t index = static_cast<uint32_t>(values.size());
     values.push_back(selection_literals);
-    add(selection_literals);
-    for (uint8_t first = 0; first < 3; ++first)
-      for (uint8_t second = first + 1; second < 3; ++second)
-        add({-selection_literals[first], -selection_literals[second]});
-    return index;
+    gf3_domain_clauses(selection_literals,
+                       [&](std::vector<int32_t> clause) { add(std::move(clause)); });
+    return static_cast<uint32_t>(values.size() - 1);
   }
 
   void equation(const std::vector<uint32_t> &domains,
                 const std::vector<uint8_t> &coefficients, uint8_t rhs) {
-    assert(domains.size() >= 2);
-    assert(domains.size() == coefficients.size());
-    uint64_t tuples = 1;
-    for (size_t i = 0; i < domains.size(); ++i) tuples *= 3;
-    for (uint64_t tuple = 0; tuple < tuples; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (size_t i = 0; i < domains.size(); ++i) {
-        const uint8_t value = static_cast<uint8_t>(rest % 3);
-        rest /= 3;
-        sum = static_cast<uint8_t>((sum + coefficients[i] * value) % 3);
-        clause.push_back(-values[domains[i]][value]);
-      }
-      if (sum != rhs) add(std::move(clause));
-    }
+    gf3_equation_clauses(values, domains, coefficients, rhs,
+                         [&](std::vector<int32_t> clause) { add(std::move(clause)); });
   }
 };
+
+// Domains 0..n-1 over variables 3d+1..3d+3.
+Fixture with_domains(uint32_t n) {
+  Fixture fixture;
+  for (uint32_t domain = 0; domain < n; ++domain) {
+    const int32_t first = static_cast<int32_t>(3 * domain + 1);
+    fixture.domain({first, first + 1, first + 2});
+  }
+  return fixture;
+}
 
 RecognitionBounds recognition_bounds() {
   return {10000, 100000, 100, 100, 10, 60000};
@@ -175,11 +168,7 @@ void test_signed_selection_literals() {
 }
 
 void test_target_arity_shape_and_complete_rup_replay() {
-  Fixture fixture;
-  for (uint32_t domain = 0; domain < 7; ++domain) {
-    const int32_t first = static_cast<int32_t>(3 * domain + 1);
-    fixture.domain({first, first + 1, first + 2});
-  }
+  Fixture fixture = with_domains(7);
   fixture.equation({0, 1, 2, 3}, {1, 2, 1, 2}, 1);
   fixture.equation({3, 4, 5, 6}, {1, 1, 2, 1}, 2);
   const RecognitionResult recognized = recognize(fixture);
@@ -234,11 +223,7 @@ void test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources() {
 }
 
 void test_overlap_and_stale_theory_declines() {
-  Fixture fixture;
-  for (uint32_t domain = 0; domain < 4; ++domain) {
-    const int32_t first = static_cast<int32_t>(3 * domain + 1);
-    fixture.domain({first, first + 1, first + 2});
-  }
+  Fixture fixture = with_domains(4);
   fixture.equation({0, 1, 2}, {1, 1, 2}, 0);
   fixture.equation({1, 2, 3}, {1, 2, 1}, 1);
   RecognitionResult recognized = recognize(fixture);
@@ -247,11 +232,7 @@ void test_overlap_and_stale_theory_declines() {
                                       [](uint64_t) { return true; }),
                 PlanStatus::UnsupportedOverlap);
 
-  Fixture disjoint;
-  for (uint32_t domain = 0; domain < 4; ++domain) {
-    const int32_t first = static_cast<int32_t>(3 * domain + 1);
-    disjoint.domain({first, first + 1, first + 2});
-  }
+  Fixture disjoint = with_domains(4);
   disjoint.equation({0, 1}, {1, 2}, 0);
   disjoint.equation({2, 3}, {1, 1}, 1);
   recognized = recognize(disjoint);
@@ -277,78 +258,51 @@ void test_overlap_and_stale_theory_declines() {
 
 void test_recognition_and_planning_bounds_are_atomic() {
   const Fixture fixture = small_fixture();
-  RecognitionBounds bounds = recognition_bounds();
-  bounds.maximum_source_clauses = fixture.source.size() - 1;
-  RecognitionResult recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
-  assert(recognized.theory.source.empty());
-
-  bounds = recognition_bounds();
-  bounds.maximum_source_literals = 1;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
-  assert(recognized.theory.domains.empty());
-
-  bounds = recognition_bounds();
-  bounds.maximum_domains = 2;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
-
-  bounds = recognition_bounds();
-  bounds.maximum_equations = 1;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
-
-  bounds = recognition_bounds();
-  bounds.maximum_tuples_per_equation = 8;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
+  const auto ample = [](uint64_t) { return true; };
+  for (int bound = 0; bound < 5; ++bound) {
+    RecognitionBounds bounds = recognition_bounds();
+    switch (bound) {
+    case 0: bounds.maximum_source_clauses = fixture.source.size() - 1; break;
+    case 1: bounds.maximum_source_literals = 1; break;
+    case 2: bounds.maximum_domains = 2; break;
+    case 3: bounds.maximum_equations = 1; break;
+    case 4: bounds.maximum_tuples_per_equation = 8; break;
+    }
+    const RecognitionResult bounded =
+        tactix::gf3_affine::recognize(fixture.source, bounds, ample);
+    assert(bounded.status == RecognitionStatus::BoundExceeded);
+    assert(bounded.theory.source.empty() && bounded.theory.domains.empty() &&
+           bounded.theory.equations.empty());
+  }
 
   uint64_t remaining = 12;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, recognition_bounds(), [&](uint64_t amount) {
-        if (amount > remaining) return false;
-        remaining -= amount;
-        return true;
-      });
+  const auto metered = [&](uint64_t amount) {
+    if (amount > remaining) return false;
+    remaining -= amount;
+    return true;
+  };
+  RecognitionResult recognized = tactix::gf3_affine::recognize(
+      fixture.source, recognition_bounds(), metered);
   assert(recognized.status == RecognitionStatus::EffortExhausted);
   assert(recognized.consumed_work <= 12);
   assert(recognized.theory.equations.empty());
 
   recognized = recognize(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
-  PairEliminationBounds plan_limit = plan_bounds();
-  plan_limit.maximum_result_arity = 1;
-  check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit,
-                                      [](uint64_t) { return true; }),
-                PlanStatus::BoundExceeded);
-  plan_limit = plan_bounds();
-  plan_limit.maximum_result_tuples = 8;
-  check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit,
-                                      [](uint64_t) { return true; }),
-                PlanStatus::BoundExceeded);
-  plan_limit = plan_bounds();
-  plan_limit.maximum_additions = 5;
-  check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit,
-                                      [](uint64_t) { return true; }),
-                PlanStatus::BoundExceeded);
-  plan_limit = plan_bounds();
-  plan_limit.maximum_addition_literals = 11;
-  check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit,
-                                      [](uint64_t) { return true; }),
-                PlanStatus::BoundExceeded);
+  for (int bound = 0; bound < 4; ++bound) {
+    PairEliminationBounds plan_limit = plan_bounds();
+    switch (bound) {
+    case 0: plan_limit.maximum_result_arity = 1; break;
+    case 1: plan_limit.maximum_result_tuples = 8; break;
+    case 2: plan_limit.maximum_additions = 5; break;
+    case 3: plan_limit.maximum_addition_literals = 11; break;
+    }
+    check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit, ample),
+                  PlanStatus::BoundExceeded);
+  }
   remaining = 2;
-  PairEliminationPlan exhausted = plan_pair_elimination(
-      recognized.theory, 0, 1, plan_bounds(), [&](uint64_t amount) {
-        if (amount > remaining) return false;
-        remaining -= amount;
-        return true;
-      });
+  PairEliminationPlan exhausted =
+      plan_pair_elimination(recognized.theory, 0, 1, plan_bounds(), metered);
   check_decline(exhausted, PlanStatus::EffortExhausted);
   assert(exhausted.consumed_work <= 2);
 }

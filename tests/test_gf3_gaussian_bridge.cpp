@@ -1,102 +1,16 @@
 #undef NDEBUG
-#include "rules/semantic_extension/gf3_gaussian_bridge.hpp"
+#include "gf3_formula_support.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <vector>
 
 using namespace tactix;
 
 namespace {
-
-struct Fixture {
-  std::vector<gf3_affine::Premise> source;
-  std::vector<std::vector<int32_t>> values;
-  uint64_t next = 1;
-
-  uint64_t add(std::vector<int32_t> clause) {
-    const uint64_t occurrence = next++;
-    source.push_back({occurrence, std::move(clause), 9000 + occurrence});
-    return occurrence;
-  }
-
-  uint32_t domain(std::vector<int32_t> literals) {
-    assert(literals.size() == 3);
-    const uint32_t result = static_cast<uint32_t>(values.size());
-    values.push_back(literals);
-    add(literals);
-    for (uint8_t first = 0; first < 3; ++first)
-      for (uint8_t second = first + 1; second < 3; ++second)
-        add({-literals[first], -literals[second]});
-    return result;
-  }
-
-  void equation(const std::vector<uint32_t> &domains,
-                const std::vector<uint8_t> &coefficients, uint8_t rhs) {
-    uint64_t tuples = 1;
-    for (size_t i = 0; i < domains.size(); ++i) tuples *= 3;
-    for (uint64_t tuple = 0; tuple < tuples; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (size_t i = 0; i < domains.size(); ++i) {
-        const uint8_t value = static_cast<uint8_t>(rest % 3);
-        rest /= 3;
-        sum = static_cast<uint8_t>(
-            (sum + coefficients[i] * value) % 3);
-        clause.push_back(-values[domains[i]][value]);
-      }
-      if (sum != rhs) add(std::move(clause));
-    }
-  }
-};
-
-gf3_affine::Theory recognize(const Fixture &fixture) {
-  const gf3_affine::RecognitionBounds bounds{1000, 10000, 100, 100, 8,
-                                              10000};
-  gf3_affine::RecognitionResult result = gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(result.status == gf3_affine::RecognitionStatus::Recognized);
-  return std::move(result.theory);
-}
-
-Fixture chain_fixture() {
-  Fixture fixture;
-  fixture.domain({1, 2, 3});
-  fixture.domain({4, 5, 6});
-  fixture.domain({7, 8, 9});
-  fixture.equation({0, 1}, {1, 1}, 0);
-  fixture.equation({1, 2}, {1, 1}, 0);
-  return fixture;
-}
-
-Fixture conflict_fixture() {
-  Fixture fixture;
-  fixture.domain({1, 2, 3});
-  fixture.domain({4, 5, 6});
-  fixture.domain({7, 8, 9});
-  fixture.equation({0, 1}, {1, 1}, 0);
-  fixture.equation({1, 2}, {1, 1}, 0);
-  // The first two imply A + 2C = 0.
-  fixture.equation({0, 2}, {1, 2}, 1);
-  return fixture;
-}
-
-gf3_gaussian_bridge::Limits limits() {
-  gf3_gaussian_bridge::Limits result;
-  result.maximum_work = 1000000;
-  result.maximum_source_clauses = 10000;
-  result.maximum_source_literals = 100000;
-  result.maximum_domains = 100;
-  result.maximum_equations = 100;
-  result.maximum_terms = 1000;
-  result.maximum_authentication_references = 10000;
-  result.maximum_references_per_equation = 1000;
-  result.gaussian = {100000, 100000, 32, 100, 1000, 1000000};
-  return result;
-}
 
 uint8_t evaluate(const std::vector<gf3_gaussian::Term> &row,
                  const std::vector<uint8_t> &assignment) {
@@ -133,15 +47,15 @@ void semantic_equivalence(const gf3_gaussian_bridge::Plan &plan,
 void assert_invalid_plan(const gf3_affine::Theory &theory,
                          const gf3_gaussian_bridge::Plan &plan) {
   const auto result = gf3_gaussian_bridge::validate(
-      theory, plan, limits(), [](uint64_t) { return true; });
+      theory, plan, bridge_limits(), [](uint64_t) { return true; });
   assert(result.status == gf3_gaussian_bridge::Status::InvalidPlan);
   assert(result.plan.sources.empty());
 }
 
 void test_bridge_and_exact_authentication() {
-  const gf3_affine::Theory theory = recognize(chain_fixture());
+  const gf3_affine::Theory theory = recognize(gf3_chain());
   auto result = gf3_gaussian_bridge::build(
-      theory, limits(), [](uint64_t) { return true; });
+      theory, bridge_limits(), [](uint64_t) { return true; });
   assert(result.status == gf3_gaussian_bridge::Status::Complete);
   assert(result.plan.sources.size() == 2);
   assert(result.plan.authentication.size() == 2);
@@ -181,15 +95,15 @@ void test_bridge_and_exact_authentication() {
   semantic_equivalence(result.plan, 3);
 
   auto replayed = gf3_gaussian_bridge::validate(
-      theory, result.plan, limits(), [](uint64_t) { return true; });
+      theory, result.plan, bridge_limits(), [](uint64_t) { return true; });
   assert(replayed.status == gf3_gaussian_bridge::Status::Complete);
   assert(replayed.plan.gaussian.outcomes.size() == 2);
 }
 
 void test_validator_rejects_every_boundary_corruption() {
-  const gf3_affine::Theory theory = recognize(chain_fixture());
+  const gf3_affine::Theory theory = recognize(gf3_chain());
   const auto built = gf3_gaussian_bridge::build(
-      theory, limits(), [](uint64_t) { return true; });
+      theory, bridge_limits(), [](uint64_t) { return true; });
   assert(built.status == gf3_gaussian_bridge::Status::Complete);
 
   auto corrupt = built.plan;
@@ -241,16 +155,16 @@ void test_validator_rejects_every_boundary_corruption() {
 }
 
 void test_inconsistent_system_requires_replayed_conflict() {
-  const gf3_affine::Theory theory = recognize(conflict_fixture());
+  const gf3_affine::Theory theory = recognize(gf3_conflict());
   const auto built = gf3_gaussian_bridge::build(
-      theory, limits(), [](uint64_t) { return true; });
+      theory, bridge_limits(), [](uint64_t) { return true; });
   assert(built.status == gf3_gaussian_bridge::Status::Complete);
   assert(built.plan.gaussian.outcomes.size() == 1);
   assert(built.plan.gaussian.outcomes[0].kind ==
          gf3_gaussian::RowOutcomeKind::ZeroRowConflict);
   semantic_equivalence(built.plan, 3);
   assert(gf3_gaussian_bridge::validate(
-             theory, built.plan, limits(), [](uint64_t) { return true; })
+             theory, built.plan, bridge_limits(), [](uint64_t) { return true; })
              .status == gf3_gaussian_bridge::Status::Complete);
 
   auto missing = built.plan;
@@ -269,13 +183,13 @@ void test_inconsistent_system_requires_replayed_conflict() {
 
 void assert_invalid_theory(gf3_affine::Theory theory) {
   const auto result = gf3_gaussian_bridge::build(
-      theory, limits(), [](uint64_t) { return true; });
+      theory, bridge_limits(), [](uint64_t) { return true; });
   assert(result.status == gf3_gaussian_bridge::Status::InvalidTheory);
   assert(result.plan.sources.empty());
 }
 
 void test_theory_reauthentication() {
-  const gf3_affine::Theory original = recognize(chain_fixture());
+  const gf3_affine::Theory original = recognize(gf3_chain());
   auto theory = original;
   ++theory.maximum_variable;
   assert_invalid_theory(theory);
@@ -306,7 +220,7 @@ void test_theory_reauthentication() {
   theory = original;
   theory.source.back().native_proof_id = 424242;
   const auto rebuilt = gf3_gaussian_bridge::build(
-      theory, limits(), [](uint64_t) { return true; });
+      theory, bridge_limits(), [](uint64_t) { return true; });
   assert(rebuilt.status == gf3_gaussian_bridge::Status::Complete);
   bool found = false;
   for (const auto &authentication : rebuilt.plan.authentication)
@@ -315,71 +229,49 @@ void test_theory_reauthentication() {
   assert(found);
 }
 
-void assert_build_limit(const gf3_affine::Theory &theory,
-                        gf3_gaussian_bridge::Limits limited,
-                        gf3_gaussian_bridge::LimitKind expected) {
-  const auto result = gf3_gaussian_bridge::build(
-      theory, limited, [](uint64_t) { return true; });
-  assert(result.status == gf3_gaussian_bridge::Status::LimitExceeded);
-  assert(result.limit == expected);
-  assert(result.plan.sources.empty());
-}
-
 void test_limits_and_interruption() {
-  const gf3_affine::Theory theory = recognize(chain_fixture());
-  auto limited = limits();
-  limited.maximum_work = 0;
-  assert_build_limit(theory, limited,
-                     gf3_gaussian_bridge::LimitKind::Work);
-  limited = limits();
-  limited.maximum_source_clauses = 23;
-  assert_build_limit(theory, limited,
-                     gf3_gaussian_bridge::LimitKind::SourceClauses);
-  limited = limits();
-  limited.maximum_source_literals = 50;
-  assert_build_limit(theory, limited,
-                     gf3_gaussian_bridge::LimitKind::SourceLiterals);
-  limited = limits();
-  limited.maximum_domains = 2;
-  assert_build_limit(theory, limited,
-                     gf3_gaussian_bridge::LimitKind::Domains);
-  limited = limits();
-  limited.maximum_equations = 1;
-  assert_build_limit(theory, limited,
-                     gf3_gaussian_bridge::LimitKind::Equations);
-  limited = limits();
-  limited.maximum_terms = 3;
-  assert_build_limit(theory, limited,
-                     gf3_gaussian_bridge::LimitKind::Terms);
-  limited = limits();
-  limited.maximum_authentication_references = 27;
-  assert_build_limit(
-      theory, limited,
-      gf3_gaussian_bridge::LimitKind::AuthenticationReferences);
-  limited = limits();
-  limited.maximum_references_per_equation = 13;
-  assert_build_limit(theory, limited,
-                     gf3_gaussian_bridge::LimitKind::ReferencesPerEquation);
-  limited = limits();
-  limited.gaussian.maximum_derivations = 2;
-  assert_build_limit(theory, limited,
-                     gf3_gaussian_bridge::LimitKind::Gaussian);
+  using Kind = gf3_gaussian_bridge::LimitKind;
+  using Limits = gf3_gaussian_bridge::Limits;
+  const gf3_affine::Theory theory = recognize(gf3_chain());
+  // Each bound one below what the chain needs.
+  const std::vector<std::pair<void (*)(Limits &), Kind>> bounds = {
+      {[](Limits &l) { l.maximum_work = 0; }, Kind::Work},
+      {[](Limits &l) { l.maximum_source_clauses = 23; }, Kind::SourceClauses},
+      {[](Limits &l) { l.maximum_source_literals = 50; }, Kind::SourceLiterals},
+      {[](Limits &l) { l.maximum_domains = 2; }, Kind::Domains},
+      {[](Limits &l) { l.maximum_equations = 1; }, Kind::Equations},
+      {[](Limits &l) { l.maximum_terms = 3; }, Kind::Terms},
+      {[](Limits &l) { l.maximum_authentication_references = 27; },
+       Kind::AuthenticationReferences},
+      {[](Limits &l) { l.maximum_references_per_equation = 13; },
+       Kind::ReferencesPerEquation},
+      {[](Limits &l) { l.gaussian.maximum_derivations = 2; }, Kind::Gaussian},
+  };
+  for (const auto &[change, expected] : bounds) {
+    Limits limited = bridge_limits();
+    change(limited);
+    const auto result = gf3_gaussian_bridge::build(
+        theory, limited, [](uint64_t) { return true; });
+    assert(result.status == gf3_gaussian_bridge::Status::LimitExceeded);
+    assert(result.limit == expected);
+    assert(result.plan.sources.empty());
+  }
 
   uint32_t calls = 0;
   auto interrupted = gf3_gaussian_bridge::build(
-      theory, limits(), [&](uint64_t) { return calls++ < 5; });
+      theory, bridge_limits(), [&](uint64_t) { return calls++ < 5; });
   assert(interrupted.status == gf3_gaussian_bridge::Status::Interrupted);
   assert(interrupted.plan.sources.empty());
 
   const auto built = gf3_gaussian_bridge::build(
-      theory, limits(), [](uint64_t) { return true; });
+      theory, bridge_limits(), [](uint64_t) { return true; });
   assert(built.status == gf3_gaussian_bridge::Status::Complete);
   assert(built.consumed.work > built.plan.gaussian.statistics.work);
   const uint64_t authentication_work =
       built.consumed.work - built.plan.gaussian.statistics.work;
   uint64_t accepted_work = 0;
   interrupted = gf3_gaussian_bridge::build(
-      theory, limits(), [&](uint64_t amount) {
+      theory, bridge_limits(), [&](uint64_t amount) {
         if (amount > authentication_work - accepted_work) return false;
         accepted_work += amount;
         return true;
@@ -390,36 +282,31 @@ void test_limits_and_interruption() {
 
   calls = 0;
   interrupted = gf3_gaussian_bridge::validate(
-      theory, built.plan, limits(), [&](uint64_t) { return calls++ < 30; });
+      theory, built.plan, bridge_limits(), [&](uint64_t) { return calls++ < 30; });
   assert(interrupted.status == gf3_gaussian_bridge::Status::Interrupted);
   assert(interrupted.plan.sources.empty());
 
-  limited = limits();
-  limited.gaussian.maximum_derivations = 1;
-  const auto validation_limit = gf3_gaussian_bridge::validate(
-      theory, built.plan, limited, [](uint64_t) { return true; });
-  assert(validation_limit.status ==
-         gf3_gaussian_bridge::Status::LimitExceeded);
-  assert(validation_limit.limit ==
-         gf3_gaussian_bridge::LimitKind::Gaussian);
-
-  limited = limits();
-  limited.gaussian.maximum_work = built.plan.gaussian.statistics.work - 1;
-  assert(gf3_gaussian_bridge::validate(
-             theory, built.plan, limited, [](uint64_t) { return true; })
-             .status == gf3_gaussian_bridge::Status::LimitExceeded);
-  limited = limits();
-  limited.gaussian.maximum_fill_entries =
-      built.plan.gaussian.statistics.fill_entries - 1;
-  assert(gf3_gaussian_bridge::validate(
-             theory, built.plan, limited, [](uint64_t) { return true; })
-             .status == gf3_gaussian_bridge::Status::LimitExceeded);
-  limited = limits();
-  limited.gaussian.maximum_retained_plan_bytes =
-      built.plan.gaussian.statistics.retained_plan_bytes - 1;
-  assert(gf3_gaussian_bridge::validate(
-             theory, built.plan, limited, [](uint64_t) { return true; })
-             .status == gf3_gaussian_bridge::Status::LimitExceeded);
+  // Validation replays the Gaussian plan under the same bounds.
+  const auto &statistics = built.plan.gaussian.statistics;
+  const std::vector<std::function<void(Limits &)>> replay_bounds = {
+      [](Limits &l) { l.gaussian.maximum_derivations = 1; },
+      [&](Limits &l) { l.gaussian.maximum_work = statistics.work - 1; },
+      [&](Limits &l) {
+        l.gaussian.maximum_fill_entries = statistics.fill_entries - 1;
+      },
+      [&](Limits &l) {
+        l.gaussian.maximum_retained_plan_bytes =
+            statistics.retained_plan_bytes - 1;
+      },
+  };
+  for (const auto &change : replay_bounds) {
+    Limits limited = bridge_limits();
+    change(limited);
+    const auto result = gf3_gaussian_bridge::validate(
+        theory, built.plan, limited, [](uint64_t) { return true; });
+    assert(result.status == gf3_gaussian_bridge::Status::LimitExceeded);
+    assert(result.limit == Kind::Gaussian);
+  }
 }
 
 } // namespace

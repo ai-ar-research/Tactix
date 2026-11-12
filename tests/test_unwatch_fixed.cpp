@@ -5,6 +5,7 @@ static constexpr bool library_assertions = false;
 static constexpr bool library_assertions = true;
 #endif
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include <cassert>
 #include <csignal>
@@ -28,8 +29,7 @@ static void fixed_slot(bool positive, bool flushed) {
   const Lit slot = internalize(positive ? 1 : -1);
   const Lit prefix[3] = {slot, internalize(2), internalize(3)};
   const Ref ref = kernel_add_large_clause(k, prefix, 3, false, 0);
-  const Lit tail[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref start = kernel_add_large_clause(k, tail, 3, true, 3);
+  const Ref start = add_external_clause(k, {4, 5, 6}, true, 3);
   kernel_assign_unit(k, internalize(1));
   if (flushed) {
     kernel_delete_clause(k, clause_at(k.arena, start));

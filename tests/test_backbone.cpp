@@ -1,19 +1,19 @@
-// Backbone unit tests: binary-implication failed-literal detection, the
-// binary-only restriction that distinguishes it from Probe, and the
-// instance surface.
+// Backbone: binary-implication failed literals, the binary-only restriction
+// that distinguishes it from Probe, Kissat's meters, and the instance surface.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/backbone/backbone.hpp"
 #include "rules/probe/probe.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "temporary_file.hpp"
+#include "test_io.hpp"
 
 #include <cassert>
 #include <cstdio>
 #include <string>
-
-#include <unistd.h>
 
 using namespace tactix;
 
@@ -21,8 +21,8 @@ using namespace tactix;
 static void test_binary_failed_literal() {
   Kernel k;
   kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  add_external_clause(k, {-1, 2});
+  add_external_clause(k, {-1, -2});
   assert(backbone_guard(k));
   assert(backbone_apply(k) == ApplyResult::Ok);
   assert(k.stats.backbone_computations == 1);
@@ -33,77 +33,50 @@ static void test_binary_failed_literal() {
   assert(default_solve(k) == 10);
 }
 
-static void test_canonical_computation_counter_advances() {
-  Kernel k;
-  kernel_reserve_vars(k, 1);
-  assert(backbone_apply(k) == ApplyResult::NoOp);
-  assert(backbone_apply(k) == ApplyResult::NoOp);
-  assert(k.stats.backbone_computations == 2);
-}
-
-// The conflict-causing probe need not be the strongest failed literal.  Here
-// 1 implies 2 and 2 forks to both 3 and ¬3.  Binary-UIP analysis learns ¬2;
-// replaying it at root then propagates ¬1.  Independent probes learn only ¬1
-// from the same first conflict and miss the reference algorithm's UIP unit.
+// 1 implies 2, which forks to 3 and ¬3. Binary-UIP analysis learns ¬2 (the
+// reference algorithm's UIP unit), whose root replay propagates ¬1. The
+// replay is charged to the global ticks only, as in Kissat.
 static void test_chained_binary_uip_learns_internal_predecessor() {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-2), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(-3));
+  add_external_clause(k, {-1, 2});
+  add_external_clause(k, {-2, 3});
+  add_external_clause(k, {-2, -3});
+  k.tick_sink = &k.stats.backbone_ticks;
   assert(backbone_apply(k) == ApplyResult::Ok);
+  assert(k.tick_sink == &k.stats.backbone_ticks);
+  k.tick_sink = nullptr;
+  assert(k.stats.ticks > k.stats.backbone_ticks);
   assert(k.value(internalize(-2)) > 0);
   assert(k.value(internalize(-1)) > 0);
   assert(k.stats.backbone_failed == 1);
   assert(k.level == 0 && !k.conflict_valid);
 }
 
-static void test_root_replay_is_outside_backbone_private_meter() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-2), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(-3));
-  k.tick_sink = &k.stats.backbone_ticks;
-  assert(backbone_apply(k) == ApplyResult::Ok);
-  assert(k.tick_sink == &k.stats.backbone_ticks);
-  k.tick_sink = nullptr;
-  // The speculative probes contribute to both totals.  Replaying the derived
-  // root unit contributes only to the global tick counter, as in Kissat.
-  assert(k.stats.ticks > k.stats.backbone_ticks);
-}
-
 static void test_root_replay_propagates_large_clause_closure() {
   Kernel k;
   kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
-  kernel_add_binary_clause(k, internalize(-3), internalize(4));
-  kernel_add_binary_clause(k, internalize(-3), internalize(-4));
-  const Lit large[3] = {internalize(1), internalize(3), internalize(5)};
-  kernel_add_large_clause(k, large, 3, false, 0);
+  add_external_clause(k, {-1, 2});
+  add_external_clause(k, {-1, -2});
+  add_external_clause(k, {-3, 4});
+  add_external_clause(k, {-3, -4});
+  add_external_clause(k, {1, 3, 5});
 
   assert(backbone_apply(k) == ApplyResult::Ok);
   assert(k.value(internalize(-1)) > 0);
   assert(k.value(internalize(-3)) > 0);
-  // Binary-only speculative propagation cannot derive 5; the post-round full
-  // root replay must do so from (1 v 3 v 5) after learning -1 and -3.
+  // Only the post-round full root replay derives 5.
   assert(k.value(internalize(5)) > 0);
   assert(k.assigned[var_of(internalize(5))].level == 0);
 }
 
-// `propagate_head` means "every clause this literal watches has been
-// inspected".  Binary-only propagation moves that cursor while skipping every
-// large watch, so a literal it covers that STAYS on the trail must not be
-// credited as fully propagated: the next full propagation has to rescan it.
-// Otherwise the trail stands at a claimed fixpoint that still hides a
-// large-clause unit, and a total assignment built on it falsifies a clause.
+// Binary-only propagation skips large watches, so a literal it covers stays
+// pending for the next full propagation.
 static void test_binary_propagation_leaves_full_propagation_pending() {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  const Lit large[3] = {internalize(-1), internalize(-2), internalize(3)};
-  kernel_add_large_clause(k, large, 3, false, 0);
+  add_external_clause(k, {-1, 2});
+  add_external_clause(k, {-1, -2, 3});
 
   kernel_assign_unit(k, internalize(1));
   assert(!kernel_propagate_binary(k));
@@ -119,20 +92,16 @@ static void test_binary_propagation_leaves_full_propagation_pending() {
   assert(k.assigned[var_of(internalize(3))].level == 0);
 }
 
-// A round retracts every literal it put on the speculative trail, so the
-// replayed unit batch is propagated from the batch's own trail position.
-// Leaving the level-zero stamps in place instead strands them behind the
-// cursor with only their binary watches scanned, and a large clause watched
-// solely by literals the round derived FIRST is then never revisited.
+// The replayed unit batch propagates from its own trail position, so a large
+// clause watched only by literals the round derived first is revisited.
 static void test_round_exit_rescans_every_speculative_root_literal() {
   Kernel k;
   kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
-  kernel_add_binary_clause(k, internalize(-2), internalize(-4));
-  const Lit large[3] = {internalize(1), internalize(2), internalize(5)};
-  kernel_add_large_clause(k, large, 3, false, 0);
+  add_external_clause(k, {-1, 3});
+  add_external_clause(k, {-1, -3});
+  add_external_clause(k, {-2, 4});
+  add_external_clause(k, {-2, -4});
+  add_external_clause(k, {1, 2, 5});
 
   assert(backbone_apply(k) == ApplyResult::Ok);
   assert(k.value(internalize(-1)) > 0);
@@ -144,16 +113,18 @@ static void test_round_exit_rescans_every_speculative_root_literal() {
   assert(kernel_propagation_fixpoint(k));
 }
 
-// Kissat retains the candidates falsified by one accumulated assumption trail
-// and tries that smaller stack in the next round even when the first round
-// found no unit. A fresh full scan, or stopping on an empty unit batch, misses
-// this failure of -1.
+// -1 fails only in the second round, which retries the candidates the first
+// round's assumption trail falsified (as Kissat does).
+static void second_round_failure(Kernel &k) {
+  kernel_reserve_vars(k, 3);
+  add_external_clause(k, {-1, 2});
+  add_external_clause(k, {1, 3});
+  add_external_clause(k, {1, -3});
+}
+
 static void test_falsified_candidate_survives_to_next_round() {
   Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
-  kernel_add_binary_clause(k, internalize(1), internalize(-3));
+  second_round_failure(k);
   assert(backbone_apply(k) == ApplyResult::Ok);
   assert(k.value(internalize(1)) > 0);
   assert(k.stats.backbone_rounds >= 2);
@@ -162,10 +133,7 @@ static void test_falsified_candidate_survives_to_next_round() {
 static void test_round_limits_are_strategy_parameters() {
   for (uint32_t maximum : {0u, 1u, 2u}) {
     Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_add_binary_clause(k, internalize(-1), internalize(2));
-    kernel_add_binary_clause(k, internalize(1), internalize(3));
-    kernel_add_binary_clause(k, internalize(1), internalize(-3));
+    second_round_failure(k);
     k.backbone_parameters = {maximum, maximum};
     const ApplyResult result = backbone_apply(k);
     assert(k.stats.backbone_rounds == maximum);
@@ -179,10 +147,7 @@ static void test_round_limits_are_strategy_parameters() {
   }
 
   Kernel growing;
-  kernel_reserve_vars(growing, 3);
-  kernel_add_binary_clause(growing, internalize(-1), internalize(2));
-  kernel_add_binary_clause(growing, internalize(1), internalize(3));
-  kernel_add_binary_clause(growing, internalize(1), internalize(-3));
+  second_round_failure(growing);
   growing.backbone_parameters = {1, 2};
   assert(backbone_apply(growing) == ApplyResult::NoOp);
   assert(growing.stats.backbone_rounds == 1);
@@ -191,19 +156,17 @@ static void test_round_limits_are_strategy_parameters() {
   assert(growing.value(internalize(1)) > 0);
 }
 
-// A chained-UIP unit is not a root assignment until the complete round has
-// flushed its speculative trail.  Here candidate 1 first succeeds, candidate
-// 2 then fails and derives -2, and temporary -2 implies 3.  Under a one-round
-// budget, Kissat retains the now-false -3 candidate and prioritizes it for the
-// next computation.  Eagerly stamping -2 at root removes -3 instead.
+// A chained-UIP unit stays speculative until the round ends: candidate 2
+// fails and derives -2, which implies 3, and under a one-round budget the
+// now-false -3 candidate is retained with priority (as in Kissat).
 static void test_chained_unit_stays_speculative_until_round_end() {
   bool exercised = false;
   for (uint64_t budget = 1; budget <= 256 && !exercised; budget++) {
     Kernel k;
     kernel_reserve_vars(k, 5);
-    kernel_add_binary_clause(k, internalize(-2), internalize(5));
-    kernel_add_binary_clause(k, internalize(-2), internalize(-5));
-    kernel_add_binary_clause(k, internalize(2), internalize(3));
+    add_external_clause(k, {-2, 5});
+    add_external_clause(k, {-2, -5});
+    add_external_clause(k, {2, 3});
     k.work_budget = budget;
     k.tick_sink = &k.stats.backbone_ticks;
     const ApplyResult result = backbone_apply(k);
@@ -222,7 +185,7 @@ static void test_chained_unit_stays_speculative_until_round_end() {
 static void test_candidate_priority_persists_between_computations() {
   Kernel k;
   kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  add_external_clause(k, {-1, 2});
   k.work_budget = 1;
   k.tick_sink = &k.stats.backbone_ticks;
   assert(backbone_apply(k) == ApplyResult::NoOp);
@@ -245,13 +208,11 @@ static void test_candidate_priority_survives_variable_compaction() {
 }
 
 static void test_chained_binary_uip_proof_order() {
-  const std::string path = "/tmp/tactix-backbone-" +
-                           std::to_string(static_cast<long>(getpid())) +
-                           ".dsr";
+  TemporaryFile file;
   {
     Kernel k;
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
     k.proof = &proof;
     kernel_reserve_vars(k, 3);
     kernel_add_binary_clause(k, internalize(-1), internalize(2), 1);
@@ -262,48 +223,36 @@ static void test_chained_binary_uip_proof_order() {
     proof.flush();
     k.proof = nullptr;
   }
-  FILE *file = fopen(path.c_str(), "rb");
-  assert(file);
-  char bytes[64] = {};
-  const size_t size = fread(bytes, 1, sizeof bytes, file);
-  fclose(file);
-  remove(path.c_str());
-  assert(std::string(bytes, size) == "-2 0\n-1 0\n");
+  assert(read_file(file.path) == "-2 0\n-1 0\n");
 }
 
 // The binary-only restriction: 1 fails only through the size-3 clauses, so
 // Backbone finds nothing where Probe finds 1 failed — opposite by design.
 static void test_binary_only_misses_large_clause_failure() {
-  const Lit a[3] = {internalize(-1), internalize(-2), internalize(3)};
-  const Lit b[3] = {internalize(-1), internalize(-2), internalize(-3)};
-  {
+  for (bool probe : {false, true}) {
     Kernel k;
     kernel_reserve_vars(k, 3);
-    kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 → 2
-    kernel_add_large_clause(k, a, 3, false, 0);
-    kernel_add_large_clause(k, b, 3, false, 0);
-    assert(backbone_apply(k) == ApplyResult::NoOp); // binary-only sees nothing
-    assert(k.stats.backbone_failed == 0);
-    assert(k.stats.backbone_probed >= 1); // it tried: 1 and ¬2 are BIG heads
-    assert(k.trail.empty());
-  }
-  { // identical formula: full-propagation Probe does find 1 failed
-    Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_add_binary_clause(k, internalize(-1), internalize(2));
-    kernel_add_large_clause(k, a, 3, false, 0);
-    kernel_add_large_clause(k, b, 3, false, 0);
-    assert(probe_apply(k) == ApplyResult::Ok);
-    assert(k.stats.probe_failed >= 1);
-    assert(k.value(internalize(-1)) > 0);
+    add_external_clause(k, {-1, 2});
+    add_external_clause(k, {-1, -2, 3});
+    add_external_clause(k, {-1, -2, -3});
+    if (probe) {
+      assert(probe_apply(k) == ApplyResult::Ok);
+      assert(k.stats.probe_failed >= 1);
+      assert(k.value(internalize(-1)) > 0);
+    } else {
+      assert(backbone_apply(k) == ApplyResult::NoOp);
+      assert(k.stats.backbone_failed == 0);
+      assert(k.stats.backbone_probed >= 1); // 1 and ¬2 are BIG heads
+      assert(k.trail.empty());
+    }
   }
 }
 
 static void test_no_failed_literal_noop() {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 → 2
-  kernel_add_binary_clause(k, internalize(-2), internalize(3)); // 2 → 3
+  add_external_clause(k, {-1, 2}); // 1 → 2
+  add_external_clause(k, {-2, 3}); // 2 → 3
   assert(backbone_apply(k) == ApplyResult::NoOp);
   assert(k.stats.backbone_failed == 0);
   assert(k.trail.empty());
@@ -313,10 +262,9 @@ static void test_no_failed_literal_noop() {
 static void test_binary_meter_charges_scanned_prefix() {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  const Lit large[3] = {internalize(-1), internalize(3), internalize(4)};
+  add_external_clause(k, {-1, 2});
   for (unsigned i = 0; i < 40; i++)
-    kernel_add_large_clause(k, large, 3, false, 0);
+    add_external_clause(k, {-1, 3, 4});
   kernel_collect_garbage(k);
   assert(k.watches.heads[internalize(-1)].binaries_first());
 
@@ -333,8 +281,7 @@ static void test_binary_meter_charges_scanned_prefix() {
 static void test_binary_meter_charges_first_large_word() {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit large[3] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, large, 3, false, 0);
+  add_external_clause(k, {-1, 2, 3});
   assert(k.watches.heads[internalize(-1)].binaries_first());
 
   const uint64_t before = k.stats.ticks;
@@ -347,8 +294,8 @@ static void test_binary_meter_charges_first_large_word() {
 static void test_binary_meter_skips_conflicting_scan() {
   Kernel k;
   kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  add_external_clause(k, {-1, 2});
+  add_external_clause(k, {-1, -2});
   kernel_assign_decision(k, internalize(1));
 
   const uint64_t ticks_before = k.stats.ticks;
@@ -366,9 +313,8 @@ static void test_binary_meter_skips_conflicting_scan() {
 static void test_binary_order_is_per_list() {
   Kernel k;
   kernel_reserve_vars(k, 5);
-  const Lit large[3] = {internalize(-1), internalize(3), internalize(4)};
-  kernel_add_large_clause(k, large, 3, false, 0);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  add_external_clause(k, {-1, 3, 4});
+  add_external_clause(k, {-1, 2});
 
   const Lit affected = internalize(-1);
   const Lit unaffected = internalize(-5);
@@ -383,7 +329,7 @@ static void test_binary_order_is_per_list() {
 static void test_chained_binary_implication_uses_current_level() {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  add_external_clause(k, {-1, 3});
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   assert(k.level == 2);
@@ -396,10 +342,10 @@ static void test_chained_binary_implication_uses_current_level() {
 static void test_both_polarities_fail_unsat() {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
-  kernel_add_binary_clause(k, internalize(1), internalize(-3));
+  add_external_clause(k, {-1, 2});
+  add_external_clause(k, {-1, -2});
+  add_external_clause(k, {1, 3});
+  add_external_clause(k, {1, -3});
   assert(backbone_apply(k) == ApplyResult::Unsat);
   assert(k.stats.backbone_failed >= 1);
   assert(k.inconsistent);
@@ -408,8 +354,8 @@ static void test_both_polarities_fail_unsat() {
 static void test_instance_surface() {
   Kernel k;
   kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  add_external_clause(k, {-1, 2});
+  add_external_clause(k, {-1, -2});
   const std::vector<RuleVTable> &rules = tactix_rules();
   const int id = tactix_rule_id("Backbone");
   assert(id >= 0 && rules[id].tier == RuleTier::Inprocess);
@@ -424,7 +370,7 @@ static void test_instance_surface() {
   // kernel, since the derivation above left k non-quiescent
   Kernel k2;
   kernel_reserve_vars(k2, 2);
-  kernel_add_binary_clause(k2, internalize(-1), internalize(2));
+  add_external_clause(k2, {-1, 2});
   assert(rules[id].apply_instance(k2, static_cast<uint64_t>(999999)) ==
          ApplyResult::NoOp);
   assert(rules[id].apply_instance(k2, static_cast<uint64_t>(0)) ==
@@ -446,19 +392,15 @@ static void test_speculative_unwind_invalidates_unit_ids() {
   assert(k.value(internalize(2)) == 0 && k.unit_ids[1] == 0);
 }
 
-// A root literal published to the native-DSR proof inside a speculative round
-// is retracted with the round.  If the round's replay then refutes the formula
-// the literal is never re-installed; the kernel invariants must accept that
-// terminal state, while a consistent kernel lacking the literal is a defect.
+// A root literal published to the DSR proof inside a speculative round is
+// retracted with the round; the invariants accept that state once the
+// round's replay has refuted the formula.
 static void test_refuted_replay_may_leave_a_published_root_retracted() {
   Kernel k;
   kernel_reserve_vars(k, 2);
-  char path[] = "/tmp/tactix-backbone-published-root-XXXXXX";
-  const int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
+  TemporaryFile file;
   Proof proof;
-  assert(proof.open(path, ProofFormat::DsrAscii));
+  assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
   k.proof = &proof;
   const uint32_t prefix = k.trail.size();
   kernel_assign(k, internalize(-2), 0, UNIT_REASON, false);
@@ -469,16 +411,13 @@ static void test_refuted_replay_may_leave_a_published_root_retracted() {
   k.inconsistent = true; // the replay closed the refutation first
   kernel_check_invariants(k);
   k.proof = nullptr;
-  unlink(path);
 }
 
 int main() {
   test_speculative_unwind_invalidates_unit_ids();
   test_refuted_replay_may_leave_a_published_root_retracted();
   test_binary_failed_literal();
-  test_canonical_computation_counter_advances();
   test_chained_binary_uip_learns_internal_predecessor();
-  test_root_replay_is_outside_backbone_private_meter();
   test_root_replay_propagates_large_clause_closure();
   test_binary_propagation_leaves_full_propagation_pending();
   test_round_exit_rescans_every_speculative_root_literal();

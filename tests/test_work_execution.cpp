@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/vivify_execution.hpp"
 
@@ -76,10 +77,8 @@ static void test_material_and_tick_lifetimes() {
 
 static void fixture(Kernel &k) {
   kernel_reserve_vars(k, 4);
-  const Lit a[] = {internalize(1), internalize(2), internalize(3)};
-  const Lit b[] = {internalize(1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, true, 2);
+  add_external_clause(k, {1, 2, 3});
+  add_external_clause(k, {1, 2, 4}, true, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   k.work_budget = 77; k.work_budget_offset = 13;
   k.midround_budget = true; k.vivify_scope = 5;

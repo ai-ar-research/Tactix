@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "affine_formula_support.hpp"
+#include "kernel_image.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/affine_live.hpp"
 
@@ -13,32 +15,6 @@
 using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 
-static std::vector<std::vector<int32_t>> affine_formula(bool complete = true) {
-  auto first = clausal_form({1, 2, 3, 4, 5}, false);
-  auto second = clausal_form({1, 2, 3, 4, 6}, true);
-  if (!complete) first.pop_back();
-  first.insert(first.end(), second.begin(), second.end());
-  return first;
-}
-
-static void add_clause(Kernel &k, const std::vector<int32_t> &external) {
-  std::vector<Lit> literals;
-  for (int32_t literal : external)
-    literals.push_back(kernel_internalize(k, literal));
-  const uint64_t id = ++k.next_clause_id;
-  if (literals.size() == 2)
-    kernel_add_binary_clause(k, literals[0], literals[1], id);
-  else
-    kernel_add_large_clause(k, literals.data(), literals.size(), false, 0, id);
-}
-
-static void install(Kernel &k, const std::vector<std::vector<int32_t>> &cnf,
-                    uint32_t variables = 6) {
-  kernel_reserve_vars(k, variables);
-  for (const auto &clause : cnf) add_clause(k, clause);
-  assert(kernel_propagation_fixpoint(k));
-}
-
 static AffineLiveRequest request(FILE *records) {
   AffineLiveRequest result;
   result.image = {1000, 100, 1000, 1000000, 8, 16, 16, 4};
@@ -50,6 +26,18 @@ static AffineLiveRequest request(FILE *records) {
   result.action_id = 1;
   result.semantic_id = 7;
   result.records = records;
+  return result;
+}
+
+// Run a request that must decline with status, leaving the kernel image and
+// the journal untouched.
+static AffineLiveResult decline(Kernel &k, const AffineLiveRequest &r,
+                                AffineLiveStatus status) {
+  const ::Image before = image(k);
+  const auto result = derive_affine_live(k, r);
+  assert(result.status == status && result.result == ApplyResult::NoOp &&
+         !result.journal_bytes);
+  assert(image(k) == before && r.records.tell() == 0);
   return result;
 }
 
@@ -71,7 +59,7 @@ static void assert_model(const Kernel &k) {
 static void positive_and_continuing() {
   Kernel k;
   install(k, affine_formula());
-  FILE *records = std::tmpfile(); assert(records);
+  FILE *records = temporary_records();
   auto r = request(records);
   const auto result = derive_affine_live(k, r);
   assert(result.status == AffineLiveStatus::Applied &&
@@ -92,15 +80,9 @@ static void positive_and_continuing() {
          result.journal_bytes == static_cast<uint64_t>(position(records)) &&
          result.journal_work == result.journal_bytes);
 
-  FILE *repeat = std::tmpfile(); assert(repeat);
+  FILE *repeat = temporary_records();
   r.records = repeat;
-  const auto before_id = k.next_clause_id;
-  const auto before_arena = k.arena.size();
-  const auto repeated = derive_affine_live(k, r);
-  assert(repeated.status == AffineLiveStatus::NoStructure &&
-         repeated.result == ApplyResult::NoOp && !repeated.journal_bytes);
-  assert(k.next_clause_id == before_id && k.arena.size() == before_arena);
-  assert(position(repeat) == 0);
+  decline(k, r, AffineLiveStatus::NoStructure);
 
   for (int32_t external : {-1, -2, -3, -4}) {
     if (!k.value(kernel_internalize(k, external)))
@@ -119,43 +101,30 @@ static void clean_declines() {
   {
     Kernel k;
     install(k, affine_formula(false));
-    FILE *records = std::tmpfile(); assert(records);
-    const auto id = k.next_clause_id;
-    const auto arena = k.arena.size();
-    const auto result = derive_affine_live(k, request(records));
-    assert(result.status == AffineLiveStatus::NoStructure &&
-           result.result == ApplyResult::NoOp && result.recognition_work);
-    assert(k.next_clause_id == id && k.arena.size() == arena);
-    assert(position(records) == 0);
+    FILE *records = temporary_records();
+    assert(decline(k, request(records), AffineLiveStatus::NoStructure)
+               .recognition_work);
     std::fclose(records);
   }
   {
     Kernel k;
     install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
+    FILE *records = temporary_records();
     volatile sig_atomic_t stop = 1;
     k.stop = &stop;
-    const auto id = k.next_clause_id;
-    const auto result = derive_affine_live(k, request(records));
-    assert(result.status == AffineLiveStatus::Interrupted &&
-           result.result == ApplyResult::NoOp);
-    assert(k.next_clause_id == id && position(records) == 0);
+    decline(k, request(records), AffineLiveStatus::Interrupted);
     std::fclose(records);
   }
   for (int mode : {0, 1, 2, 3}) {
     Kernel k;
     install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
+    FILE *records = temporary_records();
     auto r = request(records);
     if (!mode) r.maximum_proof_additions = 1;
     else if (mode == 1) r.maximum_journal_bytes = 1;
     else if (mode == 2) r.maximum_proof_deletions = 0;
     else r.image.maximum_elimination_work = 1;
-    const auto id = k.next_clause_id;
-    const auto binaries = k.watches.binary_clauses();
-    const auto result = derive_affine_live(k, r);
-    assert(result.status == AffineLiveStatus::ResourceExhausted &&
-           result.result == ApplyResult::NoOp && !result.journal_bytes);
+    const auto result = decline(k, r, AffineLiveStatus::ResourceExhausted);
     if (mode == 1)
       assert(result.journal_work > r.maximum_journal_bytes);
     if (mode == 0)
@@ -164,8 +133,6 @@ static void clean_declines() {
       assert(result.preflight_deletions > r.maximum_proof_deletions);
     if (mode == 3)
       assert(result.snapshot_work && result.recognition_work <= 1);
-    assert(k.next_clause_id == id && k.watches.binary_clauses() == binaries);
-    assert(position(records) == 0);
     std::fclose(records);
   }
 }
@@ -177,16 +144,13 @@ static void interruption_boundaries() {
     install(k, affine_formula());
     k.stop_fuzz = 127;
     k.stop_fuzz_state = seed;
-    FILE *records = std::tmpfile(); assert(records);
-    const auto id = k.next_clause_id;
-    const auto arena = k.arena.size();
-    const auto binaries = k.watches.binary_clauses();
+    FILE *records = temporary_records();
+    const ::Image before = image(k);
     const auto result = derive_affine_live(k, request(records));
     if (result.result == ApplyResult::NoOp) {
       assert(result.status == AffineLiveStatus::Interrupted &&
              !result.journal_bytes);
-      assert(k.next_clause_id == id && k.arena.size() == arena);
-      assert(k.watches.binary_clauses() == binaries && position(records) == 0);
+      assert(image(k) == before && position(records) == 0);
       saw_after_snapshot |= result.snapshot_clauses != 0;
       saw_after_preflight |= result.preflight_additions != 0;
     } else {
@@ -198,39 +162,29 @@ static void interruption_boundaries() {
   assert(saw_after_snapshot && saw_after_preflight);
 }
 
-static void stale_snapshot() {
-  Kernel k;
-  std::vector<std::vector<int32_t>> cnf;
-  auto first = clausal_form({1, 2}, false);
-  auto second = clausal_form({1, 3}, true);
-  cnf.insert(cnf.end(), first.begin(), first.end());
-  cnf.insert(cnf.end(), second.begin(), second.end());
-  install(k, cnf, 3);
-  FILE *records = std::tmpfile(); assert(records);
-  auto r = request(records);
-  AffineLiveSnapshot snapshot;
-  assert(capture_affine_live_snapshot(k, r, snapshot));
-  assert(snapshot.sources.size() == 4);
-  const auto &lost = snapshot.sources[0];
-  assert(lost.kind == AffineSourceKind::Binary);
-  assert(kernel_delete_binary(k, lost.first, lost.second));
-  assert(!affine_live_sources_valid(k, snapshot, {lost.occurrence}));
-  r.snapshot = &snapshot;
-  const auto id = k.next_clause_id;
-  const auto binaries = k.watches.binary_clauses();
-  const auto result = derive_affine_live(k, r);
-  assert(result.status == AffineLiveStatus::Stale &&
-         result.result == ApplyResult::NoOp && !result.journal_bytes);
-  assert(k.next_clause_id == id && k.watches.binary_clauses() == binaries);
-  assert(position(records) == 0);
-  std::fclose(records);
-}
-
-static void stale_large_snapshot_and_cached_counters() {
+static void stale_snapshots() {
   {
+    // A deleted binary source.
+    Kernel k;
+    install(k, xor_cnf({{{1, 2}, false}, {{1, 3}, true}}), 3);
+    FILE *records = temporary_records();
+    auto r = request(records);
+    AffineLiveSnapshot snapshot;
+    assert(capture_affine_live_snapshot(k, r, snapshot));
+    assert(snapshot.sources.size() == 4);
+    const auto &lost = snapshot.sources[0];
+    assert(lost.kind == AffineSourceKind::Binary);
+    assert(kernel_delete_binary(k, lost.first, lost.second));
+    assert(!affine_live_sources_valid(k, snapshot, {lost.occurrence}));
+    r.snapshot = &snapshot;
+    decline(k, r, AffineLiveStatus::Stale);
+    std::fclose(records);
+  }
+  {
+    // A large source moved by garbage collection, or a reference into one.
     Kernel k;
     install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
+    FILE *records = temporary_records();
     auto r = request(records);
     AffineLiveSnapshot snapshot;
     assert(capture_affine_live_snapshot(k, r, snapshot));
@@ -252,17 +206,18 @@ static void stale_large_snapshot_and_cached_counters() {
     assert(!affine_live_sources_valid(
         k, snapshot, {snapshot.sources[index].occurrence}));
     r.snapshot = &snapshot;
-    const uint64_t id = k.next_clause_id;
-    const auto result = derive_affine_live(k, r);
-    assert(result.status == AffineLiveStatus::Stale &&
-           result.result == ApplyResult::NoOp && !result.journal_bytes);
-    assert(k.next_clause_id == id && position(records) == 0);
+    decline(k, r, AffineLiveStatus::Stale);
     std::fclose(records);
   }
-  {
+}
+
+// A retained snapshot's literal and work counters are recomputed from its
+// premises, both for accounting and for the snapshot-literal bound.
+static void cached_snapshot_counters() {
+  for (bool bounded : {false, true}) {
     Kernel k;
     install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
+    FILE *records = temporary_records();
     auto r = request(records);
     AffineLiveSnapshot snapshot;
     assert(capture_affine_live_snapshot(k, r, snapshot));
@@ -274,32 +229,16 @@ static void stale_large_snapshot_and_cached_counters() {
     snapshot.literals = 0;
     snapshot.work = 0;
     r.snapshot = &snapshot;
-    const auto result = derive_affine_live(k, r);
-    assert(result.status == AffineLiveStatus::Applied &&
-           result.result == ApplyResult::Ok);
-    assert(result.snapshot_literals == literals &&
-           result.snapshot_work == payload_work);
-    std::fclose(records);
-  }
-  {
-    Kernel k;
-    install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
-    auto r = request(records);
-    AffineLiveSnapshot snapshot;
-    assert(capture_affine_live_snapshot(k, r, snapshot));
-    uint64_t literals = 0;
-    for (const auto &premise : snapshot.premises)
-      literals += premise.literals.size();
-    snapshot.literals = 0;
-    snapshot.work = 0;
-    r.snapshot = &snapshot;
-    r.maximum_snapshot_literals = literals - 1;
-    const uint64_t id = k.next_clause_id;
-    const auto result = derive_affine_live(k, r);
-    assert(result.status == AffineLiveStatus::ResourceExhausted &&
-           result.result == ApplyResult::NoOp && !result.journal_bytes);
-    assert(k.next_clause_id == id && position(records) == 0);
+    if (bounded) {
+      r.maximum_snapshot_literals = literals - 1;
+      decline(k, r, AffineLiveStatus::ResourceExhausted);
+    } else {
+      const auto result = derive_affine_live(k, r);
+      assert(result.status == AffineLiveStatus::Applied &&
+             result.result == ApplyResult::Ok);
+      assert(result.snapshot_literals == literals &&
+             result.snapshot_work == payload_work);
+    }
     std::fclose(records);
   }
 }
@@ -309,7 +248,7 @@ static void uninstalled_target_cleanup_and_deferred_propagation() {
     Kernel k;
     install(k, affine_formula());
     add_clause(k, {5, 6});
-    FILE *records = std::tmpfile(); assert(records);
+    FILE *records = temporary_records();
     const auto result = derive_affine_live(k, request(records));
     assert(result.status == AffineLiveStatus::Applied &&
            result.result == ApplyResult::Ok && result.published == 1);
@@ -329,7 +268,7 @@ static void uninstalled_target_cleanup_and_deferred_propagation() {
     assert(propagate_service(k) == ApplyResult::Ok);
     assert(!k.value(kernel_internalize(k, 6)) &&
            kernel_propagation_fixpoint(k));
-    FILE *records = std::tmpfile(); assert(records);
+    FILE *records = temporary_records();
     const uint64_t before_id = k.next_clause_id;
     const auto result = derive_affine_live(k, request(records));
     assert(result.status == AffineLiveStatus::Applied &&
@@ -353,11 +292,8 @@ static void uninstalled_target_cleanup_and_deferred_propagation() {
 static void contradiction_and_false_unit() {
   {
     Kernel k;
-    auto even = clausal_form({1, 2, 3}, false);
-    auto odd = clausal_form({1, 2, 3}, true);
-    even.insert(even.end(), odd.begin(), odd.end());
-    install(k, even, 3);
-    FILE *records = std::tmpfile(); assert(records);
+    install(k, xor_cnf({{{1, 2, 3}, false}, {{1, 2, 3}, true}}), 3);
+    FILE *records = temporary_records();
     const auto result = derive_affine_live(k, request(records));
     assert(result.status == AffineLiveStatus::Applied &&
            result.result == ApplyResult::Unsat && result.contradiction);
@@ -367,13 +303,10 @@ static void contradiction_and_false_unit() {
   }
   {
     Kernel k;
-    auto first = clausal_form({1, 2}, false);
-    auto second = clausal_form({1, 2, 3}, true);
-    first.insert(first.end(), second.begin(), second.end());
-    install(k, first, 3);
+    install(k, xor_cnf({{{1, 2}, false}, {{1, 2, 3}, true}}), 3);
     kernel_assign_unit(k, kernel_internalize(k, -3));
     assert(propagate_service(k) == ApplyResult::Ok);
-    FILE *records = std::tmpfile(); assert(records);
+    FILE *records = temporary_records();
     const auto result = derive_affine_live(k, request(records));
     assert(result.status == AffineLiveStatus::Applied &&
            result.result == ApplyResult::Unsat && !result.contradiction);
@@ -385,110 +318,54 @@ static void contradiction_and_false_unit() {
 }
 
 static void status_and_decline_effort() {
-  {
+  for (int mode = 0; mode < 4; ++mode) {
     Kernel k;
     install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
-    auto r = request(records);
-    r.image.maximum_arity = 9;
-    const uint64_t id = k.next_clause_id;
-    const auto arena = k.arena.size();
-    const auto binaries = k.watches.binary_clauses();
-    const auto result = derive_affine_live(k, r);
-    assert(result.status == AffineLiveStatus::Invalid &&
-           result.result == ApplyResult::NoOp && !result.snapshot_work &&
-           !result.recognition_work && !result.journal_work &&
-           !result.journal_bytes);
-    assert(k.next_clause_id == id && k.arena.size() == arena &&
-           k.watches.binary_clauses() == binaries && position(records) == 0);
-    std::fclose(records);
-  }
-  {
-    Kernel k;
-    install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
-    ++k.level;
-    const uint64_t id = k.next_clause_id;
-    const auto result = derive_affine_live(k, request(records));
-    assert(result.status == AffineLiveStatus::Inapplicable &&
-           result.result == ApplyResult::NoOp && !result.snapshot_work &&
-           !result.journal_bytes);
-    assert(k.next_clause_id == id && position(records) == 0);
-    std::fclose(records);
-  }
-  {
-    Kernel k;
-    install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
-    auto r = request(records);
-    r.maximum_snapshot_work = 1;
-    const uint64_t id = k.next_clause_id;
-    const auto arena = k.arena.size();
-    const auto result = derive_affine_live(k, r);
-    assert(result.status == AffineLiveStatus::ResourceExhausted &&
-           result.result == ApplyResult::NoOp && result.snapshot_work == 1 &&
-           !result.recognition_work && !result.journal_work &&
-           !result.journal_bytes);
-    assert(k.next_clause_id == id && k.arena.size() == arena &&
-           position(records) == 0);
-    std::fclose(records);
-  }
-  {
-    Kernel k;
-    install(k, affine_formula());
-    FILE *records = std::tmpfile(); assert(records);
+    FILE *records = temporary_records();
     auto r = request(records);
     AffineLiveSnapshot snapshot;
-    assert(capture_affine_live_snapshot(k, r, snapshot));
-    snapshot.premises.front().occurrence = 99;
-    r.snapshot = &snapshot;
-    const uint64_t id = k.next_clause_id;
-    const auto result = derive_affine_live(k, r);
-    assert(result.status == AffineLiveStatus::Invalid &&
-           result.result == ApplyResult::NoOp &&
-           result.snapshot_clauses == snapshot.premises.size() &&
-           !result.journal_bytes);
-    assert(k.next_clause_id == id && position(records) == 0);
+    if (mode == 0) {
+      r.image.maximum_arity = 9;
+      const auto result = decline(k, r, AffineLiveStatus::Invalid);
+      assert(!result.snapshot_work && !result.recognition_work &&
+             !result.journal_work);
+    } else if (mode == 1) {
+      ++k.level;
+      assert(!decline(k, r, AffineLiveStatus::Inapplicable).snapshot_work);
+    } else if (mode == 2) {
+      r.maximum_snapshot_work = 1;
+      const auto result = decline(k, r, AffineLiveStatus::ResourceExhausted);
+      assert(result.snapshot_work == 1 && !result.recognition_work &&
+             !result.journal_work);
+    } else {
+      assert(capture_affine_live_snapshot(k, r, snapshot));
+      snapshot.premises.front().occurrence = 99;
+      r.snapshot = &snapshot;
+      assert(decline(k, r, AffineLiveStatus::Invalid).snapshot_clauses ==
+             snapshot.premises.size());
+    }
     std::fclose(records);
   }
 }
 
-static void write_cnf(const char *path,
-                      const std::vector<std::vector<int32_t>> &cnf,
-                      uint32_t variables) {
-  FILE *file = std::fopen(path, "w"); assert(file);
-  std::fprintf(file, "p cnf %u %zu\n", variables, cnf.size());
-  for (const auto &clause : cnf) {
-    for (int32_t literal : clause) std::fprintf(file, "%d ", literal);
-    std::fputs("0\n", file);
-  }
-  assert(!std::fclose(file));
-}
-
-static void proof_run(const char *proof_path, const char *cnf_path,
-                      ProofFormat format, bool covered_target = false) {
+// With a DSR proof bound from the input on, a covered target is published
+// once and its uninstalled duplicate deleted; the x7/x8 gadget then refutes.
+static void proof_run(const char *proof_path) {
   auto cnf = affine_formula();
-  if (covered_target) cnf.push_back({5, 6});
-  for (const auto &clause : std::vector<std::vector<int32_t>>{
-           {7, 8}, {7, -8}, {-7, 8}, {-7, -8}})
+  cnf.push_back({5, 6});
+  for (std::vector<int32_t> clause : {std::vector<int32_t>{7, 8}, {7, -8}, {-7, 8}, {-7, -8}})
     cnf.push_back(clause);
-  if (cnf_path) write_cnf(cnf_path, cnf, 8);
   Kernel k;
   kernel_reserve_vars(k, 8);
   Proof proof;
-  assert(proof.open(proof_path, format));
-  proof.bind_variable_map(&k.internal_to_external);
-  proof.bind_external_variable_map(&k.external_to_internal);
-  k.proof = &proof;
+  bind_proof(proof, k, proof_path);
   for (const auto &clause : cnf) add_clause(k, clause);
-  FILE *records = std::tmpfile(); assert(records);
+  FILE *records = temporary_records();
   const auto result = derive_affine_live(k, request(records));
   assert(result.status == AffineLiveStatus::Applied &&
-         result.result == ApplyResult::Ok &&
-         result.published == (covered_target ? 1 : 2));
-  if (covered_target)
-    assert(written_bytes(records).find("affine-proof-delete-uninstalled") !=
-           std::string::npos);
+         result.result == ApplyResult::Ok && result.published == 1);
+  assert(written_bytes(records).find("affine-proof-delete-uninstalled") !=
+         std::string::npos);
   const int32_t seven = 7;
   assert(proof.add_external_rup(++k.next_clause_id, &seven, 1));
   assert(proof.add_external_rup(++k.next_clause_id, nullptr, 0));
@@ -497,18 +374,15 @@ static void proof_run(const char *proof_path, const char *cnf_path,
   std::fclose(records);
 }
 
-int main(int argc, char **argv) {
+int main() {
   positive_and_continuing();
   clean_declines();
   interruption_boundaries();
-  stale_snapshot();
-  stale_large_snapshot_and_cached_counters();
+  stale_snapshots();
+  cached_snapshot_counters();
   uninstalled_target_cleanup_and_deferred_propagation();
   contradiction_and_false_unit();
   status_and_decline_effort();
-  proof_run("/tmp/tactix-affine-live.dsr", nullptr, ProofFormat::DsrAscii,
-            true);
-  if (argc == 3)
-    proof_run(argv[2], argv[1], ProofFormat::DsrAscii, true);
+  proof_run("/tmp/tactix-affine-live.dsr");
   std::puts("affine live adapter: atomic recognition, proof, liveness, and continuing CDCL PASS");
 }

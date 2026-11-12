@@ -18,16 +18,9 @@ using namespace tactix::session;
 using query_test::clause;
 using query_test::drive;
 
-static NativeQueryLimits limits() {
-  return {{256, 4096, 1024}, {64, 4096, 1024, 8192, 64, 1024, 8192}, 1000000};
-}
+static const auto limits = query_test::small_limits;
 
-static void eliminate(Kernel &k, int32_t external) {
-  const auto &rule = tactix_rules()[tactix_rule_id("BVE")];
-  assert(rule_guard(rule, k));
-  assert(rule.apply_instance(k, lit_instance(k, kernel_internalize(k, external))) == ApplyResult::Ok);
-  heuristics_consume_retirements(k);
-}
+using query_test::eliminate;
 
 using query_test::writer;
 

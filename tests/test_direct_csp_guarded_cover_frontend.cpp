@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include <cassert>
 #include <algorithm>
 #include <cstdint>
@@ -11,7 +12,6 @@ extern "C" {
 #include "tactix.h"
 }
 }
-#include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/restart_controller.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
@@ -41,19 +41,11 @@ static OnlineInvocation action() {
    {8,9,10}, {{6,{4,7}}}, {{8,0,0,0},{9,0,1,0},{10,0,2,0}}}};
  return s;
 }
-static Kernel fixture() {
- FILE *f=std::tmpfile(); assert(f);
- std::fprintf(f,"p cnf 12 %zu\n",clauses.size());
- for (const auto &c:clauses) {for(auto l:c) std::fprintf(f,"%d ",l); std::fputs("0\n",f);}
- std::rewind(f); Kernel k; assert(!parse_dimacs(f,k)); std::fclose(f); return k;
-}
+static Kernel fixture() { return parse_dimacs_text(dimacs_text(12,clauses)); }
 static void exact_replay_and_validation() {
  OnlineStrategyProgram p; p.sequence={action()}; std::string error;
  assert(validate_online_strategy_program(p,&error));
- auto wire=serialize_online_strategy_program(p); OnlineStrategyProgram decoded;
- assert(wire.find(":direct-csp-guarded-cover2(")!=std::string::npos);
- decoded = p;
- assert(decoded.sequence[0].direct_csp_guarded_cover_instances==p.sequence[0].direct_csp_guarded_cover_instances);
+ assert(serialize_online_strategy_program(p).find(":direct-csp-guarded-cover2(")!=std::string::npos);
  p.sequence[0].direct_csp_support_instances={{{1,2},{4,5},0}};
  assert(!validate_online_strategy_program(p,&error));
  p.sequence={action()}; p.sequence[0].parameters=DirectCspSupportParameters{};
@@ -82,9 +74,8 @@ static void typed_execution_and_declines() {
    OnlineStrategyExecutor duplicate; assert(duplicate.configure(p,902));
    const auto stable=state_version(k); auto again=duplicate.advance(k);
    assert(again.status==InvocationStatus::NoChange && same_formula_version(state_version(k),stable) && session.committed_keys()==1);
-   // Continue through the registered public Decide/Propagate actions. The
-   // installed tuple clause participates in ordinary propagation; the final
-   // complete assignment is checked against every original input clause.
+   // Public Decide/Propagate use the installed tuple clause; the complete
+   // assignment satisfies every original clause.
    const auto &decide=tactix_rules()[tactix_rule_id("Decide")];
    const auto &propagate=tactix_rules()[tactix_rule_id("Propagate")];
    for (int32_t decision : {11,1}) {

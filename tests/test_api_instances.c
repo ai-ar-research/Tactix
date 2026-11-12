@@ -3,7 +3,7 @@
  * (clause,cube) tuple necessarily uses tactix_apply_condition. A rule without
  * a uint64 payload rejects an arbitrary payload (-1). */
 #undef NDEBUG
-#include "api_test_support.h"
+#include "online_test_support.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -30,13 +30,9 @@ static const char *const NO_SURFACE[] = {"ExtendedResolution", "Propagate", "Sub
                                          "TseitinCycleBreaking",
                                          "AffineMatrixInitialize"};
 
-/* Entries whose enumeration is exactly the canonical sentinel: an
- * `apply_instance` with nothing to choose between. Joining or leaving this set
- * is a deliberate act. Congruence is here by specification, not by omission:
- * V6's effect is the congruence closure, so a single merge is a prefix of one
- * application rather than an application (`N1-CONG-INSTANCES`, disposed in
- * the rule calculus §6 V6 and pinned by test_congruence.cpp). Factor left this
- * set when its seed-literal surface landed (`N1-FACTOR-INSTANCES`). */
+/* Entries whose enumeration is exactly the canonical sentinel. Congruence's
+ * effect is the whole closure, so a single merge is not an application
+ * (`N1-CONG-INSTANCES`, rule calculus §6 V6). */
 static const char *const CANONICAL_ONLY[] = {"ExtendedResolution", "Congruence", "Propagate",
                                              "SubstitutionRedundancy",
                                              "SwitchMode", "Walk", "ParityConsequence",
@@ -66,15 +62,6 @@ static int in_list(const char *const *list, size_t n, const char *name) {
   in_list(NO_SURFACE, sizeof NO_SURFACE / sizeof NO_SURFACE[0], (nm))
 #define CANONICAL_ONLY_P(nm) \
   in_list(CANONICAL_ONLY, sizeof CANONICAL_ONLY / sizeof CANONICAL_ONLY[0], (nm))
-
-static void cardinality_fixture(tactix *s) {
-  add_clause(s, (const int[]){1, 2, 0});
-  add_clause(s, (const int[]){-1, -2, 0});
-  add_clause(s, (const int[]){2, 3, 0});
-  add_clause(s, (const int[]){-2, -3, 0});
-  add_clause(s, (const int[]){1, 3, 0});
-  add_clause(s, (const int[]){-1, -3, 0});
-}
 
 static int compare_ints(const void *left, const void *right) {
   const int a = *(const int *)left, b = *(const int *)right;
@@ -158,86 +145,6 @@ static void affine_v9_exact_row_boundary(void) {
   fclose(records);
 }
 
-/* A level-0 formula with material for every inprocessing family, satisfiable
- * so no rule can refute it out from under the walk. */
-/* A fresh solver where `id`'s guard holds; search-state entries need more
- * than a quiescent root. */
-static FILE *structural_records;
-static tactix *prepare(int id) {
-  const char *name = tactix_rule_name(id);
-  tactix *s = tactix_init();
-  if (!strcmp(name, "CardinalitySearch"))
-    cardinality_fixture(s);
-  else if (!strcmp(name, "SemanticVariableAdvice"))
-    exact_cover_fixture(s);
-  else
-    fixture(s);
-  if (!strcmp(name, "ParityConsequence") ||
-      (!strcmp(name, "AffineConsequence") ||
-       !strcmp(name, "AffineMatrixInitialize")) ||
-      !strcmp(name, "ExactCoverExtension") ||
-      !strcmp(name, "IndependentSetCover") ||
-      !strcmp(name, "Gf3AffineConsequence") ||
-      !strcmp(name, "DirectCspSupport") ||
-      !strcmp(name, "NaryCspEquality") ||
-      !strcmp(name, "Gf3GaussianConsequence") ||
-      !strcmp(name, "Gf3GeneralRowConsequence") ||
-      !strcmp(name, "CardinalitySearch") ||
-      !strcmp(name, "TseitinCycleBreaking") ||
-      !strcmp(name, "GraphIntervalEquivalence") ||
-      !strcmp(name, "SemanticVariableAdvice")) {
-    structural_records = tmpfile(); assert(structural_records);
-    assert(tactix_bind_structural_provenance(s, structural_records) == 0);
-  }
-  if (!strcmp(name, "SemanticVariableAdvice")) {
-    tactix_online_step producer;
-    tactix_online_program program;
-    tactix_online_result result;
-    memset(&producer, 0, sizeof producer);
-    producer.step_id = 1000;
-    producer.rule_id = rule_id("ExactCoverExtension");
-    producer.parameters.kind = TACTIX_ONLINE_PARAMETERS_EXACT_COVER_EXTENSION;
-    producer.parameters.value.exact_cover_extension.arity = 3;
-    producer.parameters.value.exact_cover_extension.maximum_items = 100;
-    producer.parameters.value.exact_cover_extension.maximum_source_clauses = 100;
-    producer.parameters.value.exact_cover_extension.maximum_source_literals = 1000;
-    producer.parameters.value.exact_cover_extension.maximum_recognition_work = 100000;
-    producer.parameters.value.exact_cover_extension.maximum_premise_references = 1000;
-    producer.parameters.value.exact_cover_extension.maximum_definitions = 10;
-    producer.parameters.value.exact_cover_extension.maximum_additions = 100;
-    producer.parameters.value.exact_cover_extension.maximum_literal_occurrences = 1000;
-    producer.parameters.value.exact_cover_extension.maximum_extent_growth = 10;
-    producer.parameters.value.exact_cover_extension.maximum_external_extent = 1000;
-    producer.parameters.value.exact_cover_extension.maximum_journal_bytes = 100000;
-    producer.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-    step_once(&producer);
-    program = (tactix_online_program){
-        &producer, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
-    assert(tactix_online_configure(s, &program, 1000,
-                                   TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
-    assert(tactix_online_advance(s, &result) == 0);
-    assert(result.status == TACTIX_ONLINE_COMPLETED &&
-           result.made_rule_progress);
-  }
-  if (!strcmp(name, "Propagate")) {
-    assert(tactix_decide(s, 5) == 0); /* a decision leaves the queue nonempty */
-  } else if (!strcmp(name, "Restart")) {
-    /* Exercise both noncanonical keep-levels; the root no-op is covered by
-       the dedicated C API state-boundary test. */
-    assert(tactix_decide(s, 5) == 0);
-    assert(tactix_apply(s, rule_id("Propagate")) != -1);
-  } else if (!strcmp(name, "ConflictAnalysis")) {
-    /* three decisions falsify (17 18 19) outright, so propagation reports the
-       conflict analyze_guard needs */
-    assert(tactix_decide(s, -17) == 0);
-    assert(tactix_decide(s, -18) == 0);
-    assert(tactix_decide(s, -19) == 0);
-    assert(tactix_apply(s, rule_id("Propagate")) == 2 &&
-           "the fixture must reach a conflict for Analyze's guard");
-  }
-  return s;
-}
-
 /* Per-rule coverage, accumulated across the fresh solvers below. */
 static int hit_canonical[MAX_RULES];
 static int hit_payload[MAX_RULES];
@@ -266,22 +173,11 @@ static void drive_theory_v5(tactix *s, int id, const char *name) {
   step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   step_once(&step.base.base.base.base);
   if (!strcmp(name, "Gf3AffineConsequence")) {
-    step.base.base.base.base.parameters.kind =
-        TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE;
-    step.base.base.base.base.parameters.value.gf3_affine_consequence =
-        (tactix_online_gf3_affine_consequence_parameters){
-            1000, 10000, 100, 100, 8, 10000, 8, 10000, 10000, 100000,
-            100000, 100000, 100000, 100000, 100000, 10000, 100000,
-            100000, 1000000, 10000, 10000, 100000};
+    gf3_affine_consequence_parameters(&step.base.base.base.base.parameters);
     step.gf3_affine_instances = &pair;
     step.gf3_affine_instance_count = 1;
   } else {
-    step.base.base.base.base.parameters.kind =
-        TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT;
-    step.base.base.base.base.parameters.value.direct_csp_support =
-        (tactix_online_direct_csp_support_parameters){
-            1000, 10000, 100000, 32, 1000, 1000, 100000, 10000,
-            100000, 1000000, 0, 10000, 10000, 100000, 0};
+    direct_csp_support_parameters(&step.base.base.base.base.parameters);
     step.direct_csp_support_instances = &support;
     step.direct_csp_support_instance_count = 1;
   }
@@ -459,12 +355,10 @@ int main(void) {
        make a later guard false, so the run reads green over less */
     tactix *s = prepare(id);
     drive(s, id);
-    tactix_release(s);
-    if (structural_records) { fclose(structural_records); structural_records = NULL; }
+    release(s);
     tactix *t = prepare(id);
     alias_contract(t, id);
-    tactix_release(t);
-    if (structural_records) { fclose(structural_records); structural_records = NULL; }
+    release(t);
     reached += (hit_canonical[id] || hit_payload[id] || hit_structured[id]);
     payload += hit_payload[id];
     structured += hit_structured[id];

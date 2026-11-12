@@ -5,6 +5,8 @@
 // and test_dsr_to_pbp check the semantics through the real checkers.
 #undef NDEBUG
 #include "proof/proof.hpp"
+#include "rule_test_utils.hpp"
+#include "test_io.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -31,18 +33,6 @@ using namespace tactix;
 
 namespace {
 
-std::string read_all(const std::string &path) {
-  FILE *f = std::fopen(path.c_str(), "rb");
-  assert(f);
-  std::string out;
-  char buf[4096];
-  size_t n;
-  while ((n = std::fread(buf, 1, sizeof buf, f)) > 0)
-    out.append(buf, n);
-  std::fclose(f);
-  return out;
-}
-
 void expect_equal(const std::string &got, const std::string &want,
                   const char *what) {
   if (got == want)
@@ -50,13 +40,6 @@ void expect_equal(const std::string &got, const std::string &want,
   std::fprintf(stderr, "FAIL %s: %zu bytes, want %zu\n", what, got.size(),
                want.size());
   std::abort();
-}
-
-std::vector<Lit> clause(std::initializer_list<int> external) {
-  std::vector<Lit> lits;
-  for (const int literal : external)
-    lits.push_back(internalize(literal));
-  return lits;
 }
 
 // A fresh directory; removed with its entries at scope end.
@@ -122,8 +105,8 @@ bool fail_writes_to(const std::string &path) {
 using Events = std::function<void(Proof &)>;
 
 const auto inputs = [](Proof &p) {
-  const auto a = clause({1, 2, 3}), b = clause({-1, 2}), c = clause({-2, 3}),
-             d = clause({-3, 4, 5}), e = clause({-3, -4}), f = clause({-3, -5});
+  const auto a = lits_of({1, 2, 3}), b = lits_of({-1, 2}), c = lits_of({-2, 3}),
+             d = lits_of({-3, 4, 5}), e = lits_of({-3, -4}), f = lits_of({-3, -5});
   p.seed_population(1, a.data(), 3);
   p.seed_population(2, b.data(), 2);
   p.seed_population(3, c.data(), 2);
@@ -135,12 +118,12 @@ const auto inputs = [](Proof &p) {
 
 // A small CDCL-shaped refutation: learned clauses, a deletion, root units.
 const auto refutation = [](Proof &p) {
-  const auto l1 = clause({-3, 4}), l2 = clause({-3}), u = clause({3});
+  const auto l1 = lits_of({-3, 4}), l2 = lits_of({-3}), u = lits_of({3});
   p.add_rup(7, l1.data(), 2);
-  p.del(8, 4, clause({-3, 4, 5}).data(), 3);
+  p.del(8, 4, lits_of({-3, 4, 5}).data(), 3);
   p.add_rup(9, l2.data(), 1);
   p.add_derived_unit(10, internalize(-3));
-  p.add_rup(11, clause({2}).data(), 1);
+  p.add_rup(11, lits_of({2}).data(), 1);
   p.add_empty(12);
   (void)u;
 };
@@ -154,7 +137,7 @@ std::string single(ProofFormat format, const Events &events) {
                                                : p.open_dsr_writer(path.c_str(), format));
     events(p);
   }
-  return read_all(path);
+  return read_file(path);
 }
 
 // A complete proof converted from DSR: the header, then lines, then the
@@ -214,7 +197,7 @@ void no_trigger_selects_dsr() {
       assert(directory.entries() == std::vector<std::string>{"proof"});
     }
     assert(route == "dsr-cake_lpr");
-    expect_equal(read_all(path),
+    expect_equal(read_file(path),
                  single(binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii,
                         events),
                  binary ? "binary DSR selected" : "ASCII DSR selected");
@@ -246,7 +229,7 @@ void startup_pb_keeps_pbp() {
     assert(std::string(p.verification_route()) == "pbp");
     assert(directory.entries() == std::vector<std::string>{"proof"});
   }
-  expect_equal(read_all(path), single(ProofFormat::PbpStreaming, events),
+  expect_equal(read_file(path), single(ProofFormat::PbpStreaming, events),
                "terminal PB");
 }
 
@@ -260,14 +243,14 @@ void sr_under_affine_support() {
     assert(p.retain_premise_groups({{{-1, 2}}}, 8, 100, 100000,
                                    [](uint64_t) { return true; }, handles,
                                    {4, 100}));
-    p.del(30, 2, clause({-1, 2}).data(), 2);
+    p.del(30, 2, lits_of({-1, 2}).data(), 2);
   };
   const Events retain = [](Proof &p) {
     const int32_t support[] = {1, 2};
     assert(p.retain_external(20, support, 2));
   };
   const Events free_of_witness = [](Proof &p) {
-    const auto body = clause({1, 2});
+    const auto body = lits_of({1, 2});
     const DsrLiteralMapping identity{internalize(1), internalize(1)};
     const Lit metadata = internalize(3);
     assert(plan_dsr_witness(body.data(), 2, &metadata, 1, &identity, 1).form ==
@@ -275,7 +258,7 @@ void sr_under_affine_support() {
     assert(p.add_sr(21, body.data(), 2, &metadata, 1, &identity, 1, 7));
   };
   const Events witnessed = [](Proof &p) {
-    const auto sr = clause({1, 6});
+    const auto sr = lits_of({1, 6});
     const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
     assert(p.add_sr(22, sr.data(), 2, nullptr, 0, mapping, 1, 7));
   };
@@ -297,19 +280,19 @@ void sr_under_affine_support() {
       assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
       assert(std::string(p.verification_route()) == "dsr-trestle");
     }
-    expect_equal(read_all(path), want, "automatic DSR under affine support");
+    expect_equal(read_file(path), want, "automatic DSR under affine support");
     {
       Proof p;
       assert(p.open(path.c_str(), ProofFormat::DsrAscii));
       events(p);
     }
-    expect_equal(read_all(path), want, "--dsr under affine support");
+    expect_equal(read_file(path), want, "--dsr under affine support");
     {
       Proof p;
       assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
       events(p);
     }
-    const std::string text = read_all(path);
+    const std::string text = read_file(path);
     expect_complete_pbp(text, "PBP under affine support");
     const size_t witness = text.find("x1 -> ~x1");
     assert(witness != std::string::npos);
@@ -328,7 +311,7 @@ void sr_beyond_the_auxiliary_limit() {
     inputs(p);
     const int32_t support[] = {1, 2};
     assert(p.retain_external(20, support, 2));
-    const auto sr = clause({1, 6});
+    const auto sr = lits_of({1, 6});
     const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
     assert(p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, INT32_MAX, true));
     assert(p.automatic_reason() == AutomaticProofReason::CopyDeclined);
@@ -336,7 +319,7 @@ void sr_beyond_the_auxiliary_limit() {
     refutation(p);
     assert(std::string(p.verification_route()) == "pbp");
   }
-  const std::string text = read_all(path);
+  const std::string text = read_file(path);
   expect_complete_pbp(text, "PBP after a line DSR cannot spell");
   assert(count_lines(text, "red ") == 1);
 }
@@ -360,7 +343,7 @@ void expect_proof_error(const std::function<void()> &body, const char *needle) {
   int status = 0;
   assert(waitpid(child, &status, 0) == child);
   assert(WIFEXITED(status) && WEXITSTATUS(status) == 1);
-  assert(read_all(said).find(needle) != std::string::npos);
+  assert(read_file(said).find(needle) != std::string::npos);
 }
 
 // A parity reason, which the DSR copy spells with proof-only helpers.
@@ -387,7 +370,7 @@ uint32_t parity_helpers() {
     p.flush();
   }
   std::set<long> names;
-  std::istringstream text(read_all(path));
+  std::istringstream text(read_file(path));
   for (std::string token; text >> token;)
     if (token != "d")
       names.insert(std::labs(std::stol(token)));
@@ -402,7 +385,7 @@ uint32_t parity_helpers() {
 void sr_auxiliary_name_counts_helpers() {
   const uint32_t helpers = parity_helpers();
   assert(helpers > 0);
-  const auto sr = clause({1, 6});
+  const auto sr = lits_of({1, 6});
   const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
   for (const bool past : {false, true}) {
     TemporaryDirectory directory;
@@ -420,7 +403,7 @@ void sr_auxiliary_name_counts_helpers() {
                                            : AutomaticProofReason::Pending));
       refutation(p);
     }
-    const std::string text = read_all(path);
+    const std::string text = read_file(path);
     if (past)
       expect_complete_pbp(text, "PBP after an auxiliary past the name bound");
     else
@@ -433,7 +416,7 @@ void sr_auxiliary_name_counts_helpers() {
 // helpers, or a new helper.
 void dsr_only_stops_at_the_name_bound() {
   const uint32_t helpers = parity_helpers();
-  const auto sr = clause({1, 6});
+  const auto sr = lits_of({1, 6});
   const DsrLiteralMapping mapping[] = {{internalize(1), internalize(-1)}};
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
@@ -451,7 +434,7 @@ void dsr_only_stops_at_the_name_bound() {
     assert(p.add_external_rup(22, top, 2));
     refutation(p);
   });
-  const std::string text = read_all(path);
+  const std::string text = read_file(path);
   const std::string name = std::to_string(NAME_BOUND);
   assert(text.find("-" + name + " ") != std::string::npos); // the auxiliary
   assert(text.find("\n1 " + name + " 0\n") != std::string::npos);
@@ -487,7 +470,7 @@ void rat_line_deletes_retained_support() {
   inputs(p);
   const int32_t support[] = {1, 2};
   assert(p.retain_external(20, support, 2));
-  const auto line = clause({1, 6});
+  const auto line = lits_of({1, 6});
   p.add_rat(21, line.data(), 2);
   assert(p.persistent_external_epoch() == 1);
 }
@@ -495,7 +478,7 @@ void rat_line_deletes_retained_support() {
 void witnessed_sr_selects_trestle_route() {
   const Events events = [](Proof &p) {
     inputs(p);
-    const auto sr = clause({6, 1});
+    const auto sr = lits_of({6, 1});
     const DsrLiteralMapping mapping[] = {{internalize(6), internalize(-6)}};
     assert(p.add_sr(21, sr.data(), 2, nullptr, 0, mapping, 1, 7));
     refutation(p);
@@ -511,7 +494,7 @@ void witnessed_sr_selects_trestle_route() {
     route = p.verification_route();
   }
   assert(route == "dsr-trestle");
-  expect_equal(read_all(path), single(ProofFormat::DsrBinary, events),
+  expect_equal(read_file(path), single(ProofFormat::DsrBinary, events),
                "witnessed DSR selected");
 }
 
@@ -531,7 +514,7 @@ void symlink_destination_is_copied() {
   }
   struct stat st;
   assert(!lstat(link.c_str(), &st) && S_ISLNK(st.st_mode));
-  expect_equal(read_all(target), single(ProofFormat::DsrBinary, events),
+  expect_equal(read_file(target), single(ProofFormat::DsrBinary, events),
                "DSR copied through a symlink");
 }
 
@@ -546,9 +529,9 @@ void caller_stage_is_copied() {
     events(p);
     assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
   }
-  expect_equal(read_all(path), single(ProofFormat::DsrBinary, events),
+  expect_equal(read_file(path), single(ProofFormat::DsrBinary, events),
                "DSR copied from a caller stage");
-  expect_equal(read_all(stage), "", "emptied caller stage");
+  expect_equal(read_file(stage), "", "emptied caller stage");
 }
 
 // A copy that cannot be written is discarded; the PBP stream is unaffected.
@@ -612,7 +595,7 @@ void failed_conversion_keeps_dsr() {
       // The failed PBP left nothing behind.
       kept = kept && (caller_stage || directory.entries() ==
                                           std::vector<std::string>{"proof"});
-      _exit(kept && read_all(path) == want ? 0 : 1);
+      _exit(kept && read_file(path) == want ? 0 : 1);
     }
     int status = 0;
     assert(waitpid(child, &status, 0) == child);
@@ -624,7 +607,7 @@ void failed_conversion_keeps_dsr() {
 void killed_run_leaves_dsr_prefix() {
   const Events events = [](Proof &p) {
     inputs(p);
-    p.add_rup(7, clause({-3, 4}).data(), 2);
+    p.add_rup(7, lits_of({-3, 4}).data(), 2);
     p.flush();
   };
   TemporaryDirectory directory;
@@ -642,7 +625,7 @@ void killed_run_leaves_dsr_prefix() {
   assert(waitpid(child, &status, 0) == child);
   assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL);
   assert(directory.entries() == std::vector<std::string>{"proof"});
-  expect_equal(read_all(path), single(ProofFormat::DsrBinary, events),
+  expect_equal(read_file(path), single(ProofFormat::DsrBinary, events),
                "DSR left by a killed run");
 }
 
@@ -668,7 +651,7 @@ void switch_replaces_the_destination() {
     assert((after.st_mode & 07777) == 0640);
   }
   unsetenv("TACTIX_AUTO_PROOF_SWITCH_AT");
-  expect_complete_pbp(read_all(path), "PBP that replaced the DSR");
+  expect_complete_pbp(read_file(path), "PBP that replaced the DSR");
 }
 
 // With nowhere to put a sibling the DSR stays out of the destination, as a stage
@@ -693,7 +676,7 @@ void unwritable_directory() {
       assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
     }
     assert(!chmod(directory.path.c_str(), 0755));
-    expect_equal(read_all(path), want, "DSR rewritten from an anonymous stage");
+    expect_equal(read_file(path), want, "DSR rewritten from an anonymous stage");
   }
   {
     TemporaryDirectory directory;
@@ -709,7 +692,7 @@ void unwritable_directory() {
     }
     unsetenv("TACTIX_AUTO_PROOF_SWITCH_AT");
     assert(!chmod(directory.path.c_str(), 0755));
-    expect_equal(read_all(path), want, "DSR kept when no sibling can open");
+    expect_equal(read_file(path), want, "DSR kept when no sibling can open");
   }
 }
 
@@ -722,14 +705,14 @@ void tautological_rat_converts_first() {
     Proof p;
     assert(p.open_automatic(path.c_str(), true));
     inputs(p);
-    p.add_rup(7, clause({-3, 4}).data(), 2);
+    p.add_rup(7, lits_of({-3, 4}).data(), 2);
     const int32_t tautology[] = {7, 1, -1};
     assert(p.add_external_rat(8, tautology, 3));
     assert(p.automatic_reason() == AutomaticProofReason::CopyDeclined);
     assert(std::string(p.lazy_pbp_report().state) == "converted");
     refutation(p);
   }
-  const std::string text = read_all(path);
+  const std::string text = read_file(path);
   expect_complete_pbp(text, "tautological RAT");
   assert(count_lines(text, "red ") == 1);
 }
@@ -758,7 +741,7 @@ void dsr_limit_stays_on_dsr() {
     assert(std::string(p.lazy_pbp_report().state) == "dsr-limit");
     assert(directory.entries() == std::vector<std::string>{"proof"});
   }
-  assert(read_all(path).rfind("pseudo-Boolean", 0) != 0);
+  assert(read_file(path).rfind("pseudo-Boolean", 0) != 0);
   {
     Proof p;
     assert(p.open_automatic(path.c_str(), true));
@@ -769,7 +752,7 @@ void dsr_limit_stays_on_dsr() {
     refutation(p);
     assert(std::string(p.lazy_pbp_report().state) == "converted");
   }
-  expect_complete_pbp(read_all(path), "no clausal spelling past the limit");
+  expect_complete_pbp(read_file(path), "no clausal spelling past the limit");
   unsetenv("TACTIX_AUTO_PROOF_DSR_LIMIT");
 }
 
@@ -795,7 +778,7 @@ void dsr_only_writes_dsr_with_the_same_answers() {
     assert(std::string(p.verification_route()) == "dsr-cake_lpr");
     assert(directory.entries() == std::vector<std::string>{"proof"});
   }
-  const std::string text = read_all(path);
+  const std::string text = read_file(path);
   assert(text.rfind("pseudo-Boolean", 0) != 0);
   assert(text.find("-1 2 0\n") != std::string::npos); // the parity reason
   {
@@ -814,7 +797,7 @@ void dsr_only_writes_dsr_with_the_same_answers() {
     assert(p.add_external_rat(8, tautology, 3));
     refutation(p);
   }
-  assert(read_all(path).rfind("pseudo-Boolean", 0) != 0);
+  assert(read_file(path).rfind("pseudo-Boolean", 0) != 0);
 }
 
 // --dsr keeps its input transaction private, as whole-run PBP does, so a startup
@@ -826,7 +809,7 @@ void dsr_only_writes_dsr_with_the_same_answers() {
 void dsr_only_keeps_the_input_private() {
   constexpr uint64_t duplicates = 300000; // 5 bytes each in binary DSR
   const Events normalized = [](Proof &p) {
-    const auto duplicate = clause({1, 2, 3});
+    const auto duplicate = lits_of({1, 2, 3});
     for (uint64_t id = 1; id <= duplicates; ++id) {
       p.seed_population(id, duplicate.data(), 3);
       if (id > 1)
@@ -835,7 +818,7 @@ void dsr_only_keeps_the_input_private() {
     p.finish_input_transaction();
   };
   const Events derivation = [](Proof &p) {
-    p.add_rup(duplicates + 1, clause({1, 2}).data(), 2);
+    p.add_rup(duplicates + 1, lits_of({1, 2}).data(), 2);
   };
   TemporaryDirectory directory;
   const std::string path = directory / "proof", fifo = directory / "fifo";
@@ -845,12 +828,12 @@ void dsr_only_keeps_the_input_private() {
     Proof p;
     assert(p.open(path.c_str(), ProofFormat::DsrBinary));
     normalized(p);
-    assert(p.startup_pb_available() && read_all(path).empty());
+    assert(p.startup_pb_available() && read_file(path).empty());
     derivation(p);
     // The commit published the prefix: the open proof's destination holds it.
-    expect_equal(read_all(path), prefix, "--dsr prefix at the first clausal event");
+    expect_equal(read_file(path), prefix, "--dsr prefix at the first clausal event");
   }
-  expect_equal(read_all(path),
+  expect_equal(read_file(path),
                single(ProofFormat::DsrBinary,
                       [&](Proof &p) { normalized(p); derivation(p); }),
                "--dsr to a file");
@@ -858,8 +841,8 @@ void dsr_only_keeps_the_input_private() {
   // event commits the stream, so the selection publishes the prefix, which a
   // pipe cannot take by rewriting in place.
   const Events conflicting = [](Proof &p) {
-    p.seed_population(1, clause({1}).data(), 1);
-    p.seed_population(2, clause({-1}).data(), 1);
+    p.seed_population(1, lits_of({1}).data(), 1);
+    p.seed_population(2, lits_of({-1}).data(), 1);
   };
   const Events refuted_in_input = [](Proof &p) {
     p.add_empty(3);
@@ -902,7 +885,7 @@ void dsr_only_keeps_the_input_private() {
 void dsr_only_switch_at_the_end_keeps_dsr() {
   const Events events = [](Proof &p) {
     inputs(p);
-    p.add_rat(20, clause({6, -1}).data(), 2);
+    p.add_rat(20, lits_of({6, -1}).data(), 2);
     const int32_t rat[] = {-6, 2};
     assert(p.add_external_rat(21, rat, 2));
     refutation(p);
@@ -920,7 +903,7 @@ void dsr_only_switch_at_the_end_keeps_dsr() {
     }
     unsetenv("TACTIX_AUTO_PROOF_SWITCH_AT");
     assert(directory.entries() == std::vector<std::string>{"proof"});
-    expect_equal(read_all(path),
+    expect_equal(read_file(path),
                  single(binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii,
                         events),
                  "--dsr past a switch at the end");
@@ -968,13 +951,13 @@ void failed_spill_aborts() {
     assert(p.open_automatic(path.c_str(), true, stage.c_str()));
     assert(fail_writes_to(stage));
     inputs(p);
-    p.add_rup(7, clause({3}).data(), 1); // a pending DSR unit
+    p.add_rup(7, lits_of({3}).data(), 1); // a pending DSR unit
     for (int i = 0; i < 14000; ++i) {                // > 64 KiB of deletions
       const int a = 1 + i % 29, b = 1 + (i / 29) % 29;
       if (a != b)
-        p.del(8 + i, 100000 + i, clause({a, -b, 30}).data(), 3);
+        p.del(8 + i, 100000 + i, lits_of({a, -b, 30}).data(), 3);
     }
-    p.add_rup(30000, clause({1, 2, 4}).data(), 3); // flushes it
+    p.add_rup(30000, lits_of({1, 2, 4}).data(), 3); // flushes it
     refutation(p);
     p.flush();
   });
@@ -1003,7 +986,7 @@ void unusable_stage_is_pbp_only() {
 void unfinished_run_leaves_dsr_prefix() {
   const Events events = [](Proof &p) {
     inputs(p);
-    p.add_rup(7, clause({-3, 4}).data(), 2);
+    p.add_rup(7, lits_of({-3, 4}).data(), 2);
     p.flush();
   };
   enum Placement { Rename, Rewrite, CallerStage };
@@ -1029,7 +1012,7 @@ void unfinished_run_leaves_dsr_prefix() {
         // No PBP byte has reached the disk while the run is lazy; the DSR is
         // there already unless a stage holds it.
         expect_equal(
-            read_all(path),
+            read_file(path),
             placement == Rename
                 ? single(binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii,
                          events)
@@ -1041,12 +1024,12 @@ void unfinished_run_leaves_dsr_prefix() {
         expected = {"link", "proof"};
       if (placement == CallerStage) {
         expected = {"proof", "stage"};
-        expect_equal(read_all(stage), "", "emptied caller stage");
+        expect_equal(read_file(stage), "", "emptied caller stage");
       }
       std::vector<std::string> names = directory.entries();
       std::sort(names.begin(), names.end());
       assert(names == expected);
-      expect_equal(read_all(path),
+      expect_equal(read_file(path),
                    single(binary ? ProofFormat::DsrBinary : ProofFormat::DsrAscii,
                           events),
                    "unfinished DSR prefix");
@@ -1064,10 +1047,10 @@ void unfinished_run_with_a_failed_stage_stays_empty() {
     Proof p;
     assert(p.open_automatic(path.c_str(), true, stage.c_str()));
     inputs(p);
-    p.add_rup(7, clause({-3, 4}).data(), 2);
+    p.add_rup(7, lits_of({-3, 4}).data(), 2);
     assert(fail_writes_to(stage));
   }
-  expect_equal(read_all(path), "", "unfinished run after a stage failure");
+  expect_equal(read_file(path), "", "unfinished run after a stage failure");
 }
 
 // Non-regular destinations cannot be rewritten: whole-run PBP, no copy.
@@ -1104,7 +1087,7 @@ void scripted_run(Proof &p, int total) {
     if (c[0] == c[1] || c[0] == -c[1] || c[1] == c[2] || c[1] == -c[2] ||
         c[0] == c[2] || c[0] == -c[2])
       continue;
-    const auto lits = clause({c[0], c[1], c[2]});
+    const auto lits = lits_of({c[0], c[1], c[2]});
     p.seed_population(id++, lits.data(), 3);
   }
   p.finish_input_transaction();
@@ -1112,21 +1095,21 @@ void scripted_run(Proof &p, int total) {
     const uint64_t kind = next(100);
     if (kind < 15) { // a RUP unit
       const int u = literal();
-      p.add_rup(id++, clause({u}).data(), 1);
+      p.add_rup(id++, lits_of({u}).data(), 1);
     } else if (kind < 60) { // a RUP clause
       const int a = literal(), b = literal();
       if (a == b || a == -b)
         continue;
-      p.add_rup(id++, clause({a, b}).data(), 2);
+      p.add_rup(id++, lits_of({a, b}).data(), 2);
       live.push_back({a, b});
     } else if (kind < 70) { // a RAT clause on a fresh variable
       const int fresh = vars + 1 + i, b = literal();
-      p.add_rat(id++, clause({fresh, b}).data(), 2);
+      p.add_rat(id++, lits_of({fresh, b}).data(), 2);
     } else if (!live.empty()) { // a deletion
       const size_t at = next(live.size());
       const std::vector<int> c = live[at];
       live.erase(live.begin() + static_cast<long>(at));
-      p.del(id++, 0, clause({c[0], c[1]}).data(), 2);
+      p.del(id++, 0, lits_of({c[0], c[1]}).data(), 2);
     }
   }
   p.add_empty(id);
@@ -1168,11 +1151,11 @@ size_t long_script(Proof &p) {
         assert(p.add_external_rup(id++, c.data(), 8));
       }
     }
-    p.add_rup(id++, clause({1 + round}).data(), 1); // pending unit
+    p.add_rup(id++, lits_of({1 + round}).data(), 1); // pending unit
     for (int i = 0; i < 14000; ++i) { // a spilled deletion block
       const int a = 1 + i % 29, b = 1 + (i / 29) % 29;
       if (a != b)
-        p.del(id++, 100000 + i, clause({a, -b, 30}).data(), 3);
+        p.del(id++, 100000 + i, lits_of({a, -b, 30}).data(), 3);
     }
   }
   refutation(p);
@@ -1193,7 +1176,7 @@ void long_conversion_marks_every_rat_line() {
     assert(std::string(p.lazy_pbp_report().state) == "converted");
   }
   unsetenv("TACTIX_AUTO_PROOF_SWITCH_AT");
-  const std::string text = read_all(path);
+  const std::string text = read_file(path);
   expect_complete_pbp(text, "long conversion");
   assert(count_lines(text, "red ") == rats);
 }
@@ -1212,7 +1195,7 @@ void conversion_at_every_point() {
       assert(p.open_automatic(path.c_str(), true));
       scripted_run(p, total);
     }
-    const std::string text = read_all(path);
+    const std::string text = read_file(path);
     expect_complete_pbp(text, "conversion at the end");
     additions = count_lines(text, "rup ") + count_lines(text, "red ");
   }
@@ -1232,7 +1215,7 @@ void conversion_at_every_point() {
       assert(p.automatic_reason() == AutomaticProofReason::ForcedSwitch);
       assert(std::string(p.lazy_pbp_report().state) == "converted");
     }
-    const std::string text = read_all(path);
+    const std::string text = read_file(path);
     expect_complete_pbp(text, "conversion mid-run");
     // DSR spells some units with two helper lines, so a converted prefix can
     // only add lines to --pbp's: no addition is lost.

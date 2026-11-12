@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rule_test_utils.hpp"
 #include "strategy/guidance_execution.hpp"
 #include "strategy/reduction_execution.hpp"
 #include "strategy/root_execution.hpp"
@@ -174,9 +175,8 @@ static void test_reduction_collection(bool compact) {
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 6);
   const Lit prefix[] = {internalize(1), internalize(2), internalize(3)};
-  const Lit redundant[] = {internalize(4), internalize(5), internalize(6)};
   kernel_add_large_clause(k, prefix, 3, false, 0);
-  const Ref victim = kernel_add_large_clause(k, redundant, 3, true, 9);
+  const Ref victim = add_external_clause(k, {4, 5, 6}, true, 9);
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
   // A compacting collection starts at offset zero and also sweeps the

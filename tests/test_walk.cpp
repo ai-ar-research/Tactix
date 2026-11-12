@@ -6,6 +6,7 @@
 #include "policies/heuristics.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/registry.hpp"
+#include "rule_test_utils.hpp"
 
 #include <cassert>
 #include <bit>
@@ -16,6 +17,13 @@
 using namespace tactix;
 
 static bool near(double a, double b) { return std::fabs(a - b) < 1e-12; }
+
+static unsigned count_true(const Kernel &k) {
+  unsigned trues = 0;
+  for (const int8_t phase : k.h->saved)
+    trues += phase > 0;
+  return trues;
+}
 
 static void test_configurable_score_curve() {
   strategy::WalkParameters reference;
@@ -79,10 +87,8 @@ static void build_conflict_cover(Kernel &k, int n) {
 }
 
 static void add_nae3(Kernel &k, int a, int b, int c) {
-  const Lit positive[] = {internalize(a), internalize(b), internalize(c)};
-  const Lit negative[] = {internalize(-a), internalize(-b), internalize(-c)};
-  kernel_add_large_clause(k, positive, 3, false, 0);
-  kernel_add_large_clause(k, negative, 3, false, 0);
+  add_external_clause(k, {a, b, c});
+  add_external_clause(k, {-a, -b, -c});
 }
 
 static void test_configuration_checking_profiles_and_structure() {
@@ -134,29 +140,21 @@ static void test_configuration_checking_profiles_and_structure() {
   Kernel unpaired;
   ScopedHeuristics unpaired_heuristics(unpaired);
   kernel_reserve_vars(unpaired, 4);
-  const Lit first[] = {internalize(1), internalize(2), internalize(3)};
-  const Lit second[] = {internalize(2), internalize(3), internalize(4)};
-  kernel_add_large_clause(unpaired, first, 3, false, 0);
-  kernel_add_large_clause(unpaired, second, 3, false, 0);
+  add_external_clause(unpaired, {1, 2, 3});
+  add_external_clause(unpaired, {2, 3, 4});
   assert(walk_complementary_ternary_fraction_permille(unpaired) == 0);
 
   Kernel imbalanced;
   ScopedHeuristics imbalanced_heuristics(imbalanced);
   kernel_reserve_vars(imbalanced, 3);
-  const Lit positive[] = {internalize(1), internalize(2), internalize(3)};
-  const Lit negative[] = {internalize(-1), internalize(-2), internalize(-3)};
   for (unsigned copy = 0; copy != 9; ++copy)
-    kernel_add_large_clause(imbalanced, positive, 3, false, 0);
-  kernel_add_large_clause(imbalanced, negative, 3, false, 0);
+    add_external_clause(imbalanced, {1, 2, 3});
+  add_external_clause(imbalanced, {-1, -2, -3});
   assert(walk_complementary_ternary_fraction_permille(imbalanced) == 200);
-
 }
 
-// Configuration checking uses the primal graph only to re-enable variables
-// adjacent to a flip.  A wide clause must not be expanded into its quadratic
-// clique: derive those neighbors from the occurrence lists when the flip is
-// made.  Twenty thousand variables makes an eager clique require hundreds of
-// millions of entries while the actual two-clause problem remains linear.
+// Configuration checking derives flip neighbours from the occurrence lists,
+// not an eager quadratic clique (20000 variables in one clause).
 static void test_configuration_checking_wide_clause_is_linear_space() {
   constexpr int variables = 20000;
   Kernel k;
@@ -186,10 +184,7 @@ static void test_configuration_checking_wide_clause_is_linear_space() {
   strategy::ScopedWalkParameters selected(k, profile);
   assert(walk_apply(k) == ApplyResult::Ok);
   assert(k.stats.walk_minimum == 0 && k.stats.walk_flips == 1);
-  unsigned trues = 0;
-  for (const int8_t phase : k.h->saved)
-    trues += phase > 0;
-  assert(trues == 1);
+  assert(count_true(k) == 1);
   kernel_check_invariants(k);
 }
 
@@ -206,10 +201,8 @@ static void test_break_base_domain_terminates() {
   }
 }
 
-// A valid curve interpolates to one ULP above 1 at the conflict-cover's
-// average 9/4. Precomputing until underflow then takes an astronomical number
-// of entries even though this three-variable formula has maximum break 2.
-// Do not reject/round the curve or reduce the caller's requested work.
+// A valid curve interpolating to one ULP above 1 (average 9/4) must neither
+// precompute until underflow nor be rejected, rounded or cut short.
 static void test_near_unit_interpolated_base() {
   strategy::WalkParameters p;
   p.score_curve = {{0, 136}, {3000, 1288}};
@@ -234,10 +227,7 @@ static void test_near_unit_interpolated_base() {
       assert(k.stats.walk_steps > 0 && k.stats.walk_flips > 0);
       if (steps > 1) {
         assert(k.stats.walk_minimum == 0);
-        unsigned trues = 0;
-        for (const int8_t phase : k.h->saved)
-          trues += phase > 0;
-        assert(trues == 1); // independently satisfies the conflict cover
+        assert(count_true(k) == 1); // independently satisfies the cover
       }
     }
   }
@@ -258,10 +248,7 @@ static void test_finds_model() {
   assert(k.stats.walks == 1 && k.stats.walk_improved == 1);
   assert(k.stats.walk_flips > 0);
 
-  int trues = 0;
-  for (Var v = 0; v < k.nvars; v++)
-    trues += (k.h->saved[v] > 0);
-  assert(trues == 1); // exactly one: every binary satisfied, cover satisfied
+  assert(count_true(k) == 1); // every binary and the cover satisfied
   for (Var v = 0; v < k.nvars; v++)
     assert(k.h->target[v] == k.h->saved[v]); // the rephase tail ran
   assert(k.h->target_assigned == 0);
@@ -326,11 +313,8 @@ static void test_budget_and_noop() {
   assert(k2.stats.walk_improved == 0);
 }
 
-// Walk's non-null dense transition saves each binary from the lower compact
-// literal and replays that stack on sparse resume. Stable kernel identities can
-// disagree with compact/import order after retirement, so the shared endpoint
-// below must receive var 1 before var 0 even though the clauses were inserted
-// in the opposite order. No witness literals or formula profile are involved.
+// Walk's dense transition saves each binary from the lower compact (import
+// order) literal and replays it on resume: var 1 before var 0 here.
 static void test_resume_uses_compact_literal_order() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -342,35 +326,25 @@ static void test_resume_uses_compact_literal_order() {
   kernel_add_binary_clause(k, internalize(1), shared);
   kernel_add_binary_clause(k, internalize(2), shared);
 
-  const auto partners = [&] {
-    std::vector<Lit> result;
-    for (const WatchEntry watch : k.watches.entries(shared))
-      if (watch.binary())
-        result.push_back(watch.other());
-    return result;
-  };
-  assert((partners() == std::vector<Lit>{internalize(1), internalize(2)}));
+  assert((binary_partners(k, shared) ==
+          std::vector<Lit>{internalize(1), internalize(2)}));
   assert(walk_apply_steps(k, 0) != ApplyResult::Conflict);
-  assert((partners() == std::vector<Lit>{internalize(2), internalize(1)}));
+  assert((binary_partners(k, shared) ==
+          std::vector<Lit>{internalize(2), internalize(1)}));
 }
 
-// Kissat reconnects large clauses by scanning its physical source arena.
-// Tactix can append a replacement after later clauses while preserving the
-// replacement's inherited source position, so Walk resume has to replay the
-// generation-local source position rather than Tactix's host-arena position.
+// Kissat reconnects large clauses in physical arena order, so Walk resume
+// replays an appended replacement at its inherited position.
 static void test_resume_large_watches_uses_logical_clause_position() {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 7);
   const Lit shared = internalize(-1);
-  const Lit a[3] = {shared, internalize(2), internalize(3)};
-  const Lit b[3] = {shared, internalize(4), internalize(5)};
-  const Lit replacement[3] = {shared, internalize(6), internalize(7)};
-  const Ref source = kernel_add_large_clause(k, a, 3, false, 0, 301);
-  kernel_add_large_clause(k, b, 3, false, 0, 302);
+  const Ref source = add_external_clause(k, {-1, 2, 3}, false, 0, 301);
+  add_external_clause(k, {-1, 4, 5}, false, 0, 302);
   kernel_inherit_clause_position(k, 303, source);
   kernel_delete_clause(k, clause_at(k.arena, source));
-  kernel_add_large_clause(k, replacement, 3, false, 0, 303);
+  add_external_clause(k, {-1, 6, 7}, false, 0, 303);
 
   assert(walk_apply_steps(k, 1) != ApplyResult::Conflict);
   std::vector<uint64_t> ids;
@@ -397,8 +371,7 @@ static void test_dense_entry_deduplicates_binary_pairs() {
   const uint64_t deleted_before = k.stats.binaries_deleted;
   assert(walk_apply_steps(k, 1) != ApplyResult::Conflict);
   assert(kernel_binary_copies(k, a, b) == 1);
-  // the later copy is deleted as a clause (kissat_delete_binary), not merely
-  // dropped from the watch lists
+  // the later copy is deleted as a clause (kissat_delete_binary)
   assert(k.stats.binaries_deleted == deleted_before + 1);
   kernel_check_invariants(k);
 }
@@ -429,9 +402,7 @@ static void test_no_heuristics_guard() {
 }
 
 // Kissat's dense entry (dense.c:flush_large_watches) deletes root-satisfied
-// binaries before init_walker reads BINIRR_CLAUSES, so such binaries are
-// invisible to the walk: neither in its table nor in the score-table average.
-// Two kernels that differ only by root-satisfied binaries must walk identically.
+// binaries before init_walker, so they do not change the walk.
 static void test_root_satisfied_binaries_do_not_reach_the_walk() {
   Kernel plain, extra;
   ScopedHeuristics _p(plain), _e(extra);

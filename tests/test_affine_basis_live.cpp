@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "affine_formula_support.hpp"
 #include "clause_oracle.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/affine_basis_live.hpp"
@@ -15,24 +16,6 @@
 
 using namespace tactix;
 using namespace tactix::affine_semantic_extension;
-
-static void add_equation(Kernel &kernel, const std::vector<External> &variables,
-                         bool rhs) {
-  for (const auto &external : clausal_form(variables, rhs)) {
-    std::vector<Lit> internal;
-    for (External literal : external) internal.push_back(internalize(literal));
-    if (internal.size() == 1) {
-      kernel.unit_ids[var_of(internal[0])] = ++kernel.next_clause_id;
-      kernel_assign_unit(kernel, internal[0]);
-    } else if (internal.size() == 2) {
-      kernel_add_binary_clause(kernel, internal[0], internal[1],
-                               ++kernel.next_clause_id);
-    } else {
-      kernel_add_large_clause(kernel, internal.data(), internal.size(), false,
-                              0, ++kernel.next_clause_id);
-    }
-  }
-}
 
 static Kernel cancellation_fixture() {
   Kernel kernel;
@@ -106,13 +89,8 @@ static bool rat(const std::vector<ProofClause> &database, const ProofClause &can
 }
 
 static std::vector<ProofClause> fixture_clauses(bool contradictory) {
-  std::vector<ProofClause> result = clausal_form({1, 2, 3, 4, 5}, false);
-  auto second = clausal_form(
-      contradictory ? std::vector<External>{1, 2, 3, 4, 5}
-                    : std::vector<External>{1, 2, 3, 4, 6},
-      true);
-  result.insert(result.end(), second.begin(), second.end());
-  return result;
+  return xor_cnf({{{1, 2, 3, 4, 5}, false},
+                  {{1, 2, 3, 4, contradictory ? 5 : 6}, true}});
 }
 
 static void verify_transaction_proof(
@@ -144,14 +122,8 @@ static void verify_transaction_proof(
 static void successful_basis(bool with_proof, const char *proof_path) {
   Kernel kernel = cancellation_fixture();
   Proof proof;
-  if (with_proof) {
-    assert(proof.open(proof_path, ProofFormat::DsrAscii));
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);
-    kernel.proof = &proof;
-  }
-  FILE *records = std::tmpfile();
-  assert(records);
+  if (with_proof) bind_proof(proof, kernel, proof_path);
+  FILE *records = temporary_records();
   const auto applied = apply_affine_basis_live(kernel, request(records));
   assert(applied.status == AffineBasisLiveStatus::Applied);
   assert(applied.result == ApplyResult::Ok);
@@ -183,8 +155,7 @@ static void successful_basis(bool with_proof, const char *proof_path) {
 
 static void independent_proof_microcheck() {
   Kernel kernel = cancellation_fixture();
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   AffineBasisLiveTransaction transaction;
   assert(prepare_affine_basis_live(kernel, request(records), transaction).status ==
          AffineBasisLiveStatus::Prepared);
@@ -195,8 +166,7 @@ static void independent_proof_microcheck() {
 static void atomic_declines() {
   {
     Kernel kernel = cancellation_fixture();
-    FILE *records = std::tmpfile();
-    assert(records);
+    FILE *records = temporary_records();
     auto limited = request(records);
     limited.maximum_proof_additions = 1;
     const auto mapping = kernel.external_to_internal;
@@ -211,8 +181,7 @@ static void atomic_declines() {
   }
   {
     Kernel kernel = cancellation_fixture();
-    FILE *records = std::tmpfile();
-    assert(records);
+    FILE *records = temporary_records();
     auto tiny = request(records);
     tiny.maximum_journal_bytes = 1;
     const auto mapping = kernel.external_to_internal;
@@ -224,32 +193,17 @@ static void atomic_declines() {
            kernel.next_clause_id == ids && std::ftell(records) == 0);
     std::fclose(records);
   }
-  {
+  // A prepared transaction is stale after a new clause id or a retired source.
+  for (bool retire_source : {false, true}) {
     Kernel kernel = cancellation_fixture();
-    FILE *records = std::tmpfile();
-    assert(records);
+    FILE *records = temporary_records();
     const auto configured = request(records);
     AffineBasisLiveTransaction transaction;
     assert(prepare_affine_basis_live(kernel, configured, transaction).status ==
            AffineBasisLiveStatus::Prepared);
     const auto mapping = kernel.external_to_internal;
-    ++kernel.next_clause_id;
-    const auto result = publish_affine_basis_live(kernel, configured,
-                                                   transaction);
-    assert(result.status == AffineBasisLiveStatus::Stale);
-    assert(kernel.external_to_internal == mapping && std::ftell(records) == 0);
-    std::fclose(records);
-  }
-  {
-    Kernel kernel = cancellation_fixture();
-    FILE *records = std::tmpfile();
-    assert(records);
-    const auto configured = request(records);
-    AffineBasisLiveTransaction transaction;
-    assert(prepare_affine_basis_live(kernel, configured, transaction).status ==
-           AffineBasisLiveStatus::Prepared);
-    const auto mapping = kernel.external_to_internal;
-    clause_at(kernel.arena, 0)->flags |= tactix::Clause::GARBAGE;
+    if (retire_source) clause_at(kernel.arena, 0)->flags |= tactix::Clause::GARBAGE;
+    else ++kernel.next_clause_id;
     const auto result = publish_affine_basis_live(kernel, configured,
                                                    transaction);
     assert(result.status == AffineBasisLiveStatus::Stale);
@@ -262,8 +216,7 @@ static void no_new_information() {
   Kernel kernel;
   kernel_reserve_vars(kernel, 3);
   add_equation(kernel, {1, 2, 3}, true);
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   const auto mapping = kernel.external_to_internal;
   const auto result = apply_affine_basis_live(kernel, request(records));
   assert(result.status == AffineBasisLiveStatus::NoStructure);
@@ -276,8 +229,7 @@ static void bounded_proof_scope() {
   kernel_reserve_vars(kernel, 15);
   add_equation(kernel, {1, 2, 3, 4, 5, 6, 7, 8}, false);
   add_equation(kernel, {1, 9, 10, 11, 12, 13, 14, 15}, true);
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   const auto mapping = kernel.external_to_internal;
   const auto result = apply_affine_basis_live(kernel, request(records));
   assert(result.status == AffineBasisLiveStatus::UnsupportedProof);
@@ -287,8 +239,7 @@ static void bounded_proof_scope() {
 
 static void exact_owned_row_selection() {
   Kernel kernel = cancellation_fixture();
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   auto configured = request(records);
   AffineLiveSnapshot owner;
   capture_owner(kernel, configured, owner);
@@ -341,17 +292,13 @@ static void exact_owned_row_selection() {
 static void exact_owned_wide_row_selection(const char *proof_path) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 15);
-  const std::vector<External> first{1, 2, 3, 4, 5, 6, 7, 8};
-  const std::vector<External> second{1, 9, 10, 11, 12, 13, 14, 15};
+  const std::vector<int32_t> first{1, 2, 3, 4, 5, 6, 7, 8};
+  const std::vector<int32_t> second{1, 9, 10, 11, 12, 13, 14, 15};
   add_equation(kernel, first, false);
   add_equation(kernel, second, true);
   Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  FILE *records = std::tmpfile();
-  assert(records);
+  bind_proof(proof, kernel, proof_path);
+  FILE *records = temporary_records();
   auto configured = request(records);
   AffineLiveSnapshot owner;
   capture_owner(kernel, configured, owner);
@@ -395,10 +342,7 @@ static void exact_owned_wide_row_selection(const char *proof_path) {
     const auto [found, inserted] = retained_units.emplace(variable, literal);
     assert(inserted || found->second == literal);
   }
-  std::vector<ProofClause> database = clausal_form(first, false);
-  const auto more = clausal_form(second, true);
-  database.insert(database.end(), more.begin(), more.end());
-  verify_transaction_proof(transaction, std::move(database));
+  verify_transaction_proof(transaction, xor_cnf({{first, false}, {second, true}}));
 
   auto too_tight = configured;
   too_tight.basis.maximum_nodes = prepared.extent_growth - 1;
@@ -437,12 +381,8 @@ static void contradiction(const char *proof_path) {
   add_equation(kernel, {1, 2, 3, 4, 5}, false);
   add_equation(kernel, {1, 2, 3, 4, 5}, true);
   Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  FILE *records = std::tmpfile();
-  assert(records);
+  bind_proof(proof, kernel, proof_path);
+  FILE *records = temporary_records();
   const auto configured = request(records);
   AffineBasisLiveTransaction transaction;
   assert(prepare_affine_basis_live(kernel, configured, transaction).status ==
@@ -457,10 +397,8 @@ static void contradiction(const char *proof_path) {
   std::fclose(records);
 }
 
-int main(int argc, char **argv) {
-  const char *sat_proof = argc > 1 ? argv[1] : "/tmp/affine-basis-sat.dsr";
-  const char *unsat_proof = argc > 2 ? argv[2] : "/tmp/affine-basis-unsat.dsr";
-  const char *wide_proof = argc > 3 ? argv[3] : "/tmp/affine-basis-wide.dsr";
+int main() {
+  const char *sat_proof = "/tmp/affine-basis-sat.dsr";
   successful_basis(false, sat_proof);
   successful_basis(true, sat_proof);
   independent_proof_microcheck();
@@ -468,8 +406,8 @@ int main(int argc, char **argv) {
   no_new_information();
   bounded_proof_scope();
   exact_owned_row_selection();
-  exact_owned_wide_row_selection(wide_proof);
-  contradiction(unsat_proof);
+  exact_owned_wide_row_selection("/tmp/affine-basis-wide.dsr");
+  contradiction("/tmp/affine-basis-unsat.dsr");
   std::puts("affine basis live: atomic definitions, consequences, projection, "
             "stale/resource declines, and proof scope PASS");
 }

@@ -27,9 +27,8 @@ static void addn(Kernel &k, std::vector<int> ds, bool redundant = false) {
 
 static bool near(double a, double b) { return std::fabs(a - b) < 1e-12; }
 
-// Weight formula: a binary contributes 1 to each literal, a ternary 1/2, a
-// quaternary 1/4; the variable weight is max(w+,w-) + 2·min(w+,w-), so a
-// both-polarity split outranks the same total mass on one polarity.
+// Weight: binary 1, ternary 1/2, quaternary 1/4 per literal; variable weight
+// max(w+,w-) + 2*min(w+,w-).
 static void test_weight_formula() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -95,10 +94,8 @@ static void test_exclusions() {
   assert(near(w[var_of(internalize(4))], 0.5)); // the second still counts
 }
 
-// Kissat deliberately stops inspecting a large clause when the 100th open
-// literal is reached.  A satisfying root literal after that physical cutoff
-// is not observed, and the clause contributes table[100].  Continuing through
-// the tail looks equivalent mathematically but changes Reorder's exact heap.
+// Kissat stops inspecting a large clause at its 100th open literal; a later
+// satisfying root literal is unseen and the clause contributes table[100].
 static void test_max_size_stops_before_late_satisfaction() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -162,10 +159,8 @@ static void test_heap_ranking() {
   assert(heuristics_heap_next_unassigned(k) == var_of(internalize(1)));
 }
 
-// Kissat rescales before sorting stable Reorder candidates.  A large inactive
-// score can make two distinct active scores underflow to the same value; the
-// resulting internal-index tie then determines the equal-weight update order
-// and the physical heap pose.  Sorting the pre-rescale values reverses it.
+// Kissat rescales before sorting stable Reorder candidates, so underflowed
+// scores tie on internal index.
 static void test_heap_sort_observes_rescaled_scores() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -190,10 +185,7 @@ static void test_heap_sort_observes_rescaled_scores() {
          k.h->scores.stack[1] == var_of(internalize(3)));
 }
 
-// Stable Reorder's final tie is Kissat's current internal index (first-import
-// order), not Tactix's stable variable identity or activation permutation.
-// With equal weights and scores, the lowest import index is updated first and
-// therefore reaches the heap root first.
+// Stable Reorder's final tie is Kissat's internal (first-import) index.
 static void test_heap_tie_uses_import_order() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -212,10 +204,8 @@ static void test_heap_tie_uses_import_order() {
   assert(k.h->scores.stack[0] == 2);
 }
 
-// A variable imported from a later-discarded input clause can exist as a
-// stable Tactix identity without ever becoming Kissat ACTIVE. The activation
-// image defines Reorder's candidate population; such an identity keeps its
-// score even though the public decision surface remains complete.
+// An identity from a discarded input clause is never Kissat ACTIVE and keeps
+// its score outside Reorder's candidate population.
 static void test_inactive_import_is_not_reordered() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -232,9 +222,7 @@ static void test_inactive_import_is_not_reordered() {
   assert(k.h->scores.score[1] == 0.0);
 }
 
-// Kissat reorders ACTIVE variables only. Retired variables are disconnected
-// from both rankings; feeding them back through queue_bump follows stale links
-// and used to corrupt the focused queue on the first 10k-conflict Reorder.
+// Kissat reorders ACTIVE variables only; retired ones stay disconnected.
 static void test_retired_variables_stay_disconnected() {
   for (const bool stable : {false, true}) {
     Kernel k;
@@ -258,18 +246,14 @@ static void test_retired_variables_stay_disconnected() {
     const Var queue_first = k.h->queue_first;
     const Var queue_last = k.h->queue_last;
     const double retired_score = k.h->scores.score[4];
-    // Conflict analysis can still encounter a retired identity in stale
-    // reason-side material.  Kissat filters those bumps through ACTIVE: the
-    // disconnected variable must not be dequeued again or gain heap score.
+    // Kissat filters stale reason-side bumps through ACTIVE.
     heuristics_queue_bump(k, 1);
     heuristics_score_bump(k, 4);
     assert(k.h->queue_first == queue_first && k.h->queue_last == queue_last);
     assert(k.h->links[1].prev == INVALID_VAR &&
            k.h->links[1].next == INVALID_VAR);
     assert(k.h->scores.score[4] == retired_score);
-    // A later Substitute demotion batch can overlap identities retired by an
-    // earlier rule. It must demote its still-connected members without
-    // splicing those already-disconnected identities back into the queue.
+    // A later demotion batch leaves already-disconnected identities out of the queue.
     std::vector<uint8_t> marked(k.nvars, 0);
     marked[1] = marked[3] = marked[4] = 1;
     heuristics_demote_marked_vars(k, marked);
@@ -286,9 +270,7 @@ static void test_retired_variables_stay_disconnected() {
   }
 }
 
-// The VMTF search cache survives a mid-trail reorder: every variable after
-// `search_idx` must stay assigned, the invariant `queue_next_unassigned`'s
-// backward walk needs and `queue_bump` maintains only for what it moves.
+// After a mid-trail reorder every variable past search_idx stays assigned.
 static void test_search_cache_survives_mid_trail() {
   for (int assign = 0; assign <= 3; assign++) {
     Kernel k;

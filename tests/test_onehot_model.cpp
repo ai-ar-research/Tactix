@@ -2,12 +2,12 @@
 #include "proof/proof.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
+#include "temporary_file.hpp"
+#include "test_io.hpp"
 
 #include <array>
 #include <cassert>
 #include <cstdio>
-#include <fstream>
-#include <iterator>
 #include <string>
 
 using namespace tactix;
@@ -252,10 +252,10 @@ int main() {
     assert(!k.inconsistent);
   }
   {
-    const std::string path = "/tmp/tactix-exact-one-refutation.dsr";
+    TemporaryFile file;
     Kernel k = exact_one_bipartite_fixture(3, 2);
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
     proof.bind_variable_map(&k.internal_to_external);
     proof.arm_population_shadow();
     k.proof = &proof;
@@ -263,18 +263,15 @@ int main() {
     assert(exact_one_refutation_apply(k, parameters) == ApplyResult::Unsat);
     k.proof = nullptr;
     proof.flush();
-    std::ifstream input(path);
-    const std::string contents((std::istreambuf_iterator<char>(input)),
-                               std::istreambuf_iterator<char>());
+    const std::string contents = read_file(file.path);
     assert(!contents.empty() && contents.ends_with("0\n"));
     assert(k.stats.exact_one_refutation_proof_additions > 0);
-    assert(std::remove(path.c_str()) == 0);
   }
   {
-    const std::string path = "/tmp/tactix-exact-one-preflight.dsr";
+    TemporaryFile file;
     Kernel k = exact_one_bipartite_fixture(3, 2);
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
     proof.bind_variable_map(&k.internal_to_external);
     k.proof = &proof;
     strategy::OnehotModelParameters parameters;
@@ -282,11 +279,7 @@ int main() {
     assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
     k.proof = nullptr;
     proof.flush();
-    std::ifstream input(path);
-    const std::string contents((std::istreambuf_iterator<char>(input)),
-                               std::istreambuf_iterator<char>());
-    assert(contents.empty() && !k.inconsistent);
-    assert(std::remove(path.c_str()) == 0);
+    assert(read_file(file.path).empty() && !k.inconsistent);
   }
   {
     Kernel k = direct_csp_fixture();
@@ -363,8 +356,7 @@ int main() {
   }
   {
     Kernel k = fixture();
-    // The first affine candidate has domain 1 at value zero. Force the next
-    // free assignment and prove that candidate enumeration is real.
+    // Forbid the first affine candidate so enumeration must advance.
     kernel_add_binary_clause(k, make_lit(indicator(1, 1), false),
                             make_lit(indicator(2, 1), false));
     assert(onehot_model_apply(k) == ApplyResult::Sat);
@@ -372,10 +364,8 @@ int main() {
   }
   {
     Kernel k = fixture();
-    // The all-zero free assignment chooses value zero in domain 1. A root
-    // unit forbidding precisely that indicator must reject the candidate;
-    // testing it as true and then skipping it during materialization used to
-    // return a model with this domain entirely false.
+    // A root unit forbidding the first candidate's domain-1 indicator must
+    // reject that candidate, not leave the domain all false.
     kernel_assign_unit(k, make_lit(indicator(1, 0), true));
     assert(!kernel_propagate(k));
     assert(onehot_model_apply(k) == ApplyResult::Sat);

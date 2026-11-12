@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "independent_set_test_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
 
@@ -6,7 +7,6 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
-#include <initializer_list>
 #include <set>
 #include <utility>
 #include <vector>
@@ -15,54 +15,16 @@ using namespace tactix::independent_set_extension;
 
 namespace {
 
-struct Encoding {
-  uint32_t vertices = 0;
-  uint32_t target = 0;
-  uint32_t variables = 0;
-  std::vector<std::vector<int32_t>> layers;
-  std::vector<std::pair<uint32_t, uint32_t>> edges;
-  std::vector<Premise> clauses;
+// The shared encoding with its clauses as occurrence-numbered premises.
+struct Encoding : IndependentSetEncoding {
+  std::vector<Premise> premises;
 };
 
 Encoding make_encoding(uint32_t vertices, uint32_t target,
                        std::vector<std::pair<uint32_t, uint32_t>> edges) {
-  Encoding result;
-  result.vertices = vertices;
-  result.target = target;
-  result.edges = std::move(edges);
-  result.layers.resize(vertices + 1);
-  int32_t next = static_cast<int32_t>(vertices + 1);
-  for (uint32_t layer = 1; layer <= vertices; ++layer)
-    for (uint32_t state = 0; state <= std::min(layer, target); ++state)
-      result.layers[layer].push_back(next++);
-  result.variables = static_cast<uint32_t>(next - 1);
-  uint64_t occurrence = 1;
-  const auto add = [&](std::initializer_list<int32_t> literals) {
-    result.clauses.push_back({occurrence++, std::vector<int32_t>(literals)});
-  };
-  const auto add_vector = [&](const std::vector<int32_t> &literals) {
-    result.clauses.push_back({occurrence++, literals});
-  };
-  for (auto [first, second] : result.edges)
-    add({-static_cast<int32_t>(first), -static_cast<int32_t>(second)});
-  add({1, result.layers[1][0]});
-  add({-1, result.layers[1][1]});
-  for (uint32_t layer = 2; layer <= vertices; ++layer) {
-    const auto &previous = result.layers[layer - 1];
-    const auto &current = result.layers[layer];
-    for (uint32_t state = 0; state < previous.size(); ++state) {
-      add({-previous[state], static_cast<int32_t>(layer), current[state]});
-      add({-previous[state], -static_cast<int32_t>(layer),
-           current[std::min(state + 1, target)]});
-    }
-    for (uint32_t first = 0; first < current.size(); ++first)
-      for (uint32_t second = first + 1; second < current.size(); ++second)
-        add({-current[first], -current[second]});
-  }
-  const auto &terminal = result.layers[vertices];
-  for (uint32_t state = 0; state < target; ++state)
-    add({-terminal[state], terminal[target]});
-  add_vector(terminal);
+  Encoding result{independent_set_encoding(vertices, target, std::move(edges)), {}};
+  for (const auto &clause : result.clauses)
+    result.premises.push_back({result.premises.size() + 1, clause});
   return result;
 }
 
@@ -88,23 +50,8 @@ bool charge(void *context, uint64_t amount) {
   return true;
 }
 
-bool clause_satisfied(const std::vector<int32_t> &clause, uint64_t assignment) {
-  for (int32_t literal : clause) {
-    const uint32_t variable = static_cast<uint32_t>(literal < 0
-                                                        ? -int64_t(literal)
-                                                        : literal);
-    const bool value = (assignment >> (variable - 1)) & 1u;
-    if (value == (literal > 0))
-      return true;
-  }
-  return false;
-}
-
 bool formula_satisfied(const Encoding &encoding, uint64_t assignment) {
-  for (const Premise &premise : encoding.clauses)
-    if (!clause_satisfied(premise.literals, assignment))
-      return false;
-  return true;
+  return formula_value(encoding.clauses, assignment);
 }
 
 bool projected_theory_satisfied(const Encoding &encoding,
@@ -135,13 +82,6 @@ uint64_t deterministic_completion(const Encoding &encoding,
   return result;
 }
 
-std::vector<std::vector<int32_t>> clauses_of(const Encoding &encoding) {
-  std::vector<std::vector<int32_t>> result;
-  for (const Premise &premise : encoding.clauses)
-    result.push_back(premise.literals);
-  return result;
-}
-
 bool rup(const std::vector<std::vector<int32_t>> &formula,
          const std::vector<int32_t> &candidate, uint32_t variables) {
   return rup_implied(formula, candidate, ClauseLiterals{}, variables);
@@ -169,13 +109,13 @@ void exhaustive_semantics(const Encoding &encoding) {
 Image recognize_or_abort(const Encoding &encoding) {
   Image image;
   Meter meter;
-  assert(recognize(encoding.clauses, encoding.variables, recognition_limits(),
+  assert(recognize(encoding.premises, encoding.variables, recognition_limits(),
                    charge, &meter, image));
   assert(meter.calls);
   assert(image.vertices == encoding.vertices);
   assert(image.target == encoding.target);
   assert(image.external_variables == encoding.variables);
-  assert(image.classified_occurrences.size() == encoding.clauses.size());
+  assert(image.classified_occurrences.size() == encoding.premises.size());
   assert(image.edges.size() == encoding.edges.size());
   assert(image.inspected_work);
   return image;
@@ -195,9 +135,9 @@ void check_cover_certificate(const Encoding &encoding, const Image &image,
   assert(certificate.work && certificate.literal_occurrences);
 
   std::set<uint64_t> occurrences;
-  for (const Premise &premise : encoding.clauses)
+  for (const Premise &premise : encoding.premises)
     occurrences.insert(premise.occurrence);
-  std::vector<std::vector<int32_t>> formula = clauses_of(encoding);
+  std::vector<std::vector<int32_t>> formula = encoding.clauses;
   for (size_t index = 0; index < certificate.steps.size(); ++index) {
     const CertificateStep &step = certificate.steps[index];
     assert(rup(formula, step.clause, encoding.variables));
@@ -218,7 +158,7 @@ void check_cover_certificate(const Encoding &encoding, const Image &image,
   for (uint64_t assignment = 0;
        assignment < (uint64_t{1} << encoding.variables); ++assignment)
     if (formula_satisfied(encoding, assignment))
-      assert(clause_satisfied(certificate.conclusion, assignment));
+      assert(clause_value(certificate.conclusion, assignment));
 }
 
 void recognition_near_misses(const Encoding &encoding, const Image &recognized) {
@@ -231,14 +171,14 @@ void recognition_near_misses(const Encoding &encoding, const Image &recognized) 
     assert(!image.vertices && image.layers.empty() && image.edges.empty());
   };
 
-  std::vector<Premise> missing = encoding.clauses;
+  std::vector<Premise> missing = encoding.premises;
   const uint64_t transition = recognized.transitions[1].true_premise;
   missing.erase(std::find_if(missing.begin(), missing.end(), [&](const auto &p) {
     return p.occurrence == transition;
   }));
   reject(std::move(missing));
 
-  std::vector<Premise> wrong_sign = encoding.clauses;
+  std::vector<Premise> wrong_sign = encoding.premises;
   auto changed = std::find_if(wrong_sign.begin(), wrong_sign.end(),
                               [&](const auto &p) {
                                 return p.occurrence == transition;
@@ -247,14 +187,14 @@ void recognition_near_misses(const Encoding &encoding, const Image &recognized) 
   changed->literals[1] = -changed->literals[1];
   reject(std::move(wrong_sign));
 
-  std::vector<Premise> missing_terminal_amo = encoding.clauses;
+  std::vector<Premise> missing_terminal_amo = encoding.premises;
   const uint64_t terminal_amo = recognized.exclusions.back().premise;
   missing_terminal_amo.erase(
       std::find_if(missing_terminal_amo.begin(), missing_terminal_amo.end(),
                    [&](const auto &p) { return p.occurrence == terminal_amo; }));
   reject(std::move(missing_terminal_amo));
 
-  std::vector<Premise> no_edges = encoding.clauses;
+  std::vector<Premise> no_edges = encoding.premises;
   no_edges.erase(std::remove_if(no_edges.begin(), no_edges.end(), [&](auto &p) {
                    return std::any_of(recognized.edges.begin(), recognized.edges.end(),
                                       [&](const Edge &edge) {
@@ -267,30 +207,30 @@ void recognition_near_misses(const Encoding &encoding, const Image &recognized) 
                  no_edges.end());
   reject(std::move(no_edges));
 
-  std::vector<Premise> extra = encoding.clauses;
+  std::vector<Premise> extra = encoding.premises;
   extra.push_back({100000, {1, 2}});
   reject(std::move(extra));
 
-  std::vector<Premise> duplicate_id = encoding.clauses;
+  std::vector<Premise> duplicate_id = encoding.premises;
   duplicate_id.back().occurrence = duplicate_id.front().occurrence;
   reject(std::move(duplicate_id));
 
-  std::vector<Premise> duplicate_literal = encoding.clauses;
+  std::vector<Premise> duplicate_literal = encoding.premises;
   duplicate_literal.back().literals.push_back(duplicate_literal.back().literals[0]);
   reject(std::move(duplicate_literal));
-  reject(encoding.clauses, encoding.variables + 1);
+  reject(encoding.premises, encoding.variables + 1);
 
   {
     Image image = recognized;
     Meter meter{4, 0};
-    assert(!recognize(encoding.clauses, encoding.variables,
+    assert(!recognize(encoding.premises, encoding.variables,
                       recognition_limits(), charge, &meter, image));
     assert(!image.vertices && image.classified_occurrences.empty());
   }
   for (int which = 0; which < 4; ++which) {
     Limits limits = recognition_limits();
     if (which == 0)
-      limits.maximum_clauses = encoding.clauses.size() - 1;
+      limits.maximum_clauses = encoding.premises.size() - 1;
     else if (which == 1)
       limits.maximum_literals = 1;
     else if (which == 2)
@@ -299,7 +239,7 @@ void recognition_near_misses(const Encoding &encoding, const Image &recognized) 
       limits.maximum_target = encoding.target - 1;
     Image image = recognized;
     Meter meter;
-    assert(!recognize(encoding.clauses, encoding.variables, limits, charge,
+    assert(!recognize(encoding.premises, encoding.variables, limits, charge,
                       &meter, image));
     assert(!image.vertices);
   }
@@ -336,62 +276,9 @@ void certificate_near_misses(const Image &image) {
   reject(cover, certificate_limits(), 1);
 }
 
-void write_clause(FILE *file, const std::vector<int32_t> &clause) {
-  for (int32_t literal : clause)
-    std::fprintf(file, "%d ", literal);
-  std::fputs("0\n", file);
-}
-
-// A machine-checkable microcontrol: the triangle has no independent set of
-// size two.  The generated proof first derives all three size-two cardinality
-// covers through the production certificate planner, then closes the small
-// graph contradiction with ordinary RUP resolution.
-void emit_unsat_microproof(const char *cnf_path, const char *proof_path) {
-  const Encoding encoding =
-      make_encoding(3, 2, {{1, 2}, {1, 3}, {2, 3}});
-  const Image image = recognize_or_abort(encoding);
-  FILE *cnf = std::fopen(cnf_path, "w");
-  FILE *proof = std::fopen(proof_path, "w");
-  assert(cnf && proof);
-  std::fprintf(cnf, "p cnf %u %zu\n", encoding.variables,
-               encoding.clauses.size());
-  for (const Premise &premise : encoding.clauses)
-    write_clause(cnf, premise.literals);
-
-  std::vector<std::vector<int32_t>> formula = clauses_of(encoding);
-  for (const std::vector<uint32_t> &cover :
-       {std::vector<uint32_t>{1, 2}, std::vector<uint32_t>{1, 3},
-        std::vector<uint32_t>{2, 3}}) {
-    CoverCertificate certificate;
-    Meter meter;
-    assert(derive_cover_certificate(image, cover, certificate_limits(), charge,
-                                    &meter, certificate));
-    for (const CertificateStep &step : certificate.steps) {
-      assert(rup(formula, step.clause, encoding.variables));
-      write_clause(proof, step.clause);
-      formula.push_back(step.clause);
-    }
-  }
-  for (const std::vector<int32_t> &clause :
-       {std::vector<int32_t>{2, -3}, std::vector<int32_t>{-3},
-        std::vector<int32_t>{1}, std::vector<int32_t>{2},
-        std::vector<int32_t>{}}) {
-    assert(rup(formula, clause, encoding.variables));
-    write_clause(proof, clause);
-    formula.push_back(clause);
-  }
-  assert(!std::fclose(cnf));
-  assert(!std::fclose(proof));
-}
-
 } // namespace
 
-int main(int argc, char **argv) {
-  if (argc == 3) {
-    emit_unsat_microproof(argv[1], argv[2]);
-    return 0;
-  }
-  assert(argc == 1);
+int main() {
   const Encoding small = make_encoding(2, 1, {{1, 2}});
   const Encoding medium =
       make_encoding(3, 2, {{1, 2}, {2, 3}, {1, 3}});

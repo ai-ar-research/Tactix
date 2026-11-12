@@ -2,7 +2,6 @@
 #include "rules/semantic_extension/affine_root_image.hpp"
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -106,18 +105,17 @@ static void identity_controls() {
   assert(!plan.certification_sources.back().proof_id_exact);
   assert(plan.certification_sources.back().kind==AffineSourceKind::RootUnit);
   const auto saved_work=plan.work;
-  auto malformed=sources;malformed.back().kind=AffineSourceKind::CheckerPremise;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().kind=AffineSourceKind::Large;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().proof_id_exact=true;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().clause_id=1;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().clause={4,5};
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().kind=static_cast<AffineSourceKind>(255);
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
+  // Each corruption of the last source is rejected as Invalid.
+  const auto invalid=[&](auto corrupt){
+    auto malformed=sources;corrupt(malformed.back());
+    assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
+  };
+  invalid([](AffineLiveSource &u){u.kind=AffineSourceKind::CheckerPremise;});
+  invalid([](AffineLiveSource &u){u.kind=AffineSourceKind::Large;});
+  invalid([](AffineLiveSource &u){u.proof_id_exact=true;});
+  invalid([](AffineLiveSource &u){u.clause_id=1;});
+  invalid([](AffineLiveSource &u){u.clause={4,5};});
+  invalid([](AffineLiveSource &u){u.kind=static_cast<AffineSourceKind>(255);});
   assert(plan.work==saved_work);
   AffineLiveSource binary;binary.kind=AffineSourceKind::Binary;
   binary.occurrence=sources.size()+1;binary.clause_id=0;
@@ -125,12 +123,9 @@ static void identity_controls() {
   assert(prepare_affine_root_image(sources,{4},limits(),charge,plan)==RootImageStatus::Prepared);
   assert(plan.certification_sources.back().clause_id==0);
   assert(!plan.certification_sources.back().proof_id_exact);
-  malformed=sources;malformed.back().proof_id_exact=true;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().clause={7};
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().occurrence=1;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
+  invalid([](AffineLiveSource &b){b.proof_id_exact=true;});
+  invalid([](AffineLiveSource &b){b.clause={7};});
+  invalid([](AffineLiveSource &b){b.occurrence=1;});
   // Removing the authenticated unit cannot make an unproved request a fact.
   sources.erase(sources.end()-2);
   assert(prepare_affine_root_image(sources,{4},limits(),charge,plan)==RootImageStatus::UncertifiedRoot);
@@ -153,13 +148,7 @@ static void forty_equations() {
   l.maximum_units=100;l.maximum_proof_additions=1000;l.maximum_work=10000000;
   l.maximum_bytes=100000000; // Ordinary Default's existing retained-byte cap.
   RootImagePlan plan;
-  const auto started=std::chrono::steady_clock::now();
   assert(prepare_affine_root_image(sources,roots,l,[](uint64_t){return true;},plan)==RootImageStatus::Prepared);
-  const auto elapsed=std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::steady_clock::now()-started).count();
-  std::printf("root-image rows=40 sources=200 rup_checks=%llu work=%llu accounted_peak_bytes=%llu wall_nanos=%llu\n",
-      (unsigned long long)plan.rup_checks,(unsigned long long)plan.work,
-      (unsigned long long)plan.accounted_peak_bytes,(unsigned long long)elapsed);
   assert(plan.image.equations.size()==40 && plan.residuals.size()==160);
   assert(plan.image.consequences.empty() && plan.rup_checks==200);
   assert(plan.accounted_peak_bytes>0 && plan.accounted_peak_bytes<l.maximum_bytes);

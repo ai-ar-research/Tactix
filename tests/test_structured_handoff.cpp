@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
@@ -15,10 +16,8 @@ static Kernel fixture() {
   Kernel k;
   kernel_reserve_vars(k, 9);
   for (unsigned copy = 0; copy < 2; ++copy) {
-    Lit first[] = {internalize(1), internalize(2), internalize(3)};
-    Lit second[] = {internalize(4), internalize(5), internalize(6)};
-    kernel_add_large_clause(k, first, 3, false, 0, ++k.next_clause_id);
-    kernel_add_large_clause(k, second, 3, false, 0, ++k.next_clause_id);
+    add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
+    add_external_clause(k, {4, 5, 6}, false, 0, ++k.next_clause_id);
     for (int row = 0; row < 3; ++row) {
       kernel_add_binary_clause(k, internalize(-1-row), internalize(-4-row), ++k.next_clause_id);
       kernel_add_binary_clause(k, internalize(-1-row), internalize(7+row), ++k.next_clause_id);
@@ -93,10 +92,9 @@ static void product_anchor_scope(int sign) {
   Kernel k;
   kernel_reserve_vars(k, 9);
   for (unsigned row = 0; row < 3; ++row) {
-    Lit clause[3];
-    for (unsigned column = 0; column < 3; ++column)
-      clause[column] = internalize(sign * static_cast<int>(3 * row + column + 1));
-    kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    const int first = sign * static_cast<int>(3 * row + 1);
+    add_external_clause(k, {first, first + sign, first + 2 * sign}, false, 0,
+                        ++k.next_clause_id);
   }
   for (unsigned column = 0; column < 3; ++column)
     for (unsigned first = 0; first < 3; ++first)
@@ -152,12 +150,9 @@ static void product_anchor_scope(int sign) {
 static void unequal_duplicate_handoff() {
   Kernel k = fixture();
   // Add a complete orbit, but with one source clause repeated again.
-  for (int row = 0; row < 3; ++row) {
-    Lit clause[] = {internalize(-1-row), internalize(7), internalize(8), internalize(9)};
-    kernel_add_large_clause(k, clause, 4, false, 0, ++k.next_clause_id);
-    if (!row)
-      kernel_add_large_clause(k, clause, 4, false, 0, ++k.next_clause_id);
-  }
+  for (int row = 0; row < 3; ++row)
+    for (int copy = 0; copy < (row ? 1 : 2); ++copy)
+      add_external_clause(k, {-1 - row, 7, 8, 9}, false, 0, ++k.next_clause_id);
   // The complete third column is invariant under every row permutation.
   auto p = profile();
   SymmetryDiscoveryHints hints;

@@ -2,6 +2,8 @@
 // every original clause must still hold after `kernel_extend_model`.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
+#include "clause_load_support.hpp"
 #include "session/query_projection.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/bce/bce.hpp"
@@ -14,12 +16,28 @@
 
 using namespace tactix;
 
+static void binaries(Kernel &k, uint32_t vars,
+                     std::initializer_list<std::pair<int, int>> clauses) {
+  kernel_reserve_vars(k, vars);
+  for (const auto &[a, b] : clauses) add_external_clause(k, {a, b});
+}
+
+// (1 v 2) and (-1 v -2): each clause is blocked on either of its literals.
+static void blocked_pair(Kernel &k) { binaries(k, 2, {{1, 2}, {-1, -2}}); }
+
+static void begin_query(session::QueryHistory &history,
+                        std::initializer_list<int> clauses, int assumption) {
+  for (int literal : clauses)
+    assert(history.add(literal) == session::InputStatus::Ok);
+  assert(history.assume(assumption) == session::InputStatus::Ok &&
+         history.begin_query() == session::InputStatus::Ok);
+}
+
+
 // The only resolvent on 1 is (2 ∨ ¬2), so (1 ∨ 2) is blocked on 1.
 static void test_blocked_binary() {
   Kernel k;
-  kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  blocked_pair(k);
   assert(bce_guard(k));
   assert(bce_try(k, internalize(1)) == ApplyResult::Ok);
   assert(k.stats.bce_deleted == 1);
@@ -29,9 +47,7 @@ static void test_blocked_binary() {
 // without a working tautology test this case would delete.
 static void test_not_blocked() {
   Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  binaries(k, 3, {{1, 2}, {-1, 3}});
   assert(bce_try(k, internalize(1)) == ApplyResult::NoOp);
   assert(k.stats.bce_deleted == 0);
 }
@@ -39,9 +55,7 @@ static void test_not_blocked() {
 // A pure literal blocks vacuously: BCE subsumes that rule (deviation 4).
 static void test_pure_literal() {
   Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2)); // 1 is pure
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  binaries(k, 3, {{1, 2}, {1, 3}});
   assert(bce_try(k, internalize(1)) == ApplyResult::Ok);
   assert(k.stats.bce_deleted == 2);
 }
@@ -50,37 +64,24 @@ static void test_pure_literal() {
 static void test_redundant_skipped() {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, /*redundant=*/true, 3);
+  add_external_clause(k, {1, 2, 3}, true, 3);
   assert(bce_try(k, internalize(1)) == ApplyResult::NoOp);
   assert(k.stats.bce_deleted == 0);
 }
 
 // The reconstruction obligation, end to end through a solve.
 static void test_model_reconstruction() {
-  const std::vector<std::vector<int>> orig = {{1, 2}, {-1, -2}};
   Kernel k;
-  kernel_reserve_vars(k, 2);
-  for (const auto &cl : orig)
-    kernel_add_binary_clause(k, internalize(cl[0]), internalize(cl[1]));
+  blocked_pair(k);
   assert(bce_apply(k) == ApplyResult::Ok);
   assert(k.stats.bce_deleted >= 1);
-  assert(default_solve(k) == 10);
-  kernel_extend_model(k);
-  for (const auto &cl : orig) {
-    bool sat = false;
-    for (const int e : cl)
-      sat |= (k.values[internalize(e)] > 0);
-    assert(sat && "every original clause satisfied by the extended model");
-  }
+  assert_extended_model(k, {{1, 2}, {-1, -2}});
 }
 
 // Instance surface (N1): literals are the payloads.
 static void test_instances() {
   Kernel k;
-  kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  blocked_pair(k);
   std::vector<Lit> lits;
   bce_literals(k, lits);
   assert(lits.size() == 4); // both polarities of both variables
@@ -89,14 +90,8 @@ static void test_instances() {
 
 static void test_explicit_instance_bypasses_canonical_occurrence_limit() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
-  // Keep 2 and 3 from being independently pure blocked literals; 4 itself
-  // exceeds the same occurrence ceiling. Thus only the deliberately dense
-  // blocking literal 1 could eliminate anything in this fixture.
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
-  kernel_add_binary_clause(k, internalize(-3), internalize(4));
+  // Only the dense blocking literal 1 (over the occurrence limit) can block.
+  binaries(k, 4, {{1, 2}, {1, 3}, {-2, 4}, {-3, 4}});
   k.bce_occ_limit = 1;
   assert(bce_apply(k) == ApplyResult::NoOp);
   assert(bce_try(k, internalize(1)) == ApplyResult::Ok);
@@ -105,9 +100,7 @@ static void test_explicit_instance_bypasses_canonical_occurrence_limit() {
 
 static void test_semantic_instance_deletes_one_clause() {
   Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  binaries(k, 3, {{1, 2}, {1, 3}});
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("BCE")];
   assert(rule.semantic_instances && rule.apply_semantic_instance);
   uint64_t choices[8];
@@ -121,9 +114,7 @@ static void test_semantic_instance_deletes_one_clause() {
 
 static void test_semantic_negative_control() {
   Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  binaries(k, 3, {{1, 2}, {-1, 3}});
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("BCE")];
   uint64_t choices[8];
   assert(rule.semantic_instances(k, choices, 8) == 4);
@@ -135,45 +126,18 @@ static void test_semantic_negative_control() {
 // Reconstruction regression: root propagation assigns 39, 9, 33, so the two
 // ternaries carry an assigned literal while (19 ∨ 4) does not.
 static void test_regression_fuzz_2204() {
-  const std::vector<std::vector<int>> orig = {
-      {19, 4}, {33, -9}, {-34, -33, -4}, {34, -33, 4}, {39, 9}, {-39}};
+  const Cnf orig = {{19, 4}, {33, -9}, {-34, -33, -4}, {34, -33, 4}, {39, 9}, {-39}};
   Kernel k;
-  kernel_reserve_vars(k, 39);
-  for (const auto &cl : orig) {
-    std::vector<Lit> l;
-    for (const int e : cl)
-      l.push_back(internalize(e));
-    if (l.size() == 1)
-      kernel_assign_unit(k, l[0]);
-    else if (l.size() == 2)
-      kernel_add_binary_clause(k, l[0], l[1]);
-    else
-      kernel_add_large_clause(k, l.data(), (uint32_t)l.size(), false, 0);
-  }
+  load_cnf(k, 39, orig);
   bce_apply(k);
-  assert(default_solve(k) == 10);
-  kernel_extend_model(k);
-  for (const auto &cl : orig) {
-    bool sat = false;
-    for (const int e : cl)
-      sat |= (k.values[internalize(e)] > 0);
-    if (!sat) {
-      std::printf("UNSATISFIED after reconstruction:");
-      for (const int e : cl)
-        std::printf(" %d", e);
-      std::printf("\n");
-    }
-    assert(sat && "every original clause satisfied by the extended model");
-  }
+  assert_extended_model(k, orig);
 }
 
 // N1: the touched-epoch filter is policy-only. With the watermark advanced the
 // round declines, but `instances()` and `apply_instance` stay complete.
 static void test_touch_filter_is_policy_only() {
   Kernel k;
-  kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  blocked_pair(k);
   k.bce_touch_mark = k.touch_epoch;
   const int id = tactix_rule_id("BCE");
   assert(id >= 0);
@@ -187,9 +151,7 @@ static void test_touch_filter_is_policy_only() {
 
   // the deletion side re-arms BCE: a removal re-offers the literal
   Kernel k2;
-  kernel_reserve_vars(k2, 3);
-  kernel_add_binary_clause(k2, internalize(1), internalize(2));
-  kernel_add_binary_clause(k2, internalize(-1), internalize(3));
+  binaries(k2, 3, {{1, 2}, {-1, 3}});
   k2.bce_touch_mark = k2.touch_epoch;
   assert(!kernel_changed_since(k2, var_of(internalize(1)),
                                k2.bce_touch_mark));
@@ -205,9 +167,7 @@ static void test_interrupt() {
   // (1) the round loop: cut at the first literal, so nothing is deleted
   {
     Kernel k;
-    kernel_reserve_vars(k, 2);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
-    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    blocked_pair(k);
     KernelStopPublisher pub(k, &stop);
     assert(bce_apply(k) == ApplyResult::NoOp);
     assert(k.stats.bce_deleted == 0);
@@ -218,9 +178,7 @@ static void test_interrupt() {
   // uninterrupted run below is the control
   {
     Kernel k;
-    kernel_reserve_vars(k, 2);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
-    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    blocked_pair(k);
     KernelStopPublisher pub(k, &stop);
     assert(bce_try(k, internalize(1)) == ApplyResult::NoOp);
     assert(k.stats.bce_deleted == 0);
@@ -228,9 +186,7 @@ static void test_interrupt() {
   }
   {
     Kernel k;
-    kernel_reserve_vars(k, 2);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
-    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    blocked_pair(k);
     assert(bce_try(k, internalize(1)) == ApplyResult::Ok);
     assert(k.stats.bce_deleted == 1 && k.stats.bce_interrupted == 0);
   }
@@ -239,16 +195,10 @@ static void test_interrupt() {
 static void test_query_domain_keeps_complete_round_watermark() {
   using namespace tactix::session;
   QueryHistory history;
-  for (int literal : {1, 2, 0, -1, 3, 0})
-    assert(history.add(literal) == InputStatus::Ok);
-  assert(history.assume(1) == InputStatus::Ok &&
-         history.begin_query() == InputStatus::Ok);
+  begin_query(history, {1, 2, 0, -1, 3, 0}, 1);
   QueryProjection projection(history, history.active_query()->id);
   Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(-3));
+  binaries(k, 3, {{1, 2}, {-1, 3}, {-2, -3}});
   k.bce_preserve_query = true;
   // Establish a real complete-round watermark on a formula with no blocker.
   assert(bce_apply(k) == ApplyResult::NoOp);
@@ -277,10 +227,7 @@ static void test_query_domain_keeps_complete_round_watermark() {
 static void test_budgeted_query_bce_reaches_unchanged_prefix_tail() {
   using namespace tactix::session;
   QueryHistory history;
-  for (int literal : {1, 2, 0, -1, 3, 0, -2, -3, 0, 4, 5, 0})
-    assert(history.add(literal) == InputStatus::Ok);
-  assert(history.assume(1) == InputStatus::Ok &&
-         history.begin_query() == InputStatus::Ok);
+  begin_query(history, {1, 2, 0, -1, 3, 0, -2, -3, 0, 4, 5, 0}, 1);
   QueryProjection projection(history, history.active_query()->id);
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -307,10 +254,7 @@ static void test_query_bce_rekeys_its_completed_domain() {
   k.bce_preserve_query = true;
   for (int assumption : {1, -1}) {
     QueryHistory history;
-    for (int literal : {1, 2, 0, -1, 3, 0, -2, -3, 0})
-      assert(history.add(literal) == InputStatus::Ok);
-    assert(history.assume(assumption) == InputStatus::Ok &&
-           history.begin_query() == InputStatus::Ok);
+    begin_query(history, {1, 2, 0, -1, 3, 0, -2, -3, 0}, assumption);
     QueryProjection projection(history, history.active_query()->id);
     k.query_projection = &projection;
     const uint64_t ticks = k.stats.bce_ticks;
@@ -327,15 +271,10 @@ static void test_explicit_query_bce_still_requests_repair() {
   unsigned semantic_repairs = 0;
   for (unsigned choice = 0; choice <= 4; ++choice) {
     QueryHistory history;
-    for (int literal : {1, 2, 0, -1, -2, 0})
-      assert(history.add(literal) == InputStatus::Ok);
-    assert(history.assume(1) == InputStatus::Ok &&
-           history.begin_query() == InputStatus::Ok);
+    begin_query(history, {1, 2, 0, -1, -2, 0}, 1);
     QueryProjection projection(history, history.active_query()->id);
     Kernel k;
-    kernel_reserve_vars(k, 2);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
-    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    blocked_pair(k);
     k.query_projection = &projection;
     k.bce_preserve_query = true;
     if (!choice) {

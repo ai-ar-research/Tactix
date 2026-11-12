@@ -3,10 +3,14 @@
 // model preservation, and the instance surface.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/instantiate/instantiate.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "proof/proof.hpp"
+#define tactix tactix_handle // the C handle typedef collides with the namespace
+#include "tactix.h"
+#undef tactix
 
 #include <cassert>
 #include <csignal>
@@ -31,6 +35,20 @@ static void addn(Kernel &k, std::vector<int> ds) {
                             /*redundant=*/false, 0);
 }
 
+static const RuleVTable &instantiate_rule() {
+  const int id = tactix_rule_id("Instantiate");
+  assert(id >= 0 && "the rule must be registry-visible (N1)");
+  return tactix_rules()[id];
+}
+
+// The candidate plus (-1 v 4), (-1 v -4), under which 1 fails.
+static void failing_one(Kernel &k, uint32_t vars, std::vector<int> candidate) {
+  kernel_reserve_vars(k, vars);
+  addn(k, candidate);
+  addn(k, {-1, 4});
+  addn(k, {-1, -4});
+}
+
 static Ref find_ref(const Kernel &k, uint32_t size) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -42,21 +60,13 @@ static Ref find_ref(const Kernel &k, uint32_t size) {
 }
 
 static const Clause *find_clause(const Kernel &k, uint32_t size) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage() && c->size == size)
-      return c;
-    ref += clause_actual_words(c);
-  }
-  return nullptr;
+  const Ref ref = find_ref(k, size);
+  return ref == INVALID_REF ? nullptr : clause_at(k.arena, ref);
 }
 
 static Kernel two_choice_fixture() {
   Kernel k;
-  kernel_reserve_vars(k, 6);
-  addn(k, {1, 2, 3, 6});
-  addn(k, {-1, 4});
-  addn(k, {-1, -4});
+  failing_one(k, 6, {1, 2, 3, 6});
   addn(k, {-2, 5});
   addn(k, {-2, -5});
   return k;
@@ -67,10 +77,7 @@ static Kernel two_choice_fixture() {
 // not root-derivable by propagation, so instantiation is doing the work.
 static void test_removes_rare_literal() {
   Kernel k;
-  kernel_reserve_vars(k, 5);
-  addn(k, {1, 2, 3, 5});
-  addn(k, {-1, 4});
-  addn(k, {-1, -4});
+  failing_one(k, 5, {1, 2, 3, 5});
   assert(instantiate_guard(k));
   assert(instantiate_apply(k) == ApplyResult::Ok);
   assert(k.stats.instantiated == 1);
@@ -87,10 +94,7 @@ static void test_removes_rare_literal() {
 // arena (`kernel_replace_clause`'s Binary outcome).
 static void test_ternary_becomes_binary() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  addn(k, {1, 2, 3});
-  addn(k, {-1, 4});
-  addn(k, {-1, -4});
+  failing_one(k, 4, {1, 2, 3});
   assert(instantiate_apply(k) == ApplyResult::Ok);
   assert(k.stats.instantiated == 1);
   assert(find_clause(k, 3) == nullptr);         // candidate gone from the arena
@@ -114,10 +118,7 @@ static void test_occurrence_limit_rejects() {
 // Avoid learning units (cadical's `unassigned < 3`): only two literals free.
 static void test_unit_avoidance() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  addn(k, {1, 2, 3});
-  addn(k, {-1, 4});
-  addn(k, {-1, -4});
+  failing_one(k, 4, {1, 2, 3});
   kernel_assign_unit(k, internalize(-3));
   assert(!kernel_propagate(k));
   std::vector<Ref> cands;
@@ -129,10 +130,7 @@ static void test_unit_avoidance() {
 // Minimum clause size: binaries are never candidates (INST_CLSLIM = 3).
 static void test_binary_not_a_candidate() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  addn(k, {1, 2});
-  addn(k, {-1, 4});
-  addn(k, {-1, -4});
+  failing_one(k, 4, {1, 2});
   std::vector<Ref> cands;
   instantiate_candidates(k, cands);
   assert(cands.empty());
@@ -155,8 +153,7 @@ static void test_probe_failure_is_a_noop() {
 static void test_redundant_out_of_scope() {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  const Lit l[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, l, 3, /*redundant=*/true, /*glue=*/2);
+  add_external_clause(k, {1, 2, 3}, true, 2);
   addn(k, {-1, 4});
   addn(k, {-1, -4});
   std::vector<Ref> cands;
@@ -165,36 +162,11 @@ static void test_redundant_out_of_scope() {
   assert(instantiate_apply(k) == ApplyResult::NoOp);
 }
 
-// Instance surface (plan §5.1): the payload is the candidate's Ref.
-static void test_instance_surface() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  addn(k, {1, 2, 3});
-  addn(k, {-1, 4});
-  addn(k, {-1, -4});
-  const std::vector<RuleVTable> &rules = tactix_rules();
-  const RuleVTable *v = nullptr;
-  for (const RuleVTable &r : rules)
-    if (!std::strcmp(r.name, "Instantiate"))
-      v = &r;
-  assert(v && "the rule must be registry-visible (N1)");
-  assert(v->guard(k));
-  uint64_t out[8];
-  const uint32_t n = v->instances(k, out, 8);
-  assert(n == 1);
-  assert(v->apply_instance(k, out[0]) == ApplyResult::Ok);
-  assert(k.stats.instantiated == 1);
-  assert(default_solve(k) == 10);
-}
-
 // The v1 clause payload retains its historical first-success behavior, while
 // the additive semantic surface makes either successful literal selectable.
 static void test_semantic_pair_surface() {
-  const RuleVTable *rule = nullptr;
-  for (const RuleVTable &candidate : tactix_rules())
-    if (!std::strcmp(candidate.name, "Instantiate"))
-      rule = &candidate;
-  assert(rule && rule->semantic_instances && rule->apply_semantic_instance);
+  const RuleVTable *rule = &instantiate_rule();
+  assert(rule->semantic_instances && rule->apply_semantic_instance);
 
   Kernel legacy = two_choice_fixture();
   uint64_t legacy_instances[2];
@@ -256,23 +228,17 @@ static void test_guard() {
 // round declines, but `instances()` and `apply_instance` stay complete.
 static void test_touch_filter_is_policy_only() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  addn(k, {1, 2, 3});
-  addn(k, {-1, 4});
-  addn(k, {-1, -4});
+  failing_one(k, 4, {1, 2, 3});
   k.instantiate_touch_mark = k.touch_epoch;
   assert(instantiate_apply(k) == ApplyResult::NoOp);
   assert(k.stats.instantiate_mark_skipped == 1);
-  const std::vector<RuleVTable> &rules = tactix_rules();
-  const RuleVTable *v = nullptr;
-  for (const RuleVTable &r : rules)
-    if (!std::strcmp(r.name, "Instantiate"))
-      v = &r;
-  assert(v && v->guard(k));
+  const RuleVTable &v = instantiate_rule();
+  assert(v.guard(k));
   uint64_t out[8];
-  assert(v->instances(k, out, 8) == 1); // not narrowed by the mark
-  assert(v->apply_instance(k, out[0]) == ApplyResult::Ok);
+  assert(v.instances(k, out, 8) == 1); // not narrowed by the mark
+  assert(v.apply_instance(k, out[0]) == ApplyResult::Ok);
   assert(k.stats.instantiated == 1);
+  assert(default_solve(k) == 10);
 }
 
 // Both interrupt sites. The literal-loop site sits past a failed probe's unwind
@@ -281,10 +247,7 @@ static void test_interrupt() {
   volatile sig_atomic_t stop = 1;
   { // the round loop over candidate clauses
     Kernel k;
-    kernel_reserve_vars(k, 5);
-    addn(k, {1, 2, 3, 5});
-    addn(k, {-1, 4});
-    addn(k, {-1, -4});
+    failing_one(k, 5, {1, 2, 3, 5});
     KernelStopPublisher pub(k, &stop);
     assert(instantiate_apply(k) == ApplyResult::NoOp);
     assert(k.stats.instantiated == 0);
@@ -294,10 +257,7 @@ static void test_interrupt() {
   }
   { // the per-candidate literal loop, through the single-instance entry
     Kernel k;
-    kernel_reserve_vars(k, 5);
-    addn(k, {1, 2, 3, 5});
-    addn(k, {-1, 4});
-    addn(k, {-1, -4});
+    failing_one(k, 5, {1, 2, 3, 5});
     const Ref cref = find_ref(k, 4);
     KernelStopPublisher pub(k, &stop);
     assert(instantiate_try(k, cref) == ApplyResult::NoOp);
@@ -308,10 +268,7 @@ static void test_interrupt() {
   }
   {
     Kernel k;
-    kernel_reserve_vars(k, 5);
-    addn(k, {1, 2, 3, 5});
-    addn(k, {-1, 4});
-    addn(k, {-1, -4});
+    failing_one(k, 5, {1, 2, 3, 5});
     const Ref cref = find_ref(k, 4);
     assert(instantiate_try(k, cref) == ApplyResult::Ok);
     assert(k.stats.instantiated == 1 && k.stats.instantiate_interrupted == 0);
@@ -319,7 +276,40 @@ static void test_interrupt() {
   }
 }
 
+// The public parameters, with CaDiCaL's defaults (instantiateclslim 3,
+// instantiateocclim 1, at least 3 unassigned), and the semantic C API.
+static void test_public_parameters() {
+  tactix_handle *solver = tactix_init();
+  const auto config = [&](int key) { return tactix_config(solver, key); };
+  assert(config(TACTIX_CFG_INSTANTIATE_MINIMUM_CLAUSE_SIZE) == 3);
+  assert(config(TACTIX_CFG_INSTANTIATE_OCCURRENCE_LIMIT) == 1);
+  assert(config(TACTIX_CFG_INSTANTIATE_MINIMUM_UNASSIGNED) == 3);
+  assert(config(TACTIX_CFG_INSTANTIATE_INCLUDE_REDUNDANT) == 0);
+  assert(config(TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD) == 1);
+  tactix_set_instantiate_limits(solver, 17, 19, 23, 1);
+  assert(config(TACTIX_CFG_INSTANTIATE_MINIMUM_CLAUSE_SIZE) == 17);
+  assert(config(TACTIX_CFG_INSTANTIATE_OCCURRENCE_LIMIT) == 19);
+  assert(config(TACTIX_CFG_INSTANTIATE_MINIMUM_UNASSIGNED) == 23);
+  assert(config(TACTIX_CFG_INSTANTIATE_INCLUDE_REDUNDANT) == 1);
+  tactix_set_instantiate_material_threshold(solver, 29);
+  assert(config(TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD) == 29);
+  // The four-field setter retains the additive setting.
+  tactix_set_instantiate_limits(solver, 31, 37, 41, 0);
+  assert(config(TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD) == 29);
+
+  tactix_set_instantiate_limits(solver, UINT32_MAX, 0, UINT32_MAX, 0);
+  for (int literal : {1, 2, 3, 0, -1, 4, 0, -1, -4, 0}) tactix_add(solver, literal);
+  const int instantiate = tactix_rule_id("Instantiate");
+  assert(instantiate >= 0 && std::string(tactix_rule_name(instantiate)) == "Instantiate");
+  uint64_t legacy[4], semantic[4];
+  assert(tactix_rule_instances(solver, instantiate, legacy, 4) == 0);
+  assert(tactix_rule_semantic_instances(solver, instantiate, semantic, 4) == 3);
+  assert(tactix_apply_semantic_instance(solver, instantiate, semantic[0]) == 0);
+  tactix_release(solver);
+}
+
 int main() {
+  test_public_parameters();
   test_interrupt();
   test_removes_rare_literal();
   test_touch_filter_is_policy_only();
@@ -329,7 +319,6 @@ int main() {
   test_binary_not_a_candidate();
   test_probe_failure_is_a_noop();
   test_redundant_out_of_scope();
-  test_instance_surface();
   test_semantic_pair_surface();
   test_guard();
   printf("test_instantiate: all passed\n");

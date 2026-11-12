@@ -15,7 +15,7 @@
 using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
-static NativeQueryLimits limits() { return {{1024,32768,2048},{64,8192,2048,32768,128,2048,32768},4000000}; }
+static const auto limits = query_test::medium_limits;
 static ConditionInstance cube(Kernel &k, std::initializer_list<int> c, std::initializer_list<int> w) {
   ConditionInstance out;
   for(int l:c) out.clause.push_back(kernel_internalize(k,l));

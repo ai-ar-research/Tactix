@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "tseitin_test_support.hpp"
+#include "temporary_file.hpp"
 #include "test_io.hpp"
 #define tactix tactix_c_handle
 #include "tactix.h"
@@ -11,10 +13,7 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 #include "frontend/parse.hpp"
-#include "policies/restart_controller.hpp"
 #include "proof/proof.hpp"
-#include "rules/lucky/parity_certificate.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/online_inprocess.hpp"
 
@@ -24,70 +23,52 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
+using namespace tseitin_test;
 
 namespace {
 
-struct Equation {
-  bool rhs;
-  std::vector<int32_t> variables;
-};
-
-const std::vector<Equation> triangle = {
-    {true, {1, 3}}, {false, {1, 2}}, {false, {2, 3}}};
 const std::vector<Equation> wide_cycle = {
     {true, {1, 2, 3}}, {false, {3, 4, 5}},
     {false, {1, 5, 6}}, {false, {2, 4, 6}}};
 
-void add_equations(Kernel &kernel, const std::vector<Equation> &equations,
-                   int32_t offset = 0, bool reverse = false) {
-  std::vector<std::vector<int32_t>> encoded_clauses;
-  for (const auto &equation : equations) {
-    std::vector<int32_t> variables = equation.variables;
-    for (auto &variable : variables) variable += offset;
-    const auto clauses = parity_certificate::xor_equation(
-        variables.data(), variables.size(), equation.rhs);
-    for (const auto &clause : clauses)
-      encoded_clauses.emplace_back(clause.lits.begin(),
-                                   clause.lits.begin() + clause.size);
-  }
-  if (reverse) std::reverse(encoded_clauses.begin(), encoded_clauses.end());
-  for (auto clause : encoded_clauses) {
-    if (reverse) std::reverse(clause.begin(), clause.end());
-    if (clause.size() == 2) {
-      kernel_add_binary_clause(kernel, internalize(clause[0]),
-                               internalize(clause[1]),
-                               ++kernel.next_clause_id);
-    } else {
-      std::vector<Lit> literals;
-      for (int32_t literal : clause) literals.push_back(internalize(literal));
-      kernel_add_large_clause(kernel, literals.data(), literals.size(), false,
-                              0, ++kernel.next_clause_id);
-    }
-  }
-}
-
-struct Fixture {
+// A kernel with a structural journal attached.
+struct Journaled {
   Kernel kernel;
-  FILE *journal = nullptr;
-  explicit Fixture(bool two = false, bool reverse = false) {
-    kernel_reserve_vars(kernel, 12);
-    add_equations(kernel, triangle, 0, reverse);
-    if (two) add_equations(kernel, triangle, 3);
-    journal = std::tmpfile();
+  FILE *journal = std::tmpfile();
+  explicit Journaled(uint32_t variables) {
+    kernel_reserve_vars(kernel, variables);
     assert(journal);
     kernel.structural_provenance = journal;
   }
-  ~Fixture() {
+  ~Journaled() {
     kernel.structural_provenance = nullptr;
     assert(!std::fclose(journal));
   }
+  Journaled(const Journaled &) = delete;
 };
+
+// One triangle (two with `two`), optionally stored in reverse order.
+struct Fixture : Journaled {
+  explicit Fixture(bool two = false, bool reverse = false) : Journaled(12) {
+    add_equations(kernel, tseitin_test::triangle, 0, reverse);
+    if (two) add_equations(kernel, tseitin_test::triangle, 3);
+  }
+};
+
+// Copies bytes to the path named by an environment variable, if set; the
+// tseitin_cycle_action_journal CTest checks those files independently.
+void export_to(const char *variable, const std::string &bytes) {
+  const char *path = std::getenv(variable);
+  if (!path) return;
+  FILE *copy = std::fopen(path, "wb");
+  assert(copy && std::fwrite(bytes.data(), 1, bytes.size(), copy) == bytes.size());
+  assert(!std::fclose(copy));
+}
 
 TseitinCycleBreakingLimits limits() {
   TseitinCycleBreakingLimits result;
@@ -110,22 +91,18 @@ TseitinCycleBreakingLimits limits() {
   return result;
 }
 
-bool interrupted(void *) { return true; }
-
-struct StopAfter {
-  uint64_t calls = 0;
-  uint64_t stop_at = UINT64_MAX;
-};
-
-bool stop_after(void *opaque) {
-  auto &state = *static_cast<StopAfter *>(opaque);
-  return ++state.calls >= state.stop_at;
+tseitin_cycle_live::Request request() {
+  const auto configured = limits();
+  return {configured.snapshot, configured.admission, configured.planning,
+          configured.transaction, configured.maximum_validation_ticks};
 }
+
+bool interrupted(void *) { return true; }
 
 Kernel parsed_triangle() {
   Kernel kernel;
   kernel_reserve_vars(kernel, 3);
-  for (const auto &equation : triangle) {
+  for (const auto &equation : tseitin_test::triangle) {
     const auto clauses = parity_certificate::xor_equation(
         equation.variables.data(), equation.variables.size(), equation.rhs);
     for (const auto &clause : clauses) {
@@ -140,7 +117,7 @@ Kernel parsed_triangle() {
 }
 
 void add_triangle(tactix_c_handle *solver) {
-  for (const auto &equation : triangle) {
+  for (const auto &equation : tseitin_test::triangle) {
     const auto clauses = parity_certificate::xor_equation(
         equation.variables.data(), equation.variables.size(), equation.rhs);
     for (const auto &clause : clauses) {
@@ -218,12 +195,7 @@ void offers_all_components_and_applies_exact_selection() {
          fixture.kernel.stats.tseitin_cycle_discovery_work > 0 &&
          fixture.kernel.stats.tseitin_cycle_recapture_work > 0);
   const std::string journal = stream_contents(fixture.journal);
-  if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_JOURNAL")) {
-    FILE *copy = std::fopen(path, "wb");
-    assert(copy && std::fwrite(journal.data(), 1, journal.size(), copy) ==
-                       journal.size());
-    assert(!std::fclose(copy));
-  }
+  export_to("TACTIX_TEST_TSEITIN_JOURNAL", journal);
   assert(journal.rfind("{\"action\":\"TseitinCycleBreaking\"", 0) == 0);
   assert(journal.find("\"proof_events\":[") != std::string::npos);
   assert(journal.find("\"mapping\":{") != std::string::npos);
@@ -236,17 +208,12 @@ void offers_all_components_and_applies_exact_selection() {
 
 void stale_corrupt_rebound_and_limits_are_nonmutating() {
   {
-    Kernel empty;
-    FILE *records = std::tmpfile();
-    assert(records);
-    empty.structural_provenance = records;
+    Journaled empty(0);
     TseitinCycleBreakingSession empty_session;
     const auto none =
-        tseitin_cycle_breaking_offer(empty, empty_session, limits());
+        tseitin_cycle_breaking_offer(empty.kernel, empty_session, limits());
     assert(none.status == TseitinCycleBreakingStatus::NoStructure &&
            none.offers.empty());
-    empty.structural_provenance = nullptr;
-    std::fclose(records);
   }
   Fixture fixture;
   TseitinCycleBreakingSession session;
@@ -332,8 +299,8 @@ void every_precommit_phase_is_interruptible() {
     Fixture fixture;
     TseitinCycleBreakingSession session;
     auto measured = limits();
-    StopAfter counter;
-    measured.discovery.interrupted = stop_after;
+    InterruptState counter;
+    measured.discovery.interrupted = interrupt_after;
     measured.discovery.interrupt_state = &counter;
     assert(tseitin_cycle_breaking_offer(fixture.kernel, session, measured)
                .status == TseitinCycleBreakingStatus::Applied);
@@ -343,8 +310,8 @@ void every_precommit_phase_is_interruptible() {
     Fixture fixture;
     TseitinCycleBreakingSession session;
     auto bounded = limits();
-    StopAfter stop{0, identity_polls};
-    bounded.discovery.interrupted = stop_after;
+    InterruptState stop{0, identity_polls};
+    bounded.discovery.interrupted = interrupt_after;
     bounded.discovery.interrupt_state = &stop;
     const uint64_t id = fixture.kernel.next_clause_id;
     const auto result =
@@ -362,8 +329,8 @@ void every_precommit_phase_is_interruptible() {
     const auto offered =
         tseitin_cycle_breaking_offer(fixture.kernel, session, limits());
     auto measured = limits();
-    StopAfter counter;
-    measured.discovery.interrupted = stop_after;
+    InterruptState counter;
+    measured.discovery.interrupted = interrupt_after;
     measured.discovery.interrupt_state = &counter;
     assert(tseitin_cycle_breaking_apply(fixture.kernel, session, measured,
                                         offered.offers.front())
@@ -379,8 +346,8 @@ void every_precommit_phase_is_interruptible() {
     const auto offered =
         tseitin_cycle_breaking_offer(fixture.kernel, session, limits());
     auto bounded = limits();
-    StopAfter stop{0, threshold};
-    bounded.discovery.interrupted = stop_after;
+    InterruptState stop{0, threshold};
+    bounded.discovery.interrupted = interrupt_after;
     bounded.discovery.interrupt_state = &stop;
     const uint64_t id = fixture.kernel.next_clause_id;
     const auto result = tseitin_cycle_breaking_apply(
@@ -465,119 +432,82 @@ void semantic_duplicate_key_is_storage_order_independent() {
   assert(first.keys().size() == 1 && first.keys() == second.keys());
 }
 
+// Applies the triangle's single offer under a DSR proof and exports the proof
+// bytes for the journal CTest, which checks them with the DSR checkers.
+struct ProofRun {
+  TseitinCycleBreakingResult applied;
+  decltype(Kernel::stats) stats;
+  std::string journal;
+};
+
+ProofRun apply_with_proof(ProofFormat format, const char *export_variable) {
+  TemporaryFile file;
+  Fixture fixture;
+  Proof proof;
+  assert(proof.open(file.path.c_str(), format));
+  attach(proof, fixture.kernel);
+  TseitinCycleBreakingSession session;
+  const auto offered =
+      tseitin_cycle_breaking_offer(fixture.kernel, session, limits());
+  assert(offered.offers.size() == 1);
+  const auto applied = tseitin_cycle_breaking_apply(
+      fixture.kernel, session, limits(), offered.offers.front());
+  assert(applied.status == TseitinCycleBreakingStatus::Applied);
+  assert(applied.effort.identity_bytes == offered.offers.front().size());
+  record_tseitin_cycle_breaking_feedback(fixture.kernel, applied);
+  const std::string journal = stream_contents(fixture.journal);
+  proof.flush();
+  fixture.kernel.proof = nullptr;
+  const std::string bytes = read_file(file.path);
+  assert(!bytes.empty());
+  export_to(export_variable, bytes);
+  return {applied, fixture.kernel.stats, journal};
+}
+
 void dsr_and_unsupported_proof_contract() {
-  char dsr_path[] = "/tmp/tseitin-cycle-action-dsr-XXXXXX";
-  const int descriptor = mkstemp(dsr_path);
-  assert(descriptor >= 0);
-  close(descriptor);
-  {
-    Fixture fixture;
-    Proof proof;
-    assert(proof.open(dsr_path, ProofFormat::DsrAscii));
-    proof.bind_variable_map(&fixture.kernel.internal_to_external);
-    proof.bind_external_variable_map(&fixture.kernel.external_to_internal);
-    fixture.kernel.proof = &proof;
-    TseitinCycleBreakingSession session;
-    const auto offered =
-        tseitin_cycle_breaking_offer(fixture.kernel, session, limits());
-    assert(offered.offers.size() == 1);
-    const auto applied = tseitin_cycle_breaking_apply(
-        fixture.kernel, session, limits(), offered.offers.front());
-    assert(applied.status == TseitinCycleBreakingStatus::Applied);
-    assert(applied.effort.identity_bytes == offered.offers.front().size());
-    assert(applied.effort.proof_additions == 3);
-    assert(applied.effort.proof_deletions == 2);
-    assert(applied.effort.proof_literal_occurrences == 5);
-    assert(applied.effort.proof_helpers == 2);
-    assert(applied.effort.proof_only_variables == 1);
-    assert(applied.effort.proof_witness_literals == 5);
-    assert(applied.effort.proof_routes == 1);
-    record_tseitin_cycle_breaking_feedback(fixture.kernel, applied);
-    assert(fixture.kernel.stats.tseitin_cycle_proof_additions == 3);
-    assert(fixture.kernel.stats.tseitin_cycle_proof_deletions == 2);
-    assert(fixture.kernel.stats.tseitin_cycle_proof_literal_occurrences == 5);
-    assert(fixture.kernel.stats.tseitin_cycle_proof_helpers == 2);
-    assert(fixture.kernel.stats.tseitin_cycle_proof_only_variables == 1);
-    assert(fixture.kernel.stats.tseitin_cycle_proof_witness_literals == 5);
-    assert(fixture.kernel.stats.tseitin_cycle_proof_routes == 1);
-    const std::string journal = stream_contents(fixture.journal);
-    assert(journal.find("\"helper_additions\":[[") != std::string::npos);
-    assert(journal.find("\"helper_deletions\":[[") != std::string::npos);
-    assert(journal.find("\"deletion_state\":\"helpers-removed\"") !=
-           std::string::npos);
-    proof.flush();
-    fixture.kernel.proof = nullptr;
-  }
-  FILE *proof_file = std::fopen(dsr_path, "rb");
-  assert(proof_file);
-  const std::string proof_text = stream_contents(proof_file);
-  assert(!std::fclose(proof_file));
-  assert(!proof_text.empty());
-  if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_DSR_ASCII")) {
-    FILE *copy = std::fopen(path, "wb");
-    assert(copy && std::fwrite(proof_text.data(), 1, proof_text.size(), copy) ==
-                       proof_text.size());
-    assert(!std::fclose(copy));
-  }
-  unlink(dsr_path);
+  const auto run = apply_with_proof(ProofFormat::DsrAscii,
+                                    "TACTIX_TEST_TSEITIN_DSR_ASCII");
+  const auto &ascii = run.applied;
+  const auto &journal = run.journal;
+  const auto &stats = run.stats;
+  assert(ascii.effort.proof_additions == 3);
+  assert(ascii.effort.proof_deletions == 2);
+  assert(ascii.effort.proof_literal_occurrences == 5);
+  assert(ascii.effort.proof_helpers == 2);
+  assert(ascii.effort.proof_only_variables == 1);
+  assert(ascii.effort.proof_witness_literals == 5);
+  assert(ascii.effort.proof_routes == 1);
+  assert(journal.find("\"helper_additions\":[[") != std::string::npos);
+  assert(journal.find("\"helper_deletions\":[[") != std::string::npos);
+  assert(journal.find("\"deletion_state\":\"helpers-removed\"") !=
+         std::string::npos);
+  assert(stats.tseitin_cycle_proof_additions == 3);
+  assert(stats.tseitin_cycle_proof_deletions == 2);
+  assert(stats.tseitin_cycle_proof_literal_occurrences == 5);
+  assert(stats.tseitin_cycle_proof_helpers == 2);
+  assert(stats.tseitin_cycle_proof_only_variables == 1);
+  assert(stats.tseitin_cycle_proof_witness_literals == 5);
+  assert(stats.tseitin_cycle_proof_routes == 1);
+  const auto binary =
+      apply_with_proof(ProofFormat::DsrBinary, "TACTIX_TEST_TSEITIN_DSR_BINARY")
+          .applied;
+  assert(binary.effort.proof_additions == 3 &&
+         binary.effort.proof_deletions == 2 &&
+         binary.effort.proof_literal_occurrences == 5);
 
-  char binary_path[] = "/tmp/tseitin-cycle-action-dsr-bin-XXXXXX";
-  const int binary_descriptor = mkstemp(binary_path);
-  assert(binary_descriptor >= 0);
-  close(binary_descriptor);
-  {
-    Fixture fixture;
-    Proof proof;
-    assert(proof.open(binary_path, ProofFormat::DsrBinary));
-    proof.bind_variable_map(&fixture.kernel.internal_to_external);
-    proof.bind_external_variable_map(&fixture.kernel.external_to_internal);
-    fixture.kernel.proof = &proof;
-    TseitinCycleBreakingSession session;
-    const auto offered =
-        tseitin_cycle_breaking_offer(fixture.kernel, session, limits());
-    assert(offered.offers.size() == 1);
-    const auto applied = tseitin_cycle_breaking_apply(
-        fixture.kernel, session, limits(), offered.offers.front());
-    assert(applied.status == TseitinCycleBreakingStatus::Applied);
-    assert(applied.effort.proof_additions == 3 &&
-           applied.effort.proof_deletions == 2 &&
-           applied.effort.proof_literal_occurrences == 5);
-    proof.flush();
-    fixture.kernel.proof = nullptr;
-  }
-  FILE *binary_file = std::fopen(binary_path, "rb");
-  assert(binary_file);
-  const std::string binary_proof = stream_contents(binary_file);
-  assert(!std::fclose(binary_file));
-  assert(!binary_proof.empty());
-  if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_DSR_BINARY")) {
-    FILE *copy = std::fopen(path, "wb");
-    assert(copy &&
-           std::fwrite(binary_proof.data(), 1, binary_proof.size(), copy) ==
-               binary_proof.size());
-    assert(!std::fclose(copy));
-  }
-  unlink(binary_path);
-
-  {
-    char unsupported_path[] = "/tmp/tseitin-cycle-action-proof-XXXXXX";
-    const int unsupported_descriptor = mkstemp(unsupported_path);
-    assert(unsupported_descriptor >= 0);
-    close(unsupported_descriptor);
-    Fixture fixture;
-    Proof proof;
-    assert(proof.open(unsupported_path, ProofFormat::PbpStreaming));
-    proof.finish_input_transaction();
-    assert(proof.begin_pb());
-    fixture.kernel.proof = &proof;
-    TseitinCycleBreakingSession session;
-    const auto rejected =
-        tseitin_cycle_breaking_offer(fixture.kernel, session, limits());
-    assert(rejected.status == TseitinCycleBreakingStatus::UnsupportedProof);
-    assert(rejected.offers.empty() && fixture.kernel.trail.empty());
-    fixture.kernel.proof = nullptr;
-    unlink(unsupported_path);
-  }
+  TemporaryFile file;
+  Fixture fixture;
+  Proof proof;
+  assert(proof.open(file.path.c_str(), ProofFormat::PbpStreaming));
+  proof.finish_input_transaction();
+  assert(proof.begin_pb());
+  fixture.kernel.proof = &proof;
+  TseitinCycleBreakingSession session;
+  const auto rejected =
+      tseitin_cycle_breaking_offer(fixture.kernel, session, limits());
+  assert(rejected.status == TseitinCycleBreakingStatus::UnsupportedProof);
+  assert(rejected.offers.empty() && fixture.kernel.trail.empty());
+  fixture.kernel.proof = nullptr;
 }
 void c_v7_is_backward_compatible_and_deep_copies_identity() {
   assert(std::strcmp(tactix_rule_name(38), "TseitinCycleBreaking") == 0);
@@ -696,22 +626,14 @@ void c_v7_is_backward_compatible_and_deep_copies_identity() {
 }
 
 void propagated_root_rebuilds_the_complete_component_census() {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 20);
+  Journaled fixture(20);
+  Kernel &kernel = fixture.kernel;
   add_equations(kernel, wide_cycle);
   add_equations(kernel, wide_cycle, 6);
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
-  char proof_path[] = "/tmp/tseitin-cycle-repeat-dsr-XXXXXX";
-  const int proof_descriptor = mkstemp(proof_path);
-  assert(proof_descriptor >= 0);
-  close(proof_descriptor);
+  TemporaryFile file;
   Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
+  assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
+  attach(proof, kernel);
   TseitinCycleBreakingSession session;
   const auto initial = tseitin_cycle_breaking_offer(kernel, session, limits());
   assert(initial.status == TseitinCycleBreakingStatus::Applied &&
@@ -734,39 +656,23 @@ void propagated_root_rebuilds_the_complete_component_census() {
       kernel, session, limits(), fresh.offers.back());
   assert(second.status == TseitinCycleBreakingStatus::Applied &&
          session.keys().size() == 2);
-  const std::string records = stream_contents(journal);
+  const std::string records = stream_contents(fixture.journal);
   assert(std::count(records.begin(), records.end(), '\n') == 2);
   assert(records.find("\"external_root_units\":[]") != std::string::npos);
   assert(records.find("\"external_root_units\":[") != std::string::npos);
-  if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_REPEAT_JOURNAL")) {
-    FILE *copy = std::fopen(path, "wb");
-    assert(copy && std::fwrite(records.data(), 1, records.size(), copy) ==
-                       records.size());
-    assert(!std::fclose(copy));
-  }
+  export_to("TACTIX_TEST_TSEITIN_REPEAT_JOURNAL", records);
   proof.flush();
   kernel.proof = nullptr;
-  if (const char *path = std::getenv("TACTIX_TEST_TSEITIN_REPEAT_DSR")) {
-    FILE *source = std::fopen(proof_path, "rb");
-    assert(source);
-    const std::string bytes = stream_contents(source);
-    assert(!std::fclose(source));
-    FILE *copy = std::fopen(path, "wb");
-    assert(copy && std::fwrite(bytes.data(), 1, bytes.size(), copy) ==
-                       bytes.size());
-    assert(!std::fclose(copy));
-  }
-  unlink(proof_path);
-  kernel.structural_provenance = nullptr;
-  std::fclose(journal);
+  export_to("TACTIX_TEST_TSEITIN_REPEAT_DSR", read_file(file.path));
 }
 
-void assigned_edges_select_an_available_cycle() {
+// The first prepared cycle edge, and an edge on no prepared cycle.
+std::pair<int32_t, int32_t> cycle_and_off_cycle_edge() {
   Kernel probe;
   kernel_reserve_vars(probe, 12);
   add_equations(probe, wide_cycle);
+  const auto configured = limits();
   tseitin_cycle_live::Snapshot snapshot;
-  auto configured = limits();
   assert(tseitin_cycle_live::capture(probe, configured.snapshot, snapshot)
              .status == tseitin_cycle_live::Status::Captured);
   std::vector<tseitin_cycle_discovery::Plan> plans;
@@ -775,10 +681,7 @@ void assigned_edges_select_an_available_cycle() {
              .discovered());
   assert(plans.size() == 1);
   tseitin_cycle_live::Prepared prepared;
-  const tseitin_cycle_live::Request request{
-      configured.snapshot, configured.admission, configured.planning,
-      configured.transaction, configured.maximum_validation_ticks};
-  assert(tseitin_cycle_discovery::prepare(probe, plans.front(), request,
+  assert(tseitin_cycle_discovery::prepare(probe, plans.front(), request(),
                                           prepared)
              .status == tseitin_cycle_live::Status::Prepared);
   const auto &cycle = prepared.transaction().identity.cycle_edges;
@@ -789,70 +692,49 @@ void assigned_edges_select_an_available_cycle() {
       if (std::find(cycle.begin(), cycle.end(), edge) == cycle.end())
         off_cycle = edge;
   assert(off_cycle);
+  return {cycle.back(), off_cycle};
+}
 
-  Kernel legal;
-  kernel_reserve_vars(legal, 12);
-  add_equations(legal, wide_cycle);
-  FILE *legal_journal = std::tmpfile();
-  assert(legal_journal);
-  legal.structural_provenance = legal_journal;
-  kernel_assign_unit(legal, internalize(off_cycle));
-  assert(propagate_apply(legal) == ApplyResult::Ok);
-  TseitinCycleBreakingSession legal_session;
-  const auto legal_offer =
-      tseitin_cycle_breaking_offer(legal, legal_session, configured);
-  assert(legal_offer.status == TseitinCycleBreakingStatus::Applied &&
-         legal_offer.offers.size() == 1);
-  assert(tseitin_cycle_breaking_apply(legal, legal_session, configured,
-                                     legal_offer.offers.front())
-             .status == TseitinCycleBreakingStatus::Applied);
-  legal.structural_provenance = nullptr;
-  std::fclose(legal_journal);
-
-  Kernel blocked;
-  kernel_reserve_vars(blocked, 12);
-  add_equations(blocked, wide_cycle);
-  FILE *blocked_journal = std::tmpfile();
-  assert(blocked_journal);
-  blocked.structural_provenance = blocked_journal;
-  kernel_assign_unit(blocked, internalize(cycle.back()));
-  assert(propagate_apply(blocked) == ApplyResult::Ok);
-  tseitin_cycle_live::Snapshot blocked_snapshot;
-  assert(tseitin_cycle_live::capture(blocked, configured.snapshot,
-                                     blocked_snapshot)
-             .status == tseitin_cycle_live::Status::Captured);
-  std::vector<tseitin_cycle_discovery::Plan> blocked_plans;
-  assert(tseitin_cycle_discovery::enumerate(blocked_snapshot,
-                                            configured.discovery,
-                                            blocked_plans)
-             .discovered());
-  tseitin_cycle_live::Prepared alternative;
-  assert(tseitin_cycle_discovery::prepare(blocked, blocked_plans.front(),
-                                          request, alternative)
-             .status == tseitin_cycle_live::Status::Prepared);
-  const auto &alternative_cycle = alternative.transaction().identity.cycle_edges;
-  assert(std::find(alternative_cycle.begin(), alternative_cycle.end(),
-                   cycle.back()) == alternative_cycle.end());
-  TseitinCycleBreakingSession blocked_session;
-  const auto blocked_offer =
-      tseitin_cycle_breaking_offer(blocked, blocked_session, configured);
-  assert(blocked_offer.status == TseitinCycleBreakingStatus::Applied &&
-         blocked_offer.offers.size() == 1);
-  assert(tseitin_cycle_breaking_apply(blocked, blocked_session, configured,
-                                     blocked_offer.offers.front())
-             .status == TseitinCycleBreakingStatus::Applied);
-  blocked.structural_provenance = nullptr;
-  std::fclose(blocked_journal);
+// With one edge assigned at the root, the action still offers and applies a
+// cycle; an assigned cycle edge moves preparation to an alternative cycle.
+void assigned_edges_select_an_available_cycle() {
+  const auto [cycle_edge, off_cycle] = cycle_and_off_cycle_edge();
+  for (const int32_t assigned : {off_cycle, cycle_edge}) {
+    Journaled fixture(12);
+    Kernel &kernel = fixture.kernel;
+    add_equations(kernel, wide_cycle);
+    kernel_assign_unit(kernel, internalize(assigned));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+    if (assigned == cycle_edge) {
+      tseitin_cycle_live::Snapshot snapshot;
+      assert(tseitin_cycle_live::capture(kernel, limits().snapshot, snapshot)
+                 .status == tseitin_cycle_live::Status::Captured);
+      std::vector<tseitin_cycle_discovery::Plan> plans;
+      assert(tseitin_cycle_discovery::enumerate(snapshot, limits().discovery,
+                                                plans)
+                 .discovered());
+      tseitin_cycle_live::Prepared alternative;
+      assert(tseitin_cycle_discovery::prepare(kernel, plans.front(), request(),
+                                              alternative)
+                 .status == tseitin_cycle_live::Status::Prepared);
+      const auto &edges = alternative.transaction().identity.cycle_edges;
+      assert(std::find(edges.begin(), edges.end(), cycle_edge) == edges.end());
+    }
+    TseitinCycleBreakingSession session;
+    const auto offer = tseitin_cycle_breaking_offer(kernel, session, limits());
+    assert(offer.status == TseitinCycleBreakingStatus::Applied &&
+           offer.offers.size() == 1);
+    assert(tseitin_cycle_breaking_apply(kernel, session, limits(),
+                                       offer.offers.front())
+               .status == TseitinCycleBreakingStatus::Applied);
+  }
 }
 
 void failed_component_encoding_consumes_identity_work() {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 20);
+  Journaled fixture(20);
+  Kernel &kernel = fixture.kernel;
   add_equations(kernel, wide_cycle);
-  add_equations(kernel, triangle, 6);
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  add_equations(kernel, tseitin_test::triangle, 6);
   TseitinCycleBreakingSession session;
   const auto offered = tseitin_cycle_breaking_offer(kernel, session, limits());
   assert(offered.offers.size() == 2 &&
@@ -867,8 +749,6 @@ void failed_component_encoding_consumes_identity_work() {
          exhausted.effort.identity_work > 0 &&
          kernel.next_clause_id == before && kernel.trail.empty() &&
          kernel.startup_certificate_open);
-  kernel.structural_provenance = nullptr;
-  std::fclose(journal);
 }
 
 } // namespace

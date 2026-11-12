@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "parity_test_support.hpp"
 #include "rules/lucky/parity_live.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -7,12 +8,7 @@
 using namespace tactix;
 using namespace tactix::parity_certificate;
 static void import(Kernel &k) {
-  kernel_reserve_vars(k,7);
-  const std::vector<Equation> equations={{{1,3,4,0},3,false},{{4,5,6,0},3,false},{{6,7,3,0},3,false},{{2,5,7,0},3,false}};
-  for(const auto &e:equations)for(const auto &c:xor_equation(e.variables.data(),e.size,e.rhs)) {
-    Lit lits[4];for(unsigned i=0;i<c.size;++i)lits[i]=internalize(c.lits[i]);
-    kernel_add_large_clause(k,lits,c.size,false,0,++k.next_clause_id);
-  }
+  kernel_reserve_vars(k,7);add_xor_clauses(k,parity_cycle());
 }
 static std::vector<Var> exercise(const char *proof_path,const char *trace_path) {
   Kernel k;import(k);Proof proof;
@@ -49,11 +45,7 @@ int main(int argc,char **argv) {
   assert(exercise(nullptr,"/tmp/tactix-parity-live-no-proof.jsonl")==exercise(proof,trace));
   // Two complete encodings with opposite parity yield a certified terminal
   // contradiction, not a successful no-op with an empty proof left behind.
-  { Kernel k;kernel_reserve_vars(k,3);const External vars[]={1,2,3};
-    for(bool rhs:{false,true})for(const auto &c:xor_equation(vars,3,rhs)) {
-      Lit lits[3];for(unsigned i=0;i<3;++i)lits[i]=internalize(c.lits[i]);
-      kernel_add_large_clause(k,lits,3,false,0,++k.next_clause_id);
-    }
+  { Kernel k;kernel_reserve_vars(k,3);add_xor_clauses(k,{{{1,2,3},3,false},{{1,2,3},3,true}});
     FILE *records=std::tmpfile();assert(records);
     ParityLiveRequest r{{100,100},{10000,32,32,2},true,10000,100,0,1,records};
     assert(parity_live_apply(k,r).result==ApplyResult::Unsat&&k.inconsistent);std::fclose(records);

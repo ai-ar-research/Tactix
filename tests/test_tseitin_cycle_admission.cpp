@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "tseitin_test_support.hpp"
 #include "rules/lucky/tseitin_cycle_admission.hpp"
 
 #include <algorithm>
@@ -8,6 +9,8 @@
 #include <map>
 
 using namespace tactix::tseitin_cycle;
+using tseitin_test::InterruptState;
+using tseitin_test::interrupt_after;
 using tactix::parity_certificate::xor_equation;
 
 static AdmissionRequest triangle(const std::map<Edge, Edge> &rename = {}) {
@@ -78,11 +81,6 @@ static void exhaustive_encoding(const AdmissionRequest &request) {
   }
 }
 
-struct InterruptState { uint64_t calls = 0, stop = 0; };
-static bool interrupt_after(void *opaque) {
-  auto &state = *static_cast<InterruptState *>(opaque);
-  return ++state.calls >= state.stop;
-}
 
 int main() {
   const AdmissionLimits ample{10000, nullptr, nullptr};

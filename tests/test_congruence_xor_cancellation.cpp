@@ -1,33 +1,39 @@
-// A reduced XOR key is not itself a proof that cancelled inputs disappeared.
-// Check every emitted RUP step, including unused lemmas, against a tiny
-// independent clause-multiset oracle (not the kernel's propagation routine).
+// XOR matching with cancelled inputs: a reduced XOR key is not a proof that the
+// cancelled inputs disappeared, and root values do not justify erasing an
+// independently cancelled pair. Every emitted DSR line, including unused
+// lemmas, is replayed against an independent clause-multiset RUP oracle.
 #undef NDEBUG
-#include "temporary_file.hpp"
-#include "frontend/parse.hpp"
+#include "clause_oracle.hpp"
+#include "dimacs_text.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
+#include "temporary_file.hpp"
+#include "test_io.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <unistd.h>
+
 using namespace tactix;
 using Row = std::vector<int>;
+using Population = std::map<Row, unsigned>;
 
 static Row sorted(Row row) {
   std::sort(row.begin(), row.end());
   return row;
 }
-static void gate(std::vector<Row> &rows, int output, Row inputs) {
+
+// The parity clauses of output = XOR(inputs).
+static void gate(std::vector<Row> &rows, int output, const Row &inputs) {
   for (unsigned mask = 0; mask < (1u << inputs.size()); ++mask) {
     Row clause;
     bool parity = false;
     for (unsigned i = 0; i < inputs.size(); ++i) {
-      bool bit = mask & (1u << i);
+      const bool bit = mask & (1u << i);
       parity ^= bit;
       clause.push_back(bit ? -inputs[i] : inputs[i]);
     }
@@ -35,49 +41,110 @@ static void gate(std::vector<Row> &rows, int output, Row inputs) {
     rows.push_back(clause);
   }
 }
-static bool rup(const std::map<Row, unsigned> &db, const Row &clause) {
-  int values[9] = {};
-  const auto assign = [&](int literal) {
-    int &value = values[std::abs(literal)];
-    int sign = literal > 0 ? 1 : -1;
-    if (value == -sign) return false;
-    value = sign;
-    return true;
-  };
-  for (int literal : clause)
-    if (!assign(-literal)) return true;
-  bool changed;
-  do {
-    changed = false;
-    for (const auto &[row, count] : db) {
-      if (!count) continue;
-      bool satisfied = false;
-      unsigned unassigned = 0;
-      int unit = 0;
-      for (int literal : row) {
-        int v = values[std::abs(literal)] * (literal > 0 ? 1 : -1);
-        satisfied |= v > 0;
-        if (!v) { ++unassigned; unit = literal; }
-      }
-      if (satisfied) continue;
-      if (!unassigned) return true;
-      if (unassigned == 1) {
-        if (!assign(unit)) return true;
-        changed = true;
-      }
-    }
-  } while (changed);
-  return false;
+
+static uint64_t pair(int a, int b) {
+  Lit x = internalize(a), y = internalize(b);
+  if (y < x) std::swap(x, y);
+  return (static_cast<uint64_t>(x) << 32) | y;
 }
 
-int main(int argc, char **argv) {
-  assert(argc == 1 || argc == 2); // optional external-checker artifact directory
+struct PopulationRows {
+  const Row &operator()(const Row &row) const { return row; }
+  const Row &operator()(const Population::value_type &entry) const { return entry.first; }
+};
+
+// Replay the DSR text over the input multiset: deletions must name a live
+// copy and every addition must be RUP.
+static void audit(const std::vector<Row> &rows, const std::string &text,
+                  bool require_additions) {
+  Population population;
+  for (const Row &row : rows) ++population[sorted(row)];
+  std::istringstream lines(text);
+  std::string line;
+  unsigned additions = 0;
+  while (std::getline(lines, line)) {
+    std::istringstream fields(line);
+    fields >> std::ws;
+    const bool deletion = fields.peek() == 'd';
+    if (deletion) fields.get();
+    Row row;
+    int literal;
+    while (fields >> literal && literal) row.push_back(literal);
+    row = sorted(row);
+    if (deletion) {
+      const auto live = population.find(row);
+      assert(live != population.end());
+      if (!--live->second) population.erase(live);
+    } else {
+      if (!rup_implied(population, row, PopulationRows{})) {
+        std::fprintf(stderr, "non-RUP lemma: %s\n", line.c_str());
+        assert(false && "XOR matching lemma lacks cancelled-input cases");
+      }
+      ++population[row];
+      ++additions;
+    }
+  }
+  assert(additions || !require_additions);
+}
+
+// Close the equivalence a == b (or refute it when unsat) through the canonical
+// or the semantic action at the first available `wanted` orientation.
+static void run(const std::vector<Row> &rows, uint32_t variables, int a, int b,
+                bool unsat, const std::vector<uint64_t> &wanted_options,
+                bool canonical, bool with_proof, bool require_additions,
+                const std::string &stem) {
+  const std::vector<uint64_t> solutions = models(rows, variables);
+  for (const uint64_t bits : solutions)
+    assert(literal_value(a, bits) == literal_value(b, bits));
+  assert(unsat ? solutions.empty() : !solutions.empty());
+  TemporaryFile proof_file;
+  Kernel k;
+  Proof proof;
+  if (with_proof) {
+    assert(proof.open(proof_file.path.c_str(), ProofFormat::DsrAscii));
+    proof.bind_variable_map(&k.internal_to_external);
+    k.proof = &proof;
+  }
+  const std::string cnf = dimacs_text(variables, rows);
+  parse_dimacs_text(cnf, k);
+  assert(congruence_guard(k));
+  const auto &rule = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t actions[128];
+  const unsigned count = rule.semantic_instances(k, actions, 128);
+  // The extractor may orient one equivalence either way.
+  const auto wanted = std::find_first_of(wanted_options.begin(), wanted_options.end(),
+                                         actions, actions + count);
+  assert(wanted != wanted_options.end());
+  const auto result =
+      canonical ? congruence_apply(k) : rule.apply_semantic_instance(k, *wanted);
+  assert(result == (unsat ? ApplyResult::Unsat : ApplyResult::Ok));
+  assert(!k.stats.congruence_unjustified);
+  assert(k.inconsistent == unsat);
+  if (!unsat) {
+    assert(kernel_binary_live(k, internalize(-a), internalize(b)));
+    assert(kernel_binary_live(k, internalize(a), internalize(-b)));
+    kernel_check_invariants(k);
+  }
+  if (with_proof) {
+    proof.flush();
+    const std::string text = read_file(proof_file.path);
+    if (!stem.empty() && unsat) {
+      write_file((stem + ".cnf").c_str(), cnf);
+      write_file((stem + ".dsr").c_str(), text);
+    }
+    audit(rows, text, require_additions);
+  }
+  k.proof = nullptr;
+}
+
+// Two XOR gates over 1,2 whose extra inputs cancel through equivalences.
+static unsigned matching(const char *directory) {
   unsigned cases = 0;
   for (unsigned shape = 0; shape != 3; ++shape)
   for (unsigned signs = 0; signs != 4; ++signs)
   for (bool clash : {false, true})
   for (bool canonical : {false, true})
-  for (unsigned mode = 0; mode != 2; ++mode) {
+  for (bool with_proof : {false, true}) {
     std::vector<Row> rows;
     const bool first_cancel = shape != 1, second_cancel = shape != 0;
     const int first_sign = first_cancel && (signs & 1) ? -1 : 1;
@@ -93,105 +160,53 @@ int main(int argc, char **argv) {
       rows.push_back({-5, second_sign * 6});
       rows.push_back({5, -second_sign * 6});
     }
-    unsigned models = 0;
-    for (unsigned bits = 0; bits != 256; ++bits) {
-      const auto value = [&](int lit) {
-        return bool(bits & (1u << (std::abs(lit) - 1))) == (lit > 0);
-      };
-      bool model = true;
-      for (const Row &row : rows) {
-        bool satisfied = false;
-        for (int lit : row) satisfied |= value(lit);
-        model &= satisfied;
-      }
-      if (model) { ++models; assert(value(a) == value(b)); }
-    }
-    assert(clash ? models == 0 : models > 0);
-    TemporaryFile proof_file;
-    FILE *input = std::tmpfile(), *output = proof_file.stream;
-    assert(input && output);
-    std::fprintf(input, "p cnf 8 %zu\n", rows.size());
-    std::map<Row, unsigned> population;
-    for (const Row &row : rows) {
-      ++population[sorted(row)];
-      for (int lit : row) std::fprintf(input, "%d ", lit);
-      std::fputs("0\n", input);
-    }
-    std::rewind(input);
-    Kernel k;
-    Proof proof;
-    if (mode) {
-      assert(proof.open(proof_file.path.c_str(), ProofFormat::DsrAscii));
-      proof.bind_variable_map(&k.internal_to_external);
-      k.proof = &proof;
-    }
-    assert(!parse_dimacs(input, k));
-    const auto &rule = tactix_rules()[tactix_rule_id("Congruence")];
-    assert(congruence_guard(k));
-    Lit ia = internalize(a), ib = internalize(b);
-    if (ib < ia) std::swap(ia, ib);
-    const uint64_t wanted = (static_cast<uint64_t>(ia) << 32) | ib;
-    uint64_t actions[128];
-    const unsigned count = rule.semantic_instances(k, actions, 128);
-    assert(std::find(actions, actions + count, wanted) != actions + count);
-    const auto result = canonical ? congruence_apply(k) :
-                                   rule.apply_semantic_instance(k, wanted);
-    assert(result == (clash ? ApplyResult::Unsat : ApplyResult::Ok));
-    assert(!k.stats.congruence_unjustified);
-    assert(k.inconsistent == clash);
-    if (!clash) {
-      assert(kernel_binary_live(k, internalize(-a), internalize(b)));
-      assert(kernel_binary_live(k, internalize(a), internalize(-b)));
-      kernel_check_invariants(k);
-    }
-    if (mode) {
-      proof.flush();
-      std::rewind(output);
-      std::string text;
-      char buffer[4096];
-      while (size_t n = std::fread(buffer, 1, sizeof buffer, output))
-        text.append(buffer, n);
-      if (argc == 2 && clash) {
-        const std::string stem = std::string(argv[1]) + "/case-" + std::to_string(cases);
-        std::ofstream cnf(stem + ".cnf"), certificate(stem + ".dsr");
-        assert(cnf && certificate);
-        cnf << "p cnf 8 " << rows.size() << '\n';
-        for (const Row &row : rows) {
-          for (int lit : row) cnf << lit << ' ';
-          cnf << "0\n";
-        }
-        certificate << text;
-      }
-      std::istringstream lines(text);
-      std::string line;
-      unsigned additions = 0;
-      while (std::getline(lines, line)) {
-        std::istringstream fields(line);
-        fields >> std::ws;
-        const bool deletion = fields.peek() == 'd';
-        if (deletion) fields.get();
-        Row row;
-        int literal;
-        while (fields >> literal && literal) row.push_back(literal);
-        row = sorted(row);
-        if (deletion) {
-          assert(population[row]);
-          --population[row];
-        } else {
-          if (!rup(population, row)) {
-            std::fprintf(stderr, "non-RUP shape=%u signs=%u clash=%d canonical=%d mode=%u: %s\n",
-                         shape, signs, clash, canonical, mode, line.c_str());
-            assert(false && "XOR matching lemma lacks cancelled-input cases");
-          }
-          ++population[row];
-          ++additions;
-        }
-      }
-      assert(additions);
-    }
-    k.proof = nullptr;
-    std::fclose(input);
+    const std::string stem =
+        directory ? std::string(directory) + "/case-" + std::to_string(cases) : "";
+    run(rows, 8, a, b, clash, {pair(a, b)}, canonical, with_proof, true, stem);
     ++cases;
   }
-  std::printf("XOR cancelled-input proofs: %u fixed cases\n", cases);
+  return cases;
+}
+
+// One 4-input XOR whose inputs 2,3 cancel; the root value of 4 is not a
+// justification for erasing that pair. Shape 1/2 adds a literal/representative clash.
+static unsigned unary(const char *directory) {
+  unsigned cases = 0;
+  for (bool root : {false, true})
+  for (bool opposite_pair : {false, true})
+  for (bool output_sign : {false, true})
+  for (unsigned shape = 0; shape < 3; ++shape)
+  for (bool canonical : {false, true})
+  for (bool with_proof : {false, true}) {
+    std::vector<Row> rows;
+    gate(rows, output_sign ? -6 : 6, {1, 2, 3, 4});
+    const int bridge = opposite_pair ? -3 : 3;
+    rows.push_back({-2, bridge});
+    rows.push_back({2, -bridge});
+    const int expected = root ^ opposite_pair ^ output_sign ? -1 : 1; // 6 == expected
+    if (shape) {
+      rows.push_back({-6, -expected});
+      rows.push_back({6, expected});
+    }
+    // Every gate clause is physically unchanged at input.
+    rows.push_back({root ? 4 : -4});
+    const std::vector<uint64_t> wanted =
+        shape == 1 ? std::vector<uint64_t>{pair(1, -1)}
+                   : std::vector<uint64_t>{pair(expected, 6), pair(-expected, -6)};
+    const std::string stem =
+        directory ? std::string(directory) + "/unary-" + std::to_string(cases) : "";
+    run(rows, 6, 6, expected, shape != 0, wanted, canonical, with_proof, false, stem);
+    ++cases;
+  }
+  return cases;
+}
+
+// argv[1], when given, receives every refuted case's CNF and DSR proof.
+int main(int argc, char **argv) {
+  assert(argc == 1 || argc == 2);
+  const char *directory = argc == 2 ? argv[1] : nullptr;
+  const unsigned matched = matching(directory);
+  const unsigned cancelled = unary(directory);
+  std::printf("XOR cancelled-input proofs: %u matching and %u unary cases\n", matched,
+              cancelled);
 }

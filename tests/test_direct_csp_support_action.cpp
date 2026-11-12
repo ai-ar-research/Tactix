@@ -1,10 +1,10 @@
 #undef NDEBUG
 #include "checker_certificate.hpp"
 #include "dimacs_text.hpp"
+#include "kernel_image.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 
-#include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -75,54 +75,40 @@ void attach(Kernel &kernel, FILE *records) {
   kernel.structural_action_sequence = 40;
 }
 
-struct Image {
-  uint32_t nvars = 0;
-  uint64_t next_clause_id = 0;
+// A declined action also leaves the action sequence and candidate flag alone.
+struct State {
+  Image kernel;
   uint64_t action_sequence = 0;
-  size_t arena_words = 0;
-  size_t external_extent = 0;
-  size_t trail = 0;
-  uint64_t arena_generation = 0;
   bool candidate_pending = false;
-  std::vector<size_t> watches;
+  bool operator==(const State &) const = default;
 };
 
-Image image(const Kernel &kernel) {
-  Image result;
-  result.nvars = kernel.nvars;
-  result.next_clause_id = kernel.next_clause_id;
-  result.action_sequence = kernel.structural_action_sequence;
-  result.arena_words = kernel.arena.size();
-  result.external_extent = kernel.external_to_internal.size();
-  result.trail = kernel.trail.size();
-  result.arena_generation = kernel.arena_generation;
-  result.candidate_pending = kernel.semantic_variable_candidate_pending;
-  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
-    result.watches.push_back(kernel.watches.size(literal));
-  return result;
+State state(const Kernel &kernel) {
+  return {image(kernel), kernel.structural_action_sequence,
+          kernel.semantic_variable_candidate_pending};
 }
 
-bool operator==(const Image &first, const Image &second) {
-  return first.nvars == second.nvars &&
-         first.next_clause_id == second.next_clause_id &&
-         first.action_sequence == second.action_sequence &&
-         first.arena_words == second.arena_words &&
-         first.external_extent == second.external_extent &&
-         first.trail == second.trail &&
-         first.arena_generation == second.arena_generation &&
-         first.candidate_pending == second.candidate_pending &&
-         first.watches == second.watches;
-}
-
-void direct_then_extension_and_durable_replay() {
+// A parsed fixture with attached records and a fresh action session.
+struct Fixture {
   Kernel kernel = parse();
   FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
   DirectCspSupportActionSession session;
+  Fixture() {
+    assert(records);
+    attach(kernel, records);
+  }
+  ~Fixture() { std::fclose(records); }
+  DirectCspSupportActionResult apply(const DirectCspSupportActionLimits &bounds,
+                                     const DirectCspSupportActionSelection &selected) {
+    return direct_csp_support_action_apply(kernel, session, bounds, selected);
+  }
+};
 
-  const auto first = direct_csp_support_action_apply(
-      kernel, session, limits(), selection(1));
+void direct_then_extension_and_durable_replay() {
+  Fixture f;
+  Kernel &kernel = f.kernel;
+  DirectCspSupportActionSession &session = f.session;
+  const auto first = f.apply(limits(), selection(1));
   assert(first.status == DirectCspSupportActionStatus::Applied &&
          first.result == ApplyResult::Ok);
   assert(first.proposed_action_id == 41 && first.committed_action_id == 41 &&
@@ -146,8 +132,7 @@ void direct_then_extension_and_durable_replay() {
            variable.priority == 1);
   assert(!kernel.semantic_variable_candidate_pending);
 
-  const auto second = direct_csp_support_action_apply(
-      kernel, session, limits(true), selection(0));
+  const auto second = f.apply(limits(true), selection(0));
   assert(second.status == DirectCspSupportActionStatus::Applied &&
          second.result == ApplyResult::Ok &&
          second.proposed_action_id == 42 && second.committed_action_id == 42 &&
@@ -173,348 +158,214 @@ void direct_then_extension_and_durable_replay() {
   // The support clause can disappear without reopening its semantic action.
   assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -1),
                               kernel_internalize(kernel, 8)));
-  const Image before = image(kernel);
-  const long journal = position(records);
-  const auto repeated = direct_csp_support_action_apply(
-      kernel, session, limits(true), selection(0));
+  const State before = state(kernel);
+  const long journal = position(f.records);
+  const auto repeated = f.apply(limits(true), selection(0));
   assert(repeated.status ==
              DirectCspSupportActionStatus::AlreadyPublished &&
          repeated.result == ApplyResult::NoOp &&
          repeated.key == action_key(selection(0)) &&
          !repeated.proposed_action_id && !repeated.committed_action_id &&
-         repeated.committed_keys == 2 && image(kernel) == before &&
-         position(records) == journal);
-  std::fclose(records);
+         repeated.committed_keys == 2 && state(kernel) == before &&
+         position(f.records) == journal);
 }
 
 void ordered_domain_pairs_have_distinct_durable_keys() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
-  DirectCspSupportActionSession session;
-
+  Fixture f;
   const auto forward = selection(1);
   const auto reverse = reversed_selection(1);
-  const auto first = direct_csp_support_action_apply(
-      kernel, session, limits(), forward);
+  const auto first = f.apply(limits(), forward);
   assert(first.status == DirectCspSupportActionStatus::Applied &&
          first.live.published_support == std::vector<int32_t>({-2, 5}) &&
          first.key == action_key(forward) && first.retained_owners == 1);
 
   // The same row ordinal in the reverse direction selects external literal 5
   // from a different left domain and publishes a different support clause.
-  const auto second = direct_csp_support_action_apply(
-      kernel, session, limits(), reverse);
+  const auto second = f.apply(limits(), reverse);
   assert(second.status == DirectCspSupportActionStatus::Applied &&
          second.live.published_support ==
              std::vector<int32_t>({-5, 1, 2}) &&
          second.key == action_key(reverse) && second.key != first.key &&
          second.effort.owner_capture_work && second.retained_owners == 2 &&
-         session.retained_owners() == 2 && session.committed_keys() == 2);
-  assert(session.snapshot(forward.left_values, forward.right_values) &&
-         session.snapshot(reverse.left_values, reverse.right_values));
+         f.session.retained_owners() == 2 && f.session.committed_keys() == 2);
+  assert(f.session.snapshot(forward.left_values, forward.right_values) &&
+         f.session.snapshot(reverse.left_values, reverse.right_values));
 
-  const Image before_reverse_replay = image(kernel);
-  const long reverse_journal = position(records);
-  const auto reverse_replay = direct_csp_support_action_apply(
-      kernel, session, limits(), reverse);
-  assert(reverse_replay.status ==
-             DirectCspSupportActionStatus::AlreadyPublished &&
-         reverse_replay.key == action_key(reverse) &&
-         image(kernel) == before_reverse_replay &&
-         position(records) == reverse_journal);
+  const State before = state(f.kernel);
+  const long journal = position(f.records);
+  for (const auto &selected : {reverse, forward}) {
+    const auto replay = f.apply(limits(), selected);
+    assert(replay.status == DirectCspSupportActionStatus::AlreadyPublished &&
+           replay.key == action_key(selected) && state(f.kernel) == before &&
+           position(f.records) == journal);
+  }
+}
 
-  const auto forward_replay = direct_csp_support_action_apply(
-      kernel, session, limits(), forward);
-  assert(forward_replay.status ==
-             DirectCspSupportActionStatus::AlreadyPublished &&
-         forward_replay.key == action_key(forward) &&
-         image(kernel) == before_reverse_replay &&
-         position(records) == reverse_journal);
-  std::fclose(records);
+// Each fresh-session decline leaves the kernel, records and session untouched.
+DirectCspSupportActionResult fresh_declines_are_atomic(
+    Fixture &f, const DirectCspSupportActionLimits &bounds,
+    const DirectCspSupportActionSelection &selected,
+    DirectCspSupportActionStatus expected) {
+  const State before = state(f.kernel);
+  const auto result = f.apply(bounds, selected);
+  assert(result.status == expected && result.result == ApplyResult::NoOp &&
+         !f.session.retained() && state(f.kernel) == before &&
+         !position(f.records));
+  return result;
 }
 
 void declines_are_atomic_and_sessions_are_kernel_local() {
   {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
-    DirectCspSupportActionSession session;
-    const Image before = image(kernel);
-    auto invalid_selection = selection(3);
-    const auto invalid = direct_csp_support_action_apply(
-        kernel, session, limits(), invalid_selection);
-    assert(invalid.status == DirectCspSupportActionStatus::Invalid &&
-           invalid.result == ApplyResult::NoOp && !session.retained() &&
-           image(kernel) == before && !position(records));
-
+    Fixture f;
+    fresh_declines_are_atomic(f, limits(), selection(3),
+                              DirectCspSupportActionStatus::Invalid);
     auto tiny = limits();
     tiny.maximum_session_work = 1;
-    const auto exhausted = direct_csp_support_action_apply(
-        kernel, session, tiny, selection(1));
-    assert(exhausted.status ==
-               DirectCspSupportActionStatus::ResourceExhausted &&
-           exhausted.result == ApplyResult::NoOp && !session.retained() &&
-           image(kernel) == before && !position(records));
-    std::fclose(records);
+    fresh_declines_are_atomic(f, tiny, selection(1),
+                              DirectCspSupportActionStatus::ResourceExhausted);
+    // Fresh-session owner capture: source caps and recognition work.
+    for (int mode = 0; mode < 3; ++mode) {
+      auto bounded = limits();
+      if (mode == 0) bounded.maximum_source_clauses = clauses().size() - 1;
+      if (mode == 1) bounded.maximum_source_literals = 34;
+      if (mode == 2) bounded.maximum_recognition_work = 1;
+      const auto declined = fresh_declines_are_atomic(
+          f, bounded, selection(1), DirectCspSupportActionStatus::ResourceExhausted);
+      assert(mode == 2 ||
+             declined.live.status == DirectCspSupportLiveStatus::ResourceExhausted);
+    }
   }
   {
-    Kernel first_kernel = parse();
-    FILE *first_records = std::tmpfile();
-    assert(first_records);
-    attach(first_kernel, first_records);
-    DirectCspSupportActionSession session;
-    assert(direct_csp_support_action_apply(first_kernel, session, limits(),
-                                           selection(1))
-               .status == DirectCspSupportActionStatus::Applied);
-
-    Kernel second_kernel = parse();
-    FILE *second_records = std::tmpfile();
-    assert(second_records);
-    attach(second_kernel, second_records);
-    const Image before = image(second_kernel);
-    const auto stale = direct_csp_support_action_apply(
-        second_kernel, session, limits(), selection(2));
-    assert(stale.status == DirectCspSupportActionStatus::Stale &&
-           stale.result == ApplyResult::NoOp && image(second_kernel) == before &&
-           session.belongs_to(first_kernel) && session.committed_keys() == 1 &&
-           !position(second_records));
-    std::fclose(second_records);
-    std::fclose(first_records);
-  }
-}
-
-void mapped_live_declines_are_atomic() {
-  {
-    Kernel kernel = parse();
-    assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -1),
-                                kernel_internalize(kernel, -2)));
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
-    DirectCspSupportActionSession session;
-    const Image before = image(kernel);
-    const auto missing = direct_csp_support_action_apply(
-        kernel, session, limits(), selection(1));
-    assert(missing.status == DirectCspSupportActionStatus::NoStructure &&
-           missing.result == ApplyResult::NoOp && !session.retained() &&
-           image(kernel) == before && !position(records));
-    std::fclose(records);
-  }
-  {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
+    Fixture f;
     volatile sig_atomic_t stop = 1;
-    kernel.stop = &stop;
-    DirectCspSupportActionSession session;
-    const Image before = image(kernel);
-    const auto interrupted = direct_csp_support_action_apply(
-        kernel, session, limits(), selection(1));
-    assert(interrupted.status == DirectCspSupportActionStatus::Interrupted &&
-           interrupted.result == ApplyResult::NoOp && !session.retained() &&
-           image(kernel) == before && !position(records));
-    std::fclose(records);
+    f.kernel.stop = &stop;
+    fresh_declines_are_atomic(f, limits(), selection(1),
+                              DirectCspSupportActionStatus::Interrupted);
+    f.kernel.stop = nullptr;
   }
   {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
-    DirectCspSupportActionSession session;
-    auto bounded = limits();
-    bounded.maximum_recognition_work = 1;
-    const Image before = image(kernel);
-    const auto exhausted = direct_csp_support_action_apply(
-        kernel, session, bounded, selection(1));
-    assert(exhausted.status ==
-               DirectCspSupportActionStatus::ResourceExhausted &&
-           exhausted.result == ApplyResult::NoOp && !session.retained() &&
-           image(kernel) == before && !position(records));
-    std::fclose(records);
+    // A missing domain AMO leaves no recognizable relation.
+    Fixture f;
+    assert(kernel_delete_binary(f.kernel, kernel_internalize(f.kernel, -1),
+                                kernel_internalize(f.kernel, -2)));
+    fresh_declines_are_atomic(f, limits(), selection(1),
+                              DirectCspSupportActionStatus::NoStructure);
+  }
+  {
+    Fixture first;
+    assert(first.apply(limits(), selection(1)).status ==
+           DirectCspSupportActionStatus::Applied);
+    Fixture second;
+    const State before = state(second.kernel);
+    const auto stale = direct_csp_support_action_apply(
+        second.kernel, first.session, limits(), selection(2));
+    assert(stale.status == DirectCspSupportActionStatus::Stale &&
+           stale.result == ApplyResult::NoOp && state(second.kernel) == before &&
+           first.session.belongs_to(first.kernel) &&
+           first.session.committed_keys() == 1 && !position(second.records));
   }
 }
 
 void retained_payload_and_source_are_exact() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
-  DirectCspSupportActionSession session;
-  assert(direct_csp_support_action_apply(kernel, session, limits(),
-                                         selection(1))
-             .status == DirectCspSupportActionStatus::Applied);
+  Fixture f;
+  assert(f.apply(limits(), selection(1)).status ==
+         DirectCspSupportActionStatus::Applied);
 
   auto changed = selection(2);
   std::swap(changed.right_values[0], changed.right_values[1]);
-  const Image before_mismatch = image(kernel);
-  const long before_journal = position(records);
-  const auto mismatch = direct_csp_support_action_apply(
-      kernel, session, limits(), changed);
+  const State before_mismatch = state(f.kernel);
+  const long before_journal = position(f.records);
+  const auto mismatch = f.apply(limits(), changed);
   assert(mismatch.status == DirectCspSupportActionStatus::Invalid &&
          mismatch.result == ApplyResult::NoOp &&
-         image(kernel) == before_mismatch &&
-         position(records) == before_journal &&
-         session.committed_keys() == 1);
+         state(f.kernel) == before_mismatch &&
+         position(f.records) == before_journal &&
+         f.session.committed_keys() == 1);
 
-  assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -1),
-                              kernel_internalize(kernel, -2)));
-  const Image before_stale = image(kernel);
-  const auto stale = direct_csp_support_action_apply(
-      kernel, session, limits(), selection(2));
+  assert(kernel_delete_binary(f.kernel, kernel_internalize(f.kernel, -1),
+                              kernel_internalize(f.kernel, -2)));
+  const State before_stale = state(f.kernel);
+  const auto stale = f.apply(limits(), selection(2));
   assert(stale.status == DirectCspSupportActionStatus::Stale &&
-         stale.result == ApplyResult::NoOp && image(kernel) == before_stale &&
-         position(records) == before_journal &&
-         session.committed_keys() == 1);
-  std::fclose(records);
+         stale.result == ApplyResult::NoOp && state(f.kernel) == before_stale &&
+         position(f.records) == before_journal &&
+         f.session.committed_keys() == 1);
 }
 
 void smaller_later_limits_exhaust_valid_retained_state() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
-  DirectCspSupportActionSession session;
-  assert(direct_csp_support_action_apply(kernel, session, limits(),
-                                         selection(1))
-             .status == DirectCspSupportActionStatus::Applied);
-  assert(direct_csp_support_action_apply(kernel, session, limits(),
-                                         selection(2))
-             .status == DirectCspSupportActionStatus::Applied);
-  assert(session.committed_keys() == 2 && session.retained_owners() == 1);
+  Fixture f;
+  assert(f.apply(limits(), selection(1)).status ==
+         DirectCspSupportActionStatus::Applied);
+  assert(f.apply(limits(), selection(2)).status ==
+         DirectCspSupportActionStatus::Applied);
+  assert(f.session.committed_keys() == 2 && f.session.retained_owners() == 1);
 
-  const Image before = image(kernel);
-  const long journal = position(records);
-  const auto expect_exhausted = [&](DirectCspSupportActionLimits bounded) {
-    const auto result = direct_csp_support_action_apply(
-        kernel, session, bounded, selection(0));
+  const State before = state(f.kernel);
+  const long journal = position(f.records);
+  const auto *owner = f.session.snapshot(selection(0).left_values,
+                                         selection(0).right_values);
+  assert(owner && owner->source_literals > 1);
+  for (int mode = 0; mode < 5; ++mode) {
+    auto bounded = limits();
+    switch (mode) {
+    case 0: bounded.maximum_source_clauses = clauses().size() - 1; break;
+    case 1: bounded.maximum_source_literals = owner->source_literals - 1; break;
+    case 2: bounded.maximum_domain_values = 3; break;
+    case 3: bounded.maximum_session_keys = 1; break;
+    case 4: bounded.maximum_session_work = 1; break;
+    }
+    const auto result = f.apply(bounded, selection(0));
     assert(result.status == DirectCspSupportActionStatus::ResourceExhausted &&
            result.live.status ==
                DirectCspSupportLiveStatus::ResourceExhausted &&
-           result.result == ApplyResult::NoOp && image(kernel) == before &&
-           position(records) == journal && session.committed_keys() == 2 &&
-           session.retained_owners() == 1);
-  };
-
-  auto bounded = limits();
-  bounded.maximum_source_clauses = clauses().size() - 1;
-  expect_exhausted(bounded);
-
-  bounded = limits();
-  const auto *owner = session.snapshot(selection(0).left_values,
-                                       selection(0).right_values);
-  assert(owner && owner->source_literals > 1);
-  bounded.maximum_source_literals = owner->source_literals - 1;
-  expect_exhausted(bounded);
-
-  bounded = limits();
-  bounded.maximum_domain_values = 3;
-  expect_exhausted(bounded);
-
-  bounded = limits();
-  bounded.maximum_session_keys = 1;
-  expect_exhausted(bounded);
-
-  bounded = limits();
-  bounded.maximum_session_work = 1;
-  expect_exhausted(bounded);
-  std::fclose(records);
+           result.result == ApplyResult::NoOp && state(f.kernel) == before &&
+           position(f.records) == journal && f.session.committed_keys() == 2 &&
+           f.session.retained_owners() == 1);
+  }
 }
 
 void malformed_retained_key_is_rejected_before_live_work() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
-  DirectCspSupportActionSession session;
-  assert(direct_csp_support_action_apply(kernel, session, limits(),
-                                         selection(1))
-             .status == DirectCspSupportActionStatus::Applied);
+  Fixture f;
+  assert(f.apply(limits(), selection(1)).status ==
+         DirectCspSupportActionStatus::Applied);
 
-  // Production code exposes no mutable session state. This deliberate test
-  // corruption proves that apply validates retained identities rather than
-  // trusting their ordering or redundant selected-literal field.
+  // Deliberate corruption: apply validates retained identities rather than
+  // trusting their order or the redundant selected-literal field.
   auto &corrupted = const_cast<std::vector<DirectCspSupportActionKey> &>(
-      session.keys());
+      f.session.keys());
   corrupted[0].selected_left_literal = 99;
-  const Image before = image(kernel);
-  const long journal = position(records);
+  const State before = state(f.kernel);
+  const long journal = position(f.records);
   auto bounded = limits();
   bounded.maximum_source_clauses = 1;
   bounded.maximum_source_literals = 1;
   bounded.maximum_domain_values = 2;
-  const auto rejected = direct_csp_support_action_apply(
-      kernel, session, bounded, selection(2));
+  const auto rejected = f.apply(bounded, selection(2));
   assert(rejected.status == DirectCspSupportActionStatus::Invalid &&
          rejected.live.status == DirectCspSupportLiveStatus::Invalid &&
-         rejected.result == ApplyResult::NoOp && image(kernel) == before &&
-         position(records) == journal && session.committed_keys() == 1);
-  std::fclose(records);
-}
-void source_capture_caps_are_resource_rejections() {
-  for (int mode = 0; mode < 2; ++mode) {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
-    DirectCspSupportActionSession session;
-    const Image before = image(kernel);
-    auto bounded = limits();
-    if (mode == 0)
-      bounded.maximum_source_clauses = clauses().size() - 1;
-    else
-      bounded.maximum_source_literals = 34;
-
-    const auto applied = direct_csp_support_action_apply(
-        kernel, session, bounded, selection(1));
-    assert(applied.status ==
-               DirectCspSupportActionStatus::ResourceExhausted &&
-           applied.live.status ==
-               DirectCspSupportLiveStatus::ResourceExhausted &&
-           applied.result == ApplyResult::NoOp && !session.retained() &&
-           image(kernel) == before && !position(records));
-    std::fclose(records);
-  }
+         rejected.result == ApplyResult::NoOp && state(f.kernel) == before &&
+         position(f.records) == journal && f.session.committed_keys() == 1);
 }
 
-void proof_modes_and_guard() {
-  {
-    const char *const path = "/tmp/direct-csp-action-decline.pbp";
-    Kernel kernel = parse();
-    Proof proof;
-    std::remove(path);
-    assert(proof.open(path, ProofFormat::PbpStreaming));
-    proof.finish_input_transaction();
-    assert(proof.begin_pb());
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);
-    kernel.proof = &proof;
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
-    DirectCspSupportActionSession session;
-    const Image before = image(kernel);
-    const auto result = direct_csp_support_action_apply(
-        kernel, session, limits(), selection(1));
-    assert(result.status == DirectCspSupportActionStatus::Inapplicable &&
-           result.result == ApplyResult::NoOp && image(kernel) == before &&
-           !session.retained() && !position(records));
-    kernel.proof = nullptr;
-    std::fclose(records);
-  }
+void unsupported_proof_is_inapplicable() {
+  const char *const path = "/tmp/direct-csp-action-decline.pbp";
+  Fixture f;
+  Proof proof;
+  std::remove(path);
+  assert(proof.open(path, ProofFormat::PbpStreaming));
+  proof.finish_input_transaction();
+  assert(proof.begin_pb());
+  proof.bind_variable_map(&f.kernel.internal_to_external);
+  proof.bind_external_variable_map(&f.kernel.external_to_internal);
+  f.kernel.proof = &proof;
+  fresh_declines_are_atomic(f, limits(), selection(1),
+                            DirectCspSupportActionStatus::Inapplicable);
+  f.kernel.proof = nullptr;
 }
 
 void projection_preserves_an_original_model() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  attach(kernel, records);
-  DirectCspSupportActionSession session;
-  const auto result = direct_csp_support_action_apply(
-      kernel, session, limits(true), selection(0));
+  Fixture f;
+  const auto result = f.apply(limits(true), selection(0));
   assert(result.status == DirectCspSupportActionStatus::Applied &&
          result.projection.exact_or_definition);
 
@@ -538,7 +389,6 @@ void projection_preserves_an_original_model() {
                        assert(literal > 0);
                        return value[static_cast<size_t>(literal)];
                      }));
-  std::fclose(records);
 }
 
 void write_certificate(const char *cnf_path, const char *proof_path,
@@ -556,35 +406,23 @@ void write_certificate(const char *cnf_path, const char *proof_path,
   });
 }
 
-void write_model(const char *cnf_path, const char *model_path) {
-  const std::string input = dimacs(false);
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  assert(std::fwrite(input.data(), 1, input.size(), cnf) == input.size());
-  std::fclose(cnf);
-  const std::string model = "s SATISFIABLE\nv 1 -2 -3 4 -5 -6 -7 0\n";
-  FILE *output = std::fopen(model_path, "w");
-  assert(output);
-  assert(std::fwrite(model.data(), 1, model.size(), output) == model.size());
-  std::fclose(output);
-}
-
 } // namespace
 
+// CTest direct_csp_support_proof_model passes UNSAT.cnf UNSAT.dsr SAT.cnf
+// SAT.model to check the emitted certificate and a model of the formula.
 int main(int argc, char **argv) {
   direct_then_extension_and_durable_replay();
   ordered_domain_pairs_have_distinct_durable_keys();
   declines_are_atomic_and_sessions_are_kernel_local();
-  mapped_live_declines_are_atomic();
   retained_payload_and_source_are_exact();
   smaller_later_limits_exhaust_valid_retained_state();
   malformed_retained_key_is_rejected_before_live_work();
-  source_capture_caps_are_resource_rejections();
-  proof_modes_and_guard();
+  unsupported_proof_is_inapplicable();
   projection_preserves_an_original_model();
   if (argc == 5) {
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-    write_model(argv[3], argv[4]);
+    write_file(argv[3], dimacs(false));
+    write_file(argv[4], "s SATISFIABLE\nv 1 -2 -3 4 -5 -6 -7 0\n");
   }
   std::puts("test_direct_csp_support_action: passed");
 }

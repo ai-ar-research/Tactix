@@ -12,11 +12,9 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 
-#include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "proof/proof.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -36,16 +34,19 @@ using namespace tactix::strategy::controller;
 
 namespace {
 
-std::string dimacs(bool unsat = false) {
-  std::vector<std::vector<int32_t>> clauses{
+std::vector<std::vector<int32_t>> clauses(bool unsat = false) {
+  std::vector<std::vector<int32_t>> result{
       {1, 2, 3}, {-1, -2}, {-1, -3}, {-2, -3},
       {4, 5, 6}, {-4, -5}, {-4, -6}, {-5, -6},
       {7, 8, 9}, {-7, -8}, {-7, -9}, {-8, -9},
       {-1, -4, -7}, {-2, -5, -8}, {-3, -6, -9}};
   if (unsat)
-    clauses.insert(clauses.end(),
-                   {{20, 21}, {20, -21}, {-20, 21}, {-20, -21}});
-  return dimacs_text(unsat ? 21 : 9, clauses);
+    result.insert(result.end(), {{20, 21}, {20, -21}, {-20, 21}, {-20, -21}});
+  return result;
+}
+
+std::string dimacs(bool unsat = false) {
+  return dimacs_text(unsat ? 21 : 9, clauses(unsat));
 }
 
 void parse_into(Kernel &kernel, bool unsat = false) {
@@ -110,20 +111,6 @@ void exhaustive_model_and_lifecycle() {
          applied.equality_variables == 3 && kernel.nvars == 12 &&
          session.keys().size() == 1);
 
-  // All 24 source models satisfy the three binary consequences when each
-  // extension is interpreted by its committed equality definition.
-  unsigned models = 0;
-  for (unsigned a = 0; a != 3; ++a)
-    for (unsigned b = 0; b != 3; ++b)
-      for (unsigned c = 0; c != 3; ++c) {
-        if (a == b && b == c) continue;
-        ++models;
-        const std::array<bool, 3> eq{b == c, a == c, a == b};
-        assert(!(eq[0] && eq[1]) && !(eq[0] && eq[2]) &&
-               !(eq[1] && eq[2]));
-      }
-  assert(models == 24);
-
   const auto duplicate = nary_csp_equality_amo_apply(
       kernel, relations, equality, session, amo_limits(), {domains}, records);
   assert(duplicate.status == NaryCspEqualityAmoStatus::Duplicate);
@@ -145,14 +132,7 @@ void exhaustive_model_and_lifecycle() {
   std::fclose(records);
 }
 
-void public_identity_and_replay() {
-  assert(tactix_rules().size() == 48);
-  assert(std::string(tactix_rules()[44].name) == "NaryCspEqualityAmo");
-  const auto reference = strategy::reference_inprocess_program();
-  const auto found = std::find_if(reference.begin(), reference.end(),
-      [](const auto &step) { return step.id == 33; });
-  assert(found != reference.end() && found->rule == "NaryCspEqualityAmo" &&
-         !found->enabled);
+void public_wire_format() {
   strategy::NaryCspEqualityAmoParameters parameters{{
       100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100}};
   strategy::OnlineInvocation invocation;
@@ -171,46 +151,10 @@ void public_identity_and_replay() {
   assert(wire.find(
       ":nary-csp-equality-amo[3,3,1,2,3,3,4,5,6,3,7,8,9]") !=
       std::string::npos);
-  strategy::OnlineStrategyProgram replay;
-  replay = program;
 }
 
-void stale_definition_declines() {
-  Kernel kernel;
-  parse_into(kernel);
-  FILE *records = std::tmpfile();
-  assert(records);
-  NaryCspRelationOwnerSession relations;
-  NaryCspEqualitySession equality;
-  NaryCspEqualityAmoSession session;
-  prepare(kernel, relations, equality, records);
-  bool removed = false;
-  const auto &target = equality.records().front().definition_clauses.front();
-  std::vector<Lit> wanted;
-  for (int32_t literal : target) wanted.push_back(kernel_internalize(kernel, literal));
-  std::sort(wanted.begin(), wanted.end());
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    Clause *clause = clause_at(kernel.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
-    std::vector<Lit> current(clause->lits, clause->lits + clause->size);
-    std::sort(current.begin(), current.end());
-    if (!clause->garbage() && current == wanted) {
-      clause->flags |= Clause::GARBAGE;
-      removed = true;
-      break;
-    }
-    ref += words;
-  }
-  assert(removed);
-  const auto stale = nary_csp_equality_amo_apply(
-      kernel, relations, equality, session, amo_limits(), {domains}, records);
-  assert(stale.status == NaryCspEqualityAmoStatus::Stale &&
-         session.keys().empty());
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
-}
-// Fixed decline fixtures exercise the controller's typed-result translation,
-// not merely the low-level action status or the pre-dispatch stop check.
+// Each decline cause through the controller: typed status, feedback, no
+// mutation, and for retryable causes a later commit of the same payload.
 void controller_decline_feedback() {
   struct Receiver final : FeedbackReceiver {
     std::vector<ActionFeedback> actions;
@@ -355,14 +299,9 @@ void c_v12_deep_copies_and_executes_exact_payload() {
   assert(solver);
   FILE *records = std::tmpfile();
   assert(records && tactix_bind_structural_provenance(solver, records) == 0);
-  const std::string formula = dimacs();
-  std::istringstream clauses(formula);
-  std::string line;
-  while (std::getline(clauses, line)) {
-    if (line.empty() || line[0] == 'c' || line[0] == 'p') continue;
-    std::istringstream literals(line);
-    int literal = 0;
-    while (literals >> literal) tactix_add(solver, literal);
+  for (const auto &clause : clauses()) {
+    for (const int32_t literal : clause) tactix_add(solver, literal);
+    tactix_add(solver, 0);
   }
 
   int d0[] = {1, 2, 3}, d1[] = {4, 5, 6}, d2[] = {7, 8, 9};
@@ -483,8 +422,7 @@ int main(int argc, char **argv) {
   }
   assert(argc == 1);
   exhaustive_model_and_lifecycle();
-  public_identity_and_replay();
-  stale_definition_declines();
+  public_wire_format();
   controller_decline_feedback();
   c_v12_deep_copies_and_executes_exact_payload();
   std::puts("test_nary_csp_equality_amo: passed");

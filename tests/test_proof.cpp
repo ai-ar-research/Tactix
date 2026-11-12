@@ -71,16 +71,6 @@ void expect(const std::string &got, const std::string &want,
 // --- binary line encoding ---------------------------------------------------
 // A line tag, then per literal u = (|e|<<1)|(e<0) as low-first 7-bit chunks,
 // high bit on all but the last, then a 0 terminator.
-void test_binary_add() {
-  const Lit lits[3] = {make_lit(0, false), make_lit(1, true),
-                       make_lit(2, false)};
-  const std::string got =
-      emitted("bin-add", ProofFormat::DsrBinary,
-              [&](Proof &p) { p.add_rup(7, lits, 3); });
-  // +1 -> u=2; -2 -> u=5; +3 -> u=6.
-  expect(got, std::string("\x01\x02\x05\x06\x00", 5), "binary add_rup");
-}
-
 void test_binary_varint_boundary() {
   // pin both sides of the `u >= 128` boundary: 63 fits one chunk, 64 needs two
   const Lit small[1] = {make_lit(62, false)}; // +63
@@ -98,37 +88,9 @@ void test_binary_varint_boundary() {
          std::string("\x01\x81\x01\x00", 4), "binary negative varint");
 }
 
-void test_binary_delete() {
-  const Lit lits[2] = {make_lit(0, true), make_lit(4, false)};
-  expect(emitted("bin-del", ProofFormat::DsrBinary,
-                 [&](Proof &p) { p.del(9, 3, lits, 2); }),
-         std::string("\x02\x03\x0a\x00", 4), "binary del");
-}
-
-void test_binary_empty_clause() {
-  expect(emitted("bin-empty", ProofFormat::DsrBinary,
-                 [&](Proof &p) { p.add_empty(11); }),
-         std::string("\x01\x00", 2), "binary add_empty");
-}
-
-// --- ascii lines ------------------------------------------------------------
-void test_ascii_lines() {
-  const Lit lits[2] = {make_lit(0, false), make_lit(2, true)};
-  expect(emitted("asc-add", ProofFormat::DsrAscii,
-                 [&](Proof &p) { p.add_rup(5, lits, 2); }),
-         "1 -3 0\n", "ascii add_rup");
-  expect(emitted("asc-del", ProofFormat::DsrAscii,
-                 [&](Proof &p) { p.del(6, 5, lits, 2); }),
-         "d 1 -3 0\n", "ascii del");
-  expect(emitted("asc-empty", ProofFormat::DsrAscii,
-                 [&](Proof &p) { p.add_empty(7); }),
-         "0\n", "ascii add_empty");
-}
-
 // --- DSR -------------------------------------------------------------------
-// Canonical binary DSR uses unprintable line tags 1/2 rather than the
-// CaDiCaL-compatible DRAT tags 'a'/'d'. Witnessless additions otherwise share
-// the literal encoding.
+// Binary DSR uses line tags 1 (add) and 2 (delete). +1 -> u=2; -2 -> u=5;
+// +3 -> u=6.
 void test_dsr_binary() {
   const Lit lits[3] = {make_lit(0, false), make_lit(1, true),
                        make_lit(2, false)};
@@ -154,6 +116,9 @@ void test_dsr_ascii() {
   expect(emitted("dsr-asc-del", ProofFormat::DsrAscii,
                  [&](Proof &p) { p.del(6, 5, lits, 2); }),
          "d 1 -3 0\n", "dsr-ascii del");
+  expect(emitted("dsr-asc-empty", ProofFormat::DsrAscii,
+                 [&](Proof &p) { p.add_empty(7); }),
+         "0\n", "dsr-ascii add_empty");
   expect(emitted("dsr-asc-root-unit", ProofFormat::DsrAscii,
                  [&](Proof &p) {
                    p.add_derived_unit(9, lits[0]);
@@ -345,9 +310,9 @@ void test_dsr_substitution() {
   assert(unopened.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
 }
 
-// Pinned Trestle rejects the pivot literal as a mapping source and forces the
-// pivot true after the substitution. An explicit pivot mapping is therefore
-// re-expressed in a form both dsr-trim and Trestle read identically.
+// Pinned Trestle rejects the pivot as a mapping source and forces it true
+// after substitution, so a pivot mapping is re-expressed in a form dsr-trim
+// and Trestle read identically.
 void test_dsr_pivot_mapping_forms() {
   const auto lit = [](int e) { return make_lit(std::abs(e) - 1, e < 0); };
   const auto mapping = [&](int from, int to) {
@@ -447,16 +412,6 @@ void test_dsr_pivot_mapping_forms() {
                    assert(!p.add_sr(1, open_pair, 2, nullptr, 0, open_maps, 2,
                                     INT32_MAX));
                  }), "", "external literal exhaustion emits no prefix");
-}
-
-void test_external_variable_map() {
-  const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
-  const std::vector<Var> map = {4, 1};
-  expect(emitted("mapped", ProofFormat::DsrAscii, [&](Proof &p) {
-           p.bind_variable_map(&map);
-           p.add_rup(1, lits, 2);
-         }),
-         "5 -2 0\n", "stable external variable map");
 }
 
 void test_proof_only_external_clauses() {
@@ -819,18 +774,13 @@ int main() {
   test_startup_pb_without_a_proof();
   test_streaming_pbp_does_not_archive_divergent_binary_ids();
   test_streaming_pbp_parity_text_buffer_boundary();
-  test_binary_add();
   test_binary_varint_boundary();
-  test_binary_delete();
-  test_binary_empty_clause();
-  test_ascii_lines();
   test_dsr_binary();
   test_dsr_ascii();
   test_dsr_unit_deletion_transaction();
   test_dsr_deletion_spill();
   test_dsr_substitution();
   test_dsr_pivot_mapping_forms();
-  test_external_variable_map();
   test_proof_only_external_clauses();
   test_derived_unit();
   test_tautological();

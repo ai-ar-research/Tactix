@@ -11,18 +11,15 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 
-#include "frontend/parse.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "strategy/online_inprocess.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <csignal>
 #include <cstdio>
-#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -54,7 +51,6 @@ Kernel parse(bool unsat = false) {
   return parse_dimacs_text(dimacs(unsat), ParsedRoot::Consistent);
 }
 
-
 NaryCspEqualityParameters equality_parameters() {
   NaryCspEqualityParameters result{{
       100, 1000, 200000, 16, 100, 10000, 100, 1000,
@@ -79,15 +75,7 @@ OnlineInvocation equality_invocation() {
   return result;
 }
 
-void registry_replay_and_exact_payload() {
-  assert(tactix_rule_count() == 48);
-  assert(std::strcmp(tactix_rule_name(42), "NaryCspEquality") == 0);
-  const auto reference = reference_inprocess_program();
-  const auto step = std::find_if(reference.begin(), reference.end(),
-      [](const InprocessStep &candidate) { return candidate.id == 31; });
-  assert(step != reference.end() && step->rule == "NaryCspEquality" &&
-         !step->enabled);
-
+void wire_format_and_validation() {
   OnlineStrategyProgram program;
   program.sequence = {equality_invocation()};
   std::string error;
@@ -97,10 +85,6 @@ void registry_replay_and_exact_payload() {
   assert(wire.find(
       ":nary-csp-equality[3,3,1,2,3,3,4,5,6,3,7,8,9,0,1,2]") !=
       std::string::npos);
-  OnlineStrategyProgram replay;
-  replay = program;
-  assert(replay.sequence.front().nary_csp_equality_instances ==
-         program.sequence.front().nary_csp_equality_instances);
   auto malformed = program;
   malformed.sequence.front().nary_csp_equality_instances.front()
       .coordinates = {1, 1, 2};
@@ -197,20 +181,6 @@ void add_formula(tactix_c_handle *solver) {
   }
 }
 
-void c_parameters(tactix_online_parameters &out, bool equality) {
-  if (equality) {
-    const auto p = equality_parameters();
-    out.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY;
-    out.value.nary_csp_equality = {
-        p.maximum_source_clauses, p.maximum_source_literals,
-        p.maximum_recognition_work, p.maximum_domain_values,
-        p.maximum_forbidden_tuples, p.maximum_proof_work,
-        p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes, p.maximum_extent_growth,
-        p.maximum_external_extent, p.maximum_session_keys};
-  }
-}
-
 void c_v10_deep_copies_and_executes_exact_payload() {
   tactix_c_handle *solver = tactix_init();
   FILE *records = std::tmpfile();
@@ -225,7 +195,15 @@ void c_v10_deep_copies_and_executes_exact_payload() {
       steps[0].base.base.base.base.base.base.base.base.base;
   equality_base.step_id = 31;
   equality_base.rule_id = 42;
-  c_parameters(equality_base.parameters, true);
+  const auto p = equality_parameters();
+  equality_base.parameters.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY;
+  equality_base.parameters.value.nary_csp_equality = {
+      p.maximum_source_clauses, p.maximum_source_literals,
+      p.maximum_recognition_work, p.maximum_domain_values,
+      p.maximum_forbidden_tuples, p.maximum_proof_work,
+      p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+      p.maximum_journal_bytes, p.maximum_extent_growth,
+      p.maximum_external_extent, p.maximum_session_keys};
   equality_base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
   equality_base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
   equality_base.repeat_limit = 1;
@@ -266,12 +244,7 @@ void emit_oracles(const std::string &stem) {
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(unsat.data(), 1, unsat.size(), input) == unsat.size());
-  std::rewind(input);
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
+  parse_dimacs_text(unsat, kernel);
   FILE *records = std::fopen((stem + ".records.jsonl").c_str(), "w+");
   assert(records);
   kernel.structural_provenance = records;
@@ -314,7 +287,7 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  registry_replay_and_exact_payload();
+  wire_format_and_validation();
   executor_feedback_and_candidate_followup();
   owner_acquisition_is_transactional();
   c_v10_deep_copies_and_executes_exact_payload();

@@ -203,11 +203,9 @@ int main() {
   explicit_parameters.scopes={{4,4,0,4},{0,0,4,4},{2,2,2,4}};
   explicit_parameters.seed=UINT64_MAX;explicit_parameters.shuffle_first=true;
   auto p=program(explicit_parameters);
-  const auto text=serialize_online_strategy_program(p);OnlineStrategyProgram replay;std::string error;
-  replay = p;
   {
     Kernel k=fixture();ScopedHeuristics owner(k);OnlineStrategyExecutor executor;
-    assert(executor.configure(replay,1));
+    assert(executor.configure(p,1));
     assert(executor.advance(k).status==InvocationStatus::Sat);check(k);
     assert(k.affine_model_parameters.projection.empty());
   }
@@ -237,6 +235,7 @@ int main() {
   {
     DefaultStrategyConfig config;
     config.inprocess.structured_root_stages={{p,BudgetExhaustionPolicy::Stop}};
+    std::string error;
     assert(config.valid(&error));
   }
   std::cout<<"Affine reference model, "<<complete_work<<" exact budget boundaries, root negatives, and public scheduling PASS\n";

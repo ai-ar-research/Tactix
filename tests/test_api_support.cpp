@@ -1,4 +1,4 @@
-// Public support transactions (gap plan Step 4, A5/A11). Two C-API solvers
+// Public support transactions. Two C-API solvers
 // load the same formula; one issues tactix_support under NATIVE guidance
 // publication, the other runs DefaultPolicy's composition of the same shared
 // requests on its kernel. Formula, assignment, lifecycle and H state must stay

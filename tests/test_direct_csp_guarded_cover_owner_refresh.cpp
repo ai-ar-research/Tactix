@@ -1,12 +1,12 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
-#include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include <algorithm>
 #include <cassert>
 #include <csignal>
 #include <cstdio>
-#include <sstream>
 #include <sys/stat.h>
 
 using namespace tactix;
@@ -22,11 +22,11 @@ Selection selection(bool signed_domain){
  if(signed_domain){s.domains[1]={-4,-5};s.exact_or[0].inputs[0]=-4;}
  return s;
 }
+bool unbounded(uint64_t){return true;}
 std::string dimacs(const Selection &s){
- const auto expected=direct_csp_guarded_cover::expected_clauses(s,bounds,[](uint64_t){return true;});
+ const auto expected=direct_csp_guarded_cover::expected_clauses(s,bounds,unbounded);
  assert(expected.status==direct_csp_guarded_cover::Status::Planned);
- std::ostringstream out;out<<"p cnf 12 "<<expected.clauses.size()<<'\n';
- for(const auto &c:expected.clauses){for(auto l:c)out<<l<<' ';out<<"0\n";}return out.str();
+ return dimacs_text(12,expected.clauses);
 }
 bool same(const DirectCspGuardedCoverOwnerSnapshot &a,const DirectCspGuardedCoverOwnerSnapshot &b){
  if(a.selection!=b.selection||a.source.size()!=b.source.size()||a.source_literals!=b.source_literals)return false;
@@ -39,24 +39,24 @@ void exercise(bool signed_domain,const char *output){
  const auto first_selection=selection(signed_domain);
  Kernel k;Proof proof;std::string proof_path;
  if(output){const auto base=std::string(output)+(signed_domain?"-signed":"-positive");
-   FILE *cnf=std::fopen((base+".cnf").c_str(),"w");assert(cnf);const auto text=dimacs(first_selection);assert(std::fwrite(text.data(),1,text.size(),cnf)==text.size());std::fclose(cnf);
+   write_file((base+".cnf").c_str(),dimacs(first_selection));
    proof_path=base+".dsr";assert(proof.open(proof_path.c_str(),ProofFormat::DsrAscii));k.proof=&proof;
  }
- const auto text=dimacs(first_selection);FILE *input=std::tmpfile();assert(input);assert(std::fwrite(text.data(),1,text.size(),input)==text.size());std::rewind(input);assert(!parse_dimacs(input,k));std::fclose(input);
+ parse_dimacs_text(dimacs(first_selection),k);
  FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
  DirectCspGuardedCoverActionSession session;
- assert(session.lookup_committed(first_selection,bounds,[](uint64_t){return true;})==Lookup::Absent);
+ assert(session.lookup_committed(first_selection,bounds,unbounded)==Lookup::Absent);
  const auto first=direct_csp_guarded_cover_action_apply(k,session,limits,first_selection);
  assert(first.status==ActionStatus::Applied&&session.committed_keys()==1);
  const auto *saved=session.snapshot(first_selection);assert(saved);const auto old=*saved;
- assert(session.lookup_committed(first_selection,bounds,[](uint64_t){return true;})==Lookup::Present);
+ assert(session.lookup_committed(first_selection,bounds,unbounded)==Lookup::Present);
  // Domain presentation permutations preserve the existing normalized image+
  // full tuple identity, including signed values. Blocker indices move with it.
  auto permuted=first_selection;std::swap(permuted.domains[0],permuted.domains[2]);std::swap(permuted.selected_values[0],permuted.selected_values[2]);
  for(auto &b:permuted.blockers)b.domain=2;
- assert(session.lookup_committed(permuted,bounds,[](uint64_t){return true;})==Lookup::Present);
+ assert(session.lookup_committed(permuted,bounds,unbounded)==Lookup::Present);
  auto invalid=first_selection;invalid.selected_values[0]=99;
- assert(session.lookup_committed(invalid,bounds,[](uint64_t){return true;})==Lookup::Invalid);
+ assert(session.lookup_committed(invalid,bounds,unbounded)==Lookup::Invalid);
  uint64_t lookup_work=0;
  assert(session.lookup_committed(first_selection,bounds,[&](uint64_t n){lookup_work+=n;return true;})==Lookup::Present);
  uint64_t spent=0;
@@ -104,15 +104,15 @@ void exercise(bool signed_domain,const char *output){
  auto expected=old;expected.selection=second_selection;
  for(auto &p:expected.source)if(p.native_proof_id==old_cover)p.native_proof_id=replacement_id;
  assert(same(*refreshed,expected));
- assert(session.lookup_committed(first_selection,bounds,[](uint64_t){return true;})==Lookup::Present);
- assert(session.lookup_committed(second_selection,bounds,[](uint64_t){return true;})==Lookup::Present);
+ assert(session.lookup_committed(first_selection,bounds,unbounded)==Lookup::Present);
+ assert(session.lookup_committed(second_selection,bounds,unbounded)==Lookup::Present);
  // Durable committed identity survives removal of its published consequence.
  const auto output_ref=find(k,first.live.published_clause_id);assert(output_ref!=INVALID_REF);kernel_delete_clause(k,clause_at(k.arena,output_ref));
- assert(session.lookup_committed(first_selection,bounds,[](uint64_t){return true;})==Lookup::Present);
+ assert(session.lookup_committed(first_selection,bounds,unbounded)==Lookup::Present);
  const auto duplicate=direct_csp_guarded_cover_action_apply(k,session,limits,first_selection);
  assert(duplicate.status==ActionStatus::AlreadyPublished&&session.committed_keys()==2);
  auto third_selection=first_selection;third_selection.selected_values[0]=2;
- assert(session.lookup_committed(third_selection,bounds,[](uint64_t){return true;})==Lookup::Absent);
+ assert(session.lookup_committed(third_selection,bounds,unbounded)==Lookup::Absent);
  proof.flush();k.proof=nullptr;std::fclose(journal);
 }
 }

@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "affine_formula_support.hpp"
+#include "dimacs_text.hpp"
 #include "test_io.hpp"
 #include "kernel/clause.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -39,31 +41,6 @@ struct Capture final : FeedbackReceiver {
   void search_interval(const SearchIntervalFeedback &) override {}
 };
 
-void add_clause(Kernel &kernel, const std::vector<int32_t> &external) {
-  std::vector<Lit> clause;
-  for (const int32_t literal : external) {
-    const Lit internal = kernel_internalize(kernel, literal);
-    assert(internal != INVALID_LIT);
-    clause.push_back(internal);
-  }
-  const uint64_t id = ++kernel.next_clause_id;
-  if (clause.size() == 1) {
-    assert(!kernel.value(clause[0]));
-    kernel.unit_ids[var_of(clause[0])] = id;
-    kernel_assign_unit(kernel, clause[0]);
-  } else if (clause.size() == 2) {
-    kernel_add_binary_clause(kernel, clause[0], clause[1], id);
-  } else {
-    kernel_add_large_clause(kernel, clause.data(), clause.size(), false, 0, id);
-  }
-}
-
-void add_equation(Kernel &kernel, const std::vector<int32_t> &variables,
-                  bool rhs) {
-  for (const auto &clause : clausal_form(variables, rhs))
-    add_clause(kernel, clause);
-}
-
 AffineConsequenceParameters parameters() {
   AffineConsequenceParameters result;
   result.maximum_clauses = 10000;
@@ -93,14 +70,47 @@ AffineConsequenceParameters parameters() {
   return result;
 }
 
+const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000, 100000};
+
 // The persistent-matrix initialization the scenarios start from.
 void initialize_persistent(Kernel &kernel, AffineMatrixSearchSession &session) {
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
   assert(affine_matrix_search_initialize(
              kernel, session, parameters(),
              AffineMatrixAdmission::AuthenticatedSubimage, persistence)
              .status == AffineMatrixInitStatus::Applied);
+}
+
+// The AffineMatrixInitialize profile of one persistent-session operation.
+AffineMatrixInitializeParameters persistent_profile(
+    AffineMatrixInitializeParameters::Operation operation) {
+  AffineMatrixInitializeParameters profile;
+  profile.basis = parameters();
+  profile.admission =
+      AffineMatrixInitializeParameters::Admission::AuthenticatedSubimage;
+  profile.operation = operation;
+  profile.maximum_retained_bytes = persistence.maximum_retained_bytes;
+  profile.maximum_deferred_deletions = persistence.maximum_deferred_deletions;
+  profile.maximum_deferred_literal_work = persistence.maximum_deferred_literal_work;
+  assert(profile.valid());
+  return profile;
+}
+
+// Add the binary (first second) with id and make it the current conflict.
+void binary_conflict(Kernel &kernel, int32_t first, int32_t second, uint64_t id) {
+  const Lit conflict[2] = {kernel_internalize(kernel, first),
+                           kernel_internalize(kernel, second)};
+  kernel_add_binary_clause(kernel, conflict[0], conflict[1], id);
+  kernel.conflict_ref = INVALID_REF;
+  kernel.conflict_bin[0] = conflict[0];
+  kernel.conflict_bin[1] = conflict[1];
+  kernel.conflict_valid = true;
+}
+
+// Two independent implication pairs: x1 = x2 = 0 implies x5 = 0 and
+// x6 = x7 = 0 implies x10 = 0.
+AffineCnf paired_implications() {
+  return xor_cnf({{{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
+                  {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}});
 }
 
 // Bind the variable maps and seed the PBP input population with original.
@@ -127,6 +137,49 @@ void reserve_path(char *path) {
   close(fd);
 }
 
+// A kernel with an attached matrix session and journal. open_dsr binds a DSR
+// proof (on a fresh temporary file unless a path is given) over an empty
+// armed population; open_pbp seeds a streaming-PBP proof with original.
+struct SearchFixture {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  FILE *journal = temporary_records();
+  char temporary[64] = "/tmp/tactix-affine-search-XXXXXX";
+  bool owns_path = false;
+  Proof proof;
+  SearchFixture() {
+    kernel.affine_matrix_search_session = &session;
+    kernel.structural_provenance = journal;
+  }
+  ~SearchFixture() {
+    kernel.proof = nullptr;
+    if (owns_path) unlink(temporary);
+    std::fclose(journal);
+  }
+  const char *reserve() {
+    reserve_path(temporary);
+    owns_path = true;
+    return temporary;
+  }
+  Proof &open_dsr(const char *path = nullptr, bool bind_maps = false) {
+    assert(proof.open(path ? path : reserve(), ProofFormat::DsrAscii));
+    if (bind_maps) {
+      proof.bind_variable_map(&kernel.internal_to_external);
+      proof.bind_external_variable_map(&kernel.external_to_internal);
+    }
+    proof.arm_population_shadow();
+    proof.finish_input_transaction();
+    kernel.proof = &proof;
+    return proof;
+  }
+  Proof &open_pbp(const AffineCnf &original) {
+    assert(proof.open(reserve(), ProofFormat::PbpStreaming));
+    seed_pbp_population(proof, kernel, original);
+    kernel.proof = &proof;
+    return proof;
+  }
+};
+
 ActionRequest initialize_request(RestartController &controller, Kernel &kernel,
                                  const AffineConsequenceParameters &p) {
   ActionRequest request;
@@ -150,13 +203,6 @@ ActionRequest resume_request(RestartController &controller, Kernel &kernel) {
   return request;
 }
 
-void install_implication_formula(Kernel &kernel) {
-  kernel_reserve_vars(kernel, 6);
-  add_equation(kernel, {1, 3, 4}, false);
-  add_equation(kernel, {2, 3, 4, 5}, false);
-  assert(kernel_propagation_fixpoint(kernel));
-}
-
 void install_partial_formula(Kernel &kernel) {
   kernel_reserve_vars(kernel, 10);
   add_equation(kernel, {1, 3, 4}, false);
@@ -167,12 +213,9 @@ void install_partial_formula(Kernel &kernel) {
 
 void complete_snapshot_policy_admission() {
   {
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
+    SearchFixture fixture;
+    Kernel &kernel = fixture.kernel;
+    AffineMatrixSearchSession &session = fixture.session;
     install_implication_formula(kernel);
     auto &profile=kernel.affine_matrix_initialize_parameters;
     profile.basis=parameters();
@@ -192,15 +235,11 @@ void complete_snapshot_policy_admission() {
     kernel.model_extended=true;
     assert(rule_guard(rule,kernel)); // non-persistent, no-proof root service
     kernel.model_extended=false;
-    std::fclose(journal);
   }
   {
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
+    SearchFixture fixture;
+    Kernel &kernel = fixture.kernel;
+    AffineMatrixSearchSession &session = fixture.session;
     kernel_reserve_vars(kernel, 7);
     add_equation(kernel, {1, 2, 3}, false);
     add_clause(kernel, {4, 5, 6, 7});
@@ -214,15 +253,11 @@ void complete_snapshot_policy_admission() {
                kernel_irredundant_clauses(kernel) &&
            result.covered_clauses == result.snapshot_clauses &&
            !session.enabled());
-    std::fclose(journal);
   }
   {
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
+    SearchFixture fixture;
+    Kernel &kernel = fixture.kernel;
+    AffineMatrixSearchSession &session = fixture.session;
     install_implication_formula(kernel);
     add_clause(kernel, {1, 2, 6});
     const auto result = affine_matrix_search_initialize(
@@ -232,15 +267,11 @@ void complete_snapshot_policy_admission() {
            result.covered_clauses + 1 == result.snapshot_clauses &&
            !session.enabled() &&
            kernel.stats.affine_matrix_init_incomplete_image == 1);
-    std::fclose(journal);
   }
   {
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
+    SearchFixture fixture;
+    Kernel &kernel = fixture.kernel;
+    AffineMatrixSearchSession &session = fixture.session;
     install_partial_formula(kernel);
     auto limited = parameters();
     limited.basis_maximum_intermediate_width = 4;
@@ -250,48 +281,20 @@ void complete_snapshot_policy_admission() {
     assert(result.status == AffineMatrixInitStatus::IncompleteMatrix &&
            !session.enabled() &&
            kernel.stats.affine_matrix_init_incomplete_matrix == 1);
-    std::fclose(journal);
   }
 }
 
 void deferred_reason_has_public_materialization_boundary() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   install_implication_formula(kernel);
-  char proof_path[] = "/tmp/tactix-affine-deferred-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  Proof &proof = fixture.open_dsr();
+  initialize_persistent(kernel, session);
+  decide_all(kernel, {-1, -2});
 
-  AffineMatrixInitializeParameters profile;
-  profile.basis = parameters();
-  profile.admission =
-      AffineMatrixInitializeParameters::Admission::AuthenticatedSubimage;
-  profile.operation =
-      AffineMatrixInitializeParameters::Operation::DeferredSearchStep;
-  profile.maximum_retained_bytes = persistence.maximum_retained_bytes;
-  profile.maximum_deferred_deletions =
-      persistence.maximum_deferred_deletions;
-  profile.maximum_deferred_literal_work =
-      persistence.maximum_deferred_literal_work;
-  assert(profile.valid());
+  auto profile = persistent_profile(
+      AffineMatrixInitializeParameters::Operation::DeferredSearchStep);
   kernel.affine_matrix_initialize_parameters = profile;
   kernel.affine_matrix_initialize_parameters_active = true;
   const RuleVTable &materialize =
@@ -326,51 +329,21 @@ void deferred_reason_has_public_materialization_boundary() {
          clause_at(kernel.arena, kernel.assigned[4].reason)->id() > 0 &&
          clause_at(kernel.arena, provisional)->garbage());
   proof.flush();
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 void detached_minimal_reason_is_public_and_unwatched() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 7);
   add_equation(kernel, {1, 2, 3, 4, 6, 7}, false);
   add_equation(kernel, {3, 4, 5, 6, 7}, true);
-  char proof_path[] = "/tmp/tactix-affine-detached-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
-  for (const int32_t decision : {-1, -2, -3, -4}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  Proof &proof = fixture.open_dsr();
+  initialize_persistent(kernel, session);
+  decide_all(kernel, {-1, -2, -3, -4});
 
-  AffineMatrixInitializeParameters profile;
-  profile.basis = parameters();
-  profile.admission =
-      AffineMatrixInitializeParameters::Admission::AuthenticatedSubimage;
-  profile.operation = AffineMatrixInitializeParameters::Operation::
-      DetachedMinimalSearchStep;
-  profile.maximum_retained_bytes = persistence.maximum_retained_bytes;
-  profile.maximum_deferred_deletions =
-      persistence.maximum_deferred_deletions;
-  profile.maximum_deferred_literal_work =
-      persistence.maximum_deferred_literal_work;
-  assert(profile.valid());
+  auto profile = persistent_profile(
+      AffineMatrixInitializeParameters::Operation::DetachedMinimalSearchStep);
   kernel.affine_matrix_initialize_parameters = profile;
   kernel.affine_matrix_initialize_parameters_active = true;
   const RuleVTable &rule =
@@ -393,42 +366,18 @@ void detached_minimal_reason_is_public_and_unwatched() {
       assert(watch.binary() || watch.ref() != ref);
 
   proof.flush();
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 10);
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
-           {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
-    add_equation(kernel, variables, rhs);
-  char proof_path[] = "/tmp/tactix-affine-lazy-multiple-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
+  for (const auto &clause : paired_implications()) add_clause(kernel, clause);
+  Proof &proof = fixture.open_dsr();
+  initialize_persistent(kernel, session);
 
-  for (const int decision : {-1, -2}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-1, -2});
   const uint64_t before_publication = kernel.next_clause_id;
   const size_t arena_before_publication = kernel.arena.size();
   const auto first = affine_matrix_search_step_lazy_source(kernel, session);
@@ -450,10 +399,7 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
          kernel.assigned[4].reason == AFFINE_REASON);
   kernel_check_invariants(kernel);
 
-  for (const int decision : {-6, -7}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-6, -7});
   const auto second = affine_matrix_search_step_lazy_source(kernel, session);
   assert(second.status == AffineMatrixServiceStatus::Applied &&
          session.lazy_reason_count() == 2 &&
@@ -462,17 +408,8 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
   // MaterializeReasons is the public eager boundary as well as Analyze's
   // automatic exact-consumer boundary. It discharges one live handle per
   // invocation and retains the certified source-support clause as watched.
-  AffineMatrixInitializeParameters profile;
-  profile.basis = parameters();
-  profile.admission =
-      AffineMatrixInitializeParameters::Admission::AuthenticatedSubimage;
-  profile.operation =
-      AffineMatrixInitializeParameters::Operation::MaterializeReasons;
-  profile.maximum_retained_bytes = persistence.maximum_retained_bytes;
-  profile.maximum_deferred_deletions =
-      persistence.maximum_deferred_deletions;
-  profile.maximum_deferred_literal_work =
-      persistence.maximum_deferred_literal_work;
+  auto profile = persistent_profile(
+      AffineMatrixInitializeParameters::Operation::MaterializeReasons);
   kernel.affine_matrix_initialize_parameters = profile;
   kernel.affine_matrix_initialize_parameters_active = true;
   const RuleVTable &materialize =
@@ -500,31 +437,16 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
          session.lazy_reason_count() == 0);
 
   proof.flush();
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 void lazy_minimal_handle_is_public_and_consumed_on_demand() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   install_implication_formula(kernel);
-  char proof_path[] = "/tmp/tactix-affine-lazy-minimal-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
+  Proof &proof = fixture.open_dsr();
   initialize_persistent(kernel, session);
-  for (const int decision : {-1, 2}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-1, 2});
   const auto lazy = affine_matrix_search_step_lazy_minimal(kernel, session);
   assert(lazy.status == AffineMatrixServiceStatus::Applied &&
          lazy.reason_deferred && lazy.reason_width == 3 &&
@@ -552,36 +474,17 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
          materialized.event_identity == lazy.event_identity &&
          session.lazy_reason_count() == 0);
   proof.flush();
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 void lazy_minimal_materializes_only_analyze_ancestor() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 10);
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
-           {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
-    add_equation(kernel, variables, rhs);
-  char proof_path[] = "/tmp/tactix-affine-lazy-analyze-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
+  for (const auto &clause : paired_implications()) add_clause(kernel, clause);
+  Proof &proof = fixture.open_dsr();
   initialize_persistent(kernel, session);
-  for (const int decision : {-1, -2}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-1, -2});
   const auto first = affine_matrix_search_step_lazy_minimal(kernel, session);
   assert(first.status == AffineMatrixServiceStatus::Applied &&
          first.installed_reason.empty() && session.lazy_reason_count() == 1 &&
@@ -589,10 +492,7 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   assert(kernel.assigned[4].affine &&
          kernel.assigned[4].reason == AFFINE_REASON);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
-  for (const int decision : {-6, -7}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-6, -7});
   const auto second = affine_matrix_search_step_lazy_minimal(kernel, session);
   assert(second.status == AffineMatrixServiceStatus::Applied &&
          second.installed_reason.empty() && session.lazy_reason_count() == 2 &&
@@ -608,14 +508,7 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   // The independent first implication is not in this conflict's reason
   // ancestry. ConflictAnalysis certifies the second before capturing any arena
   // pointer or proof chain, without eagerly publishing the unrelated handle.
-  const Lit conflict[2] = {kernel_internalize(kernel, 7),
-                           kernel_internalize(kernel, 10)};
-  kernel_add_binary_clause(kernel, conflict[0], conflict[1],
-                           ++kernel.next_clause_id);
-  kernel.conflict_ref = INVALID_REF;
-  kernel.conflict_bin[0] = conflict[0];
-  kernel.conflict_bin[1] = conflict[1];
-  kernel.conflict_valid = true;
+  binary_conflict(kernel, 7, 10, ++kernel.next_clause_id);
   const RuleVTable &analyze =
       tactix_rules()[tactix_rule_id("ConflictAnalysis")];
   assert(rule_guard(analyze, kernel));
@@ -634,57 +527,28 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
          kernel.stats.affine_matrix_analyze_vectors_constructed == 1 &&
          kernel.stats.affine_matrix_analyze_literals_constructed == 3);
   proof.flush();
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 // When no budget remains for a handle's clauses, ConflictAnalysis withdraws
 // every handle and ends parity reasoning instead of aborting the run. Nothing
 // is learned and the search continues from below the lowest handle.
 void unaffordable_lazy_reasons_are_withdrawn() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 10);
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
-           {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
-    add_equation(kernel, variables, rhs);
-  char proof_path[] = "/tmp/tactix-affine-lazy-withdrawn-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
+  for (const auto &clause : paired_implications()) add_clause(kernel, clause);
+  Proof &proof = fixture.open_dsr();
   initialize_persistent(kernel, session);
-  for (const int decision : {-1, -2}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-1, -2});
   assert(affine_matrix_search_step_lazy_minimal(kernel, session).reason_deferred);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   const uint32_t lowest = kernel.assigned[4].level;
-  for (const int decision : {-6, -7}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-6, -7});
   assert(affine_matrix_search_step_lazy_minimal(kernel, session).reason_deferred);
   assert(session.lazy_reason_count() == 2 && lowest == 2);
 
-  const Lit conflict[2] = {kernel_internalize(kernel, 7),
-                           kernel_internalize(kernel, 10)};
-  kernel_add_binary_clause(kernel, conflict[0], conflict[1],
-                           ++kernel.next_clause_id);
-  kernel.conflict_ref = INVALID_REF;
-  kernel.conflict_bin[0] = conflict[0];
-  kernel.conflict_bin[1] = conflict[1];
-  kernel.conflict_valid = true;
+  binary_conflict(kernel, 7, 10, ++kernel.next_clause_id);
   const uint64_t action_sequence = kernel.structural_action_sequence;
   kernel.structural_action_sequence = UINT64_MAX; // materialization is exhausted
   const RuleVTable &analyze =
@@ -701,9 +565,6 @@ void unaffordable_lazy_reasons_are_withdrawn() {
          kernel.stats.learned == 0);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   proof.flush();
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 // Streaming PBP plans a compact reason without the matrix proof cache, and
@@ -714,30 +575,16 @@ void unaffordable_lazy_reasons_are_withdrawn() {
 // publishable when ConflictAnalysis needs it (it was misjudged Stale and the
 // solver aborted on Tier D linvrinv5).
 void lazy_compact_pbp_reason_survives_matrix_cache_commit() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 11);
-  std::vector<std::vector<int32_t>> original;
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{2, 4, 5}, false}, {{3, 4, 5, 6}, false},
-           {{7, 9, 10}, false}, {{8, 9, 10, 11}, false}})
-    for (const auto &clause : clausal_form(variables, rhs))
-      original.push_back(clause);
+  const AffineCnf original =
+      xor_cnf({{{2, 4, 5}, false}, {{3, 4, 5, 6}, false},
+               {{7, 9, 10}, false}, {{8, 9, 10, 11}, false}});
   for (const auto &clause : original) add_clause(kernel, clause);
-  char proof_path[] = "/tmp/tactix-affine-lazy-compact-cache-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::PbpStreaming));
-  seed_pbp_population(proof, kernel, original);
-  kernel.proof = &proof;
+  Proof &proof = fixture.open_pbp(original);
   const auto p = parameters();
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
   assert(affine_matrix_search_initialize(
              kernel, session, p,
              AffineMatrixAdmission::AuthenticatedSubimage, persistence)
@@ -769,10 +616,7 @@ void lazy_compact_pbp_reason_survives_matrix_cache_commit() {
   assert(propagate_apply(kernel) == ApplyResult::Ok &&
          kernel.value(kernel_internalize(kernel, -6)) > 0);
 
-  for (const int decision : {-7, -8}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-7, -8});
   const auto lazy = affine_matrix_search_step_lazy_minimal(kernel, session);
   const Var implied = var_of(kernel_internalize(kernel, 11));
   assert(lazy.status == AffineMatrixServiceStatus::Applied &&
@@ -780,14 +624,7 @@ void lazy_compact_pbp_reason_survives_matrix_cache_commit() {
          kernel.assigned[implied].affine &&
          kernel.assigned[implied].reason == AFFINE_REASON);
 
-  const Lit conflict[2] = {kernel_internalize(kernel, 8),
-                           kernel_internalize(kernel, 11)};
-  kernel_add_binary_clause(kernel, conflict[0], conflict[1],
-                           ++kernel.next_clause_id);
-  kernel.conflict_ref = INVALID_REF;
-  kernel.conflict_bin[0] = conflict[0];
-  kernel.conflict_bin[1] = conflict[1];
-  kernel.conflict_valid = true;
+  binary_conflict(kernel, 8, 11, ++kernel.next_clause_id);
   const RuleVTable &analyze =
       tactix_rules()[tactix_rule_id("ConflictAnalysis")];
   assert(rule_guard(analyze, kernel));
@@ -796,31 +633,16 @@ void lazy_compact_pbp_reason_survives_matrix_cache_commit() {
          kernel.stats.affine_matrix_analyze_handles == 1 &&
          kernel.stats.affine_matrix_analyze_materializations == 1);
   proof.flush();
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 void lazy_source_backtrack_discards_without_publication() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   install_implication_formula(kernel);
-  char proof_path[] = "/tmp/tactix-affine-lazy-backtrack-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
+  Proof &proof = fixture.open_dsr();
   initialize_persistent(kernel, session);
-  for (const int decision : {-1, -2}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-1, -2});
   const uint64_t before = kernel.next_clause_id;
   const uint64_t retained_before = session.retained_bytes();
   const auto lazy = affine_matrix_search_step_lazy_source(kernel, session);
@@ -840,59 +662,24 @@ void lazy_source_backtrack_discards_without_publication() {
   session.disable(kernel);
   assert(!session.enabled());
   proof.flush();
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 void deferred_reason_materializes_at_later_conflict(bool pbp) {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 7);
-  std::vector<std::vector<int32_t>> original;
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
-    for (const auto &clause : clausal_form(variables, rhs))
-      original.push_back(clause);
+  AffineCnf original = xor_cnf({{{1, 3, 4}, false}, {{2, 3, 4, 5}, false}});
   // Once affine reasoning assigns -5, deciding -6 makes the first clause
-  // imply 7 and the second imply -7.  This reaches materialization with an
-  // active Boolean conflict after an intervening ordinary decision/BCP step.
+  // imply 7 and the second imply -7: materialization meets an active Boolean
+  // conflict after an intervening decision and BCP.
   original.push_back({5, 6, 7});
   original.push_back({6, -7});
   for (const auto &clause : original) add_clause(kernel, clause);
-  char proof_path[] = "/tmp/tactix-affine-deferred-conflict-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, pbp ? ProofFormat::PbpStreaming
-                                    : ProofFormat::DsrAscii));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  if (pbp) {
-    uint64_t id = 0;
-    for (const auto &external : original) {
-      std::vector<Lit> clause;
-      for (int32_t literal : external)
-        clause.push_back(kernel_internalize(kernel, literal));
-      proof.seed_population(++id, clause.data(), clause.size());
-    }
-    assert(id == kernel.next_clause_id);
-    proof.finish_input_transaction();
-    assert(proof.commit_clause_stream());
-  } else {
-    proof.arm_population_shadow();
-    proof.finish_input_transaction();
-  }
-  kernel.proof = &proof;
+  if (pbp) fixture.open_pbp(original);
+  else fixture.open_dsr(nullptr, true);
   initialize_persistent(kernel, session);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  decide_all(kernel, {-1, -2});
   const auto deferred = affine_matrix_search_step_deferred(kernel, session);
   assert(deferred.status == AffineMatrixServiceStatus::Applied &&
          deferred.reason_deferred && session.has_deferred_reason());
@@ -903,33 +690,16 @@ void deferred_reason_materializes_at_later_conflict(bool pbp) {
   const auto materialized = affine_matrix_materialize_reason(kernel, session);
   assert(materialized.status == AffineMatrixServiceStatus::Applied &&
          materialized.reason_materialized && !session.has_deferred_reason());
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 void repeated_deferred_pbp_reasons_preserve_cache_generation() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 10);
-  std::vector<std::vector<int32_t>> original;
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
-           {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
-    for (const auto &clause : clausal_form(variables, rhs))
-      original.push_back(clause);
+  const AffineCnf original = paired_implications();
   for (const auto &clause : original) add_clause(kernel, clause);
-  char proof_path[] = "/tmp/tactix-affine-deferred-repeat-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::PbpStreaming));
-  seed_pbp_population(proof, kernel, original);
-  kernel.proof = &proof;
+  fixture.open_pbp(original);
   initialize_persistent(kernel, session);
   for (const auto &[first, second, implied] :
        std::vector<std::tuple<int32_t, int32_t, int32_t>>{
@@ -947,32 +717,16 @@ void repeated_deferred_pbp_reasons_preserve_cache_generation() {
     assert(materialized.status == AffineMatrixServiceStatus::Applied &&
            materialized.reason_materialized && !session.has_deferred_reason());
   }
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 void deferred_pbp_reason_survives_backtrack_and_cache_resume() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 5);
-  std::vector<std::vector<int32_t>> original;
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
-    for (const auto &clause : clausal_form(variables, rhs))
-      original.push_back(clause);
+  const AffineCnf original = xor_cnf({{{1, 3, 4}, false}, {{2, 3, 4, 5}, false}});
   for (const auto &clause : original) add_clause(kernel, clause);
-  char proof_path[] = "/tmp/tactix-affine-deferred-resume-XXXXXX";
-  reserve_path(proof_path);
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::PbpStreaming));
-  seed_pbp_population(proof, kernel, original);
-  kernel.proof = &proof;
+  fixture.open_pbp(original);
   initialize_persistent(kernel, session);
   for (const auto &[first, implied] :
        std::vector<std::pair<int32_t, int32_t>>{{-1, -5}, {1, 5}}) {
@@ -991,18 +745,13 @@ void deferred_pbp_reason_survives_backtrack_and_cache_resume() {
     kernel_backtrack(kernel, 0);
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
-  kernel.proof = nullptr;
-  unlink(proof_path);
-  std::fclose(journal);
 }
 
 static std::string initialize_partial_fixture() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
+  FILE *journal = fixture.journal;
   install_partial_formula(kernel);
   auto p = parameters();
   p.basis_maximum_intermediate_width = 4;
@@ -1052,7 +801,6 @@ static std::string initialize_partial_fixture() {
              std::string::npos &&
          deterministic_record.find("\"source_ordinals\":[0,1]") !=
              std::string::npos);
-  std::fclose(journal);
   return deterministic_record;
 }
 
@@ -1063,61 +811,63 @@ void partial_admission_feedback_provenance_and_replay() {
 }
 
 
-void root_formula(Kernel &kernel) {
-  kernel_reserve_vars(kernel, 7);
-  add_equation(kernel,{1,2,3},false);
-  add_equation(kernel,{1,2,4},false);
-  add_equation(kernel,{3,4,5},true);
-}
 void root_decline_atomicity() {
-  for(bool interrupted:{false,true}){
-    Kernel kernel;AffineMatrixSearchSession session;kernel.affine_matrix_search_session=&session;
-    FILE *journal=std::tmpfile();assert(journal);kernel.structural_provenance=journal;root_formula(kernel);
-    auto p=parameters();if(!interrupted)p.maximum_session_work=1;
+  for (bool interrupted : {false, true}) {
+    SearchFixture fixture;
+    Kernel &kernel = fixture.kernel;
+    kernel_reserve_vars(kernel, 7);
+    add_equation(kernel, {1, 2, 3}, false);
+    add_equation(kernel, {1, 2, 4}, false);
+    add_equation(kernel, {3, 4, 5}, true);
+    auto p = parameters();
+    if (!interrupted) p.maximum_session_work = 1;
     RestartController controller(kernel);
-    assert(controller.apply_rule(initialize_request(controller,kernel,p),{WorkUnit::Applications,1,{}}).invocation.status==InvocationStatus::Completed);
-    assert(controller.resume_search(resume_request(controller,kernel)).resumed_search);
-    assert(controller.full_restart()==ApplyResult::Ok);
-    const auto id=kernel.next_clause_id,owner=session.owner_version();const auto arena=kernel.arena;const long position=std::ftell(journal);
-    volatile sig_atomic_t stop=interrupted;kernel.stop=&stop;
-    const auto result=controller.affine_matrix_fixpoint_service();
-    assert(result.status==(interrupted?AffineMatrixServiceStatus::Interrupted:AffineMatrixServiceStatus::ResourceExhausted));
-    assert(kernel.next_clause_id==id&&kernel.arena==arena&&session.owner_version()==owner&&!session.published_keys()&&std::ftell(journal)==position);
-    kernel.stop=nullptr;std::fclose(journal);
+    assert(controller.apply_rule(initialize_request(controller, kernel, p),
+                                 {WorkUnit::Applications, 1, {}})
+               .invocation.status == InvocationStatus::Completed);
+    assert(controller.resume_search(resume_request(controller, kernel)).resumed_search);
+    assert(controller.full_restart() == ApplyResult::Ok);
+    const auto id = kernel.next_clause_id, owner = fixture.session.owner_version();
+    const auto arena = kernel.arena;
+    const long position = std::ftell(fixture.journal);
+    volatile sig_atomic_t stop = interrupted;
+    kernel.stop = &stop;
+    const auto result = controller.affine_matrix_fixpoint_service();
+    assert(result.status == (interrupted ? AffineMatrixServiceStatus::Interrupted
+                                         : AffineMatrixServiceStatus::ResourceExhausted));
+    assert(kernel.next_clause_id == id && kernel.arena == arena &&
+           fixture.session.owner_version() == owner &&
+           !fixture.session.published_keys() &&
+           std::ftell(fixture.journal) == position);
+    kernel.stop = nullptr;
   }
 }
+
 static int root_proof_fixture(const char *cnf_path, const char *proof_path,
                               bool unit, ProofFormat format = ProofFormat::DsrAscii) {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, unit ? 5 : 3);
-  const std::vector<std::pair<std::vector<int32_t>, bool>> equations = unit
-      ? std::vector<std::pair<std::vector<int32_t>, bool>>{
-            {{1, 2, 3}, false}, {{1, 2, 4}, false}, {{3, 4, 5}, true}}
-      : std::vector<std::pair<std::vector<int32_t>, bool>>{
-            {{1, 2, 3}, false}, {{1, 2, 3}, true}};
-  for (const auto &[variables, rhs] : equations)
-    add_equation(kernel, variables, rhs);
-  // The independently checked unit fixture has one extra original clause.
-  if (unit) ++kernel.next_clause_id;
-  Proof proof;
+  AffineCnf original =
+      unit ? xor_cnf({{{1, 2, 3}, false}, {{1, 2, 4}, false}, {{3, 4, 5}, true}})
+           : xor_cnf({{{1, 2, 3}, false}, {{1, 2, 3}, true}});
+  for (const auto &clause : original) add_clause(kernel, clause);
+  // The checked unit fixture's extra original clause -5 stays out of the
+  // captured matrix, isolating publication of the derived root unit.
+  if (unit) {
+    ++kernel.next_clause_id;
+    original.push_back({-5});
+  }
+  Proof &proof = fixture.proof;
   assert(proof.open(proof_path, format));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   uint64_t input_id = 0;
-  for (const auto &[variables, rhs] : equations)
-    for (const auto &external : clausal_form(variables, rhs)) {
-      std::vector<Lit> clause;
-      for (int32_t literal : external) clause.push_back(internalize(literal));
-      proof.seed_population(++input_id, clause.data(), clause.size());
-    }
-  if (unit) {
-    const Lit closure = internalize(-5);
-    proof.seed_population(++input_id, &closure, 1);
+  for (const auto &external : original) {
+    std::vector<Lit> clause;
+    for (int32_t literal : external) clause.push_back(internalize(literal));
+    proof.seed_population(++input_id, clause.data(), clause.size());
   }
   assert(input_id == kernel.next_clause_id);
   proof.finish_input_transaction();
@@ -1131,8 +881,6 @@ static int root_proof_fixture(const char *cnf_path, const char *proof_path,
            service.live.implication && !service.live.conflict &&
            service.reason_width == 1 &&
            kernel.value(kernel_internalize(kernel, 5)) > 0);
-    // The original CNF also contains -5.  Keeping it out of the captured
-    // matrix isolates publication of the derived root unit before refutation.
     assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   } else {
     assert(service.result == ApplyResult::Unsat && !service.bcp_pending &&
@@ -1140,223 +888,119 @@ static int root_proof_fixture(const char *cnf_path, const char *proof_path,
            service.reason_width == 0 && kernel.inconsistent);
   }
   proof.flush();
-  kernel.proof = nullptr;
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  std::fprintf(cnf, "p cnf %u %zu\n", unit ? 5u : 3u,
-               equations.size() * 4 + (unit ? 1 : 0));
-  for (const auto &[variables, rhs] : equations)
-    for (const auto &clause : clausal_form(variables, rhs)) {
-      for (int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
-      std::fprintf(cnf, "0\n");
-    }
-  if (unit) std::fprintf(cnf, "-5 0\n");
-  std::fclose(cnf);
-  std::fclose(journal);
+  write_file(cnf_path, dimacs_text(unit ? 5 : 3, original));
   return 0;
 }
 
+// The xorshift stream of a fixture seed.
+struct XorShift {
+  uint32_t state;
+  uint32_t operator()() {
+    state ^= state << 13;
+    state ^= state >> 17;
+    state ^= state << 5;
+    return state;
+  }
+};
+
+// Sorted-row XORs from (variables, rhs) pairs.
+AffineCnf sorted_rows(std::vector<std::pair<std::vector<int32_t>, bool>> rows) {
+  AffineCnf result;
+  for (auto &[row, rhs] : rows) {
+    std::sort(row.begin(), row.end());
+    for (auto &clause : clausal_form(row, rhs)) result.push_back(std::move(clause));
+  }
+  return result;
+}
+
+// Install the XOR rows (reserving the checker-only input ids), decide, and
+// certify the matrix implication of implied through the persistent service;
+// the checker CNF adds the decision and the negated implication as units.
+static int implication_proof(const char *cnf_path, const char *proof_path,
+                             uint32_t variables, AffineCnf original,
+                             int32_t decision, int32_t implied,
+                             size_t sources = 0) {
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
+  kernel_reserve_vars(kernel, variables);
+  for (const auto &clause : original) add_clause(kernel, clause);
+  kernel.next_clause_id += 2;
+  Proof &proof = fixture.open_dsr(proof_path);
+  initialize_persistent(kernel, session);
+  assert(affine_matrix_search_step(kernel, session).status ==
+         AffineMatrixServiceStatus::NoEvent);
+  decide_all(kernel, {decision});
+  const auto service = affine_matrix_search_step(kernel, session);
+  assert(service.status == AffineMatrixServiceStatus::Applied &&
+         service.reason_width == 2 && service.bcp_pending &&
+         (!sources || service.live.selected_sources == sources));
+  assert(propagate_apply(kernel) == ApplyResult::Ok &&
+         kernel_external_value(kernel, internalize(implied)) > 0);
+  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
+  proof.flush();
+  original.push_back({decision});
+  original.push_back({-implied});
+  write_file(cnf_path, dimacs_text(variables, original));
+  return 0;
+}
+
+// Two rows over four variables; a seed renames the variables, flips both row
+// signs and the decision phase. The XOR sum forces the fourth variable.
 static int search_proof_fixture(const char *cnf_path, const char *proof_path,
                                 uint32_t seed = 0) {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
-  kernel_reserve_vars(kernel, 4);
-  std::vector<int32_t> variables = {1, 2, 3, 4};
+  std::vector<int32_t> v = {1, 2, 3, 4};
   bool first_rhs = false, second_rhs = true, decision_positive = true;
   if (seed) {
-    // Rename variables, change both row signs and branch in either phase.
-    // The XOR sum still forces the fourth variable from the first decision.
-    uint32_t state = seed;
-    const auto next = [&]() {
-      state ^= state << 13;
-      state ^= state >> 17;
-      state ^= state << 5;
-      return state;
-    };
-    for (size_t i = variables.size() - 1; i > 0; --i)
-      std::swap(variables[i], variables[next() % (i + 1)]);
+    XorShift next{seed};
+    for (size_t i = v.size() - 1; i > 0; --i) std::swap(v[i], v[next() % (i + 1)]);
     first_rhs = (next() & 1) != 0;
     second_rhs = (next() & 1) != 0;
     decision_positive = (next() & 1) != 0;
   }
-  std::vector<std::pair<std::vector<int32_t>, bool>> equations = {
-      {{variables[0], variables[1], variables[2]}, first_rhs},
-      {{variables[1], variables[2], variables[3]}, second_rhs}};
-  for (auto &[row, rhs] : equations) {
-    (void)rhs;
-    std::sort(row.begin(), row.end());
-  }
-  for (const auto &[variables, rhs] : equations)
-    add_equation(kernel, variables, rhs);
-  // The checker input has two additional unit clauses absent from this
-  // isolated service fixture; reserve their input IDs before proof additions.
-  kernel.next_clause_id += 2;
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  const auto initialized = affine_matrix_search_initialize(
-      kernel, session, parameters(),
-      AffineMatrixAdmission::AuthenticatedSubimage, persistence);
-  if (initialized.status != AffineMatrixInitStatus::Applied)
-    std::fprintf(stderr, "seed=%u init=%u vars=%d,%d,%d,%d rhs=%d%d\n",
-                 seed, static_cast<unsigned>(initialized.status), variables[0],
-                 variables[1], variables[2], variables[3], first_rhs, second_rhs);
-  assert(initialized.status == AffineMatrixInitStatus::Applied);
-  assert(affine_matrix_search_step(kernel, session).status ==
-         AffineMatrixServiceStatus::NoEvent);
-  const int32_t decision = decision_positive ? variables[0] : -variables[0];
   const bool implied_positive = decision_positive ^ first_rhs ^ second_rhs;
-  const int32_t implied = implied_positive ? variables[3] : -variables[3];
-  kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  const auto service = affine_matrix_search_step(kernel, session);
-  if (service.status != AffineMatrixServiceStatus::Applied ||
-      service.reason_width != 2 || !service.bcp_pending)
-    std::fprintf(stderr, "seed=%u status=%u reason_width=%zu bcp=%d vars=%d,%d,%d,%d rows=%d%d decision=%d before=%d\n",
-                 seed, static_cast<unsigned>(service.status),
-                 service.reason_width, service.bcp_pending,
-                 variables[0], variables[1], variables[2], variables[3],
-                 first_rhs, second_rhs, decision,
-                 kernel_external_value(kernel, internalize(implied)));
-  assert(service.status == AffineMatrixServiceStatus::Applied &&
-         service.reason_width == 2 && service.bcp_pending);
-  assert(propagate_apply(kernel) == ApplyResult::Ok &&
-         kernel_external_value(kernel, internalize(implied)) > 0);
-  // The extra two clauses in the independently checked input make a complete
-  // refutation.  They are intentionally absent from the captured matrix.
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  std::fprintf(cnf, "p cnf 4 10\n");
-  for (const auto &[variables, rhs] : equations)
-    for (const auto &clause : clausal_form(variables, rhs)) {
-      for (int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
-      std::fprintf(cnf, "0\n");
-    }
-  std::fprintf(cnf, "%d 0\n%d 0\n", decision, -implied);
-  std::fclose(cnf);
-  std::fclose(journal);
-  return 0;
+  return implication_proof(
+      cnf_path, proof_path, 4,
+      sorted_rows({{{v[0], v[1], v[2]}, first_rhs}, {{v[1], v[2], v[3]}, second_rhs}}),
+      decision_positive ? v[0] : -v[0], implied_positive ? v[3] : -v[3]);
 }
 
+// Four rows cancel five interior variables, leaving only the decision and the
+// implied variable: a four-source certificate.
 static int search_chain_proof_fixture(const char *cnf_path,
                                       const char *proof_path, uint32_t seed) {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
-  kernel_reserve_vars(kernel, 7);
-  std::vector<int32_t> variables = {1, 2, 3, 4, 5, 6, 7};
+  std::vector<int32_t> v = {1, 2, 3, 4, 5, 6, 7};
   std::array<bool, 4> rhs = {false, false, false, true};
   bool decision_positive = true;
   if (seed) {
-    uint32_t state = seed;
-    const auto next = [&]() {
-      state ^= state << 13;
-      state ^= state >> 17;
-      state ^= state << 5;
-      return state;
-    };
-    for (size_t i = variables.size() - 1; i > 0; --i)
-      std::swap(variables[i], variables[next() % (i + 1)]);
+    XorShift next{seed};
+    for (size_t i = v.size() - 1; i > 0; --i) std::swap(v[i], v[next() % (i + 1)]);
     for (bool &sign : rhs) sign = (next() & 1) != 0;
     decision_positive = (next() & 1) != 0;
   }
-  std::vector<std::pair<std::vector<int32_t>, bool>> equations = {
-      {{variables[0], variables[1], variables[2]}, rhs[0]},
-      {{variables[1], variables[3], variables[4]}, rhs[1]},
-      {{variables[2], variables[3], variables[5]}, rhs[2]},
-      {{variables[4], variables[5], variables[6]}, rhs[3]}};
-  for (auto &[row, sign] : equations) {
-    (void)sign;
-    std::sort(row.begin(), row.end());
-  }
-  for (const auto &[row, sign] : equations) add_equation(kernel, row, sign);
-  kernel.next_clause_id += 2; // Two checker-only units.
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence).status ==
-         AffineMatrixInitStatus::Applied);
-  assert(affine_matrix_search_step(kernel, session).status ==
-         AffineMatrixServiceStatus::NoEvent);
-  const int32_t decision = decision_positive ? variables[0] : -variables[0];
   bool implied_positive = decision_positive;
   for (bool sign : rhs) implied_positive ^= sign;
-  const int32_t implied = implied_positive ? variables[6] : -variables[6];
-  kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  const auto service = affine_matrix_search_step(kernel, session);
-  assert(service.status == AffineMatrixServiceStatus::Applied &&
-         service.reason_width == 2 && service.bcp_pending &&
-         service.live.selected_sources == 4);
-  assert(propagate_apply(kernel) == ApplyResult::Ok &&
-         kernel_external_value(kernel, internalize(implied)) > 0);
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  std::fprintf(cnf, "p cnf 7 18\n");
-  for (const auto &[row, sign] : equations)
-    for (const auto &clause : clausal_form(row, sign)) {
-      for (int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
-      std::fprintf(cnf, "0\n");
-    }
-  std::fprintf(cnf, "%d 0\n%d 0\n", decision, -implied);
-  std::fclose(cnf);
-  std::fclose(journal);
-  return 0;
+  return implication_proof(
+      cnf_path, proof_path, 7,
+      sorted_rows({{{v[0], v[1], v[2]}, rhs[0]}, {{v[1], v[3], v[4]}, rhs[1]},
+                   {{v[2], v[3], v[5]}, rhs[2]}, {{v[4], v[5], v[6]}, rhs[3]}}),
+      decision_positive ? v[0] : -v[0], implied_positive ? v[6] : -v[6], 4);
 }
 
+// A deferred (or lazy source / lazy minimal) reason of x5 = 0 after x1 = x2 = 0,
+// materialized and refuted with the checker units -1, -2 and 5.
 static int deferred_reason_proof_fixture(const char *cnf_path,
                                          const char *proof_path,
                                          bool lazy_source = false,
                                          bool lazy_minimal = false) {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   install_implication_formula(kernel);
-  // The independently checked original formula additionally fixes the two
-  // decisions and contradicts the affine implication. Reserve those input
-  // identities before any derived certificate line is numbered.
   kernel.next_clause_id += 3;
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  Proof &proof = fixture.open_dsr(proof_path);
+  initialize_persistent(kernel, session);
+  decide_all(kernel, {-1, -2});
   const auto deferred = lazy_minimal
       ? affine_matrix_search_step_lazy_minimal(kernel, session)
       : lazy_source ? affine_matrix_search_step_lazy_source(kernel, session)
@@ -1373,80 +1017,35 @@ static int deferred_reason_proof_fixture(const char *cnf_path,
          session.lazy_reason_count() == 0);
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   proof.flush();
-  kernel.proof = nullptr;
-
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  std::fprintf(cnf, "p cnf 6 15\n");
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
-    for (const auto &clause : clausal_form(variables, rhs)) {
-      for (int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
-      std::fprintf(cnf, "0\n");
-    }
-  std::fprintf(cnf, "-1 0\n-2 0\n5 0\n");
-  std::fclose(cnf);
-  std::fclose(journal);
+  auto original = xor_cnf({{{1, 3, 4}, false}, {{2, 3, 4, 5}, false}});
+  for (int32_t unit : {-1, -2, 5}) original.push_back({unit});
+  write_file(cnf_path, dimacs_text(6, original));
   return 0;
 }
 
+// Two lazy source handles; ConflictAnalysis on (7 10) certifies only its
+// ancestor. The checker CNF adds the four decisions and the conflict binary.
 static int lazy_reason_ancestor_proof_fixture(const char *cnf_path,
                                               const char *proof_path) {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 10);
-  const std::vector<std::pair<std::vector<int32_t>, bool>> equations = {
-      {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
-      {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}};
-  std::vector<std::vector<int32_t>> original;
-  for (const auto &[variables, rhs] : equations)
-    for (const auto &clause : clausal_form(variables, rhs)) {
-      original.push_back(clause);
-      add_clause(kernel, clause);
-    }
-
-  // The untouched checker input additionally contains four decisions and the
-  // binary conflict. Reserve their IDs before either lazy reason is certified.
+  AffineCnf original = paired_implications();
+  for (const auto &clause : original) add_clause(kernel, clause);
   const uint64_t conflict_id = kernel.next_clause_id + 5;
   kernel.next_clause_id += 5;
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
-  for (const int decision : {-1, -2}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  Proof &proof = fixture.open_dsr(proof_path);
+  initialize_persistent(kernel, session);
+  decide_all(kernel, {-1, -2});
   assert(affine_matrix_search_step_lazy_source(kernel, session).status ==
          AffineMatrixServiceStatus::Applied);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
-  for (const int decision : {-6, -7}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  decide_all(kernel, {-6, -7});
   assert(affine_matrix_search_step_lazy_source(kernel, session).status ==
          AffineMatrixServiceStatus::Applied);
   assert(session.lazy_reason_count() == 2);
-
-  const Lit conflict[2] = {kernel_internalize(kernel, 7),
-                           kernel_internalize(kernel, 10)};
-  kernel_add_binary_clause(kernel, conflict[0], conflict[1], conflict_id);
-  kernel.conflict_ref = INVALID_REF;
-  kernel.conflict_bin[0] = conflict[0];
-  kernel.conflict_bin[1] = conflict[1];
-  kernel.conflict_valid = true;
+  binary_conflict(kernel, 7, 10, conflict_id);
   const RuleVTable &analyze =
       tactix_rules()[tactix_rule_id("ConflictAnalysis")];
   assert(rule_guard(analyze, kernel));
@@ -1454,60 +1053,27 @@ static int lazy_reason_ancestor_proof_fixture(const char *cnf_path,
   assert(session.lazy_reason_count() == 1);
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   proof.flush();
-  kernel.proof = nullptr;
-
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  std::fprintf(cnf, "p cnf 10 %zu\n", original.size() + 5);
-  for (const auto &clause : original) {
-    for (const int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
-    std::fprintf(cnf, "0\n");
-  }
-  for (const int32_t unit : {-1, -2, -6, -7})
-    std::fprintf(cnf, "%d 0\n", unit);
-  std::fprintf(cnf, "7 10 0\n");
-  std::fclose(cnf);
-  std::fclose(journal);
+  for (const int32_t unit : {-1, -2, -6, -7}) original.push_back({unit});
+  original.push_back({7, 10});
+  write_file(cnf_path, dimacs_text(10, original));
   return 0;
 }
 
+// The exact-core (minimal) or source-support reason of x5 after four
+// decisions, published detached; the checker CNF adds the decisions and -5.
 static int detached_reason_proof_fixture(const char *cnf_path,
                                          const char *proof_path,
                                          bool minimal) {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
+  SearchFixture fixture;
+  Kernel &kernel = fixture.kernel;
+  AffineMatrixSearchSession &session = fixture.session;
   kernel_reserve_vars(kernel, 7);
-  std::vector<std::vector<int32_t>> original;
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 2, 3, 4, 6, 7}, false}, {{3, 4, 5, 6, 7}, true}})
-    for (const auto &clause : clausal_form(variables, rhs)) {
-      original.push_back(clause);
-      add_clause(kernel, clause);
-    }
-  // The checker input also contains four decisions and the negation of the
-  // algebraic implication. Reserve those input identities before emitting the
-  // exact-core reason and final empty clause.
+  AffineCnf original = xor_cnf({{{1, 2, 3, 4, 6, 7}, false}, {{3, 4, 5, 6, 7}, true}});
+  for (const auto &clause : original) add_clause(kernel, clause);
   kernel.next_clause_id += 5;
-  Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
-  proof.arm_population_shadow();
-  proof.finish_input_transaction();
-  kernel.proof = &proof;
-  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
-                                                  100000};
-  assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
-             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
-             .status == AffineMatrixInitStatus::Applied);
-  for (const int32_t decision : {-1, -2, -3, -4}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
-    assert(propagate_apply(kernel) == ApplyResult::Ok);
-  }
+  Proof &proof = fixture.open_dsr(proof_path);
+  initialize_persistent(kernel, session);
+  decide_all(kernel, {-1, -2, -3, -4});
   const auto detached = minimal
       ? affine_matrix_search_step_detached_minimal(kernel, session)
       : affine_matrix_search_step_detached_source(kernel, session);
@@ -1517,19 +1083,8 @@ static int detached_reason_proof_fixture(const char *cnf_path,
          kernel.value(kernel_internalize(kernel, 5)) > 0);
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   proof.flush();
-  kernel.proof = nullptr;
-
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  std::fprintf(cnf, "p cnf 7 %zu\n", original.size() + 5);
-  for (const auto &clause : original) {
-    for (const int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
-    std::fprintf(cnf, "0\n");
-  }
-  for (const int32_t unit : {-1, -2, -3, -4, -5})
-    std::fprintf(cnf, "%d 0\n", unit);
-  std::fclose(cnf);
-  std::fclose(journal);
+  for (const int32_t unit : {-1, -2, -3, -4, -5}) original.push_back({unit});
+  write_file(cnf_path, dimacs_text(7, original));
   return 0;
 }
 

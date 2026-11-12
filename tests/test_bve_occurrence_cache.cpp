@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -11,9 +12,8 @@ using namespace tactix;
 using namespace tactix::strategy;
 
 static Ref clause(Kernel &k, int a, int b, int c) {
-  const Lit lits[] = {internalize(a), internalize(b), internalize(c)};
   const Ref ref = static_cast<Ref>(k.arena.size());
-  kernel_add_large_clause(k, lits, 3, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {a, b, c}, false, 0, ++k.next_clause_id);
   return ref;
 }
 
@@ -148,9 +148,8 @@ static void external_changes_and_budget() {
 
 static void redundant_fallback() {
   Kernel k = fixture();
-  const Lit lits[] = {internalize(1), internalize(2), internalize(3)};
   const Ref red = static_cast<Ref>(k.arena.size());
-  kernel_add_large_clause(k, lits, 3, true, 1, ++k.next_clause_id);
+  add_external_clause(k, {1, 2, 3}, true, 1, ++k.next_clause_id);
   BveOccurrenceCache cache;
   {
     BveOccurrenceCache::Scope scope(cache, k);

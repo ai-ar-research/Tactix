@@ -3,7 +3,6 @@
 #include "symmetry_backend/sparse_permutation.hpp"
 #include "symmetry_backend/group_input.hpp"
 #include "rules/substitution_redundancy/cut_orbit_index.hpp"
-#include "diagnostics/symmetry_trace.hpp"
 #include "components.h"
 #include "dejavu.h"
 
@@ -82,25 +81,6 @@ void empty_initial_base_runs_dfs_before_schreier_reuse() {
     assert(!solver.get_reached_limit());
     assert(solver.get_automorphism_group_size() == expected);
   }
-}
-
-void symmetry_trace_levels_separate_campaign_and_generator_detail() {
-  unsetenv("TACTIX_SR_TRACE");
-  {
-    tactix::SymmetryTrace trace;
-    assert(!trace.enabled() && !trace.detailed());
-  }
-  setenv("TACTIX_SR_TRACE", "1", 1);
-  {
-    tactix::SymmetryTrace trace;
-    assert(trace.enabled() && !trace.detailed());
-  }
-  setenv("TACTIX_SR_TRACE", "2", 1);
-  {
-    tactix::SymmetryTrace trace;
-    assert(trace.enabled() && trace.detailed());
-  }
-  unsetenv("TACTIX_SR_TRACE");
 }
 
 // Matching edges split one root cell; an unrelated cycle and many root
@@ -207,6 +187,21 @@ void reduced_first_row_preserves_prefixes_and_stops() {
   std::printf("first-refinement reuse: %u bounded/stop/prefix comparisons PASS\n",compared);
 }
 
+// Two fixing results agree row by row, including every materialized image.
+void assert_same_fixings(const Fixings &a, const Fixings &b, uint32_t domain) {
+  assert(a.status == b.status && a.count == b.count &&
+         a.domain_size == b.domain_size && a.ticks == b.ticks);
+  for (uint64_t row = 0; row < a.count; ++row) {
+    assert(a.kinds[row] == b.kinds[row] && a.levels[row] == b.levels[row] &&
+           a.representatives[row] == b.representatives[row] &&
+           a.others[row] == b.others[row]);
+    std::vector<uint32_t> a_image(domain), b_image(domain);
+    assert(materialize_fixing_image(a, row, a_image.data()));
+    assert(materialize_fixing_image(b, row, b_image.data()));
+    assert(a_image == b_image);
+  }
+}
+
 void sparse_group_input_preserves_results_and_budgets() {
   size_t comparisons = 0, productive = 0, incomplete = 0;
   std::vector<uint64_t> budgets;
@@ -265,19 +260,9 @@ void sparse_group_input_preserves_results_and_budgets() {
             Fixings old_rows,new_rows;
             const auto old_status=fix_clauses(input,settings,nullptr,nullptr,old_rows);
             const auto new_status=fix_clauses(sparse,settings,nullptr,nullptr,new_rows);
-            assert(old_status==new_status && old_rows.status==new_rows.status &&
-                   old_rows.count==new_rows.count && old_rows.domain_size==new_rows.domain_size &&
-                   old_rows.ticks==new_rows.ticks);
+            assert(old_status==new_status);
+            assert_same_fixings(old_rows,new_rows,domain);
             assert(old_status==Status::Complete || old_status==Status::Incomplete);
-            for (uint64_t row=0;row<old_rows.count;++row) {
-              assert(old_rows.kinds[row]==new_rows.kinds[row] && old_rows.levels[row]==new_rows.levels[row] &&
-                     old_rows.representatives[row]==new_rows.representatives[row] &&
-                     old_rows.others[row]==new_rows.others[row]);
-              std::vector<uint32_t> old_image(domain),new_image(domain);
-              assert(materialize_fixing_image(old_rows,row,old_image.data()));
-              assert(materialize_fixing_image(new_rows,row,new_image.data()));
-              assert(old_image==new_image);
-            }
             ++comparisons; productive += old_rows.count!=0;
             incomplete += old_status==Status::Incomplete;
             release(old_rows);release(new_rows);
@@ -301,17 +286,7 @@ void sparse_group_input_preserves_results_and_budgets() {
            Status::Interrupted);
     assert(!interrupted.count && !interrupted.images && !interrupted.image_offsets);
     assert(fix_clauses(stoppable, resumed_settings, nullptr, nullptr, resumed) == full_status);
-    assert(resumed.count == uninterrupted.count && resumed.ticks == uninterrupted.ticks);
-    for (uint64_t row = 0; row < resumed.count; ++row) {
-      assert(resumed.kinds[row] == uninterrupted.kinds[row] &&
-             resumed.levels[row] == uninterrupted.levels[row] &&
-             resumed.representatives[row] == uninterrupted.representatives[row] &&
-             resumed.others[row] == uninterrupted.others[row]);
-      std::vector<uint32_t> a(domain), b(domain);
-      assert(materialize_fixing_image(resumed,row,a.data()));
-      assert(materialize_fixing_image(uninterrupted,row,b.data()));
-      assert(a==b);
-    }
+    assert_same_fixings(resumed, uninterrupted, domain);
     release(uninterrupted); release(interrupted); release(resumed);
     }
   }
@@ -621,7 +596,7 @@ void detection_owns_results_and_observes_stop() {
 
 void detector_order_is_effective_reproducible_and_bounded() {
   // Independent color classes exercise multiple callbacks and projection;
-  // compare exact maps, not merely generator counts or a nominal option flag.
+  // compare exact maps.
   bool changed = false;
   for (uint32_t fixture = 0; fixture < 4; ++fixture) {
     uint32_t colors[12] = {}, degrees[12] = {};
@@ -1097,6 +1072,34 @@ void complete_permutations_produce_full_fixings() {
          !fixings.representatives && !fixings.others && !fixings.images);
 }
 
+// Generators rotating consecutive variable blocks of the given sizes, one
+// generator per block, over a domain of `literals` literals.
+std::vector<uint32_t> cyclic_orbits(const std::vector<unsigned> &sizes,
+                                    uint32_t literals) {
+  std::vector<uint32_t> images;
+  unsigned first = 0;
+  for (const unsigned size : sizes) {
+    const size_t offset = images.size();
+    for (uint32_t literal = 0; literal < literals; ++literal)
+      images.push_back(literal);
+    for (unsigned variable = 0; variable < size; ++variable)
+      for (unsigned sign = 0; sign < 2; ++sign)
+        images[offset + 2 * (first + variable) + sign] =
+            2 * (first + (variable + 1) % size) + sign;
+    first += size;
+  }
+  return images;
+}
+
+// The representative of the first row at each successive stabilizer level.
+std::vector<uint32_t> level_bases(const Fixings &fixings) {
+  std::vector<uint32_t> bases;
+  for (uint64_t row = 0; row < fixings.count; ++row)
+    if (fixings.levels[row] == bases.size())
+      bases.push_back(fixings.representatives[row]);
+  return bases;
+}
+
 void first_amo_selection_preserves_caller_order() {
   // Two independent orbits: a three-cycle and a two-cycle. Both clauses
   // are AMOs; the first clause has the larger orbit. Global orbit ranking
@@ -1110,8 +1113,8 @@ void first_amo_selection_preserves_caller_order() {
   const GroupInput input{10,2,images,2,offsets,5,literals,values,amos};
   for (const uint8_t mode : {uint8_t{1}, uint8_t{2}, uint8_t{3}, uint8_t{4}}) {
     GroupSettings settings;
-    settings.chain_mode = mode == 5 ? 2 : 1;
-    settings.base_selection = mode == 5 ? 4 : mode;
+    settings.chain_mode = 1;
+    settings.base_selection = mode;
     Fixings fixings;
     assert(fix_clauses(input, settings, nullptr, nullptr, fixings) == Status::Complete);
     assert(fixings.count && fixings.levels[0] == 0);
@@ -1161,19 +1164,7 @@ void first_shortest_retains_forward_remainder() {
   // Independent cyclic orbits: a long AMO, then short and medium clauses.
   // The initial shortest choice must not hide the earlier AMO from the
   // remainder. Repeated shortest ranking instead chooses the medium next.
-  const unsigned sizes[] = {4, 2, 3};
-  std::vector<uint32_t> images;
-  unsigned first = 0;
-  for (const unsigned size : sizes) {
-    const size_t offset = images.size();
-    for (uint32_t literal = 0; literal < 18; ++literal)
-      images.push_back(literal);
-    for (unsigned variable = 0; variable < size; ++variable)
-      for (unsigned sign = 0; sign < 2; ++sign)
-        images[offset + 2 * (first + variable) + sign] =
-            2 * (first + (variable + 1) % size) + sign;
-    first += size;
-  }
+  const std::vector<uint32_t> images = cyclic_orbits({4, 2, 3}, 18);
   const uint64_t offsets[] = {0, 4, 6, 9};
   const uint32_t literals[] = {0, 2, 4, 6, 8, 10, 12, 14, 16};
   const int8_t values[18] = {};
@@ -1186,15 +1177,11 @@ void first_shortest_retains_forward_remainder() {
       settings.base_selection = mode;
       Fixings fixings;
       assert(fix_clauses(input, settings, nullptr, nullptr, fixings) == Status::Complete);
-      std::vector<uint32_t> bases;
-      for (uint64_t row = 0; row < fixings.count; ++row)
-        if (fixings.levels[row] == bases.size())
-          bases.push_back(fixings.representatives[row]);
       const std::vector<uint32_t> expected = mode == 4
           ? std::vector<uint32_t>{0, 8, 12}
           : mode == 5 ? std::vector<uint32_t>{8, 12, 0}
                       : std::vector<uint32_t>{8, 0, 12};
-      assert(bases == expected);
+      assert(level_bases(fixings) == expected);
       release(fixings);
     }
 }
@@ -1203,19 +1190,7 @@ void ordered_remainder_starts_after_first_amo_free_scan() {
   // Independent cyclic orbits of sizes 2,4,2,3. The first is the sole AMO.
   // The first fallback chooses the smaller third orbit; later caller order
   // chooses the size-four second orbit before the size-three fourth orbit.
-  const unsigned sizes[] = {2,4,2,3};
-  std::vector<uint32_t> images;
-  unsigned first = 0;
-  for (const unsigned size : sizes) {
-    const size_t offset = images.size();
-    for (uint32_t literal = 0; literal < 22; ++literal)
-      images.push_back(literal);
-    for (unsigned variable = 0; variable < size; ++variable)
-      for (unsigned sign = 0; sign < 2; ++sign)
-        images[offset + 2*(first+variable)+sign] =
-            2*(first+(variable+1)%size)+sign;
-    first += size;
-  }
+  const std::vector<uint32_t> images = cyclic_orbits({2, 4, 2, 3}, 22);
   const uint64_t offsets[] = {0,2,6,8,11};
   const uint32_t literals[] = {0,2,4,6,8,10,12,14,16,18,20};
   const int8_t values[22] = {};
@@ -1223,18 +1198,14 @@ void ordered_remainder_starts_after_first_amo_free_scan() {
   const GroupInput input{22,4,images.data(),4,offsets,11,literals,values,amos};
   for (const uint8_t mode : {uint8_t{2},uint8_t{3},uint8_t{4}}) {
     GroupSettings settings;
-    settings.chain_mode = mode == 5 ? 2 : 1;
-    settings.base_selection = mode == 5 ? 4 : mode;
+    settings.chain_mode = 1;
+    settings.base_selection = mode;
     Fixings fixings;
     assert(fix_clauses(input, settings, nullptr, nullptr, fixings) == Status::Complete);
-    std::vector<uint32_t> bases;
-    for (uint64_t row = 0; row < fixings.count; ++row)
-      if (fixings.levels[row] == bases.size())
-        bases.push_back(fixings.representatives[row]);
     const std::vector<uint32_t> expected = mode == 2
         ? std::vector<uint32_t>{0,12,16,4}
         : std::vector<uint32_t>{0,12,4,16};
-    assert(bases == expected);
+    assert(level_bases(fixings) == expected);
     release(fixings);
   }
 }
@@ -1898,7 +1869,6 @@ void fixing_images_have_sr_direction_for_non_involutions() {
 int main() {
   decomposition_prunes_singleton_bridge_edges();
   empty_initial_base_runs_dfs_before_schreier_reuse();
-  symmetry_trace_levels_separate_campaign_and_generator_detail();
   row_images_ignore_untouched_root_cells();
   reduced_first_row_preserves_prefixes_and_stops();
   sparse_group_input_preserves_results_and_budgets();

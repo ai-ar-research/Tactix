@@ -113,9 +113,8 @@ static void test_factoring_2x3() {
       assert(!has_binary(k, f, rr));
 }
 
-// An extension created before H attaches is part of the live compact/search
-// population. Late attachment must reconstruct the same activation rank as
-// attaching H before Factor, rather than reseeding from input variables only.
+// Late heuristics attachment reconstructs a pre-attach Factor extension's
+// activation rank.
 static void test_late_heuristics_attach_keeps_factor_extension() {
   const auto make_grid = [](Kernel &k) {
     kernel_reserve_vars(k, 5);
@@ -276,10 +275,8 @@ static void test_detached_heuristics_compaction_remaps_extension() {
   }
 }
 
-// Factor's effort currency is Kissat's dense-watch scan currency, and its
-// second quit point is checked after each current quotient occurrence.  A
-// budget of four therefore pays 3 ticks for first_factor, 2 for the quotient
-// stack, and 2 for the first remainder watch list before declining the grid.
+// Kissat's dense-watch scan currency: budget 4 pays 3 (first_factor), 2
+// (quotient stack) and 2 (first remainder list), then declines the grid.
 static void test_dense_scan_budget_boundary() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -297,9 +294,8 @@ static void test_dense_scan_budget_boundary() {
   assert(k.stats.factor_ticks == 7);
 }
 
-// Kissat does not precheck the limit before re-entering `next_factor` after a
-// successful match. It charges one current quotient occurrence, observes the
-// overrun at that internal checkpoint, and then applies the best grid.
+// After a match Kissat charges one quotient occurrence before its next_factor
+// budget checkpoint, then applies the best grid.
 static void test_next_factor_budget_check_follows_occurrence() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -320,9 +316,8 @@ static void test_next_factor_budget_check_follows_occurrence() {
          "the cutoff follows the first re-entered quotient occurrence");
 }
 
-// `new_quotient(next)` marks the chosen next factor before Kissat enters
-// `factorize_next`.  Thus a current clause already containing `next` has two
-// factor literals and is not searched as a possible remainder match.
+// Kissat new_quotient(next) marks next first: a clause already containing it is
+// no remainder match.
 static void test_next_factor_mark_precedes_match_scan() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -345,9 +340,8 @@ static void test_next_factor_mark_precedes_match_scan() {
          "an overlap row must not pay an impossible remainder-match scan");
 }
 
-// `factoring.initial` is the current literal universe at entry, not the
-// original-variable boundary.  An extension literal created by an earlier
-// Factor application is therefore a legal factor in a later application.
+// factoring.initial is the literal universe at entry: an earlier extension
+// literal is a legal later factor.
 static void test_prior_extension_literal_is_a_later_factor() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -369,10 +363,8 @@ static void test_prior_extension_literal_is_a_later_factor() {
   assert(k.nvars == 6);
 }
 
-// Kissat enters Factor dense mode without saving/reconnecting binaries.  The
-// current sparse watch order therefore owns quotient-column order; import rank
-// must not silently re-sort it.  Give q an earlier import rank than p while
-// inserting the grid columns as p,q,r to distinguish those two contracts.
+// Kissat's Factor dense mode keeps the sparse binary watch order for quotient
+// columns (no import-rank re-sort).
 static void test_binary_quotients_preserve_sparse_watch_order() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -391,11 +383,8 @@ static void test_binary_quotients_preserve_sparse_watch_order() {
   assert((binary_partners(k, nx) == std::vector<Lit>{p, q, r}));
 }
 
-// Binaries created while Factor is dense append after the already connected
-// large occurrences.  They must not be reclassified into the borrowed binary
-// prefix on a later seed in the same pass.  The first 2x3 grid below creates
-// (not-x,a) and (not-x,b); the later a/b grid must therefore emit its three
-// pre-existing large quotient columns before its appended not-x binary column.
+// Binaries created while dense follow the connected large occurrences: the
+// later a/b grid emits its large columns before its new -x column.
 static void test_dynamic_binary_follows_initial_large_occurrences() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -438,10 +427,8 @@ static void test_dynamic_binary_follows_initial_large_occurrences() {
   assert(preceding_large_quotients == 3);
 }
 
-// Factor eligibility is per literal in Kissat.  Opposite polarities of the
-// same variable can therefore form the two rows of a profitable grid; treating
-// factor identity as per-variable skipped this exact shape on sted and shifted
-// all later extension-variable definitions.
+// Kissat Factor eligibility is per literal: opposite polarities can form the
+// two rows of one grid.
 static void test_opposite_polarities_can_share_a_grid() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -462,10 +449,7 @@ static void test_opposite_polarities_can_share_a_grid() {
     assert(has_binary(k, nx, remainder));
 }
 
-// Factor has no reference-side dimension ceiling: acceptance is controlled by
-// profitability and the policy effort budget.  This grid crosses Tactix's
-// former 4,096-column implementation cap and must still be reachable through
-// the rule surface.
+// No dimension ceiling (as in Kissat): a grid above 4,096 columns is reachable.
 static void test_factoring_beyond_former_dimension_cap() {
   constexpr uint32_t columns = 4097;
   Kernel k;
@@ -483,9 +467,8 @@ static void test_factoring_beyond_former_dimension_cap() {
   assert(k.nvars == 3 + columns);
 }
 
-// Factor enters Kissat's null-stack dense path, which retains root-satisfied
-// binaries.  Thus root-true p remains a structural column in this 2x3 grid.
-// Congruence's distinct non-null dense path is the one that collects it.
+// Kissat's null-stack dense path keeps root-satisfied binaries: root-true p
+// stays a column.
 static void test_satisfied_binary_remainder_is_retained() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -547,10 +530,7 @@ static void test_assigned_large_remainder() {
   assert(count_live_large(k, {b, p, u}) == 0);
 }
 
-// Remainder interning canonicalizes content only for matching.  Kissat emits
-// each large quotient by copying the selected last-factor clause in its
-// existing pose and removing that factor.  Sorting the emitted remainder
-// instead changes the quotient's initial watched pair after sparse resume.
+// Kissat emits a large quotient in the last-factor clause's existing pose.
 static void test_large_quotient_preserves_last_factor_pose() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -572,10 +552,8 @@ static void test_large_quotient_preserves_last_factor_pose() {
   assert((large_watch_blockers(k, nx) == std::vector<Lit>{u, v, w}));
 }
 
-// Kissat's quotient stack is a clause-occurrence multiset.  Three equal large
-// remainders in each of two rows are therefore a profitable 2x3 grid, not a
-// deduplicated 2x1 set.  Every original Ref and every new quotient occurrence
-// remains independently proof-addressable.
+// Kissat's quotient stack is an occurrence multiset: equal large remainders
+// form a 2x3 grid, each proof-addressable.
 static void test_duplicate_large_remainder_occurrences() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -603,9 +581,7 @@ static void test_duplicate_large_remainder_occurrences() {
          k.stats.factor_large_remainders);
 }
 
-// Kissat's dense-mode transition flushes repeated binary watch pairs before
-// Factor connects its occurrence lists. Copies therefore cannot manufacture a
-// profitable 2x3 grid from only two logical pairs.
+// Kissat's dense transition flushes repeated binaries: copies make no grid.
 static void test_duplicate_binary_occurrences_are_flushed() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -623,11 +599,8 @@ static void test_duplicate_binary_occurrences_are_flushed() {
   assert(kernel_binary_copies(k, b, p) == 1);
 }
 
-// `factorcandrounds=2` rebuilds candidate counts twice, then Kissat's separate
-// connection pass checks survivors once more against the second rebuild.  A
-// three-layer peel makes that final check observable: C0 drops in round one,
-// C1 in round two, and C2 only at connection.  Directly connecting the round-2
-// bitmap incorrectly gives seed `a` one large remainder beside its binary.
+// factorcandrounds=2 plus Kissat's final connection check: C0, C1 and C2 drop
+// in round one, round two and at connection.
 static void test_candidate_reduction_final_connection_check() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -657,10 +630,8 @@ static void test_candidate_reduction_final_connection_check() {
          "the final peeled clause must not enter Factor's dense index");
 }
 
-// Factor's dense-mode lifecycle ends by rebuilding every live large watch in
-// arena order, even when no profitable grid was found.  Kissat does this in
-// `kissat_resume_sparse_mode`; retaining the incoming sparse order changes
-// propagation/reason order after an otherwise identical Factor pass.
+// kissat_resume_sparse_mode rebuilds every large watch in arena order, even
+// without a grid.
 static void test_sparse_resume_rebuilds_large_watch_order() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -684,10 +655,8 @@ static void test_sparse_resume_rebuilds_large_watch_order() {
   assert((large_watch_refs(k, a) == std::vector<Ref>{first, second}));
 }
 
-// The first 3x3 grid leaves two partial rows.  Its fresh quotient would
-// complete them only by using the new extension literal as a third factor.
-// Kissat grows its dense remainder universe but keeps `factoring.initial`
-// fixed, so a same-pass extension literal is never a next factor.
+// Kissat keeps factoring.initial fixed: a same-pass extension literal is never
+// a next factor.
 static void test_fresh_large_quotients_do_not_become_factors() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -716,10 +685,8 @@ static void test_fresh_large_quotients_do_not_become_factors() {
   assert(k.nvars == 12 && k.first_extension_var == 11);
 }
 
-// Fresh extension vars are demoted to the bottom of the VMTF queue in
-// creation order, so the newest is least preferred — matching kissat
-// factor.c:867-882 and cadical factor.cpp:799-802. Two disjoint grids in one
-// apply are what makes that order observable.
+// Fresh extensions are demoted in creation order, newest least preferred
+// (kissat factor.c:867-882, cadical factor.cpp:799-802).
 static void test_empty_factor_restamps_only_when_advice_is_consumed() {
   for (const bool consume : {false, true}) {
     Kernel k;
@@ -786,10 +753,8 @@ static void test_demote_fresh_order() {
            k.h->links[v].stamp > k.h->links[11].stamp);
 }
 
-// Kissat activates a fresh Factor variable with its ordinary cumulative
-// activation score, inserts it into the stable heap, and only then demotes it
-// to zero.  The transient up/down sift is part of the resulting physical heap
-// state even though the final score is zero.
+// Kissat inserts a fresh variable with its cumulative score, then demotes it to
+// zero; the transient sift shapes the heap.
 static void test_demote_fresh_stable_heap_lifecycle() {
   Kernel k;
   kernel_reserve_vars(k, 4);

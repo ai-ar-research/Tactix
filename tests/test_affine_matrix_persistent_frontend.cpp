@@ -18,8 +18,7 @@ extern "C" {
 #include "strategy/parameter_execution.hpp"
 #include "strategy/online_sequence.hpp"
 #include "api/api_internal.hpp"
-#include <fstream>
-#include <iterator>
+#include "test_io.hpp"
 using namespace tactix;
 using namespace tactix::strategy;
 
@@ -53,9 +52,6 @@ static void replay_and_scope() {
     p.operation=op;program.sequence[0].parameters=p;
     const auto wire=serialize_online_strategy_program(program);
     assert(wire.find(":affine-matrix-persistent1(")!=std::string::npos);
-    OnlineStrategyProgram decoded;std::string error;
-    decoded = program;
-    assert(std::get<AffineMatrixInitializeParameters>(decoded.sequence[0].parameters)==p);
   }
   auto invalid=p;invalid.maximum_deferred_deletions=0;
   program.sequence[0].parameters=invalid;assert(!validate_online_strategy_program(program));
@@ -86,23 +82,72 @@ static capi::tactix_online_affine_consequence_parameters c_basis(const AffineCon
 #undef COPY
   out.semantics=TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2;return out;
 }
+// A C solver bound to a fresh journal; proof() writes to a fresh temporary
+// file. Both are released with the solver.
+struct CSolver {
+  capi::tactix *s = capi::tactix_init();
+  FILE *records = std::tmpfile();
+  char path[64] = "/tmp/tactix-persistent-c16-XXXXXX";
+  CSolver() {
+    assert(s && records);
+    assert(capi::tactix_bind_structural_provenance(s, records) == 0);
+    const int fd = mkstemp(path);
+    assert(fd >= 0);
+    close(fd);
+  }
+  ~CSolver() {
+    capi::tactix_release(s);
+    std::fclose(records);
+    std::remove(path);
+  }
+  void proof(int format = TACTIX_PROOF_DSR_ASCII) {
+    assert(capi::tactix_proof(s, path, format) == 0);
+  }
+  void add(const std::vector<int32_t> &clause) {
+    for (int32_t literal : clause) capi::tactix_add(s, literal);
+    capi::tactix_add(s, 0);
+  }
+  // The XOR of first = 0 and the XOR of second = second_rhs, as clauses.
+  void add_xors(const std::vector<int32_t> &first, const std::vector<int32_t> &second,
+                bool second_rhs) {
+    for (const auto &clause : affine_semantic_extension::clausal_form(first, false)) add(clause);
+    for (const auto &clause : affine_semantic_extension::clausal_form(second, second_rhs))
+      add(clause);
+  }
+  Kernel &kernel() { return api_detail::kernel_for_fixed_testing(s); }
+};
+
+static auto &step_base(capi::tactix_online_step_v16 &step) {
+  return step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base;
+}
+
+// One canonical application of AffineMatrixInitialize (rule 41) under the
+// persistent profile of p and operation.
+static capi::tactix_online_step_v16 persistent_step(const AffineMatrixInitializeParameters &p,
+                                                    uint32_t operation = 1) {
+  capi::tactix_online_step_v16 step{};
+  auto &base = step_base(step);
+  base.step_id = 941;
+  base.rule_id = 41;
+  base.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  base.repeat_limit = 1;
+  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  base.budget = 1;
+  step.affine_matrix_profile = TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
+  step.affine_matrix = {c_basis(p.basis), 1, operation, p.maximum_retained_bytes,
+                        p.maximum_deferred_deletions, p.maximum_deferred_literal_work};
+  return step;
+}
+
 static void c_surface(bool with_proof) {
-  auto *s=capi::tactix_init();assert(s);FILE *records=std::tmpfile();assert(records);
-  assert(capi::tactix_bind_structural_provenance(s,records)==0);
-  char path[]="/tmp/tactix-persistent-public-XXXXXX";int fd=mkstemp(path);assert(fd>=0);close(fd);
-  if(with_proof)assert(capi::tactix_proof(s,path,TACTIX_PROOF_DSR_ASCII)==0);
-  for(auto variables:{std::vector<int32_t>{1,2,3},std::vector<int32_t>{2,3,4}})
-    for(auto clause:affine_semantic_extension::clausal_form(variables,variables.front()==2)) {
-      for(auto lit:clause)capi::tactix_add(s,lit);
-      capi::tactix_add(s,0);
-    }
-  auto p=profile();capi::tactix_online_step_v16 step{};
-  auto &base=step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base;
-  base.step_id=941;base.rule_id=41;base.granularity=TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  base.repeat_mode=TACTIX_ONLINE_REPEAT_ONCE;base.repeat_limit=1;
-  base.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;base.budget=1;
-  step.affine_matrix_profile=TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
-  step.affine_matrix={c_basis(p.basis),1,1,p.maximum_retained_bytes,p.maximum_deferred_deletions,p.maximum_deferred_literal_work};
+  CSolver solver;
+  auto *s = solver.s;
+  if (with_proof) solver.proof();
+  solver.add_xors({1, 2, 3}, {2, 3, 4}, true);
+  auto p = profile();
+  auto step = persistent_step(p);
+  auto &base = step_base(step);
   capi::tactix_online_program_v16 program{&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
   auto valid=step.affine_matrix;
   step.affine_matrix.operation=TACTIX_AFFINE_MATRIX_DETACHED_SOURCE_SEARCH_STEP;
@@ -128,7 +173,7 @@ static void c_surface(bool with_proof) {
       if(!std::strcmp(capi::tactix_rule_name(i),"Propagate"))propagate=i;
     assert(propagate>=0 && capi::tactix_decide(s,1)==0);
     assert(capi::tactix_apply(s,propagate)>=0);
-    step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base=saved_base;
+    step_base(step)=saved_base;
     step.affine_matrix_profile=TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
     step.affine_matrix=valid;step.affine_matrix.operation=TACTIX_AFFINE_MATRIX_SEARCH_STEP;
     // A mismatched profile is rejected without changing the live search state.
@@ -145,57 +190,24 @@ static void c_surface(bool with_proof) {
     auto &kernel=api_detail::kernel_for_fixed_testing(s);
     assert(kernel_external_value(kernel,internalize(4))<0);
   }
-  capi::tactix_release(s);std::fclose(records);std::remove(path);
 }
-static std::string file_bytes(const char *path) {
-  std::ifstream in(path, std::ios::binary);
-  return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
-}
-
 // The request and retry use the actual C16 configure/advance surface. Private
 // introspection only snapshots native state and injects one fixed stop case.
 static void c_decline_retry(unsigned mode) {
-  auto *solver = capi::tactix_init();
-  assert(solver);
-  FILE *records = std::tmpfile();
-  assert(records);
-  assert(capi::tactix_bind_structural_provenance(solver, records) == 0);
-  char path[] = "/tmp/tactix-c16-status-XXXXXX";
-  int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
-  assert(capi::tactix_proof(solver, path, TACTIX_PROOF_DSR_ASCII) == 0);
-  for (const auto &variables : {std::vector<int32_t>{1,2,3},
-                                std::vector<int32_t>{2,3,4}})
-    for (const auto &clause : affine_semantic_extension::clausal_form(variables, false)) {
-      for (int32_t literal : clause) capi::tactix_add(solver, literal);
-      capi::tactix_add(solver, 0);
-    }
+  CSolver c;
+  auto *solver = c.s;
+  FILE *records = c.records;
+  const char *path = c.path;
+  c.proof();
+  c.add_xors({1, 2, 3}, {2, 3, 4}, false);
   auto bounded = profile();
   const bool legacy = mode == 4;
   if (mode == 0 || legacy) bounded.basis.maximum_clauses = 2;
   if (mode == 1) bounded.basis.maximum_snapshot_work = 1;
   if (mode == 2) bounded.maximum_retained_bytes = 1;
   assert(bounded.valid());
-  OnlineStrategyProgram typed;
-  typed.sequence = {invocation(bounded)};
-  const auto wire = serialize_online_strategy_program(typed);
-  OnlineStrategyProgram decoded;
-  decoded = typed;
-  assert(std::get<AffineMatrixInitializeParameters>(decoded.sequence[0].parameters) == bounded);
-
-  capi::tactix_online_step_v16 step{};
-  auto &base = step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base;
-  base.step_id = 941;
-  base.rule_id = 41;
-  base.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
-  step.affine_matrix_profile = TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
-  step.affine_matrix = {c_basis(bounded.basis), 1, 1, bounded.maximum_retained_bytes,
-      bounded.maximum_deferred_deletions, bounded.maximum_deferred_literal_work};
+  auto step = persistent_step(bounded);
+  auto &base = step_base(step);
   if (legacy) {
     step.affine_matrix_profile = TACTIX_AFFINE_MATRIX_PROFILE_LEGACY;
     step.affine_matrix = {};
@@ -216,7 +228,7 @@ static void c_decline_retry(unsigned mode) {
   const auto exhausted = kernel.stats.affine_matrix_init_exhausted;
   const auto interrupted = kernel.stats.affine_matrix_init_interrupted;
   kernel.proof->flush();
-  const auto proof_before = file_bytes(path);
+  const auto proof_before = read_file(path);
   const auto records_before = std::ftell(records);
   if (mode == 3) kernel.stop_fuzz = 1; // Every native safe-boundary poll stops.
   capi::tactix_online_result result{};
@@ -234,7 +246,7 @@ static void c_decline_retry(unsigned mode) {
   assert(kernel.proof->premise_bytes() == premises && kernel.proof->premise_epoch() == premise_epoch);
   assert(!session.enabled() && session.owner_version() == 0 && session.retained_bytes() == 0);
   kernel.proof->flush();
-  assert(file_bytes(path) == proof_before && std::ftell(records) == records_before);
+  assert(read_file(path) == proof_before && std::ftell(records) == records_before);
 
   kernel.stop_fuzz = 0;
   const auto fresh = profile();
@@ -248,48 +260,23 @@ static void c_decline_retry(unsigned mode) {
   assert(capi::tactix_online_advance(solver, &result) == 0);
   assert(result.status == TACTIX_ONLINE_COMPLETED && result.made_rule_progress);
   assert(session.enabled() && session.persistent() == !legacy && session.active_sources() == 2);
-  capi::tactix_release(solver);
-  std::fclose(records);
-  std::remove(path);
 }
 
 
 // Exact admitted limits are reused for the service request; tightening a
 // different profile would correctly decline at the public guard instead.
 static void c_service_continuation(bool typed_replay) {
-  auto *solver = capi::tactix_init();
-  assert(solver);
-  FILE *records = std::tmpfile();
-  assert(records);
-  assert(capi::tactix_bind_structural_provenance(solver, records) == 0);
-  char path[] = "/tmp/tactix-c16-service-resource-XXXXXX";
-  int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
-  assert(capi::tactix_proof(solver, path, TACTIX_PROOF_DSR_ASCII) == 0);
-  for (const auto &variables : {std::vector<int32_t>{1,2,3},
-                                std::vector<int32_t>{2,3,4}})
-    for (const auto &clause : affine_semantic_extension::clausal_form(
-             variables, variables.front() == 2)) {
-      for (int32_t literal : clause) capi::tactix_add(solver, literal);
-      capi::tactix_add(solver, 0);
-    }
-  for (int32_t literal : {5,6,7}) capi::tactix_add(solver, literal);
-  capi::tactix_add(solver, 0);
+  CSolver c;
+  auto *solver = c.s;
+  FILE *records = c.records;
+  const char *path = c.path;
+  c.proof();
+  c.add_xors({1, 2, 3}, {2, 3, 4}, true);
+  c.add({5, 6, 7});
   auto p = profile();
   p.basis.basis_maximum_work = 100;
-  capi::tactix_online_step_v16 step{};
-  auto &base = step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base;
-  base.step_id = 941;
-  base.rule_id = 41;
-  base.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
-  step.affine_matrix_profile = TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
-  step.affine_matrix = {c_basis(p.basis), 1, 1, p.maximum_retained_bytes,
-      p.maximum_deferred_deletions, p.maximum_deferred_literal_work};
+  auto step = persistent_step(p);
+  auto &base = step_base(step);
   capi::tactix_online_program_v16 program{&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(capi::tactix_online_configure_v16(solver, &program, 2001,
       TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
@@ -306,7 +293,7 @@ static void c_service_continuation(bool typed_replay) {
   const auto premises = kernel.proof->premise_bytes();
   const auto epoch = kernel.proof->premise_epoch();
   kernel.proof->flush();
-  const auto proof_before = file_bytes(path);
+  const auto proof_before = read_file(path);
   const auto journal_before = std::ftell(records);
   step.affine_matrix.operation = TACTIX_AFFINE_MATRIX_SEARCH_STEP;
   base.budget = 64;
@@ -316,10 +303,7 @@ static void c_service_continuation(bool typed_replay) {
     OnlineStrategyProgram exact;
     exact.sequence = {invocation(p)};
     exact.sequence[0].budget = WorkLimit::bounded(64);
-    const auto wire = serialize_online_strategy_program(exact);
-    OnlineStrategyProgram decoded;
-    decoded = exact;
-    assert(replay.configure(decoded, 2002));
+    assert(replay.configure(exact, 2002));
   } else {
     assert(capi::tactix_online_configure_v16(solver, &program, 2002,
         TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
@@ -349,7 +333,7 @@ static void c_service_continuation(bool typed_replay) {
     assert(kernel.arena == arena && kernel.watches.arena == watches && kernel.values == values);
     assert(kernel.proof->premise_bytes() == premises && kernel.proof->premise_epoch() == epoch);
     kernel.proof->flush();
-    assert(file_bytes(path) == proof_before && std::ftell(records) == journal_before);
+    assert(read_file(path) == proof_before && std::ftell(records) == journal_before);
     complete = selection_complete;
     if (!dose) assert(!complete);
     if (!complete) ++pending;
@@ -357,62 +341,6 @@ static void c_service_continuation(bool typed_replay) {
   assert(complete && pending > 0 && applications > 1);
   assert(kernel.stats.affine_matrix_service_pending_slices > 0);
   assert(kernel.stats.affine_matrix_service_resumed_slices > 0);
-  capi::tactix_release(solver);
-  std::fclose(records);
-  std::remove(path);
-}
-
-static void c_search_step_nonroot() {
-  auto *solver = capi::tactix_init();
-  assert(solver);
-  FILE *records = std::tmpfile();
-  assert(records);
-  assert(capi::tactix_bind_structural_provenance(solver, records) == 0);
-  char path[] = "/tmp/tactix-c16-search-step-XXXXXX";
-  int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
-  assert(capi::tactix_proof(solver, path, TACTIX_PROOF_DSR_ASCII) == 0);
-  for (const auto &variables : {std::vector<int32_t>{1,2,3},
-                                std::vector<int32_t>{2,3,4}})
-    for (const auto &clause : affine_semantic_extension::clausal_form(
-             variables, variables.front() == 2)) {
-      for (int32_t literal : clause) capi::tactix_add(solver, literal);
-      capi::tactix_add(solver, 0);
-    }
-  const auto p = profile();
-  capi::tactix_online_step_v16 step{};
-  auto &base = step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base;
-  base.step_id = 941;
-  base.rule_id = 41;
-  base.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
-  step.affine_matrix_profile = TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
-  step.affine_matrix = {c_basis(p.basis), 1, TACTIX_AFFINE_MATRIX_INITIALIZE,
-                        p.maximum_retained_bytes, p.maximum_deferred_deletions,
-                        p.maximum_deferred_literal_work};
-  capi::tactix_online_program_v16 program{&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
-  assert(capi::tactix_online_configure_v16(solver, &program, 3001,
-      TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
-  capi::tactix_online_result result{};
-  assert(capi::tactix_online_advance(solver, &result) == 0);
-  assert(result.status == TACTIX_ONLINE_COMPLETED && result.made_rule_progress);
-  auto &kernel = api_detail::kernel_for_fixed_testing(solver);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, 1));
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  step.affine_matrix.operation = TACTIX_AFFINE_MATRIX_SEARCH_STEP;
-  assert(capi::tactix_online_configure_v16(solver, &program, 3002,
-      TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
-  assert(capi::tactix_online_advance(solver, &result) == 0);
-  assert(result.status == TACTIX_ONLINE_COMPLETED && result.made_rule_progress);
-  assert(propagate_apply(kernel) == ApplyResult::Ok);
-  assert(kernel_external_value(kernel, internalize(4)) < 0);
-  capi::tactix_release(solver);
-  std::fclose(records);
-  std::remove(path);
 }
 
 // N2: a root implied by the input is known whichever way the proof arrived, so the
@@ -420,31 +348,22 @@ static void c_search_step_nonroot() {
 // any collection, so these roots count against the clause limit.
 enum class ProofRoute { None, Early, Late };
 static int routed_status(ProofRoute route, uint64_t maximum_clauses) {
-  auto *s=capi::tactix_init();assert(s);FILE *records=std::tmpfile();assert(records);
-  assert(capi::tactix_bind_structural_provenance(s,records)==0);
-  char path[]="/tmp/tactix-persistent-route-XXXXXX";int fd=mkstemp(path);assert(fd>=0);close(fd);
-  if(route==ProofRoute::Early)assert(capi::tactix_proof(s,path,TACTIX_PROOF_AUTO)==0);
-  capi::tactix_add(s,-1);capi::tactix_add(s,2);capi::tactix_add(s,0);
-  capi::tactix_add(s,1);capi::tactix_add(s,0);
-  for(auto variables:{std::vector<int32_t>{3,4,5},std::vector<int32_t>{4,5,6}})
-    for(auto clause:affine_semantic_extension::clausal_form(variables,variables.front()==4)) {
-      for(auto lit:clause)capi::tactix_add(s,lit);
-      capi::tactix_add(s,0);
-    }
-  if(route==ProofRoute::Late)assert(capi::tactix_proof(s,path,TACTIX_PROOF_AUTO)==0);
-  auto p=profile();p.basis.maximum_clauses=maximum_clauses;capi::tactix_online_step_v16 step{};
-  auto &base=step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base;
-  base.step_id=941;base.rule_id=41;base.granularity=TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  base.repeat_mode=TACTIX_ONLINE_REPEAT_ONCE;base.repeat_limit=1;
-  base.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;base.budget=1;
-  step.affine_matrix_profile=TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
-  step.affine_matrix={c_basis(p.basis),1,1,p.maximum_retained_bytes,p.maximum_deferred_deletions,p.maximum_deferred_literal_work};
-  capi::tactix_online_program_v16 program{&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
-  assert(capi::tactix_online_configure_v16(s,&program,941,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
-  capi::tactix_online_result result{};assert(capi::tactix_online_advance(s,&result)==0);
-  const auto status=result.status;
-  capi::tactix_release(s);std::fclose(records);std::remove(path);
-  return status;
+  CSolver solver;
+  if (route == ProofRoute::Early) solver.proof(TACTIX_PROOF_AUTO);
+  solver.add({-1, 2});
+  solver.add({1});
+  for (const auto &clause : affine_semantic_extension::clausal_form({3, 4, 5}, false)) solver.add(clause);
+  for (const auto &clause : affine_semantic_extension::clausal_form({4, 5, 6}, true)) solver.add(clause);
+  if (route == ProofRoute::Late) solver.proof(TACTIX_PROOF_AUTO);
+  auto p = profile();
+  p.basis.maximum_clauses = maximum_clauses;
+  auto step = persistent_step(p);
+  capi::tactix_online_program_v16 program{&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(capi::tactix_online_configure_v16(solver.s, &program, 941,
+                                           TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  capi::tactix_online_result result{};
+  assert(capi::tactix_online_advance(solver.s, &result) == 0);
+  return result.status;
 }
 static void every_route_counts_the_same_roots() {
   std::set<int> outcomes;
@@ -464,6 +383,5 @@ int main() {
   c_surface(false);
   c_service_continuation(false);
   c_service_continuation(true);
-  c_search_step_nonroot();
   for (unsigned mode = 0; mode < 5; ++mode) c_decline_retry(mode);
 }

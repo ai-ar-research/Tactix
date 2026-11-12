@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "affine_persistent_support.hpp"
 #include "rules/semantic_extension/affine_matrix.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "policies/default_policy.hpp"
@@ -17,24 +18,12 @@ struct DefaultAffineSearchTestAccess {
 };
 }
 void alias_deferred_caps(uint64_t cap,bool accepted,bool shared_tighter=false){
- Kernel k;kernel_reserve_vars(k,8);
  auto original=clausal_form({2,3,4},false);for(auto c:clausal_form({3,4,5},true))original.push_back(c);
  original.push_back({-2,-6});original.push_back({6,-1});original.push_back({1,2});
- for(const auto &clause:original){std::vector<Lit> body;for(int x:clause)body.push_back(kernel_internalize(k,x));const auto id=++k.next_clause_id;if(body.size()==2)kernel_add_binary_clause(k,body[0],body[1],id);else kernel_add_large_clause(k,body.data(),body.size(),false,0,id);}
  const std::string path="/tmp/tactix-alias-reservoir-"+std::to_string(getpid())+"-"+std::to_string(cap)+"-"+std::to_string(shared_tighter);
- Proof proof;assert(proof.open(path.c_str(),ProofFormat::DsrAscii));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
- for(size_t i=0;i<original.size();++i){std::vector<Lit> body;for(int x:original[i])body.push_back(kernel_internalize(k,x));proof.seed_population(i+1,body.data(),body.size());}proof.arm_population_shadow();proof.finish_input_transaction();k.proof=&proof;
- FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
- AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
- strategy::AffineConsequenceParameters p;
- p.maximum_clauses=1000;p.maximum_snapshot_literals=10000;p.maximum_snapshot_work=1000000;
- p.maximum_groups=100;p.maximum_patterns=1000;p.maximum_elimination_work=1000000;
- p.maximum_arity=4;p.maximum_intermediate_width=16;p.maximum_sources=32;p.maximum_output_width=4;
- p.maximum_proof_additions=100000;p.maximum_proof_deletions=100000;p.maximum_journal_bytes=1000000;
- p.semantics=strategy::AffineConsequenceSemantics::CertifiedBasisV2;
- p.basis_maximum_work=10000000;p.basis_maximum_intermediate_width=16;p.basis_maximum_sources=100000;
- p.basis_maximum_premises=10000;p.basis_maximum_nodes=10000;p.basis_maximum_direct_width=3;
- p.maximum_external_extent=128;p.maximum_session_keys=1000;p.maximum_session_work=1000000;assert(p.valid());
+ Kernel k;Proof proof;AffineMatrixSearchSession session;
+ FILE *journal=attach_persistent(k,proof,session,8,original,path);
+ auto p=parameters();p.basis_maximum_sources=100000;assert(p.valid());
  assert(affine_matrix_search_initialize(k,session,p,AffineMatrixAdmission::AuthenticatedSubimage,{100000000,cap,100000}).status==AffineMatrixInitStatus::Applied);
  std::vector<uint64_t> shared_handles;
  if(shared_tighter)assert(proof.retain_premise_groups({{{-2,-6}}},100,10000,100000,[](auto){return true;},shared_handles,{1,100000}));

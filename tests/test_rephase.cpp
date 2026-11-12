@@ -122,9 +122,7 @@ static void test_rephase_backtrack_preserves_restart_cadence() {
   kernel_reserve_vars(k, 2);
   kernel_assign_decision(k, internalize(1));
 
-  // Kissat's logarithmic focused-restart interval first grows from one to two
-  // at the 91st canonical restart.  A Rephase trail clear must not cross that
-  // source-defined boundary.
+  // Kissat's focused-restart interval first grows to two at restart 91.
   k.stats.conflicts = 2000;
   k.stats.restarts = 90;
   assert(restart_backtrack_to(k, 0) == ApplyResult::Ok);
@@ -145,9 +143,7 @@ static void test_walk_effort_uses_eliminate_anchor() {
   ScopedHeuristics _hg_k(k);
   DefaultPolicy p;
 
-  // Walk is timed as a simplifier but does not set Kissat's semantic probing
-  // flag. Its SET_EFFORT_LIMIT reference is therefore `last.ticks.eliminate`;
-  // neither the last Walk nor the Probe clock owns this reference point.
+  // Kissat: Walk's SET_EFFORT_LIMIT reference is last.ticks.eliminate.
   k.stats.search_ticks = 50'000'000;
   p.inprocess().probe_clock.anchor = 49'000'000;
   p.inprocess().elim_clock.anchor = 20'000'000;
@@ -168,9 +164,7 @@ static std::vector<int> warmup_after_retained_root(bool prepare) {
   kernel_add_binary_clause(k, internalize(-5), internalize(-1));
   const Lit clause[] = {internalize(-2), internalize(3), internalize(-1)};
   const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0);
-  // A legal cached blocker need not be the other current watched literal.
-  // The root scan is initially satisfied by a transient decision, leaving
-  // this watch on +3 until backtracking removes that blocker.
+  // A transient decision leaves this blocker watch on +3 until backtracking.
   kernel_unwatch_large(k, internalize(3), ref);
   k.watches.push_large(internalize(3), internalize(-1), ref);
   kernel_assign_decision(k, internalize(-1));

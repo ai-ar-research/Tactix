@@ -11,9 +11,7 @@
 using namespace tactix;
 using namespace tactix::session;
 
-static NativeQueryLimits limits() {
-  return {{4096,65536,4096},{64,32768,4096,65536,128,4096,65536},16000000};
-}
+static const auto limits = query_test::large_limits;
 using query_test::writer;
 using query_test::export_query;
 using query_test::export_model;

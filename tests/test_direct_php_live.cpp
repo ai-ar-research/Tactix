@@ -1,4 +1,6 @@
 #undef NDEBUG
+#include "direct_php_test_support.hpp"
+#include "temporary_file.hpp"
 #include "test_io.hpp"
 #include "proof/direct_php_live.hpp"
 
@@ -6,55 +8,18 @@
 #include <cstdio>
 #include <set>
 #include <string>
-#include <unistd.h>
 
 using namespace tactix;
 using namespace tactix::direct_php_live;
 
 namespace {
 
-Kernel fixture(uint32_t holes) {
-  assert(holes >= 2);
-  const uint32_t pigeons = holes + 1;
-  Kernel kernel;
-  kernel_reserve_vars(kernel, pigeons * holes);
-  const auto variable = [holes](uint32_t pigeon, uint32_t hole) {
-    return int32_t(pigeon * holes + hole + 1);
-  };
-  for (uint32_t pigeon = 0; pigeon < pigeons; ++pigeon) {
-    std::vector<Lit> alo;
-    for (uint32_t hole = 0; hole < holes; ++hole)
-      alo.push_back(internalize(variable(pigeon, hole)));
-    const uint64_t id = ++kernel.next_clause_id;
-    if (alo.size() == 2)
-      kernel_add_binary_clause(kernel, alo[0], alo[1], id);
-    else
-      kernel_add_large_clause(kernel, alo.data(), alo.size(), false, 0, id);
-  }
-  for (uint32_t hole = 0; hole < holes; ++hole)
-    for (uint32_t first = 0; first < pigeons; ++first)
-      for (uint32_t second = first + 1; second < pigeons; ++second)
-        kernel_add_binary_clause(
-            kernel, internalize(-variable(first, hole)),
-            internalize(-variable(second, hole)), ++kernel.next_clause_id);
-  return kernel;
-}
+Kernel fixture(uint32_t holes) { return php_kernel(holes); }
 
 Request request() {
   Request result;
-  result.snapshot = {100000, 1000000, 10000000};
-  result.recognition = {100000, 1000000, 100000000, 10000,
-                        1000000, 1000000, 20};
-  result.certificate = {1000000, 1000000, 100000000, 1000000, 2000000};
+  ample_php_limits(result);
   return result;
-}
-
-std::string temporary_path() {
-  char pattern[] = "/tmp/direct-php-live-XXXXXX";
-  const int fd = mkstemp(pattern);
-  assert(fd >= 0);
-  close(fd);
-  return pattern;
 }
 
 void exact_admission_and_replay() {
@@ -144,11 +109,11 @@ void proofless_commit_preserves_solver_state() {
 }
 
 void ascii_publication(ProofFormat format) {
-  const std::string path = temporary_path();
+  TemporaryFile file;
   {
     Kernel kernel = fixture(3);
     Proof proof;
-    assert(proof.open(path.c_str(), format));
+    assert(proof.open(file.path.c_str(), format));
     proof.bind_variable_map(&kernel.internal_to_external);
     proof.bind_external_variable_map(&kernel.external_to_internal);
     kernel.proof = &proof;
@@ -157,10 +122,7 @@ void ascii_publication(ProofFormat format) {
     proof.flush();
     kernel.proof = nullptr;
   }
-  const std::string bytes = read_file(path);
-  assert(!bytes.empty());
-  assert(bytes.size() >= 2 && bytes.substr(bytes.size() - 2) == "0\n");
-  unlink(path.c_str());
+  assert(read_file(file.path).ends_with("0\n"));
 }
 
 void atomic_declines_and_staleness() {
@@ -204,10 +166,10 @@ void atomic_declines_and_staleness() {
     assert(!kernel.inconsistent && kernel.external_to_internal == extent);
   }
   {
-    const std::string path = temporary_path();
+    TemporaryFile file;
     Kernel kernel = fixture(3);
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+    assert(proof.open(file.path.c_str(), ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
     assert(proof.begin_pb());
     kernel.proof = &proof;
@@ -216,7 +178,6 @@ void atomic_declines_and_staleness() {
     assert(admit(kernel, request(), output).status == Status::UnsupportedProof);
     assert(!output.ready() && kernel.external_to_internal == extent);
     kernel.proof = nullptr;
-    unlink(path.c_str());
   }
 }
 

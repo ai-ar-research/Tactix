@@ -3,6 +3,7 @@
 #undef NDEBUG
 #include "rule_test_utils.hpp"
 #include "temporary_file.hpp"
+#include "test_io.hpp"
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -13,6 +14,7 @@
 #include <cassert>
 #include <cstring>
 #include <cstdio>
+#include <sstream>
 #include <string>
 #include <unistd.h>
 
@@ -68,13 +70,9 @@ static void test_forward_includes_only_redundant_physical_prefix() {
   kernel_reserve_vars(k, 7);
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
-  const Lit before_lits[] = {internalize(3), internalize(-4), internalize(5)};
-  const Ref before = kernel_add_large_clause(k, before_lits, 3, true, 1,
-                                              ++k.next_clause_id);
+  const Ref before = add_external_clause(k, {3, -4, 5}, true, 1, ++k.next_clause_id);
   add3(k, 5, 6, 7); // the last irredundant record divides prefix from suffix
-  const Lit after_lits[] = {internalize(3), internalize(-4), internalize(6)};
-  const Ref after = kernel_add_large_clause(k, after_lits, 3, true, 1,
-                                             ++k.next_clause_id);
+  const Ref after = add_external_clause(k, {3, -4, 6}, true, 1, ++k.next_clause_id);
   assert(congruence_apply(k) == ApplyResult::Ok);
   assert(clause_at(k.arena, before)->garbage());
   assert(!clause_at(k.arena, after)->garbage());
@@ -91,19 +89,13 @@ static void test_and_congruent() {
   assert(equivalence_added(k, 3, 4)); // a ≡ b
 }
 
-// Kissat's Congruence dense entry takes the save-stack path of
-// `dense.c:flush_large_watches`, which deletes every binary with a
-// root-assigned endpoint as a clause before the binaries are extracted; the
-// rules that follow (Factor's occurrence counts in particular) never see it.
-// The formula has no gate, so no merge and no forward-subsumption pass can
-// retire the binary later: only the entry itself may delete it.
+// Kissat's dense entry (dense.c flush_large_watches) deletes every binary with
+// a root-assigned endpoint; with no gate, only the entry can delete it.
 static void test_root_satisfied_binary_deleted_at_entry() {
   Kernel k;
   kernel_reserve_vars(k, 6); // fillers 1..4, u=5 v=6
-  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit c2[3] = {internalize(-1), internalize(-2), internalize(4)};
-  kernel_add_large_clause(k, c1, 3, false, 0, ++k.next_clause_id);
-  kernel_add_large_clause(k, c2, 3, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {-1, -2, 4}, false, 0, ++k.next_clause_id);
   const Lit u = internalize(5), v = internalize(6);
   kernel_add_binary_clause(k, u, v, ++k.next_clause_id);
   k.unit_ids[var_of(u)] = ++k.next_clause_id;
@@ -116,11 +108,8 @@ static void test_root_satisfied_binary_deleted_at_entry() {
   assert(k.stats.binaries_deleted == deleted_before + 1);
 }
 
-// Pinned Kissat publishes both representative binaries on every new union,
-// even when the formula already contains identical copies.  Dense forward
-// entry later keeps one physical copy, but the publication must first create
-// fresh proof identities and re-arm both Factor polarities.  The old liveness
-// shortcut skipped that complete lifecycle and lost Rank-27 candidates.
+// Kissat publishes both representative binaries on every union, with fresh
+// proof identities and both Factor polarities re-armed, even over copies.
 static void test_existing_representative_pair_is_republished() {
   {
     Kernel k;
@@ -136,8 +125,8 @@ static void test_existing_representative_pair_is_republished() {
     std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
     const uint64_t deleted_before = k.stats.binaries_deleted;
 
-    const std::string path = "/tmp/tactix-congruence-republish-" +
-                             std::to_string(static_cast<long>(getpid())) + ".dsr";
+    TemporaryFile file;
+    const std::string &path = file.path;
     Proof proof;
     assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
     proof.bind_variable_map(&k.internal_to_external);
@@ -145,7 +134,6 @@ static void test_existing_representative_pair_is_republished() {
     assert(congruence_apply(k) == ApplyResult::Ok);
     proof.flush();
     k.proof = nullptr;
-    std::remove(path.c_str());
 
     for (const Lit lit : {forward[0], forward[1], reverse[0], reverse[1]})
       assert(k.factor_marks[lit] && "representative publication must re-arm");
@@ -160,9 +148,7 @@ static void test_existing_representative_pair_is_republished() {
   }
 }
 
-// Reference parity: Kissat and CaDiCaL both admit AND gates well beyond the
-// old local arity-64 cutoff.  Pin the first excluded arity so a silent scope
-// regression cannot strand equivalent high-fan-in outputs.
+// Kissat and CaDiCaL admit high-arity AND gates; pin the first excluded arity.
 static void test_and_arity_above_old_cutoff() {
   constexpr int arity = 65;
   constexpr int first_output = arity + 1;
@@ -253,10 +239,7 @@ static void test_binary_resolution_unit() {
   assert(k.stats.congruence_gates == 0 && "no gate was extracted");
 }
 
-// Kissat's `all_variables` follows compact internal creation order. Stable
-// Tactix variable IDs can disagree with that order after parsing/compaction,
-// so two independent Y1 units must be discovered in permanent import order,
-// not raw variable-number order.
+// Kissat's all_variables order: independent Y1 units follow import order.
 static void test_binary_resolution_unit_uses_import_order() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -287,10 +270,8 @@ static void test_binary_resolution_no_unit() {
   assert(k.stats.congruence_y1_found == 0);
 }
 
-// Kissat imports paired binary equivalences into the congruence closure before
-// simplifying gates. The merge is productive even though both binaries were
-// already present: that return value admits preprocessing's eager Substitute
-// follow-up.
+// Kissat imports binary equivalences before simplifying gates; the merge is
+// productive, admitting the eager Substitute follow-up.
 static void test_binary_equivalence_channel() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -317,8 +298,7 @@ static void test_binary_resolution_refutes() {
 }
 
 // --- the unit channel (D-CONG-UNIT) -----------------------------------------
-// A gate degenerating under the current representatives is an inference: with
-// x1 ≡ x2, out = x1 ⊕ x2 cancels to 0 and ¬out is a root unit.
+// With x1 = x2, out = x1 ^ x2 cancels to 0 and -out is a root unit.
 static void test_xor_cancel_learns_unit() {
   Kernel k;
   kernel_reserve_vars(k, 5); // a=1 b=2 x1=3 x2=4 out=5
@@ -332,13 +312,11 @@ static void test_xor_cancel_learns_unit() {
   assert(k.stats.congruence_units >= 1);
 }
 
-// A root-valued input and an independently cancelled pair still require the
-// XOR degeneracy ladder. The old value-derived branch tried the conclusion as
-// one direct lemma, found it non-RUP, and silently lost the sound unit.
+// A root-valued input with an independently cancelled pair uses the XOR
+// degeneracy ladder.
 static void test_xor_value_plus_cancel_uses_ladder() {
-  const std::string path = "/tmp/tactix-congruence-valued-xor-" +
-                           std::to_string(static_cast<long>(getpid())) +
-                           ".dsr";
+  TemporaryFile file;
+  const std::string &path = file.path;
   Proof proof;
   assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
   Kernel k;
@@ -353,9 +331,7 @@ static void test_xor_value_plus_cancel_uses_ladder() {
                              ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-out), internalize(rhs),
                              ++k.next_clause_id);
-    const Lit base[3] = {internalize(out), internalize(-lhs),
-                         internalize(-rhs)};
-    kernel_add_large_clause(k, base, 3, false, 0, ++k.next_clause_id);
+    add_external_clause(k, {out, -lhs, -rhs}, false, 0, ++k.next_clause_id);
   };
   add_and(3, 5, 6);
   add_and(4, 5, 6); // closure proves x == y
@@ -376,15 +352,10 @@ static void test_xor_value_plus_cancel_uses_ladder() {
   assert(k.stats.congruence_units >= 1);
   proof.flush();
   k.proof = nullptr;
-  std::remove(path.c_str());
 }
 
-// D-CONG-INPUT-UNIT: a root-false XOR output with an independently cancelled
-// pair forces the one remaining unvalued input, and that conclusion is not RUP
-// directly — the parity clauses propagate nothing while the cancelled pair is
-// unassigned — so Canon::InputUnit must run the same cancellation ladder as
-// Canon::Unit. The output owns the smallest variable so its gate pops first
-// and the InputUnit channel, not the sibling Unit gate, draws the inference.
+// D-CONG-INPUT-UNIT: a root-false XOR output with a cancelled pair forces the
+// remaining input, which needs the same cancellation ladder as Canon::Unit.
 static void test_xor_input_unit_with_cancel_uses_ladder() {
   const auto run = [](const std::string &path) {
     Proof proof;
@@ -428,42 +399,25 @@ static void test_xor_input_unit_with_cancel_uses_ladder() {
     k.proof = nullptr;
   };
 
-  const std::string base = "/tmp/tactix-congruence-input-unit-" +
-                           std::to_string(static_cast<long>(getpid()));
-
-  // The unit line must be preceded by both top-level ladder
-  // rungs over the cancelled representative (x ≡ y, so either variable), or
-  // the certificate states an unsupported unit and the checker rejects it.
-  const std::string proof_path = base + ".dsr";
-  run(proof_path);
-  {
-    FILE *f = std::fopen(proof_path.c_str(), "r");
-    assert(f);
-    char buf[256];
-    bool rung_pos = false, rung_neg = false, unit_line = false;
-    while (std::fgets(buf, sizeof buf, f)) {
-      const std::string line(buf);
-      if (line == "-2 0\n") {
-        unit_line = true;
-        break;
-      }
-      if (line == "3 -2 0\n" || line == "4 -2 0\n")
-        rung_pos = true;
-      if (line == "-3 -2 0\n" || line == "-4 -2 0\n")
-        rung_neg = true;
+  // Both top-level ladder rungs precede the unit line.
+  TemporaryFile file;
+  run(file.path);
+  std::istringstream proof(read_file(file.path));
+  bool rung_pos = false, rung_neg = false, unit_line = false;
+  for (std::string line; std::getline(proof, line);) {
+    if (line == "-2 0") {
+      unit_line = true;
+      break;
     }
-    std::fclose(f);
-    assert(unit_line && "the unit must be in the proof");
-    assert(rung_pos && rung_neg &&
-           "both ladder rungs must justify the unit before it is added");
+    rung_pos |= line == "3 -2 0" || line == "4 -2 0";
+    rung_neg |= line == "-3 -2 0" || line == "-4 -2 0";
   }
-  std::remove(proof_path.c_str());
+  assert(unit_line && "the unit must be in the proof");
+  assert(rung_pos && rung_neg &&
+         "both ladder rungs must justify the unit before it is added");
 }
 
-// A late unit must revisit an already-consumed gate that mentions it, without
-// reopening every unrelated gate.  AND gates are extracted before XOR gates:
-// the dependent gate is therefore indexed first, then the XOR cancellation
-// fixes its input and the value-occurrence schedule derives its output unit.
+// A late unit revisits only the consumed gates that mention it.
 static void test_unit_reschedules_only_affected_gate() {
   Kernel k;
   kernel_reserve_vars(k, 7); // p q a b x c r
@@ -477,13 +431,9 @@ static void test_unit_reschedules_only_affected_gate() {
          "the affected earlier gate must be revisited after x becomes false");
 }
 
-// A representative merge must also revisit a gate that was not an ordinary
-// hash key on its first pop.  With out=0, `out = a & b` is initially only the
-// residual clause (¬x∨¬b), so Canon::Skip consumes it.  Two earlier input
-// merges have already moved its raw y/z occurrences to x/b. A unit-producing
-// sibling then fixes out=0, and a value-rescheduled XOR proves x==b. Kissat's
-// all-RHS occurrence index follows both earlier moves and revisits the skipped
-// target as unary `false = x`; indexing only Canon::Ok keys strands it.
+// A merge revisits a gate first consumed by Canon::Skip: Kissat's all-RHS
+// occurrence index follows earlier input merges and revisits it as unary
+// `false = x`.
 static void test_merge_reschedules_skipped_valued_and() {
   Kernel k;
   // x=1 y=2 b=3 z=4 out=5 p=6 q=7 r=8 s=9
@@ -579,9 +529,7 @@ static void test_contradictory_merge_refutes() {
 }
 
 // --- the XOR output-literal sign convention ---------------------------------
-// A gate's `output` must evaluate to f(inputs): invisible to the closure, but
-// the degenerate-case unit/merge channel reads the polarity directly. For
-// ⊕vⱼ = R the gate on the other s−1 variables outputs vᵢ iff R = 0.
+// For XOR(v) = R the gate on the other s-1 variables outputs v_i iff R = 0.
 
 // The XOR gate over `inputs` has `expected_out` as its output (both DIMACS).
 static void assert_xor_gate_output(const Kernel &k, std::vector<int> inputs,
@@ -644,10 +592,8 @@ static void test_xor_output_sign_odd_arity() {
   assert_xor_gate_output(k, {2, 3, 4}, 1);
 }
 
-// Kissat indexes XOR candidates after removing root-false literals and skips
-// an effectively binary clause.  Keeping the original ternary shapes would
-// fabricate a unary XOR gate and publish out == residual during Congruence;
-// the reference leaves that residual relation to Substitute.
+// Kissat skips an XOR candidate that is binary after removing root-false
+// literals, leaving that relation to Substitute.
 static void test_root_false_input_makes_binary_xor_ineligible() {
   Kernel k;
   kernel_reserve_vars(k, 3); // out=1, residual=2, fixed=3
@@ -666,10 +612,7 @@ static void test_root_false_input_makes_binary_xor_ineligible() {
          "Congruence must not publish the residual unary equivalence");
 }
 
-// Congruence emits extracted binaries in arena order for the proof, then
-// Kissat sorts only that newly extracted segment before sparse reconnection.
-// Give q an earlier compact/import rank while placing p's ternary first: the
-// old prefix stays fixed and the new suffix must be q,p rather than p,q.
+// Kissat sorts only the newly extracted binary segment: the suffix is q,p.
 static void test_extracted_binary_suffix_is_sorted() {
   Kernel k;
   kernel_reserve_vars(k, 5); // a=1 b=2 c=3 p=4 q=5
@@ -691,13 +634,8 @@ static void test_extracted_binary_suffix_is_sorted() {
   assert(partners[partners.size() - 1] == p);
 }
 
-// When closure propagation finds an equivalence, Kissat enters dense mode a
-// second time for representative-aware forward subsumption.  That transition
-// saves the complete population (including the extracted suffix) and resumes
-// it in compact pair order.  Thus a newly extracted lower-ranked partner moves
-// before an older lower partner, while partners above the watched literal keep
-// their first-resume order.  Preserving the whole suffix or sorting every
-// partner would each leak the wrong propagation order into search.
+// Kissat's second dense entry for forward subsumption resumes the whole binary
+// population in compact pair order.
 static void test_forward_dense_resume_reorders_complete_binary_population() {
   Kernel k;
   kernel_reserve_vars(k, 10); // a new old c hi-new hi-old x y out1 out2
@@ -717,9 +655,7 @@ static void test_forward_dense_resume_reorders_complete_binary_population() {
 
   const uint64_t generation = k.arena_generation;
   assert(congruence_apply(k) == ApplyResult::Ok);
-  // Congruence reconnects the live image but leaves physical reclamation to
-  // the caller's established phase boundary.  Standalone V6 must therefore
-  // remain immediately usable with stable Refs and no watch into garbage.
+  // Standalone V6 leaves reclamation to the caller: stable Refs, no garbage watch.
   assert(k.arena_generation == generation);
   assert(garbage_clauses(k) > 0);
   assert_large_watches_are_live(k);
@@ -743,11 +679,8 @@ static void test_forward_dense_resume_reorders_complete_binary_population() {
   assert_large_watches_are_live(k);
 }
 
-// Input binaries need not precede large watches in a sparse list.  The
-// candidate pass snapshots live binary membership before scanning ternaries,
-// rather than repeatedly walking a high-occurrence mixed list.  Keep the
-// adversarial ordering explicit here: both antecedent binaries are appended
-// only after the ternaries installed large watches on their pivot literals.
+// Binary membership is snapshotted before the ternary scan, even when the
+// binaries follow large watches in the lists.
 static void test_binary_extraction_from_mixed_watch_lists() {
   Kernel k;
   kernel_reserve_vars(k, 7);
@@ -771,10 +704,8 @@ static void test_binary_extraction_from_mixed_watch_lists() {
   assert(kernel_binary_live(k, b, y));
 }
 
-// The mid-round budget: `work_budget` 0 leaves the rule unbounded, and a small
-// budget cuts the round — counted once in `congruence_budget_stops` — with no
-// unjustified inference. `stop_fuzz` keeps the strided termination draw from
-// firing, so only the budget path is pinned.
+// work_budget 0 is unbounded; a small budget cuts the round once with no
+// unjustified inference (stop_fuzz disables the strided draw).
 static void test_budget_stops_round() {
   const auto build = [](Kernel &k) {
     kernel_reserve_vars(k, 6);
@@ -809,9 +740,7 @@ static void test_budget_stops_round() {
   assert(again.stats.congruence_budget_stops == 0);
 }
 
-// Kissat's ternary-to-binary extraction is a mandatory pre-pass and has no
-// Congruence effort limit.  The Tactix-only gate-cost compensator must not cut
-// that semantic frontier even when its allowance is already one tick.
+// Kissat's ternary-to-binary extraction is not limited by the gate budget.
 static void test_binary_extraction_precedes_gate_budget() {
   Kernel k;
   kernel_reserve_vars(k, 10);
@@ -828,10 +757,8 @@ static void test_binary_extraction_precedes_gate_budget() {
          "the gate-cost compensator remains live after the pre-pass");
 }
 
-// The frozen v1 payload retains the canonical closure, while the additive
-// semantic surface exposes one currently legal congruent-output inference.
-// Re-enumeration after one merge observes the persistent binary equivalence
-// partition and makes the next closure layer available without hiding a batch.
+// The canonical payload and the semantic one-merge surface coexist;
+// re-enumeration exposes the next closure layer.
 static void test_individual_merges_and_canonical_closure_coexist() {
   Kernel k;
   kernel_reserve_vars(k, 6); // x1 x2, two AND outputs, and a second gate pair

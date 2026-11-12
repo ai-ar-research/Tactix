@@ -1,98 +1,16 @@
 #undef NDEBUG
+#include "gf3_formula_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/gf3_general_row.hpp"
 
-#include <algorithm>
 #include <cassert>
-#include <climits>
 #include <cstdint>
-#include <fstream>
 #include <iostream>
-#include <map>
-#include <set>
-#include <string>
 #include <vector>
 
 using namespace tactix;
 
 namespace {
-
-struct Fixture {
-  std::vector<gf3_affine::Premise> source;
-  std::vector<std::vector<int32_t>> values;
-  uint64_t next = 1;
-
-  uint64_t add(std::vector<int32_t> clause) {
-    const uint64_t occurrence = next++;
-    source.push_back({occurrence, std::move(clause), 9000 + occurrence});
-    return occurrence;
-  }
-
-  uint32_t domain(std::vector<int32_t> literals) {
-    assert(literals.size() == 3);
-    const uint32_t index = static_cast<uint32_t>(values.size());
-    values.push_back(literals);
-    add(literals);
-    for (uint8_t first = 0; first < 3; ++first)
-      for (uint8_t second = first + 1; second < 3; ++second)
-        add({-literals[first], -literals[second]});
-    return index;
-  }
-
-  void equation(const std::vector<uint32_t> &domains,
-                const std::vector<uint8_t> &coefficients, uint8_t rhs) {
-    uint64_t tuples = 1;
-    for (size_t i = 0; i < domains.size(); ++i) tuples *= 3;
-    for (uint64_t tuple = 0; tuple < tuples; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (size_t i = 0; i < domains.size(); ++i) {
-        const uint8_t value = static_cast<uint8_t>(rest % 3);
-        rest /= 3;
-        sum = static_cast<uint8_t>(
-            (sum + coefficients[i] * value) % 3);
-        clause.push_back(-values[domains[i]][value]);
-      }
-      if (sum != rhs) add(std::move(clause));
-    }
-  }
-};
-
-Fixture fixture() {
-  Fixture result;
-  for (int32_t first = 1; first <= 10; first += 3)
-    result.domain({first, first + 1, first + 2});
-  // x + y + u = 0 and y + z + u = 0 imply the non-unit row x - z = 0.
-  // With only x and z fixed, the source remains underdetermined in y/u, so
-  // the proof planner must exercise its bounded case-split auxiliaries.
-  result.equation({0, 1, 3}, {1, 1, 1}, 0);
-  result.equation({1, 2, 3}, {1, 1, 1}, 0);
-  return result;
-}
-
-gf3_affine::Theory recognize(const Fixture &fixture) {
-  const gf3_affine::RecognitionBounds bounds{1000, 10000, 100, 100, 8,
-                                              10000};
-  auto result = gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(result.status == gf3_affine::RecognitionStatus::Recognized);
-  return std::move(result.theory);
-}
-
-gf3_gaussian_bridge::Limits bridge_limits() {
-  gf3_gaussian_bridge::Limits result;
-  result.maximum_work = 1000000;
-  result.maximum_source_clauses = 10000;
-  result.maximum_source_literals = 100000;
-  result.maximum_domains = 100;
-  result.maximum_equations = 100;
-  result.maximum_terms = 1000;
-  result.maximum_authentication_references = 10000;
-  result.maximum_references_per_equation = 1000;
-  result.gaussian = {100000, 100000, 32, 100, 1000, 1000000};
-  return result;
-}
 
 gf3_general_row::Limits limits() {
   gf3_general_row::Limits result;
@@ -107,13 +25,6 @@ gf3_general_row::Limits limits() {
   result.maximum_branch_domains = 32;
   result.maximum_row_width = 8;
   return result;
-}
-
-gf3_gaussian_bridge::Plan bridge(const gf3_affine::Theory &theory) {
-  auto result = gf3_gaussian_bridge::build(
-      theory, bridge_limits(), [](uint64_t) { return true; });
-  assert(result.status == gf3_gaussian_bridge::Status::Complete);
-  return std::move(result.plan);
 }
 
 bool rup(const std::vector<std::vector<int32_t>> &active,
@@ -188,7 +99,7 @@ struct Prepared {
 
 Prepared prepare() {
   Prepared prepared;
-  prepared.theory = recognize(fixture());
+  prepared.theory = recognize(gf3_row_fixture());
   prepared.bridge = bridge(prepared.theory);
   const auto request = find_request(prepared.theory, prepared.bridge);
   prepared.result = gf3_general_row::build(
@@ -320,64 +231,11 @@ void test_limits_interruptions_and_tampering_are_atomic() {
   assert(result.plan.events.empty());
 }
 
-void emit_fixture(const std::string &cnf_path, const std::string &proof_path) {
-  Prepared prepared = prepare();
-  uint64_t auxiliaries = 0;
-  for (const auto &event : prepared.result.plan.events)
-    auxiliaries += event.role == gf3_general_row::EventRole::Auxiliary;
-  std::cout << "c gf3-general-row outcome="
-            << prepared.result.plan.request.outcome << " tuple="
-            << prepared.result.plan.request.tuple << " row-width="
-            << prepared.result.plan.duplicate_key.row.size()
-            << " source-refs=" << prepared.result.plan.sources.size()
-            << " branch-domains="
-            << prepared.result.consumed.branch_domains << " events="
-            << prepared.result.plan.events.size() << " auxiliaries="
-            << auxiliaries << " work=" << prepared.result.consumed.work
-            << " rup-checks=" << prepared.result.consumed.rup_checks
-            << " propagated="
-            << prepared.result.consumed.propagated_literals << '\n';
-  const uint32_t first_aux = prepared.theory.maximum_variable + 1;
-  const uint32_t second_aux = first_aux + 1;
-  std::ofstream cnf(cnf_path);
-  assert(cnf);
-  cnf << "p cnf " << second_aux << ' '
-      << prepared.theory.source.size() + 4 << '\n';
-  for (const auto &premise : prepared.theory.source) {
-    for (int32_t literal : premise.literals) cnf << literal << ' ';
-    cnf << "0\n";
-  }
-  cnf << first_aux << ' ' << second_aux << " 0\n";
-  cnf << first_aux << ' ' << -int32_t(second_aux) << " 0\n";
-  cnf << -int32_t(first_aux) << ' ' << second_aux << " 0\n";
-  cnf << -int32_t(first_aux) << ' ' << -int32_t(second_aux) << " 0\n";
-  cnf.close();
-
-  std::vector<std::vector<int32_t>> independent = {
-      {int32_t(first_aux), int32_t(second_aux)},
-      {int32_t(first_aux), -int32_t(second_aux)},
-      {-int32_t(first_aux), int32_t(second_aux)},
-      {-int32_t(first_aux), -int32_t(second_aux)},
-  };
-  assert(!rup(independent, {}, second_aux));
-  std::ofstream proof(proof_path);
-  assert(proof);
-  for (const auto &event : prepared.result.plan.events) {
-    for (int32_t literal : event.clause) proof << literal << ' ';
-    proof << "0\n";
-  }
-  proof << first_aux << " 0\n";
-  proof << -int32_t(first_aux) << " 0\n";
-  proof << "0\n";
-}
-
 } // namespace
 
-int main(int argc, char **argv) {
+int main() {
   test_nonunit_row_clause_is_bounded_rup_and_model_preserving();
   test_predicate_declines_satisfying_nonrow_and_duplicate_requests();
   test_limits_interruptions_and_tampering_are_atomic();
-  if (argc == 3) emit_fixture(argv[1], argv[2]);
-  else assert(argc == 1);
   std::cout << "GF(3) general-row consequence tests passed\n";
 }

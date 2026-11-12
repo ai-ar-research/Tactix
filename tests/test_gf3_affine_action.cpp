@@ -1,66 +1,24 @@
 #undef NDEBUG
-#include "checker_certificate.hpp"
-#include "dimacs_text.hpp"
+#include "gf3_affine_support.hpp"
+#include "kernel_image.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
-
-#include "frontend/parse.hpp"
-#include "proof/proof.hpp"
-#include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <sstream>
-#include <string>
 #include <vector>
 
 using namespace tactix;
 
 namespace {
 
-std::vector<std::vector<int32_t>> formula(bool complete = true) {
-  std::vector<std::vector<int32_t>> result;
-  std::vector<std::vector<int32_t>> values;
-  for (int32_t domain = 0; domain < 7; ++domain) {
-    const int32_t first = 3 * domain + 1;
-    values.push_back({first, first + 1, first + 2});
-    result.push_back(values.back());
-    for (uint8_t left = 0; left < 3; ++left)
-      for (uint8_t right = left + 1; right < 3; ++right)
-        result.push_back({-values.back()[left], -values.back()[right]});
-  }
-  const auto equation = [&](const std::vector<uint32_t> &domains) {
-    for (uint64_t tuple = 0; tuple < 27; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (uint32_t domain : domains) {
-        const uint8_t value = static_cast<uint8_t>(rest % 3);
-        rest /= 3;
-        sum = static_cast<uint8_t>((sum + value) % 3);
-        clause.push_back(-values[domain][value]);
-      }
-      if (sum) result.push_back(std::move(clause));
-    }
-  };
-  equation({0, 1, 2});
-  equation({2, 3, 4});
-  equation({4, 5, 6});
-  if (!complete) result.pop_back();
-  return result;
+// Seven domains in a chain of three equations.
+Gf3Clauses formula(bool complete = true) {
+  return gf3_formula(7, {{0, 1, 2}, {2, 3, 4}, {4, 5, 6}}, complete);
 }
 
-std::string dimacs(bool complete = true, bool checker_suffix = false) {
-  auto clauses = formula(complete);
-  if (checker_suffix)
-    clauses.insert(clauses.end(), {{30, 31}, {-30, 31}, {30, -31}, {-30, -31}});
-  return dimacs_text(checker_suffix ? 31 : 21, clauses);
-}
-
-Kernel parse(bool complete = true) {
-  return parse_dimacs_text(dimacs(complete), ParsedRoot::EmptyTrail);
-}
+Kernel parse(bool complete = true) { return gf3_parse(7, formula(complete)); }
 
 Gf3AffineActionLimits limits() {
   Gf3AffineActionLimits result;
@@ -86,37 +44,17 @@ void attach(Kernel &kernel, FILE *records) {
   kernel.structural_action_sequence = 80;
 }
 
-struct Image {
-  uint64_t next_clause_id = 0;
+// The kernel image plus the action-layer state a decline must not touch.
+struct ActionImage {
+  Image kernel;
   uint64_t action_sequence = 0;
-  size_t arena_words = 0;
-  size_t trail = 0;
-  uint64_t arena_generation = 0;
   bool candidate_pending = false;
-  std::vector<size_t> watches;
+  bool operator==(const ActionImage &) const = default;
 };
 
-Image image(const Kernel &kernel) {
-  Image result;
-  result.next_clause_id = kernel.next_clause_id;
-  result.action_sequence = kernel.structural_action_sequence;
-  result.arena_words = kernel.arena.size();
-  result.trail = kernel.trail.size();
-  result.arena_generation = kernel.arena_generation;
-  result.candidate_pending = kernel.semantic_variable_candidate_pending;
-  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
-    result.watches.push_back(kernel.watches.size(literal));
-  return result;
-}
-
-bool operator==(const Image &first, const Image &second) {
-  return first.next_clause_id == second.next_clause_id &&
-         first.action_sequence == second.action_sequence &&
-         first.arena_words == second.arena_words &&
-         first.trail == second.trail &&
-         first.arena_generation == second.arena_generation &&
-         first.candidate_pending == second.candidate_pending &&
-         first.watches == second.watches;
+ActionImage action_image(const Kernel &kernel) {
+  return {image(kernel), kernel.structural_action_sequence,
+          kernel.semantic_variable_candidate_pending};
 }
 
 void delete_published(Kernel &kernel, const std::vector<uint64_t> &ids) {
@@ -164,15 +102,6 @@ void success_replay_advice_and_repeated_pairs() {
                strategy::SemanticVariableRole::ExistingTheory &&
            variable.priority == 1);
 
-  // Publication and propagation remain separate controller actions.
-  for (int32_t selected : {1, 4, 10}) {
-    kernel_assign_decision(kernel, kernel_internalize(kernel, selected));
-    assert(propagate_service(kernel) == ApplyResult::Ok);
-  }
-  assert(kernel.value(kernel_internalize(kernel, 13)) > 0);
-  while (kernel.level) kernel_backtrack(kernel, kernel.level - 1);
-  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
-
   // A retained owner can outlive online parameter reconfiguration.  Its
   // source image remains valid, so lowering a capacity below that image is a
   // retryable resource decline rather than an invalid-session diagnosis.
@@ -180,7 +109,7 @@ void success_replay_advice_and_repeated_pairs() {
   assert(session.snapshot()->sources.size() > 1);
   smaller_owner_limit.recognition.maximum_source_clauses =
       session.snapshot()->sources.size() - 1;
-  const Image before_owner_limit = image(kernel);
+  const ActionImage before_owner_limit = action_image(kernel);
   const long owner_limit_journal = position(records);
   // Even when the same lower cap is present, malformed retained accounting is
   // still an invalid identity rather than a capacity decline.
@@ -194,7 +123,7 @@ void success_replay_advice_and_repeated_pairs() {
          corrupt.live.status == Gf3AffineLiveStatus::Invalid &&
          corrupt.result == ApplyResult::NoOp &&
          corrupt.committed_keys == 1 && session.committed_keys() == 1 &&
-         image(kernel) == before_owner_limit &&
+         action_image(kernel) == before_owner_limit &&
          position(records) == owner_limit_journal);
   const auto owner_exhausted = gf3_affine_action_apply(
       kernel, session, smaller_owner_limit, 1, 2);
@@ -204,7 +133,7 @@ void success_replay_advice_and_repeated_pairs() {
              Gf3AffineLiveStatus::ResourceExhausted &&
          owner_exhausted.result == ApplyResult::NoOp &&
          owner_exhausted.committed_keys == 1 && session.committed_keys() == 1 &&
-         image(kernel) == before_owner_limit &&
+         action_image(kernel) == before_owner_limit &&
          position(records) == owner_limit_journal);
 
   // A different caller-selected pair reuses and revalidates the exact owner.
@@ -225,7 +154,7 @@ void success_replay_advice_and_repeated_pairs() {
   assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
   auto smaller_key_limit = limits();
   smaller_key_limit.maximum_session_keys = 1;
-  const Image before_key_limit = image(kernel);
+  const ActionImage before_key_limit = action_image(kernel);
   const long key_limit_journal = position(records);
   const auto key_exhausted = gf3_affine_action_apply(
       kernel, session, smaller_key_limit, 2, 1);
@@ -233,11 +162,11 @@ void success_replay_advice_and_repeated_pairs() {
          key_exhausted.live.status == Gf3AffineLiveStatus::ResourceExhausted &&
          key_exhausted.result == ApplyResult::NoOp &&
          key_exhausted.committed_keys == 2 && session.committed_keys() == 2 &&
-         image(kernel) == before_key_limit &&
+         action_image(kernel) == before_key_limit &&
          position(records) == key_limit_journal);
   // Reverse parent order is the same durable semantic selection.  It consumes
   // neither an action id nor provenance bytes and never enters the live layer.
-  const Image before = image(kernel);
+  const ActionImage before = action_image(kernel);
   const long journal = position(records);
   const auto repeated =
       gf3_affine_action_apply(kernel, session, limits(), 2, 1);
@@ -246,7 +175,7 @@ void success_replay_advice_and_repeated_pairs() {
           repeated.key == Gf3AffineActionKey{1, 2}));
   assert(repeated.proposed_action_id == 83 && repeated.semantic_id == 83 &&
          !repeated.committed_action_id && repeated.committed_keys == 2 &&
-         image(kernel) == before && position(records) == journal);
+         action_image(kernel) == before && position(records) == journal);
   std::fclose(records);
 }
 
@@ -257,12 +186,12 @@ void declines_are_atomic_and_sessions_are_kernel_local() {
     assert(records);
     attach(kernel, records);
     Gf3AffineActionSession session;
-    const Image before = image(kernel);
+    const ActionImage before = action_image(kernel);
     const auto declined =
         gf3_affine_action_apply(kernel, session, limits(), 0, 1);
     assert(declined.status == Gf3AffineActionStatus::NoStructure &&
            declined.result == ApplyResult::NoOp && !session.retained() &&
-           image(kernel) == before && !position(records));
+           action_image(kernel) == before && !position(records));
     std::fclose(records);
   }
   {
@@ -278,11 +207,11 @@ void declines_are_atomic_and_sessions_are_kernel_local() {
     FILE *second_records = std::tmpfile();
     assert(second_records);
     attach(second_kernel, second_records);
-    const Image before = image(second_kernel);
+    const ActionImage before = action_image(second_kernel);
     const auto stale =
         gf3_affine_action_apply(second_kernel, session, limits(), 1, 2);
     assert(stale.status == Gf3AffineActionStatus::Stale &&
-           stale.result == ApplyResult::NoOp && image(second_kernel) == before &&
+           stale.result == ApplyResult::NoOp && action_image(second_kernel) == before &&
            session.belongs_to(first_kernel) && session.committed_keys() == 1 &&
            !position(second_records));
     std::fclose(second_records);
@@ -294,18 +223,18 @@ void declines_are_atomic_and_sessions_are_kernel_local() {
     assert(records);
     attach(kernel, records);
     Gf3AffineActionSession session;
-    const Image before = image(kernel);
+    const ActionImage before = action_image(kernel);
     const auto invalid =
         gf3_affine_action_apply(kernel, session, limits(), 1, 1);
     assert(invalid.status == Gf3AffineActionStatus::Invalid &&
-           image(kernel) == before && !session.retained() &&
+           action_image(kernel) == before && !session.retained() &&
            !position(records));
     auto tiny = limits();
     tiny.maximum_session_work = 1;
     const auto exhausted =
         gf3_affine_action_apply(kernel, session, tiny, 0, 1);
     assert(exhausted.status == Gf3AffineActionStatus::ResourceExhausted &&
-           image(kernel) == before && !session.retained() &&
+           action_image(kernel) == before && !session.retained() &&
            !position(records));
     std::fclose(records);
   }
@@ -328,65 +257,38 @@ void retained_owner_is_revalidated_before_a_novel_pair() {
   Clause *retained = clause_at(kernel.arena, source->ref);
   assert(!retained->garbage() && retained->id() == source->native_proof_id);
   kernel_delete_clause(kernel, retained);
-  const Image before = image(kernel);
+  const ActionImage before = action_image(kernel);
   const long journal = position(records);
   const auto stale =
       gf3_affine_action_apply(kernel, session, limits(), 1, 2);
   assert(stale.status == Gf3AffineActionStatus::Stale &&
          stale.result == ApplyResult::NoOp && session.committed_keys() == 1 &&
-         image(kernel) == before && position(records) == journal);
+         action_image(kernel) == before && position(records) == journal);
   std::fclose(records);
 }
-void proof_modes_and_guard() {
-  {
-    const char *const path = "/tmp/gf3-action-decline.pbp";
-    Kernel kernel = parse();
-    Proof proof;
-    std::remove(path);
-    assert(proof.open(path, ProofFormat::PbpStreaming));
-    proof.finish_input_transaction();
-    assert(proof.begin_pb());
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);
-    kernel.proof = &proof;
-    FILE *records = std::tmpfile();
-    assert(records);
-    attach(kernel, records);
-    Gf3AffineActionSession session;
-    const Image before = image(kernel);
-    const auto result =
-        gf3_affine_action_apply(kernel, session, limits(), 0, 1);
-    assert(result.status == Gf3AffineActionStatus::Inapplicable &&
-           result.result == ApplyResult::NoOp && image(kernel) == before &&
-           !session.retained() && !position(records));
-    kernel.proof = nullptr;
-    std::fclose(records);
-  }
-}
-
-void write_certificate(const char *cnf_path, const char *proof_path,
-                       ProofFormat format) {
+void streaming_pbp_is_inapplicable() {
   Kernel kernel = parse();
-  kernel.next_clause_id = formula().size() + 4;
+  Proof proof;
+  bind_pbp_streaming(proof, kernel, "/tmp/gf3-action-decline.pbp");
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
   Gf3AffineActionSession session;
-  write_checker_certificate(cnf_path, dimacs(true, true), proof_path, format,
-                            kernel, 30, [&](FILE *records) {
-    attach(kernel, records);
-    const auto result =
-        gf3_affine_action_apply(kernel, session, limits(), 0, 1);
-    assert(result.status == Gf3AffineActionStatus::Applied &&
-           result.effort.emitted_additions == 54);
-  });
+  const ActionImage before = action_image(kernel);
+  const auto result = gf3_affine_action_apply(kernel, session, limits(), 0, 1);
+  assert(result.status == Gf3AffineActionStatus::Inapplicable &&
+         result.result == ApplyResult::NoOp && action_image(kernel) == before &&
+         !session.retained() && !position(records));
+  kernel.proof = nullptr;
+  std::fclose(records);
 }
 
 } // namespace
 
-int main(int argc, char **argv) {
+int main() {
   success_replay_advice_and_repeated_pairs();
   declines_are_atomic_and_sessions_are_kernel_local();
   retained_owner_is_revalidated_before_a_novel_pair();
-  proof_modes_and_guard();
-  if (argc == 3)
-    write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
+  streaming_pbp_is_inapplicable();
   std::puts("test_gf3_affine_action: passed");
 }

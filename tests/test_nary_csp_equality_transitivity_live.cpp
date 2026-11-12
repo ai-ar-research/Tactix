@@ -1,12 +1,12 @@
 #undef NDEBUG
-#include "frontend/parse.hpp"
+#include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include <cassert>
 #include <cstdio>
-#include <sstream>
 using namespace tactix;
 namespace {
 using Selection=NaryCspEqualityTransitivitySelection;
@@ -18,9 +18,9 @@ std::string fixture(size_t n){
    for(size_t a=0;a<n;++a)for(size_t b=a+1;b<n;++b)clauses.push_back({-cover[a],-cover[b]});}
  for(auto triple:std::array<std::array<size_t,3>,3>{{{0,1,3},{0,2,4},{1,2,5}}})for(size_t j=0;j<n;++j)
    clauses.push_back({-int32_t(triple[0]*n+j+1),-int32_t(triple[1]*n+j+1),-int32_t(triple[2]*n+j+1)});
- std::ostringstream s;s<<"p cnf "<<6*n<<' '<<clauses.size()<<'\n';for(const auto &c:clauses){for(auto l:c)s<<l<<' ';s<<"0\n";}return s.str();
+ return dimacs_text(uint32_t(6*n),clauses);
 }
-void parse(Kernel &k,size_t n){auto text=fixture(n);FILE *f=std::tmpfile();assert(f);assert(std::fwrite(text.data(),1,text.size(),f)==text.size());std::rewind(f);assert(!parse_dimacs(f,k));std::fclose(f);}
+void parse(Kernel &k,size_t n){parse_dimacs_text(fixture(n),k);}
 void settled(Kernel &k){if(propagate_guard(k))assert(propagate_apply(k)==ApplyResult::Ok);assert(kernel_propagation_fixpoint(k));}
 Selection prepare(Kernel &k,NaryCspRelationOwnerSession &relations,NaryCspEqualitySession &equality,FILE *journal,size_t n){
  k.structural_provenance=journal;
@@ -37,7 +37,7 @@ Selection prepare(Kernel &k,NaryCspRelationOwnerSession &relations,NaryCspEquali
 }
 void run(size_t n,const char *output){
  Kernel k;Proof proof;
- if(output){const auto base=std::string(output)+"-"+std::to_string(n);FILE *f=std::fopen((base+".cnf").c_str(),"w");assert(f);auto text=fixture(n);assert(std::fwrite(text.data(),1,text.size(),f)==text.size());std::fclose(f);assert(proof.open((base+".dsr").c_str(),ProofFormat::DsrAscii));k.proof=&proof;}
+ if(output){const auto base=std::string(output)+"-"+std::to_string(n);write_file((base+".cnf").c_str(),fixture(n));assert(proof.open((base+".dsr").c_str(),ProofFormat::DsrAscii));k.proof=&proof;}
  parse(k,n);FILE *journal=std::tmpfile();assert(journal);
  NaryCspRelationOwnerSession relations;NaryCspEqualitySession equality;NaryCspEqualityTransitivitySession session;
  auto selection=prepare(k,relations,equality,journal,n);auto l=limits();

@@ -1,12 +1,16 @@
-// Lucky unit tests: constant probes, sweep probes, abandonment restoring the
-// entry state with phases untouched, and the registry surface.
+// Lucky unit tests: constant and sweep probes, abandonment restoring the entry
+// state with phases untouched, the lifecycle calls and the registry surface.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/lucky/lucky.hpp"
+#include "rules/lucky/model.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
+#include "rules/restart/restart.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -27,6 +31,20 @@ static int solve_reference_startup(Kernel &k, bool late_lucky = true) {
 static void add3(Kernel &k, int a, int b, int c) {
   const Lit lits[3] = {internalize(a), internalize(b), internalize(c)};
   kernel_add_large_clause(k, lits, 3, false, 0);
+}
+
+// PHP(3,2): Lucky's level-one failed literals refute it.
+static void add_php32(Kernel &k) {
+  kernel_reserve_vars(k, 6);
+  const auto var = [](int p, int h) { return p * 2 + h + 1; };
+  for (int p = 0; p < 3; p++)
+    kernel_add_binary_clause(k, internalize(var(p, 0)),
+                             internalize(var(p, 1)));
+  for (int h = 0; h < 2; h++)
+    for (int p1 = 0; p1 < 3; p1++)
+      for (int p2 = p1 + 1; p2 < 3; p2++)
+        kernel_add_binary_clause(k, internalize(-var(p1, h)),
+                                 internalize(-var(p2, h)));
 }
 
 static void test_all_true() {
@@ -144,20 +162,10 @@ static void test_first_level_conflict_commits_failed_literal() {
 }
 
 static void test_unsat_probes_commit_root_consequences() {
-  // Lucky's level-one failed literals can collectively refute this UNSAT
-  // pigeonhole formula. Speculation still leaves saved phases untouched.
+  // Speculation leaves saved phases untouched while committing root units.
   Kernel k;
   ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
-  auto var = [](int p, int h) { return p * 2 + h + 1; };
-  for (int p = 0; p < 3; p++)
-    kernel_add_binary_clause(k, internalize(var(p, 0)),
-                             internalize(var(p, 1)));
-  for (int h = 0; h < 2; h++)
-    for (int p1 = 0; p1 < 3; p1++)
-      for (int p2 = p1 + 1; p2 < 3; p2++)
-        kernel_add_binary_clause(k, internalize(-var(p1, h)),
-                                 internalize(-var(p2, h)));
+  add_php32(k);
   const ApplyResult lucky_result = lucky_apply(k);
   assert(lucky_result == ApplyResult::Unsat);
   assert(k.inconsistent);
@@ -171,15 +179,7 @@ static void test_unsat_probes_commit_root_consequences() {
 
   Kernel off;
   ScopedHeuristics _hg_off(off);
-  kernel_reserve_vars(off, 6);
-  for (int p = 0; p < 3; p++)
-    kernel_add_binary_clause(off, internalize(var(p, 0)),
-                             internalize(var(p, 1)));
-  for (int h = 0; h < 2; h++)
-    for (int p1 = 0; p1 < 3; p1++)
-      for (int p2 = p1 + 1; p2 < 3; p2++)
-        kernel_add_binary_clause(off, internalize(-var(p1, h)),
-                                 internalize(-var(p2, h)));
+  add_php32(off);
   assert(setenv("TACTIX_SLOT_DISABLE",
                 "Congruence,Substitute,Backbone,Sweep,Factor", 1) == 0);
   assert(setenv("TACTIX_LUCKY_LATE", "0", 1) == 0);
@@ -190,9 +190,46 @@ static void test_unsat_probes_commit_root_consequences() {
   assert(off.stats.lucky_late_calls == 0 && off.stats.lucky_late_sat == 0);
 }
 
-// Retire external 3 through BVE's own public instance so the identity stays
-// mapped: its sole occurrence is positive, so elimination adds no resolvent.
-// Externals 1 and 2 are left with the pair that refutes `-2`.
+// A terminal early-Lucky refutation neither materializes deferred state nor
+// relies on a later Propagate to notice the inconsistency.
+static void test_terminal_refutation_keeps_cold_state() {
+  Kernel k;
+  kernel_defer_cold_state(k);
+  add_php32(k);
+  DefaultStrategyConfig config;
+  config.inprocess.structured_root_before_lucky = false;
+  config.onehot_model.enabled = false;
+  assert(DefaultPolicy(config).solve(k) == 20);
+  assert(k.inconsistent && k.level == 0);
+  assert(k.stats.lucky_early_calls == 1);
+  assert(k.stats.lucky_late_calls == 0);
+  assert(k.cold_state_deferred && !k.h);
+}
+
+// A published model is a terminal SAT state, not a BCP-derived trail: a
+// partial Restart must rescan its retained prefix.
+static void test_published_model_rescans_after_partial_restart() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  // -2 was chosen by the private model search, not derived from decision -1.
+  lucky_publish_model(k, {0, 0});
+  assert(k.trail_tainted && k.level == 2);
+  assert(kernel_propagation_fixpoint(k));
+  kernel_check_invariants(k);
+
+  assert(restart_apply_to(k, 1) == ApplyResult::Ok);
+  assert(k.propagate_head == 0);
+  assert(!kernel_propagation_fixpoint(k));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(k.value(internalize(-2)) > 0);
+  assert(k.assigned[1].level == 1);
+  kernel_check_invariants(k);
+}
+
+// Retires external 3 through BVE's public instance (no resolvent), leaving
+// the pair that refutes -2.
 static void build_retired_head_fixture(Kernel &k) {
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(2), internalize(1));
@@ -205,13 +242,8 @@ static void build_retired_head_fixture(Kernel &k) {
   assert(!kernel_var_retired(k, var_of(internalize(2))));
 }
 
-// A retired identity is not a probe opportunity (kissat lucky.c:203-208 skips
-// `import.eliminated` and `!ACTIVE` before assuming anything). Assuming one
-// spends a probe level on a variable the formula no longer mentions, which
-// pushes the next genuine failed literal past the first probe level, where the
-// sweep flips it instead of committing it. Retired identities stay mapped
-// whenever compaction is declined, so the INVALID_VAR holes compaction leaves
-// cannot stand in for the check.
+// Kissat lucky.c:203-208 skips eliminated and inactive identities before
+// assuming; probing one would push the next failed literal past level one.
 static void test_backward_sweep_skips_retired_identity() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -233,10 +265,8 @@ static void test_backward_sweep_skips_retired_identity() {
   assert(c.values[internalize(3)] == 0);
 }
 
-// Both endpoints of a binary polarity scan must be active (kissat lucky.c:29
-// and :37): a binary an inactive endpoint already satisfies no longer forces
-// that polarity on the active formula. Here `-3` is fixed at the root, so
-// `(-1 -3)` is satisfied and must not veto the all-true constant.
+// Kissat lucky.c:29,37: a binary satisfied by an inactive endpoint does not
+// veto a constant probe.
 static void test_constant_scan_skips_inactive_binary_endpoint() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -250,10 +280,8 @@ static void test_constant_scan_skips_inactive_binary_endpoint() {
 
 using Ternary = std::array<int, 3>;
 
-// Four clauses unsatisfiable unless `guard` takes `releasing_phase`, whose
-// refutation needs a decision on `a` rather than propagation: a sweep that
-// assumes the guard the other way conflicts on both phases of `a` above its
-// first probe level and must abandon (kissat lucky.c:307).
+// Four clauses refuted unless `guard` takes `releasing_phase`; a sweep that
+// assumes the other phase must abandon (kissat lucky.c:307).
 static void add_guarded_core(std::vector<Ternary> &out, int guard,
                              bool releasing_phase, int a, int b, int c) {
   const int g = releasing_phase ? guard : -guard;
@@ -263,10 +291,8 @@ static void add_guarded_core(std::vector<Ternary> &out, int guard,
   out.push_back({g, -a, -c});
 }
 
-// Blocks of sixteen variables that defeat all six probes: an all-negative and
-// an all-positive clause kill the constants, a guard-before-core pair abandons
-// both forward sweeps, and its mirror image abandons both backward ones.
-// Satisfiable for every block by releasing both guards.
+// Sixteen-variable blocks that defeat all six probes; satisfiable by
+// releasing both guards.
 static std::vector<Ternary> lucky_resistant_formula(uint32_t blocks) {
   std::vector<Ternary> out;
   for (uint32_t block = 0; block < blocks; block++) {
@@ -279,9 +305,7 @@ static std::vector<Ternary> lucky_resistant_formula(uint32_t blocks) {
   return out;
 }
 
-// Every original clause satisfied by the extended model, checked against the
-// input rather than the preprocessed kernel copy: a newly reached late Lucky
-// runs after BVE and Substitute have pushed reconstruction obligations.
+// Checks the extended model against the input formula.
 static bool model_satisfies(Kernel &k, const std::vector<Ternary> &formula) {
   kernel_extend_model(k);
   for (const Ternary &clause : formula) {
@@ -306,11 +330,8 @@ static void build_lucky_resistant(Kernel &k,
                                   const std::vector<Ternary> &formula,
                                   uint32_t vars) {
   kernel_reserve_vars(k, vars);
-  for (const Ternary &triple : formula) {
-    const Lit lits[3] = {internalize(triple[0]), internalize(triple[1]),
-                         internalize(triple[2])};
-    kernel_add_large_clause(k, lits, 3, false, 0);
-  }
+  for (const Ternary &triple : formula)
+    add3(k, triple[0], triple[1], triple[2]);
 }
 
 static void print_late_lucky_result(const char *mode, const Kernel &k) {
@@ -371,6 +392,64 @@ static void test_late_call_mode(const char *mode) {
   assert(k.stats.lucky_early_calls == 1 && k.stats.lucky_late_calls == 0);
   assert(model_satisfies(k, formula));
   print_late_lucky_result(mode, k);
+}
+
+static void add_guarded_core(Kernel &k, int guard, int a, int b, int c) {
+  std::vector<Ternary> rows;
+  add_guarded_core(rows, guard, true, a, b, c);
+  build_lucky_resistant(k, rows, 0);
+}
+
+// Roots fixed by early and late Lucky leave the search queue and do not take
+// rank positions after compaction.
+static void test_lucky_roots_leave_the_queue(unsigned roots, bool reverse,
+                                             bool fold) {
+  Kernel k;
+  ScopedHeuristics owner(k);
+  const unsigned n = roots + 1 + 16;
+  kernel_reserve_vars(k, n);
+  std::vector<Var> order;
+  for (Var v = 0; v < n; v++)
+    order.push_back(v);
+  if (reverse)
+    std::reverse(order.begin(), order.end());
+  for (Var v : order)
+    kernel_record_import(k, v);
+  heuristics_seed_activation_order(k, order);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  for (unsigned ev = 3; ev <= roots + 1; ev++)
+    kernel_add_binary_clause(k, internalize(-1),
+                             internalize(static_cast<int>(ev)));
+  const int base = roots + 2;
+  add_guarded_core(k, base, base + 1, base + 2, base + 3);
+  add_guarded_core(k, -(base + 4), base + 5, base + 6, base + 7);
+  add_guarded_core(k, base + 11, base + 8, base + 9, base + 10);
+  add_guarded_core(k, -(base + 15), base + 12, base + 13, base + 14);
+  // Startup runs Lucky before observing the stop; inprocessing (and graph
+  // authentication) respect it, so only Lucky fixes these roots.
+  volatile sig_atomic_t stop = 1;
+  DefaultStrategyConfig config;
+  config.inprocess.structured_root_before_lucky = false;
+  config.graph_labeling_model.enabled = false;
+  assert(DefaultPolicy(config).solve(k, &stop) == 0);
+  assert(k.stats.lucky_early_calls == 1 && k.stats.lucky_late_calls == 1);
+  assert(k.level == 0 && kernel_root_fixed(k) == roots);
+  for (Var v = 0; v < k.nvars; v++)
+    if (kernel_root_value(k, make_lit(v, false)))
+      assert(!heuristics_queue_contains(k, v));
+  assert(k.unassigned_active == 17);
+  assert(kernel_compact_variables(k, fold));
+  heuristics_compact_random_order_fixed(k);
+  unsigned live_rank = 0;
+  for (Var v = owner.h.queue_first; v != INVALID_VAR;
+       v = owner.h.links[v].next)
+    if (!kernel_root_value(k, make_lit(v, false))) {
+      ++live_rank;
+      assert(owner.h.links[v].stamp == live_rank);
+    }
+  assert(live_rank == 17);
+  kernel_check_invariants(k);
 }
 
 static void test_registry_surface() {
@@ -450,6 +529,12 @@ int main(int argc, char **argv) {
   test_sweep();
   test_first_level_conflict_commits_failed_literal();
   test_unsat_probes_commit_root_consequences();
+  test_terminal_refutation_keeps_cold_state();
+  test_published_model_rescans_after_partial_restart();
+  for (unsigned roots : {1u, 5u, 29u})
+    for (bool reverse : {false, true})
+      for (bool fold : {false, true})
+        test_lucky_roots_leave_the_queue(roots, reverse, fold);
   test_backward_sweep_skips_retired_identity();
   test_constant_scan_skips_inactive_binary_endpoint();
   test_registry_surface();

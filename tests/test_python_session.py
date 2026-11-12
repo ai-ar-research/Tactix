@@ -1,5 +1,5 @@
 """Fixed Python/session integration with independent certificate oracles."""
-from proof_test_support import check_unsat, formula, proof_runner, satisfiable
+from proof_test_support import bundle, check_unsat, check_v_model, formula, proof_runner, satisfiable
 from pathlib import Path
 import hashlib
 import gc
@@ -17,17 +17,9 @@ runner = proof_runner(root)
 def verify(stem):
     cnf,pf=Path(str(stem)+'.cnf'),Path(str(stem)+'.proof')
     n,clauses=formula(cnf)
-    meta_path=Path(str(stem)+'.json')
-    if meta_path.exists():
-        meta=json.loads(meta_path.read_text())
-        for suffix,digest in meta['sha256'].items():
-            assert hashlib.sha256(Path(str(stem)+suffix).read_bytes()).hexdigest()==digest
-        if meta['result']==SAT:
-            data=Path(str(stem)+'.model').read_text().split()
-            assert data[0]=='v' and data[-1]=='0'
-            values={abs(int(x)):int(x)>0 for x in data[1:-1]}
-            assert len(values)==n and all(any(values[abs(x)]==(x>0) for x in c) for c in clauses)
-            return
+    if Path(str(stem)+'.json').exists() and bundle(stem)['result']==SAT:
+        check_v_model(Path(str(stem)+'.model'),n,clauses)
+        return
     assert not satisfiable(n,clauses)
     return check_unsat(runner, str(cnf), str(pf))
 

@@ -3,7 +3,8 @@
 #include "tactix.h"
 #undef tactix
 
-#include "kernel/kernel.hpp"
+#include "direct_php_test_support.hpp"
+#include "temporary_file.hpp"
 #include "frontend/parse.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/registry.hpp"
@@ -12,37 +13,28 @@
 
 #include <cassert>
 #include <algorithm>
-#include <cstring>
 #include <string>
 #include <vector>
-#include <unistd.h>
 
 using namespace tactix;
 using namespace tactix::strategy;
 
 namespace {
 
-Kernel fixture(uint32_t holes = 3) {
-  const uint32_t pigeons = holes + 1;
-  Kernel kernel;
-  kernel_reserve_vars(kernel, pigeons * holes);
-  const auto variable = [holes](uint32_t pigeon, uint32_t hole) {
-    return int32_t(pigeon * holes + hole + 1);
-  };
-  for (uint32_t pigeon = 0; pigeon < pigeons; ++pigeon) {
-    std::vector<Lit> alo;
-    for (uint32_t hole = 0; hole < holes; ++hole)
-      alo.push_back(internalize(variable(pigeon, hole)));
-    kernel_add_large_clause(kernel, alo.data(), alo.size(), false, 0,
-                            ++kernel.next_clause_id);
-  }
-  for (uint32_t hole = 0; hole < holes; ++hole)
-    for (uint32_t first = 0; first < pigeons; ++first)
-      for (uint32_t second = first + 1; second < pigeons; ++second)
-        kernel_add_binary_clause(kernel,
-            internalize(-variable(first, hole)),
-            internalize(-variable(second, hole)), ++kernel.next_clause_id);
-  return kernel;
+Kernel fixture() { return php_kernel(); }
+
+DirectPhpActionLimits default_limits() {
+  const DirectPhpRefutationParameters p;
+  return {{p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
+           p.maximum_snapshot_work},
+          {p.maximum_recognition_clauses, p.maximum_recognition_literals,
+           p.maximum_recognition_work, p.maximum_row_candidates,
+           p.maximum_row_combinations, p.maximum_mapping_trials,
+           p.maximum_holes},
+          {p.maximum_proof_additions, p.maximum_proof_deletions,
+           p.maximum_proof_literals, p.maximum_fresh_variables,
+           p.maximum_proof_events},
+          p.maximum_replay_work};
 }
 
 OnlineInvocation invocation(uint64_t id = 25) {
@@ -74,20 +66,18 @@ void identity_guard_and_disabled_default() {
   assert(found != program.end() && found->id == 25 && !found->enabled);
 }
 
-void serialized_replay_and_terminal_feedback() {
+void explicit_program_reaches_the_same_action() {
   OnlineStrategyProgram program{{invocation()}, {RepeatMode::Once, 1}};
   std::string error;
   assert(validate_online_strategy_program(program, &error));
   const std::string encoded = serialize_online_strategy_program(program);
   assert(encoded.find("direct-php-refutation1(") != std::string::npos);
-  OnlineStrategyProgram replay;
-  replay = program;
 
   Kernel kernel = fixture();
   DirectPhpActionSession session(kernel);
   kernel.direct_php_action_session = &session;
   OnlineStrategyExecutor executor;
-  assert(executor.configure(replay, 7, ReconfigureMode::ResetRuntime, &error));
+  assert(executor.configure(program, 7, ReconfigureMode::ResetRuntime, &error));
   const InvocationResult result = executor.advance(kernel);
   assert(result.status == InvocationStatus::Unsat);
   assert(result.rule_result == ApplyResult::Unsat);
@@ -130,70 +120,28 @@ void duplicate_binary_snapshot_is_not_invalid() {
   kernel_add_binary_clause(kernel, internalize(1), internalize(2),
                            ++kernel.next_clause_id);
   DirectPhpActionSession session(kernel);
-  const auto p = DirectPhpRefutationParameters{};
-  const DirectPhpActionLimits limits{
-      {p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
-       p.maximum_snapshot_work},
-      {p.maximum_recognition_clauses, p.maximum_recognition_literals,
-       p.maximum_recognition_work, p.maximum_row_candidates,
-       p.maximum_row_combinations, p.maximum_mapping_trials,
-       p.maximum_holes},
-      {p.maximum_proof_additions, p.maximum_proof_deletions,
-       p.maximum_proof_literals, p.maximum_fresh_variables,
-       p.maximum_proof_events},
-      p.maximum_replay_work};
-  const auto result = direct_php_action_apply(kernel, session, {1, 1, limits});
+  const auto result =
+      direct_php_action_apply(kernel, session, {1, 1, default_limits()});
   assert(result.status == DirectPhpActionStatus::NotRecognized);
   assert(result.effort.snapshot_clauses == 1);
 }
 
-void explicit_program_reaches_the_same_action() {
-  Kernel kernel = fixture();
-  DirectPhpActionSession session(kernel);
-  kernel.direct_php_action_session = &session;
-  OnlineStrategyProgram program{{invocation(17)}, {}};
-  std::string error;
-  assert(validate_online_strategy_program(program, &error));
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 18, ReconfigureMode::ResetRuntime,
-                            &error));
-  const InvocationResult result = executor.advance(kernel);
-  assert(result.status == InvocationStatus::Unsat);
-}
-
-void add_c_clause(tactix_c_handle *solver, const std::vector<int> &clause) {
+void add_c_clause(tactix_c_handle *solver, const std::vector<int32_t> &clause) {
   for (int literal : clause) tactix_add(solver, literal);
   tactix_add(solver, 0);
 }
 
 void parser_surface_has_stable_source_ids() {
   Kernel kernel;
-  const int holes = 3, pigeons = 4;
-  const auto add = [&](std::vector<int> clause) {
+  for (const auto &clause : php_clauses(3)) {
     std::vector<Lit> internal;
     for (int literal : clause) internal.push_back(internalize(literal));
     ingest_clause(kernel, internal);
-  };
-  for (int pigeon = 0; pigeon < pigeons; ++pigeon) {
-    std::vector<int> clause;
-    for (int hole = 0; hole < holes; ++hole)
-      clause.push_back(pigeon * holes + hole + 1);
-    add(clause);
   }
-  for (int hole = 0; hole < holes; ++hole)
-    for (int first = 0; first < pigeons; ++first)
-      for (int second = first + 1; second < pigeons; ++second)
-        add({-(first * holes + hole + 1), -(second * holes + hole + 1)});
   finish_input(kernel);
   DirectPhpActionSession session(kernel);
-  const auto p = DirectPhpRefutationParameters{};
-  const DirectPhpActionLimits limits{
-      {p.maximum_snapshot_clauses,p.maximum_snapshot_literals,p.maximum_snapshot_work},
-      {p.maximum_recognition_clauses,p.maximum_recognition_literals,p.maximum_recognition_work,
-       p.maximum_row_candidates,p.maximum_row_combinations,p.maximum_mapping_trials,p.maximum_holes},
-      {p.maximum_proof_additions,p.maximum_proof_deletions,p.maximum_proof_literals,
-       p.maximum_fresh_variables,p.maximum_proof_events},p.maximum_replay_work};
-  const auto result = direct_php_action_apply(kernel, session, {1,1,limits});
+  const auto result =
+      direct_php_action_apply(kernel, session, {1, 1, default_limits()});
   assert(result.status == DirectPhpActionStatus::Applied);
   assert(result.effort.snapshot_clauses == 22);
   const auto *record = session.record();
@@ -212,24 +160,9 @@ void parser_surface_has_stable_source_ids() {
 
 void c_api_executes_terminal_action() {
   tactix_c_handle *solver = tactix_init();
-  char path[] = "/tmp/tactix-direct-php-public-XXXXXX";
-  const int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
-  assert(tactix_proof(solver, path, TACTIX_PROOF_DSR_ASCII) == 0);
-  const int holes = 3, pigeons = 4;
-  for (int pigeon = 0; pigeon < pigeons; ++pigeon) {
-    std::vector<int> clause;
-    for (int hole = 0; hole < holes; ++hole)
-      clause.push_back(pigeon * holes + hole + 1);
-    add_c_clause(solver, clause);
-  }
-  for (int hole = 0; hole < holes; ++hole)
-    for (int first = 0; first < pigeons; ++first)
-      for (int second = first + 1; second < pigeons; ++second)
-        add_c_clause(solver, {-(first * holes + hole + 1),
-                              -(second * holes + hole + 1)});
-
+  TemporaryFile file;
+  assert(tactix_proof(solver, file.path.c_str(), TACTIX_PROOF_DSR_ASCII) == 0);
+  for (const auto &clause : php_clauses(3)) add_c_clause(solver, clause);
   tactix_online_step step{};
   step.step_id = 25;
   step.rule_id = 36;
@@ -252,17 +185,15 @@ void c_api_executes_terminal_action() {
   assert(result.rule_id == 36 && result.applications == 1);
   assert(tactix_status(solver) == 20);
   tactix_release(solver);
-  unlink(path);
 }
 
 } // namespace
 
 int main() {
   identity_guard_and_disabled_default();
-  serialized_replay_and_terminal_feedback();
+  explicit_program_reaches_the_same_action();
   allowance_declines_before_action();
   duplicate_binary_snapshot_is_not_invalid();
-  explicit_program_reaches_the_same_action();
   parser_surface_has_stable_source_ids();
   c_api_executes_terminal_action();
 }

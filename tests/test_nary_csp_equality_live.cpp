@@ -1,8 +1,8 @@
 #undef NDEBUG
 #include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 
-#include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 
@@ -136,10 +136,7 @@ void publish_duplicate_and_records() {
   assert(kernel.nvars == before_vars && kernel.next_clause_id == before_id);
   assert(std::ftell(records) == before_records);
 
-  std::rewind(records);
-  std::string journal(16384, '\0');
-  const size_t bytes = std::fread(journal.data(), 1, journal.size(), records);
-  journal.resize(bytes);
+  const std::string journal = stream_contents(records);
   assert(journal.find("nary-csp-equality-begin") != std::string::npos);
   assert(journal.find("nary-csp-equality-source") != std::string::npos);
   assert(journal.find("nary-csp-equality-addition") != std::string::npos);
@@ -231,13 +228,7 @@ void emit_live_proof(const std::string &stem) {
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(cnf.data(), 1, cnf.size(), input) == cnf.size());
-  std::rewind(input);
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(!kernel.inconsistent && kernel_propagation_fixpoint(kernel));
+  parse_dimacs_text(cnf, kernel, ParsedRoot::Consistent);
 
   NaryCspRelationOwnerSnapshot owner;
   assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
@@ -251,9 +242,7 @@ void emit_live_proof(const std::string &stem) {
   assert(applied.projection.extension_variable == 12);
   assert(default_solve(kernel) == 20);
   proof.flush();
-  // The equality transaction itself is witness-free RAT/RUP.  The subsequent
-  // default search may emit SR, which correctly routes the complete stream
-  // through the native Trestle checker.
+  // The equality lemmas are RAT/RUP; the following search may emit SR.
   assert(std::string(proof.verification_route()) == "dsr-trestle");
   kernel.proof = nullptr;
   std::fclose(records);

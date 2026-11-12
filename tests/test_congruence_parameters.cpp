@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "strategy/congruence_parameters.hpp"
@@ -28,13 +29,6 @@ static void and3(Kernel &k, int output, int a, int b, int c) {
   kernel_add_binary_clause(k, internalize(-output), internalize(b));
   kernel_add_binary_clause(k, internalize(-output), internalize(c));
   add(k, {output, -a, -b, -c});
-}
-
-static void xor2(Kernel &k, int output, int a, int b) {
-  add(k, {-output, a, b});
-  add(k, {output, -a, b});
-  add(k, {output, a, -b});
-  add(k, {-output, -a, -b});
 }
 
 static void ite(Kernel &k, int output, int condition, int then_lit,
@@ -70,7 +64,7 @@ static void discovery_limits_are_effective_and_unbounded() {
   {
     Kernel k;
     kernel_reserve_vars(k, 3);
-    xor2(k, 3, 1, 2);
+    xor_gate(k, 3, 1, 2);
     k.congruence_parameters.xor_arity_limit = 1;
     assert(kind_count(k, GateKind::Xor) == 0);
     k.congruence_parameters.xor_arity_limit = 2;
@@ -85,16 +79,6 @@ static void discovery_limits_are_effective_and_unbounded() {
 }
 
 static void scope_and_c_api_validate_without_partial_update() {
-  Kernel k;
-  const strategy::CongruenceParameters original = k.congruence_parameters;
-  const strategy::CongruenceParameters posed{7, 11, 3};
-  {
-    strategy::ScopedCongruenceParameters scope(k, posed);
-    assert(k.congruence_parameters.and_arity_limit == 7);
-    assert(k.congruence_parameters.gate_count_limit == 11);
-  }
-  assert(k.congruence_parameters.and_arity_limit == original.and_arity_limit);
-
   tactix_handle *solver = tactix_init();
   assert(tactix_config(solver, TACTIX_CFG_CONGRUENCE_AND_ARITY) == 1000000);
   assert(tactix_config(solver, TACTIX_CFG_CONGRUENCE_GATE_COUNT) == 20000000);

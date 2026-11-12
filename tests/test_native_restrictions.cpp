@@ -7,9 +7,7 @@
 #include <string>
 using namespace tactix;
 using namespace tactix::session;
-static NativeQueryLimits limits() {
-  return {{4096,65536,4096},{64,32768,4096,65536,128,4096,65536},16000000};
-}
+static const auto limits = query_test::large_limits;
 static void fixture(bool rat,bool hard,const std::string &prefix,const std::string &mode,bool dynamic) {
   QueryHistory h;
   for(int base:rat?std::vector<int>{0,3}:std::vector<int>{0,4}) {

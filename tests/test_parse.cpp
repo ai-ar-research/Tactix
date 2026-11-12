@@ -27,14 +27,18 @@ static FILE *dimacs_file(const char *text) {
   return file;
 }
 
+static void parse_text(Kernel &k, const char *text) {
+  FILE *file = dimacs_file(text);
+  assert(parse_dimacs(file, k) == nullptr);
+  std::fclose(file);
+}
+
 static void test_compact_input_filter_grows_and_deduplicates_exactly() {
   Kernel k;
   FILE *file = std::tmpfile();
   assert(file);
-  // The advisory clause count deliberately underpredicts the 150 distinct
-  // binaries so this crosses the filter's initial one-block (128-entry)
-  // capacity. Every pair is then repeated: the filter may answer "maybe", but
-  // the watch scan must reject each duplicate exactly.
+  // An underpredicting header grows the filter past one 128-entry block;
+  // every repeated pair must still be rejected exactly.
   constexpr int vars = 20, distinct = 150;
   assert(std::fputs("p cnf 20 1\n", file) >= 0);
   for (int round = 0; round < 2; round++)
@@ -94,9 +98,8 @@ static std::string parse_with_block(const char *text, size_t block,
 static void test_advisory_headers_preserve_binary_liveness() {
   const char *canonical =
       "p cnf 3 6\n1 2 0\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n";
-  // The parser deliberately accepts advisory/late headers. The temporary
-  // exact index must not outlive its literal universe, and re-arming must
-  // retain all previous binaries, including the pairs repeated afterwards.
+  // Advisory and late headers: re-arming the exact index keeps every earlier
+  // binary, including pairs repeated afterwards.
   const char *variants[] = {
       "p cnf 2 6\n1 2 0\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n",
       "p cnf 2 6\n1 2 0\np cnf 3 6\n2 3 0\n1 2 0\n2 3 0\n-1 3 0\n-1 3 0\n",
@@ -109,9 +112,7 @@ static void test_advisory_headers_preserve_binary_liveness() {
     for (size_t block = 1; block <= 40; ++block)
       assert(parse_with_block(text, block) == expected);
     Kernel k;
-    FILE *file = dimacs_file(text);
-    assert(!parse_dimacs(file, k));
-    std::fclose(file);
+    parse_text(k, text);
     assert(!k.binary_liveness); // the import scope must release its index
     assert(k.binary_ids.size() == 3);
     assert(kernel_binary_copies(k, internalize(1), internalize(2)) == 1);
@@ -121,10 +122,7 @@ static void test_advisory_headers_preserve_binary_liveness() {
   }
 }
 
-// The block scanner must not care where a token, a line, or a comment ends
-// relative to a block boundary: every block size imports the same formula
-// as the production block, and the same malformed input yields the same
-// error text.
+// Every block size imports the same formula and reports the same error text.
 static void test_block_boundaries_do_not_change_the_import() {
   const char *text =
       "c leading comment\r\n"
@@ -189,9 +187,7 @@ static void test_streaming_pbp_uses_compact_binary_filter() {
     Proof proof;
     assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
     k.proof = &proof;
-    FILE *file = dimacs_file("p cnf 3 3\n1 -2 0\n2 3 0\n1 -2 0\n");
-    assert(parse_dimacs(file, k) == nullptr);
-    std::fclose(file);
+    parse_text(k, "p cnf 3 3\n1 -2 0\n2 3 0\n1 -2 0\n");
     assert(!k.binary_ids.tracks_keys());
     assert(!k.binary_ids.tracks_values());
     assert(k.binary_ids.size() == 2);
@@ -200,9 +196,8 @@ static void test_streaming_pbp_uses_compact_binary_filter() {
   assert(std::remove(path.c_str()) == 0);
 }
 
-// Independently replay the literal-addressed import delta over the raw input.
-// After shortening and binary deduplication, later SR must see exactly the
-// represented clause population, including when a duplicate itself shrinks.
+// Replaying the import proof over the raw input yields exactly the stored
+// clause population, including a shrinking duplicate.
 static void test_literal_proof_import_retires_raw_replacements() {
   const std::vector<std::vector<int>> raw = {
       {1}, {-1, 2, 2, 3}, {3, 2}, {2, -1, 3},
@@ -227,18 +222,14 @@ static void test_literal_proof_import_retires_raw_replacements() {
       Proof proof;
       assert(proof.open(path.c_str(), format));
       k.proof = &proof;
-      FILE *file = dimacs_file(input.str().c_str());
-      assert(parse_dimacs(file, k) == nullptr);
-      std::fclose(file);
+      parse_text(k, input.str().c_str());
       proved_state = import_fingerprint(k);
       kernel_check_invariants(k);
       k.proof = nullptr;
     }
     {
       Kernel k;
-      FILE *file = dimacs_file(input.str().c_str());
-      assert(parse_dimacs(file, k) == nullptr);
-      std::fclose(file);
+      parse_text(k, input.str().c_str());
       assert(import_fingerprint(k) == proved_state);
     }
     std::map<std::vector<int>, unsigned> population = initial_population;
@@ -272,30 +263,22 @@ static void test_literal_proof_import_retires_raw_replacements() {
 static void test_tumble_preserves_file_literal_order() {
   Kernel k;
   ScopedHeuristics hg(k);
-  FILE *file = std::tmpfile();
-  assert(file);
-  // First surviving occurrences: 3,1,2,6,4,7.  The repeated 3 is inert,
-  // the tautological second clause activates neither 5 nor 4, and the final
-  // occurrence of 2 is already active.  Storage stably removes the repeated 3.
+  // First surviving occurrences: 3,1,2,6,4,7; the tautology activates
+  // neither 5 nor 4 and storage stably drops the repeated 3.
   const char *dimacs =
       "p cnf 7 4\n"
       "3 1 3 2 0\n"
       "5 -5 4 0\n"
       "6 4 0\n"
       "2 7 0\n";
-  assert(std::fputs(dimacs, file) >= 0);
-  std::rewind(file);
-  assert(parse_dimacs(file, k) == nullptr);
-  std::fclose(file);
+  parse_text(k, dimacs);
   assert(!k.binary_ids.tracks_keys());
   assert(!k.binary_ids.tracks_values() &&
          "proofless import must release the binary archive");
   assert(k.binary_ids.size() == 2 &&
          "dropping storage must preserve the exact material watermark");
 
-  // Kissat imports variables before it recognizes a tautology, so 5 and 4
-  // still occupy their first-occurrence positions even though that clause is
-  // discarded.  Header-only variables would follow this imported prefix.
+  // Kissat imports variables before recognizing the tautology.
   const std::vector<Var> expected_import_order = {2, 0, 1, 4, 3, 5, 6};
   for (uint32_t rank = 0; rank < expected_import_order.size(); rank++)
     assert(kernel_import_var_order(k, expected_import_order[rank]) == rank);
@@ -309,16 +292,14 @@ static void test_tumble_preserves_file_literal_order() {
     queue.push_back(v);
   assert(queue == expected_queue);
 
-  // The policy-ranked candidate surface walks the same queue backwards, so
-  // this is the exact initial external-variable prefix: 7,4,6,2,1,3,5.
+  // The candidate surface walks the queue backwards.
   Lit candidates[7];
   assert(heuristics_decide_candidates(k, candidates, 7) == 7);
   const int expected_candidates[7] = {7, 4, 6, 2, 1, 3, 5};
   for (unsigned i = 0; i < 7; i++)
     assert(externalize(candidates[i]) == expected_candidates[i]);
 
-  // The first stored large clause matches Kissat's stable first-occurrence
-  // order while retaining the kernel's set semantics.
+  // Kissat's stable first-occurrence order with set semantics.
   const Clause *clause = clause_at(k.arena, 0);
   assert(clause->size == 3);
   assert(clause->lits[0] == internalize(3));
@@ -330,8 +311,6 @@ static void test_tumble_preserves_file_literal_order() {
 static void test_root_units_normalize_later_input_clauses() {
   Kernel k;
   ScopedHeuristics hg(k);
-  FILE *file = std::tmpfile();
-  assert(file);
   const char *dimacs =
       "p cnf 7 5\n"
       "1 0\n"
@@ -339,10 +318,7 @@ static void test_root_units_normalize_later_input_clauses() {
       "-1 4 5 6 0\n"   // root-false -1: stored as large 4 5 6
       "1 7 0\n"        // root-true 1: satisfied, activates no 7
       "2 4 0\n";
-  assert(std::fputs(dimacs, file) >= 0);
-  std::rewind(file);
-  assert(parse_dimacs(file, k) == nullptr);
-  std::fclose(file);
+  parse_text(k, dimacs);
 
   assert(k.stats.input_restated == 2);
   assert(kernel_binary_id(k, internalize(2), internalize(3)) != 0);
@@ -359,8 +335,6 @@ static void test_root_units_normalize_later_input_clauses() {
 static void test_input_units_propagate_before_later_clauses() {
   Kernel k;
   ScopedHeuristics hg(k);
-  FILE *file = std::tmpfile();
-  assert(file);
   const char *dimacs =
       "p cnf 6 6\n"
       "-1 2 0\n"       // stored before its forcing unit
@@ -369,10 +343,7 @@ static void test_input_units_propagate_before_later_clauses() {
       "3 4 0\n"        // now root-satisfied and omitted
       "-3 5 6 0\n"     // now shrinks to the binary 5 6
       "4 5 0\n";
-  assert(std::fputs(dimacs, file) >= 0);
-  std::rewind(file);
-  assert(parse_dimacs(file, k) == nullptr);
-  std::fclose(file);
+  parse_text(k, dimacs);
 
   assert(k.values[internalize(1)] > 0);
   assert(k.values[internalize(2)] > 0);
@@ -380,18 +351,13 @@ static void test_input_units_propagate_before_later_clauses() {
   assert(k.propagate_head == k.trail.size());
   assert(kernel_binary_live(k, internalize(5), internalize(6)));
   assert(k.stats.input_restated == 1);
-  // Kissat routes original-unit closure through its search propagator: scan
-  // 1 assigns 2, scan 2 assigns 3 (three ticks each), then scan 3 is empty.
+  // Kissat charges original-unit closure as search propagation: 3+3+1 ticks.
   assert(k.stats.search_ticks == 7);
-  // x4 first appears only in the satisfied clause and must not be activated
-  // there, matching Kissat's add-at-root behavior.
   assert(!k.input_activated.size()); // finish_input has released the scratch
   kernel_check_invariants(k);
 }
 
-// A proof serializer must not alter which input clauses the solver keeps.
-// The first binary forces 2 after the unit 1; the final clause is therefore
-// satisfied before it can enter the live database in every proof mode.
+// Every proof mode keeps the same input clauses: (2 3) is root-satisfied.
 static void test_proof_mode_preserves_import_liveness() {
   const char *dimacs =
       "p cnf 3 3\n"
@@ -409,9 +375,7 @@ static void test_proof_mode_preserves_import_liveness() {
       assert(proof.open(path.c_str(), format));
       k.proof = &proof;
     }
-    FILE *file = dimacs_file(dimacs);
-    assert(parse_dimacs(file, k) == nullptr);
-    std::fclose(file);
+    parse_text(k, dimacs);
     if (k.propagate_head < k.trail.size())
       assert(!kernel_propagate(k));
     assert(k.values[internalize(2)] > 0);
@@ -433,16 +397,11 @@ static void test_proof_mode_preserves_import_liveness() {
 static void test_header_only_variables_are_not_search_variables() {
   Kernel k;
   ScopedHeuristics hg(k);
-  FILE *file = std::tmpfile();
-  assert(file);
   const char *dimacs =
       "p cnf 8 2\n"
       "1 3 0\n"
       "-3 1 0\n";
-  assert(std::fputs(dimacs, file) >= 0);
-  std::rewind(file);
-  assert(parse_dimacs(file, k) == nullptr);
-  std::fclose(file);
+  parse_text(k, dimacs);
 
   assert(k.nvars == 8); // stable DIMACS identities remain available
   assert(k.unassigned == 8);
@@ -470,9 +429,7 @@ static void test_discarded_only_variables_are_not_search_variables() {
     Kernel k;
     k.tumble = tumble;
     ScopedHeuristics hg(k);
-    FILE *file = dimacs_file(dimacs);
-    assert(parse_dimacs(file, k) == nullptr);
-    std::fclose(file);
+    parse_text(k, dimacs);
     assert(k.values[internalize(4)] > 0);
     assert(k.unassigned_active == 2);
     for (const Var v : {Var{0}, Var{2}, Var{4}, Var{6}}) {

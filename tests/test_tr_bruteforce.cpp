@@ -143,10 +143,8 @@ int main(int argc, char **argv) {
       transitive_reduce_sources(k, srcs);
       std::shuffle(srcs.begin(), srcs.end(), rng);
       for (const Lit s : srcs) {
-        // A failed source now learns a unit immediately.  The production
-        // dosed surface reaches root after that candidate before considering
-        // the next pre-enumerated source; mirror that lifecycle here instead
-        // of invoking a root-only rule after its prior unit found a conflict.
+        // A failed source learns a unit at once; as the dosed surface does,
+        // stop before the next source once that unit refutes the formula.
         if (k.inconsistent || !transitive_reduce_guard(k)) {
           became_unsat = k.inconsistent;
           break;

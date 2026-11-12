@@ -13,28 +13,20 @@
 
 using namespace tactix;
 
-// A signed sgen-shaped formula: `blocks` at-most-one blocks of size 5 on
-// consecutive variables, then 2*blocks positive 5-clauses in which every
-// variable appears exactly twice. `planted` puts one item per block into a
-// covering pattern that is an exact cover; a second pattern adds the two
-// disjoint columns.
-static std::string sgen_like(int blocks, bool satisfiable) {
+// An sgen-shaped formula: `blocks` at-most-one blocks of five consecutive
+// variables, then 2*blocks positive 5-clauses covering every variable twice.
+// Clause (b, j) takes item (t + j) mod 5 of block b + t, so the shape admits
+// an exact cover.
+static std::string sgen_like(int blocks) {
   std::ostringstream out;
   const int n = 5 * blocks;
   std::vector<std::vector<int>> covering;
-  // Pattern A: clause i takes the i-th item of every block? That would need
-  // block count == 5. Instead: clause (b, j) for j in 0..1 holds items of
-  // blocks b, b+1, b+2, b+3, b+4 (mod blocks) at positions chosen so that each
-  // item lies in exactly two clauses and the diagonal items form a cover.
-  // Items are numbered 5*b + p, p in 0..4.
   for (int b = 0; b < blocks; ++b)
     for (int j = 0; j < 2; ++j) {
       std::vector<int> clause;
       for (int t = 0; t < 5; ++t) {
         const int block = (b + t) % blocks;
-        const int position = satisfiable ? (j == 0 ? t : (t + 1) % 5)
-                                         : (j == 0 ? t : (t + 2) % 5);
-        clause.push_back(5 * block + position + 1);
+        clause.push_back(5 * block + (t + j) % 5 + 1);
       }
       covering.push_back(clause);
     }
@@ -53,10 +45,7 @@ static std::string sgen_like(int blocks, bool satisfiable) {
 
 int main() {
   {
-    // Every variable must appear in exactly two covering clauses; with the
-    // patterns above each item (b, p) is in clause (b - p, 0) and clause
-    // (b - p + 1, 1) for the satisfiable shape, so the shape is exact.
-    Kernel kernel = parse_dimacs_text(sgen_like(7, true));
+    Kernel kernel = parse_dimacs_text(sgen_like(7));
     assert(exact_cover_model_guard(kernel));
     const ApplyResult result = exact_cover_model_apply(kernel);
     assert(kernel.stats.exact_cover_model_calls == 1);
@@ -77,7 +66,7 @@ int main() {
   {
     // Exhausting the deterministic budget without restarts reports a budget
     // stop and leaves the kernel untouched.
-    Kernel kernel = parse_dimacs_text(sgen_like(7, true));
+    Kernel kernel = parse_dimacs_text(sgen_like(7));
     kernel.exact_cover_model_parameters.maximum_nodes = 1;
     assert(exact_cover_model_apply(kernel) == ApplyResult::NoOp);
     assert(kernel.stats.exact_cover_model_recognized == 1);

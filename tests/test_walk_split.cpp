@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "rule_test_utils.hpp"
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
@@ -21,8 +22,7 @@ static void fixture(Kernel &k) {
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   kernel_add_binary_clause(k, internalize(-1), internalize(-3));
   kernel_add_binary_clause(k, internalize(-2), internalize(-3));
-  const Lit cover[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, cover, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   k.h->saved = {1, 1, 1};
   k.h->target = {-1, 1, -1};
   k.h->best = {1, -1, 1};

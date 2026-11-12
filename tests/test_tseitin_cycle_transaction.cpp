@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "tseitin_test_support.hpp"
 #include "rules/lucky/tseitin_cycle_transaction.hpp"
 
 #include <algorithm>
@@ -6,6 +7,8 @@
 #include <cstdio>
 
 using namespace tactix::tseitin_cycle;
+using tseitin_test::InterruptState;
+using tseitin_test::interrupt_after;
 using tactix::parity_certificate::xor_equation;
 
 static AdmissionRequest triangle() {
@@ -40,11 +43,6 @@ static TransactionLimits ample() {
   return {1000, 3, 2, 2, 100, nullptr, nullptr};
 }
 
-struct InterruptState { uint64_t calls = 0, stop = 0; };
-static bool interrupt_after(void *opaque) {
-  auto &state = *static_cast<InterruptState *>(opaque);
-  return ++state.calls >= state.stop;
-}
 
 int main() {
   const AdmissionRequest request = triangle();

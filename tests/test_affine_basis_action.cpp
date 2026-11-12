@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "affine_formula_support.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
 
@@ -14,22 +15,6 @@
 
 using namespace tactix;
 using namespace tactix::affine_semantic_extension;
-
-static void add_equation(Kernel &kernel, const std::vector<External> &variables,
-                         bool rhs) {
-  for (const auto &external : clausal_form(variables, rhs)) {
-    std::vector<Lit> internal;
-    for (External literal : external) internal.push_back(internalize(literal));
-    if (internal.size() == 2) {
-      kernel_add_binary_clause(kernel, internal[0], internal[1],
-                               ++kernel.next_clause_id);
-    } else {
-      assert(internal.size() > 2);
-      kernel_add_large_clause(kernel, internal.data(), internal.size(), false,
-                              0, ++kernel.next_clause_id);
-    }
-  }
-}
 
 static Kernel direct_fixture() {
   Kernel kernel;
@@ -71,14 +56,13 @@ static AffineBasisActionLimits limits() {
 }
 
 static void attach(Kernel &kernel, FILE *records) {
-  assert(records);
   kernel.structural_provenance = records;
   kernel.structural_action_sequence = 40;
 }
 
 static void success_preserves_identity_and_metadata() {
   Kernel kernel = extension_fixture();
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   AffineBasisActionSession session;
 
@@ -138,7 +122,7 @@ static void success_preserves_identity_and_metadata() {
 
 static void repeated_selection_is_durable_and_atomic() {
   Kernel kernel = direct_fixture();
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   AffineBasisActionSession session;
 
@@ -180,7 +164,7 @@ static void repeated_selection_is_durable_and_atomic() {
 
 static void immutable_owner_pages_and_publishes_one_row_at_a_time() {
   Kernel kernel = double_direct_fixture();
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   AffineBasisActionSession session;
 
@@ -245,10 +229,9 @@ static void immutable_owner_pages_and_publishes_one_row_at_a_time() {
 static void source_local_invalidation_and_root_trail() {
   Kernel kernel = double_direct_fixture();
   kernel_reserve_vars(kernel, 9);
-  kernel.unit_ids[var_of(internalize(9))] = ++kernel.next_clause_id;
-  kernel_assign_unit(kernel, internalize(9));
+  add_clause(kernel, {9});
   assert(propagate_service(kernel) == ApplyResult::Ok);
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   AffineBasisActionSession session;
   assert(affine_basis_action_guard(kernel));
@@ -281,7 +264,7 @@ static void source_local_invalidation_and_root_trail() {
 
 static void exact_offer_selection_and_forgery_rejection() {
   Kernel kernel = double_direct_fixture();
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   AffineBasisActionSession session;
   const auto page =
@@ -324,7 +307,7 @@ static void retained_page_accepts_wide_direct_wide_sequence() {
   add_equation(kernel, {111, 115, 208}, false);
   add_equation(kernel, {111, 211, 313}, false);
   add_equation(kernel, {115, 211, 212}, false);
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   AffineBasisActionSession session;
   const auto page =
@@ -364,7 +347,7 @@ static void retained_page_accepts_wide_direct_wide_sequence() {
 
 static void escaped_offer_cannot_rebind_to_recaptured_sources() {
   Kernel kernel = direct_fixture();
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   AffineBasisActionSession session;
   const auto page =
@@ -407,13 +390,13 @@ static void escaped_offer_cannot_rebind_to_recaptured_sources() {
 }
 
 static void declines_do_not_commit_session_or_action() {
-  {
+  for (bool proof_bound : {false, true}) {
     Kernel kernel = direct_fixture();
-    FILE *records = std::tmpfile();
+    FILE *records = temporary_records();
     attach(kernel, records);
     AffineBasisActionSession session;
     auto tiny = limits();
-    tiny.maximum_session_work = 1;
+    (proof_bound ? tiny.maximum_proof_additions : tiny.maximum_session_work) = 1;
     const auto result = affine_basis_action_apply(kernel, session, tiny);
     assert(result.status == AffineBasisActionStatus::ResourceExhausted);
     assert(result.proposed_action_id == 41 && !result.committed_action_id);
@@ -422,45 +405,29 @@ static void declines_do_not_commit_session_or_action() {
            std::ftell(records) == 0);
     std::fclose(records);
   }
-  {
-    Kernel first = direct_fixture();
-    FILE *first_records = std::tmpfile();
-    attach(first, first_records);
-    AffineBasisActionSession session;
-    assert(affine_basis_action_apply(first, session, limits()).status ==
-           AffineBasisActionStatus::Applied);
-    strategy::begin_semantic_variable_candidate_action(first);
+  Kernel first = direct_fixture();
+  FILE *first_records = temporary_records();
+  attach(first, first_records);
+  AffineBasisActionSession session;
+  assert(affine_basis_action_apply(first, session, limits()).status ==
+         AffineBasisActionStatus::Applied);
+  strategy::begin_semantic_variable_candidate_action(first);
 
-    Kernel second = direct_fixture();
-    FILE *second_records = std::tmpfile();
-    attach(second, second_records);
-    const auto stale = affine_basis_action_apply(second, session, limits());
-    assert(stale.status == AffineBasisActionStatus::Stale);
-    assert(!stale.proposed_action_id && !stale.committed_action_id);
-    assert(second.structural_action_sequence == 40 &&
-           std::ftell(second_records) == 0);
-    std::fclose(first_records);
-    std::fclose(second_records);
-  }
-  {
-    Kernel kernel = direct_fixture();
-    FILE *records = std::tmpfile();
-    attach(kernel, records);
-    AffineBasisActionSession session;
-    auto tiny = limits();
-    tiny.maximum_proof_additions = 1;
-    const auto result = affine_basis_action_apply(kernel, session, tiny);
-    assert(result.status == AffineBasisActionStatus::ResourceExhausted);
-    assert(result.proposed_action_id == 41 && !result.committed_action_id);
-    assert(!session.bound() && kernel.structural_action_sequence == 40 &&
-           std::ftell(records) == 0);
-    std::fclose(records);
-  }
+  Kernel second = direct_fixture();
+  FILE *second_records = temporary_records();
+  attach(second, second_records);
+  const auto stale = affine_basis_action_apply(second, session, limits());
+  assert(stale.status == AffineBasisActionStatus::Stale);
+  assert(!stale.proposed_action_id && !stale.committed_action_id);
+  assert(second.structural_action_sequence == 40 &&
+         std::ftell(second_records) == 0);
+  std::fclose(first_records);
+  std::fclose(second_records);
 }
 
 static void guard_is_state_only() {
   Kernel kernel = direct_fixture();
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   assert(affine_basis_action_guard(kernel));
   kernel_assign_decision(kernel, internalize(1));
@@ -473,7 +440,7 @@ static void both_parities_fit_one_recognition_group() {
   kernel_reserve_vars(kernel, 3);
   add_equation(kernel, {1, 2, 3}, false);
   add_equation(kernel, {1, 2, 3}, true);
-  FILE *records = std::tmpfile();
+  FILE *records = temporary_records();
   attach(kernel, records);
   AffineBasisActionSession session;
   const auto page =

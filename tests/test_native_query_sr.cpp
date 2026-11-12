@@ -16,8 +16,7 @@ static void fixture(const std::string &prefix, const std::string &mode) {
     assert(h.add(0)==InputStatus::Ok);
   }
   assert(h.begin_query()==InputStatus::Ok);
-  NativeQueryLimits limits{{256,4096,1024},{64,4096,1024,8192,64,1024,8192},1000000};
-  QueryKernel s(limits);
+  QueryKernel s(query_test::small_limits());
   assert(s.replay(h)==ReplayStatus::Ok);
   Kernel &k=*s.kernel(s.ticket());
   const auto &bve=tactix_rules()[tactix_rule_id("BVE")];

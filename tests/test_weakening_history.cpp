@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -25,15 +26,7 @@ static_assert(!std::is_move_constructible_v<WeakeningHistory>);
 
 static constexpr WeakeningLimits bounds{256, 4096, 1024};
 
-static void input(Kernel &k, std::initializer_list<int32_t> raw) {
-  std::vector<Lit> clause;
-  for (int32_t lit : raw) {
-    if (lit) clause.push_back(internalize(lit));
-    else { ingest_clause(k, clause); clause.clear(); }
-  }
-  assert(clause.empty());
-  finish_input(k);
-}
+static const auto input = input_clauses;
 
 static bool equal(std::vector<int32_t> actual, std::initializer_list<int32_t> expected) {
   std::vector<int32_t> sorted(expected);

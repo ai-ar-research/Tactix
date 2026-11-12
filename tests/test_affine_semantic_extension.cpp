@@ -10,15 +10,6 @@
 using namespace tactix::affine_semantic_extension;
 using tactix::parity_certificate::SmallClause;
 
-static bool satisfied(const std::vector<External> &clause, uint32_t mask) {
-  for (External literal : clause) {
-    const uint32_t variable = uint32_t(literal < 0 ? -literal : literal) - 1;
-    const bool value = mask & (uint32_t{1} << variable);
-    if (value == (literal > 0)) return true;
-  }
-  return false;
-}
-
 static std::vector<Premise> encoded(const std::vector<External> &variables,
                                     bool rhs, uint64_t &occurrence) {
   std::vector<Premise> result;
@@ -99,7 +90,7 @@ int main() {
     assert(image.equations[0].premises.size() == (uint32_t{1} << (width - 1)));
     for (uint32_t mask = 0; mask < (uint32_t{1} << width); ++mask) {
       bool cnf = true;
-      for (const auto &premise : input) cnf &= satisfied(premise.literals, mask);
+      for (const auto &premise : input) cnf &= clause_value(premise.literals, mask);
       assert(cnf == ((std::popcount(mask) & 1u) == unsigned(rhs)));
     }
   }
@@ -144,8 +135,8 @@ int main() {
   for (uint32_t mask = 0; mask < 64; ++mask) {
     bool source = true, target = true;
     for (const Premise &premise : first)
-      source &= satisfied(premise.literals, mask);
-    for (const auto &clause : targets) target &= satisfied(clause, mask);
+      source &= clause_value(premise.literals, mask);
+    for (const auto &clause : targets) target &= clause_value(clause, mask);
     assert(!source || target);
   }
 

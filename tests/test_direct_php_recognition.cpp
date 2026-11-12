@@ -101,10 +101,8 @@ void exhaustive_small_isomorphisms() {
       do {
         for (unsigned naming = 0; naming < 2; ++naming) {
           Fixture base = php(holes);
-          std::vector<Premise> alos(base.source.begin(),
-                                    base.source.begin() + holes + 1);
-          std::vector<Premise> amos(base.source.begin() + holes + 1,
-                                    base.source.end());
+          const std::vector<Premise> alos(base.source.begin(),
+                                          base.source.begin() + holes + 1);
           Fixture transformed;
           transformed.occurrence = 5000;
           transformed.proof = 15000;
@@ -114,8 +112,7 @@ void exhaustive_small_isomorphisms() {
               clause.push_back(alos[row].literals[column]);
             transformed.add(std::move(clause));
           }
-          // Clause reconstruction after row/column permutations is easiest
-          // from the permuted ALO matrix itself.
+          // Rebuild the AMOs from the permuted ALO matrix.
           std::vector<std::vector<int32_t>> x;
           for (unsigned row = 0; row <= holes; ++row)
             x.push_back(transformed.source[row].literals);
@@ -123,7 +120,6 @@ void exhaustive_small_isomorphisms() {
             for (unsigned first = 0; first <= holes; ++first)
               for (unsigned second = first + 1; second <= holes; ++second)
                 transformed.add({-x[first][hole], -x[second][hole]});
-          (void)amos;
           renumber(transformed.source, holes * (holes + 1), naming);
           permute_fixture(transformed, holes + naming, naming != 0);
           Image image;
@@ -206,34 +202,30 @@ void malformed_inputs() {
            Status::Malformed);
     assert(sentinel.variables == DirectMatrix{{88}});
   };
-  Fixture duplicate = php(2);
-  Premise copy = duplicate.source.front();
-  copy.occurrence = 999;
-  copy.native_proof_id = 1999;
-  duplicate.source.push_back(copy);
-  expect(std::move(duplicate));
-
-  Fixture occurrence = php(2);
-  occurrence.source.back().occurrence = occurrence.source.front().occurrence;
-  expect(std::move(occurrence));
-  Fixture proof = php(2);
-  proof.source.back().native_proof_id = proof.source.front().native_proof_id;
-  expect(std::move(proof));
-  Fixture zero_id = php(2);
-  zero_id.source.front().native_proof_id = 0;
-  expect(std::move(zero_id));
-  Fixture repeated = php(2);
-  repeated.source.front().literals = {1, 1};
-  expect(std::move(repeated));
-  Fixture tautology = php(2);
-  tautology.source.front().literals = {1, -1};
-  expect(std::move(tautology));
-  Fixture zero_literal = php(2);
-  zero_literal.source.front().literals = {0, 2};
-  expect(std::move(zero_literal));
-  Fixture empty = php(2);
-  empty.source.front().literals.clear();
-  expect(std::move(empty));
+  const std::vector<void (*)(std::vector<Premise> &)> corruptions = {
+      [](std::vector<Premise> &source) { // duplicate clause
+        Premise copy = source.front();
+        copy.occurrence = 999;
+        copy.native_proof_id = 1999;
+        source.push_back(copy);
+      },
+      [](std::vector<Premise> &source) {
+        source.back().occurrence = source.front().occurrence;
+      },
+      [](std::vector<Premise> &source) {
+        source.back().native_proof_id = source.front().native_proof_id;
+      },
+      [](std::vector<Premise> &source) { source.front().native_proof_id = 0; },
+      [](std::vector<Premise> &source) { source.front().literals = {1, 1}; },
+      [](std::vector<Premise> &source) { source.front().literals = {1, -1}; },
+      [](std::vector<Premise> &source) { source.front().literals = {0, 2}; },
+      [](std::vector<Premise> &source) { source.front().literals.clear(); },
+  };
+  for (const auto corrupt : corruptions) {
+    Fixture fixture = php(2);
+    corrupt(fixture.source);
+    expect(std::move(fixture));
+  }
 }
 
 void limits_and_interruption_are_transactional() {

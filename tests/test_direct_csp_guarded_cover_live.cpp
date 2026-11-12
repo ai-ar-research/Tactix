@@ -1,12 +1,12 @@
 #undef NDEBUG
+#include "dimacs_text.hpp"
 #include "kernel_image.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
-#include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include <cassert>
 #include <cstdio>
 #include <csignal>
-#include <sstream>
 using namespace tactix;
 int main(int argc, char **argv) {
   DirectCspGuardedCoverActionSelection selection{
@@ -14,11 +14,8 @@ int main(int argc, char **argv) {
       {{6,{4,7}}}, {{8,0,0,0},{9,0,1,0},{10,0,2,0}}};
   direct_csp_guarded_cover::Bounds bounds{100,1000,10,10,10,10,10,10};
   auto expected=direct_csp_guarded_cover::expected_clauses(selection,bounds,[](uint64_t){return true;});
-  std::ostringstream dimacs; dimacs<<"p cnf 12 "<<expected.clauses.size()<<'\n';
-  for(const auto& clause:expected.clauses) {for(int32_t x:clause)dimacs<<x<<' ';dimacs<<"0\n";}
-  FILE* input=std::tmpfile(); assert(input);
-  auto text=dimacs.str(); assert(std::fwrite(text.data(),1,text.size(),input)==text.size());
-  std::rewind(input); Kernel kernel; assert(!parse_dimacs(input,kernel)); std::fclose(input);
+  const std::string text=dimacs_text(12,expected.clauses);
+  Kernel kernel; parse_dimacs_text(text,kernel);
   DirectCspGuardedCoverActionLimits limits{100,1000,1000000,10,10,10,10,10,10,10000,10,100,100000,100,10,1000000};
   FILE *records = std::tmpfile(); assert(records);
   kernel.structural_provenance = records;
@@ -90,25 +87,14 @@ int main(int argc, char **argv) {
   assert(session.committed_keys()==2 && session.retained_owners()==1);
   kernel.structural_provenance = nullptr; std::fclose(records);
   if (argc == 7) {
-    // Original input carries the tuple assumptions. The native adapter sees
-    // only its original subset, then emits two nonempty theory lemmas before
-    // the ordinary clausal refutation consumes the first one.
-    std::ostringstream original;
-    original << "p cnf 12 " << expected.clauses.size()+3 << '\n';
-    for (const auto &clause : expected.clauses) {
-      for (int32_t literal : clause) original << literal << ' ';
-      original << "0\n";
-    }
-    original << "1 0\n4 0\n11 0\n";
-    FILE *cnf = std::fopen(argv[1], "w"); assert(cnf);
-    auto original_text = original.str();
-    assert(std::fwrite(original_text.data(),1,original_text.size(),cnf)==original_text.size());
-    std::fclose(cnf);
+    // CTest direct_csp_guarded_cover_proof_model: the checker CNF adds the
+    // tuple assumptions; the action sees only the original subset and emits
+    // two theory lemmas before the clausal refutation uses the first.
+    auto original = expected.clauses;
+    original.insert(original.end(), {{1}, {4}, {11}});
+    write_file(argv[1], dimacs_text(12, original));
     for (const bool refute : {true, false}) {
-      FILE *subset = std::tmpfile(); assert(subset);
-      assert(std::fwrite(text.data(),1,text.size(),subset)==text.size());
-      std::rewind(subset); Kernel proof_kernel;
-      assert(!parse_dimacs(subset,proof_kernel)); std::fclose(subset);
+      Kernel proof_kernel; parse_dimacs_text(text,proof_kernel);
       proof_kernel.next_clause_id = expected.clauses.size()+3;
       Proof proof;
       assert(proof.open(refute ? argv[2] : argv[5], ProofFormat::DsrAscii));
@@ -128,13 +114,9 @@ int main(int argc, char **argv) {
       proof.flush(); proof_kernel.proof=nullptr;
       proof_kernel.structural_provenance=nullptr; std::fclose(journal);
     }
-    FILE *sat = std::fopen(argv[3], "w"); assert(sat);
-    assert(std::fwrite(text.data(),1,text.size(),sat)==text.size()); std::fclose(sat);
+    write_file(argv[3], text);
     // A checked original-CNF model with key 2, value 4 false, q false, b9.
-    FILE *model = std::fopen(argv[4], "w"); assert(model);
-    std::fputs("s SATISFIABLE\nv -1 2 -3 -4 5 -6 -7 -8 9 -10 11 -12 0\n",model);
-    std::fclose(model);
-    FILE *bad = std::fopen(argv[6], "w"); assert(bad);
-    std::fputs("-11 -5 -1 0\n",bad); std::fclose(bad);
+    write_file(argv[4], "s SATISFIABLE\nv -1 2 -3 -4 5 -6 -7 -8 9 -10 11 -12 0\n");
+    write_file(argv[6], "-11 -5 -1 0\n");
   }
 }

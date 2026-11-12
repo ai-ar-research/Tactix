@@ -1,66 +1,27 @@
 #undef NDEBUG
+#include "tseitin_test_support.hpp"
+#include "temporary_file.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
-#include "rules/lucky/parity_certificate.hpp"
 #include "rules/lucky/tseitin_cycle_discovery.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <string>
-#include <unistd.h>
 
 using namespace tactix;
+using namespace tseitin_test;
 namespace discovery = tactix::tseitin_cycle_discovery;
 namespace live = tactix::tseitin_cycle_live;
 namespace cycle = tactix::tseitin_cycle;
 
 namespace {
 
-struct Equation {
-  bool rhs = false;
-  std::vector<int32_t> variables;
-};
+const std::vector<Equation> &odd_triangle = tseitin_test::triangle;
 
-const std::vector<Equation> odd_triangle = {
-    {true, {1, 3}}, {false, {1, 2}}, {false, {2, 3}}};
-
-void add_equations(Kernel &kernel, const std::vector<Equation> &equations,
-                   bool reverse = false) {
-  struct Clause {
-    std::vector<int32_t> literals;
-  };
-  std::vector<Clause> clauses;
-  for (const Equation &equation : equations) {
-    const auto encoded = parity_certificate::xor_equation(
-        equation.variables.data(), equation.variables.size(), equation.rhs);
-    for (const auto &clause : encoded)
-      clauses.push_back({{clause.lits.begin(),
-                          clause.lits.begin() + clause.size}});
-  }
-  if (reverse)
-    std::reverse(clauses.begin(), clauses.end());
-  for (const Clause &clause : clauses) {
-    if (clause.literals.size() == 2) {
-      kernel_add_binary_clause(kernel, internalize(clause.literals[0]),
-                               internalize(clause.literals[1]),
-                               ++kernel.next_clause_id);
-    } else {
-      std::vector<Lit> internal;
-      for (int32_t literal : clause.literals)
-        internal.push_back(internalize(literal));
-      kernel_add_large_clause(kernel, internal.data(), internal.size(), false,
-                              0, ++kernel.next_clause_id);
-    }
-  }
-}
-
-Kernel formula(const std::vector<Equation> &equations,
-               uint32_t variables = 8, bool reverse = false) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, variables);
-  add_equations(kernel, equations, reverse);
-  return kernel;
+Kernel formula(const std::vector<Equation> &equations) {
+  return tseitin_test::formula(equations, 8);
 }
 
 live::SnapshotLimits snapshot_limits() {
@@ -107,24 +68,6 @@ discovery::Result discover(const live::Snapshot &snapshot,
   return result;
 }
 
-struct InterruptState {
-  uint64_t calls = 0;
-  uint64_t stop = UINT64_MAX;
-};
-
-bool interrupt_after(void *opaque) {
-  auto &state = *static_cast<InterruptState *>(opaque);
-  return ++state.calls >= state.stop;
-}
-
-std::string temporary_path() {
-  char pattern[] = "/tmp/tseitin-discovery-XXXXXX";
-  const int descriptor = mkstemp(pattern);
-  assert(descriptor >= 0);
-  close(descriptor);
-  return pattern;
-}
-
 bool same_groups(const std::vector<cycle::CertifiedGroup> &left,
                  const std::vector<cycle::CertifiedGroup> &right) {
   if (left.size() != right.size())
@@ -164,9 +107,6 @@ void positive_and_no_mutation() {
             std::vector<cycle::Edge>{3, 1, 2}));
   }
   {
-    const std::vector<Equation> width_three = {
-        {true, {1, 2, 3}}, {false, {1, 4, 5}},
-        {false, {2, 4, 6}}, {false, {3, 5, 6}}};
     Kernel kernel = formula(width_three);
     discovery::Plan plan;
     assert(discover(snapshot(kernel), discovery_limits(), plan)
@@ -305,29 +245,17 @@ void bounded_and_interruptible() {
   const auto complete =
       discover(captured, discovery_limits(), exact);
   assert(complete.discovered() && complete.work > 0);
-  {
+  for (int kind = 0; kind < 3; ++kind) {
     auto limits = discovery_limits();
-    limits.work = complete.work - 1;
+    if (kind == 0) limits.work = complete.work - 1;
+    if (kind == 1) limits.maximum_clauses = 5;
+    if (kind == 2) limits.maximum_groups = 2;
     discovery::Plan plan;
     const auto result = discover(captured, limits, plan);
-    assert(result.status == discovery::Status::ResourceExhausted);
-    assert(result.reason == discovery::Reason::WorkLimit && !plan.ready());
-  }
-  {
-    auto limits = discovery_limits();
-    limits.maximum_clauses = 5;
-    discovery::Plan plan;
-    const auto result = discover(captured, limits, plan);
-    assert(result.status == discovery::Status::ResourceExhausted);
-    assert(result.reason == discovery::Reason::ClauseLimit && !plan.ready());
-  }
-  {
-    auto limits = discovery_limits();
-    limits.maximum_groups = 2;
-    discovery::Plan plan;
-    const auto result = discover(captured, limits, plan);
-    assert(result.status == discovery::Status::ResourceExhausted);
-    assert(result.reason == discovery::Reason::GroupLimit && !plan.ready());
+    assert(result.status == discovery::Status::ResourceExhausted && !plan.ready());
+    assert(result.reason == (kind == 0   ? discovery::Reason::WorkLimit
+                             : kind == 1 ? discovery::Reason::ClauseLimit
+                                         : discovery::Reason::GroupLimit));
   }
   {
     InterruptState state{0, 1};
@@ -390,22 +318,18 @@ void capture_prepare_apply_and_proof_replay() {
   assert(replayed.ready());
   assert(replayed.transaction == prepared.transaction());
 
-  const std::string path = temporary_path();
+  TemporaryFile file;
   Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  // A proof writer is part of the prepared snapshot identity, so prepare once
-  // more after attaching it and publish exactly that replayed transaction.
+  assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
+  attach(proof, kernel);
+  // The proof writer is part of the prepared identity: prepare again with it.
   assert(discovery::prepare(kernel, plan, live_request(), prepared).status ==
          live::Status::Prepared);
   assert(live::apply(kernel, prepared).status == live::Status::Applied);
   proof.flush();
   kernel.proof = nullptr;
-  const std::string contents = read_file(path);
+  const std::string contents = read_file(file.path);
   assert(!contents.empty() && contents.find("-3 0") != std::string::npos);
-  unlink(path.c_str());
   kernel_check_invariants(kernel);
 }
 

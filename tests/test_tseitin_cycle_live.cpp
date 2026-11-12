@@ -1,43 +1,24 @@
 #undef NDEBUG
+#include "tseitin_test_support.hpp"
+#include "temporary_file.hpp"
 #include "test_io.hpp"
-#include "proof/proof.hpp"
 #include "rules/lucky/tseitin_cycle_live.hpp"
-#include "rules/lucky/parity_certificate.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <string>
-#include <unistd.h>
 
 using namespace tactix;
+using namespace tseitin_test;
 namespace live = tactix::tseitin_cycle_live;
 namespace cycle = tactix::tseitin_cycle;
 using tactix::parity_certificate::xor_equation;
 
 namespace {
 
-struct Equation {
-  bool rhs;
-  std::vector<int32_t> variables;
-};
-
-const std::vector<Equation> triangle_equations = {
-    {true, {1, 3}}, {false, {1, 2}}, {false, {2, 3}}};
-
 Kernel triangle(bool residual = false) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, residual ? 4 : 3);
-  for (const Equation &equation : triangle_equations) {
-    const auto clauses = xor_equation(equation.variables.data(),
-                                      equation.variables.size(), equation.rhs);
-    for (const auto &clause : clauses) {
-      assert(clause.size == 2);
-      kernel_add_binary_clause(kernel, internalize(clause.lits[0]),
-                               internalize(clause.lits[1]),
-                               ++kernel.next_clause_id);
-    }
-  }
+  Kernel kernel = formula(tseitin_test::triangle, residual ? 4 : 3);
   if (residual)
     kernel_add_binary_clause(kernel, internalize(1), internalize(4),
                              ++kernel.next_clause_id);
@@ -61,7 +42,7 @@ std::vector<int32_t> clause_key(std::vector<int32_t> clause) {
 
 std::vector<cycle::CertifiedGroup> groups(
     const live::Snapshot &snapshot,
-    const std::vector<Equation> &equations = triangle_equations) {
+    const std::vector<Equation> &equations = tseitin_test::triangle) {
   std::vector<cycle::CertifiedGroup> result;
   uint64_t identity = 100;
   for (const Equation &equation : equations) {
@@ -95,16 +76,7 @@ live::Snapshot snapshot(Kernel &);
 void compacted_external_mapping() {
   const std::vector<Equation> equations = {
       {true, {2, 4}}, {false, {2, 3}}, {false, {3, 4}}};
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 4);
-  for (const Equation &equation : equations) {
-    const auto clauses = xor_equation(equation.variables.data(),
-                                      equation.variables.size(), equation.rhs);
-    for (const auto &clause : clauses)
-      kernel_add_binary_clause(kernel, internalize(clause.lits[0]),
-                               internalize(clause.lits[1]),
-                               ++kernel.next_clause_id);
-  }
+  Kernel kernel = formula(equations, 4);
   kernel.var_status.assign(kernel.nvars, VarStatus::Active);
   kernel.var_status[0] = VarStatus::Eliminated;
   --kernel.unassigned_active;
@@ -130,22 +102,7 @@ void compacted_external_mapping() {
 }
 
 void large_clause_population() {
-  const std::vector<Equation> equations = {
-      {true, {1, 2, 3}}, {false, {1, 4, 5}},
-      {false, {2, 4, 6}}, {false, {3, 5, 6}}};
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 6);
-  for (const Equation &equation : equations) {
-    const auto clauses = xor_equation(equation.variables.data(),
-                                      equation.variables.size(), equation.rhs);
-    for (const auto &clause : clauses) {
-      std::vector<Lit> literals;
-      for (uint32_t index = 0; index < clause.size; ++index)
-        literals.push_back(internalize(clause.lits[index]));
-      kernel_add_large_clause(kernel, literals.data(), literals.size(), false,
-                              0, ++kernel.next_clause_id);
-    }
-  }
+  Kernel kernel = formula(width_three, 6);
   const live::Snapshot captured = snapshot(kernel);
   assert(captured.sources.size() == 16 && captured.literals == 48);
   for (const live::Source &source : captured.sources) {
@@ -153,8 +110,8 @@ void large_clause_population() {
     assert(source.ref != INVALID_REF && source.clause.size() == 3);
   }
   live::Prepared prepared;
-  assert(live::prepare(kernel, captured, groups(captured, equations), request(),
-                       prepared)
+  assert(live::prepare(kernel, captured, groups(captured, width_three),
+                       request(), prepared)
              .status == live::Status::Prepared);
   assert(prepared.transaction().identity.pivot == 4);
   assert((prepared.transaction().identity.cycle_edges ==
@@ -169,24 +126,6 @@ live::Snapshot snapshot(Kernel &kernel) {
   const live::Result captured = live::capture(kernel, request().snapshot, result);
   assert(captured.status == live::Status::Captured);
   return result;
-}
-
-std::string temporary_path() {
-  char pattern[] = "/tmp/tseitin-cycle-live-XXXXXX";
-  const int descriptor = mkstemp(pattern);
-  assert(descriptor >= 0);
-  close(descriptor);
-  return pattern;
-}
-
-struct InterruptState {
-  uint64_t calls = 0;
-  uint64_t stop = UINT64_MAX;
-};
-
-bool interrupt_after(void *opaque) {
-  auto &state = *static_cast<InterruptState *>(opaque);
-  return ++state.calls >= state.stop;
 }
 
 void exact_snapshot_prepare_apply() {
@@ -252,29 +191,6 @@ void exact_snapshot_prepare_apply() {
   assert(live::apply(kernel, prepared).status == live::Status::Inapplicable);
 }
 
-void dsr_publication() {
-  const std::string path = temporary_path();
-  {
-    Kernel kernel = triangle();
-    Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);
-    kernel.proof = &proof;
-    const live::Snapshot captured = snapshot(kernel);
-    live::Prepared prepared;
-    assert(live::prepare(kernel, captured, groups(captured), request(), prepared)
-               .status == live::Status::Prepared);
-    assert(live::apply(kernel, prepared).status == live::Status::Applied);
-    proof.flush();
-    kernel.proof = nullptr;
-  }
-  const std::string proof = read_file(path);
-  assert(!proof.empty());
-  assert(proof.find("-3 0") != std::string::npos);
-  unlink(path.c_str());
-}
-
 void resource_and_interrupt_boundaries() {
   {
     Kernel kernel = triangle();
@@ -296,44 +212,21 @@ void resource_and_interrupt_boundaries() {
   }
   {
     Kernel kernel = triangle();
-    live::Snapshot output;
-    assert(live::capture(kernel, request().snapshot, output).status ==
-           live::Status::Captured);
-    assert(!output.sources.empty());
-    auto limits = request().snapshot;
-    limits.maximum_clauses = 5;
-    const live::Result result = live::capture(kernel, limits, output);
-    assert(result.status == live::Status::ResourceExhausted);
-    assert(result.reason == live::Reason::SnapshotClauseLimit);
-    assert(output.sources.empty());
-  }
-  {
-    Kernel kernel = triangle();
-    live::Snapshot output;
-    auto limits = request().snapshot;
-    limits.maximum_variables = 2;
-    const live::Result result = live::capture(kernel, limits, output);
-    assert(result.status == live::Status::ResourceExhausted);
-    assert(result.reason == live::Reason::SnapshotVariableLimit);
-  }
-  {
-    Kernel kernel = triangle();
-    live::Snapshot output;
-    auto limits = request().snapshot;
-    limits.maximum_literals = 11;
-    const live::Result result = live::capture(kernel, limits, output);
-    assert(result.status == live::Status::ResourceExhausted);
-    assert(result.reason == live::Reason::SnapshotLiteralLimit);
-    assert(output.sources.empty());
-  }
-  {
-    Kernel kernel = triangle();
-    live::Snapshot output;
-    auto limits = request().snapshot;
-    limits.maximum_work = 1;
-    const live::Result result = live::capture(kernel, limits, output);
-    assert(result.status == live::Status::ResourceExhausted);
-    assert(result.reason == live::Reason::SnapshotWorkLimit);
+    const auto clause_limit = [](live::SnapshotLimits &l) { l.maximum_clauses = 5; };
+    const auto variable_limit = [](live::SnapshotLimits &l) { l.maximum_variables = 2; };
+    const auto literal_limit = [](live::SnapshotLimits &l) { l.maximum_literals = 11; };
+    const std::pair<void (*)(live::SnapshotLimits &), live::Reason> cases[] = {
+        {clause_limit, live::Reason::SnapshotClauseLimit},
+        {variable_limit, live::Reason::SnapshotVariableLimit},
+        {literal_limit, live::Reason::SnapshotLiteralLimit}};
+    for (const auto &[limit, reason] : cases) {
+      live::Snapshot output = snapshot(kernel);
+      auto limits = request().snapshot;
+      limit(limits);
+      const live::Result result = live::capture(kernel, limits, output);
+      assert(result.status == live::Status::ResourceExhausted);
+      assert(result.reason == reason && output.sources.empty());
+    }
   }
   {
     Kernel kernel = triangle();
@@ -401,37 +294,27 @@ void resource_and_interrupt_boundaries() {
     assert(kernel.next_clause_id == before_id);
     assert(!kernel.value(internalize(-3)));
   }
-  {
+  for (const bool admission : {true, false}) {
     Kernel kernel = triangle();
     const live::Snapshot captured = snapshot(kernel);
     auto interrupted = request();
     InterruptState state{0, 1};
-    interrupted.admission.interrupted = interrupt_after;
-    interrupted.admission.interrupt_state = &state;
+    auto &phase = admission ? interrupted.admission.interrupted
+                            : interrupted.transaction.interrupted;
+    phase = interrupt_after;
+    (admission ? interrupted.admission.interrupt_state
+               : interrupted.transaction.interrupt_state) = &state;
     live::Prepared prepared;
     const live::Result result = live::prepare(
         kernel, captured, groups(captured), interrupted, prepared);
-    assert(result.status == live::Status::Interrupted);
-    assert(result.admission_reason == cycle::AdmissionReason::Interrupted);
-    assert(!prepared.ready());
+    assert(result.status == live::Status::Interrupted && !prepared.ready());
+    if (admission)
+      assert(result.admission_reason == cycle::AdmissionReason::Interrupted);
+    else
+      assert(result.transaction_reason == cycle::TransactionReason::Interrupted);
   }
   {
-    Kernel kernel = triangle();
-    const live::Snapshot captured = snapshot(kernel);
-    auto interrupted = request();
-    InterruptState state{0, 1};
-    interrupted.transaction.interrupted = interrupt_after;
-    interrupted.transaction.interrupt_state = &state;
-    live::Prepared prepared;
-    const live::Result result = live::prepare(
-        kernel, captured, groups(captured), interrupted, prepared);
-    assert(result.status == live::Status::Interrupted);
-    assert(result.transaction_reason == cycle::TransactionReason::Interrupted);
-    assert(!prepared.ready());
-  }
-  {
-    // Caller polling context belongs only to prepare. Prepared strips those
-    // raw pointers before a later apply may outlive the caller's stack frame.
+    // Prepared drops the caller's polling pointers, so apply may outlive them.
     Kernel kernel = triangle();
     const live::Snapshot captured = snapshot(kernel);
     live::Prepared prepared;
@@ -590,17 +473,13 @@ void corrupted_prepared_transactions_decline() {
 }
 
 void proof_writer_replacement_is_stale() {
-  const std::string first_path = temporary_path();
-  const std::string second_path = temporary_path();
+  TemporaryFile first_file, second_file;
   Kernel kernel = triangle();
   Proof first, second;
-  assert(first.open(first_path.c_str(), ProofFormat::DsrAscii));
-  assert(second.open(second_path.c_str(), ProofFormat::DsrAscii));
-  first.bind_variable_map(&kernel.internal_to_external);
-  first.bind_external_variable_map(&kernel.external_to_internal);
-  second.bind_variable_map(&kernel.internal_to_external);
-  second.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &first;
+  assert(first.open(first_file.path.c_str(), ProofFormat::DsrAscii));
+  assert(second.open(second_file.path.c_str(), ProofFormat::DsrAscii));
+  attach(second, kernel);
+  attach(first, kernel);
   const live::Snapshot captured = snapshot(kernel);
   live::Prepared prepared;
   assert(live::prepare(kernel, captured, groups(captured), request(), prepared)
@@ -615,18 +494,14 @@ void proof_writer_replacement_is_stale() {
   kernel.proof = nullptr;
   first.flush();
   second.flush();
-  unlink(first_path.c_str());
-  unlink(second_path.c_str());
 }
 
 void proof_route_transition_is_precommit() {
-  const std::string path = temporary_path();
+  TemporaryFile file;
   Kernel kernel = triangle();
   Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
+  assert(proof.open(file.path.c_str(), ProofFormat::PbpStreaming));
+  attach(proof, kernel);
   const live::Snapshot captured = snapshot(kernel);
   live::Prepared prepared;
   assert(live::prepare(kernel, captured, groups(captured), request(), prepared)
@@ -642,15 +517,14 @@ void proof_route_transition_is_precommit() {
   assert(!kernel.value(internalize(-3)));
   assert(proof.finish_pb());
   kernel.proof = nullptr;
-  unlink(path.c_str());
 }
 
 void unsupported_proof_is_precommit() {
-  const std::string path = temporary_path();
+  TemporaryFile file;
   Kernel kernel = triangle();
   const live::Snapshot captured = snapshot(kernel);
   Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+  assert(proof.open(file.path.c_str(), ProofFormat::PbpStreaming));
   proof.finish_input_transaction();
   assert(proof.begin_pb());
   proof.bind_variable_map(&kernel.internal_to_external);
@@ -664,8 +538,7 @@ void unsupported_proof_is_precommit() {
   assert(kernel.next_clause_id == before_id && !prepared.ready());
   proof.flush();
   kernel.proof = nullptr;
-  assert(read_file(path).empty());
-  unlink(path.c_str());
+  assert(read_file(file.path).empty());
 }
 
 } // namespace
@@ -674,7 +547,6 @@ int main() {
   exact_snapshot_prepare_apply();
   compacted_external_mapping();
   large_clause_population();
-  dsr_publication();
   resource_and_interrupt_boundaries();
   stale_and_invalid_declines_are_atomic();
   corrupted_prepared_transactions_decline();

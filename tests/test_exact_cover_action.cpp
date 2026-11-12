@@ -1,6 +1,5 @@
 #undef NDEBUG
-#include "dimacs_text.hpp"
-#include "frontend/parse.hpp"
+#include "exact_cover_test_support.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
@@ -8,34 +7,11 @@
 #include <cassert>
 #include <cstdio>
 #include <limits>
-#include <sstream>
-#include <string>
 #include <vector>
 
 using namespace tactix;
 
-static std::string exact_cover_cnf() {
-  std::ostringstream out;
-  out << "p cnf 9 15\n";
-  for (int block = 0; block < 3; ++block)
-    for (int first = 0; first < 3; ++first)
-      for (int second = first + 1; second < 3; ++second)
-        out << -(3 * block + first + 1) << ' '
-            << -(3 * block + second + 1) << " 0\n";
-  for (int position = 0; position < 3; ++position) {
-    for (int block = 0; block < 3; ++block)
-      out << 3 * block + position + 1 << ' ';
-    out << "0\n";
-  }
-  for (int diagonal = 0; diagonal < 3; ++diagonal) {
-    for (int block = 0; block < 3; ++block)
-      out << 3 * block + (block + diagonal) % 3 + 1 << ' ';
-    out << "0\n";
-  }
-  return out.str();
-}
-
-static Kernel parse() { return parse_dimacs_text(exact_cover_cnf()); }
+static Kernel parse() { return exact_cover_kernel(); }
 
 static strategy::ExactCoverExtensionParameters parameters() {
   strategy::ExactCoverExtensionParameters result;
@@ -167,19 +143,14 @@ static void success_stages_candidate_and_commits_identity() {
   }
 
   remove_definitions(kernel);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t native_id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
-  const long journal = std::ftell(records);
+  const ExactCoverUnchanged unchanged{kernel, records};
   const auto duplicate = exact_cover_extension_action_apply(kernel, session);
   assert(duplicate.live.status == ExactCoverLiveStatus::AlreadyPublished);
   assert(duplicate.live.result == ApplyResult::NoOp &&
          duplicate.action_id == 0);
   assert(kernel.structural_action_sequence == 41);
   assert(session.live_session.committed_keys() == 3);
-  assert(kernel.external_to_internal == mapping &&
-         kernel.next_clause_id == native_id && kernel.arena.size() == arena);
-  assert(std::ftell(records) == journal);
+  unchanged.check();
   assert(kernel.stats.exact_cover_extension_attempts == 2 &&
          kernel.stats.exact_cover_extension_already_published == 1);
   std::fclose(records);
