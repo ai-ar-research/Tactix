@@ -24,12 +24,8 @@ PUBLIC_RANDOM=0
 NIGHTLY=0
 ACCEPTANCE=()
 SKIP_CORPUS=0
-# The corpus replays whole entries under the leg's own solver command, so a
-# schedule that starves M1 can leave one of them without a verdict. That is
-# fatal by default (a replay that reaches no verdict runs no oracle); the
-# allowance is pre-registered per leg and has to reach BOTH phases.
-# Corpus formulas survive policy retirement. Replay each under the selected
-# current leg and discard historical random/stress/controller arguments.
+# Corpus-only arguments. A replay that reaches no verdict runs no oracle, so it
+# is fatal unless the leg pre-registers --allow-nonterminating.
 CORPUS_EXTRA=()
 while [ $# -gt 0 ]; do
     case "$1" in

@@ -105,15 +105,6 @@ class DirectoryScratch:
     def contains(self, name):
         return name in self.live
 
-    def accounted_bytes(self):
-        total = 0
-        for name in list(self.live):
-            try:
-                total += (self.directory / name).stat().st_blocks * 512
-            except OSError:
-                pass
-        return total
-
     def exists(self):
         """Live artifacts before close; any leftover directory after close."""
         return bool(self.live) or (self.closed and self.directory.exists())

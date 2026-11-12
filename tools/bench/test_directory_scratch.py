@@ -22,7 +22,6 @@ class DirectoryScratchTests(unittest.TestCase):
             self.assertEqual(p.parent, Path(root) / 'scratch/0001-77')
             self.assertTrue(p.is_file())
             self.assertTrue(s.contains('proof.out') and s.exists())
-            self.assertEqual(s.accounted_bytes() > 0, True)
             self.assertTrue(s.release('proof.out'))
             self.assertFalse(p.exists())
             self.assertFalse(s.release('proof.out'))

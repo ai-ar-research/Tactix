@@ -80,20 +80,22 @@ def decide(state, usage, hold_above, release_below):
 
 def pending_tasks(job_ids, run=subprocess.run):
     """{task_id: reason} for PENDING tasks of the owned jobs (array-expanded)."""
+    def query(jobs):
+        return run(["squeue", "-h", "-r", "-t", "PD", "-j", jobs, "-o", "%i|%r"],
+                   capture_output=True, text=True, timeout=120)
+
     if not job_ids:
         return {}
-    p = run(["squeue", "-h", "-r", "-t", "PD", "-j", ",".join(job_ids),
-             "-o", "%i|%r"], capture_output=True, text=True, timeout=120)
-    if p.returncode != 0:
-        # Purged ids make a multi-id query fail; ask one by one.
-        out = {}
-        for job in job_ids:
-            q = run(["squeue", "-h", "-r", "-t", "PD", "-j", job, "-o", "%i|%r"],
-                    capture_output=True, text=True, timeout=120)
-            if q.returncode == 0:
-                out.update(parse_pending(q.stdout))
-        return out
-    return parse_pending(p.stdout)
+    p = query(",".join(job_ids))
+    if p.returncode == 0:
+        return parse_pending(p.stdout)
+    # Purged ids make a multi-id query fail; ask one by one.
+    out = {}
+    for job in job_ids:
+        q = query(job)
+        if q.returncode == 0:
+            out.update(parse_pending(q.stdout))
+    return out
 
 
 def parse_pending(text):

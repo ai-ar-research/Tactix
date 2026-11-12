@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
-"""Pinned experimental Tier D with anonymous local certificates and formulas.
-
-``--causal-preflight`` is the cheap 60-second-or-shorter discovery lane.  It
-records only terminal controller counters and forbids full controller traces,
-feedback, and structural provenance.  SAT and UNSAT preflight verdicts still
-take the normal independent checker route.
-"""
+"""Pinned experimental Tier D with anonymous local or home-directory scratch."""
 import argparse
 import csv
 import datetime as dt
-import hashlib
 import json
 import os
 from pathlib import Path
-from proof_oracle import pin_dsr_transport
+from proof_oracle import MEMOUT_MARKERS, TIMEOUT_MARKERS, pin_dsr_transport
+from runtime_task import sha256 as sha
 import shutil
 import subprocess
 import sys
@@ -59,86 +53,12 @@ FIXED_LONG_DSR_PROVENANCE={
 PROOF_ARGUMENTS={'--pbp','--auto-proof','--dsr'}
 # Proof flags of retired modes; `--auto-proof` names automatic selection again.
 RETIRED_PROOF_ARGUMENTS={'--drat','--lrat'}
-CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS=('--feedback','--feedback-replay',
-                                    '--structural-provenance',
-                                    '--controller-trace')
-FIXED44_SCRATCH_CAPACITY={
-    'schema':'tactix-anonymous-scratch-capacity-v1',
-    'directory':'/tmp',
-    'minimum_free_bytes':400_000_000_000,
-    'maximum_file_bytes':60_000_000_000,
-    'maximum_live_handles':6,
-    'reserve_bytes':40_000_000_000,
-}
-FIXED44_COOPERATIVE_SCRATCH_CAPACITY={
-    'schema':'tactix-anonymous-scratch-capacity-v2',
-    'directory':'/tmp',
-    'minimum_free_bytes':400_000_000_000,
-    'maximum_file_bytes':60_000_000_000,
-    'maximum_live_handles':6,
-    'reserve_bytes':40_000_000_000,
-    'cooperative_lock_directory':f'/tmp/tactix-sat-solving-{os.getuid()}',
-    'cooperative_lock_name':'fixed44-managed-scratch.lock',
-}
-# Shared-floor profile: /tmp is the node root filesystem and Slurm advertises
-# TmpDisk=0, so scratch cannot be scheduled. Instead of charging every task the
-# 360 GB worst case (one task per node), co-located tasks share /tmp: each
-# admits with one maximal file above the reserve, keeps the per-file and
-# handle bounds, and a floor monitor stops the largest participant before free
-# space falls below the reserve (all participants below the hard floor).
-FIXED44_SHARED_FLOOR_SCRATCH_CAPACITY={
-    'schema':'tactix-anonymous-scratch-capacity-v3',
-    'directory':'/tmp',
-    'admission_free_bytes':100_000_000_000,
-    'maximum_file_bytes':60_000_000_000,
-    'maximum_live_handles':6,
-    'reserve_bytes':40_000_000_000,
-    'hard_floor_bytes':20_000_000_000,
-    'admission_wait_seconds':300,
-    'admission_poll_seconds':15,
-    'floor_poll_seconds':1,
-    'ledger_directory':f'/tmp/tactix-sat-solving-{os.getuid()}',
-    'ledger_slot_prefix':'fixed44-scratch-ledger-slot-',
-    'ledger_slots':64,
-}
-FIXED44_SHARED_FLOOR_RESOURCE_PROFILE={
-    'schema':'tactix-fixed44-shared-floor-isolation-v1',
-    'participant_scope':'same-user-repository-profile',
-    'task_cpus':4,
-    'task_memory_mib':32768,
-}
-SCRATCH_CAPACITY_PROFILES=('fixed44-whole-memory-v2','fixed44-cooperative-v1',
-                           'fixed44-shared-floor-v1')
-FIXED44_SELECTION={
-    'path':'benchmarks/reports/2026-10-07-fixed44-successor-campaign-preparation/selection.tsv',
-    'sha256':'74939b00a3395aa21d108d4ab20eb0925f569c1ac2bb501939e01432551a3333',
-}
-FIXED44_RESOURCE_PROFILE={
-    'schema':'tactix-fixed44-schedulable-memory-isolation-v1',
-    'outer_allocation_cpus':52,
-    'outer_allocation_memory':'all',
-    'inner_step_cpus':4,
-    'inner_step_memory_mib':32768,
-}
 HOME_SCRATCH_POLICY='home-directory-files-v1'
 DEFAULT_MEMORY_MIB=32768
 # CakeML launchers reserve the heap plus a 4 GiB stack; keep 4 GiB slack.
 # At 32768 MiB this is proof_oracle.CAKE_LPR_ENVIRONMENT's 24576 MiB heap.
 CAKE_RESERVED_MIB=8192
 RECHECK_CLASSES=('memout','timeout','crash','rejected','other','unfinished')
-FIXED44_COOPERATIVE_RESOURCE_PROFILE={
-    'schema':'tactix-fixed44-cooperative-isolation-v1',
-    'participant_scope':'same-user-repository-profile',
-    'task_cpus':4,
-    'task_memory_mib':32768,
-}
-
-def sha(p):
-    h=hashlib.sha256()
-    with p.open('rb') as f:
-        for b in iter(lambda:f.read(1<<20),b''):h.update(b)
-    return h.hexdigest()
-
 def save(p,data):
     with p.open('x') as f:json.dump(data,f,indent=2);f.write('\n')
 
@@ -221,7 +141,7 @@ def scheduler_wall_seconds(solve_timeout,checker_timeout):
 def slurm_time(seconds):
     return f'{seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}'
 
-def solver_arguments(certificate, extra, causal_preflight=False):
+def solver_arguments(certificate, extra):
     if certificate not in ('pbp','dsr','auto','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
     # Spell every proof mode: the command-line default is automatic selection.
@@ -229,55 +149,16 @@ def solver_arguments(certificate, extra, causal_preflight=False):
     if any(not value or value in PROOF_ARGUMENTS or
            value in RETIRED_PROOF_ARGUMENTS for value in extra):
         raise ValueError('extra solver arguments must be nonempty and may not override the certificate mode')
-    if causal_preflight and any(
-            value == reserved or value.startswith(reserved+'=')
-            for value in extra for reserved in CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS):
-        raise ValueError('causal preflight forbids full trace, feedback, and provenance artifacts')
     return [*proof,*extra]
-
-def selected_scratch_capacity(a, selection_authority, rows):
-    profile=getattr(a,'scratch_capacity_profile',None)
-    if profile is None:return None
-    if profile not in SCRATCH_CAPACITY_PROFILES:
-        raise ValueError('unsupported scratch capacity profile')
-    if (selection_authority != FIXED44_SELECTION or len(rows)!=44 or
-            a.cpus_per_task!=4 or a.partition!='cpu-q' or
-            a.array_throttle is not None or a.certificate!='pbp'):
-        raise ValueError('fixed44 scratch capacity requires the exact 44-row selection authority, cpu-q, 4 CPUs, no throttle, and whole-run PBP')
-    if a.retain_failed_proof or a.causal_preflight:
-        raise ValueError('fixed44 scratch capacity forbids proof retention and causal preflight')
-    if profile=='fixed44-shared-floor-v1':
-        return dict(FIXED44_SHARED_FLOOR_SCRATCH_CAPACITY)
-    return dict(FIXED44_COOPERATIVE_SCRATCH_CAPACITY
-                if profile=='fixed44-cooperative-v1'
-                else FIXED44_SCRATCH_CAPACITY)
-
-def selected_scratch_resources(profile):
-    if profile is None:return None
-    if profile=='fixed44-cooperative-v1':
-        return dict(FIXED44_COOPERATIVE_RESOURCE_PROFILE)
-    if profile=='fixed44-shared-floor-v1':
-        return dict(FIXED44_SHARED_FLOOR_RESOURCE_PROFILE)
-    if profile!='fixed44-whole-memory-v2':
-        raise ValueError('unsupported scratch capacity profile')
-    return dict(FIXED44_RESOURCE_PROFILE)
-
-def scratch_srun_prefix(resources):
-    if resources is None:return []
-    cpus=resources.get('inner_step_cpus',resources.get('task_cpus'))
-    memory=resources.get('inner_step_memory_mib',resources.get('task_memory_mib'))
-    return ['srun','--exact','--nodes=1','--ntasks=1',
-            f'--cpus-per-task={cpus}',f'--mem={memory}M','--cpu-bind=cores']
 
 def check_failure_class(check):
     """Failure class of one runtime_task proof_check/model_check record.
 
     Returns verified/timeout/memout/crash/rejected/other, or None when nothing
-    was checked.  Markers are baseline_rerun.classify_check's; runtime stages
+    was checked.  Markers come from proof_oracle; runtime stages
     carry ``output_tail`` (proof) or ``stdout_tail``/``stderr_tail`` (model)
     and the /usr/bin/time exit status (128+signal for a killed checker).
     """
-    from baseline_rerun import MEMOUT_MARKERS, TIMEOUT_MARKERS
     if not check:
         return None
     if check.get('result')=='verified':
@@ -533,20 +414,12 @@ def prepare(a):
     if recheck is not None:
         rows=recheck[2]; selection_authority=None
     assert rows and len({r['instance'] for r in rows})==len(rows)
-    scratch_capacity=selected_scratch_capacity(a,selection_authority,rows)
-    capacity_profile=getattr(a,'scratch_capacity_profile',None)
-    capacity_resources=selected_scratch_resources(capacity_profile)
     inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
     assert set(inputs)=={r['instance'] for r in rows}
     assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
     arm_arguments=(list(recheck[1]['arms']['tactix']['arguments']) if recheck is not None else
-                   solver_arguments(a.certificate,a.solver_argument,
-                                    a.causal_preflight))
+                   solver_arguments(a.certificate,a.solver_argument))
     home=bool(a.home_scratch)
-    if home and (capacity_profile or a.retain_failed_proof):
-        raise ValueError('home scratch excludes anonymous capacity profiles and proof retention')
-    if a.memory_mib!=DEFAULT_MEMORY_MIB and capacity_profile:
-        raise ValueError('scratch capacity profiles require 32768 MiB')
     cake_heap=(a.memory_mib-CAKE_RESERVED_MIB
                if home or a.memory_mib!=DEFAULT_MEMORY_MIB else None)
     if cake_heap is not None and cake_heap<4096:
@@ -554,7 +427,6 @@ def prepare(a):
     c.mkdir()
     directories=['pins','logs','claims','provisional','results']
     if home:directories.append('scratch')
-    if a.retain_failed_proof:directories.append('retained-proofs')
     for name in directories:(c/name).mkdir()
     shutil.copy2(a.binary,c/'pins/tactix')
     for name,checker_source in checkers.items():
@@ -570,46 +442,29 @@ def prepare(a):
                                                            c/'pins/verified-certificates.json')
     with (c/'matrix.tsv').open('x',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(rows[0]),delimiter='\t');w.writeheader();w.writerows(rows)
-    batch_cpus=(capacity_resources.get('outer_allocation_cpus',
-                                       capacity_resources.get('task_cpus'))
-                if capacity_resources else a.cpus_per_task)
-    batch_memory=(
-        ('0' if capacity_resources.get('outer_allocation_memory')=='all'
-         else f'{capacity_resources["task_memory_mib"]}M')
-        if capacity_resources else f'{a.memory_mib}M')
-    def slurm_header(cpus, memory):
-        return f'''#!/usr/bin/env bash
+    header=f'''#!/usr/bin/env bash
 #SBATCH --partition={a.partition}
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task={cpus}
-#SBATCH --mem={memory}
+#SBATCH --cpus-per-task={a.cpus_per_task}
+#SBATCH --mem={a.memory_mib}M
 #SBATCH --no-requeue
 #SBATCH --output={c}/logs/%x-%A_%a.log
 '''
-    # A bounded in-task admission wait is outside the solve and proof allowances.
-    wall=scheduler_wall_seconds(
-        a.solve_timeout,a.checker_timeout+((scratch_capacity or {}).get('admission_wait_seconds') or 0))
-    capacity_environment=('export TMPDIR=/tmp\nexport PYTHONDONTWRITEBYTECODE=1\n'
-                          if capacity_profile else
-                          'export PYTHONDONTWRITEBYTECODE=1\n' if home else '')
-    runtime_prefix=' '.join(scratch_srun_prefix(capacity_resources))
-    runtime_command=(
-        f'exec {runtime_prefix} python3 {c}/pins/runtime_task.py {c} '
-        f'"$SLURM_ARRAY_TASK_ID"' if runtime_prefix else
-        f'exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"')
-    (c/'array.sbatch').write_text(slurm_header(batch_cpus,batch_memory)+f'''#SBATCH --job-name=tierd-{commit[:8]}
+    wall=scheduler_wall_seconds(a.solve_timeout,a.checker_timeout)
+    environment='export PYTHONDONTWRITEBYTECODE=1\n' if home else ''
+    (c/'array.sbatch').write_text(header+f'''#SBATCH --job-name=tierd-{commit[:8]}
 #SBATCH --time={slurm_time(wall)}
 #SBATCH --array=0-{len(rows)-1}{f'%{a.array_throttle}' if a.array_throttle else ''}
 set -euo pipefail
 ulimit -c 0
-{capacity_environment}{runtime_command}
+{environment}exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"
 ''')
     scratch_test='test_directory_scratch.py' if home else 'test_anonymous_scratch.py'
-    (c/'validate.sbatch').write_text(slurm_header(a.cpus_per_task,f'{a.memory_mib}M')+f'''#SBATCH --job-name=tierd-{'home' if home else 'anonymous'}-check
+    (c/'validate.sbatch').write_text(header+f'''#SBATCH --job-name=tierd-{'home' if home else 'anonymous'}-check
 #SBATCH --time=00:05:00
 set -euo pipefail
 ulimit -c 0
-{capacity_environment if home else ''}python3 {c}/pins/{scratch_test}
+{environment}python3 {c}/pins/{scratch_test}
 exec python3 {c}/pins/validate_anonymous_runtime.py {c}
 ''')
     m=dict(schema='tactix-experimental-single-tierd-v3',
@@ -627,9 +482,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             array=f'0-{len(rows)-1}{f"%{a.array_throttle}" if a.array_throttle else ""}',
             throttle=a.array_throttle,node_constraint=None,
             **({'throttle_reason':a.array_throttle_reason} if a.array_throttle else {}),
-            **({'cake_heap_mib':cake_heap} if cake_heap is not None else {}),
-            **({'scratch_isolation':capacity_resources}
-               if capacity_profile else {})),
+            **({'cake_heap_mib':cake_heap} if cake_heap is not None else {})),
         proof_contract=('No certificate: the solver gets no proof path and runs proof-free; UNSAT verdicts are unchecked and never valid; SAT models are checked against the original CNF.'
                         if a.certificate=='none' else
                         'Explicit whole-run PBP, elaborated by pinned VeriPB and independently checked by CakePB against the original CNF.'
@@ -638,9 +491,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
                         if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
-        caveat=('If the entire job dies, its result may be missing; never interpret missing as timeout or checked. A declared scratch admission, contention, ENOSPC, or file/handle limit is incomplete infrastructure evidence, never a proof rejection, timeout, or closure.'
-                if capacity_profile else
-                'If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no ordinary home-quota certificate storage.'),
+        caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no ordinary home-quota certificate storage.',
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
     if checker_provenance is not None:
         m['dsr_checker_provenance']=checker_provenance
@@ -661,37 +512,6 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         m['caveat']=('If the entire job dies (SIGKILL, node failure, runner OOM), its result may be '
             'missing and its scratch directory left behind; never interpret missing as timeout or '
             'checked; the summary lists scratch leftovers for explicit removal.')
-    if capacity_profile:
-        m['anonymous_scratch_capacity']=scratch_capacity
-        m['scratch_capacity_profile']=capacity_profile
-        if capacity_profile=='fixed44-whole-memory-v2':
-            m['cleanup_contract'] += (' Each array task reserves all schedulable node memory with a '
-                '52-CPU outer allocation, then runs the solver/checker in a four-CPU, 32768-MiB '
-                'Slurm step. It admits only with at least '
-                '400000000000 available bytes, inherits a 60000000000-byte per-file limit, '
-                'and permits at most six simultaneously live anonymous files, preserving a '
-                'declared 40000000000-byte reserve for managed scratch.')
-        elif capacity_profile=='fixed44-shared-floor-v1':
-            m['cleanup_contract'] += (' Each ordinary four-CPU, 32768-MiB cpu-q allocation runs '
-                'the solver/checker in an exact four-CPU, 32768-MiB Slurm task step. Co-located '
-                'tasks share node /tmp: each holds one locked slot of a fixed private node ledger '
-                '(bounded metadata only), waits at most 300 seconds for 100000000000 available '
-                'bytes, inherits a 60000000000-byte per-file limit, and permits at most six '
-                'simultaneously live anonymous files. A one-second floor monitor stops the '
-                'participant with the most accounted anonymous bytes when available space falls '
-                'below 40000000000 bytes, and every participant below 20000000000 bytes. Such a '
-                'stop, an admission timeout, or ENOSPC is retryable incomplete infrastructure '
-                'evidence.')
-        else:
-            m['cleanup_contract'] += (' Each ordinary four-CPU, 32768-MiB cpu-q allocation runs '
-                'the solver/checker in an exact four-CPU, 32768-MiB Slurm task step and takes the '
-                'stable repository-wide node lock without waiting before scratch admission and '
-                'holds it through cleanup. Contention is retryable incomplete evidence. The lock '
-                'coordinates only jobs using this same profile; older or foreign jobs remain '
-                'external interference. It admits only with at least 400000000000 available bytes, '
-                'inherits a 60000000000-byte per-file limit, and permits at most six simultaneously '
-                'live anonymous files, preserving a declared 40000000000-byte reserve for managed '
-                'scratch. ENOSPC is incomplete infrastructure evidence.')
     if reference_sources:
         m['verified_certificate_reference']=dict(
             path='pins/verified-certificates.json',
@@ -700,23 +520,6 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             rule=('An UNSAT certificate whose SHA-256 equals one that a source campaign verified for '
                   'the same instance is recorded as verified by identity and not checked again; every '
                   'other certificate and every SAT model is checked as usual.'))
-    if a.retain_failed_proof:
-        m['failed_proof_retention']=dict(
-            schema='tactix-failed-proof-retention-v1',
-            directory='retained-proofs',
-            maximum_bytes=a.retain_failed_proof_max_bytes,
-            purpose='checker-only recovery; retain only after an unsuccessful UNSAT proof check')
-        m['cleanup_contract'] += (' An unsuccessfully checked UNSAT certificate may be copied '
-            'after checking into the bounded retained-proofs directory for checker-only recovery; '
-            'the result records its exact SHA-256 and remains cleanup-pending.')
-        m['caveat'] += (' Failed certificates are retained only when their size is within the declared '
-            'per-task cap; solver or job death before the copy still leaves no artifact.')
-    if a.causal_preflight:
-        m['causal_preflight']=dict(
-            schema='tactix-causal-preflight-v1',
-            maximum_solve_seconds=60,
-            output='terminal-controller-counters',
-            retain_full_telemetry=False)
     save(c/'manifest.json',m)
     for p in [*(c/'pins').iterdir(),c/'manifest.json',c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']:p.chmod(p.stat().st_mode&~0o222)
     verify(c); print(c)
@@ -753,8 +556,6 @@ if __name__=='__main__':
                    help='pin the setup script\'s patched drat-trim, not the frozen baseline one')
     p.add_argument('--dsr-checker-profile',choices=['frozen','long64','long64-fixed'],default='frozen',
                    help='immutable DSR elaborator/compressor pins; long64 is the historical audited LONGTYPE build, while long64-fixed selects its source-backed deleted-clause correction; both retain independent Trestle verification')
-    p.add_argument('--scratch-capacity-profile',choices=list(SCRATCH_CAPACITY_PROFILES),
-                   help='opt-in fixed-44 whole-memory allocation, bounded task step, and anonymous-file bounds')
     p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')
     p.add_argument('--cpus-per-task',type=int,default=4)
@@ -784,12 +585,6 @@ if __name__=='__main__':
                         'verified for the same instance is recorded as verified by identity, unchecked')
     p.add_argument('--solver-argument',action='append',default=[],
                    help='repeatable immutable solver argument for the prepared arm; use = before values beginning with --')
-    p.add_argument('--causal-preflight',action='store_true',
-                   help='for <=60s gate probes, retain terminal controller counters only')
-    p.add_argument('--retain-failed-proof',action='store_true',
-                   help='retain a bounded copy of an UNSAT certificate after checker failure')
-    p.add_argument('--retain-failed-proof-max-bytes',type=int,default=1 << 30,
-                   help='maximum failed certificate bytes retained per task')
     p.add_argument('--instance',action='append',default=[])
     p.add_argument('--selection-table',type=Path)
     g=p.add_mutually_exclusive_group(required=True)
@@ -808,7 +603,7 @@ if __name__=='__main__':
         p.error('--home-scratch, --recheck-from and --memory-mib are valid only with --prepare')
     if a.recheck_from and (a.source or a.binary or a.binary_source_commit or a.solver_argument or
                            a.dsr_transport or a.dsr_checker_profile!='frozen' or
-                           a.instance or a.selection_table or a.causal_preflight):
+                           a.instance or a.selection_table):
         p.error('--recheck-from takes binary, source, arguments and rows from the source campaign')
     if a.recheck_source_task and not a.recheck_from:
         p.error('--recheck-source-task requires --recheck-from')
@@ -825,18 +620,6 @@ if __name__=='__main__':
         p.error('--solver-argument is valid only with --prepare')
     if a.dsr_checker_profile!='frozen' and not a.prepare:
         p.error('--dsr-checker-profile is valid only with --prepare')
-    if a.scratch_capacity_profile is not None and not a.prepare:
-        p.error('--scratch-capacity-profile is valid only with --prepare')
-    if a.causal_preflight and not a.prepare:
-        p.error('--causal-preflight is valid only with --prepare')
-    if a.causal_preflight and a.solve_timeout > 60:
-        p.error('--causal-preflight requires --solve-timeout <= 60')
-    if a.retain_failed_proof and not a.prepare:
-        p.error('--retain-failed-proof is valid only with --prepare')
-    if a.retain_failed_proof and a.certificate not in ('pbp','dsr'):
-        p.error('--retain-failed-proof requires --certificate pbp or dsr')
-    if a.retain_failed_proof_max_bytes < 1:
-        p.error('--retain-failed-proof-max-bytes must be positive')
     if a.verified_certificate_reference and (not a.prepare or a.certificate == 'none'):
         p.error('--verified-certificate-reference requires --prepare and a certificate')
     prepare(a) if a.prepare else submit(a)

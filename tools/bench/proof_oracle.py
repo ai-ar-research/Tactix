@@ -512,9 +512,8 @@ def pin_dsr_transport(helper, directory):
 def _remove_transport_staging(directory):
     """Reap only this conversion's namespace, including delayed NFS unlinks.
 
-    Use the existing frozen_baseline.remove_tree_nfs_safe retry policy here
-    without importing that campaign runner into standalone pinned oracles.
-    Reaping a child does not synchronously complete the NFS client's close.
+    Retry with a bounded backoff: reaping a child does not synchronously
+    complete the NFS client's close.
 
     A process deadline or interactive interrupt can arrive while ``rmtree`` or
     its retry sleep is active.  Defer the first such exception until cleanup
@@ -894,6 +893,13 @@ def _cake_heap_mib():
 
 
 CAKE_LPR_ENVIRONMENT = {'CML_HEAP_SIZE': str(_cake_heap_mib())}
+
+# Lower-case checker output fragments that classify a failed check as a memout
+# or as drat-trim's own timeout.
+MEMOUT_MARKERS = ("memout", "out of memory", "outofmemory", "xrealloc",
+                  "memory allocation of", "heap space exhausted", "bad_alloc",
+                  "cannot allocate memory")
+TIMEOUT_MARKERS = ("s timeout",)
 
 
 # Python's poll selector converts seconds to signed-C-int milliseconds. Bound

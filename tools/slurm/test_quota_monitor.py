@@ -8,6 +8,29 @@ import unittest
 
 import quota_monitor as monitor
 
+TABLE = """NAME                   USED  QUOTA  OBJUSED  OBJQUOTA
+hwu2                   900G     1T    4.27M      none
+hwu                    526G     1T    4.27M      none
+"""
+
+
+class Parsing(unittest.TestCase):
+    def test_sizes(self):
+        self.assertEqual(monitor.parse_size("526G"), 526.0)
+        self.assertEqual(monitor.parse_size("1T"), 1024.0)
+        self.assertEqual(monitor.parse_size("512M"), 0.5)
+        self.assertIsNone(monitor.parse_size("none"))
+
+    def test_exact_user_row(self):
+        self.assertEqual(monitor.usage_from_table(TABLE, "hwu"), 526.0)
+        self.assertIsNone(monitor.usage_from_table(TABLE, "nobody"))
+
+    def test_quota_fallback(self):
+        run = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, TABLE, "")
+        self.assertEqual(
+            monitor.read_usage("hwu", zfs_file="/nonexistent", run=run),
+            (526.0, "quota -s"))
+
 
 class MonitorTest(unittest.TestCase):
     def test_sample_records_usage_without_scheduler_mutation(self):
