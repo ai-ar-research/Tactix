@@ -245,9 +245,12 @@ bool reason_order(const Kernel &kernel, const MatrixEvent &event,
   if (output.size() == 1)
     return historical_event ? implied_at == 0 : kernel.level == 0 && open == 0;
 
+  // The antecedent watch must be undone whenever backtracking removes the
+  // implication; trail order alone does not guarantee matching decision levels.
   const auto before = [&](Lit first, Lit second) {
-    return kernel.assigned[var_of(first)].trail <
-           kernel.assigned[var_of(second)].trail;
+    const auto &a = kernel.assigned[var_of(first)];
+    const auto &b = kernel.assigned[var_of(second)];
+    return a.level != b.level ? a.level > b.level : a.trail < b.trail;
   };
   if (open != SIZE_MAX || implied_at != SIZE_MAX) {
     std::swap(output[0], output[historical_event ? implied_at : open]);

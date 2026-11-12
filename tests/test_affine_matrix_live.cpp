@@ -149,6 +149,19 @@ TEST(implication_is_assigned_without_prefix_rescan) {
     assert(provenance.find(field) != std::string::npos);
 }
 
+TEST(implication_watch_survives_backtrack) {
+  Scenario scenario;
+  Kernel &kernel = scenario.kernel;
+  assert(apply_affine_matrix_live(kernel, scenario.request()).status ==
+         MatrixLiveStatus::Applied);
+  assert(!kernel_propagate(kernel));
+  kernel_backtrack(kernel, 1);
+  assert(!kernel.value(kernel_internalize(kernel, -5)));
+  decide(kernel, -2);
+  assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
+  kernel_check_invariants(kernel);
+}
+
 TEST(compact_provenance_keeps_authenticated_reason) {
   Scenario scenario;
   Kernel &kernel = scenario.kernel;
