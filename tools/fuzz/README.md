@@ -1,5 +1,15 @@
 # Fuzz harness
 
+## Routine fuzzing bundle
+
+Routine solver fuzzing includes both ordinary DefaultPolicy/public-random legs,
+the retained incremental corpus, generated stateful C API traces with
+minimization, and maintained C/Python binding/session regressions. An ordinary
+`run.sh` invocation is one leg, not the complete bundle. The full CI workflow
+already runs 16 generated traces in both Debug and Release plus the Python
+regressions. Randomized traces drive the compiled C client; Python coverage is
+currently deterministic. Larger qualification matrices remain change-scoped.
+
 ## Incremental API traces
 
 Each terminal query acquires an owned native result. After all sessions are

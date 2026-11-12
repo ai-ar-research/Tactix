@@ -48,7 +48,22 @@ tools/fuzz/run.sh --public-random --quick \
 `tools/fuzz/corpus/`; see [tools/fuzz/README.md](tools/fuzz/README.md) for the
 other modes. A formula that exposes a bug belongs in the regression corpus.
 
+The routine fuzz bundle also includes retained and generated incremental C API
+traces (including minimization) and maintained C/Python binding regressions.
+The full CI workflow runs 16 generated traces in each Debug/Release build;
+random Python-call fuzzing is not currently provided. See the
+[fuzz harness](tools/fuzz/README.md#routine-fuzzing-bundle).
+
 ## Release gates
+
+Reuse compatible passing evidence after recording immutable relevant source,
+configuration, driver/ABI, build, input, checker and resource hashes and mapping
+the change to affected risks. Rerun affected, missing or censored checks;
+commit-label changes alone do not invalidate unchanged behavior. Performance
+reuse requires matching binary, input, flags, resources and measurement protocol
+unless the owning contract establishes equivalence. Preserve original grades,
+unresolved failures and reach requirements; passing cells in an incomplete
+report do not qualify the whole candidate. Reuse never waives the counts below.
 
 The 0.2.0 release establishes the first default-PBP operational baseline.
 Because the paper release used a different proof route, its PBP production and
@@ -74,7 +89,7 @@ missing evidence does not pass a required gate.
   target; it passes the separate verified-completion and like-for-like PBP gate
   below. A functionality release need not claim a gain, but must pass the
   preservation gates and must not be advertised as faster.
-- Release fuzzing requires at least 100,000 independently checked fresh PBP
+- Release fuzzing requires at least 100,000 independently checked PBP
   verdicts and at most 5% nonterminating generated cases under each of
   DefaultPolicy and the public-interface random policy, plus the retained
   corpus and targeted action/configuration coverage. Every SAT model and UNSAT
