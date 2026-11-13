@@ -15,6 +15,10 @@ import time
 import unittest
 from unittest.mock import patch
 
+# The checker runtime's anonymous scratch, file-size limits and process-group
+# reaping are Linux-specific, like the benchmark cluster it serves.
+linux_runtime = unittest.skipUnless(sys.platform == 'linux', 'Linux checker runtime')
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "tools/bench"
 sys.path.insert(0, str(BENCH))
@@ -249,6 +253,7 @@ class RuntimeTaskTest(unittest.TestCase):
                 self.assertIn('retired manifest contract', result['error'])
                 self.assertEqual(calls, [])
 
+    @linux_runtime
     def test_measured_file_limit_reaps_the_process_group(self):
         script = r'''import json,os,resource,sys,tempfile,time
 from pathlib import Path
@@ -276,6 +281,7 @@ with tempfile.TemporaryDirectory() as tmp:
         self.assertEqual(json.loads(completed.stdout)['resource_limit'],
                          'file_size')
 
+    @linux_runtime
     def test_measured_file_limit_detection_never_reads_whole_stderr(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -292,6 +298,7 @@ with tempfile.TemporaryDirectory() as tmp:
                     stdout, stderr, metrics, 10)
             self.assertEqual(result['resource_limit'], 'file_size')
 
+    @linux_runtime
     def test_native_sigxfsz_is_classified_from_exit_status(self):
         script = r'''import json,resource,tempfile
 from pathlib import Path
@@ -350,6 +357,7 @@ with tempfile.TemporaryDirectory() as tmp:
         self.assertIs(signal.getsignal(signal.SIGALRM), before)
         self.assertEqual(signal.getitimer(signal.ITIMER_REAL)[0], 0)
 
+    @linux_runtime
     def test_whole_deadline_kills_a_term_ignoring_checker_group_without_grace(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -445,6 +453,7 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(result['timeout_seconds'], 57600)
             self.assertEqual(result['result'], 'verified')
 
+    @linux_runtime
     def test_anonymous_stage_release_preserves_diagnostics_and_output_size(self):
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
@@ -582,6 +591,7 @@ with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(RuntimeError, 'explicit DSR'):
                 check_unsat_proof(work, 'dsr', cnf, proof, work, 10, 'pbp')
 
+    @linux_runtime
     def test_anonymous_witness_free_route_releases_at_checked_handoffs(self):
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
@@ -629,6 +639,7 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertLessEqual(scratch.high_water_handles, 6)
             self.assertFalse(scratch.exists())
 
+    @linux_runtime
     def test_anonymous_witnessed_route_releases_each_finished_generation(self):
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
@@ -674,6 +685,7 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertLessEqual(scratch.high_water_handles, 6)
             self.assertFalse(scratch.exists())
 
+    @linux_runtime
     def test_witnessed_resource_stop_keeps_completed_checker_stages(self):
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
@@ -722,6 +734,7 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertLessEqual(scratch.high_water_handles, 6)
             self.assertFalse(scratch.exists())
 
+    @linux_runtime
     def test_ascii_witnessed_route_never_allocates_binary_intermediate(self):
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)
@@ -768,6 +781,7 @@ with tempfile.TemporaryDirectory() as tmp:
             self.assertLessEqual(scratch.high_water_handles, 6)
             self.assertFalse(scratch.exists())
 
+    @linux_runtime
     def test_anonymous_pbp_releases_proof_only_after_veripb_handoff(self):
         with tempfile.TemporaryDirectory() as directory:
             scratch = AnonymousScratch(directory)

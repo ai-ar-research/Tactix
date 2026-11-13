@@ -139,6 +139,10 @@ tactix_python_test(runtime_task ${CMAKE_CURRENT_SOURCE_DIR}/test_runtime_task.py
 # or frozen baselines are extended. dsr_transport is registered at the top level.
 file(GLOB TACTIX_BENCH_TESTS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tools/bench/test_*.py)
 list(FILTER TACTIX_BENCH_TESTS EXCLUDE REGEX "/test_dsr_transport\\.py$")
+# The benchmark tooling targets the Linux cluster (O_TMPFILE scratch, SLURM).
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(TACTIX_BENCH_TESTS)
+endif()
 set(TACTIX_BENCH_EXTENDED algebraic_proof_bundle every_lemma_drat
     experimental_tierd_home proof_oracle proof_oracle_binaries)
 foreach(script IN LISTS TACTIX_BENCH_TESTS)
