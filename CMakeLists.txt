@@ -35,13 +35,15 @@ option(TACTIX_BUILD_SHARED_IPASIR "Build the experimental shared IPASIR/Python l
 # DejaVu is a pinned graph-automorphism backend whose public implementation
 # uses exceptions and RTTI.  Keep it in a separate translation unit with a
 # narrow, noexcept boundary; the solver core retains its C-style build flags.
+# Cache-line function starts keep its permutation loops' layout independent of
+# code size changes elsewhere in the solver.
 add_library(tactix_symmetry_backend STATIC
   src/symmetry_backend/dejavu_backend.cpp)
 target_include_directories(tactix_symmetry_backend PRIVATE src)
 target_include_directories(tactix_symmetry_backend SYSTEM PRIVATE
   third_party/dejavu-4c275e9)
 target_compile_options(tactix_symmetry_backend PRIVATE
-  -fexceptions -frtti -fvisibility=hidden)
+  -fexceptions -frtti -fvisibility=hidden -falign-functions=64)
 
 # OBJECT (not STATIC): rule registration happens in static initializers
 # (TACTIX_REGISTER_RULE), and an archive lets the linker drop any rule TU
@@ -186,7 +188,8 @@ if(TACTIX_BUILD_SHARED_IPASIR)
   set_target_properties(tactix_shared_symmetry PROPERTIES POSITION_INDEPENDENT_CODE ON)
   target_include_directories(tactix_shared_symmetry PRIVATE src)
   target_include_directories(tactix_shared_symmetry SYSTEM PRIVATE third_party/dejavu-4c275e9)
-  target_compile_options(tactix_shared_symmetry PRIVATE -fexceptions -frtti -fvisibility=hidden)
+  target_compile_options(tactix_shared_symmetry PRIVATE -fexceptions -frtti -fvisibility=hidden
+    -falign-functions=64)
   add_library(tactix_shared SHARED src/api/ipasir.cpp src/session/query_certificate.cpp src/strategy/presets/cruxmiter.c
     $<TARGET_OBJECTS:tactix_shared_engine> $<TARGET_OBJECTS:tactix_shared_symmetry>)
   target_include_directories(tactix_shared PUBLIC include PRIVATE src)
