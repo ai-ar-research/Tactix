@@ -374,6 +374,9 @@ std::vector<Value> direct_csp_assignment(const DirectCsp &csp,
   return assignment;
 }
 
+// The model search loop dominates direct-CSP runs; a fixed cache-line start
+// keeps its layout independent of code size changes elsewhere.
+[[gnu::aligned(64)]]
 bool direct_csp_model(Kernel &k,
                       const strategy::OnehotModelParameters &parameters) {
   DirectCsp csp;
