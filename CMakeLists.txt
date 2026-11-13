@@ -26,6 +26,13 @@ option(TACTIX_ENABLE_PROOF_SHADOW "Compile the proof-population oracle" OFF)
 # solver. Two narrow exception islands catch failures before their noexcept
 # boundaries: the pinned graph backend and optional embedded-proof export.
 add_compile_options(-Wall -Wextra -fno-exceptions $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
+# Zen 4 fetches 64-byte blocks, so a hot loop's offset decides its cycles at
+# equal instructions. Under GCC, 32-byte loop starts keep that offset independent
+# of code size elsewhere; direct_csp_model was measured with GCC 11's default
+# loop alignment inside its cache-line start and keeps it.
+add_compile_options($<$<CXX_COMPILER_ID:GNU>:-falign-loops=32>)
+set_source_files_properties(src/rules/lucky/onehot_model.cpp PROPERTIES
+  COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:GNU>:-falign-loops=16:11:8>")
 
 # Tests and examples are built when Tactix is the top-level project; a parent
 # project that adds it with add_subdirectory gets only the solver and library.
