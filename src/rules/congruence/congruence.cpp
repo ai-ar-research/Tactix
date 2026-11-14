@@ -296,8 +296,6 @@ public:
     }
     return block[lit & BLOCK_MASK];
   }
-  size_t directory_size() const { return blocks_.size(); }
-  size_t allocated_blocks() const { return allocated_blocks_; }
 
 private:
   std::vector<std::unique_ptr<uint32_t[]>> blocks_;
@@ -604,7 +602,6 @@ public:
   uint32_t gate(uint32_t record) const { return records_[record].gate; }
   void replace(uint32_t record, uint32_t gate) { records_[record].gate = gate; }
   size_t size() const { return records_.size(); }
-  size_t bucket_count() const { return buckets_.size(); }
   size_t literal_count() const { return literal_count_; }
 
 private:

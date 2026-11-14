@@ -282,14 +282,6 @@ public:
     std::iota(all.begin(), all.end(), size_t{0});
     return check_clauses<true>(all, mapping, mapped, charge, stats);
   }
-  // Clauses outside the moved support are fixed; marks suppress repeated
-  // visits, never multiplicity.
-  template <class Charge>
-  bool preserves_support(const std::vector<Lit> &mapping, Charge &&charge,
-                         SymmetryClauseCheckStats *stats = nullptr) const {
-    return preserves_support_impl<true>(mapping, charge, stats);
-  }
-
   // Image membership proves equality of the clause set; duplicates still count
   // in the work accounting.
   template <class Charge>

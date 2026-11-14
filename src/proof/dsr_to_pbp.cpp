@@ -18,7 +18,6 @@ public:
     byte = buffer_[at_++];
     return true;
   }
-  void unread() { --at_; }
   bool failed() const { return failed_; }
   uint64_t consumed() const { return offset_ - length_ + at_; }
 
