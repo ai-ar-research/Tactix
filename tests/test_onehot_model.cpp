@@ -165,26 +165,6 @@ static Kernel exact_one_odd_cycle_fixture() {
   return k;
 }
 
-static bool satisfied(const Kernel &k) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (!clause->garbage()) {
-      bool sat = false;
-      for (const Lit lit : *clause)
-        sat |= k.value(lit) > 0;
-      if (!sat)
-        return false;
-    }
-    ref += clause_actual_words(clause);
-  }
-  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
-    for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary() && lit <= watch.other() && k.value(lit) <= 0 &&
-          k.value(watch.other()) <= 0)
-        return false;
-  return true;
-}
-
 int main() {
   {
     Kernel k = exact_one_bipartite_fixture(3, 2);
@@ -252,7 +232,7 @@ int main() {
     assert(onehot_model_guard(k));
     assert(direct_csp_model_apply(k) == ApplyResult::Sat);
     assert(k.stats.direct_csp_model_domains == 4 && k.stats.direct_csp_model_sat == 1);
-    assert(k.unassigned_active == 0 && satisfied(k));
+    assert(k.unassigned_active == 0 && live_formula_satisfied(k));
   }
   {
     Kernel k = direct_csp_unsat_fixture();
@@ -296,7 +276,7 @@ int main() {
     assert(onehot_model_apply(k) == ApplyResult::Sat);
     assert(k.stats.onehot_model_domains == 3 && k.stats.onehot_model_equations == 1 &&
            k.stats.onehot_model_candidates == 1 && k.stats.onehot_model_sat == 1);
-    assert(k.unassigned_active == 0 && satisfied(k));
+    assert(k.unassigned_active == 0 && live_formula_satisfied(k));
   }
   {
     Kernel k = fixture();
@@ -318,7 +298,7 @@ int main() {
     kernel_add_binary_clause(k, make_lit(indicator(1, 1), false),
                             make_lit(indicator(2, 1), false));
     assert(onehot_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.onehot_model_candidates > 1 && satisfied(k));
+    assert(k.stats.onehot_model_candidates > 1 && live_formula_satisfied(k));
   }
   {
     Kernel k = fixture();
@@ -327,7 +307,7 @@ int main() {
     kernel_assign_unit(k, make_lit(indicator(1, 0), true));
     assert(!kernel_propagate(k));
     assert(onehot_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.onehot_model_candidates > 1 && satisfied(k));
+    assert(k.stats.onehot_model_candidates > 1 && live_formula_satisfied(k));
     assert(k.value(make_lit(indicator(1, 0), false)) < 0);
   }
   {

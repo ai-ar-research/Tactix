@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "kernel_fixture.hpp"
+#include "rule_test_utils.hpp"
 #include "test_io.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -21,26 +21,6 @@ static void add_mask_on(Kernel &k, Var a, Var b, Var c, unsigned mask) {
 
 static void add_mask(Kernel &k, unsigned mask) {
   add_mask_on(k, 0, 1, 2, mask);
-}
-
-static bool live_formula_satisfied(const Kernel &k) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (!clause->garbage()) {
-      bool sat = false;
-      for (const Lit lit : *clause)
-        sat = sat || k.value(lit) > 0;
-      if (!sat)
-        return false;
-    }
-    ref += clause_actual_words(clause);
-  }
-  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
-    for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary() && lit <= watch.other() && k.value(lit) <= 0 &&
-          k.value(watch.other()) <= 0)
-        return false;
-  return true;
 }
 
 static Kernel xor_fixture(bool complete) {

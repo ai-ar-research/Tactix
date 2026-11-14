@@ -82,6 +82,27 @@ inline tactix::Kernel kernel_with_clauses(
   return kernel;
 }
 
+// Whether the current assignment satisfies every live large or binary clause.
+inline bool live_formula_satisfied(const tactix::Kernel &k) {
+  for (tactix::Ref ref = 0; ref < k.arena.size();) {
+    const tactix::Clause *clause = tactix::clause_at(k.arena, ref);
+    if (!clause->garbage()) {
+      bool sat = false;
+      for (const tactix::Lit lit : *clause)
+        sat |= k.value(lit) > 0;
+      if (!sat)
+        return false;
+    }
+    ref += tactix::clause_actual_words(clause);
+  }
+  for (tactix::Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (const tactix::WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary() && lit <= watch.other() && k.value(lit) <= 0 &&
+          k.value(watch.other()) <= 0)
+        return false;
+  return true;
+}
+
 // Count live large clauses; if `lits`/`n` given, require one matching.
 inline uint32_t live_large(tactix::Kernel &k, const tactix::Lit *lits = nullptr,
                            uint32_t n = 0) {
