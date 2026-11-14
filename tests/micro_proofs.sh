@@ -171,77 +171,8 @@ EOF
   printf 'p cnf 3 6\n1 2 0\n-1 -2 0\n2 3 0\n-2 -3 0\n1 3 0\n-1 -3 0\n' \
     > "$T/xor3.cnf"
   # The StConn d=3,n=3 instance (Lucky15's crossing-sequence refutation).
-  cat > "$T/stconn-3x3.cnf" <<'EOF'
-p cnf 16 68
--15 -12 0
-15 12 0
--10 15 0
-10 -15 0
--7 2 0
-7 -2 0
--4 -7 0
-4 7 0
--16 12 0
-16 -12 0
--5 1 0
-5 -1 0
--11 -16 -10 0
--13 11 16 10 0
--13 -16 -10 0
-13 -11 16 10 0
--13 -11 -10 0
-13 11 -16 10 0
--13 -11 -16 0
-13 11 16 -10 0
--3 -5 -2 0
--8 3 5 2 0
--8 -5 -2 0
-8 -3 5 2 0
--8 -3 -2 0
-8 3 -5 2 0
--8 -3 -5 0
-8 3 5 -2 0
--9 13 0
-9 -13 0
--8 4 0
-8 -4 0
-6 1 0
--6 -1 0
--14 11 0
-14 -11 0
--6 3 0
-6 -3 0
--14 -9 0
-14 9 0
--10 -2 0
--10 -7 0
--15 -7 0
--15 -2 0
--16 -5 0
--16 -1 0
--12 -5 0
--12 -1 0
--13 -8 0
--11 -3 0
--13 -3 0
--13 -5 0
--13 -2 0
--11 -8 0
--11 -5 0
--11 -2 0
--16 -8 0
--16 -3 0
--16 -2 0
--10 -8 0
--10 -3 0
--10 -5 0
--9 -8 0
--9 -4 0
--13 -4 0
--14 -6 0
--14 -3 0
--11 -6 0
-EOF
+  sed '1s/^R"cnf(//;$d' "$ROOT/tests/fixtures/stconn-3x3.cnf.inc" \
+    > "$T/stconn-3x3.cnf"
   # Two signed ternary cardinality groups over x1..x5 need six falsified
   # literals among five variables (Lucky16's BDD refutation).
   python3 - "$T/signed-cardinality.cnf" <<'EOF'
