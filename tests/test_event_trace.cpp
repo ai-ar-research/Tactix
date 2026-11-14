@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "policies/heuristics.hpp"
 
@@ -973,9 +974,7 @@ int main() {
   std::remove(garbage_formula_path.c_str());
   Kernel garbage_kernel;
   kernel_reserve_vars(garbage_kernel, 3);
-  const Lit garbage_lits[3] = {internalize(1), internalize(-2), internalize(3)};
-  const Ref garbage_ref =
-      kernel_add_large_clause(garbage_kernel, garbage_lits, 3, false, 0);
+  const Ref garbage_ref = add_external_clause(garbage_kernel, {1, -2, 3});
   kernel_delete_clause(garbage_kernel,
                        clause_at(garbage_kernel.arena, garbage_ref));
   traced(garbage_kernel, "event-formula-garbage-trace",

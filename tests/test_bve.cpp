@@ -150,10 +150,8 @@ TEST(test_oversized_polarity_suppresses_other_compaction_rescore) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Lit pivot = internalize(1), opposite = internalize(-1);
-  const Lit stale_lits[3] = {pivot, internalize(2), internalize(3)};
-  const Ref stale = kernel_add_large_clause(k, stale_lits, 3, false, 0);
-  const Lit oversized_lits[3] = {opposite, internalize(4), internalize(5)};
-  kernel_add_large_clause(k, oversized_lits, 3, false, 0);
+  const Ref stale = add_large_clause(k, {pivot, internalize(2), internalize(3)});
+  add_large_clause(k, {opposite, internalize(4), internalize(5)});
 
   ScanProbe probe(k);
   probe.snapshot();
@@ -176,10 +174,8 @@ TEST(test_candidate_gather_mutating_prefix_boundary) {
   const Lit pivot = internalize(1), early = internalize(2);
   const Lit late = internalize(5);
   kernel_add_binary_clause(k, pivot, early);
-  const Lit stale_lits[3] = {pivot, internalize(3), internalize(4)};
-  const Ref stale = kernel_add_large_clause(k, stale_lits, 3, false, 0);
-  const Lit oversized[3] = {pivot, internalize(3), internalize(4)};
-  kernel_add_large_clause(k, oversized, 3, false, 0);
+  const Ref stale = add_large_clause(k, {pivot, internalize(3), internalize(4)});
+  add_large_clause(k, {pivot, internalize(3), internalize(4)});
 
   ScanProbe probe(k);
   // Dense entry creates the binary-prefix/arena order.  A binary created
@@ -220,8 +216,7 @@ TEST(test_flush_units_while_connected) {
   kernel_reserve_vars(k, 4);
   const Lit unit = internalize(1), a = internalize(2), b = internalize(3),
             binary_other = internalize(4);
-  const Lit satisfied[3] = {unit, a, b};
-  const Ref ref = kernel_add_large_clause(k, satisfied, 3, false, 0);
+  const Ref ref = add_large_clause(k, {unit, a, b});
   kernel_add_binary_clause(k, unit, binary_other);
 
   ScanProbe probe(k);
@@ -458,9 +453,7 @@ TEST(test_bound_failure_retains_immediate_unit) {
   kernel_add_binary_clause(k, x, u); // first positive antecedent
   for (int a = 3; a <= 5; ++a)
     kernel_add_binary_clause(k, x, internalize(a));
-  const Lit unit_partner[3] = {nx, u, z};
-  const Ref satisfied =
-      kernel_add_large_clause(k, unit_partner, 3, false, 0);
+  const Ref satisfied = add_large_clause(k, {nx, u, z});
   for (int b = 6; b <= 8; ++b)
     kernel_add_binary_clause(k, nx, internalize(b));
   kernel_assign_unit(k, internalize(-9)); // d1's active image is (¬x ∨ u)
@@ -489,9 +482,7 @@ TEST(test_bound_failure_retains_immediate_unit) {
 TEST(test_gate_and_or_fires) {
   Kernel k;
   kernel_reserve_vars(k, 15); // x=1, a=2..7, p=8..11, q=12..15
-  Lit base[7] = {internalize(-1), internalize(2), internalize(3), internalize(4),
-                 internalize(5),  internalize(6), internalize(7)};
-  kernel_add_large_clause(k, base, 7, false, 0); // (¬x∨a₁∨…∨a₆)
+  add_external_clause(k, {-1, 2, 3, 4, 5, 6, 7}); // (¬x∨a₁∨…∨a₆)
   for (int i = 2; i <= 7; i++)
     kernel_add_binary_clause(k, internalize(1), internalize(-i)); // (x∨¬aᵢ)
   for (int p = 8; p <= 11; p++)
@@ -510,8 +501,7 @@ TEST(test_gate_and_or_fires) {
 TEST(test_gate_and_or_retains_duplicate_binary_gate_copies) {
   Kernel k;
   kernel_reserve_vars(k, 4); // x=1, inputs=2,3, antecedent=4
-  Lit base[3] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, base, 3, false, 0);
+  add_external_clause(k, {-1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 2);
   kernel_add_binary_clause(k, internalize(1), internalize(-3), 3);
@@ -529,8 +519,7 @@ TEST(test_gate_and_or_retains_duplicate_binary_gate_copies) {
 TEST(test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent) {
   Kernel k;
   kernel_reserve_vars(k, 5); // x=1, inputs=2,3, duplicated ant=4, other ant=5
-  Lit base[3] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, base, 3, false, 0);
+  add_external_clause(k, {-1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(-3), 2);
   kernel_add_binary_clause(k, internalize(1), internalize(4), 3);
@@ -566,8 +555,7 @@ static Ref first_large_ref(const Kernel &k, std::vector<int> want) {
 TEST(test_gate_and_or_earlier_duplicate_takes_the_gate_slot) {
   Kernel k;
   kernel_reserve_vars(k, 5); // x=1, inputs=2,3, duplicated ant=4, other ant=5
-  Lit base[3] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, base, 3, false, 0);
+  add_external_clause(k, {-1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(-3), 2);
   kernel_add_binary_clause(k, internalize(1), internalize(4), 3);
@@ -612,10 +600,8 @@ TEST(test_gate_equivalence_takes_first_negative_side_binary) {
 TEST(test_gate_and_or_root_shortened_large_stays_antecedent) {
   Kernel k;
   kernel_reserve_vars(k, 6); // x=1, inputs=2,3, partner=4, false tail=5, ant=6
-  Lit base[3] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, base, 3, false, 0);
-  Lit shortened[3] = {internalize(1), internalize(4), internalize(5)};
-  kernel_add_large_clause(k, shortened, 3, false, 0);
+  add_external_clause(k, {-1, 2, 3});
+  add_external_clause(k, {1, 4, 5});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(-3), 2);
   kernel_add_binary_clause(k, internalize(1), internalize(4), 3);
@@ -635,8 +621,7 @@ TEST(test_gate_and_or_root_shortened_large_stays_antecedent) {
 TEST(test_gate_and_or_accepts_root_shortened_large_base) {
   Kernel k;
   kernel_reserve_vars(k, 6); // x=1, input=2, ants=4,5, false base tail=6
-  Lit base[3] = {internalize(-1), internalize(2), internalize(6)};
-  kernel_add_large_clause(k, base, 3, false, 0);
+  add_external_clause(k, {-1, 2, 6});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(4), 2);
   kernel_add_binary_clause(k, internalize(-1), internalize(5), 3);
@@ -708,8 +693,7 @@ TEST(test_gate_ite_fires) {
     const int gate[4][3] = {
         {1, 2, 3}, {1, -2, 4}, {-1, 2, -3}, {-1, -2, -4}};
     for (const auto &g : gate) {
-      Lit ls[3] = {internalize(g[0]), internalize(g[1]), internalize(g[2])};
-      kernel_add_large_clause(k, ls, 3, false, 0);
+      add_large_clause(k, {internalize(g[0]), internalize(g[1]), internalize(g[2])});
     }
     for (int p = 5; p <= 10; p++)
       kernel_add_binary_clause(k, internalize(1), internalize(p));
@@ -746,9 +730,7 @@ TEST(test_gate_ite_accepts_shortened_binary_clause) {
   const int large[5][3] = {{-1, -2, 3}, {-4, 2, 1}, {-1, 5, 6},
                            {-7, -5, 1}, {-1, -5, 7}};
   for (const auto &clause : large) {
-    Lit lits[3] = {internalize(clause[0]), internalize(clause[1]),
-                   internalize(clause[2])};
-    kernel_add_large_clause(k, lits, 3, false, 0);
+    add_large_clause(k, {internalize(clause[0]), internalize(clause[1]), internalize(clause[2])});
   }
   kernel_add_binary_clause(k, internalize(-6), internalize(1));
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
@@ -770,8 +752,7 @@ TEST(test_gate_xor_fires) {
     const int gate[4][3] = {
         {1, -2, 3}, {1, 2, -3}, {-1, 2, 3}, {-1, -2, -3}};
     for (const auto &g : gate) {
-      Lit ls[3] = {internalize(g[0]), internalize(g[1]), internalize(g[2])};
-      kernel_add_large_clause(k, ls, 3, false, 0);
+      add_large_clause(k, {internalize(g[0]), internalize(g[1]), internalize(g[2])});
     }
     for (int p = 4; p <= 9; p++)
       kernel_add_binary_clause(k, internalize(1), internalize(p));
@@ -853,8 +834,7 @@ TEST(test_gate_definition_fires) {
     kernel_add_binary_clause(k, internalize(1), internalize(3)); // (x∨b)
     const int g1[3] = {-1, -2, 4}, g2[3] = {-1, -3, -4};
     for (const int *g : {g1, g2}) {
-      Lit ls[3] = {internalize(g[0]), internalize(g[1]), internalize(g[2])};
-      kernel_add_large_clause(k, ls, 3, false, 0);
+      add_large_clause(k, {internalize(g[0]), internalize(g[1]), internalize(g[2])});
     }
     for (int p = 5; p <= 8; p++)
       kernel_add_binary_clause(k, internalize(1), internalize(p));
@@ -922,9 +902,7 @@ TEST(test_definition_one_sided_core_emits_unit) {
     const int positive[4][3] = {
         {1, 2, 3}, {1, 2, -3}, {1, -2, 3}, {1, -2, -3}};
     for (const auto &clause : positive) {
-      Lit lits[3] = {internalize(clause[0]), internalize(clause[1]),
-                     internalize(clause[2])};
-      kernel_add_large_clause(k, lits, 3, false, 0);
+      add_large_clause(k, {internalize(clause[0]), internalize(clause[1]), internalize(clause[2])});
     }
     for (int i = 0; i < negative_clauses; ++i)
       kernel_add_binary_clause(k, internalize(-1), internalize(4 + i));
@@ -1094,10 +1072,7 @@ TEST(test_definition_reconstruction_exhaustive) {
 TEST(test_gate_mask) {
   auto build_and_or = [](Kernel &k) {
     kernel_reserve_vars(k, 15); // x=1, a=2..7, p=8..11, q=12..15
-    Lit base[7] = {internalize(-1), internalize(2), internalize(3),
-                   internalize(4),  internalize(5), internalize(6),
-                   internalize(7)};
-    kernel_add_large_clause(k, base, 7, false, 0);
+    add_external_clause(k, {-1, 2, 3, 4, 5, 6, 7});
     for (int i = 2; i <= 7; i++)
       kernel_add_binary_clause(k, internalize(1), internalize(-i));
     for (int p = 8; p <= 11; p++)
@@ -1238,8 +1213,7 @@ TEST(test_backward_strengthen_to_unit_asserts) {
   kernel_reserve_vars(k, 6);
   auto L = [](int d) { return internalize(d); };
   auto add3 = [&](int a, int b, int c) {
-    const Lit v[3] = {L(a), L(b), L(c)};
-    kernel_add_large_clause(k, v, 3, /*redundant=*/false, /*glue=*/0);
+    add_large_clause(k, {L(a), L(b), L(c)});
   };
   // Eliminating 1 yields (-4), (2 v 3 v 4) and (2 v 3 v -4); the unit is asserted
   // before the backward drain, so the drain sees {2, 3}.
@@ -1274,8 +1248,7 @@ TEST(test_backward_binary_victim_strengthen_to_unit) {
   kernel_reserve_vars(k, 6);
   auto L = [](int d) { return internalize(d); };
   auto add3 = [&](int a, int b, int c) {
-    const Lit v[3] = {L(a), L(b), L(c)};
-    kernel_add_large_clause(k, v, 3, /*redundant=*/false, /*glue=*/0);
+    add_large_clause(k, {L(a), L(b), L(c)});
   };
   // Eliminating 1 resolves (1∨2∨3)×(¬1∨2) to the single size-2 resolvent
   // c=(2∨3), which enters the drain as a binary subsumer.

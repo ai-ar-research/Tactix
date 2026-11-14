@@ -619,10 +619,8 @@ TEST(test_bve_definition_transients_by_id) {
   proof.finish_input_transaction();
   kernel_reserve_vars(k, 5); // x=1, a,b,c=2..4, opposite antecedent 5
   for (int mask = 0; mask < 8; ++mask) {
-    Lit lits[4] = {internalize(1), internalize(mask & 1 ? -2 : 2),
-                   internalize(mask & 2 ? -3 : 3),
-                   internalize(mask & 4 ? -4 : 4)};
-    kernel_add_large_clause(k, lits, 4, false, 0, ++k.next_clause_id);
+    add_large_clause(
+        k, {internalize(1), internalize(mask & 1 ? -2 : 2), internalize(mask & 2 ? -3 : 3), internalize(mask & 4 ? -4 : 4)}, false, 0, ++k.next_clause_id);
   }
   kernel_add_binary_clause(k, internalize(-1), internalize(5),
                            ++k.next_clause_id);

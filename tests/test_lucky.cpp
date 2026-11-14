@@ -1,6 +1,7 @@
 // Lucky unit tests: constant and sweep probes, abandonment restoring the entry
 // state with phases untouched, the lifecycle calls and the registry surface.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -18,11 +19,6 @@ static int solve_reference_startup(Kernel &k, bool late_lucky = true) {
   config.inprocess.structured_root_before_lucky = false;
   config.rephase.late_lucky = late_lucky;
   return DefaultPolicy(config).solve(k);
-}
-
-static void add3(Kernel &k, int a, int b, int c) {
-  const Lit lits[3] = {internalize(a), internalize(b), internalize(c)};
-  kernel_add_large_clause(k, lits, 3, false, 0);
 }
 
 // PHP(3,2): Lucky's level-one failed literals refute it.

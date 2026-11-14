@@ -1,6 +1,7 @@
 // Restart / Reduce / arena-collection unit tests. Each test attaches a
 // ScopedHeuristics guard: the session, not the kernel, owns k.h.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -21,9 +22,7 @@ struct ReverseArenaOrder final : ArenaOrdering {
 static void add_php43(Kernel &k) {
   const auto var = [](int p, int h) { return p * 3 + h + 1; };
   for (int p = 0; p < 4; p++) {
-    const Lit row[3] = {internalize(var(p, 0)), internalize(var(p, 1)),
-                        internalize(var(p, 2))};
-    kernel_add_large_clause(k, row, 3, false, 0);
+    add_large_clause(k, {internalize(var(p, 0)), internalize(var(p, 1)), internalize(var(p, 2))});
   }
   for (int h = 0; h < 3; h++)
     for (int p1 = 0; p1 < 4; p1++)
@@ -100,11 +99,8 @@ TEST(test_reduce_preserves_recorded_large_conflict) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 6);
-  const Lit conflict_lits[3] = {internalize(1), internalize(2), internalize(3)};
-  const Ref conflict =
-      kernel_add_large_clause(k, conflict_lits, 3, true, 3, 701);
-  const Lit victim_lits[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref victim = kernel_add_large_clause(k, victim_lits, 3, true, 9, 702);
+  const Ref conflict = add_external_clause(k, {1, 2, 3}, true, 3, 701);
+  const Ref victim = add_external_clause(k, {4, 5, 6}, true, 9, 702);
   kernel_assign_decision(k, internalize(-1));
   kernel_assign_decision(k, internalize(-2));
   kernel_assign_decision(k, internalize(-3));
@@ -137,8 +133,7 @@ TEST(test_conflict_reduce_preserves_root_fixed_prefix_watches) {
   // recorded a search conflict.
   const Lit prefix[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref prefix_ref = kernel_add_large_clause(k, prefix, 3, false, 0, 801);
-  const Lit victim_lits[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref victim = kernel_add_large_clause(k, victim_lits, 3, true, 3, 802);
+  const Ref victim = add_external_clause(k, {4, 5, 6}, true, 3, 802);
   kernel_add_binary_clause(k, internalize(-4), internalize(-5));
   kernel_assign_unit(k, internalize(-1));
   kernel_assign_unit(k, internalize(-2));
@@ -359,12 +354,10 @@ TEST(test_reduce_deletes_and_logs) {
   k.proof = &proof;
   kernel_reserve_vars(k, 12);
   for (int i = 0; i < 4; i++) { // four high-glue candidates, plus one keeper
-    const Lit c[3] = {internalize(3 * i + 1), internalize(3 * i + 2),
-                      internalize(3 * i + 3)};
-    kernel_add_large_clause(k, c, 3, true, 8 + i);
+    add_large_clause(
+        k, {internalize(3 * i + 1), internalize(3 * i + 2), internalize(3 * i + 3)}, true, 8 + i);
   }
-  const Lit keeper[3] = {internalize(1), internalize(5), internalize(9)};
-  const Ref kref = kernel_add_large_clause(k, keeper, 3, true, 1);
+  const Ref kref = add_external_clause(k, {1, 5, 9}, true, 1);
   (void)kref;
   DefaultPolicy rp;
   assert(rp.reduce.next_conflicts == DefaultStrategyConfig::REDUCE_INTERVAL_DEFAULT);
@@ -454,10 +447,8 @@ TEST(test_reduce_used_retention) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
-  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Ref tier2 = kernel_add_large_clause(k, c1, 3, true, 4);
-  const Lit c2[3] = {internalize(4), internalize(5), internalize(6)};
-  kernel_add_large_clause(k, c2, 3, true, 9); // high glue: never protected
+  const Ref tier2 = add_external_clause(k, {1, 2, 3}, true, 4);
+  add_external_clause(k, {4, 5, 6}, true, 9); // high glue: never protected
   assert(clause_at(k.arena, tier2)->used() == Clause::MAX_USED);
 
   std::vector<Ref> cands;
@@ -517,10 +508,8 @@ TEST(test_compacting_reduce_collects_irredundant_prefix) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
-  const Lit satisfied[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, satisfied, 3, false, 0);
-  const Lit victim[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref victim_ref = kernel_add_large_clause(k, victim, 3, true, 9);
+  add_external_clause(k, {1, 2, 3});
+  const Ref victim_ref = add_external_clause(k, {4, 5, 6}, true, 9);
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
 
@@ -537,10 +526,8 @@ TEST(test_tier2_band_tracks_the_live_tier) {
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
   k.touch_redundant = true;
-  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c1, 3, true, 4); // inside the static 6
-  const Lit c2[3] = {internalize(4), internalize(5), internalize(6)};
-  kernel_add_large_clause(k, c2, 3, true, 9); // outside it
+  add_external_clause(k, {1, 2, 3}, true, 4); // inside the static 6
+  add_external_clause(k, {4, 5, 6}, true, 9); // outside it
 
   k.tier2 = TIER2_STATIC;
   reduce_apply_refs(k, nullptr, 0);

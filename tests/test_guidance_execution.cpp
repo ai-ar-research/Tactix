@@ -172,8 +172,7 @@ static void test_reduction_collection(bool compact) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 6);
-  const Lit prefix[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, prefix, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   const Ref victim = add_external_clause(k, {4, 5, 6}, true, 9);
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);

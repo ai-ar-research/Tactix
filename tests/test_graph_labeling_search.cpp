@@ -3,6 +3,7 @@
 // local moves, seed/Window search against brute-force permutation oracles,
 // and the resumable Window cursor, each under every work cutoff.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/lucky/graph_labeling_completion.hpp"
 #include "rules/lucky/graph_labeling_recognition.hpp"
@@ -306,8 +307,7 @@ static void chain(Kernel &k) {
   kernel_add_binary_clause(k, internalize(-1), internalize(3));
   kernel_add_binary_clause(k, internalize(-3), internalize(4));
   kernel_add_binary_clause(k, internalize(-4), internalize(5));
-  const Lit large[] = {internalize(2), internalize(-5), internalize(6)};
-  kernel_add_large_clause(k, large, 3, false, 0);
+  add_external_clause(k, {2, -5, 6});
 }
 
 TEST(completion_cases) {
@@ -336,8 +336,7 @@ TEST(completion_cases) {
   assert(model.empty());
   // A graph-level candidate contradicting any additional live constraint is
   // rejected without a SAT publication, including retained redundant clauses.
-  const Lit contradiction[] = {internalize(-3), internalize(-4), internalize(-5)};
-  kernel_add_large_clause(k, contradiction, 3, true, 0);
+  add_external_clause(k, {-3, -4, -5}, true);
   assert(complete_model(k, partial, 4096, always, model) == CompletionStatus::NoModel);
   assert(model.empty() && k.trail == trail);
   {

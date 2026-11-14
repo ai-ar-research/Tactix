@@ -45,6 +45,15 @@ inline std::vector<tactix::Lit> lits_of(std::initializer_list<int> external) {
   return lits;
 }
 
+// An inline literal list avoids a throwaway array and a duplicated size.
+inline tactix::Ref add_large_clause(tactix::Kernel &k,
+                                    std::initializer_list<tactix::Lit> lits,
+                                    bool redundant = false, uint32_t glue = 0,
+                                    uint64_t id = 0) {
+  return tactix::kernel_add_large_clause(k, lits.begin(), lits.size(),
+                                         redundant, glue, id);
+}
+
 // Add a clause over external DIMACS literals: two as a binary clause, three or
 // more as a large clause with redundant/glue. Id 0 is the kernel's default.
 // Returns the large clause's Ref, INVALID_REF for a binary clause.

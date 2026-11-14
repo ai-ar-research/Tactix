@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/native_feedback.hpp"
@@ -769,8 +770,7 @@ TEST(test_post_structured_bce_feedback) {
   for (bool feedback : {false, true}) {
     Kernel k;
     kernel_reserve_vars(k, 7);
-    const Lit source[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(k, source, 3, false, 0, ++k.next_clause_id);
+    add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(4), internalize(6), ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-4), internalize(7), ++k.next_clause_id);
     auto config = search_profile();

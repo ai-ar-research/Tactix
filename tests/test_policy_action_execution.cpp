@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "strategy/action_execution.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -10,8 +11,7 @@ static void test_prefix_and_purpose(RestartPurpose purpose) {
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 5);
   kernel_assign_unit(k, internalize(1));
-  const Lit learned[] = {internalize(3), internalize(4), internalize(5)};
-  const Ref ref = kernel_add_large_clause(k, learned, 3, true, 2, 101);
+  const Ref ref = add_external_clause(k, {3, 4, 5}, true, 2, 101);
   assert(propagate_apply(k) == ApplyResult::Ok);
   assert(execute_action(k, DecisionRequest{internalize(2)}) == ApplyResult::Ok);
   assert(propagate_apply(k) == ApplyResult::Ok);

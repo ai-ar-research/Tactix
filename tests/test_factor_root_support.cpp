@@ -1,6 +1,7 @@
 // Observe actual Factor index scores through its existing strategy interface.
 // Counting support must not delete the underlying root-satisfied binaries.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/factor/factor.hpp"
@@ -37,8 +38,7 @@ static void fixture(bool reverse, unsigned signs, bool fixed,
   const Lit p = make_lit(4, false), q = make_lit(5, false);
   for (const auto &pair : {std::pair<Lit, Lit>{u, x}, {a, p}, {b, q}})
     kernel_add_binary_clause(k, pair.first, pair.second, ++k.next_clause_id);
-  const Lit clause[] = {x, a, b};
-  const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+  const Ref ref = add_large_clause(k, {x, a, b}, false, 0, ++k.next_clause_id);
   if (fixed) kernel_assign_unit(k, u);
   Scores scores(2 * k.nvars);
   k.factor_selection = &scores;

@@ -9,6 +9,7 @@
 // 3 adds random ternaries so large and binary watches interleave. argv[2]
 // overrides the iteration count.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "kernel/watch.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -112,8 +113,7 @@ int main(int argc, char **argv) {
         if (var_of(x) == var_of(y) || var_of(y) == var_of(z) ||
             var_of(x) == var_of(z))
           continue;
-        Lit t[3] = {x, y, z};
-        kernel_add_large_clause(k, t, 3, false, 0, ++k.next_clause_id);
+        add_large_clause(k, {x, y, z}, false, 0, ++k.next_clause_id);
         larges.push_back({x, y, z});
       }
     }

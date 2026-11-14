@@ -228,8 +228,8 @@ TEST(large_occurrences) {
           const Lit seed = make_lit(0, neg);
           const Lit a = make_lit(2 + 2 * j, false);
           const Lit b = make_lit(3 + 2 * j, false);
-          const Lit lits[] = {dense ? a : seed, b, dense ? seed : a};
-          kernel_add_large_clause(k, lits, 3, false, 0, ++k.next_clause_id);
+          add_large_clause(
+              k, {dense ? a : seed, b, dense ? seed : a}, false, 0, ++k.next_clause_id);
         }
       OccIndex occ;
       if (dense)

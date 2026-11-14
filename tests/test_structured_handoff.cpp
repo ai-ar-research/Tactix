@@ -200,8 +200,7 @@ static void impossible_graph_budget_precedes_formula_snapshot() {
   // Matrix-only unique-literal AMO completion is independent of graph limits.
   Kernel unique;
   kernel_reserve_vars(unique, 3);
-  const Lit clause[] = {0, 2, 4};
-  kernel_add_large_clause(unique, clause, 3, false, 0, ++unique.next_clause_id);
+  add_large_clause(unique, {0, 2, 4}, false, 0, ++unique.next_clause_id);
   auto matrix = p;
   matrix.orbitopal_completion = OrbitopalCompletion::MatrixOnly;
   matrix.orbitopal_discovery_order = OrbitopalDiscoveryOrder::UniqueLiteralOnly;

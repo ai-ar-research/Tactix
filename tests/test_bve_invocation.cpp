@@ -216,8 +216,7 @@ TEST(test_otf_single_strengthening_precedes_resolvent_cap) {
   Kernel disabled, enabled;
   for (Kernel *k : {&disabled, &enabled}) {
     kernel_reserve_vars(*k, 3);
-    const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(*k, positive, 3, false, 0);
+    add_external_clause(*k, {1, 2, 3});
     kernel_add_binary_clause(*k, internalize(-1), internalize(2));
   }
 
@@ -800,8 +799,7 @@ run_traversal_fixture(BveTraversal traversal, bool binary_positive) {
   auto L = [](int dimacs) { return internalize(dimacs); };
   if (binary_positive) {
     kernel_add_binary_clause(k, L(1), L(2));
-    const Lit negative[3] = {L(-1), L(4), L(5)};
-    kernel_add_large_clause(k, negative, 3, false, 0);
+    add_large_clause(k, {L(-1), L(4), L(5)});
   } else {
     const Lit positive[3] = {L(1), L(2), L(3)};
     const Lit negative0[3] = {L(-1), L(4), L(5)};

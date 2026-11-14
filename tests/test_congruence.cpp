@@ -387,9 +387,7 @@ TEST(test_xor_cancel_refutes) {
 // --- the AND degeneracies and the contradictory merge -----------------------
 
 static void add4(Kernel &k, int a, int b, int c, int d) {
-  Lit lits[4] = {internalize(a), internalize(b), internalize(c),
-                 internalize(d)};
-  kernel_add_large_clause(k, lits, 4, /*redundant=*/false, /*glue=*/0);
+  add_large_clause(k, {internalize(a), internalize(b), internalize(c), internalize(d)});
 }
 
 // c = AND(a,¬b,r) where the closure first proves a ≡ b: the canonical inputs
@@ -559,11 +557,8 @@ TEST(test_forward_dense_resume_reorders_complete_binary_population) {
   kernel_add_binary_clause(k, negate(a), c, ++k.next_clause_id);
   kernel_add_binary_clause(k, c, older, ++k.next_clause_id);
   kernel_add_binary_clause(k, c, higher_older, ++k.next_clause_id);
-  Lit strengthen[3] = {a, c, newer};
-  kernel_add_large_clause(k, strengthen, 3, false, 0, ++k.next_clause_id);
-  Lit strengthen_higher[3] = {a, c, higher_newer};
-  kernel_add_large_clause(k, strengthen_higher, 3, false, 0,
-                          ++k.next_clause_id);
+  add_large_clause(k, {a, c, newer}, false, 0, ++k.next_clause_id);
+  add_large_clause(k, {a, c, higher_newer}, false, 0, ++k.next_clause_id);
   and_gate(k, 9, 7, 8);
   and_gate(k, 10, 7, 8); // forces a merge and therefore the forward transition
 

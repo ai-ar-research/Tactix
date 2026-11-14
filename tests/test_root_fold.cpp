@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -116,8 +117,7 @@ static void reconstruction_and_nonroot_reason() {
     Kernel k;
     kernel_reserve_vars(k, 6);
     for (int v : {1, 2, 3}) kernel_assign_unit(k, internalize(v));
-    const Lit clause[] = {internalize(-2), internalize(-4), internalize(5)};
-    kernel_add_large_clause(k, clause, 3, false, 0, 10);
+    add_external_clause(k, {-2, -4, 5}, false, 0, 10);
     assert(propagate_apply(k) == ApplyResult::Ok);
     kernel_assign_decision(k, internalize(4));
     assert(propagate_apply(k) == ApplyResult::Ok);

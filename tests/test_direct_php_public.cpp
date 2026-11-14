@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "tactix_c_api.hpp"
 
 #include "direct_php_test_support.hpp"
@@ -192,9 +193,7 @@ TEST(declines_are_atomic) {
   {
     Kernel unrelated;
     kernel_reserve_vars(unrelated, 3);
-    const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(unrelated, clause, 3, false, 0,
-                            ++unrelated.next_clause_id);
+    add_external_clause(unrelated, {1, 2, 3}, false, 0, ++unrelated.next_clause_id);
     declines(unrelated, request(), DirectPhpActionStatus::NotRecognized);
   }
   Kernel kernel = fixture();

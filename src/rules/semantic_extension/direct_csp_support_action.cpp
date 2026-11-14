@@ -11,9 +11,32 @@
 #include <algorithm>
 #include <cstdlib>
 #include <limits>
+#include <tuple>
 #include <utility>
 
 namespace tactix {
+
+namespace {
+
+auto domain_pair(const DirectCspSupportOwnerSnapshot &owner) {
+  return std::tie(owner.relation.left.values, owner.relation.right.values);
+}
+
+auto domain_pair(const DirectCspSupportActionKey &key) {
+  return std::tie(key.left_values, key.right_values);
+}
+
+// Owners and keys both sort by the ordered domain pair first.
+template <class Entries, class Pair>
+auto find_domain(const Entries &entries, const Pair &pair) {
+  const auto position = std::lower_bound(
+      entries.begin(), entries.end(), pair,
+      [](const auto &entry, const auto &pair) { return domain_pair(entry) < pair; });
+  return position != entries.end() && domain_pair(*position) == pair
+             ? position : entries.end();
+}
+
+} // namespace
 
 struct DirectCspSupportActionSessionAccess {
   static void commit_existing(DirectCspSupportActionSession &session,
@@ -34,11 +57,8 @@ struct DirectCspSupportActionSessionAccess {
 const DirectCspSupportOwnerSnapshot *DirectCspSupportActionSession::snapshot(
     const std::vector<int32_t> &left_values,
     const std::vector<int32_t> &right_values) const {
-  for (const DirectCspSupportOwnerSnapshot &snapshot : snapshots_)
-    if (snapshot.relation.left.values == left_values &&
-        snapshot.relation.right.values == right_values)
-      return &snapshot;
-  return nullptr;
+  const auto position = find_domain(snapshots_, std::tie(left_values, right_values));
+  return position == snapshots_.end() ? nullptr : &*position;
 }
 
 namespace {
@@ -73,15 +93,7 @@ bool pair_within_limits(const std::vector<int32_t> &left,
 
 bool owner_less(const DirectCspSupportOwnerSnapshot &first,
                 const DirectCspSupportOwnerSnapshot &second) {
-  if (first.relation.left.values != second.relation.left.values)
-    return first.relation.left.values < second.relation.left.values;
-  return first.relation.right.values < second.relation.right.values;
-}
-
-bool owner_matches_key(const DirectCspSupportOwnerSnapshot &owner,
-                       const DirectCspSupportActionKey &key) {
-  return owner.relation.left.values == key.left_values &&
-         owner.relation.right.values == key.right_values;
+  return domain_pair(first) < domain_pair(second);
 }
 
 bool occurrence_valid(uint64_t occurrence, size_t source_size) {
@@ -185,19 +197,13 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
       return SessionStatus::Exhausted;
     if (!key_valid(key) ||
         (index && !(keys[index - 1] < key)) ||
-        std::none_of(owners.begin(), owners.end(),
-                     [&](const DirectCspSupportOwnerSnapshot &owner) {
-                       return owner_matches_key(owner, key);
-                     }))
+        !session.snapshot(key.left_values, key.right_values))
       return SessionStatus::Invalid;
   }
   for (const DirectCspSupportOwnerSnapshot &owner : owners) {
     if (!add_bounded(keys.size(), limits.maximum_session_work, work))
       return SessionStatus::Exhausted;
-    if (std::none_of(keys.begin(), keys.end(),
-                     [&](const DirectCspSupportActionKey &key) {
-                       return owner_matches_key(owner, key);
-                     }))
+    if (find_domain(keys, domain_pair(owner)) == keys.end())
       return SessionStatus::Invalid;
   }
 

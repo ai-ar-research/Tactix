@@ -2,6 +2,7 @@
 // the preceding round's retirement events. Exercise the actual policy and
 // rule primitives, not a model of the heap algorithm.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -21,8 +22,7 @@ static void fixture(Kernel &k) {
   for (Var v = 0; v < k.nvars; ++v)
     kernel_record_import(k, v);
   const auto large = [&](int a, int b, int c) {
-    const Lit lits[] = {internalize(a), internalize(b), internalize(c)};
-    kernel_add_large_clause(k, lits, 3, false, 0);
+    add_large_clause(k, {internalize(a), internalize(b), internalize(c)});
   };
   const auto binary = [&](int a, int b) {
     kernel_add_binary_clause(k, internalize(a), internalize(b));

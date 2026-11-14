@@ -23,8 +23,7 @@ static void fixed_slot(bool positive, bool flushed) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Lit slot = internalize(positive ? 1 : -1);
-  const Lit prefix[3] = {slot, internalize(2), internalize(3)};
-  const Ref ref = kernel_add_large_clause(k, prefix, 3, false, 0);
+  const Ref ref = add_large_clause(k, {slot, internalize(2), internalize(3)});
   const Ref start = add_external_clause(k, {4, 5, 6}, true, 3);
   kernel_assign_unit(k, internalize(1));
   if (flushed) {

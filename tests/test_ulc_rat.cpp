@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 
@@ -67,10 +68,8 @@ TEST(nol_scale_ulc_census) {
   kernel_reserve_vars(kernel, 3 * domain_count);
   for (uint32_t domain = 0; domain < domain_count; ++domain) {
     const Var first = 3 * domain;
-    const Lit alo[] = {make_lit(first, false), make_lit(first + 1, false),
-                       make_lit(first + 2, false)};
-    kernel_add_large_clause(kernel, alo, 3, false, 0,
-                            ++kernel.next_clause_id);
+    add_large_clause(
+        kernel, {make_lit(first, false), make_lit(first + 1, false), make_lit(first + 2, false)}, false, 0, ++kernel.next_clause_id);
   }
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;

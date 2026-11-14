@@ -1,6 +1,7 @@
 // Rephase unit tests: type semantics, best/target machinery, the registry
 // instance surface, and the policy trigger.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -157,8 +158,7 @@ static std::vector<int> warmup_after_retained_root(bool prepare) {
   k.h->stable = true;
   kernel_add_binary_clause(k, internalize(-4), internalize(-1));
   kernel_add_binary_clause(k, internalize(-5), internalize(-1));
-  const Lit clause[] = {internalize(-2), internalize(3), internalize(-1)};
-  const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0);
+  const Ref ref = add_external_clause(k, {-2, 3, -1});
   // A transient decision leaves this blocker watch on +3 until backtracking.
   kernel_unwatch_large(k, internalize(3), ref);
   k.watches.push_large(internalize(3), internalize(-1), ref);

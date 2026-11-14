@@ -2,6 +2,7 @@
 // refutation, the BIG-head candidate schedule, and the instance surface.
 // probe_apply leaves a clean root with the derived units un-propagated.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/probe/probe.hpp"
@@ -56,10 +57,8 @@ TEST(test_failed_literal_through_large_clause) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 → 2
-  const Lit c[3] = {internalize(-2), internalize(-3), internalize(-1)};
-  kernel_add_large_clause(k, c, 3, false, 0); // (¬2 ∨ ¬3 ∨ ¬1): 1,2 → ¬3
-  const Lit d[3] = {internalize(-1), internalize(3), internalize(-2)};
-  kernel_add_large_clause(k, d, 3, false, 0); // (¬1 ∨ 3 ∨ ¬2): 1,2 → 3
+  add_external_clause(k, {-2, -3, -1}); // (¬2 ∨ ¬3 ∨ ¬1): 1,2 → ¬3
+  add_external_clause(k, {-1, 3, -2}); // (¬1 ∨ 3 ∨ ¬2): 1,2 → 3
   assert(probe_apply(k) == ApplyResult::Ok);
   assert(k.stats.probe_failed == 1);
   assert(k.value(internalize(-1)) > 0); // ¬1 derived
@@ -72,8 +71,7 @@ TEST(test_candidate_schedule) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // ¬1,2 watch bin
-  const Lit c[3] = {internalize(2), internalize(3), internalize(4)};
-  kernel_add_large_clause(k, c, 3, false, 0); // vars 3,4 large-only
+  add_external_clause(k, {2, 3, 4}); // vars 3,4 large-only
   std::vector<Lit> cands;
   failed_literal_candidates(k, cands);
   const bool has1 = std::find(cands.begin(), cands.end(), internalize(1)) != cands.end();

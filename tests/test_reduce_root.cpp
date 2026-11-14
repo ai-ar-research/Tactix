@@ -1,6 +1,7 @@
 // Reduce at the root: preparation consumes newly derived roots before ranking
 // again, and retained root reasons do not shrink the candidate population.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -46,8 +47,7 @@ static void prepare(Kernel &k) {
 static void retained_chain(bool policy) {
   Kernel k;
   kernel_reserve_vars(k, 8);
-  const Lit clause[] = {internalize(-1), internalize(3), internalize(4)};
-  kernel_add_large_clause(k, clause, 3, false, 0);
+  add_external_clause(k, {-1, 3, 4});
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   ScopedHeuristics h(k);
   k.h->stable = true;

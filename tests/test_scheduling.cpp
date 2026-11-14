@@ -1,6 +1,7 @@
 // Scheduling regression tests: each pins a Kissat/CaDiCaL reference formula
 // or an N1 obligation.
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -454,9 +455,8 @@ TEST(test_subsume_meters_partner_visits) {
     for (uint32_t b = a + 1; b < 6; ++b)
       for (uint32_t c = b + 1; c < 7; ++c)
         for (uint32_t d = c + 1; d < 8; ++d) {
-          const Lit c4[4] = {make_lit(a, true), make_lit(b, true),
-                             make_lit(c, true), make_lit(d, true)};
-          kernel_add_large_clause(k, c4, 4, false, 0, 0);
+          add_large_clause(
+              k, {make_lit(a, true), make_lit(b, true), make_lit(c, true), make_lit(d, true)}, false, 0, 0);
         }
 
   const RuleVTable *c1 = find_rule("SubsumeForward");
@@ -488,9 +488,8 @@ TEST(test_vivify_scope_tracks_tier2) {
     k.vivify_scope = 1;
     // redundant clauses spanning a range of glues, all otherwise vivifiable
     for (uint32_t g = 2; g <= 10; g++) {
-      const Lit c3[3] = {make_lit(g, true), make_lit(g + 10, true),
-                         make_lit(g + 20, true)};
-      const Ref r = kernel_add_large_clause(k, c3, 3, true, g, 0);
+      const Ref r = add_large_clause(
+          k, {make_lit(g, true), make_lit(g + 10, true), make_lit(g + 20, true)}, true, g, 0);
       (void)r;
     }
     uint64_t inst[64];
@@ -617,8 +616,7 @@ TEST(test_vivify_subsumption_reduces_irredundant_delay) {
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
   k.stats.conflicts = 1;
-  const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, clause, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(2));
 
   DefaultStrategyConfig cfg;
@@ -645,9 +643,7 @@ TEST(test_sweep_delay_rates_per_swept_variable) {
     for (uint32_t mask = 0; mask < 4; mask++) {
       const int sign = (mask & 1) ? 1 : -1;
       const int hl = (mask & 2) ? helper : -helper;
-      const Lit clause[3] = {internalize(-sign * left),
-                             internalize(sign * right), internalize(hl)};
-      kernel_add_large_clause(k, clause, 3, false, 0);
+      add_large_clause(k, {internalize(-sign * left), internalize(sign * right), internalize(hl)});
     }
   };
   equate(1, 2, 4);
@@ -1063,8 +1059,7 @@ TEST(test_structured_root_exhaustion_finishes_selected_scope) {
     Kernel k;
     kernel_reserve_vars(k, 3);
     kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
-    const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
     OnlineInvocation limited;
     limited.id = 1171;
     limited.rule = "SubstitutionRedundancy";
@@ -1186,8 +1181,7 @@ TEST(test_initial_elimination_deadline_matches_kissat) {
   p.inprocess().build(k);
 
   // The deadline sees the post-preprocessing population.
-  const Lit c[3] = {internalize(7), internalize(8), internalize(9)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {7, 8, 9});
   p.inprocess().initialize_search_limits(k);
 
   const double f =
@@ -1210,8 +1204,7 @@ TEST(test_initial_elimination_deadline_matches_kissat) {
 TEST(test_bve_default_order_adds_search_relevancy) {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   ScopedHeuristics scoped(k);
   k.h->stable = true;
   k.h->scores.score[0] = 3.0;
@@ -1525,8 +1518,7 @@ TEST(test_initial_fast_elimination_composes_only_proof_rules) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
-  const Lit subsumed[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, subsumed, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
   ScopedHeuristics heuristics(k);
   DefaultStrategyConfig config;
@@ -1706,8 +1698,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
     ScopedHeuristics rooted_heuristics(rooted);
     const Lit rooted_x = add_extension(rooted, {1, 2}, {3, 4});
     rooted.stats.sr_applied = 1;
-    const Lit subsumed[] = {rooted_x, internalize(1), internalize(2)};
-    kernel_add_large_clause(rooted, subsumed, 3, false, 0);
+    add_large_clause(rooted, {rooted_x, internalize(1), internalize(2)});
     DefaultPolicy rooted_policy;
     rooted_policy.inprocess().build(rooted);
     const std::vector<uint8_t> retry_before = rooted.bve_retry;
@@ -2122,8 +2113,7 @@ TEST(test_eliminate_owns_physical_dense_transition) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 4);
-  const Lit lits[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, lits, 3, false, 0, 1);
+  add_external_clause(k, {1, 2, 3}, false, 0, 1);
   kernel_add_binary_clause(k, internalize(-1), internalize(4), 2);
   const auto watch_words = [&k](uint32_t *large, uint32_t *binary) {
     *large = *binary = 0;

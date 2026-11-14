@@ -386,10 +386,8 @@ static Kernel minimization_depth_fixture(
       kernel_assign(k, internalize(static_cast<int>(current)), 2,
                     internalize(-static_cast<int>(previous)), true);
     } else {
-      const Lit reason[3] = {internalize(-static_cast<int>(previous)),
-                             internalize(-static_cast<int>(z)),
-                             internalize(static_cast<int>(current))};
-      const Ref ref = kernel_add_large_clause(k, reason, 3, false, 0);
+      const Ref ref = add_large_clause(
+          k, {internalize(-static_cast<int>(previous)), internalize(-static_cast<int>(z)), internalize(static_cast<int>(current))});
       kernel_assign(k, internalize(static_cast<int>(current)), 2, ref, false);
     }
     previous = current;
@@ -590,9 +588,7 @@ TEST(test_large_otfs_retains_root_false_first_watch) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   kernel_assign_unit(k, internalize(1));
-  const Lit reason[5] = {internalize(-1), internalize(5), internalize(-2),
-                         internalize(-3), internalize(-4)};
-  const Ref reason_ref = kernel_add_large_clause(k, reason, 5, false, 0);
+  const Ref reason_ref = add_external_clause(k, {-1, 5, -2, -3, -4});
   const Ref conflict_ref = add_external_clause(k, {-5, -2, -3, -4}, true, 3);
 
   kernel_assign_decision(k, internalize(6));
@@ -965,9 +961,7 @@ TEST(test_eager_subsume) {
   { // (a) a strictly smaller learned clause deletes the register entry
     Kernel k;
     fresh(k, 8);
-    const Lit big[4] = {internalize(1), internalize(2), internalize(3),
-                        internalize(4)};
-    const Ref victim = kernel_add_large_clause(k, big, 4, true, 4, 101);
+    const Ref victim = add_external_clause(k, {1, 2, 3, 4}, true, 4, 101);
     const Lit small[3] = {internalize(1), internalize(2), internalize(3)};
     const Ref fresh_ref = kernel_add_large_clause(k, small, 3, true, 3, 102);
     k.eager_recent[0] = victim;
@@ -1007,9 +1001,7 @@ TEST(test_eager_subsume) {
     // reason is kept, and the deviation from kissat is counted
     Kernel k;
     fresh(k, 8);
-    const Lit big[4] = {internalize(1), internalize(2), internalize(3),
-                        internalize(4)};
-    const Ref victim = kernel_add_large_clause(k, big, 4, true, 4, 101);
+    const Ref victim = add_external_clause(k, {1, 2, 3, 4}, true, 4, 101);
     kernel_assign_decision(k, internalize(-1));      // level 1
     kernel_assign(k, internalize(4), 1, victim, false); // forced BY the victim
     k.eager_recent[0] = victim;

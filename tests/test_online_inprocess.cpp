@@ -94,8 +94,7 @@ static Kernel forward_fixture() {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
-  const Lit victim[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, victim, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   return k;
 }
 
@@ -326,8 +325,7 @@ TEST(caller_selected_fixpoint_is_scoped_and_budgeted) {
       for (uint64_t budget : {1u, 2u}) {
         Kernel k = forward_fixture();
         kernel_reserve_vars(k, 4);
-        const Lit other[] = {internalize(1), internalize(2), internalize(4)};
-        const Ref unselected = kernel_add_large_clause(k, other, 3, false, 0);
+        const Ref unselected = add_external_clause(k, {1, 2, 4});
         OnlineInvocation step;
         step.id = 12;
         step.rule = "SubsumeForward";
@@ -411,9 +409,7 @@ TEST(complete_pass_reaches_beyond_a_fixed_prefix) {
   kernel_reserve_vars(k, 22);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   for (int variable = 3; variable <= 22; ++variable) {
-    const Lit victim[] = {internalize(1), internalize(2),
-                          internalize(variable)};
-    kernel_add_large_clause(k, victim, 3, false, 0);
+    add_large_clause(k, {internalize(1), internalize(2), internalize(variable)});
   }
   OnlineInprocessProgram program;
   program.sequence.push_back(invocation(
@@ -596,8 +592,7 @@ TEST(pending_selection_rejects_collection_and_external_mutation) {
     if (collect)
       kernel_collect_garbage(k);
     else {
-      const Lit added[] = {internalize(-1), internalize(-2), internalize(3)};
-      kernel_add_large_clause(k, added, 3, false, 0);
+      add_external_clause(k, {-1, -2, 3});
     }
     const auto stale = executor.advance(k);
     assert(stale.status == InvocationStatus::StaleRequest);
@@ -618,9 +613,7 @@ TEST(pending_selection_rejects_collection_and_external_mutation) {
 TEST(semantic_instances_and_parameters_compose) {
   Kernel k;
   kernel_reserve_vars(k, 6);
-  const Lit candidate[] = {internalize(1), internalize(2), internalize(3),
-                           internalize(6)};
-  kernel_add_large_clause(k, candidate, 4, false, 0);
+  add_external_clause(k, {1, 2, 3, 6});
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
   kernel_add_binary_clause(k, internalize(-1), internalize(-4));
   kernel_add_binary_clause(k, internalize(-2), internalize(5));
@@ -735,9 +728,7 @@ TEST(congruence_semantic_actions_reach_online_fixpoint) {
 TEST(complete_pass_reenumerates_after_its_own_collection) {
   Kernel k;
   kernel_reserve_vars(k, 6);
-  const Lit candidate[] = {internalize(1), internalize(2), internalize(3),
-                           internalize(6)};
-  kernel_add_large_clause(k, candidate, 4, false, 0);
+  add_external_clause(k, {1, 2, 3, 6});
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
   kernel_add_binary_clause(k, internalize(-1), internalize(-4));
   kernel_add_binary_clause(k, internalize(-2), internalize(5));
@@ -789,8 +780,7 @@ TEST(budget_continuation_preserves_limits_and_stops) {
 
   Kernel k = forward_fixture();
   kernel_reserve_vars(k, 4);
-  const Lit other[] = {internalize(1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, other, 3, false, 0);
+  add_external_clause(k, {1, 2, 4});
   OnlineStrategySequence continued;
   continued.configure(program, 73);
   volatile sig_atomic_t stop = 1;
@@ -939,8 +929,7 @@ TEST(finish_round_budget_policy_preserves_tail_and_resume) {
                             RepeatSpec{RepeatMode::UntilScopedFixpoint, 0}}) {
     Kernel k = forward_fixture();
     kernel_reserve_vars(k, 4);
-    const Lit extra[] = {internalize(1), internalize(2), internalize(4)};
-    kernel_add_large_clause(k, extra, 3, false, 0);
+    add_external_clause(k, {1, 2, 4});
     OnlineInvocation limited;
     limited.id = 911;
     limited.rule = "SubstitutionRedundancy";
@@ -999,8 +988,7 @@ TEST(finish_round_budget_policy_preserves_tail_and_resume) {
 TEST(sequence_configuration_is_transactional) {
   Kernel k = forward_fixture();
   kernel_reserve_vars(k, 4);
-  const Lit other[] = {internalize(1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, other, 3, false, 0);
+  add_external_clause(k, {1, 2, 4});
   OnlineInvocation work;
   work.id = 904;
   work.rule = "SubsumeForward";
@@ -1108,9 +1096,7 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
     if (kind == 0)
       kernel_add_binary_clause(k, first, internalize(2));
     else {
-      const Lit clause[] = {kind == 1 ? first : negate(first),
-                            internalize(2), internalize(3)};
-      kernel_add_large_clause(k, clause, 3, false, 0);
+      add_large_clause(k, {kind == 1 ? first : negate(first), internalize(2), internalize(3)});
     }
     kernel_assign_unit(k, first);
     assert(propagate_apply(k) == ApplyResult::Ok);
@@ -1137,9 +1123,7 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
     for (int variable = 1; variable <= 3; ++variable)
       kernel_assign_unit(k, internalize(-variable));
     assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit clause[] = {internalize(1), internalize(2),
-                          internalize(refuted ? 3 : 4)};
-    kernel_add_large_clause(k, clause, 3, false, 0);
+    add_large_clause(k, {internalize(1), internalize(2), internalize(refuted ? 3 : 4)});
     ReduceParameters parameters;
     parameters.victim_numerator = 0;
     parameters.compact_collection = true;
@@ -1217,8 +1201,7 @@ TEST(collection_does_not_age_the_search_database) {
   for (bool bookkeeping : {false, true}) {
     Kernel k;
     kernel_reserve_vars(k, 5);
-    const Lit survivor[] = {internalize(3), internalize(4), internalize(5)};
-    const Ref ref = kernel_add_large_clause(k, survivor, 3, true, 4);
+    const Ref ref = add_external_clause(k, {3, 4, 5}, true, 4);
     clause_at(k.arena, ref)->set_used(2);
     k.kept_glue = 9;
     k.kept_size = 11;
@@ -1331,8 +1314,7 @@ TEST(rule_parameters_are_scoped_per_call) {
   Kernel a;
   ScopedHeuristics analysis_heuristics(a);
   kernel_reserve_vars(a, 3);
-  const Lit conflict[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(a, conflict, 3, false, 0);
+  add_external_clause(a, {1, 2, 3});
   assert(decide_apply(a, internalize(-1), true) == ApplyResult::Ok);
   assert(decide_apply(a, internalize(-2), true) == ApplyResult::Ok);
   assert(decide_apply(a, internalize(-3), true) == ApplyResult::Ok);
@@ -2307,10 +2289,8 @@ TEST(orbitopal_reuses_only_equivalent_failed_matrices) {
   Kernel cycle;
   kernel_reserve_vars(cycle, 9);
   for (int column = 0; column < 3; ++column) {
-    const Lit clause[] = {internalize(1 + 3 * column),
-                          internalize(2 + 3 * column),
-                          internalize(3 + 3 * column)};
-    kernel_add_large_clause(cycle, clause, 3, false, 0, ++cycle.next_clause_id);
+    add_large_clause(
+        cycle, {internalize(1 + 3 * column), internalize(2 + 3 * column), internalize(3 + 3 * column)}, false, 0, ++cycle.next_clause_id);
   }
   for (int row = 0; row < 3; ++row) {
     for (const auto &pair : {std::pair{1 + row, 4 + row},
@@ -2345,8 +2325,8 @@ TEST(orbitopal_column_transport_requires_a_bijection) {
                                  ++k.next_clause_id);
       };
       for (int first : {1, 4}) {
-        const Lit clause[] = {literal(first), literal(first + 1), literal(first + 2)};
-        kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+        add_large_clause(
+            k, {literal(first), literal(first + 1), literal(first + 2)}, false, 0, ++k.next_clause_id);
       }
       for (int variable = 1; variable <= 6; ++variable)
         binary(variable, 7); // Exclude negative binary ULC anchors uniformly.
@@ -2987,8 +2967,7 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
 static Kernel sst_clause_fixture(bool amo) {
   Kernel k;
   kernel_reserve_vars(k, 6);
-  const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
   // Symmetric private consequences keep each representative unit from being
   // an SR step on its own; the complete SST prefix is load-bearing.
   kernel_add_binary_clause(k, internalize(-1), internalize(4),

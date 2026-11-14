@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -36,10 +37,8 @@ static void add_equation(Kernel &k, std::array<unsigned, 3> coefficients,
           continue;
         if (ordinal++ == omit)
           continue;
-        const Lit clause[3] = {make_lit(indicator(0, a), true),
-                               make_lit(indicator(1, b), true),
-                               make_lit(indicator(2, c), true)};
-        kernel_add_large_clause(k, clause, 3, false, 0);
+        add_large_clause(
+            k, {make_lit(indicator(0, a), true), make_lit(indicator(1, b), true), make_lit(indicator(2, c), true)});
       }
 }
 

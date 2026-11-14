@@ -2,6 +2,7 @@
 // to UNIT_REASON, and keeps binary_ids naming checker-held clauses
 // (implementation notes 14).
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "test_io.hpp"
 #include "temporary_file.hpp"
@@ -281,8 +282,7 @@ TEST(test_dsr_materializes_root_reason_before_large_delete) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit a = internalize(1), b = internalize(2), c = internalize(3);
-  const Lit clause[3] = {a, b, c};
-  const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0, 9);
+  const Ref ref = add_large_clause(k, {a, b, c}, false, 0, 9);
   kernel_assign_unit(k, negate(a));
   kernel_assign_unit(k, negate(b));
   kernel_assign_ref(k, c, ref);
@@ -309,8 +309,7 @@ TEST(test_large_rewrite_preserves_nonroot_reason) {
   kernel_reserve_vars(k, 4);
   const Lit a = internalize(1), b = internalize(2);
   const Lit c = internalize(3), d = internalize(4);
-  const Lit original[4] = {a, b, c, d};
-  const Ref ref = kernel_add_large_clause(k, original, 4, false, 0, 9);
+  const Ref ref = add_large_clause(k, {a, b, c, d}, false, 0, 9);
   kernel_assign_decision(k, negate(a));
   kernel_assign_decision(k, negate(b));
   kernel_assign_decision(k, negate(d));

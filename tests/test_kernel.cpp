@@ -974,8 +974,7 @@ TEST(test_root_sparse_collection_rewrites_nonroot_reason) {
 TEST(test_sparse_collection_flushes_fixed_prefix_watch) {
   Kernel k;
   kernel_reserve_vars(k, 6);
-  const Lit prefix[3] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 104);
+  add_external_clause(k, {-1, 2, 3}, false, 0, 104);
   const Ref start = static_cast<Ref>(k.arena.size());
   const Ref victim =
       add_external_clause(k, {4, 5, 6}, true, 7, 105);
@@ -1991,9 +1990,7 @@ TEST(test_watch_repair_primitive) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   // -1's list has neighbours on both sides and a binary: the walk is entry-wise.
-  const Lit c1[4] = {internalize(-1), internalize(-2), internalize(-3),
-                     internalize(-4)};
-  const Ref r1 = kernel_add_large_clause(k, c1, 4, false, 0);
+  const Ref r1 = add_external_clause(k, {-1, -2, -3, -4});
   const Ref r2 = add_external_clause(k, {-1, 5, 6});
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   const Ref r3 = add_external_clause(k, {-1, -5, -6});
@@ -2045,8 +2042,7 @@ TEST(test_canonical_binary_watch_rebuild) {
   const Lit root_satisfied = internalize(6);
   kernel_add_binary_clause(k, root_satisfied, higher);
   kernel_assign_unit(k, root_satisfied);
-  const Lit large[3] = {pivot, internalize(4), internalize(6)};
-  kernel_add_large_clause(k, large, 3, false, 0);
+  add_large_clause(k, {pivot, internalize(4), internalize(6)});
 
   OccIndex dense;
   kernel_dense_connect(k, dense, true);

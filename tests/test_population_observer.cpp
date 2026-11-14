@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "population/population_observer.hpp"
@@ -729,8 +730,7 @@ TEST(test_kernel_mutation_endpoints_and_representation_silence) {
     kernel_add_binary_clause(kernel, lit(7), lit(8), 16);
     assert(kernel_delete_binary_all_copies(kernel, lit(7), lit(8)));
 
-    const Lit first[4] = {lit(1), lit(3), lit(4), lit(5)};
-    Ref first_ref = kernel_add_large_clause(kernel, first, 4, false, 0, 20);
+    Ref first_ref = add_large_clause(kernel, {lit(1), lit(3), lit(4), lit(5)}, false, 0, 20);
     const size_t semantic_events = recorder.solver_size;
     kernel_promote_watched_lit(kernel, first_ref, 0, 2);
     kernel_collect_garbage(kernel);
@@ -750,9 +750,7 @@ TEST(test_kernel_mutation_endpoints_and_representation_silence) {
     assert(kernel_replace_clause(kernel, collected, 21, binary, 2, false, 0,
                                  nullptr) == ReplaceOutcome::Binary);
 
-    const Lit second[4] = {lit(2), lit(5), lit(6), lit(7)};
-    const Ref second_ref =
-        kernel_add_large_clause(kernel, second, 4, false, 0, 30);
+    const Ref second_ref = add_large_clause(kernel, {lit(2), lit(5), lit(6), lit(7)}, false, 0, 30);
     const Lit shortened[3] = {lit(2), lit(5), lit(6)};
     kernel.next_clause_id = 31;
     kernel_replace_large_clause_in_place(kernel, second_ref, 31, shortened, 3,
