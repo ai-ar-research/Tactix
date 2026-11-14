@@ -1101,13 +1101,11 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       !event_in(event, {"trace_begin", "factor_update", "factor_fresh"}) &&
       !exit_after_match)
     return;
-  const bool selected_sweep_commit =
-      std::getenv("SAT_EVENT_TRACE_SWEEP_COMMIT") != nullptr;
   if (factor_literal_only_ &&
       !event_in(event, {"trace_begin", "factor_literal_state",
                         "factor_literal_entry", "factor_mark_transition",
                         "binary_add", "factor_fresh"}) &&
-      (!selected_sweep_commit ||
+      (!std::getenv("SAT_EVENT_TRACE_SWEEP_COMMIT") ||
        !event_in(event, {"sweep_equivalence", "sweep_commit"})))
     return;
   if (factor_seed_only_ &&
@@ -1730,10 +1728,12 @@ void EventTrace::randec_state(const Kernel &k, const char *stage,
 }
 
 void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
+  // Trajectory-only emit rejects watch rows before writing anything.
+  // Skip their per-entry sorting and formatting as well.
   // A selected ordinary-search cost trace needs only the O(1) aggregate row
   // emitted after each scan.  Do not construct per-entry watch payloads, and
   // do not admit startup or inprocessing scans that share this hook.
-  if (search_watch_cost_only_ ||
+  if (trajectory_only_ || search_watch_cost_only_ ||
       (watch_within_vivify_ && !vivify_watch_active_) || !want_detail(k) ||
       emitted_ >= limit_)
     return;

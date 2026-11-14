@@ -395,6 +395,20 @@ int main() {
   assert(!has(factor_literal_only, "\tfactor_seed\t"));
   assert(!has(factor_literal_only, "\trestart_begin\t"));
 
+  const std::string sweep_selection = traced(
+      k, "event-dynamic-sweep-selection",
+      {{"SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY", "1"},
+       {"SAT_EVENT_TRACE_SWEEP_COMMIT", "1"}}, [&](EventTrace &trace) {
+        trace.macro(k, "sweep_commit", "sweep-present");
+        unsetenv("SAT_EVENT_TRACE_SWEEP_COMMIT");
+        trace.macro(k, "sweep_commit", "sweep-absent");
+        setenv("SAT_EVENT_TRACE_SWEEP_COMMIT", "", 1);
+        trace.macro(k, "sweep_commit", "sweep-empty");
+      });
+  assert(has(sweep_selection, "sweep-present"));
+  assert(!has(sweep_selection, "sweep-absent"));
+  assert(has(sweep_selection, "sweep-empty"));
+
   const std::string clause_lifecycle = traced(
       k, "event-clause-lifecycle-only",
       {{"SAT_EVENT_TRACE_CLAUSE_LIFECYCLE_ONLY", "1"},
@@ -1034,22 +1048,30 @@ int main() {
     assert(has(compact_bumps, needle));
   assert(!has(compact_bumps, "\tdiagnostic_noise\t"));
 
-  const std::string trajectory = traced(
-      k, "event-trajectory-only", {{"TACTIX_EVENT_TRACE_TRAJECTORY_ONLY", "1"}},
+  const auto trajectory_events = [&](EventTrace &trace) {
+    trace.detail(k, "decision", 3);
+    trace.detail(k, "analysis_begin", 2);
+    trace.learned_stage(k, "learned_shrunk",
+                        {internalize(3), internalize(-1), internalize(2)});
+    trace.detail(k, "analysis_tail_probe", 7);
+    trace.detail(k, "analysis_end", 1);
+    k.h->stable = true;
+    trace.heap_scores(k);
+    k.h->stable = false;
+    trace.detail(k, "score_bump", 2);
+    trace.detail(k, "analysis_mark", 1);
+    trace.macro(k, "restart_begin");
+  };
+  const Environment trajectory_mode{{"TACTIX_EVENT_TRACE_TRAJECTORY_ONLY", "1"}};
+  k.h->stable = false;
+  const std::string trajectory =
+      traced(k, "event-trajectory-only", trajectory_mode, trajectory_events);
+  assert(k.watches.size(negate(internalize(3))) > 0);
+  assert(trajectory == traced(k, "event-trajectory-with-watch", trajectory_mode,
       [&](EventTrace &trace) {
-        trace.detail(k, "decision", 3);
-        trace.detail(k, "analysis_begin", 2);
-        trace.learned_stage(k, "learned_shrunk",
-                            {internalize(3), internalize(-1), internalize(2)});
-        trace.detail(k, "analysis_tail_probe", 7);
-        trace.detail(k, "analysis_end", 1);
-        k.h->stable = true;
-        trace.heap_scores(k);
-        k.h->stable = false;
-        trace.detail(k, "score_bump", 2);
-        trace.detail(k, "analysis_mark", 1);
-        trace.macro(k, "restart_begin");
-      });
+        trace.watch_scan(k, internalize(3));
+        trajectory_events(trace);
+      }));
   for (const char *needle :
        {"\tdecision\t", "\tanalysis_begin\t", "\tlearned_shrunk\t",
         "size=3|order_hash=", "|set_hash=", "\tanalysis_end\t",
