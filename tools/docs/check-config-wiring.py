@@ -1,27 +1,11 @@
 #!/usr/bin/env python3
-"""Every Kernel scheduling-config field must have its intended writer.
+"""Require an intended writer and classification for every Kernel config field.
 
-The commonest high-severity shape the N4 scheduling-parity audit found is not a
-missing mechanism but an unwired one: the field exists, it is named after the
-reference's mechanism, and nothing ever writes it — worse than a gap, because
-`grep` then finds the mechanism and reports parity. `Kernel::factor_bound` is
-the canonical case: it is kissat's `reduction > bound` acceptance test,
-documented as such, and it sat at a static 0 because the ramp that should drive
-it (`bve_level_`) lives four lines away in the policy, unconnected.
-
-A reader cannot see that. A test can:
-
-    POLICY   the scheduler selects it; direct or named typed wiring is required.
-    RULE     a rule computes it; the policy may read it.
-    ENV      A/B or diagnostic knob, main.cpp only. The shipped default is the
-             value in kernel.hpp, so "nothing writes it" is correct here.
-    API      public setter for an external policy (N1), no internal writer.
-
-The second half matters as much as the first: a new config field missing from
-the table fails too, so classification happens when the field is added.
-
-    tools/docs/check-config-wiring.py          report; exit 1 on any failure
-"""
+POLICY: direct or named typed scheduler wiring; RULE: computed by a rule;
+ENV: diagnostic knob in main.cpp, with its shipped default in kernel.hpp;
+API: public external-policy setter (N1), with no internal writer required.
+A declaration alone does not prove wiring. Missing classifications also fail.
+Report violations and exit 1; run tools/docs/check-config-wiring.py."""
 import os
 import re
 import subprocess

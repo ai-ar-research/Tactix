@@ -1,24 +1,10 @@
 #!/usr/bin/env python3
-"""Re-score an existing Tier C run over a subset list — no solver runs.
+"""Re-score a full Tier C/D run over a subset; never rerun solvers for a view.
 
-T3's parity half (plan §8.3) is judged on the *rule-neutral subset*: the
-instances where the still-missing phase-4 rules do not materially help the
-baselines. That subset is a scoring view over Tier C, not a separate tier —
-running it separately would produce numbers not comparable to the full-tier
-window they came from. So: run Tier C once with every arm, then score it twice.
-
-    tools/bench/subset_score.py benchmarks/runs/<stamp>-C-<name> [--subset C-ruleneutral]
-
-Gate T4's SC 2025 set is the same kind of view over a full Tier D window:
-`--subset D-sc25` keeps D.list's `shared` and `main_2025 only` blocks.
-
-Prints PAR-2 + #solved per arm over the subset and over the full tier, plus the
-ratio to each baseline arm, so both halves of T3 are readable from one window.
-
-PAR-2 and the solved/unsolved rule are taken verbatim from run.py's convention:
-an instance counts solved only when the runner scored it solved, which for a
-scored arm includes the proof check (plan §8.1).
-"""
+Usage: subset_score.py RUN_DIRECTORY [--subset C-ruleneutral].
+T3 uses the rule-neutral C subset; D-sc25 keeps D.list's `shared` and
+`main_2025 only` blocks. Report PAR-2, solved counts and baseline ratios for
+both views. Use run.py's solved flags, including proof checks for scored arms."""
 import argparse
 import json
 import os
@@ -37,17 +23,10 @@ BASELINE_ARMS = ("kissat", "cadical", "minisat", "glucose")
 
 
 def split_arms(rundir, run, arms):
-    """Split arms into (baselines, candidates): a candidate is an arm run.py
-    scored.
+    """Return baselines, scored candidates and the discriminator used.
 
-    Two recorded discriminators, either authoritative: manifest.json carries
-    `score_proofs` per solver (true for a candidate, false for `--baseline`,
-    plan §8.1), and results.json["oracle"]["arms"] lists the scored arms
-    (present only when a run had 2+ of them).
-
-    A run predating those fields falls back to the name list, deliberately:
-    every such run named its baselines `kissat`/`cadical` literally, and an
-    archived number must keep reading the way it read when it was banked.
+    Prefer complete manifest score_proofs flags, then oracle.arms. A partial
+    manifest falls through; legacy runs alone use the literal solver-name list.
     """
     manifest = os.path.join(rundir, "manifest.json")
     if os.path.exists(manifest):

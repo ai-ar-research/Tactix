@@ -1,38 +1,17 @@
 #!/usr/bin/env python3
-"""Every scheduled inprocessing rule must have a governor.
+"""Require a governor for every default-scheduled inprocessing rule.
 
-In the S4 arrangement, `DefaultPolicy` builds the inprocessing slot by walking
-the `RuleTier::Inprocess` registry. A rule with no canonical producer may be
-explicit-only and omitted from the default append path, but that exception
-must prove both the omission and its public API reachability. The effort ledger
-is a separate table, `EFFORT_SPECS`, keyed by rule name, and a slot entry absent from
-it gets `meter = nullptr, permille = 0` — one full canonical round on every
-inprocessing phase, with no meter and no budget.
-
-The gap is structural (two tables, one registry line, no link between them) and
-no other check covers it: `check-config-wiring.py` catches the mirror image (an
-owned config field nothing writes), the unit tests call a rule's `apply`
-directly and never traverse the slot, and fuzz stays green because an unmetered
-rule is a performance regression, not a soundness one.
-
-    METERED             has an `EFFORT_SPECS` row. The default expectation, and
-                        what a new inprocessing rule should almost always be.
-    ALTERNATE-GOVERNOR  deliberately unmetered; a reference-authored mechanism
-                        bounds its call frequency, named here, and that mechanism
-                        must still be present in the source (`evidence`). A single
-                        round remains structurally bounded by the finite formula.
-    EXPLICIT-ONLY       no enabled default slot or CLI producer; a typed public
-                        action owns the tuple. An authored disabled row may pin
-                        ordering before admission. The canonical registry apply
-                        is NoOp, and dedicated API tests replace an impossible
-                        CLI REACH_SPECS entry. This does not accept N4 scheduling.
-
-As in check-config-wiring.py, the second half matters as much as the first: a
-scheduled rule missing from the table fails, so classification happens when the
-rule is registered rather than after a tier run notices the damage.
-
-    tools/docs/check-effort-specs.py           report; exit 1 on any failure
-"""
+The registry supplies slots; EFFORT_SPECS supplies meters/budgets. A missing
+row otherwise permits an unmetered canonical round on every phase. Classify
+new rules immediately; missing classifications fail:
+  METERED: an EFFORT_SPECS row (the default expectation).
+  ALTERNATE-GOVERNOR: a reference-authored frequency bound, verified in source;
+    each admitted round is bounded by the finite formula.
+  EXPLICIT-ONLY: no enabled default slot/CLI producer; a typed public action
+    owns the tuple. A disabled row may preserve order; canonical apply is NoOp.
+    Dedicated API tests replace CLI REACH_SPECS, without accepting N4 scheduling.
+This complements check-config-wiring.py's field-writer check. Report violations
+and exit 1; run tools/docs/check-effort-specs.py."""
 import os
 import re
 import subprocess
