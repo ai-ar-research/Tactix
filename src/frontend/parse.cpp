@@ -346,17 +346,8 @@ ingest_input_binary(Kernel &k, uint64_t id, Lit a, Lit b,
   } else if (scratch.size() == 1) {
     observation.note(RawUnit);
     const Lit u = scratch[0];
-    if (k.values[u] > 0) {
-      observation.note(RawDropped | RawDuplicate);
-      retire_unstored();
-      return; // duplicate unit (its id is consumed, never referenced)
-    }
-    if (k.values[u] < 0) { // contradicting unit: refuted at the root
-      observation.note(RawAdmitted | RawContradiction);
-      k.inconsistent = true;
-      k.input_refuted = true;
-      return;
-    }
+    // Normalization removed every root-assigned literal.
+    assert(k.values[u] == 0);
     k.unit_ids[var_of(u)] = id;
     observation.note(RawAdmitted);
     if (shrunk)

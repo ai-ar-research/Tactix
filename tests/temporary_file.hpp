@@ -13,7 +13,7 @@ public:
   std::string path;
   FILE *stream;
 
-  TemporaryFile() {
+  explicit TemporaryFile(const char *text = nullptr) {
     const char *directory = std::getenv("TMPDIR");
     path = std::string(directory && *directory ? directory : "/tmp") +
            "/tactix-test-XXXXXX";
@@ -21,6 +21,10 @@ public:
     assert(fd >= 0);
     stream = fdopen(fd, "w+b");
     assert(stream);
+    if (text) {
+      assert(std::fputs(text, stream) >= 0);
+      std::rewind(stream);
+    }
   }
   ~TemporaryFile() {
     std::fclose(stream);

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "temporary_file.hpp"
 #include "rule_test_utils.hpp"
 #include "frontend/parse.hpp"
 #include "population/population_observer.hpp"
@@ -201,19 +202,6 @@ public:
   bool check_on_checker_events = true;
 };
 
-FILE *dimacs_file(const char *text) {
-  FILE *file = std::tmpfile();
-  assert(file);
-  assert(std::fputs(text, file) >= 0);
-  std::rewind(file);
-  return file;
-}
-
-std::string proof_path(const char *tag) {
-  return "/tmp/tactix-population-" + std::string(tag) + "-" +
-         std::to_string(static_cast<long>(getpid())) + ".proof";
-}
-
 Lit lit(int dimacs) {
   assert(dimacs);
   return internalize(dimacs);
@@ -224,7 +212,7 @@ TEST(test_no_proof_raw_and_solver_population) {
   Recorder recorder;
   {
     ScopedPopulationObserverBinding binding(kernel, recorder);
-    FILE *file = dimacs_file(
+    TemporaryFile file(
         "p cnf 14 9\n"
         "1 2 3 0\n"       // unchanged large
         "4 4 5 0\n"       // repeated literal -> binary
@@ -235,8 +223,7 @@ TEST(test_no_proof_raw_and_solver_population) {
         "11 12 0\n"       // binary
         "12 11 0\n"       // duplicate binary
         "13 -7 14 0\n");  // another root-shortened binary
-    assert(parse_dimacs(file, kernel) == nullptr);
-    std::fclose(file);
+    assert(parse_dimacs(file.stream, kernel) == nullptr);
   }
 
   assert(recorder.checker_size == 0); // no Proof: never fabricate checker state
@@ -297,9 +284,8 @@ TEST(test_raw_empty_and_long_tautology_classification) {
     Kernel kernel;
     Recorder recorder;
     ScopedPopulationObserverBinding binding(kernel, recorder);
-    FILE *file = dimacs_file("p cnf 0 1\n0\n");
-    assert(parse_dimacs(file, kernel) == nullptr);
-    std::fclose(file);
+    TemporaryFile file("p cnf 0 1\n0\n");
+    assert(parse_dimacs(file.stream, kernel) == nullptr);
     const RawRecord &outcome =
         recorder.raw_event(RawInputEventKind::Outcome, 1);
     assert(outcome.normalized_available && outcome.normalized.size == 0);
@@ -312,10 +298,9 @@ TEST(test_raw_empty_and_long_tautology_classification) {
     Kernel kernel;
     Recorder recorder;
     ScopedPopulationObserverBinding binding(kernel, recorder);
-    FILE *file = dimacs_file(
+    TemporaryFile file(
         "p cnf 11 1\n1 2 3 4 5 6 7 8 9 10 11 -1 0\n");
-    assert(parse_dimacs(file, kernel) == nullptr);
-    std::fclose(file);
+    assert(parse_dimacs(file.stream, kernel) == nullptr);
     const RawRecord &raw = recorder.raw_event(RawInputEventKind::Clause, 1);
     assert(raw.raw.equals({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1}));
     const RawRecord &outcome =
@@ -333,14 +318,13 @@ TEST(test_duplicate_unit_and_large_input_classification) {
   Recorder recorder;
   {
     ScopedPopulationObserverBinding binding(kernel, recorder);
-    FILE *file = dimacs_file(
+    TemporaryFile file(
         "p cnf 4 4\n"
         "1 0\n"
         "1 0\n"
         "2 3 4 0\n"
         "2 3 4 0\n");
-    assert(parse_dimacs(file, kernel) == nullptr);
-    std::fclose(file);
+    assert(parse_dimacs(file.stream, kernel) == nullptr);
   }
   const RawRecord &duplicate_unit =
       recorder.raw_event(RawInputEventKind::Outcome, 2);
@@ -391,41 +375,39 @@ TEST(test_proof_route_lifecycle_and_streaming_pbp_unbind) {
 
   for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DsrBinary}) {
     Recorder recorder;
-    const std::string path = proof_path("route");
+    TemporaryFile artifact;
     {
       Proof proof;
       proof.bind_population_observer(&recorder);
-      assert(proof.open_dsr_writer(path.c_str(), format));
+      assert(proof.open_dsr_writer(artifact.path.c_str(), format));
       assert(recorder.checker_count(CheckerPopulationEventKind::RouteOpened) ==
              1);
       const CheckerRecord &opened = recorder.checker[1];
       assert(opened.kind == CheckerPopulationEventKind::RouteOpened);
       assert(opened.route == CheckerRoute::Dsr);
     }
-    assert(std::remove(path.c_str()) == 0);
   }
 
   {
     Recorder recorder;
-    const std::string path = proof_path("bind-after-open");
+    TemporaryFile artifact;
     {
       Proof proof;
-      assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
+      assert(proof.open_dsr_writer(artifact.path.c_str(), ProofFormat::DsrAscii));
       proof.bind_population_observer(&recorder);
       assert(recorder.checker[0].kind ==
              CheckerPopulationEventKind::ObserverBound);
       assert(recorder.checker[0].route == CheckerRoute::Dsr);
     }
-    assert(std::remove(path.c_str()) == 0);
   }
 
   {
     Recorder recorder;
-    const std::string path = proof_path("startup-pbp");
+    TemporaryFile artifact;
     {
       Proof proof;
       proof.bind_population_observer(&recorder);
-      assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+      assert(proof.open(artifact.path.c_str(), ProofFormat::PbpStreaming));
       proof.finish_input_transaction();
       assert(proof.begin_pb());
       assert(recorder.checker_count(
@@ -438,17 +420,16 @@ TEST(test_proof_route_lifecycle_and_streaming_pbp_unbind) {
             recorder.checker[i].route == CheckerRoute::Pbp;
       assert(committed_pbp);
     }
-    assert(std::remove(path.c_str()) == 0);
   }
 }
 
 TEST(test_explicit_route_rebind_settles_the_original_observer) {
   Kernel kernel;
   Recorder first, second;
-  const std::string path = proof_path("explicit-rebind");
+  TemporaryFile artifact;
   {
     Proof proof;
-    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(artifact.path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     kernel_bind_population_observer(kernel, &first);
     const Lit one = lit(1);
@@ -482,16 +463,15 @@ TEST(test_explicit_route_rebind_settles_the_original_observer) {
            1);
     kernel.proof = nullptr;
   }
-  assert(std::remove(path.c_str()) == 0);
 }
 
 TEST(test_nested_scoped_rebind_settles_each_observer) {
   Kernel kernel;
   Recorder outer, inner;
-  const std::string path = proof_path("nested-rebind");
+  TemporaryFile artifact;
   {
     Proof proof;
-    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(artifact.path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding outer_binding(kernel, outer);
@@ -511,7 +491,6 @@ TEST(test_nested_scoped_rebind_settles_each_observer) {
     }
     kernel.proof = nullptr;
   }
-  assert(std::remove(path.c_str()) == 0);
 
   assert(outer.checker_count(CheckerPopulationEventKind::StageAdd) == 2);
   assert(outer.checker_count(
@@ -532,10 +511,10 @@ TEST(test_nested_scoped_rebind_settles_each_observer) {
 TEST(test_dsr_checker_transactions_and_exact_clauses) {
   Kernel kernel = kernel_with_vars(6);
   Recorder recorder;
-  const std::string path = proof_path("dsr");
+  TemporaryFile artifact;
   {
     Proof proof;
-    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(artifact.path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);
@@ -579,7 +558,6 @@ TEST(test_dsr_checker_transactions_and_exact_clauses) {
     }
     kernel.proof = nullptr;
   }
-  assert(std::remove(path.c_str()) == 0);
 
   size_t stage_add = MAX_EVENTS, stage_delete = MAX_EVENTS;
   size_t begin = MAX_EVENTS, deletes_commit = MAX_EVENTS, end = MAX_EVENTS;
@@ -680,10 +658,10 @@ TEST(test_dsr_checker_transactions_and_exact_clauses) {
 TEST(test_external_clauses) {
   Kernel kernel;
   Recorder recorder;
-  const std::string path = proof_path("external");
+  TemporaryFile artifact;
   {
     Proof proof;
-    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(artifact.path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);
@@ -694,7 +672,6 @@ TEST(test_external_clauses) {
     }
     kernel.proof = nullptr;
   }
-  assert(std::remove(path.c_str()) == 0);
 
   bool external_add = false, external_delete = false;
   for (size_t i = 0; i < recorder.checker_size; ++i) {
@@ -988,10 +965,10 @@ TEST(test_substitute_proof_transaction) {
   // The in-place binary pass writes its proof lines while a pair's two mirrored
   // watches are mid-rewrite; solver-population events stay deferred past it.
   recorder.check_on_checker_events = false;
-  const std::string path = proof_path("substitute-proof");
+  TemporaryFile artifact;
   {
     Proof proof;
-    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(artifact.path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
     kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
@@ -1002,7 +979,6 @@ TEST(test_substitute_proof_transaction) {
     }
     kernel.proof = nullptr;
   }
-  assert(std::remove(path.c_str()) == 0);
   assert_one_committed_binary_transaction(recorder);
 }
 
@@ -1082,10 +1058,10 @@ TEST(test_substitute_sweep_session_callbacks_see_mirrored_watches) {
 TEST(test_scope_flushes_before_unbinding) {
   Kernel kernel;
   Recorder recorder;
-  const std::string path = proof_path("scope");
+  TemporaryFile artifact;
   {
     Proof proof;
-    assert(proof.open_dsr_writer(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open_dsr_writer(artifact.path.c_str(), ProofFormat::DsrAscii));
     kernel.proof = &proof;
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);
@@ -1095,7 +1071,6 @@ TEST(test_scope_flushes_before_unbinding) {
     assert(proof.population_observer() == nullptr);
     kernel.proof = nullptr;
   }
-  assert(std::remove(path.c_str()) == 0);
   assert(recorder.checker_count(CheckerPopulationEventKind::StageAdd) == 1);
   assert(recorder.checker_count(CheckerPopulationEventKind::PendingCommitBegin) ==
          1);
