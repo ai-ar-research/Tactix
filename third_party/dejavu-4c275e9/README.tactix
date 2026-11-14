@@ -25,3 +25,6 @@ not included in this vendor patch.
 
 Commented-out implementation drafts are omitted. This cleanup preserves all
 active code tokens, API documentation and license text.
+
+Three unused internal refinement/selector helpers and their abandoned call
+comments are omitted. Tactix interfaces and active algorithms are unchanged.
