@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "affine_profile_fixture.hpp"
 
 namespace capi {
 extern "C" {
@@ -111,39 +112,11 @@ OnlineInvocation direct_step() {
   return step;
 }
 
-AffineConsequenceParameters reference_affine_parameters() {
-  AffineConsequenceParameters result;
-  result.maximum_clauses = 10000;
-  result.maximum_snapshot_literals = 100000;
-  result.maximum_snapshot_work = 1000000;
-  result.maximum_groups = 1000;
-  result.maximum_patterns = 10000;
-  result.maximum_elimination_work = 10000000;
-  result.maximum_arity = 8;
-  result.maximum_intermediate_width = 32;
-  result.maximum_sources = 32;
-  result.maximum_output_width = 4;
-  result.maximum_proof_additions = 1000000;
-  result.maximum_proof_deletions = 1000000;
-  result.maximum_journal_bytes = 10000000;
-  result.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
-  result.basis_maximum_work = 10000000;
-  result.basis_maximum_intermediate_width = 32;
-  result.basis_maximum_sources = 32;
-  result.basis_maximum_premises = 10000;
-  result.basis_maximum_nodes = 10000;
-  result.basis_maximum_direct_width = 3;
-  result.maximum_external_extent = 100000;
-  result.maximum_session_keys = 10000;
-  result.maximum_session_work = 1000000;
-  return result;
-}
-
 OnlineInvocation affine_step() {
   OnlineInvocation step;
   step.id = 3;
   step.rule = "AffineConsequence";
-  step.parameters = reference_affine_parameters();
+  step.parameters = matrix_affine_parameters();
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.repeat = {RepeatMode::Once, 1};
   step.post_application = PostApplication::Propagate;

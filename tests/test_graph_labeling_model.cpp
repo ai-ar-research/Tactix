@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "graph_labeling_fixture.hpp"
 #include "tactix_c_api.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/graph_labeling_window_cursor.hpp"
@@ -11,35 +12,6 @@
 #include "strategy/work_execution.hpp"
 
 using namespace tactix::strategy;
-
-// Column covers and row at-most-one over 16 variables, plus redundant
-// same-column exclusions; `difficult` makes the projected objective too strong.
-static void permutation(Kernel &k, bool difficult) {
-  constexpr uint32_t n = 4;
-  kernel_reserve_vars(k, n * n);
-  for (uint32_t column = 0; column < n; ++column) {
-    std::vector<Lit> cover;
-    for (uint32_t row = 0; row < n; ++row)
-      cover.push_back(make_lit(row * n + column, false));
-    kernel_add_large_clause(k, cover.data(), cover.size(), false, 0);
-  }
-  for (uint32_t row = 0; row < n; ++row)
-    for (uint32_t a = 0; a < n; ++a)
-      for (uint32_t b = a + 1; b < n; ++b)
-        kernel_add_binary_clause(k, make_lit(row * n + a, true),
-                                 make_lit(row * n + b, true));
-  // Redundant same-column exclusions; the difficult objective must remain
-  // guidance rather than UNSAT.
-  for (uint32_t a = 0; a < n; ++a)
-    for (uint32_t b = a + 1; b < n; ++b)
-      kernel_add_binary_clause(k, make_lit(a * n + (difficult ? 2 : 0), true),
-                               make_lit(b * n + (difficult ? 2 : 0), true));
-  k.graph_labeling_parameters.work.fill(100000);
-  k.graph_labeling_parameters.workspace_bytes = 1 << 20;
-  k.graph_labeling_parameters.repair_rounds = 3;
-  k.graph_labeling_parameters.anneal_iterations = 20;
-  k.graph_labeling_parameters.stall_anneal_iterations = 3;
-}
 
 namespace tactix {
 struct DefaultGraphLabelingTestAccess {
@@ -100,7 +72,7 @@ struct StopAfterGraphRoot final : controller::FeedbackReceiver {
 TEST(default_policy_runs_the_graph_root_before_search) {
   Kernel kernel;
   ScopedHeuristics heuristics(kernel);
-  permutation(kernel, true);
+  graph_labeling_fixture(kernel, true);
   DefaultStrategyConfig config;
   for (bool *enabled : {&config.affine_root_closure.enabled,
            &config.affine_model.enabled, &config.parity_model.enabled,
@@ -132,7 +104,7 @@ TEST(default_policy_runs_the_graph_root_before_search) {
 TEST(authentication_is_bounded) {
   Kernel measured;
   ScopedHeuristics measured_h(measured);
-  permutation(measured, false);
+  graph_labeling_fixture(measured, false);
   GraphLabelingModelSession measured_session;
   const auto successful =
       graph_labeling_model_authenticate(measured, measured_session);
@@ -141,7 +113,7 @@ TEST(authentication_is_bounded) {
 
   Kernel bounded;
   ScopedHeuristics bounded_h(bounded);
-  permutation(bounded, false);
+  graph_labeling_fixture(bounded, false);
   bounded.work_budget_bounded = true;
   bounded.work_budget = successful.work - 1;
   GraphLabelingModelSession bounded_session;
@@ -159,7 +131,7 @@ TEST(authentication_is_bounded) {
 TEST(window_cursor_survives_bounded_slices) {
   Kernel boundary;
   ScopedHeuristics boundary_h(boundary);
-  permutation(boundary, true);
+  graph_labeling_fixture(boundary, true);
   boundary.graph_labeling_parameters.work[size_t(
       GraphLabelingStage::Construction)] = 64;
   graph_labeling::Shape footprint;
@@ -172,7 +144,7 @@ TEST(window_cursor_survives_bounded_slices) {
       graph_bytes + std::max<uint64_t>(16 * 4 * 4 + 256 * 4, cursor_bytes);
   Kernel boundary_small;
   ScopedHeuristics boundary_small_h(boundary_small);
-  permutation(boundary_small, true);
+  graph_labeling_fixture(boundary_small, true);
   boundary_small.graph_labeling_parameters = boundary.graph_labeling_parameters;
   --boundary_small.graph_labeling_parameters.workspace_bytes;
   GraphLabelingModelSession boundary_small_session;
@@ -202,7 +174,7 @@ TEST(window_cursor_survives_bounded_slices) {
   GraphLabelingModelSession whole_session, split_session;
   for (auto [kernel, session] : {std::pair{&whole, &whole_session},
                                  std::pair{&split, &split_session}}) {
-    permutation(*kernel, true);
+    graph_labeling_fixture(*kernel, true);
     kernel->graph_labeling_parameters.work[size_t(
         GraphLabelingStage::Construction)] = 64;
     assert(graph_labeling_model_authenticate(*kernel, *session).status ==
@@ -231,7 +203,7 @@ TEST(window_cursor_survives_bounded_slices) {
   // Window invocation ceiling.
   Kernel policy_kernel;
   ScopedHeuristics policy_h(policy_kernel);
-  permutation(policy_kernel, true);
+  graph_labeling_fixture(policy_kernel, true);
   policy_kernel.graph_labeling_parameters = split.graph_labeling_parameters;
   GraphLabelingModelSession &policy_session = policy_kernel.graph_labeling_session;
   assert(graph_labeling_model_authenticate(policy_kernel, policy_session).status ==
@@ -253,7 +225,7 @@ TEST(window_cursor_survives_bounded_slices) {
 TEST(public_whole_run_finds_a_model) {
   Kernel k;
   ScopedHeuristics h(k);
-  permutation(k, false);
+  graph_labeling_fixture(k, false);
   const auto original = k.graph_labeling_parameters;
   OnlineStrategyProgram program;
   OnlineInvocation step;
@@ -277,7 +249,7 @@ TEST(bounded_apply_publishes_guidance_only) {
   {
     Kernel k;
     ScopedHeuristics h(k);
-    permutation(k, true);
+    graph_labeling_fixture(k, true);
     kernel_reserve_vars(k, 17);
     const auto saved = k.h->saved, target = k.h->target, best = k.h->best;
     assert(graph_labeling_model_apply(k) == ApplyResult::Ok);
@@ -296,7 +268,7 @@ TEST(bounded_apply_publishes_guidance_only) {
   {
     Kernel k;
     ScopedHeuristics h(k);
-    permutation(k, false);
+    graph_labeling_fixture(k, false);
     k.graph_labeling_parameters.work.fill(0);
     assert(graph_labeling_model_apply(k) == ApplyResult::NoOp);
     assert(!k.stats.graph_labeling_work && k.stats.graph_labeling_budget == 1);
@@ -311,7 +283,7 @@ TEST(bounded_apply_publishes_guidance_only) {
     // An inherited whole-action ceiling bounds the sum of all stages.
     Kernel k;
     ScopedHeuristics h(k);
-    permutation(k, false);
+    graph_labeling_fixture(k, false);
     k.work_budget = 1;
     k.work_budget_bounded = true;
     assert(graph_labeling_model_apply(k) == ApplyResult::NoOp);
@@ -322,7 +294,7 @@ TEST(bounded_apply_publishes_guidance_only) {
 TEST(authenticate_and_continue_actions) {
   Kernel k;
   ScopedHeuristics h(k);
-  permutation(k, false);
+  graph_labeling_fixture(k, false);
   assert(act(k, false).slice.status == GraphLabelingSliceStatus::NoStructure);
   auto auth = act(k, true);
   assert(auth.authentication.status == GraphLabelingAuthenticationStatus::Authenticated);

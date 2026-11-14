@@ -1,4 +1,6 @@
 #include "unit_test.hpp"
+#include "temporary_file.hpp"
+#include "graph_labeling_fixture.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/feedback_trace.hpp"
@@ -175,31 +177,7 @@ TEST(test_completion_accounting) {
 TEST(test_graph_labeling_constructor_feedback) {
   Kernel k;
   ScopedHeuristics h(k);
-  constexpr uint32_t n = 4;
-  kernel_reserve_vars(k, n * n);
-  for (uint32_t column = 0; column < n; ++column) {
-    std::vector<Lit> cover;
-    for (uint32_t row = 0; row < n; ++row)
-      cover.push_back(make_lit(row * n + column, false));
-    kernel_add_large_clause(k, cover.data(), cover.size(), false, 0);
-  }
-  for (uint32_t row = 0; row < n; ++row)
-    for (uint32_t a = 0; a < n; ++a)
-      for (uint32_t b = a + 1; b < n; ++b)
-        kernel_add_binary_clause(k, make_lit(row * n + a, true),
-                                make_lit(row * n + b, true));
-  // Separation two makes this projected objective deliberately too strong,
-  // so the constructor publishes its best partial candidate instead of a
-  // terminal model.
-  for (uint32_t a = 0; a < n; ++a)
-    for (uint32_t b = a + 1; b < n; ++b)
-      kernel_add_binary_clause(k, make_lit(a * n + 2, true),
-                              make_lit(b * n + 2, true));
-  k.graph_labeling_parameters.work.fill(100000);
-  k.graph_labeling_parameters.workspace_bytes = 1 << 20;
-  k.graph_labeling_parameters.repair_rounds = 3;
-  k.graph_labeling_parameters.anneal_iterations = 20;
-  k.graph_labeling_parameters.stall_anneal_iterations = 3;
+  graph_labeling_fixture(k, true);
   const auto configured = k.graph_labeling_parameters;
 
   Capture capture;
@@ -824,13 +802,10 @@ TEST(test_post_structured_bce_feedback) {
 }
 
 int main() {
-  char temporary[] = "/tmp/tactix-native-feedback-XXXXXX";
-  const int fd = mkstemp(temporary);
-  assert(fd >= 0 && close(fd) == 0);
+  TemporaryFile temporary;
   run_tests();
   test_native_batches(true, true);
   test_native_batches(false, true);
   test_native_batches(false, false);
-  test_default_observation_and_replay(temporary);
-  assert(unlink(temporary) == 0);
+  test_default_observation_and_replay(temporary.path.c_str());
 }

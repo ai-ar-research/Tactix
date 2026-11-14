@@ -1,4 +1,6 @@
 #include "unit_test.hpp"
+#include "temporary_file.hpp"
+#include "affine_profile_fixture.hpp"
 #include "affine_formula_support.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
@@ -34,41 +36,12 @@ struct Capture final : FeedbackReceiver {
   void search_interval(const SearchIntervalFeedback &) override {}
 };
 
-AffineConsequenceParameters parameters() {
-  AffineConsequenceParameters result;
-  result.maximum_clauses = 10000;
-  result.maximum_snapshot_literals = 100000;
-  result.maximum_snapshot_work = 1000000;
-  result.maximum_groups = 1000;
-  result.maximum_patterns = 10000;
-  result.maximum_elimination_work = 10000000;
-  result.maximum_arity = 8;
-  result.maximum_intermediate_width = 32;
-  result.maximum_sources = 32;
-  result.maximum_output_width = 4;
-  result.maximum_proof_additions = 1000000;
-  result.maximum_proof_deletions = 1000000;
-  result.maximum_journal_bytes = 10000000;
-  result.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
-  result.basis_maximum_work = 10000000;
-  result.basis_maximum_intermediate_width = 32;
-  result.basis_maximum_sources = 32;
-  result.basis_maximum_premises = 10000;
-  result.basis_maximum_nodes = 10000;
-  result.basis_maximum_direct_width = 3;
-  result.maximum_external_extent = 100000;
-  result.maximum_session_keys = 10000;
-  result.maximum_session_work = 1000000;
-  assert(result.valid());
-  return result;
-}
-
 const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000, 100000};
 
 // The persistent-matrix initialization the scenarios start from.
 void initialize_persistent(Kernel &kernel, AffineMatrixSearchSession &session) {
   assert(affine_matrix_search_initialize(
-             kernel, session, parameters(),
+             kernel, session, matrix_affine_parameters(),
              AffineMatrixAdmission::AuthenticatedSubimage, persistence)
              .status == AffineMatrixInitStatus::Applied);
 }
@@ -77,7 +50,7 @@ void initialize_persistent(Kernel &kernel, AffineMatrixSearchSession &session) {
 AffineMatrixInitializeParameters persistent_profile(
     AffineMatrixInitializeParameters::Operation operation) {
   AffineMatrixInitializeParameters profile;
-  profile.basis = parameters();
+  profile.basis = matrix_affine_parameters();
   profile.admission =
       AffineMatrixInitializeParameters::Admission::AuthenticatedSubimage;
   profile.operation = operation;
@@ -123,13 +96,6 @@ void seed_pbp_population(Proof &proof, Kernel &kernel,
   assert(proof.commit_clause_stream());
 }
 
-// Create the mkstemp file a proof is then opened on.
-void reserve_path(char *path) {
-  const int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
-}
-
 // A kernel with an attached matrix session and journal. open_dsr binds a DSR
 // proof (on a fresh temporary file unless a path is given) over an empty
 // armed population; open_pbp seeds a streaming-PBP proof with original.
@@ -137,8 +103,7 @@ struct SearchFixture {
   Kernel kernel;
   AffineMatrixSearchSession session;
   FILE *journal = temporary_records();
-  char temporary[64] = "/tmp/tactix-affine-search-XXXXXX";
-  bool owns_path = false;
+  TemporaryFile temporary;
   Proof proof;
   SearchFixture() {
     kernel.affine_matrix_search_session = &session;
@@ -146,16 +111,10 @@ struct SearchFixture {
   }
   ~SearchFixture() {
     kernel.proof = nullptr;
-    if (owns_path) unlink(temporary);
     std::fclose(journal);
   }
-  const char *reserve() {
-    reserve_path(temporary);
-    owns_path = true;
-    return temporary;
-  }
   Proof &open_dsr(const char *path = nullptr, bool bind_maps = false) {
-    assert(proof.open(path ? path : reserve(), ProofFormat::DsrAscii));
+    assert(proof.open(path ? path : temporary.path.c_str(), ProofFormat::DsrAscii));
     if (bind_maps) {
       proof.bind_variable_map(&kernel.internal_to_external);
       proof.bind_external_variable_map(&kernel.external_to_internal);
@@ -166,7 +125,7 @@ struct SearchFixture {
     return proof;
   }
   Proof &open_pbp(const AffineCnf &original) {
-    assert(proof.open(reserve(), ProofFormat::PbpStreaming));
+    assert(proof.open(temporary.path.c_str(), ProofFormat::PbpStreaming));
     seed_pbp_population(proof, kernel, original);
     kernel.proof = &proof;
     return proof;
@@ -211,14 +170,14 @@ TEST(complete_snapshot_policy_admission) {
     AffineMatrixSearchSession &session = fixture.session;
     install_implication_formula(kernel);
     auto &profile=kernel.affine_matrix_initialize_parameters;
-    profile.basis=parameters();
+    profile.basis=matrix_affine_parameters();
     profile.admission=AffineMatrixInitializeParameters::Admission::CompleteSnapshot;
     profile.operation=AffineMatrixInitializeParameters::Operation::Initialize;
     kernel.affine_matrix_initialize_parameters_active=true;
     const auto &rule=tactix_rules()[tactix_rule_id("AffineMatrixInitialize")];
     assert(!kernel.proof&&rule_guard(rule,kernel));
     const auto result = affine_matrix_search_initialize(
-        kernel, session, parameters(),
+        kernel, session, matrix_affine_parameters(),
         AffineMatrixAdmission::CompleteSnapshot);
     assert(result.status == AffineMatrixInitStatus::Applied &&
            result.covered_clauses == result.snapshot_clauses &&
@@ -236,7 +195,7 @@ TEST(complete_snapshot_policy_admission) {
     kernel_reserve_vars(kernel, 7);
     add_equation(kernel, {1, 2, 3}, false);
     add_clause(kernel, {4, 5, 6, 7});
-    auto ternary = parameters();
+    auto ternary = matrix_affine_parameters();
     ternary.maximum_arity = 3;
     const auto result = affine_matrix_search_initialize(
         kernel, session, ternary,
@@ -254,7 +213,7 @@ TEST(complete_snapshot_policy_admission) {
     install_implication_formula(kernel);
     add_clause(kernel, {1, 2, 6});
     const auto result = affine_matrix_search_initialize(
-        kernel, session, parameters(),
+        kernel, session, matrix_affine_parameters(),
         AffineMatrixAdmission::CompleteSnapshot);
     assert(result.status == AffineMatrixInitStatus::IncompleteImage &&
            result.covered_clauses + 1 == result.snapshot_clauses &&
@@ -266,7 +225,7 @@ TEST(complete_snapshot_policy_admission) {
     Kernel &kernel = fixture.kernel;
     AffineMatrixSearchSession &session = fixture.session;
     install_partial_formula(kernel);
-    auto limited = parameters();
+    auto limited = matrix_affine_parameters();
     limited.basis_maximum_intermediate_width = 4;
     const auto result = affine_matrix_search_initialize(
         kernel, session, limited,
@@ -570,7 +529,7 @@ TEST(lazy_compact_pbp_reason_survives_matrix_cache_commit) {
                {{7, 9, 10}, false}, {{8, 9, 10, 11}, false}});
   for (const auto &clause : original) add_clause(kernel, clause);
   Proof &proof = fixture.open_pbp(original);
-  const auto p = parameters();
+  const auto p = matrix_affine_parameters();
   assert(affine_matrix_search_initialize(
              kernel, session, p,
              AffineMatrixAdmission::AuthenticatedSubimage, persistence)
@@ -739,7 +698,7 @@ static std::string initialize_partial_fixture() {
   AffineMatrixSearchSession &session = fixture.session;
   FILE *journal = fixture.journal;
   install_partial_formula(kernel);
-  auto p = parameters();
+  auto p = matrix_affine_parameters();
   p.basis_maximum_intermediate_width = 4;
   const auto initialized = affine_matrix_search_initialize(kernel, session, p);
   assert(initialized.status == AffineMatrixInitStatus::AppliedPartial &&
@@ -805,7 +764,7 @@ void root_decline_atomicity() {
     add_equation(kernel, {1, 2, 3}, false);
     add_equation(kernel, {1, 2, 4}, false);
     add_equation(kernel, {3, 4, 5}, true);
-    auto p = parameters();
+    auto p = matrix_affine_parameters();
     if (!interrupted) p.maximum_session_work = 1;
     RestartController controller(kernel);
     assert(controller.apply_rule(initialize_request(controller, kernel, p),
@@ -865,7 +824,7 @@ static int root_proof_fixture(const char *cnf_path, const char *proof_path,
   assert(input_id == kernel.next_clause_id);
   proof.finish_input_transaction();
   kernel.proof = &proof;
-  assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
+  assert(affine_matrix_search_initialize(kernel, session, matrix_affine_parameters()).status ==
          AffineMatrixInitStatus::Applied);
   const auto service = affine_matrix_search_step(kernel, session);
   assert(service.status == AffineMatrixServiceStatus::Applied);

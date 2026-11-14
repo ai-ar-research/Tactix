@@ -6,6 +6,7 @@
 #endif
 
 #include "frontend/parse.hpp"
+#include "temporary_file.hpp"
 #include "kernel/kernel.hpp"
 
 #include <cassert>
@@ -36,12 +37,10 @@ enum class ParsedRoot {
 
 inline void parse_dimacs_text(const std::string &text, tactix::Kernel &kernel,
                               ParsedRoot root = ParsedRoot::Any) {
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  assert(tactix::parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
+  TemporaryFile input;
+  assert(std::fwrite(text.data(), 1, text.size(), input.stream) == text.size());
+  std::rewind(input.stream);
+  assert(tactix::parse_dimacs(input.stream, kernel) == nullptr);
   if (root == ParsedRoot::EmptyTrail)
     assert(kernel.trail.empty() && tactix::kernel_propagation_fixpoint(kernel));
   if (root == ParsedRoot::Consistent)
