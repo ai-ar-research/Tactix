@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "policies/restart_controller.hpp"
@@ -32,8 +33,7 @@ static void write(const char *path, const std::string &text) {
   assert(out.good());
 }
 static Kernel fixture(bool unsat) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   if (unsat) {

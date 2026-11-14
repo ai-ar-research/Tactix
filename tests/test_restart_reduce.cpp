@@ -3,7 +3,6 @@
 #include "unit_test.hpp"
 #include "pigeonhole_kernel.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
@@ -427,8 +426,7 @@ TEST(test_reduce_prepare_reports_root_conflict) {
 }
 
 TEST(test_root_propagation_consumes_unflushed_marker) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_assign_unit(k, internalize(1));
   assert(k.unflushed_root == 1);
   assert(propagate_apply(k) == ApplyResult::Ok);

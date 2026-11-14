@@ -1,6 +1,5 @@
 #include "unit_test.hpp"
 #include "pigeonhole_kernel.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rule_test_utils.hpp"
@@ -311,8 +310,7 @@ int main() {
   {
     // Completion with no later SR consequence is the structured result: its
     // binaries stay live and no cleanup pass runs.
-    Kernel helper_only;
-    kernel_reserve_vars(helper_only, 3);
+    Kernel helper_only = kernel_with_vars(3);
     add_external_clause(helper_only, {1, 2, 3}, false, 0,
                         ++helper_only.next_clause_id);
     DefaultStrategyConfig config = defaults;
@@ -335,8 +333,7 @@ int main() {
     // A ULC completed during structured startup immediately exposes the
     // consequences of an already-fixed member, as when parsing Satsuma's
     // residual.
-    Kernel rooted_helper;
-    kernel_reserve_vars(rooted_helper, 3);
+    Kernel rooted_helper = kernel_with_vars(3);
     add_external_clause(rooted_helper, {1, 2, 3}, false, 0,
                         ++rooted_helper.next_clause_id);
     kernel_assign_unit(rooted_helper, internalize(2));
@@ -518,8 +515,7 @@ int main() {
     typed.inprocess.transitive_parameters = {false, false, true};
     typed.inprocess.substitute_parameters = {true};
     typed.inprocess.vivify_parameters = {3, false, true, 14};
-    Kernel posed;
-    kernel_reserve_vars(posed, 1);
+    Kernel posed = kernel_with_vars(1);
     DefaultPolicy typed_policy(typed);
     typed_policy.inprocess().build(posed);
     assert(posed.bve_backward && !posed.bve_on_the_fly_strengthening &&
@@ -651,8 +647,7 @@ int main() {
 
   // Parsing before H is attached keeps the tumble population: header-only
   // variables do not change Kissat's random-index modulus.
-  Kernel late_tumbled;
-  kernel_reserve_vars(late_tumbled, 5);
+  Kernel late_tumbled = kernel_with_vars(5);
   late_tumbled.input_activation_order = {0, 2, 4};
   {
     ScopedHeuristics late_heuristics(late_tumbled);
@@ -860,8 +855,7 @@ int main() {
   // Environment arms overlay the typed profile and appear in its readback.
   setenv("TACTIX_BUMP_REASONS_RATE", "17", 1);
   setenv("TACTIX_WALK_PERMILLE", "61", 1);
-  Kernel one;
-  kernel_reserve_vars(one, 1);
+  Kernel one = kernel_with_vars(1);
   DefaultPolicy overlaid;
   assert(overlaid.solve(one) == 10);
   assert(overlaid.strategy_config().analysis.bump_reason_rate == 17.0);

@@ -1,7 +1,7 @@
 // Native candidate indexing retires visited root-satisfied records even when
 // no gate or equivalence exists. Public extraction must remain read-only.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "test_io.hpp"
 #include "temporary_file.hpp"
 #include "rules/congruence/congruence.hpp"
@@ -12,8 +12,7 @@
 
 static void fixture(unsigned width, unsigned position, int value, bool negative,
                     bool redundant, unsigned copies, ProofFormat format) {
-  Kernel k;
-  kernel_reserve_vars(k, width);
+  Kernel k = kernel_with_vars(width);
   std::vector<Lit> lits;
   for (unsigned v = 1; v <= width; v++)
     lits.push_back(internalize(negative ? -static_cast<int>(v) : static_cast<int>(v)));

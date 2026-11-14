@@ -64,8 +64,7 @@ TEST(exhaustive_private_repair) {
 
 TEST(nol_scale_ulc_census) {
   constexpr uint32_t domain_count = 363;
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3 * domain_count);
+  Kernel kernel = kernel_with_vars(3 * domain_count);
   for (uint32_t domain = 0; domain < domain_count; ++domain) {
     const Var first = 3 * domain;
     add_large_clause(
@@ -91,8 +90,7 @@ TEST(nol_scale_ulc_census) {
 }
 
 TEST(unsupported_and_ambiguous_are_atomic) {
-  Kernel binary_source;
-  kernel_reserve_vars(binary_source, 2);
+  Kernel binary_source = kernel_with_vars(2);
   add(binary_source, {1, 2});
   const uint64_t binary_id = binary_source.next_clause_id;
   const auto not_an_alo = substitution_redundancy_apply_orbitopal_prefix(
@@ -105,8 +103,7 @@ TEST(unsupported_and_ambiguous_are_atomic) {
                              kernel_internalize(binary_source, -1),
                              kernel_internalize(binary_source, -2)));
 
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 5);
+  Kernel kernel = kernel_with_vars(5);
   add(kernel, {1, 2, 3});
   add(kernel, {1, 4, 5}, true);
   add(kernel, {2, -4, -5}, true);
@@ -118,8 +115,7 @@ TEST(unsupported_and_ambiguous_are_atomic) {
              SubstitutionRedundancyApplicationStatus::Inapplicable &&
          kernel.next_clause_id == id && kernel.arena.size() == arena);
 
-  Kernel hinted;
-  kernel_reserve_vars(hinted, 3);
+  Kernel hinted = kernel_with_vars(3);
   add(hinted, {1, 2, 3});
   hinted.unit_ids[0] = ++hinted.next_clause_id;
   kernel_assign_unit(hinted, kernel_internalize(hinted, 1));
@@ -134,8 +130,7 @@ TEST(unsupported_and_ambiguous_are_atomic) {
          !kernel_binary_live(hinted, kernel_internalize(hinted, -1),
                              kernel_internalize(hinted, -2)));
 
-  Kernel terminal;
-  kernel_reserve_vars(terminal, 3);
+  Kernel terminal = kernel_with_vars(3);
   add(terminal, {1, 2, 3});
   Proof proof;
   assert(proof.open("/tmp/tactix-ulc-rat-declined.pbp", ProofFormat::PbpStreaming));
@@ -162,8 +157,7 @@ void certificate(const char *cnf_path, const char *proof_path,
              cnf);
   assert(!std::fclose(cnf));
 
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 5);
+  Kernel kernel = kernel_with_vars(5);
   Proof proof;
   assert(proof.open(proof_path, format));
   proof.bind_variable_map(&kernel.internal_to_external);
@@ -190,8 +184,7 @@ int main(int argc, char **argv) {
     certificate(argv[1], argv[2], ProofFormat::DsrAscii);
   } else {
     assert(argc == 1);
-    Kernel kernel;
-    kernel_reserve_vars(kernel, 3);
+    Kernel kernel = kernel_with_vars(3);
     add(kernel, {1, 2, 3});
     complete(kernel);
   }

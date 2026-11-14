@@ -37,8 +37,7 @@ static void test_prefix_and_purpose(RestartPurpose purpose) {
 }
 
 static void test_decision_origin_and_no_change() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   assert(execute_action(k, DecisionRequest{internalize(1), DecisionOrigin::PublicAPI})
          == ApplyResult::Ok);
   assert(k.stats.decisions == 1 && k.stats.api_decisions == 1);

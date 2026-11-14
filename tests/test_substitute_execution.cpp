@@ -65,12 +65,7 @@ static void test_session(bool borrowed, uint32_t cap, bool continue_rounds) {
 }
 
 static void test_refutation_before_disconnection(bool borrowed) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-2), internalize(1));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
-  add_external_clause(k, {1, 2, -3});
+  Kernel k = kernel_with_clauses(3, {{-1, 2}, {-2, 1}, {-1, -2}, {1, 2, -3}});
   kernel_assign_unit(k, internalize(3));
   if (borrowed)
     kernel_drop_large_watches(k);
@@ -98,12 +93,7 @@ static void test_refutation_before_disconnection(bool borrowed) {
 // the two large clauses to opposite units. Owned single-round and batch calls
 // restore their watch session; an enclosing disconnected caller retains it.
 static void test_rewrite_refutation_restores_owned_session(bool batch, bool borrowed) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-2), internalize(1));
-  add_external_clause(k, {1, 2, 3});
-  add_external_clause(k, {-1, -2, 3});
+  Kernel k = kernel_with_clauses(3, {{-1, 2}, {-2, 1}, {1, 2, 3}, {-1, -2, 3}});
   kernel_assign_unit(k, internalize(-3));
   if (borrowed) kernel_drop_large_watches(k);
   if (batch) {

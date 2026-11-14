@@ -4,7 +4,6 @@
 #include "rule_test_utils.hpp"
 #include "temporary_file.hpp"
 #include "test_io.hpp"
-#include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/congruence/congruence.hpp"
@@ -49,8 +48,7 @@ static void assert_large_watches_are_live(const Kernel &k) {
 }
 
 TEST(test_forward_includes_only_redundant_physical_prefix) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
   const Ref before = add_external_clause(k, {3, -4, 5}, true, 1, ++k.next_clause_id);
@@ -65,8 +63,7 @@ TEST(test_forward_includes_only_redundant_physical_prefix) {
 // Kissat's dense entry (dense.c flush_large_watches) deletes every binary with
 // a root-assigned endpoint; with no gate, only the entry can delete it.
 TEST(test_root_satisfied_binary_deleted_at_entry) {
-  Kernel k;
-  kernel_reserve_vars(k, 6); // fillers 1..4, u=5 v=6
+  Kernel k = kernel_with_vars(6); // fillers 1..4, u=5 v=6
   add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
   add_external_clause(k, {-1, -2, 4}, false, 0, ++k.next_clause_id);
   const Lit u = internalize(5), v = internalize(6);
@@ -84,8 +81,7 @@ TEST(test_root_satisfied_binary_deleted_at_entry) {
 // Kissat publishes both representative binaries on every union, with fresh
 // proof identities and both Factor polarities re-armed, even over copies.
 TEST(test_existing_representative_pair_is_republished) {
-  Kernel k;
-  kernel_reserve_vars(k, 4); // x1=1 x2=2 a=3 b=4
+  Kernel k = kernel_with_vars(4); // x1=1 x2=2 a=3 b=4
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
   const Lit forward[2] = {internalize(-4), internalize(3)};
@@ -124,8 +120,7 @@ TEST(test_and_arity_above_old_cutoff) {
   constexpr int arity = 65;
   constexpr int first_output = arity + 1;
   constexpr int second_output = arity + 2;
-  Kernel k;
-  kernel_reserve_vars(k, second_output);
+  Kernel k = kernel_with_vars(second_output);
   const auto add_gate = [&](int output) {
     std::vector<Lit> base;
     base.reserve(arity + 1);
@@ -147,8 +142,7 @@ TEST(test_and_arity_above_old_cutoff) {
 // kinds, compute different functions, so the outputs stay independent.
 TEST(test_no_congruence) {
   for (const bool mixed_kinds : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 6);
+    Kernel k = kernel_with_vars(6);
     and_gate(k, 5, 1, 2);
     if (mixed_kinds)
       xor_gate(k, 6, 1, 2);
@@ -163,8 +157,7 @@ TEST(test_no_congruence) {
 // --- the binary-resolution unit channel (V6a) --------------------------------
 // (l∨o) and (l∨¬o) resolve on o to {l}, no gate involved. the rule calculus.
 TEST(test_binary_resolution_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   // Spend the shared Congruence allowance in gate extraction first.  V6a's
   // own structural pass must still reach the unrelated binary unit.
   k.work_budget = 1;
@@ -186,8 +179,7 @@ TEST(test_binary_resolution_unit) {
 
 // Kissat's all_variables order: independent Y1 units follow import order.
 TEST(test_binary_resolution_unit_uses_import_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_record_import(k, 2); // x3 is created before externally smaller x1.
   kernel_record_import(k, 3);
   kernel_record_import(k, 0);
@@ -205,10 +197,7 @@ TEST(test_binary_resolution_unit_uses_import_order) {
 }
 
 TEST(test_binary_resolution_no_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  Kernel k = kernel_with_clauses(3, {{1, 2}, {1, 3}});
   assert(congruence_guard(k));
   assert(congruence_apply(k) == ApplyResult::NoOp);
   assert(k.value(internalize(1)) == 0);
@@ -218,10 +207,7 @@ TEST(test_binary_resolution_no_unit) {
 // Kissat imports binary equivalences before simplifying gates; the merge is
 // productive, admitting the eager Substitute follow-up.
 TEST(test_binary_equivalence_channel) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  Kernel k = kernel_with_clauses(3, {{-1, 2}, {1, -2}});
   xor_gate(k, 3, 1, 2);
   assert(congruence_apply(k) == ApplyResult::Ok);
   assert(k.stats.congruence_binary_equivalences == 1);
@@ -232,12 +218,7 @@ TEST(test_binary_equivalence_channel) {
 
 // Both polarities in one sweep refute via PendingUnits, not a false unit.
 TEST(test_binary_resolution_refutes) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(-2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-3));
+  Kernel k = kernel_with_clauses(3, {{1, 2}, {1, -2}, {-1, 3}, {-1, -3}});
   assert(congruence_guard(k));
   assert(congruence_apply(k) == ApplyResult::Unsat);
 }
@@ -245,8 +226,7 @@ TEST(test_binary_resolution_refutes) {
 // --- the unit channel (D-CONG-UNIT) -----------------------------------------
 // With x1 = x2, out = x1 ^ x2 cancels to 0 and -out is a root unit.
 TEST(test_xor_cancel_learns_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 5); // a=1 b=2 x1=3 x2=4 out=5
+  Kernel k = kernel_with_vars(5); // a=1 b=2 x1=3 x2=4 out=5
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
   xor_gate(k, 5, 3, 4); // out = x1 ⊕ x2, which collapses to 0 once x1 ≡ x2
@@ -332,8 +312,7 @@ TEST(test_xor_input_unit_with_cancel_uses_ladder) {
 
 // A late unit revisits only the consumed gates that mention it.
 TEST(test_unit_reschedules_only_affected_gate) {
-  Kernel k;
-  kernel_reserve_vars(k, 7); // p q a b x c r
+  Kernel k = kernel_with_vars(7); // p q a b x c r
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2); // a == b
   and_gate(k, 6, 5, 7); // c = x & r, consumed before the XOR unit
@@ -367,8 +346,7 @@ TEST(test_merge_reschedules_skipped_valued_and) {
 
 // Opposite-sign units derived in one round must refute, not assign.
 TEST(test_xor_cancel_refutes) {
-  Kernel k;
-  kernel_reserve_vars(k, 7); // p=1 q=2 a=3 b=4 out=5 c=6 d=7
+  Kernel k = kernel_with_vars(7); // p=1 q=2 a=3 b=4 out=5 c=6 d=7
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2); // 3 ≡ 4
   and_gate(k, 6, 1, 2);
@@ -393,8 +371,7 @@ static void add4(Kernel &k, int a, int b, int c, int d) {
 // c = AND(a,¬b,r) where the closure first proves a ≡ b: the canonical inputs
 // clash (x with ¬x), the gate's value is constant 0, and ¬c is a root unit.
 TEST(test_and_clash_learns_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 6); // p=1 q=2 a=3 b=4 r=5 c=6
+  Kernel k = kernel_with_vars(6); // p=1 q=2 a=3 b=4 r=5 c=6
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
   // c = AND(a, ¬b, r): binaries (¬c∨a),(¬c∨¬b),(¬c∨r) + base (c∨¬a∨b∨¬r)
@@ -412,8 +389,7 @@ TEST(test_and_clash_learns_unit) {
 // c = AND(a,b) with a ≡ b: the key deduplicates to AND(x), so c merges with
 // the representative with no second gate.
 TEST(test_and_idempotent_unary_merge) {
-  Kernel k;
-  kernel_reserve_vars(k, 5); // p=1 q=2 a=3 b=4 c=5
+  Kernel k = kernel_with_vars(5); // p=1 q=2 a=3 b=4 c=5
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
   and_gate(k, 5, 3, 4); // collapses to AND(rep) once 3 ≡ 4
@@ -426,8 +402,7 @@ TEST(test_and_idempotent_unary_merge) {
 // a = AND(p,q) and ¬b = AND(p,q) with a ≡ b: b joins ¬b's class, and that
 // contradictory merge means UNSAT.
 TEST(test_contradictory_merge_refutes) {
-  Kernel k;
-  kernel_reserve_vars(k, 4); // p=1 q=2 a=3 b=4
+  Kernel k = kernel_with_vars(4); // p=1 q=2 a=3 b=4
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
   // ¬b = AND(p,q): binaries (b∨p),(b∨q) + base (¬b∨¬p∨¬q)
@@ -464,8 +439,7 @@ static void assert_xor_gate_output(const Kernel &k, std::vector<int> inputs,
 
 // R = 0, s = 3: x1⊕x2⊕x3 = 0, so the gate on {x1,x2} outputs +x3.
 TEST(test_xor_output_sign_even_arity) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   xor_gate(k, 3, 1, 2); // the 4 odd-negation clauses ⇒ v1⊕v2⊕v3 = 0
   assert_xor_gate_output(k, {1, 2}, 3);
   assert_xor_gate_output(k, {2, 3}, 1);
@@ -473,8 +447,7 @@ TEST(test_xor_output_sign_even_arity) {
 
 // R = 1, s = 3: x1⊕x2⊕x3 = 1, so the gate on {x1,x2} outputs ¬x3.
 TEST(test_xor_output_sign_odd_relation) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add3(k, 1, 2, 3);
   add3(k, -1, -2, 3);
   add3(k, -1, 2, -3);
@@ -485,8 +458,7 @@ TEST(test_xor_output_sign_odd_relation) {
 
 // R = 0, s = 4: v1⊕v2⊕v3⊕v4 = 0 ⇒ the gate on {1,2,3} outputs +4.
 TEST(test_xor_output_sign_odd_arity) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const int v[4] = {1, 2, 3, 4};
   for (int m = 0; m < 16; m++) { // every odd-negation clause over the 4 vars
     int neg = 0;
@@ -507,8 +479,7 @@ TEST(test_xor_output_sign_odd_arity) {
 // Kissat skips an XOR candidate that is binary after removing root-false
 // literals, leaving that relation to Substitute.
 TEST(test_root_false_input_makes_binary_xor_ineligible) {
-  Kernel k;
-  kernel_reserve_vars(k, 3); // out=1, residual=2, fixed=3
+  Kernel k = kernel_with_vars(3); // out=1, residual=2, fixed=3
   xor_gate(k, 1, 2, 3);
   kernel_assign_unit(k, internalize(-3));
 
@@ -526,8 +497,7 @@ TEST(test_root_false_input_makes_binary_xor_ineligible) {
 
 // Kissat sorts only the newly extracted binary segment: the suffix is q,p.
 TEST(test_extracted_binary_suffix_is_sorted) {
-  Kernel k;
-  kernel_reserve_vars(k, 5); // a=1 b=2 c=3 p=4 q=5
+  Kernel k = kernel_with_vars(5); // a=1 b=2 c=3 p=4 q=5
   for (const Var v : {0u, 1u, 2u, 4u, 3u})
     kernel_record_import(k, v);
   const Lit a = internalize(1), b = internalize(2), c = internalize(3);
@@ -549,8 +519,7 @@ TEST(test_extracted_binary_suffix_is_sorted) {
 // Kissat's second dense entry for forward subsumption resumes the whole binary
 // population in compact pair order.
 TEST(test_forward_dense_resume_reorders_complete_binary_population) {
-  Kernel k;
-  kernel_reserve_vars(k, 10); // a new old c hi-new hi-old x y out1 out2
+  Kernel k = kernel_with_vars(10); // a new old c hi-new hi-old x y out1 out2
   const Lit a = internalize(1), c = internalize(4);
   const Lit newer = internalize(2), older = internalize(3);
   const Lit higher_newer = internalize(5), higher_older = internalize(6);
@@ -591,8 +560,7 @@ TEST(test_forward_dense_resume_reorders_complete_binary_population) {
 // Binary membership is snapshotted before the ternary scan, even when the
 // binaries follow large watches in the lists.
 TEST(test_binary_extraction_from_mixed_watch_lists) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit a = internalize(1), b = internalize(2), c = internalize(3);
   const Lit x = internalize(4), y = internalize(5);
   Lit pad_a[3] = {negate(a), internalize(6), internalize(7)};
@@ -644,8 +612,7 @@ TEST(test_budget_stops_round) {
 
 // Kissat's ternary-to-binary extraction is not limited by the gate budget.
 TEST(test_binary_extraction_precedes_gate_budget) {
-  Kernel k;
-  kernel_reserve_vars(k, 10);
+  Kernel k = kernel_with_vars(10);
   for (unsigned i = 0; i < 300; i++)
     add3(k, 7, 8, 9);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -662,8 +629,7 @@ TEST(test_binary_extraction_precedes_gate_budget) {
 // The canonical payload and the semantic one-merge surface coexist;
 // re-enumeration exposes the next closure layer.
 TEST(test_individual_merges_and_canonical_closure_coexist) {
-  Kernel k;
-  kernel_reserve_vars(k, 6); // x1 x2, two AND outputs, and a second gate pair
+  Kernel k = kernel_with_vars(6); // x1 x2, two AND outputs, and a second gate pair
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
   and_gate(k, 5, 1, 2);
@@ -702,8 +668,7 @@ TEST(test_individual_merges_and_canonical_closure_coexist) {
 }
 
 TEST(test_individual_merges_expose_later_closure_layers) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
   and_gate(k, 5, 3, 6);
@@ -731,8 +696,7 @@ TEST(test_individual_merges_expose_later_closure_layers) {
 // The checked-proof witness below (micro_proofs.sh) covers every positive
 // semantic kind; one parent alone must not expose a V6a unit.
 TEST(test_individual_binary_resolution_needs_both_parents) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
   uint64_t instances[4];
@@ -900,8 +864,7 @@ TEST(test_binary_only_cleanup) {
         for (bool reverse_import : {false, true})
           for (bool public_instance : {false, true})
             {
-              Kernel k;
-              kernel_reserve_vars(k, 4);
+              Kernel k = kernel_with_vars(4);
               for (unsigned i = 0; i < 4; i++)
                 kernel_record_import(k, reverse_import ? 3 - i : i);
               const Lit u = internalize(1), x = internalize(2);

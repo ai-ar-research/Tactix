@@ -3,7 +3,7 @@
 // accessors (WatchEntry, the manual arena walk), so frozen-parent controls
 // that rebuild these fixtures against predecessor objects still compile.
 // Include after `#undef NDEBUG`: live_large asserts.
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -71,6 +71,15 @@ inline tactix::Ref add_external_clause(tactix::Kernel &k,
   return tactix::kernel_add_large_clause(k, lits.data(),
                                          static_cast<uint32_t>(lits.size()),
                                          redundant, glue, id);
+}
+
+// Native binary/large clauses, without ingestion or fresh proof IDs.
+inline tactix::Kernel kernel_with_clauses(
+    uint32_t variables, std::initializer_list<std::initializer_list<int>> clauses) {
+  auto kernel = kernel_with_vars(variables);
+  for (const auto &clause : clauses)
+    add_external_clause(kernel, clause);
+  return kernel;
 }
 
 // Count live large clauses; if `lits`/`n` given, require one matching.

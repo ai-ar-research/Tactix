@@ -1,6 +1,6 @@
 // Actual scheduler admission and trail-prefix consumers across root folding.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -47,8 +47,7 @@ static void scheduling_watermark() {
 }
 
 static void late_true_level_root() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   kernel_assign_unit(k, internalize(1));
   kernel_assign_unit(k, internalize(-2));
   assert(propagate_apply(k) == ApplyResult::Ok);

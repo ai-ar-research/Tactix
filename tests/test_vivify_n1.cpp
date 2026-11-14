@@ -6,7 +6,6 @@
 // See the implementation notes (`vivify_scope`).
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
 #include "rules/vivify/vivify.hpp"
 
@@ -63,8 +62,7 @@ static void rule_side(uint8_t scope) {
 // Each named band still selects only its own clauses: scope 0 meaning all
 // bands must not collapse the 3/4/5 split the policy budgets separately.
 TEST(bands_stay_disjoint) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Ref r1 = add_external_clause(k, {1, 2, 3}, true, /*glue=*/2);
   const Ref r2 = add_external_clause(k, {1, 4, 5}, true, /*glue=*/5);
   const Ref r3 = add_external_clause(k, {2, 4, 6}, true, /*glue=*/9);

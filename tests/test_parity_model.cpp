@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "test_io.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -43,8 +44,7 @@ static bool live_formula_satisfied(const Kernel &k) {
 }
 
 static Kernel xor_fixture(bool complete) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   // These clauses forbid even-parity assignments, so x0 xor x1 xor x2 = 1.
   for (const unsigned mask : {0u, 3u, 5u, 6u}) {
     if (!complete && mask == 6)
@@ -83,8 +83,7 @@ static void add_xor(Kernel &k, std::initializer_list<Var> variables,
 }
 
 static Kernel inconsistent_xor_cycle() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_binary_xor(k, 0, 1, true);
   add_binary_xor(k, 1, 2, false);
   add_binary_xor(k, 0, 2, false);
@@ -113,8 +112,7 @@ int main() {
     assert(k.unassigned_active == 0 && live_formula_satisfied(k));
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     for (const unsigned mask : {0u, 3u, 5u}) {
       add_mask_on(k, 0, 1, 2, mask);
       add_mask_on(k, 0, 1, 3, mask);
@@ -132,8 +130,7 @@ int main() {
     assert(live_formula_satisfied(k));
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     add_mask(k, 0); // even and odd forbidden patterns: not one equation
     add_mask(k, 1);
     add_mask(k, 3);
@@ -209,8 +206,7 @@ int main() {
     assert(k.inconsistent && k.stats.parity_refutation_recognized == 1);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 6);
+    Kernel k = kernel_with_vars(6);
     add_xor(k, {0, 1, 2, 3}, true);
     add_xor(k, {0, 1, 4, 5}, false);
     add_xor(k, {2, 3, 4, 5}, false);
@@ -219,8 +215,7 @@ int main() {
     assert(k.inconsistent && k.stats.parity_refutation_recognized == 1);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     add_binary_xor(k, 0, 1, false);
     add_binary_xor(k, 1, 2, false);
     add_binary_xor(k, 0, 2, false);
@@ -229,16 +224,14 @@ int main() {
     assert(!k.inconsistent && !k.stats.parity_refutation_recognized);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     add_binary_xor(k, 0, 1, true);
     add_binary_xor(k, 1, 2, false);
     const strategy::ParityModelParameters parameters;
     assert(parity_refutation_apply(k, parameters) == ApplyResult::NoOp);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 8);
+    Kernel k = kernel_with_vars(8);
     for (Var variable = 0; variable != 5; ++variable)
       kernel_add_binary_clause(k, make_lit(variable, false),
                                make_lit(variable + 1, false));

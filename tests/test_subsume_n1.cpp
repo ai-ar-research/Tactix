@@ -6,7 +6,6 @@
 // (d) a band stamp writes `touched_kept`, never `touched`, so band-blind
 // consumers are unaffected. See the implementation notes.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/registry.hpp"
 #include "rules/strengthen/strengthen.hpp"
@@ -58,8 +57,7 @@ TEST(test_c1_redundant_victim_is_reachable) {
   }
   { // (a) ...and the public surface does not. Same formula, driven through the
     // registry, as `tactix_apply_instance` routes an external policy
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     add(k, {1, 2, 3}, false, 3);
     const Ref victim = add(k, {1, 2, 3, 4}, true, 2);
     assert(offered(c1, k, victim) &&
@@ -107,8 +105,7 @@ TEST(test_c2_redundant_victim_is_reachable) {
 TEST(test_redundant_partner_is_still_refused) {
   const RuleVTable *c2 = rule("Strengthen");
   { // the instance surface, where discovery is through the watch lists
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     add(k, {1, 2, 3}, /*redundant=*/true, 2);         // would-be subsumer
     const Ref victim = add(k, {1, 2, 3, 4}, false, 3); // irredundant candidate
     assert(rule("SubsumeForward")->apply_instance(k, victim) == ApplyResult::NoOp);
@@ -116,8 +113,7 @@ TEST(test_redundant_partner_is_still_refused) {
     assert(strengthen_try(k, victim) == ApplyResult::NoOp);
   }
   { // ...and the round with the band on, where the band clause is a candidate
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     k.tier2 = 2;
     k.touch_redundant = true;
     const Ref subsumer = add(k, {1, 2, 3}, /*redundant=*/true, 2);
@@ -193,8 +189,7 @@ TEST(test_f7_band_scope_is_live_and_dynamic) {
 // (d) Isolation: a band stamp writes `touched_kept` and leaves `touched` and
 // `touch_marks` alone, so turning the band on changes C2 and nothing else.
 TEST(test_band_stamps_do_not_touch_the_irredundant_substrate) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   k.tier2 = 2;
   k.touch_redundant = true;
   const Var v = var_of(internalize(1));

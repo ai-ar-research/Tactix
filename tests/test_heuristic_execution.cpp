@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/restart_controller.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/feedback_trace.hpp"
@@ -22,8 +23,7 @@ using ReferenceController = RestartController;
 #endif
 
 static Kernel fixture(bool seeded, bool fixed, bool retired) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   for (Var v : {5u, 2u, 7u, 1u, 3u, 0u, 6u, 4u}) kernel_record_import(k, v);
   kernel_add_binary_clause(k, internalize(2), internalize(6));
   if (seeded) {

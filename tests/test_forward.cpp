@@ -2,7 +2,6 @@
 // scoped parameters, canonical admission versus explicit actions, mid-round
 // units, the post-forward closure before the next scheduler slot, and proofs.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
@@ -211,10 +210,7 @@ static void explicit_population(bool c2, bool binary) {
 // C2's touch-filtered canonical admission versus its unrestricted public surface.
 static void admission(bool dense, bool filtered, bool actual_added_mark,
                       bool explicit_action) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {1, 2, 3});
-  add_external_clause(k, {2, 3});
+  Kernel k = kernel_with_clauses(3, {{1, 2, 3}, {2, 3}});
   k.strengthen_touch_mark = k.touch_epoch;
   const uint64_t watermark = k.strengthen_touch_mark;
   kernel_clear_subsume_material(k);

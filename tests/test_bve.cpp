@@ -3,7 +3,6 @@
 // witness stack. Rule semantics live in the rule calculus.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp"
@@ -47,8 +46,7 @@ struct ScanProbe {
 // Cached physical dense-stack sizes (Kissat): binary slots change eagerly, a
 // garbage large Ref counts until compaction, rewrites touch only moved literals.
 TEST(test_schedule_occurrence_image_lifecycle) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit a = internalize(1), b = internalize(2);
   const Lit c = internalize(3), d = internalize(4);
   kernel_add_binary_clause(k, a, b);
@@ -84,8 +82,7 @@ TEST(test_schedule_occurrence_image_lifecycle) {
 // Garbage before an oversized clause is compacted (Kissat), with no rescore of
 // the popped variable.
 TEST(test_candidate_gather_compacts_garbage_occurrences) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit pivot = internalize(1);
   const Lit stale_lits[3] = {pivot, internalize(2), internalize(3)};
   const Lit live_lits[3] = {pivot, internalize(4), internalize(5)};
@@ -118,8 +115,7 @@ TEST(test_candidate_gather_compacts_garbage_occurrences) {
 // occurrences_literal stops at the first live oversized clause: later garbage
 // is untouched and the popped pivot is not rescored.
 TEST(test_candidate_gather_stops_before_late_garbage) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit pivot = internalize(1);
   const Lit oversized_lits[3] = {pivot, internalize(2), internalize(3)};
   const Lit stale_lits[3] = {pivot, internalize(4), internalize(5)};
@@ -147,8 +143,7 @@ TEST(test_candidate_gather_stops_before_late_garbage) {
 // An oversized polarity returns at generate_resolvents' occurrence-limit guard
 // without publishing the other polarity's compaction rescore.
 TEST(test_oversized_polarity_suppresses_other_compaction_rescore) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit pivot = internalize(1), opposite = internalize(-1);
   const Ref stale = add_large_clause(k, {pivot, internalize(2), internalize(3)});
   add_large_clause(k, {opposite, internalize(4), internalize(5)});
@@ -169,8 +164,7 @@ TEST(test_oversized_polarity_suppresses_other_compaction_rescore) {
 // The linear prefix compaction scan neither skips a deleted binary's successor
 // nor reads past the first oversized clause.
 TEST(test_candidate_gather_mutating_prefix_boundary) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit pivot = internalize(1), early = internalize(2);
   const Lit late = internalize(5);
   kernel_add_binary_clause(k, pivot, early);
@@ -212,8 +206,7 @@ TEST(test_candidate_gather_mutating_prefix_boundary) {
 }
 
 TEST(test_flush_units_while_connected) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit unit = internalize(1), a = internalize(2), b = internalize(3),
             binary_other = internalize(4);
   const Ref ref = add_large_clause(k, {unit, a, b});
@@ -241,8 +234,7 @@ TEST(test_flush_units_while_connected) {
 
 // redundant (learned) large clauses are not in the elimination set.
 TEST(test_occurrences_skip_redundant) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {1, 2, 3}, true, 2); // learned
   BveOccurrences occ;
   bve_build_occurrences(k, occ);
@@ -252,8 +244,7 @@ TEST(test_occurrences_skip_redundant) {
 // Assigned variables are not candidates; an occurrence-free variable is, and is
 // eliminated as pure (kissat eliminate.c schedule_variables).
 TEST(test_schedule_excludes) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   add_external_clause(k, {1, 2, 3}); // (1∨2∨3); var4 unused
   kernel_assign_unit(k, internalize(-3));     // 3 assigned (false)
   std::vector<Var> cand;
@@ -267,8 +258,7 @@ TEST(test_schedule_excludes) {
 
 // N1 and Kissat parity: an extension variable is a legal BVE candidate.
 TEST(test_schedule_includes_extension_variable) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   k.first_extension_var = 2;
   kernel_add_binary_clause(k, internalize(3), internalize(1));
   kernel_add_binary_clause(k, internalize(-3), internalize(2));
@@ -281,8 +271,7 @@ TEST(test_schedule_includes_extension_variable) {
 // Kissat's eliminateclslim (strategy-owned) declines a 101-literal antecedent
 // before definition extraction, without mutation or Kitten work.
 TEST(test_antecedent_clause_size_limit) {
-  Kernel k;
-  kernel_reserve_vars(k, 102);
+  Kernel k = kernel_with_vars(102);
   std::vector<Lit> long_clause;
   long_clause.reserve(101);
   long_clause.push_back(internalize(1));
@@ -305,10 +294,7 @@ TEST(test_antecedent_clause_size_limit) {
 }
 
 TEST(test_large_resolvent_is_irredundant_with_zero_glue) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  add_external_clause(k, {1, 2, 3});
-  add_external_clause(k, {-1, 4, 5});
+  Kernel k = kernel_with_clauses(5, {{1, 2, 3}, {-1, 4, 5}});
   k.bve_gate_mask = 0;
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
@@ -328,11 +314,7 @@ TEST(test_large_resolvent_is_irredundant_with_zero_glue) {
 }
 
 TEST(test_elimination_retains_duplicate_binary_resolvent) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(2), internalize(3));
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  Kernel k = kernel_with_clauses(3, {{2, 3}, {1, 2}, {-1, 3}});
   k.bve_gate_mask = 0;
   k.bve_backward = false;
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
@@ -346,8 +328,7 @@ TEST(test_elimination_retains_duplicate_binary_resolvent) {
 // A stale heap candidate isolated by an earlier pure elimination is still
 // retired as pure (Kissat resolve.c).
 TEST(test_scheduled_candidate_that_becomes_isolated_is_retired) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   const Lit x = internalize(1), y = internalize(2);
   kernel_add_binary_clause(k, x, y);
 
@@ -391,8 +372,7 @@ static void assert_satisfied(const Kernel &k, const int (&orig)[N][2]) {
 // Model reconstruction through ρ: hand back a model of the reduced formula
 // with 1 at the wrong value, and every original clause must survive extend.
 TEST(test_eliminate_reconstruction) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));  // (1∨2)
   kernel_add_binary_clause(k, internalize(-1), internalize(3)); // (¬1∨3)
   const int orig[2][2] = {{1, 2}, {-1, 3}};
@@ -411,8 +391,7 @@ TEST(test_eliminate_reconstruction) {
 // Both x and t of x = -t retired and unassigned: extension completes the
 // assignment before replay so the windows do not double-flip the pivot.
 TEST(test_eliminate_frozen_pivot_reconstruction) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));   // (1∨2)
   kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // (¬1∨¬2)
   const int orig[2][2] = {{1, 2}, {-1, -2}};
@@ -428,8 +407,7 @@ TEST(test_eliminate_frozen_pivot_reconstruction) {
 // A failed candidate stops at the first non-tautological resolvent beyond
 // pos+neg+bound (Kissat): 2*9 at bound 0 charges exactly 12 attempts.
 TEST(test_bound_does_not_spend_future_work) {
-  Kernel k;
-  kernel_reserve_vars(k, 12); // x=1, positive partners 2..3, negative 4..12
+  Kernel k = kernel_with_vars(12); // x=1, positive partners 2..3, negative 4..12
   for (int i = 2; i <= 3; i++)
     kernel_add_binary_clause(k, internalize(1), internalize(i));
   for (int j = 4; j <= 12; j++)
@@ -446,8 +424,7 @@ TEST(test_bound_does_not_spend_future_work) {
 // resolve.c learns a collapsed-pair unit before the bound check; the unit and
 // the antecedents it satisfies survive a kept pivot.
 TEST(test_bound_failure_retains_immediate_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 9); // x=1, u=2, a=3..5, b=6..8, z=9
+  Kernel k = kernel_with_vars(9); // x=1, u=2, a=3..5, b=6..8, z=9
   const Lit x = internalize(1), nx = internalize(-1);
   const Lit u = internalize(2), z = internalize(9);
   kernel_add_binary_clause(k, x, u); // first positive antecedent
@@ -480,8 +457,7 @@ TEST(test_bound_failure_retains_immediate_unit) {
 // An AND/OR gate x↔OR(a₁..a₆) lets BVE resolve only gate×antecedent, dropping
 // the 16 antecedent×antecedent resolvents that put this shape past the bound.
 TEST(test_gate_and_or_fires) {
-  Kernel k;
-  kernel_reserve_vars(k, 15); // x=1, a=2..7, p=8..11, q=12..15
+  Kernel k = kernel_with_vars(15); // x=1, a=2..7, p=8..11, q=12..15
   add_external_clause(k, {-1, 2, 3, 4, 5, 6, 7}); // (¬x∨a₁∨…∨a₆)
   for (int i = 2; i <= 7; i++)
     kernel_add_binary_clause(k, internalize(1), internalize(-i)); // (x∨¬aᵢ)
@@ -499,8 +475,7 @@ TEST(test_gate_and_or_fires) {
 // Every duplicate binary of an AND/OR input is a gate member with its own
 // resolvent (Kissat).
 TEST(test_gate_and_or_retains_duplicate_binary_gate_copies) {
-  Kernel k;
-  kernel_reserve_vars(k, 4); // x=1, inputs=2,3, antecedent=4
+  Kernel k = kernel_with_vars(4); // x=1, inputs=2,3, antecedent=4
   add_external_clause(k, {-1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 2);
@@ -517,8 +492,7 @@ TEST(test_gate_and_or_retains_duplicate_binary_gate_copies) {
 // Kissat's AND scan: for a partner outside the base, the first physical copy
 // stays an antecedent and later copies enter the gate.
 TEST(test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent) {
-  Kernel k;
-  kernel_reserve_vars(k, 5); // x=1, inputs=2,3, duplicated ant=4, other ant=5
+  Kernel k = kernel_with_vars(5); // x=1, inputs=2,3, duplicated ant=4, other ant=5
   add_external_clause(k, {-1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(-3), 2);
@@ -553,8 +527,7 @@ static Ref first_large_ref(const Kernel &k, std::vector<int> want) {
 }
 
 TEST(test_gate_and_or_earlier_duplicate_takes_the_gate_slot) {
-  Kernel k;
-  kernel_reserve_vars(k, 5); // x=1, inputs=2,3, duplicated ant=4, other ant=5
+  Kernel k = kernel_with_vars(5); // x=1, inputs=2,3, duplicated ant=4, other ant=5
   add_external_clause(k, {-1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(-3), 2);
@@ -579,8 +552,7 @@ static bool has_large(const Kernel &k, std::vector<int> want) {
 // equivalences.c takes the first negative-side binary whose partner's
 // complement is marked: (-a v b) is added before (a v -b).
 TEST(test_gate_equivalence_takes_first_negative_side_binary) {
-  Kernel k;
-  kernel_reserve_vars(k, 3); // x=1, partners a=2, b=3
+  Kernel k = kernel_with_vars(3); // x=1, partners a=2, b=3
   kernel_add_binary_clause(k, internalize(1), internalize(2), 1);   // (x∨a)
   kernel_add_binary_clause(k, internalize(1), internalize(3), 2);   // (x∨b)
   kernel_add_binary_clause(k, internalize(-1), internalize(-3), 3); // (¬x∨¬b)
@@ -598,8 +570,7 @@ TEST(test_gate_equivalence_takes_first_negative_side_binary) {
 // ands.c gates are physical binaries only: a root-shortened large clause stays
 // an antecedent.
 TEST(test_gate_and_or_root_shortened_large_stays_antecedent) {
-  Kernel k;
-  kernel_reserve_vars(k, 6); // x=1, inputs=2,3, partner=4, false tail=5, ant=6
+  Kernel k = kernel_with_vars(6); // x=1, inputs=2,3, partner=4, false tail=5, ant=6
   add_external_clause(k, {-1, 2, 3});
   add_external_clause(k, {1, 4, 5});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
@@ -619,8 +590,7 @@ TEST(test_gate_and_or_root_shortened_large_stays_antecedent) {
 
 // Kissat accepts a root-shortened large clause as the AND/OR base.
 TEST(test_gate_and_or_accepts_root_shortened_large_base) {
-  Kernel k;
-  kernel_reserve_vars(k, 6); // x=1, input=2, ants=4,5, false base tail=6
+  Kernel k = kernel_with_vars(6); // x=1, input=2, ants=4,5, false base tail=6
   add_external_clause(k, {-1, 2, 6});
   kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
   kernel_add_binary_clause(k, internalize(1), internalize(4), 2);
@@ -639,8 +609,7 @@ TEST(test_gate_and_or_accepts_root_shortened_large_base) {
 // kissat_mark_binaries accepts only physical binary inputs: a root-shortened
 // large input is no gate implication.
 TEST(test_gate_and_or_rejects_root_shortened_large_inputs) {
-  Kernel k;
-  kernel_reserve_vars(k, 12); // x=1, inputs=2,3, false tails=4,5
+  Kernel k = kernel_with_vars(12); // x=1, inputs=2,3, false tails=4,5
   add_external_clause(k, {1, -2, -3});
   add_external_clause(k, {-1, 2, 4});
   add_external_clause(k, {-1, 3, 5});
@@ -664,8 +633,7 @@ TEST(test_gate_and_or_rejects_root_shortened_large_inputs) {
 // An equivalence gate x↔y eliminates x as a substitution: antecedents get x
 // replaced by ±y, ant×ant is skipped, and the model reconstructs to x = y.
 TEST(test_gate_equivalence_substitution) {
-  Kernel k;
-  kernel_reserve_vars(k, 4); // x=1, y=2, ant vars 3,4
+  Kernel k = kernel_with_vars(4); // x=1, y=2, ant vars 3,4
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // (¬x∨y)  gate
   kernel_add_binary_clause(k, internalize(1), internalize(-2)); // (x∨¬y)  gate
   kernel_add_binary_clause(k, internalize(1), internalize(3));  // (x∨3)   antecedent
@@ -725,8 +693,7 @@ TEST(test_gate_ite_fires) {
 // Kissat ifthenelse.c recognizes an ITE with one ternary shortened to a binary;
 // the antecedent resolvent of (x v -3) and (-x v 4) is skipped.
 TEST(test_gate_ite_accepts_shortened_binary_clause) {
-  Kernel k;
-  kernel_reserve_vars(k, 7); // x=1; trace vars 61,841,896,62,898,953 -> 2..7
+  Kernel k = kernel_with_vars(7); // x=1; trace vars 61,841,896,62,898,953 -> 2..7
   const int large[5][3] = {{-1, -2, 3}, {-4, 2, 1}, {-1, 5, 6},
                            {-7, -5, 1}, {-1, -5, 7}};
   for (const auto &clause : large) {
@@ -806,8 +773,7 @@ static bool has_large_ordered(const Kernel &k, const std::vector<int> &want) {
 // definition.c keeps root-false tails as free Kitten literals, so (y v f),(-y)
 // is no core and the antecedent resolvent stays.
 TEST(test_definition_retains_root_false_physical_literals) {
-  Kernel k;
-  kernel_reserve_vars(k, 7); // x=1, y=2, f=3, pos ant=4,5, neg ant=6,7
+  Kernel k = kernel_with_vars(7); // x=1, y=2, f=3, pos ant=4,5, neg ant=6,7
   add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   add_external_clause(k, {1, 4, 5});
@@ -1099,8 +1065,7 @@ TEST(test_gate_mask) {
 // Retry filter (kissat flags->eliminate): an unchanged neighbourhood leaves
 // the schedule, a change rearms it; the API stays unrestricted.
 TEST(test_retry_filter) {
-  Kernel k;
-  kernel_reserve_vars(k, 14); // the bound-skip formula: x=1, a=2..7, b=8..13
+  Kernel k = kernel_with_vars(14); // the bound-skip formula: x=1, a=2..7, b=8..13
   for (int i = 2; i <= 7; i++)
     kernel_add_binary_clause(k, internalize(1), internalize(i));
   for (int j = 8; j <= 13; j++)
@@ -1152,8 +1117,7 @@ TEST(test_retry_filter) {
 }
 
 TEST(test_large_rewrite_retries_only_removed_literals) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Ref ref = add_external_clause(k, {1, 2, 3, 4});
   std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
 
@@ -1170,8 +1134,7 @@ TEST(test_large_rewrite_retries_only_removed_literals) {
 // Kissat dense order: existing binaries, then the arena stream; a later binary
 // resolvent is appended after the large antecedents.
 TEST(test_dense_bve_preserves_mixed_connected_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   auto L = [](int dimacs) { return internalize(dimacs); };
   const Lit p1[3] = {L(1), L(2), L(3)};
   const Lit p2[3] = {L(1), L(4), L(5)};

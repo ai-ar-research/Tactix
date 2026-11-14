@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 // DefaultPolicy's persistent affine search runs only in natural full-restart
 // root windows, due at Kissat's Eliminate conflict limit (NLOG2N occurrences,
 // kissat_scale_delta), which at expiry waits until the retained inputs
@@ -46,8 +47,7 @@ static uint64_t expected_delta(uint64_t clauses, uint64_t n) {
 }
 
 static void effort_limit() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   DefaultStrategyConfig c;
   c.affine_search.enabled = true;
   DefaultPolicy p(c);

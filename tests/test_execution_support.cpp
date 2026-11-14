@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/execution_scope.hpp"
@@ -74,8 +75,7 @@ TEST(test_collection_outcomes) {
   for (unsigned fixed : {0u, 1u, 2u, 3u}) {
     std::string preserved;
     for (bool feedback : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
     kernel_add_large_clause(k, clause, 3, false, 0, 10);
     for (unsigned i = 1; i <= fixed; ++i)

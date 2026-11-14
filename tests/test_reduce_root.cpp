@@ -2,7 +2,6 @@
 // again, and retained root reasons do not shrink the candidate population.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
@@ -45,10 +44,7 @@ static void prepare(Kernel &k) {
 }
 
 static void retained_chain(bool policy) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
-  add_external_clause(k, {-1, 3, 4});
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  Kernel k = kernel_with_clauses(8, {{-1, 3, 4}, {1, 2}});
   ScopedHeuristics h(k);
   k.h->stable = true;
   heuristics_update_scores(k);
@@ -88,8 +84,7 @@ static void retained_chain(bool policy) {
 }
 
 static void no_root_work() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   ScopedHeuristics h(k);
   k.h->stable = true;
   heuristics_update_scores(k);
@@ -106,8 +101,7 @@ static void refutation(unsigned kind) {
   const std::string path = proof_path("reduce-root");
   Proof proof;
   assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   k.proof = &proof;
   proof.bind_variable_map(&k.internal_to_external);
   Cnf inputs;
@@ -159,8 +153,7 @@ static void root_reason(bool elevated, bool compact, bool unsat) {
   const std::string path = proof_path("root-lock");
   Proof proof;
   assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   ScopedHeuristics h(k);
   k.proof = &proof;
   proof.bind_variable_map(&k.internal_to_external);
@@ -207,8 +200,7 @@ static void root_reason(bool elevated, bool compact, bool unsat) {
 }
 
 static void protected_reasons(bool pending) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   ScopedHeuristics h(k);
   const Lit lits[] = {internalize(1),internalize(2),internalize(3)};
   const Ref ref = kernel_add_large_clause(k, lits, 3, true, 9);

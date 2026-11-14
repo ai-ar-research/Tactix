@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "affine_formula_support.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
@@ -298,8 +299,7 @@ TEST(conflict_is_consumed_by_ordinary_bcp) {
 }
 
 TEST(unit_above_root_declines) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 6);
+  Kernel kernel = kernel_with_vars(6);
   add_equation(kernel, {3, 4}, false);
   add_equation(kernel, {3, 4, 5}, false);
   decide(kernel, 6);

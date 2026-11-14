@@ -1,6 +1,5 @@
 // Analyze/Backjump: forced scenarios with a known 1-UIP clause and jump level.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -13,11 +12,7 @@
 TEST(test_uip) {
   // At level 2, 4 and 5 follow decision 2; (-3,-4,-5) resolves through their
   // binary reasons to (-2,-3).
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
-  kernel_add_binary_clause(k, internalize(-2), internalize(5));
+  Kernel k = kernel_with_clauses(5, {{-1, 3}, {-2, 4}, {-2, 5}});
   const Ref cref = add_external_clause(k, {-3, -4, -5});
   kernel_assign_decision(k, internalize(1));
   kernel_assign(k, internalize(3), 1, internalize(-1), true);
@@ -96,10 +91,7 @@ TEST(test_detached_large_reason_in_conflict_analysis) {
 // D-SPLIT: ConflictAnalysis fuses Analyze and Backjump, so `pending` never
 // outlives one apply.
 TEST(test_conflictanalysis_atomic) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {-1, -2, 3});
-  add_external_clause(k, {-1, -2, -3});
+  Kernel k = kernel_with_clauses(3, {{-1, -2, 3}, {-1, -2, -3}});
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
   kernel_assign_decision(k, internalize(2));
@@ -232,13 +224,8 @@ static void write_level_one_failed_literal_proof(const char *path) {
 TEST(test_shrink) {
   // The block {-2, -3} is not minimizable but converges on decision 1, so
   // shrinking learns (-4 -1).
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  add_external_clause(k, {-4, -2, -3, 5});
-  add_external_clause(k, {-4, -5, 6});
-  add_external_clause(k, {-6, -5, -2, -3});
+  Kernel k = kernel_with_clauses(6, {{-1, 2}, {-1, 3}, {-4, -2, -3, 5}, {-4, -5, 6},
+      {-6, -5, -2, -3}});
 
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
@@ -258,8 +245,7 @@ TEST(test_shrink) {
 TEST(test_shrink_accepts_lower_learned_literal) {
   // Block {-b,-c} converges to b; c's walk reaches the learned -a (Kissat marks
   // learned literals removable before shrink=3).
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_assign_decision(k, internalize(1)); // a @ 1
   kernel_assign_decision(k, internalize(2)); // b @ 2
   const Ref reason_ref = add_external_clause(k, {-2, -1, 3});
@@ -280,8 +266,7 @@ TEST(test_shrink_accepts_lower_learned_literal) {
 TEST(test_shrink_crosses_unmarked_lower_level) {
   // Block {-b,-c} converges to b through level-2 -y, whose reason reaches the
   // learned -a: Kissat follows the chain across the intermediate level.
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   kernel_assign_decision(k, internalize(1)); // a @ 1
   kernel_assign_decision(k, internalize(2)); // unused level-2 decision
   kernel_add_binary_clause(k, internalize(-1), internalize(3));
@@ -305,8 +290,7 @@ TEST(test_shrink_crosses_unmarked_lower_level) {
 TEST(test_shrink_processes_lower_blocks_first) {
   // The lower block {-q,-r} converges first, enabling the higher block; Kissat's
   // tail-to-head order learns {-d,-b,-y}.
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   kernel_assign_decision(k, internalize(1)); // p @ 1
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign(k, internalize(2), 1, internalize(-1), true); // y @ 1
@@ -334,8 +318,7 @@ TEST(test_shrink_processes_lower_blocks_first) {
 static Kernel singleton_block_fixture() {
   // Kissat shrink=3 skips the singleton block -c (redundant through -a): -c stays
   // and its reason is not dereferenced.
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   // N1 schedule: c is assigned at level 2 from (-a c).
@@ -436,8 +419,7 @@ TEST(test_minimization_depth_matches_kissat) {
 static Kernel learned_stable_order_fixture() {
   // Block {-b,-c} (c later on the trail) fails to shrink through decision a,
   // isolating the within-level ordering rule.
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   kernel_assign(k, internalize(3), 2, internalize(-1), true);
@@ -460,8 +442,7 @@ TEST(test_learned_level_stable_order) {
 TEST(test_otfs) {
   // d = (-1 -2 -3) and r = (-1 -2 3) resolve to (-1 -2): OTFS strengthens r,
   // subsumes d and reuses the replacement as driver.
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Ref rref = add_external_clause(k, {-1, -2, 3});
   const Ref dref = add_external_clause(k, {-1, -2, -3});
 
@@ -489,8 +470,7 @@ TEST(test_otfs) {
 TEST(test_otfs_reuse_honors_chronological_gap) {
   // Asserting at level 103 with jump level 1: Kissat's 100-level reuse
   // threshold retains level 102 (Fmla conflict 844).
-  Kernel k;
-  kernel_reserve_vars(k, 104);
+  Kernel k = kernel_with_vars(104);
   k.conflict_reuse_chrono_levels = 100;
   add_external_clause(k, {-1, -2, 3});
   add_external_clause(k, {-1, -2, -3});
@@ -517,8 +497,7 @@ TEST(test_otfs_reuse_honors_chronological_gap) {
 TEST(test_large_otfs_shrinks_reason_in_place) {
   // In-place OTFS strengthening (kissat large_on_the_fly_strengthen): same record,
   // first watch retained; added material covers only the surviving tail.
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit d[5] = {internalize(-1), internalize(-2), internalize(-3),
                     internalize(-4), internalize(-5)};
   const Ref rref = add_external_clause(k, {5, -2, -3, -4, -1});
@@ -585,8 +564,7 @@ TEST(test_large_otfs_shrinks_reason_in_place) {
 TEST(test_large_otfs_retains_root_false_first_watch) {
   // Kissat's large OTFS path keeps a root-false first watch; only the binary
   // path drops root literals, chosen by the non-root antecedent size.
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   kernel_assign_unit(k, internalize(1));
   const Ref reason_ref = add_external_clause(k, {-1, 5, -2, -3, -4});
   const Ref conflict_ref = add_external_clause(k, {-5, -2, -3, -4}, true, 3);
@@ -683,11 +661,7 @@ TEST(test_otfs_strengthening_preserves_better_reason_glue) {
 TEST(test_chrono_backjump_clamps_to_jump_level) {
   // D-LEVEL-2: a chronological target above the assertion level is honored and
   // the UIP is stamped at jump_level.
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  kernel_add_binary_clause(k, internalize(-1), internalize(6));
-  kernel_add_binary_clause(k, internalize(-3), internalize(4));
-  kernel_add_binary_clause(k, internalize(-3), internalize(5));
+  Kernel k = kernel_with_clauses(6, {{-1, 6}, {-3, 4}, {-3, 5}});
   const Ref cref = add_external_clause(k, {-6, -4, -5});
   kernel_assign_decision(k, internalize(1));
   kernel_assign(k, internalize(6), 1, internalize(-1), true);
@@ -715,11 +689,7 @@ TEST(test_chrono_backjump_clamps_to_jump_level) {
 TEST(test_backjump_target_clamps) {
   // a target below the assertion level clamps up: the clause must stay
   // asserting
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(-1), internalize(5));
-  kernel_add_binary_clause(k, internalize(-2), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  Kernel k = kernel_with_clauses(5, {{-1, 5}, {-2, 3}, {-2, 4}});
   const Ref cref = add_external_clause(k, {-5, -3, -4});
   kernel_assign_decision(k, internalize(1));
   kernel_assign(k, internalize(5), 1, internalize(-1), true);
@@ -842,8 +812,7 @@ TEST(test_conflict_repair_after_fixed_prefix_watch_flush) {
 TEST(test_binary_conflict_reuse_jumps_reason) {
   // Binary conflict reuse jumps reasons unconditionally (Kissat): asserting -3
   // at level 1 records the direct reason -1.
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   k.conflict_reuse = true;
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
@@ -867,8 +836,7 @@ TEST(test_binary_conflict_reuse_jumps_reason) {
 TEST(test_nonreusable_conflict_repairs_watches) {
   // Kissat promotes the two highest-level literals even when the conflict
   // cannot be reused.
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_add_binary_clause(k, internalize(-3), internalize(4));
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));

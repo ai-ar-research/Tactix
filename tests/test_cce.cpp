@@ -1,7 +1,6 @@
 // CCE (rule calculus X3): clauses blocked only after covered-literal addition,
 // and model reconstruction over a sequence of witness segments.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "clause_load_support.hpp"
 #include "policies/default_policy.hpp"
@@ -54,8 +53,7 @@ TEST(test_asymmetric_tautology) {
 
 // Redundant clauses are not candidates (deviation 1).
 TEST(test_redundant_skipped) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   add_external_clause(k, {1, 2, 3}, true, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
@@ -298,8 +296,7 @@ TEST(test_model_reconstruction_after_structured_root) {
 // A configurable caller budget, not a hidden candidate cap, controls CCE:
 // duplicated occurrences push the covered-literal inference past 4096 ticks.
 static void test_caller_budget(uint64_t budget, bool expected) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   add_external_clause(k, {1, 2, 3});
   for (unsigned i = 0; i < 3000; ++i) add_external_clause(k, {-1, 4});
   add_external_clause(k, {-4, -2});

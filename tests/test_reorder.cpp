@@ -1,7 +1,7 @@
 // S7 Reorder: the weight formula and its exclusions, the two rankings it
 // rewrites (VMTF queue, EVSIDS heap), the instance surface, and the guard.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/reorder/reorder.hpp"
@@ -318,8 +318,7 @@ TEST(test_instance_surface) {
 // Guard: `H` is a genuine precondition (the op rewrites H state) and a refuted
 // kernel is not reorderable; the trail level is not constrained (N1).
 TEST(test_guard) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   assert(!reorder_guard(k)); // no H attached
   ScopedHeuristics _h(k);
   assert(reorder_guard(k));

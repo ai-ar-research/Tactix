@@ -2,7 +2,7 @@
 // No alternative sorter or solver implementation is supplied by this test.
 #include "unit_test.hpp"
 #include "fnv_digest.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "rules/vivify/vivify.hpp"
 
 #include <array>
@@ -91,8 +91,7 @@ static std::vector<uint64_t> check_order(Kernel &k, unsigned irred,
 
 static void check(unsigned irred, unsigned red, unsigned priority,
                   bool reverse_import, bool replace) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   k.vivify_scope = 2;
   k.vivify_reuse = true;
   k.vivify_flush = false;

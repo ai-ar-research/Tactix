@@ -1,7 +1,6 @@
 // Kernel unit tests: literal encoding, watch scheme, propagation chains,
 // root-level conflict detection.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "temporary_file.hpp"
 #include "rule_test_utils.hpp"
 #include "occurrence_test_utils.hpp"
@@ -16,8 +15,7 @@
 // SP-IRRED-GLUE-1: Kissat's `redundant || !glue` invariant is enforced by the
 // kernel, whatever glue a caller passes for an irredundant clause.
 TEST(test_irredundant_clause_never_stores_glue) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref irred =
       kernel_add_large_clause(k, lits, 3, /*redundant=*/false, /*glue=*/7);
@@ -30,8 +28,7 @@ TEST(test_irredundant_clause_never_stores_glue) {
 }
 
 TEST(test_active_population_is_live_state) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_materialize_cold_state(k);
   assert(kernel_active_variables(k) == 4);
   k.var_status.assign(k.nvars, VarStatus::Active);
@@ -49,8 +46,7 @@ TEST(test_active_population_is_live_state) {
   assert(kernel_active_variables(k) == 3 &&
          "a root-fixed identity is inactive even while retained for N1");
 
-  Kernel search;
-  kernel_reserve_vars(search, 2);
+  Kernel search = kernel_with_vars(2);
   kernel_assign_decision(search, make_lit(0, false));
   assert(kernel_active_variables(search) == 2 &&
          "a non-root search assignment remains active in Kissat");
@@ -130,8 +126,7 @@ TEST(test_reserved_trail_swap_exposes_replacement_capacity) {
 }
 
 static Kernel binary_conflict_kernel() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
@@ -543,8 +538,7 @@ TEST(test_variable_compaction_replays_inherited_arena_order) {
 // Whole-arena collection replays an appended replacement's inherited source
 // position (Kissat shortens in place).
 TEST(test_whole_collection_replays_inherited_creation_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(1);
   const Lit source[3] = {shared, internalize(2), internalize(3)};
   const Lit middle[3] = {shared, internalize(4), internalize(5)};
@@ -580,8 +574,7 @@ TEST(test_whole_collection_replays_inherited_creation_order) {
 // A later whole collection keeps Kissat's sparse Reduce partition (irredundant
 // before redundant), not proof-ID creation order.
 TEST(test_whole_collection_preserves_prior_sparse_partition) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
   const Lit i0[3] = {shared, internalize(2), internalize(3)};
   const Lit r1[3] = {shared, internalize(4), internalize(5)};
@@ -614,8 +607,7 @@ TEST(test_whole_collection_preserves_prior_sparse_partition) {
 // Kissat's dense BVE collector keeps literal pose and the search cursor; only
 // occurrence references are rebuilt.
 TEST(test_dense_collection_preserves_clause_pose) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit live_lits[4] = {internalize(7), internalize(5), internalize(4),
                             internalize(6)};
   const Ref garbage =
@@ -654,8 +646,7 @@ TEST(test_dense_collection_preserves_clause_pose) {
 // A retained Probe occurrence index does not make a collection dense: the
 // connected sparse watches are rebuilt to relocated Refs.
 TEST(test_collection_after_in_phase_sparse_resume_rewatches) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit live_lits[3] = {internalize(4), internalize(5), internalize(6)};
   const Ref garbage =
       add_external_clause(k, {1, 2, 3}, false, 0, 211);
@@ -688,8 +679,7 @@ TEST(test_collection_after_in_phase_sparse_resume_rewatches) {
 }
 
 TEST(test_occurrence_cache_does_not_enter_physical_dense_mode) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref ref = kernel_add_large_clause(k, lits, 3, false, 0, 213);
 
@@ -705,8 +695,7 @@ TEST(test_occurrence_cache_does_not_enter_physical_dense_mode) {
 // An OTFS-promoted clause joins an attached mixed occurrence image at once
 // (fuzz seed 297309643).
 TEST(test_irredundant_promotion_joins_dense_occurrences) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit old_lits[4] = {internalize(1), internalize(2), internalize(3),
                            internalize(4)};
   const Ref ref = kernel_add_large_clause(k, old_lits, 4,
@@ -742,8 +731,7 @@ TEST(test_irredundant_promotion_joins_dense_occurrences) {
 
 // Kissat's compactlim sparse collection from start=0 partitions the whole arena.
 TEST(test_sparse_collection_from_zero_partitions_whole_arena) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
   const Lit i0[3] = {shared, internalize(2), internalize(3)};
   const Lit r1[3] = {shared, internalize(4), internalize(5)};
@@ -769,8 +757,7 @@ TEST(test_sparse_collection_from_zero_partitions_whole_arena) {
 // A sparse collection keeps an appended replacement at its inherited prefix
 // position, with its watch and search cursor (Kissat shortens in place).
 TEST(test_sparse_collection_retains_pending_prefix_replacement) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
   const Lit source[3] = {shared, internalize(2), internalize(3)};
   const Lit middle[3] = {shared, internalize(4), internalize(5)};
@@ -864,8 +851,7 @@ TEST(test_compaction_drops_unassigned_stale_reason) {
 }
 
 TEST(test_root_sparse_collection) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_assign_unit(k, internalize(1));
   kernel_add_binary_clause(k, internalize(1), internalize(4));
   add_external_clause(k, {1, 2, 3});
@@ -885,8 +871,7 @@ TEST(test_root_sparse_collection) {
 }
 
 TEST(test_root_sparse_collection_binary_owner_once) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_assign_unit(k, internalize(1));
   kernel_assign_unit(k, internalize(2));
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -905,8 +890,7 @@ struct ReverseArenaOrder final : ArenaOrdering {
 };
 
 TEST(test_root_sparse_collection_keeps_native_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
   kernel_assign_unit(k, internalize(1));
@@ -972,8 +956,7 @@ TEST(test_root_sparse_collection_rewrites_nonroot_reason) {
 }
 
 TEST(test_sparse_collection_flushes_fixed_prefix_watch) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   add_external_clause(k, {-1, 2, 3}, false, 0, 104);
   const Ref start = static_cast<Ref>(k.arena.size());
   const Ref victim =
@@ -994,8 +977,7 @@ TEST(test_sparse_collection_flushes_fixed_prefix_watch) {
 
 // An irredundant clause after the Reduce watermark is in Kissat's swept tail.
 TEST(test_root_sparse_collection_sweeps_physical_irredundant_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit root = internalize(1);
   kernel_assign_unit(k, root);
   const Lit logical_prefix[3] = {root, internalize(6), internalize(7)};
@@ -1019,8 +1001,7 @@ TEST(test_root_sparse_collection_sweeps_physical_irredundant_tail) {
 // Kissat's sparse collector stably partitions and rewatches every tail record,
 // ignoring the diagnostic arena policy.
 TEST(test_sparse_collection_partitions_mixed_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(1);
   const Lit prefix[3] = {shared, internalize(2), internalize(3)};
   const Lit red_first[3] = {shared, internalize(3), internalize(4)};
@@ -1093,8 +1074,7 @@ TEST(test_sparse_collection_rebuilds_tail_irredundant_blocker) {
 // With root shortening, replacements keep their source position within their
 // redundancy class.
 TEST(test_root_sparse_collection_partitions_rewritten_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
   const Lit prefix[3] = {shared, internalize(3), internalize(4)};
@@ -1136,8 +1116,7 @@ TEST(test_root_sparse_collection_partitions_rewritten_tail) {
 
 // Pre-existing garbage alone triggers the root-aware sweep and rewatch.
 TEST(test_root_sparse_collection_collects_existing_garbage) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
   const Lit prefix[3] = {shared, internalize(3), internalize(4)};
@@ -1184,8 +1163,7 @@ TEST(test_root_sparse_collection_collects_existing_garbage) {
 
 // Root sweeping keeps a replacement that Kissat shortened in the retained prefix.
 TEST(test_root_sparse_collection_retains_pending_prefix_replacement) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
   const Lit source[3] = {shared, internalize(3), internalize(1)};
@@ -1498,8 +1476,7 @@ static std::vector<Ref> watched_large_refs(const Kernel &k, Lit l) {
 }
 
 TEST(test_rebuild_large_watches_restores_arena_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Ref ra = add_external_clause(k, {-1, 2, 3});
   const Ref rb = add_external_clause(k, {-1, 4, 5});
   kernel_unwatch_large(k, internalize(-1), ra);
@@ -1517,8 +1494,7 @@ TEST(test_rebuild_large_watches_restores_arena_order) {
 }
 
 TEST(test_rebuild_large_watches_restores_source_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(-1);
   const Lit a[3] = {shared, internalize(2), internalize(3)};
   const Lit b[3] = {shared, internalize(4), internalize(5)};
@@ -1542,8 +1518,7 @@ TEST(test_rebuild_large_watches_restores_source_order) {
 }
 
 TEST(test_dense_occurrences_keep_source_order_across_collection) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(-1);
   const Lit a[3] = {shared, internalize(2), internalize(3)};
   const Lit b[3] = {shared, internalize(4), internalize(5)};
@@ -1576,8 +1551,7 @@ TEST(test_dense_occurrences_keep_source_order_across_collection) {
 }
 
 TEST(test_dense_occurrences_reuse_capacity_and_position_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 13);
+  Kernel k = kernel_with_vars(13);
   const Lit shared = internalize(-1);
   const Lit a[3] = {shared, internalize(2), internalize(3)};
   const Lit b[3] = {shared, internalize(4), internalize(5)};
@@ -1624,8 +1598,7 @@ TEST(test_dense_occurrences_reuse_capacity_and_position_order) {
 }
 
 TEST(test_dense_mixed_order_is_consumer_scoped) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit binary[2] = {internalize(1), internalize(2)};
   const Lit large[3] = {internalize(1), internalize(3), internalize(4)};
   kernel_add_binary_clause(k, binary[0], binary[1]);
@@ -1679,8 +1652,7 @@ TEST(test_dense_mixed_order_is_consumer_scoped) {
 }
 
 TEST(test_large_replacement_preserves_redundant_recency) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit original[4] = {internalize(1), internalize(-2), internalize(3),
                            internalize(-4)};
   const Ref old_ref = kernel_add_large_clause(
@@ -1705,8 +1677,7 @@ TEST(test_large_replacement_preserves_redundant_recency) {
 }
 
 TEST(test_in_place_large_replacement_preserves_allocation_span) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const Lit original[6] = {internalize(1), internalize(2), internalize(3),
                            internalize(4), internalize(5), internalize(6)};
   const Ref ref = kernel_add_large_clause(k, original, 6, false, 0,
@@ -1758,8 +1729,7 @@ TEST(test_in_place_large_replacement_preserves_allocation_span) {
 }
 
 TEST(test_in_place_large_replacement_respects_disconnected_watches) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit original[4] = {internalize(1), internalize(2), internalize(3),
                            internalize(4)};
   const Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
@@ -1788,8 +1758,7 @@ TEST(test_in_place_large_replacement_respects_disconnected_watches) {
 // Propagate with disconnected large watches reaches only a binary fixpoint,
 // which the Debug invariant accepts.
 TEST(test_disconnected_large_clause_is_not_a_sparse_fixpoint_claim) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
   kernel_flush_large_watches(k);
@@ -1809,8 +1778,7 @@ TEST(test_disconnected_large_clause_is_not_a_sparse_fixpoint_claim) {
 }
 
 TEST(test_large_root_flush_preserves_ref_span_and_priority) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
 
@@ -1839,8 +1807,7 @@ TEST(test_large_root_flush_preserves_ref_span_and_priority) {
 
 TEST(test_root_flush_does_not_rearm_added_material) {
   {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     kernel_assign_unit(k, internalize(1));
     assert(propagate_apply(k) == ApplyResult::Ok);
     const Lit original[4] = {internalize(-1), internalize(2),
@@ -1858,8 +1825,7 @@ TEST(test_root_flush_does_not_rearm_added_material) {
     kernel_check_invariants(k);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     kernel_assign_unit(k, internalize(1));
     assert(propagate_apply(k) == ApplyResult::Ok);
     const Lit original[3] = {internalize(-1), internalize(2),
@@ -1881,8 +1847,7 @@ TEST(test_root_flush_does_not_rearm_added_material) {
 
 TEST(test_vivify_root_binary_terminal_rearms_added_material_only) {
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     kernel_assign_unit(k, internalize(1));
     assert(propagate_apply(k) == ApplyResult::Ok);
     const Lit original[3] = {internalize(-1), internalize(2),
@@ -1902,8 +1867,7 @@ TEST(test_vivify_root_binary_terminal_rearms_added_material_only) {
     kernel_check_invariants(k);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     kernel_assign_unit(k, internalize(1));
     assert(propagate_apply(k) == ApplyResult::Ok);
     const Lit original[4] = {internalize(-1), internalize(2),
@@ -1925,8 +1889,7 @@ TEST(test_vivify_root_binary_terminal_rearms_added_material_only) {
 }
 
 TEST(test_rebuild_large_watches_reselects_root_false_pair) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit root = internalize(1);
   kernel_assign_unit(k, root);
   kernel_assign_unit(k, internalize(2));
@@ -1987,8 +1950,7 @@ TEST(test_eliminate_rebuild_flushes_root_and_retired_large_clauses) {
 }
 
 TEST(test_watch_repair_primitive) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   // -1's list has neighbours on both sides and a binary: the walk is entry-wise.
   const Ref r1 = add_external_clause(k, {-1, -2, -3, -4});
   const Ref r2 = add_external_clause(k, {-1, 5, 6});
@@ -2028,8 +1990,7 @@ TEST(test_watch_repair_primitive) {
 }
 
 TEST(test_canonical_binary_watch_rebuild) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit pivot = internalize(3);
   const Lit higher = internalize(-5);
   const Lit lower2 = internalize(2);
@@ -2078,8 +2039,7 @@ TEST(test_canonical_binary_watch_rebuild) {
   kernel_dense_disconnect(k);
 
   // Saved pairs are sorted by the other endpoint's import order.
-  Kernel tumbled;
-  kernel_reserve_vars(tumbled, 6);
+  Kernel tumbled = kernel_with_vars(6);
   for (const Var v : {0u, 1u, 2u, 4u, 3u, 5u})
     kernel_record_import(tumbled, v);
   const Lit p = make_lit(1, false);
@@ -2100,8 +2060,7 @@ TEST(test_canonical_binary_watch_rebuild) {
   kernel_check_invariants(tumbled);
 
   // Kissat byte-radix sorts at 32 partners: a reversed high-degree run.
-  Kernel radix;
-  kernel_reserve_vars(radix, 45);
+  Kernel radix = kernel_with_vars(45);
   for (Var v = 0; v < 45; v++)
     kernel_record_import(radix, v);
   const Lit radix_pivot = make_lit(0, false);
@@ -2203,8 +2162,7 @@ TEST(test_propagate_beyond_conflicts_for_warmup) {
 }
 
 TEST(test_pending_units_borrow_and_restore_literal_marks) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(-2);
   {
     PendingUnits pending;
@@ -2326,8 +2284,7 @@ TEST(test_kissat_watch_growth_and_clause_checkpoint_defrag) {
 
 TEST(test_large_add_respects_physical_connection_mode) {
   for (const bool sparse : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
+    Kernel k = kernel_with_vars(5);
     const Lit binary[2] = {internalize(4), internalize(5)};
     kernel_add_binary_clause(k, binary[0], binary[1], 1);
     OccIndex dense;
@@ -2364,8 +2321,7 @@ TEST(test_large_add_respects_physical_connection_mode) {
 }
 
 TEST(test_resumable_model_export_preserves_solver_state) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   k.var_status.resize(2, VarStatus::Active);
   k.var_status[1] = VarStatus::Eliminated;
   --k.unassigned_active;

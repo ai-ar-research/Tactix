@@ -340,8 +340,7 @@ TEST(completion_cases) {
   assert(complete_model(k, partial, 4096, always, model) == CompletionStatus::NoModel);
   assert(model.empty() && k.trail == trail);
   {
-    Kernel root;
-    kernel_reserve_vars(root, 2);
+    Kernel root = kernel_with_vars(2);
     kernel_assign_unit(root, internalize(-1));
     assert(complete_model(root, {1, 0}, 4096, always, model) == CompletionStatus::NoModel);
     assert(model.empty() && root.trail.size() == 1);
@@ -349,8 +348,7 @@ TEST(completion_cases) {
     assert((model == std::vector<uint8_t>{0, 0}));
   }
   {
-    Kernel retired;
-    kernel_reserve_vars(retired, 2);
+    Kernel retired = kernel_with_vars(2);
     kernel_add_binary_clause(retired, internalize(1), internalize(2));
     retired.var_status.assign(2, VarStatus::Active);
     retired.var_status[0] = VarStatus::Eliminated;

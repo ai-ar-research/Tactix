@@ -6,7 +6,6 @@ static constexpr bool library_assertions = true;
 #endif
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include <csignal>
 #include <sys/resource.h>
 #include <sys/wait.h>
@@ -20,8 +19,7 @@ static unsigned copies(const Kernel &k, Lit lit, Ref ref) {
 }
 
 static void fixed_slot(bool positive, bool flushed) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit slot = internalize(positive ? 1 : -1);
   const Ref ref = add_large_clause(k, {slot, internalize(2), internalize(3)});
   const Ref start = add_external_clause(k, {4, 5, 6}, true, 3);
@@ -44,8 +42,7 @@ static void missing_nonroot_remains_fatal(int assigned) {
     const rlimit no_core{0, 0};
     assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
     close(STDERR_FILENO);
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
     const Ref ref = kernel_add_large_clause(k, lits, 3, false, 0);
     if (assigned) kernel_assign_decision(k, internalize(assigned));

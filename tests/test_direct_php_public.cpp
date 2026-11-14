@@ -191,8 +191,7 @@ TEST(declines_are_atomic) {
     kernel.proof = nullptr;
   }
   {
-    Kernel unrelated;
-    kernel_reserve_vars(unrelated, 3);
+    Kernel unrelated = kernel_with_vars(3);
     add_external_clause(unrelated, {1, 2, 3}, false, 0, ++unrelated.next_clause_id);
     declines(unrelated, request(), DirectPhpActionStatus::NotRecognized);
   }
@@ -339,8 +338,7 @@ TEST(allowance_declines_before_action) {
 }
 
 TEST(duplicate_binary_snapshot_is_not_invalid) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
+  Kernel kernel = kernel_with_vars(3);
   kernel_add_binary_clause(kernel, internalize(1), internalize(2),
                            ++kernel.next_clause_id);
   kernel_add_binary_clause(kernel, internalize(1), internalize(2),

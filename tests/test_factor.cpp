@@ -4,7 +4,6 @@
 // below-threshold grids factor through the rule's own surface.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/factor/factor.hpp"
 
@@ -161,8 +160,7 @@ TEST(test_factor_extension_with_heuristics_and_compaction) {
   for (const char *ops : {"FCA", "ADFA", "ADCFA", "AFDCA"}) {
     const bool compact = std::strchr(ops, 'C');
     const Var first = compact ? 1 : 0; // x0 is absent from every grid clause
-    Kernel k;
-    kernel_reserve_vars(k, first + 5);
+    Kernel k = kernel_with_vars(first + 5);
     for (Var v = first; v < k.nvars; ++v) {
       k.input_activation_order.push_back(v);
       kernel_record_import(k, v);
@@ -595,8 +593,7 @@ TEST(test_fresh_large_quotients_do_not_become_factors) {
 // (kissat factor.c:867-882, cadical factor.cpp:799-802).
 TEST(test_empty_factor_restamps_only_when_advice_is_consumed) {
   for (const bool consume : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     k.input_activation_order = {0, 1, 2};
     ScopedHeuristics h(k);
     kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -659,8 +656,7 @@ TEST(test_demote_fresh_order) {
 // Kissat inserts a fresh variable with its cumulative score, then demotes it to
 // zero; the transient sift shapes the heap.
 TEST(test_demote_fresh_stable_heap_lifecycle) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   k.input_activation_order = {0, 1, 2, 3};
   ScopedHeuristics _hg_k(k);
   k.h->stable = true;
@@ -679,8 +675,7 @@ TEST(test_demote_fresh_stable_heap_lifecycle) {
 }
 
 TEST(test_demote_fresh_uses_recorded_end) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   k.input_activation_order = {0, 1};
   ScopedHeuristics _hg_k(k);
   k.h->stable = true;

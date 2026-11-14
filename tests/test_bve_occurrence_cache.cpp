@@ -1,5 +1,4 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -14,8 +13,7 @@ static Ref clause(Kernel &k, int a, int b, int c) {
 }
 
 static Kernel fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   clause(k, 1, 2, 3);
   clause(k, 4, -2, -3);
   assert(propagate_service(k) == ApplyResult::Ok);

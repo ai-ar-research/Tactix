@@ -3,7 +3,6 @@
 // is the implication p → q. See the rule calculus §V3.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -81,8 +80,7 @@ struct DenseSession {
 
 // x1 ≡ x2 via x1 -> x2 -> x1: SCC {+1,+2} plus its complement {-1,-2}
 TEST(test_equivalence_scc) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   equivalence(k, 1, 2);
   SccResult r = substitute_find_sccs(k);
   assert(!r.contradiction);
@@ -100,8 +98,7 @@ TEST(test_equivalence_scc) {
 // Kissat's DFS charges each visited literal's watch cache lines on entry and
 // on the finishing rescan, so round-one `substitute_ticks` equal Kissat's.
 TEST(test_scc_charges_two_scans_per_literal) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // x1 -> x2
   kernel_add_binary_clause(k, internalize(-2), internalize(3)); // x2 -> x3
   kernel_add_binary_clause(k, internalize(-3), internalize(1)); // x3 -> x1
@@ -119,11 +116,7 @@ TEST(test_scc_charges_two_scans_per_literal) {
 }
 
 TEST(test_instance_enumeration_does_not_charge_work) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-2), internalize(3));
-  kernel_add_binary_clause(k, internalize(-3), internalize(1));
+  Kernel k = kernel_with_clauses(3, {{-1, 2}, {-2, 3}, {-3, 1}});
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("Substitute")];
   uint64_t instances[8];
   assert(rule.instances(k, instances, 8) > 0);
@@ -133,8 +126,7 @@ TEST(test_instance_enumeration_does_not_charge_work) {
 
 // SCC representatives follow Kissat's first-occurrence (import) order.
 TEST(test_representative_uses_import_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_record_import(k, 1); // external x2 appears before x1
   kernel_record_import(k, 2);
   kernel_record_import(k, 0);
@@ -156,8 +148,7 @@ TEST(test_representative_uses_import_order) {
 // Kissat's large-clause pass runs even without an equivalence class, so it
 // commits root simplification (a ternary with a root-false literal shrinks).
 TEST(test_no_scc_still_simplifies_root_fixed_clauses) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {-1, 2, 3});
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
@@ -171,8 +162,7 @@ TEST(test_no_scc_still_simplifies_root_fixed_clauses) {
 // Kissat's SCC graph excludes inactive variables, even ones stale binaries
 // still mention.
 TEST(test_retired_variable_excluded_from_scc) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   equivalence(k, 1, 2);
   k.var_status.assign(k.nvars, VarStatus::Active);
   k.var_status[1] = VarStatus::Substituted;
@@ -232,8 +222,7 @@ static bool lit_in_any_clause(const Kernel &k, Lit l) {
 
 // A consistent x1 ≡ x2 is substituted: the non-rep x2 vanishes everywhere.
 TEST(test_apply_substitutes) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   equivalence(k, 1, 2);
   add_external_clause(k, {2, 3, 4});
 
@@ -253,8 +242,7 @@ TEST(test_apply_substitutes) {
 // Canonical Kissat substitution shrinks a large clause in place keeping its
 // glue (connected Sweep substitution applies the size-1 promotion).
 TEST(test_canonical_substitution_preserves_glue_on_shrink) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   equivalence(k, 1, 2);
   add_external_clause(k, {1, 2, 3, 4, 5, 6}, true, 5);
 
@@ -266,8 +254,7 @@ TEST(test_canonical_substitution_preserves_glue_on_shrink) {
 // As in Kissat, a large source collapsed to a binary stays lazy garbage until
 // an arena owner (Reduce or Eliminate) collects it.
 TEST(test_canonical_substitution_leaves_collapsed_source_lazy) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   equivalence(k, 1, 2);
   add_external_clause(k, {1, 2, 3});
   const uint64_t arena_generation = k.arena_generation;
@@ -283,8 +270,7 @@ TEST(test_canonical_substitution_leaves_collapsed_source_lazy) {
 // Kissat's Sweep-connected substitution rewrites a large clause in place and
 // updates the mixed dense stream at once (later capped environments see it).
 TEST(test_sweep_equivalence_preserves_large_clause_position) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   add_external_clause(k, {3, 4, 5});
   const Ref touched_ref = add_external_clause(k, {2, 4, 6});
   clause_at(k.arena, touched_ref)->set_vivify(true);
@@ -317,8 +303,7 @@ TEST(test_sweep_equivalence_preserves_large_clause_position) {
 // connected rewrite marks every surviving irredundant literal.
 TEST(test_substitution_factor_marks_match_calling_path) {
   {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     equivalence(k, 1, 2);
     add_external_clause(k, {2, 3, 4});
     std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
@@ -330,8 +315,7 @@ TEST(test_substitution_factor_marks_match_calling_path) {
   }
 
   {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     add_external_clause(k, {2, 3, 4});
     bridge(k, internalize(1), internalize(2));
     DenseSession dense(k);
@@ -349,11 +333,7 @@ TEST(test_substitution_factor_marks_match_calling_path) {
 // In Kissat's dense Sweep list a large clause collapsing to a binary replaces
 // the stable endpoint's occurrence in place and appends the moved direction.
 TEST(test_sweep_preserves_cross_kind_dense_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  add_external_clause(k, {1, 3, 5});
-  add_external_clause(k, {2, 1, 4});
-  add_external_clause(k, {1, -3, -5});
+  Kernel k = kernel_with_clauses(5, {{1, 3, 5}, {2, 1, 4}, {1, -3, -5}});
   equivalence(k, 1, 2);
   DenseSession dense(k, true);
   assert(substitute_apply_sweep_equivalences(
@@ -381,8 +361,7 @@ TEST(test_sweep_preserves_cross_kind_dense_order) {
 // Binary sync matches the old multiset, appends only the new binary, and
 // publishes the ledger's Kissat order to the physical watches.
 TEST(test_sweep_syncs_new_binaries_by_multiset) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit one = internalize(1);
   kernel_add_binary_clause(k, one, internalize(2));
   kernel_add_binary_clause(k, one, internalize(3));
@@ -422,8 +401,7 @@ TEST(test_sweep_syncs_new_binaries_by_multiset) {
 }
 
 TEST(test_sweep_reposes_only_last_bridge_copy) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit a = internalize(1), b = internalize(2);
   const Lit c = internalize(3), d = internalize(4);
   kernel_add_binary_clause(k, negate(a), b);
@@ -485,8 +463,7 @@ static void assert_ledger_mirrors_kernel(Kernel &k,
 // a source's binaries and large clauses reach the representative interleaved
 // in stream order; a previous substitution builds the discriminating stream.
 TEST(test_sweep_flushes_one_source_stream_at_a_time) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   const Lit one = internalize(1), two = internalize(2), three = internalize(3);
   add_external_clause(k, {1, 7, 8}); // x1's own: keeps its slot
   add_external_clause(k, {2, 6, 7}); // x2's: survives, rewritten to x1
@@ -536,8 +513,7 @@ TEST(test_sweep_flushes_one_source_stream_at_a_time) {
 // own pair, so an early pair's bridge carries the intermediate winner; without
 // it Substitute cannot rediscover a winner that a later merge absorbs.
 TEST(test_sweep_bridges_link_intermediate_representative) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit one = internalize(1), two = internalize(2), three = internalize(3),
             four = internalize(4);
   kernel_add_binary_clause(k, one, internalize(5));
@@ -573,8 +549,7 @@ TEST(test_sweep_bridges_link_intermediate_representative) {
 // Kissat empties two sources of one representative in `sweep_equivalence`
 // proof order, one complete stream at a time.
 TEST(test_sweep_flushes_sources_in_emission_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit one = internalize(1), two = internalize(2), three = internalize(3);
   kernel_add_binary_clause(k, two, internalize(6));
   kernel_add_binary_clause(k, three, internalize(7));
@@ -612,8 +587,7 @@ TEST(test_sweep_flushes_sources_in_emission_order) {
 // A same-batch chain collapses a clause when its last equivalent literal
 // retires; Kissat appends the binary at that literal's stream position.
 TEST(test_sweep_chained_collapse_uses_last_mixed_stream) {
-  Kernel k;
-  kernel_reserve_vars(k, 10);
+  Kernel k = kernel_with_vars(10);
   const Lit one = internalize(1), two = internalize(2),
             three = internalize(3), four = internalize(4);
   add_external_clause(k, {1, 9, 10});
@@ -648,8 +622,7 @@ TEST(test_sweep_chained_collapse_uses_last_mixed_stream) {
 // The ledger records Sweep's published bridges even when every class is
 // declined (a unit of the same batch fixes an endpoint).
 TEST(test_sweep_records_binaries_of_a_declined_batch) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit a = internalize(1), b = internalize(2);
   add_external_clause(k, {2, 3, 4});
   DenseSession dense(k);
@@ -667,8 +640,7 @@ TEST(test_sweep_records_binaries_of_a_declined_batch) {
 
 // The ledger declines exactly the class members the rewrite declines.
 TEST(test_sweep_ledger_declines_the_same_members_as_the_rewrite) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit live_a = internalize(1), live_b = internalize(2);
   const Lit fixed_a = internalize(3), fixed_b = internalize(4);
   add_external_clause(k, {2, 4, 5});
@@ -696,8 +668,7 @@ TEST(test_sweep_ledger_declines_the_same_members_as_the_rewrite) {
 // Kissat's dense Sweep stream excludes redundant large clauses; Substitute
 // owns their rewrite.
 TEST(test_sweep_leaves_redundant_clause_outside_dense_transaction) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   add_external_clause(k, {2, 3, 4}, true, 2);
   equivalence(k, 1, 2);
   kernel_assign_unit(k, internalize(-3)); // the ternary collapses to a binary
@@ -720,8 +691,7 @@ TEST(test_sweep_leaves_redundant_clause_outside_dense_transaction) {
 
 // Only the connected irredundant clause is rewritten and indexed.
 TEST(test_sweep_rewrites_only_connected_irredundant_clause) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   add_external_clause(k, {2, 3, 4, 5}, true, 3);
   add_external_clause(k, {2, 5, 6});
   equivalence(k, 1, 2);
@@ -748,11 +718,7 @@ TEST(test_sweep_rewrites_only_connected_irredundant_clause) {
 }
 
 TEST(test_canonical_substitution_preserves_large_clause_position) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  add_external_clause(k, {3, 4, 5});
-  add_external_clause(k, {2, 4, 6});
-  add_external_clause(k, {-3, 5, 6});
+  Kernel k = kernel_with_clauses(6, {{3, 4, 5}, {2, 4, 6}, {-3, 5, 6}});
   equivalence(k, 1, 2);
 
   assert(substitute_apply(k) == ApplyResult::Ok);
@@ -763,8 +729,7 @@ TEST(test_canonical_substitution_preserves_large_clause_position) {
 // Kissat's `substitute_clauses` compacts in the existing header, so a
 // root-false shortening keeps the Vivify-leftover priority bit.
 TEST(test_canonical_root_shrink_preserves_vivify_priority) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Ref source = add_external_clause(k, {1, 2, 3, 4}, true, 3);
   clause_at(k.arena, source)->set_vivify(true);
   kernel_assign_unit(k, internalize(-1));
@@ -779,8 +744,7 @@ TEST(test_canonical_root_shrink_preserves_vivify_priority) {
 // Substitution leaves an unrelated binary watch list in order (later bounded
 // scans consume candidates in watch order).
 TEST(test_substitution_preserves_unrelated_binary_watch_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   equivalence(k, 1, 2);
 
   const Lit pivot = internalize(3);
@@ -798,8 +762,7 @@ TEST(test_substitution_preserves_unrelated_binary_watch_order) {
 // The streaming path keeps multiplicity: two sources mapping onto a present
 // target leave three copies.
 TEST(test_substitution_preserves_binary_multiplicity) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   equivalence(k, 1, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(3));
   kernel_add_binary_clause(k, internalize(2), internalize(3));
@@ -815,8 +778,7 @@ TEST(test_substitution_preserves_binary_multiplicity) {
 TEST(test_retires_transient_equivalence_lemmas) {
   TemporaryFile file;
   {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     equivalence(k, 1, 2);
     Proof proof;
     assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
@@ -866,8 +828,7 @@ TEST(test_sweep_bridge_target_pair_collision_consumes_ordinary_copy) {
     return std::make_pair(additions, deletions);
   };
   {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     // Ordinary binary equal to the transformed bridge target below.
     kernel_add_binary_clause(k, internalize(-3), internalize(2));
     DenseSession dense(k);
@@ -925,8 +886,7 @@ TEST(test_sweep_bridge_target_pair_collision_consumes_ordinary_copy) {
 }
 
 TEST(test_substitution_rewrites_stable_watch_in_place) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   equivalence(k, 1, 2);
 
   const Lit stable = internalize(3);
@@ -943,8 +903,7 @@ TEST(test_substitution_rewrites_stable_watch_in_place) {
 // Kissat moves a retired literal's binary watches to its representative in
 // the retiring watch list's order (x6 lists x4 before x2).
 TEST(test_substitution_appends_moved_watches_in_source_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   // x1 == x6, with x1 the import-order representative.
   equivalence(k, 1, 6);
 
@@ -966,8 +925,7 @@ TEST(test_substitution_appends_moved_watches_in_source_order) {
 // Kissat moves the two directed watches independently when both endpoints
 // retire: x8 lists x7 before x6, so x1 receives x2 before x3.
 TEST(test_substitution_moves_both_directions_independently) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   equivalence(k, 1, 8);
   equivalence(k, 2, 7);
   equivalence(k, 3, 6);
@@ -987,8 +945,7 @@ TEST(test_substitution_moves_both_directions_independently) {
 // Model reconstruction through ρ: a model of the reduced formula with x2 at the
 // wrong value must extend to satisfy every original clause.
 TEST(test_model_reconstruction) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   equivalence(k, 1, 2);
   kernel_add_binary_clause(k, internalize(2), internalize(3));
   // original clauses (DIMACS), captured before substitution
@@ -1018,8 +975,7 @@ TEST(test_model_reconstruction) {
 
 // A binary collapsing to a unit: (x2 ∨ x1) under x1 ≡ x2 asserts the unit x1.
 TEST(test_size_collapse_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   equivalence(k, 1, 2);
   kernel_add_binary_clause(k, internalize(2), internalize(1));  // (x2 ∨ x1)
   assert(substitute_apply(k) == ApplyResult::Ok);
@@ -1031,8 +987,7 @@ TEST(test_size_collapse_unit) {
 // A failed SCC root can fix a member after Tarjan froze the map: Kissat skips
 // its retirement but still applies the complete map in substitute_binaries.
 TEST(test_failed_root_member_still_rewrites_physical_binaries) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit rep = internalize(1), member = internalize(2);
   const Lit witness = internalize(3), spectator = internalize(4);
   equivalence(k, 2, 1);
@@ -1052,8 +1007,7 @@ TEST(test_failed_root_member_still_rewrites_physical_binaries) {
 
 // N1: one instance substitutes just that class; a junk payload is a total NoOp.
 TEST(test_apply_instance_one_class) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   equivalence(k, 1, 2);
   equivalence(k, 3, 4);
   const int rid = tactix_rule_id("Substitute");
@@ -1073,8 +1027,7 @@ TEST(test_apply_instance_one_class) {
 // {1} comes from the rewritten large clause and {¬1} from the binary (¬1∨¬2),
 // and neither fires by propagation alone.
 TEST(test_contradictory_units_refute) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   equivalence(k, 1, 2);
   add_external_clause(k, {1, 2, -3});
   kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // (¬1 ∨ ¬2)
@@ -1099,8 +1052,7 @@ TEST(test_sweep_duplicate_literal_pose) {
       {{2, 5, 3, 6, 4}, {5, 6, 1}, {{3, 4}, {2, 3}, {1, 2}}},
   };
   for (const auto &test : cases) {
-    Kernel k;
-    kernel_reserve_vars(k, 6);
+    Kernel k = kernel_with_vars(6);
     std::vector<Lit> input, expected;
     for (int lit : test.input)
       input.push_back(internalize(lit));
@@ -1128,8 +1080,7 @@ TEST(test_sweep_duplicate_literal_pose) {
 // schedule can keep Eliminate's attached): the dense oracle in
 // kernel_check_invariants accepts it and retired literals hold no entries.
 TEST(test_canonical_substitution_republishes_attached_mixed_stream) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   equivalence(k, 1, 2);
   kernel_add_binary_clause(k, internalize(2), internalize(3));
   kernel_add_binary_clause(k, internalize(-2), internalize(4));

@@ -1,14 +1,12 @@
 // Actual scheduler entry: retained roots precede every simplifier slot.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 
 static void entry(SlotGroup group) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   ScopedHeuristics h(k);
   k.h->stable = true;
   add_external_clause(k, {-1, 3, 4});
@@ -45,8 +43,7 @@ int main() {
   entry(SlotGroup::Probe);
   entry(SlotGroup::Eliminate);
   for (const auto group : {SlotGroup::Probe, SlotGroup::Eliminate}) {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     ScopedHeuristics h(k);
     kernel_add_binary_clause(k, internalize(-1), internalize(2));
     kernel_assign_unit(k, internalize(1));

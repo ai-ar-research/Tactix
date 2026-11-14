@@ -10,7 +10,6 @@
 // overrides the iteration count.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "kernel/watch.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/transitive_reduce/transitive_reduce.hpp"
@@ -88,8 +87,7 @@ int main(int argc, char **argv) {
   const uint32_t NV = 5;
   uint64_t deleted_total = 0, ran = 0, del_seen = 0;
   for (int iter = 0; iter < iters; iter++) {
-    Kernel k;
-    kernel_reserve_vars(k, NV);
+    Kernel k = kernel_with_vars(NV);
     std::uniform_int_distribution<int> nb(2, 9);
     const int m = nb(rng);
     std::uniform_int_distribution<uint32_t> ld(0, 2 * NV - 1);

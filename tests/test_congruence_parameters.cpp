@@ -1,5 +1,4 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/congruence/congruence.hpp"
@@ -42,8 +41,7 @@ static size_t kind_count(const Kernel &k, GateKind kind) {
 
 TEST(discovery_limits_are_effective_and_unbounded) {
   {
-    Kernel k;
-    kernel_reserve_vars(k, 6);
+    Kernel k = kernel_with_vars(6);
     and3(k, 5, 1, 2, 3);
     and3(k, 6, 1, 2, 3);
     k.congruence_parameters.and_arity_limit = 2;
@@ -54,8 +52,7 @@ TEST(discovery_limits_are_effective_and_unbounded) {
     assert(kind_count(k, GateKind::And) >= 1);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     xor_gate(k, 3, 1, 2);
     k.congruence_parameters.xor_arity_limit = 1;
     assert(kind_count(k, GateKind::Xor) == 0);
@@ -63,8 +60,7 @@ TEST(discovery_limits_are_effective_and_unbounded) {
     assert(kind_count(k, GateKind::Xor) == 3);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     ite(k, 4, 1, 2, 3);
     assert(kind_count(k, GateKind::Ite) == 1);
   }
@@ -116,8 +112,7 @@ TEST(scope_and_c_api_validate_without_partial_update) {
 
 TEST(optional_entry_order_preserves_inference) {
   using Order = strategy::CongruenceBinaryWatchOrder;
-  Kernel quiet;
-  kernel_reserve_vars(quiet, 10);
+  Kernel quiet = kernel_with_vars(10);
   for (int partner : {8, 3, 6})
     kernel_add_binary_clause(quiet, internalize(1), internalize(partner));
   add(quiet, {1, 4, 5});
@@ -140,8 +135,7 @@ TEST(optional_entry_order_preserves_inference) {
                                          quiet.watches.arena.end()));
   kernel_check_invariants(quiet);
   for (Order order : {Order::Canonical, Order::PreserveExisting}) {
-    Kernel k;
-    kernel_reserve_vars(k, 6);
+    Kernel k = kernel_with_vars(6);
     and3(k, 5, 1, 2, 3);
     and3(k, 6, 1, 2, 3);
     k.congruence_parameters.binary_watch_order = order;
@@ -164,8 +158,7 @@ TEST(optional_entry_order_preserves_inference) {
 }
 
 TEST(sparse_and_membership_matches_physical_formula) {
-  Kernel k;
-  kernel_reserve_vars(k, 48);
+  Kernel k = kernel_with_vars(48);
   and3(k, 31, 1, 2, 3);
   and3(k, 32, 1, 2, 3);
   and3(k, 33, 4, 5, 6);

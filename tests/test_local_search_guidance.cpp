@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/local_search/local_search.hpp"
 #include "strategy/controller_observation.hpp"
@@ -155,8 +155,7 @@ TEST(partial_publication_and_identity_lifetime) {
 }
 
 TEST(publication_counts_phases_across_proof_only_holes) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   Var first;
   assert(kernel_reserve_proof_variables(k, 100, first) && first == 2);
   assert(kernel_new_extension_vars(k, 1) == 2);

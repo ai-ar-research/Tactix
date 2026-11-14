@@ -1,13 +1,12 @@
 // Fixed bookkeeping transitions, linked against actual old and new objects.
 #include "unit_test.hpp"
 #include "fnv_digest.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "rules/substitute/substitute.hpp"
 
 static void check(unsigned size, unsigned shape, bool redundant,
                   unsigned dense_mode, bool transaction) {
-  Kernel k;
-  kernel_reserve_vars(k, 4 * size + 8);
+  Kernel k = kernel_with_vars(4 * size + 8);
   std::vector<Lit> original;
   for (unsigned i = 0; i < size; ++i)
     original.push_back(make_lit(i, i & 1));

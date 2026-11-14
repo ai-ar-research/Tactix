@@ -1,6 +1,5 @@
 // X5 conditional-autarky legality, all-copy deletion and reconstruction.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/condition/condition.hpp"
 
@@ -17,8 +16,7 @@ static ConditionInstance cube(std::initializer_list<int> clause,
 }
 
 TEST(test_binary_cube_and_model) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit c[2] = {internalize(1), internalize(2)};
   kernel_add_binary_clause(k, c[0], c[1]);
   kernel_add_binary_clause(k, c[0], c[1]);
@@ -52,12 +50,7 @@ TEST(test_binary_cube_and_model) {
 }
 
 TEST(test_large_and_negative_cases) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  add_external_clause(k, {1, 2, 4});
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-3), internalize(4));
-  kernel_add_binary_clause(k, internalize(-4), internalize(1));
+  Kernel k = kernel_with_clauses(4, {{1, 2, 4}, {-1, 3}, {-3, 4}, {-4, 1}});
   assert(!condition_apply_explicit(k, cube({1, 2, 4}, {1, 3})));
   assert(!condition_apply_explicit(k, cube({1, 2, 4}, {1, 3, -3})));
   assert(!condition_apply_explicit(k, cube({1, 2, 4}, {1, 3, 4, 4})));
@@ -126,8 +119,7 @@ TEST(test_exhaustive_cube_implication_oracle) {
                                 holds(other, after);
                   }
 
-                Kernel k;
-                kernel_reserve_vars(k, 3);
+                Kernel k = kernel_with_vars(3);
                 const auto add = [&k](const std::vector<int> &clause) {
                   std::vector<Lit> lits;
                   for (const int lit : clause)
@@ -150,10 +142,7 @@ TEST(test_exhaustive_cube_implication_oracle) {
 }
 
 TEST(test_root_false_candidate_literal) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  add_external_clause(k, {1, 2, 3});
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  Kernel k = kernel_with_clauses(4, {{1, 2, 3}, {-1, 4}});
   kernel_assign_unit(k, internalize(-3));
   assert(!kernel_propagate(k));
   assert(condition_guard(k));
@@ -163,8 +152,7 @@ TEST(test_root_false_candidate_literal) {
 
 TEST(test_root_true_reason_candidates) {
   {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     kernel_add_binary_clause(k, internalize(1), internalize(2));
     kernel_assign_unit(k, internalize(-2));
     assert(!kernel_propagate(k));
@@ -176,8 +164,7 @@ TEST(test_root_true_reason_candidates) {
     assert(k.values[internalize(1)] > 0);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Ref ref = add_external_clause(k, {1, 2, 3});
     kernel_assign_unit(k, internalize(-2));
     kernel_assign_unit(k, internalize(-3));
@@ -192,11 +179,7 @@ TEST(test_root_true_reason_candidates) {
 }
 
 static void test_cube_on_compacted_external_identity(bool emit_model = false) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
-  kernel_add_binary_clause(k, internalize(-4), internalize(5));
+  Kernel k = kernel_with_clauses(5, {{1, 2}, {-1, 4}, {-4, 5}});
   k.var_status.assign(k.nvars, VarStatus::Active);
   k.var_status[2] = VarStatus::Eliminated;
   k.unassigned_active--;
@@ -225,11 +208,7 @@ static void test_cube_on_compacted_external_identity(bool emit_model = false) {
 }
 
 TEST(test_cube_respects_archived_root_value) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
-  kernel_add_binary_clause(k, internalize(-4), internalize(5));
+  Kernel k = kernel_with_clauses(6, {{1, 2}, {-1, 4}, {-4, 5}});
   kernel_assign_unit(k, internalize(3));
   kernel_assign_unit(k, internalize(6));
   assert(!kernel_propagate(k));

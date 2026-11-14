@@ -1,6 +1,5 @@
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "session/query_projection.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -91,16 +90,12 @@ enumerate_orbitopal(const Kernel &k, const SubstitutionRedundancyParameters &p,
 }
 
 static Kernel forward_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  add_external_clause(k, {1, 2, 3});
+  Kernel k = kernel_with_clauses(3, {{1, 2}, {1, 2, 3}});
   return k;
 }
 
 static Kernel sweep_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   for (int zs = -1; zs <= 1; zs += 2)
     for (int ws = -1; ws <= 1; ws += 2) {
       const Lit forward[] = {internalize(-1), internalize(2),
@@ -230,8 +225,7 @@ TEST(material_settings_are_per_call_and_scoped) {
 }
 
 TEST(rule_work_budget_is_per_call_and_scoped) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   for (int output = 3; output <= 6; ++output)
     and_gate(k, output, 1, 2);
   k.stop_fuzz = 1000000000u; // poll each safe point without stopping
@@ -405,8 +399,7 @@ TEST(budget_survives_compatible_online_reconfiguration) {
 }
 
 TEST(complete_pass_reaches_beyond_a_fixed_prefix) {
-  Kernel k;
-  kernel_reserve_vars(k, 22);
+  Kernel k = kernel_with_vars(22);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   for (int variable = 3; variable <= 22; ++variable) {
     add_large_clause(k, {internalize(1), internalize(2), internalize(variable)});
@@ -440,8 +433,7 @@ TEST(complete_pass_reaches_beyond_a_fixed_prefix) {
 // later selected offsets remain live. Counting attempts alone misses this bug.
 TEST(selected_strengthening_preserves_pending_offsets) {
   for (unsigned size : {3u, 4u}) {
-    Kernel k;
-    kernel_reserve_vars(k, 23);
+    Kernel k = kernel_with_vars(23);
     kernel_add_binary_clause(k, internalize(-1), internalize(2));
     std::vector<uint64_t> victims;
     for (int variable = 4; variable <= 23; ++variable) {
@@ -611,13 +603,7 @@ TEST(pending_selection_rejects_collection_and_external_mutation) {
 }
 
 TEST(semantic_instances_and_parameters_compose) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  add_external_clause(k, {1, 2, 3, 6});
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-4));
-  kernel_add_binary_clause(k, internalize(-2), internalize(5));
-  kernel_add_binary_clause(k, internalize(-2), internalize(-5));
+  Kernel k = kernel_with_clauses(6, {{1, 2, 3, 6}, {-1, 4}, {-1, -4}, {-2, 5}, {-2, -5}});
   const int id = tactix_rule_id("Instantiate");
   assert(id >= 0);
   std::vector<uint64_t> instances;
@@ -673,8 +659,7 @@ TEST(semantic_instances_and_parameters_compose) {
 
 TEST(congruence_semantic_actions_reach_online_fixpoint) {
   const auto build = [] {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
+    Kernel k = kernel_with_vars(5);
     and_gate(k, 3, 1, 2);
     and_gate(k, 4, 1, 2);
     xor_gate(k, 5, 3, 4);
@@ -726,13 +711,7 @@ TEST(congruence_semantic_actions_reach_online_fixpoint) {
 }
 
 TEST(complete_pass_reenumerates_after_its_own_collection) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  add_external_clause(k, {1, 2, 3, 6});
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-4));
-  kernel_add_binary_clause(k, internalize(-2), internalize(5));
-  kernel_add_binary_clause(k, internalize(-2), internalize(-5));
+  Kernel k = kernel_with_clauses(6, {{1, 2, 3, 6}, {-1, 4}, {-1, -4}, {-2, 5}, {-2, -5}});
 
   OnlineStrategyProgram program;
   program.sequence.push_back(invocation(
@@ -826,8 +805,7 @@ TEST(budget_continuation_preserves_limits_and_stops) {
 
   // A complete published AMO prefix is retained when a stop arrives; no later
   // producer runs until explicit resumption, and its action cap survives rounds.
-  Kernel prefix;
-  kernel_reserve_vars(prefix, 3);
+  Kernel prefix = kernel_with_vars(3);
   const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(prefix, clause, 3, false, 0, ++prefix.next_clause_id);
   sr.maximum_detection_ticks = UINT64_MAX;
@@ -1090,8 +1068,7 @@ static InvocationResult apply_parameterized(Kernel &k, const char *rule,
 
 TEST(zero_victim_compaction_reports_semantic_progress) {
   for (unsigned kind = 0; kind < 3; ++kind) {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     const Lit first = internalize(1);
     if (kind == 0)
       kernel_add_binary_clause(k, first, internalize(2));
@@ -1118,8 +1095,7 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
   }
   // Exercise the collector's unit and empty outcomes, not only Reduce's propagation.
   for (bool refuted : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     for (int variable = 1; variable <= 3; ++variable)
       kernel_assign_unit(k, internalize(-variable));
     assert(propagate_apply(k) == ApplyResult::Ok);
@@ -1137,8 +1113,7 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
     kernel_check_invariants(k);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     kernel_add_binary_clause(k, internalize(1), internalize(2));
     kernel_assign_unit(k, internalize(1));
     assert(propagate_apply(k) == ApplyResult::Ok);
@@ -1166,11 +1141,7 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
 }
 
 TEST(condition_online_uses_external_clause_after_compaction) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(4), internalize(5));
-  kernel_add_binary_clause(k, internalize(-4), internalize(1));
-  kernel_add_binary_clause(k, internalize(-1), internalize(5));
+  Kernel k = kernel_with_clauses(5, {{4, 5}, {-4, 1}, {-1, 5}});
   k.var_status.assign(k.nvars, VarStatus::Active);
   k.var_status[1] = VarStatus::Eliminated;
   k.unassigned_active--;
@@ -1199,8 +1170,7 @@ TEST(condition_online_uses_external_clause_after_compaction) {
 
 TEST(collection_does_not_age_the_search_database) {
   for (bool bookkeeping : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
+    Kernel k = kernel_with_vars(5);
     const Ref ref = add_external_clause(k, {3, 4, 5}, true, 4);
     clause_at(k.arena, ref)->set_used(2);
     k.kept_glue = 9;
@@ -1344,8 +1314,7 @@ TEST(rule_parameters_are_scoped_per_call) {
 }
 
 TEST(exact_factor_grids_compose_as_a_selected_batch) {
-  Kernel k;
-  kernel_reserve_vars(k, 10);
+  Kernel k = kernel_with_vars(10);
   const auto add_grid = [&](int a, int b, int p, int q, int r) {
     FactorGrid grid;
     grid.factors = {internalize(a), internalize(b)};
@@ -1379,8 +1348,7 @@ TEST(exact_factor_grids_compose_as_a_selected_batch) {
 }
 
 static Kernel complete_factor_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   for (const int factor : {1, 2})
     for (const int remainder : {3, 4, 5, 6})
       kernel_add_binary_clause(k, internalize(factor),
@@ -1549,8 +1517,7 @@ TEST(sr_failure_statuses_preserve_the_pending_application) {
   assert(k.value(internalize(-1)) > 0);
   kernel_check_invariants(k);
 
-  Kernel malformed;
-  kernel_reserve_vars(malformed, 1);
+  Kernel malformed = kernel_with_vars(1);
   OnlineInvocation bad = step;
   bad.id = 67;
   bad.parameters = SubstitutionRedundancyParameters{};
@@ -1565,8 +1532,7 @@ TEST(sr_failure_statuses_preserve_the_pending_application) {
 }
 
 TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
-  Kernel enumerated;
-  kernel_reserve_vars(enumerated, 3);
+  Kernel enumerated = kernel_with_vars(3);
   const Lit source[] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(enumerated, source, 3, false, 0,
                           ++enumerated.next_clause_id);
@@ -1629,8 +1595,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
 
   // Binaries carry no redundancy bit: emit no ULC certificate for them and leave
   // them to the orbitopal detector.
-  Kernel binary_source;
-  kernel_reserve_vars(binary_source, 2);
+  Kernel binary_source = kernel_with_vars(2);
   kernel_add_binary_clause(binary_source, internalize(1), internalize(2),
                            ++binary_source.next_clause_id);
   std::vector<SubstitutionRedundancyInstance> binary_instances;
@@ -1648,8 +1613,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   kernel_check_invariants(binary_source);
 
   // Producer provenance on caller-owned input never bypasses X7 validation.
-  Kernel forged;
-  kernel_reserve_vars(forged, 4);
+  Kernel forged = kernel_with_vars(4);
   kernel_add_large_clause(forged, source, 3, false, 0,
                           ++forged.next_clause_id);
   const Lit second_source[] = {internalize(1), internalize(4)};
@@ -1665,8 +1629,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
 
   // A ULC pair with a root-false endpoint pivots on the unassigned endpoint.
   for (const bool rup : {false, true}) {
-    Kernel root;
-    kernel_reserve_vars(root, 4);
+    Kernel root = kernel_with_vars(4);
     kernel_add_large_clause(root, source, 3, false, 0,
                             ++root.next_clause_id);
     kernel_assign_unit(root, internalize(1));
@@ -1686,8 +1649,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   }
 
   // Learned positive occurrences make the certificate decline without mutation.
-  Kernel learned;
-  kernel_reserve_vars(learned, 5);
+  Kernel learned = kernel_with_vars(5);
   kernel_add_large_clause(learned, source, 3, false, 0,
                           ++learned.next_clause_id);
   const Lit learned_first[] = {internalize(1), internalize(4),
@@ -1712,8 +1674,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   // Admission is fresh per clause: completing the first AMO makes the later
   // clause with -1 non-unique, so clause order picks the AMO.
   const auto sequential_completion = [&](bool reverse) {
-    Kernel ordered;
-    kernel_reserve_vars(ordered, 5);
+    Kernel ordered = kernel_with_vars(5);
     const Lit positive[] = {internalize(1), internalize(2), internalize(3)};
     const Lit negative[] = {internalize(-1), internalize(4), internalize(5)};
     const auto add = [&](const Lit *clause) {
@@ -1754,8 +1715,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
 }
 
 static Kernel symmetry_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const auto add_binary = [&](int first, int second) {
     kernel_add_binary_clause(k, internalize(first), internalize(second),
                              ++k.next_clause_id);
@@ -1791,8 +1751,7 @@ TEST(orbitopal_column_orientation_is_typed_and_effective) {
 }
 
 static Kernel orbitopal_product_fixture(bool complete = true) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const auto variable = [](unsigned row, unsigned column) {
     return static_cast<int>(3 * row + column + 1);
   };
@@ -1815,8 +1774,7 @@ static Kernel orbitopal_product_fixture(bool complete = true) {
 }
 
 static Kernel orbitopal_product_union_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 18);
+  Kernel k = kernel_with_vars(18);
   const auto variable = [](unsigned component, unsigned row,
                            unsigned column) {
     return static_cast<int>(9 * component + 3 * row + column + 1);
@@ -1924,8 +1882,7 @@ TEST(orbitopal_product_refinement_requires_exact_two_axis_action) {
 TEST(orbitopal_product_extends_coupled_variables) {
   for (const int sign : {1, -1}) {
     const auto fixture = [&] {
-      Kernel k;
-      kernel_reserve_vars(k, 12);
+      Kernel k = kernel_with_vars(12);
       for (int row = 0; row < 3; ++row) {
         Lit clause[3];
         for (int column = 0; column < 3; ++column) {
@@ -2023,8 +1980,7 @@ TEST(orbitopal_product_extends_coupled_variables) {
 }
 
 TEST(orbitopal_certificate_rechecks_propagated_root_closure) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_assign_unit(k, internalize(-3));
 
   SubstitutionRedundancyInstance instance;
@@ -2113,8 +2069,7 @@ TEST(orbitopal_certified_prefix_preserves_small_sat_fixture) {
 }
 
 TEST(orbitopal_alignment_spans_connected_columns) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const auto add_binary = [&](int first, int second) {
     kernel_add_binary_clause(k, internalize(first), internalize(second),
                              ++k.next_clause_id);
@@ -2153,8 +2108,7 @@ TEST(orbitopal_alignment_spans_connected_columns) {
 
 TEST(orbitopal_row_group_certificate_rejects_missing_images) {
   const auto fixture = [](bool complete, bool outside_clauses) {
-    Kernel k;
-    kernel_reserve_vars(k, 8);
+    Kernel k = kernel_with_vars(8);
     const auto add_large = [&](std::initializer_list<int> external) {
       std::vector<Lit> clause;
       for (const int literal : external)
@@ -2225,8 +2179,7 @@ TEST(orbitopal_reuses_only_equivalent_failed_matrices) {
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
   for (const bool negative : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 37);
+    Kernel k = kernel_with_vars(37);
     const auto literal = [&](int variable) {
       return internalize(negative ? -variable : variable);
     };
@@ -2286,8 +2239,7 @@ TEST(orbitopal_reuses_only_equivalent_failed_matrices) {
 
   // Inconsistent transport around a triangle changes the matrix with the
   // seed. Component membership alone must not cause a cached rejection.
-  Kernel cycle;
-  kernel_reserve_vars(cycle, 9);
+  Kernel cycle = kernel_with_vars(9);
   for (int column = 0; column < 3; ++column) {
     add_large_clause(
         cycle, {internalize(1 + 3 * column), internalize(2 + 3 * column), internalize(3 + 3 * column)}, false, 0, ++cycle.next_clause_id);
@@ -2315,8 +2267,7 @@ TEST(orbitopal_column_transport_requires_a_bijection) {
     // Complete, duplicate physical edge, missing edge, ambiguous source,
     // and a total but noninjective relation, respectively.
     for (unsigned variant = 0; variant < 5; ++variant) {
-      Kernel k;
-      kernel_reserve_vars(k, 7);
+      Kernel k = kernel_with_vars(7);
       const auto literal = [&](int variable) {
         return internalize(negative ? -variable : variable);
       };
@@ -2389,8 +2340,7 @@ static Kernel clique_coloring_orbitopal_fixture() {
 }
 
 static Kernel orbitopal_refinement_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const auto a = [](unsigned row) { return 1 + row; };
   const auto b = [](unsigned row) { return 4 + row; };
   const auto hidden = [](unsigned row) { return 7 + row; };
@@ -2412,8 +2362,7 @@ static Kernel orbitopal_refinement_fixture() {
 }
 
 static Kernel orbitopal_single_seed_refinement_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const auto anchor = [](unsigned row) { return 1 + row; };
   const auto hidden = [](unsigned row) { return 4 + row; };
   Lit unique[3];
@@ -2602,8 +2551,7 @@ TEST(orbitopal_refinement_cells_need_no_generic_generators) {
 
   // A triangle and a square share equitable degree cells but not one orbit.
   // Refinement cells must never stand in for exact whole-formula row actions.
-  Kernel coarse;
-  kernel_reserve_vars(coarse, 14);
+  Kernel coarse = kernel_with_vars(14);
   Lit positive[7];
   for (int v = 1; v <= 7; ++v)
     positive[v - 1] = internalize(v);
@@ -2771,8 +2719,7 @@ TEST(orbitopal_clique_order_matches_exhaustive_connected_graphs) {
                                 static_cast<unsigned>(__builtin_popcount(selected)));
     }
 
-    Kernel kernel;
-    kernel_reserve_vars(kernel, vertices * colors);
+    Kernel kernel = kernel_with_vars(vertices * colors);
     const auto variable = [](unsigned vertex, unsigned color) {
       return static_cast<int>(vertex * colors + color + 1);
     };
@@ -2924,8 +2871,7 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
   assert(interrupted.status == SymmetryEnumerationStatus::Interrupted);
   assert(!visited);
 
-  Kernel dense;
-  kernel_reserve_vars(dense, 4);
+  Kernel dense = kernel_with_vars(4);
   for (int first = 1; first <= 4; ++first)
     for (int second = first + 1; second <= 4; ++second)
       kernel_add_binary_clause(dense, internalize(first), internalize(second),
@@ -2965,8 +2911,7 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
 }
 
 static Kernel sst_clause_fixture(bool amo) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
   // Symmetric private consequences keep each representative unit from being
   // an SR step on its own; the complete SST prefix is load-bearing.
@@ -3043,8 +2988,7 @@ TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
     kernel_check_invariants(checked);
   };
 
-  Kernel negation;
-  kernel_reserve_vars(negation, 2);
+  Kernel negation = kernel_with_vars(2);
   kernel_add_binary_clause(negation, internalize(1), internalize(2),
                            ++negation.next_clause_id);
   kernel_add_binary_clause(negation, internalize(-1), internalize(2),
@@ -3055,8 +2999,7 @@ TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
 
   // Binary fixing follows negation fixing unconditionally, as in the owner: a
   // formula without any negation orbit still fixes the swapped binary's target.
-  Kernel binary;
-  kernel_reserve_vars(binary, 2);
+  Kernel binary = kernel_with_vars(2);
   kernel_add_binary_clause(binary, internalize(1), internalize(2),
                            ++binary.next_clause_id);
   check(std::move(binary),
@@ -3065,8 +3008,7 @@ TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
 
   // Once negation fixing establishes a unit, binary fixing may refine the
   // surviving subgroup in the same pass.
-  Kernel refined;
-  kernel_reserve_vars(refined, 4);
+  Kernel refined = kernel_with_vars(4);
   kernel_add_binary_clause(refined, internalize(1), internalize(2),
                            ++refined.next_clause_id);
   kernel_add_binary_clause(refined, internalize(-1), internalize(2),
@@ -3082,8 +3024,7 @@ TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
 }
 
 TEST(compound_admission_publishes_a_singleton_forcing_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2),
                            ++k.next_clause_id);
   kernel_add_binary_clause(k, internalize(-1), internalize(2),
@@ -3156,8 +3097,7 @@ TEST(stabilizer_chain_adds_all_cuts_before_rup_unit) {
 }
 
 TEST(fix_and_cut_reaches_nonclausal_orbits) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit clauses[][2] = {
       {internalize(1), internalize(3)},
       {internalize(2), internalize(4)},
@@ -3269,8 +3209,7 @@ TEST(every_root_assignment_constrains_graph_symmetry) {
 
 TEST(explicit_pivot_mapping_must_repair_candidate) {
   for (const int phase : {1, -1}) {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     kernel_assign_unit(k, internalize(phase));
     kernel_assign_unit(k, internalize(2 * phase));
     assert(propagate_apply(k) != ApplyResult::Unsat);
@@ -3295,8 +3234,7 @@ TEST(explicit_pivot_mapping_must_repair_candidate) {
 
   // An explicit pivot image remains legal when !C implies the image of C.
   // This is the SST-cut case; requiring sigma(pivot)=true would exclude it.
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
   SubstitutionRedundancyInstance cut;
   cut.clause = {internalize(1), internalize(-2)};
@@ -3312,8 +3250,7 @@ TEST(explicit_pivot_mapping_must_repair_candidate) {
 // Proof serialization may expand one application into temporary proof clauses.
 TEST(explicit_pivot_mappings_remain_applicable) {
   {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     kernel_add_binary_clause(k, internalize(1), internalize(2),
                              ++k.next_clause_id);
     SubstitutionRedundancyInstance unit;
@@ -3325,8 +3262,7 @@ TEST(explicit_pivot_mappings_remain_applicable) {
     assert(k.value(internalize(1)) > 0);
     kernel_check_invariants(k);
   }
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   kernel_add_binary_clause(k, internalize(3), internalize(4),
                            ++k.next_clause_id);
   SubstitutionRedundancyInstance open;
@@ -3349,8 +3285,7 @@ TEST(fixed_root_units_do_not_consume_graph_admission) {
                           SymmetryBinaryGraphMode::DirectEdges})
     for (const int phase : {1, -1})
       for (const unsigned copies : {1u, 2u}) {
-        Kernel k;
-        kernel_reserve_vars(k, 4);
+        Kernel k = kernel_with_vars(4);
         kernel_assign_unit(k, internalize(phase));
         const Lit root = internalize(-2 * phase);
         kernel_assign_unit(k, root);
@@ -3415,8 +3350,7 @@ TEST(pointwise_root_discovery_preserves_explicit_sr) {
   // Interchangeable assigned variables consume a finite generator allowance.
   // Restricted discovery must retain the open symmetry with no root-only maps.
   for (const int phase : {1, -1}) {
-    Kernel k;
-    kernel_reserve_vars(k, 134);
+    Kernel k = kernel_with_vars(134);
     for (int variable = 1; variable <= 132; ++variable)
       kernel_assign_unit(k, internalize(phase * variable));
     kernel_add_binary_clause(k, internalize(133), internalize(134),
@@ -3470,8 +3404,7 @@ TEST(pointwise_root_discovery_preserves_explicit_sr) {
 
   // Without root compaction, assigned and open variables can move together.
   // The option intentionally discovers a subgroup and may omit those maps.
-  Kernel mixed;
-  kernel_reserve_vars(mixed, 4);
+  Kernel mixed = kernel_with_vars(4);
   kernel_assign_unit(mixed, internalize(1));
   kernel_assign_unit(mixed, internalize(2));
   kernel_add_binary_clause(mixed, internalize(-1), internalize(3),
@@ -3536,8 +3469,7 @@ repeated_binary_run(unsigned first_copies, unsigned second_copies,
                     bool finish_admitted_group = false,
                     uint64_t progress_ticks_per_generator = 0,
                     uint64_t hard_detection_ticks = 0) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const auto add = [&](int a, int b) {
     kernel_add_binary_clause(k, internalize(a), internalize(b),
                              ++k.next_clause_id);
@@ -3725,8 +3657,7 @@ TEST(uncertified_generated_sr_preserves_query_domain) {
 }
 
 TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
-  Kernel k;
-  kernel_reserve_vars(k, 1);
+  Kernel k = kernel_with_vars(1);
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::GeneralComplete;
   OnlineInvocation step;
@@ -3751,8 +3682,7 @@ TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
   }
   assert(executor.complete());
 
-  Kernel limited;
-  kernel_reserve_vars(limited, 1);
+  Kernel limited = kernel_with_vars(1);
   limited.unit_ids[0] = ++limited.next_clause_id;
   kernel_assign_unit(limited, internalize(-1));
   parameters.maximum_general_candidates_per_advance = 1;
@@ -3777,8 +3707,7 @@ TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
 
 TEST(root_simplified_sr_noop_is_format_independent) {
   for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DsrBinary}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     k.unit_ids[2] = ++k.next_clause_id;
     kernel_assign_unit(k, internalize(-3));
     kernel_add_binary_clause(k, internalize(1), internalize(2),
@@ -3821,8 +3750,7 @@ TEST(root_simplified_sr_noop_is_format_independent) {
 // The immutable payload remains syntactically valid, but is no longer live.
 TEST(retired_sr_payload_is_inapplicable_and_reconfigurable) {
   for (unsigned location = 0; location < 4; ++location) {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-1), internalize(3), ++k.next_clause_id);
     SubstitutionRedundancyInstance sr;
@@ -3893,8 +3821,7 @@ TEST(retired_sr_payload_is_inapplicable_and_reconfigurable) {
 }
 
 TEST(root_fixing_after_amo_completion_is_recorded) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(-1), internalize(2),
                            ++k.next_clause_id);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2),
@@ -3916,8 +3843,7 @@ TEST(root_fixing_after_amo_completion_is_recorded) {
 }
 
 TEST(malformed_sr_is_rejected_before_true_clause_noop) {
-  Kernel k;
-  kernel_reserve_vars(k, 1);
+  Kernel k = kernel_with_vars(1);
   k.unit_ids[0] = ++k.next_clause_id;
   kernel_assign_unit(k, internalize(1));
   SubstitutionRedundancyInstance instance;
@@ -4020,8 +3946,7 @@ TEST(later_sr_batch_member_can_become_inapplicable) {
 // repetitions, size = literals + variables of the live formula.
 TEST(size_scaled_fixpoint_follows_the_owner_scale) {
   using namespace tactix::strategy;
-  Kernel small;
-  kernel_reserve_vars(small, 4);
+  Kernel small = kernel_with_vars(4);
   kernel_add_binary_clause(small, internalize(1), internalize(2),
                            ++small.next_clause_id);
   assert(repeat_round_limit(small, {RepeatMode::UntilScopedFixpoint, 7}) == 7);

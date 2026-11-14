@@ -1,7 +1,6 @@
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "frontend/parse.hpp"
-#include "kernel/kernel.hpp"
 #include "population/population_observer.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
@@ -531,8 +530,7 @@ TEST(test_nested_scoped_rebind_settles_each_observer) {
 }
 
 TEST(test_dsr_checker_transactions_and_exact_clauses) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 6);
+  Kernel kernel = kernel_with_vars(6);
   Recorder recorder;
   const std::string path = proof_path("dsr");
   {
@@ -712,8 +710,7 @@ TEST(test_external_clauses) {
 }
 
 TEST(test_kernel_mutation_endpoints_and_representation_silence) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 8);
+  Kernel kernel = kernel_with_vars(8);
   Recorder recorder;
   {
     ScopedPopulationObserverBinding binding(kernel, recorder);
@@ -788,8 +785,7 @@ TEST(test_kernel_mutation_endpoints_and_representation_silence) {
 }
 
 TEST(test_metadata_promotion_and_empty_unit_replacements) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 9);
+  Kernel kernel = kernel_with_vars(9);
   Recorder recorder;
   {
     ScopedPopulationObserverBinding binding(kernel, recorder);
@@ -844,8 +840,7 @@ TEST(test_rebuilt_binary_publication_endpoints) {
   for (const BinaryPopulationEffect effect : {
            BinaryPopulationEffect::RepresentationOnly,
            BinaryPopulationEffect::LogicalAdd}) {
-    Kernel kernel;
-    kernel_reserve_vars(kernel, 2);
+    Kernel kernel = kernel_with_vars(2);
     Recorder recorder;
     {
       ScopedPopulationObserverBinding binding(kernel, recorder);
@@ -890,8 +885,7 @@ TEST(test_variable_compaction_is_population_silent) {
 }
 
 TEST(test_substitute_binary_population_rewrite) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
+  Kernel kernel = kernel_with_vars(3);
   // x1 <-> x2, plus a payload clause that must become (x1 v x3).
   kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
   kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
@@ -957,8 +951,7 @@ void assert_one_committed_binary_transaction(const Recorder &recorder) {
 }
 
 TEST(test_substitute_transaction_preexisting_coalescing_and_duplicates) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
+  Kernel kernel = kernel_with_vars(3);
   kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
   kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
   kernel_add_binary_clause(kernel, lit(1), lit(3), 3); // pre-existing target
@@ -989,8 +982,7 @@ TEST(test_substitute_transaction_preexisting_coalescing_and_duplicates) {
 }
 
 TEST(test_substitute_proof_transaction) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
+  Kernel kernel = kernel_with_vars(3);
   Recorder recorder;
   recorder.invariant_kernel = &kernel;
   // The in-place binary pass writes its proof lines while a pair's two mirrored
@@ -1015,8 +1007,7 @@ TEST(test_substitute_proof_transaction) {
 }
 
 TEST(test_substitute_transaction_collapse_and_tautology) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 2);
+  Kernel kernel = kernel_with_vars(2);
   kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
   kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
   kernel_add_binary_clause(kernel, lit(1), lit(2), 3);  // unit image
@@ -1049,8 +1040,7 @@ TEST(test_substitute_transaction_collapse_and_tautology) {
 }
 
 TEST(test_substitute_sweep_session_callbacks_see_mirrored_watches) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 4);
+  Kernel kernel = kernel_with_vars(4);
   // Two independently retired endpoints force the session path to rebuild
   // both directed watches of the payload image (x2 v x4) -> (x1 v x3).
   kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "tseitin_test_support.hpp"
 #include "temporary_file.hpp"
 #include "test_io.hpp"
@@ -333,8 +334,7 @@ TEST(dsr_and_unsupported_proof_contract) {
 }
 
 Kernel parsed_triangle() {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
+  Kernel kernel = kernel_with_vars(3);
   for (const auto &equation : tseitin_test::triangle)
     for (const auto &clause : parity_certificate::xor_equation(
              equation.variables.data(), equation.variables.size(), equation.rhs)) {
@@ -525,8 +525,7 @@ std::vector<int32_t> prepared_cycle(Kernel &kernel) {
 // With one edge assigned at the root, the action still offers and applies a
 // cycle; an assigned cycle edge moves preparation to an alternative cycle.
 TEST(assigned_edges_select_an_available_cycle) {
-  Kernel probe;
-  kernel_reserve_vars(probe, 12);
+  Kernel probe = kernel_with_vars(12);
   add_equations(probe, wide_cycle);
   const auto cycle = prepared_cycle(probe);
   int32_t off_cycle = 0;

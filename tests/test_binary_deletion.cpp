@@ -3,7 +3,6 @@
 // (implementation notes 14).
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "test_io.hpp"
 #include "temporary_file.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -61,8 +60,7 @@ TEST(test_populated_archive_can_release_storage_without_losing_count) {
 
 // delete drops exactly one slot from each mirror list; the map keeps the key
 TEST(test_delete_shrinks_both_lists) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 7);
   kernel_add_binary_clause(k, a, internalize(3), 8); // unrelated binary on a
@@ -80,8 +78,7 @@ TEST(test_delete_shrinks_both_lists) {
 // A pair re-derived after deletion installs its fresh id; keeping the retired
 // one would name an already retired clause.
 TEST(test_readd_after_delete_installs_fresh_id) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 7);
   assert(kernel_delete_binary(k, a, b)); // proof retires id 7
@@ -92,8 +89,7 @@ TEST(test_readd_after_delete_installs_fresh_id) {
 }
 
 TEST(test_add_missing_mirror_does_not_duplicate_stable_direction) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit stable = internalize(1), moved = internalize(2);
   kernel_add_binary_clause(k, stable, moved, 7);
   k.factor_marks[stable] = 0;
@@ -112,8 +108,7 @@ TEST(test_add_missing_mirror_does_not_duplicate_stable_direction) {
 }
 
 TEST(test_publish_rebuilt_binary_does_not_rearm_added_material) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 7);
   k.factor_marks[a] = 0;
@@ -128,8 +123,7 @@ TEST(test_publish_rebuilt_binary_does_not_rearm_added_material) {
 
 // A duplicated pair is not deletable: one id cannot name two live clauses.
 TEST(test_duplicate_pair_refused) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 3); // two live copies of the same pair
   kernel_add_binary_clause(k, a, b, 4); // (duplicate input clauses do this)
@@ -142,8 +136,7 @@ TEST(test_duplicate_pair_refused) {
 TEST(test_dsr_deletes_each_physical_copy) {
   {
     for (const unsigned copies : {2u, 3u, 5u}) {
-      Kernel k;
-      kernel_reserve_vars(k, 2);
+      Kernel k = kernel_with_vars(2);
       TemporaryFile file;
       const char *path = file.path.c_str();
       Proof proof;
@@ -174,8 +167,7 @@ TEST(test_dsr_deletes_each_physical_copy) {
 // Streaming PBP, like DSR, deletes one checker copy per removed kernel copy.
 TEST(test_streaming_pbp_deletes_each_physical_copy) {
   for (const unsigned copies : {2u, 3u, 5u}) {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     TemporaryFile file;
     const char *path = file.path.c_str();
     Proof proof;
@@ -208,8 +200,7 @@ TEST(test_streaming_pbp_deletes_each_physical_copy) {
 }
 
 TEST(test_delete_one_duplicate_copy_keeps_pair_named) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 3);
   kernel_add_binary_clause(k, a, b, 4);
@@ -225,8 +216,7 @@ TEST(test_delete_one_duplicate_copy_keeps_pair_named) {
 
 // deleting an absent binary is a no-op (idempotent)
 TEST(test_delete_idempotent) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 5);
   assert(kernel_delete_binary(k, a, b));
@@ -238,8 +228,7 @@ TEST(test_delete_idempotent) {
 
 // a root literal propagated by the deleted binary is retired to a unit reason
 TEST(test_reason_binary_retired_to_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 9);   // (a v b)
   kernel_assign_unit(k, internalize(-1)); // a = false at root
@@ -255,8 +244,7 @@ TEST(test_reason_binary_retired_to_unit) {
 
 // DSR protects a derived root unit with two RUP helpers before the deletion.
 TEST(test_dsr_materializes_root_reason_before_binary_delete) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 9);
   kernel_assign_unit(k, negate(a));
@@ -279,8 +267,7 @@ TEST(test_dsr_materializes_root_reason_before_binary_delete) {
 }
 
 TEST(test_dsr_materializes_root_reason_before_large_delete) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit a = internalize(1), b = internalize(2), c = internalize(3);
   const Ref ref = add_large_clause(k, {a, b, c}, false, 0, 9);
   kernel_assign_unit(k, negate(a));
@@ -305,8 +292,7 @@ TEST(test_dsr_materializes_root_reason_before_large_delete) {
 
 // An in-place rewrite keeps the Ref that OTFS uses as a non-root reason.
 TEST(test_large_rewrite_preserves_nonroot_reason) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit a = internalize(1), b = internalize(2);
   const Lit c = internalize(3), d = internalize(4);
   const Ref ref = add_large_clause(k, {a, b, c, d}, false, 0, 9);

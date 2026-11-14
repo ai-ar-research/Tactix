@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 // Live Tseitin-cycle capture, component discovery, preparation and apply.
 #include "tseitin_test_support.hpp"
 #include "temporary_file.hpp"
@@ -440,8 +441,7 @@ TEST(discovery_declines) {
     return tseitin_test::formula(equations, 8);
   };
   const auto pairs = [](std::initializer_list<int> firsts) {
-    Kernel kernel;
-    kernel_reserve_vars(kernel, 2);
+    Kernel kernel = kernel_with_vars(2);
     for (int first : firsts)
       for (int second : {-2, 2})
         kernel_add_binary_clause(kernel, internalize(first), internalize(second),

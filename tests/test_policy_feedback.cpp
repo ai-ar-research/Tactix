@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/restart_controller.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
@@ -97,8 +98,7 @@ TEST(test_disabled_and_read_only) {
 }
 
 TEST(test_outcomes_and_intervals) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   Capture capture;
   {
     RestartController controller(k, {}, &capture);
@@ -161,8 +161,7 @@ TEST(test_outcomes_and_intervals) {
 
 
 TEST(test_native_effort_and_interruption) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(1), internalize(3));
   kernel_add_binary_clause(k, internalize(-1), internalize(4));

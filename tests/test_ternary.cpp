@@ -2,7 +2,6 @@
 // cadical's `hyper_ternary_resolve` makes, and the instance surface.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/ternary/ternary.hpp"
@@ -31,8 +30,7 @@ TEST(test_ternary_resolvent) {
 
 // Two shared non-pivot literals collapse it to a binary, which is permanent.
 TEST(test_binary_resolvent) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add3(k, 1, 2, 3);
   add3(k, -1, 2, 3);
   assert(ternary_apply(k) == ApplyResult::Ok);
@@ -43,8 +41,7 @@ TEST(test_binary_resolvent) {
 
 // Disjoint non-pivot literals give a quaternary resolvent: rejected.
 TEST(test_quaternary_rejected) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   add3(k, 1, 2, 3);
   add3(k, -1, 4, 5);
   assert(ternary_apply(k) == ApplyResult::NoOp);
@@ -54,8 +51,7 @@ TEST(test_quaternary_rejected) {
 // A shared literal in opposite polarity makes the resolvent tautological: it
 // is rejected, since a tautological line is uncheckable.
 TEST(test_tautological_rejected) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   add3(k, 1, 2, 3);
   add3(k, -1, -2, 3);
   assert(ternary_apply(k) == ApplyResult::NoOp);
@@ -72,8 +68,7 @@ TEST(test_duplicate_rejected) {
 }
 
 TEST(test_explicit_instances_bypass_canonical_occurrence_limit) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   add3(k, 1, 2, 3);
   add3(k, 1, 5, 6);
   add3(k, -1, 2, 4);
@@ -87,8 +82,7 @@ TEST(test_explicit_instances_bypass_canonical_occurrence_limit) {
 }
 
 TEST(test_semantic_instance_adds_one_resolvent) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   add3(k, 1, 2, 3);
   add3(k, 1, 5, 6);
   add3(k, -1, 2, 5);

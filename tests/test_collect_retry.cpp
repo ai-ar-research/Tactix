@@ -1,6 +1,6 @@
 // Sparse collection arms BCE/CCE removal advice without producing BVE retries.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "rules/propagate/propagate.hpp"
 
 static unsigned calls;
@@ -11,8 +11,7 @@ static void notify(Kernel &, void *, Var, bool reinsert) {
 
 static unsigned cases;
 static void scenario(bool red, unsigned root_at, bool marked, bool collect) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   kernel_materialize_cold_state(k);
   Lit lits[] = {internalize(1), internalize(2), internalize(3),
                 internalize(4), internalize(5)};
@@ -58,8 +57,7 @@ static void scenario(bool red, unsigned root_at, bool marked, bool collect) {
 }
 
 static void binary_control() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_materialize_cold_state(k);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_assign_unit(k, internalize(1));

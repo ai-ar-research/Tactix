@@ -486,10 +486,7 @@ TEST(test_dosed_bve_publication) {
   config.inprocess.minimum_effort_ticks = 1000;
   std::string preserved;
   for (bool feedback : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
-    kernel_add_binary_clause(k, internalize(-1), internalize(3));
+    Kernel k = kernel_with_clauses(3, {{1, 2}, {-1, 3}});
     k.stats.conflicts = 1;
     ScopedHeuristics h(k);
     DefaultPolicy policy(config);
@@ -571,8 +568,7 @@ TEST(test_structured_root_feedback) {
   config.inprocess.structured_root_stages = {affine, stage};
   std::string preserved;
   for (bool feedback : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Lit clause[] = {internalize(-1), internalize(2), internalize(3)};
     kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
@@ -768,8 +764,7 @@ TEST(test_startup_support_feedback) {
 TEST(test_post_structured_bce_feedback) {
   std::string preserved;
   for (bool feedback : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 7);
+    Kernel k = kernel_with_vars(7);
     add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(4), internalize(6), ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-4), internalize(7), ++k.next_clause_id);

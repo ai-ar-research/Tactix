@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "tactix_c_api.hpp"
 #include "api/api_internal.hpp"
 #include "policies/default_policy.hpp"
@@ -33,8 +34,7 @@ TEST(truth_tables) {
       for (int b : {-2, -1, 1, 2})
         for (unsigned assignment = 0; assignment < 4; ++assignment)
           for (int chosen = 0; chosen < 2; ++chosen) {
-            Kernel k;
-            kernel_reserve_vars(k, 2);
+            Kernel k = kernel_with_vars(2);
             const bool left = value(a, assignment), right = value(b, assignment);
             const bool expected = gate == 1 ? left && right :
                                   gate == 2 ? left || right : left != right;
@@ -117,8 +117,7 @@ TEST(decline_and_namespace) {
 }
 
 TEST(assigned_root_rearmed) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_assign_unit(k, internalize(1));
   kernel_assign_unit(k, internalize(-2));
   assert(propagate_apply(k) != ApplyResult::Unsat);

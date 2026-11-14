@@ -7,8 +7,7 @@
 using namespace tactix::strategy;
 
 static Kernel fixture(bool rooted) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {-1, 2, 3}, false, 0, ++k.next_clause_id);
   // Together these binaries imply 1, making the explicit SR unit RUP.
   kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
