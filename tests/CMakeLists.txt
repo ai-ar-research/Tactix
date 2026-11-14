@@ -54,6 +54,15 @@ if(TACTIX_BUILD_SHARED_IPASIR)
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
   tactix_python_test(python_restart_clock ${CMAKE_CURRENT_SOURCE_DIR}/test_python_restart_clock.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
+  # Python loads the shared library after starting, but GCC's ASan runtime must
+  # come first in the process, so a sanitized build preloads it.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_FLAGS MATCHES "-fsanitize=[^ ]*address")
+    execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libasan.so
+                    OUTPUT_VARIABLE asan_runtime OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set_tests_properties(python_online_sequence python_bve_order python_extended_resolution
+                         python_capi python_policy_parity python_session python_restart_clock
+                         PROPERTIES ENVIRONMENT "LD_PRELOAD=${asan_runtime};ASAN_OPTIONS=detect_leaks=0")
+  endif()
 endif()
 
 if(NOT TACTIX_BUILD_SHARED_IPASIR)
