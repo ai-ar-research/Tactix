@@ -83,7 +83,10 @@ def generate(root, compiler):
         for m in re.finditer(r'^#define[ \t]+(TACTIX_\w+)([^\n]*)', clean, re.M):
             tail = m[2]
             if tail.startswith('('):
-                assert m[1] == 'TACTIX_LIT_INSTANCE', ('new function macro', m[1])
+                if m[1] == 'TACTIX_DECLARE_ONLINE_PROGRAM':
+                    assert re.search(r'^#undef[ \t]+'+m[1]+r'$', clean, re.M), 'declaration helper must stay private'
+                else:
+                    assert m[1] == 'TACTIX_LIT_INSTANCE', ('new function macro', m[1])
             elif tail.strip(): macros.append(m[1])
         text += '\n'.join(l for l in source.splitlines() if not l.startswith('#include'))+'\n'
     text += '\n'.join('const uint64_t python_constant_'+name+' = '+name+';' for name in macros)

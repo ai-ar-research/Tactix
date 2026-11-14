@@ -1429,12 +1429,17 @@ typedef struct {
   int post_application;
 } tactix_online_step;
 
-typedef struct {
-  const tactix_online_step *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program;
+/* Every online-program version uses its corresponding step type and these
+ * four fields. Keep the declaration helper local to this version block. */
+#define TACTIX_DECLARE_ONLINE_PROGRAM(Step, Program)                           \
+  typedef struct {                                                           \
+    const Step *steps;                                                       \
+    int step_count;                                                          \
+    int repeat_mode;                                                         \
+    uint64_t repeat_limit;                                                   \
+  } Program;
+
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step, tactix_online_program)
 
 /* v2: general SR payloads, copied and validated after the base v1 step against
  * the same immutable configuration snapshot. */
@@ -1454,12 +1459,7 @@ typedef struct {
   const tactix_online_sr_instance *sr_instances;
   int sr_instance_count;
 } tactix_online_step_v2;
-typedef struct {
-  const tactix_online_step_v2 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v2;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v2, tactix_online_program_v2)
 
 /* v3: X5 (clause,cube) payloads, with stable external DIMACS identities as in
  * tactix_apply_condition. Configuration copies nested storage. */
@@ -1474,12 +1474,7 @@ typedef struct {
   const tactix_online_condition_instance *condition_instances;
   int condition_instance_count;
 } tactix_online_step_v3;
-typedef struct {
-  const tactix_online_step_v3 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v3;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v3, tactix_online_program_v3)
 
 /* v4: selected independent-set cover. Vertices are strictly increasing positive
  * stable external variable identities, at least two; configuration copies them. */
@@ -1493,12 +1488,7 @@ typedef struct {
       independent_set_cover_instances;
   int independent_set_cover_instance_count;
 } tactix_online_step_v4;
-typedef struct {
-  const tactix_online_step_v4 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v4;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v4, tactix_online_program_v4)
 
 /* Additive v5 payloads for exact caller-selected GF(3) equation pairs and
  * DirectCSP support rows. Configure deep-copies both outer and nested arrays. */
@@ -1519,12 +1509,7 @@ typedef struct {
   const tactix_online_direct_csp_support_instance *direct_csp_support_instances;
   int direct_csp_support_instance_count;
 } tactix_online_step_v5;
-typedef struct {
-  const tactix_online_step_v5 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v5;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v5, tactix_online_program_v5)
 
 /* v6: authenticated GF(3) Gaussian batch. Its canonical NUL-terminated replay
  * key comes from native discovery and is deep-copied at configuration. */
@@ -1536,12 +1521,7 @@ typedef struct {
   const tactix_online_gf3_gaussian_instance *gf3_gaussian_instances;
   int gf3_gaussian_instance_count;
 } tactix_online_step_v6;
-typedef struct {
-  const tactix_online_step_v6 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v6;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v6, tactix_online_program_v6)
 
 /* Additive v7 payload for one selected authenticated Tseitin cycle-breaking
  * component. The tcx2 identity is deep-copied during configuration. */
@@ -1553,12 +1533,7 @@ typedef struct {
   const tactix_online_tseitin_cycle_instance *tseitin_cycle_instances;
   int tseitin_cycle_instance_count;
 } tactix_online_step_v7;
-typedef struct {
-  const tactix_online_step_v7 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v7;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v7, tactix_online_program_v7)
 
 /* Retired v8 ABI payload types. Nonzero prefix fields are rejected.
  * The signed-domain type remains shared by the independent equality APIs. */
@@ -1582,12 +1557,7 @@ typedef struct {
   const tactix_online_nary_csp_prefix_instance *nary_csp_prefix_instances;
   int nary_csp_prefix_instance_count;
 } tactix_online_step_v8;
-typedef struct {
-  const tactix_online_step_v8 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v8;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v8, tactix_online_program_v8)
 
 /* Additive v9 payload for one exact certified GF(2) basis row.  The complete
  * owner/source identity is deep-copied during configuration; live apply
@@ -1626,12 +1596,7 @@ typedef struct {
   const tactix_online_affine_basis_instance *affine_basis_instances;
   int affine_basis_instance_count;
 } tactix_online_step_v9;
-typedef struct {
-  const tactix_online_step_v9 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v9;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v9, tactix_online_program_v9)
 
 /* Additive v10 payload for one compact equality consequence over an exact
  * authenticated ternary relation owner. Domains and coordinates are deep-copied. */
@@ -1645,12 +1610,7 @@ typedef struct {
   const tactix_online_nary_csp_equality_instance *nary_csp_equality_instances;
   int nary_csp_equality_instance_count;
 } tactix_online_step_v10;
-typedef struct {
-  const tactix_online_step_v10 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v10;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v10, tactix_online_program_v10)
 
 /* Additive v11 payload for one authenticated forbidden tuple of one non-unit
  * GF(3) Gaussian row. The identity is deep-copied during configuration. */
@@ -1664,12 +1624,7 @@ typedef struct {
   const tactix_online_gf3_general_row_instance *gf3_general_row_instances;
   int gf3_general_row_instance_count;
 } tactix_online_step_v11;
-typedef struct {
-  const tactix_online_step_v11 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v11;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v11, tactix_online_program_v11)
 
 /* Additive v12 payload for the certified AMO over the three equality
  * extension variables belonging to one exact retained ternary owner. */
@@ -1683,12 +1638,7 @@ typedef struct {
       *nary_csp_equality_amo_instances;
   int nary_csp_equality_amo_instance_count;
 } tactix_online_step_v12;
-typedef struct {
-  const tactix_online_step_v12 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v12;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v12, tactix_online_program_v12)
 
 /* Additive v13 profile for existing Walk. Zero objective/admission preserves
  * legacy semantics; FullCurrentCnf + StrictlyBetter requires an exact seed
@@ -1706,12 +1656,7 @@ typedef struct {
   tactix_online_step_v12 base;
   tactix_online_walk_profile walk_profile;
 } tactix_online_step_v13;
-typedef struct {
-  const tactix_online_step_v13 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v13;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v13, tactix_online_program_v13)
 
 /* Additive v14: explicit GuardedCoverV2 under DirectCspSupport (ID 35).
  * Profile 0 preserves the complete v13 step; profile 2 requires V2 selections
@@ -1765,12 +1710,7 @@ typedef struct {
   const tactix_direct_csp_guarded_cover_selection *guarded_cover_instances;
   int guarded_cover_instance_count;
 } tactix_online_step_v14;
-typedef struct {
-  const tactix_online_step_v14 *steps;
-  int step_count;
-  int repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v14;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v14, tactix_online_program_v14)
 
 /* Additive v15, rule ID 45: exact three-owner equality transitivity.
  * Profile zero preserves v14; profile one requires INHERIT base parameters,
@@ -1808,11 +1748,7 @@ typedef struct {
   const tactix_online_nary_csp_equality_transitivity_instance *equality_transitivity_instances;
   int equality_transitivity_instance_count;
 } tactix_online_step_v15;
-typedef struct {
-  const tactix_online_step_v15 *steps;
-  int step_count, repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v15;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v15, tactix_online_program_v15)
 
 /* Append-only persistent affine profile. Old versions retain zero persistence.
  * Deferred caps bound outstanding physical deletion count and cost(1+width),
@@ -1846,11 +1782,7 @@ typedef struct {
   uint32_t affine_matrix_profile;
   tactix_online_affine_matrix_initialize_parameters affine_matrix;
 } tactix_online_step_v16;
-typedef struct {
-  const tactix_online_step_v16 *steps;
-  int step_count, repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v16;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v16, tactix_online_program_v16)
 
 /* Explicit CDCL-time signed cardinality bounds. Every bound denotes
  * lower <= sum(literals) <= upper; the full subset CNF must be physically
@@ -1878,11 +1810,9 @@ typedef struct {
   const tactix_online_cardinality_search_instance *cardinality_search_instances;
   int cardinality_search_instance_count;
 } tactix_online_step_v17;
-typedef struct {
-  const tactix_online_step_v17 *steps;
-  int step_count, repeat_mode;
-  uint64_t repeat_limit;
-} tactix_online_program_v17;
+TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v17, tactix_online_program_v17)
+
+#undef TACTIX_DECLARE_ONLINE_PROGRAM
 
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
